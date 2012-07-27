@@ -14,9 +14,12 @@ setup(
         packages    = [
             "tophat",
             "tophat.auth",
+            "tophat.conf",
             "tophat.core",
+            "tophat.models",
             "tophat.gateways",
             "tophat.gateways.sfa",
+            "tophat.router",
             "tophat.util" ],
         package_dir = {"": "src"},
     )

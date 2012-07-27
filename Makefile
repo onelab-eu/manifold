@@ -21,6 +21,10 @@ PYPATH = $(BUILDDIR):$(TESTLIB):$(PYTHONPATH)
 COVERAGE = $(or $(shell which coverage), $(shell which python-coverage), \
 	   coverage)
 
+debug: clean all install
+mrpropre: 
+	rm -Rf build /usr/local/lib/python2.7/dist-packages/tophat
+
 all:
 	./setup.py build
 

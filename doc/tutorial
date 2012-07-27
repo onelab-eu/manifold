@@ -1,0 +1,7 @@
+Version Check
+
+A quick check to verify that we are on at least version 0.7 of TopHat:
+
+>>> import tophat
+>>> tophat.__version__ 
+0.1
