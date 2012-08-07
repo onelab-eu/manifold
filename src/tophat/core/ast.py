@@ -3,104 +3,118 @@
 
 import itertools
 
-class ASTNode(object):
+from tophat.core.router import THQuery
+from tophat.core.nodes import *
+
+class Node(object):
     def __init__(self):
         pass
 
     def _get(self):
         yield None
 
-class ASTBinaryNode(ASTNode):
+class BinaryNode(Node):
     def __init__(self, left, right):
         self._left = left
         self._right = right
+
+#    def children(self):
+#        return [self._left, self._right]
         
 
-class ASTUnaryNode(ASTNode):
+class UnaryNode(Node):
     def __init__(self, node):
         self._node = node
 
     def _get(self):
         return self._node._get()
 
-class ASTLeafNode(ASTNode):
+class LeafNode(Node):
     def __init__(self):
         pass
 
 
+class From(LeafNode):
 
-class ASTFrom(ASTLeafNode):
-    def __init__(self, node):
-        super(ASTFrom, self).__init__()
-        self._node = node
+    def __init__(self, table, fields):
+        super(From, self).__init__()
+        self.table = table
+        self.fields = fields
 
     def dump(self, indent):
-        print ' ' * indent * 4, "FROM [%s]" % self._node
+        print ' ' * indent * 4, "SELECT %r FROM '%s'" % (self.fields, self.table)
 
-    def _get(self):
-        return self._node._get()
+    def install(self, router, callback):
+        node = router.get_gateway(self.table.platform, callback, THQuery(self.table.name, [], self.fields))
+        router.sourcemgr.append(node)
+        return node
 
+class Join(BinaryNode):
 
-class ASTJoin(ASTBinaryNode):
     def __init__(self, left, right, predicate):
-        super(ASTJoin, self).__init__(left, right)
-        self.predicate = predicate
+        super(Join, self).__init__(left, right)
+        self._predicate = predicate
+        self.left_done = False
+        self.right_done = False
+        self.right_map = {}
+
+    def install(self, router, callback):
+        node = JoinNode(self._predicate, callback)
+        node.children = []
+        node.children.append(self._left.install(router, node.left_callback))
+        node.children.append(self._right.install(router, node.right_callback))
+        return node
+
 
     def dump(self, indent):
         self._left.dump(indent+1)
         print ' ' * indent * 4, "JOIN"
         self._right.dump(indent+1)
 
-    def _get(self):
-        left = self._left._get()
-        right = self._right._get()
-        # Let's build a map according to predicate = simple field name to begin with
-        print "Building lookup on predicate '%s' for JOIN" % self.predicate
-        rmap = {}
-        cptr = 0
-        for r in right:
-            cptr += 1
-            if self.predicate not in r or not r[self.predicate]:
-                # We skip records with missing join information
-                continue
-            rmap[r[self.predicate]] = r
-        #print "=================================="
-        try:
-            cptl = 0
-            for l in left:
-                cptl += 1
-                # We cannot join because the left has no key
-                if self.predicate not in l:
-                    yield l
-                    continue
-                if l[self.predicate] in rmap:
-                    l.update(rmap[l[self.predicate]])
-                    del rmap[l[self.predicate]]
-                yield l
-            # Handling remaining values from JOIN
-            # XXX This is not a left join !!
-            #for r in rmap.values():
-            #    yield r
-            #print "left[%s] = %d, right[%s] = %d" % (self._left._node, cptl, self._right._node, cptr)
-        except Exception, e:
-            raise Exception, "WEIRD %s" %  e
+class Projection(UnaryNode):
 
-class ASTProjection(ASTUnaryNode):
-    def __init__(self, node, field):
-        super(ASTProjection, self).__init__(node)
-        self._field = field
+    def __init__(self, node, fields):
+        super(Projection, self).__init__(node)
+        self._fields = fields
 
     def dump(self, indent):
-        print ' ' * indent * 4, "SELECT [%s]" % self._field
+        print ' ' * indent * 4, "SELECT [%s]" % self._fields
         self._node.dump(indent+1)
 
-    def _get(self):
-        for row in self._node._get():
-            res = {}
-            for k, v in row.items():
-                if k in self._field:
-                    res[k] = v
-            yield res
+    def install(self, router, callback):
+        node = ProjectionNode(self._fields, callback)
+        node.children = [self._node.install(router, node.callback)]
+        return node
+
+#    def _get(self):
+#        for row in self._node._get():
+#            res = {}
+#            for k, v in row.items():
+#                if k in self._fields:
+#                    res[k] = v
+#            yield res
+
+
+class Selection(UnaryNode):
+
+    def __init__(self, node, filters):
+        super(Selection, self).__init__(node)
+        self._filters = filters
+
+    def dump(self, indent):
+        print ' ' * indent * 4, "WHERE %s"  % self._filters
+        self._node.dump(indent+1)
+
+    def install(self, router, callback):
+        node = SelectionNode(self._filters, callback)
+        node.children = [self._node.install(router, node.callback)]
+        return node
+
+#    def _get(self):
+#        for row in self._node._get():
+#            if not match_filters(row, self._filters):
+#                continue
+#            yield row
     
 
 # in Filter ?
@@ -155,22 +169,6 @@ def match_filters(dic, filter):
         if not match:
             return False
     return match
-
-
-class ASTSelection(ASTUnaryNode):
-    def __init__(self, node, filters):
-        super(ASTSelection, self).__init__(node)
-        self._filters = filters
-
-    def dump(self, indent):
-        print ' ' * indent * 4, "WHERE [%r]"  % self._filters
-        self._node.dump(indent+1)
-
-    def _get(self):
-        for row in self._node._get():
-            if not match_filters(row, self._filters):
-                continue
-            yield row
                 
 
 
@@ -200,13 +198,13 @@ class AST(object):                  # = Queryable
     def get(self):
         return list(self._get())
 
-    def From(self, table):
+    def From(self, table, fields):
         """
         """
         if self._root:
             raise ValueError('AST already initialized')
 
-        n = ASTFrom(table)
+        n = From(table, fields)
         self._root = n
         return self
 
@@ -216,27 +214,27 @@ class AST(object):                  # = Queryable
         if not self._root:
             raise ValueError('AST not initialized')
 
-        n = ASTJoin(self._root, ast.get_root(), predicate)
+        n = Join(self._root, ast.get_root(), predicate)
         self._root = n
         return self
 
-    def projection(self, field):
+    def projection(self, fields):
         """
         """
         if not self._root:
             raise ValueError('AST not initialized')
 
-        n = ASTProjection(self._root, field)
+        n = Projection(self._root, fields)
         self._root = n
         return self
 
-    def selection(self, filter):
+    def selection(self, filters):
         """
         """
         if not self._root:
             raise ValueError('AST not initialized')
 
-        n = ASTSelection(self._root, filter)
+        n = Selection(self._root, filters)
         self._root = n
         return self
 

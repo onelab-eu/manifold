@@ -12,7 +12,7 @@ import os
 import importlib
 
 from tophat.conf import global_settings
-from tophat.utils.functional import LazyObject
+from tophat.util.functional import LazyObject
 
 ENVIRONMENT_VARIABLE = "TOPHAT_SETTINGS_MODULE"
 

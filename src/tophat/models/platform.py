@@ -1,4 +1,4 @@
-from elixir import (Field, Unicode, Integer, Entity, Boolean,
+from elixir import (Field, Text, Integer, Entity, Boolean,
         using_table_options, ManyToOne)
 
 from tophat.models.base import BaseEntityMixin
@@ -28,17 +28,17 @@ log = logging.getLogger(__name__)
 
 class Platform(BaseEntityMixin, Entity):
     platform_id = Field(Integer, primary_key=True, doc="Platform identifier")
-    platform = Field(Unicode, doc="Platform name")
-    platform_longname = Field(Unicode, doc="Platform long name")
-    platform_description = Field(Unicode, doc="Platform description")
-    platform_url = Field(Unicode, doc="Platform URL")
-    deleted = Field(Boolean, defaut=False, doc="Platform has been deleted")
-    disabled = Field(Boolean, defaut=False, doc="Platform has been disabled")
-    status = Field(Unicode, doc="Platform status")
+    platform = Field(Text, doc="Platform name")
+    platform_longname = Field(Text, doc="Platform long name")
+    platform_description = Field(Text, doc="Platform description")
+    platform_url = Field(Text, doc="Platform URL")
+    deleted = Field(Boolean, default=False, doc="Platform has been deleted")
+    disabled = Field(Boolean, default=False, doc="Platform has been disabled")
+    status = Field(Text, doc="Platform status")
     status_updated = Field(Integer, doc="Platform last check")
     platform_has_agents = Field(Boolean, default=False, doc="Platform has agents")
-    first = Field(Integer, "First timestamp, in seconds since UNIX epoch")
-    last = Field(Integer, "Last timestamp, in seconds since UNIX epoch")
+    first = Field(Integer, doc="First timestamp, in seconds since UNIX epoch")
+    last = Field(Integer, doc="Last timestamp, in seconds since UNIX epoch")
 
 #    def gateways(self):
 #        """

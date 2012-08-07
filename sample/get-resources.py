@@ -14,26 +14,27 @@ from tophat.core.router import THLocalRouter as Router
 from tophat.core.router import THQuery as Query
 
 # Instantiate a TopHat router
-router = Router()
+with Router() as router:
+    # TODO How to make it work without __enter__ __exit__ ??
+    #router = Router()
 
-# TODO: Get the 20 most reliable nodes
-query1 = Query('nodes', { 'country': 'Netherlands'}, ['hostname', 'arch', 'country'])
-query2 = Query('resources', {}, ['hostname', 'asn', 'city'])
+    query1 = Query('nodes', [['country', '=', 'France']], ['hostname', 'arch', 'country'])
+    query2 = Query('resources', [], ['hostname', 'asn', 'city'])
 
-for query in [query1, query2]:
-    print "I: Query %s" % query
-    try:
-        result = router.forward(query)
-    except Exception, e:
-        result = []
-        print e
+    for query in [query1, query2]:
+        print "I: Query %s" % query
+        try:
+            result = router.forward(query)
+        except Exception, e:
+            result = []
+            print 'Exception', e
 
-    # ... and returs a table
-    cpt = 0
-    for i in result:
-        if cpt == 5:
-            break
-        print i
-        cpt += 1
-    print "... (only 5 first displayed)"
-    print "============================="
+        # ... and returs a table
+        cpt = 0
+        for i in result:
+            if cpt == 5:
+                break
+            print "[%d] " % cpt, i
+            cpt += 1
+        print "... (only 5 first displayed)"
+        print "============================="

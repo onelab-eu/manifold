@@ -1,0 +1,76 @@
+# Borrowed from Chandler
+# http://chandlerproject.org/Projects/ChandlerTwistedInThreadedEnvironment
+
+from twisted.internet import defer, reactor
+import threading
+from twisted.python import threadable
+
+__author__ ="Brian Kirsch <bkirsch@osafoundation.org>"
+
+#required for using threads with the Reactor
+threadable.init()
+
+
+class ReactorException(Exception):
+      def __init__(self, *args):
+            Exception.__init__(self, *args)
+            
+
+class ReactorThread(threading.Thread):    
+    """
+    Run the Reactor in a Thread to prevent blocking the 
+    Main Thread once reactor.run is called
+    """
+    
+    def __init__(self):
+        threading.Thread.__init__(self)
+        self._reactorRunning = False
+
+    def run(self):
+        if self._reactorRunning:
+            raise ReactorException("Reactor Already Running")
+      
+        self._reactorRunning = True
+      
+        #call run passing a False flag indicating to the
+        #reactor not to install sig handlers since sig handlers
+        #only work on the main thread
+        reactor.run(False)                  
+
+    def callInReactor(self, callable, *args, **kw):
+        if self._reactorRunning:
+            reactor.callFromThread(callable, *args, **kw)
+        else:
+            callable(*args, **kw)                 
+            
+    def isReactorRunning(self):
+        return self._reactorRunning
+       
+    def startReactor(self):
+        if self._reactorRunning:
+            raise ReactorException("Reactor Already Running")
+        threading.Thread.start(self)
+        reactor.addSystemEventTrigger('after', 'shutdown', self.__reactorShutDown)
+
+    def stopReactor(self):
+        """
+        may want a way to force thread to join if reactor does not shutdown
+        properly. The reactor can get in to a recursive loop condition if reactor.stop 
+        placed in the threads join method. This will require further investigation. 
+        """
+        if not self._reactorRunning:
+            raise ReactorException("Reactor Not Running")
+        reactor.callFromThread(reactor.stop)
+
+    def addReactorEventTrigger(self, phase, eventType, callable):
+        if self._reactorRunning:
+            reactor.callFromThread(reactor.addSystemEventTrigger, phase, eventType, callable)
+        else:
+            reactor.addSystemEventTrigger(phase, eventType, callable)
+
+    def __reactorShuttingDown(self):
+        pass
+
+    def __reactorShutDown(self):
+        """This method called when the reactor is stopped"""
+        self._reactorRunning = False

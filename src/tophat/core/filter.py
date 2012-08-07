@@ -13,7 +13,111 @@ import datetime # Jordan
 from tophat.util.faults import *
 from tophat.util.parameter import Parameter, Mixed, python_type
 
-class Filter(Parameter, dict):
+class Predicate:
+
+    # New modifier: { contains 
+    OPERATORS = ['~', '<', '[', '>', ']', '&', '|', '{']
+
+    def __init__(self, key, op, value):
+        self.key = key
+        self.op = op
+        self.value = value
+
+    def __str__(self):
+        return "(%s %s %s)" % self.get_tuple()
+
+    def get_tuple(self):
+        return (self.key, self.op, self.value)
+
+class Filter(set):
+    """
+    A filter is a set of predicates
+    """
+
+    @staticmethod
+    def from_list(l):
+        f = Filter()
+        try:
+            for element in l:
+                f.add(Predicate(*element))
+        except Exception, e:
+            print "Error in setting Filter from list", e
+            return None
+        return f
+        
+    @staticmethod
+    def from_dict(d):
+        f = Filter()
+        for key, value in d.items():
+            if key[0] in Predicate.OPERATORS:
+                f.add(Predicate(key[1:], key[0], value))
+            else:
+                f.add(Predicate(key, '=', value))
+        return f
+
+    def __str__(self):
+        return ' && '.join([str(x) for x in self])
+
+    def __additem__(self, value):
+        if value.__class__ != Predicate:
+            raise TypeError("Element of class Predicate expected, received %s" % value.__class__.__name__)
+        set.__additem__(self, value)
+
+    def keys(self):
+        return set([x.key for x in self])
+
+    def match(self, dic):
+        # We suppose if a field is in filter, it is therefore in the dic
+        match = True
+        for predicate in self:
+            k, op, v = predicate.get_tuple()
+            if k not in dic:
+                return False
+
+            if op == '=':
+                if isinstance(v, list):
+                    match &= (dic[k] in v) # array ?
+                else:
+                    match &= (dic[k] == v)
+            elif op == '~':
+                if isinstance(v, list):
+                    match &= (dic[k] not in v) # array ?
+                else:
+                    match &= (dic[k] != v) # array ?
+            elif op == '<':
+                if isinstance(v, StringTypes):
+                    # prefix match
+                    match &= dic[k].startswith('%s.' % v)
+                else:
+                    match &= (dic[k] < v)
+            elif op == '[':
+                if isinstance(v, StringTypes):
+                    match &= dic[k] == v or dic[k].startswith('%s.' % v)
+                else:
+                    match &= (dic[k] <= v)
+            elif op == '>':
+                if isinstance(v, StringTypes):
+                    # prefix match
+                    match &= v.startswith('%s.' % dic[k])
+                else:
+                    match &= (dic[k] > v)
+            elif op == ']':
+                if isinstance(v, StringTypes):
+                    # prefix match
+                    match &= dic[k] == v or v.startswith('%s.' % dic[k])
+                else:
+                    match &= (dic[k] >= v)
+            elif op == '&':
+                match &= (dic[k] & v) # array ?
+            elif op == '|':
+                match &= (dic[k] | v) # array ?
+            elif op == '{':
+                match &= (v in dic[k])
+            if not match:
+                return False
+        return match
+
+class OldFilter(Parameter, dict):
     """
     A type of parameter that represents a filter on one or more
     columns of a database table.
@@ -88,9 +192,6 @@ class Filter(Parameter, dict):
     GetPersons ( { '|role_ids' : [ 10 ] } )
       all 4 forms are equivalent and would return all admin users in the system
     """
-
-    # New modifier: { contains 
-    modifiers = ['~', '<', '[', '>', ']', '&', '|', '{']
 
     def __init__(self, fields = {}, filter = {}, doc = "Attribute filter"):
         # Store the filter in our dict instance
@@ -250,3 +351,4 @@ class Filter(Parameter, dict):
             clip_part += " " + " ".join(clips)
 #       print 'where_part=',where_part,'clip_part',clip_part
         return (where_part,clip_part)
+

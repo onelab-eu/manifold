@@ -9,6 +9,8 @@ class Query:
         self.sort = None
         self.offset = None
         self.limit = None
+        # group by
+        # fold
 
         if filters:
             for k, v in filters.items():
@@ -32,13 +34,8 @@ class Query:
     def to_tuple(self):
         return (self.method, self.ts, self.filters, self.fields)
 
-    def get_method(self):
-        return self.method
-
-    def get_ts(self):
-        return self.ts
-
-    def get_filters(self):
+    @property
+    def filters(self):
         filters = []
         for k,v in self.filters.items():
             if k[0] == '-':
@@ -49,7 +46,8 @@ class Query:
                 filters.append((k, '=', v))
         return filters
 
-    def get_fields(self):
+    @property
+    def fields(self):
         result = []
         for f in self.fields:
             if f[0] in Filter.modifiers:
@@ -61,7 +59,8 @@ class Query:
     def get_params(self):
         return [self.method, self.ts, self.filter, self.fields]
 
-    def get_sort(self):
+    @property
+    def sort(self):
         for k,v in self.filters.items():
             if k == '-SORT':
                 return v

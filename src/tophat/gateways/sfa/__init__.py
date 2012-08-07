@@ -12,6 +12,7 @@ import BeautifulSoup
 import hashlib
 import zlib
 
+from tophat.core.nodes import SourceNode
 from tophat.util.faults import *
 
 from tophat.core.MySliceCredential import MySliceCredential, MySliceCredentials
@@ -210,47 +211,7 @@ import uuid
 def unique_call_id(): return uuid.uuid4().urn
 
 
-class SFA():
-    def __init__(self, api, query, **kwargs):
-        self.api = api
-        self.config = kwargs
-        self.remote = None
-        self.query = query
-
-        # self.config has always ['platform', 'caller']
-
-        # Check the presence of mandatory fields, default others
-        #if not 'hashrequest' in self.config:    
-        #    self.config['hashrequest'] = False
-        #if not 'protocol' in self.config:
-        #    self.config['protocol'] = 'xmlrpc'
-        if not 'verbose' in self.config:
-            self.config['verbose'] = 0
-        if not 'auth' in self.config:
-            raise Exception, "Missing SFA::auth parameter in configuration."
-        if not 'user' in self.config:
-            raise Exception, "Missing SFA::user parameter in configuration."
-        if not 'sm' in self.config:
-            raise Exception, "Missing SFA::sm parameter in configuration."
-        if not 'debug' in self.config:
-            self.config['debug'] = False
-        if not 'sfi_dir' in self.config:
-            self.config['sfi_dir'] = '/var/myslice/%s/' % self.config['platform']
-        if not 'registry' in self.config:
-            raise Exception, "Missing SFA::registry parameter in configuration."
-        if not 'timeout' in self.config:
-            self.config['timeout'] = None
-        if not 'user_private_key' in self.config:
-            raise Exception, "Missing SFA::user_private_key parameter in configuration."
-
-        # XXX all this is redundant
-        self.logger = sfi_logger
-        self.user = self.config['user']
-        self.reg_url = self.config['registry']
-        self.sm_url = self.config['sm']
-
-        # Bootstrapping SFA credentials
-        self.bootstrap()
+class SFA(SourceNode):
 
 ################################################################################
 # BEGIN SFA CODE
@@ -658,7 +619,7 @@ class SFA():
     ############################################################################ 
 
     def parse_sfa_rspec(self, rspec):
-        from MySlice.RSpecs.SFAv1 import SFAv1Parser as Parser
+        from tophat.gateways.sfa.rspecs.SFAv1 import SFAv1Parser as Parser
         parser = Parser(rspec)
         return parser.to_dict()
 
@@ -1364,28 +1325,65 @@ class SFA():
 # END SFA CODE
 ################################################################################
 
+    def __init__(self, callback, platform, query, config):
+        SourceNode.__init__(self, callback, platform, query, config)
+
+        # self.config has always ['caller']
+
+        # Check the presence of mandatory fields, default others
+        #if not 'hashrequest' in self.config:    
+        #    self.config['hashrequest'] = False
+        #if not 'protocol' in self.config:
+        #    self.config['protocol'] = 'xmlrpc'
+        if not 'verbose' in self.config:
+            self.config['verbose'] = 0
+        if not 'auth' in self.config:
+            raise Exception, "Missing SFA::auth parameter in configuration."
+        if not 'user' in self.config:
+            raise Exception, "Missing SFA::user parameter in configuration."
+        if not 'sm' in self.config:
+            raise Exception, "Missing SFA::sm parameter in configuration."
+        if not 'debug' in self.config:
+            self.config['debug'] = False
+        if not 'sfi_dir' in self.config:
+            self.config['sfi_dir'] = '/var/myslice/%s/' % self.platform
+        if not 'registry' in self.config:
+            raise Exception, "Missing SFA::registry parameter in configuration."
+        if not 'timeout' in self.config:
+            self.config['timeout'] = None
+        if not 'user_private_key' in self.config:
+            raise Exception, "Missing SFA::user_private_key parameter in configuration."
+
+        # XXX all this is redundant
+        self.logger = sfi_logger
+        self.user = self.config['user']
+        self.reg_url = self.config['registry']
+        self.sm_url = self.config['sm']
+
+        # Bootstrapping SFA credentials
+        self.bootstrap()
+
     def __str__(self):
         return "<SFAGateway %r: %s>" % (self.config['sm'], self.query)
 
-    def connect(self):
-        # We might do the bootstrap here
-        pass
+    def success_cb(self, table):
+        for record in table:
+            self._callback(record)
 
-    def connected(self):
-        return True
+    def exception_cb(self, error):
+        print 'Error during SFA call: ', error
 
-    def get(self, query):
-        return list(self._get(query))
-
-    def _get(self):
-
-        if not self.connected():
-            self.connect()
+    def start(self):
         
+        q = self.query
+        d = q.destination
+
         # Let's call the simplest query as possible to begin with
-        result = getattr(self, "get_%s" % self.query.get_method())(self.query.get_filters(), self.query.get_fields())
+        # This should use twisted XMLRPC
+        result = getattr(self, "get_%s" % d.fact_table)(d.filters, list(d.fields))
         for r in result:
-            yield r
+            self._callback(r)
+        self._callback(None)
 
 #def sfa_get(api, caller, method, ts, input_filter = None, output_fields = None):
 #    sfa = Sfa(api, caller)

@@ -1,51 +1,32 @@
-class XMLRPC():
-    def __init__(self, api, query, **kwargs):
-        self.api = api
-        self.config = kwargs
-        self.remote = None
-        self.query = query
-        # Allowed types: xmlrpc, zmq, etc.
-        if not 'type' in self.config:
-            self.config['type'] = 'zmq'
+# Inspired from http://twistedmatrix.com/documents/10.1.0/web/howto/xmlrpc.html
+
+from twisted.web.xmlrpc import Proxy
+from tophat.core.nodes import SourceNode
+
+
+
+class XMLRPC(SourceNode):
 
     def __str__(self):
-        if self.config['type'] == 'xmlrpc':
-            return "<XMLRPCGateway[%s] %s %s>" % (self.config['type'], self.config['url'], self.query)
-        else:
-            return "<XMLRPCGateway[%s] %s >" % (self.config['type'], self.query)
+        return "<XMLRPCGateway %s %s>" % (self.config['url'], self.query)
 
-    def connect(self):
-        if self.config['type'] == 'xmlrpc':
-            import xmlrpclib
-            self.remote = xmlrpclib.ServerProxy(self.config['url'], allow_none=True)
-        else:
-            raise Exception, "Not implemented"
+    def success_cb(self, table):
+        for record in table:
+            self._callback(record)
+        self._callback(None)
 
-    def connected(self):
-        return self.remote
+    def exception_cb(self, error):
+        print 'Error during XMLRPC call: ', error
 
-    def get(self, query):
-        return list(self._get(query))
-
-    def _get(self):
-        # iterator / supports callbacks (zmq, xmlrpc requires establishing another server)
-        # can avoid local buffering of the whole table, if the remote end supports it
-        # the remote end can be a gateway, for example,
-
-        if not self.config['type'] == 'xmlrpc':
-            raise Exception, "Not implemented"
-
-        if not self.connected():
-            self.connect()
-        
-        # Let's call the simplest query as possible to begin with
-        print "I: Issueing xmlrpc call to %s: %s" % (self.config['url'], self.query)
-        auth = {'AuthMethod': 'guest'}
+    def start(self):
         try:
-            result = self.remote.Get(auth, self.query.get_method(), self.query.get_ts(), {}, self.query.get_fields()) # no filter/no field
+            import xmlrpclib
+            self.proxy = Proxy(self.config['url'], allowNone=True)
+            q = self.query
+            d = q.destination
+
+            auth = {'AuthMethod': 'guest'}
+            #print "I: Issueing xmlrpc call to %s: %s" % (self.config['url'], q)
+            self.proxy.callRemote('Get', auth, d.fact_table, 'now', d.filters, list(d.fields)).addCallbacks(self.success_cb, self.exception_cb)
         except Exception, e:
-            print "Exception in Network: %s" % e
-            return 
-        for r in result:
-            yield r
-        return
+            print "Exception in XMLRPC::start", e
