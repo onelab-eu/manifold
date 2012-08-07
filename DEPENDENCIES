@@ -1,3 +1,6 @@
 - sfa
 - sqlalchemy
 - elixir
+
+For building debian packages:
+- python-stdeb

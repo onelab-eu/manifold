@@ -49,4 +49,10 @@ setup(
         "tophat.router",
         "tophat.util" ],
     package_dir = {"": "src"},
+    entry_points={
+        'console_scripts': [
+            'tophat-xmlrpc = tophat.bin.xmlrpc:main',
+        ],
+    },
+
 )

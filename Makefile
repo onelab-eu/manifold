@@ -64,4 +64,11 @@ MANIFEST:
 dist: MANIFEST
 	./setup.py sdist
 
-.PHONY: all clean distclean dist test coverage install MANIFEST
+deb:
+	# http://pypi.python.org/pypi/stdeb#stdeb-cfg-configuration-file
+	python setup.py --command-packages=stdeb.command bdist_deb
+	@echo "Debian package in subdirectory 'deb_dist'.
+
+
+
+.PHONY: all clean distclean dist test coverage install MANIFEST deb
