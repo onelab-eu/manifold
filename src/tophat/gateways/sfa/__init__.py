@@ -1375,6 +1375,7 @@ class SFA(SourceNode):
 
     def start(self):
         
+        self.started = True
         q = self.query
         d = q.destination
 

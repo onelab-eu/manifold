@@ -35,7 +35,10 @@ class ReactorThread(threading.Thread):
         #call run passing a False flag indicating to the
         #reactor not to install sig handlers since sig handlers
         #only work on the main thread
-        reactor.run(False)                  
+        try:
+            reactor.run(False)                  
+        except Exception, e:
+            print "Reactor exception", e
 
     def callInReactor(self, callable, *args, **kw):
         if self._reactorRunning:

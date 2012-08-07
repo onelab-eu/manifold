@@ -1,4 +1,5 @@
 from tophat.core.nodes import SourceNode
+from twisted.internet import reactor
 
 class SourceManager(list):
 
@@ -7,10 +8,11 @@ class SourceManager(list):
         list.__init__(self)
 
     def run(self):
-        pass
+        for item in self:
+            if not item.started:
+                item.start()
 
     def append(self, item):
         if not isinstance(item, SourceNode):
             raise TypeError("Item of class SourceNode expected in argument. Got %s" % item.__class__.__name__)
         list.append(self, item)
-        self.reactor.callInReactor(item.start)

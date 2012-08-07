@@ -3,6 +3,8 @@ import xml.etree.cElementTree as ElementTree
 
 import traceback
 import threading
+from twisted.internet import defer
+
 from tophat.util.xmldict import *
 from tophat.util.reactor_thread import ReactorThread
 from tophat.core.filter import Filter
@@ -13,6 +15,21 @@ from tophat.gateways import *
 #from tophat.models import session, Platform
 
 class ParameterError(StandardError): pass
+
+class Callback:
+    def __init__(self, deferred=None):
+        self.results = []
+        self._deferred = deferred
+
+    def __call__(self, value):
+        if not value:
+            if self._deferred:
+                self._deferred.callback(self.results)
+            else:
+                self.event.set()
+        # XXX What if we have multiple queries in parallel ?
+        # we need to stored everything in separated lists
+        self.results.append(value)
 
 class Table:
     """
@@ -142,19 +159,16 @@ class THLocalRouter(LocalRouter):
     """
 
     def __init__(self):
-        print "calling init"
         self.reactor = ReactorThread()
         self.sourcemgr = SourceManager(self.reactor)
         LocalRouter.__init__(self, Table, object)
         self.event = threading.Event()
 
     def __enter__(self):
-        print "calling enter"
         self.reactor.startReactor()
         return self
 
     def __exit__(self, type, value, traceback):
-        print "calling exit"
         self.reactor.stopReactor()
         print "I: Reactor thread stopped. Waiting for thread to terminate..."
         self.reactor.join()
@@ -368,13 +382,14 @@ class THLocalRouter(LocalRouter):
     def install_query_plan(self, qp, callback):
         qp._root.install(self, callback)
 
-    def cb(self, value):
-        if not value:
-            print "LAST VALUE =========================================="
-            self.event.set()
-        self.results.append(value)
+    #def cb(self, value):
+    #    print "callback"
+    #    if not value:
+    #        print "LAST VALUE =========================================="
+    #        self.event.set()
+    #    self.results.append(value)
         
-    def do_forward(self, query, route):
+    def do_forward(self, query, route, deferred):
         """
         Effectively runs the forwarding of the query to the route
         """
@@ -393,15 +408,19 @@ class THLocalRouter(LocalRouter):
         print ""
         print ""
 
-        self.install_query_plan(qp, self.cb)
+        print "I: Install query plan."
+        d = defer.Deferred() if deferred else None
+        cb = Callback(d)
+        self.install_query_plan(qp, cb)
+
         self.sourcemgr.run()
-        self.results = []
+
+        if deferred:
+            return d
+
         self.event.wait()
         self.event.clear()
-        # Go through query plan and setup source and processing nodes...
-        # formerly : Installs the query plan = multipipe + active processing = AST + socket handler
-
-        return self.results
+        return cb.results
 
 class THRouter(THLocalRouter, Router):
     pass

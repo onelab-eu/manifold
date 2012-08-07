@@ -18,6 +18,7 @@ class SourceNode(Node):
         self.platform = platform
         self.query = query
         self.config = config
+        self.started = False
 
 class ProcessingNode(Node):
     """

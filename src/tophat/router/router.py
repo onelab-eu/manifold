@@ -41,7 +41,7 @@ class LocalRouter(object):
     
     # This function is directly called for a LocalRouter
     # Decoupling occurs before for queries received through sockets
-    def forward(self, query):
+    def forward(self, query, deferred=False):
         """
         A query is forwarded. Eventually it affects the forwarding plane, and expects an answer.
         NOTE : a query is like a flow
@@ -82,7 +82,7 @@ class LocalRouter(object):
         #    # Add to flow table
         #    flow_table[destination] = route
 
-        return self.do_forward(query, route)
+        return self.do_forward(query, route, deferred)
             
         # in tophat this is a AST + a set of queries to _next_hops_
         #  - we forward processed subqueries to next hops and we process them
