@@ -1,0 +1,10 @@
+Different types of objects can identify themselves: users, nodes, etc.
+We need to know which ones
+
+
+Each user/node/... has a set of configurations for the different peers
+	MySlice
+	Specific
+	None
+
+Authorization/Authentication/Accounting
