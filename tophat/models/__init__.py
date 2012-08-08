@@ -2,7 +2,7 @@
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base, declared_attr
 
-engine = create_engine('sqlite:///:memory:', echo=True)
+engine = create_engine('sqlite:///:memory:', echo=False)
 
 # OLD from tophat.conf import settings
 # OLD from sqlalchemy.pool import StaticPool
@@ -18,12 +18,24 @@ class Base(object):
 
     #id =  Column(Integer, primary_key=True)
 
+    def to_dict(self):
+        return {c.name: getattr(self, c.name) for c in self.__table__.columns}
+
 from sqlalchemy.ext.declarative import declarative_base
 
 Base = declarative_base(cls=Base)
 
 # Models
 from tophat.models.platform import Platform
-from tophat.models.field import Field
+#from tophat.models.field import Field
 
 Base.metadata.create_all(engine) 
+
+
+# Create a session
+from sqlalchemy.orm import sessionmaker
+Session = sessionmaker(bind=engine)
+#Session = sessionmaker()
+#Session.configure(bind=engine)
+session = Session()
+

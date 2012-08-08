@@ -3,10 +3,14 @@ from tophat.router.rib import RIB
 from tophat.router.fib import FIB
 from tophat.router.flowtable import FlowTable
 
+from tophat.models import *
+
 class LocalRouter(object):
     """
     Implements an abstraction of a Router.
     """
+
+    LOCAL_NAMESPACE = 'tophat'
 
     def __init__(self, dest_cls=object, route_cls=object):
         self.route_cls = route_cls
@@ -38,6 +42,26 @@ class LocalRouter(object):
 
     def do_forward(self, query, route):
         raise Exception, "Not implemented"
+
+    def local_query(self, table, filters, fields):
+        _map = {
+            'platform': Platform
+        }
+        # XXX we insert a dummy platform
+        p = Platform(platform = 'ple', platform_longname='PlanetLabEurope')
+        session.add(p) 
+        session.commit()
+        res = session.query(Platform).filter(str(filters)) #.values(fields)
+        dic = [x.to_dict() for x in res]
+        out = []
+        for d in dic:
+            x = {}
+            for k,v in d.items():
+                if k in fields:
+                    x[k] = v
+            out.append(x)
+        return out
+
     
     # This function is directly called for a LocalRouter
     # Decoupling occurs before for queries received through sockets
@@ -46,6 +70,16 @@ class LocalRouter(object):
         A query is forwarded. Eventually it affects the forwarding plane, and expects an answer.
         NOTE : a query is like a flow
         """
+
+        # Handling internal queries
+        dest = query.destination
+        table = dest.fact_table
+        if ':' in table:
+            namespace, table = table.rsplit(':', 2)
+            if namespace == self.LOCAL_NAMESPACE:
+                return self.local_query(table, dest.filters, dest.fields)
+            else:
+                raise Exception, "Unsupported namespace '%s'" % namespace
 
         route = None
 
@@ -82,6 +116,7 @@ class LocalRouter(object):
         #    # Add to flow table
         #    flow_table[destination] = route
 
+        print "do_forward"
         return self.do_forward(query, route, deferred)
             
         # in tophat this is a AST + a set of queries to _next_hops_

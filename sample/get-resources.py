@@ -4,9 +4,6 @@
 import sys
 import xmlrpclib
 
-#from tophat.core.router import THLocalRouter as Router
-#from tophat.core.router import THQuery as Query
-
 MYSLICE_API = "http://demo.myslice.info:7080/API/"
 
 query1 = ('nodes', [['country', '=', 'France']], ['hostname', 'arch', 'country'])
@@ -31,7 +28,8 @@ for query in [query1, query2]:
     result = MySlice.Get(*query)
     print result
 
-#sys.exit(0)
+#from tophat.core.router import THLocalRouter as Router
+#from tophat.core.router import THQuery as Query
 #
 ## Instantiate a TopHat router
 #with Router() as router:
@@ -41,7 +39,7 @@ for query in [query1, query2]:
 #    for query in [query1, query2]:
 #        print "I: Query %s" % query
 #        try:
-#            result = router.forward(THQuery(query))
+#            result = router.forward(Query(query))
 #        except Exception, e:
 #            result = []
 #            print 'Exception', e

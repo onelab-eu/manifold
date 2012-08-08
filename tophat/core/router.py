@@ -58,7 +58,7 @@ class THDestination(Destination):
 
     """
     
-    def __init__(self, fact_table, filters, fields):
+    def __init__(self, fact_table, filters=None, fields=None):
         self.fact_table = fact_table
 
         if isinstance(filters, list):
@@ -84,16 +84,18 @@ class THQuery(Query):
 
         # range(x,y) <=> [x, y[
         if len(args) in range(1,4) and type(args) == tuple:
-            self.destination = THDestination(*args)
+            Query.__init__(self, THDestination(*args))
             return
         elif 'destination' in kwargs:
             destination = kwargs['destination']
             if type(destination) != THDestination:
                 raise TypeError("Destination of type %s expected in argument. Got %s" % (type(destination), THDestination))
-            self.destination = kwargs[destination]
+            #self.destination = kwargs[destination]
+            Query.__init__(self, kwargs[destination])
             del kwargs['destination']
             
-            if not kwargs: return 
+            if not kwargs:
+                return 
         elif 'fact_table' in kwargs:
             fact_table = kwargs['fact_table']
             del kwargs['fact_table']
@@ -110,14 +112,13 @@ class THQuery(Query):
             else:
                 fields = None
 
-            self.destination = THDestination(fact_table, filters, fields)
+            #self.destination = THDestination(fact_table, filters, fields)
+            Query.__init__(self, THDestination(fact_table, filters, fields))
 
             if not kwargs: return
         
         raise ParameterError, "Invalid parameter(s) : %r" % kwargs.keys()
         
-        super(THQuery, self).__init__(self, destination)
-
     def __str__(self):
         return "<THQuery destination=%s>" % self.destination
 
