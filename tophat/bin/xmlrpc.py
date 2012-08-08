@@ -16,7 +16,7 @@ class TopHatAPI(xmlrpc.XMLRPC):
         """
         return router.forward(Query(*args), deferred=True)
 
-if __name__ == '__main__':
+def main():
     router = Router()
     router.__enter__()
     try:
@@ -24,3 +24,6 @@ if __name__ == '__main__':
     except Exception, e:
         print "E/", e
     print "XMLRPC server Listening..."
+
+if __name__ == '__main__':
+    main()

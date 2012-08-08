@@ -51,6 +51,7 @@ coverage: all
 clean:
 	./setup.py clean
 	rm -f `find -name \*.pyc` .coverage *.pcap
+	rm -Rf dist deb_dist tophat.egg-info
 
 distclean: clean
 	rm -rf "$(DISTDIR)"

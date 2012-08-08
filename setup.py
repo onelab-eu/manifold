@@ -28,18 +28,6 @@ setup(
     ],
     license     = "GPLv3",
     packages = find_packages(),
-#    [
-#        "tophat",
-#        "tophat.auth",
-#        "tophat.conf",
-#        "tophat.conf.logconfig",
-#        "tophat.core",
-#        "tophat.models",
-#        "tophat.gateways",
-#        "tophat.gateways.sfa",
-#        "tophat.gateways.sfa.rspecs",
-#        "tophat.router",
-#        "tophat.util" ],
     entry_points={
         'console_scripts': [
             'tophat-xmlrpc = tophat.bin.xmlrpc:main',
