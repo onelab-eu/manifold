@@ -1,44 +1,29 @@
-from elixir import (Field, Text, Integer, Entity, Boolean,
-        using_table_options, ManyToOne)
+from sqlalchemy import Column, Integer, String, Boolean, Enum
 
-from tophat.models.base import BaseEntityMixin
-from tophat.conf import settings
+from tophat.models import Base
 
 import logging
 log = logging.getLogger(__name__)
 
 
-#from types import StringTypes
-#from datetime import datetime
-#import md5
-#import time
-#from random import Random
-#import re
-#import crypt
-#
-#from tophat.util.faults import *
-#from tophat.core.debug import log
-#from tophat.util.parameter import Parameter
-#from tophat.core.filter import Filter
-#from tophat.core.table import Row, Table
-#from tophat.core.roles import Role, Roles
-#
-#from tophat.core.keys import Key, Keys
-#from tophat.core.messages import Message, Messages
+class Platform(Base):
+    platform_id = Column(Integer, primary_key=True, doc="Platform identifier")
+    platform = Column(String, doc="Platform name")
+    platform_longname = Column(String, doc="Platform long name")
+    platform_description = Column(String, doc="Platform description")
+    platform_url = Column(String, doc="Platform URL")
+    deleted = Column(Boolean, default=False, doc="Platform has been deleted")
+    disabled = Column(Boolean, default=False, doc="Platform has been disabled")
+    status = Column(String, doc="Platform status")
+    status_updated = Column(Integer, doc="Platform last check")
+    platform_has_agents = Column(Boolean, default=False, doc="Platform has agents")
+    first = Column(Integer, doc="First timestamp, in seconds since UNIX epoch")
+    last = Column(Integer, doc="Last timestamp, in seconds since UNIX epoch")
 
-class Platform(BaseEntityMixin, Entity):
-    platform_id = Field(Integer, primary_key=True, doc="Platform identifier")
-    platform = Field(Text, doc="Platform name")
-    platform_longname = Field(Text, doc="Platform long name")
-    platform_description = Field(Text, doc="Platform description")
-    platform_url = Field(Text, doc="Platform URL")
-    deleted = Field(Boolean, default=False, doc="Platform has been deleted")
-    disabled = Field(Boolean, default=False, doc="Platform has been disabled")
-    status = Field(Text, doc="Platform status")
-    status_updated = Field(Integer, doc="Platform last check")
-    platform_has_agents = Field(Boolean, default=False, doc="Platform has agents")
-    first = Field(Integer, doc="First timestamp, in seconds since UNIX epoch")
-    last = Field(Integer, doc="Last timestamp, in seconds since UNIX epoch")
+    gateway_type = Column(String, doc="Type of the gateway to use to connect to this platform")
+    gateway_conf = Column(String, doc="Parameters of the gateway")
+    auth_type = Column(Enum('none', 'default', 'user', 'managed'), default='default')
+    auth_default = Column(String, doc="Default configuration (serialized in JSON (?)")
 
 #    def gateways(self):
 #        """
