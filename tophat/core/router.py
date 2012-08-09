@@ -8,6 +8,7 @@ from twisted.internet import defer
 from tophat.util.xmldict import *
 from tophat.util.reactor_thread import ReactorThread
 from tophat.core.filter import Filter
+from tophat.core.param import Param
 from tophat.router import *
 from tophat.core.sourcemgr import SourceManager
 from tophat.gateways import *
