@@ -3,9 +3,12 @@
 
 from tophat.core.router import THQuery, THLocalRouter as Router
 
-query = THQuery('tophat:platforms', [], ['platform', 'platform_longname'])
+query1 = THQuery('get', 'tophat:user', [], [])
+query2 = THQuery('get', 'tophat:platform', [], ['platform', 'platform_longname'])
+query3 = THQuery('get', 'tophat:account', [], [])
 
 # Instantiate a TopHat router
 with Router() as router:
-    result = router.forward(query)
-    print result
+    for q in [query1, query2, query3]:
+        result = router.forward(q)
+        print result

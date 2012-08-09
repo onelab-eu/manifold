@@ -25,10 +25,9 @@ class XMLRPC(SourceNode):
             def wrap(source):
                 proxy = Proxy(self.config['url'], allowNone=True)
                 query = source.query
-                d = query.destination
                 auth = {'AuthMethod': 'guest'}
                 print "I: Issueing xmlrpc call to %s: %s" % (self.config['url'], query)
-                proxy.callRemote('Get', auth, d.fact_table, 'now', d.filters, list(d.fields)).addCallbacks(source.success_cb, source.exception_cb)
+                proxy.callRemote('Get', auth, query.fact_table, 'now', query.filters, list(query.fields)).addCallbacks(source.success_cb, source.exception_cb)
             reactor.callFromThread(wrap, self) 
         except Exception, e:
             print "Exception in XMLRPC::start", e

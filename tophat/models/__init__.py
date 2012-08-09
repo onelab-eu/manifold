@@ -27,6 +27,8 @@ Base = declarative_base(cls=Base)
 
 # Models
 from tophat.models.platform import Platform
+from tophat.models.user import User
+from tophat.models.account import Account
 #from tophat.models.field import Field
 
 Base.metadata.create_all(engine) 

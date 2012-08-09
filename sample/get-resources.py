@@ -6,8 +6,8 @@ import xmlrpclib
 
 MYSLICE_API = "http://demo.myslice.info:7080/API/"
 
-query1 = ('nodes', [['country', '=', 'France']], ['hostname', 'arch', 'country'])
-query2 = ('resources', [], ['hostname', 'asn', 'city'])
+query1 = ('get', 'nodes', [['country', '=', 'France']], ['hostname', 'arch', 'country'])
+query2 = ('get,' 'resources', [], ['hostname', 'asn', 'city'])
 
 
 def print_result(result):

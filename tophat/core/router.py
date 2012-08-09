@@ -45,22 +45,51 @@ class Table:
     def __str__(self):
         return "<Table name='%s' platform='%s' fields='%r' keys='%r'>" % (self.name, self.platform, self.fields, self.keys)
 
-class THDestination(Destination):
+class THQuery(Query):
     """
-    Implements a destination in TopHat 
-
-    = a fact table + a set of tables/fields.
+    Implements a TopHat query.
 
     We assume this is a correct DAG specification.
 
     1/ A field designates several tables = OR specification.
     2/ The set of fields specifies a AND between OR clauses.
-
     """
-    
-    def __init__(self, fact_table, filters=None, fields=None):
-        self.fact_table = fact_table
 
+    def __init__(self, *args, **kwargs):
+        l = len(kwargs.keys())
+
+        # Initialization from a tuple
+        if len(args) in range(2,5) and type(args) == tuple:
+            # Note: range(x,y) <=> [x, y[
+            self.action, self.fact_table, self.filters, self.fields = args
+            return
+
+        # Initialization from a dict (action & fact_table are mandatory)
+        elif 'action' in kwargs  and 'fact_table' in kwargs:
+            self.action = kwargs['action']
+            del kwargs['action']
+            self.fact_table = kwargs['fact_table']
+            del kwargs['fact_table']
+
+            if 'filters' in kwargs:
+                self.filters = kwargs['filters']
+                del kwargs['filters']
+            else:
+                self.filters = None
+
+            if 'fields' in kwargs:
+                self.fields = kwargs['fields']
+                del kwargs['fields']
+            else:
+                self.fields = None
+
+            if kwargs:
+                raise ParameterError, "Invalid parameter(s) : %r" % kwargs.keys()
+                return
+        else:
+                raise ParameterError, "No valid constructor found for %s" % self.__class__.__name__
+
+        # Processing filters
         if isinstance(filters, list):
             self.filters = Filter.from_list(filters)
         elif isinstance(filters, dict):
@@ -68,59 +97,30 @@ class THDestination(Destination):
         else:
             self.filters = filters
 
+        # Processing params
+        if isinstance(params, list):
+            self.params = Param.from_list(params)
+        elif isinstance(params, dict):
+            self.params = Param.from_dict(params)
+        else:
+            self.params = params
+
+        # Processing fields
         self.fields = fields
-
-    def __str__(self):
-        return "<THDestination fact_table='%s' filters='%s' fields='%r'>" % (self.fact_table, self.filters, self.fields)
-
-
-class THQuery(Query):
-    """
-    Implements a TopHat query.
-    """
-
-    def __init__(self, *args, **kwargs):
-        l = len(kwargs.keys())
-
-        # range(x,y) <=> [x, y[
-        if len(args) in range(1,4) and type(args) == tuple:
-            Query.__init__(self, THDestination(*args))
-            return
-        elif 'destination' in kwargs:
-            destination = kwargs['destination']
-            if type(destination) != THDestination:
-                raise TypeError("Destination of type %s expected in argument. Got %s" % (type(destination), THDestination))
-            #self.destination = kwargs[destination]
-            Query.__init__(self, kwargs[destination])
-            del kwargs['destination']
-            
-            if not kwargs:
-                return 
-        elif 'fact_table' in kwargs:
-            fact_table = kwargs['fact_table']
-            del kwargs['fact_table']
-
-            if 'filters' in kwargs:
-                filters = kwargs['filters']
-                del kwargs['filters']
-            else:
-                filters = None
-
-            if 'fields' in kwargs:
-                fields = kwargs['fields']
-                del kwargs['fields']
-            else:
-                fields = None
-
-            #self.destination = THDestination(fact_table, filters, fields)
-            Query.__init__(self, THDestination(fact_table, filters, fields))
-
-            if not kwargs: return
-        
-        raise ParameterError, "Invalid parameter(s) : %r" % kwargs.keys()
         
     def __str__(self):
         return "<THQuery destination=%s>" % self.destination
+
+
+class THDestination(Destination, THQuery):
+    """
+    Implements a destination in TopHat == a query
+    """
+    
+    def __str__(self):
+        return "<THDestination / THQuery: %s" % self.query
+
+
 
 class THRoute(Route):
     """
@@ -320,8 +320,7 @@ class THLocalRouter(LocalRouter):
         from tophat.core.metadata import Metadata
         from tophat.core.gateway import Gateway
 
-        dest = query.destination
-        fact_table, filters, fields = dest.fact_table, dest.filters, dest.fields
+        fact_table, filters, fields = query.fact_table, query.filters, query.fields
 
         # This method is broken, need to replace it with steiner
 
@@ -371,8 +370,8 @@ class THLocalRouter(LocalRouter):
                 break 
 
         # Now we apply the operators
-        qp = qp.selection(dest.filters) 
-        qp = qp.projection(dest.fields) 
+        qp = qp.selection(query.filters) 
+        qp = qp.projection(query.fields) 
         #qp = qp.sort(query.get_sort()) 
         #qp = qp.limit(query.get_limit()) 
 

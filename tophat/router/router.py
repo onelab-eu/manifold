@@ -43,24 +43,45 @@ class LocalRouter(object):
     def do_forward(self, query, route):
         raise Exception, "Not implemented"
 
-    def local_query(self, table, filters, fields):
-        _map = {
-            'platform': Platform
+    def local_query_get(self, query):
+        #
+        # XXX How are we handling subqueries
+        #
+        _map_table = {
+            'platform': Platform,
+            'user': User,
+            'account': Account
         }
-        # XXX we insert a dummy platform
-        p = Platform(platform = 'ple', platform_longname='PlanetLabEurope')
-        session.add(p) 
-        session.commit()
-        res = session.query(Platform).filter(str(filters)) #.values(fields)
+
+        f = str(query.filters) if query.filters else None
+        res = session.query(_map_table[query.fact_table]).filter(f) #.values(query.fields)
         dic = [x.to_dict() for x in res]
+        # dict filtering function
         out = []
         for d in dic:
             x = {}
             for k,v in d.items():
-                if k in fields:
+                if k in query.fields:
                     x[k] = v
             out.append(x)
+
         return out
+
+    def local_query_update(self, query):
+        return
+
+    def local_query(self, query):
+        # XXX we insert a dummy platform
+        p = Platform(platform = 'ple', platform_longname='PlanetLabEurope')
+        session.add(p) 
+        session.commit()
+
+        _map_action = {
+            'get': self.local_query_get,
+            'update': self.local_query_update
+        }
+
+        return _map_action[query.action](query)
 
     
     # This function is directly called for a LocalRouter
@@ -72,12 +93,11 @@ class LocalRouter(object):
         """
 
         # Handling internal queries
-        dest = query.destination
-        table = dest.fact_table
-        if ':' in table:
-            namespace, table = table.rsplit(':', 2)
+        if ':' in query.fact_table:
+            namespace, table = query.fact_table.rsplit(':', 2)
             if namespace == self.LOCAL_NAMESPACE:
-                return self.local_query(table, dest.filters, dest.fields)
+                query.fact_table = table
+                return self.local_query(query)
             else:
                 raise Exception, "Unsupported namespace '%s'" % namespace
 
@@ -116,7 +136,6 @@ class LocalRouter(object):
         #    # Add to flow table
         #    flow_table[destination] = route
 
-        print "do_forward"
         return self.do_forward(query, route, deferred)
             
         # in tophat this is a AST + a set of queries to _next_hops_
