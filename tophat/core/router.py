@@ -62,7 +62,7 @@ class THQuery(Query):
         # Initialization from a tuple
         if len(args) in range(2,5) and type(args) == tuple:
             # Note: range(x,y) <=> [x, y[
-            self.action, self.fact_table, self.filters, self.fields = args
+            self.action, self.fact_table, self.filters, self.params, self.fields = args
             return
 
         # Initialization from a dict (action & fact_table are mandatory)
@@ -84,6 +84,12 @@ class THQuery(Query):
             else:
                 self.fields = None
 
+            if 'params' in kwargs:
+                self.params = kwargs['params']
+                del kwargs['params']
+            else:
+                self.params = None
+
             if kwargs:
                 raise ParameterError, "Invalid parameter(s) : %r" % kwargs.keys()
                 return
@@ -91,26 +97,20 @@ class THQuery(Query):
                 raise ParameterError, "No valid constructor found for %s" % self.__class__.__name__
 
         # Processing filters
-        if isinstance(filters, list):
-            self.filters = Filter.from_list(filters)
-        elif isinstance(filters, dict):
-            self.filters = Filter.from_dict(filters)
-        else:
-            self.filters = filters
+        if isinstance(self.filters, list):
+            self.filters = Filter.from_list(self.filters)
+        elif isinstance(self.filters, dict):
+            self.filters = Filter.from_dict(self.filters)
 
         # Processing params
-        if isinstance(params, list):
-            self.params = Param.from_list(params)
-        elif isinstance(params, dict):
-            self.params = Param.from_dict(params)
-        else:
-            self.params = params
+        if isinstance(self.params, dict):
+            self.params = Param(self.params)
 
-        # Processing fields
-        self.fields = fields
-        
+    def get_tuple(self):
+        return (self.action, self.fact_table, self.filters, self.params, self.fields)
+
     def __str__(self):
-        return "<THQuery destination=%s>" % self.destination
+        return "<THQuery action='%s' fact_table='%s' filters='%s' params='%s' fields='%r'>" % self.get_tuple()
 
 
 class THDestination(Destination, THQuery):

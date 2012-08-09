@@ -1377,11 +1377,10 @@ class SFA(SourceNode):
         
         self.started = True
         q = self.query
-        d = q.destination
 
         # Let's call the simplest query as possible to begin with
         # This should use twisted XMLRPC
-        result = getattr(self, "get_%s" % d.fact_table)(d.filters, list(d.fields))
+        result = getattr(self, "get_%s" % q.fact_table)(q.filters, list(q.fields))
         for r in result:
             self._callback(r)
         self._callback(None)

@@ -3,7 +3,12 @@ from tophat.router.rib import RIB
 from tophat.router.fib import FIB
 from tophat.router.flowtable import FlowTable
 
+from sqlalchemy.sql import operators
+
+import copy
+
 from tophat.models import *
+from tophat.util.misc import get_sqla_filters, xgetattr
 
 class LocalRouter(object):
     """
@@ -11,6 +16,12 @@ class LocalRouter(object):
     """
 
     LOCAL_NAMESPACE = 'tophat'
+
+    _map_local_table = {
+        'platform': Platform,
+        'user': User,
+        'account': Account
+    }
 
     def __init__(self, dest_cls=object, route_cls=object):
         self.route_cls = route_cls
@@ -21,6 +32,12 @@ class LocalRouter(object):
         self.flow_table = FlowTable(route_cls)
 
         self.boot()
+
+        # XXX we insert a dummy platform
+        p = Platform(platform = 'ple', platform_longname='PlanetLabEurope')
+        session.add(p) 
+        session.commit()
+
 
         
     def _get_static_routes(self):
@@ -47,40 +64,39 @@ class LocalRouter(object):
         #
         # XXX How are we handling subqueries
         #
-        _map_table = {
-            'platform': Platform,
-            'user': User,
-            'account': Account
-        }
 
-        f = str(query.filters) if query.filters else None
-        res = session.query(_map_table[query.fact_table]).filter(f) #.values(query.fields)
-        dic = [x.to_dict() for x in res]
-        # dict filtering function
-        out = []
-        for d in dic:
-            x = {}
-            for k,v in d.items():
-                if k in query.fields:
-                    x[k] = v
-            out.append(x)
+        cls = self._map_local_table[query.fact_table]
 
-        return out
+        # Transform a Filter into a sqlalchemy expression
+        _filters = get_sqla_filters(cls, query.filters)
+        _fields = xgetattr(cls, query.fields) if query.fields else None
+
+        if query.fields:
+            res = session.query( *_fields ).filter(_filters)
+        else:
+            res = session.query( cls ).filter(_filters)
+
+        return res.all()
 
     def local_query_update(self, query):
-        return
 
-    def local_query(self, query):
-        # XXX we insert a dummy platform
-        p = Platform(platform = 'ple', platform_longname='PlanetLabEurope')
-        session.add(p) 
+        cls = self._map_local_table[query.fact_table]
+
+        _fields = xgetattr(cls, query.fields)
+        _filters = get_sqla_filters(cls, query.filters)
+        _params = { getattr(cls, k): v for k,v in query.params.items() }
+
+        session.query(cls).update(_params, synchronize_session=False)
+        #session.query(cls).filter(_filters).update(_params, synchronize_session=False)
         session.commit()
 
+        return []
+
+    def local_query(self, query):
         _map_action = {
             'get': self.local_query_get,
             'update': self.local_query_update
         }
-
         return _map_action[query.action](query)
 
     
@@ -96,11 +112,11 @@ class LocalRouter(object):
         if ':' in query.fact_table:
             namespace, table = query.fact_table.rsplit(':', 2)
             if namespace == self.LOCAL_NAMESPACE:
-                query.fact_table = table
-                return self.local_query(query)
+                q = copy.deepcopy(query)
+                q.fact_table = table
+                return self.local_query(q)
             else:
                 raise Exception, "Unsupported namespace '%s'" % namespace
-
         route = None
 
         #print "(forward)"

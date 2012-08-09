@@ -9,22 +9,25 @@ except NameError:
 
 import time
 import datetime # Jordan
-
+from operator import (
+    and_, or_, inv, add, mul, sub, mod, truediv, lt, le, ne, gt, ge, eq, neg
+    )
+from tophat.util.misc import incl
 from tophat.util.faults import *
 from tophat.util.parameter import Parameter, Mixed, python_type
 
 class Predicate:
 
     # New modifier: { contains 
-    OPERATORS = ['~', '<', '[', '>', ']', '&', '|', '{']
+    OPERATORS = { '=': eq, '~': ne, '<': lt, '[': le, '>': gt, ']': ge, '&': and_, '|': or_, '{': incl}
 
     def __init__(self, key, op, value):
         self.key = key
-        self.op = op
+        self.op = self.OPERATORS[op]
         self.value = value
 
     def __str__(self):
-        return "(%s %s %s)" % self.get_tuple()
+        return "%s %s %s" % self.get_tuple()
 
     def get_tuple(self):
         return (self.key, self.op, self.value)
@@ -49,7 +52,7 @@ class Filter(set):
     def from_dict(d):
         f = Filter()
         for key, value in d.items():
-            if key[0] in Predicate.OPERATORS:
+            if key[0] in Predicate.OPERATORS.keys():
                 f.add(Predicate(key[1:], key[0], value))
             else:
                 f.add(Predicate(key, '=', value))
