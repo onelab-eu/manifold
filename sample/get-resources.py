@@ -6,8 +6,8 @@ import xmlrpclib
 
 MYSLICE_API = "http://demo.myslice.info:7080/API/"
 
-query1 = ('get', 'nodes', [['country', '=', 'France']], ['hostname', 'arch', 'country'])
-query2 = ('get,' 'resources', [], ['hostname', 'asn', 'city'])
+#query1 = ('get', 'nodes', [['country', '=', 'France']], {}, ['hostname', 'arch', 'country'])
+query2 = ('get', 'resources', [], {}, ['hostname', 'asn', 'city'])
 
 
 def print_result(result):
@@ -24,9 +24,12 @@ def print_result(result):
 
 MySlice = xmlrpclib.Server(MYSLICE_API, allow_none = True)
 
-for query in [query1, query2]:
-    result = MySlice.Get(*query)
-    print result
+#for query in [query1, query2]:
+#    result = MySlice.forward(*query)
+#    print result
+
+res = MySlice.forward(*query2)
+print res[0:4]
 
 #from tophat.core.router import THLocalRouter as Router
 #from tophat.core.router import THQuery as Query

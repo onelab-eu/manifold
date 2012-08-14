@@ -787,15 +787,25 @@ class SFA(SourceNode):
             s= {}
             s['slice_hrn'] = "ple.upmc.agent"
             s['slice_description'] = 'DEMO SLICE'
+
+            has_resources = False
+            has_users = False
+
             subfields = []
             for of in output_fields:
-                if of.startswith('resources.'):
+                if of == 'resources' or of.startswith('resources.'):
                     subfields.append(of[6:])
+                    has_resources = True
+                if of == 'users' or of.startswith('users.'):
+                    has_users = True
             #if subfields: # XXX Disabled until we have default subqueries
             rsrc = self.get_resources({'slice_hrn': 'ple.upmc.agent'}, subfields)
             if not rsrc:
                 raise Exception, 'get_resources failed!'
-            s['resources'] = rsrc
+            if has_resources:
+                s['resources'] = rsrc
+            if has_users:
+                s['users'] = [{'person_hrn': 'ple.upmc.first_last'}]
 
             return [s]
         #
@@ -1366,12 +1376,12 @@ class SFA(SourceNode):
     def __str__(self):
         return "<SFAGateway %r: %s>" % (self.config['sm'], self.query)
 
-    def success_cb(self, table):
-        for record in table:
-            self._callback(record)
-
-    def exception_cb(self, error):
-        print 'Error during SFA call: ', error
+#    def success_cb(self, table):
+#        for record in table:
+#            self._callback(record)
+#
+#    def exception_cb(self, error):
+#        print 'Error during SFA call: ', error
 
     def start(self):
         
@@ -1380,8 +1390,12 @@ class SFA(SourceNode):
 
         # Let's call the simplest query as possible to begin with
         # This should use twisted XMLRPC
+        print "SFA CALL : filter = ", q.filters, ", fields = ", q.fields
         result = getattr(self, "get_%s" % q.fact_table)(q.filters, list(q.fields))
         for r in result:
+            if 'resources' in r:
+                r['resources'] = '** replaced in filter.py **'
+            print "SFA outputs: ", r
             self._callback(r)
         self._callback(None)
 

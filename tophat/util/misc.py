@@ -19,4 +19,4 @@ def get_sqla_filters(cls, filters):
 
 
 # Define the inclusion operator
-class incl(type): pass
+class contains(type): pass

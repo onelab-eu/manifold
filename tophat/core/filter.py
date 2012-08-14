@@ -12,14 +12,14 @@ import datetime # Jordan
 from operator import (
     and_, or_, inv, add, mul, sub, mod, truediv, lt, le, ne, gt, ge, eq, neg
     )
-from tophat.util.misc import incl
+from tophat.util.misc import contains
 from tophat.util.faults import *
 from tophat.util.parameter import Parameter, Mixed, python_type
 
 class Predicate:
 
     # New modifier: { contains 
-    OPERATORS = { '=': eq, '~': ne, '<': lt, '[': le, '>': gt, ']': ge, '&': and_, '|': or_, '{': incl}
+    OPERATORS = { '=': eq, '~': ne, '<': lt, '[': le, '>': gt, ']': ge, '&': and_, '|': or_, '}': contains}
 
     def __init__(self, key, op, value):
         self.key = key
@@ -31,6 +31,86 @@ class Predicate:
 
     def get_tuple(self):
         return (self.key, self.op, self.value)
+
+    def match(self, dic):
+        if self.op == eq:
+            if isinstance(self.value, list):
+                return (dic[self.key] in self.value) # array ?
+            else:
+                return (dic[self.key] == self.value)
+        elif self.op == ne:
+            if isinstance(self.value, list):
+                return (dic[self.key] not in self.value) # array ?
+            else:
+                return (dic[self.key] != self.value) # array ?
+        elif self.op == lt:
+            if isinstance(self.value, StringTypes):
+                # prefix match
+                return dic[self.key].startswith('%s.' % self.value)
+            else:
+                return (dic[self.key] < self.value)
+        elif self.op == le:
+            if isinstance(self.value, StringTypes):
+                return dic[self.key] == self.value or dic[self.key].startswith('%s.' % self.value)
+            else:
+                return (dic[self.key] <= self.value)
+        elif self.op == gt:
+            if isinstance(self.value, StringTypes):
+                # prefix match
+                return self.value.startswith('%s.' % dic[self.key])
+            else:
+                return (dic[self.key] > self.value)
+        elif self.op == ge:
+            if isinstance(self.value, StringTypes):
+                # prefix match
+                return dic[self.key] == self.value or self.value.startswith('%s.' % dic[self.key])
+            else:
+                return (dic[self.key] >= self.value)
+        elif self.op == _and:
+            return (dic[self.key] & self.value) # array ?
+        elif self.op == _or:
+            return (dic[self.key] | self.value) # array ?
+        elif self.op == contains:
+            match = (self.value in dic[self.key])  # XXX
+        else:
+            raise Exception, "Unexpected table format: %r", dic
+
+    def filter(self, dic):
+        """
+        Filter dic according to the current predicate.
+        """
+
+        if '.' in self.key:
+            # users.hrn
+            method, subfield = self.key.split('.', 1)
+            if not method in dic:
+                return None # XXX
+
+            if isinstance(dic[method], dict):
+                # We have a 1..1 relationship: apply the same filter to the dict
+                subpred = Predicate(subfield, self.op, self.value)
+                match = subpred.match(dic[method])
+                return dic if match else None
+
+            elif isinstance(dic[method], (list, tuple)):
+                # 1..N relationships
+                match = False
+                if self.op == contains:
+                    # Set operations
+                    match = (v in dic[k])  # XXX
+                    return dic if match else None
+                else:
+                    subpred = Predicate(subfield, self.op, self.value)
+                    dic[method] = subpred.filter(dic[method])
+                    return dic
+            else:
+                raise Exception, "Unexpected table format: %r", dic
+
+
+        else:
+            # Individual field operations: this could be simplified, since we are now using operators !!
+            # XXX match
+            return dic if match else None
 
 class Filter(set):
     """
@@ -69,52 +149,65 @@ class Filter(set):
     def keys(self):
         return set([x.key for x in self])
 
+
     def match(self, dic):
         # We suppose if a field is in filter, it is therefore in the dic
         match = True
+        print "===== FILTER ====="
+
+        # We go through every filter sequentially
         for predicate in self:
             k, op, v = predicate.get_tuple()
-            if k not in dic:
-                return False
+            print "FILTER matching predicate [", k, op, v, "],"
 
-            if op == '=':
+            # users.person_hrn', '}', 'MY_USER_HRN'
+            if '.' in k:
+                method, subfields = k.split('.', 1)
+                if method not in dic:
+                    return False
+            else:
+                if k not in dic:
+                    return False
+            print "op = ", op
+            if op == eq:
                 if isinstance(v, list):
                     match &= (dic[k] in v) # array ?
                 else:
                     match &= (dic[k] == v)
-            elif op == '~':
+            elif op == ne:
                 if isinstance(v, list):
                     match &= (dic[k] not in v) # array ?
                 else:
                     match &= (dic[k] != v) # array ?
-            elif op == '<':
+            elif op == lt:
                 if isinstance(v, StringTypes):
                     # prefix match
                     match &= dic[k].startswith('%s.' % v)
                 else:
                     match &= (dic[k] < v)
-            elif op == '[':
+            elif op == le:
                 if isinstance(v, StringTypes):
                     match &= dic[k] == v or dic[k].startswith('%s.' % v)
                 else:
                     match &= (dic[k] <= v)
-            elif op == '>':
+            elif op == gt:
                 if isinstance(v, StringTypes):
                     # prefix match
                     match &= v.startswith('%s.' % dic[k])
                 else:
                     match &= (dic[k] > v)
-            elif op == ']':
+            elif op == ge:
                 if isinstance(v, StringTypes):
                     # prefix match
                     match &= dic[k] == v or v.startswith('%s.' % dic[k])
                 else:
                     match &= (dic[k] >= v)
-            elif op == '&':
+            elif op == _and:
                 match &= (dic[k] & v) # array ?
-            elif op == '|':
+            elif op == _or:
                 match &= (dic[k] | v) # array ?
-            elif op == '{':
+            elif op == contains:
+                print "contains: v (", v, ") in dic[k]", dic[k]
                 match &= (v in dic[k])
             if not match:
                 return False

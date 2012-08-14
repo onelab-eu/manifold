@@ -45,7 +45,7 @@ class From(LeafNode):
         print ' ' * indent * 4, "SELECT %r FROM '%s'" % (self.fields, self.table)
 
     def install(self, router, callback):
-        node = router.get_gateway(self.table.platform, callback, THQuery(self.table.name, [], self.fields))
+        node = router.get_gateway(self.table.platform, callback, THQuery('get', self.table.name, [], {}, self.fields))
         router.sourcemgr.append(node)
         return node
 

@@ -34,7 +34,10 @@ class LocalRouter(object):
         self.boot()
 
         # XXX we insert a dummy platform
+        print "Inserting a dummy platform: ple"
         p = Platform(platform = 'ple', platform_longname='PlanetLabEurope')
+        session.add(p) 
+        p = Platform(platform = 'tophat', platform_longname='TopHat')
         session.add(p) 
         session.commit()
 
@@ -68,6 +71,7 @@ class LocalRouter(object):
         cls = self._map_local_table[query.fact_table]
 
         # Transform a Filter into a sqlalchemy expression
+        print query.filters
         _filters = get_sqla_filters(cls, query.filters)
         _fields = xgetattr(cls, query.fields) if query.fields else None
 
@@ -110,13 +114,16 @@ class LocalRouter(object):
 
         # Handling internal queries
         if ':' in query.fact_table:
-            namespace, table = query.fact_table.rsplit(':', 2)
-            if namespace == self.LOCAL_NAMESPACE:
-                q = copy.deepcopy(query)
-                q.fact_table = table
-                return self.local_query(q)
-            else:
-                raise Exception, "Unsupported namespace '%s'" % namespace
+            try:
+                namespace, table = query.fact_table.rsplit(':', 2)
+                if namespace == self.LOCAL_NAMESPACE:
+                    q = copy.deepcopy(query)
+                    q.fact_table = table
+                    return self.local_query(q)
+                else:
+                    raise Exception, "Unsupported namespace '%s'" % namespace
+            except Exception, e:
+                raise Exception, "Error during local request: %s" % e
         route = None
 
         #print "(forward)"

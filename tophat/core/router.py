@@ -18,11 +18,13 @@ from tophat.gateways import *
 class ParameterError(StandardError): pass
 
 class Callback:
-    def __init__(self, deferred=None):
+    def __init__(self, deferred=None, event=None):
         self.results = []
         self._deferred = deferred
+        self.event=event
 
     def __call__(self, value):
+        print "CALLBACK RECEIVED", value
         if not value:
             if self._deferred:
                 self._deferred.callback(self.results)
@@ -60,10 +62,9 @@ class THQuery(Query):
         l = len(kwargs.keys())
 
         # Initialization from a tuple
-        if len(args) in range(2,5) and type(args) == tuple:
+        if len(args) in range(2,6) and type(args) == tuple:
             # Note: range(x,y) <=> [x, y[
             self.action, self.fact_table, self.filters, self.params, self.fields = args
-            return
 
         # Initialization from a dict (action & fact_table are mandatory)
         elif 'action' in kwargs  and 'fact_table' in kwargs:
@@ -244,7 +245,9 @@ class THLocalRouter(LocalRouter):
                 raise Exception, "Error importing metadata file '%s': no field specified" % metadata
 
             # FIXME Currently we ignore detailed information about the fields
-            fields = [f['field'] for f  in field_arr['field']]
+            if not isinstance(field_arr['field'], list):
+                field_arr['field'] = [field_arr['field']]
+            fields = [f['field'] for f in field_arr['field']]
 
             # Checking the presence of a keys section
             if not 'keys' in method:
@@ -300,14 +303,15 @@ class THLocalRouter(LocalRouter):
 
     def get_platform_max_fields(self, fields, join):
         # Search for the platform::method that allows for the largest number of missing fields
+        _fields = [f.split('.')[0] for f in fields]
         maxfields = 0
-        ret = None
+        ret = (None, None)
         
         for dest, route in self.rib.items():
             # HACK to make tophat on join
             if not join and dest.platform in ['tophat', 'myslice']:
                 continue
-            isect = set(dest.fields).intersection(set(fields))
+            isect = set(dest.fields).intersection(set(_fields))
             if len(isect) > maxfields:
                 maxfields = len(isect)
                 ret = (dest, isect)
@@ -316,6 +320,7 @@ class THLocalRouter(LocalRouter):
     def compute_query_plan(self, query):
 
         # XXX this should be replaced by a Steiner Tree computation
+        # XXX This should manage subqueries !!!!
 
         from tophat.core.ast import AST
         from tophat.core.metadata import Metadata
@@ -352,19 +357,21 @@ class THLocalRouter(LocalRouter):
             #config['caller'] = self.caller 
 
             # We need the key to perform the join
-            qfields.add('hostname')
+            key = table.keys[0]
+            qfields.add(key)
             if not join: 
                 qp = qp.From(table, qfields) 
                 join = True 
             else: 
                 r = AST().From(table, qfields) 
                 # we join on hostname (hardcoded) 
-                qp = qp.join(r, 'hostname') 
+                qp = qp.join(r, key)
 
             # Remove the fields we obtain from the ones yet to be queried
-            for f in qfields:
-                if f in fields: 
-                    fields.remove(f) 
+            for qf in qfields:
+                fields = [f for f in fields if not f == qf and not f.startswith("%s." % qf)]
+                #if qf in fields: 
+                #    fields.remove(qf) 
 
             # Stop if we have no more fields to query
             if not fields: 
@@ -401,7 +408,10 @@ class THLocalRouter(LocalRouter):
         
         # Parameter route is ignored temporarily, we compute it naively...
 
-        qp = self.compute_query_plan(query)
+        try:
+            qp = self.compute_query_plan(query)
+        except:
+            return []
         print ""
         print "QUERY PLAN:"
         print "-----------"
@@ -411,7 +421,7 @@ class THLocalRouter(LocalRouter):
 
         print "I: Install query plan."
         d = defer.Deferred() if deferred else None
-        cb = Callback(d)
+        cb = Callback(d, self.event)
         self.install_query_plan(qp, cb)
 
         self.sourcemgr.run()
@@ -421,6 +431,8 @@ class THLocalRouter(LocalRouter):
 
         self.event.wait()
         self.event.clear()
+        for r in cb.results:
+            print "R: ", r
         return cb.results
 
 class THRouter(THLocalRouter, Router):

@@ -39,6 +39,7 @@ class SelectionNode(Node):
         self._callback = callback
 
     def callback(self, record):
+
         try:
             if not record:
                 self._callback(record)
@@ -46,7 +47,7 @@ class SelectionNode(Node):
             if not self._filters or self._filters.match(record):
                 self._callback(record)
         except Exception, e:
-            print "Exception during SelectionNode::callback(%r): %s" % (record, e)
+            print "Exception during SelectionNode::callback: %s" % e
             traceback.print_exc()
         
 
@@ -60,16 +61,47 @@ class ProjectionNode(Node):
         self._callback = callback
 
     def callback(self, record):
+
+        def local_projection(record, fields):
+            """
+            Take the necessary fields in dic
+            """
+            ret = {}
+
+            # 1/ split subqueries
+            local = []
+            subqueries = {}
+            for f in fields:
+                if '.' in f:
+                    method, subfield = f.split('.', 1)
+                    if not method in subqueries:
+                        subqueries[method] = []
+                    subqueries[method].append(subfield)
+                else:
+                    local.append(f)
+            
+            # 2/ process local fields
+            for l in local:
+                ret[l] = record[l] if l in record else None
+
+            # 3/ recursively process subqueries
+            for method, subfields in subqueries.items():
+                # record[method] is an array whose all elements must be
+                # filtered according to subfields
+                arr = []
+                for x in record[method]:
+                    arr.append(local_projection(x, subfields))
+                ret[method] = arr
+
+            return ret
+
         try:
             if not record:
                 self._callback(record)
                 return
-            ret = {}
-            for k, v in record.items():
-                if k in self._fields:
-                    ret[k] = v
-            if ret:
-                self._callback(ret)
+            ret = local_projection(record, self._fields)
+            self._callback(ret)
+
         except Exception, e:
             print "Exception during ProjectionNode::callback(%r): %s" % (record, e)
             traceback.print_exc()
