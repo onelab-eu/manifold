@@ -4,8 +4,8 @@
 import sys
 import xmlrpclib
 
-#query1 = ('get', 'nodes', [['country', '=', 'France']], {}, ['hostname', 'arch', 'country'])
-query2 = ('get', 'resources', [], {}, ['hostname', 'asn', 'city'])
+query1 = ('get', 'node', [['country', '=', 'France']], {}, ['hostname', 'cpu', 'arch', 'country'])
+#query2 = ('get', 'node', [], {}, ['hostname', 'asn', 'city'])
 
 
 def print_result(result):
@@ -26,6 +26,6 @@ with THLocalRouter() as router:
     # TODO How to make it work without __enter__ __exit__ ??
     #router = Router()
 
-    for query in [query2]: #query1, query2]:
+    for query in [query1]: #query1, query2]:
         result = router.forward(THQuery(*query))
         print_result(result)

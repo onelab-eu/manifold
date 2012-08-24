@@ -44,8 +44,9 @@ class SelectionNode(Node):
             if not record:
                 self._callback(record)
                 return 
-            if not self._filters or self._filters.match(record):
-                self._callback(record)
+            if self._filters:
+                record = self._filters.filter(record)
+            self._callback(record)
         except Exception, e:
             print "Exception during SelectionNode::callback: %s" % e
             traceback.print_exc()

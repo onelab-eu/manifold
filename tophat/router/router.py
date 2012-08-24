@@ -68,6 +68,9 @@ class LocalRouter(object):
         # XXX How are we handling subqueries
         #
 
+        fields = query.fields
+        # XXX else tap into metadata
+
         cls = self._map_local_table[query.fact_table]
 
         # Transform a Filter into a sqlalchemy expression
@@ -80,7 +83,9 @@ class LocalRouter(object):
         else:
             res = session.query( cls ).filter(_filters)
 
-        return res.all()
+        tuplelist = res.all()
+        table = [ { fields[idx] : val for idx, val in enumerate(t) } for t in tuplelist]
+        return table
 
     def local_query_update(self, query):
 

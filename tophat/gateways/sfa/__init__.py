@@ -805,7 +805,7 @@ class SFA(SourceNode):
             if has_resources:
                 s['resources'] = rsrc
             if has_users:
-                s['users'] = [{'person_hrn': 'ple.upmc.first_last'}]
+                s['users'] = [{'person_hrn': 'myslice.demo'}]
 
             return [s]
         #
@@ -1390,12 +1390,10 @@ class SFA(SourceNode):
 
         # Let's call the simplest query as possible to begin with
         # This should use twisted XMLRPC
-        print "SFA CALL : filter = ", q.filters, ", fields = ", q.fields
         result = getattr(self, "get_%s" % q.fact_table)(q.filters, list(q.fields))
         for r in result:
             if 'resources' in r:
                 r['resources'] = '** replaced in filter.py **'
-            print "SFA outputs: ", r
             self._callback(r)
         self._callback(None)
 

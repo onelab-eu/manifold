@@ -68,7 +68,7 @@ class Join(BinaryNode):
 
     def dump(self, indent):
         self._left.dump(indent+1)
-        print ' ' * indent * 4, "JOIN"
+        print ' ' * indent * 4, "JOIN", self._predicate
         self._right.dump(indent+1)
 
 class Projection(UnaryNode):

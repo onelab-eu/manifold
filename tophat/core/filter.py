@@ -23,7 +23,10 @@ class Predicate:
 
     def __init__(self, key, op, value):
         self.key = key
-        self.op = self.OPERATORS[op]
+        if op in self.OPERATORS.keys():
+            self.op = self.OPERATORS[op]
+        else:
+            self.op = op
         self.value = value
 
     def __str__(self):
@@ -66,12 +69,13 @@ class Predicate:
                 return dic[self.key] == self.value or self.value.startswith('%s.' % dic[self.key])
             else:
                 return (dic[self.key] >= self.value)
-        elif self.op == _and:
+        elif self.op == and_:
             return (dic[self.key] & self.value) # array ?
-        elif self.op == _or:
+        elif self.op == or_:
             return (dic[self.key] | self.value) # array ?
         elif self.op == contains:
-            match = (self.value in dic[self.key])  # XXX
+            method, subfield = self.key.split('.', 1)
+            return not not [ x for x in dic[method] if x[subfield] == self.value] 
         else:
             raise Exception, "Unexpected table format: %r", dic
 
@@ -96,9 +100,7 @@ class Predicate:
                 # 1..N relationships
                 match = False
                 if self.op == contains:
-                    # Set operations
-                    match = (v in dic[k])  # XXX
-                    return dic if match else None
+                    return dic if self.match(dic) else None
                 else:
                     subpred = Predicate(subfield, self.op, self.value)
                     dic[method] = subpred.filter(dic[method])
@@ -150,68 +152,15 @@ class Filter(set):
         return set([x.key for x in self])
 
 
-    def match(self, dic):
+    def filter(self, dic):
         # We suppose if a field is in filter, it is therefore in the dic
         match = True
         print "===== FILTER ====="
 
         # We go through every filter sequentially
         for predicate in self:
-            k, op, v = predicate.get_tuple()
-            print "FILTER matching predicate [", k, op, v, "],"
-
-            # users.person_hrn', '}', 'MY_USER_HRN'
-            if '.' in k:
-                method, subfields = k.split('.', 1)
-                if method not in dic:
-                    return False
-            else:
-                if k not in dic:
-                    return False
-            print "op = ", op
-            if op == eq:
-                if isinstance(v, list):
-                    match &= (dic[k] in v) # array ?
-                else:
-                    match &= (dic[k] == v)
-            elif op == ne:
-                if isinstance(v, list):
-                    match &= (dic[k] not in v) # array ?
-                else:
-                    match &= (dic[k] != v) # array ?
-            elif op == lt:
-                if isinstance(v, StringTypes):
-                    # prefix match
-                    match &= dic[k].startswith('%s.' % v)
-                else:
-                    match &= (dic[k] < v)
-            elif op == le:
-                if isinstance(v, StringTypes):
-                    match &= dic[k] == v or dic[k].startswith('%s.' % v)
-                else:
-                    match &= (dic[k] <= v)
-            elif op == gt:
-                if isinstance(v, StringTypes):
-                    # prefix match
-                    match &= v.startswith('%s.' % dic[k])
-                else:
-                    match &= (dic[k] > v)
-            elif op == ge:
-                if isinstance(v, StringTypes):
-                    # prefix match
-                    match &= dic[k] == v or v.startswith('%s.' % dic[k])
-                else:
-                    match &= (dic[k] >= v)
-            elif op == _and:
-                match &= (dic[k] & v) # array ?
-            elif op == _or:
-                match &= (dic[k] | v) # array ?
-            elif op == contains:
-                print "contains: v (", v, ") in dic[k]", dic[k]
-                match &= (v in dic[k])
-            if not match:
-                return False
-        return match
+            dic = predicate.filter(dic)
+        return dic
 
 class OldFilter(Parameter, dict):
     """

@@ -1,6 +1,7 @@
 import os, sys
 import xml.etree.cElementTree as ElementTree
 
+from copy import deepcopy
 import traceback
 import threading
 from twisted.internet import defer
@@ -17,6 +18,8 @@ from tophat.gateways import *
 
 class ParameterError(StandardError): pass
 
+UNIT_COST = 1
+
 class Callback:
     def __init__(self, deferred=None, event=None):
         self.results = []
@@ -24,12 +27,12 @@ class Callback:
         self.event=event
 
     def __call__(self, value):
-        print "CALLBACK RECEIVED", value
         if not value:
             if self._deferred:
                 self._deferred.callback(self.results)
             else:
                 self.event.set()
+            return
         # XXX What if we have multiple queries in parallel ?
         # we need to stored everything in separated lists
         self.results.append(value)
@@ -39,14 +42,35 @@ class Table:
     Implements a database table schema.
     """
 
-    def __init__(self, platform, name, fields, keys):
+    def __init__(self, platform, name, fields, keys, partition=None, cost=1):
         self.platform = platform
         self.name = name
         self.fields = fields
         self.keys = keys
+        self.partition = partition # an instance of a Filter
+        # There will also be a list that the platform cannot provide, cf sources[i].fields
+        self.cost = cost
+        if isinstance(self.keys, (list, tuple)):
+            self.keys = frozenset(self.keys)
+        if isinstance(self.fields, (list, tuple)):
+            self.fields = frozenset(self.fields)
 
     def __str__(self):
-        return "<Table name='%s' platform='%s' fields='%r' keys='%r'>" % (self.name, self.platform, self.fields, self.keys)
+        #return "<Table name='%s' platform='%s' fields='%r' keys='%r'>" % (self.name, self.platform, self.fields, self.keys)
+        if self.platform:
+            return "%s::%s" % (self.platform, self.name)
+        else:
+            return self.name
+
+    def get_fields_from_keys(self):
+        fields = []
+        for k in self.keys:
+            if isinstance(k, (list, tuple)):
+                fields.extend(list(k))
+            else:
+                fields.append(k)
+        return fields
+
 
 class THQuery(Query):
     """
@@ -396,7 +420,7 @@ class THLocalRouter(LocalRouter):
     #        print "LAST VALUE =========================================="
     #        self.event.set()
     #    self.results.append(value)
-        
+
     def do_forward(self, query, route, deferred):
         """
         Effectively runs the forwarding of the query to the route
@@ -409,9 +433,284 @@ class THLocalRouter(LocalRouter):
         # Parameter route is ignored temporarily, we compute it naively...
 
         try:
-            qp = self.compute_query_plan(query)
-        except:
+            # EXPERIMENTAL CODE
+
+            def attribute_closure(attributes, fd_set):
+                """
+                Compute the closure of a set of attributes under the set of functional dependencies fd_set
+                """
+                if not isinstance(attributes, (set, frozenset)):
+                    closure = set([attributes])
+                else:
+                    closure = set(attributes)
+                while True:
+                    old_closure = closure.copy()
+                    for y, z in fd_set: # Y -> Z
+                        if y in closure:
+                            closure.add(z)
+                    if old_closure == closure:
+                        break
+                return closure
+    
+            def fd_minimal_cover(fd_set):
+                # replace each FD X -> (A1, A2, ..., An) by n FD X->A1, X->A2, ..., X->An
+                min_cover = set([(y, attr) for y, z in fd_set for attr in z if y != attr])
+                for x, a in min_cover.copy():
+                    reduced_min_cover = set([fd for fd in min_cover if fd != (x,a)])
+                    x_plus = attribute_closure(x, reduced_min_cover)
+                    if x == 'asn':
+                        print "x_plus = ", x_plus
+                    if a in x_plus:
+                        if x == 'asn':
+                            print "reduced : ", min_cover
+                            print "removing: ", x, a
+                            print "to : ", reduced_min_cover
+                        min_cover = reduced_min_cover
+                for x, a in min_cover:
+                    if isinstance(x, frozenset):
+                        for b in x:
+                            # Compute (X-B)+ with respect to (G-(X->A)) U ((X-B)->A) = S
+                            x_minus_b = frozenset([i for i in x if i != b])
+                            s = set([fd for fd in min_cover if fd != (x,a)])
+                            s.add((x_minus_b, a))
+                            x_minus_b_plus = attribute_closure(x_minus_b, s) 
+                            if b in x_minus_b_plus:
+                                reduced_min_cover = set([fd for fd in min_cover if fd != (x,a)])
+                                min_cover = reduced_min_cover
+                                min_cover.add( (x_minus_b, a) )
+                return min_cover
+
+            def to_3nf(tables):
+                # Build the set of functional dependencies
+                fd_set = set([(key, g.fields) for g in tables for key in g.keys])
+                print "I: fd_set built"
+
+                # Find a minimal cover
+                fd_set = fd_minimal_cover(fd_set)
+                print "I: minimal cover done"
+                
+                # For each set of FDs in G of the form (X->A1, X->A2, ... X->An)
+                # containing all FDs in G with the same determinant X ...
+                determinants = {}
+                for x, a in fd_set:
+                    if not x in determinants:
+                        determinants[x] = set([])
+                    determinants[x].add(a)
+                print "I: determinants ok"
+
+                # ... create relaton R = (X, A1, A2, ..., An)
+                relations = []
+                for x, y in determinants.items():
+                    # Platform list and names for the corresponding key x and values
+                    sources = [t for t in tables if x in t.keys]
+                    p = [s.platform for s in sources]
+                    n = list(sources)[0].name
+                    # Note, we do not manage multiple keys here...
+                    fields = list(y)
+                    if isinstance(x, frozenset):
+                        fields.extend(list(x))
+                    else:
+                        fields.append(x)
+                    t = Table(','.join(p), n, fields, [x])
+                    print "TABLE", x, " -- ", fields
+                    relations.append(t)
+                return relations
+                
+            tables = self.rib.keys() # HUM
+            print tables
+            tables_3nf = to_3nf(tables)
+            for t in tables_3nf:
+                print t, t.fields
+
+            import networkx as nx
+            import matplotlib.pyplot as plt
+
+            G_nf = nx.DiGraph() 
+            for table in tables_3nf:
+                sources = [t for t in tables if list(table.keys)[0] in t.keys]
+                G_nf.add_node(table, {'sources': sources})
+
+                for node, data in G_nf.nodes(True):
+                    if node == table: # or set(node.keys) & set(table.keys):
+                        continue
+
+                    # FK -> local.PK
+                    link = False
+                    for k in table.keys:
+                        # Checking for the presence of each key of the table in previously inserted tables
+                        if isinstance(k, frozenset):
+                            if set(k) <= set(node.fields): # Multiple key XXX
+                                link = True
+                        else:
+                            if k in node.fields:
+                                link = True
+                    if link:
+                        #print "EDGE: %s -> %s" % (node, table)
+                        G_nf.add_edge(node, table, {'cost': True})
+                    
+                    # local.FK -> PK
+                    link = False
+                    for k in node.keys:
+                        if isinstance(k, frozenset):
+                            if set(k) <= set(t.fields): # Multiple key XXX
+                                link = True
+                        else:
+                            if k in table.fields:
+                                link = True
+                    if link:
+                        #print "EDGE: %s -> %s" % (table, node)
+                        G_nf.add_edge(table, node, {'cost': True})
+
+            #nx.draw_graphviz(G_nf)
+            #plt.show()
+
+            # Let's extract the query tree rooted at the fact table
+            from networkx.algorithms.traversal.depth_first_search import dfs_tree, dfs_edges
+            root = [node[0] for node in G_nf.nodes(True) if node[0].name == query.fact_table]
+            if not root:
+                raise Exception, "no root found"
+            print "root=", root
+            root = root[0]
+
+            print "nodes dict"
+            nodes = dict(G_nf.nodes(True))
+
+            print "building first tree"
+            # Does not preserve data !!!
+            tree_edges = [e for e in dfs_edges(G_nf, root)]
+            tree = nx.DiGraph(tree_edges)
+            # add data to tree nodes
+
+            #nx.draw_graphviz(tree)
+            #plt.show()
+
+
+            # *** Compute the query plane ***
+            print "compute query plane in tree"
+            for node in tree.nodes():
+                data = nodes[node]
+                if 'visited' in data and data['visited']:
+                    break;
+                if (set(query.fields) & set(node.fields)):
+                    # mark all nodes until we reach the root (no pred) or a marked node
+                    cur_node = node
+                    # XXX DiGraph.predecessors_iter(n)
+                    while True:
+                        if 'visited' in data and data['visited']:
+                            break
+                        data['visited'] = True
+                        print "marking %s as visited" % cur_node
+                        pred = tree.predecessors(cur_node)
+                        if not pred:
+                            break
+                        cur_node = pred[0]
+                        data = nodes[cur_node]
+
+            visited_tree_edges = [e for e in tree_edges if 'visited' in nodes[e[0]] and 'visited' in nodes[e[1]]]
+            print ["%s %s" % (s,e) for s,e in visited_tree_edges]
+            print "Building tree of visited nodes"
+            tree = nx.DiGraph(visited_tree_edges)
+                        
+            # Now we have marked all interesting tables/nodes
+            #for root in self.predecessors_iter(nodes[0]):
+            #    pass
+
+            # This is a first, non optimal attempt
+            from tophat.core.ast import AST
+
+            # Necessary fields are the one in the query augmented by the keys in the filters
+            needed_fields = set(query.fields)
+            if query.filters:
+                needed_fields.update(query.filters.keys())
+
+            def get_table_max_fields(fields, tables):
+                maxfields = 0
+                ret = (None, None)
+                for t in tables:
+                    isect = set(fields).intersection(t.fields)
+                    if len(isect) > maxfields:
+                        maxfields = len(isect)
+                        ret = (t, isect)
+                return ret
+
+            qp = None
+            root = True
+            for s, e in visited_tree_edges:
+                # We start at the root if necessary
+                if root:
+                    local_fields = set(needed_fields) & s.fields
+                    # We add fields necessary for performing joins = keys of all the children
+                    # XXX does not work for multiple keys
+                    for ss,ee in visited_tree_edges:
+                        if ss == s:
+                            local_fields.update(ee.keys)
+                    # We adopt a greedy strategy to get the required fields (temporary)
+                    # We assume there are no partitions
+                    first_join = True
+                    left = AST()
+                    sources = nodes[s]['sources'][:]
+                    while True:
+                        max_table, max_fields = get_table_max_fields(local_fields, sources)
+                        if not max_table:
+                            raise Exception, 'get_table_max_fields error: should not occur'
+                        sources.remove(max_table)
+                        if first_join:
+                            left = AST()
+                            left = left.From(max_table, list(max_fields))
+                            first_join = False
+                        else:
+                            right = AST().From(max_table, list(max_fields))
+                            left = left.join(right, iter(s.keys).next())
+                        local_fields.difference_update(max_fields)
+                        needed_fields.difference_update(max_fields)
+                        if not local_fields:
+                            break
+                        # readd the key
+                        local_fields.add(iter(s.keys).next())
+                    qp = left
+                    root = False
+
+                # Proceed with the JOIN
+                local_fields = set(needed_fields) & e.fields
+                # We add fields necessary for performing joins = keys of all the children
+                # XXX does not work for multiple keys
+                for ss,ee in visited_tree_edges:
+                    if ss == e:
+                        local_fields.update(ee.keys)
+
+                # We adopt a greedy strategy to get the required fields (temporary)
+                # We assume there are no partitions
+                first_join = True
+                left = AST()
+                sources = nodes[e]['sources'][:]
+                while True:
+                    max_table, max_fields = get_table_max_fields(local_fields, sources)
+                    if not table:
+                        break;
+                    if first_join:
+                        left = AST().From(max_table, list(max_fields))
+                        first_join = False
+                    else:
+                        right = AST().From(max_table, list(max_fields))
+                        left = left.join(right, iter(e.keys).next())
+                    local_fields.difference_update(max_fields)
+                    needed_fields.difference_update(max_fields)
+                    if not local_fields:
+                        break
+                    # readd the key
+                    local_fields.add(iter(e.keys).next())
+
+                qp = qp.join(left, iter(e.keys).next()) # XXX
+                
+            # END EXPERIMENTAL CODE
+
+            # FORMER QUERY PLAN COMPUTATION
+            #qp = self.compute_query_plan(query)
+
+        except Exception ,e:
+            print "Exception in do_forward", e
             return []
+
         print ""
         print "QUERY PLAN:"
         print "-----------"
@@ -429,10 +728,8 @@ class THLocalRouter(LocalRouter):
         if deferred:
             return d
 
-        self.event.wait()
+            self.event.wait()
         self.event.clear()
-        for r in cb.results:
-            print "R: ", r
         return cb.results
 
 class THRouter(THLocalRouter, Router):

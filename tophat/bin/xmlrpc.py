@@ -38,17 +38,6 @@ class TopHatAPI(xmlrpc.XMLRPC):
 
         table = router.forward(query, deferred=True)
 
-        # Transform tuples into dict
-        #out = []
-        #for row in table:
-        #    dic = {}
-        #    cpt = 0
-        #    for value in row:
-        #        dic[query.fields[cpt]] = value
-        #        cpt += 1
-        #    print "DICT", dic
-        #    out.append(dic)
-        #    #dict(r))
         return table
 
 def main():
