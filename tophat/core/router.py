@@ -615,7 +615,8 @@ class THLocalRouter(LocalRouter):
             #for root in self.predecessors_iter(nodes[0]):
             #    pass
 
-            # This is a first, non optimal attempt
+            # This is a first, non optimal attempt. In particular, we do not
+            # handle subqueries (1..N relationships) in an automatic way
             from tophat.core.ast import AST
 
             # Necessary fields are the one in the query augmented by the keys in the filters
