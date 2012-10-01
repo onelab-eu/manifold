@@ -530,10 +530,13 @@ class THLocalRouter(LocalRouter):
                 sources = [t for t in tables if list(table.keys)[0] in t.keys]
                 G_nf.add_node(table, {'sources': sources})
 
+                # We loop through the different _nodes_ of the graph to see whether
+                # we need to establish some links
                 for node, data in G_nf.nodes(True):
                     if node == table: # or set(node.keys) & set(table.keys):
                         continue
 
+                    # Another table is pointing to the considered _table_:
                     # FK -> local.PK
                     link = False
                     for k in table.keys:
@@ -548,21 +551,30 @@ class THLocalRouter(LocalRouter):
                         #print "EDGE: %s -> %s" % (node, table)
                         G_nf.add_edge(node, table, {'cost': True})
                     
+                    # The considered _table_ has a pointer to the primary key of another table
                     # local.FK -> PK
                     link = False
+                    # Testing for each possible key of the _node_
                     for k in node.keys:
                         if isinstance(k, frozenset):
                             if set(k) <= set(t.fields): # Multiple key XXX
                                 link = True
                         else:
+                            # the considered key _k_ is a simple field
                             if k in table.fields:
                                 link = True
+
                     if link:
                         #print "EDGE: %s -> %s" % (table, node)
                         G_nf.add_edge(table, node, {'cost': True})
 
-            #nx.draw_graphviz(G_nf)
-            #plt.show()
+                    # If _table_ names the object _node_ 1..N (or 1..1)
+                    if node.name in table.fields:
+                        G_nf.add_edge(table, node, {'cost': True, 'type': '1..N'})
+    
+
+            nx.draw_graphviz(G_nf)
+            plt.show()
 
             # Let's extract the query tree rooted at the fact table
             from networkx.algorithms.traversal.depth_first_search import dfs_tree, dfs_edges
@@ -581,8 +593,8 @@ class THLocalRouter(LocalRouter):
             tree = nx.DiGraph(tree_edges)
             # add data to tree nodes
 
-            #nx.draw_graphviz(tree)
-            #plt.show()
+            nx.draw_graphviz(tree)
+            plt.show()
 
 
             # *** Compute the query plane ***
@@ -595,6 +607,7 @@ class THLocalRouter(LocalRouter):
                     # mark all nodes until we reach the root (no pred) or a marked node
                     cur_node = node
                     # XXX DiGraph.predecessors_iter(n)
+                        link = True
                     while True:
                         if 'visited' in data and data['visited']:
                             break
