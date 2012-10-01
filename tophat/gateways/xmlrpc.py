@@ -1,20 +1,20 @@
 # Inspired from http://twistedmatrix.com/documents/10.1.0/web/howto/xmlrpc.html
 
 from twisted.web.xmlrpc import Proxy
-from tophat.core.nodes import SourceNode
+from tophat.core.ast import FromNode
 from twisted.internet import reactor
 
 
 
-class XMLRPC(SourceNode):
+class XMLRPC(FromNode):
 
     def __str__(self):
         return "<XMLRPCGateway %s %s>" % (self.config['url'], self.query)
 
     def success_cb(self, table):
         for record in table:
-            self._callback(record)
-        self._callback(None)
+            self.callback(record)
+        self.callback(None)
 
     def exception_cb(self, error):
         print 'Error during XMLRPC call: ', error

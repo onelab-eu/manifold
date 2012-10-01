@@ -12,7 +12,7 @@ import BeautifulSoup
 import hashlib
 import zlib
 
-from tophat.core.nodes import SourceNode
+from tophat.core.ast import FromNode
 from tophat.util.faults import *
 
 from tophat.core.MySliceCredential import MySliceCredential, MySliceCredentials
@@ -211,7 +211,7 @@ import uuid
 def unique_call_id(): return uuid.uuid4().urn
 
 
-class SFA(SourceNode):
+class SFA(FromNode):
 
 ################################################################################
 # BEGIN SFA CODE
@@ -1335,8 +1335,9 @@ class SFA(SourceNode):
 # END SFA CODE
 ################################################################################
 
-    def __init__(self, callback, platform, query, config):
-        SourceNode.__init__(self, callback, platform, query, config)
+    def __init__(self, platform, query, config):
+#        FromNode.__init__(self, platform, query, config)
+        super(SFA, self).__init__(platform, query, config)
 
         # self.config has always ['caller']
 
@@ -1378,7 +1379,7 @@ class SFA(SourceNode):
 
 #    def success_cb(self, table):
 #        for record in table:
-#            self._callback(record)
+#            self.callback(record)
 #
 #    def exception_cb(self, error):
 #        print 'Error during SFA call: ', error
@@ -1394,8 +1395,8 @@ class SFA(SourceNode):
         for r in result:
             if 'resources' in r:
                 r['resources'] = '** replaced in filter.py **'
-            self._callback(r)
-        self._callback(None)
+            self.callback(r)
+        self.callback(None)
 
 #def sfa_get(api, caller, method, ts, input_filter = None, output_fields = None):
 #    sfa = Sfa(api, caller)

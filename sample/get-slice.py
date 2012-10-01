@@ -4,7 +4,7 @@
 import sys
 import xmlrpclib
 
-query = ('get', 'slice', [], {}, ['slice_hrn', 'resources.hostname'])
+query = ('get', 'slice', [], {}, ['slice_hrn', 'resource.hostname'])
 
 def print_result(result):
     cpt = 0

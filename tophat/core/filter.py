@@ -151,6 +151,11 @@ class Filter(set):
     def keys(self):
         return set([x.key for x in self])
 
+    def has_key(self, key):
+        for x in self:
+            if x.key == key:
+                return True
+        return False
 
     def filter(self, dic):
         # We suppose if a field is in filter, it is therefore in the dic

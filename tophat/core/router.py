@@ -6,13 +6,18 @@ import traceback
 import threading
 from twisted.internet import defer
 
+import networkx as nx
+import matplotlib.pyplot as plt
+from networkx.algorithms.traversal.depth_first_search import dfs_tree, dfs_edges
+
 from tophat.util.xmldict import *
 from tophat.util.reactor_thread import ReactorThread
-from tophat.core.filter import Filter
+from tophat.core.filter import Filter, Predicate
 from tophat.core.param import Param
 from tophat.router import *
 from tophat.core.sourcemgr import SourceManager
 from tophat.gateways import *
+from tophat.core.ast import AST
 
 #from tophat.models import session, Platform
 
@@ -291,7 +296,7 @@ class THLocalRouter(LocalRouter):
             #print "Adding %s::%s to RIB" % (platform, name)
             self.rib[t] = platform
 
-    def get_gateway(self, platform, cb, query):
+    def get_gateway(self, platform, table, fields):
         config_tophat = {
             'url': 'http://api.top-hat.info/API/'
         }
@@ -307,11 +312,12 @@ class THLocalRouter(LocalRouter):
             'caller': {'email': 'demo'}
         }
 
+        query = THQuery('get', table, [], {}, fields)
         class_map = { 'ple': (SFA, config_ple) , 'tophat': (XMLRPC, config_tophat), 'myslice': (XMLRPC, config_myslice) }
 
         try:
             cls, conf = class_map[platform]
-            return cls(cb, platform, query, conf)
+            return cls(platform, query, conf)
         except KeyError, key:
             raise Exception, "Platform missing '%s'" % key
 
@@ -341,6 +347,12 @@ class THLocalRouter(LocalRouter):
                 ret = (dest, isect)
         return ret
 
+    def metadata_get_keys(self, table_name):
+        for t in self.rib.keys(): # HUM
+            if t.name == table_name:
+                return t.keys
+        return None
+
     def compute_query_plan(self, query):
 
         # XXX this should be replaced by a Steiner Tree computation
@@ -359,7 +371,7 @@ class THLocalRouter(LocalRouter):
         fields = set(fields)
          
         # Query plan 
-        qp = AST()
+        qp = AST(self)
         join = False 
 
         # Note: We could skip or restrict the set of platforms, and ask for routing or timing information 
@@ -387,7 +399,7 @@ class THLocalRouter(LocalRouter):
                 qp = qp.From(table, qfields) 
                 join = True 
             else: 
-                r = AST().From(table, qfields) 
+                r = AST(self).From(table, qfields) 
                 # we join on hostname (hardcoded) 
                 qp = qp.join(r, key)
 
@@ -411,9 +423,6 @@ class THLocalRouter(LocalRouter):
         #return list(qp._get()) 
 
 
-    def install_query_plan(self, qp, callback):
-        qp._root.install(self, callback)
-
     #def cb(self, value):
     #    print "callback"
     #    if not value:
@@ -433,8 +442,6 @@ class THLocalRouter(LocalRouter):
         # Parameter route is ignored temporarily, we compute it naively...
 
         try:
-            # EXPERIMENTAL CODE
-
             def attribute_closure(attributes, fd_set):
                 """
                 Compute the closure of a set of attributes under the set of functional dependencies fd_set
@@ -505,7 +512,7 @@ class THLocalRouter(LocalRouter):
                     sources = [t for t in tables if x in t.keys]
                     p = [s.platform for s in sources]
                     n = list(sources)[0].name
-                    # Note, we do not manage multiple keys here...
+                    # Note, we do not manage multiple keys here...d
                     fields = list(y)
                     if isinstance(x, frozenset):
                         fields.extend(list(x))
@@ -515,127 +522,280 @@ class THLocalRouter(LocalRouter):
                     print "TABLE", x, " -- ", fields
                     relations.append(t)
                 return relations
-                
-            tables = self.rib.keys() # HUM
-            print tables
-            tables_3nf = to_3nf(tables)
-            for t in tables_3nf:
-                print t, t.fields
 
-            import networkx as nx
-            import matplotlib.pyplot as plt
+            def build_Gnf(tables_3nf):
+                G_nf = nx.DiGraph() 
+                for table in tables_3nf:
+                    sources = [t for t in tables if list(table.keys)[0] in t.keys]
+                    G_nf.add_node(table, {'sources': sources})
 
-            G_nf = nx.DiGraph() 
-            for table in tables_3nf:
-                sources = [t for t in tables if list(table.keys)[0] in t.keys]
-                G_nf.add_node(table, {'sources': sources})
+                    # We loop through the different _nodes_ of the graph to see whether
+                    # we need to establish some links
+                    for node, data in G_nf.nodes(True):
+                        if node == table: # or set(node.keys) & set(table.keys):
+                            continue
 
-                # We loop through the different _nodes_ of the graph to see whether
-                # we need to establish some links
-                for node, data in G_nf.nodes(True):
-                    if node == table: # or set(node.keys) & set(table.keys):
-                        continue
+                        # Another table is pointing to the considered _table_:
+                        # FK -> local.PK
+                        link = False
+                        for k in table.keys:
+                            # Checking for the presence of each key of the table in previously inserted tables
+                            if isinstance(k, frozenset):
+                                if set(k) <= set(node.fields): # Multiple key XXX
+                                    link = True
+                            else:
+                                if k in node.fields:
+                                    link = True
+                        if link:
+                            print "EDGE: %s -> %s" % (node, table)
+                            G_nf.add_edge(node, table, {'cost': True})
+                        
+                        # The considered _table_ has a pointer to the primary key of another table
+                        # local.FK -> PK
+                        link = False
+                        # Testing for each possible key of the _node_
+                        for k in node.keys:
+                            if isinstance(k, frozenset):
+                                if set(k) <= set(t.fields): # Multiple key XXX
+                                    link = True
+                            else:
+                                # the considered key _k_ is a simple field
+                                if k in table.fields:
+                                    link = True
 
-                    # Another table is pointing to the considered _table_:
-                    # FK -> local.PK
-                    link = False
-                    for k in table.keys:
-                        # Checking for the presence of each key of the table in previously inserted tables
-                        if isinstance(k, frozenset):
-                            if set(k) <= set(node.fields): # Multiple key XXX
-                                link = True
-                        else:
-                            if k in node.fields:
-                                link = True
-                    if link:
-                        #print "EDGE: %s -> %s" % (node, table)
-                        G_nf.add_edge(node, table, {'cost': True})
-                    
-                    # The considered _table_ has a pointer to the primary key of another table
-                    # local.FK -> PK
-                    link = False
-                    # Testing for each possible key of the _node_
-                    for k in node.keys:
-                        if isinstance(k, frozenset):
-                            if set(k) <= set(t.fields): # Multiple key XXX
-                                link = True
-                        else:
-                            # the considered key _k_ is a simple field
-                            if k in table.fields:
-                                link = True
+                        if link:
+                            print "EDGE: %s -> %s" % (table, node)
+                            G_nf.add_edge(table, node, {'cost': True})
 
-                    if link:
-                        #print "EDGE: %s -> %s" % (table, node)
-                        G_nf.add_edge(table, node, {'cost': True})
+                        # If _table_ names the object _node_ 1..N (or 1..1)
+                        if node.name in table.fields:
+                            G_nf.add_edge(table, node, {'cost': True, 'type': '1..N'})
 
-                    # If _table_ names the object _node_ 1..N (or 1..1)
-                    if node.name in table.fields:
-                        G_nf.add_edge(table, node, {'cost': True, 'type': '1..N'})
+                return G_nf
+
+            def get_tree_edges(G_nf, root):
+                return [e for e in dfs_edges(G_nf, root)]
+
+            def get_root(G_nf, query):
+                # Let's extract the query tree rooted at the fact table
+                root = [node[0] for node in G_nf.nodes(True) if node[0].name == query.fact_table]
+                if not root:
+                    raise Exception, "no root found"
+                #print "root=", root
+                root = root[0]
+                return root
     
 
-            nx.draw_graphviz(G_nf)
-            plt.show()
+            def prune_query_tree(tree, tree_edges, nodes, query_fields):
+                # *** Compute the query plane ***
+                print "compute query plane in tree"
+                for node in tree.nodes():
+                    data = nodes[node]
+                    if 'visited' in data and data['visited']:
+                        break;
+                    if (set(query_fields) & set(node.fields)):
+                        # mark all nodes until we reach the root (no pred) or a marked node
+                        cur_node = node
+                        # XXX DiGraph.predecessors_iter(n)
+                            #link = True
+                        while True:
+                            if 'visited' in data and data['visited']:
+                                break
+                            data['visited'] = True
+                            print "marking %s as visited" % cur_node
+                            pred = tree.predecessors(cur_node)
+                            if not pred:
+                                break
+                            cur_node = pred[0]
+                            data = nodes[cur_node]
+                visited_tree_edges = [e for e in tree_edges if 'visited' in nodes[e[0]] and 'visited' in nodes[e[1]]]
+                #print ["%s %s" % (s,e) for s,e in visited_tree_edges]
+                #print "Building tree of visited nodes"
+                #tree = nx.DiGraph(visited_tree_edges)
+                #return tree
+                # clean up
+                for node in tree.nodes():
+                    if 'visited' in nodes[node]:
+                        del nodes[node]['visited']
+                return visited_tree_edges
+    
+            def process_query(query, G_nf):
+                # We process a single query without caring about 1..N
+                # former method
+                nodes = dict(G_nf.nodes(True))
 
-            # Let's extract the query tree rooted at the fact table
-            from networkx.algorithms.traversal.depth_first_search import dfs_tree, dfs_edges
-            root = [node[0] for node in G_nf.nodes(True) if node[0].name == query.fact_table]
-            if not root:
-                raise Exception, "no root found"
-            print "root=", root
-            root = root[0]
+                # Builds the query tree rooted at the fact table
+                root = get_root(G_nf, query)
+                tree_edges = get_tree_edges(G_nf, root)
+                tree = nx.DiGraph(tree_edges)
 
-            print "nodes dict"
-            nodes = dict(G_nf.nodes(True))
+                # Plot it
+                #nx.draw_graphviz(tree)
+                #plt.show()
 
-            print "building first tree"
-            # Does not preserve data !!!
-            tree_edges = [e for e in dfs_edges(G_nf, root)]
-            tree = nx.DiGraph(tree_edges)
-            # add data to tree nodes
+                # Necessary fields are the one in the query augmented by the keys in the filters
+                needed_fields = set(query.fields)
+                if query.filters:
+                    needed_fields.update(query.filters.keys())
+                print "needed fields", needed_fields
 
-            nx.draw_graphviz(tree)
-            plt.show()
+                # Prune the tree from useless tables
+                visited_tree_edges = prune_query_tree(tree, tree_edges, nodes, needed_fields)
+                #tree = prune_query_tree(tree, tree_edges, nodes, needed_fields)
+                if not visited_tree_edges:
+                    # The root is sufficient
+                    print "The root is sufficient"
+                    return AST(self).From(root, needed_fields)
 
+                qp = None
+                root = True
+                for s, e in visited_tree_edges:
+                    # We start at the root if necessary
+                    if root:
+                        print "a"
+                        print s, e
+                        print s.fields
+                        local_fields = set(needed_fields) & s.fields
+                        # We add fields necessary for performing joins = keys of all the children
+                        # XXX does not work for multiple keys
+                        ###print "LOCAL FIELDS", local_fields
+                        ###for ss,ee in visited_tree_edges:
+                        ###    if ss == s:
+                        ###        local_fields.update(ee.keys)
+                        ###print "LOCAL FIELDS", local_fields
 
-            # *** Compute the query plane ***
-            print "compute query plane in tree"
-            for node in tree.nodes():
-                data = nodes[node]
-                if 'visited' in data and data['visited']:
-                    break;
-                if (set(query.fields) & set(node.fields)):
-                    # mark all nodes until we reach the root (no pred) or a marked node
-                    cur_node = node
-                    # XXX DiGraph.predecessors_iter(n)
-                        link = True
+                        if not local_fields:
+                            print "b", local_fields
+                            break
+
+                        # We adopt a greedy strategy to get the required fields (temporary)
+                        # We assume there are no partitions
+                        first_join = True
+                        left = AST(self)
+                        sources = nodes[s]['sources'][:]
+                        while True:
+                            max_table, max_fields = get_table_max_fields(local_fields, sources)
+                            if not max_table:
+                                raise Exception, 'get_table_max_fields error: could not answer fields: %r for query %s' % (local_fields, query)
+                            sources.remove(max_table)
+                            if first_join:
+                                left = AST(self).From(max_table, list(max_fields))
+                                first_join = False
+                            else:
+                                right = AST(self).From(max_table, list(max_fields))
+                                left = left.join(right, iter(s.keys).next())
+                            local_fields.difference_update(max_fields)
+                            needed_fields.difference_update(max_fields)
+                            if not local_fields:
+                                break
+                            # read the key
+                            local_fields.add(iter(s.keys).next())
+                        qp = left
+                        root = False
+
+                    # Proceed with the JOIN
+                    local_fields = set(needed_fields) & e.fields
+                    # We add fields necessary for performing joins = keys of all the children
+                    # XXX does not work for multiple keys
+                    for ss,ee in visited_tree_edges:
+                        if ss == e:
+                            local_fields.update(ee.keys)
+
+                    if not local_fields:
+                        return qp
+
+                    # We adopt a greedy strategy to get the required fields (temporary)
+                    # We assume there are no partitions
+                    first_join = True
+                    left = AST(self)
+                    sources = nodes[e]['sources'][:]
                     while True:
-                        if 'visited' in data and data['visited']:
+                        max_table, max_fields = get_table_max_fields(local_fields, sources)
+                        if not max_table:
+                            print "break max table 2"
+                            break;
+                        if first_join:
+                            left = AST(self).From(max_table, list(max_fields))
+                            first_join = False
+                        else:
+                            right = AST(self).From(max_table, list(max_fields))
+                            left = left.join(right, iter(e.keys).next())
+                        local_fields.difference_update(max_fields)
+                        needed_fields.difference_update(max_fields)
+                        if not local_fields:
                             break
-                        data['visited'] = True
-                        print "marking %s as visited" % cur_node
-                        pred = tree.predecessors(cur_node)
-                        if not pred:
-                            break
-                        cur_node = pred[0]
-                        data = nodes[cur_node]
+                        # readd the key
+                        local_fields.add(iter(e.keys).next())
 
-            visited_tree_edges = [e for e in tree_edges if 'visited' in nodes[e[0]] and 'visited' in nodes[e[1]]]
-            print ["%s %s" % (s,e) for s,e in visited_tree_edges]
-            print "Building tree of visited nodes"
-            tree = nx.DiGraph(visited_tree_edges)
-                        
-            # Now we have marked all interesting tables/nodes
-            #for root in self.predecessors_iter(nodes[0]):
-            #    pass
+                    qp = qp.join(left, iter(e.keys).next()) # XXX
+                return qp
+                
+            # END EXPERIMENTAL CODE
 
-            # This is a first, non optimal attempt. In particular, we do not
-            # handle subqueries (1..N relationships) in an automatic way
-            from tophat.core.ast import AST
+            # FORMER QUERY PLAN COMPUTATION
+            #qp = self.compute_query_plan(query)
 
-            # Necessary fields are the one in the query augmented by the keys in the filters
-            needed_fields = set(query.fields)
-            if query.filters:
-                needed_fields.update(query.filters.keys())
+
+
+            def process_subqueries(query, G_nf):
+                qp = AST(self)
+
+                cur_filters = []
+                cur_params = []
+                cur_fields = []
+                subq = {}
+
+                # XXX there are some parameters that will be answered by the parent !!!! no need to request them from the children !!!!
+                # XXX XXX XXX XXX XXX XXX ex slice.resource.PROPERTY
+
+                for pred in query.filters:
+                    if '.' in pred.key:
+                        method, subkey = pred.key.split('.', 1)
+                        if not method in subq:
+                            subq[method] = {}
+                        if not 'filters' in subq[method]:
+                            subq[method]['filters'] = []
+                        subq[method]['filters'].append(Predicate(subkey, pred.op, pred.value))
+                    else:
+                        cur_filters.append(pred)
+
+                # TODO params
+
+                for field in query.fields:
+                    if '.' in field:
+                        method, subfield = field.split('.', 1)
+                        if not method in subq:
+                            subq[method] = {}
+                        if not 'fields' in subq[method]:
+                            subq[method]['fields'] = []
+                        subq[method]['fields'].append(subfield)
+                    else:
+                        cur_fields.append(field)
+
+                children_ast = []
+                for method, subquery in subq.items():
+                    # We need to add the keys of each subquery
+                    # 
+                    # We append the method name (eg. resources) which should return the list of keys
+                    # (and eventually more information, but they will be ignored for the moment)
+                    if not method in cur_fields:
+                        cur_fields.append(method)
+
+                    # Recursive construction of the processed subquery
+                    subfilters = subquery['filters'] if 'filters' in subquery else []
+                    subparams = subquery['params'] if 'params' in subquery else []
+                    subfields = subquery['fields'] if 'fields' in subquery else []
+                    subquery = THQuery(query.action, method, subfilters, subparams, subfields)
+                    # XXX TODO we need callbacks between subqueries
+                    child_ast = process_subqueries(subquery, G_nf)
+                    children_ast.append(child_ast)
+
+                parent = THQuery(query.action, query.fact_table, cur_filters, cur_params, cur_fields)
+                print "processing query parent", parent
+                parent_ast = process_query(parent, G_nf)
+                qp = parent_ast
+                qp.subquery(children_ast)
+                return qp
 
             def get_table_max_fields(fields, tables):
                 maxfields = 0
@@ -647,84 +807,35 @@ class THLocalRouter(LocalRouter):
                         ret = (t, isect)
                 return ret
 
-            qp = None
-            root = True
-            for s, e in visited_tree_edges:
-                # We start at the root if necessary
-                if root:
-                    local_fields = set(needed_fields) & s.fields
-                    # We add fields necessary for performing joins = keys of all the children
-                    # XXX does not work for multiple keys
-                    for ss,ee in visited_tree_edges:
-                        if ss == s:
-                            local_fields.update(ee.keys)
-                    # We adopt a greedy strategy to get the required fields (temporary)
-                    # We assume there are no partitions
-                    first_join = True
-                    left = AST()
-                    sources = nodes[s]['sources'][:]
-                    while True:
-                        max_table, max_fields = get_table_max_fields(local_fields, sources)
-                        if not max_table:
-                            raise Exception, 'get_table_max_fields error: should not occur'
-                        sources.remove(max_table)
-                        if first_join:
-                            left = AST()
-                            left = left.From(max_table, list(max_fields))
-                            first_join = False
-                        else:
-                            right = AST().From(max_table, list(max_fields))
-                            left = left.join(right, iter(s.keys).next())
-                        local_fields.difference_update(max_fields)
-                        needed_fields.difference_update(max_fields)
-                        if not local_fields:
-                            break
-                        # readd the key
-                        local_fields.add(iter(s.keys).next())
-                    qp = left
-                    root = False
+            def run_query(query):
+                output = []
+                print "run_query"
+                return output
 
-                # Proceed with the JOIN
-                local_fields = set(needed_fields) & e.fields
-                # We add fields necessary for performing joins = keys of all the children
-                # XXX does not work for multiple keys
-                for ss,ee in visited_tree_edges:
-                    if ss == e:
-                        local_fields.update(ee.keys)
+            # BUILD THE QUERY PLAN
+            #######################
 
-                # We adopt a greedy strategy to get the required fields (temporary)
-                # We assume there are no partitions
-                first_join = True
-                left = AST()
-                sources = nodes[e]['sources'][:]
-                while True:
-                    max_table, max_fields = get_table_max_fields(local_fields, sources)
-                    if not table:
-                        break;
-                    if first_join:
-                        left = AST().From(max_table, list(max_fields))
-                        first_join = False
-                    else:
-                        right = AST().From(max_table, list(max_fields))
-                        left = left.join(right, iter(e.keys).next())
-                    local_fields.difference_update(max_fields)
-                    needed_fields.difference_update(max_fields)
-                    if not local_fields:
-                        break
-                    # readd the key
-                    local_fields.add(iter(e.keys).next())
+            tables = self.rib.keys() # HUM
+            tables_3nf = to_3nf(tables)
+            for t in tables_3nf:
+                print t, t.fields
 
-                qp = qp.join(left, iter(e.keys).next()) # XXX
-                
-            # END EXPERIMENTAL CODE
+            # Creates a join graph from the tables in normalized format
+            G_nf = build_Gnf(tables_3nf)
 
-            # FORMER QUERY PLAN COMPUTATION
-            #qp = self.compute_query_plan(query)
+            # Plot it
+            #nx.draw_graphviz(G_nf)
+            #plt.show()
+
+            qp = process_subqueries(query, G_nf)
+
 
         except Exception ,e:
             print "Exception in do_forward", e
+            traceback.print_exc()
             return []
-
+            
+        # We should now have a query plan
         print ""
         print "QUERY PLAN:"
         print "-----------"
@@ -735,16 +846,17 @@ class THLocalRouter(LocalRouter):
         print "I: Install query plan."
         d = defer.Deferred() if deferred else None
         cb = Callback(d, self.event)
-        self.install_query_plan(qp, cb)
+        qp.start()
 
         self.sourcemgr.run()
 
         if deferred:
             return d
 
-            self.event.wait()
+        self.event.wait()
         self.event.clear()
         return cb.results
+
 
 class THRouter(THLocalRouter, Router):
     pass

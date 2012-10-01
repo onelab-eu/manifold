@@ -3,119 +3,302 @@
 
 import itertools
 
-from tophat.core.router import THQuery
-from tophat.core.nodes import *
+#from tophat.core.nodes import *
 
 class Node(object):
-    def __init__(self):
-        pass
+    #def __init__(self):
+    #    pass
 
-    def _get(self):
-        yield None
+    def set_callback(self, callback):
+        self.callback = callback
 
-class BinaryNode(Node):
-    def __init__(self, left, right):
-        self._left = left
-        self._right = right
+class FromNode(Node):
 
-#    def children(self):
-#        return [self._left, self._right]
+    def __init__(self, platform, query, config):
+        self.platform = platform
+        self.query = query
+        self.config = config
+        self.do_start = False
+        self.started = False
+        self.callback = None
+
+    def dump(self, indent):
+        print ' ' * indent * 4, "SELECT %r FROM '%s'" % (self.query.fields, self.query.fact_table)
+
+    def install(self, router, callback, start):
+        self.router = router
+        node = router.get_gateway(self.table.platform, self.table.name, self.fields)
+        node.do_start = start
+        self._source_id = router.sourcemgr.append(node, start=start)
+        return node
+
+    def start(self):
+        if self.router and self._source_id:
+            self.router.start(self._source_id)
         
 
-class UnaryNode(Node):
-    def __init__(self, node):
-        self._node = node
-
-    def _get(self):
-        return self._node._get()
-
-class LeafNode(Node):
-    def __init__(self):
-        pass
-
-
-class From(LeafNode):
-
-    def __init__(self, table, fields):
-        super(From, self).__init__()
-        self.table = table
-        self.fields = fields
-
-    def dump(self, indent):
-        print ' ' * indent * 4, "SELECT %r FROM '%s'" % (self.fields, self.table)
-
-    def install(self, router, callback):
-        node = router.get_gateway(self.table.platform, callback, THQuery('get', self.table.name, [], {}, self.fields))
-        router.sourcemgr.append(node)
-        return node
-
-class Join(BinaryNode):
+class Join(Node):
 
     def __init__(self, left, right, predicate):
-        super(Join, self).__init__(left, right)
-        self._predicate = predicate
-        self.left_done = False
-        self.right_done = False
+        self.callback = None
+        print "JOIN", left, right
+        # Parameters
+        self.left = left
+        self.right = right
+        self.predicate = predicate
+        # Set up callbacks
+        left.callback = self.left_callback
+        right.callback = self.right_callback
+        # Local variables
         self.right_map = {}
+        self.right_done = False
+        self.left_done = False
+        self.left_table = []
 
-    def install(self, router, callback):
-        node = JoinNode(self._predicate, callback)
-        node.children = []
-        node.children.append(self._left.install(router, node.left_callback))
-        node.children.append(self._right.install(router, node.right_callback))
-        return node
+    def start(self):
+        self.left.start()
+        self.right.start()
 
 
     def dump(self, indent):
-        self._left.dump(indent+1)
-        print ' ' * indent * 4, "JOIN", self._predicate
-        self._right.dump(indent+1)
+        self.left.dump(indent+1)
+        print ' ' * indent * 4, "JOIN", self.predicate
+        self.right.dump(indent+1)
 
-class Projection(UnaryNode):
+    def left_callback(self, record):
+        try:
+            if not record:
+                self.left_done = True
+                if self.right_done:
+                    self.callback(None) 
+                return
+            # New result from the left operator
+            if self.right_done:
+                if self.left_table:
+                    self.process_left_table()
+                    self.left_table = []
+                self.process_left_record(record)
+            else:
+                self.left_table.append(record)
+        except Exception, e:
+            print "Exception during JoinNode::left_callback(%r): %s" % (record, e)
+            traceback.print_exc()
+
+    def process_left_record(self, record):
+        # We cannot join because the left has no key
+        if self.predicate not in record:
+            self.callback(record)
+            return
+        if record[self.predicate] in self.right_map:
+            record.update(self.right_map[record[self.predicate]])
+            del self.right_map[record[self.predicate]]
+        self.callback(record)
+        # Handling remaining values from JOIN
+        # XXX This is not a left join !!
+        #for r in self.right_map.values():
+        #    yield r
+        #print "left[%s] = %d, right[%s] = %d" % (self.left._node, cptl, self.right._node, cptr)
+
+    def process_left_table(self):
+        for record in self.left_table:
+            self.process_left_record(record)
+
+    def right_callback(self, record):
+        try:
+            #print "right callback", record
+            # We need to send a NULL record to signal the end of the table
+            if not record:
+                self.right_done = True
+                if self.left_done:
+                    self.process_left_table()
+                    self.callback(None)
+                return
+            # New result from the right operator
+            #
+            # Let's build a map according to predicate = simple field name to begin with
+            if self.predicate not in record or not record[self.predicate]:
+                # We skip records with missing join information
+                return
+            self.right_map[record[self.predicate]] = record
+        except Exception, e:
+            print "Exception during JoinNode::right_callback(%r): %s" % (record, e)
+            traceback.print_exc()
+
+class Projection(Node):
 
     def __init__(self, node, fields):
-        super(Projection, self).__init__(node)
-        self._fields = fields
+        self.callback = None
+        self.node = node
+        self.fields = fields
+        # Set up callbacks
+        self.node.callback = self.callback
 
     def dump(self, indent):
-        print ' ' * indent * 4, "SELECT [%s]" % self._fields
-        self._node.dump(indent+1)
+        print ' ' * indent * 4, "SELECT [%s]" % self.fields
+        self.node.dump(indent+1)
 
-    def install(self, router, callback):
-        node = ProjectionNode(self._fields, callback)
-        node.children = [self._node.install(router, node.callback)]
-        return node
+    def start(self):
+        self.node.start()
 
-#    def _get(self):
-#        for row in self._node._get():
-#            res = {}
-#            for k, v in row.items():
-#                if k in self._fields:
-#                    res[k] = v
-#            yield res
+    def callback(self, record):
+
+        def local_projection(record, fields):
+            """
+            Take the necessary fields in dic
+            """
+            ret = {}
+
+            # 1/ split subqueries
+            local = []
+            subqueries = {}
+            for f in fields:
+                if '.' in f:
+                    method, subfield = f.split('.', 1)
+                    if not method in subqueries:
+                        subqueries[method] = []
+                    subqueries[method].append(subfield)
+                else:
+                    local.append(f)
+            
+            # 2/ process local fields
+            for l in local:
+                ret[l] = record[l] if l in record else None
+
+            # 3/ recursively process subqueries
+            for method, subfields in subqueries.items():
+                # record[method] is an array whose all elements must be
+                # filtered according to subfields
+                arr = []
+                for x in record[method]:
+                    arr.append(local_projection(x, subfields))
+                ret[method] = arr
+
+            return ret
+
+        try:
+            if not record:
+                self.callback(record)
+                return
+            ret = local_projection(record, self.fields)
+            self.callback(ret)
+
+        except Exception, e:
+            print "Exception during ProjectionNode::callback(%r): %s" % (record, e)
+            traceback.print_exc()
 
 
-class Selection(UnaryNode):
+class Selection(Node):
 
     def __init__(self, node, filters):
-        super(Selection, self).__init__(node)
-        self._filters = filters
+        self.callback = None
+        self.node = node
+        self.filters = filters
 
     def dump(self, indent):
-        print ' ' * indent * 4, "WHERE %s"  % self._filters
-        self._node.dump(indent+1)
+        print ' ' * indent * 4, "WHERE %s"  % self.filters
+        self.node.dump(indent+1)
 
-    def install(self, router, callback):
-        node = SelectionNode(self._filters, callback)
-        node.children = [self._node.install(router, node.callback)]
-        return node
+    def start(self):
+        self.node.start()
 
-#    def _get(self):
-#        for row in self._node._get():
-#            if not match_filters(row, self._filters):
-#                continue
-#            yield row
-    
+    def callback(self, record):
+        try:
+            if not record:
+                self.callback(record)
+                return 
+            if self.filters:
+                record = self.filters.filter(record)
+            self.callback(record)
+        except Exception, e:
+            print "Exception during SelectionNode::callback: %s" % e
+            traceback.print_exc()
+
+class SubQuery(Node):
+
+    def __init__(self, router, parent, children):
+        self.callback = None
+        # for AST
+        self.parent = parent
+        self.children = children
+        # Local storage
+        self.parent_output = []
+        # Set up callbacks
+        parent.callback = self.parent_callback
+        for i, child in enumerate(children):
+            child.callback = lambda record: self.child_callback(i, record)
+
+    def dump(self, indent):
+        self.parent.dump(indent+1)
+        if not self.children: return
+        print ' ' * (indent+1) * 4, "<subqueries>"
+        for child in self.children:
+            child.dump(indent+1)
+
+    def start(self):
+        self.parent.start()
+        for child in self.children:
+            child.start()
+
+    def parent_callback(self, record):
+        if record:
+            print record
+            self.parent_output.append(record)
+            return
+        # When we have received all parent records, we can run children
+        self.run_children()
+
+    def run_children(self):
+        """
+        Modify children queries to take the keys returned by the parent into account
+        """
+        # Loop through children
+        for q in self.children:
+            q = q.root
+            # Can itself be a subquery
+            # Collect keys from parent results
+            parent_keys = []
+            for o in self.parent_output:
+                print "Considering output", o
+                if self.parent.query.fact_table in o:
+                    # o[method] can be :
+                    # - an id (1..)
+                    # - an object (1..1)
+                    # - a list of id (1..N)
+                    # - a list of objects (1..N)
+                    if isinstance(o[q.fact_table], list):
+                        # We inspected each returned object or key
+                        for x in o[q.fact_table]:
+                            if isinstance(x, dict):
+                                # - get key from metadata and add it
+                                # - What to do with remaining fields, we
+                                #   might not be able to get them
+                                #   somewhere else
+                                raise Exception, "returning subobjects not implemented (yet)."
+                            else:
+                                parent_keys.append(x)
+                    else:
+                        # 1..1
+                        raise Exception, "1..1 relationships are not implemented (yet)."
+                    parent_keys.extend(o['key']) # 1..N
+
+            # Add filter on method key
+            keys = self.router.metadata_get_keys(q.fact_table)
+            if not keys:
+                raise Exception, "Cannot complete query: submethod %s has no key" % method
+            key = list(keys).pop()
+            if q.filters.has_key(key):
+                raise Exception, "Filters on keys are not allowed (yet) for subqueries"
+            # XXX careful frozen sets !!
+            q.filters.add(Predicate(key, '=', parent_keys))
+
+        # Run child nodes
+        # XXX TODO
+
+    def child_callback(self, child_id, record):
+
+        # When we have all results !
+        self._callback(merged_parent_record)
+            
 
 # in Filter ?
 def match_filters(dic, filter):
@@ -187,13 +370,15 @@ class Eq(Filter):
         return "%s %s %s" % (self._field, self._op, self._value)
 
 
-class AST(object):                  # = Queryable
-    def __init__(self):
+class AST(object):
+    def __init__(self, router=None):
         # Empty request
-        self._root = None
+        self.root = None
+        self.router = router
+        self.callback = None
 
     def _get(self):
-        return self._root._get()
+        return self.root._get()
         
     def get(self):
         return list(self._get())
@@ -201,56 +386,76 @@ class AST(object):                  # = Queryable
     def From(self, table, fields):
         """
         """
-        if self._root:
+        if self.root:
             raise ValueError('AST already initialized')
 
-        n = From(table, fields)
-        self._root = n
+        node = self.router.get_gateway(table.platform, table.name, fields)
+        node.source_id = self.router.sourcemgr.append(node)
+        self.root = node
+        self.root.callback = self.callback
         return self
 
     def join(self, ast, predicate):
         """
         """
-        if not self._root:
+        if not self.root:
             raise ValueError('AST not initialized')
 
-        n = Join(self._root, ast.get_root(), predicate)
-        self._root = n
+        root_cb = self.root.callback
+        print "|||", self.root, ast.root, predicate
+        self.root = Join(self.root, ast.root, predicate)
+        self.root.callback = root_cb
         return self
 
     def projection(self, fields):
         """
         """
-        if not self._root:
+        if not self.root:
             raise ValueError('AST not initialized')
 
-        n = Projection(self._root, fields)
-        self._root = n
+        root_cb = self.root.callback
+        self.root = Projection(self.root, fields)
+        self.root.callback = root_cb
         return self
 
     def selection(self, filters):
         """
         """
-        if not self._root:
+        if not self.root:
             raise ValueError('AST not initialized')
 
-        n = Selection(self._root, filters)
-        self._root = n
+        root_cb = self.root.callback
+        self.root = Selection(self.root, filters)
+        self.root.callback = root_cb
         return self
 
-    def dump(self):
-        self._root.dump(indent=0)
+    def subquery(self, children_ast):
+        if not self.root:
+            raise ValueError('AST not initialized')
 
-    def get_root(self):
-        return self._root
+        root_cb = self.root.callback
+        self.root = SubQuery(self.router, self.root, children_ast)
+        self.root.callback = root_cb
+        return self
+
+    def dump(self, indent=0):
+        self.root.dump(indent)
+
+    def start(self):
+        self.root.start()
+
+    def set_callback(self, callback):
+        self.root.callback = callback
+        # start sources now !
+        self.root.start()
 
         
 
 def main():
     a = AST().From('A').join(AST().From('B')).projection('c').selection(Eq('c', 'test'))
     a.dump()
-    a.swaphead()
-    a.dump()
+#    a.swaphead()
+#    a.dump()
 
 if __name__ == "__main__":
     main()

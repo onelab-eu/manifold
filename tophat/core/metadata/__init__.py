@@ -1,3 +1,4 @@
+#from tophat.util.singleton import Singleton
 import json
 
 import os
@@ -77,6 +78,7 @@ class XmlDictConfig(dict):
                 self.update({element.tag: element.text})
 
 class Metadata():
+#    __metaclass__ = Singleton
 
     DIRECTORY='/usr/share/myslice/metadata'
 
@@ -114,3 +116,12 @@ class Metadata():
     def clear_platforms(self):
         # Delete all platforms
         pass
+
+#    def metadata_get_keys(method, tables):
+#        # XXX This supposes table name and keys are related
+#        print "TABLES", [t.name for t in tables]
+#        for t in tables:
+#            if t.name == method:
+#                return t.keys
+#        return None
+
