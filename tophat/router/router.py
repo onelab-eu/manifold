@@ -84,7 +84,8 @@ class LocalRouter(object):
             res = session.query( cls ).filter(_filters)
 
         tuplelist = res.all()
-        table = [ { fields[idx] : val for idx, val in enumerate(t) } for t in tuplelist]
+        # only 2.7+ table = [ { fields[idx] : val for idx, val in enumerate(t) } for t in tuplelist]
+        table = [ dict([(fields[idx], val) for idx, val in enumerate(t)]) for t in tuplelist]
         return table
 
     def local_query_update(self, query):
@@ -93,7 +94,8 @@ class LocalRouter(object):
 
         _fields = xgetattr(cls, query.fields)
         _filters = get_sqla_filters(cls, query.filters)
-        _params = { getattr(cls, k): v for k,v in query.params.items() }
+        # only 2.7+ _params = { getattr(cls, k): v for k,v in query.params.items() }
+        _params = dict([ (getattr(cls, k), v) for k,v in query.params.items() ])
 
         session.query(cls).update(_params, synchronize_session=False)
         #session.query(cls).filter(_filters).update(_params, synchronize_session=False)
