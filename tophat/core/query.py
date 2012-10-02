@@ -1,68 +1,60 @@
 from tophat.core.filter import Filter
 
-class Query:
-    def __init__(self, method, ts='latest', filters={}, fields=[]):
-        self.method = method
-        self.ts = ts
-        self.filters = {}
-        self.fields = []
-        self.sort = None
-        self.offset = None
-        self.limit = None
-        # group by
-        # fold
+class ParameterError(StandardError): pass
 
-        if filters:
-            for k, v in filters.items():
-                if k[0] == '-':
-                    if k[1:] == 'SORT':
-                        self.sort = v
-                    elif k[1:] == 'OFFSET':
-                        self.offset = v
-                    elif k[1:] == 'LIMIT':
-                        self.limit = v
-                    else:
-                        raise Exception, "Unknown special field in filter: %s", k[1:]
-                else:
-                    self.filters[k] = v
-            
-        self.fields = fields
+class Query(object):
+    """
+    Implements a TopHat query.
 
-    def __str__(self):
-        return "<Query method='%s' ts='%s' filter='%r' fields='%r'...>" % (self.method, self.ts, self.filters, self.fields)
+    We assume this is a correct DAG specification.
 
-    def to_tuple(self):
-        return (self.method, self.ts, self.filters, self.fields)
+    1/ A field designates several tables = OR specification.
+    2/ The set of fields specifies a AND between OR clauses.
+    """
 
-    @property
-    def filters(self):
-        filters = []
-        for k,v in self.filters.items():
-            if k[0] == '-':
-                continue
-            elif k[0] in Filter.modifiers:
-                filters.append((k[1:], k[0], v))
+    def __init__(self, *args, **kwargs):
+        l = len(kwargs.keys())
+
+        # Initialization from a tuple
+        if len(args) in range(2,6) and type(args) == tuple:
+            # Note: range(x,y) <=> [x, y[
+            self.action, self.fact_table, self.filters, self.params, self.fields = args
+            self.params = set(self.params)
+            self.filters = Filter(self.filters)
+            self.fields = set(self.fields)
+
+        # Initialization from a dict (action & fact_table are mandatory)
+        elif 'fact_table' in kwargs:
+            if 'action' in kwargs:
+                self.action = kwargs['action']
+                del kwargs['action']
             else:
-                filters.append((k, '=', v))
-        return filters
+                self.action = 'get'
 
-    @property
-    def fields(self):
-        result = []
-        for f in self.fields:
-            if f[0] in Filter.modifiers:
-                result.append(f[1:])
+            self.fact_table = kwargs['fact_table']
+            del kwargs['fact_table']
+
+            if 'filters' in kwargs:
+                self.filters = kwargs['filters']
+                del kwargs['filters']
             else:
-                result.append(f)
-        return result
+                self.filters = None
 
-    def get_params(self):
-        return [self.method, self.ts, self.filter, self.fields]
+            if 'fields' in kwargs:
+                self.fields = set(kwargs['fields'])
+                del kwargs['fields']
+            else:
+                self.fields = None
 
-    @property
-    def sort(self):
-        for k,v in self.filters.items():
-            if k == '-SORT':
-                return v
-        return None
+            if 'params' in kwargs:
+                self.params = kwargs['params']
+                del kwargs['params']
+            else:
+                self.params = None
+
+            if kwargs:
+                raise ParameterError, "Invalid parameter(s) : %r" % kwargs.keys()
+                return
+        else:
+                raise ParameterError, "No valid constructor found for %s" % self.__class__.__name__
 

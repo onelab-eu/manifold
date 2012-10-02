@@ -705,10 +705,10 @@ class SFA(FromNode):
         return cds[0]['credential']
 
     def get_slice(self, input_filter = None, output_fields = None):
-        return self._get_slices(input_filter, Metadata.expand_output_fields('slices', output_fields, True))
-
-    def get_slices(self, input_filter = None, output_fields = None):
         return self._get_slices(input_filter, Metadata.expand_output_fields('slices', output_fields))
+
+#    def get_slices(self, input_filter = None, output_fields = None):
+#        return self._get_slices(input_filter, Metadata.expand_output_fields('slices', output_fields))
 
     # get all slices: "slices" (cached?)
     # get one site slices: "list (slices)"
@@ -793,17 +793,17 @@ class SFA(FromNode):
 
             subfields = []
             for of in output_fields:
-                if of == 'resources' or of.startswith('resources.'):
-                    subfields.append(of[6:])
+                if of == 'resource' or of.startswith('resource.'):
+                    subfields.append(of[9:])
                     has_resources = True
-                if of == 'users' or of.startswith('users.'):
+                if of == 'user' or of.startswith('user.'):
                     has_users = True
             #if subfields: # XXX Disabled until we have default subqueries
-            rsrc = self.get_resources({'slice_hrn': 'ple.upmc.agent'}, subfields)
-            if not rsrc:
-                raise Exception, 'get_resources failed!'
             if has_resources:
-                s['resources'] = rsrc
+                rsrc = self.get_resource({'slice_hrn': 'ple.upmc.agent'}, subfields)
+                if not rsrc:
+                    raise Exception, 'get_resources failed!'
+                s['resource'] = rsrc
             if has_users:
                 s['users'] = [{'person_hrn': 'myslice.demo'}]
 
@@ -1158,7 +1158,7 @@ class SFA(FromNode):
                 #                del n[k]
                 #        output['slice_nodes_available'].append(n)
 
-    def get_resources(self, input_filter = None, output_fields = None):
+    def get_resource(self, input_filter = None, output_fields = None):
         # DEMO
         if not self.config['caller']:
             raise Exception, "caller is null"
@@ -1335,9 +1335,9 @@ class SFA(FromNode):
 # END SFA CODE
 ################################################################################
 
-    def __init__(self, platform, query, config):
+    def __init__(self, router, platform, query, config):
 #        FromNode.__init__(self, platform, query, config)
-        super(SFA, self).__init__(platform, query, config)
+        super(SFA, self).__init__(router, platform, query, config)
 
         # self.config has always ['caller']
 
@@ -1395,6 +1395,8 @@ class SFA(FromNode):
         for r in result:
             if 'resources' in r:
                 r['resources'] = '** replaced in filter.py **'
+            if not self.callback:
+                print "cb not defined in ", self.query.fact_table
             self.callback(r)
         self.callback(None)
 

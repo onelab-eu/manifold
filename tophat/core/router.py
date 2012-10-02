@@ -18,10 +18,10 @@ from tophat.router import *
 from tophat.core.sourcemgr import SourceManager
 from tophat.gateways import *
 from tophat.core.ast import AST
+from tophat.core.query import Query
 
 #from tophat.models import session, Platform
 
-class ParameterError(StandardError): pass
 
 UNIT_COST = 1
 
@@ -77,79 +77,14 @@ class Table:
         return fields
 
 
-class THQuery(Query):
-    """
-    Implements a TopHat query.
 
-    We assume this is a correct DAG specification.
-
-    1/ A field designates several tables = OR specification.
-    2/ The set of fields specifies a AND between OR clauses.
-    """
-
-    def __init__(self, *args, **kwargs):
-        l = len(kwargs.keys())
-
-        # Initialization from a tuple
-        if len(args) in range(2,6) and type(args) == tuple:
-            # Note: range(x,y) <=> [x, y[
-            self.action, self.fact_table, self.filters, self.params, self.fields = args
-
-        # Initialization from a dict (action & fact_table are mandatory)
-        elif 'action' in kwargs  and 'fact_table' in kwargs:
-            self.action = kwargs['action']
-            del kwargs['action']
-            self.fact_table = kwargs['fact_table']
-            del kwargs['fact_table']
-
-            if 'filters' in kwargs:
-                self.filters = kwargs['filters']
-                del kwargs['filters']
-            else:
-                self.filters = None
-
-            if 'fields' in kwargs:
-                self.fields = kwargs['fields']
-                del kwargs['fields']
-            else:
-                self.fields = None
-
-            if 'params' in kwargs:
-                self.params = kwargs['params']
-                del kwargs['params']
-            else:
-                self.params = None
-
-            if kwargs:
-                raise ParameterError, "Invalid parameter(s) : %r" % kwargs.keys()
-                return
-        else:
-                raise ParameterError, "No valid constructor found for %s" % self.__class__.__name__
-
-        # Processing filters
-        if isinstance(self.filters, list):
-            self.filters = Filter.from_list(self.filters)
-        elif isinstance(self.filters, dict):
-            self.filters = Filter.from_dict(self.filters)
-
-        # Processing params
-        if isinstance(self.params, dict):
-            self.params = Param(self.params)
-
-    def get_tuple(self):
-        return (self.action, self.fact_table, self.filters, self.params, self.fields)
-
-    def __str__(self):
-        return "<THQuery action='%s' fact_table='%s' filters='%s' params='%s' fields='%r'>" % self.get_tuple()
-
-
-class THDestination(Destination, THQuery):
+class THDestination(Destination, Query):
     """
     Implements a destination in TopHat == a query
     """
     
     def __str__(self):
-        return "<THDestination / THQuery: %s" % self.query
+        return "<THDestination / Query: %s" % self.query
 
 
 
@@ -296,7 +231,7 @@ class THLocalRouter(LocalRouter):
             #print "Adding %s::%s to RIB" % (platform, name)
             self.rib[t] = platform
 
-    def get_gateway(self, platform, table, fields):
+    def get_gateway(self, platform, query):
         config_tophat = {
             'url': 'http://api.top-hat.info/API/'
         }
@@ -312,12 +247,11 @@ class THLocalRouter(LocalRouter):
             'caller': {'email': 'demo'}
         }
 
-        query = THQuery('get', table, [], {}, fields)
         class_map = { 'ple': (SFA, config_ple) , 'tophat': (XMLRPC, config_tophat), 'myslice': (XMLRPC, config_myslice) }
 
         try:
             cls, conf = class_map[platform]
-            return cls(platform, query, conf)
+            return cls(self, platform, query, conf)
         except KeyError, key:
             raise Exception, "Platform missing '%s'" % key
 
@@ -465,13 +399,7 @@ class THLocalRouter(LocalRouter):
                 for x, a in min_cover.copy():
                     reduced_min_cover = set([fd for fd in min_cover if fd != (x,a)])
                     x_plus = attribute_closure(x, reduced_min_cover)
-                    if x == 'asn':
-                        print "x_plus = ", x_plus
                     if a in x_plus:
-                        if x == 'asn':
-                            print "reduced : ", min_cover
-                            print "removing: ", x, a
-                            print "to : ", reduced_min_cover
                         min_cover = reduced_min_cover
                 for x, a in min_cover:
                     if isinstance(x, frozenset):
@@ -490,11 +418,9 @@ class THLocalRouter(LocalRouter):
             def to_3nf(tables):
                 # Build the set of functional dependencies
                 fd_set = set([(key, g.fields) for g in tables for key in g.keys])
-                print "I: fd_set built"
 
                 # Find a minimal cover
                 fd_set = fd_minimal_cover(fd_set)
-                print "I: minimal cover done"
                 
                 # For each set of FDs in G of the form (X->A1, X->A2, ... X->An)
                 # containing all FDs in G with the same determinant X ...
@@ -503,7 +429,6 @@ class THLocalRouter(LocalRouter):
                     if not x in determinants:
                         determinants[x] = set([])
                     determinants[x].add(a)
-                print "I: determinants ok"
 
                 # ... create relaton R = (X, A1, A2, ..., An)
                 relations = []
@@ -519,7 +444,6 @@ class THLocalRouter(LocalRouter):
                     else:
                         fields.append(x)
                     t = Table(','.join(p), n, fields, [x])
-                    print "TABLE", x, " -- ", fields
                     relations.append(t)
                 return relations
 
@@ -547,7 +471,7 @@ class THLocalRouter(LocalRouter):
                                 if k in node.fields:
                                     link = True
                         if link:
-                            print "EDGE: %s -> %s" % (node, table)
+                            #print "EDGE: %s -> %s" % (node, table)
                             G_nf.add_edge(node, table, {'cost': True})
                         
                         # The considered _table_ has a pointer to the primary key of another table
@@ -564,7 +488,7 @@ class THLocalRouter(LocalRouter):
                                     link = True
 
                         if link:
-                            print "EDGE: %s -> %s" % (table, node)
+                            #print "EDGE: %s -> %s" % (table, node)
                             G_nf.add_edge(table, node, {'cost': True})
 
                         # If _table_ names the object _node_ 1..N (or 1..1)
@@ -588,7 +512,6 @@ class THLocalRouter(LocalRouter):
 
             def prune_query_tree(tree, tree_edges, nodes, query_fields):
                 # *** Compute the query plane ***
-                print "compute query plane in tree"
                 for node in tree.nodes():
                     data = nodes[node]
                     if 'visited' in data and data['visited']:
@@ -602,7 +525,6 @@ class THLocalRouter(LocalRouter):
                             if 'visited' in data and data['visited']:
                                 break
                             data['visited'] = True
-                            print "marking %s as visited" % cur_node
                             pred = tree.predecessors(cur_node)
                             if not pred:
                                 break
@@ -637,14 +559,12 @@ class THLocalRouter(LocalRouter):
                 needed_fields = set(query.fields)
                 if query.filters:
                     needed_fields.update(query.filters.keys())
-                print "needed fields", needed_fields
 
                 # Prune the tree from useless tables
                 visited_tree_edges = prune_query_tree(tree, tree_edges, nodes, needed_fields)
                 #tree = prune_query_tree(tree, tree_edges, nodes, needed_fields)
                 if not visited_tree_edges:
                     # The root is sufficient
-                    print "The root is sufficient"
                     return AST(self).From(root, needed_fields)
 
                 qp = None
@@ -652,9 +572,6 @@ class THLocalRouter(LocalRouter):
                 for s, e in visited_tree_edges:
                     # We start at the root if necessary
                     if root:
-                        print "a"
-                        print s, e
-                        print s.fields
                         local_fields = set(needed_fields) & s.fields
                         # We add fields necessary for performing joins = keys of all the children
                         # XXX does not work for multiple keys
@@ -665,7 +582,6 @@ class THLocalRouter(LocalRouter):
                         ###print "LOCAL FIELDS", local_fields
 
                         if not local_fields:
-                            print "b", local_fields
                             break
 
                         # We adopt a greedy strategy to get the required fields (temporary)
@@ -712,7 +628,6 @@ class THLocalRouter(LocalRouter):
                     while True:
                         max_table, max_fields = get_table_max_fields(local_fields, sources)
                         if not max_table:
-                            print "break max table 2"
                             break;
                         if first_join:
                             left = AST(self).From(max_table, list(max_fields))
@@ -772,29 +687,32 @@ class THLocalRouter(LocalRouter):
                     else:
                         cur_fields.append(field)
 
-                children_ast = []
-                for method, subquery in subq.items():
-                    # We need to add the keys of each subquery
-                    # 
-                    # We append the method name (eg. resources) which should return the list of keys
-                    # (and eventually more information, but they will be ignored for the moment)
-                    if not method in cur_fields:
-                        cur_fields.append(method)
+                if len(subq):
+                    children_ast = []
+                    for method, subquery in subq.items():
+                        # We need to add the keys of each subquery
+                        # 
+                        # We append the method name (eg. resources) which should return the list of keys
+                        # (and eventually more information, but they will be ignored for the moment)
+                        if not method in cur_fields:
+                            cur_fields.append(method)
 
-                    # Recursive construction of the processed subquery
-                    subfilters = subquery['filters'] if 'filters' in subquery else []
-                    subparams = subquery['params'] if 'params' in subquery else []
-                    subfields = subquery['fields'] if 'fields' in subquery else []
-                    subquery = THQuery(query.action, method, subfilters, subparams, subfields)
-                    # XXX TODO we need callbacks between subqueries
-                    child_ast = process_subqueries(subquery, G_nf)
-                    children_ast.append(child_ast)
+                        # Recursive construction of the processed subquery
+                        subfilters = subquery['filters'] if 'filters' in subquery else []
+                        subparams = subquery['params'] if 'params' in subquery else []
+                        subfields = subquery['fields'] if 'fields' in subquery else []
+                        subquery = Query(query.action, method, subfilters, subparams, subfields)
+                        # XXX TODO we need callbacks between subqueries
+                        child_ast = process_subqueries(subquery, G_nf)
+                        children_ast.append(child_ast)
 
-                parent = THQuery(query.action, query.fact_table, cur_filters, cur_params, cur_fields)
-                print "processing query parent", parent
-                parent_ast = process_query(parent, G_nf)
-                qp = parent_ast
-                qp.subquery(children_ast)
+                    parent = Query(query.action, query.fact_table, cur_filters, cur_params, cur_fields)
+                    parent_ast = process_query(parent, G_nf)
+                    qp = parent_ast
+                    qp.subquery(children_ast)
+                else:
+                    parent = Query(query.action, query.fact_table, cur_filters, cur_params, cur_fields)
+                    qp = process_query(parent, G_nf)
                 return qp
 
             def get_table_max_fields(fields, tables):
@@ -809,7 +727,6 @@ class THLocalRouter(LocalRouter):
 
             def run_query(query):
                 output = []
-                print "run_query"
                 return output
 
             # BUILD THE QUERY PLAN
@@ -817,8 +734,6 @@ class THLocalRouter(LocalRouter):
 
             tables = self.rib.keys() # HUM
             tables_3nf = to_3nf(tables)
-            for t in tables_3nf:
-                print t, t.fields
 
             # Creates a join graph from the tables in normalized format
             G_nf = build_Gnf(tables_3nf)
@@ -828,7 +743,6 @@ class THLocalRouter(LocalRouter):
             #plt.show()
 
             qp = process_subqueries(query, G_nf)
-
 
         except Exception ,e:
             print "Exception in do_forward", e
@@ -846,6 +760,7 @@ class THLocalRouter(LocalRouter):
         print "I: Install query plan."
         d = defer.Deferred() if deferred else None
         cb = Callback(d, self.event)
+        qp.callback = cb
         qp.start()
 
         self.sourcemgr.run()
