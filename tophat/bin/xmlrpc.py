@@ -4,7 +4,7 @@
 from twisted.web import xmlrpc, server
 from twisted.internet import reactor
 from tophat.core.router import THLocalRouter
-from tophat.core.router import THQuery 
+from tophat.core.query import Query 
 
 router = THLocalRouter()
 router.__enter__()
@@ -28,6 +28,11 @@ class TopHatAPI(xmlrpc.XMLRPC):
         """
         """
         return [{'email': 'demo', 'first_name': 'first', 'last_name': 'last', 'person_hrn': 'myslice.demo'}]
+
+    def xmlrpc_AddCredential(self, *args):
+        """
+        """
+        pass
 
     def xmlrpc_forward(self, *args):
         """

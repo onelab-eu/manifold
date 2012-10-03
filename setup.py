@@ -3,6 +3,7 @@
 
 import os
 import tophat
+from glob import glob
 from setuptools import find_packages, setup
 
 ROOT_PATH = os.path.abspath(os.path.dirname(__file__))
@@ -28,6 +29,7 @@ setup(
     ],
     license     = "GPLv3",
     packages = find_packages(),
+    data_files = [ ('/usr/share/myslice/metadata/', glob('metadata/*.xml')) ],
     entry_points={
         'console_scripts': [
             'tophat-xmlrpc = tophat.bin.xmlrpc:main',
