@@ -634,6 +634,7 @@ class SFA(FromNode):
     # Credentials
 
     def get_credentials(self, input_filter = None, output_fields = None):
+        print "get_credentials"
         cred_fields = {
             'xxx': None
         }
@@ -661,48 +662,51 @@ class SFA(FromNode):
     # get a delegated credential of a given type to a specific target
     # default allows the use of MySlice's own credentials
     def _get_cred(self, type, target, default=False):
-        #delegated_cred = self.delegate_cred(slice_cred, get_authority(self.authority)) # XXX
-
-        search = {
-            'credential_person_id': self.config['caller']['person_id'],
-            'credential_type': type,
-            'credential_target': target,
-            ']credential_expiration': datetime.datetime.today()
-        }
-        # XXX delete expired credentials / or during purge elsewhere
-
-        cds = MySliceCredentials(self.api, search, ['credential'])
-        if not cds:
-            # We should be able to bootstrap a slice credential from a user credential
-            # /usr/local/lib/python2.7/dist-packages/sfa/managers/registry_manager.py
-            # Credential is not passed to this GetCredential method...
-            # Have we been delegated any right
-            if type == 'slice':
-                print "bootstraping slice credential from user credential (will fail until sfa is fixed)"
-                search = {
-                    'credential_person_id': self.config['caller']['person_id'],
-                    'credential_type': 'user',
-                    'credential_target': self.config['caller']['person_hrn'],
-                    ']credential_expiration': datetime.datetime.today()
-                }
-                cds = MySliceCredentials(self.api, search, ['credential'])
-                if cds:
-                    try:
-                        u_cred = cds[0]['credential']
-                        s_cred = self.registry().GetCredential(u_cred, target, type)
-                    except Exception, e:
-                        raise PLCPermissionDenied, 'No credential available: %s' % e
-                    return s_cred
-            # XXX
-
-            # Use MySlice default credential (TODO)
-            #if default:
-            #    if type == 'user':
-            #        return self.get_user_cred().save_to_string(save_parents=True)
-            #    elif type == 'slice':
-            #        return self.get_slice_cred(target).save_to_string(save_parents=True)
-            raise PLCPermissionDenied, 'No credential available (todo: implement myslice default)'
-        return cds[0]['credential']
+        for c in self.router.creds:
+            if c['type'] == type and c['target'] == 'target':
+                return c['cred']
+#        #delegated_cred = self.delegate_cred(slice_cred, get_authority(self.authority)) # XXX
+#
+#        search = {
+#            'credential_person_id': self.config['caller']['person_id'],
+#            'credential_type': type,
+#            'credential_target': target,
+#            ']credential_expiration': datetime.datetime.today()
+#        }
+#        # XXX delete expired credentials / or during purge elsewhere
+#
+#        cds = MySliceCredentials(self.api, search, ['credential'])
+#        if not cds:
+#            # We should be able to bootstrap a slice credential from a user credential
+#            # /usr/local/lib/python2.7/dist-packages/sfa/managers/registry_manager.py
+#            # Credential is not passed to this GetCredential method...
+#            # Have we been delegated any right
+#            if type == 'slice':
+#                print "bootstraping slice credential from user credential (will fail until sfa is fixed)"
+#                search = {
+#                    'credential_person_id': self.config['caller']['person_id'],
+#                    'credential_type': 'user',
+#                    'credential_target': self.config['caller']['person_hrn'],
+#                    ']credential_expiration': datetime.datetime.today()
+#                }
+#                cds = MySliceCredentials(self.api, search, ['credential'])
+#                if cds:
+#                    try:
+#                        u_cred = cds[0]['credential']
+#                        s_cred = self.registry().GetCredential(u_cred, target, type)
+#                    except Exception, e:
+#                        raise PLCPermissionDenied, 'No credential available: %s' % e
+#                    return s_cred
+#            # XXX
+#
+#            # Use MySlice default credential (TODO)
+#            #if default:
+#            #    if type == 'user':
+#            #        return self.get_user_cred().save_to_string(save_parents=True)
+#            #    elif type == 'slice':
+#            #        return self.get_slice_cred(target).save_to_string(save_parents=True)
+#            raise PLCPermissionDenied, 'No credential available (todo: implement myslice default)'
+#        return cds[0]['credential']
 
     def get_slice(self, input_filter = None, output_fields = None):
         return self._get_slices(input_filter, Metadata.expand_output_fields('slices', output_fields))

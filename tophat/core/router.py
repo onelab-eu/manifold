@@ -130,6 +130,9 @@ class THLocalRouter(LocalRouter):
         self.sourcemgr = SourceManager(self.reactor)
         LocalRouter.__init__(self, Table, object)
         self.event = threading.Event()
+        # initialize dummy list of credentials to be uploaded during the
+        # current session
+        self.creds = []
 
     def __enter__(self):
         self.reactor.startReactor()
@@ -254,6 +257,9 @@ class THLocalRouter(LocalRouter):
             return cls(self, platform, query, conf)
         except KeyError, key:
             raise Exception, "Platform missing '%s'" % key
+
+    def add_credential(self, target, type, cred):
+        self.creds.append({'target': target, 'type': type, 'cred': cred})
 
     def get_static_routes(self, directory):
         for root, dirs, files in os.walk(directory):

@@ -32,7 +32,8 @@ class TopHatAPI(xmlrpc.XMLRPC):
     def xmlrpc_AddCredential(self, *args):
         """
         """
-        pass
+        router.add_credential(args[0])
+        return 1
 
     def xmlrpc_forward(self, *args):
         """
