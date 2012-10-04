@@ -19,7 +19,7 @@ def print_result(result):
     print "============================="
 
 from tophat.core.router import THLocalRouter
-from tophat.core.router import THQuery
+from tophat.core.query import Query
 
 # Instantiate a TopHat router
 with THLocalRouter() as router:
@@ -27,5 +27,5 @@ with THLocalRouter() as router:
     #router = Router()
 
     for query in [query2]: #query1, query2]:
-        result = router.forward(THQuery(*query))
+        result = router.forward(Query(*query))
         print_result(result)

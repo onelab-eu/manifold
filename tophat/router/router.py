@@ -34,7 +34,6 @@ class LocalRouter(object):
         self.boot()
 
         # XXX we insert a dummy platform
-        print "Inserting a dummy platform: ple"
         p = Platform(platform = 'ple', platform_longname='PlanetLabEurope')
         session.add(p) 
         p = Platform(platform = 'tophat', platform_longname='TopHat')
