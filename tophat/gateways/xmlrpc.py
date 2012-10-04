@@ -15,6 +15,7 @@ class XMLRPC(FromNode):
         for record in table:
             self.callback(record)
         self.callback(None)
+        print "XMLRPC %s DONE" % self.query.fact_table
 
     def exception_cb(self, error):
         print 'Error during XMLRPC call: ', error

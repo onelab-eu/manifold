@@ -66,6 +66,7 @@ class Join(Node):
         self.predicate = predicate
         # Set up callbacks
         if isinstance(left, list):
+            print "LEFT DONE AUTO in JOIN"
             self.left = None
             self.left_table = left
             self.left_done = True
@@ -81,8 +82,11 @@ class Join(Node):
 
     def start(self):
         if self.left:
+            print "STARTING LEFT"
             self.left.start()
-        self.right.start()
+        if self.left_done:
+            print "STARTING RIGHT"
+            self.right.start()
 
     def inject(self, records):
         # XXX improve here
@@ -95,11 +99,14 @@ class Join(Node):
         self.right.dump(indent+1)
 
     def left_callback(self, record):
+        print "record"
         try:
             if not record:
                 self.left_done = True
-                if self.right_done:
-                    self.callback(None) 
+                self.right.start()
+                #if self.right_done:
+                #    self.callback(None) 
+                #    print "JOIN FINI A"
                 return
             # New result from the left operator
             if self.right_done:
@@ -131,8 +138,10 @@ class Join(Node):
     def process_left_table(self):
         for record in self.left_table:
             self.process_left_record(record)
+        print "left record processed JOIN"
 
     def right_callback(self, record):
+        print "RIGHT"
         try:
             #print "right callback", record
             # We need to send a NULL record to signal the end of the table
@@ -141,6 +150,7 @@ class Join(Node):
                 if self.left_done:
                     self.process_left_table()
                     self.callback(None)
+                    print "JOIN FINI B"
                 return
             # New result from the right operator
             #
@@ -321,9 +331,12 @@ class SubQuery(Node):
 
     def parent_callback(self, record):
         if record:
+            print "SUBQ APPEND"
             self.parent_output.append(record)
             return
+        print "SUBQ PARENT DONE"
         # When we have received all parent records, we can run children
+        print "parent output = ", self.parent_output
         if self.parent_output:
             self.run_children()
 
@@ -331,8 +344,10 @@ class SubQuery(Node):
         """
         Modify children queries to take the keys returned by the parent into account
         """
+        print "run children"
         # Loop through children
         for i, child in enumerate(self.children):
+            print "CHILD %d STARTED" % i
             ast = child.root
             # We suppose all results have the same shape, and that we have at
             # least one result
@@ -399,6 +414,7 @@ class SubQuery(Node):
 
     def child_done(self, child_id):
         self.child_status -= child_id
+        print "SUBQ child %d DONE" % child_id
         if self.child_status == 0:
             for o in self.parent_output:
                 self.callback(o)
@@ -406,8 +422,10 @@ class SubQuery(Node):
 
     def child_callback(self, child_id, record):
         if not record:
+            print "child done"
             self.child_done(child_id)
             return
+        print "child callback"
         self.child_results[child_id].append(record)
         # merge results in parent
             
@@ -500,7 +518,7 @@ class AST(object):
         """
         self.query = Query('get', table.name, [], {}, fields)
         print "W: We have two tables providing the same data: CHOICE or UNION ?"
-        if isinstance(table.platform, list):
+        if isinstance(table.platform, list) and len(table.platform)>1:
             children_ast = []
             for p in table.platform:
                 t = copy(table)

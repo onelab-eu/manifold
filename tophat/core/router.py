@@ -249,10 +249,18 @@ class THLocalRouter(LocalRouter):
             'user_private_key': '/var/myslice/myslice.pkey',
             'caller': {'person_hrn': 'mytestbed.myuser', 'email': 'myuser@mytestbed'}
         }
+        config_ple = {
+            'auth': 'ple.upmc',
+            'user': 'ple.upmc.slicebrowser',
+            'sm': 'http://www.planet-lab.eu:12347/',
+            'registry': 'http://www.planet-lab.eu:12345/',
+            'user_private_key': '/var/myslice/myslice.pkey',
+            'caller': {'person_hrn': 'ple.upmc.slicebrowser', 'email': 'slicebrowser@myslice.info'}
+        }
 
         print "W: Using temporary table for peers and configuration"
         class_map = {
-            'ple': (SFA, config_mytestbed), 
+            'ple': (SFA, config_ple), 
             'mytestbed': (SFA, config_mytestbed),
             'tophat': (XMLRPC, config_tophat), 
             'myslice': (XMLRPC, config_myslice),
@@ -260,6 +268,7 @@ class THLocalRouter(LocalRouter):
         }
 
         try:
+            print "PL:", platform
             cls, conf = class_map[platform]
             return cls(self, platform, query, conf)
         except KeyError, key:
@@ -449,6 +458,7 @@ class THLocalRouter(LocalRouter):
                     # Platform list and names for the corresponding key x and values
                     sources = [t for t in tables if x in t.keys]
                     p = [s.platform for s in sources]
+                    if len(p) == 1: p = p[0]
                     n = list(sources)[0].name
                     # Note, we do not manage multiple keys here...d
                     fields = list(y)

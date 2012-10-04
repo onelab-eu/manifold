@@ -672,9 +672,12 @@ class SFA(FromNode):
     # get a delegated credential of a given type to a specific target
     # default allows the use of MySlice's own credentials
     def _get_cred(self, type, target, default=False):
+        print "searching for a %s credential" % type
         for c in self.router.creds:
             if c['type'] == type and c['target'] == 'target':
                 return c['cred']
+        print "no cred found of type", type
+        return None
 #        #delegated_cred = self.delegate_cred(slice_cred, get_authority(self.authority)) # XXX
 #
 #        search = {
@@ -760,9 +763,12 @@ class SFA(FromNode):
         cred = None
         if not input_filter or 'slice_hrn' not in input_filter or 'authority_rhn' in input_filter:
             cred = [self._get_cred('user', self.config['caller']['person_hrn'],default=True)]
+        print "using cred:", cred
+        print "========="
 
         if not input_filter or not ('slice_hrn' in input_filter or 'authority_hrn' in input_filter or '{users.person_hrn' in input_filter):
             # no details specified, get the full list of slices
+            print "get full list of slices"
             return self.sfa_get_slices_hrn(cred)
 
         if '{users.person_hrn' in input_filter:
@@ -838,9 +844,11 @@ class SFA(FromNode):
                 raise Exception, "Unsupported input_filter type"
         
         # A/ List slices hrn XXX operator on slice_hrn
-        print "getting the list of slices"
+        print "getting the list of slices, filter = ", input_filter
         slice_list = self._get_slices_hrn(input_filter)
+        print "SLICE LIST", slice_list
         if slice_list == []:
+            print "returning"
             return slice_list
         print "we have the list of slices"
         
@@ -1408,7 +1416,9 @@ class SFA(FromNode):
             if not self.callback:
                 print "cb not defined in ", self.query.fact_table
             self.callback(r)
+            print "SFA CALLBACK", r
         self.callback(None)
+        print "SFA DONE"
 
 #def sfa_get(api, caller, method, ts, input_filter = None, output_fields = None):
 #    sfa = Sfa(api, caller)
