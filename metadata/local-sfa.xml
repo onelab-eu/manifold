@@ -1,0 +1,500 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Metadata file for PLE SFA platform -->
+<!-- Last updated: 30-05-2012 -->
+<metadata>
+    <platform>
+        <platform>mytestbed</platform>
+        <platform_description>MyTestbed</platform_description>
+		<platform_url>http://mytestbed</platform_url>
+    </platform>
+    <gateway>
+		<type>sfa</type>
+		<auth>mytestbed</auth>
+		<user>mytestbed.myuser</user>
+		<sm>http://localhost:12347/</sm>
+		<registry>http://localhost:12345/</registry>
+		<user_private_key>/var/myslice/myslice.pkey</user_private_key>
+    </gateway>
+    <methods>
+        <method name='slice'>
+            <capabilities>
+                <from>true</from>
+                <selection>true</selection>
+                <projection>true</projection>
+                <order>false</order>
+                <limit>false</limit>
+                <offset>false</offset>
+            </capabilities>
+            <fields>
+                <field>
+                    <field>slice_hrn</field>
+                    <header>SH</header>
+                    <title>Slice hrn</title>
+                    <description>Slice Human Readable name</description>
+                    <resource_type></resource_type>
+                    <info_type></info_type>
+                    <value_type>string</value_type>
+                    <unit>string</unit>
+                </field>
+                <field>
+                    <field>resource</field>
+                    <header>NOD</header>
+                    <title>resources</title>
+                    <description>List of resources associated to the slice</description>
+                    <resource_type></resource_type>
+                    <info_type></info_type>
+                    <value_type>node</value_type>
+                    <unit>list</unit>
+                </field>
+                <field>
+                    <field>user</field>
+                    <header>USR</header>
+                    <title>users</title>
+                    <description>List of users associated to the slice</description>
+                    <resource_type></resource_type>
+                    <info_type></info_type>
+                    <value_type>users</value_type>
+                    <unit>list</unit>
+                </field>
+			</fields>
+			<keys>
+				<key>slice_hrn</key>
+			</keys>
+		</method>
+        <method name='resource'>
+            <capabilities>
+                <from>true</from>
+                <selection>true</selection>
+                <projection>true</projection>
+                <order>false</order>
+                <limit>false</limit>
+                <offset>false</offset>
+            </capabilities>
+            <fields>
+
+                <field>
+                    <field>arch</field>
+                    <header>AR</header>
+                    <title>Architecture</title>
+                    <description>Platform architecture</description>
+                    <resource_type>node</resource_type>
+                    <info_type>general</info_type>
+                    <value_type>string</value_type>
+                    <unit>string</unit>
+                    <allowed_values>i386,x86_64</allowed_values>
+                    <disabled>default</disabled>
+                </field>
+
+				<!-- In fact a URN -->
+                <field>
+                    <field>authority_id</field>
+                    <header>AU</header>
+                    <title>Authority URN</title>
+                    <description>The authority of the global PlanetLab federation that the site of the node belongs to.</description>
+                    <resource_type>testbed</resource_type>
+                    <info_type>ownership</info_type>
+                    <value_type>string</value_type>
+                    <unit>string</unit>
+                    <allowed_values>PLC-PlanetLab Central,PLE-PlanetLab Europe,PLJ-PlanetLab Japan,VINI</allowed_values>
+                    <disabled>false</disabled>
+                </field>
+
+				<!-- XXX allowed values are descriptions and not actual values ? -->
+                <field>
+                    <field>boot_state</field>
+                    <header>ST</header>
+                    <title>Status</title>
+                    <description>The current status of the node</description>
+                    <resource_type>node</resource_type>
+                    <info_type>performance</info_type>
+                    <value_type>string</value_type>
+                    <unit>string</unit>
+                    <allowed_values>online-up and running,good-up and running recently,offline-unreachable today,down-node unreachable for more than one day,failboot-reachable but only by administrators for debugging purposes</allowed_values>
+                    <disabled>false</disabled>
+                </field>
+
+                <field>
+                    <field>bw_limit</field>
+                    <header>BW</header>
+                    <title>Bandwidth limit</title>
+                    <description>Bandwidth limits in effect on the node</description>
+                    <resource_type>node</resource_type>
+                    <info_type>performance</info_type>
+                    <value_type>string</value_type>
+                    <unit>string</unit>
+                    <allowed_values></allowed_values>
+                    <disabled>false</disabled>
+                </field>
+
+                <field>
+                    <field>bw_unallocated</field>
+                    <header>BWU</header>
+                    <title>Bandwidth limit</title>
+                    <description>Bandwidth limits in effect on the node</description>
+                    <resource_type>node</resource_type>
+                    <info_type>performance</info_type>
+                    <value_type>string</value_type>
+                    <unit>string</unit>
+                    <allowed_values></allowed_values>
+                    <disabled>false</disabled>
+                </field>
+
+                <field>
+                    <field>client_id</field>
+                    <header></header>
+                    <title></title>
+                    <description></description>
+                    <resource_type></resource_type>
+                    <info_type></info_type>
+                    <value_type>string</value_type>
+                    <unit></unit>
+                    <allowed_values></allowed_values>
+                    <disabled>false</disabled>
+                </field>
+
+                <field>
+                    <field>component_id</field>
+                    <header></header>
+                    <title></title>
+                    <description></description>
+                    <resource_type></resource_type>
+                    <info_type></info_type>
+                    <value_type>string</value_type>
+                    <unit></unit>
+                    <allowed_values></allowed_values>
+                    <disabled>false</disabled>
+                </field>
+
+                <field>
+                    <field>component_manager_id</field>
+                    <header></header>
+                    <title></title>
+                    <description></description>
+                    <resource_type></resource_type>
+                    <info_type></info_type>
+                    <value_type>string</value_type>
+                    <unit></unit>
+                    <allowed_values></allowed_values>
+                    <disabled>false</disabled>
+                </field>
+
+                <field>
+                    <field>component_name</field>
+                    <header></header>
+                    <title></title>
+                    <description></description>
+                    <resource_type></resource_type>
+                    <info_type></info_type>
+                    <value_type>string</value_type>
+                    <unit></unit>
+                    <allowed_values></allowed_values>
+                    <disabled>false</disabled>
+                </field>
+
+                <field>
+                    <field>disk_images</field>
+                    <header></header>
+                    <title></title>
+                    <description></description>
+                    <resource_type></resource_type>
+                    <info_type></info_type>
+                    <value_type>string</value_type>
+                    <unit></unit>
+                    <allowed_values></allowed_values>
+                    <disabled>false</disabled>
+                </field>
+
+                <field>
+                    <field>exclusive</field>
+                    <header></header>
+                    <title></title>
+                    <description></description>
+                    <resource_type></resource_type>
+                    <info_type></info_type>
+                    <value_type>string</value_type>
+                    <unit></unit>
+                    <allowed_values></allowed_values>
+                    <disabled>false</disabled>
+                </field>
+
+                <field>
+                    <field>fc_distro</field>
+                    <header></header>
+                    <title></title>
+                    <description></description>
+                    <resource_type></resource_type>
+                    <info_type></info_type>
+                    <value_type>string</value_type>
+                    <unit></unit>
+                    <allowed_values></allowed_values>
+                    <disabled>false</disabled>
+                </field>
+
+                <field>
+                    <field>hardware_types</field>
+                    <header></header>
+                    <title></title>
+                    <description></description>
+                    <resource_type></resource_type>
+                    <info_type></info_type>
+                    <value_type>string</value_type>
+                    <unit></unit>
+                    <allowed_values></allowed_values>
+                    <disabled>false</disabled>
+                </field>
+
+                <field>
+                    <field>hostname</field>
+                    <header>HN</header>
+                    <title>Hostname</title>
+                    <description>Hostname</description>
+                    <resource_type>node</resource_type>
+                    <info_type>ID</info_type>
+                    <value_type>string</value_type>
+                    <unit>string</unit>
+                    <allowed_values></allowed_values>
+                    <disabled>default</disabled>
+                </field>
+
+                <field>
+                    <field>hrn</field>
+                    <header></header>
+                    <title></title>
+                    <description></description>
+                    <resource_type></resource_type>
+                    <info_type></info_type>
+                    <value_type>string</value_type>
+                    <unit></unit>
+                    <allowed_values></allowed_values>
+                    <disabled>false</disabled>
+                </field>
+
+                <field>
+                    <field>interfaces</field>
+                    <header></header>
+                    <title></title>
+                    <description></description>
+                    <resource_type></resource_type>
+                    <info_type></info_type>
+                    <value_type>string</value_type>
+                    <unit></unit>
+                    <allowed_values></allowed_values>
+                    <disabled>false</disabled>
+                </field>
+
+                <field>
+                    <field>latitude</field>
+                    <header>LAT</header>
+                    <title>Latitude</title>
+                    <description>Latitude</description>
+                    <resource_type>node</resource_type>
+                    <info_type>location</info_type>
+                    <value_type>int</value_type>
+                    <unit>longitude</unit>
+                    <allowed_values>-90,90</allowed_values>
+                    <disabled>false</disabled>
+                </field>
+
+                <field>
+                    <field>longitude</field>
+                    <header>LON</header>
+                    <title>Longitude</title>
+                    <description>Longitude</description>
+                    <resource_type>node</resource_type>
+                    <info_type>location</info_type>
+                    <value_type>int</value_type>
+                    <unit>longitude</unit>
+                    <allowed_values>-180,180</allowed_values>
+                    <disabled>false</disabled>
+                </field>
+
+                <field>
+                    <field>network</field>
+                    <header></header>
+                    <title></title>
+                    <description></description>
+                    <resource_type></resource_type>
+                    <info_type></info_type>
+                    <value_type>string</value_type>
+                    <unit></unit>
+                    <allowed_values></allowed_values>
+                    <disabled>false</disabled>
+                </field>
+
+                <field>
+                    <field>node_id</field>
+                    <header></header>
+                    <title></title>
+                    <description></description>
+                    <resource_type></resource_type>
+                    <info_type></info_type>
+                    <value_type>string</value_type>
+                    <unit></unit>
+                    <allowed_values></allowed_values>
+                    <disabled>false</disabled>
+                </field>
+
+                <field>
+                    <field>pl_initscripts</field>
+                    <header></header>
+                    <title></title>
+                    <description></description>
+                    <resource_type></resource_type>
+                    <info_type></info_type>
+                    <value_type>string</value_type>
+                    <unit></unit>
+                    <allowed_values></allowed_values>
+                    <disabled>false</disabled>
+                </field>
+
+                <field>
+                    <field>pldistro</field>
+                    <header>OS</header>
+                    <title>Operating system</title>
+                    <description>Fedora or CentOS distribution to use for node or slivers</description>
+                    <resource_type>node</resource_type>
+                    <info_type>system</info_type>
+                    <value_type>string</value_type>
+                    <unit>string</unit>
+                    <allowed_values>f8, f12, Cent/OS, other, n/a</allowed_values>
+                    <disabled>false</disabled>
+                </field>
+
+                <field>
+                    <field>services</field>
+                    <header></header>
+                    <title></title>
+                    <description></description>
+                    <resource_type></resource_type>
+                    <info_type></info_type>
+                    <value_type>string</value_type>
+                    <unit></unit>
+                    <allowed_values></allowed_values>
+                    <disabled>false</disabled>
+                </field>
+
+                <field>
+                    <field>site_id</field>
+                    <header></header>
+                    <title></title>
+                    <description></description>
+                    <resource_type></resource_type>
+                    <info_type></info_type>
+                    <value_type>string</value_type>
+                    <unit></unit>
+                    <allowed_values></allowed_values>
+                    <disabled>false</disabled>
+                </field>
+
+				<!-- XXX sliver_id slivers -->
+
+                <field>
+                    <field>type</field>
+                    <header></header>
+                    <title></title>
+                    <description></description>
+                    <resource_type></resource_type>
+                    <info_type></info_type>
+                    <value_type>string</value_type>
+                    <unit></unit>
+                    <allowed_values></allowed_values>
+                    <disabled>false</disabled>
+                </field>
+			<!-- .................................................. -->
+			<!--
+                <field>
+                    <field>authority</field>
+                    <header>AU</header>
+                    <title>Authority</title>
+                    <description>The authority of the global PlanetLab federation that the site of the node belongs to.</description>
+                    <resource_type>testbed</resource_type>
+                    <info_type>ownership</info_type>
+                    <value_type>string</value_type>
+                    <unit>string</unit>
+                    <allowed_values>PLC-PlanetLab Central,PLE-PlanetLab Europe,PLJ-PlanetLab Japan,VINI</allowed_values>
+                    <disabled>false</disabled>
+                </field>
+
+                <field>
+                    <field>site</field>
+                    <header>SN</header>
+                    <title>Site name</title>
+                    <description>Site name</description>
+                    <resource_type>node</resource_type>
+                    <info_type>general</info_type>
+                    <value_type>string</value_type>
+                    <unit>string</unit>
+                    <allowed_values></allowed_values>
+                    <disabled>false</disabled>
+                </field>
+
+                <field>
+                    <field>availability</field>
+                    <header>AV</header>
+                    <title>Availability</title>
+                    <description>The availability of the resource (if reservable)</description>
+                    <resource_type>node</resource_type>
+                    <info_type>general</info_type>
+                    <value_type>date</value_type>
+                    <unit>period</unit>
+                    <allowed_values></allowed_values>
+                    <disabled>true</disabled>
+                </field>
+                <field>
+                    <field>domain</field>
+                    <header>DN</header>
+                    <title>Domain name</title>
+                    <description>Top level domain name</description>
+                    <resource_type>node</resource_type>
+                    <info_type>performance</info_type>
+                    <value_type>string</value_type>
+                    <unit>string</unit>
+                    <allowed_values></allowed_values>
+                    <disabled>false</disabled>
+                </field>
+                <field>
+                    <field>date_added</field>
+                    <header>DA</header>
+                    <title>Date added</title>
+                    <description>The date that the node was added in the system</description>
+                    <resource_type>node</resource_type>
+                    <info_type>characteristic</info_type>
+                    <value_type>date</value_type>
+                    <unit>date</unit>
+                    <allowed_values></allowed_values>
+                    <disabled>false</disabled>
+                </field>
+                <field>
+                    <field>deployment</field>
+                    <header>DL</header>
+                    <title>Deployment</title>
+                    <description>The deployment status</description>
+                    <resource_type>node</resource_type>
+                    <info_type>characteristic</info_type>
+                    <value_type>string</value_type>
+                    <unit>string</unit>
+                    <allowed_values>alpha,beta,production,n/a</allowed_values>
+                    <disabled>false</disabled>
+                </field>
+
+                <field>
+                    <field>country</field>
+                    <header></header>
+                    <title></title>
+                    <description></description>
+                    <resource_type></resource_type>
+                    <info_type></info_type>
+                    <value_type>string</value_type>
+                    <unit></unit>
+                    <allowed_values></allowed_values>
+                    <disabled>false</disabled>
+                </field>
+
+			-->
+            </fields>
+            <keys>
+                <key>hrn</key>
+            </keys>
+       </method>
+   </methods>
+</metadata> 
