@@ -296,7 +296,6 @@ class SubQuery(Node):
         Modify children queries to take the keys returned by the parent into account
         """
         # Loop through children
-        print "W: Should ensure children receive parent results"
         for i, child in enumerate(self.children):
             ast = child.root
             # We suppose all results have the same shape, and that we have at
@@ -363,7 +362,6 @@ class SubQuery(Node):
             child.start()
 
     def child_done(self, child_id):
-        print "W: should merge children results in parent"
         self.child_status -= child_id
         if self.child_status == 0:
             for o in self.parent_output:

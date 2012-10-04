@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Metadata file for PLE SFA platform -->
+<!-- Last updated: 30-05-2012 -->
+<metadata>
+    <platform>
+        <platform>dns</platform>
+        <platform_description>PlanetLab</platform_description>
+		<platform_url>http://www.planet-lab.eu</platform_url>
+    </platform>
+    <gateway>
+		<type>dns</type>
+    </gateway>
+    <methods>
+        <method name='hostname'>
+            <capabilities>
+                <from>true</from>
+                <selection>true</selection>
+                <projection>true</projection>
+                <order>false</order>
+                <limit>false</limit>
+                <offset>false</offset>
+            </capabilities>
+            <fields>
+                <field>
+                    <field>ip</field>
+                    <header>IP</header>
+                    <title></title>
+                    <description></description>
+                    <resource_type></resource_type>
+                    <info_type></info_type>
+                    <value_type>string</value_type>
+                    <unit>string</unit>
+                </field>
+                <field>
+                    <field>hostname</field>
+                    <header>H</header>
+                    <title></title>
+                    <description></description>
+                    <resource_type></resource_type>
+                    <info_type></info_type>
+                    <value_type>string</value_type>
+                    <unit>string</unit>
+                </field>
+			</fields>
+			<keys>
+				<key>hostname</key>
+			</keys>
+		</method>
+        <method name='ip'>
+            <capabilities>
+                <from>true</from>
+                <selection>true</selection>
+                <projection>true</projection>
+                <order>false</order>
+                <limit>false</limit>
+                <offset>false</offset>
+            </capabilities>
+            <fields>
+                <field>
+                    <field>ip</field>
+                    <header>IP</header>
+                    <title></title>
+                    <description></description>
+                    <resource_type></resource_type>
+                    <info_type></info_type>
+                    <value_type>string</value_type>
+                    <unit>string</unit>
+                </field>
+                <field>
+                    <field>hostname</field>
+                    <header>H</header>
+                    <title></title>
+                    <description></description>
+                    <resource_type></resource_type>
+                    <info_type></info_type>
+                    <value_type>string</value_type>
+                    <unit>string</unit>
+                </field>
+			</fields>
+			<keys>
+				<key>ip</key>
+			</keys>
+		</method>
+   </methods>
+</metadata> 

@@ -1,0 +1,147 @@
+<metadata>
+    <platform>
+        <platform>tophat</platform>
+        <platform_description>The TopHat project, initiated by UPMC during the OneLab project, aims at developing platforms and tools to actively probe the Internet topology, and serve live and historic measurements to the community. Data is made available through this interface as well as an XMLRPC API.
+TopHat relies on TDMI (TopHat Dedicated Measurement Infrastructure), which is currently deployed on more than 400 nodes on the PlanetLab testbed, and periodically makes snapshots of the overlay topology. It complements its own measurements with data originating from several interconnected platforms.</platform_description>
+		<platform_url>http://www.top-hat.info</platform_url>
+    </platform>
+    <gateway>
+		<type>xmlrpc</type>
+		<url>http://api.top-hat.info/API/</url>
+    </gateway>
+    <methods>
+        <method name='nodes'>
+            <capabilities>
+                <from>true</from>
+                <selection>true</selection>
+                <projection>true</projection>
+                <order>true</order>
+                <limit>true</limit>
+                <offset>true</offset>
+            </capabilities>
+            <fields>
+
+                <field>
+                    <field>asn</field>
+                    <header>AS</header>
+                    <title>Autonomous System ID</title>
+                    <description>Autonomous System ID</description>
+                    <resource_type>node</resource_type>
+                    <info_type>topology</info_type>
+                    <value_type>int</value_type>
+                    <unit>ID</unit>
+                    <allowed_values>0,65535</allowed_values>
+                    <disabled>false</disabled>
+                </field>
+                <field>
+                    <field>as_type</field>
+                    <header>AST</header>
+                    <title>Autonomous System type</title>
+                    <description>Autonomous System type</description>
+                    <resource_type>node</resource_type>
+                    <info_type>topology</info_type>
+                    <value_type>string</value_type>
+                    <unit>string</unit>
+                    <allowed_values>t1-tier1,t2-tier2,edu-university,comp-company,nic-network information centre; old name for a domain name registry operator,ix-IXP,n/a</allowed_values>
+                    <disabled>false</disabled>
+                </field>
+                <field>
+                    <field>as_name</field>
+                    <header>ASN</header>
+                    <title>Autonomous System name</title>
+                    <description>Autonomous System name</description>
+                    <resource_type>node</resource_type>
+                    <info_type>topology</info_type>
+                    <value_type>string</value_type>
+                    <unit>string</unit>
+                    <allowed_values></allowed_values>
+                    <disabled>false</disabled>
+                </field>
+                <field>
+                    <field>city</field>
+                    <header>LCY</header>
+                    <title>Location (City)</title>
+                    <description>Based on the latitude and longitude information</description>
+                    <resource_type>node</resource_type>
+                    <info_type>location</info_type>
+                    <value_type>string</value_type>
+                    <unit>string</unit>
+                    <allowed_values></allowed_values>
+                    <disabled>false</disabled>
+                </field>
+                <field>
+                    <field>country</field>
+                    <header>LCN</header>
+                    <title>Location (Country)</title>
+                    <description>Based on the latitude and longitude information</description>
+                    <resource_type>node</resource_type>
+                    <info_type>location</info_type>
+                    <value_type>string</value_type>
+                    <unit>string</unit>
+                    <allowed_values></allowed_values>
+                    <disabled>false</disabled>
+                </field>
+                <field>
+                    <field>region</field>
+                    <header>LRN</header>
+                    <title>Location (Region)</title>
+                    <description>Based on the latitude and longitude information</description>
+                    <resource_type>node</resource_type>
+                    <info_type>location</info_type>
+                    <value_type>string</value_type>
+                    <unit>string</unit>
+                    <allowed_values></allowed_values>
+                    <disabled>false</disabled>
+                </field>
+                <field>
+                    <field>continent</field>
+                    <header>LCT</header>
+                    <title>Location (Continent)</title>
+                    <description>Based on the latitude and longitude information</description>
+                    <resource_type>node</resource_type>
+                    <info_type>location</info_type>
+                    <value_type>string</value_type>
+                    <unit>string</unit>
+                    <allowed_values></allowed_values>
+                    <disabled>false</disabled>
+                </field>
+                <field>
+                    <field>ip</field>
+                    <header>IP</header>
+                    <title>IP</title>
+                    <description></description>
+                    <resource_type></resource_type>
+                    <info_type></info_type>
+                    <value_type>string</value_type>
+                    <unit>string</unit>
+                    <allowed_values></allowed_values>
+                </field>
+                <field>
+                    <field>hostname</field>
+                    <header>H</header>
+                    <title></title>
+                    <description></description>
+                    <resource_type></resource_type>
+                    <info_type></info_type>
+                    <value_type>string</value_type>
+                    <unit>string</unit>
+                    <allowed_values></allowed_values>
+                </field>
+                <field>
+                    <field>peer_name</field>
+                    <header>P</header>
+                    <title></title>
+                    <description></description>
+                    <resource_type></resource_type>
+                    <info_type></info_type>
+                    <value_type>string</value_type>
+                    <unit>string</unit>
+                    <allowed_values></allowed_values>
+                </field>
+            </fields>
+            <keys>
+                <key>ip</key>
+            </keys>
+       </method>
+    </methods>
+</metadata> 

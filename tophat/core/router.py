@@ -256,7 +256,7 @@ class THLocalRouter(LocalRouter):
             cls, conf = class_map[platform]
             return cls(self, platform, query, conf)
         except KeyError, key:
-            raise Exception, "Platform missing '%s'" % key
+            raise Exception, "Platform missing '*%s*'" % key
 
     def add_credential(self, target, type, cred):
         self.creds.append({'target': target, 'type': type, 'cred': cred})
@@ -554,8 +554,14 @@ class THLocalRouter(LocalRouter):
 
                 # Builds the query tree rooted at the fact table
                 root = get_root(G_nf, query)
+                if not root:
+                    print "E: Cannot answer query as is: missing root '%s'" % root
+                print "GRAPH", [str(n) for n in G_nf.nodes()]
                 tree_edges = get_tree_edges(G_nf, root)
+                if not tree_edges:
+                    print "E: Cannot answer the query as is: cannot build tree"
                 tree = nx.DiGraph(tree_edges)
+                print "TREE", ["%s" % n for n in tree.nodes()]
 
                 # Plot it
                 #nx.draw_graphviz(tree)
@@ -567,14 +573,23 @@ class THLocalRouter(LocalRouter):
                     needed_fields.update(query.filters.keys())
 
                 # Prune the tree from useless tables
+                print "Query: ", query.fact_table
+                print "needed fields", needed_fields
                 visited_tree_edges = prune_query_tree(tree, tree_edges, nodes, needed_fields)
+                print ["%s %s" % (s,e) for s,e in tree_edges]
+                print "pRUNE====="
                 #tree = prune_query_tree(tree, tree_edges, nodes, needed_fields)
+                print ["%s %s" % (s,e) for s,e in visited_tree_edges]
                 if not visited_tree_edges:
                     # The root is sufficient
+                    # OR WE COULD NOT ANSWER QUERY
+                    print "needed_fields", needed_fields
+                    print "root sufficient"
                     return AST(self).From(root, needed_fields)
 
                 qp = None
                 root = True
+                print "lll"
                 for s, e in visited_tree_edges:
                     # We start at the root if necessary
                     if root:
@@ -609,6 +624,7 @@ class THLocalRouter(LocalRouter):
                             local_fields.difference_update(max_fields)
                             needed_fields.difference_update(max_fields)
                             if not local_fields:
+                                print "break break"
                                 break
                             # read the key
                             local_fields.add(iter(s.keys).next())
@@ -616,6 +632,7 @@ class THLocalRouter(LocalRouter):
                         root = False
 
                     # Proceed with the JOIN
+                    print "first_query provided", s.fields
                     local_fields = set(needed_fields) & e.fields
                     # We add fields necessary for performing joins = keys of all the children
                     # XXX does not work for multiple keys
@@ -659,6 +676,7 @@ class THLocalRouter(LocalRouter):
 
 
             def process_subqueries(query, G_nf):
+                print "psq GRAPH", [n for n in G_nf.nodes()]
                 qp = AST(self)
 
                 cur_filters = []
