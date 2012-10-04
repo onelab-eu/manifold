@@ -33,9 +33,10 @@ from tophat.core.router import Query
 
 # Instantiate a TopHat router
 with THLocalRouter() as router:
-    result = router.forward(Query(*query))
-    print ""
-    print "=== RESULT ==="
-    print_result(result)
-    print "--------------"
-    print ""
+    result = router.forward(Query(*query), execute=False)
+    if result:
+        print ""
+        print "=== RESULT ==="
+        print_result(result)
+        print "--------------"
+        print ""

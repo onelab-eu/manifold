@@ -4,6 +4,7 @@
 import itertools
 from tophat.core.filter import Filter, Predicate
 from tophat.core.query import Query
+from copy import copy
 
 #from tophat.core.nodes import *
 
@@ -25,10 +26,9 @@ class FromNode(Node):
         self.router = router
 
     def dump(self, indent=0):
-        print ' ' * indent * 4, "SELECT %r FROM '%s'" % (self.query.fields, self.query.fact_table)
+        print ' ' * indent * 4, "SELECT %r FROM '%s:%s'" % (self.query.fields, self.platform, self.query.fact_table)
 
     def inject(self, records):
-        print "Injecting records:", records
         injected_fields = [field for field in records[0].keys()]
         for f in injected_fields:
             if f in self.router.metadata_get_keys(self.query.fact_table):
@@ -44,12 +44,12 @@ class FromNode(Node):
                 pass
         self.node.inject(records)
 
-    def install(self, router, callback, start):
-        self.router = router
-        node = router.get_gateway(self.table.platform, self.table.name, self.fields)
-        node.do_start = start
-        self._source_id = router.sourcemgr.append(node, start=start)
-        return node
+#    def install(self, router, callback, start):
+#        self.router = router
+#        node = router.get_gateway(self.table.platform, self.table.name, self.fields)
+#        node.do_start = start
+#        self._source_id = router.sourcemgr.append(node, start=start)
+#        return node
 
     def start(self):
         if self.router and self._source_id:
@@ -251,6 +251,42 @@ class Selection(Node):
     def inject(self, records):
         # XXX improve here
         self.node.inject(records)
+
+class Union(Node):
+    def __init__(self, children):
+        self.callback = None
+        self.query = None
+        self.children = children
+        self.child_status = 0
+        for i, child in enumerate(self.children):
+            child.callback = lambda record: self.child_callback(i, record)
+            self.child_status += i
+
+    def dump(self, indent=0):
+        print ' ' * indent * 4, 'UNION'
+        for child in self.children:
+            child.dump(indent+1)
+
+    def start(self):
+        for child in self.children:
+            child.start()
+
+    def inject(self, records):
+        for child in self.children:
+            child.inject(records)
+
+    def child_done(self, child_id):
+        self.child_status -= child_id
+        if self.child_status == 0:
+            self.callback(None)
+
+    def child_callback(self, child_id, record):
+        if not record:
+            self.child_done(child_id)
+            return
+        # We can directly forward the record
+        # XXX SORTING ?
+        self.callback(record)
 
 class SubQuery(Node):
 
@@ -462,14 +498,29 @@ class AST(object):
     def From(self, table, fields):
         """
         """
-        if self.root:
-            raise ValueError('AST already initialized')
-
         self.query = Query('get', table.name, [], {}, fields)
-        node = self.router.get_gateway(table.platform, self.query)
-        node.source_id = self.router.sourcemgr.append(node)
-        self.root = node
-        self.root.callback = self.callback
+        print "W: We have two tables providing the same data: CHOICE or UNION ?"
+        if isinstance(table.platform, list):
+            children_ast = []
+            for p in table.platform:
+                t = copy(table)
+                t.platform = p
+                children_ast.append(AST(self.router).From(t,fields))
+            self.union(children_ast) # XXX DISJOINT ?
+        else:
+            node = self.router.get_gateway(table.platform, self.query)
+            node.source_id = self.router.sourcemgr.append(node)
+            self.root = node
+            self.root.callback = self.callback
+        return self
+
+    def union(self, children_ast):
+        children = [self.root] if self.root else []
+        children.extend(children_ast)
+        q = children[0].query
+
+        self.root = Union(children)
+        self.root.query = Query(fact_table=q.fact_table, filters=q.filters, fields=q.fields)
         return self
 
     # TODO Can we use decorators for such functions ?
