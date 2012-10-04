@@ -3,9 +3,9 @@
 <!-- Last updated: 30-05-2012 -->
 <metadata>
     <platform>
-        <platform>ple</platform>
-        <platform_description>PlanetLab</platform_description>
-		<platform_url>http://www.planet-lab.eu</platform_url>
+        <platform>mytestbed</platform>
+        <platform_description>MyTestbed</platform_description>
+		<platform_url>http://mytestbed</platform_url>
     </platform>
     <gateway>
 		<type>sfa</type>

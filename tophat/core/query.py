@@ -20,7 +20,8 @@ class Query(object):
             # Note: range(x,y) <=> [x, y[
             self.action, self.fact_table, self.filters, self.params, self.fields = args
             self.params = set(self.params)
-            self.filters = Filter(self.filters)
+            if isinstance(self.filters, list):
+                self.filters = Filter(self.filters)
             self.fields = set(self.fields)
 
         # Initialization from a dict (action & fact_table are mandatory)

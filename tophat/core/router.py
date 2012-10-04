@@ -241,16 +241,16 @@ class THLocalRouter(LocalRouter):
         config_myslice = {
             'url': 'http://api.myslice.info/API/'
         }
-        config_ple = {
-            'auth': 'ple.upmc',
-            'user': 'ple.upmc.slicebrowser',
-            'sm': 'http://www.planet-lab.eu:12347/',
-            'registry': 'http://www.planet-lab.eu:12345/',
+        config_mytestbed = {
+            'auth': 'mytestbed',
+            'user': 'mytestbed.myslice',
+            'sm': 'http://localhost:12347/',
+            'registry': 'http://localhost:12345/',
             'user_private_key': '/var/myslice/myslice.pkey',
-            'caller': {'email': 'demo'}
+            'caller': {'person_hrn': 'mytestbed.myuser', 'email': 'myuser@mytestbed'}
         }
 
-        class_map = { 'ple': (SFA, config_ple) , 'tophat': (XMLRPC, config_tophat), 'myslice': (XMLRPC, config_myslice) }
+        class_map = { 'mytestbed': (SFA, config_mytestbed) , 'tophat': (XMLRPC, config_tophat), 'myslice': (XMLRPC, config_myslice) }
 
         try:
             cls, conf = class_map[platform]
@@ -669,29 +669,31 @@ class THLocalRouter(LocalRouter):
                 # XXX there are some parameters that will be answered by the parent !!!! no need to request them from the children !!!!
                 # XXX XXX XXX XXX XXX XXX ex slice.resource.PROPERTY
 
-                for pred in query.filters:
-                    if '.' in pred.key:
-                        method, subkey = pred.key.split('.', 1)
-                        if not method in subq:
-                            subq[method] = {}
-                        if not 'filters' in subq[method]:
-                            subq[method]['filters'] = []
-                        subq[method]['filters'].append(Predicate(subkey, pred.op, pred.value))
-                    else:
-                        cur_filters.append(pred)
+                if query.filters:
+                    for pred in query.filters:
+                        if '.' in pred.key:
+                            method, subkey = pred.key.split('.', 1)
+                            if not method in subq:
+                                subq[method] = {}
+                            if not 'filters' in subq[method]:
+                                subq[method]['filters'] = []
+                            subq[method]['filters'].append(Predicate(subkey, pred.op, pred.value))
+                        else:
+                            cur_filters.append(pred)
 
                 # TODO params
 
-                for field in query.fields:
-                    if '.' in field:
-                        method, subfield = field.split('.', 1)
-                        if not method in subq:
-                            subq[method] = {}
-                        if not 'fields' in subq[method]:
-                            subq[method]['fields'] = []
-                        subq[method]['fields'].append(subfield)
-                    else:
-                        cur_fields.append(field)
+                if query.fields:
+                    for field in query.fields:
+                        if '.' in field:
+                            method, subfield = field.split('.', 1)
+                            if not method in subq:
+                                subq[method] = {}
+                            if not 'fields' in subq[method]:
+                                subq[method]['fields'] = []
+                            subq[method]['fields'].append(subfield)
+                        else:
+                            cur_fields.append(field)
 
                 if len(subq):
                     children_ast = []

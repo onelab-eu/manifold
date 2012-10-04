@@ -27,7 +27,8 @@ class TopHatAPI(xmlrpc.XMLRPC):
     def xmlrpc_GetPersons(self, *args):
         """
         """
-        return [{'email': 'demo', 'first_name': 'first', 'last_name': 'last', 'person_hrn': 'myslice.demo'}]
+        return [{'email': 'myuser@mytestbed', 'first_name': 'My', 'last_name': 'User', 'person_hrn': 'mytestbed.user'}]
+
 
     def xmlrpc_AddCredential(self, *args):
         """
@@ -40,7 +41,7 @@ class TopHatAPI(xmlrpc.XMLRPC):
         """
         print "Handling query: ", args
 
-        query = THQuery(*args)
+        query = Query(*args)
 
         table = router.forward(query, deferred=True)
 
@@ -54,6 +55,6 @@ def main():
     print "XMLRPC server Listening..."
 
 if __name__ == '__main__':
-    query1 = THQuery(action='get', fact_table='tophat:platform', filters=[], params=None, fields=['platform', 'platform_longname'])
+    query1 = Query(action='get', fact_table='tophat:platform', filters=[], params=None, fields=['platform', 'platform_longname'])
     print router.forward(query1)
     main()
