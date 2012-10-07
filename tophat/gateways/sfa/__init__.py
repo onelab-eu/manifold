@@ -1406,6 +1406,112 @@ class SFA(FromNode):
             self.callback(r)
         self.callback(None)
 
+
+
+    @staticmethod
+    def manage(user, platform, config):
+        # The gateway should be able to perform user config management taks on
+        # behalf of MySlice
+        #
+        # FIELDS: 
+        # - user_public_key
+        # - user_private_key
+        # - keypair_timestamp
+        # - sscert
+        # - user credentials (expiration!)
+        # - gid (expiration!)
+        # - slice credentials (expiration!)
+
+        from sfa.trust.certificate import Keypair
+        from sfa.util.xrn import Xrn
+        import json
+
+        new_key = False
+
+        if not 'user_hrn' in config:
+            print "E: hrn needed to manage authentication"
+            return {}
+        print "USER HRN=", config['user_hrn']
+
+        if not 'user_private_key' in config:
+            print "I: Generating user private key"
+            k = Keypair(create=True)
+            config['user_public_key'] = k.get_pubkey_string()
+            config['user_private_key'] = k.as_pem()
+            new_key = True
+
+        if new_key or not 'sscert' in config or not config['sscert']:
+            keypair = Keypair(string=config['user_private_key'])
+            self_signed = Certificate(subject = config['user_hrn'])
+            self_signed.set_pubkey(keypair)
+            self_signed.set_issuer(keypair, subject=config['user_hrn'].encode('latin1'))
+            self_signed.sign()
+            config['sscert'] = self_signed.save_to_string()
+
+        if new_key or not 'user_credential' in config: # or expired
+            # Create temporary files for key and certificate in order to use existing code based on httplib
+            pkey_fn = tempfile.NamedTemporaryFile(delete=False)
+            pkey_fn.write(config['user_private_key'])
+            cert_fn = tempfile.NamedTemporaryFile(delete=False)
+            cert_fn.write(config['sscert'])
+            pkey_fn.close()
+            cert_fn.close()
+
+            # We need to connect through a HTTPS connection using the generated private key
+            registry_url = json.loads(platform.config)['registry_url']
+            registry_proxy = SfaServerProxy (registry_url, pkey_fn.name, cert_fn.name)
+
+            os.unlink(pkey_fn.name)
+            os.unlink(cert_fn.name)
+
+            try:
+                credential_string = registry_proxy.GetSelfCredential (config['sscert'], config['user_hrn'], 'user')
+            except:
+                # some urns hrns may replace non hierarchy delimiters '.' with an '_' instead of escaping the '.'
+                hrn = Xrn(config['user_hrn']).get_hrn().replace('\.', '_')
+                credential_string=registry_proxy.GetSelfCredential (config['sscert'], hrn, 'user')
+
+            config['user_credential'] = credential_string
+
+        if new_key or not 'gid' in config:
+            # Create temporary files for key and certificate in order to use existing code based on httplib
+            pkey_fn = tempfile.NamedTemporaryFile(delete=False)
+            pkey_fn.write(config['user_private_key'])
+            cert_fn = tempfile.NamedTemporaryFile(delete=False)
+            cert_fn.write(config['sscert'])
+            pkey_fn.close()
+            cert_fn.close()
+
+            # We need to connect through a HTTPS connection using the generated private key
+            registry_url = json.loads(platform.config)['registry_url']
+            registry_proxy = SfaServerProxy(registry_url, pkey_fn.name, cert_fn.name)
+
+            os.unlink(pkey_fn.name)
+            os.unlink(cert_fn.name)
+
+            records = registry_proxy.Resolve(hrn, config['user_credential'])
+            records = [record for record in records if record['type']=='user']
+            if not records:
+                raise RecordNotFound, "hrn %s (%s) unknown to registry %s"%(hrn,type,self.registry_url)
+
+            record = records[0]
+            config['gid'] = record['gid']
+
+        if new_key or not 'slice_credentials' in config:
+            # Generated on demand !
+            config['slice_credentials'] = []
+
+        return config
+
+#        bootstrap.bootstrap_my_gid()
+#        # extract what's needed
+#        self.private_key = bootstrap.private_key()
+#        self.my_credential_string = bootstrap.my_credential_string ()
+#        self.my_gid = bootstrap.my_gid ()
+#        self.bootstrap = bootstrap
+#        self.bootstrap_done = True
+
+
 #def sfa_get(api, caller, method, ts, input_filter = None, output_fields = None):
 #    sfa = Sfa(api, caller)
 #    # XXX select project and rename (networks, slices, users)

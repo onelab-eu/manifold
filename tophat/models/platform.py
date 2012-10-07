@@ -7,7 +7,7 @@ log = logging.getLogger(__name__)
 
 class Platform(Base):
     platform_id = Column(Integer, primary_key=True, doc="Platform identifier")
-    platform = Column(String, doc="Platform name")
+    platform = Column(String, unique=True, doc="Platform name")
     platform_longname = Column(String, doc="Platform long name")
     platform_description = Column(String, doc="Platform description")
     platform_url = Column(String, doc="Platform URL")

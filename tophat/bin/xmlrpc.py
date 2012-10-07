@@ -33,17 +33,19 @@ class TopHatAPI(xmlrpc.XMLRPC):
     def xmlrpc_AddCredential(self, *args):
         """
         """
-        router.add_credential(args[0])
+        # The first argument should be an authentication token
+        user = router.authenticate(args[0])
+        # The second argument is the credential to add
+        router.add_credential(args[0], user=user)
         return 1
 
     def xmlrpc_forward(self, *args):
         """
         """
-        print "Handling query: ", args
+        # The rest define the query
+        query = Query(*args[1:])
 
-        query = Query(*args)
-
-        table = router.forward(query, deferred=True)
+        table = router.forward(query, deferred=True, user=user)
 
         return table
 

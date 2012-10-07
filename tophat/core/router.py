@@ -391,7 +391,7 @@ class THLocalRouter(LocalRouter):
     #        self.event.set()
     #    self.results.append(value)
 
-    def do_forward(self, query, route, deferred, execute=True):
+    def do_forward(self, query, route, deferred, execute=True, user=None):
         """
         Effectively runs the forwarding of the query to the route
         """

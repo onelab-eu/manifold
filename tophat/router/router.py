@@ -7,6 +7,7 @@ from sqlalchemy.sql import operators
 
 import copy
 
+from tophat.auth import Auth
 from tophat.models import *
 from tophat.util.misc import get_sqla_filters, xgetattr
 
@@ -33,12 +34,44 @@ class LocalRouter(object):
 
         self.boot()
 
-        # XXX we insert a dummy platform
-        p = Platform(platform = 'mytestbed', platform_longname='MyTestbed')
-        session.add(p) 
-        p = Platform(platform = 'tophat', platform_longname='TopHat')
-        session.add(p) 
+        # Dummy platforms
+        try:
+            platform = session.query(Platform).filter(Platform.platform=='ple').one()
+        except:
+            print "W: Adding PLE platform"
+            platform = Platform(platform='PLE', platform_longname='PlanetLab Europe', gateway_type='SFA')
+            platform.config = '{"registry_url": "http://www.planet-lab.eu:12345/"}'
+            session.add(platform)
+        
+        # Dummy users
+        try:
+            user = session.query(User).filter(User.email=='demo').one()
+        except:
+            print "W: Adding demo user"
+            user = User(email='demo')
+            session.add(user)
+        
+        # Dummy accounts
+        try:
+            account = session.query(Account).filter(Account.user==user, Account.platform == platform).one()
+        except:
+            print "W: Adding account to user demo for platform PLE"
+            account = Account()
+            account.user = user
+            account.platform = platform
+            account.auth_type = 'managed'
+            account.config = '{"user_hrn": "ple.upmc.test"}'
+            session.add(account)
+
+            account.manage()
+
         session.commit()
+
+        # XXX we insert a dummy platform
+        #p = Platform(platform = 'mytestbed', platform_longname='MyTestbed')
+        #session.add(p) 
+        #p = Platform(platform = 'tophat', platform_longname='TopHat')
+        #session.add(p) 
 
 
     def boot(self):
@@ -53,13 +86,16 @@ class LocalRouter(object):
         # Read peers into the configuration file
         # TODO
 
+    def authenticate(self, auth):
+        return Auth(auth).check()
+
     def get_query_plane(self, packet):
         pass
 
     def get_route(self, packet):
         pass
 
-    def do_forward(self, query, route):
+    def do_forward(self, query, route, user=None):
         raise Exception, "Not implemented"
 
     def local_query_get(self, query):
@@ -73,7 +109,6 @@ class LocalRouter(object):
         cls = self._map_local_table[query.fact_table]
 
         # Transform a Filter into a sqlalchemy expression
-        print query.filters
         _filters = get_sqla_filters(cls, query.filters)
         _fields = xgetattr(cls, query.fields) if query.fields else None
 
@@ -112,7 +147,7 @@ class LocalRouter(object):
     
     # This function is directly called for a LocalRouter
     # Decoupling occurs before for queries received through sockets
-    def forward(self, query, deferred=False, execute=True):
+    def forward(self, query, deferred=False, execute=True, user=None):
         """
         A query is forwarded. Eventually it affects the forwarding plane, and expects an answer.
         NOTE : a query is like a flow
@@ -189,7 +224,7 @@ class LocalRouter(object):
         #    # Add to flow table
         #    flow_table[destination] = route
 
-        return self.do_forward(query, route, deferred, execute)
+        return self.do_forward(query, route, deferred, execute, user)
             
         # in tophat this is a AST + a set of queries to _next_hops_
         #  - we forward processed subqueries to next hops and we process them
