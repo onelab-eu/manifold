@@ -41,14 +41,14 @@ class LocalRouter(object):
         session.commit()
 
 
-        
-    def _get_static_routes(self):
-        #print "D: Reading %s" % self.conf.STATIC_ROUTES_FILE
-        self.get_static_routes(self.conf.STATIC_ROUTES_FILE)
-
     def boot(self):
+        print "I: Booting router"
         # Install static routes in the RIB and FIB (TODO)
-        static_routes = self._get_static_routes()
+        print "D: Reading static routes in: '%s'" % self.conf.STATIC_ROUTES_FILE
+        static_routes = self.get_static_routes(self.conf.STATIC_ROUTES_FILE)
+        for r in static_routes:
+            pass
+        #self.rib[dest] = route
 
         # Read peers into the configuration file
         # TODO
@@ -126,6 +126,29 @@ class LocalRouter(object):
                     q = copy.deepcopy(query)
                     q.fact_table = table
                     return self.local_query(q)
+                elif namespace == 'metadata':
+                    # Metadata are obtained for the 3nf representation in
+                    # memory
+                    if table == 'table':
+                        output = []
+                        for t in self.rib.keys():
+                            for field in t.fields:
+                                column = {
+                                    'column': field,
+                                    'description': field,
+                                    'header': field,
+                                    'title': field,
+                                    'unit': 'N/A',
+                                    'info_type': 'N/A',
+                                    'resource_type': 'N/A',
+                                    'value_type': 'N/A',
+                                    'allowed_values': 'N/A'
+                                }
+                                columns.append(column)
+                            output.append({'table': t.name, 'column': columns})
+                        return output
+                    else:
+                        raise Exception, "Unsupported metadata request '%s'" % table
                 else:
                     raise Exception, "Unsupported namespace '%s'" % namespace
             except Exception, e:

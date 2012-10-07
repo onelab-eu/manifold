@@ -144,6 +144,7 @@ class THLocalRouter(LocalRouter):
         self.reactor.join()
 
     def import_file(self, metadata):
+        routes = []
         #print "I: Processing %s" % metadata
         tree = ElementTree.parse(metadata)
         root = tree.getroot()
@@ -233,6 +234,8 @@ class THLocalRouter(LocalRouter):
             
             #print "Adding %s::%s to RIB" % (platform, name)
             self.rib[t] = platform
+            routes.append(t)
+        return routes
 
     def get_gateway(self, platform, query):
         config_tophat = {
@@ -278,14 +281,16 @@ class THLocalRouter(LocalRouter):
         self.creds.append(credential)
 
     def get_static_routes(self, directory):
+        routes = []
         for root, dirs, files in os.walk(directory):
             for d in dirs[:]:
                 if d[0] == '.':
                     dirs.remove(d)
             metadata = [f for f in files if f[-3:] == 'xml']
             for m in metadata:
-                self.import_file(os.path.join(root, m))
-        
+                route_arr = self.import_file(os.path.join(root, m))
+                routes.extend(route_arr)
+        return routes
 
     def get_platform_max_fields(self, fields, join):
         # Search for the platform::method that allows for the largest number of missing fields
