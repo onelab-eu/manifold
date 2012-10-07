@@ -47,6 +47,16 @@
                     <unit>list</unit>
                 </field>
                 <field>
+                    <field>lease</field>
+                    <header>NOD</header>
+                    <title>leases</title>
+                    <description>List of leases associated to the slice</description>
+                    <resource_type></resource_type>
+                    <info_type></info_type>
+                    <value_type>node</value_type>
+                    <unit>list</unit>
+                </field>
+                <field>
                     <field>user</field>
                     <header>USR</header>
                     <title>users</title>
@@ -61,6 +71,77 @@
 				<key>slice_hrn</key>
 			</keys>
 		</method>
+        <method name='lease'>
+            <capabilities>
+                <from>true</from>
+                <selection>true</selection>
+                <projection>true</projection>
+                <order>false</order>
+                <limit>false</limit>
+                <offset>false</offset>
+            </capabilities>
+            <fields>
+                <field>
+                    <field>start_time</field>
+                    <header>ST</header>
+                    <title>Start time</title>
+                    <description>Start of the lease</description>
+                    <resource_type></resource_type>
+                    <info_type></info_type>
+                    <value_type></value_type>
+                    <unit></unit>
+                    <allowed_values></allowed_values>
+                </field>
+                <field>
+                    <field>granularity</field>
+                    <header>ST</header>
+                    <title>Start time</title>
+                    <description>Start of the lease</description>
+                    <resource_type></resource_type>
+                    <info_type></info_type>
+                    <value_type></value_type>
+                    <unit></unit>
+                    <allowed_values></allowed_values>
+                </field>
+                <field>
+                    <field>urn</field>
+                    <header>ST</header>
+                    <title>Start time</title>
+                    <description>Start of the lease</description>
+                    <resource_type></resource_type>
+                    <info_type></info_type>
+                    <value_type></value_type>
+                    <unit></unit>
+                    <allowed_values></allowed_values>
+                </field>
+                <field>
+                    <field>duration</field>
+                    <header>ST</header>
+                    <title>Start time</title>
+                    <description>Start of the lease</description>
+                    <resource_type></resource_type>
+                    <info_type></info_type>
+                    <value_type></value_type>
+                    <unit></unit>
+                    <allowed_values></allowed_values>
+                </field>
+                <field>
+                    <field>slice_id</field>
+                    <header>ST</header>
+                    <title>Start time</title>
+                    <description>Start of the lease</description>
+                    <resource_type></resource_type>
+                    <info_type></info_type>
+                    <value_type></value_type>
+                    <unit></unit>
+                    <allowed_values></allowed_values>
+                </field>
+
+            </fields>
+            <keys>
+                <key>urn</key>
+            </keys>
+        </method>
         <method name='resource'>
             <capabilities>
                 <from>true</from>

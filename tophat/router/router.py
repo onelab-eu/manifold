@@ -132,6 +132,7 @@ class LocalRouter(object):
                     if table == 'table':
                         output = []
                         for t in self.rib.keys():
+                            columns = []
                             for field in t.fields:
                                 column = {
                                     'column': field,
