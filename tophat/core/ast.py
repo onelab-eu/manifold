@@ -5,8 +5,42 @@ import itertools
 from tophat.core.filter import Filter, Predicate
 from tophat.core.query import Query
 from copy import copy
+import traceback
 
 #from tophat.core.nodes import *
+
+def do_projection(record, fields):
+    """
+    Take the necessary fields in dic
+    """
+    ret = {}
+
+    # 1/ split subqueries
+    local = []
+    subqueries = {}
+    for f in fields:
+        if '.' in f:
+            method, subfield = f.split('.', 1)
+            if not method in subqueries:
+                subqueries[method] = []
+            subqueries[method].append(subfield)
+        else:
+            local.append(f)
+    
+    # 2/ process local fields
+    for l in local:
+        ret[l] = record[l] if l in record else None
+
+    # 3/ recursively process subqueries
+    for method, subfields in subqueries.items():
+        # record[method] is an array whose all elements must be
+        # filtered according to subfields
+        arr = []
+        for x in record[method]:
+            arr.append(local_projection(x, subfields))
+        ret[method] = arr
+
+    return ret
 
 class Node(object):
 
@@ -20,29 +54,51 @@ class FromNode(Node):
         self.platform = platform
         self.query = query
         self.config = config
-        self.do_start = False
         self.started = False
         self.callback = None
         self.router = router
+        self.done = False
+        self.results = []
+        self.dup = False
 
     def dump(self, indent=0):
         print ' ' * indent * 4, "SELECT %r FROM '%s:%s'" % (self.query.fields, self.platform, self.query.fact_table)
 
-    def inject(self, records):
-        injected_fields = [field for field in records[0].keys()]
-        for f in injected_fields:
-            if f in self.router.metadata_get_keys(self.query.fact_table):
-                # We have primary keys : inject filter 
-                # if already present: Exception
-                # XXX This code is already written
-                pass
-            else:
-                # inject a JOIN for which we already have the results
-                # can do it manually
-                # self.need_merge_with_injection = True
-                # XXX
-                pass
-        self.node.inject(records)
+    def inject(self, records, only_keys):
+        keys = self.router.metadata_get_keys(self.query.fact_table)
+        if not keys:
+            raise Exception, "FromNode::inject : key not found for method %s" % self.query.fact_table
+        key = next(iter(keys))
+
+        if only_keys:
+            # if the requested fields are only the key, no need to perform any
+            # query, we can return results immediately
+            if self.query.fields == set([key]):
+                self.results = [{key: record} for record in records]
+                self.done = True
+                return self
+            # otherwise we can request only the key fields
+            # XXX make sure filtering is supported sometimes
+            self.query.filters.add(Predicate(key, '=', records))
+            return self
+        else:
+            assert len(records) > 0, "FromNode::inject : No record injected"
+            # XXX We suppose all records have the same fields
+            records_fields = set(records[0].keys())
+            if self.query.fields <= records_fields:
+                # XXX Do we need to enforce selection/projection ?
+                self.results = records
+                self.done = True
+                return self
+            # We can make a JOIN between what we have and what we miss
+            # do we need to enforce selection/projection here ?
+            self.query.fields.difference_update(set(records_fields))
+            if not key in self.query.fields:
+                self.query.fields.add(key)
+            join = LeftJoin(records, self, key)
+            join.callback = self.callback
+            self.callback = LeftJoin.right_callback
+            return join
 
 #    def install(self, router, callback, start):
 #        self.router = router
@@ -52,11 +108,18 @@ class FromNode(Node):
 #        return node
 
     def start(self):
-        if self.router and self._source_id:
-            self.router.start(self._source_id)
-        
+        if self.done:
+            for result in self.results:
+                self.callback(result)
+            if self.dup:
+                raise Exception, "dup"
+            self.dup = True
+            self.callback(None)
+            return
+        self.started = True
+        self.do_start()
 
-class Join(Node):
+class LeftJoin(Node):
 
     def __init__(self, left, right, predicate):
         self.callback = None
@@ -66,7 +129,6 @@ class Join(Node):
         self.predicate = predicate
         # Set up callbacks
         if isinstance(left, list):
-            print "LEFT DONE AUTO in JOIN"
             self.left = None
             self.left_table = left
             self.left_done = True
@@ -81,44 +143,54 @@ class Join(Node):
         self.right_done = False
 
     def start(self):
-        if self.left:
-            print "STARTING LEFT"
-            self.left.start()
         if self.left_done:
-            print "STARTING RIGHT"
             self.right.start()
+        else:
+            self.left.start()
 
-    def inject(self, records):
-        # XXX improve here
-        self.left.inject(records)
-        # XXX right ?
+    def inject(self, records, only_keys):
+        # XXX Maybe the only_keys argument is optional and can be guessed
+        # TODO Currently we support injection in the left branch only
+        if only_keys:
+            # TODO injection in the right branch
+            # Injection makes sense in the right branch if it has the same key
+            # as the left branch.
+            self.left = self.left.inject(records, only_keys)
+        else:
+            records_inj = []
+            for record in records:
+                proj = do_projection(record, self.left.query.fields)
+                records_inj.append(proj)
+            self.left = self.left.inject(records_inj, only_keys)
+            # TODO injection in the right branch: only the subset of fields
+            # of the right branch
+        return self
 
     def dump(self, indent=0):
-        self.left.dump(indent+1)
         print ' ' * indent * 4, "JOIN", self.predicate
+        if self.left:
+            self.left.dump(indent+1)
+        else:
+            print '[DATA]', self.left_table
         self.right.dump(indent+1)
 
     def left_callback(self, record):
-        print "record"
-        try:
-            if not record:
-                self.left_done = True
-                self.right.start()
-                #if self.right_done:
-                #    self.callback(None) 
-                #    print "JOIN FINI A"
-                return
-            # New result from the left operator
-            if self.right_done:
-                if self.left_table:
-                    self.process_left_table()
-                    self.left_table = []
-                self.process_left_record(record)
-            else:
-                self.left_table.append(record)
-        except Exception, e:
-            print "Exception during JoinNode::left_callback(%r): %s" % (record, e)
-            traceback.print_exc()
+        if not record:
+            if self.left_done:
+                raise Exception, "pouet"
+            self.left_done = True
+            self.right.start()
+            return
+        # New result from the left operator
+        if self.right_done:
+            if self.left_table:
+                self.process_left_table()
+                self.left_table = []
+            self.process_left_record(record)
+        else:
+            self.left_table.append(record)
+
+#traceback.print_exc()
 
     def process_left_record(self, record):
         # We cannot join because the left has no key
@@ -138,10 +210,8 @@ class Join(Node):
     def process_left_table(self):
         for record in self.left_table:
             self.process_left_record(record)
-        print "left record processed JOIN"
 
     def right_callback(self, record):
-        print "RIGHT"
         try:
             #print "right callback", record
             # We need to send a NULL record to signal the end of the table
@@ -150,7 +220,6 @@ class Join(Node):
                 if self.left_done:
                     self.process_left_table()
                     self.callback(None)
-                    print "JOIN FINI B"
                 return
             # New result from the right operator
             #
@@ -160,7 +229,7 @@ class Join(Node):
                 return
             self.right_map[record[self.predicate]] = record
         except Exception, e:
-            print "Exception during JoinNode::right_callback(%r): %s" % (record, e)
+            print "Exception during LeftJoin::right_callback(%r): %s" % (record, e)
             traceback.print_exc()
 
 class Projection(Node):
@@ -180,50 +249,18 @@ class Projection(Node):
     def start(self):
         self.node.start()
 
-    def inject(self, records):
-        # XXX improve here
-        self.node.inject(records)
+    def inject(self, records, only_keys):
+        self.node = self.node.inject(records, only_keys)
+        return self
 
     def callback(self, record):
 
-        def local_projection(record, fields):
-            """
-            Take the necessary fields in dic
-            """
-            ret = {}
-
-            # 1/ split subqueries
-            local = []
-            subqueries = {}
-            for f in fields:
-                if '.' in f:
-                    method, subfield = f.split('.', 1)
-                    if not method in subqueries:
-                        subqueries[method] = []
-                    subqueries[method].append(subfield)
-                else:
-                    local.append(f)
-            
-            # 2/ process local fields
-            for l in local:
-                ret[l] = record[l] if l in record else None
-
-            # 3/ recursively process subqueries
-            for method, subfields in subqueries.items():
-                # record[method] is an array whose all elements must be
-                # filtered according to subfields
-                arr = []
-                for x in record[method]:
-                    arr.append(local_projection(x, subfields))
-                ret[method] = arr
-
-            return ret
 
         try:
             if not record:
                 self.callback(record)
                 return
-            ret = local_projection(record, self.fields)
+            ret = do_projection(record, self.fields)
             self.callback(ret)
 
         except Exception, e:
@@ -246,6 +283,10 @@ class Selection(Node):
     def start(self):
         self.node.start()
 
+    def inject(self, records, only_keys):
+        self.node = self.node.inject(records, only_keys)
+        return self
+
     def callback(self, record):
         try:
             if not record:
@@ -261,6 +302,7 @@ class Selection(Node):
     def inject(self, records):
         # XXX improve here
         self.node.inject(records)
+        return self
 
 class Union(Node):
     def __init__(self, children):
@@ -281,9 +323,10 @@ class Union(Node):
         for child in self.children:
             child.start()
 
-    def inject(self, records):
+    def inject(self, records, only_keys):
         for child in self.children:
-            child.inject(records)
+            child.inject(records, only_keys)
+        return self
 
     def child_done(self, child_id):
         self.child_status -= child_id
@@ -331,12 +374,9 @@ class SubQuery(Node):
 
     def parent_callback(self, record):
         if record:
-            print "SUBQ APPEND"
             self.parent_output.append(record)
             return
-        print "SUBQ PARENT DONE"
         # When we have received all parent records, we can run children
-        print "parent output = ", self.parent_output
         if self.parent_output:
             self.run_children()
 
@@ -344,88 +384,168 @@ class SubQuery(Node):
         """
         Modify children queries to take the keys returned by the parent into account
         """
-        print "run children"
-        # Loop through children
+        # Loop through children and inject the appropriate parent results
         for i, child in enumerate(self.children):
-            print "CHILD %d STARTED" % i
-            ast = child.root
-            # We suppose all results have the same shape, and that we have at
-            # least one result
-            if ast.query.fact_table not in self.parent_output[0]:
-                raise Exception, "Missing primary key information in parent for child %s" % ast.query.fact_table
+            # The parent_output should already have either a set of keys or a
+            # set of records. They will serve an input for the JOINS
+            # keys = filters for the left part of the first JOIN
+            # records = (partial) replacement for the first JOIN
+            #     we can request less and make a JOIN with existing data
 
-            # We now inject the information in the ast 
-            #ast.inject([row[ast.query.fact_table] for row in self.parent_output])
-
-            # Create a JOiN node
-            key = None # XXX
-            join = Join([], child, key) # XXX + modified JOiN to accept array
-
-            # Update its query
-            fact_table = ast.query.fact_table
-            filters = ast.query.filters.union(ast.query.filters)
-            fields = ast.query.fields.union(ast.query.fields)
-            join.query = Query(fact_table=fact_table, filters=filters, fields=fields)
-
-            # This JOiN node becomes the new child
-            self.children[i] = join
-            join.callback = lambda record: self.child_callback(i, record)
-
-            # Can itself be a subquery
-            # Collect keys from parent results
-            parent_keys = []
-            for o in self.parent_output:
-                if self.parent.query.fact_table in o:
-                    # o[method] can be :
-                    # - an id (1..)
-                    # - an object (1..1)
-                    # - a list of id (1..N)
-                    # - a list of objects (1..N)
-                    if isinstance(o[ast.query.fact_table], list):
-                        # We inspected each returned object or key
-                        for x in o[ast.query.fact_table]:
-                            if isinstance(x, dict):
-                                # - get key from metadata and add it
-                                # - What to do with remaining fields, we
-                                #   might not be able to get them
-                                #   somewhere else
-                                raise Exception, "returning subobjects not implemented (yet)."
-                            else:
-                                parent_keys.append(x)
-                    else:
-                        # 1..1
-                        raise Exception, "1..1 relationships are not implemented (yet)."
-                    parent_keys.extend(o['key']) # 1..N
-
-            # Add filter on method key
-            keys = self.router.metadata_get_keys(ast.query.fact_table)
+            keys = self.router.metadata_get_keys(child.query.fact_table)
             if not keys:
                 raise Exception, "Cannot complete query: submethod %s has no key" % method
             key = list(keys).pop()
-            if ast.query.filters.has_key(key):
-                raise Exception, "Filters on keys are not allowed (yet) for subqueries"
-            # XXX careful frozen sets !!
-            ast.query.filters.add(Predicate(key, '=', parent_keys))
 
-        # Run child nodes
-        #print "I: running subquery children"
+            # Collect the list of all child records in order to make a single
+            # child query; we will have to dispatch the results
+            child_record_all = []
+            child_keys_all = []
+            only_key = False # We have only the key in child records
+            for parent_record in self.parent_output:
+                # XXX We are supposing 1..N here
+                if not isinstance(parent_record[child.query.fact_table], list):
+                    raise Exception, "run_children received 1..1 record; 1..N implemented only."
+                for child_record in parent_record[child.query.fact_table]:
+                    if isinstance(child_record, dict):
+                        if not key in child_record:
+                            # XXX case for links in slice.resource
+                            continue
+                        if not child_record[key] in child_keys_all:
+                            child_record_all.append(child_record)
+                            child_keys_all.append(child_record[key])
+                        # else duplicate
+                    else:
+                        # XXX We should be injecting keys only what is common
+                        # between all records. For this we should be remembering
+                        # the list of child_record fields that are in common in
+                        # all child records.
+                        only_key = True
+                        child_keys_all.append(child_record)
+            
+            # child is the AST receiving the injection
+            if only_key:
+                self.children[i] = child.inject(child_keys_all, only_keys=True)
+            else:
+                self.children[i] = child.inject(child_record_all, only_keys=False)
+
+        # We make another loop since the children might have been modified in
+        # the previous one.
         for child in self.children:
             child.start()
 
+#            # old #####"
+#            ast = child.root
+#            # We suppose all results have the same shape, and that we have at
+#            # least one result
+#            if ast.query.fact_table not in self.parent_output[0]:
+#                raise Exception, "Missing primary key information in parent for child %s" % ast.query.fact_table
+#
+#            keys = self.router.metadata_get_keys(ast.query.fact_table)
+#            if not keys:
+#                raise Exception, "Cannot complete query: submethod %s has no key" % method
+#            key = list(keys).pop()
+#
+#            # Create a JOiN node
+#
+#            fact_table = ast.query.fact_table
+#            filters = ast.query.filters.union(ast.query.filters)
+#            fields = ast.query.fields.union(ast.query.fields)
+#
+#            fact_table_key = self.router.metadata_get_keys(fact_table)
+#            fact_table_key = next(iter(fact_table_key))
+#
+#            parent_keys = set([])
+#            for record in self.parent_output: 
+#                # eg. record == slice
+#                #     record[fact_table] == resource[]
+#                #       this variable hold the set of information we already
+#                #       have for each resource in the slice !
+#                #       -> we only need to request the rest, alongside with the
+#                #       key... note that all fields might be useful to complete
+#                #       the query, and not only the key !
+#                print "--------"
+#                print set([ x[fact_table_key] for x in record[fact_table] if fact_table_key in x])
+#                parent_keys.update(set([ x[fact_table_key] for x in record[fact_table] if fact_table_key in x]))
+#            print "======="
+#            print parent_keys
+#            import sys
+#            sys.exit(0)
+#            join = LeftJoin([x[fact_table] for x in self.parent_output], child, key)
+#
+#            # Update its query
+#            join.query = Query(fact_table=fact_table, filters=filters, fields=fields)
+#
+#            join.callback = lambda record: self.child_callback(i, record)
+#
+#            # This JOiN node becomes the new child
+#            self.children[i] = join
+#
+#            # Can itself be a subquery
+#            # Collect keys from parent results
+#            parent_keys = []
+#            for o in self.parent_output:
+#                if self.parent.query.fact_table in o:
+#                    # o[method] can be :
+#                    # - an id (1..)
+#                    # - an object (1..1)
+#                    # - a list of id (1..N)
+#                    # - a list of objects (1..N)
+#                    if isinstance(o[ast.query.fact_table], list):
+#                        # We inspected each returned object or key
+#                        for x in o[ast.query.fact_table]:
+#                            if isinstance(x, dict):
+#                                # - get key from metadata and add it
+#                                # - What to do with remaining fields, we
+#                                #   might not be able to get them
+#                                #   somewhere else
+#                                raise Exception, "returning subobjects not implemented (yet)."
+#                            else:
+#                                parent_keys.append(x)
+#                    else:
+#                        # 1..1
+#                        raise Exception, "1..1 relationships are not implemented (yet)."
+#                    parent_keys.extend(o['key']) # 1..N
+#
+#            # Add filter on method key
+#            if ast.query.filters.has_key(key):
+#                raise Exception, "Filters on keys are not allowed (yet) for subqueries"
+#            # XXX careful frozen sets !!
+#            ast.query.filters.add(Predicate(key, '=', parent_keys))
+#
+#        # Run child nodes
+#        #print "I: running subquery children"
+#        for child in self.children:
+#            child.start()
+
     def child_done(self, child_id):
         self.child_status -= child_id
-        print "SUBQ child %d DONE" % child_id
         if self.child_status == 0:
             for o in self.parent_output:
+                # Dispatching child results
+                for i, child in enumerate(self.children):
+                    keys = self.router.metadata_get_keys(child.query.fact_table)
+                    if not keys:
+                        raise Exception, "FromNode::inject : key not found for method %s" % self.query.fact_table
+                    key = next(iter(keys))
+
+                    for record in o[child.query.fact_table]:
+                        # Find the corresponding record in child_results and
+                        # update the one in the parent with it
+                        #child_record = [r for r in self.child_results[i] if key in record and r[key] == record[key]][0]
+                        if key in record:
+                            for r in self.child_results[i]:
+                                if key in r and r[key] == record[key]:
+                                    record.update(r)
+
+                        # XXX We ignore missing keys
                 self.callback(o)
             self.callback(None)
 
     def child_callback(self, child_id, record):
         if not record:
-            print "child done"
             self.child_done(child_id)
             return
-        print "child callback"
         self.child_results[child_id].append(record)
         # merge results in parent
             
@@ -513,10 +633,10 @@ class AST(object):
     def get(self):
         return list(self._get())
 
-    def From(self, table, fields):
+    def From(self, table, query):
         """
         """
-        self.query = Query('get', table.name, [], {}, fields)
+        self.query = query
         print "W: We have two tables providing the same data: CHOICE or UNION ?"
         if isinstance(table.platform, list) and len(table.platform)>1:
             children_ast = []
@@ -550,7 +670,7 @@ class AST(object):
 
         old_root = self.root
 
-        self.root = Join(old_root, ast.root, predicate)
+        self.root = LeftJoin(old_root, ast.root, predicate)
 
         fact_table = old_root.query.fact_table
         filters = old_root.query.filters.union(ast.root.query.filters)

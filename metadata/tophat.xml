@@ -140,7 +140,7 @@ TopHat relies on TDMI (TopHat Dedicated Measurement Infrastructure), which is cu
                 </field>
             </fields>
             <keys>
-                <key>ip</key>
+                <key>hostname</key>
             </keys>
        </method>
     </methods>

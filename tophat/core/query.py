@@ -1,4 +1,4 @@
-from tophat.core.filter import Filter
+from tophat.core.filter import Filter, Predicate
 
 class ParameterError(StandardError): pass
 
@@ -19,10 +19,12 @@ class Query(object):
         if len(args) in range(2,6) and type(args) == tuple:
             # Note: range(x,y) <=> [x, y[
             self.action, self.fact_table, self.filters, self.params, self.fields = args
-            self.params = set(self.params)
             if isinstance(self.filters, list):
                 self.filters = Filter(self.filters)
-            self.fields = set(self.fields)
+            if isinstance(self.params, list):
+                self.params = set(self.params)
+            if isinstance(self.fields, list):
+                self.fields = set(self.fields)
 
         # Initialization from a dict (action & fact_table are mandatory)
         elif 'fact_table' in kwargs:
@@ -58,4 +60,8 @@ class Query(object):
                 return
         else:
                 raise ParameterError, "No valid constructor found for %s" % self.__class__.__name__
+
+    def __str__(self):
+        return "SELECT %s FROM %s WHERE ..." % (', '.join(self.fields), self.fact_table)
+        #return "SELECT %s FROM %s WHERE %s" % (', '.join(self.fields), self.fact_table, self.filters)
 

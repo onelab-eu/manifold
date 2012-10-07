@@ -255,7 +255,7 @@ class THLocalRouter(LocalRouter):
             'sm': 'http://www.planet-lab.eu:12347/',
             'registry': 'http://www.planet-lab.eu:12345/',
             'user_private_key': '/var/myslice/myslice.pkey',
-            'caller': {'person_hrn': 'ple.upmc.slicebrowser', 'email': 'slicebrowser@myslice.info'}
+            'caller': {'person_hrn': 'ple.upmc.jordan_auge', 'email': 'demo'} # jordan.auge@lip6.fr'}
         }
 
         print "W: Using temporary table for peers and configuration"
@@ -268,14 +268,14 @@ class THLocalRouter(LocalRouter):
         }
 
         try:
-            print "PL:", platform
             cls, conf = class_map[platform]
             return cls(self, platform, query, conf)
         except KeyError, key:
             raise Exception, "Platform missing '*%s*'" % key
 
-    def add_credential(self, target, type, cred):
-        self.creds.append({'target': target, 'type': type, 'cred': cred})
+    def add_credential(self, credential):
+        print "Added credential of type", credential['type']
+        self.creds.append(credential)
 
     def get_static_routes(self, directory):
         for root, dirs, files in os.walk(directory):
@@ -309,74 +309,74 @@ class THLocalRouter(LocalRouter):
                 return t.keys
         return None
 
-    def compute_query_plan(self, query):
-
-        # XXX this should be replaced by a Steiner Tree computation
-        # XXX This should manage subqueries !!!!
-
-        from tophat.core.ast import AST
-        from tophat.core.metadata import Metadata
-        from tophat.core.gateway import Gateway
-
-        fact_table, filters, fields = query.fact_table, query.filters, query.fields
-
-        # This method is broken, need to replace it with steiner
-
-        if filters:
-            fields.extend(filters.keys())
-        fields = set(fields)
-         
-        # Query plan 
-        qp = AST(self)
-        join = False 
-
-        # Note: We could skip or restrict the set of platforms, and ask for routing or timing information 
-        while True: 
-            #print "REMAINING FIELDS: ", fields
-            table, qfields = self.get_platform_max_fields(fields, join) 
-            if not table: 
-                raise Exception, "Cannot complete query: %s" % fields 
-
-            #print "CALLING %s::%s for (%r)" % (table.platform, table.name, fields)
-
-            #q = Query(fact_table, ts, {}, list(p['fields'])) 
-            #gateways = MetadataGateways(self.api, {'platform': p['platform']}) 
-            #if not gateways: 
-            #    raise Exception, "No gateway found for platform '%(platform)s'" % p 
-            #config = json.loads(gateways[0]['config']) 
-
-            ## We add the caller to the config parameter 
-            #config['caller'] = self.caller 
-
-            # We need the key to perform the join
-            key = table.keys[0]
-            qfields.add(key)
-            if not join: 
-                qp = qp.From(table, qfields) 
-                join = True 
-            else: 
-                r = AST(self).From(table, qfields) 
-                # we join on hostname (hardcoded) 
-                qp = qp.join(r, key)
-
-            # Remove the fields we obtain from the ones yet to be queried
-            for qf in qfields:
-                fields = [f for f in fields if not f == qf and not f.startswith("%s." % qf)]
-                #if qf in fields: 
-                #    fields.remove(qf) 
-
-            # Stop if we have no more fields to query
-            if not fields: 
-                break 
-
-        # Now we apply the operators
-        qp = qp.selection(query.filters) 
-        qp = qp.projection(query.fields) 
-        #qp = qp.sort(query.get_sort()) 
-        #qp = qp.limit(query.get_limit()) 
-
-        return qp
-        #return list(qp._get()) 
+#    def compute_query_plan(self, query):
+#
+#        # XXX this should be replaced by a Steiner Tree computation
+#        # XXX This should manage subqueries !!!!
+#
+#        from tophat.core.ast import AST
+#        from tophat.core.metadata import Metadata
+#        from tophat.core.gateway import Gateway
+#
+#        fact_table, filters, fields = query.fact_table, query.filters, query.fields
+#
+#        # This method is broken, need to replace it with steiner
+#
+#        if filters:
+#            fields.extend(filters.keys())
+#        fields = set(fields)
+#         
+#        # Query plan 
+#        qp = AST(self)
+#        join = False 
+#
+#        # Note: We could skip or restrict the set of platforms, and ask for routing or timing information 
+#        while True: 
+#            #print "REMAINING FIELDS: ", fields
+#            table, qfields = self.get_platform_max_fields(fields, join) 
+#            if not table: 
+#                raise Exception, "Cannot complete query: %s" % fields 
+#
+#            #print "CALLING %s::%s for (%r)" % (table.platform, table.name, fields)
+#
+#            #q = Query(fact_table, ts, {}, list(p['fields'])) 
+#            #gateways = MetadataGateways(self.api, {'platform': p['platform']}) 
+#            #if not gateways: 
+#            #    raise Exception, "No gateway found for platform '%(platform)s'" % p 
+#            #config = json.loads(gateways[0]['config']) 
+#
+#            ## We add the caller to the config parameter 
+#            #config['caller'] = self.caller 
+#
+#            # We need the key to perform the join
+#            key = table.keys[0]
+#            qfields.add(key)
+#            if not join: 
+#                qp = qp.From(table, qfields) 
+#                join = True 
+#            else: 
+#                r = AST(self).From(table, qfields) 
+#                # we join on hostname (hardcoded) 
+#                qp = qp.join(r, key)
+#
+#            # Remove the fields we obtain from the ones yet to be queried
+#            for qf in qfields:
+#                fields = [f for f in fields if not f == qf and not f.startswith("%s." % qf)]
+#                #if qf in fields: 
+#                #    fields.remove(qf) 
+#
+#            # Stop if we have no more fields to query
+#            if not fields: 
+#                break 
+#
+#        # Now we apply the operators
+#        qp = qp.selection(query.filters) 
+#        qp = qp.projection(query.fields) 
+#        #qp = qp.sort(query.get_sort()) 
+#        #qp = qp.limit(query.get_limit()) 
+#
+#        return qp
+#        #return list(qp._get()) 
 
 
     #def cb(self, value):
@@ -593,7 +593,8 @@ class THLocalRouter(LocalRouter):
                 if not visited_tree_edges:
                     # The root is sufficient
                     # OR WE COULD NOT ANSWER QUERY
-                    return AST(self).From(root, needed_fields)
+                    q = Query(fact_table=root.name, filters=query.filters, fields=needed_fields)
+                    return AST(self).From(root, q) # root, needed_fields)
 
                 qp = None
                 root = True
@@ -622,11 +623,12 @@ class THLocalRouter(LocalRouter):
                             if not max_table:
                                 raise Exception, 'get_table_max_fields error: could not answer fields: %r for query %s' % (local_fields, query)
                             sources.remove(max_table)
+                            q = Query(fact_table=max_table.name, filters=query.filters, fields=list(max_fields))
                             if first_join:
-                                left = AST(self).From(max_table, list(max_fields))
+                                left = AST(self).From(max_table, q) # max_table, list(max_fields))
                                 first_join = False
                             else:
-                                right = AST(self).From(max_table, list(max_fields))
+                                right = AST(self).From(max_table, q) # max_table, list(max_fields))
                                 left = left.join(right, iter(s.keys).next())
                             local_fields.difference_update(max_fields)
                             needed_fields.difference_update(max_fields)
@@ -637,16 +639,20 @@ class THLocalRouter(LocalRouter):
                         qp = left
                         root = False
 
-                    # Proceed with the JOIN
+                    if not needed_fields:
+                        return qp
                     local_fields = set(needed_fields) & e.fields
                     # We add fields necessary for performing joins = keys of all the children
                     # XXX does not work for multiple keys
-                    for ss,ee in visited_tree_edges:
-                        if ss == e:
-                            local_fields.update(ee.keys)
-
-                    if not local_fields:
-                        return qp
+                    #for ss,ee in visited_tree_edges:
+                    #    print "SS/EE", ss, ee
+                    #    if ss == e: # or ee (node) inherits from ss (resource), 
+                    #        # XXX Here we are reasoning on the table name, while
+                    #        # previously it was on the keys only
+                    #        print "ADDING KEY", ee.keys
+                    #        local_fields.update(ee.keys)
+                    # Adding key for the join
+                    local_fields.update(e.keys)
 
                     # We adopt a greedy strategy to get the required fields (temporary)
                     # We assume there are no partitions
@@ -657,11 +663,12 @@ class THLocalRouter(LocalRouter):
                         max_table, max_fields = get_table_max_fields(local_fields, sources)
                         if not max_table:
                             break;
+                        q = Query(fact_table=max_table.name, filters=query.filters, fields=list(max_fields))
                         if first_join:
-                            left = AST(self).From(max_table, list(max_fields))
+                            left = AST(self).From(max_table, q) # max_table, list(max_fields))
                             first_join = False
                         else:
-                            right = AST(self).From(max_table, list(max_fields))
+                            right = AST(self).From(max_table, q) #max_table, list(max_fields))
                             left = left.join(right, iter(e.keys).next())
                         local_fields.difference_update(max_fields)
                         needed_fields.difference_update(max_fields)
@@ -674,12 +681,6 @@ class THLocalRouter(LocalRouter):
                     qp = qp.join(left, key) # XXX
                 return qp
                 
-            # END EXPERIMENTAL CODE
-
-            # FORMER QUERY PLAN COMPUTATION
-            #qp = self.compute_query_plan(query)
-
-
 
             def process_subqueries(query, G_nf):
                 qp = AST(self)
@@ -732,10 +733,52 @@ class THLocalRouter(LocalRouter):
                         subfilters = subquery['filters'] if 'filters' in subquery else []
                         subparams = subquery['params'] if 'params' in subquery else []
                         subfields = subquery['fields'] if 'fields' in subquery else []
+
+                        # XXX Adding primary key in subquery to be able to merge
+                        keys = self.metadata_get_keys(method)
+                        if not keys:
+                            raise Exception, "Cannot build children query: method %s has no key" % method
+                        key = list(keys).pop()
+                        subfields.append(key)
+
+                        # XXX Adding subfields either requested by the users or
+                        # necessary for the join
+
+                        # NOTE: when requesting fields from a subquery, there
+                        # are several possibilities:
+                        # 1 - only keys are returned
+                        # 2 - fields are returned but we cannot predict
+                        # 3 - we have a list of fields that can be returned
+                        # (default)
+                        # 4 - all fields can be returned
+                        # BTW can we specify which fields we want to force the
+                        # platform to do most of the work for us ?
+                        #
+                        # To begin with, let's only consider case 1 and 4
+                        # XXX where to get this information in metadata
+                        # XXX case 2 could be handled by injection (we inject
+                        # fields before starting, and if we have all required
+                        # fields, we can return directly).
+                        # XXX case 3 could be a special case of 4
+
+                        # We have two solutions:
+                        # 1) build the whole child ast (there might be several
+                        # solutions and one will be chosen) then inject the
+                        # results we already have (we might be able to inject
+                        # more in a non chosen solution maybe ?? or maybe not
+                        # since we are in 3nf)
+                        # 2) build the child ast considering that we have
+                        # already a set of fields
+                        # 
+                        # Let's start with solution 1) since it might be more
+                        # robust in the current state given we don't have an
+                        # exact idea of what will be the returned fields.
+
+                        # Formulate the query we are trying to resolve
                         subquery = Query(query.action, method, subfilters, subparams, subfields)
-                        # XXX TODO we need callbacks between subqueries
+
                         child_ast = process_subqueries(subquery, G_nf)
-                        children_ast.append(child_ast)
+                        children_ast.append(child_ast.root)
 
                     parent = Query(query.action, query.fact_table, cur_filters, cur_params, cur_fields)
                     parent_ast = process_query(parent, G_nf)
@@ -796,7 +839,7 @@ class THLocalRouter(LocalRouter):
         qp.callback = cb
         qp.start()
 
-        self.sourcemgr.run()
+        #self.sourcemgr.run()
 
         if deferred:
             return d

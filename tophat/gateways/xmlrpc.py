@@ -20,8 +20,7 @@ class XMLRPC(FromNode):
     def exception_cb(self, error):
         print 'Error during XMLRPC call: ', error
 
-    def start(self):
-        self.started = True
+    def do_start(self):
         try:
             def wrap(source):
                 proxy = Proxy(self.config['url'], allowNone=True)

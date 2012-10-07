@@ -18,7 +18,7 @@ from tophat.util.faults import *
 from tophat.core.MySliceCredential import MySliceCredential, MySliceCredentials
 from tophat.core.MySliceRSpec import MySliceRSpec, MySliceRSpecs
 from tophat.core.table import Row
-from tophat.core.filter import Filter
+from tophat.core.filter import *
 from tophat.core.metadata import Metadata
 
 from sfa.trust.certificate import Keypair, Certificate
@@ -45,6 +45,7 @@ from sfa.client.return_value import ReturnValue
 
 import signal
 
+DEMO_HOOKS = ['demo'] #, 'jordan.auge@lip6.fr']
 
 
 
@@ -173,7 +174,7 @@ def project_select_and_rename_fields(table, pkey, filters, fields, map_fields=No
                         row[v] = row[k]
                     del row[k]
         # apply input filters # XXX TODO sort limit offset
-        if match_dict(row, filters):
+        if filters.match(row): # match_dict(row, filters):
             # apply output_fields
             c = {}
             for k,v in row.items():
@@ -320,6 +321,8 @@ class SFA(FromNode):
     # 
 
     def registry (self):
+        if not self.bootstrap_done:
+            self.bootstrap()
         # cache the result
         if not hasattr (self, 'registry_proxy'):
             self.logger.info("Contacting Registry at: %s"%self.reg_url)
@@ -350,7 +353,6 @@ class SFA(FromNode):
             if not self.sm_url.startswith('http://') or self.sm_url.startswith('https://'):
                 self.sm_url = 'http://' + self.sm_url
             self.logger.info("Contacting Slice Manager at: %s"%self.sm_url)
-            print "CONFIG=", self.config
             self.sliceapi_proxy = SfaServerProxy(self.sm_url,
                     self.config['user_private_key'], self.my_gid,
                     timeout=self.config['timeout'],
@@ -630,6 +632,7 @@ class SFA(FromNode):
 
     def parse_sfa_rspec(self, rspec):
         from tophat.gateways.sfa.rspecs.SFAv1 import SFAv1Parser as Parser
+        print "RESPEC PARSED", rspec
         parser = Parser(rspec)
         return parser.to_dict()
 
@@ -644,7 +647,6 @@ class SFA(FromNode):
     # Credentials
 
     def get_credentials(self, input_filter = None, output_fields = None):
-        print "get_credentials"
         cred_fields = {
             'xxx': None
         }
@@ -672,12 +674,10 @@ class SFA(FromNode):
     # get a delegated credential of a given type to a specific target
     # default allows the use of MySlice's own credentials
     def _get_cred(self, type, target, default=False):
-        print "searching for a %s credential" % type
         for c in self.router.creds:
-            if c['type'] == type and c['target'] == 'target':
+            if c['type'] == type and c['target'] == target:
                 return c['cred']
-        print "no cred found of type", type
-        return None
+        raise Exception , "no cred found of type %s towards %s " % (type, target)
 #        #delegated_cred = self.delegate_cred(slice_cred, get_authority(self.authority)) # XXX
 #
 #        search = {
@@ -755,32 +755,32 @@ class SFA(FromNode):
     # recursive enumeration of slices: better to call everything and filter
     # filter hierarchies...
 
-    def _get_slices_hrn(self, input_filter = None):
+    def _get_slices_hrn(self, filters = None):
         #    Depending on the input_filters, we can use a more or less
         #    extended query that will limit[cred] filtering a posteriori
         slice_list = []
 
         cred = None
-        if not input_filter or 'slice_hrn' not in input_filter or 'authority_rhn' in input_filter:
+        if not filters or not filters.has_eq('slice_hrn') or filters.has_eq('authority_hrn'):
+        #if not input_filter or 'slice_hrn' not in input_filter or 'authority_hrn' in input_filter:
             cred = [self._get_cred('user', self.config['caller']['person_hrn'],default=True)]
-        print "using cred:", cred
-        print "========="
 
-        if not input_filter or not ('slice_hrn' in input_filter or 'authority_hrn' in input_filter or '{users.person_hrn' in input_filter):
+        if not filters or not (filters.has_eq('slice_hrn') or filters.has_eq('authority_hrn') or filters.has_op('users.person_hrn', contains)):
+        #if not input_filter or not ('slice_hrn' in input_filter or 'authority_hrn' in input_filter or '{users.person_hrn' in input_filter):
             # no details specified, get the full list of slices
-            print "get full list of slices"
             return self.sfa_get_slices_hrn(cred)
 
-        if '{users.person_hrn' in input_filter:
-            hrn = input_filter['{users.person_hrn']
+        # XXX We would need the subquery for this !!
+        if filters.has_op('users.person_hrn', contains):
+            hrn = filters.get_op('users.person_hrn', contains)
             auth = hrn[:hrn.rindex('.')]
             records = self.sfa_list_records(cred, auth, 'slice')
             slice_list = [r['hrn'] for r in records]
         else:
-            if 'authority_hrn' in input_filter: # XXX recursive modifiers...
+            if filters.has_eq('authority_hrn'): # XXX recursive modifiers ?
                 # Get the list of slices
                 # record fields: peer_authority, last_updated, type, authority, hrn, gid, record_id, date_created, pointer
-                auths = input_filter['authority_hrn']
+                auths = filters.get_eq('authority_hrn')
                 if not isinstance(auths, list):
                     auths = [auths]
 
@@ -788,8 +788,8 @@ class SFA(FromNode):
                     records = self.sfa_list_records(cred, hrn, 'slice')
                     slice_list.extend([r['hrn'] for r in records])
 
-            if 'slice_hrn' in input_filter:
-                hrns = input_filter['slice_hrn']
+            if filters.has_eq('slice_hrn'):
+                hrns = filters.get_eq('slice_hrn')
                 if not isinstance(hrns, list):
                     hrns = [hrns]
                 slice_list.extend(hrns)
@@ -798,12 +798,13 @@ class SFA(FromNode):
 
 
 
-    def _get_slices(self, input_filter = None, output_fields = None):
+    def _get_slices(self, filters = None, fields = None):
 
         #
         # DEMO hook
         #
-        if self.config['caller']['email'] == 'demo':
+        if self.config['caller']['email'] in DEMO_HOOKS:
+            print "W: Demo hook"
             s= {}
             s['slice_hrn'] = "ple.upmc.agent"
             s['slice_description'] = 'DEMO SLICE'
@@ -812,7 +813,7 @@ class SFA(FromNode):
             has_users = False
 
             subfields = []
-            for of in output_fields:
+            for of in fields:
                 if of == 'resource' or of.startswith('resource.'):
                     subfields.append(of[9:])
                     has_resources = True
@@ -820,10 +821,11 @@ class SFA(FromNode):
                     has_users = True
             #if subfields: # XXX Disabled until we have default subqueries
             if has_resources:
-                rsrc = self.get_resource({'slice_hrn': 'ple.upmc.agent'}, subfields)
-                if not rsrc:
+                rsrc_leases = self.get_resource({'slice_hrn': 'ple.upmc.agent'}, subfields)
+                if not rsrc_leases:
                     raise Exception, 'get_resources failed!'
-                s['resource'] = rsrc
+                s['resource'] = rsrc_leases['resource']
+                s['lease'] = rsrc_leases['lease'] 
             if has_users:
                 s['users'] = [{'person_hrn': 'myslice.demo'}]
 
@@ -832,48 +834,39 @@ class SFA(FromNode):
         # END: DEMO
         #
 
-        if isinstance(input_filter, list): # tuple set
+        if isinstance(filters, list): # tuple set
             pass
             # list of hrn !
             # list of filter: possible ?
-        elif isinstance(input_filter, StringTypes):
+        elif isinstance(filters, StringTypes):
             pass
             # hrn : infer type ?
         else:
-            if input_filter and not isinstance(input_filter, dict):
+            if filters and not isinstance(filters, Filter):
                 raise Exception, "Unsupported input_filter type"
         
         # A/ List slices hrn XXX operator on slice_hrn
-        print "getting the list of slices, filter = ", input_filter
-        slice_list = self._get_slices_hrn(input_filter)
-        print "SLICE LIST", slice_list
+        slice_list = self._get_slices_hrn(filters)
         if slice_list == []:
-            print "returning"
             return slice_list
-        print "we have the list of slices"
         
 
         # B/ Get slice information
         
         # - Do we have a need for filtering or additional information ?
-        if output_fields == ['slice_hrn'] and not input_filter: # XXX we should also support slice_urn etc.
+        if fields == set(['slice_hrn']) and not filters: # XXX we should also support slice_urn etc.
             # No need for filtering or additional information
             return [{'slice_hrn': hrn} for hrn in slice_list]
             
         # - Do we need to filter the slice_list by authority ?
-        if has_filter_field(input_filter, 'authority_hrn'):
-            filter = get_filter_field(input_filter, 'authority_hrn')
-            slice_list = [s for s in slice_list if match_dict({'authority_hrn': get_authority(s)}, filter)]
+        if filters.has('authority_hrn'): # has_filter_field(input_filter, 'authority_hrn'):
+            #filter = get_filter_field(input_filter, 'authority_hrn')
+            #slice_list = [s for s in slice_list if match_dict({'authority_hrn': get_authority(s)}, filter)]
+            predicates = filters.get_predicates('authority_hrn')
+            for p in predicates:
+                slice_list = [s for s in slice_list if p.match({'authority_hrn': get_authority(s)})]
         if slice_list == []:
             return slice_list
-
-        # - TEMPORARY BUG FROM PLE
-        # plc registry has bugs:
-        #  Internal API error: : Resolve: Database error: FATAL:  no pg_hba.conf entry for host "128.112.139.90", user "pgsqluser", database "sfa", SSL off 
-        # which make the whole request crash
-        # so we remove plc slices from the request
-        #print "TODO: remove PLC slices until PLE bug is fixed"
-
 
         # Depending on the information we need, we don't need to call Resolve
         # since for a large list of slices will take some time
@@ -899,18 +892,19 @@ class SFA(FromNode):
         # Selection
 
         # Projection and renaming
-        print input_filter
-        print output_fields
-        filtered = project_select_and_rename_fields(slices, 'slice_hrn', input_filter, output_fields, self.map_slice_fields)
+        filtered = project_select_and_rename_fields(slices, 'slice_hrn', filters, fields, self.map_slice_fields)
         # XXX generic function to manage subrequests
         
         # - Get the list of subfields
-        subfields = []
-        for of in output_fields:
-            if of.startswith('resources.'):
-                subfields.append(of[10:])
+        has_resource = False
+        has_leases = False
+        for of in fields:
+            if of == 'resource' or of.startswith('resource.'):
+                has_resource = True
+            if of == 'lease' or of.startswith('lease.'):
+                has_lease = True
 
-        if subfields:
+        if has_resource or has_lease:
             # = what we have in RSpecs
             # network, site, node, hostname, slice tags, sliver tags, nodes in slice and not in slice
             # We might not need Resolve if we have all necessary information here
@@ -918,19 +912,17 @@ class SFA(FromNode):
                 # we loop since each slice requires a different credential
                 # XXX  how to tell the user we miss some credentials
                 hrn = s['slice_hrn']
-                print "begin get resources"
-                rsrc = self.get_resources({'slice_hrn': hrn}, subfields)
-                print "end get resources"
+                rsrc_leases = self.get_resource({'slice_hrn': hrn}, subfields)
                 if not rsrc:
-                    raise Exception, 'get_resources failed!'
-                if [of for of in output_fields if of.startswith('resources.')]:
-                    # TODO missing output fields
-                    s['resources'] = rsrc
-        else:
-            print "no subfields"
+                    print "W: Could not collect resource/leases for slice %s" % hrn
+                    #raise Exception, 'get_resources failed!'
+                if has_resource:
+                    s['resource'] = rsrc_leases['resource']
+                if has_lease:
+                    s['lease'] = rsrc_leases['lease'] 
 
         # remove join fields
-        if 'slice_hrn' not in output_fields:
+        if 'slice_hrn' not in fields:
             for s in filtered:
                 del s['slice_hrn']
 
@@ -1180,9 +1172,11 @@ class SFA(FromNode):
         # DEMO
         if not self.config['caller']:
             raise Exception, "caller is null"
-        if self.config['caller']['email'] == 'demo':
-            rspec = open('/usr/share/myslice/scripts/sample-sliver.rspec', 'r')
-            resources = self.parse_sfa_rspec(rspec)
+        if self.config['caller']['email'] in DEMO_HOOKS:
+            #rspec = open('/usr/share/myslice/scripts/sample-sliver.rspec', 'r')
+            rspec = open('/usr/share/myslice/scripts/nitos.rspec', 'r')
+            return self.parse_sfa_rspec(rspec)
+
             # Add random lat-lon values
             #import random
             #for r in resources:
@@ -1190,22 +1184,26 @@ class SFA(FromNode):
             #    lon = random.random() * 360. - 180.
             #    r['latitude'] = lat
             #    r['longitude'] = lon
-            return resources
         # END DEMO
 
-        if input_filter and 'slice_hrn' in input_filter:
-            hrn = input_filter['slice_hrn']
-            cred = self._get_cred('slice', hrn)
-        else:
-            hrn = None
-            cred = self._get_cred('user', self.config['caller']['person_hrn'])
+        try:
+            if input_filter and 'slice_hrn' in input_filter:
+                hrn = input_filter['slice_hrn']
+                cred = self._get_cred('slice', hrn)
+            else:
+                hrn = None
+                cred = self._get_cred('user', self.config['caller']['person_hrn'])
         
-        rspec = self.sfa_get_resources(cred, hrn)
-        if hrn:
-            self.add_rspec_to_cache(hrn, rspec)
-        return self.parse_sfa_rspec(rspec)
+            rspec = self.sfa_get_resources(cred, hrn)
+            if hrn:
+                self.add_rspec_to_cache(hrn, rspec)
+            return self.parse_sfa_rspec(rspec)
+        except:
+            return []
 
     def add_rspec_to_cache(self, slice_hrn, rspec):
+        print "W: RSpec caching disabled"
+        return
         # Cache result (XXX bug CreateSliver / need to invalidate former cache entries ?)
         # We might need to update a cached entry when modified instead of creating a new one
         rspec_add = {
@@ -1282,9 +1280,7 @@ class SFA(FromNode):
                     # we loop since each slice requires a different credential
                     # XXX  how to tell the user we miss some credentials
                     hrn = s['slice_hrn']
-                    print "begin get resources"
                     rsrc = self.get_resources({'slice_hrn': hrn}, subfields)
-                    print "end get resources"
                     if not rsrc:
                         raise Exception, 'get_resources failed!'
                     if [of for of in output_fields if of.startswith('resources.')]:
@@ -1401,24 +1397,14 @@ class SFA(FromNode):
 #    def exception_cb(self, error):
 #        print 'Error during SFA call: ', error
 
-    def start(self):
-        
-        self.started = True
+    def do_start(self):
         q = self.query
-
         # Let's call the simplest query as possible to begin with
         # This should use twisted XMLRPC
         result = getattr(self, "get_%s" % q.fact_table)(q.filters, list(q.fields))
-        print "sfa result=", result
         for r in result:
-            if 'resources' in r:
-                r['resources'] = '** replaced in filter.py **'
-            if not self.callback:
-                print "cb not defined in ", self.query.fact_table
             self.callback(r)
-            print "SFA CALLBACK", r
         self.callback(None)
-        print "SFA DONE"
 
 #def sfa_get(api, caller, method, ts, input_filter = None, output_fields = None):
 #    sfa = Sfa(api, caller)

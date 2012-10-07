@@ -30,12 +30,22 @@ class Predicate:
         self.value = value
 
     def __str__(self):
-        return "%s %s %s" % self.get_tuple()
+        return "Pred(%s,%s,%s)" % self.get_str_tuple()
 
     def get_tuple(self):
         return (self.key, self.op, self.value)
 
-    def match(self, dic):
+    def get_str_tuple(self):
+        op_str = [s for s, op in self.OPERATORS.iteritems() if op == self.op]
+        op_str = op_str[0]
+        return (self.key, op_str, self.value,)
+
+    def match(self, dic, ignore_missing=False):
+        
+        # Can we match ?
+        if self.key not in dic:
+            return ignore_missing
+
         if self.op == eq:
             if isinstance(self.value, list):
                 return (dic[self.key] in self.value) # array ?
@@ -112,7 +122,10 @@ class Predicate:
         else:
             # Individual field operations: this could be simplified, since we are now using operators !!
             # XXX match
-            return dic if match else None
+            print "current predicate", self
+            print "matching", dic
+            print "----"
+            return dic if self.match(dic) else None
 
 class Filter(set):
     """
@@ -151,21 +164,56 @@ class Filter(set):
     def keys(self):
         return set([x.key for x in self])
 
-    def has_key(self, key):
+    def has(self, key):
         for x in self:
             if x.key == key:
                 return True
         return False
 
-    def filter(self, dic):
-        # We suppose if a field is in filter, it is therefore in the dic
-        match = True
-        print "===== FILTER ====="
+    def has_op(self, key, op):
+        for x in self:
+            if x.key == key and x.op == op:
+                return True
+        return False
 
-        # We go through every filter sequentially
+    def has_eq(self, key):
+        return self.has_op(key, eq)
+
+    def get_op(self, key, op):
+        for x in self:
+            if x.key == key and x.op == op:
+                return x.value
+        raise KeyError, key
+
+    def get_eq(self, key):
+        return self.get_op(key, eq)
+
+    def get_predicates(self, key):
+        ret = []
+        for x in self:
+            if x.key == key:
+                ret.append(x)
+        return ret
+
+#    def filter(self, dic):
+#        # We go through every filter sequentially
+#        for predicate in self:
+#            print "predicate", predicate
+#            dic = predicate.filter(dic)
+#        return dic
+
+    def match(self, dic):
         for predicate in self:
-            dic = predicate.filter(dic)
-        return dic
+            if not predicate.match(dic, ignore_missing=True):
+                return False
+        return True
+
+    def filter(self, l):
+        output = []
+        for x in l:
+            if self.match(x):
+                output.append(x)
+        return output
 
 class OldFilter(Parameter, dict):
     """
