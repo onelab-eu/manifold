@@ -4,11 +4,7 @@
 import sys
 import xmlrpclib
 
-from tophat.core.filter import Predicate
-pred = Predicate('authority_hrn', '=', 'ple.upmc')
-l = [pred]
-f = set(l)
-query = ('get', 'slice', f, {}, ['slice_hrn']) #, 'resource.hostname', 'resource.city'])
+query = ('get', 'slice', [['authority_hrn', '=', 'ple.upmc']], {}, ['slice_hrn']) #, 'resource.hostname', 'resource.city'])
 
 
 def print_slice(result):

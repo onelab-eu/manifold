@@ -20,7 +20,11 @@ class Query(object):
             # Note: range(x,y) <=> [x, y[
             self.action, self.fact_table, self.filters, self.params, self.fields = args
             if isinstance(self.filters, list):
-                self.filters = Filter(self.filters)
+                f = self.filters
+                self.filters = Filter([])
+                for x in f:
+                    pred = Predicate(x)
+                    self.filters.add(pred)
             if isinstance(self.params, list):
                 self.params = set(self.params)
             if isinstance(self.fields, list):

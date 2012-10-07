@@ -21,7 +21,15 @@ class Predicate:
     # New modifier: { contains 
     OPERATORS = { '=': eq, '~': ne, '<': lt, '[': le, '>': gt, ']': ge, '&': and_, '|': or_, '}': contains}
 
-    def __init__(self, key, op, value):
+    def __init__(self, *args, **kwargs):
+        if len(args) == 3:
+            key, op, value = args
+        elif len(args) == 1 and isinstance(args[0], list) and len(args[0]) == 3:
+            key, op, value = args[0]
+        elif len(args) == 1 and isinstance(args[0], Predicate):
+            key, op, value = args[0].get_tuple()
+        else:
+            raise Exception, "Bad initializer for Predicate"
         self.key = key
         if op in self.OPERATORS.keys():
             self.op = self.OPERATORS[op]
