@@ -5,9 +5,6 @@ from tophat.gateways.sfa.rspecs import RSpecParser
 from tophat.core.filter import Filter
 from sfa.util.xml import XpathFilter
 
-from sfa.rspecs.elements.versions.nitosv1Lease import NITOSv1Lease
-from sfa.rspecs.elements.versions.nitosv1Channel import NITOSv1Channel
-
 MAP = {
     'node': {
         'location.country': 'country',
