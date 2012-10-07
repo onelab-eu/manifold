@@ -48,10 +48,3 @@ with THLocalRouter() as router:
     user = router.authenticate({'AuthMethod': 'password', 'Username': 'demo', 'password': 'demo'})
     for c in creds:
         router.add_credential(c, user)
-    result = router.forward(Query(*query)) #, execute=False)
-    if result:
-        print ""
-        print "=== RESULT ==="
-        print_result(result)
-        print "--------------"
-        print ""

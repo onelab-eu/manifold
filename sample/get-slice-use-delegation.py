@@ -30,25 +30,11 @@ def print_result(result):
 
 from tophat.core.router import THLocalRouter
 from tophat.core.router import Query
-from delegation import *
-
-pl_username = 'jordan.auge@lip6.fr'
-private_key = '~/.ssh/id_rsa'
-sfi_dir = '~/.sfi'
-
-if sfi_dir[-1] != '/':
-    sfi_dir = sfi_dir + '/'
-sfi_dir = os.path.expanduser(sfi_dir)
-password = getpass.getpass("Enter your password: ")
-
-creds = get_credentials(pl_username, private_key, sfi_dir, password)
 
 # Instantiate a TopHat router
 with THLocalRouter() as router:
     user = router.authenticate({'AuthMethod': 'password', 'Username': 'demo', 'password': 'demo'})
-    for c in creds:
-        router.add_credential(c, user)
-    result = router.forward(Query(*query)) #, execute=False)
+    result = router.forward(Query(*query), user) #, execute=False)
     if result:
         print ""
         print "=== RESULT ==="

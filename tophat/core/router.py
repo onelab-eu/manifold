@@ -20,6 +20,7 @@ from tophat.gateways import *
 from tophat.core.ast import AST
 from tophat.core.query import Query
 
+
 #from tophat.models import session, Platform
 
 
@@ -276,9 +277,21 @@ class THLocalRouter(LocalRouter):
         except KeyError, key:
             raise Exception, "Platform missing '*%s*'" % key
 
-    def add_credential(self, credential):
-        print "Added credential of type", credential['type']
-        self.creds.append(credential)
+    def add_credential(self, cred, user):
+        print "I: Added credential of type", cred['type']
+
+        account = [a for a in user.accounts if a.platform.platform == 'PLE'][0]
+
+        config = account.config_get()
+        if cred['type'] == 'user':
+            config['user_credential'] = cred['cred']
+        elif cred['type'] == 'slice':
+            if not 'slice_credentials' in config:
+                config['slice_credentials'] = []
+            config['slice_credentials'].append(cred)
+        else:
+            raise Exception, "Invalid credential type"
+        account.config_set(config)
 
     def get_static_routes(self, directory):
         routes = []

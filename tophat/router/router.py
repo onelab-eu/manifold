@@ -36,9 +36,9 @@ class LocalRouter(object):
 
         # Dummy platforms
         try:
-            platform = session.query(Platform).filter(Platform.platform=='ple').one()
-        except:
-            print "W: Adding PLE platform"
+            platform = session.query(Platform).filter(Platform.platform=='PLE').one()
+        except Exception, e:
+            print "W: Adding PLE platform", e
             platform = Platform(platform='PLE', platform_longname='PlanetLab Europe', gateway_type='SFA')
             platform.config = '{"registry_url": "http://www.planet-lab.eu:12345/"}'
             session.add(platform)
@@ -63,9 +63,9 @@ class LocalRouter(object):
             account.config = '{"user_hrn": "ple.upmc.test"}'
             session.add(account)
 
-            account.manage()
-
         session.commit()
+
+        # account.manage()
 
         # XXX we insert a dummy platform
         #p = Platform(platform = 'mytestbed', platform_longname='MyTestbed')

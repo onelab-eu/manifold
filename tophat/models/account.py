@@ -36,3 +36,12 @@ class Account(Base):
         if self.config != config:
             self.config = config
             session.commit()
+
+    def config_set(self, value):
+        self.config = json.dumps(value)
+        session.add(self)
+        session.commit()
+        
+    def config_get(self):
+        return json.loads(self.config)
+
