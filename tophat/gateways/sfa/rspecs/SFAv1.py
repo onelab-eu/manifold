@@ -8,6 +8,8 @@ from sfa.util.xml import XpathFilter
 MAP = {
     'node': {
         'location.country': 'country',
+        'location.latitude': 'latitude',
+        'location.longitude': 'longitude',
         'position_3d.x': 'x',
         'position_3d.y': 'y',
         'position_3d.z': 'z',
