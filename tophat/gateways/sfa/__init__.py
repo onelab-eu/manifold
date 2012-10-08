@@ -287,17 +287,17 @@ class SFA(FromNode):
         if self.bootstrap_done:
             return
         #bootstrap = SfaClientBootstrap (self.user, self.reg_url, self.config['sfi_dir'])
-        bootstrap = SfaClientBootstrap (self.user, self.reg_url, self.config['sfi_dir'])
+        bootstrap = SfaClientBootstrap (self.gateway_config['user'], self.reg_url, self.gateway_config['sfi_dir'])
         # if -k is provided, use this to initialize private key
-        if self.config['user_private_key']:
-            bootstrap.init_private_key_if_missing (self.config['user_private_key'])
+        if self.gateway_config['user_private_key']:
+            bootstrap.init_private_key_if_missing (self.gateway_config['user_private_key'])
         else:
             # trigger legacy compat code if needed 
             # the name has changed from just <leaf>.pkey to <hrn>.pkey
             if not os.path.isfile(bootstrap.private_key_filename()):
                 self.logger.info ("private key not found, trying legacy name")
                 try:
-                    legacy_private_key = os.path.join (self.config['sfi_dir'], "%s.pkey"%get_leaf(self.user))
+                    legacy_private_key = os.path.join (self.gateway_config['sfi_dir'], "%s.pkey"%get_leaf(self.gateway_config['user']))
                     self.logger.debug("legacy_private_key=%s"%legacy_private_key)
                     bootstrap.init_private_key_if_missing (legacy_private_key)
                     self.logger.info("Copied private key from legacy location %s"%legacy_private_key)
@@ -327,9 +327,9 @@ class SFA(FromNode):
         if not hasattr (self, 'registry_proxy'):
             self.logger.info("Contacting Registry at: %s"%self.reg_url)
             self.registry_proxy = SfaServerProxy(self.reg_url,
-                    self.config['user_private_key'], self.my_gid, 
-                    timeout=self.config['timeout'],
-                    verbose=self.config['debug'])  
+                    self.gateway_config['user_private_key'], self.my_gid, 
+                    timeout=self.gateway_config['timeout'],
+                    verbose=self.gateway_config['debug'])  
         return self.registry_proxy
 
     def sliceapi (self):
@@ -354,16 +354,16 @@ class SFA(FromNode):
                 self.sm_url = 'http://' + self.sm_url
             self.logger.info("Contacting Slice Manager at: %s"%self.sm_url)
             self.sliceapi_proxy = SfaServerProxy(self.sm_url,
-                    self.config['user_private_key'], self.my_gid,
-                    timeout=self.config['timeout'],
-                    verbose=self.config['debug'])  
+                    self.gateway_config['user_private_key'], self.my_gid,
+                    timeout=self.gateway_config['timeout'],
+                    verbose=self.gateway_config['debug'])  
         return self.sliceapi_proxy
 
     def get_cached_server_version(self, server):
         # check local cache first
         cache = None
         version = None 
-        cache_file = os.path.join(self.config['sfi_dir'],'sfi_cache.dat')
+        cache_file = os.path.join(self.gateway_config['sfi_dir'],'sfi_cache.dat')
         cache_key = server.url + "-version"
         try:
             cache = Cache(cache_file)
@@ -674,10 +674,16 @@ class SFA(FromNode):
     # get a delegated credential of a given type to a specific target
     # default allows the use of MySlice's own credentials
     def _get_cred(self, type, target, default=False):
+        assert type == 'slice', "Need to clean up credential request"
+        cred = self.user_config['slice_credentials']
+        if not target in cred:
+            raise Exception , "no cred found of type %s towards %s " % (type, target)
+        return cred[target]
+
         for c in self.router.creds:
+            
             if c['type'] == type and c['target'] == target:
                 return c['cred']
-        raise Exception , "no cred found of type %s towards %s " % (type, target)
 #        #delegated_cred = self.delegate_cred(slice_cred, get_authority(self.authority)) # XXX
 #
 #        search = {
@@ -763,7 +769,8 @@ class SFA(FromNode):
         cred = None
         if not filters or not filters.has_eq('slice_hrn') or filters.has_eq('authority_hrn'):
         #if not input_filter or 'slice_hrn' not in input_filter or 'authority_hrn' in input_filter:
-            cred = [self._get_cred('user', self.config['caller']['person_hrn'],default=True)]
+            #cred = [self._get_cred('user', self.config['caller']['person_hrn'],default=True)]
+            cred = self.user_config['user_credential']
 
         if not filters or not (filters.has_eq('slice_hrn') or filters.has_eq('authority_hrn') or filters.has_op('users.person_hrn', contains)):
         #if not input_filter or not ('slice_hrn' in input_filter or 'authority_hrn' in input_filter or '{users.person_hrn' in input_filter):
@@ -803,7 +810,7 @@ class SFA(FromNode):
         #
         # DEMO hook
         #
-        if self.config['caller']['email'] in DEMO_HOOKS:
+        if self.user.email in DEMO_HOOKS:
             print "W: Demo hook"
             s= {}
             s['slice_hrn'] = "ple.upmc.agent"
@@ -882,7 +889,8 @@ class SFA(FromNode):
         #        pass
 
         # We need user credential here (already done before maybe XXX)
-        cred = self._get_cred('user', self.config['caller']['person_hrn'])
+        # cred = self._get_cred('user', self.user.user_hrnself.config['caller']['person_hrn'])
+        cred = self.user_config['user_credential']
         # - Resolving slice hrns to get additional information
         slices = self.sfa_resolve_records(cred, slice_list, 'slice')
         # Merge resulting information
@@ -897,7 +905,7 @@ class SFA(FromNode):
         
         # - Get the list of subfields
         has_resource = False
-        has_leases = False
+        has_lease = False
         for of in fields:
             if of == 'resource' or of.startswith('resource.'):
                 has_resource = True
@@ -912,10 +920,15 @@ class SFA(FromNode):
                 # we loop since each slice requires a different credential
                 # XXX  how to tell the user we miss some credentials
                 hrn = s['slice_hrn']
+                subfields = []
+                if has_resource: subfields.append('resource')
+                if has_lease: subfields.append('lease')
                 rsrc_leases = self.get_resource({'slice_hrn': hrn}, subfields)
-                if not rsrc:
+                if not rsrc_leases:
                     print "W: Could not collect resource/leases for slice %s" % hrn
                     #raise Exception, 'get_resources failed!'
+                print "LEASES"
+                print rsrc_leases
                 if has_resource:
                     s['resource'] = rsrc_leases['resource']
                 if has_lease:
@@ -940,7 +953,8 @@ class SFA(FromNode):
 
     def _get_users(self, input_filter = None, output_fields = None):
         # 1/ delegated user credential to list the authority
-        cred = self._get_cred('user', self.config['caller']['person_hrn'])
+        #cred = self._get_cred('user', self.config['caller']['person_hrn'])
+        cred = self.user_config['user_credential']
 
         if isinstance(input_filter, list): # tuple set
             pass
@@ -1070,46 +1084,46 @@ class SFA(FromNode):
         
         records = filter_records('authority', list)
 
-    def get_status(self, input_filter, output_fields):
-
-        # We should first check we can effectively use the credential
-
-        if 'slice_hrn' in input_filter:
-            slice_hrn = input_filter['slice_hrn']
-        slice_urn = hrn_to_urn(slice_hrn, 'slice')
-
-#        slice_cred = self.get_slice_cred(slice_hrn).save_to_string(save_parents=True)
-#        creds = [slice_cred]
-#        if opts.delegate:
-#            delegated_cred = self.delegate_cred(slice_cred, get_authority(self.authority))
-#            creds.append(delegated_cred)
-#        server = self.get_server_from_opts(opts)
-#        return server.SliverStatus(slice_urn, creds)
-
-        try:
-            slice_cred = self.get_slice_cred(slice_hrn).save_to_string(save_parents=True)
-            creds = [slice_cred]
-        except:
-            # Fails if no right on slice, should use delegated credential
-            #delegated_cred = self.delegate_cred(slice_cred, get_authority(self.authority)) # XXX
-            #dest_fn = os.path.join(self.config['sfi_dir'], get_leaf(self.user) + "_slice_" + get_leaf(slice_hrn) + ".cred")
-            #str = file(dest_fn, "r").read()
-            #delegated_cred = str #Credential(string=str).save_to_string(save_parents=True)
-            #creds.append(delegated_cred) # XXX
-            cds = MySliceCredentials(self.api, {'credential_person_id': self.config['caller']['person_id'], 'credential_target': slice_hrn}, ['credential']) # XXX type
-            if not cds:
-                raise Exception, 'No credential available'
-            creds = [cds[0]['credential']]
-
-        #server = self.get_server_from_opts(opts)
-        ## direct connection to an aggregate
-        #if hasattr(opts, 'aggregate') and opts.aggregate:
-        #    server = self.get_server(opts.aggregate, opts.port, self.key_file, self.cert_file)
-        ## direct connection to the nodes component manager interface
-        #if hasattr(opts, 'component') and opts.component:
-        #    server = self.get_component_server_from_hrn(opts.component)
-
-        return self.sliceapi().SliverStatus(slice_urn, creds)
+#    def get_status(self, input_filter, output_fields):
+#
+#        # We should first check we can effectively use the credential
+#
+#        if 'slice_hrn' in input_filter:
+#            slice_hrn = input_filter['slice_hrn']
+#        slice_urn = hrn_to_urn(slice_hrn, 'slice')
+#
+##        slice_cred = self.get_slice_cred(slice_hrn).save_to_string(save_parents=True)
+##        creds = [slice_cred]
+##        if opts.delegate:
+##            delegated_cred = self.delegate_cred(slice_cred, get_authority(self.authority))
+##            creds.append(delegated_cred)
+##        server = self.get_server_from_opts(opts)
+##        return server.SliverStatus(slice_urn, creds)
+#
+#        try:
+#            slice_cred = self.get_slice_cred(slice_hrn).save_to_string(save_parents=True)
+#            creds = [slice_cred]
+#        except:
+#            # Fails if no right on slice, should use delegated credential
+#            #delegated_cred = self.delegate_cred(slice_cred, get_authority(self.authority)) # XXX
+#            #dest_fn = os.path.join(self.config['sfi_dir'], get_leaf(self.user) + "_slice_" + get_leaf(slice_hrn) + ".cred")
+#            #str = file(dest_fn, "r").read()
+#            #delegated_cred = str #Credential(string=str).save_to_string(save_parents=True)
+#            #creds.append(delegated_cred) # XXX
+#            cds = MySliceCredentials(self.api, {'credential_person_id': self.config['caller']['person_id'], 'credential_target': slice_hrn}, ['credential']) # XXX type
+#            if not cds:
+#                raise Exception, 'No credential available'
+#            creds = [cds[0]['credential']]
+#
+#        #server = self.get_server_from_opts(opts)
+#        ## direct connection to an aggregate
+#        #if hasattr(opts, 'aggregate') and opts.aggregate:
+#        #    server = self.get_server(opts.aggregate, opts.port, self.key_file, self.cert_file)
+#        ## direct connection to the nodes component manager interface
+#        #if hasattr(opts, 'component') and opts.component:
+#        #    server = self.get_component_server_from_hrn(opts.component)
+#
+#        return self.sliceapi().SliverStatus(slice_urn, creds)
 
     def get_nodes(self, input_filter = None, output_fields = None):
         return self.get_resources(input_filter, output_fields)
@@ -1170,9 +1184,7 @@ class SFA(FromNode):
 
     def get_resource(self, input_filter = None, output_fields = None):
         # DEMO
-        if not self.config['caller']:
-            raise Exception, "caller is null"
-        if self.config['caller']['email'] in DEMO_HOOKS:
+        if self.user.email in DEMO_HOOKS:
             #rspec = open('/usr/share/myslice/scripts/sample-sliver.rspec', 'r')
             rspec = open('/usr/share/myslice/scripts/nitos.rspec', 'r')
             return self.parse_sfa_rspec(rspec)
@@ -1192,13 +1204,15 @@ class SFA(FromNode):
                 cred = self._get_cred('slice', hrn)
             else:
                 hrn = None
-                cred = self._get_cred('user', self.config['caller']['person_hrn'])
+                #cred = self._get_cred('user', self.config['caller']['person_hrn'])
+                cred = self.user_config['user_credential']
         
             rspec = self.sfa_get_resources(cred, hrn)
             if hrn:
                 self.add_rspec_to_cache(hrn, rspec)
             return self.parse_sfa_rspec(rspec)
-        except:
+        except Exception, e:
+            print "E: get_resource", e
             return []
 
     def add_rspec_to_cache(self, slice_hrn, rspec):
@@ -1349,9 +1363,9 @@ class SFA(FromNode):
 # END SFA CODE
 ################################################################################
 
-    def __init__(self, router, platform, query, config):
+    def __init__(self, router, platform, query, gateway_config, user_config, user):
 #        FromNode.__init__(self, platform, query, config)
-        super(SFA, self).__init__(router, platform, query, config)
+        super(SFA, self).__init__(router, platform, query, gateway_config, user_config, user)
 
         # self.config has always ['caller']
 
@@ -1360,35 +1374,34 @@ class SFA(FromNode):
         #    self.config['hashrequest'] = False
         #if not 'protocol' in self.config:
         #    self.config['protocol'] = 'xmlrpc'
-        if not 'verbose' in self.config:
-            self.config['verbose'] = 0
-        if not 'auth' in self.config:
+        if not 'verbose' in self.gateway_config:
+            self.gateway_config['verbose'] = 0
+        if not 'auth' in self.gateway_config:
             raise Exception, "Missing SFA::auth parameter in configuration."
-        if not 'user' in self.config:
+        if not 'user' in self.gateway_config:
             raise Exception, "Missing SFA::user parameter in configuration."
-        if not 'sm' in self.config:
+        if not 'sm' in self.gateway_config:
             raise Exception, "Missing SFA::sm parameter in configuration."
-        if not 'debug' in self.config:
-            self.config['debug'] = False
-        if not 'sfi_dir' in self.config:
-            self.config['sfi_dir'] = '/var/myslice/%s/' % self.platform
-        if not 'registry' in self.config:
+        if not 'debug' in self.gateway_config:
+            self.gateway_config['debug'] = False
+        if not 'sfi_dir' in self.gateway_config:
+            self.gateway_config['sfi_dir'] = '/var/myslice/%s/' % self.platform
+        if not 'registry' in self.gateway_config:
             raise Exception, "Missing SFA::registry parameter in configuration."
-        if not 'timeout' in self.config:
-            self.config['timeout'] = None
-        if not 'user_private_key' in self.config:
+        if not 'timeout' in self.gateway_config:
+            self.gateway_config['timeout'] = None
+        if not 'user_private_key' in self.gateway_config:
             raise Exception, "Missing SFA::user_private_key parameter in configuration."
 
         # XXX all this is redundant
         self.logger = sfi_logger
-        self.user = self.config['user']
-        self.reg_url = self.config['registry']
-        self.sm_url = self.config['sm']
+        self.reg_url = self.gateway_config['registry']
+        self.sm_url = self.gateway_config['sm']
 
         self.bootstrap_done = False
 
     def __str__(self):
-        return "<SFAGateway %r: %s>" % (self.config['sm'], self.query)
+        return "<SFAGateway %r: %s>" % (self.gateway_config['sm'], self.query)
 
 #    def success_cb(self, table):
 #        for record in table:

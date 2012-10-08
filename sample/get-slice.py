@@ -34,7 +34,7 @@ from tophat.core.router import Query
 # Instantiate a TopHat router
 with THLocalRouter() as router:
     user = router.authenticate({'AuthMethod': 'password', 'Username': 'demo', 'password': 'demo'})
-    result = router.forward(Query(*query), execute=False, user=user)
+    result = router.forward(Query(*query), execute=True, user=user)
     print "=== RESULT ==="
     print_result(result)
     print "--------------"

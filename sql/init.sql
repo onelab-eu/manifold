@@ -1,0 +1,9 @@
+insert into platform (platform, platform_longname, gateway_type, gateway_conf) VALUES ('ple', 'PlanetLab Europe', 'SFA', '{"auth": "ple.upmc", "user": "ple.upmc.slicebrowser", "sm": "http://www.planet-lab.eu:12347/", "registry": "http://www.planet-lab.eu:12345/", "user_private_key": "/var/myslice/myslice.pkey"}');
+insert into platform (platform, platform_longname, gateway_type, gateway_conf) VALUES ('tophat', 'TopHat', 'XMLRPC', '{"url": "https://api.top-hat.info/API/"}');
+insert into platform (platform, platform_longname, gateway_type, gateway_conf) VALUES ('myslice', 'MySlice', 'XMLRPC', '{"url": "https://api.myslice.info/API/"}');
+insert into platform (platform, platform_longname, gateway_type, gateway_conf) VALUES ('maxmind', 'MaxMind GeoLite City', 'MaxMind', '');
+
+insert into user (user_id, email) VALUES (1, 'demo');
+insert into user (user_id, email) VALUES (2, 'jordan.auge@lip6.fr');
+
+insert into account (user_id, platform_id, config) VALUES (2, 1, '{"user_hrn": "ple.upmc.jordan_auge"}');

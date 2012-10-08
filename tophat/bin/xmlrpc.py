@@ -42,8 +42,12 @@ class TopHatAPI(xmlrpc.XMLRPC):
     def xmlrpc_forward(self, *args):
         """
         """
+        # The first argument should be an authentication token
+        user = router.authenticate(args[0])
+        args = list(args)
+        args = args[1:]
         # The rest define the query
-        query = Query(*args[1:])
+        query = Query(*args)
 
         table = router.forward(query, deferred=True, user=user)
 

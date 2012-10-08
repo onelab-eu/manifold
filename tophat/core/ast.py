@@ -50,16 +50,18 @@ class Node(object):
 
 class FromNode(Node):
 
-    def __init__(self, router, platform, query, config):
+    def __init__(self, router, platform, query, gateway_config, user_config, user):
         self.platform = platform
         self.query = query
-        self.config = config
+        self.gateway_config = gateway_config
+        self.user_config = user_config
         self.started = False
         self.callback = None
         self.router = router
         self.done = False
         self.results = []
         self.dup = False
+        self.user = user
 
     def dump(self, indent=0):
         print ' ' * indent * 4, "SELECT %r FROM '%s:%s'" % (self.query.fields, self.platform, self.query.fact_table)
@@ -622,10 +624,11 @@ class Eq(Filter):
 
 
 class AST(object):
-    def __init__(self, router=None):
+    def __init__(self, router=None, user=None):
         # Empty request
         self.root = None
         self.router = router
+        self.user = user
 
     def _get(self):
         return self.root._get()
@@ -646,7 +649,7 @@ class AST(object):
                 children_ast.append(AST(self.router).From(t,fields))
             self.union(children_ast) # XXX DISJOINT ?
         else:
-            node = self.router.get_gateway(table.platform, self.query)
+            node = self.router.get_gateway(table.platform, self.query, self.user)
             node.source_id = self.router.sourcemgr.append(node)
             self.root = node
             self.root.callback = self.callback

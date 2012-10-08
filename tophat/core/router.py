@@ -19,6 +19,8 @@ from tophat.core.sourcemgr import SourceManager
 from tophat.gateways import *
 from tophat.core.ast import AST
 from tophat.core.query import Query
+from tophat.models import *
+import json
 
 
 #from tophat.models import session, Platform
@@ -238,57 +240,52 @@ class THLocalRouter(LocalRouter):
             routes.append(t)
         return routes
 
-    def get_gateway(self, platform, query):
-        config_tophat = {
-            'url': 'http://api.top-hat.info/API/'
-        }
-        config_myslice = {
-            'url': 'http://api.myslice.info/API/'
-        }
-        config_mytestbed = {
-            'auth': 'mytestbed',
-            'user': 'mytestbed.myslice',
-            'sm': 'http://localhost:12347/',
-            'registry': 'http://localhost:12345/',
-            'user_private_key': '/var/myslice/myslice.pkey',
-            'caller': {'person_hrn': 'mytestbed.myuser', 'email': 'myuser@mytestbed'}
-        }
-        config_ple = {
-            'auth': 'ple.upmc',
-            'user': 'ple.upmc.slicebrowser',
-            'sm': 'http://www.planet-lab.eu:12347/',
-            'registry': 'http://www.planet-lab.eu:12345/',
-            'user_private_key': '/var/myslice/myslice.pkey',
-            'caller': {'person_hrn': 'ple.upmc.jordan_auge', 'email': 'demo'} # jordan.auge@lip6.fr'}
-        }
+    def get_gateway(self, platform, query, user):
+        # XXX Ideally, some parameters regarding MySlice user account should be
+        # stored outside of the platform table
 
-        print "W: Using temporary table for peers and configuration"
-        class_map = {
-            'ple': (SFA, config_ple), 
-            'mytestbed': (SFA, config_mytestbed),
-            'tophat': (XMLRPC, config_tophat), 
-            'myslice': (XMLRPC, config_myslice),
-            'maxmind': (MaxMind, None),
-        }
+        # Finds the gateway corresponding to the platform
+        try:
+            p = session.query(Platform).filter(Platform.platform == platform).one()
+        except Exception, e:
+            raise Exception, "E: Missing gateway information for platform '%s': %s" % (platform, e)
+
+        # Get the corresponding class
+        gtype = p.gateway_type.encode('latin1')
+        try:
+            gw = getattr(__import__('tophat.gateways', globals(), locals(), gtype), gtype)
+        except Exception, e:
+            raise Exception, "E: Cannot import gateway class '%s': %s" % (gtype, e)
+
+        # Get user account
+        try:
+            account = [a for a in user.accounts if a.platform.platform == platform][0]
+        except Exception, e:
+            account = None
+            print "E: No user account found for platform '%s': %s" % (platform, e)
+        
+        gconf = json.loads(p.gateway_conf)
+        aconf = json.loads(account.config) if account else None
 
         try:
-            cls, conf = class_map[platform]
-            return cls(self, platform, query, conf)
-        except KeyError, key:
-            raise Exception, "Platform missing '*%s*'" % key
+            ret = gw(self, platform, query, gconf, aconf, user)
+        except Exception, e:
+            raise Exception, "E: Cannot instantiate gateway for platform '%s': %s" % (platform, e)
 
-    def add_credential(self, cred, user):
+        return ret
+
+    def add_credential(self, cred, platform, user):
         print "I: Added credential of type", cred['type']
 
-        account = [a for a in user.accounts if a.platform.platform == 'PLE'][0]
+        account = [a for a in user.accounts if a.platform.platform == platform][0]
 
         config = account.config_get()
         if cred['type'] == 'user':
             config['user_credential'] = cred['cred']
         elif cred['type'] == 'slice':
             if not 'slice_credentials' in config:
-                config['slice_credentials'] = []
-            config['slice_credentials'].append(cred)
+                config['slice_credentials'] = {}
+            config['slice_credentials'][cred['target']] = cred['cred']
         else:
             raise Exception, "Invalid credential type"
         account.config_set(config)
@@ -582,7 +579,7 @@ class THLocalRouter(LocalRouter):
                         del nodes[node]['visited']
                 return visited_tree_edges
     
-            def process_query(query, G_nf):
+            def process_query(query, G_nf, user):
                 # We process a single query without caring about 1..N
                 # former method
                 nodes = dict(G_nf.nodes(True))
@@ -612,7 +609,7 @@ class THLocalRouter(LocalRouter):
                     # The root is sufficient
                     # OR WE COULD NOT ANSWER QUERY
                     q = Query(fact_table=root.name, filters=query.filters, fields=needed_fields)
-                    return AST(self).From(root, q) # root, needed_fields)
+                    return AST(self, user).From(root, q) # root, needed_fields)
 
                 qp = None
                 root = True
@@ -634,7 +631,7 @@ class THLocalRouter(LocalRouter):
                         # We adopt a greedy strategy to get the required fields (temporary)
                         # We assume there are no partitions
                         first_join = True
-                        left = AST(self)
+                        left = AST(self, user)
                         sources = nodes[s]['sources'][:]
                         while True:
                             max_table, max_fields = get_table_max_fields(local_fields, sources)
@@ -643,10 +640,10 @@ class THLocalRouter(LocalRouter):
                             sources.remove(max_table)
                             q = Query(fact_table=max_table.name, filters=query.filters, fields=list(max_fields))
                             if first_join:
-                                left = AST(self).From(max_table, q) # max_table, list(max_fields))
+                                left = AST(self, user).From(max_table, q) # max_table, list(max_fields))
                                 first_join = False
                             else:
-                                right = AST(self).From(max_table, q) # max_table, list(max_fields))
+                                right = AST(self, user).From(max_table, q) # max_table, list(max_fields))
                                 left = left.join(right, iter(s.keys).next())
                             local_fields.difference_update(max_fields)
                             needed_fields.difference_update(max_fields)
@@ -675,7 +672,7 @@ class THLocalRouter(LocalRouter):
                     # We adopt a greedy strategy to get the required fields (temporary)
                     # We assume there are no partitions
                     first_join = True
-                    left = AST(self)
+                    left = AST(self, user)
                     sources = nodes[e]['sources'][:]
                     while True:
                         max_table, max_fields = get_table_max_fields(local_fields, sources)
@@ -683,10 +680,10 @@ class THLocalRouter(LocalRouter):
                             break;
                         q = Query(fact_table=max_table.name, filters=query.filters, fields=list(max_fields))
                         if first_join:
-                            left = AST(self).From(max_table, q) # max_table, list(max_fields))
+                            left = AST(self, user).From(max_table, q) # max_table, list(max_fields))
                             first_join = False
                         else:
-                            right = AST(self).From(max_table, q) #max_table, list(max_fields))
+                            right = AST(self, user).From(max_table, q) #max_table, list(max_fields))
                             left = left.join(right, iter(e.keys).next())
                         local_fields.difference_update(max_fields)
                         needed_fields.difference_update(max_fields)
@@ -700,8 +697,8 @@ class THLocalRouter(LocalRouter):
                 return qp
                 
 
-            def process_subqueries(query, G_nf):
-                qp = AST(self)
+            def process_subqueries(query, G_nf, user):
+                qp = AST(self, user)
 
                 cur_filters = []
                 cur_params = []
@@ -795,16 +792,16 @@ class THLocalRouter(LocalRouter):
                         # Formulate the query we are trying to resolve
                         subquery = Query(query.action, method, subfilters, subparams, subfields)
 
-                        child_ast = process_subqueries(subquery, G_nf)
+                        child_ast = process_subqueries(subquery, G_nf, user)
                         children_ast.append(child_ast.root)
 
                     parent = Query(query.action, query.fact_table, cur_filters, cur_params, cur_fields)
-                    parent_ast = process_query(parent, G_nf)
+                    parent_ast = process_query(parent, G_nf, user)
                     qp = parent_ast
                     qp.subquery(children_ast)
                 else:
                     parent = Query(query.action, query.fact_table, cur_filters, cur_params, cur_fields)
-                    qp = process_query(parent, G_nf)
+                    qp = process_query(parent, G_nf, user)
                 return qp
 
             def get_table_max_fields(fields, tables):
@@ -834,7 +831,7 @@ class THLocalRouter(LocalRouter):
             #nx.draw_graphviz(G_nf)
             #plt.show()
 
-            qp = process_subqueries(query, G_nf)
+            qp = process_subqueries(query, G_nf, user)
 
         except Exception ,e:
             print "Exception in do_forward", e

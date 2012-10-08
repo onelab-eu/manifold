@@ -63,7 +63,7 @@ class Query(object):
                 raise ParameterError, "Invalid parameter(s) : %r" % kwargs.keys()
                 return
         else:
-                raise ParameterError, "No valid constructor found for %s" % self.__class__.__name__
+                raise ParameterError, "No valid constructor found for %s : args=%r" % (self.__class__.__name__, args)
 
     def __str__(self):
         return "SELECT %s FROM %s WHERE ..." % (', '.join(self.fields), self.fact_table)

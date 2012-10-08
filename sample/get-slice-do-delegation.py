@@ -45,6 +45,6 @@ creds = get_credentials(pl_username, private_key, sfi_dir, password)
 
 # Instantiate a TopHat router
 with THLocalRouter() as router:
-    user = router.authenticate({'AuthMethod': 'password', 'Username': 'demo', 'password': 'demo'})
+    user = router.authenticate({'AuthMethod': 'password', 'Username': pl_username, 'password': 'demo'})
     for c in creds:
-        router.add_credential(c, user)
+        router.add_credential(c, 'ple', user)
