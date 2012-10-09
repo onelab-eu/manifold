@@ -19,14 +19,17 @@ class Query(object):
         if len(args) in range(2,6) and type(args) == tuple:
             # Note: range(x,y) <=> [x, y[
             self.action, self.fact_table, self.filters, self.params, self.fields = args
+
+            if not self.filters: self.filters = Filter([])
+            if not self.params: self.params = {}
+            if not self.fields: self.fields = set([])
+
             if isinstance(self.filters, list):
                 f = self.filters
                 self.filters = Filter([])
                 for x in f:
                     pred = Predicate(x)
                     self.filters.add(pred)
-            if isinstance(self.params, list):
-                self.params = set(self.params)
             if isinstance(self.fields, list):
                 self.fields = set(self.fields)
 
@@ -36,6 +39,8 @@ class Query(object):
                 self.action = kwargs['action']
                 del kwargs['action']
             else:
+                print "W: defaulting to get action"
+                raise Exception ," !"
                 self.action = 'get'
 
             self.fact_table = kwargs['fact_table']
@@ -45,19 +50,19 @@ class Query(object):
                 self.filters = kwargs['filters']
                 del kwargs['filters']
             else:
-                self.filters = None
+                self.filters = Filters([])
 
             if 'fields' in kwargs:
                 self.fields = set(kwargs['fields'])
                 del kwargs['fields']
             else:
-                self.fields = None
+                self.fields = set([])
 
             if 'params' in kwargs:
                 self.params = kwargs['params']
                 del kwargs['params']
             else:
-                self.params = None
+                self.params = {}
 
             if kwargs:
                 raise ParameterError, "Invalid parameter(s) : %r" % kwargs.keys()

@@ -37,7 +37,7 @@ class TopHatAPI(xmlrpc.XMLRPC):
         """
         """
         # The first argument should be an authentication token
-        email, credential, platform = args
+        auth, credential, platform = args
         user = router.authenticate(email)
         # The second argument is the credential to add
         router.add_credential(credential, platform, user)

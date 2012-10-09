@@ -1,6 +1,6 @@
 from types import StringTypes 
 from sfa.rspecs.rspec import RSpec
-from sfa.util.xrn import Xrn, urn_to_hrn
+from sfa.util.xrn import Xrn, get_leaf
 from tophat.gateways.sfa.rspecs import RSpecParser
 from tophat.core.filter import Filter
 from sfa.util.xml import XpathFilter
@@ -25,10 +25,8 @@ RESOURCE_KEY = 'hrn'
 # HOOKS TO RUN OPERATIONS ON GIVEN FIELDS
 def channel_urn_hrn(value):
     output = {}
-    urn = 'urn:publicid:IDN+%s:channel+%s' % (value['network'], value['channel_num'])
-    hrn = Xrn(urn).get_hrn()
-    print "I: Forging channel urn... not sure of the syntax"
-    return {'urn': urn, 'hrn': hrn}
+    xrn = Xrn('%(network)s.%(channel_num)s' % value, type='channel')
+    return {'urn': xrn.urn, 'hrn': xrn.hrn}
 
 HOOKS = {
     'node': {
@@ -152,124 +150,71 @@ class SFAv1Parser(RSpecParser):
                         print "W: Granularity not present in node:", filt
                     else:
                         rsrc_lease['granularity'] = match['granularity']
-                    if not RESOURCE_KEY in match:
-                        print "E: Ignored lease with missing RESOURCE_KEY key:", filt
+                    if not 'urn' in match:
+                        print "E: Ignored lease with missing 'urn' key:", filt
                         continue
-                    rsrc_lease[RESOURCE_KEY] = match[RESOURCE_KEY]
+                    rsrc_lease['urn'] = match['urn']
+                    rsrc_lease['network'] = Xrn(match['urn']).authority[0]
+                    rsrc_lease['hrn'] = Xrn(match['urn']).hrn
+                    rsrc_lease['type'] = Xrn(match['urn']).type
                     leases.append(rsrc_lease)
-        print ""
-        print ""
-        print "leases:"
-        print "======="
+        #print ""
+        #print ""
+        #print "leases:"
+        #print "======="
         for l in leases:
             print l
-        print "======="
+        #print "======="
         return {'resource': resources, 'lease': leases}
 
+    def rspec_add_header(self, rspec):
+        rspec.append('<?xml version="1.0"?>')
+        rspec.append('<RSpec type="SFA" expires="2012-10-07T02:24:53Z" generated="2012-10-07T01:24:53Z">')
 
+    def rspec_add_footer(self, rspec):
+        rspec.append('</RSpec>')
 
+    def rspec_add_networks(self, rspec, resources_by_network, leases_by_network):
+        networks = set(resources_by_network.keys()).union(set(leases_by_network.keys()))
+        for n in networks:
+            r = resources_by_network[n] if n in resources_by_network else []
+            l = leases_by_network[n] if n in leases_by_network else []
+            self.rspec_add_network(rspec, network, r, l)
 
+    def rspec_add_network(self, rspec, network, resources, leases):
+        rspec.append('  <network name="%s">' % network)
+        for r in resources:
+            rspec.append('    <node component_id="%s">' % urn)
+            rspec.append('      <sliver/>')
+            rspec.append('    </node>')
+        for l in leases: # Do we need to group ?
+            rspec.append('    <lease slice_id="%(slice_id)s" start_time="%(start_time)s" duration="%(duration)s">' % l)
+            type = Xrn(l['urn']).type
+            val = l['urn'] if isinstance(l, dict) else l
+            if type == 'node':
+                rspec.append('    <node component_id="%s">' % val)
+            elif type == 'channel':
+                rspec.append('    <channel channel_num="%s">' % get_leaf(val))
+            else:
+                print "W: Ignore element while building rspec"
+                continue 
+            rspec.append('    </lease>')
 
-# Former parsing code
+    def to_rspec(self, resources, leases):
+        resources_by_network = {}
+        for r in resources:
+            network = Xrn(r['urn']).authority[0]
+            resources_by_network[network] = r
 
-#            #print node_elems
-#            nodes = []
-#
-#            for n in nodes:
-#                # NODE {
-#                #    'exclusive': None,
-#                #    'tags': [{'tagname': 'hostname', 'value': 'ple5.ipv6.lip6.fr'}, {'tagname': 'interface', 'value': None}, {'tagname': 'pldistro', 'value': 'onelab'}, {'tagname': 'arch', 'value': 'x86_64'}, {'tagname': 'fcdistro', 'value': 'f14'}, {'tagname': 'bww', 'value': '183.3'}, {'tagname': 'astype', 'value': 'n/a'}, {'tagname': 'reliability', 'value': '100'}, {'tagname': 'load', 'value': '0.6'}, {'tagname': 'slices', 'value': '1'}, {'tagname': 'cpu', 'value': '0'}, {'tagname': 'mem', 'value': '57'}, {'tagname': 'country', 'value': 'France'}, {'tagname': 'bw', 'value': '76.3'}, {'tagname': 'reliabilityy', 'value': '33'}, {'tagname': 'response', 'value': '15.1'}, {'tagname': 'loady', 'value': '0.7'}, {'tagname': 'slicesy', 'value': '0'}, {'tagname': 'bwm', 'value': '42.8'}, {'tagname': 'memm', 'value': '11'}, {'tagname': 'loadm', 'value': '0.6'}, {'tagname': 'asnumber', 'value': '1307'}, {'tagname': 'cpum', 'value': '0'}, {'tagname': 'responsem', 'value': '2.3'}, {'tagname': 'reliabilitym', 'value': '16'}, {'tagname': 'city', 'value': 'Paris'}, {'tagname': 'region', 'value': 'Ile-de-France'}, {'tagname': 'bwy', 'value': '236.7'}, {'tagname': 'memy', 'value': '13'}, {'tagname': 'cpuy', 'value': '29'}, {'tagname': 'slicesm', 'value': '0'}, {'tagname': 'loadw', 'value': '0.6'}, {'tagname': 'slicesw', 'value': '0'}, {'tagname': 'cpuw', 'value': '0'}, {'tagname': 'memw', 'value': '47'}, {'tagname': 'responsew', 'value': '10.0'}, {'tagname': 'hrn', 'value': 'planetlab.test.upmc.ple5'}, {'tagname': 'reliabilityw', 'value': '71'}, {'tagname': 'responsey', 'value': '1.3'}, {'tagname': 'sliver', 'value': None}],
-#                #     'boot_state': None,
-#                #     'interfaces': [{'component_id': 'urn:publicid:IDN+ple+interface+node14281:eth0', 'interface_id': None, 'node_id': None, 'role': None, 'ipv4': '132.227.62.123', 'client_id': '14281:168', 'mac_address': None, 'bwlimit': None}],
-#                #     'site_id': 'urn:publicid:IDN+ple:upmc+authority+sa',
-#                #     'authority_id': 'urn:publicid:IDN+ple:upmc+authority+sa', 
-#                #     'hardware_types': [],
-#                #     'disk_images': None,
-#                #     'pl_initscripts': None,
-#                #     'client_id': None,
-#                #     'services': [{'execute': [], 'login': [], 'install': []}],
-#                #     'component_manager_id': 'urn:publicid:IDN+ple+authority+cm',
-#                #     'slivers': [{'disk_images': None, 'sliver_id': None, 'component_id': 'urn:publicid:IDN+ple:upmc+node+ple5.ipv6.lip6.fr', 'name': 'upmc_agent', 'client_id': None, 'tags': [], 'type': None}],
-#                #     'component_id': 'urn:publicid:IDN+ple:upmc+node+ple5.ipv6.lip6.fr', 
-#                #     'bw_limit': None,
-#                #     'bw_unallocated': None,
-#                #     'sliver_id': None,
-#                #     'location': {'latitude': '48.8525', 'country': 'unknown', 'longitude': '2.27849'},
-#                #     'component_name': 'ple5.ipv6.lip6.fr'
-#                #}
-#                node = {
-#                    #'type': ['resource', 'node']
-#                    'type': 'node'
-#                }
-#                for k,v in n.items():
-#                    if not v or isinstance(v, StringTypes):
-#                        node[k] = v
-#                    elif isinstance(v, dict):
-#                        for x,y in v.items():
-#                            node[x] = y
-#                            #node[k+'.'+x] = y
-#                    elif k == 'tags':
-#                        for t in v:
-#                            node[t['tagname']] = t['value']
-#                    elif isinstance(v, list):
-#                        node[k] = []
-#                        for elt in v:
-#                            if isinstance(elt, dict):
-#                                node[k].append(dict(elt))
-#                            else:
-#                                node[k].append(elt)
-#                                
-#                    else:
-#                        print "Unknown type in SFAv1Parser::to_dict()"
-#                        print v
-#                        import sys
-#                        sys.exit(1)
-#
-#                if 'component_manager_id' in node and node['component_manager_id']:
-#                    node['network'] = urn_to_hrn(node['component_manager_id'])[0]
-#                elif 'component_id' in node and node['component_id']:
-#                    node['network'] = Xrn.hrn_split(Xrn(node['component_id']).get_hrn())[0]
-#                    node['hrn'] = Xrn(node['component_id']).get_hrn()
-#                elif "hostname" in node and 'gpeni' in node['hostname']: # heuristic ?
-#                    node['network'] = 'plc.gpeni'
-#                output.append(node)
-#
-#            # BUG channels = NITOSv1Channel.get_channels(self.rspec.xml, filter=None)
-#            channel_elems = self.rspec.xml.xpath('//spectrum/channel')
-#
-#            for channel in channel_elems:
-#                rsrc = {'type': 'channel'}
-#                rsrc.update(channel.attrib)
-#
-#
-#            #links = rspec2.version.xml.xpath('//network[@name="%s"]/link' % network)
-#            links = self.rspec.get_links() # How to filter nodes from a given network
-#            for link in links:
-#                # LINK {
-#                #    'latency': None, 'component_id': None, 'capacity': None, 'packet_loss': None, 'interface1': None, 'interface2': None, 'endpoints': 'ksu ku', 'component_manager': None, 'client_id': None, 'component_name': None, 'type': None, 'description': None}  
-#                rsrc = {
-#                    #'type': ['resource', 'link']
-#                    'type': 'link'
-#                }
-#                try:
-#                    rsrc['sites'] = tuple(link.attrib['endpoints'].split(' '))
-#                except:
-#                    pass#print 'no sites in link'
-#                for x in link.iterchildren():
-#                    if x.text:
-#                        rsrc[x.tag] = x.text
-#                        # description: plc.gpeni
-#                        # bw_unallocated ( XXX units): plc.gpeni
-#                    else:
-#                        for k,v in x.attrib.items():
-#                            rsrc[k] = v
-#                            # location (latitude, country, longitude): plc.gpeni
-#                if 'component_manager_id' in rsrc and rsrc['component_manager_id']:
-#                    rsrc['network'] = urn_to_hrn(rsrc['component_manager_id'])[0]
-#                elif 'component_id' in rsrc and rsrc['component_id']:
-#                    rsrc['network'] = Xrn.hrn_split(Xrn(rsrc['component_id']).get_hrn())[0]
-#                elif 'description' in rsrc and ' -- ' in rsrc['description']: # heuristic ?
-#                    rsrc['network'] = 'plc.gpeni'
-#                output.append(rsrc)
-#            # MAXPL: computeResource/computeNode/networkInterface TODO
-#            return output
+        leases_by_network = {}
+        for l in leases:
+            network = Xrn(l['urn']).authority[0]
+            leases_by_network[network] = l
+            
+        rspec = []
+        self.rspec_add_header()
+        self.rspec_add_networks(resources_by_network, leases_by_network)
+        self.rspec_add_footer()
+        
+        return "\n".join(rspec)
+        pass

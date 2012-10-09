@@ -215,6 +215,8 @@ class THLocalRouter(LocalRouter):
 
         # Get user account
         try:
+            print "x", user.accounts
+            print "y", [a for a in user.accounts if a.platform.platform == platform]
             account = [a for a in user.accounts if a.platform.platform == platform][0]
         except Exception, e:
             account = None
@@ -318,7 +320,7 @@ class THLocalRouter(LocalRouter):
             if not visited_tree_edges:
                 # The root is sufficient
                 # OR WE COULD NOT ANSWER QUERY
-                q = Query(fact_table=root.name, filters=query.filters, fields=needed_fields)
+                q = Query(action=query.action, fact_table=root.name, filters=query.filters, params=query.params, fields=needed_fields)
                 return AST(self, user).From(root, q) # root, needed_fields)
 
             qp = None
@@ -348,7 +350,7 @@ class THLocalRouter(LocalRouter):
                         if not max_table:
                             raise Exception, 'get_table_max_fields error: could not answer fields: %r for query %s' % (local_fields, query)
                         sources.remove(max_table)
-                        q = Query(fact_table=max_table.name, filters=query.filters, fields=list(max_fields))
+                        q = Query(action=query.action, fact_table=max_table.name, filters=query.filters, params=quer.params, fields=list(max_fields))
                         if first_join:
                             left = AST(self, user).From(max_table, q) # max_table, list(max_fields))
                             first_join = False
@@ -380,7 +382,7 @@ class THLocalRouter(LocalRouter):
                     max_table, max_fields = get_table_max_fields(local_fields, sources)
                     if not max_table:
                         break;
-                    q = Query(fact_table=max_table.name, filters=query.filters, fields=list(max_fields))
+                    q = Query(action=query.action, fact_table=max_table.name, filters=query.filters, params=query.params, fields=list(max_fields))
                     if first_join:
                         left = AST(self, user).From(max_table, q) # max_table, list(max_fields))
                         first_join = False
@@ -403,7 +405,7 @@ class THLocalRouter(LocalRouter):
             qp = AST(self, user)
 
             cur_filters = []
-            cur_params = []
+            cur_params = {}
             cur_fields = []
             subq = {}
 
@@ -422,7 +424,17 @@ class THLocalRouter(LocalRouter):
                     else:
                         cur_filters.append(pred)
 
-            # TODO params
+            if query.params:
+                for key, value in query.params.items():
+                    if '.' in pred.key:
+                        method, subkey = key.split('.', 1)
+                        if not method in subq:
+                            subq[method] = {}
+                        if not 'params' in subq[method]:
+                            subq[method]['params'] = {}
+                        subq[method]['params'][subkey, value]
+                    else:
+                        cur_params[key] = value
 
             if query.fields:
                 for field in query.fields:
@@ -549,13 +561,44 @@ class THLocalRouter(LocalRouter):
         d = defer.Deferred() if deferred else None
         cb = Callback(d, self.event)
         qp.callback = cb
-        qp.start()
 
-        if deferred: return d
-        self.event.wait()
-        self.event.clear()
+        # The query plane will be the same whatever the action: it represents
+        # the easier way to reach the destination = routing
+        # We do not need the full query for the query plane, in fact just the
+        # destination, which is a subpart of the query = (fact, filters, fields)
+        # action = what to do on this QP
+        # ts = how it behaves
 
-        return cb.results
+        # Now we only need to start it for Get.
+        if query.action == 'get':
+            qp.start()
+
+            if deferred: return d
+            self.event.wait()
+            self.event.clear()
+
+            return cb.results
+
+        elif query.action == 'update':
+            # At the moment we can only update if the primary key is present
+            keys = self.metadata_get_keys(query.fact_table)
+            if not keys:
+                raise Exception, "Missing metadata for table %s" % query.fact_table
+            key = list(keys).pop()
+            
+            if not query.filters.has_eq(key):
+                raise Exception, "The key field '%s' must be present in update request" % key
+
+            qp.start()
+
+            if deferred: return d
+            self.event.wait()
+            self.event.clear()
+
+            return cb.results
+
+        else:
+            raise Exception, "Action not supported: %s" % query.action
 
 
 class THRouter(THLocalRouter, Router):

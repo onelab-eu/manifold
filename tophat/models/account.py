@@ -1,7 +1,7 @@
 from sqlalchemy import Column, ForeignKey, Integer, String, Enum
 from sqlalchemy.orm import relationship, backref
 
-from tophat.models import Base, session
+from tophat.models import Base, db
 import json
 
 import logging
@@ -24,8 +24,6 @@ class Account(Base):
 
         # Finds the gateway corresponding to the platform
         gtype = self.platform.gateway_type
-        print self.platform.platform
-        print gtype
         if not gtype:
             print "I: Undefined gateway"
             return {}

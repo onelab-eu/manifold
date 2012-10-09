@@ -476,7 +476,7 @@ class SubQuery(Node):
 #            join = LeftJoin([x[fact_table] for x in self.parent_output], child, key)
 #
 #            # Update its query
-#            join.query = Query(fact_table=fact_table, filters=filters, fields=fields)
+#            join.query = Query(fact_table=fact_table, filters=filters, params=params, fields=fields)
 #
 #            join.callback = lambda record: self.child_callback(i, record)
 #
@@ -661,7 +661,7 @@ class AST(object):
         q = children[0].query
 
         self.root = Union(children)
-        self.root.query = Query(fact_table=q.fact_table, filters=q.filters, fields=q.fields)
+        self.root.query = Query(action=q.action, fact_table=q.fact_table, filters=q.filters, fields=q.fields)
         return self
 
     # TODO Can we use decorators for such functions ?
@@ -675,10 +675,12 @@ class AST(object):
 
         self.root = LeftJoin(old_root, ast.root, predicate)
 
+        action = old_root.query.action
+        params = old_root.query.params
         fact_table = old_root.query.fact_table
         filters = old_root.query.filters.union(ast.root.query.filters)
         fields = old_root.query.fields.union(ast.root.query.fields)
-        self.root.query = Query(fact_table=fact_table, filters=filters, fields=fields)
+        self.root.query = Query(action=action, fact_table=fact_table, filters=filters, params=params, fields=fields)
 
         self.root.callback = old_root.callback
 
@@ -694,10 +696,12 @@ class AST(object):
 
         self.root = Projection(old_root, fields)
 
+        action = old_root.query.action
+        params = old_root.query.params
         fact_table = old_root.query.fact_table
         filters = old_root.query.filters
         fields = fields
-        self.root.query = Query(fact_table=fact_table, filters=filters, fields=fields)
+        self.root.query = Query(action=action, fact_table=fact_table, filters=filters, params=params, fields=fields)
 
         self.root.callback = old_root.callback
 
@@ -713,10 +717,12 @@ class AST(object):
 
         self.root = Selection(old_root, filters)
 
+        action = old_root.query.action
+        params = old_root.query.params
         fact_table = old_root.query.fact_table
         filters = old_root.query.filters.union(filters)
         fields = old_root.query.fields
-        self.root.query = Query(fact_table=fact_table, filters=filters, fields=fields)
+        self.root.query = Query(action=action, fact_table=fact_table, filters=filters, params=params, fields=fields)
 
         self.root.callback = old_root.callback
 
@@ -730,10 +736,12 @@ class AST(object):
 
         self.root = SubQuery(self.router, old_root, children_ast)
 
+        action = old_root.query.action
+        params = old_root.query.params
         fact_table = old_root.query.fact_table
         filters = old_root.query.filters
         fields = old_root.query.fields
-        self.root.query = Query(fact_table=fact_table, filters=filters, fields=fields)
+        self.root.query = Query(action=action, fact_table=fact_table, filters=filters, params=params, fields=fields)
 
         self.root.callback = old_root.callback
 

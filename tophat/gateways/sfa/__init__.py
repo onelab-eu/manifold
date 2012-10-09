@@ -17,6 +17,7 @@ from tophat.util.faults import *
 
 from tophat.core.filter import *
 from tophat.core.metadata import Metadata
+from tophat.gateways.sfa.rspecs.SFAv1 import SFAv1Parser as Parser
 
 from sfa.trust.certificate import Keypair, Certificate
 from sfa.trust.gid import GID
@@ -557,10 +558,12 @@ class SFA(FromNode):
     ############################################################################ 
 
     def parse_sfa_rspec(self, rspec):
-        from tophat.gateways.sfa.rspecs.SFAv1 import SFAv1Parser as Parser
-        #print "RESPEC PARSED", rspec
         parser = Parser(rspec)
         return parser.to_dict()
+
+    def build_sfa_rspec(self, resources, leases):
+        parser = Parser(resources, leases)
+        return parser.to_rspec()
 
 
     ############################################################################ 
@@ -574,18 +577,91 @@ class SFA(FromNode):
     # default allows the use of MySlice's own credentials
     def _get_cred(self, type, target, default=False):
         assert type == 'slice', "Need to clean up credential request"
-        cred = self.user_config['slice_credentials']
-        if not target in cred:
-            raise Exception , "no cred found of type %s towards %s " % (type, target)
-        return cred[target]
+        
+        if not 'slice_credentials' in self.user_config:
+            self.user_config['slice_credentials'] = {}
 
-        for c in self.router.creds:
-            
-            if c['type'] == type and c['target'] == target:
-                return c['cred']
+        creds = self.user_config['slice_credentials']
+        if target in cred:
+            cred = creds[target]
+        else:
+            # Can we generate them : only if we have the user private key
+            # Currently it is not possible to request for a slice credential
+            # with a delegated user credential...
+            if self.user_config['user_private_key']:
+                cred = SFA.generate_slice_credential(target, self.user_config)
+                creds[target] = cred
+            else:
+                raise Exception , "no cred found of type %s towards %s " % (type, target)
+        return cred
 
-    def get_slice(self, input_filter = None, output_fields = None):
-        return self._get_slices(input_filter, Metadata.expand_output_fields('slices', output_fields))
+    def get_slice(self, filters = None, params = None, fields = None):
+        return self._get_slices(filters, Metadata.expand_output_fields('slices', fields))
+
+    def update_slice(self, filters, params, fields):
+        if 'resource' not in params:
+            raise Exception, "Update failed: nothing to update"
+
+        # Keys
+        if not filters.has_eq('slice_hrn'):
+            raise Exception, 'Missing parameter: slice_hrn'
+        slice_hrn = filters.get_eq('slice_hrn')
+        slice_urn = hrn_to_urn(slice_hrn, 'slice')
+        resources = params['resource']
+        leases = params['lease']
+
+        # Credentials
+        cred = self._get_cred('slice', slice_hrn)
+
+        # We suppose resource
+        rspec = build_sfa_rspec(resources, leases)
+
+        return rspec
+
+        # Sliver attributes (tags) are ignored at the moment
+
+
+        # We need to pass sufficient information to the aggregate so that it is
+        # able to create user records: urn, (email) and keys for each user that
+        # should be able to access the slice.
+
+        # need to pass along user keys to the aggregate.
+        # users = [
+        #  { urn: urn:publicid:IDN+emulab.net+user+alice
+        #    keys: [<ssh key A>, <ssh key B>]
+        #  }]
+        users = []
+        # xxx Thierry 2012 sept. 21
+        # contrary to what I was first thinking, calling Resolve with details=False does not yet work properly here
+        # I am turning details=True on again on a - hopefully - temporary basis, just to get this whole thing to work again
+        slice_records = self.registry().Resolve(slice_urn, [self.my_credential_string])
+        # slice_records = self.registry().Resolve(slice_urn, [self.my_credential_string], {'details':True})
+        if slice_records and 'reg-researchers' in slice_records[0] and slice_records[0]['reg-researchers']:
+            slice_record = slice_records[0]
+            user_hrns = slice_record['reg-researchers']
+            user_urns = [hrn_to_urn(hrn, 'user') for hrn in user_hrns]
+            user_records = self.registry().Resolve(user_urns, [self.my_credential_string])
+
+            if 'sfa' not in server_version:
+                users = pg_users_arg(user_records)
+                rspec = RSpec(rspec)
+                rspec.filter({'component_manager_id': server_version['urn']})
+                rspec = RSpecConverter.to_pg_rspec(rspec.toxml(), content_type='request')
+            else:
+                users = sfa_users_arg(user_records, slice_record)
+
+        # do not append users, keys, or slice tags. Anything
+        # not contained in this request will be removed from the slice
+
+        # CreateSliver has supported the options argument for a while now so it should
+        # be safe to assume this server support it
+        api_options = {}
+        api_options ['append'] = False
+        api_options ['call_id'] = unique_call_id()
+        result = server.CreateSliver(slice_urn, creds, rspec, users, *self.ois(server, api_options))
+        manifest = ReturnValue.get_value(result)
+
+        return [{'update_slice': 'success', 'rspec': manifest}]
 
     def _get_slices_hrn(self, filters = None):
         #    Depending on the input_filters, we can use a more or less
@@ -988,111 +1064,6 @@ class SFA(FromNode):
             # WARNING: caching failed
             pass
 
-    def update_slice(self, input_filter, output_fields):
-        dbgfile = open('/tmp/updateslice', 'w')
-        # set / add / remove nodes in a slice
-        # XXX requires support for async calls
-        if 'resources' in input_filter or '+resources' in input_filter or '-resources' in input_filter:
-            # Parameters
-            if 'resources' in input_filter and ('+resources' in input_filter or '-resources' in input_filter):
-                raise Exception, "Conflit between resources and +/-resources"
-            if not 'slice_hrn' in input_filter:
-                raise Exception, 'Missing parameter: slice_hrn'
-            slice_hrn = input_filter['slice_hrn']
-            slice_urn = hrn_to_urn(slice_hrn, 'slice')
-
-            cred = self._get_cred('slice', slice_hrn)
-            slices = self.sfa_resolve_records(cred, slice_list, 'slice')
-            # Merge resulting information
-            for (hrn, slice) in itertools.izip(slice_list, slices):
-                slice['slice_hrn'] = hrn
-
-            # Selection
-
-            # Projection and renaming
-            filtered = project_select_and_rename_fields(slices, 'slice_hrn', input_filter, output_fields, self.map_slice_fields)
-
-            # XXX generic function to manage subrequests
-            
-            # - Get the list of subfields
-            subfields = []
-            for of in output_fields:
-                if of.startswith('resources.'):
-                    subfields.append(of[6:])
-
-            if subfields:
-                # = what we have in RSpecs
-                # network, site, node, hostname, slice tags, sliver tags, nodes in slice and not in slice
-                # We might not need Resolve if we have all necessary information here
-                for s in filtered:
-                    # we loop since each slice requires a different credential
-                    # XXX  how to tell the user we miss some credentials
-                    hrn = s['slice_hrn']
-                    rsrc = self.get_resources({'slice_hrn': hrn}, subfields)
-                    if not rsrc:
-                        raise Exception, 'get_resources failed!'
-                    if [of for of in output_fields if of.startswith('resources.')]:
-                        # TODO missing output fields
-                        s['resources'] = rsrc
-
-            # remove join fields
-            if 'slice_hrn' not in output_fields:
-                for s in filtered:
-                    del s['slice_hrn']
-
-            return filtered
-
-    def update_slice(self, input_filter, output_fields):
-        dbgfile = open('/tmp/updateslice', 'w')
-        # set / add / remove nodes in a slice
-        # XXX requires support for async calls
-        if 'resources' in input_filter or '+resources' in input_filter or '-resources' in input_filter:
-            # Parameters
-            if 'resources' in input_filter and ('+resources' in input_filter or '-resources' in input_filter):
-                raise Exception, "Conflit between resources and +/-resources"
-            if not 'slice_hrn' in input_filter:
-                raise Exception, 'Missing parameter: slice_hrn'
-            slice_hrn = input_filter['slice_hrn']
-            slice_urn = hrn_to_urn(slice_hrn, 'slice')
-
-            cred = self._get_cred('slice', slice_hrn)
-
-            # 1/ get last RSpec in database
-            #    compare to hash, if the same and not expired ok... otherwise get it and tell users
-            rspecs = None#MySliceRSpecs(self.api, {'rspec_person_id': self.caller['person_id'], 'rspec_target': slice_hrn})#, 'rspec_hash': 0})
-            if not rspecs:
-                print >>dbgfile, "getting rspecs"
-                # RSpec not cached, we need to retrieve
-                call_options = {'geni_slice_urn': slice_urn}
-                rspec_xml = self.sliceapi().ListResources(cred, call_options)
-                self.add_rspec_to_cache(slice_hrn, rspec_xml)
-            else:
-                # Expiration TODO
-                print >>dbgfile, "cached"
-                rspec_xml = rspecs[0]['rspec']
-            # otherwise
-            #get_resources()
-            rspec = RSpec(rspec_xml)
-            print >>dbgfile, "SLIVERS:", rspec.version.get_nodes_with_slivers()
-            # 2/ modify rspec
-
-            # Nodes: hostname/dict, or list of hostnames/dicts (TODO) hostname or hrn ?
-            if 'resources' in input_filter:
-                resources = input_filter['resources']
-                if not isinstance(resources, list):
-                    resources = [resources]
-                resources = [{'hostname': x} for x in resources]
-                print "sliver__resource", resources
-                rspec.version.add_slivers(resources)
-            else:
-                if '+resources' in input_filter:
-                    resources_add = input_filter['+resources']
-                    if not isinstance(resources_add, list):
-                        resources_add = [resources_add]
-                    for hostname in resources_add:
-                        node = rspec.version.get_node_element(hostname)
-                        etree.SubElement(node, "sliver")
-
 ################################################################################
 # END SFA CODE
 ################################################################################
@@ -1139,14 +1110,20 @@ class SFA(FromNode):
 
     def do_start(self):
         q = self.query
+        print "SFA QUERY ACTION:", q.action
+        print "SFA QUERY PARAMS:", q.params
         # Let's call the simplest query as possible to begin with
         # This should use twisted XMLRPC
-        result = getattr(self, "get_%s" % q.fact_table)(q.filters, list(q.fields))
+        result = getattr(self, "%s_%s" % (q.action, q.fact_table))(q.filters, q.params, list(q.fields))
         for r in result:
             self.callback(r)
         self.callback(None)
 
 
+    @staticmethod
+    def generate_slice_credential(target, config):
+        raise Exception, "Not implemented. Run delegation script in the meantime"
+        
 
     @staticmethod
     def manage(user, platform, config):
@@ -1239,7 +1216,7 @@ class SFA(FromNode):
 
         if new_key or not 'slice_credentials' in config:
             # Generated on demand !
-            config['slice_credentials'] = []
+            config['slice_credentials'] = {}
 
         return config
 
