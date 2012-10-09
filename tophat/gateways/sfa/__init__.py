@@ -15,9 +15,6 @@ import zlib
 from tophat.core.ast import FromNode
 from tophat.util.faults import *
 
-from tophat.core.MySliceCredential import MySliceCredential, MySliceCredentials
-from tophat.core.MySliceRSpec import MySliceRSpec, MySliceRSpecs
-from tophat.core.table import Row
 from tophat.core.filter import *
 from tophat.core.metadata import Metadata
 
@@ -86,77 +83,6 @@ def filter_records(type, records):
             filtered_records.append(record)
     return filtered_records
 
-def has_filter_field(filter, field):
-    if not filter:
-        return False
-    for k, v in filter.items():
-        if k == field or (k[0] in Filter.modifiers and k[1:] == field):
-            return True
-    return False
-
-# weird ???
-def get_filter_field(filter, field):
-    out = {}
-    for k, v in filter.items():
-        if k == field or (k[0] in Filter.modifiers and k[1:] == field):
-            out[k] = v
-    return out
-    
-def match_dict(dic, filter):
-    # We suppose if a field is in filter, it is therefore in the dic
-    if not filter:
-        return True
-    match = True
-    for k, v in filter.items():
-        if k[0] in Filter.modifiers:
-            op = k[0]
-            k = k[1:]
-        elif k in ['-SORT', '-LIMIT', '-OFFSET']:
-            continue;
-        else:
-            op = '='
-
-        if op == '=':
-            if isinstance(v, list):
-                match &= (dic[k] in v) # array ?
-            else:
-                match &= (dic[k] == v)
-        elif op == '~':
-            if isinstance(v, list):
-                match &= (dic[k] not in v) # array ?
-            else:
-                match &= (dic[k] != v) # array ?
-        elif op == '<':
-            if isinstance(v, StringTypes):
-                # prefix match
-                match &= dic[k].startswith('%s.' % v)
-            else:
-                match &= (dic[k] < v)
-        elif op == '[':
-            if isinstance(v, StringTypes):
-                match &= dic[k] == v or dic[k].startswith('%s.' % v)
-            else:
-                match &= (dic[k] <= v)
-        elif op == '>':
-            if isinstance(v, StringTypes):
-                # prefix match
-                match &= v.startswith('%s.' % dic[k])
-            else:
-                match &= (dic[k] > v)
-        elif op == ']':
-            if isinstance(v, StringTypes):
-                # prefix match
-                match &= dic[k] == v or v.startswith('%s.' % dic[k])
-            else:
-                match &= (dic[k] >= v)
-        elif op == '&':
-            match &= (dic[k] & v) # array ?
-        elif op == '|':
-            match &= (dic[k] | v) # array ?
-        elif op == '{':
-            match &= (v in dic[k])
-    return match
-
 def project_select_and_rename_fields(table, pkey, filters, fields, map_fields=None):
     filtered = []
     for row in table:
@@ -174,7 +100,7 @@ def project_select_and_rename_fields(table, pkey, filters, fields, map_fields=No
                         row[v] = row[k]
                     del row[k]
         # apply input filters # XXX TODO sort limit offset
-        if filters.match(row): # match_dict(row, filters):
+        if filters.match(row):
             # apply output_fields
             c = {}
             for k,v in row.items():
@@ -632,7 +558,7 @@ class SFA(FromNode):
 
     def parse_sfa_rspec(self, rspec):
         from tophat.gateways.sfa.rspecs.SFAv1 import SFAv1Parser as Parser
-        print "RESPEC PARSED", rspec
+        #print "RESPEC PARSED", rspec
         parser = Parser(rspec)
         return parser.to_dict()
 
@@ -642,33 +568,6 @@ class SFA(FromNode):
     # COMMANDS
     #
     ############################################################################ 
-
-
-    # Credentials
-
-    def get_credentials(self, input_filter = None, output_fields = None):
-        cred_fields = {
-            'xxx': None
-        }
-        [db_filters, file_filters, rejected] = Row.split_filter(input_filter,
-                [MySliceCredential.fields, cred_fields])
-        if rejected:
-            raise Exception, 'Unknown column(s) specified %r in %s' % (rejected, MySliceCredential.__name__)
-        # XXX only credentials of the user
-        # Get all matching credentials in the db
-        creds = MySliceCredentials(self.api, input_filter, output_fields) # XXX only if necessary
-        # Filter those credentials
-        filtered = []
-        for cred in creds:
-            # apply input_filters XXX TODO sort limit offset
-            if match_dict(cred, file_filters):
-                # apply output_fields
-                c = {}
-                for k,v in cred.items():
-                    if k in output_fields:
-                        c[k] = v
-                filtered.append(c)
-        return filtered
 
 
     # get a delegated credential of a given type to a specific target
@@ -684,82 +583,9 @@ class SFA(FromNode):
             
             if c['type'] == type and c['target'] == target:
                 return c['cred']
-#        #delegated_cred = self.delegate_cred(slice_cred, get_authority(self.authority)) # XXX
-#
-#        search = {
-#            'credential_person_id': self.config['caller']['person_id'],
-#            'credential_type': type,
-#            'credential_target': target,
-#            ']credential_expiration': datetime.datetime.today()
-#        }
-#        # XXX delete expired credentials / or during purge elsewhere
-#
-#        cds = MySliceCredentials(self.api, search, ['credential'])
-#        if not cds:
-#            # We should be able to bootstrap a slice credential from a user credential
-#            # /usr/local/lib/python2.7/dist-packages/sfa/managers/registry_manager.py
-#            # Credential is not passed to this GetCredential method...
-#            # Have we been delegated any right
-#            if type == 'slice':
-#                print "bootstraping slice credential from user credential (will fail until sfa is fixed)"
-#                search = {
-#                    'credential_person_id': self.config['caller']['person_id'],
-#                    'credential_type': 'user',
-#                    'credential_target': self.config['caller']['person_hrn'],
-#                    ']credential_expiration': datetime.datetime.today()
-#                }
-#                cds = MySliceCredentials(self.api, search, ['credential'])
-#                if cds:
-#                    try:
-#                        u_cred = cds[0]['credential']
-#                        s_cred = self.registry().GetCredential(u_cred, target, type)
-#                    except Exception, e:
-#                        raise PLCPermissionDenied, 'No credential available: %s' % e
-#                    return s_cred
-#            # XXX
-#
-#            # Use MySlice default credential (TODO)
-#            #if default:
-#            #    if type == 'user':
-#            #        return self.get_user_cred().save_to_string(save_parents=True)
-#            #    elif type == 'slice':
-#            #        return self.get_slice_cred(target).save_to_string(save_parents=True)
-#            raise PLCPermissionDenied, 'No credential available (todo: implement myslice default)'
-#        return cds[0]['credential']
 
     def get_slice(self, input_filter = None, output_fields = None):
         return self._get_slices(input_filter, Metadata.expand_output_fields('slices', output_fields))
-
-#    def get_slices(self, input_filter = None, output_fields = None):
-#        return self._get_slices(input_filter, Metadata.expand_output_fields('slices', output_fields))
-
-    # get all slices: "slices" (cached?)
-    # get one site slices: "list (slices)"
-    # get one slice information "show"
-
-    # list specific slices
-    #   Get('slices', 'now', 'ple.upmc.jordan_auge')
-    #
-    # par default = {'hrn': xxx}
-    # sinon *_hrn => 'hrn' + type=*
-    #
-    # get user slices : list user authority + filter by researcher name
-    #   Get('slices', 'now', {'user_hrn': 'ple.upmc.jordan_auge'})
-    #   Get('slices', 'now', 'ple.upmc.jordan_auge') # we can recognize the type of the HRN
-    #
-    # get local authority slices (PI): list user authority + filter by PI
-    #   Get('slices', 'now', {'authority_hrn': 'ple.upmc'})
-    # 
-    # No filter = all slices
-    #
-    # get authority slices / get testbed slices (Admin): list user authority/network
-    #   Get('slices' ... authority_hrn with top authority
-    #
-    # get all slices: "slices"
-
-    # difference b/w slice name and slice information
-    # recursive enumeration of slices: better to call everything and filter
-    # filter hierarchies...
 
     def _get_slices_hrn(self, filters = None):
         #    Depending on the input_filters, we can use a more or less
@@ -866,9 +692,7 @@ class SFA(FromNode):
             return [{'slice_hrn': hrn} for hrn in slice_list]
             
         # - Do we need to filter the slice_list by authority ?
-        if filters.has('authority_hrn'): # has_filter_field(input_filter, 'authority_hrn'):
-            #filter = get_filter_field(input_filter, 'authority_hrn')
-            #slice_list = [s for s in slice_list if match_dict({'authority_hrn': get_authority(s)}, filter)]
+        if filters.has('authority_hrn'):
             predicates = filters.get_predicates('authority_hrn')
             for p in predicates:
                 slice_list = [s for s in slice_list if p.match({'authority_hrn': get_authority(s)})]
@@ -951,57 +775,45 @@ class SFA(FromNode):
             output_fields = ['user_hrn', 'user_first_name', 'user_last_name']
         return self._get_users(input_filter, output_fields)
 
-    def _get_users(self, input_filter = None, output_fields = None):
-        # 1/ delegated user credential to list the authority
-        #cred = self._get_cred('user', self.config['caller']['person_hrn'])
+    def _get_users(self, filters = None, fields = None):
+
         cred = self.user_config['user_credential']
 
-        if isinstance(input_filter, list): # tuple set
-            pass
-            # list of hrn !
-            # list of filter: possible ?
-        elif isinstance(input_filter, StringTypes):
-            pass
-            # hrn : infer type ?
-        else:
-            if input_filter and not isinstance(input_filter, dict):
-                raise Exception, "Unsupported input_filter type"
-
         # A/ List users
-        if not input_filter or not ('user_hrn' in input_filter or 'authority_hrn' in input_filter):
+        if not filters or not (filters.has_eq('user_hrn') or filters.has_eq('authority_hrn')):
             # no authority specified, we get all users *recursively*
-            #user_list = [urn_to_hrn(r)[0] for r in results]
-            return [{'error': 'recursive user list not implemented yet'}]
-        elif 'authority_hrn' in input_filter: # XXX recursive modifiers...
+            raise Exception, "E: Recursive user listing not implemented yet."
+
+        elif filters.has_eq('authority_hrn'):
             # Get the list of users
-            auths = input_filter['authority_hrn']
-            if not isinstance(auths, list):
-                auths = [auths]
+            auths = filters.get_eq('authority_hrn')
+            if not isinstance(auths, list): auths = [auths]
+
             # Get the list of user_hrn
             user_list = []
             for hrn in auths:
                 ul = self.registry().List(hrn, cred)
                 ul = filter_records('user', ul)
                 user_list.extend([r['hrn'] for r in ul])
-        # else: named users
-        else:
-            user_list = input_filter['user_hrn']
-            if not isinstance(user_list, list):
-                user_list = [user_list]
+
+        else: # named users
+            user_list = filters.get_eq('user_hrn')
+            if not isinstance(user_list, list): user_list = [user_list]
         
-        if not user_list or user_list == []:
-            return []
+        if not user_list: return user_list
 
         # B/ Get user information
-        if output_fields == ['user_hrn']: # XXX we should also support user_urn etc.
-            return [{'user_hrn': hrn} for hrn in user_list]
+        if filters == set(['user_hrn']): # urn ?
+            return [ {'user_hrn': hrn} for hrn in user_list ]
+
         else:
             # Here we could filter by authority if possible
-            if has_filter_field(input_filter, 'authority_hrn'):
-                filter = get_filter_field(input_filter, 'authority_hrn')
-                user_list = [s for s in user_list if match_dict({'authority_hrn': get_authority(s)}, filter)]
-            if not user_list or user_list == []:
-                return []
+            if filters.has_eq('authority_hrn'):
+                predicates = filters.get_predicates('authority_hrn')
+                for p in predicates:
+                    user_list = [s for s in user_list if p.match({'authority_hrn': get_authority(s)})]
+
+            if not user_list: return user_list
 
             users = self.registry().Resolve(user_list, cred)
             users = filter_records('user', users)
@@ -1014,11 +826,11 @@ class SFA(FromNode):
                         user[v] = user[k]
                         del user[k]
                 # apply input_filters XXX TODO sort limit offset
-                if match_dict(user, input_filter):
+                if filters.match(user):
                     # apply output_fields
                     c = {}
                     for k,v in user.items():
-                        if k in output_fields:
+                        if k in fields:
                             c[k] = v
                     filtered.append(c)
 
@@ -1125,63 +937,6 @@ class SFA(FromNode):
 #
 #        return self.sliceapi().SliverStatus(slice_urn, creds)
 
-    def get_nodes(self, input_filter = None, output_fields = None):
-        return self.get_resources(input_filter, output_fields)
-
-#            pg_nodes_elements = rspec2.version.get_node_elements(network=network)
-#            nodes_with_slivers = rspec2.version.get_nodes_with_slivers()
-#            i = 1
-#            for pg_node_element in pg_nodes_elements:
-#                sliver = False
-#                # XXX output_fields !!!
-#                node = {
-#                    'type': 'node',
-#                    'network_hrn': network,
-#                    'attributes': []
-#                }
-#                urn = pg_node_element.xpath('@component_id', namespaces=rspec2.namespaces)
-#                print urn
-#                if urn:
-#                    urn = urn[0]
-#                    hostname = Xrn.urn_split(urn)[-1]
-#                    node['hostname'] = hostname
-#                    node['site'] = Xrn.urn_split(urn)[-3]
-#                    node['sliver'] = (hostname in nodes_with_slivers);
-#
-#                # just copy over remaining child elements  
-#                for child in pg_node_element.getchildren():
-#                    ns, key = filter(len, re.split('[{}]', child.tag)) 
-#                    # Tags from protogeni v2 rspec
-#                    # only initscript are missing
-#                    if key in ['hardware_type', 'sliver_type']:
-#                        att = {'namespace': ns, 'name': key, 'value': child.attrib['name']}
-#                        node['attributes'].append(att)
-#                    elif key == 'location':
-#                        att = {'namespace': ns, 'name': 'latitude', 'value': child.attrib['latitude']}
-#                        node['attributes'].append(att)
-#                        att = {'namespace': ns, 'name': 'longitude', 'value': child.attrib['longitude']}
-#                        node['attributes'].append(att)
-#                        att = {'namespace': ns, 'name': 'country', 'value': child.attrib['country']}
-#                        node['attributes'].append(att)
-#                    elif key == 'available':
-#                        att = {'namespace': ns, 'name': key, 'value': child.attrib['now']}
-#                        node['attributes'].append(att)
-                    
-                #if sliver:
-                #    if fields_nodes:
-                #        n = node.copy()
-                #        for k in n.keys():
-                #            if k not in fields_nodes:
-                #                del n[k]
-                #        output['slice_nodes'].append(n)
-                #else:
-                #    if fields_nodes_available:
-                #        n = node.copy()
-                #        for k in n.keys():
-                #            if k not in fields_nodes_available:
-                #                del n[k]
-                #        output['slice_nodes_available'].append(n)
-
     def get_resource(self, input_filter = None, output_fields = None):
         # DEMO
         if self.user.email in DEMO_HOOKS:
@@ -1232,27 +987,6 @@ class SFA(FromNode):
         if not new['rspec_id'] > 0:
             # WARNING: caching failed
             pass
-
-# credentials
-# resources == slice !!
-# users
-#     Get()
-#     Add()
-#     Update('slice')
-#     Delete()
-# slices
-#     nodes
-#     users
-#         credentials
-# nodes
-# 
-# how to add nodes to slice
-#     nodes
-#     +nodes: noeuds a ajouter
-#     -nodes: noeuds a supprimer 
-#     filter / parameters...
-
-    
 
     def update_slice(self, input_filter, output_fields):
         dbgfile = open('/tmp/updateslice', 'w')
@@ -1403,13 +1137,6 @@ class SFA(FromNode):
     def __str__(self):
         return "<SFAGateway %r: %s>" % (self.gateway_config['sm'], self.query)
 
-#    def success_cb(self, table):
-#        for record in table:
-#            self.callback(record)
-#
-#    def exception_cb(self, error):
-#        print 'Error during SFA call: ', error
-
     def do_start(self):
         q = self.query
         # Let's call the simplest query as possible to begin with
@@ -1515,15 +1242,6 @@ class SFA(FromNode):
             config['slice_credentials'] = []
 
         return config
-
-#        bootstrap.bootstrap_my_gid()
-#        # extract what's needed
-#        self.private_key = bootstrap.private_key()
-#        self.my_credential_string = bootstrap.my_credential_string ()
-#        self.my_gid = bootstrap.my_gid ()
-#        self.bootstrap = bootstrap
-#        self.bootstrap_done = True
-
 
 #def sfa_get(api, caller, method, ts, input_filter = None, output_fields = None):
 #    sfa = Sfa(api, caller)

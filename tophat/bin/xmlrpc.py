@@ -27,16 +27,19 @@ class TopHatAPI(xmlrpc.XMLRPC):
     def xmlrpc_GetPersons(self, *args):
         """
         """
-        return [{'email': 'myuser@mytestbed', 'first_name': 'My', 'last_name': 'User', 'person_hrn': 'mytestbed.user'}]
+        user = router.authenticate(args[0])
+        print "I: args", args
+        return [{'email': 'EMAIL', 'first_name': 'FIRSTNAME', 'last_name': 'LASTNAME', 'person_hrn': 'HRN_TODO'}]
 
 
     def xmlrpc_AddCredential(self, *args):
         """
         """
         # The first argument should be an authentication token
-        user = router.authenticate(args[0])
+        email, credential, platform = args
+        user = router.authenticate(email)
         # The second argument is the credential to add
-        router.add_credential(args[0], user=user)
+        router.add_credential(credential, platform, user)
         return 1
 
     def xmlrpc_forward(self, *args):
@@ -61,6 +64,4 @@ def main():
     print "XMLRPC server Listening..."
 
 if __name__ == '__main__':
-    query1 = Query(action='get', fact_table='tophat:platform', filters=[], params=None, fields=['platform', 'platform_longname'])
-    print router.forward(query1)
     main()

@@ -197,6 +197,7 @@ class Filter(set):
         return self.get_op(key, eq)
 
     def get_predicates(self, key):
+        # XXX Would deserve returning a filter (cf usage in SFA gateway)
         ret = []
         for x in self:
             if x.key == key:

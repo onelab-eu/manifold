@@ -1,4 +1,5 @@
 from tophat.models import *
+import time
 
 class AuthenticationFailure(Exception): pass
 
@@ -24,11 +25,10 @@ class Password(Auth):
         assert self.auth.has_key('Username')
         
         # Get record (must be enabled)
-        users = session.query(User).filter(User.email == self.auth['Username'].lower()).all()
-        if len(users) != 1:
-            raise AuthenticationFailure, "No such account (PW)"
-
-        user = users[0]
+        try:
+            user = session.query(User).filter(User.email == self.auth['Username'].lower()).one()
+        except Exception, e:
+            raise AuthenticationFailure, "No such account (PW): %s" % e
 
         print "W: skipped password verification"
         return user
@@ -47,3 +47,25 @@ class Password(Auth):
 class Anonymous(Auth):
     def check(self):
         return None
+
+class Session(Auth):
+    """
+    Secondary authentication method. After authenticating with a
+    primary authentication method, call GetSession() to generate a
+    session key that may be used for subsequent calls.
+    """
+
+    def check(self):
+        assert auth.has_key('session')
+
+        try:
+            sess = session.query(Session).filter(Session.session == self.auth['session']).one()
+        except Exception, e:
+            raise AuthenticationFailure, "No such session: %s" % e
+
+        user = sess.user
+        if user and sess.expires > time.time():
+            return user
+        else:
+            # TODO delete session
+            raise AuthenticationFailure, "Invalid session: %s" % e

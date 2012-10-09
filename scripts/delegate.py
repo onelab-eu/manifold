@@ -19,7 +19,6 @@ from sfa.trust.gid import GID # this should be done into bootstrap
 from sfa.client.sfaclientlib import SfaClientBootstrap
 from sfa.util.plxrn import hostname_to_hrn, slicename_to_hrn, email_to_hrn, hrn_to_pl_slicename
 
-
 class SfaHelper:
 
     def __init__(self, user_hrn, private_key, sfi_dir):
@@ -173,14 +172,14 @@ def main():
     creds = get_credentials(pl_username, private_key, sfi_dir, password)
 
     # Uploading credentials to MySlice
-    auth = {'AuthMethod': 'testbed', 'Username': pl_username, 'AuthString': password}
-    MySlice = xmlrpclib.Server(MYSLICE_API, allow_none = 1)
-    for cred in creds:
-        try:
-            print cred
-            xx = MySlice.AddCredential(auth, cred)
-        except Exception, e:
-            print "Error uploading credential (%s)" % e
+    auth = {'AuthMethod': 'password', 'Username': pl_username, 'password': 'demo'}
+
+    try:
+        MySlice = xmlrpclib.Server(MYSLICE_API, allow_none = 1)
+        for c in creds:
+            MySlice.AddCredential(auth, c, 'ple')
+    except Exception, e:
+        print "E: Error uploading credential: %s" % e
 
 if __name__ == '__main__':
     main()

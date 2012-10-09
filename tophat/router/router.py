@@ -51,6 +51,7 @@ class LocalRouter(object):
         for r in static_routes:
             pass
         #self.rib[dest] = route
+        self.build_tables()
 
         # Read peers into the configuration file
         # TODO
@@ -124,40 +125,46 @@ class LocalRouter(object):
 
         # Handling internal queries
         if ':' in query.fact_table:
-            try:
-                namespace, table = query.fact_table.rsplit(':', 2)
-                if namespace == self.LOCAL_NAMESPACE:
-                    q = copy.deepcopy(query)
-                    q.fact_table = table
-                    return self.local_query(q)
-                elif namespace == 'metadata':
-                    # Metadata are obtained for the 3nf representation in
-                    # memory
-                    if table == 'table':
-                        output = []
-                        for t in self.rib.keys():
-                            columns = []
-                            for field in t.fields:
-                                column = {
-                                    'column': field,
-                                    'description': field,
-                                    'header': field,
-                                    'title': field,
-                                    'unit': 'N/A',
-                                    'info_type': 'N/A',
-                                    'resource_type': 'N/A',
-                                    'value_type': 'N/A',
-                                    'allowed_values': 'N/A'
-                                }
-                                columns.append(column)
-                            output.append({'table': t.name, 'column': columns})
-                        return output
-                    else:
-                        raise Exception, "Unsupported metadata request '%s'" % table
+            #try:
+            namespace, table = query.fact_table.rsplit(':', 2)
+            if namespace == self.LOCAL_NAMESPACE:
+                q = copy.deepcopy(query)
+                q.fact_table = table
+                return self.local_query(q)
+            elif namespace == 'metadata':
+                # Metadata are obtained for the 3nf representation in
+                # memory
+                if table == 'table':
+                    output = []
+                    # XXX Not generic
+                    for table in self.G_nf.graph.nodes():
+                        fields = [f for f in self.G_nf.get_fields(table)]
+
+                        # Build columns from fields
+                        columns = []
+                        for field in fields:
+                            column = {
+                                'column': field,
+                                'description': field,
+                                'header': field,
+                                'title': field,
+                                'unit': 'N/A',
+                                'info_type': 'N/A',
+                                'resource_type': 'N/A',
+                                'value_type': 'N/A',
+                                'allowed_values': 'N/A'
+                            }
+                            columns.append(column)
+
+                        # Add table metadata
+                        output.append({'table': table.name, 'column': columns})
+                    return output
                 else:
-                    raise Exception, "Unsupported namespace '%s'" % namespace
-            except Exception, e:
-                raise Exception, "Error during local request: %s" % e
+                    raise Exception, "Unsupported metadata request '%s'" % table
+            else:
+                raise Exception, "Unsupported namespace '%s'" % namespace
+            #except Exception, e:
+            #    raise Exception, "Error during local request: %s" % e
         route = None
 
         #print "(forward)"
