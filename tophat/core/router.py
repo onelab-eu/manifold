@@ -246,6 +246,13 @@ class THLocalRouter(LocalRouter):
             raise Exception, "Invalid credential type"
         account.config_set(config)
 
+    def build_tables(self):
+        tables = self.rib.keys() # HUM
+        # Table normalization
+        tables_3nf = DBNorm(tables).tables_3nf
+        # Join graph
+        self.G_nf = DBGraph(tables_3nf)
+
     def get_static_routes(self, directory):
         routes = []
         for root, dirs, files in os.walk(directory):
@@ -254,6 +261,7 @@ class THLocalRouter(LocalRouter):
                     dirs.remove(d)
             metadata = [f for f in files if f[-3:] == 'xml']
             for m in metadata:
+                # This builds the RIB in fact
                 route_arr = self.import_file(os.path.join(root, m))
                 routes.extend(route_arr)
         return routes
@@ -513,11 +521,6 @@ class THLocalRouter(LocalRouter):
             return output
 
         try:
-            tables = self.rib.keys() # HUM
-            # Table normalization
-            tables_3nf = DBNorm(tables).tables_3nf
-            # Join graph
-            self.G_nf = DBGraph(tables_3nf)
 
             qp = process_subqueries(query, user)
 

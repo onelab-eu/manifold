@@ -35,7 +35,7 @@ class DBGraph:
                         link = True
             if link:
                 #print "EDGE: %s -> %s" % (node, table)
-                self.graph.add_edge(node, table, {'cost': True})
+                self.graph.add_edge(node, table, {'cost': True, 'type': None})
             
             # The considered _table_ has a pointer to the primary key of another table
             # local.FK -> PK
@@ -52,7 +52,7 @@ class DBGraph:
 
             if link:
                 #print "EDGE: %s -> %s" % (table, node)
-                self.graph.add_edge(table, node, {'cost': True})
+                self.graph.add_edge(table, node, {'cost': True, 'type': None})
 
             # If _table_ names the object _node_ 1..N (or 1..1)
             if node.name in table.fields:
@@ -116,3 +116,44 @@ class DBGraph:
             if 'visited' in nodes[node]:
                 del nodes[node]['visited']
         return visited_tree_edges
+
+    # Let's do a DFS by maintaining a prefix
+    def get_fields(self, root, prefix=''):
+        """
+        Produce edges in a depth-first-search starting at source.
+        """
+
+        def table_fields(table, prefix):
+            return ["%s%s" % (prefix, f) for f in table.fields]
+
+        visited = set()
+
+        for f in table_fields(root, prefix):
+            yield f
+        visited.add(root)
+        stack = [(root, self.graph.edges_iter(root, data=True), prefix)]
+
+        # iterate considering edges ...
+        while stack:
+            parent,children,prefix = stack[-1]
+            try:
+                
+                parent, child, data = next(children)
+                if child not in visited:
+                    if data['type'] == '1..N':
+                        for f in self.get_fields(child, "%s%s." % (prefix, child.name)):
+                            yield f
+                    else:
+                        # Normal JOINed table
+                        for f in table_fields(child, prefix):
+                            yield f
+                        visited.add(child)
+                        stack.append((child, self.graph.edges_iter(child, data=True), prefix))
+            except StopIteration:
+                stack.pop()
+
+       
+           
+                               
+
+
