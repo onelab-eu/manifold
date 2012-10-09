@@ -28,12 +28,13 @@ class Base(object):
 Base = declarative_base(cls=Base)
 
 Session = sessionmaker(bind=engine)
-session = Session()
+db = Session()
 
 # Models
 from tophat.models.platform import Platform
 from tophat.models.user import User
 from tophat.models.account import Account
+from tophat.models.session import Session
 
 Base.metadata.create_all(engine)
 

@@ -6,6 +6,9 @@ from tophat.router.flowtable import FlowTable
 from sqlalchemy.sql import operators
 
 import copy
+import time
+import random
+import base64
 
 from tophat.auth import Auth
 from tophat.models import *
@@ -38,9 +41,9 @@ class LocalRouter(object):
 
         # XXX we insert a dummy platform
         #p = Platform(platform = 'mytestbed', platform_longname='MyTestbed')
-        #session.add(p) 
+        #db.add(p) 
         #p = Platform(platform = 'tophat', platform_longname='TopHat')
-        #session.add(p) 
+        #db.add(p) 
 
 
     def boot(self):
@@ -58,6 +61,21 @@ class LocalRouter(object):
 
     def authenticate(self, auth):
         return Auth(auth).check()
+
+    def get_session(self, auth):
+        # Before a new session is added, delete expired sessions
+        db.query(Session).filter(Session.expires < int(time.time())).delete()
+
+        s = Session()
+        # Generate 32 random bytes
+        bytes = random.sample(xrange(0, 256), 32)
+        # Base64 encode their string representation
+        s.session = base64.b64encode("".join(map(chr, bytes)))
+        s.user = self.authenticate(auth)
+        s.expires = int(time.time()) + (24 * 60 * 60)
+        db.add(s)
+        db.commit()
+        return s.session
 
     def get_query_plane(self, packet):
         pass
@@ -83,9 +101,9 @@ class LocalRouter(object):
         _fields = xgetattr(cls, query.fields) if query.fields else None
 
         if query.fields:
-            res = session.query( *_fields ).filter(_filters)
+            res = db.query( *_fields ).filter(_filters)
         else:
-            res = session.query( cls ).filter(_filters)
+            res = db.query( cls ).filter(_filters)
 
         tuplelist = res.all()
         # only 2.7+ table = [ { fields[idx] : val for idx, val in enumerate(t) } for t in tuplelist]
@@ -101,9 +119,9 @@ class LocalRouter(object):
         # only 2.7+ _params = { getattr(cls, k): v for k,v in query.params.items() }
         _params = dict([ (getattr(cls, k), v) for k,v in query.params.items() ])
 
-        session.query(cls).update(_params, synchronize_session=False)
-        #session.query(cls).filter(_filters).update(_params, synchronize_session=False)
-        session.commit()
+        db.query(cls).update(_params, synchronize_session=False)
+        #db.query(cls).filter(_filters).update(_params, synchronize_session=False)
+        db.commit()
 
         return []
 

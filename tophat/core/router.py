@@ -202,7 +202,7 @@ class THLocalRouter(LocalRouter):
 
         # Finds the gateway corresponding to the platform
         try:
-            p = session.query(Platform).filter(Platform.platform == platform).one()
+            p = db.query(Platform).filter(Platform.platform == platform).one()
         except Exception, e:
             raise Exception, "E: Missing gateway information for platform '%s': %s" % (platform, e)
 

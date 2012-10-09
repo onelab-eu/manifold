@@ -11,7 +11,8 @@ query = ('get', 'slice', [], {}, ['slice_hrn', 'resource.hostname'])
 
 # Instantiate a TopHat router
 with THLocalRouter() as router:
-    result = router.forward(Query(*query))
+    user = router.authenticate({'AuthMethod': 'password', 'Username': 'demo', 'AuthString': 'demo'})
+    result = router.forward(Query(*query), user=user)
     slice = result[0]
     del slice['resource']
     print slice

@@ -1,4 +1,4 @@
-from tophat.models import *
+from tophat.models import db, User, Session as DBSession
 import time
 
 class AuthenticationFailure(Exception): pass
@@ -11,6 +11,8 @@ class Auth(object):
             return super(Auth, cls).__new__(Anonymous)
         elif auth['AuthMethod'] == 'password':
             return super(Auth, cls).__new__(Password)
+        elif auth['AuthMethod'] == 'session':
+            return super(Auth, cls).__new__(Session)
         else:
             raise AuthenticationFailure, "Unsupported authentication method: %s" % auth['AuthMethod']
     def __init__(self, auth):
@@ -26,7 +28,7 @@ class Password(Auth):
         
         # Get record (must be enabled)
         try:
-            user = session.query(User).filter(User.email == self.auth['Username'].lower()).one()
+            user = db.query(User).filter(User.email == self.auth['Username'].lower()).one()
         except Exception, e:
             raise AuthenticationFailure, "No such account (PW): %s" % e
 
@@ -56,10 +58,10 @@ class Session(Auth):
     """
 
     def check(self):
-        assert auth.has_key('session')
+        assert self.auth.has_key('session')
 
         try:
-            sess = session.query(Session).filter(Session.session == self.auth['session']).one()
+            sess = db.query(DBSession).filter(DBSession.session == self.auth['session']).one()
         except Exception, e:
             raise AuthenticationFailure, "No such session: %s" % e
 
@@ -67,5 +69,5 @@ class Session(Auth):
         if user and sess.expires > time.time():
             return user
         else:
-            # TODO delete session
+            sess.delete()
             raise AuthenticationFailure, "Invalid session: %s" % e
