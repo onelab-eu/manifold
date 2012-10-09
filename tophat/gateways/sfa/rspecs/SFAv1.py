@@ -19,6 +19,9 @@ MAP = {
     }
 }
 
+# The key for resources, used for leases
+RESOURCE_KEY = 'hrn'
+
 # HOOKS TO RUN OPERATIONS ON GIVEN FIELDS
 def channel_urn_hrn(value):
     output = {}
@@ -149,10 +152,10 @@ class SFAv1Parser(RSpecParser):
                         print "W: Granularity not present in node:", filt
                     else:
                         rsrc_lease['granularity'] = match['granularity']
-                    if not 'urn' in match:
-                        print "E: Ignored lease with missing 'urn' key:", filt
+                    if not RESOURCE_KEY in match:
+                        print "E: Ignored lease with missing RESOURCE_KEY key:", filt
                         continue
-                    rsrc_lease['urn'] = match['urn']
+                    rsrc_lease[RESOURCE_KEY] = match[RESOURCE_KEY]
                     leases.append(rsrc_lease)
         print ""
         print ""
