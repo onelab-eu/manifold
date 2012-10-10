@@ -327,6 +327,8 @@ class Union(Node):
 
     def inject(self, records, only_keys):
         for child in self.children:
+            # XXX to change
+            child = child.root
             child.inject(records, only_keys)
         return self
 
@@ -646,7 +648,7 @@ class AST(object):
             for p in table.platform:
                 t = copy(table)
                 t.platform = p
-                children_ast.append(AST(self.router).From(t,fields))
+                children_ast.append(AST(self.router, self.user).From(t,query))
             self.union(children_ast) # XXX DISJOINT ?
         else:
             node = self.router.get_gateway(table.platform, self.query, self.user)

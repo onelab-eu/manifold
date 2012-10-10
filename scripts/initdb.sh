@@ -1,9 +1,10 @@
 #!/bin/bash
 # Delete the former DB
 rm /var/myslice/db.sqlite
-# This will initialize the DB (fails)
-../sample/get-slice.py 1>/dev/null 2>/dev/null
+# Initialize the DB
+./init-db.py
 # Insert dummy records
 sqlite3 /var/myslice/db.sqlite  < ../sql/init.sql
 # Make some delegations
+print "./delegate.py jordan.auge@lip6.fr ~/.ssh/id_rsa ~/.sfi"
 ./delegate.py jordan.auge@lip6.fr ~/.ssh/id_rsa ~/.sfi

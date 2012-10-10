@@ -41,8 +41,32 @@ HOOKS = {
 
 class SFAv1Parser(RSpecParser):
 
-    def __init__(self, rspec):
-        self.rspec = RSpec(rspec).version
+    def __init__(self, *args):
+        if len(args) == 1:
+            rspec = args[0]
+            self.rspec = RSpec(rspec).version
+        elif len(args) == 2:
+            resources = args[0]
+            leases = args[1]
+            self.resources_by_network = {}
+            for r in resources:
+                val = r['urn'] if isinstance(r, dict) else r
+                auth = Xrn(val).authority
+                if not auth: raise Exception, "No authority in specified URN"
+                network = auth[0]
+                if not network in self.resources_by_network:
+                    self.resources_by_network[network] = []
+                self.resources_by_network[network].append(val)
+
+            self.leases_by_network = {}
+            for l in leases:
+                val = l['urn'] if isinstance(l, dict) else r
+                auth = Xrn(val).authority
+                if not auth: raise Exception, "No authority in specified URN"
+                network = auth[0]
+                if not network in self.leases_by_network:
+                    self.leases_by_network[network] = []
+                self.leases_by_network[network].append(val)
 
     def prop_from_elt(self, element, prefix = ''):
         """
@@ -169,52 +193,43 @@ class SFAv1Parser(RSpecParser):
 
     def rspec_add_header(self, rspec):
         rspec.append('<?xml version="1.0"?>')
-        rspec.append('<RSpec type="SFA" expires="2012-10-07T02:24:53Z" generated="2012-10-07T01:24:53Z">')
+        rspec.append('<RSpec type="SFA">') # expires="2012-10-07T02:24:53Z" generated="2012-10-07T01:24:53Z">')
 
     def rspec_add_footer(self, rspec):
         rspec.append('</RSpec>')
 
-    def rspec_add_networks(self, rspec, resources_by_network, leases_by_network):
-        networks = set(resources_by_network.keys()).union(set(leases_by_network.keys()))
+    def rspec_add_networks(self, rspec):
+        networks = set(self.resources_by_network.keys()).union(set(self.leases_by_network.keys()))
         for n in networks:
-            r = resources_by_network[n] if n in resources_by_network else []
-            l = leases_by_network[n] if n in leases_by_network else []
-            self.rspec_add_network(rspec, network, r, l)
+            self.rspec_add_network(rspec, n)
 
-    def rspec_add_network(self, rspec, network, resources, leases):
+    def rspec_add_network(self, rspec, network):
         rspec.append('  <network name="%s">' % network)
-        for r in resources:
-            rspec.append('    <node component_id="%s">' % urn)
-            rspec.append('      <sliver/>')
-            rspec.append('    </node>')
-        for l in leases: # Do we need to group ?
-            rspec.append('    <lease slice_id="%(slice_id)s" start_time="%(start_time)s" duration="%(duration)s">' % l)
-            type = Xrn(l['urn']).type
-            val = l['urn'] if isinstance(l, dict) else l
-            if type == 'node':
-                rspec.append('    <node component_id="%s">' % val)
-            elif type == 'channel':
-                rspec.append('    <channel channel_num="%s">' % get_leaf(val))
-            else:
-                print "W: Ignore element while building rspec"
-                continue 
-            rspec.append('    </lease>')
+        if network in self.resources_by_network:
+            for r in self.resources_by_network[network]:
+                rspec.append('    <node component_id="%s">' % r)
+                rspec.append('      <sliver/>')
+                rspec.append('    </node>')
+        if network in self.leases_by_network:
+            for l in leases_by_network[network]: # Do we need to group ?
+                rspec.append('    <lease slice_id="%(slice_id)s" start_time="%(start_time)s" duration="%(duration)s">' % l)
+                type = Xrn(l).type
+                if type == 'node':
+                    rspec.append('    <node component_id="%s">' % l)
+                elif type == 'channel':
+                    rspec.append('    <channel channel_num="%s">' % get_leaf(l))
+                else:
+                    print "W: Ignore element while building rspec"
+                    continue 
+                rspec.append('    </lease>')
+        rspec.append('  </network>')
 
-    def to_rspec(self, resources, leases):
-        resources_by_network = {}
-        for r in resources:
-            network = Xrn(r['urn']).authority[0]
-            resources_by_network[network] = r
-
-        leases_by_network = {}
-        for l in leases:
-            network = Xrn(l['urn']).authority[0]
-            leases_by_network[network] = l
+    def to_rspec(self):
             
         rspec = []
-        self.rspec_add_header()
-        self.rspec_add_networks(resources_by_network, leases_by_network)
-        self.rspec_add_footer()
+        self.rspec_add_header(rspec)
+        self.rspec_add_networks(rspec)
+        self.rspec_add_footer(rspec)
         
         return "\n".join(rspec)
         pass

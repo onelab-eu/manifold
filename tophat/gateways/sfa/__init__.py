@@ -37,8 +37,8 @@ from sfa.rspecs.rspec import RSpec
 from sfa.rspecs.version_manager import VersionManager
 
 from sfa.client.sfaclientlib import SfaClientBootstrap
+from sfa.client.client_helper import pg_users_arg, sfa_users_arg
 from sfa.client.sfaserverproxy import SfaServerProxy, ServerException
-#from sfa.client.client_helper import pg_users_arg, sfa_users_arg
 from sfa.client.return_value import ReturnValue
 
 import signal
@@ -575,25 +575,31 @@ class SFA(FromNode):
 
     # get a delegated credential of a given type to a specific target
     # default allows the use of MySlice's own credentials
-    def _get_cred(self, type, target, default=False):
-        assert type == 'slice', "Need to clean up credential request"
-        
-        if not 'slice_credentials' in self.user_config:
-            self.user_config['slice_credentials'] = {}
+    def _get_cred(self, type, target=None):
+        if type == 'user':
+            if target:
+                raise Exception, "Cannot retrieve specific user credential for now"
 
-        creds = self.user_config['slice_credentials']
-        if target in cred:
-            cred = creds[target]
-        else:
-            # Can we generate them : only if we have the user private key
-            # Currently it is not possible to request for a slice credential
-            # with a delegated user credential...
-            if self.user_config['user_private_key']:
-                cred = SFA.generate_slice_credential(target, self.user_config)
-                creds[target] = cred
+            return self.user_config['user_credential']
+        elif type == 'slice':
+            if not 'slice_credentials' in self.user_config:
+                self.user_config['slice_credentials'] = {}
+
+            creds = self.user_config['slice_credentials']
+            if target in creds:
+                cred = creds[target]
             else:
-                raise Exception , "no cred found of type %s towards %s " % (type, target)
-        return cred
+                # Can we generate them : only if we have the user private key
+                # Currently it is not possible to request for a slice credential
+                # with a delegated user credential...
+                if 'user_private_key' in self.user_config and self.user_config['user_private_key']:
+                    cred = SFA.generate_slice_credential(target, self.user_config)
+                    creds[target] = cred
+                else:
+                    raise Exception , "no cred found of type %s towards %s " % (type, target)
+            return cred
+        else:
+            raise Exception, "Invalid credential type: %s" % type
 
     def get_slice(self, filters = None, params = None, fields = None):
         return self._get_slices(filters, Metadata.expand_output_fields('slices', fields))
@@ -611,12 +617,11 @@ class SFA(FromNode):
         leases = params['lease']
 
         # Credentials
-        cred = self._get_cred('slice', slice_hrn)
+        user_cred = self._get_cred('user')
+        slice_cred = self._get_cred('slice', slice_hrn)
 
         # We suppose resource
-        rspec = build_sfa_rspec(resources, leases)
-
-        return rspec
+        rspec = self.build_sfa_rspec(resources, leases)
 
         # Sliver attributes (tags) are ignored at the moment
 
@@ -634,15 +639,18 @@ class SFA(FromNode):
         # xxx Thierry 2012 sept. 21
         # contrary to what I was first thinking, calling Resolve with details=False does not yet work properly here
         # I am turning details=True on again on a - hopefully - temporary basis, just to get this whole thing to work again
-        slice_records = self.registry().Resolve(slice_urn, [self.my_credential_string])
+        print "CONNECTING TO REGISTRY", self.registry()
+        slice_records = self.registry().Resolve(slice_urn, [user_cred])
         # slice_records = self.registry().Resolve(slice_urn, [self.my_credential_string], {'details':True})
         if slice_records and 'reg-researchers' in slice_records[0] and slice_records[0]['reg-researchers']:
             slice_record = slice_records[0]
             user_hrns = slice_record['reg-researchers']
             user_urns = [hrn_to_urn(hrn, 'user') for hrn in user_hrns]
-            user_records = self.registry().Resolve(user_urns, [self.my_credential_string])
+            user_records = self.registry().Resolve(user_urns, [user_cred])
 
+            server_version = self.registry().GetVersion()
             if 'sfa' not in server_version:
+                print "W: converting to pg rspec"
                 users = pg_users_arg(user_records)
                 rspec = RSpec(rspec)
                 rspec.filter({'component_manager_id': server_version['urn']})
@@ -658,10 +666,14 @@ class SFA(FromNode):
         api_options = {}
         api_options ['append'] = False
         api_options ['call_id'] = unique_call_id()
-        result = server.CreateSliver(slice_urn, creds, rspec, users, *self.ois(server, api_options))
+        result = self.sliceapi().CreateSliver(slice_urn, [slice_cred], rspec, users, *self.ois(self.sliceapi(), api_options))
         manifest = ReturnValue.get_value(result)
 
-        return [{'update_slice': 'success', 'rspec': manifest}]
+        rsrc_leases = self.parse_sfa_rspec(manifest)
+
+        slice = {'slice_hrn': filters.get_eq('slice_hrn')}
+        slice.update(rsrc_leases)
+        return [slice]
 
     def _get_slices_hrn(self, filters = None):
         #    Depending on the input_filters, we can use a more or less
@@ -672,7 +684,7 @@ class SFA(FromNode):
         if not filters or not filters.has_eq('slice_hrn') or filters.has_eq('authority_hrn'):
         #if not input_filter or 'slice_hrn' not in input_filter or 'authority_hrn' in input_filter:
             #cred = [self._get_cred('user', self.config['caller']['person_hrn'],default=True)]
-            cred = self.user_config['user_credential']
+            cred = self._get_cred('user')
 
         if not filters or not (filters.has_eq('slice_hrn') or filters.has_eq('authority_hrn') or filters.has_op('users.person_hrn', contains)):
         #if not input_filter or not ('slice_hrn' in input_filter or 'authority_hrn' in input_filter or '{users.person_hrn' in input_filter):
@@ -790,7 +802,7 @@ class SFA(FromNode):
 
         # We need user credential here (already done before maybe XXX)
         # cred = self._get_cred('user', self.user.user_hrnself.config['caller']['person_hrn'])
-        cred = self.user_config['user_credential']
+        cred = self._get_cred('user')
         # - Resolving slice hrns to get additional information
         slices = self.sfa_resolve_records(cred, slice_list, 'slice')
         # Merge resulting information
@@ -853,7 +865,7 @@ class SFA(FromNode):
 
     def _get_users(self, filters = None, fields = None):
 
-        cred = self.user_config['user_credential']
+        cred = self._get_cred('user')
 
         # A/ List users
         if not filters or not (filters.has_eq('user_hrn') or filters.has_eq('authority_hrn')):
@@ -1036,7 +1048,7 @@ class SFA(FromNode):
             else:
                 hrn = None
                 #cred = self._get_cred('user', self.config['caller']['person_hrn'])
-                cred = self.user_config['user_credential']
+                cred = self._get_cred('user')
         
             rspec = self.sfa_get_resources(cred, hrn)
             if hrn:
@@ -1089,8 +1101,12 @@ class SFA(FromNode):
             raise Exception, "Missing SFA::sm parameter in configuration."
         if not 'debug' in self.gateway_config:
             self.gateway_config['debug'] = False
+
+        # XXX this should be removed
         if not 'sfi_dir' in self.gateway_config:
-            self.gateway_config['sfi_dir'] = '/var/myslice/%s/' % self.platform
+            sfi_platform = self.user_config['reference_platform'] if 'reference_platform' in self.user_config else platform
+            self.gateway_config['sfi_dir'] = '/var/myslice/%s/' % sfi_platform
+
         if not 'registry' in self.gateway_config:
             raise Exception, "Missing SFA::registry parameter in configuration."
         if not 'timeout' in self.gateway_config:
@@ -1110,8 +1126,6 @@ class SFA(FromNode):
 
     def do_start(self):
         q = self.query
-        print "SFA QUERY ACTION:", q.action
-        print "SFA QUERY PARAMS:", q.params
         # Let's call the simplest query as possible to begin with
         # This should use twisted XMLRPC
         result = getattr(self, "%s_%s" % (q.action, q.fact_table))(q.filters, q.params, list(q.fields))

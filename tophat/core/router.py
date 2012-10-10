@@ -22,6 +22,8 @@ from tophat.util.dbnorm import DBNorm
 from tophat.util.dbgraph import DBGraph
 import json
 
+XML_DIRECTORY = '/usr/share/myslice/metadata/'
+
 class Callback:
     def __init__(self, deferred=None, event=None):
         self.results = []
@@ -102,41 +104,24 @@ class THLocalRouter(LocalRouter):
         print "I: Reactor thread stopped. Waiting for thread to terminate..."
         self.reactor.join()
 
-    def import_file(self, metadata):
+    def import_file(self, directory, platform, gateway_type):
+        f = os.path.join(directory, "%s.xml" % gateway_type)
+        if not os.path.exists(f):
+            f = os.path.join(directory, "%s-%s.xml" % (gateway_type, platform))
+            if not os.path.exists(f):
+                raise Exception, "Metadata file not found for platform='%s' and gateway_type='%s'" % (platform, gateway_type)
+
         routes = []
         #print "I: Processing %s" % metadata
-        tree = ElementTree.parse(metadata)
+        tree = ElementTree.parse(f)
         root = tree.getroot()
         md = XmlDictConfig(root)
         
         # Checking the presence of a platform section
-        if not 'platform' in md:
-            raise Exception, "Error importing metadata file '%s': no platform specified" % metadata
-        p_dict = md['platform']
-        platform = p_dict['platform']
-
-        # Update the peer/session table with platform and associated configuration
-        # XXX
-#        # Let's store gateway related information into the database too
-#        gateways = MetadataGateways(self.api, {'platform': p['platform']})
-#
-#        # We add the platform name to the configuration
-#        config = md['gateway']
-#        config['platform'] = p['platform']
-#
-#        if not gateways:
-#            print "I: Inserting new gateway for platform '%(platform)s'..." % p
-#            g_dict = {
-#                'config': json.dumps(config),
-#                'platform_id': p['platform_id']
-#            }
-#            g = MetadataGateway(self.api, g_dict)
-#            g.sync()
-#        else:
-#            print "I: Existing gateway for platform  '%(platform)s'. Updating..." % p
-#            g = gateways[0]
-#            g['config'] = json.dumps(config)
-#            g.sync()
+        #if not 'platform' in md:
+        #    raise Exception, "Error importing metadata file '%s': no platform specified" % metadata
+        #p_dict = md['platform']
+        #platform = p_dict['platform']
 
         # Checking the presence of a method section
         if not 'methods' in md:
@@ -215,15 +200,24 @@ class THLocalRouter(LocalRouter):
 
         # Get user account
         try:
-            print "x", user.accounts
-            print "y", [a for a in user.accounts if a.platform.platform == platform]
+            print user
+            print user.email
+            print "USER ACCOUNTS=", user.accounts
+            print "USER ACCOUNTS PLATFORM=", [a for a in user.accounts if a.platform.platform == platform]
             account = [a for a in user.accounts if a.platform.platform == platform][0]
         except Exception, e:
             account = None
             print "E: No user account found for platform '%s': %s" % (platform, e)
         
         gconf = json.loads(p.gateway_conf)
-        aconf = json.loads(account.config) if account else None
+        if account:
+            if account.auth_type == 'reference':
+                reference_platform = json.loads(account.config)['reference_platform']
+                ref_account = [a for a in user.accounts if a.platform.platform == reference_platform][0]
+                aconf = json.loads(ref_account.config) if account else None
+                if aconf: aconf['reference_platform'] = reference_platform
+            else:
+                aconf = json.loads(account.config) if account else None
 
         try:
             ret = gw(self, platform, query, gconf, aconf, user)
@@ -240,6 +234,7 @@ class THLocalRouter(LocalRouter):
         config = account.config_get()
         if cred['type'] == 'user':
             config['user_credential'] = cred['cred']
+            print "config user cred", config['user_credential']
         elif cred['type'] == 'slice':
             if not 'slice_credentials' in config:
                 config['slice_credentials'] = {}
@@ -257,15 +252,24 @@ class THLocalRouter(LocalRouter):
 
     def get_static_routes(self, directory):
         routes = []
-        for root, dirs, files in os.walk(directory):
-            for d in dirs[:]:
-                if d[0] == '.':
-                    dirs.remove(d)
-            metadata = [f for f in files if f[-3:] == 'xml']
-            for m in metadata:
-                # This builds the RIB in fact
-                route_arr = self.import_file(os.path.join(root, m))
-                routes.extend(route_arr)
+        # Instead of iterating through files, we are now iterating thorough the
+        # set of available platforms in the database
+        platforms = db.query(Platform).filter(Platform.disabled == False).all()
+        for p in platforms:
+            gateway = None
+            tables = self.import_file(XML_DIRECTORY, p.platform, p.gateway_type)
+            routes.extend(tables)
+            # NOT USED: tables
+
+        #for root, dirs, files in os.walk(directory):
+        #    for d in dirs[:]:
+        #        if d[0] == '.':
+        #            dirs.remove(d)
+        #    metadata = [f for f in files if f[-3:] == 'xml']
+        #    for m in metadata:
+        #        # This builds the RIB in fact
+        #        route_arr = self.import_file(os.path.join(root, m))
+        #        routes.extend(route_arr)
         return routes
 
     def get_platform_max_fields(self, fields, join):

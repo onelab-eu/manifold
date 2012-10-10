@@ -10,7 +10,7 @@ log = logging.getLogger(__name__)
 class Account(Base):
     platform_id = Column(Integer, ForeignKey('platform.platform_id'), primary_key=True, doc='Platform identifier')
     user_id = Column(Integer, ForeignKey('user.user_id'), primary_key=True, doc='User identifier')
-    auth_type = Column(Enum('none', 'default', 'user', 'managed'), default='default')
+    auth_type = Column(Enum('none', 'default', 'user', 'reference', 'managed'), default='default')
     config = Column(String, doc="Default configuration (serialized in JSON)")
 
     user = relationship("User", backref="accounts", uselist = False)

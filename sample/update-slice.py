@@ -4,7 +4,7 @@
 import sys
 import xmlrpclib
 
-query = ('get', 'slice', [['slice_hrn', '=', 'ple.upmc.agent']], {}, ['slice_hrn', 'resource.hostname'])
+query = ('update', 'slice', [['slice_hrn', '=', 'ple.upmc.agent']], {'resource': ["ple.upmc.ple5\\.ipv6\\.lip6\\.fr"], 'lease': []}, ['slice_hrn', 'resource.hostname'])
 
 def print_slice(result):
     print "SLICE: %s" % result['slice_hrn']
@@ -26,7 +26,6 @@ def print_result(result):
     print "(only 5 first displayed)"
     print "============================="
 
-
 from tophat.core.router import THLocalRouter
 from tophat.core.router import Query
 
@@ -34,7 +33,4 @@ from tophat.core.router import Query
 with THLocalRouter() as router:
     user = router.authenticate({'AuthMethod': 'password', 'Username': 'jordan.auge@lip6.fr', 'password': 'demo'})
     result = router.forward(Query(*query), execute=True, user=user)
-    print "=== RESULT ==="
     print_result(result)
-    print "--------------"
-    print ""
