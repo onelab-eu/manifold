@@ -25,7 +25,7 @@ from sfa.trust.credential import Credential
 # from sfa.trust.sfaticket import SfaTicket
 
 from sfa.util.sfalogging import sfi_logger
-from sfa.util.xrn import get_leaf, get_authority, hrn_to_urn, urn_to_hrn
+from sfa.util.xrn import Xrn, get_leaf, get_authority, hrn_to_urn, urn_to_hrn
 from sfa.util.config import Config
 from sfa.util.version import version_core
 from sfa.util.cache import Cache
@@ -43,7 +43,7 @@ from sfa.client.return_value import ReturnValue
 
 import signal
 
-DEMO_HOOKS = ['demo'] #, 'jordan.auge@lip6.fr']
+DEMO_HOOKS = ['demo']#, 'jordan.auge@lip6.fr']
 
 
 
@@ -380,9 +380,7 @@ class SFA(FromNode):
             raise PLCInvalidArgument('Wrong filter in sfa_list')
 
         try:
-            print "CONNECTING TO REGISTRY (2)", self.registry()
-            print "TO RESOLVE:", xrns
-            records = self.registry().Resolve(xrns, cred)
+            records = self.registry().Resolve(xrns, cred, {'details': True})
         except Exception, why:
             print "[Sfa::sfa_resolve_records] ERROR : %s" % why
             return []
@@ -400,8 +398,6 @@ class SFA(FromNode):
         api_options ['call_id'] = unique_call_id()
         # ask for cached value if available
         api_options ['cached'] = True
-        if hrn:
-            api_options['geni_slice_urn'] = hrn_to_urn(hrn, 'slice')
         #api_options['info'] = options.info
         #if options.rspec_version:
         #    version_manager = VersionManager()
@@ -418,6 +414,8 @@ class SFA(FromNode):
         #api_options['geni_rspec_version'] = {'type': 'ProtoGENI', 'version': '2'}
         #api_options['geni_rspec_version'] = {'type': 'GENI', 'version': '3'}
 
+        if hrn:
+            api_options['geni_slice_urn'] = hrn_to_urn(hrn, 'slice')
         result = self.sliceapi().ListResources(cred, api_options)
         return ReturnValue.get_value(result)
 
@@ -656,7 +654,7 @@ class SFA(FromNode):
             user_hrns = slice_record['reg-researchers']
             user_urns = [hrn_to_urn(hrn, 'user') for hrn in user_hrns]
             user_records = self.registry().Resolve(user_urns, [user_cred])
-            server_version = self.get_cached_server_version(server)
+            server_version = self.get_cached_server_version(self.registry())
             if 'sfa' not in server_version:
                 print "W: converting to pg rspec"
                 users = pg_users_arg(user_records)
@@ -752,7 +750,7 @@ class SFA(FromNode):
                     has_users = True
             #if subfields: # XXX Disabled until we have default subqueries
             if has_resources:
-                rsrc_leases = self.get_resource({'slice_hrn': 'ple.upmc.agent'}, subfields)
+                rsrc_leases = self.get_resource_lease({'slice_hrn': 'ple.upmc.agent'}, subfields)
                 if not rsrc_leases:
                     raise Exception, 'get_resources failed!'
                 s['resource'] = rsrc_leases['resource']
@@ -845,12 +843,10 @@ class SFA(FromNode):
                 subfields = []
                 if has_resource: subfields.append('resource')
                 if has_lease: subfields.append('lease')
-                rsrc_leases = self.get_resource({'slice_hrn': hrn}, subfields)
+                rsrc_leases = self.get_resource_lease({'slice_hrn': hrn}, subfields)
                 if not rsrc_leases:
                     print "W: Could not collect resource/leases for slice %s" % hrn
                     #raise Exception, 'get_resources failed!'
-                print "LEASES"
-                print rsrc_leases
                 if has_resource:
                     s['resource'] = rsrc_leases['resource']
                 if has_lease:
@@ -1035,7 +1031,12 @@ class SFA(FromNode):
 #
 #        return self.sliceapi().SliverStatus(slice_urn, creds)
 
-    def get_resource(self, input_filter = None, output_fields = None):
+
+    def get_resource(self, filters, params, fields):
+        result = self.get_resource_lease(filters, fields, params)
+        return result['resource']
+
+    def get_resource_lease(self, input_filter = None, params = None, output_fields = None):
         # DEMO
         if self.user.email in DEMO_HOOKS:
             #rspec = open('/usr/share/myslice/scripts/sample-sliver.rspec', 'r')
@@ -1060,13 +1061,49 @@ class SFA(FromNode):
                 #cred = self._get_cred('user', self.config['caller']['person_hrn'])
                 cred = self._get_cred('user')
         
+            # We request the list of nodes in the slice
             rspec = self.sfa_get_resources(cred, hrn)
-            if hrn:
-                self.add_rspec_to_cache(hrn, rspec)
-            return self.parse_sfa_rspec(rspec)
+            rsrc_slice = self.parse_sfa_rspec(rspec)
+
+            # and the full list of nodes (XXX this could be cached)
+            rspec = self.sfa_get_resources(cred)
+            rsrc_all = self.parse_sfa_rspec(rspec)
+
+            # We now build the final answer where the resources have all nodes...
+            sliver_urns = [ r['urn'] for r in rsrc_slice['resource'] if 'exclusive' in r and r['exclusive'] in ['TRUE', True] ]
+            for r in rsrc_all['resource']:
+                if not r['urn'] in sliver_urns:
+                    rsrc_slice['resource'].append(r)
+
+            lease_urns = [ l['urn'] for l in rsrc_slice['lease'] ]
+
+            # ... and leases from nodes not in the slice, in case they are requested
+            # XXX are leases only from the slice, or all slices for given nodes
+            for l in rsrc_all['lease']:
+                # Don't add if we already have it
+                if l['urn'] not in lease_urns or Xrn(l['slice_id']).hrn != hrn:
+                    rsrc_slice['lease'].append(l)
+
+            # ... and fake leases for all other reservable nodes in the slice are created
+            for u in sliver_urns:
+                if not u in lease_urns:
+                    fake_lease = {
+                        'urn': u,
+                        'hrn': Xrn(u).hrn,
+                        'type': Xrn(u).type,
+                        'network': Xrn(u).authority[0],
+                        'start_time': 0,
+                        'duration': 0,
+                        'granularity': 0,
+                        'slice_id': None
+                    }
+                    rsrc_slice['lease'].append(fake_lease)
+
+            return rsrc_slice
+            
         except Exception, e:
             print "E: get_resource", e
-            return []
+            return {'resource': [], 'lease': []}
 
     def add_rspec_to_cache(self, slice_hrn, rspec):
         print "W: RSpec caching disabled"
@@ -1172,7 +1209,6 @@ class SFA(FromNode):
         if not 'user_hrn' in config:
             print "E: hrn needed to manage authentication"
             return {}
-        print "USER HRN=", config['user_hrn']
 
         if not 'user_private_key' in config:
             print "I: Generating user private key"

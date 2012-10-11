@@ -84,7 +84,10 @@ class FromNode(Node):
             self.query.filters.add(Predicate(key, '=', records))
             return self
         else:
-            assert len(records) > 0, "FromNode::inject : No record injected"
+            if not records:
+                self.results = []
+                self.done = True
+                return self
             # XXX We suppose all records have the same fields
             records_fields = set(records[0].keys())
             if self.query.fields <= records_fields:
@@ -94,12 +97,13 @@ class FromNode(Node):
                 return self
             # We can make a JOIN between what we have and what we miss
             # do we need to enforce selection/projection here ?
-            self.query.fields.difference_update(set(records_fields))
+                self.query.fields.difference_update(set(records_fields))
             if not key in self.query.fields:
                 self.query.fields.add(key)
+            old_self_callback = self.callback
             join = LeftJoin(records, self, key)
-            join.callback = self.callback
-            self.callback = LeftJoin.right_callback
+            join.callback = old_self_callback
+            self.callback = join.right_callback
             return join
 
 #    def install(self, router, callback, start):
@@ -256,8 +260,6 @@ class Projection(Node):
         return self
 
     def callback(self, record):
-
-
         try:
             if not record:
                 self.callback(record)
@@ -306,15 +308,26 @@ class Selection(Node):
         self.node.inject(records)
         return self
 
+class ChildCallback:
+    def __init__(self, parent, child_id):
+        self.parent = parent
+        self.child_id = child_id
+
+    def __call__(self, record):
+        self.parent.child_callback(self.child_id, record)
+            
 class Union(Node):
-    def __init__(self, children):
+
+    def __init__(self, router, children):
         self.callback = None
         self.query = None
+        self.router = router
         self.children = children
         self.child_status = 0
+        self.child_results = {}
         for i, child in enumerate(self.children):
-            child.callback = lambda record: self.child_callback(i, record)
-            self.child_status += i
+            child.callback = ChildCallback(self, i)
+            self.child_status += i+1
 
     def dump(self, indent=0):
         print ' ' * indent * 4, 'UNION'
@@ -322,6 +335,13 @@ class Union(Node):
             child.dump(indent+1)
 
     def start(self):
+        # Compute key
+        keys = self.router.metadata_get_keys(self.query.fact_table)
+        if not keys:
+            raise Exception, "Cannot complete query: submethod %s has no key" % self.query.fact_table
+        self.key = list(keys).pop()
+
+        # Start all children
         for child in self.children:
             child.start()
 
@@ -333,17 +353,40 @@ class Union(Node):
         return self
 
     def child_done(self, child_id):
-        self.child_status -= child_id
+        self.child_status -= child_id + 1
+        assert self.child_status >= 0, "Child status error: %d" % self.child_status
         if self.child_status == 0:
+            for record in self.child_results.values():
+                self.callback(record)
             self.callback(None)
 
     def child_callback(self, child_id, record):
+        #if not record:
+        #    self.parent.child_done(self.child_id)
+        #    return
+        #self.parent.callback(record)
         if not record:
             self.child_done(child_id)
             return
-        # We can directly forward the record
-        # XXX SORTING ?
-        self.callback(record)
+        # Merge results...
+        if not self.key in record:
+            print "W: ignored record without key"
+            return
+        if record[self.key] in self.child_results:
+            # Merge ! Fields must be the same, subfield sets are joined
+            previous = self.child_results[record[self.key]]
+            for k,v in record.items():
+                if not k in previous:
+                    previous[k] = v
+                    continue
+                if isinstance(v, list):
+                    previous[k].extend(v)
+                else:
+                    if not v == previous[k]:
+                        print "W: ignored conflictual field"
+                    # else: nothing to do
+        else:
+            self.child_results[record[self.key]] = record
 
 class SubQuery(Node):
 
@@ -362,8 +405,8 @@ class SubQuery(Node):
         # Prepare array for storing results from children
         self.child_results = []
         for i, child in enumerate(self.children):
-            child.callback = lambda record: self.child_callback(i, record)
-            self.child_status += i
+            child.callback = ChildCallback(self, i)
+            self.child_status += i+1
             self.child_results.append([])
 
     def dump(self, indent=0):
@@ -398,9 +441,9 @@ class SubQuery(Node):
 
             keys = self.router.metadata_get_keys(child.query.fact_table)
             if not keys:
-                raise Exception, "Cannot complete query: submethod %s has no key" % method
+                raise Exception, "Cannot complete query: submethod %s has no key" % child.query.fact_table
             key = list(keys).pop()
-
+            
             # Collect the list of all child records in order to make a single
             # child query; we will have to dispatch the results
             child_record_all = []
@@ -523,7 +566,8 @@ class SubQuery(Node):
 #            child.start()
 
     def child_done(self, child_id):
-        self.child_status -= child_id
+        self.child_status -= child_id + 1
+        assert self.child_status >= 0, "child status error in subquery"
         if self.child_status == 0:
             for o in self.parent_output:
                 # Dispatching child results
@@ -551,9 +595,6 @@ class SubQuery(Node):
             self.child_done(child_id)
             return
         self.child_results[child_id].append(record)
-        # merge results in parent
-            
-
 
 # in Filter ?
 def match_filters(dic, filter):
@@ -642,7 +683,7 @@ class AST(object):
         """
         """
         self.query = query
-        print "W: We have two tables providing the same data: CHOICE or UNION ?"
+        # XXX print "W: We have two tables providing the same data: CHOICE or UNION ?"
         if isinstance(table.platform, list) and len(table.platform)>1:
             children_ast = []
             for p in table.platform:
@@ -662,7 +703,7 @@ class AST(object):
         children.extend(children_ast)
         q = children[0].query
 
-        self.root = Union(children)
+        self.root = Union(self.router, children)
         self.root.query = Query(action=q.action, fact_table=q.fact_table, filters=q.filters, fields=q.fields)
         return self
 

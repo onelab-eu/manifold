@@ -25,7 +25,8 @@ RESOURCE_KEY = 'hrn'
 # HOOKS TO RUN OPERATIONS ON GIVEN FIELDS
 def channel_urn_hrn(value):
     output = {}
-    xrn = Xrn('%(network)s.%(channel_num)s' % value, type='channel')
+    # XXX HARDCODED FOR NITOS
+    xrn = Xrn('%(network)s.nitos.channel.%(channel_num)s' % value, type='channel')
     return {'urn': xrn.urn, 'hrn': xrn.hrn}
 
 HOOKS = {
@@ -156,26 +157,28 @@ class SFAv1Parser(RSpecParser):
                     filt = self.dict_from_elt(network, resource_elem)
                     match = Filter.from_dict(filt).filter(resources)
                     if len(match) == 0:
-                        print "E: Ignored lease with no match:", filt
+                        # XXX print "E: Ignored lease with no match:", filt
                         continue
                     if len(match) > 1:
-                        print "E: Ignored lease with multiple matches:", filt
+                        # XXX print "E: Ignored lease with multiple matches:", filt
                         continue
                     match = match[0]
 
                     # Check whether the node is reservable
                     # Check whether the node has some granularity
                     if not 'exclusive' in match:
-                        print "W: No information about reservation capabilities of the node:", filt
+                        # print "W: No information about reservation capabilities of the node:", filt
+                        pass
                     else:
                         if not match['exclusive']:
                             print "W: lease on a non-reservable node:", filt
                     if not 'granularity' in match:
-                        print "W: Granularity not present in node:", filt
+                        #print "W: Granularity not present in node:", filt
+                        pass
                     else:
                         rsrc_lease['granularity'] = match['granularity']
                     if not 'urn' in match:
-                        print "E: Ignored lease with missing 'urn' key:", filt
+                        #print "E: Ignored lease with missing 'urn' key:", filt
                         continue
                     rsrc_lease['urn'] = match['urn']
                     rsrc_lease['network'] = Xrn(match['urn']).authority[0]
@@ -186,8 +189,8 @@ class SFAv1Parser(RSpecParser):
         #print ""
         #print "leases:"
         #print "======="
-        for l in leases:
-            print l
+        #for l in leases:
+        #    print l
         #print "======="
         return {'resource': resources, 'lease': leases}
 
