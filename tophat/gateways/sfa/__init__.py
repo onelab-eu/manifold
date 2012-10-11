@@ -375,12 +375,14 @@ class SFA(FromNode):
             records = filter_records(record_type, records)
         return records
 
-    def sfa_resolve_records(self, cred, hrns, record_type=None):
+    def sfa_resolve_records(self, cred, xrns, record_type=None):
         if record_type not in [None, 'user', 'slice', 'authority', 'node']:
             raise PLCInvalidArgument('Wrong filter in sfa_list')
 
         try:
-            records = self.registry().Resolve(hrns, cred)
+            print "CONNECTING TO REGISTRY (2)", self.registry()
+            print "TO RESOLVE:", xrns
+            records = self.registry().Resolve(xrns, cred)
         except Exception, why:
             print "[Sfa::sfa_resolve_records] ERROR : %s" % why
             return []
@@ -639,16 +641,22 @@ class SFA(FromNode):
         # xxx Thierry 2012 sept. 21
         # contrary to what I was first thinking, calling Resolve with details=False does not yet work properly here
         # I am turning details=True on again on a - hopefully - temporary basis, just to get this whole thing to work again
-        print "CONNECTING TO REGISTRY", self.registry()
         slice_records = self.registry().Resolve(slice_urn, [user_cred])
+        
+        # Due to a bug in the SFA implementation when Resolve requests are
+        # forwarded, records are not filtered (Resolve received a list of xrns,
+        # does not resolve its type, then issue queries to the local database
+        # with the hrn only)
+        print "W: SFAWrap bug workaround"
+        slice_records = Filter.from_dict({'type': 'slice'}).filter(slice_records)
+
         # slice_records = self.registry().Resolve(slice_urn, [self.my_credential_string], {'details':True})
         if slice_records and 'reg-researchers' in slice_records[0] and slice_records[0]['reg-researchers']:
             slice_record = slice_records[0]
             user_hrns = slice_record['reg-researchers']
             user_urns = [hrn_to_urn(hrn, 'user') for hrn in user_hrns]
             user_records = self.registry().Resolve(user_urns, [user_cred])
-
-            server_version = self.registry().GetVersion()
+            server_version = self.get_cached_server_version(server)
             if 'sfa' not in server_version:
                 print "W: converting to pg rspec"
                 users = pg_users_arg(user_records)
@@ -657,7 +665,6 @@ class SFA(FromNode):
                 rspec = RSpecConverter.to_pg_rspec(rspec.toxml(), content_type='request')
             else:
                 users = sfa_users_arg(user_records, slice_record)
-
         # do not append users, keys, or slice tags. Anything
         # not contained in this request will be removed from the slice
 
@@ -667,8 +674,11 @@ class SFA(FromNode):
         api_options ['append'] = False
         api_options ['call_id'] = unique_call_id()
         result = self.sliceapi().CreateSliver(slice_urn, [slice_cred], rspec, users, *self.ois(self.sliceapi(), api_options))
+        #print "RESULT", result
         manifest = ReturnValue.get_value(result)
 
+        if not manifest:
+            return []
         rsrc_leases = self.parse_sfa_rspec(manifest)
 
         slice = {'slice_hrn': filters.get_eq('slice_hrn')}

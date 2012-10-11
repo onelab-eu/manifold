@@ -200,16 +200,13 @@ class THLocalRouter(LocalRouter):
 
         # Get user account
         try:
-            print user
-            print user.email
-            print "USER ACCOUNTS=", user.accounts
-            print "USER ACCOUNTS PLATFORM=", [a for a in user.accounts if a.platform.platform == platform]
             account = [a for a in user.accounts if a.platform.platform == platform][0]
         except Exception, e:
             account = None
             print "E: No user account found for platform '%s': %s" % (platform, e)
         
         gconf = json.loads(p.gateway_conf)
+        aconf = None
         if account:
             if account.auth_type == 'reference':
                 reference_platform = json.loads(account.config)['reference_platform']
