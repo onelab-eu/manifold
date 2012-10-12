@@ -157,6 +157,7 @@ class LocalRouter(object):
                     # XXX Not generic
                     for table in self.G_nf.graph.nodes():
                         fields = [f for f in self.G_nf.get_fields(table)]
+                        fields = list(set(fields))
 
                         # Build columns from fields
                         columns = []
