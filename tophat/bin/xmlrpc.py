@@ -57,7 +57,11 @@ class TopHatAPI(xmlrpc.XMLRPC):
         args = args[1:]
         # The rest define the query
         query = Query(*args)
-        print "QUERY:", query
+
+        print "W: Hardcoded network query"
+        print query.fact_table
+        if query.fact_table == 'network':
+            return [{'network_hrn': 'ple', 'network_name': 'PlanetLab Europe'}, {'network_hrn': 'omf', 'network_name': 'NITOS'}]
 
         table = router.forward(query, deferred=True, user=user)
 

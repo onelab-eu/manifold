@@ -319,7 +319,8 @@ class SFA(FromNode):
         server_version = self.get_cached_server_version(server)
         result = False
         # xxx need to rewrite this 
-        if int(server_version.get('geni_api')) >= 2:
+        # XXX added not server version to handle cases where GetVersion fails (jordan)
+        if not server_version or int(server_version.get('geni_api')) >= 2:
             result = True
         return result
 
@@ -561,9 +562,9 @@ class SFA(FromNode):
         parser = Parser(rspec)
         return parser.to_dict()
 
-    def build_sfa_rspec(self, resources, leases):
+    def build_sfa_rspec(self, slice_id, resources, leases):
         parser = Parser(resources, leases)
-        return parser.to_rspec()
+        return parser.to_rspec(slice_id)
 
 
     ############################################################################ 
@@ -602,7 +603,15 @@ class SFA(FromNode):
             raise Exception, "Invalid credential type: %s" % type
 
     def get_slice(self, filters = None, params = None, fields = None):
-        return self._get_slices(filters, Metadata.expand_output_fields('slices', fields))
+        slices = self._get_slices(filters, Metadata.expand_output_fields('slices', fields))
+        print "W: Hardcoded filter for my slices"
+        if len(slices) > 10:
+            out = []
+            for s in slices:
+                if s['slice_hrn'].startswith('ple.upmc.'):
+                    out.append(s)
+            slices = out
+        return slices
 
     def update_slice(self, filters, params, fields):
         if 'resource' not in params:
@@ -621,7 +630,8 @@ class SFA(FromNode):
         slice_cred = self._get_cred('slice', slice_hrn)
 
         # We suppose resource
-        rspec = self.build_sfa_rspec(resources, leases)
+        rspec = self.build_sfa_rspec(slice_urn, resources, leases)
+        print "BUILDING SFA RSPEC", rspec
 
         # Sliver attributes (tags) are ignored at the moment
 
@@ -671,8 +681,9 @@ class SFA(FromNode):
         api_options = {}
         api_options ['append'] = False
         api_options ['call_id'] = unique_call_id()
+        print "CreateSliver"
         result = self.sliceapi().CreateSliver(slice_urn, [slice_cred], rspec, users, *self.ois(self.sliceapi(), api_options))
-        #print "RESULT", result
+        print "RESULT", result
         manifest = ReturnValue.get_value(result)
 
         if not manifest:
@@ -1069,29 +1080,31 @@ class SFA(FromNode):
             rspec = self.sfa_get_resources(cred)
             rsrc_all = self.parse_sfa_rspec(rspec)
 
+            # List of nodes and leases present in the slice (check for 'sliver' is redundant)
+            sliver_urns = [ r['urn'] for r in rsrc_slice['resource'] if 'sliver' in r ]
+            lease_urns = [ l['urn'] for l in rsrc_slice['lease'] ]
+
             # We now build the final answer where the resources have all nodes...
-            sliver_urns = [ r['urn'] for r in rsrc_slice['resource'] if 'exclusive' in r and r['exclusive'] in ['TRUE', True] ]
             for r in rsrc_all['resource']:
                 if not r['urn'] in sliver_urns:
                     rsrc_slice['resource'].append(r)
 
-            lease_urns = [ l['urn'] for l in rsrc_slice['lease'] ]
-
-            # ... and leases from nodes not in the slice, in case they are requested
-            # XXX are leases only from the slice, or all slices for given nodes
+            # Adding leases for nodes not in the slice
             for l in rsrc_all['lease']:
                 # Don't add if we already have it
-                if l['urn'] not in lease_urns or Xrn(l['slice_id']).hrn != hrn:
+                if Xrn(l['slice_id']).hrn != hrn:
                     rsrc_slice['lease'].append(l)
 
-            # ... and fake leases for all other reservable nodes in the slice are created
-            for u in sliver_urns:
-                if not u in lease_urns:
+            # Adding fake lease for all reservable nodes that do not have leases already
+            for r in rsrc_slice['resource']:
+                if ('exclusive' in r and r['exclusive'] in ['TRUE', True] and not r['urn'] in lease_urns) or (r['type'] == 'channel'):
+                    #urn = r['urn']
+                    #xrn = Xrn(urn)
                     fake_lease = {
-                        'urn': u,
-                        'hrn': Xrn(u).hrn,
-                        'type': Xrn(u).type,
-                        'network': Xrn(u).authority[0],
+                        'urn': r['urn'],
+                        'hrn': r['hrn'],
+                        'type': r['type'],
+                        'network': r['network'], #xrn.authority[0],
                         'start_time': 0,
                         'duration': 0,
                         'granularity': 0,
@@ -1175,6 +1188,8 @@ class SFA(FromNode):
         q = self.query
         # Let's call the simplest query as possible to begin with
         # This should use twisted XMLRPC
+        print "#################################### SFA CALL ### %s_%s" % (q.action, q.fact_table)
+        print "SFA PARAMS", q.params
         result = getattr(self, "%s_%s" % (q.action, q.fact_table))(q.filters, q.params, list(q.fields))
         for r in result:
             self.callback(r)

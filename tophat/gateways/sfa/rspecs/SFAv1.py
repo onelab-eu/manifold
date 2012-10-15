@@ -10,6 +10,7 @@ MAP = {
         'location.country': 'country',
         'location.latitude': 'latitude',
         'location.longitude': 'longitude',
+        'sliver.name': 'sliver',
         'position_3d.x': 'x',
         'position_3d.y': 'y',
         'position_3d.z': 'z',
@@ -67,7 +68,7 @@ class SFAv1Parser(RSpecParser):
                 network = auth[0]
                 if not network in self.leases_by_network:
                     self.leases_by_network[network] = []
-                self.leases_by_network[network].append(val)
+                self.leases_by_network[network].append(l)
 
     def prop_from_elt(self, element, prefix = ''):
         """
@@ -157,41 +158,41 @@ class SFAv1Parser(RSpecParser):
                     filt = self.dict_from_elt(network, resource_elem)
                     match = Filter.from_dict(filt).filter(resources)
                     if len(match) == 0:
-                        # XXX print "E: Ignored lease with no match:", filt
+                        print "E: Ignored lease with no match:", filt
                         continue
                     if len(match) > 1:
-                        # XXX print "E: Ignored lease with multiple matches:", filt
+                        print "E: Ignored lease with multiple matches:", filt
                         continue
                     match = match[0]
 
                     # Check whether the node is reservable
                     # Check whether the node has some granularity
                     if not 'exclusive' in match:
-                        # print "W: No information about reservation capabilities of the node:", filt
+                        print "W: No information about reservation capabilities of the node:", filt
                         pass
                     else:
                         if not match['exclusive']:
                             print "W: lease on a non-reservable node:", filt
                     if not 'granularity' in match:
-                        #print "W: Granularity not present in node:", filt
+                        print "W: Granularity not present in node:", filt
                         pass
                     else:
                         rsrc_lease['granularity'] = match['granularity']
                     if not 'urn' in match:
-                        #print "E: Ignored lease with missing 'urn' key:", filt
+                        print "E: Ignored lease with missing 'urn' key:", filt
                         continue
                     rsrc_lease['urn'] = match['urn']
                     rsrc_lease['network'] = Xrn(match['urn']).authority[0]
                     rsrc_lease['hrn'] = Xrn(match['urn']).hrn
                     rsrc_lease['type'] = Xrn(match['urn']).type
                     leases.append(rsrc_lease)
-        #print ""
-        #print ""
-        #print "leases:"
-        #print "======="
-        #for l in leases:
-        #    print l
-        #print "======="
+        print ""
+        print "========================================"
+        print "PARSING RSPECS leases:"
+        print "-----------------------"
+        for l in leases:
+            print l
+        print "======="
         return {'resource': resources, 'lease': leases}
 
     def rspec_add_header(self, rspec):
@@ -201,12 +202,12 @@ class SFAv1Parser(RSpecParser):
     def rspec_add_footer(self, rspec):
         rspec.append('</RSpec>')
 
-    def rspec_add_networks(self, rspec):
+    def rspec_add_networks(self, slice_id, rspec):
         networks = set(self.resources_by_network.keys()).union(set(self.leases_by_network.keys()))
         for n in networks:
-            self.rspec_add_network(rspec, n)
+            self.rspec_add_network(slice_id, rspec, n)
 
-    def rspec_add_network(self, rspec, network):
+    def rspec_add_network(self, slice_id, rspec, network):
         rspec.append('  <network name="%s">' % network)
         if network in self.resources_by_network:
             for r in self.resources_by_network[network]:
@@ -214,25 +215,27 @@ class SFAv1Parser(RSpecParser):
                 rspec.append('      <sliver/>')
                 rspec.append('    </node>')
         if network in self.leases_by_network:
-            for l in leases_by_network[network]: # Do we need to group ?
+            for l in self.leases_by_network[network]: # Do we need to group ?
+                if isinstance(l, list):
+                    print "W: list to dict for lease"
+                    l = {'urn': l[0], 'slice_id': slice_id, 'start_time': l[1], 'duration': l[2]}
+                    
                 rspec.append('    <lease slice_id="%(slice_id)s" start_time="%(start_time)s" duration="%(duration)s">' % l)
-                type = Xrn(l).type
+                type = Xrn(l['urn']).type
                 if type == 'node':
-                    rspec.append('    <node component_id="%s">' % l)
+                    rspec.append('    <node component_id="%s"/>' % l['urn'])
                 elif type == 'channel':
-                    rspec.append('    <channel channel_num="%s">' % get_leaf(l))
+                    rspec.append('    <channel channel_num="%s"/>' % get_leaf(l['urn']))
                 else:
                     print "W: Ignore element while building rspec"
                     continue 
                 rspec.append('    </lease>')
         rspec.append('  </network>')
 
-    def to_rspec(self):
+    def to_rspec(self, slice_id):
             
         rspec = []
         self.rspec_add_header(rspec)
-        self.rspec_add_networks(rspec)
+        self.rspec_add_networks(slice_id, rspec)
         self.rspec_add_footer(rspec)
-        
         return "\n".join(rspec)
-        pass
