@@ -1,0 +1,70 @@
+Installing the API
+==================
+
+The MySlice API is a specialized version of the TopHat interconnection
+framework.
+
+1. Install the python-tophat package
+
+    Requirements: debian testing
+
+    Add MySlice debian repository:
+
+        echo "deb http://demo.myslice.info/debian/ binary/" > /etc/apt/sources.list.d/myslice.list
+
+    apt-get install python-tophat
+
+    TODO
+     - package signature
+     - gateways available as separate modules
+
+2. Prepare database initialization (temporary)
+
+    Create a sql file path/to/mytestbed.sql that will contain setup information
+    for MySlice
+
+3. Initialize the myslice database
+
+    /usr/local/bin/myslice-init.sh path/to/mytestbed.sql
+
+Packaging the API
+=================
+stdeb.cfg holds the necessary information to build debian packages
+
+python-stdeb
+
+
+Sample path/to/mytestbed.sql file
+=================================
+
+-- Create platforms
+
+insert into platform 
+    (platform, platform_longname, gateway_type, gateway_conf, config, disabled) 
+VALUES (
+    'ple',
+    'PlanetLab Europe',
+    'SFA',
+    '{"auth": "ple.upmc", "user": "ple.upmc.slicebrowser", "sm": "http://www.planet-lab.eu:12346/", "registry": "http://www.planet-lab.eu:12345/", "user_private_key": "/var/myslice/myslice.pkey"}',
+    '{}',
+    0
+);
+
+insert into platform 
+    (platform, platform_longname, gateway_type, gateway_conf, config, disabled) 
+VALUES (
+    'senslab',
+    'SensLAB',
+    'SFA',
+    '{"auth": "ple.upmc", "user": "ple.upmc.slicebrowser", "sm": "http://sfa-omf.pl.sophia.inria.fr:12346/", "registry": "http://sfa-omf.pl.sophia.inria.fr:12345/", "user_private_key": "/var/myslice/myslice.pkey"}',
+    '{"auth_ref": "ple"}',
+    0
+);
+
+-- Create a demo user
+insert into user (user_id, email) VALUES (1, 'demo');
+
+-- Setup user account for the different platforms
+insert into account (user_id, platform_id, auth_type, config) VALUES (1, 1, 'user', '{"user_hrn": "ple.upmc.jordan_auge"}');
+insert into account (user_id, platform_id, auth_type, config) VALUES (1, 2, 'user', '{"user_hrn": "senslab.testuser"}');
+#insert into account (user_id, platform_id, auth_type, config) VALUES (1, 2, 'reference', '{"reference_platform": "ple"}');

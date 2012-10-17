@@ -252,6 +252,7 @@ class THLocalRouter(LocalRouter):
         # Instead of iterating through files, we are now iterating thorough the
         # set of available platforms in the database
         platforms = db.query(Platform).filter(Platform.disabled == False).all()
+        print "platforms=", platforms
         for p in platforms:
             gateway = None
             tables = self.import_file(XML_DIRECTORY, p.platform, p.gateway_type)

@@ -4,7 +4,7 @@
 import sys
 import xmlrpclib
 
-query = ('get', 'slice', [['slice_hrn', '=', 'ple.upmc.test']], {}, ['slice_hrn', 'resource.hostname'])
+query = ('get', 'slice', [['slice_hrn', '=', 'ple.upmc.myslicedemo']], {}, ['slice_hrn', 'resource.hrn', 'resource.country', 'lease.duration'])
 
 def print_slice(result):
     print "SLICE: %s" % result['slice_hrn']
@@ -12,7 +12,7 @@ def print_slice(result):
     for i in result['resource']:
         if cpt == 5:
             break
-        print "  - %s" % i['hostname']
+        print "  - %s %s" % (i['hrn'], i['country'])
         cpt += 1
     print "    (only 5 first displayed)"
 
@@ -23,7 +23,7 @@ def print_result(result):
             break
         print_slice(i)
         cpt += 1
-    print "(only 5 first displayed)"
+    print "(only 5  displayed)"
     print "============================="
 
 

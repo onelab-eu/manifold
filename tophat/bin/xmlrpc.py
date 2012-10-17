@@ -24,13 +24,14 @@ class TopHatAPI(xmlrpc.XMLRPC):
         """
         # Need parameter validation
         auth = args[0]
-        return router.get_session(auth)
+        s = router.get_session(auth)
+        return s
 
     def xmlrpc_GetPersons(self, *args):
         """
         """
         user = router.authenticate(args[0])
-        return [{'email': user.email, 'first_name': 'FIRSTNAME', 'last_name': 'LASTNAME', 'user_hrn': 'HRN_TODO'}]
+        return [{'email': user.email, 'first_name': 'Jordan', 'last_name': 'Auge', 'user_hrn': 'ple.upmc.jordan_auge'}]
 
 
     def xmlrpc_AddCredential(self, *args):

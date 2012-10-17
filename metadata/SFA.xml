@@ -136,6 +136,39 @@
                     <unit></unit>
                     <allowed_values></allowed_values>
                 </field>
+                <field>
+                    <field>network</field>
+                    <header>N</header>
+                    <title>Start time</title>
+                    <description>Network</description>
+                    <resource_type></resource_type>
+                    <info_type></info_type>
+                    <value_type></value_type>
+                    <unit></unit>
+                    <allowed_values></allowed_values>
+                </field>
+                <field>
+                    <field>hrn</field>
+                    <header>ST</header>
+                    <title>Start time</title>
+                    <description>Start of the lease</description>
+                    <resource_type></resource_type>
+                    <info_type></info_type>
+                    <value_type></value_type>
+                    <unit></unit>
+                    <allowed_values></allowed_values>
+                </field>
+                <field>
+                    <field>type</field>
+                    <header>ST</header>
+                    <title>Start time</title>
+                    <description>Start of the lease</description>
+                    <resource_type></resource_type>
+                    <info_type></info_type>
+                    <value_type></value_type>
+                    <unit></unit>
+                    <allowed_values></allowed_values>
+                </field>
 
             </fields>
             <keys>
