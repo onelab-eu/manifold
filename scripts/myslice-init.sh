@@ -4,7 +4,7 @@
 rm -f /var/myslice/db.sqlite
 
 # Initialize the DB...
-./init-db.py
+myslice-init-db.py
 
 # ...and insert dummy records
 sqlite3 /var/myslice/db.sqlite  < ../sql/init.sql
