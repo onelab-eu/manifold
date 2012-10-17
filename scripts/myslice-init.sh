@@ -7,7 +7,7 @@ rm -f /var/myslice/db.sqlite
 myslice-init-db.py
 
 # ...and insert dummy records
-sqlite3 /var/myslice/db.sqlite  < ../sql/init.sql
+sqlite3 /var/myslice/db.sqlite < $1
 
 # Delegation information
 echo <<EOF
