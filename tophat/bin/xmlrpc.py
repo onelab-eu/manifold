@@ -24,16 +24,13 @@ class TopHatAPI(xmlrpc.XMLRPC):
         """
         # Need parameter validation
         auth = args[0]
-        print "GetSession", auth
         s = router.get_session(auth)
-        print "session=", s
         return s
 
     def xmlrpc_GetPersons(self, *args):
         """
         """
         user = router.authenticate(args[0])
-        print "Auth as ", user.email
         return [{'email': user.email, 'first_name': 'Jordan', 'last_name': 'Auge', 'user_hrn': 'ple.upmc.jordan_auge'}]
 
 
@@ -52,16 +49,10 @@ class TopHatAPI(xmlrpc.XMLRPC):
         """
         # The first argument should be an authentication token
         user = router.authenticate(args[0])
-        print "user for forward=", user
         args = list(args)
         args = args[1:]
         # The rest define the query
         query = Query(*args)
-
-        print "W: Hardcoded network query"
-        print query.fact_table
-        if query.fact_table == 'network':
-            return [{'network_hrn': 'ple', 'network_name': 'PlanetLab Europe'}, {'network_hrn': 'omf', 'network_name': 'NITOS'}]
 
         table = router.forward(query, deferred=True, user=user)
 

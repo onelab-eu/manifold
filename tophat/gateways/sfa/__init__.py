@@ -1188,8 +1188,15 @@ class SFA(FromNode):
         q = self.query
         # Let's call the simplest query as possible to begin with
         # This should use twisted XMLRPC
-        print "#################################### SFA CALL ### %s_%s" % (q.action, q.fact_table)
-        print "SFA PARAMS", q.params
+
+        # Hardcoding the get network call until caching is implemented
+        if q.action == 'get' and q.fact_table == 'network':
+            platforms = db.query(Platform).filter(Platform.disabled == False).all()
+            output = []
+            for p in platforms:
+                output.append({'network_hrn': p.platform, 'network_name': p.platform_longname})
+            return output
+        
         result = getattr(self, "%s_%s" % (q.action, q.fact_table))(q.filters, q.params, list(q.fields))
         for r in result:
             self.callback(r)

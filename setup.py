@@ -30,9 +30,11 @@ setup(
     license     = "GPLv3",
     packages = find_packages(),
     data_files = [ ('/usr/share/myslice/metadata/', glob('metadata/*.xml')) ],
+    scripts=['scripts/initdb.sh'],
     entry_points={
         'console_scripts': [
             'tophat-xmlrpc = tophat.bin.xmlrpc:main',
+            'myslice-sfa-delegate = tophat.bin.delegate:main',
         ],
     },
 

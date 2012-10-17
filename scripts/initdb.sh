@@ -1,10 +1,23 @@
 #!/bin/bash
+
 # Delete the former DB
-rm /var/myslice/db.sqlite
-# Initialize the DB
+rm -f /var/myslice/db.sqlite
+
+# Initialize the DB...
 ./init-db.py
-# Insert dummy records
+
+# ...and insert dummy records
 sqlite3 /var/myslice/db.sqlite  < ../sql/init.sql
-# Make some delegations
-echo "./delegate.py jordan.auge@lip6.fr ~/.ssh/id_rsa ~/.sfi"
-./delegate.py jordan.auge@lip6.fr ~/.ssh/id_rsa ~/.sfi
+
+# Delegation information
+echo <<EOF
+
+Before being able to use MySlice, you need to upload delegated credentials. We
+provide a script for PlanetLab Europe users:"
+
+$ myslice-sfa-delegate PL_USERNAME PRIVATE_KEY SFI_DIR
+
+Example:
+$ myslice-sfa-delegate jordan.auge@lip6.fr ~/.ssh/id_rsa ~/.sfi
+
+EOF
