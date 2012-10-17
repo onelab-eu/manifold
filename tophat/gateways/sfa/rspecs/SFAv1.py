@@ -25,7 +25,8 @@ RESOURCE_KEY = 'hrn'
 # HOOKS TO RUN OPERATIONS ON GIVEN FIELDS
 def channel_urn_hrn(value):
     output = {}
-    xrn = Xrn('%(network)s.%(channel_num)s' % value, type='channel')
+    # XXX HARDCODED FOR NITOS
+    xrn = Xrn('%(network)s.nitos.channel.%(channel_num)s' % value, type='channel')
     return {'urn': xrn.urn, 'hrn': xrn.hrn}
 
 HOOKS = {

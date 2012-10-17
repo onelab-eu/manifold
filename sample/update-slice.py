@@ -4,7 +4,7 @@
 import sys
 import xmlrpclib
 
-query = ('update', 'slice', [['slice_hrn', '=', 'ple.upmc.agent']], {'resource': ["ple.upmc.ple5\\.ipv6\\.lip6\\.fr"], 'lease': []}, ['slice_hrn', 'resource.hostname'])
+query = ('update', 'slice', [['slice_hrn', '=', 'ple.upmc.test']], {'resource': ["ple.upmc.ple5\\.ipv6\\.lip6\\.fr"], 'lease': []}, ['slice_hrn', 'resource.hostname'])
 
 def print_slice(result):
     print "SLICE: %s" % result['slice_hrn']

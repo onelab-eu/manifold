@@ -174,6 +174,8 @@ def main():
 
     # Uploading credentials to MySlice
     auth = {'AuthMethod': 'password', 'Username': pl_username, 'password': 'demo'}
+    #print "W: delegation to demo user"
+    #auth = {'AuthMethod': 'password', 'Username': 'demo', 'password': 'demo'}
 
     try:
         MySlice = xmlrpclib.Server(MYSLICE_API, allow_none = 1)
