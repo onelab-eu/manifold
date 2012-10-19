@@ -1,8 +1,8 @@
 """
-TopHat v0.1
+TopHat
 Licensed under #TODO: Check license
 
 Description to be done.
 """
 
-__version__ = 0.1
+__version__ = 0.2

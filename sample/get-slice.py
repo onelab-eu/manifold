@@ -4,7 +4,9 @@
 import sys
 import xmlrpclib
 
-query = ('get', 'slice', [['slice_hrn', '=', 'ple.upmc.myslicedemo']], {}, ['slice_hrn', 'resource.hrn', 'resource.country', 'lease.duration'])
+from config import auth
+
+query = ('get', 'slice', [['slice_hrn', '=', 'ple.upmc.myslicedemo']], {}, ['slice_hrn', 'resource.hrn', 'resource.country', 'resource.asn', 'lease.duration'])
 
 def print_slice(result):
     print "SLICE: %s" % result['slice_hrn']
@@ -12,7 +14,7 @@ def print_slice(result):
     for i in result['resource']:
         if cpt == 5:
             break
-        print "  - %s %s" % (i['hrn'], i['country'])
+        print "  - %s %s %s" % (i['hrn'], i['country'], i['asn'])
         cpt += 1
     print "    (only 5 first displayed)"
 
@@ -32,9 +34,6 @@ from tophat.core.router import Query
 
 # Instantiate a TopHat router
 with THLocalRouter() as router:
-    user = router.authenticate({'AuthMethod': 'password', 'Username': 'jordan.auge@lip6.fr', 'password': 'demo'})
+    user = router.authenticate(auth)
     result = router.forward(Query(*query), execute=True, user=user)
-    print "=== RESULT ==="
     print_result(result)
-    print "--------------"
-    print ""

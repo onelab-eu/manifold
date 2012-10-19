@@ -21,17 +21,28 @@ from tophat.models import *
 from tophat.util.dbnorm import DBNorm
 from tophat.util.dbgraph import DBGraph
 import json
+import time
 
 XML_DIRECTORY = '/usr/share/myslice/metadata/'
+CACHE_LIFETIME = 1800
 
 class Callback:
-    def __init__(self, deferred=None, event=None):
+    def __init__(self, deferred=None, event=None, router=None, cache_id=None):
         self.results = []
         self._deferred = deferred
         self.event=event
 
+        # Used for caching...
+        self.router = router
+        self.cache_id = cache_id
+
     def __call__(self, value):
         if not value:
+            if self.cache_id:
+                # Add query results to cache (expires in 30min)
+                print "Result added to cached under id", self.cache_id
+                self.router.cache[self.cache_id] = (self.results, time.time() + CACHE_LIFETIME)
+
             if self._deferred:
                 self._deferred.callback(self.results)
             else:
@@ -93,7 +104,7 @@ class THLocalRouter(LocalRouter):
         self.event = threading.Event()
         # initialize dummy list of credentials to be uploaded during the
         # current session
-        self.creds = []
+        self.cache = {}
 
     def __enter__(self):
         self.reactor.startReactor()
@@ -252,7 +263,6 @@ class THLocalRouter(LocalRouter):
         # Instead of iterating through files, we are now iterating thorough the
         # set of available platforms in the database
         platforms = db.query(Platform).filter(Platform.disabled == False).all()
-        print "platforms=", platforms
         for p in platforms:
             gateway = None
             tables = self.import_file(XML_DIRECTORY, p.platform, p.gateway_type)
@@ -309,7 +319,7 @@ class THLocalRouter(LocalRouter):
 
             # Builds the query tree rooted at the fact table
             root = self.G_nf.get_root(query)
-            tree_edges = self.G_nf.get_tree_edges(root)
+            tree_edges = [e for e in self.G_nf.get_tree_edges(root)] # generator
 
             # Necessary fields are the one in the query augmented by the keys in the filters
             needed_fields = set(query.fields)
@@ -331,6 +341,13 @@ class THLocalRouter(LocalRouter):
                 # We start at the root if necessary
                 if root:
                     local_fields = set(needed_fields) & s.fields
+
+                    it = iter(e.keys)
+                    join_key = None
+                    while join_key not in s.fields:
+                        join_key = it.next()
+                    local_fields.add(join_key)
+
                     # We add fields necessary for performing joins = keys of all the children
                     # XXX does not work for multiple keys
                     ###print "LOCAL FIELDS", local_fields
@@ -352,7 +369,7 @@ class THLocalRouter(LocalRouter):
                         if not max_table:
                             raise Exception, 'get_table_max_fields error: could not answer fields: %r for query %s' % (local_fields, query)
                         sources.remove(max_table)
-                        q = Query(action=query.action, fact_table=max_table.name, filters=query.filters, params=quer.params, fields=list(max_fields))
+                        q = Query(action=query.action, fact_table=max_table.name, filters=query.filters, params=query.params, fields=list(max_fields))
                         if first_join:
                             left = AST(self, user).From(max_table, q) # max_table, list(max_fields))
                             first_join = False
@@ -373,7 +390,12 @@ class THLocalRouter(LocalRouter):
                 local_fields = set(needed_fields) & e.fields
 
                 # Adding key for the join
-                local_fields.update(e.keys)
+                it = iter(e.keys)
+                join_key = None
+                while join_key not in s.fields:
+                    join_key = it.next()
+                local_fields.add(join_key)
+                # former ? local_fields.update(e.keys)
 
                 # We adopt a greedy strategy to get the required fields (temporary)
                 # We assume there are no partitions
@@ -530,39 +552,33 @@ class THLocalRouter(LocalRouter):
                     ret = (t, isect)
             return ret
 
-        def run_query(query):
-            output = []
-            return output
+        def get_query_plan(query, user):
+            try:
+                qp = process_subqueries(query, user)
+            except Exception ,e:
+                print "Exception in do_forward", e
+                traceback.print_exc()
+                return []
 
-        try:
+            # Now we apply the operators
+            #qp = qp.selection(query.filters) 
+            #qp = qp.projection(query.fields) 
+            #qp = qp.sort(query.get_sort()) 
+            #qp = qp.limit(query.get_limit()) 
 
-            qp = process_subqueries(query, user)
+            # We should now have a query plan
+            print ""
+            print "QUERY PLAN:"
+            print "-----------"
+            qp.dump()
+            print ""
+            print ""
 
-        except Exception ,e:
-            print "Exception in do_forward", e
-            traceback.print_exc()
-            return []
+            return qp
 
-        # Now we apply the operators
-        #qp = qp.selection(query.filters) 
-        #qp = qp.projection(query.fields) 
-        #qp = qp.sort(query.get_sort()) 
-        #qp = qp.limit(query.get_limit()) 
-            
-        # We should now have a query plan
-        print ""
-        print "QUERY PLAN:"
-        print "-----------"
-        qp.dump()
-        print ""
-        print ""
-
-        if not execute: return None
-
-        print "I: Install query plan."
-        d = defer.Deferred() if deferred else None
-        cb = Callback(d, self.event)
-        qp.callback = cb
+        if not execute: 
+            get_query_plan(query, user)
+            return None
 
         # The query plane will be the same whatever the action: it represents
         # the easier way to reach the destination = routing
@@ -570,6 +586,26 @@ class THLocalRouter(LocalRouter):
         # destination, which is a subpart of the query = (fact, filters, fields)
         # action = what to do on this QP
         # ts = how it behaves
+
+        # Caching ?
+        h = hash((user,query))
+        print "ID", h, ": looking into cache..."
+
+        if query.action == 'get':
+            if h in self.cache:
+                res, ts = self.cache[h]
+                print "Cache hit!"
+                if ts > time.time():
+                    return res
+                else:
+                    print "Expired entry!"
+                    del self.cache[h]
+
+        # Building query plan
+        qp = get_query_plan(query, user)
+        d = defer.Deferred() if deferred else None
+        cb = Callback(d, self.event, router=self, cache_id=h)
+        qp.callback = cb
 
         # Now we only need to start it for Get.
         if query.action == 'get':

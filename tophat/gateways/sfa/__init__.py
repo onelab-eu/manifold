@@ -40,6 +40,7 @@ from sfa.client.sfaclientlib import SfaClientBootstrap
 from sfa.client.client_helper import pg_users_arg, sfa_users_arg
 from sfa.client.sfaserverproxy import SfaServerProxy, ServerException
 from sfa.client.return_value import ReturnValue
+from tophat.models import Platform, db
 
 import signal
 
@@ -604,13 +605,13 @@ class SFA(FromNode):
 
     def get_slice(self, filters = None, params = None, fields = None):
         slices = self._get_slices(filters, Metadata.expand_output_fields('slices', fields))
-        print "W: Hardcoded filter for my slices"
-        if len(slices) > 10:
-            out = []
-            for s in slices:
-                if s['slice_hrn'].startswith('ple.upmc.'):
-                    out.append(s)
-            slices = out
+        #if len(slices) > 20:
+        #    print "W: Hardcoded filter for my slices"
+        #    out = []
+        #    for s in slices:
+        #        if s['slice_hrn'].startswith('ple.upmc.'):
+        #            out.append(s)
+        #    slices = out
         return slices
 
     def update_slice(self, filters, params, fields):
@@ -622,8 +623,8 @@ class SFA(FromNode):
             raise Exception, 'Missing parameter: slice_hrn'
         slice_hrn = filters.get_eq('slice_hrn')
         slice_urn = hrn_to_urn(slice_hrn, 'slice')
-        resources = params['resource']
-        leases = params['lease']
+        resources = params['resource'] if 'resource' in params else []
+        leases = params['lease'] if 'lease' in params else []
 
         # Credentials
         user_cred = self._get_cred('user')
@@ -1194,8 +1195,9 @@ class SFA(FromNode):
             platforms = db.query(Platform).filter(Platform.disabled == False).all()
             output = []
             for p in platforms:
-                output.append({'network_hrn': p.platform, 'network_name': p.platform_longname})
-            return output
+                self.callback({'network_hrn': p.platform, 'network_name': p.platform_longname})
+            self.callback(None)
+            return
         
         result = getattr(self, "%s_%s" % (q.action, q.fact_table))(q.filters, q.params, list(q.fields))
         for r in result:

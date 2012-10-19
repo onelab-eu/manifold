@@ -40,6 +40,9 @@ class Predicate:
     def __str__(self):
         return "Pred(%s,%s,%s)" % self.get_str_tuple()
 
+    def __hash__(self):
+        return hash(self.get_tuple())
+
     def get_tuple(self):
         return (self.key, self.op, self.value)
 
@@ -162,7 +165,13 @@ class Filter(set):
         return f
 
     def __str__(self):
-        return ' && '.join([str(x) for x in self])
+        return ' && '.join([str(pred) for pred in self])
+
+    def __key(self):
+        return tuple([hash(pred) for pred in self])
+
+    def __hash__(self):
+        return hash(self.__key())
 
     def __additem__(self, value):
         if value.__class__ != Predicate:

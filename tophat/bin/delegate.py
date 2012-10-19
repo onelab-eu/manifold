@@ -18,7 +18,7 @@ import getpass
 from sfa.trust.credential import Credential
 from sfa.trust.gid import GID # this should be done into bootstrap
 from sfa.client.sfaclientlib import SfaClientBootstrap
-from sfa.util.plxrn import hostname_to_hrn, slicename_to_hrn, email_to_hrn, hrn_to_pl_slicename
+from sfa.planetlab.plxrn import hostname_to_hrn, slicename_to_hrn, email_to_hrn, hrn_to_pl_slicename
 
 class SfaHelper:
 
@@ -148,32 +148,35 @@ def get_credentials(pl_username, private_key, sfi_dir, password):
 
 
 def usage():
-    print "Usage: %s PL_USERNAME PRIVATE_KEY SFI_DIR" % sys.argv[0]
+    print "Usage: %s PL_USERNAME PRIVATE_KEY SFI_DIR API_USERNAME" % sys.argv[0]
     print ""
     print "Delegates control to MySlice"
     print "    PL USERNAME"
     print "    PRIVATE KEY"
     print "    SFI_DIR       : default ~/.sfi"
+    print "    API_USERNAME"
     print ""
     print "Note: USER_PRIVATE_KEY is the name of the file containing your public key inside the .sfi directory as given by SFI_DIR."
 
 def main():
     argc = len(sys.argv)
-    if argc < 3 or argc > 4:
+    if argc != 5:
         usage()
         sys.exit(1)
 
     pl_username, private_key = sys.argv[1:3]
-    sfi_dir = sys.argv[3] if argc == 4 else '~/.sfi'
+    sfi_dir = sys.argv[3]
     if sfi_dir[-1] != '/':
         sfi_dir = sfi_dir + '/'
     sfi_dir = os.path.expanduser(sfi_dir)
-    password = getpass.getpass("Enter your password: ")
+    api_username = sys.argv[4]
+    password = getpass.getpass("Enter your PlanetLab password: ")
+    api_password = getpass.getpass("Enter your API password: ")
 
     creds = get_credentials(pl_username, private_key, sfi_dir, password)
 
     # Uploading credentials to MySlice
-    auth = {'AuthMethod': 'password', 'Username': pl_username, 'password': 'demo'}
+    auth = {'AuthMethod': 'password', 'Username': api_username, 'AuthString': api_password}
     #print "W: delegation to demo user"
     #auth = {'AuthMethod': 'password', 'Username': 'demo', 'password': 'demo'}
 

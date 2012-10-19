@@ -1,4 +1,9 @@
+#
+# TODO: add timestamp field
+#
+
 from tophat.core.filter import Filter, Predicate
+from tophat.util.frozendict import frozendict
 
 class ParameterError(StandardError): pass
 
@@ -40,7 +45,6 @@ class Query(object):
                 del kwargs['action']
             else:
                 print "W: defaulting to get action"
-                raise Exception ," !"
                 self.action = 'get'
 
             self.fact_table = kwargs['fact_table']
@@ -50,7 +54,7 @@ class Query(object):
                 self.filters = kwargs['filters']
                 del kwargs['filters']
             else:
-                self.filters = Filters([])
+                self.filters = Filter([])
 
             if 'fields' in kwargs:
                 self.fields = set(kwargs['fields'])
@@ -73,4 +77,10 @@ class Query(object):
     def __str__(self):
         return "SELECT %s FROM %s WHERE ..." % (', '.join(self.fields), self.fact_table)
         #return "SELECT %s FROM %s WHERE %s" % (', '.join(self.fields), self.fact_table, self.filters)
+
+    def __key(self):
+        return (self.action, self.fact_table, self.filters, frozendict(self.params), frozenset(self.fields))
+
+    def __hash__(self):
+        return hash(self.__key())
 

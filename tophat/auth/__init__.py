@@ -1,6 +1,10 @@
 from tophat.models import db, User, Session as DBSession
 import time
 
+#from random import Random
+import crypt
+from hashlib import md5
+
 class AuthenticationFailure(Exception): pass
 
 class Auth(object):
@@ -32,17 +36,14 @@ class Password(Auth):
         except Exception, e:
             raise AuthenticationFailure, "No such account (PW): %s" % e
 
-        print "W: skipped password verification"
-        return user
-
         # Compare encrypted plaintext against encrypted password stored in the DB
         plaintext = self.auth['AuthString'].encode('latin1') # XXX method.api.encoding)
-        password = user['password']
+        password = user.password
 
         # Protect against blank passwords in the DB
         if password is None or password[:12] == "" or \
             crypt.crypt(plaintext, password[:12]) != password:
-            raise AuthenticationFailure, "Password verification failed"
+            raise AuthenticationFailure, "Password verification failed %s" % crypt.crypt(plaintext, password[:12])
 
         return user
 

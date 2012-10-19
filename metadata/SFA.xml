@@ -609,6 +609,43 @@
             <keys>
                 <key>hrn</key>
             </keys>
-       </method>
+        </method>
+        <method name='network'>
+            <capabilities>
+                <from>true</from>
+                <selection>true</selection>
+                <projection>true</projection>
+                <order>false</order>
+                <limit>false</limit>
+                <offset>false</offset>
+            </capabilities>
+            <fields>
+                <field>
+                    <field>network_hrn</field>
+                    <header>ST</header>
+                    <title>Start time</title>
+                    <description>Start of the lease</description>
+                    <resource_type></resource_type>
+                    <info_type></info_type>
+                    <value_type></value_type>
+                    <unit></unit>
+                    <allowed_values></allowed_values>
+                </field>
+                <field>
+                    <field>network_name</field>
+                    <header>ST</header>
+                    <title>Start time</title>
+                    <description>Start of the lease</description>
+                    <resource_type></resource_type>
+                    <info_type></info_type>
+                    <value_type></value_type>
+                    <unit></unit>
+                    <allowed_values></allowed_values>
+                </field>
+            </fields>
+            <keys>
+                <key>network_hrn</key>
+            </keys>
+        </method>
    </methods>
 </metadata> 

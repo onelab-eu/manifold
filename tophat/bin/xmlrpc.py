@@ -31,7 +31,7 @@ class TopHatAPI(xmlrpc.XMLRPC):
         """
         """
         user = router.authenticate(args[0])
-        return [{'email': user.email, 'first_name': 'Jordan', 'last_name': 'Auge', 'user_hrn': 'ple.upmc.jordan_auge'}]
+        return [{'email': user.email, 'first_name': user.email, 'last_name': '', 'user_hrn': 'TODO'}]
 
 
     def xmlrpc_AddCredential(self, *args):
@@ -57,6 +57,9 @@ class TopHatAPI(xmlrpc.XMLRPC):
         table = router.forward(query, deferred=True, user=user)
 
         return table
+
+    def xmlrpc_Get(self, *args):
+        self.xmlrpc_forward(args)
 
 def main():
     try:
