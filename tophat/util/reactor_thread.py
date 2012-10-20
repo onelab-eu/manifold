@@ -4,6 +4,7 @@
 from twisted.internet import defer, reactor
 import threading
 from twisted.python import threadable
+import time
 
 __author__ ="Brian Kirsch <bkirsch@osafoundation.org>"
 
@@ -53,6 +54,12 @@ class ReactorThread(threading.Thread):
         if self._reactorRunning:
             raise ReactorException("Reactor Already Running")
         threading.Thread.start(self)
+        cpt = 0
+        while not self._reactorRunning:
+            time.sleep(0.1)
+            cpt +=1
+            if cpt > 5:
+                raise ReactorException, "Reactor thread is too long to start... cancelling"
         reactor.addSystemEventTrigger('after', 'shutdown', self.__reactorShutDown)
 
     def stopReactor(self):

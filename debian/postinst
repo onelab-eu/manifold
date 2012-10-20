@@ -1,0 +1,6 @@
+#!/bin/bash
+
+# XXX Currently we are only generating one keypair, we might want one per
+# platform...
+mkdir -p /var/myslice
+ssh-keygen -t rsa -f /var/myslice/myslice.pkey

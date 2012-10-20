@@ -695,6 +695,51 @@ class SFA(FromNode):
         slice.update(rsrc_leases)
         return [slice]
 
+    # minimally check a key argument
+    def check_ssh_key(self, key):
+        good_ssh_key = r'^.*(?:ssh-dss|ssh-rsa)[ ]+[A-Za-z0-9+/=]+(?: .*)?$'
+        return re.match(good_ssh_key, key, re.IGNORECASE)
+
+    def create_record_from_params(self, type, params):
+        record_dict = {}
+        if 'xrn' in params and params['xrn']
+            if 'type' in params and params['type']:
+                xrn = Xrn(params['xrn'], params['type'])
+            else:
+                xrn = Xrn(params['xrn'])
+            record_dict['urn'] = xrn.get_urn()
+            record_dict['hrn'] = xrn.get_hrn()
+            record_dict['type'] = xrn.get_type()
+        if 'key' in params and params['key']:
+            #try:
+            #    pubkey = open(params['key'], 'r').read()
+            #except IOError:
+            pubkey = params['key']
+            if not self.check_ssh_key(pubkey):
+                raise SfaInvalidArgument(name='key',msg="Wrong key format")
+                #raise SfaInvalidArgument(name='key',msg="Could not find file, or wrong key format")
+            record_dict['keys'] = [pubkey]
+        if 'slices' in params and params['slices']:
+            record_dict['slices'] = params['slices']
+        if 'researchers' in params and params['researchers']:
+            record_dict['researcher'] = params['researchers']
+        if 'email' in params and params['email']:
+            record_dict['email'] = params['email']
+        if 'pis' in params and params['pis']:
+            record_dict['pi'] = params['pis']
+
+        #slice: description
+
+        # handle extra settings
+        #record_dict.update(options.extras)
+
+        return Record(dict=record_dict)
+ 
+    def create_slice(self, filters, params, fields):
+        cred = None # Need an authority credential !
+        record = self.create_record_from_params('slice', params)
+        self.registry().Register(record_dict, cred)
+
     def _get_slices_hrn(self, filters = None):
         #    Depending on the input_filters, we can use a more or less
         #    extended query that will limit[cred] filtering a posteriori
@@ -1297,6 +1342,26 @@ class SFA(FromNode):
 
             record = records[0]
             config['gid'] = record['gid']
+
+        if new_key or not 'authority_credential' in config:
+            # Same code for slice credentials...
+
+            # Create temporary files for key and certificate in order to use existing code based on httplib
+            pkey_fn = tempfile.NamedTemporaryFile(delete=False)
+            pkey_fn.write(config['user_private_key'])
+            cert_fn = tempfile.NamedTemporaryFile(delete=False)
+            cert_fn.write(config['gid']) # We always use the GID
+            pkey_fn.close()
+            cert_fn.close()
+
+            # We need to connect through a HTTPS connection using the generated private key
+            registry_url = json.loads(platform.config)['registry_url']
+            registry_proxy = SfaServerProxy(registry_url, pkey_fn.name, cert_fn.name)
+
+            credential_string=registry_proxy.GetCredential (config['user_credential'], hrn, type)
+
+            config['authority_credential'] = credential_string
+
 
         if new_key or not 'slice_credentials' in config:
             # Generated on demand !

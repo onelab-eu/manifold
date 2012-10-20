@@ -19,6 +19,7 @@ from sfa.trust.credential import Credential
 from sfa.trust.gid import GID # this should be done into bootstrap
 from sfa.client.sfaclientlib import SfaClientBootstrap
 from sfa.planetlab.plxrn import hostname_to_hrn, slicename_to_hrn, email_to_hrn, hrn_to_pl_slicename
+from sfa.util.xrn import get_authority
 
 class SfaHelper:
 
@@ -93,6 +94,11 @@ class SfaHelper:
             slice_cred = self.bootstrap.slice_credential_string(delegate_name)
             cred = self.delegate_cred(slice_cred, MYSLICE_HRN, 'slice')
 
+        elif delegate_type == 'authority':
+            print "I: delegate authority", delegate_name
+            authority_cred = self.bootstrap.authority_credential_string(delegate_name)
+            cred = self.delegate_cred(authority_cred, MYSLICE_HRN, 'authority')
+
         else:
             print "E: Must specify either --user or --slice <hrn>"
             return
@@ -133,6 +139,14 @@ def get_credentials(pl_username, private_key, sfi_dir, password):
         'target': user_hrn,
         'type': 'user',
         'cred': sfa.delegate('user', user_hrn)
+    }
+    creds.append(c)
+
+    user_auth = get_authority(user_hrn)
+    c = {
+        'target': user_auth,
+        'type': 'authority',
+        'cred': sfa.delegate('authority', user_auth)
     }
     creds.append(c)
 

@@ -242,11 +242,12 @@ class THLocalRouter(LocalRouter):
         config = account.config_get()
         if cred['type'] == 'user':
             config['user_credential'] = cred['cred']
-            print "config user cred", config['user_credential']
         elif cred['type'] == 'slice':
             if not 'slice_credentials' in config:
                 config['slice_credentials'] = {}
             config['slice_credentials'][cred['target']] = cred['cred']
+        elif cred['type'] == 'authority':
+            config['authority_credential'] = cred['cred']
         else:
             raise Exception, "Invalid credential type"
         account.config_set(config)
@@ -450,7 +451,7 @@ class THLocalRouter(LocalRouter):
 
             if query.params:
                 for key, value in query.params.items():
-                    if '.' in pred.key:
+                    if '.' in key:
                         method, subkey = key.split('.', 1)
                         if not method in subq:
                             subq[method] = {}
@@ -609,13 +610,7 @@ class THLocalRouter(LocalRouter):
 
         # Now we only need to start it for Get.
         if query.action == 'get':
-            qp.start()
-
-            if deferred: return d
-            self.event.wait()
-            self.event.clear()
-
-            return cb.results
+            pass
 
         elif query.action == 'update':
             # At the moment we can only update if the primary key is present
@@ -627,17 +622,19 @@ class THLocalRouter(LocalRouter):
             if not query.filters.has_eq(key):
                 raise Exception, "The key field '%s' must be present in update request" % key
 
-            qp.start()
-
-            if deferred: return d
-            self.event.wait()
-            self.event.clear()
-
-            return cb.results
+        elif query.action == 'create':
+           pass 
 
         else:
             raise Exception, "Action not supported: %s" % query.action
 
+        qp.start()
+
+        if deferred: return d
+        self.event.wait()
+        self.event.clear()
+
+        return cb.results
 
 class THRouter(THLocalRouter, Router):
     pass

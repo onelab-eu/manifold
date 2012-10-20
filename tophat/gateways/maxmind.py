@@ -54,7 +54,7 @@ class MaxMind(FromNode):
 #                        d[o] = ip
 #                    elif o == 'hostname':
 #                        d[o] = None
-#                    else: # We restrict output fields hence it's OK.
+#                    else: # We restrict output fields hence it's OK.
 #                        d[o] = gir[geo_fields[o]] if gir else None
 #                output.append(d)
 #        
@@ -70,7 +70,7 @@ class MaxMind(FromNode):
 #                        d[o] = None
 #                    elif o == 'hostname':
 #                        d[o] = hn
-#                    else: # We restrict output fields hence it's OK.
+#                    else: # We restrict output fields hence it's OK.
 #                        d[o] = gir[geo_fields[o]] if gir else None
 #                output.append(d)
 #        
