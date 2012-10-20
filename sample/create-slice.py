@@ -6,7 +6,7 @@ import xmlrpclib
 
 from config import auth
 
-query = ('create', 'slice', [], {'slice_hrn': 'ple.upmc.myslicedemo2'}, [])
+query = ('create', 'slice', [], {'slice_hrn': 'ple.upmc.myslicedemo3'}, [])
 
 from tophat.core.router import THLocalRouter
 from tophat.core.router import Query
@@ -15,4 +15,4 @@ from tophat.core.router import Query
 with THLocalRouter() as router:
     user = router.authenticate(auth)
     result = router.forward(Query(*query), execute=True, user=user)
-    print_result(result)
+    print result

@@ -12,4 +12,7 @@ from tophat.core.router import Query
 # Instantiate a TopHat router
 with THLocalRouter() as router:
     result = router.forward(Query(*query), execute=False)
-    print result
+    for x in result:
+        print x['table']
+        for c in x['column']:
+            print c
