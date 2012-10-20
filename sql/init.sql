@@ -35,8 +35,8 @@ insert into platform (platform, platform_longname, gateway_type, gateway_conf) V
 insert into platform (platform, platform_longname, gateway_type, gateway_conf) VALUES ('myslice', 'MySlice', 'XMLRPC', '{"url": "https://api.myslice.info/API/"}');
 insert into platform (platform, platform_longname, gateway_type, gateway_conf) VALUES ('maxmind', 'MaxMind GeoLite City', 'MaxMind', '');
 
-insert into user (user_id, email) VALUES (1, 'demo');
-insert into user (user_id, email) VALUES (2, 'jordan.auge@lip6.fr');
+insert into user (user_id, email, password) VALUES (1, 'demo', '$1$dd0facf3$bwT92WWK8VG5Mwr3HT/0g/');
+insert into user (user_id, email, password) VALUES (2, 'jordan.auge@lip6.fr', '$1$79955d87$QeWgSRDvD3yq3KgHYLeSS.');
 
 insert into account (user_id, platform_id, auth_type, config) VALUES (1, 1, 'user', '{"user_hrn": "ple.upmc.jordan_auge"}');
 insert into account (user_id, platform_id, auth_type, config) VALUES (1, 2, 'reference', '{"reference_platform": "ple"}');
