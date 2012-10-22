@@ -59,7 +59,8 @@ class TopHatAPI(xmlrpc.XMLRPC):
         return table
 
     def xmlrpc_Get(self, *args):
-        self.xmlrpc_forward(args)
+        auth, method, filters, params, fields = args
+        return self.xmlrpc_forward(auth, 'get', method, filters, params, fields)
 
 def main():
     try:

@@ -702,7 +702,7 @@ class SFA(FromNode):
 
     def create_record_from_params(self, type, params):
         record_dict = {}
-        if 'xrn' in params and params['xrn']
+        if 'xrn' in params and params['xrn']:
             if 'type' in params and params['type']:
                 xrn = Xrn(params['xrn'], params['type'])
             else:
