@@ -581,8 +581,11 @@ class SFA(FromNode):
         if type == 'user':
             if target:
                 raise Exception, "Cannot retrieve specific user credential for now"
-
             return self.user_config['user_credential']
+        elif type == 'authority':
+            if target:
+                raise Exception, "Cannot retrieve specific authority credential for now"
+            return self.user_config['authority_credential']
         elif type == 'slice':
             if not 'slice_credentials' in self.user_config:
                 self.user_config['slice_credentials'] = {}
@@ -682,9 +685,8 @@ class SFA(FromNode):
         api_options = {}
         api_options ['append'] = False
         api_options ['call_id'] = unique_call_id()
-        print "CreateSliver"
         result = self.sliceapi().CreateSliver(slice_urn, [slice_cred], rspec, users, *self.ois(self.sliceapi(), api_options))
-        print "RESULT", result
+        print "CreateSliver RSPEC", result
         manifest = ReturnValue.get_value(result)
 
         if not manifest:
@@ -702,11 +704,11 @@ class SFA(FromNode):
 
     def create_record_from_params(self, type, params):
         record_dict = {}
-        if 'xrn' in params and params['xrn']:
-            if 'type' in params and params['type']:
-                xrn = Xrn(params['xrn'], params['type'])
-            else:
-                xrn = Xrn(params['xrn'])
+        if type == 'slice':
+            # This should be handled beforehand
+            if 'slice_hrn' not in params or not params['slice_hrn']:
+                raise Exception, "Must specify slice_hrn to create a slice"
+            xrn = Xrn(params['slice_hrn'], type)
             record_dict['urn'] = xrn.get_urn()
             record_dict['hrn'] = xrn.get_hrn()
             record_dict['type'] = xrn.get_type()
@@ -722,6 +724,7 @@ class SFA(FromNode):
         if 'slices' in params and params['slices']:
             record_dict['slices'] = params['slices']
         if 'researchers' in params and params['researchers']:
+            # for slice: expecting a list of hrn
             record_dict['researcher'] = params['researchers']
         if 'email' in params and params['email']:
             record_dict['email'] = params['email']
@@ -736,9 +739,29 @@ class SFA(FromNode):
         return Record(dict=record_dict)
  
     def create_slice(self, filters, params, fields):
-        cred = None # Need an authority credential !
-        record = self.create_record_from_params('slice', params)
-        self.registry().Register(record_dict, cred)
+
+        # Get the slice name
+        if not 'slice_hrn' in params:
+            raise Exception, "Create slice requires a slice name"
+        slice_hrn = params['slice_hrn']
+
+        # Are we creating the slice on the right authority
+        slice_auth = get_authority(slice_hrn)
+        server_version = self.get_cached_server_version(self.registry())
+        server_auth = server_version['hrn']
+        if not slice_auth.startswith('%s.' % server_auth):
+            print "I: Not requesting slice creation on %s for %s" % (server_auth, slice_hrn)
+            return []
+        print "I: Requesting slice creation on %s for %s" % (server_auth, slice_hrn)
+        print "W: need to check slice is created under user authority"
+        cred = self._get_cred('authority')
+        record_dict = self.create_record_from_params('slice', params)
+        try:
+            slice_gid = self.registry().Register(record_dict, cred)
+        except Exception, e:
+            # sfa.client.sfaserverproxy.ServerException: : Register: Existing record: ple.upmc.myslicedemo2, 
+            print "E: %s" % e
+        return []
 
     def _get_slices_hrn(self, filters = None):
         #    Depending on the input_filters, we can use a more or less

@@ -16,4 +16,3 @@ with THLocalRouter() as router:
         print x['table']
         for c in x['column']:
             print c
-
