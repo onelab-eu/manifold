@@ -36,22 +36,7 @@ insert into platform (platform, platform_longname, gateway_type, gateway_conf) V
 insert into platform (platform, platform_longname, gateway_type, gateway_conf) VALUES ('maxmind', 'MaxMind GeoLite City', 'MaxMind', '');
 
 insert into user (user_id, email, password) VALUES (1, 'demo', '$1$dd0facf3$bwT92WWK8VG5Mwr3HT/0g/');
-insert into user (user_id, email, password) VALUES (2, 'jordan.auge@lip6.fr', '$1$79955d87$QeWgSRDvD3yq3KgHYLeSS.');
-insert into user (user_id, email, password) VALUES (3, 'loic.baron@lip6.fr', '$1$941eb263$VssMXzEkJpwsIhGvI4H.Q0');
-insert into user (user_id, email, password) VALUES (4, 'amine' , '$1$5d7fedce$YCQhvNkuc81jSCaQeUGz//');
 
 insert into account (user_id, platform_id, auth_type, config) VALUES (1, 1, 'user', '{"user_hrn": "ple.upmc.jordan_auge"}');
 insert into account (user_id, platform_id, auth_type, config) VALUES (1, 2, 'reference', '{"reference_platform": "ple"}');
 insert into account (user_id, platform_id, auth_type, config) VALUES (1, 3, 'reference', '{"reference_platform": "ple"}');
-
-insert into account (user_id, platform_id, auth_type, config) VALUES (2, 1, 'user', '{"user_hrn": "ple.upmc.jordan_auge"}');
-insert into account (user_id, platform_id, auth_type, config) VALUES (2, 2, 'reference', '{"reference_platform": "ple"}');
-insert into account (user_id, platform_id, auth_type, config) VALUES (2, 3, 'reference', '{"reference_platform": "ple"}');
-
-insert into account (user_id, platform_id, auth_type, config) VALUES (3, 1, 'user', '{"user_hrn": "ple.upmc.loic_baron"}');
-insert into account (user_id, platform_id, auth_type, config) VALUES (3, 2, 'reference', '{"reference_platform": "ple"}');
-insert into account (user_id, platform_id, auth_type, config) VALUES (3, 3, 'reference', '{"reference_platform": "ple"}');
-
-insert into account (user_id, platform_id, auth_type, config) VALUES (4, 1, 'user', '{"user_hrn": "ple.inria.mohamed_larabi"}');
-insert into account (user_id, platform_id, auth_type, config) VALUES (4, 2, 'reference', '{"reference_platform": "ple"}');
-insert into account (user_id, platform_id, auth_type, config) VALUES (4, 3, 'reference', '{"reference_platform": "ple"}');

@@ -21,12 +21,14 @@ PYPATH = $(BUILDDIR):$(TESTLIB):$(PYTHONPATH)
 COVERAGE = $(or $(shell which coverage), $(shell which python-coverage), \
 	   coverage)
 
+all:
+	./setup.py build
+
+# Jordan: added for convenience
 debug: clean all install
 mrpropre: 
 	rm -Rf build /usr/local/lib/python2.7/dist-packages/tophat
-
-all:
-	./setup.py build
+# /Jordan
 
 install: all
 	./setup.py install
