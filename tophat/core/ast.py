@@ -53,7 +53,7 @@ class FromNode(Node):
     def __init__(self, router, platform, query, gateway_config, user_config, user):
         self.platform = platform
         self.query = query
-        self.gateway_config = gateway_config
+        self.config = gateway_config
         self.user_config = user_config
         self.started = False
         self.callback = None

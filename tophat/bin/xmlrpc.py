@@ -62,6 +62,10 @@ class TopHatAPI(xmlrpc.XMLRPC):
         auth, method, filters, params, fields = args
         return self.xmlrpc_forward(auth, 'get', method, filters, params, fields)
 
+    def xmlrpc_Create(self, *args):
+        auth, method, params = args
+        return self.xmlrpc_forward(auth, 'create', method, [], params, [])
+
 def main():
     try:
         reactor.callFromThread(lambda: reactor.listenTCP(7080, server.Site(TopHatAPI(allowNone=True))))

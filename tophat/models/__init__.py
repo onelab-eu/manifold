@@ -25,6 +25,10 @@ class Base(object):
     #def to_dict(self):
     #    return {c.name: getattr(self, c.name) for c in self.__table__.columns}
 
+    @staticmethod
+    def process_params(params):
+        return params
+
 Base = declarative_base(cls=Base)
 
 Session = sessionmaker(bind=engine)

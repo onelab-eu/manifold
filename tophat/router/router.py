@@ -125,10 +125,25 @@ class LocalRouter(object):
 
         return []
 
+    def local_query_create(self, query):
+
+        assert not query.filters, "Filters should be empty for a create request"
+        #assert not query.fields, "Fields should be empty for a create request"
+
+
+        cls = self._map_local_table[query.fact_table]
+        params = cls.process_params(query.params)
+        new_obj = cls(**params)
+        db.add(new_obj)
+        db.commit()
+        
+        return []
+
     def local_query(self, query):
         _map_action = {
             'get': self.local_query_get,
-            'update': self.local_query_update
+            'update': self.local_query_update,
+            'create': self.local_query_create
         }
         return _map_action[query.action](query)
 

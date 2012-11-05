@@ -14,7 +14,9 @@ def print_slice(result):
     for i in result['resource']:
         if cpt == 5:
             break
-        print "  - %s %s %s" % (i['hrn'], i['country'], i['asn'])
+        asn = i['asn'] if 'asn' in i else 'None'
+        country = i['country'] if 'country' in i else 'None'
+        print "  - %s %s %s" % (i['hrn'], country, asn)
         cpt += 1
     print "    (only 5 first displayed)"
 
