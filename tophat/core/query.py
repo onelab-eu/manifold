@@ -25,18 +25,6 @@ class Query(object):
             # Note: range(x,y) <=> [x, y[
             self.action, self.fact_table, self.filters, self.params, self.fields = args
 
-            if not self.filters: self.filters = Filter([])
-            if not self.params: self.params = {}
-            if not self.fields: self.fields = set([])
-
-            if isinstance(self.filters, list):
-                f = self.filters
-                self.filters = Filter([])
-                for x in f:
-                    pred = Predicate(x)
-                    self.filters.add(pred)
-            if isinstance(self.fields, list):
-                self.fields = set(self.fields)
 
         # Initialization from a dict (action & fact_table are mandatory)
         elif 'fact_table' in kwargs:
@@ -73,6 +61,19 @@ class Query(object):
                 return
         else:
                 raise ParameterError, "No valid constructor found for %s : args=%r" % (self.__class__.__name__, args)
+
+        if not self.filters: self.filters = Filter([])
+        if not self.params: self.params = {}
+        if not self.fields: self.fields = set([])
+
+        if isinstance(self.filters, list):
+            f = self.filters
+            self.filters = Filter([])
+            for x in f:
+                pred = Predicate(x)
+                self.filters.add(pred)
+        if isinstance(self.fields, list):
+            self.fields = set(self.fields)
 
     def __str__(self):
         return "SELECT %s FROM %s WHERE ..." % (', '.join(self.fields), self.fact_table)

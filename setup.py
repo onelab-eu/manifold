@@ -39,6 +39,7 @@ setup(
             'myslice-add-user = tophat.bin.adduser:main',
             'myslice-add-account = tophat.bin.addaccount:main',
             'myslice-add-platform = tophat.bin.addplatform:main',
+            'myslice-disable-platform = tophat.bin.disableplatform:main',
         ],
     },
 

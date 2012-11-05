@@ -119,8 +119,8 @@ class LocalRouter(object):
         # only 2.7+ _params = { getattr(cls, k): v for k,v in query.params.items() }
         _params = dict([ (getattr(cls, k), v) for k,v in query.params.items() ])
 
-        db.query(cls).update(_params, synchronize_session=False)
-        #db.query(cls).filter(_filters).update(_params, synchronize_session=False)
+        #db.query(cls).update(_params, synchronize_session=False)
+        db.query(cls).filter(_filters).update(_params, synchronize_session=False)
         db.commit()
 
         return []

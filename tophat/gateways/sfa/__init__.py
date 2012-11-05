@@ -262,6 +262,7 @@ class SFA(FromNode):
                 db.add(ref_account)
                 db.commit()
         else:
+            print account.config
             config_new = json.dumps(SFA.manage(ADMIN_USER, platform, json.loads(account.config)))
             if account.config != config_new:
                 account.config = config_new
@@ -1221,8 +1222,6 @@ class SFA(FromNode):
         #    self.config['protocol'] = 'xmlrpc'
         if not 'verbose' in self.config:
             self.config['verbose'] = 0
-        if not 'auth' in self.config:
-            raise Exception, "Missing SFA::auth parameter in configuration."
         if not 'user' in self.config:
             raise Exception, "Missing SFA::user parameter in configuration."
         if not 'sm' in self.config:
@@ -1233,8 +1232,6 @@ class SFA(FromNode):
             raise Exception, "Missing SFA::registry parameter in configuration."
         if not 'timeout' in self.config:
             self.config['timeout'] = None
-        if not 'user_private_key' in self.config:
-            raise Exception, "Missing SFA::user_private_key parameter in configuration."
 
         self.logger = sfi_logger
 
@@ -1258,6 +1255,15 @@ class SFA(FromNode):
                 self.callback({'network_hrn': p.platform, 'network_name': p.platform_longname})
             self.callback(None)
             return
+
+        # DIRTY HACK to allow slices to span on non federated testbeds
+        #
+        # user account will not reference another platform, and will implicitly
+        # contain information about the slice to associate USERHRN_slice
+        if self.platform == 'senslab' and q.fact_table == 'slice' and q.filters.has_eq('slice_hrn'):
+            senslab_slice = '%s_slice' % config['user_hrn']
+            print "I: Using slice %s for senslab platform" % senslab_slice
+            q.filters.set_eq('slice_hrn', senslab_slice)
         
         result = getattr(self, "%s_%s" % (q.action, q.fact_table))(q.filters, q.params, list(q.fields))
         for r in result:
