@@ -21,7 +21,11 @@ PYPATH = $(BUILDDIR):$(TESTLIB):$(PYTHONPATH)
 COVERAGE = $(or $(shell which coverage), $(shell which python-coverage), \
 	   coverage)
 
-debug: clean all install
+# Added for convenience during development
+debug: clean all
+	#install
+	@echo "Makefile: Skipping target install (see symbolic link in /usr/local)"
+
 mrpropre: 
 	rm -Rf build /usr/local/lib/python2.7/dist-packages/tophat
 

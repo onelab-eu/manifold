@@ -23,6 +23,9 @@ from tophat.util.dbgraph import DBGraph
 import json
 import time
 
+from types import StringTypes
+from sfa.trust.credential import Credential
+
 XML_DIRECTORY = '/usr/share/myslice/metadata/'
 CACHE_LIFETIME = 1800
 
@@ -40,7 +43,7 @@ class Callback:
         if not value:
             if self.cache_id:
                 # Add query results to cache (expires in 30min)
-                print "Result added to cached under id", self.cache_id
+                #print "Result added to cached under id", self.cache_id
                 self.router.cache[self.cache_id] = (self.results, time.time() + CACHE_LIFETIME)
 
             if self._deferred:
@@ -98,6 +101,7 @@ class THLocalRouter(LocalRouter):
     """
 
     def __init__(self):
+        print "I: Init THLocalRouter" 
         self.reactor = ReactorThread()
         self.sourcemgr = SourceManager(self.reactor)
         LocalRouter.__init__(self, Table, object)
@@ -107,6 +111,7 @@ class THLocalRouter(LocalRouter):
         self.cache = {}
 
     def __enter__(self):
+        print "I: Starting THLocalRouter" 
         self.reactor.startReactor()
         return self
 
@@ -123,7 +128,7 @@ class THLocalRouter(LocalRouter):
                 raise Exception, "Metadata file not found for platform='%s' and gateway_type='%s'" % (platform, gateway_type)
 
         routes = []
-        #print "I: Processing %s" % metadata
+        print "I: Processing %s" % f 
         tree = ElementTree.parse(f)
         root = tree.getroot()
         md = XmlDictConfig(root)
@@ -136,12 +141,12 @@ class THLocalRouter(LocalRouter):
 
         # Checking the presence of a method section
         if not 'methods' in md:
-            raise Exception, "Error importing metadata file '%s': no method section specified" % metadata
+            raise Exception, "Error importing metadata file '%s': no method section specified" % f 
         methods = md['methods']
 
         # Checking the presence of at least a method
         if not 'method' in methods:
-            raise Exception, "Error importing metadata file '%s': no method specified" % metadata
+            raise Exception, "Error importing metadata file '%s': no method specified" % f 
         methods = methods['method']
 
         if not isinstance(methods, list):
@@ -161,11 +166,11 @@ class THLocalRouter(LocalRouter):
 
             # Checking the presence of a field section
             if not 'fields' in method:
-                raise Exception, "Error importing metadata file '%s': no field section" % metadata
+                raise Exception, "Error importing metadata file '%s': no field section" % f 
             field_arr = method['fields']
             # Checking the presence of at least a field
             if not 'field' in field_arr:
-                raise Exception, "Error importing metadata file '%s': no field specified" % metadata
+                raise Exception, "Error importing metadata file '%s': no field specified" % f 
 
             # FIXME Currently we ignore detailed information about the fields
             if not isinstance(field_arr['field'], list):
@@ -174,11 +179,11 @@ class THLocalRouter(LocalRouter):
 
             # Checking the presence of a keys section
             if not 'keys' in method:
-                raise Exception, "Error importing metadata file  '%s': no key section" % metadata
+                raise Exception, "Error importing metadata file  '%s': no key section" % f 
             key_arr = method['keys']
             # Checking the presence of at least a key
             if not 'key' in key_arr:
-                raise Exception, "Error importing metadata file '%s': no key specified" % metadata
+                raise Exception, "Error importing metadata file '%s': no key specified" % f 
             if not isinstance(key_arr['key'], list):
                 keys = [key_arr['key']]
             else:
@@ -214,7 +219,7 @@ class THLocalRouter(LocalRouter):
             account = [a for a in user.accounts if a.platform.platform == platform][0]
         except Exception, e:
             account = None
-            print "E: No user account found for platform '%s': %s" % (platform, e)
+            #print "E: No user account found for platform '%s': %s" % (platform, e)
         
         gconf = json.loads(p.gateway_conf)
         aconf = None
@@ -240,17 +245,63 @@ class THLocalRouter(LocalRouter):
         account = [a for a in user.accounts if a.platform.platform == platform][0]
 
         config = account.config_get()
-        if cred['type'] == 'user':
+
+        if isinstance(cred, dict):
+            cred = cred['cred']
+        
+        c = Credential(string=cred)
+        c_type = c.get_gid_object().get_type()
+
+        if c_type == 'user':
             config['user_credential'] = cred['cred']
-        elif cred['type'] == 'slice':
+        elif c_type == 'slice':
             if not 'slice_credentials' in config:
                 config['slice_credentials'] = {}
             config['slice_credentials'][cred['target']] = cred['cred']
-        elif cred['type'] == 'authority':
+        elif c_type == 'authority':
             config['authority_credential'] = cred['cred']
         else:
             raise Exception, "Invalid credential type"
+        
         account.config_set(config)
+
+        #print "USER: " + cred.get_gid_caller().get_hrn()
+        #print "USER: " + cred.get_subject()
+        #print "DELEGATED BY: " + cred.parent.get_gid_caller().get_hrn()
+        #print "TARGET: " + cred.get_gid_object().get_hrn()
+        #print "EXPIRATION: " + cred.get_expiration().strftime("%d/%m/%y %H:%M:%S")
+        #delegate = cred.get_gid_caller().get_hrn()
+        #if not delegate == 'ple.upmc.slicebrowser':
+        #    raise PLCInvalidArgument, "Credential should be delegated to ple.upmc.slicebrowser instead of %s" % delegate;
+        #cred_fields = {
+        #    'credential_person_id': self.caller['person_id'],
+        #    'credential_target': cred.get_gid_object().get_hrn(),
+        #    'credential_expiration':  cred.get_expiration(),
+        #    'credential_type': cred.get_gid_object().get_type(),
+        #    'credential': cred.save_to_string()
+        #}
+
+    def cred_to_struct(self, cred):
+        c = Credential(string=cred)
+        return {
+            'target': c.get_gid_object().get_hrn(),
+            'expiration':  c.get_expiration(),
+            'type': c.get_gid_object().get_type(),
+            'credential': c.save_to_string()
+        }
+
+    def get_credentials(self, platform, user):
+        creds = []
+
+        account = [a for a in user.accounts if a.platform.platform == platform][0]
+        config = account.config_get()
+
+        creds.append(self.cred_to_struct(config['user_credential']))
+        for sc in config['slice_credentials'].values():
+            creds.append(self.cred_to_struct(sc))
+        creds.append(self.cred_to_struct(config['authority_credential']))
+
+        return creds
 
     def build_tables(self):
         tables = self.rib.keys() # HUM
@@ -589,11 +640,14 @@ class THLocalRouter(LocalRouter):
         # ts = how it behaves
 
         # Caching ?
-        h = hash((user,query))
-        print "ID", h, ": looking into cache..."
+        try:
+            h = hash((user,query))
+            #print "ID", h, ": looking into cache..."
+        except:
+            h = 0
 
         if query.action == 'get':
-            if h in self.cache:
+            if h != 0 and h in self.cache:
                 res, ts = self.cache[h]
                 print "Cache hit!"
                 if ts > time.time():

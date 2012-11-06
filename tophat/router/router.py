@@ -47,9 +47,9 @@ class LocalRouter(object):
 
 
     def boot(self):
-        print "I: Booting router"
+        #print "I: Booting router"
         # Install static routes in the RIB and FIB (TODO)
-        print "D: Reading static routes in: '%s'" % self.conf.STATIC_ROUTES_FILE
+        #print "D: Reading static routes in: '%s'" % self.conf.STATIC_ROUTES_FILE
         static_routes = self.get_static_routes(self.conf.STATIC_ROUTES_FILE)
         for r in static_routes:
             pass
@@ -60,6 +60,7 @@ class LocalRouter(object):
         # TODO
 
     def authenticate(self, auth):
+        print "I: authenticate"
         return Auth(auth).check()
 
     def get_session(self, auth):

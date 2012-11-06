@@ -14,9 +14,7 @@ class XMLRPC(FromNode):
     def success_cb(self, table):
         for record in table:
             self.callback(record)
-        print "XMLRPC %s DONE" % self.query.fact_table
         self.callback(None)
-        print "XMLRPC %s DONE POST CB" % self.query.fact_table
 
     def exception_cb(self, error):
         print 'Error during XMLRPC call: ', error
