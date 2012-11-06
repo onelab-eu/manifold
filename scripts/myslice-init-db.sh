@@ -15,7 +15,7 @@ echo "  > tophat"
 myslice-add-platform "tophat" "TopHat" "XMLRPC" "{\"url\": \"https://api.top-hat.info/API/\"}"
 
 echo "  > senslab"
-myslice-add-platform "senslab" "SensLab" "SFA" "{\"auth\": \"senslab\", \"user\": \"senslab.myslice\", \"sm\": \"http://127.0.0.1:12346/\", \"registry\": \"http://127.0.0.1:12345/\"}"
+myslice-add-platform "senslab" "SensLab" "SFA" "{\"sm\": \"http://sfa.senslab.info:12346/\", \"registry\": \"http://sfa.senslab.info:12345/\"}"
 
 echo "I: Creating MySlice admin account"
 myslice-add-user admin

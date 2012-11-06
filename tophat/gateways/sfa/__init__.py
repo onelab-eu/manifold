@@ -1197,8 +1197,6 @@ class SFA(FromNode):
         #    self.config['protocol'] = 'xmlrpc'
         if not 'verbose' in self.config:
             self.config['verbose'] = 0
-        if not 'user' in self.config:
-            raise Exception, "Missing SFA::user parameter in configuration."
         if not 'sm' in self.config:
             raise Exception, "Missing SFA::sm parameter in configuration."
         if not 'debug' in self.config:
