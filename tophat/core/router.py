@@ -623,12 +623,7 @@ class THLocalRouter(LocalRouter):
             return ret
 
         def get_query_plan(query, user):
-            try:
-                qp = process_subqueries(query, user)
-            except Exception ,e:
-                print "Exception in do_forward", e
-                traceback.print_exc()
-                return []
+            qp = process_subqueries(query, user)
 
             # Now we apply the operators
             #qp = qp.selection(query.filters) 
