@@ -3,13 +3,13 @@
 echo "I: Creating platforms"
 
 echo "  > ple"
-myslice-add-platform "ple" "PlanetLab Europe" "SFA" "{\"auth\": \"ple.upmc\", \"user\": \"ple.upmc.slicebrowser\", \"sm\": \"http://www.planet-lab.eu:12346/\", \"registry\": \"http://www.planet-lab.eu:12345/\", \"user_private_key\": \"/var/myslice/myslice.pkey\"}"
+myslice-add-platform "ple" "PlanetLab Europe" "SFA" "{\"sm\": \"http://www.planet-lab.eu:12346/\", \"registry\": \"http://www.planet-lab.eu:12345/\"}"
 
 #echo "  > plc"
 #myslice-add-platform "plc" "PlanetLab Central" "SFA" "{\"auth\": \"ple.upmc\", \"user\": \"ple.upmc.slicebrowser\", \"sm\": \"http://www.planet-lab.org:12346/\", \"registry\": \"http://www.planet-lab.org:12345/\", \"user_private_key\": \"/var/myslice/myslice.pkey\"}" "{\"auth_ref\": \"ple\"}"
 
 echo "  > omf"
-myslice-add-platform "omf" "NITOS" "SFA" "{\"auth\": \"ple.upmc\", \"user\": \"ple.upmc.slicebrowser\", \"sm\": \"http://sfa-omf.pl.sophia.inria.fr:12346/\", \"registry\": \"http://sfa-omf.pl.sophia.inria.fr:12345/\", \"user_private_key\": \"/var/myslice/myslice.pkey\"}" "{\"auth_ref\": \"ple\"}"
+myslice-add-platform "omf" "NITOS" "SFA" "{\"sm\": \"http://sfa-omf.pl.sophia.inria.fr:12346/\", \"registry\": \"http://sfa-omf.pl.sophia.inria.fr:12345/\"}"
 
 echo "  > tophat"
 myslice-add-platform "tophat" "TopHat" "XMLRPC" "{\"url\": \"https://api.top-hat.info/API/\"}"
