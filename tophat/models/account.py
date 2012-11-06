@@ -1,7 +1,7 @@
 from sqlalchemy import Column, ForeignKey, Integer, String, Enum
 from sqlalchemy.orm import relationship, backref
 
-from tophat.models import Base, db
+from tophat.models import Base, User, Platform, db
 import json
 
 import logging
@@ -43,3 +43,16 @@ class Account(Base):
     def config_get(self):
         return json.loads(self.config)
 
+    @staticmethod
+    def process_params(params):
+        if 'user' in params:
+            ret = db.query(User.user_id).filter(User.email == params['user']).one()
+            params['user_id'] = ret[0]
+            del params['user']
+            
+        if 'platform' in params:
+            ret = db.query(Platform.platform_id).filter(Platform.platform == params['platform']).one()
+            params['platform_id'] = ret[0]
+            del params['platform']
+
+        return params

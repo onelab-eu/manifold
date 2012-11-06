@@ -21,16 +21,22 @@ PYPATH = $(BUILDDIR):$(TESTLIB):$(PYTHONPATH)
 COVERAGE = $(or $(shell which coverage), $(shell which python-coverage), \
 	   coverage)
 
+<<<<<<< HEAD
 # Added for convenience during development
 debug: clean all
 	#install
 	@echo "Makefile: Skipping target install (see symbolic link in /usr/local)"
 
-mrpropre: 
-	rm -Rf build /usr/local/lib/python2.7/dist-packages/tophat
-
+=======
 all:
 	./setup.py build
+
+# Jordan: added for convenience
+debug: clean all install
+>>>>>>> 053b34098ec3c74e314419321f0af997952a9cec
+mrpropre: 
+	rm -Rf build /usr/local/lib/python2.7/dist-packages/tophat
+# /Jordan
 
 install: all
 	./setup.py install

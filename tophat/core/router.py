@@ -215,27 +215,45 @@ class THLocalRouter(LocalRouter):
             raise Exception, "E: Cannot import gateway class '%s': %s" % (gtype, e)
 
         # Get user account
-        try:
-            account = [a for a in user.accounts if a.platform.platform == platform][0]
-        except Exception, e:
-            account = None
-            #print "E: No user account found for platform '%s': %s" % (platform, e)
+        accounts = [a for a in user.accounts if a.platform.platform == platform]
+        if not accounts:
+            # No user account for platform, let's create it
+            account = Account(user=user, platform=p, auth_type='managed', config='{}')
+            db.add(account)
+            db.commit()
+        else:
+            account = accounts[0]
         
-        gconf = json.loads(p.gateway_conf)
-        aconf = None
-        if account:
-            if account.auth_type == 'reference':
-                reference_platform = json.loads(account.config)['reference_platform']
-                ref_account = [a for a in user.accounts if a.platform.platform == reference_platform][0]
-                aconf = json.loads(ref_account.config) if account else None
-                if aconf: aconf['reference_platform'] = reference_platform
-            else:
-                aconf = json.loads(account.config) if account else None
+        # Gateway config
+        gconf = json.loads(p.config)
 
-        try:
-            ret = gw(self, platform, query, gconf, aconf, user)
-        except Exception, e:
-            raise Exception, "E: Cannot instantiate gateway for platform '%s': %s" % (platform, e)
+        # User account config
+        if account.auth_type == 'reference':
+            ref_platform = json.loads(account.config)['reference_platform']
+            ref_accounts = [a for a in user.accounts if a.platform.platform == ref_platform]
+            if not ref_accounts:
+                raise Exception, "reference account does not exist"
+            ref_account = ref_accounts[0]
+            aconf = ref_account.config
+        else:
+            aconf = account.config
+        aconf = json.loads(aconf)
+
+#        if account.auth_type == 'reference':
+#            reference_platform = json.loads(account.config)['reference_platform']
+#            ref_accounts = [a for a in user.accounts if a.platform.platform == reference_platform]
+#            if not ref_accounts:
+#                raise Exception, "reference account does not exist"
+#            ref_account = ref_accounts[0]
+#            aconf = json.loads(ref_account.config) if account else None
+#            if aconf: aconf['reference_platform'] = reference_platform
+#        else:
+#            aconf = json.loads(account.config) if account else None
+
+        #try:
+        ret = gw(self, platform, query, gconf, aconf, user)
+        #except Exception, e:
+        #    raise Exception, "E: Cannot instantiate gateway for platform '%s': %s" % (platform, e)
 
         return ret
 

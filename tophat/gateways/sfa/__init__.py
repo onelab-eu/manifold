@@ -36,14 +36,15 @@ from sfa.rspecs.rspec import RSpec
 #from sfa.rspecs.rspec_converter import RSpecConverter
 from sfa.rspecs.version_manager import VersionManager
 
-from sfa.client.sfaclientlib import SfaClientBootstrap
+#from sfa.client.sfaclientlib import SfaClientBootstrap
 from sfa.client.client_helper import pg_users_arg, sfa_users_arg
 from sfa.client.sfaserverproxy import SfaServerProxy, ServerException
 from sfa.client.return_value import ReturnValue
-from tophat.models import Platform, db
-
+from tophat.models import User, Account, Platform, db
+import json
 import signal
 
+ADMIN_USER = 'admin'
 DEMO_HOOKS = ['demo']#, 'jordan.auge@lip6.fr']
 
 
@@ -212,92 +213,94 @@ class SFA(FromNode):
     
     # init self-signed cert, user credentials and gid
     def bootstrap (self):
-        if self.bootstrap_done:
-            return
-        #bootstrap = SfaClientBootstrap (self.user, self.reg_url, self.config['sfi_dir'])
-        bootstrap = SfaClientBootstrap (self.gateway_config['user'], self.reg_url, self.gateway_config['sfi_dir'])
-        # if -k is provided, use this to initialize private key
-        if self.gateway_config['user_private_key']:
-            bootstrap.init_private_key_if_missing (self.gateway_config['user_private_key'])
+
+        # Get the account of the admin user in the database
+        try:
+            user = db.query(User).filter(User.email == ADMIN_USER).one()
+        except Exception, e:
+            # No admin user account, let's create one
+            user = User(email=ADMIN_USER)
+            db.add(user)
+            db.commit()
+
+        # Get platform
+        platform = db.query(Platform).filter(Platform.platform == self.platform).one()
+
+        # Get user account
+        accounts = [a for a in user.accounts if a.platform == platform]
+        if not accounts:
+            raise Exception, "Accounts should be created for MySlice admin user"
+            # Let's make sure 'ple' reference account exists
+            #ref_accounts = [a for a in user.accounts if a.platform.platform == 'ple']
+            #if not ref_accounts:
+            #    ref_platform = db.query(Platform).filter(Platform.platform == 'ple').one()
+            #    ref_config = {
+            #        'user_hrn': 'ple.upmc.slicebrowser',
+            #        'user_private_key': 'XXX' .encode('latin1')
+            #    }
+            #    ref_account = Account(user=user, platform=ref_platform, auth_type='managed', config=json.dumps(ref_config))
+            #    db.add(ref_account)
+            #
+            #if platform.platform != 'ple':
+            #    account = Account(user=user, platform=platform, auth_type='reference', config='{"reference_platform": "ple"}')
+            #    db.add(account)
+            #db.commit()
         else:
-            # trigger legacy compat code if needed 
-            # the name has changed from just <leaf>.pkey to <hrn>.pkey
-            if not os.path.isfile(bootstrap.private_key_filename()):
-                self.logger.info ("private key not found, trying legacy name")
-                try:
-                    legacy_private_key = os.path.join (self.gateway_config['sfi_dir'], "%s.pkey"%get_leaf(self.gateway_config['user']))
-                    self.logger.debug("legacy_private_key=%s"%legacy_private_key)
-                    bootstrap.init_private_key_if_missing (legacy_private_key)
-                    self.logger.info("Copied private key from legacy location %s"%legacy_private_key)
-                except:
-                    self.logger.log_exc("Can't find private key ")
-                    sys.exit(1)
-            
-        # make it bootstrap
-        bootstrap.bootstrap_my_gid()
-        # extract what's needed
-        self.private_key = bootstrap.private_key()
-        self.my_credential_string = bootstrap.my_credential_string ()
-        self.my_gid = bootstrap.my_gid ()
-        self.bootstrap = bootstrap
-        self.bootstrap_done = True
+            account = accounts[0]
 
+        config_new = None
+        if account.auth_type == 'reference':
+            ref_platform = json.loads(account.config)['reference_platform']
+            ref_platform = db.query(Platform).filter(Platform.platform == ref_platform).one()
+            ref_accounts = [a for a in user.accounts if a.platform == ref_platform]
+            if not ref_accounts:
+                raise Exception, "reference account does not exist"
+            ref_account = ref_accounts[0]
+            config_new = json.dumps(SFA.manage(ADMIN_USER, ref_platform, json.loads(ref_account.config)))
+            if ref_account.config != config_new:
+                ref_account.config = config_new
+                db.add(ref_account)
+                db.commit()
+        else:
+            print account.config
+            config_new = json.dumps(SFA.manage(ADMIN_USER, platform, json.loads(account.config)))
+            if account.config != config_new:
+                account.config = config_new
+                db.add(account)
+                db.commit()
 
+        # Initialize manager proxies
 
-    #
-    # Management of the servers
-    # 
+        reg_url = self.config['registry']
+        sm_url = self.config['sm']
+        if not sm_url.startswith('http://') or sm_url.startswith('https://'):
+            sm_url = 'http://' + sm_url
 
-    def registry (self):
-        if not self.bootstrap_done:
-            self.bootstrap()
-        # cache the result
-        if not hasattr (self, 'registry_proxy'):
-            self.logger.info("Contacting Registry at: %s"%self.reg_url)
-            self.registry_proxy = SfaServerProxy(self.reg_url,
-                    self.gateway_config['user_private_key'], self.my_gid, 
-                    timeout=self.gateway_config['timeout'],
-                    verbose=self.gateway_config['debug'])  
-        return self.registry_proxy
+        config = json.loads(config_new)
+        pkey_fn = tempfile.NamedTemporaryFile(delete=False)
+        pkey_fn.write(config['user_private_key'].encode('latin1'))
+        cert_fn = tempfile.NamedTemporaryFile(delete=False)
+        cert_fn.write(config['gid']) 
+        pkey_fn.close()
+        cert_fn.close()
 
-    def sliceapi (self):
-        if not self.bootstrap_done:
-            self.bootstrap()
-        # cache the result
-        if not hasattr (self, 'sliceapi_proxy'):
-            # if the command exposes the --component option, figure it's hostname and connect at CM_PORT
-            #if hasattr(self.command_options,'component') and self.command_options.component:
-            #    # resolve the hrn at the registry
-            #    node_hrn = self.command_options.component
-            #    records = self.registry().Resolve(node_hrn, self.my_credential_string)
-            #    records = filter_records('node', records)
-            #    if not records:
-            #        self.logger.warning("No such component:%r"% opts.component)
-            #    record = records[0]
-            #    cm_url = "http://%s:%d/"%(record['hostname'],CM_PORT)
-            #    self.sliceapi_proxy=SfaServerProxy(cm_url, self.private_key, self.my_gid)
-            #else:
-            # otherwise use what was provided as --sliceapi, or SFI_SM in the config
-            if not self.sm_url.startswith('http://') or self.sm_url.startswith('https://'):
-                self.sm_url = 'http://' + self.sm_url
-            self.logger.info("Contacting Slice Manager at: %s"%self.sm_url)
-            self.sliceapi_proxy = SfaServerProxy(self.sm_url,
-                    self.gateway_config['user_private_key'], self.my_gid,
-                    timeout=self.gateway_config['timeout'],
-                    verbose=self.gateway_config['debug'])  
-        return self.sliceapi_proxy
+        self.registry = SfaServerProxy(reg_url, pkey_fn.name, cert_fn.name,
+                timeout=self.config['timeout'],
+                verbose=self.config['debug'])  
+        self.sliceapi = SfaServerProxy(sm_url, pkey_fn.name, cert_fn.name,
+                timeout=self.config['timeout'],
+                verbose=self.config['debug'])  
+
+        print "leaves temp files"
+        #os.unlink(pkey_fn.name)
+        #os.unlink(cert_fn.name)
+
 
     def get_cached_server_version(self, server):
         # check local cache first
-        cache = None
         version = None 
-        cache_file = os.path.join(self.gateway_config['sfi_dir'],'sfi_cache.dat')
         cache_key = server.url + "-version"
-        try:
-            cache = Cache(cache_file)
-        except IOError:
-            cache = Cache()
-            self.logger.info("Local cache not found at: %s" % cache_file)
+        cache = Cache()
 
         if cache:
             version = cache.get(cache_key)
@@ -307,8 +310,7 @@ class SFA(FromNode):
             version= ReturnValue.get_value(result)
             # cache version for 20 minutes
             cache.add(cache_key, version, ttl= 60*20)
-            self.logger.info("Updating cache file %s" % cache_file)
-            cache.save_to_file(cache_file)
+            self.logger.info("Updating cache")
 
         return version   
         
@@ -364,7 +366,7 @@ class SFA(FromNode):
     def sfa_get_slices_hrn(self, cred):
         api_options = {}
         api_options['call_id']=unique_call_id()
-        results = self.sliceapi().ListSlices(cred, *self.ois(self.sliceapi(),api_options)) # user cred
+        results = self.sliceapi.ListSlices(cred, *self.ois(self.sliceapi,api_options)) # user cred
         results = results['value']
         #{'output': '', 'geni_api': 2, 'code': {'am_type': 'sfa', 'geni_code': 0, 'am_code': None}, 'value': [
         return [urn_to_hrn(r)[0] for r in results]
@@ -372,7 +374,7 @@ class SFA(FromNode):
     def sfa_list_records(self, cred, hrns, record_type=None):
         if record_type not in [None, 'user', 'slice', 'authority', 'node']:
             raise PLCInvalidArgument('Wrong filter in sfa_list')
-        records = self.registry().List(hrns, cred)
+        records = self.registry.List(hrns, cred)
         if record_type:
             records = filter_records(record_type, records)
         return records
@@ -382,7 +384,7 @@ class SFA(FromNode):
             raise PLCInvalidArgument('Wrong filter in sfa_list')
 
         try:
-            records = self.registry().Resolve(xrns, cred, {'details': True})
+            records = self.registry.Resolve(xrns, cred, {'details': True})
         except Exception, why:
             print "[Sfa::sfa_resolve_records] ERROR : %s" % why
             return []
@@ -418,7 +420,7 @@ class SFA(FromNode):
 
         if hrn:
             api_options['geni_slice_urn'] = hrn_to_urn(hrn, 'slice')
-        result = self.sliceapi().ListResources(cred, api_options)
+        result = self.sliceapi.ListResources(cred, api_options)
         return ReturnValue.get_value(result)
 
     ############################################################################ 
@@ -439,9 +441,9 @@ class SFA(FromNode):
             version=version_core()
         else:
             if type == 'registry':
-                server = self.registry()
+                server = self.registry
             else:
-                server = self.sliceapi()
+                server = self.sliceapi
             result = server.GetVersion()
             version = ReturnValue.get_value(result)
         return version
@@ -606,17 +608,6 @@ class SFA(FromNode):
         else:
             raise Exception, "Invalid credential type: %s" % type
 
-    def get_slice(self, filters = None, params = None, fields = None):
-        slices = self._get_slices(filters, Metadata.expand_output_fields('slices', fields))
-        #if len(slices) > 20:
-        #    print "W: Hardcoded filter for my slices"
-        #    out = []
-        #    for s in slices:
-        #        if s['slice_hrn'].startswith('ple.upmc.'):
-        #            out.append(s)
-        #    slices = out
-        return slices
-
     def update_slice(self, filters, params, fields):
         if 'resource' not in params:
             raise Exception, "Update failed: nothing to update"
@@ -653,7 +644,7 @@ class SFA(FromNode):
         # xxx Thierry 2012 sept. 21
         # contrary to what I was first thinking, calling Resolve with details=False does not yet work properly here
         # I am turning details=True on again on a - hopefully - temporary basis, just to get this whole thing to work again
-        slice_records = self.registry().Resolve(slice_urn, [user_cred])
+        slice_records = self.registry.Resolve(slice_urn, [user_cred])
         
         # Due to a bug in the SFA implementation when Resolve requests are
         # forwarded, records are not filtered (Resolve received a list of xrns,
@@ -662,13 +653,13 @@ class SFA(FromNode):
         print "W: SFAWrap bug workaround"
         slice_records = Filter.from_dict({'type': 'slice'}).filter(slice_records)
 
-        # slice_records = self.registry().Resolve(slice_urn, [self.my_credential_string], {'details':True})
+        # slice_records = self.registry.Resolve(slice_urn, [self.my_credential_string], {'details':True})
         if slice_records and 'reg-researchers' in slice_records[0] and slice_records[0]['reg-researchers']:
             slice_record = slice_records[0]
             user_hrns = slice_record['reg-researchers']
             user_urns = [hrn_to_urn(hrn, 'user') for hrn in user_hrns]
-            user_records = self.registry().Resolve(user_urns, [user_cred])
-            server_version = self.get_cached_server_version(self.registry())
+            user_records = self.registry.Resolve(user_urns, [user_cred])
+            server_version = self.get_cached_server_version(self.registry)
             if 'sfa' not in server_version:
                 print "W: converting to pg rspec"
                 users = pg_users_arg(user_records)
@@ -685,7 +676,7 @@ class SFA(FromNode):
         api_options = {}
         api_options ['append'] = False
         api_options ['call_id'] = unique_call_id()
-        result = self.sliceapi().CreateSliver(slice_urn, [slice_cred], rspec, users, *self.ois(self.sliceapi(), api_options))
+        result = self.sliceapi.CreateSliver(slice_urn, [slice_cred], rspec, users, *self.ois(self.sliceapi, api_options))
         print "CreateSliver RSPEC", result
         manifest = ReturnValue.get_value(result)
 
@@ -747,7 +738,7 @@ class SFA(FromNode):
 
         # Are we creating the slice on the right authority
         slice_auth = get_authority(slice_hrn)
-        server_version = self.get_cached_server_version(self.registry())
+        server_version = self.get_cached_server_version(self.registry)
         server_auth = server_version['hrn']
         if not slice_auth.startswith('%s.' % server_auth):
             print "I: Not requesting slice creation on %s for %s" % (server_auth, slice_hrn)
@@ -757,7 +748,7 @@ class SFA(FromNode):
         cred = self._get_cred('authority')
         record_dict = self.create_record_from_params('slice', params)
         try:
-            slice_gid = self.registry().Register(record_dict, cred)
+            slice_gid = self.registry.Register(record_dict, cred)
         except Exception, e:
             # sfa.client.sfaserverproxy.ServerException: : Register: Existing record: ple.upmc.myslicedemo2, 
             print "E: %s" % e
@@ -805,9 +796,11 @@ class SFA(FromNode):
 
         return slice_list        
 
+    def get_user(self, filters = None, params = None, fields = None):
+        pass 
 
 
-    def _get_slices(self, filters = None, fields = None):
+    def get_slice(self, filters = None, params = None, fields = None):
 
         #
         # DEMO hook
@@ -828,7 +821,6 @@ class SFA(FromNode):
                     has_resources = True
                 if of == 'user' or of.startswith('user.'):
                     has_users = True
-            #if subfields: # XXX Disabled until we have default subqueries
             if has_resources:
                 rsrc_leases = self.get_resource_lease({'slice_hrn': 'ple.upmc.agent'}, subfields)
                 if not rsrc_leases:
@@ -843,17 +835,6 @@ class SFA(FromNode):
         # END: DEMO
         #
 
-        if isinstance(filters, list): # tuple set
-            pass
-            # list of hrn !
-            # list of filter: possible ?
-        elif isinstance(filters, StringTypes):
-            pass
-            # hrn : infer type ?
-        else:
-            if filters and not isinstance(filters, Filter):
-                raise Exception, "Unsupported input_filter type"
-        
         # A/ List slices hrn XXX operator on slice_hrn
         slice_list = self._get_slices_hrn(filters)
         if slice_list == []:
@@ -900,17 +881,22 @@ class SFA(FromNode):
         # Selection
 
         # Projection and renaming
+        print "SLICES BEFORE FILTERING:", slices
+        print "USERS OF SLICE[0] =", slices[0]['reg-researchers']
         filtered = project_select_and_rename_fields(slices, 'slice_hrn', filters, fields, self.map_slice_fields)
         # XXX generic function to manage subrequests
         
-        # - Get the list of subfields
+        # Manage subqueries
         has_resource = False
         has_lease = False
+        has_user = False
         for of in fields:
             if of == 'resource' or of.startswith('resource.'):
                 has_resource = True
             if of == 'lease' or of.startswith('lease.'):
                 has_lease = True
+            if of == 'user' or of.startswith('user.'):
+                has_user = True
 
         if has_resource or has_lease:
             # = what we have in RSpecs
@@ -926,11 +912,12 @@ class SFA(FromNode):
                 rsrc_leases = self.get_resource_lease({'slice_hrn': hrn}, subfields)
                 if not rsrc_leases:
                     print "W: Could not collect resource/leases for slice %s" % hrn
-                    #raise Exception, 'get_resources failed!'
                 if has_resource:
                     s['resource'] = rsrc_leases['resource']
                 if has_lease:
                     s['lease'] = rsrc_leases['lease'] 
+        if has_user:
+            pass # TODO how to get slice users
 
         # remove join fields
         if 'slice_hrn' not in fields:
@@ -939,17 +926,7 @@ class SFA(FromNode):
 
         return filtered
 
-    def get_users(self, input_filter = None, output_fields = None):
-        if not output_fields:
-            output_fields = ['user_hrn', 'user_nodes_sliver', 'user_nodes_all']
-        return self._get_users(input_filter, output_fields)
-
-    def get_user(self, input_filter = None, output_fields = None):
-        if not output_fields:
-            output_fields = ['user_hrn', 'user_first_name', 'user_last_name']
-        return self._get_users(input_filter, output_fields)
-
-    def _get_users(self, filters = None, fields = None):
+    def get_user(self, filters = None, params = None, fields = None):
 
         cred = self._get_cred('user')
 
@@ -966,7 +943,7 @@ class SFA(FromNode):
             # Get the list of user_hrn
             user_list = []
             for hrn in auths:
-                ul = self.registry().List(hrn, cred)
+                ul = self.registry.List(hrn, cred)
                 ul = filter_records('user', ul)
                 user_list.extend([r['hrn'] for r in ul])
 
@@ -989,7 +966,7 @@ class SFA(FromNode):
 
             if not user_list: return user_list
 
-            users = self.registry().Resolve(user_list, cred)
+            users = self.registry.Resolve(user_list, cred)
             users = filter_records('user', users)
             filtered = []
 
@@ -1060,7 +1037,7 @@ class SFA(FromNode):
             newtodo = []
             for hrn in todo:
                 try:
-                    records = self.registry().List(hrn, user_cred)
+                    records = self.registry.List(hrn, user_cred)
                 except Exception, why:
                     print "Exception during %s: %s" % (hrn, str(why))
                     continue
@@ -1109,7 +1086,7 @@ class SFA(FromNode):
 #        #if hasattr(opts, 'component') and opts.component:
 #        #    server = self.get_component_server_from_hrn(opts.component)
 #
-#        return self.sliceapi().SliverStatus(slice_urn, creds)
+#        return self.sliceapi.SliverStatus(slice_urn, creds)
 
 
     def get_resource(self, filters, params, fields):
@@ -1209,51 +1186,38 @@ class SFA(FromNode):
 # END SFA CODE
 ################################################################################
 
-    def __init__(self, router, platform, query, gateway_config, user_config, user):
+    def __init__(self, router, platform, query, config, user_config, user):
 #        FromNode.__init__(self, platform, query, config)
-        super(SFA, self).__init__(router, platform, query, gateway_config, user_config, user)
-
+        super(SFA, self).__init__(router, platform, query, config, user_config, user)
         # self.config has always ['caller']
-
         # Check the presence of mandatory fields, default others
         #if not 'hashrequest' in self.config:    
         #    self.config['hashrequest'] = False
         #if not 'protocol' in self.config:
         #    self.config['protocol'] = 'xmlrpc'
-        if not 'verbose' in self.gateway_config:
-            self.gateway_config['verbose'] = 0
-        if not 'auth' in self.gateway_config:
-            raise Exception, "Missing SFA::auth parameter in configuration."
-        if not 'user' in self.gateway_config:
+        if not 'verbose' in self.config:
+            self.config['verbose'] = 0
+        if not 'user' in self.config:
             raise Exception, "Missing SFA::user parameter in configuration."
-        if not 'sm' in self.gateway_config:
+        if not 'sm' in self.config:
             raise Exception, "Missing SFA::sm parameter in configuration."
-        if not 'debug' in self.gateway_config:
-            self.gateway_config['debug'] = False
-
-        # XXX this should be removed
-        if not 'sfi_dir' in self.gateway_config:
-            sfi_platform = self.user_config['reference_platform'] if 'reference_platform' in self.user_config else platform
-            self.gateway_config['sfi_dir'] = '/var/myslice/%s/' % sfi_platform
-
-        if not 'registry' in self.gateway_config:
+        if not 'debug' in self.config:
+            self.config['debug'] = False
+        if not 'registry' in self.config:
             raise Exception, "Missing SFA::registry parameter in configuration."
-        if not 'timeout' in self.gateway_config:
-            self.gateway_config['timeout'] = None
-        if not 'user_private_key' in self.gateway_config:
-            raise Exception, "Missing SFA::user_private_key parameter in configuration."
+        if not 'timeout' in self.config:
+            self.config['timeout'] = None
 
-        # XXX all this is redundant
         self.logger = sfi_logger
-        self.reg_url = self.gateway_config['registry']
-        self.sm_url = self.gateway_config['sm']
 
-        self.bootstrap_done = False
+        # Check user accounts & prepare managers proxy
+        #self.bootstrap()
 
     def __str__(self):
-        return "<SFAGateway %r: %s>" % (self.gateway_config['sm'], self.query)
+        return "<SFAGateway %r: %s>" % (self.config['sm'], self.query)
 
     def do_start(self):
+        self.bootstrap()
         q = self.query
         # Let's call the simplest query as possible to begin with
         # This should use twisted XMLRPC
@@ -1266,8 +1230,18 @@ class SFA(FromNode):
                 self.callback({'network_hrn': p.platform, 'network_name': p.platform_longname})
             self.callback(None)
             return
+
+        # DIRTY HACK to allow slices to span on non federated testbeds
+        #
+        # user account will not reference another platform, and will implicitly
+        # contain information about the slice to associate USERHRN_slice
+        if self.platform == 'senslab' and q.fact_table == 'slice' and q.filters.has_eq('slice_hrn'):
+            senslab_slice = '%s_slice' % config['user_hrn']
+            print "I: Using slice %s for senslab platform" % senslab_slice
+            q.filters.set_eq('slice_hrn', senslab_slice)
         
-        result = getattr(self, "%s_%s" % (q.action, q.fact_table))(q.filters, q.params, list(q.fields))
+        fields = Metadata.expand_output_fields(q.fact_table, list(q.fields))
+        result = getattr(self, "%s_%s" % (q.action, q.fact_table))(q.filters, q.params, fields)
         for r in result:
             self.callback(r)
         self.callback(None)
@@ -1303,14 +1277,16 @@ class SFA(FromNode):
             return {}
 
         if not 'user_private_key' in config:
-            print "I: Generating user private key"
+            print "I: SFA::manage: Generating user private key ofr user", user
             k = Keypair(create=True)
             config['user_public_key'] = k.get_pubkey_string()
             config['user_private_key'] = k.as_pem()
             new_key = True
 
         if new_key or not 'sscert' in config or not config['sscert']:
-            keypair = Keypair(string=config['user_private_key'])
+            print "I: Generating self-signed certificate for user", user
+            x = config['user_private_key'].encode('latin1')
+            keypair = Keypair(string=x)
             self_signed = Certificate(subject = config['user_hrn'])
             self_signed.set_pubkey(keypair)
             self_signed.set_issuer(keypair, subject=config['user_hrn'].encode('latin1'))
@@ -1318,20 +1294,18 @@ class SFA(FromNode):
             config['sscert'] = self_signed.save_to_string()
 
         if new_key or not 'user_credential' in config: # or expired
+            print "I: SFA::manage: Requesting user credential for user", user
             # Create temporary files for key and certificate in order to use existing code based on httplib
             pkey_fn = tempfile.NamedTemporaryFile(delete=False)
-            pkey_fn.write(config['user_private_key'])
+            pkey_fn.write(config['user_private_key'].encode('latin1'))
             cert_fn = tempfile.NamedTemporaryFile(delete=False)
             cert_fn.write(config['sscert'])
             pkey_fn.close()
             cert_fn.close()
 
             # We need to connect through a HTTPS connection using the generated private key
-            registry_url = json.loads(platform.config)['registry_url']
+            registry_url = json.loads(platform.config)['registry']
             registry_proxy = SfaServerProxy (registry_url, pkey_fn.name, cert_fn.name)
-
-            os.unlink(pkey_fn.name)
-            os.unlink(cert_fn.name)
 
             try:
                 credential_string = registry_proxy.GetSelfCredential (config['sscert'], config['user_hrn'], 'user')
@@ -1342,48 +1316,57 @@ class SFA(FromNode):
 
             config['user_credential'] = credential_string
 
+            os.unlink(pkey_fn.name)
+            os.unlink(cert_fn.name)
+
         if new_key or not 'gid' in config:
+            print "I: Generating GID for user", user
             # Create temporary files for key and certificate in order to use existing code based on httplib
             pkey_fn = tempfile.NamedTemporaryFile(delete=False)
-            pkey_fn.write(config['user_private_key'])
+            pkey_fn.write(config['user_private_key'].encode('latin1'))
             cert_fn = tempfile.NamedTemporaryFile(delete=False)
             cert_fn.write(config['sscert'])
             pkey_fn.close()
             cert_fn.close()
 
             # We need to connect through a HTTPS connection using the generated private key
-            registry_url = json.loads(platform.config)['registry_url']
+            registry_url = json.loads(platform.config)['registry']
             registry_proxy = SfaServerProxy(registry_url, pkey_fn.name, cert_fn.name)
+
+            records = registry_proxy.Resolve(config['user_hrn'].encode('latin1'), config['user_credential'])
+            records = [record for record in records if record['type']=='user']
+            if not records:
+                raise RecordNotFound, "hrn %s (%s) unknown to registry %s"%(config['user_hrn'],'user',self.registry_url)
+            record = records[0]
+            config['gid'] = record['gid']
 
             os.unlink(pkey_fn.name)
             os.unlink(cert_fn.name)
 
-            records = registry_proxy.Resolve(hrn, config['user_credential'])
-            records = [record for record in records if record['type']=='user']
-            if not records:
-                raise RecordNotFound, "hrn %s (%s) unknown to registry %s"%(hrn,type,self.registry_url)
-
-            record = records[0]
-            config['gid'] = record['gid']
-
         if new_key or not 'authority_credential' in config:
+            print "I: Generating authority credential for user", user
             # Same code for slice credentials...
 
             # Create temporary files for key and certificate in order to use existing code based on httplib
             pkey_fn = tempfile.NamedTemporaryFile(delete=False)
-            pkey_fn.write(config['user_private_key'])
+            pkey_fn.write(config['user_private_key'].encode('latin1'))
             cert_fn = tempfile.NamedTemporaryFile(delete=False)
             cert_fn.write(config['gid']) # We always use the GID
             pkey_fn.close()
             cert_fn.close()
 
             # We need to connect through a HTTPS connection using the generated private key
-            registry_url = json.loads(platform.config)['registry_url']
+            registry_url = json.loads(platform.config)['registry']
             registry_proxy = SfaServerProxy(registry_url, pkey_fn.name, cert_fn.name)
 
-            credential_string=registry_proxy.GetCredential (config['user_credential'], hrn, type)
+            try:
+                credential_string=registry_proxy.GetCredential (config['user_credential'], config['user_hrn'].encode('latin1'), 'authority')
+                config['authority_credential'] = credential_string
+            except:
+                pass # No authority credential
 
-            config['authority_credential'] = credential_string
+            os.unlink(pkey_fn.name)
+            os.unlink(cert_fn.name)
 
 
         if new_key or not 'slice_credentials' in config:
@@ -1391,13 +1374,3 @@ class SFA(FromNode):
             config['slice_credentials'] = {}
 
         return config
-
-#def sfa_get(api, caller, method, ts, input_filter = None, output_fields = None):
-#    sfa = Sfa(api, caller)
-#    # XXX select project and rename (networks, slices, users)
-#    return getattr(sfa, "get_%s" % method)(input_filter, output_fields)
-#
-#def sfa_update(api, caller, method, ts, input_filter = None, output_fields = None):
-#    sfa = Sfa(api, caller)
-#
-#    return getattr(sfa, "update_%s" % method)(input_filter, output_fields)

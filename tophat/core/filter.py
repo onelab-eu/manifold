@@ -205,6 +205,16 @@ class Filter(set):
     def get_eq(self, key):
         return self.get_op(key, eq)
 
+    def set_op(self, key, op, value):
+        for x in self:
+            if x.key == key and x.op == op:
+                x.value = value
+                return
+        raise KeyError, key
+
+    def set_eq(self, key, value):
+        return self.set_op(key, eq, value)
+
     def get_predicates(self, key):
         # XXX Would deserve returning a filter (cf usage in SFA gateway)
         ret = []

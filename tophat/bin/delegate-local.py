@@ -7,8 +7,7 @@ REG_URL = 'http://www.planet-lab.eu:12345'
 INTERFACE_HRN = 'ple'
 MYSLICE_HRN='ple.upmc.slicebrowser'
 #MYSLICE_API = "http://localhost:7080"
-#MYSLICE_API = "http://demo.myslice.info:7080"
-MYSLICE_API = "http://debian01.pl.sophia.inria.fr:7080"
+MYSLICE_API = "http://demo.myslice.info:7080"
 
 import sys
 import os.path
@@ -21,6 +20,10 @@ from sfa.trust.gid import GID # this should be done into bootstrap
 from sfa.client.sfaclientlib import SfaClientBootstrap
 from sfa.planetlab.plxrn import hostname_to_hrn, slicename_to_hrn, email_to_hrn, hrn_to_pl_slicename
 from sfa.util.xrn import get_authority
+
+from tophat.core.router import THLocalRouter
+from tophat.core.router import Query
+
 
 class SfaHelper:
 
@@ -190,17 +193,13 @@ def main():
 
     creds = get_credentials(pl_username, private_key, sfi_dir, password)
 
-    # Uploading credentials to MySlice
     auth = {'AuthMethod': 'password', 'Username': api_username, 'AuthString': api_password}
-    #print "W: delegation to demo user"
-    #auth = {'AuthMethod': 'password', 'Username': 'demo', 'password': 'demo'}
 
-    try:
-        MySlice = xmlrpclib.Server(MYSLICE_API, allow_none = 1)
+    # Instantiate a TopHat router
+    with THLocalRouter() as router:
+        user = router.authenticate(auth)
         for c in creds:
-            MySlice.AddCredential(auth, c, 'ple')
-    except Exception, e:
-        print "E: Error uploading credential: %s" % e
+            router.add_credential(c, 'ple', user)
 
 if __name__ == '__main__':
     main()

@@ -20,6 +20,5 @@ class Platform(Base):
     last = Column(Integer, doc="Last timestamp, in seconds since UNIX epoch")
 
     gateway_type = Column(String, doc="Type of the gateway to use to connect to this platform")
-    gateway_conf = Column(String, doc="Parameters of the gateway")
     auth_type = Column(Enum('none', 'default', 'user', 'reference', 'managed'), default='default')
     config = Column(String, doc="Default configuration (serialized in JSON)")
