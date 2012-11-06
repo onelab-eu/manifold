@@ -608,17 +608,6 @@ class SFA(FromNode):
         else:
             raise Exception, "Invalid credential type: %s" % type
 
-    def get_slice(self, filters = None, params = None, fields = None):
-        slices = self._get_slices(filters, Metadata.expand_output_fields('slices', fields))
-        #if len(slices) > 20:
-        #    print "W: Hardcoded filter for my slices"
-        #    out = []
-        #    for s in slices:
-        #        if s['slice_hrn'].startswith('ple.upmc.'):
-        #            out.append(s)
-        #    slices = out
-        return slices
-
     def update_slice(self, filters, params, fields):
         if 'resource' not in params:
             raise Exception, "Update failed: nothing to update"
@@ -807,9 +796,11 @@ class SFA(FromNode):
 
         return slice_list        
 
+    def get_user(self, filters = None, params = None, fields = None):
+        pass 
 
 
-    def _get_slices(self, filters = None, fields = None):
+    def get_slice(self, filters = None, params = None, fields = None):
 
         #
         # DEMO hook
@@ -830,7 +821,6 @@ class SFA(FromNode):
                     has_resources = True
                 if of == 'user' or of.startswith('user.'):
                     has_users = True
-            #if subfields: # XXX Disabled until we have default subqueries
             if has_resources:
                 rsrc_leases = self.get_resource_lease({'slice_hrn': 'ple.upmc.agent'}, subfields)
                 if not rsrc_leases:
@@ -845,17 +835,6 @@ class SFA(FromNode):
         # END: DEMO
         #
 
-        if isinstance(filters, list): # tuple set
-            pass
-            # list of hrn !
-            # list of filter: possible ?
-        elif isinstance(filters, StringTypes):
-            pass
-            # hrn : infer type ?
-        else:
-            if filters and not isinstance(filters, Filter):
-                raise Exception, "Unsupported input_filter type"
-        
         # A/ List slices hrn XXX operator on slice_hrn
         slice_list = self._get_slices_hrn(filters)
         if slice_list == []:
@@ -902,17 +881,22 @@ class SFA(FromNode):
         # Selection
 
         # Projection and renaming
+        print "SLICES BEFORE FILTERING:", slices
+        print "USERS OF SLICE[0] =", slices[0]['reg-researchers']
         filtered = project_select_and_rename_fields(slices, 'slice_hrn', filters, fields, self.map_slice_fields)
         # XXX generic function to manage subrequests
         
-        # - Get the list of subfields
+        # Manage subqueries
         has_resource = False
         has_lease = False
+        has_user = False
         for of in fields:
             if of == 'resource' or of.startswith('resource.'):
                 has_resource = True
             if of == 'lease' or of.startswith('lease.'):
                 has_lease = True
+            if of == 'user' or of.startswith('user.'):
+                has_user = True
 
         if has_resource or has_lease:
             # = what we have in RSpecs
@@ -928,11 +912,12 @@ class SFA(FromNode):
                 rsrc_leases = self.get_resource_lease({'slice_hrn': hrn}, subfields)
                 if not rsrc_leases:
                     print "W: Could not collect resource/leases for slice %s" % hrn
-                    #raise Exception, 'get_resources failed!'
                 if has_resource:
                     s['resource'] = rsrc_leases['resource']
                 if has_lease:
                     s['lease'] = rsrc_leases['lease'] 
+        if has_user:
+            pass # TODO how to get slice users
 
         # remove join fields
         if 'slice_hrn' not in fields:
@@ -941,17 +926,7 @@ class SFA(FromNode):
 
         return filtered
 
-    def get_users(self, input_filter = None, output_fields = None):
-        if not output_fields:
-            output_fields = ['user_hrn', 'user_nodes_sliver', 'user_nodes_all']
-        return self._get_users(input_filter, output_fields)
-
-    def get_user(self, input_filter = None, output_fields = None):
-        if not output_fields:
-            output_fields = ['user_hrn', 'user_first_name', 'user_last_name']
-        return self._get_users(input_filter, output_fields)
-
-    def _get_users(self, filters = None, fields = None):
+    def get_user(self, filters = None, params = None, fields = None):
 
         cred = self._get_cred('user')
 
@@ -1265,7 +1240,8 @@ class SFA(FromNode):
             print "I: Using slice %s for senslab platform" % senslab_slice
             q.filters.set_eq('slice_hrn', senslab_slice)
         
-        result = getattr(self, "%s_%s" % (q.action, q.fact_table))(q.filters, q.params, list(q.fields))
+        fields = Metadata.expand_output_fields(q.fact_table, list(q.fields))
+        result = getattr(self, "%s_%s" % (q.action, q.fact_table))(q.filters, q.params, fields)
         for r in result:
             self.callback(r)
         self.callback(None)
