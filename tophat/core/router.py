@@ -111,13 +111,13 @@ class THLocalRouter(LocalRouter):
         self.cache = {}
 
     def __enter__(self):
-        print "I: Starting THLocalRouter" 
+        #print "I: Starting THLocalRouter" 
         self.reactor.startReactor()
         return self
 
     def __exit__(self, type, value, traceback):
         self.reactor.stopReactor()
-        print "I: Reactor thread stopped. Waiting for thread to terminate..."
+        #print "I: Reactor thread stopped. Waiting for thread to terminate..."
         self.reactor.join()
 
     def import_file(self, directory, platform, gateway_type):
@@ -128,7 +128,7 @@ class THLocalRouter(LocalRouter):
                 raise Exception, "Metadata file not found for platform='%s' and gateway_type='%s'" % (platform, gateway_type)
 
         routes = []
-        print "I: Processing %s" % f 
+        #print "I: Processing %s" % f 
         tree = ElementTree.parse(f)
         root = tree.getroot()
         md = XmlDictConfig(root)
