@@ -22,9 +22,8 @@ COVERAGE = $(or $(shell which coverage), $(shell which python-coverage), \
 	   coverage)
 
 # Added for convenience during development
-debug: clean all
-	#install
-	@echo "Makefile: Skipping target install (see symbolic link in /usr/local)"
+debug: clean all install
+	#MANDO: @echo "Makefile: Skipping target install (see symbolic link in /usr/local)"
 
 all:
 	./setup.py build

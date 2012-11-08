@@ -218,10 +218,11 @@ class SFA(FromNode):
         try:
             user = db.query(User).filter(User.email == ADMIN_USER).one()
         except Exception, e:
+            raise Exception, 'Missing admin user.'
             # No admin user account, let's create one
-            user = User(email=ADMIN_USER)
-            db.add(user)
-            db.commit()
+            #user = User(email=ADMIN_USER)
+            #db.add(user)
+            #db.commit()
 
         # Get platform
         platform = db.query(Platform).filter(Platform.platform == self.platform).one()
@@ -262,7 +263,6 @@ class SFA(FromNode):
                 db.add(ref_account)
                 db.commit()
         else:
-            print account.config
             config_new = json.dumps(SFA.manage(ADMIN_USER, platform, json.loads(account.config)))
             if account.config != config_new:
                 account.config = config_new
@@ -383,11 +383,11 @@ class SFA(FromNode):
         if record_type not in [None, 'user', 'slice', 'authority', 'node']:
             raise PLCInvalidArgument('Wrong filter in sfa_list')
 
-        try:
-            records = self.registry.Resolve(xrns, cred, {'details': True})
-        except Exception, why:
-            print "[Sfa::sfa_resolve_records] ERROR : %s" % why
-            return []
+        #try:
+        records = self.registry.Resolve(xrns, cred, {'details': True})
+        #except Exception, why:
+        #    print "[Sfa::sfa_resolve_records] ERROR : %s" % why
+        #    return []
 
         if record_type:
             records = filter_records(record_type, records)
@@ -881,8 +881,8 @@ class SFA(FromNode):
         # Selection
 
         # Projection and renaming
-        print "SLICES BEFORE FILTERING:", slices
-        print "USERS OF SLICE[0] =", slices[0]['reg-researchers']
+        #print "SLICES BEFORE FILTERING:", slices
+        #print "USERS OF SLICE[0] =", slices[0]['reg-researchers']
         filtered = project_select_and_rename_fields(slices, 'slice_hrn', filters, fields, self.map_slice_fields)
         # XXX generic function to manage subrequests
         
@@ -1234,7 +1234,9 @@ class SFA(FromNode):
         # user account will not reference another platform, and will implicitly
         # contain information about the slice to associate USERHRN_slice
         if self.platform == 'senslab' and q.fact_table == 'slice' and q.filters.has_eq('slice_hrn'):
-            senslab_slice = '%s_slice' % config['user_hrn']
+            if not self.user_config or not 'user_hrn' in self.user_config:
+                raise Exception, "Missing user configuration"
+            senslab_slice = '%s_slice' % self.user_config['user_hrn']
             print "I: Using slice %s for senslab platform" % senslab_slice
             q.filters.set_eq('slice_hrn', senslab_slice)
         

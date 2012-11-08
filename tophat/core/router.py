@@ -22,12 +22,125 @@ from tophat.util.dbnorm import DBNorm
 from tophat.util.dbgraph import DBGraph
 import json
 import time
+import re
 
 from types import StringTypes
 from sfa.trust.credential import Credential
 
 XML_DIRECTORY = '/usr/share/myslice/metadata/'
 CACHE_LIFETIME = 1800
+
+# Parsing .h
+PATTERN_OPT_SPACE   = "\s*"
+PATTERN_SPACE       = "\s+"
+PATTERN_COMMENT     = "(((///?.*)|(/\*(\*<)?.*\*/))*)"
+PATTERN_BEGIN       = ''.join(["^", PATTERN_OPT_SPACE])
+PATTERN_END         = ''.join([PATTERN_OPT_SPACE, PATTERN_COMMENT, "$"])
+PATTERN_SYMBOL      = "([0-9a-zA-Z_]+)"
+PATTERN_CONST       = "(const)?"
+PATTERN_CLASS       = "(onjoin|class)"
+PATTERN_CLASS_BEGIN = PATTERN_SPACE.join([PATTERN_CLASS, PATTERN_SYMBOL, "{"])
+PATTERN_FIELD       = PATTERN_SPACE.join([PATTERN_CONST, PATTERN_SYMBOL, PATTERN_OPT_SPACE.join([PATTERN_SYMBOL, ";"])])
+PATTERN_KEY         = PATTERN_OPT_SPACE.join(["KEY\((", PATTERN_SYMBOL, "(,", PATTERN_SYMBOL, ")*)\)", ";"])
+PATTERN_CLASS_END   = PATTERN_OPT_SPACE.join(["}", ";"])
+
+REGEXP_EMPTY_LINE   = re.compile(''.join([PATTERN_BEGIN, PATTERN_COMMENT,     PATTERN_END]))
+REGEXP_CLASS_BEGIN  = re.compile(''.join([PATTERN_BEGIN, PATTERN_CLASS_BEGIN, PATTERN_END]))
+REGEXP_CLASS_FIELD  = re.compile(''.join([PATTERN_BEGIN, PATTERN_FIELD,       PATTERN_END]))
+REGEXP_CLASS_KEY    = re.compile(''.join([PATTERN_BEGIN, PATTERN_KEY,         PATTERN_END]))
+REGEXP_CLASS_END    = re.compile(''.join([PATTERN_BEGIN, PATTERN_CLASS_END,   PATTERN_END]))
+
+
+class MetadataField:
+    """
+    \brief MetadataField stores meta-information related to a field announced
+        to the router
+    """
+    def __init__(self, qualifier, type, field_name, description = None):
+        """
+        \brief Constructor
+        \param qualifier A value among None and "const"
+        \param type A string describing the type of the field. It might be a
+            custom type or a value stored in MetadataClass BASE_TYPES .
+        \param field_name The name of the field
+        \param description The field description
+        """
+        self.qualifier = qualifier
+        self.type = type
+        self.field_name = field_name
+        self.description = description 
+
+    def __repr__(self):
+        """
+        \return the string (%r) corresponding to this MetadataField 
+        """
+        if self.description:
+            return "\n\tField(%r %r %r) // %r" % (self.qualifier, self.type, self.field_name, self.description)
+        return ""
+
+class MetadataClass:
+    """
+    \brief MetadataClass stores meta-information related to a class/table announced
+        to the router
+    """
+    BASE_TYPES = ['bool', 'int', 'unsigned', 'double', 'text', 'timestamp', 'interval', 'inet']
+
+    def __init__(self, qualifier, class_name):
+        """
+        \brief Constructor
+        \param qualifier A value among None and "onjoin"
+        \param class_name The name of the class
+        \param keys An array containing a set of key.
+            A key is made of one or more field names.
+        \param fields An array containing the set of MetadataField related to this MetadataClass
+        """
+        self.qualifier  = qualifier
+        self.class_name = class_name
+        self.keys       = [] 
+        self.fields     = []
+
+    def get_invalid_keys(self):
+        """
+        \return The keys that involving one or more field not present in the table
+        """
+        invalid_keys = []
+        for key in self.keys:
+            key_found = True
+            for key_elt in key:
+                key_elt_found = False 
+                for field in self.fields:
+                    if key_elt == field.field_name: 
+                        key_elt_found = True 
+                        break
+                if key_elt_found == False:
+                    key_found = False
+                    break
+            if key_found == False:
+                invalid_keys.append(key)
+                break
+        return invalid_keys
+
+    def get_invalid_types(self, valid_types):
+        """
+        \brief Check whether types involved in the table declaration
+            are resolved.
+        \param valid_tables A list of the resolved types
+        \return Types not present in the table
+        """
+        invalid_types = []
+        for field in self.fields:
+            cur_type = field.type
+            if cur_type not in valid_types and cur_type not in MetadataClass.BASE_TYPES: 
+                print ">> %r: adding invalid type %r (valid_types = %r)" % (self.class_name, cur_type, valid_types)
+                invalid_types.append(cur_type)
+        return invalid_types
+
+    def __repr__(self):
+        """
+        \return The string representation of MetadataClass
+        """
+        return "Class(q = %r, n = %r, k = %r)\n" % (self.qualifier, self.class_name, self.keys)
+
 
 class Callback:
     def __init__(self, deferred=None, event=None, router=None, cache_id=None):
@@ -120,7 +233,102 @@ class THLocalRouter(LocalRouter):
         #print "I: Reactor thread stopped. Waiting for thread to terminate..."
         self.reactor.join()
 
-    def import_file(self, directory, platform, gateway_type):
+    def import_file_h(self, directory, platform, gateway_type):
+        """
+        \brief Import a .h file (see tophat/metadata/*.h)
+        \param directory The directory storing the .h files
+            Example: router.conf.STATIC_ROUTES_FILE = "/usr/share/myslice/metadata/"
+        \param platform The name of the platform we are configuring
+            Examples: "ple", "senslab", "tophat", "omf", ...
+        \param gateway_types The type of the gateway
+            Examples: "SFA", "XMLRPC", "MaxMind"
+            See:
+                sqlite3 /var/myslice/db.sqlite
+                > select gateway_type from platform;
+        """
+        filename = os.path.join(directory, "%s.h" % gateway_type)
+        if not os.path.exists(filename):
+            filename = os.path.join(directory, "%s-%s.h" % (gateway_type, platform))
+            if not os.path.exists(filename):
+                raise Exception, "Metadata file not found for platform = %r and gateway_type = %r" % (platform, gateway_type)
+
+        routes = []
+        print "I: Processing %s" % filename
+        fp = open(filename, "r")
+        lines  = fp.readlines()
+        fp.close()
+
+        cur_class_name = None
+        classes = {}
+        no_line = -1
+        for line in lines:
+            line = line.rstrip("\r\n")
+            is_valid = True
+            no_line += 1
+            if REGEXP_EMPTY_LINE.match(line):
+                continue
+            if not cur_class_name:
+                # class MyClass {
+                m = REGEXP_CLASS_BEGIN.match(line)
+                if m:
+                    qualifier      = m.group(1)
+                    cur_class_name = m.group(2)
+                    classes[cur_class_name] = MetadataClass(qualifier, cur_class_name)
+                    continue
+
+                is_valid = False
+                print "In '%s', line %r: class declaration expected: [%r]"
+            else:
+                #    const MyType my_field;
+                m = REGEXP_CLASS_FIELD.match(line)
+                if m:
+                    classes[cur_class_name].fields.append(MetadataField(
+                        qualifier   = m.group(1),
+                        type        = m.group(2),
+                        field_name  = m.group(3),
+                        description = m.group(4).strip("/*<")
+                    ))
+                    continue
+
+                #    KEY(my_field1, my_field2);
+                m = REGEXP_CLASS_KEY.match(line)
+                if m:
+                    key = m.group(1).split(",")
+                    key = [key_elt.strip() for key_elt in key]
+                    if key not in classes[cur_class_name].keys:
+                        classes[cur_class_name].keys.append(key)
+                    continue
+
+                # };
+                if REGEXP_CLASS_END.match(line):
+                    cur_class_name = None
+                    continue
+
+                is_valid = False
+                print "In '%s', line %r: invalid line: [%r]" % (filename, no_line, line)
+            if is_valid == False:
+                raise ValueError("Invalid input file %s, line %r: [%r]" % (filename, no_line, line))
+
+        # Check table consistency
+        for cur_class_name, cur_class in classes.items():
+            invalid_keys = cur_class.get_invalid_keys()
+            if invalid_keys:
+                raise ValueError("In %s: in class %r: key(s) not found: %r" % (filename, cur_class_name, invalid_keys))
+            # class.keys() only stores the class names related to the current file
+#            print "valid_types = ", classes.keys()
+#            invalid_types = cur_class.get_invalid_types(classes.keys())
+#            if invalid_types:
+#                raise ValueError("In class %r: type(s) not found: %r" % (cur_class_name, invalid_types))
+
+        # Feed the routing table
+        for cur_class_name, cur_class in classes.items():
+            # Note: class Table does not yet support several keys, so we only pass the first key
+            t = Table(platform, cur_class_name, cur_class.fields, cur_class.keys[0])
+            self.rib[t] = platform
+        return routes
+
+# MANDO << The following function is obsolete, see import_file_h
+    def import_file_xml(self, directory, platform, gateway_type):
         f = os.path.join(directory, "%s.xml" % gateway_type)
         if not os.path.exists(f):
             f = os.path.join(directory, "%s-%s.xml" % (gateway_type, platform))
@@ -196,6 +404,7 @@ class THLocalRouter(LocalRouter):
             self.rib[t] = platform
             routes.append(t)
         return routes
+# MANDO >>
 
     def get_gateway(self, platform, query, user):
         # XXX Ideally, some parameters regarding MySlice user account should be
@@ -258,8 +467,6 @@ class THLocalRouter(LocalRouter):
         return ret
 
     def add_credential(self, cred, platform, user):
-        print "I: Added credential of type", cred['type']
-
         account = [a for a in user.accounts if a.platform.platform == platform][0]
 
         config = account.config_get()
@@ -269,15 +476,35 @@ class THLocalRouter(LocalRouter):
         
         c = Credential(string=cred)
         c_type = c.get_gid_object().get_type()
+        c_target = c.get_gid_object().get_hrn()
+        delegate = c.get_gid_caller().get_hrn()
+
+        # Get the account of the admin user in the database
+        try:
+            admin_user = db.query(User).filter(User.email == ADMIN_USER).one()
+        except Exception, e:
+            raise Exception, 'Missing admin user.'
+        # Get user account
+        accounts = [a for a in user.accounts if a.platform.platform == platform]
+        if not accounts:
+            raise Exception, "Accounts should be created for MySlice admin user"
+        admin_account = accounts[0]
+        if account.auth_type != 'user':
+            raise Exception, "Cannot upload credential to a non-user managed account."
+        config = json.loads(account.config)
+
+        # Inspect admin account for platform
+        if delegate != config['user_hrn']:
+            raise PLCInvalidArgument, "Credential should be delegated to ple.upmc.slicebrowser instead of %s" % delegate;
 
         if c_type == 'user':
-            config['user_credential'] = cred['cred']
+            config['user_credential'] = cred
         elif c_type == 'slice':
             if not 'slice_credentials' in config:
                 config['slice_credentials'] = {}
-            config['slice_credentials'][cred['target']] = cred['cred']
+            config['slice_credentials'][c_target] = cred
         elif c_type == 'authority':
-            config['authority_credential'] = cred['cred']
+            config['authority_credential'] = cred
         else:
             raise Exception, "Invalid credential type"
         
@@ -335,7 +562,15 @@ class THLocalRouter(LocalRouter):
         platforms = db.query(Platform).filter(Platform.disabled == False).all()
         for p in platforms:
             gateway = None
-            tables = self.import_file(XML_DIRECTORY, p.platform, p.gateway_type)
+            #MANDO <<
+            tables = self.import_file_xml(XML_DIRECTORY, p.platform, p.gateway_type)
+#            try:
+#                tables = self.import_file_h(XML_DIRECTORY, p.platform, p.gateway_type)
+#            except ValueError, why:
+#                print "ERROR in import_file_h: ", why
+#                break
+            #MANDO >>
+
             routes.extend(tables)
             # NOT USED: tables
 
