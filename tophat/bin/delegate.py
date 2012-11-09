@@ -7,8 +7,7 @@ REG_URL = 'http://www.planet-lab.eu:12345'
 INTERFACE_HRN = 'ple'
 MYSLICE_HRN='ple.upmc.slicebrowser'
 #MYSLICE_API = "http://localhost:7080"
-#MYSLICE_API = "http://demo.myslice.info:7080"
-MYSLICE_API = "http://debian01.pl.sophia.inria.fr:7080"
+MYSLICE_API = "http://demo.myslice.info:7080"
 
 import sys
 import os.path

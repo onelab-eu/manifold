@@ -41,6 +41,7 @@ setup(
             'myslice-add-platform = tophat.bin.addplatform:main',
             'myslice-disable-platform = tophat.bin.disableplatform:main',
             'myslice-enable-platform = tophat.bin.enableplatform:main',
+            'myslice-upload-credential = tophat.bin.uploadcredential:main',
         ],
     },
 
