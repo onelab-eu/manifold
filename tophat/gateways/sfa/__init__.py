@@ -11,6 +11,7 @@ import urllib
 import BeautifulSoup
 import hashlib
 import zlib
+import copy # DIRTY HACK SENSLAB
 
 from tophat.core.ast import FromNode
 from tophat.util.faults import *
@@ -218,7 +219,7 @@ class SFA(FromNode):
         try:
             user = db.query(User).filter(User.email == ADMIN_USER).one()
         except Exception, e:
-            raise Exception, 'Missing admin user.'
+            raise Exception, 'Missing admin user: %s' % str(e)
             # No admin user account, let's create one
             #user = User(email=ADMIN_USER)
             #db.add(user)
@@ -384,6 +385,7 @@ class SFA(FromNode):
             raise PLCInvalidArgument('Wrong filter in sfa_list')
 
         #try:
+        print "CONNECTING TO REGISTRY", self.registry
         records = self.registry.Resolve(xrns, cred, {'details': True})
         #except Exception, why:
         #    print "[Sfa::sfa_resolve_records] ERROR : %s" % why
@@ -966,6 +968,7 @@ class SFA(FromNode):
 
             if not user_list: return user_list
 
+            print "resolve to registry", self.registry
             users = self.registry.Resolve(user_list, cred)
             users = filter_records('user', users)
             filtered = []
@@ -1233,16 +1236,24 @@ class SFA(FromNode):
         #
         # user account will not reference another platform, and will implicitly
         # contain information about the slice to associate USERHRN_slice
+        slice_hrn = None
         if self.platform == 'senslab' and q.fact_table == 'slice' and q.filters.has_eq('slice_hrn'):
+            slice_hrn = q.filters.get_eq('slice_hrn')
             if not self.user_config or not 'user_hrn' in self.user_config:
                 raise Exception, "Missing user configuration"
             senslab_slice = '%s_slice' % self.user_config['user_hrn']
             print "I: Using slice %s for senslab platform" % senslab_slice
-            q.filters.set_eq('slice_hrn', senslab_slice)
+            local_filters = copy.deepcopy(q.filters)
+            local_filters.set_eq('slice_hrn', senslab_slice)
+        else:
+            local_filters = q.filters
         
         fields = Metadata.expand_output_fields(q.fact_table, list(q.fields))
-        result = getattr(self, "%s_%s" % (q.action, q.fact_table))(q.filters, q.params, fields)
+        result = getattr(self, "%s_%s" % (q.action, q.fact_table))(local_filters, q.params, fields)
         for r in result:
+            # DIRTY HACK continued
+            if slice_hrn and 'slice_hrn' in r:
+                r['slice_hrn'] = slice_hrn
             self.callback(r)
         self.callback(None)
 

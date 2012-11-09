@@ -143,13 +143,16 @@ def get_credentials(pl_username, private_key, sfi_dir, password):
     }
     creds.append(c)
 
-    user_auth = get_authority(user_hrn)
-    c = {
-        'target': user_auth,
-        'type': 'authority',
-        'cred': sfa.delegate('authority', user_auth)
-    }
-    creds.append(c)
+    try:
+        user_auth = get_authority(user_hrn)
+        c = {
+            'target': user_auth,
+            'type': 'authority',
+            'cred': sfa.delegate('authority', user_auth)
+        }
+        creds.append(c)
+    except Exception:
+        print "I: No authority credential."
 
     for s in slices:
         s_hrn = slicename_to_hrn(INTERFACE_HRN, s['name'])

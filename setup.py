@@ -40,6 +40,7 @@ setup(
             'myslice-add-account = tophat.bin.addaccount:main',
             'myslice-add-platform = tophat.bin.addplatform:main',
             'myslice-disable-platform = tophat.bin.disableplatform:main',
+            'myslice-enable-platform = tophat.bin.enableplatform:main',
         ],
     },
 

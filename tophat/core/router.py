@@ -26,6 +26,7 @@ import re
 
 from types import StringTypes
 from sfa.trust.credential import Credential
+from tophat.gateways.sfa import ADMIN_USER
 
 XML_DIRECTORY = '/usr/share/myslice/metadata/'
 CACHE_LIFETIME = 1800
@@ -467,9 +468,13 @@ class THLocalRouter(LocalRouter):
         return ret
 
     def add_credential(self, cred, platform, user):
-        account = [a for a in user.accounts if a.platform.platform == platform][0]
-
+        print "I: Adding credential to platform '%s' and user '%s'" % (platform, user.email)
+        accounts = [a for a in user.accounts if a.platform.platform == platform]
+        if not accounts:
+            raise Exception, "Missing user account"
+        account = accounts[0]
         config = account.config_get()
+
 
         if isinstance(cred, dict):
             cred = cred['cred']
@@ -483,19 +488,20 @@ class THLocalRouter(LocalRouter):
         try:
             admin_user = db.query(User).filter(User.email == ADMIN_USER).one()
         except Exception, e:
-            raise Exception, 'Missing admin user.'
+            raise Exception, 'Missing admin user. %s' % str(e)
         # Get user account
-        accounts = [a for a in user.accounts if a.platform.platform == platform]
-        if not accounts:
+        admin_accounts = [a for a in admin_user.accounts if a.platform.platform == platform]
+        if not admin_accounts:
             raise Exception, "Accounts should be created for MySlice admin user"
-        admin_account = accounts[0]
+        admin_account = admin_accounts[0]
+        admin_config = admin_account.config_get()
+        admin_user_hrn = admin_config['user_hrn']
+
         if account.auth_type != 'user':
             raise Exception, "Cannot upload credential to a non-user managed account."
-        config = json.loads(account.config)
-
         # Inspect admin account for platform
-        if delegate != config['user_hrn']:
-            raise PLCInvalidArgument, "Credential should be delegated to ple.upmc.slicebrowser instead of %s" % delegate;
+        if delegate != admin_user_hrn: 
+            raise Exception, "Credential should be delegated to %s instead of %s" % (admin_user_hrn, delegate)
 
         if c_type == 'user':
             config['user_credential'] = cred
