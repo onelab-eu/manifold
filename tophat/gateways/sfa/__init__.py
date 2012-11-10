@@ -45,10 +45,7 @@ from tophat.models import User, Account, Platform, db
 import json
 import signal
 
-ADMIN_USER = 'admin'
-DEMO_HOOKS = ['demo']#, 'jordan.auge@lip6.fr']
-
-
+from tophat.conf import ADMIN_USER, DEMO_HOOKS
 
 xslt='''<xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
 <xsl:output method="xml" indent="no"/>
@@ -1218,6 +1215,9 @@ class SFA(FromNode):
         return "<SFAGateway %r: %s>" % (self.config['sm'], self.query)
 
     def do_start(self):
+        if not self.user_config:
+            self.callback(None)
+            return
         self.bootstrap()
         q = self.query
         # Let's call the simplest query as possible to begin with

@@ -424,18 +424,22 @@ class THLocalRouter(LocalRouter):
         except Exception, e:
             raise Exception, "E: Cannot import gateway class '%s': %s" % (gtype, e)
 
+        # Gateway config
+        gconf = json.loads(p.config)
+
         # Get user account
         accounts = [a for a in user.accounts if a.platform.platform == platform]
         if not accounts:
-            # No user account for platform, let's create it
-            account = Account(user=user, platform=p, auth_type='managed', config='{}')
-            db.add(account)
-            db.commit()
+            # No user account for platform, let's skip it
+            print "E: No user account for platform : %s" % platform
+            account = None 
+            return gw(self, platform, query, gconf, None, user)
+            #account = Account(user=user, platform=p, auth_type='managed', config='{}')
+            #db.add(account)
+            #db.commit()
         else:
             account = accounts[0]
         
-        # Gateway config
-        gconf = json.loads(p.config)
 
         # User account config
         if account.auth_type == 'reference':
@@ -460,12 +464,7 @@ class THLocalRouter(LocalRouter):
 #        else:
 #            aconf = json.loads(account.config) if account else None
 
-        #try:
-        ret = gw(self, platform, query, gconf, aconf, user)
-        #except Exception, e:
-        #    raise Exception, "E: Cannot instantiate gateway for platform '%s': %s" % (platform, e)
-
-        return ret
+        return gw(self, platform, query, gconf, aconf, user)
 
     def add_credential(self, cred, platform, user):
         print "I: Adding credential to platform '%s' and user '%s'" % (platform, user.email)
