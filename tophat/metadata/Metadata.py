@@ -27,8 +27,9 @@ PATTERN_END         = PATTERN_OPT_SPACE.join(['', PATTERN_COMMENT, "$"])
 PATTERN_SYMBOL      = "([0-9a-zA-Z_]+)"
 PATTERN_CONST       = "(const)?"
 PATTERN_CLASS       = "(onjoin|class)"
+PATTERN_ARRAY       = "(\[\])?"
 PATTERN_CLASS_BEGIN = PATTERN_SPACE.join([PATTERN_CLASS, PATTERN_SYMBOL, "{"])
-PATTERN_CLASS_FIELD = PATTERN_SPACE.join([PATTERN_CONST, PATTERN_SYMBOL, PATTERN_OPT_SPACE.join([PATTERN_SYMBOL, ";"])])
+PATTERN_CLASS_FIELD = PATTERN_SPACE.join([PATTERN_CONST, PATTERN_SYMBOL, PATTERN_OPT_SPACE.join([PATTERN_SYMBOL, PATTERN_ARRAY, ";"])])
 PATTERN_CLASS_KEY   = PATTERN_OPT_SPACE.join(["KEY\((", PATTERN_SYMBOL, "(,", PATTERN_SYMBOL, ")*)\)", ";"])
 PATTERN_CLASS_END   = PATTERN_OPT_SPACE.join(["}", ";"])
 PATTERN_ENUM_BEGIN  = PATTERN_SPACE.join(["enum", PATTERN_SYMBOL, "{"])
@@ -79,14 +80,15 @@ def import_file_h(filename):
         if REGEXP_EMPTY_LINE.match(line):
             continue
         if cur_class_name: # current scope = class
-            #    const MyType my_field;
+            #    const MyType my_field[]; /**< Comment */
             m = REGEXP_CLASS_FIELD.match(line)
             if m:
                 classes[cur_class_name].fields.append(MetadataField(
-                    qualifier   = m.group(1),
-                    type        = m.group(2),
-                    field_name  = m.group(3),
-                    description = m.group(4).strip("/*<")
+                    qualifier   =  m.group(1),
+                    type        =  m.group(2),
+                    field_name  =  m.group(3),
+                    is_array    = (m.group(4) == "[]"),
+                    description =  m.group(5).strip("/*<")
                 ))
                 continue
 
@@ -134,11 +136,9 @@ def import_file_h(filename):
                 continue
 
             # enum MyEnum {
-            print "line = ", line
             m = REGEXP_ENUM_BEGIN.match(line)
             if m:
                 cur_enum_name = m.group(1)
-                print "ENUM",cur_enum_name,"BEGIN"
                 enums[cur_enum_name] = MetadataEnum(cur_enum_name)
                 continue
 

@@ -1,153 +1,41 @@
-import os, sys
-import xml.etree.cElementTree as ElementTree
+import os, sys, json, time, traceback, threading
+from copy                       import deepcopy
+from types                      import StringTypes
 
-from copy import deepcopy
-import traceback
-import threading
-from twisted.internet import defer
+from twisted.internet           import defer
 
-from tophat.util.xmldict import *
+#from tophat.util.xmldict        import *
 from tophat.util.reactor_thread import ReactorThread
-from tophat.core.filter import Filter, Predicate
-from tophat.core.param import Param
-from tophat.router import *
-from tophat.core.table import Table
+from tophat.core.filter         import Filter, Predicate
+from tophat.core.param          import Param
+from tophat.router              import *
+from tophat.core.table          import Table
+
 # Can we get rid of the source manager ?
-from tophat.core.sourcemgr import SourceManager
-from tophat.gateways import *
-from tophat.core.ast import AST
-from tophat.core.query import Query
-from tophat.models import *
-from tophat.util.dbnorm import DBNorm
-from tophat.util.dbgraph import DBGraph
-import json
-import time
-import re
+from tophat.core.sourcemgr      import SourceManager
+from tophat.gateways            import *
+from tophat.core.ast            import AST
+from tophat.core.query          import Query
+from tophat.models              import *
+from tophat.util.dbnorm         import DBNorm
+from tophat.util.dbgraph        import DBGraph
 
-from types import StringTypes
-from sfa.trust.credential import Credential
-from tophat.gateways.sfa import ADMIN_USER
+from sfa.trust.credential       import Credential
+from tophat.gateways.sfa        import ADMIN_USER
+from tophat.metadata.Metadata   import import_file_h
 
-XML_DIRECTORY = '/usr/share/myslice/metadata/'
-CACHE_LIFETIME = 1800
+METADATA_DIRECTORY = "/usr/share/myslice/metadata/"
+CACHE_LIFETIME     = 1800
 
-# Parsing .h
-PATTERN_OPT_SPACE   = "\s*"
-PATTERN_SPACE       = "\s+"
-PATTERN_COMMENT     = "(((///?.*)|(/\*(\*<)?.*\*/))*)"
-PATTERN_BEGIN       = ''.join(["^", PATTERN_OPT_SPACE])
-PATTERN_END         = ''.join([PATTERN_OPT_SPACE, PATTERN_COMMENT, "$"])
-PATTERN_SYMBOL      = "([0-9a-zA-Z_]+)"
-PATTERN_CONST       = "(const)?"
-PATTERN_CLASS       = "(onjoin|class)"
-PATTERN_CLASS_BEGIN = PATTERN_SPACE.join([PATTERN_CLASS, PATTERN_SYMBOL, "{"])
-PATTERN_FIELD       = PATTERN_SPACE.join([PATTERN_CONST, PATTERN_SYMBOL, PATTERN_OPT_SPACE.join([PATTERN_SYMBOL, ";"])])
-PATTERN_KEY         = PATTERN_OPT_SPACE.join(["KEY\((", PATTERN_SYMBOL, "(,", PATTERN_SYMBOL, ")*)\)", ";"])
-PATTERN_CLASS_END   = PATTERN_OPT_SPACE.join(["}", ";"])
-
-REGEXP_EMPTY_LINE   = re.compile(''.join([PATTERN_BEGIN, PATTERN_COMMENT,     PATTERN_END]))
-REGEXP_CLASS_BEGIN  = re.compile(''.join([PATTERN_BEGIN, PATTERN_CLASS_BEGIN, PATTERN_END]))
-REGEXP_CLASS_FIELD  = re.compile(''.join([PATTERN_BEGIN, PATTERN_FIELD,       PATTERN_END]))
-REGEXP_CLASS_KEY    = re.compile(''.join([PATTERN_BEGIN, PATTERN_KEY,         PATTERN_END]))
-REGEXP_CLASS_END    = re.compile(''.join([PATTERN_BEGIN, PATTERN_CLASS_END,   PATTERN_END]))
-
-
-class MetadataField:
-    """
-    \brief MetadataField stores meta-information related to a field announced
-        to the router
-    """
-    def __init__(self, qualifier, type, field_name, description = None):
-        """
-        \brief Constructor
-        \param qualifier A value among None and "const"
-        \param type A string describing the type of the field. It might be a
-            custom type or a value stored in MetadataClass BASE_TYPES .
-        \param field_name The name of the field
-        \param description The field description
-        """
-        self.qualifier = qualifier
-        self.type = type
-        self.field_name = field_name
-        self.description = description 
-
-    def __repr__(self):
-        """
-        \return the string (%r) corresponding to this MetadataField 
-        """
-        if self.description:
-            return "\n\tField(%r %r %r) // %r" % (self.qualifier, self.type, self.field_name, self.description)
-        return ""
-
-class MetadataClass:
-    """
-    \brief MetadataClass stores meta-information related to a class/table announced
-        to the router
-    """
-    BASE_TYPES = ['bool', 'int', 'unsigned', 'double', 'text', 'timestamp', 'interval', 'inet']
-
-    def __init__(self, qualifier, class_name):
-        """
-        \brief Constructor
-        \param qualifier A value among None and "onjoin"
-        \param class_name The name of the class
-        \param keys An array containing a set of key.
-            A key is made of one or more field names.
-        \param fields An array containing the set of MetadataField related to this MetadataClass
-        """
-        self.qualifier  = qualifier
-        self.class_name = class_name
-        self.keys       = [] 
-        self.fields     = []
-
-    def get_invalid_keys(self):
-        """
-        \return The keys that involving one or more field not present in the table
-        """
-        invalid_keys = []
-        for key in self.keys:
-            key_found = True
-            for key_elt in key:
-                key_elt_found = False 
-                for field in self.fields:
-                    if key_elt == field.field_name: 
-                        key_elt_found = True 
-                        break
-                if key_elt_found == False:
-                    key_found = False
-                    break
-            if key_found == False:
-                invalid_keys.append(key)
-                break
-        return invalid_keys
-
-    def get_invalid_types(self, valid_types):
-        """
-        \brief Check whether types involved in the table declaration
-            are resolved.
-        \param valid_tables A list of the resolved types
-        \return Types not present in the table
-        """
-        invalid_types = []
-        for field in self.fields:
-            cur_type = field.type
-            if cur_type not in valid_types and cur_type not in MetadataClass.BASE_TYPES: 
-                print ">> %r: adding invalid type %r (valid_types = %r)" % (self.class_name, cur_type, valid_types)
-                invalid_types.append(cur_type)
-        return invalid_types
-
-    def __repr__(self):
-        """
-        \return The string representation of MetadataClass
-        """
-        return "Class(q = %r, n = %r, k = %r)\n" % (self.qualifier, self.class_name, self.keys)
-
+#------------------------------------------------------------------
+# Class callback
+#------------------------------------------------------------------
 
 class Callback:
     def __init__(self, deferred=None, event=None, router=None, cache_id=None):
         self.results = []
         self._deferred = deferred
-        self.event=event
+        self.event = event
 
         # Used for caching...
         self.router = router
@@ -167,6 +55,11 @@ class Callback:
             return
         self.results.append(value)
 
+#------------------------------------------------------------------
+# Class THDestination
+# Represent the destination (a query in our case) of a TopHat route
+#------------------------------------------------------------------
+
 class THDestination(Destination, Query):
     """
     Implements a destination in TopHat == a query
@@ -175,7 +68,9 @@ class THDestination(Destination, Query):
     def __str__(self):
         return "<THDestination / Query: %s" % self.query
 
-
+#------------------------------------------------------------------
+# Class THRoute
+#------------------------------------------------------------------
 
 class THRoute(Route):
     """
@@ -196,9 +91,14 @@ class THRoute(Route):
     def push(identifier, record):
         pass
 
+#------------------------------------------------------------------
+# Class THCost
+# Cost related to a route in the routing table
+#------------------------------------------------------------------
+
 class THCost(int):
     """
-    Let's use (N, min,  +) semiring for cost
+    Let's use (N, min, +) semiring for cost
     """
 
     def __add__(self, other):
@@ -206,6 +106,12 @@ class THCost(int):
 
     def __mul__(self, other):
         return THCost(self + other)
+
+#------------------------------------------------------------------
+# Class THLocalRouter
+# Router configured only with static/local routes, and which
+# does not handle routing messages
+#------------------------------------------------------------------
 
 class THLocalRouter(LocalRouter):
     """
@@ -225,13 +131,11 @@ class THLocalRouter(LocalRouter):
         self.cache = {}
 
     def __enter__(self):
-        #print "I: Starting THLocalRouter" 
         self.reactor.startReactor()
         return self
 
     def __exit__(self, type, value, traceback):
         self.reactor.stopReactor()
-        #print "I: Reactor thread stopped. Waiting for thread to terminate..."
         self.reactor.join()
 
     def import_file_h(self, directory, platform, gateway_type):
@@ -247,165 +151,36 @@ class THLocalRouter(LocalRouter):
                 sqlite3 /var/myslice/db.sqlite
                 > select gateway_type from platform;
         """
+        # Check path
         filename = os.path.join(directory, "%s.h" % gateway_type)
         if not os.path.exists(filename):
             filename = os.path.join(directory, "%s-%s.h" % (gateway_type, platform))
             if not os.path.exists(filename):
-                raise Exception, "Metadata file not found for platform = %r and gateway_type = %r" % (platform, gateway_type)
+                raise Exception, "Metadata file not found (platform = %r, gateway_type = %r)" % (platform, gateway_type)
 
+        # Read input file
         routes = []
         print "I: Processing %s" % filename
-        fp = open(filename, "r")
-        lines  = fp.readlines()
-        fp.close()
+        (classes, enums) = import_file_h(filename)
 
-        cur_class_name = None
-        classes = {}
-        no_line = -1
-        for line in lines:
-            line = line.rstrip("\r\n")
-            is_valid = True
-            no_line += 1
-            if REGEXP_EMPTY_LINE.match(line):
-                continue
-            if not cur_class_name:
-                # class MyClass {
-                m = REGEXP_CLASS_BEGIN.match(line)
-                if m:
-                    qualifier      = m.group(1)
-                    cur_class_name = m.group(2)
-                    classes[cur_class_name] = MetadataClass(qualifier, cur_class_name)
-                    continue
-
-                is_valid = False
-                print "In '%s', line %r: class declaration expected: [%r]"
-            else:
-                #    const MyType my_field;
-                m = REGEXP_CLASS_FIELD.match(line)
-                if m:
-                    classes[cur_class_name].fields.append(MetadataField(
-                        qualifier   = m.group(1),
-                        type        = m.group(2),
-                        field_name  = m.group(3),
-                        description = m.group(4).strip("/*<")
-                    ))
-                    continue
-
-                #    KEY(my_field1, my_field2);
-                m = REGEXP_CLASS_KEY.match(line)
-                if m:
-                    key = m.group(1).split(",")
-                    key = [key_elt.strip() for key_elt in key]
-                    if key not in classes[cur_class_name].keys:
-                        classes[cur_class_name].keys.append(key)
-                    continue
-
-                # };
-                if REGEXP_CLASS_END.match(line):
-                    cur_class_name = None
-                    continue
-
-                is_valid = False
-                print "In '%s', line %r: invalid line: [%r]" % (filename, no_line, line)
-            if is_valid == False:
-                raise ValueError("Invalid input file %s, line %r: [%r]" % (filename, no_line, line))
-
-        # Check table consistency
+        # Check class consistency
         for cur_class_name, cur_class in classes.items():
             invalid_keys = cur_class.get_invalid_keys()
             if invalid_keys:
                 raise ValueError("In %s: in class %r: key(s) not found: %r" % (filename, cur_class_name, invalid_keys))
-            # class.keys() only stores the class names related to the current file
-#            print "valid_types = ", classes.keys()
-#            invalid_types = cur_class.get_invalid_types(classes.keys())
-#            if invalid_types:
-#                raise ValueError("In class %r: type(s) not found: %r" % (cur_class_name, invalid_types))
+            # Note: classes.keys() only stores the class names related
+            # to the current file, so we cannot yet check type consistency
+            # by using MetadataClass::get_invalid_types(...)
 
-        # Feed the routing table
+        # Feed RIB
         for cur_class_name, cur_class in classes.items():
-            # Note: class Table does not yet support several keys, so we only pass the first key
-            t = Table(platform, cur_class_name, cur_class.fields, cur_class.keys[0])
+            # Note: the Table class does not yet support several keys,
+            # so we only pass the 1st one
+            key = cur_class.keys[0]
+            print ".h: %s::%s: %r" % (platform, cur_class_name, key)
+            t = Table(platform, cur_class_name, cur_class.fields, key)
             self.rib[t] = platform
         return routes
-
-# MANDO << The following function is obsolete, see import_file_h
-    def import_file_xml(self, directory, platform, gateway_type):
-        f = os.path.join(directory, "%s.xml" % gateway_type)
-        if not os.path.exists(f):
-            f = os.path.join(directory, "%s-%s.xml" % (gateway_type, platform))
-            if not os.path.exists(f):
-                raise Exception, "Metadata file not found for platform='%s' and gateway_type='%s'" % (platform, gateway_type)
-
-        routes = []
-        #print "I: Processing %s" % f 
-        tree = ElementTree.parse(f)
-        root = tree.getroot()
-        md = XmlDictConfig(root)
-        
-        # Checking the presence of a platform section
-        #if not 'platform' in md:
-        #    raise Exception, "Error importing metadata file '%s': no platform specified" % metadata
-        #p_dict = md['platform']
-        #platform = p_dict['platform']
-
-        # Checking the presence of a method section
-        if not 'methods' in md:
-            raise Exception, "Error importing metadata file '%s': no method section specified" % f 
-        methods = md['methods']
-
-        # Checking the presence of at least a method
-        if not 'method' in methods:
-            raise Exception, "Error importing metadata file '%s': no method specified" % f 
-        methods = methods['method']
-
-        if not isinstance(methods, list):
-            methods = [methods]
-
-        # Looping through the methods
-        for method in methods:
-            
-            aliases = method['name'].split('|')
-
-            #base = ['%s::%s' % (p_dict['platform'], aliases[0])]
-            #base.extend(aliases)
-
-            # XXX we currently restrict ourselves to the main alias 'nodes'
-            tmp = [a for a in aliases if a == 'nodes']
-            name = tmp[0] if tmp else aliases[0]
-
-            # Checking the presence of a field section
-            if not 'fields' in method:
-                raise Exception, "Error importing metadata file '%s': no field section" % f 
-            field_arr = method['fields']
-            # Checking the presence of at least a field
-            if not 'field' in field_arr:
-                raise Exception, "Error importing metadata file '%s': no field specified" % f 
-
-            # FIXME Currently we ignore detailed information about the fields
-            if not isinstance(field_arr['field'], list):
-                field_arr['field'] = [field_arr['field']]
-            fields = [f['field'] for f in field_arr['field']]
-
-            # Checking the presence of a keys section
-            if not 'keys' in method:
-                raise Exception, "Error importing metadata file  '%s': no key section" % f 
-            key_arr = method['keys']
-            # Checking the presence of at least a key
-            if not 'key' in key_arr:
-                raise Exception, "Error importing metadata file '%s': no key specified" % f 
-            if not isinstance(key_arr['key'], list):
-                keys = [key_arr['key']]
-            else:
-                keys = key_arr['key']
-            
-            # Creating a new Table for inserting into the RIB
-            t = Table(platform, name, fields, keys)
-            
-            #print "Adding %s::%s to RIB" % (platform, name)
-            self.rib[t] = platform
-            routes.append(t)
-        return routes
-# MANDO >>
 
     def get_gateway(self, platform, query, user):
         # XXX Ideally, some parameters regarding MySlice user account should be
@@ -560,34 +335,37 @@ class THLocalRouter(LocalRouter):
         # Join graph
         self.G_nf = DBGraph(tables_3nf)
 
-    def get_static_routes(self, directory):
+    def get_static_routes(self, directory = METADATA_DIRECTORY):
+        """
+        \brief Retrieve static routes related to each plaform. 
+            See:
+                sqlite3 /var/myslice/db.sqlite
+                > select platform, gateway_type from platform;
+        \param directory Containing static route files. 
+        \return The corresponding static routes
+        """
+
         routes = []
-        # Instead of iterating through files, we are now iterating thorough the
-        # set of available platforms in the database
+
+        # Query the database to retrieve which configuration file has to be
+        # loaded for each platform. 
         platforms = db.query(Platform).filter(Platform.disabled == False).all()
-        for p in platforms:
+
+        # For each platform, load the corresponding .h file
+        for platform in platforms:
             gateway = None
-            #MANDO <<
-            tables = self.import_file_xml(XML_DIRECTORY, p.platform, p.gateway_type)
-#            try:
-#                tables = self.import_file_h(XML_DIRECTORY, p.platform, p.gateway_type)
-#            except ValueError, why:
-#                print "ERROR in import_file_h: ", why
-#                break
-            #MANDO >>
+            try:
+                tables = self.import_file_h(
+                    METADATA_DIRECTORY,
+                    platform.platform,
+                    platform.gateway_type
+                )
+            except Exception, why:
+                print "ERROR in get_static_routes: ", why
+                break
 
             routes.extend(tables)
-            # NOT USED: tables
 
-        #for root, dirs, files in os.walk(directory):
-        #    for d in dirs[:]:
-        #        if d[0] == '.':
-        #            dirs.remove(d)
-        #    metadata = [f for f in files if f[-3:] == 'xml']
-        #    for m in metadata:
-        #        # This builds the RIB in fact
-        #        route_arr = self.import_file(os.path.join(root, m))
-        #        routes.extend(route_arr)
         return routes
 
     def get_platform_max_fields(self, fields, join):
