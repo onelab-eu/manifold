@@ -109,7 +109,7 @@ class PLEAuth(Auth):
         # NOTE: we trust PLE for email validation
         user_email = auth['Username'].lower()
         try:
-            return db.query(User).filter(User.email = user_email).one()
+            return db.query(User).filter(User.email == user_email).one()
         except:
             user = User(email=auth['Username'].lower())
             db.add(user)
@@ -142,7 +142,7 @@ class PLCAuth(Auth):
         # NOTE: we trust PLC for email validation
         user_email = auth['Username'].lower()
         try:
-            return db.query(User).filter(User.email = user_email).one()
+            return db.query(User).filter(User.email == user_email).one()
         except:
             user = User(email=auth['Username'].lower())
             db.add(user)
@@ -179,7 +179,7 @@ class ManagedAuth(Auth):
             user_email = auth['Username'].lower()
 
         try:
-            return db.query(User).filter(User.email = user_email).one()
+            return db.query(User).filter(User.email == user_email).one()
         except:
             user = User(email=auth['Username'].lower())
             db.add(user)

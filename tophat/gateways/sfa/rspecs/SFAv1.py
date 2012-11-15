@@ -54,7 +54,7 @@ class SFAv1Parser(RSpecParser):
             for r in resources:
                 val = r['urn'] if isinstance(r, dict) else r
                 auth = Xrn(val).authority
-                if not auth: raise Exception, "No authority in specified URN"
+                if not auth: raise Exception, "No authority in specified URN %s" % val
                 network = auth[0]
                 if not network in self.resources_by_network:
                     self.resources_by_network[network] = []
@@ -228,11 +228,11 @@ class SFAv1Parser(RSpecParser):
                 if lease_tuple in lease_groups:
                     lease_groups[lease_tuple].append(l)
                 else:
-                    lease_groups[lease_groups] = [l]
+                    lease_groups[lease_tuple] = [l]
                     
             # Create RSpec content
             for lease_tuple, leases in lease_groups.items():
-                rspec.append('    <lease slice_id="%s" start_time="%s" duration="%s">' % lease_tuple)
+                rspec.append('    <lease slice_id="%s" start_time="%s" duration="%s">' % (slice_id, lease_tuple[0], lease_tuple[1]))
                 for l in leases:
                     type = Xrn(l['urn']).type
                     if type == 'node':
