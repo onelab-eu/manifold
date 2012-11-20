@@ -12,6 +12,8 @@ def print_slice(result):
     print "SLICE: %s" % result['slice_hrn']
     cpt = 0
     for i in result['resource']:
+        if not 'sliver' in i:
+            continue
         if cpt == 5:
             break
         asn = i['asn'] if 'asn' in i else 'None'

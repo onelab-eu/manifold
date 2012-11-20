@@ -209,27 +209,41 @@ class SFAv1Parser(RSpecParser):
 
     def rspec_add_network(self, slice_id, rspec, network):
         rspec.append('  <network name="%s">' % network)
+
         if network in self.resources_by_network:
             for r in self.resources_by_network[network]:
                 rspec.append('    <node component_id="%s">' % r)
                 rspec.append('      <sliver/>')
                 rspec.append('    </node>')
+
         if network in self.leases_by_network:
+        
+            # Group leases by (start_time, duration)
+            lease_groups = {}
             for l in self.leases_by_network[network]: # Do we need to group ?
                 if isinstance(l, list):
                     print "W: list to dict for lease"
                     l = {'urn': l[0], 'slice_id': slice_id, 'start_time': l[1], 'duration': l[2]}
-                    
-                rspec.append('    <lease slice_id="%(slice_id)s" start_time="%(start_time)s" duration="%(duration)s">' % l)
-                type = Xrn(l['urn']).type
-                if type == 'node':
-                    rspec.append('    <node component_id="%s"/>' % l['urn'])
-                elif type == 'channel':
-                    rspec.append('    <channel channel_num="%s"/>' % get_leaf(l['urn']))
+                lease_tuple = (l['start_time'], l['duration'])
+                if lease_tuple in lease_groups:
+                    lease_groups[lease_tuple].append(l)
                 else:
-                    print "W: Ignore element while building rspec"
-                    continue 
+                    lease_groups[lease_groups] = [l]
+                    
+            # Create RSpec content
+            for lease_tuple, leases in lease_groups.items():
+                rspec.append('    <lease slice_id="%s" start_time="%s" duration="%s">' % lease_tuple)
+                for l in leases:
+                    type = Xrn(l['urn']).type
+                    if type == 'node':
+                        rspec.append('    <node component_id="%s"/>' % l['urn'])
+                    elif type == 'channel':
+                        rspec.append('    <channel channel_num="%s"/>' % get_leaf(l['urn']))
+                    else:
+                        print "W: Ignore element while building rspec"
+                        continue 
                 rspec.append('    </lease>')
+
         rspec.append('  </network>')
 
     def to_rspec(self, slice_id):

@@ -14,6 +14,10 @@ import importlib
 from tophat.conf import global_settings
 from tophat.util.functional import LazyObject
 
+# Configuration variables to be moved to a configuration file
+ADMIN_USER = 'admin'
+DEMO_HOOKS = ['demo']
+
 ENVIRONMENT_VARIABLE = "TOPHAT_SETTINGS_MODULE"
 
 
