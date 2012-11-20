@@ -170,7 +170,7 @@ def usage():
     print "    SFI_DIR       : default ~/.sfi"
     print "    API_USERNAME"
     print ""
-    print "Note: USER_PRIVATE_KEY is the name of the file containing your public key inside the .sfi directory as given by SFI_DIR."
+    print "Note: USER_PRIVATE_KEY is the name of the file containing your private key inside the .sfi directory as given by SFI_DIR."
 
 def main():
     argc = len(sys.argv)
