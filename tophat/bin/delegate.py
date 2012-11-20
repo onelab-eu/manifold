@@ -165,13 +165,14 @@ def get_credentials(pl_username, private_key, sfi_dir, password):
 
 
 def usage():
-    print "Usage: %s PL_USERNAME PRIVATE_KEY SFI_DIR API_USERNAME" % sys.argv[0]
+    print "Usage: %s PL_USERNAME PRIVATE_KEY SFI_DIR API_USERNAME [API_URL]" % sys.argv[0]
     print ""
     print "Delegates control to MySlice"
     print "    PL USERNAME"
     print "    PRIVATE KEY"
     print "    SFI_DIR       : default ~/.sfi"
     print "    API_USERNAME"
+    print "    API_URL       : default: http://demo.myslice.info:7080"
     print ""
     print "Note: USER_PRIVATE_KEY is the name of the file containing your private key inside the .sfi directory as given by SFI_DIR."
 
@@ -187,6 +188,8 @@ def main():
         sfi_dir = sfi_dir + '/'
     sfi_dir = os.path.expanduser(sfi_dir)
     api_username = sys.argv[4]
+    if len(sys.argv) == 6:
+        MYSLICE_API = sys.argv[5]
     password = getpass.getpass("Enter your PlanetLab password: ")
     api_password = getpass.getpass("Enter your API password: ")
 
