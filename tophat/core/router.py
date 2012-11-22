@@ -27,6 +27,9 @@ from tophat.metadata.Metadata   import import_file_h
 METADATA_DIRECTORY = "/usr/share/myslice/metadata/"
 CACHE_LIFETIME     = 1800
 
+# DEBUG
+import traceback
+
 #------------------------------------------------------------------
 # Class callback
 #------------------------------------------------------------------
@@ -160,26 +163,20 @@ class THLocalRouter(LocalRouter):
 
         # Read input file
         routes = []
-        print "I: Processing %s" % filename
+        print "I: Platform %s: Processing %s" % (platform, filename)
         (classes, enums) = import_file_h(filename)
 
         # Check class consistency
-#        for cur_class_name, cur_class in classes.items():
-#            invalid_keys = cur_class.get_invalid_keys()
-#            if invalid_keys:
-#                raise ValueError("In %s: in class %r: key(s) not found: %r" % (filename, cur_class_name, invalid_keys))
-            # Note: classes.keys() only stores the class names related
-            # to the current file, so we cannot yet check type consistency
-            # by using MetadataClass::get_invalid_types(...)
+        for cur_class_name, cur_class in classes.items():
+            invalid_keys = cur_class.get_invalid_keys()
+            if invalid_keys:
+                raise ValueError("In %s: in class %r: key(s) not found: %r" % (filename, cur_class_name, invalid_keys))
+
+        # Rq: We cannot check type consistency while a table might refer to types provided by another file.
+        # This we can't use get_invalid_types yet
 
         # Feed RIB
         for cur_class_name, cur_class in classes.items():
-            #key = cur_class.keys[0]
-            if cur_class_name == 'traceroute':
-                print ".h: %s::%s: %r" % (platform, cur_class_name, cur_class.keys)
-                print "--> name   = ", cur_class_name 
-                print "--> fields = ", cur_class.fields
-                print "--> keys   = ", cur_class.keys
             t = Table(platform, cur_class_name, cur_class.fields, cur_class.keys)
             self.rib[t] = platform
         return routes
@@ -334,11 +331,9 @@ class THLocalRouter(LocalRouter):
     def build_tables(self):
         # Build one table per key {'Table' : THRoute}
         tables = self.rib.keys() # HUM
-        print "build_tables:", tables
         
         # Table normalization
         tables_3nf = DBNorm(tables).tables_3nf
-        print "tables_3nf:", tables_3nf
         
         # Join graph
         self.G_nf = DBGraph(tables_3nf)
@@ -411,9 +406,6 @@ class THLocalRouter(LocalRouter):
         raise ValueError("get_table: field not found (table_name = %s, field_name = %s)" % (table_name, field_name))
 
     def process_subqueries(self, query, user):
-        print "=" * 100, "process_subqueries"
-        print "query = ", query
-        print "user  = ", user
         table_name = query.fact_table
         table = self.get_table(table_name)
         qp = AST(self, user)
@@ -462,7 +454,6 @@ class THLocalRouter(LocalRouter):
                 else:
                     cur_fields.append(field)
 
-        print "subq = ", subq
         if len(subq):
             children_ast = []
             for method, subquery in subq.items():
@@ -470,7 +461,6 @@ class THLocalRouter(LocalRouter):
                 # We append the method name (eg. resources) which should return the list of keys
                 # (and eventually more information, but they will be ignored for the moment)
 
-                print ">>>", table, method
                 method = table.get_field(method).type
                 if not method in cur_fields:
                     cur_fields.append(method)
@@ -488,7 +478,6 @@ class THLocalRouter(LocalRouter):
 
                 # XXX Adding primary key in subquery to be able to merge
                 keys = self.metadata_get_keys(method)
-                print "keys       = ", keys
                 if keys:
                     key = list(keys).pop()
                     if isinstance(key, (tuple, frozenset, list)):
@@ -498,7 +487,6 @@ class THLocalRouter(LocalRouter):
                         subfields.append(key)
                     else:
                         raise TypeError("Invalid type: key = %s (type %s)" % (key, type(key)))
-                print "subfields2 = ", subfields 
 
                 # XXX Adding subfields either requested by the users or
                 # necessary for the join
@@ -534,14 +522,13 @@ class THLocalRouter(LocalRouter):
                 # exact idea of what will be the returned fields.
 
                 # Formulate the query we are trying to resolve
-                print ">>>>>>>>>>>>>>>> subfields =", subfields 
                 subquery = Query(query.action, method, subfilters, subparams, subfields)
 
                 child_ast = self.process_subqueries(subquery, user)
                 children_ast.append(child_ast.root)
 
             parent = Query(query.action, query.fact_table, cur_filters, cur_params, cur_fields)
-            parent_ast = process_query(parent, user)
+            parent_ast = self.process_query(parent, user)
             qp = parent_ast
             qp.subquery(children_ast)
         else:

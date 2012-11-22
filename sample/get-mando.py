@@ -58,5 +58,5 @@ with THLocalRouter() as router:
     user = router.authenticate(auth)
     directory = router.conf.STATIC_ROUTES_FILE
     print router.get_static_routes(directory)
-    result = router.forward(query, execute = False, user = user)
-    #print result
+    result = router.forward(query, execute = True, user = user)
+    print result

@@ -23,12 +23,14 @@ class node {
 };
 
 class traceroute {
+    const unsigned  agent_id;
+    const unsigned  destination_id;
     const inet      src_ip;
     const inet      dst_ip;
     const hop       hops[];
     const timestamp first;
     const timestamp last;
-    KEY(src_ip, dst_ip, first);
+    KEY(agent_id, destination_id, first);
 };
 
 class hop {

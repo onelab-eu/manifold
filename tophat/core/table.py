@@ -71,14 +71,6 @@ class Table:
         self.partition = partition # an instance of a Filter
         self.cost = cost
 
-        # DEBUG
-        if name == 'traceroute':
-            print 
-            print "-" * 80
-            print "Table: self.name   = ", self.name 
-            print "Table: self.fields = ", self.fields, type(self.fields)
-            print "Table: self.keys   = ", self.keys 
-
     def __str__(self):
         """
         \brief Convert a Table instance into a string ('%s')

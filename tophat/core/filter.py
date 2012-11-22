@@ -38,7 +38,7 @@ class Predicate:
         self.value = value
 
     def __str__(self):
-        return "Pred(%s,%s,%s)" % self.get_str_tuple()
+        return "Pred(%s, %s, %s)" % self.get_str_tuple()
 
     def __hash__(self):
         return hash(self.get_tuple())
@@ -46,10 +46,12 @@ class Predicate:
     def get_tuple(self):
         return (self.key, self.op, self.value)
 
-    def get_str_tuple(self):
+    def get_str_op(self):
         op_str = [s for s, op in self.OPERATORS.iteritems() if op == self.op]
-        op_str = op_str[0]
-        return (self.key, op_str, self.value,)
+        return op_str[0]
+
+    def get_str_tuple(self):
+        return (self.key, self.get_str_op(), self.value,)
 
     def match(self, dic, ignore_missing=False):
         
@@ -166,6 +168,9 @@ class Filter(set):
 
     def __str__(self):
         return ' && '.join([str(pred) for pred in self])
+
+    def __repr__(self):
+        return self.__str__()
 
     def __key(self):
         return tuple([hash(pred) for pred in self])

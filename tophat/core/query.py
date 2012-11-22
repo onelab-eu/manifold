@@ -22,7 +22,7 @@ class Query(object):
         l = len(kwargs.keys())
 
         # Initialization from a tuple
-        if len(args) in range(2,6) and type(args) == tuple:
+        if len(args) in range(2, 6) and type(args) == tuple:
             # Note: range(x,y) <=> [x, y[
             self.action, self.fact_table, self.filters, self.params, self.fields = args
 
@@ -82,10 +82,7 @@ class Query(object):
                 raise TypeError("Invalid field name %s (string expected, got %s)" % (field, type(field)))
 
     def __str__(self):
-        print "1>>>", self.fields
-        print "2>>>", self.fact_table 
-        return "SELECT %s FROM %s WHERE ..." % (', '.join(self.fields), self.fact_table)
-        #return "SELECT %s FROM %s WHERE %s" % (', '.join(self.fields), self.fact_table, self.filters)
+        return "SELECT %s FROM %s WHERE %s" % (', '.join(self.fields), self.fact_table, self.filters)
 
     def __key(self):
         return (self.action, self.fact_table, self.filters, frozendict(self.params), frozenset(self.fields))
