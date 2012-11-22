@@ -1,5 +1,7 @@
 #!/bin/bash
 
+mkdir -p /var/myslice
+
 echo "I: Creating platforms"
 
 echo "  > ple"
