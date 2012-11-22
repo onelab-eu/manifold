@@ -22,9 +22,9 @@ class LocalRouter(object):
     LOCAL_NAMESPACE = 'tophat'
 
     _map_local_table = {
-        'platform': Platform,
-        'user': User,
-        'account': Account
+        'platform' : Platform,
+        'user'     : User,
+        'account'  : Account
     }
 
     def __init__(self, dest_cls=object, route_cls=object):
@@ -51,8 +51,6 @@ class LocalRouter(object):
         # Install static routes in the RIB and FIB (TODO)
         #print "D: Reading static routes in: '%s'" % self.conf.STATIC_ROUTES_FILE
         static_routes = self.get_static_routes(self.conf.STATIC_ROUTES_FILE)
-        for r in static_routes:
-            pass
         #self.rib[dest] = route
         self.build_tables()
 
@@ -142,9 +140,9 @@ class LocalRouter(object):
 
     def local_query(self, query):
         _map_action = {
-            'get': self.local_query_get,
-            'update': self.local_query_update,
-            'create': self.local_query_create
+            'get'    : self.local_query_get,
+            'update' : self.local_query_update,
+            'create' : self.local_query_create
         }
         return _map_action[query.action](query)
 
@@ -285,8 +283,6 @@ class FlowAwareRouter(LocalRouter):
             query_plane = None
 
         
-                        
-
 class Router(LocalRouter):
     def boot(self):
         super(Router, self).boot()

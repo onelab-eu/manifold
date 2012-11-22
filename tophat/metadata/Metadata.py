@@ -62,7 +62,6 @@ def import_file_h(filename):
     \sa MetadataField.py
     """
     # Load file
-    print "I: Processing %s" % filename
     fp = open(filename, "r")
     lines  = fp.readlines()
     fp.close()
@@ -83,13 +82,15 @@ def import_file_h(filename):
             #    const MyType my_field[]; /**< Comment */
             m = REGEXP_CLASS_FIELD.match(line)
             if m:
-                classes[cur_class_name].fields.append(MetadataField(
-                    qualifier   =  m.group(1),
-                    type        =  m.group(2),
-                    field_name  =  m.group(3),
-                    is_array    = (m.group(4) == "[]"),
-                    description =  m.group(5).strip("/*<")
-                ))
+                classes[cur_class_name].fields.append(
+                    MetadataField(
+                        qualifier   = m.group(1),
+                        type        = m.group(2),
+                        field_name  = m.group(3),
+                        is_array    = (m.group(4) != None), 
+                        description = m.group(5).strip("/*<")
+                    )
+                )
                 continue
 
             #    KEY(my_field1, my_field2);
@@ -103,6 +104,14 @@ def import_file_h(filename):
 
             # };
             if REGEXP_CLASS_END.match(line):
+                cur_class = classes[cur_class_name]
+                if not cur_class.keys: # we must add a implicit key
+                    key_name = "%s_id" % cur_class_name
+                    if key_name in cur_class.fields:
+                        raise ValueError("Trying to add implicit key %s which is already in use" % key_name)
+                    print "I: Adding implicit key %s in %s" % (key_name, cur_class_name) 
+                    cur_class.keys.append([key_name])
+                    cur_class.fields.append(MetadataField("const", "unsigned", key_name, False, "Dummy key"))
                 cur_class_name = None
                 continue
 
@@ -150,9 +159,9 @@ def import_file_h(filename):
             raise ValueError("Invalid input file %s, line %r: [%r]" % (filename, no_line, line))
 
     # Check consistency
-    for cur_class_name, cur_class in classes.items():
-        invalid_keys = cur_class.get_invalid_keys()
-        if invalid_keys:
-            raise ValueError("In %s: in class %r: key(s) not found: %r" % (filename, cur_class_name, invalid_keys))
+#    for cur_class_name, cur_class in classes.items():
+#        invalid_keys = cur_class.get_invalid_keys()
+#        if invalid_keys:
+#            raise ValueError("In %s: in class %r: key(s) not found: %r" % (filename, cur_class_name, invalid_keys))
 
     return (classes, enums)

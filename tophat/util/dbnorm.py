@@ -2,13 +2,17 @@ from tophat.core.table import Table
 class DBNorm:
     """
     Database schema normalization support
+    http://elm.eeng.dcu.ie/~ee221/EE221-DB-7.pdf
     """
 
-    def __init__(self, tables = []):
+    def __init__(self, tables = None):
         """
         Initializes the set of tables
         """
-        self.tables = tables
+        if tables == None:
+            self.tables = []
+        else:
+            self.tables = tables
         self.tables_3nf = self.to_3nf()
 
     def attribute_closure(self, attributes, fd_set):
@@ -51,8 +55,12 @@ class DBNorm:
         return min_cover
 
     def to_3nf(self):
-        # Build the set of functional dependencies
-        fd_set = set([(key, g.fields) for g in self.tables for key in g.keys])
+        return self.to_3nf_old()
+
+    #---------------------------------------------------------------------------
+    def to_3nf_old(self):
+        #fd_set = set([(key, table.get_field_names()) for table in self.tables for key in table.keys])
+        fd_set = set([(key, table.fields) for table in self.tables for key in table.get_fields_from_keys()])
 
         # Find a minimal cover
         fd_set = self.fd_minimal_cover(fd_set)
@@ -61,24 +69,73 @@ class DBNorm:
         # containing all FDs in G with the same determinant X ...
         determinants = {}
         for x, a in fd_set:
+            if len(list(x)) == 1:
+                x = list(x)[0]
             if not x in determinants:
                 determinants[x] = set([])
             determinants[x].add(a)
-
-        # ... create relaton R = (X, A1, A2, ..., An)
+        
+        # ... create relation R = (X, A1, A2, ..., An)
+        # determinants: key: A MetadataClass key (array of strings), data: MetadataField
         relations = []
         for x, y in determinants.items():
-            # Platform list and names for the corresponding key x and values
-            sources = [t for t in self.tables if x in t.keys]
+            # Search source tables related to the corresponding key x and values
+            sources = [t for t in self.tables if t.is_key(x)]
+            if not sources:
+                raise Exception("No source table found with key %s" % x)
+
+            # Several platforms provide the requested table, we choose an arbitrary one
             p = [s.platform for s in sources]
-            if len(p) == 1: p = p[0]
+            if len(p) == 1:
+                p = p[0]
+
             n = list(sources)[0].name
-            # Note, we do not manage multiple keys here...d
             fields = list(y)
-            if isinstance(x, frozenset):
+            if isinstance(x, (frozenset, tuple)):
                 fields.extend(list(x))
             else:
                 fields.append(x)
-            t = Table(p, n, fields, [x])
+            k = [xi.field_name for xi in x] if isinstance(x, (frozenset, tuple)) else x.field_name
+            t = Table(p, n, fields, [k])
+            relations.append(t)
+        return relations
+
+    #---------------------------------------------------------------------------
+
+    def to_3nf_new(self):
+        # Build the set of functional dependencies
+        fd_set = set([(key, table.fields) for table in self.tables for key in table.get_fields_from_keys()])
+
+        # Find a minimal cover
+        fd_set = self.fd_minimal_cover(fd_set)
+        
+        # For each set of FDs in G of the form (X->A1, X->A2, ... X->An)
+        # containing all FDs in G with the same determinant X ...
+        # = map each 'cur_key' vertex to its successors ('fields')
+        determinants = {}
+        for cur_key, cur_fields in fd_set:
+            if not cur_key in determinants:
+                determinants[cur_key] = set([])
+            determinants[cur_key].add(cur_fields)
+
+        # ... create relation R = (X, A1, A2, ..., An)
+        # determinants: key: An array of MetadataField (key of the table), data: MetadataField
+        relations = []
+        for cur_key, cur_fields in determinants.items():
+            # Platform list and names for the corresponding key cur_key and values
+            src_tables = [table for table in self.tables if cur_key in table.get_fields_from_keys()]
+            src_plateforms = [src_table.platform for src_table in src_tables]
+            if len(src_plateforms) == 1:
+                src_plateforms = src_plateforms[0]
+            src_tablename = list(src_tables)[0].name
+
+            # Note, we do not manage multiple keys here...d
+            fields = list(cur_fields)
+            if isinstance(cur_key, (frozenset, tuple)):
+                fields.extend(list(cur_key))
+            else:
+                fields.append(cur_key)
+            t = Table(src_plateforms, src_tablename, fields, [cur_key])
+            
             relations.append(t)
         return relations

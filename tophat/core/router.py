@@ -156,7 +156,7 @@ class THLocalRouter(LocalRouter):
         if not os.path.exists(filename):
             filename = os.path.join(directory, "%s-%s.h" % (gateway_type, platform))
             if not os.path.exists(filename):
-                raise Exception, "Metadata file not found (platform = %r, gateway_type = %r)" % (platform, gateway_type)
+                raise Exception, "Metadata file '%s' not found (platform = %r, gateway_type = %r)" % (filename, platform, gateway_type)
 
         # Read input file
         routes = []
@@ -164,21 +164,23 @@ class THLocalRouter(LocalRouter):
         (classes, enums) = import_file_h(filename)
 
         # Check class consistency
-        for cur_class_name, cur_class in classes.items():
-            invalid_keys = cur_class.get_invalid_keys()
-            if invalid_keys:
-                raise ValueError("In %s: in class %r: key(s) not found: %r" % (filename, cur_class_name, invalid_keys))
+#        for cur_class_name, cur_class in classes.items():
+#            invalid_keys = cur_class.get_invalid_keys()
+#            if invalid_keys:
+#                raise ValueError("In %s: in class %r: key(s) not found: %r" % (filename, cur_class_name, invalid_keys))
             # Note: classes.keys() only stores the class names related
             # to the current file, so we cannot yet check type consistency
             # by using MetadataClass::get_invalid_types(...)
 
         # Feed RIB
         for cur_class_name, cur_class in classes.items():
-            # Note: the Table class does not yet support several keys,
-            # so we only pass the 1st one
-            key = cur_class.keys[0]
-            print ".h: %s::%s: %r" % (platform, cur_class_name, key)
-            t = Table(platform, cur_class_name, cur_class.fields, key)
+            #key = cur_class.keys[0]
+            if cur_class_name == 'traceroute':
+                print ".h: %s::%s: %r" % (platform, cur_class_name, cur_class.keys)
+                print "--> name   = ", cur_class_name 
+                print "--> fields = ", cur_class.fields
+                print "--> keys   = ", cur_class.keys
+            t = Table(platform, cur_class_name, cur_class.fields, cur_class.keys)
             self.rib[t] = platform
         return routes
 
@@ -263,6 +265,7 @@ class THLocalRouter(LocalRouter):
             admin_user = db.query(User).filter(User.email == ADMIN_USER).one()
         except Exception, e:
             raise Exception, 'Missing admin user. %s' % str(e)
+
         # Get user account
         admin_accounts = [a for a in admin_user.accounts if a.platform.platform == platform]
         if not admin_accounts:
@@ -329,9 +332,14 @@ class THLocalRouter(LocalRouter):
         return creds
 
     def build_tables(self):
+        # Build one table per key {'Table' : THRoute}
         tables = self.rib.keys() # HUM
+        print "build_tables:", tables
+        
         # Table normalization
         tables_3nf = DBNorm(tables).tables_3nf
+        print "tables_3nf:", tables_3nf
+        
         # Join graph
         self.G_nf = DBGraph(tables_3nf)
 
@@ -354,16 +362,16 @@ class THLocalRouter(LocalRouter):
         # For each platform, load the corresponding .h file
         for platform in platforms:
             gateway = None
-            try:
-                tables = self.import_file_h(
-                    METADATA_DIRECTORY,
-                    platform.platform,
-                    platform.gateway_type
-                )
-            except Exception, why:
-                print "ERROR in get_static_routes: ", why
-                break
-
+            #try:
+            tables = self.import_file_h(
+                directory,
+                platform.platform,
+                platform.gateway_type
+            )
+            #except Exception, why:
+            #    print "ERROR in get_static_routes: ", why
+            #    break
+            
             routes.extend(tables)
 
         return routes
@@ -390,7 +398,297 @@ class THLocalRouter(LocalRouter):
                 return t.keys
         return None
 
+    def get_table(self, table_name):
+        """
+        \brief Retrieve the Table instance related to 'table_name' from the graph.
+        \param table_name The name of the table
+        \return The corresponding Table instance
+        \sa tophat/core/table.py
+        """
+        for table in self.G_nf.graph.nodes(False):
+            if table.name == table_name:
+                return table 
+        raise ValueError("get_table: field not found (table_name = %s, field_name = %s)" % (table_name, field_name))
 
+    def process_subqueries(self, query, user):
+        print "=" * 100, "process_subqueries"
+        print "query = ", query
+        print "user  = ", user
+        table_name = query.fact_table
+        table = self.get_table(table_name)
+        qp = AST(self, user)
+
+        cur_filters = []
+        cur_params = {}
+        cur_fields = []
+        subq = {}
+
+        # XXX there are some parameters that will be answered by the parent !!!! no need to request them from the children !!!!
+        # XXX XXX XXX XXX XXX XXX ex slice.resource.PROPERTY
+
+        if query.filters:
+            for pred in query.filters:
+                if '.' in pred.key:
+                    method, subkey = pred.key.split('.', 1)
+                    if not method in subq:
+                        subq[method] = {}
+                    if not 'filters' in subq[method]:
+                        subq[method]['filters'] = []
+                    subq[method]['filters'].append(Predicate(subkey, pred.op, pred.value))
+                else:
+                    cur_filters.append(pred)
+
+        if query.params:
+            for key, value in query.params.items():
+                if '.' in key:
+                    method, subkey = key.split('.', 1)
+                    if not method in subq:
+                        subq[method] = {}
+                    if not 'params' in subq[method]:
+                        subq[method]['params'] = {}
+                    subq[method]['params'][subkey, value]
+                else:
+                    cur_params[key] = value
+
+        if query.fields:
+            for field in query.fields:
+                if '.' in field:
+                    method, subfield = field.split('.', 1)
+                    if not method in subq:
+                        subq[method] = {}
+                    if not 'fields' in subq[method]:
+                        subq[method]['fields'] = []
+                    subq[method]['fields'].append(subfield)
+                else:
+                    cur_fields.append(field)
+
+        print "subq = ", subq
+        if len(subq):
+            children_ast = []
+            for method, subquery in subq.items():
+                # We need to add the keys of each subquery
+                # We append the method name (eg. resources) which should return the list of keys
+                # (and eventually more information, but they will be ignored for the moment)
+
+                print ">>>", table, method
+                method = table.get_field(method).type
+                if not method in cur_fields:
+                    cur_fields.append(method)
+
+                # Recursive construction of the processed subquery
+                subfilters = subquery['filters'] if 'filters' in subquery else []
+                subparams  = subquery['params']  if 'params'  in subquery else []
+                subfields  = subquery['fields']  if 'fields'  in subquery else []
+
+                print "-" * 100
+                print "method     = ", method
+                print "subfilters = ", subfilters
+                print "subparams  = ", subparams 
+                print "subfields  = ", subfields 
+
+                # XXX Adding primary key in subquery to be able to merge
+                keys = self.metadata_get_keys(method)
+                print "keys       = ", keys
+                if keys:
+                    key = list(keys).pop()
+                    if isinstance(key, (tuple, frozenset, list)):
+                        for key_elt in key:
+                            subfields.append(key_elt)
+                    elif isinstance(key, StringTypes):
+                        subfields.append(key)
+                    else:
+                        raise TypeError("Invalid type: key = %s (type %s)" % (key, type(key)))
+                print "subfields2 = ", subfields 
+
+                # XXX Adding subfields either requested by the users or
+                # necessary for the join
+
+                # NOTE: when requesting fields from a subquery, there
+                # are several possibilities:
+                # 1 - only keys are returned
+                # 2 - fields are returned but we cannot predict
+                # 3 - we have a list of fields that can be returned
+                # (default)
+                # 4 - all fields can be returned
+                # BTW can we specify which fields we want to force the
+                # platform to do most of the work for us ?
+                #
+                # To begin with, let's only consider case 1 and 4
+                # XXX where to get this information in metadata
+                # XXX case 2 could be handled by injection (we inject
+                # fields before starting, and if we have all required
+                # fields, we can return directly).
+                # XXX case 3 could be a special case of 4
+
+                # We have two solutions:
+                # 1) build the whole child ast (there might be several
+                # solutions and one will be chosen) then inject the
+                # results we already have (we might be able to inject
+                # more in a non chosen solution maybe ?? or maybe not
+                # since we are in 3nf)
+                # 2) build the child ast considering that we have
+                # already a set of fields
+                # 
+                # Let's start with solution 1) since it might be more
+                # robust in the current state given we don't have an
+                # exact idea of what will be the returned fields.
+
+                # Formulate the query we are trying to resolve
+                print ">>>>>>>>>>>>>>>> subfields =", subfields 
+                subquery = Query(query.action, method, subfilters, subparams, subfields)
+
+                child_ast = self.process_subqueries(subquery, user)
+                children_ast.append(child_ast.root)
+
+            parent = Query(query.action, query.fact_table, cur_filters, cur_params, cur_fields)
+            parent_ast = process_query(parent, user)
+            qp = parent_ast
+            qp.subquery(children_ast)
+        else:
+            parent = Query(query.action, query.fact_table, cur_filters, cur_params, cur_fields)
+            qp = self.process_query(parent, user)
+        return qp
+
+    def get_table_max_fields(fields, tables):
+        maxfields = 0
+        ret = (None, None)
+        for t in tables:
+            isect = set(fields).intersection(t.fields)
+            if len(isect) > maxfields:
+                maxfields = len(isect)
+                ret = (t, isect)
+        return ret
+
+    def get_query_plan(self, query, user):
+        qp = self.process_subqueries(query, user)
+
+        # Now we apply the operators
+        #qp = qp.selection(query.filters) 
+        #qp = qp.projection(query.fields) 
+        #qp = qp.sort(query.get_sort()) 
+        #qp = qp.limit(query.get_limit()) 
+
+        # We should now have a query plan
+        print ""
+        print "QUERY PLAN:"
+        print "-----------"
+        qp.dump()
+        print ""
+        print ""
+
+        return qp
+
+    def process_query(self, query, user):
+        # We process a single query without caring about 1..N
+        # former method
+        nodes = dict(self.G_nf.graph.nodes(True)) # XXX
+
+        # Builds the query tree rooted at the fact table
+        root = self.G_nf.get_root(query)
+        tree_edges = [e for e in self.G_nf.get_tree_edges(root)] # generator
+
+        # Necessary fields are the one in the query augmented by the keys in the filters
+        needed_fields = set(query.fields)
+        if query.filters:
+            needed_fields.update(query.filters.keys())
+
+        # Prune the tree from useless tables
+        #visited_tree_edges = prune_query_tree(tree, tree_edges, nodes, needed_fields)
+        visited_tree_edges = DBGraph.prune_tree(tree_edges, nodes, needed_fields)
+        if not visited_tree_edges:
+            # The root is sufficient
+            # OR WE COULD NOT ANSWER QUERY
+            q = Query(action=query.action, fact_table=root.name, filters=query.filters, params=query.params, fields=needed_fields)
+            return AST(self, user).From(root, q) # root, needed_fields)
+
+        qp = None
+        root = True
+        for s, e in visited_tree_edges:
+            # We start at the root if necessary
+            if root:
+                local_fields = set(needed_fields) & s.fields
+
+                it = iter(e.keys)
+                join_key = None
+                while join_key not in s.fields:
+                    join_key = it.next()
+                local_fields.add(join_key)
+
+                # We add fields necessary for performing joins = keys of all the children
+                # XXX does not work for multiple keys
+                ###print "LOCAL FIELDS", local_fields
+                ###for ss,ee in visited_tree_edges:
+                ###    if ss == s:
+                ###        local_fields.update(ee.keys)
+                ###print "LOCAL FIELDS", local_fields
+
+                if not local_fields:
+                    break
+
+                # We adopt a greedy strategy to get the required fields (temporary)
+                # We assume there are no partitions
+                first_join = True
+                left = AST(self, user)
+                sources = nodes[s]['sources'][:]
+                while True:
+                    max_table, max_fields = get_table_max_fields(local_fields, sources)
+                    if not max_table:
+                        raise Exception, 'get_table_max_fields error: could not answer fields: %r for query %s' % (local_fields, query)
+                    sources.remove(max_table)
+                    q = Query(action=query.action, fact_table=max_table.name, filters=query.filters, params=query.params, fields=list(max_fields))
+                    if first_join:
+                        left = AST(self, user).From(max_table, q) # max_table, list(max_fields))
+                        first_join = False
+                    else:
+                        right = AST(self, user).From(max_table, q) # max_table, list(max_fields))
+                        left = left.join(right, iter(s.keys).next())
+                    local_fields.difference_update(max_fields)
+                    needed_fields.difference_update(max_fields)
+                    if not local_fields:
+                        break
+                    # read the key
+                    local_fields.add(iter(s.keys).next())
+                qp = left
+                root = False
+
+            if not needed_fields:
+                return qp
+            local_fields = set(needed_fields) & e.fields
+
+            # Adding key for the join
+            it = iter(e.keys)
+            join_key = None
+            while join_key not in s.fields:
+                join_key = it.next()
+            local_fields.add(join_key)
+            # former ? local_fields.update(e.keys)
+
+            # We adopt a greedy strategy to get the required fields (temporary)
+            # We assume there are no partitions
+            first_join = True
+            left = AST(self, user)
+            sources = nodes[e]['sources'][:]
+            while True:
+                max_table, max_fields = get_table_max_fields(local_fields, sources)
+                if not max_table:
+                    break;
+                q = Query(action=query.action, fact_table=max_table.name, filters=query.filters, params=query.params, fields=list(max_fields))
+                if first_join:
+                    left = AST(self, user).From(max_table, q) # max_table, list(max_fields))
+                    first_join = False
+                else:
+                    right = AST(self, user).From(max_table, q) #max_table, list(max_fields))
+                    left = left.join(right, iter(e.keys).next())
+                local_fields.difference_update(max_fields)
+                needed_fields.difference_update(max_fields)
+                if not local_fields:
+                    break
+                # readd the key
+                local_fields.add(iter(e.keys).next())
+
+            key = iter(e.keys).next()
+            qp = qp.join(left, key) # XXX
+        return qp
 
     def do_forward(self, query, route, deferred, execute=True, user=None):
         """
@@ -400,267 +698,10 @@ class THLocalRouter(LocalRouter):
         # the route parameter is ignored until we clearly state what are the
         # different entities of a router and their responsabilities
 
-        def process_query(query, user):
-            # We process a single query without caring about 1..N
-            # former method
-            nodes = dict(self.G_nf.graph.nodes(True)) # XXX
 
-            # Builds the query tree rooted at the fact table
-            root = self.G_nf.get_root(query)
-            tree_edges = [e for e in self.G_nf.get_tree_edges(root)] # generator
-
-            # Necessary fields are the one in the query augmented by the keys in the filters
-            needed_fields = set(query.fields)
-            if query.filters:
-                needed_fields.update(query.filters.keys())
-
-            # Prune the tree from useless tables
-            #visited_tree_edges = prune_query_tree(tree, tree_edges, nodes, needed_fields)
-            visited_tree_edges = DBGraph.prune_tree(tree_edges, nodes, needed_fields)
-            if not visited_tree_edges:
-                # The root is sufficient
-                # OR WE COULD NOT ANSWER QUERY
-                q = Query(action=query.action, fact_table=root.name, filters=query.filters, params=query.params, fields=needed_fields)
-                return AST(self, user).From(root, q) # root, needed_fields)
-
-            qp = None
-            root = True
-            for s, e in visited_tree_edges:
-                # We start at the root if necessary
-                if root:
-                    local_fields = set(needed_fields) & s.fields
-
-                    it = iter(e.keys)
-                    join_key = None
-                    while join_key not in s.fields:
-                        join_key = it.next()
-                    local_fields.add(join_key)
-
-                    # We add fields necessary for performing joins = keys of all the children
-                    # XXX does not work for multiple keys
-                    ###print "LOCAL FIELDS", local_fields
-                    ###for ss,ee in visited_tree_edges:
-                    ###    if ss == s:
-                    ###        local_fields.update(ee.keys)
-                    ###print "LOCAL FIELDS", local_fields
-
-                    if not local_fields:
-                        break
-
-                    # We adopt a greedy strategy to get the required fields (temporary)
-                    # We assume there are no partitions
-                    first_join = True
-                    left = AST(self, user)
-                    sources = nodes[s]['sources'][:]
-                    while True:
-                        max_table, max_fields = get_table_max_fields(local_fields, sources)
-                        if not max_table:
-                            raise Exception, 'get_table_max_fields error: could not answer fields: %r for query %s' % (local_fields, query)
-                        sources.remove(max_table)
-                        q = Query(action=query.action, fact_table=max_table.name, filters=query.filters, params=query.params, fields=list(max_fields))
-                        if first_join:
-                            left = AST(self, user).From(max_table, q) # max_table, list(max_fields))
-                            first_join = False
-                        else:
-                            right = AST(self, user).From(max_table, q) # max_table, list(max_fields))
-                            left = left.join(right, iter(s.keys).next())
-                        local_fields.difference_update(max_fields)
-                        needed_fields.difference_update(max_fields)
-                        if not local_fields:
-                            break
-                        # read the key
-                        local_fields.add(iter(s.keys).next())
-                    qp = left
-                    root = False
-
-                if not needed_fields:
-                    return qp
-                local_fields = set(needed_fields) & e.fields
-
-                # Adding key for the join
-                it = iter(e.keys)
-                join_key = None
-                while join_key not in s.fields:
-                    join_key = it.next()
-                local_fields.add(join_key)
-                # former ? local_fields.update(e.keys)
-
-                # We adopt a greedy strategy to get the required fields (temporary)
-                # We assume there are no partitions
-                first_join = True
-                left = AST(self, user)
-                sources = nodes[e]['sources'][:]
-                while True:
-                    max_table, max_fields = get_table_max_fields(local_fields, sources)
-                    if not max_table:
-                        break;
-                    q = Query(action=query.action, fact_table=max_table.name, filters=query.filters, params=query.params, fields=list(max_fields))
-                    if first_join:
-                        left = AST(self, user).From(max_table, q) # max_table, list(max_fields))
-                        first_join = False
-                    else:
-                        right = AST(self, user).From(max_table, q) #max_table, list(max_fields))
-                        left = left.join(right, iter(e.keys).next())
-                    local_fields.difference_update(max_fields)
-                    needed_fields.difference_update(max_fields)
-                    if not local_fields:
-                        break
-                    # readd the key
-                    local_fields.add(iter(e.keys).next())
-
-                key = iter(e.keys).next()
-                qp = qp.join(left, key) # XXX
-            return qp
-            
-
-        def process_subqueries(query, user):
-            qp = AST(self, user)
-
-            cur_filters = []
-            cur_params = {}
-            cur_fields = []
-            subq = {}
-
-            # XXX there are some parameters that will be answered by the parent !!!! no need to request them from the children !!!!
-            # XXX XXX XXX XXX XXX XXX ex slice.resource.PROPERTY
-
-            if query.filters:
-                for pred in query.filters:
-                    if '.' in pred.key:
-                        method, subkey = pred.key.split('.', 1)
-                        if not method in subq:
-                            subq[method] = {}
-                        if not 'filters' in subq[method]:
-                            subq[method]['filters'] = []
-                        subq[method]['filters'].append(Predicate(subkey, pred.op, pred.value))
-                    else:
-                        cur_filters.append(pred)
-
-            if query.params:
-                for key, value in query.params.items():
-                    if '.' in key:
-                        method, subkey = key.split('.', 1)
-                        if not method in subq:
-                            subq[method] = {}
-                        if not 'params' in subq[method]:
-                            subq[method]['params'] = {}
-                        subq[method]['params'][subkey, value]
-                    else:
-                        cur_params[key] = value
-
-            if query.fields:
-                for field in query.fields:
-                    if '.' in field:
-                        method, subfield = field.split('.', 1)
-                        if not method in subq:
-                            subq[method] = {}
-                        if not 'fields' in subq[method]:
-                            subq[method]['fields'] = []
-                        subq[method]['fields'].append(subfield)
-                    else:
-                        cur_fields.append(field)
-
-            if len(subq):
-                children_ast = []
-                for method, subquery in subq.items():
-                    # We need to add the keys of each subquery
-                    # 
-                    # We append the method name (eg. resources) which should return the list of keys
-                    # (and eventually more information, but they will be ignored for the moment)
-                    if not method in cur_fields:
-                        cur_fields.append(method)
-
-                    # Recursive construction of the processed subquery
-                    subfilters = subquery['filters'] if 'filters' in subquery else []
-                    subparams = subquery['params'] if 'params' in subquery else []
-                    subfields = subquery['fields'] if 'fields' in subquery else []
-
-                    # XXX Adding primary key in subquery to be able to merge
-                    keys = self.metadata_get_keys(method)
-                    if not keys:
-                        raise Exception, "Cannot build children query: method %s has no key" % method
-                    key = list(keys).pop()
-                    subfields.append(key)
-
-                    # XXX Adding subfields either requested by the users or
-                    # necessary for the join
-
-                    # NOTE: when requesting fields from a subquery, there
-                    # are several possibilities:
-                    # 1 - only keys are returned
-                    # 2 - fields are returned but we cannot predict
-                    # 3 - we have a list of fields that can be returned
-                    # (default)
-                    # 4 - all fields can be returned
-                    # BTW can we specify which fields we want to force the
-                    # platform to do most of the work for us ?
-                    #
-                    # To begin with, let's only consider case 1 and 4
-                    # XXX where to get this information in metadata
-                    # XXX case 2 could be handled by injection (we inject
-                    # fields before starting, and if we have all required
-                    # fields, we can return directly).
-                    # XXX case 3 could be a special case of 4
-
-                    # We have two solutions:
-                    # 1) build the whole child ast (there might be several
-                    # solutions and one will be chosen) then inject the
-                    # results we already have (we might be able to inject
-                    # more in a non chosen solution maybe ?? or maybe not
-                    # since we are in 3nf)
-                    # 2) build the child ast considering that we have
-                    # already a set of fields
-                    # 
-                    # Let's start with solution 1) since it might be more
-                    # robust in the current state given we don't have an
-                    # exact idea of what will be the returned fields.
-
-                    # Formulate the query we are trying to resolve
-                    subquery = Query(query.action, method, subfilters, subparams, subfields)
-
-                    child_ast = process_subqueries(subquery, user)
-                    children_ast.append(child_ast.root)
-
-                parent = Query(query.action, query.fact_table, cur_filters, cur_params, cur_fields)
-                parent_ast = process_query(parent, user)
-                qp = parent_ast
-                qp.subquery(children_ast)
-            else:
-                parent = Query(query.action, query.fact_table, cur_filters, cur_params, cur_fields)
-                qp = process_query(parent, user)
-            return qp
-
-        def get_table_max_fields(fields, tables):
-            maxfields = 0
-            ret = (None, None)
-            for t in tables:
-                isect = set(fields).intersection(t.fields)
-                if len(isect) > maxfields:
-                    maxfields = len(isect)
-                    ret = (t, isect)
-            return ret
-
-        def get_query_plan(query, user):
-            qp = process_subqueries(query, user)
-
-            # Now we apply the operators
-            #qp = qp.selection(query.filters) 
-            #qp = qp.projection(query.fields) 
-            #qp = qp.sort(query.get_sort()) 
-            #qp = qp.limit(query.get_limit()) 
-
-            # We should now have a query plan
-            print ""
-            print "QUERY PLAN:"
-            print "-----------"
-            qp.dump()
-            print ""
-            print ""
-
-            return qp
 
         if not execute: 
-            get_query_plan(query, user)
+            self.get_query_plan(query, user)
             return None
 
         # The query plane will be the same whatever the action: it represents
@@ -688,7 +729,7 @@ class THLocalRouter(LocalRouter):
                     del self.cache[h]
 
         # Building query plan
-        qp = get_query_plan(query, user)
+        qp = self.get_query_plan(query, user)
         d = defer.Deferred() if deferred else None
         cb = Callback(d, self.event, router=self, cache_id=h)
         qp.callback = cb

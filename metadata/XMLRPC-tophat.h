@@ -22,19 +22,19 @@ class node {
     KEY(hostname);
 };
 
-//class traceroute {
-//    const inet      src_ip;
-//    const inet      dst_ip;
-//    const hop       hops[];
-//    const timestamp first;
-//    const timestamp last;
-//    KEY(src_ip, dst_ip, first);
-//};
+class traceroute {
+    const inet      src_ip;
+    const inet      dst_ip;
+    const hop       hops[];
+    const timestamp first;
+    const timestamp last;
+    KEY(src_ip, dst_ip, first);
+};
 
-//class hop {
-//    const inet ip;
-//    const int  ttl;
-//};
+class hop {
+    const inet ip;
+    const int  ttl;
+};
 
 class ip {
     const inet ip;

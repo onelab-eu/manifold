@@ -13,7 +13,7 @@ class DBGraph:
             self.append(table)
 
     def append(self, table):
-        sources = [t for t in self.tables if list(table.keys)[0] in t.keys]
+        sources = [t for t in self.tables if list(table.keys)[0] in t.get_fields_from_keys()]
         self.graph.add_node(table, {'sources': sources})
 
         # We loop through the different _nodes_ of the graph to see whether
@@ -75,7 +75,11 @@ class DBGraph:
         """
         root = [node[0] for node in self.graph.nodes(True) if node[0].name == query.fact_table]
         if not root:
-            raise Exception, "Cannot find root for query %s" % query
+            raise Exception, "Cannot find root '%s' for query '%s'. Nodes available: %s" % (
+                query.fact_table,
+                query,
+                ["%s::%s" % (node[0].platform, node[0].name) for node in self.graph.nodes(True)]
+            )
         return root[0]
 
     def get_tree_edges(self, root):
@@ -97,6 +101,7 @@ class DBGraph:
             data = nodes[node]
             if 'visited' in data and data['visited']:
                 break;
+            print ">>>>>>>>>> prune_tree:", set(fields), set(node.fields)
             if (set(fields) & set(node.fields)):
                 # mark all nodes until we reach the root (no pred) or a marked node
                 cur_node = node

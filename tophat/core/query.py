@@ -2,6 +2,7 @@
 # TODO: add timestamp field
 #
 
+from types import StringTypes
 from tophat.core.filter import Filter, Predicate
 from tophat.util.frozendict import frozendict
 
@@ -63,8 +64,8 @@ class Query(object):
                 raise ParameterError, "No valid constructor found for %s : args=%r" % (self.__class__.__name__, args)
 
         if not self.filters: self.filters = Filter([])
-        if not self.params: self.params = {}
-        if not self.fields: self.fields = set([])
+        if not self.params:  self.params  = {}
+        if not self.fields:  self.fields  = set([])
 
         if isinstance(self.filters, list):
             f = self.filters
@@ -72,10 +73,17 @@ class Query(object):
             for x in f:
                 pred = Predicate(x)
                 self.filters.add(pred)
+
         if isinstance(self.fields, list):
             self.fields = set(self.fields)
 
+        for field in self.fields:
+            if not isinstance(field, StringTypes):
+                raise TypeError("Invalid field name %s (string expected, got %s)" % (field, type(field)))
+
     def __str__(self):
+        print "1>>>", self.fields
+        print "2>>>", self.fact_table 
         return "SELECT %s FROM %s WHERE ..." % (', '.join(self.fields), self.fact_table)
         #return "SELECT %s FROM %s WHERE %s" % (', '.join(self.fields), self.fact_table, self.filters)
 

@@ -34,8 +34,7 @@ class MetadataField:
         """
         \return the string (%r) corresponding to this MetadataField 
         """
-        if self.description:
-            return "\n\tField(%r %r %r) // %r" % (self.qualifier, self.type, self.field_name, self.description)
-        return ""
+        return "Field(%r, %r, %r)" % (self.qualifier, self.type, self.field_name)
 
-
+    def __str__(self):
+        return "\n\tField(%r, %r, %r) // %r" % (self.qualifier, self.type, self.field_name, self.description)
