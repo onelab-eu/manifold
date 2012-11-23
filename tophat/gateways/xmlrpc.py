@@ -51,13 +51,21 @@ class XMLRPC(FromNode):
                 print "method  =", query.fact_table
                 print "filters =", query.filters
                 print "fields  =", query.fields
+                print "ts      =", query.ts
                 print "=" * 100
-                #sys.exit(0)
 
-                proxy.callRemote('Get', auth, query.fact_table, 'now', query.filters, list(query.fields)).addCallbacks(source.success_cb, source.exception_cb)
+#                proxy.callRemote(
+#                    'Get',
+#                    auth,
+#                    query.fact_table,
+#                    query.ts,
+#                    query.filters,
+#                    list(query.fields)
+#                ).addCallbacks(source.success_cb, source.exception_cb)
+                sys.exit(0)
 
-            reactor.callFromThread(wrap, self) # run wrap(self) in the event loop
-            #wrap(self)
+            #reactor.callFromThread(wrap, self) # run wrap(self) in the event loop
+            wrap(self)
             
         except Exception, e:
             print "Exception in XMLRPC::start", e

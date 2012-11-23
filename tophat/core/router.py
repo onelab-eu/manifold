@@ -469,6 +469,7 @@ class THLocalRouter(LocalRouter):
                 subfilters = subquery['filters'] if 'filters' in subquery else []
                 subparams  = subquery['params']  if 'params'  in subquery else []
                 subfields  = subquery['fields']  if 'fields'  in subquery else []
+                subts      = subquery['fields']  if 'fields'  in subquery else "now"
 
                 print "-" * 100
                 print "method     = ", method
@@ -522,17 +523,17 @@ class THLocalRouter(LocalRouter):
                 # exact idea of what will be the returned fields.
 
                 # Formulate the query we are trying to resolve
-                subquery = Query(query.action, method, subfilters, subparams, subfields)
+                subquery = Query(query.action, method, subfilters, subparams, subfields, subts)
 
                 child_ast = self.process_subqueries(subquery, user)
                 children_ast.append(child_ast.root)
 
-            parent = Query(query.action, query.fact_table, cur_filters, cur_params, cur_fields)
+            parent = Query(query.action, query.fact_table, cur_filters, cur_params, cur_fields, query.ts)
             parent_ast = self.process_query(parent, user)
             qp = parent_ast
             qp.subquery(children_ast)
         else:
-            parent = Query(query.action, query.fact_table, cur_filters, cur_params, cur_fields)
+            parent = Query(query.action, query.fact_table, cur_filters, cur_params, cur_fields, query.ts)
             qp = self.process_query(parent, user)
         return qp
 
@@ -585,7 +586,14 @@ class THLocalRouter(LocalRouter):
         if not visited_tree_edges:
             # The root is sufficient
             # OR WE COULD NOT ANSWER QUERY
-            q = Query(action=query.action, fact_table=root.name, filters=query.filters, params=query.params, fields=needed_fields)
+            q = Query(
+                action     = query.action,
+                fact_table = root.name,
+                filters    = query.filters,
+                params     = query.params,
+                fields     = needed_fields,
+                ts         = query.ts
+            )
             return AST(self, user).From(root, q) # root, needed_fields)
 
         qp = None

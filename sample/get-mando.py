@@ -40,7 +40,9 @@ query = Query(
     # query.params
     {},
     # select (= query.fields)
-    ["src_ip", "dst_ip", "hops.ttl", "hops.ip", "hops.hostname"] 
+    ["src_ip", "dst_ip", "hops.ttl", "hops.ip", "hops.hostname"] ,
+    # timestamp
+    "2012-09-09 14:30:09"
 )
 
 

@@ -22,10 +22,9 @@ class Query(object):
         l = len(kwargs.keys())
 
         # Initialization from a tuple
-        if len(args) in range(2, 6) and type(args) == tuple:
+        if len(args) in range(2, 7) and type(args) == tuple:
             # Note: range(x,y) <=> [x, y[
-            self.action, self.fact_table, self.filters, self.params, self.fields = args
-
+            self.action, self.fact_table, self.filters, self.params, self.fields, self.ts = args
 
         # Initialization from a dict (action & fact_table are mandatory)
         elif 'fact_table' in kwargs:
@@ -57,6 +56,12 @@ class Query(object):
             else:
                 self.params = {}
 
+            if 'ts' in kwargs:
+                self.ts = kwargs['ts']
+                del kwargs['ts']
+            else:
+                self.ts = 'now' 
+
             if kwargs:
                 raise ParameterError, "Invalid parameter(s) : %r" % kwargs.keys()
                 return
@@ -66,6 +71,7 @@ class Query(object):
         if not self.filters: self.filters = Filter([])
         if not self.params:  self.params  = {}
         if not self.fields:  self.fields  = set([])
+        if not self.ts:      self.ts      = "now" 
 
         if isinstance(self.filters, list):
             f = self.filters
