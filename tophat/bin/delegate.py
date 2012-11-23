@@ -7,7 +7,7 @@ REG_URL = 'http://www.planet-lab.eu:12345'
 INTERFACE_HRN = 'ple'
 MYSLICE_HRN='ple.upmc.slicebrowser'
 #MYSLICE_API = "http://localhost:7080"
-MYSLICE_API = "http://demo.myslice.info:7080"
+#MYSLICE_API = "http://demo.myslice.info:7080"
 
 import sys
 import os.path
@@ -165,19 +165,20 @@ def get_credentials(pl_username, private_key, sfi_dir, password):
 
 
 def usage():
-    print "Usage: %s PL_USERNAME PRIVATE_KEY SFI_DIR API_USERNAME" % sys.argv[0]
+    print "Usage: %s PL_USERNAME PRIVATE_KEY SFI_DIR API_USERNAME API_URL" % sys.argv[0]
     print ""
     print "Delegates control to MySlice"
     print "    PL USERNAME"
     print "    PRIVATE KEY"
     print "    SFI_DIR       : default ~/.sfi"
     print "    API_USERNAME"
+    print "    API_URL       : e.g: http://demo.myslice.info:7080"
     print ""
     print "Note: USER_PRIVATE_KEY is the name of the file containing your private key inside the .sfi directory as given by SFI_DIR."
 
 def main():
     argc = len(sys.argv)
-    if argc != 5:
+    if argc != 6:
         usage()
         sys.exit(1)
 
@@ -187,6 +188,7 @@ def main():
         sfi_dir = sfi_dir + '/'
     sfi_dir = os.path.expanduser(sfi_dir)
     api_username = sys.argv[4]
+    MYSLICE_API = sys.argv[5]
     password = getpass.getpass("Enter your PlanetLab password: ")
     api_password = getpass.getpass("Enter your API password: ")
 
