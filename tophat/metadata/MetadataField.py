@@ -34,7 +34,15 @@ class MetadataField:
         """
         \return the string (%r) corresponding to this MetadataField 
         """
-        return "Field(%r, %r, %r)" % (self.qualifier, self.type, self.field_name)
+        #return "Field(%r, %r, %r)" % (self.qualifier, self.type, self.field_name)
+        return "<%s>" % self.field_name
 
     def __str__(self):
         return "\n\tField(%r, %r, %r) // %r" % (self.qualifier, self.type, self.field_name, self.description)
+
+
+    def __eq__(self, x):
+        return (self.qualifier, self.type, self.field_name, self.is_array) == (x.qualifier, x.type, x.field_name, x.is_array)
+
+    def __hash__(self):
+        return hash((self.qualifier, self.type, self.field_name, self.is_array))

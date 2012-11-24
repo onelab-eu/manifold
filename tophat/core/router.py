@@ -186,6 +186,10 @@ class THLocalRouter(LocalRouter):
         # stored outside of the platform table
 
         # Finds the gateway corresponding to the platform
+        if isinstance(platform, (tuple, list, set, frozenset)):
+            print "W: get_gateway: only keeping the first platform in %s" % platform
+            platform = list(platform)[0]
+
         try:
             p = db.query(Platform).filter(Platform.platform == platform).one()
         except Exception, e:
@@ -403,7 +407,10 @@ class THLocalRouter(LocalRouter):
         for table in self.G_nf.graph.nodes(False):
             if table.name == table_name:
                 return table 
-        raise ValueError("get_table: field not found (table_name = %s, field_name = %s)" % (table_name, field_name))
+        raise ValueError("get_table: table not found (table_name = %s): available tables: %s" % (
+            table_name,
+            [(t.platform, t.name) for t in self.G_nf.graph.nodes(False)]
+        ))
 
     def process_subqueries(self, query, user):
         table_name = query.fact_table
@@ -535,6 +542,11 @@ class THLocalRouter(LocalRouter):
         else:
             parent = Query(query.action, query.fact_table, cur_filters, cur_params, cur_fields, query.ts)
             qp = self.process_query(parent, user)
+
+        print "~~~~>>> Here is our DBgraph!"
+        for node in self.G_nf.graph.nodes(False):
+            if "tophat" in node.platform or "sonoma" in node.platform:
+                print "Node: %s::%s %s" % (node.name, node.platform, [f.field_name for f in node.fields])
         return qp
 
     def get_table_max_fields(fields, tables):

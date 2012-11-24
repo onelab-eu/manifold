@@ -1,18 +1,9 @@
 #!/usr/bin/env python
 # -*- coding:utf-8 */
 
-import sys, xmlrpclib, os, re
 from config                 import auth
-from tophat.models.platform import Platform
 from tophat.core.router     import THLocalRouter
 from tophat.core.router     import Query
-from tophat.models          import db
-
-#======================================================================
-
-import xml.etree.cElementTree as ElementTree
-from tophat.util.xmldict import XmlDictConfig
-from tophat.core.table import Table
 
 #query = Query(
 #    # action
@@ -60,5 +51,6 @@ with THLocalRouter() as router:
     user = router.authenticate(auth)
     directory = router.conf.STATIC_ROUTES_FILE
     print router.get_static_routes(directory)
-    result = router.forward(query, execute = True, user = user)
-    print result
+    result = router.forward(query, execute = False, user = user)
+    if result:
+        print result
