@@ -104,6 +104,7 @@ class FromNode(Node):
             join = LeftJoin(records, self, key)
             join.callback = old_self_callback
             self.callback = join.right_callback
+            join.query = self.query
             return join
 
 #    def install(self, router, callback, start):
