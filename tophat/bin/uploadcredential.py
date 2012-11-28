@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 #! -*- coding: utf-8 -*-
 
-MYSLICE_DEFAULT_API = "http://demo.myslice.info:7080"
+DEFAULT_MYSLICE_API = "http://demo.myslice.info:7080"
 
 from optparse import OptionParser
 
@@ -15,8 +15,8 @@ def main():
 Example:
   %prog ple my_login ~/.sfi/*_for*.cred"""
     parser=OptionParser (usage=usage)
-    parser.add_option ("-u","--url",dest='url',default=MYSLICE_DEFAULT_API,
-                       help="Specify API url (default is %s)"%MYSLICE_DEFAULT_API)
+    parser.add_option ("-u","--url",dest='url',default=DEFAULT_MYSLICE_API,
+                       help="Specify API url (default is %s)"%DEFAULT_MYSLICE_API)
     (options,args)=parser.parse_args()
 
     if len(args)<=2: 
