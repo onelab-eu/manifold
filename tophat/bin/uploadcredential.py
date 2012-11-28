@@ -9,14 +9,6 @@ import sys
 import xmlrpclib
 import getpass
 
-#def usage():
-#    print "Usage: %s CREDENTIAL PLATFORM API_USERNAME" % sys.argv[0]
-#    print ""
-#    print "Uploads a credential to MySlice"
-#    print "    CREDENTIAL"
-#    print "    PLATFORM"
-#    print "    API_USERNAME"
-
 def main():
     usage="""%prog [--url apiurl] platform api_username credential_1 .. credential_n
   Uploads a set of credentials to MySlice
