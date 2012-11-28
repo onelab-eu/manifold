@@ -56,29 +56,6 @@ class SfaHelper:
         self.my_gid = bootstrap.my_gid ()
         self.bootstrap = bootstrap
 
-    # xxx should be supported by sfaclientbootstrap as well
-    def delegate_cred(self, object_cred, hrn, type='authority'):
-
-        # the gid and hrn of the object we are delegating
-        if isinstance(object_cred, str): # XXX Yes here we give a string...
-            object_cred = Credential(string=object_cred) 
-        object_gid = object_cred.get_gid_object()
-        object_hrn = object_gid.get_hrn()
-    
-        if not object_cred.get_privileges().get_all_delegate():
-            self.logger.error("Object credential %s does not have delegate bit set"%object_hrn)
-            return
-
-        # the delegating user's gid # XXX done in bootstrap
-        caller_gidfile = self.my_gid # already a string # XXX ERROR tell thierry
-  
-        # the gid of the user who will be delegated to
-        delegee_gid = self.bootstrap.gid(hrn,'user') # XXX bootstrap ERROR tell thierry
-        delegee_hrn = GID(delegee_gid).get_hrn()
-        # XXX pkey done in bootstrap
-        dcred = object_cred.delegate(delegee_gid, self.private_key, caller_gidfile)
-        return dcred.save_to_string(save_parents=True)
-
     def delegate(self, delegate_type, delegate_name):
         """
         (locally) create delegate credential for use by given hrn
@@ -87,22 +64,25 @@ class SfaHelper:
         if delegate_type == 'user':
             # done in bootstrap
             print "I: delegate user", delegate_name
-            cred = self.delegate_cred(self.my_credential_string, MYSLICE_HRN, 'user')
+            original_credential = self.my_credential_string
 
         elif delegate_type == 'slice':
             print "I: delegate slice", delegate_name
-            slice_cred = self.bootstrap.slice_credential_string(delegate_name)
-            cred = self.delegate_cred(slice_cred, MYSLICE_HRN, 'slice')
+            original_credential = self.bootstrap.slice_credential_string(delegate_name)
 
+        # this is for when you need to act as a PI
         elif delegate_type == 'authority':
             print "I: delegate authority", delegate_name
-            authority_cred = self.bootstrap.authority_credential_string(delegate_name)
-            cred = self.delegate_cred(authority_cred, MYSLICE_HRN, 'authority')
+            original_credential = self.bootstrap.authority_credential_string(delegate_name)
 
         else:
             print "E: Must specify either --user or --slice <hrn>"
             return
 
+        # we implicitly assume that say, ple.upmc.slicebrowser always is a user
+        # could as well have been an authority but for now.. 
+        myslice_type='user'
+        cred = self.bootstrap.delegate_credential_string (original_credential, MYSLICE_HRN, myslice_type)
         return cred
 
 def get_credentials(pl_username, private_key, sfi_dir, password):
