@@ -101,7 +101,6 @@ class DBGraph:
             data = nodes[node]
             if 'visited' in data and data['visited']:
                 break;
-            print ">>>>>>>>>> prune_tree:", set(fields), set(node.fields)
             if (set(fields) & set(node.fields)):
                 # mark all nodes until we reach the root (no pred) or a marked node
                 cur_node = node

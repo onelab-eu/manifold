@@ -17,8 +17,6 @@ class DBNorm:
         else:
             self.tables = tables
             self.tables_3nf = self.to_3nf()
-        for table in self.tables:
-            print "%s" % table
 
     def attribute_closure(self, attributes, fd_set):
         """
@@ -40,7 +38,6 @@ class DBNorm:
 
         # Transform attributes into a set
         if not isinstance(attributes, (set, frozenset, tuple, list)):
-            print type(attributes)
             closure = set([attributes])
         else:
             closure = set(attributes)
@@ -84,8 +81,6 @@ class DBNorm:
                         min_cover = reduced_min_cover
                         min_cover.add( (x_minus_b, a) )
 
-        for key, a in min_cover:
-            print "min_cover(%r) = %r" % (key, a)
         return min_cover
 
     def to_3nf(self):
@@ -129,11 +124,7 @@ class DBNorm:
 
     #---------------------------------------------------------------------------
     def to_3nf_new(self):
-        #fd_set = set([(key, table.fields) for table in self.tables for key in table.get_fields_from_keys()])
         fd_set = self.make_fd_set()
-        for key, a in fd_set:
-            print "fd = %r --> %r" % (key,a)
-
 
         # Find a minimal cover
         fd_set = self.fd_minimal_cover(fd_set)

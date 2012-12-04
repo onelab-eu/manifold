@@ -22,15 +22,23 @@ class node {
     KEY(hostname);
 };
 
+class agent {
+    const inet  ip;
+    KEY(ip);
+};
+
+class destination {
+    const inet  ip;
+    KEY(ip);
+};
+
 class traceroute {
-    const unsigned  agent_id;
-    const unsigned  destination_id;
-    const inet      src_ip;
-    const inet      dst_ip;
-    const hop       hops[];
-    const timestamp first;
-    const timestamp last;
-    KEY(agent_id, destination_id, first);
+    const agent       source;
+    const destination destination;
+    const hop         hops[];
+    const timestamp   first;
+    const timestamp   last;
+    KEY(source, destination, first);
 };
 
 class hop {

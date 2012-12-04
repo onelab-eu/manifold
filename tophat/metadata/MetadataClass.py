@@ -51,6 +51,12 @@ class MetadataClass:
                 break
         return invalid_keys
 
+    def get_field_names(self):
+        """
+        \return The list of the fields in the MetadataClass
+        """
+        return [field.field_name for field in self.fields]
+
     def get_invalid_types(self, valid_types):
         """
         \return Types not present in the table

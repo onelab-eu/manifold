@@ -107,7 +107,7 @@ def import_file_h(filename):
                 cur_class = classes[cur_class_name]
                 if not cur_class.keys: # we must add a implicit key
                     key_name = "%s_id" % cur_class_name
-                    if key_name in cur_class.fields:
+                    if key_name in cur_class.get_field_names():
                         raise ValueError("Trying to add implicit key %s which is already in use" % key_name)
                     print "I: Adding implicit key %s in %s" % (key_name, cur_class_name) 
                     cur_class.keys.append([key_name])

@@ -5,33 +5,21 @@ from config                 import auth
 from tophat.core.router     import THLocalRouter
 from tophat.core.router     import Query
 
-#query = Query(
-#    # action
-#    'get',
-#    # from (= query.fact_table)
-#    'slice',
-#    # where (= query.filters)
-#    [['slice_hrn', '=', 'ple.upmc.myslicedemo']],
-#    # query.params
-#    {},
-#    # select (= query.fields)
-#    ['slice_hrn', 'resource.hrn', 'resource.country', 'resource.asn', 'lease.duration']
-#)
-
 query = Query(
     # action
-    'get',
+    "get",
     # from (= query.fact_table)
-    'traceroute',
+    "traceroute",
     # where (= query.filters)
     [
-        ["src_ip", "=", "141.22.213.34"],
-        ["dst_ip", "=", "139.91.90.239"]
+        ["source.ip",      "=", "141.22.213.34"],
+        ["destination.ip", "=", "139.91.90.239"]
     ],
     # query.params
     {},
     # select (= query.fields)
-    ["src_ip", "dst_ip", "hops.ttl", "hops.ip", "hops.hostname"] ,
+    ["source.ip", "destination.ip", "hops.ttl", "hops.ip", "hops.hostname"] ,
+    #["source.ip", "destination.ip"],
     # timestamp
     "2012-09-09 14:30:09"
 )
