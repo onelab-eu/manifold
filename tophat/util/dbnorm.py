@@ -55,7 +55,7 @@ class DBNorm:
         return min_cover
 
     def to_3nf(self):
-        return self.to_3nf_old()
+        return self.to_3nf_new()
 
     #---------------------------------------------------------------------------
     def to_3nf_old(self):
@@ -105,6 +105,9 @@ class DBNorm:
     def to_3nf_new(self):
         # Build the set of functional dependencies
         fd_set = set([(key, table.fields) for table in self.tables for key in table.get_fields_from_keys()])
+
+        for x in list(fd_set):
+            print "FD_SET", x
 
         # Find a minimal cover
         fd_set = self.fd_minimal_cover(fd_set)

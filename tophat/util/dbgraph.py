@@ -1,6 +1,7 @@
 import networkx as nx
 import matplotlib.pyplot as plt
 from networkx.algorithms.traversal.depth_first_search import dfs_tree, dfs_edges
+import copy
 
 class DBGraph:
     def __init__(self, tables):
@@ -14,6 +15,8 @@ class DBGraph:
 
     def append(self, table):
         sources = [t for t in self.tables if list(table.keys)[0] in t.get_fields_from_keys()]
+        print "DBGRAPH APPEND", table
+        # It seems sources are useless now...
         self.graph.add_node(table, {'sources': sources})
 
         # We loop through the different _nodes_ of the graph to see whether
@@ -129,7 +132,15 @@ class DBGraph:
         """
 
         def table_fields(table, prefix):
-            return ["%s%s" % (prefix, f) for f in table.fields]
+            #return ["%s%s" % (prefix, f) for f in table.fields]
+            out = []
+            for f in table.fields:
+                # We will modify the fields of the Field object, hence we need
+                # to make a copy not to affect the original one
+                g = copy.deepcopy(f)
+                g.field_name = "%s%s" % (prefix, f.field_name)
+                out.append(g)
+            return out
 
         visited = set()
 
@@ -146,6 +157,7 @@ class DBGraph:
                 parent, child, data = next(children)
                 if child not in visited:
                     if data['type'] == '1..N':
+                        # Recursive call
                         for f in self.get_fields(child, "%s%s." % (prefix, child.name)):
                             yield f
                     else:

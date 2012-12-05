@@ -17,7 +17,7 @@ from tophat.core.ast import FromNode
 from tophat.util.faults import *
 
 from tophat.core.filter import *
-from tophat.core.metadata import Metadata
+#from tophat.core.metadata import Metadata
 from tophat.gateways.sfa.rspecs.SFAv1 import SFAv1Parser as Parser
 
 from sfa.trust.certificate import Keypair, Certificate
@@ -1248,7 +1248,9 @@ class SFA(FromNode):
         else:
             local_filters = q.filters
         
-        fields = Metadata.expand_output_fields(q.fact_table, list(q.fields))
+        fields = list(q.fields)
+        # XXX This has been commented out until Metadata are back
+        # XXX Metadata.expand_output_fields(q.fact_table, list(q.fields))
         result = getattr(self, "%s_%s" % (q.action, q.fact_table))(local_filters, q.params, fields)
         for r in result:
             # DIRTY HACK continued

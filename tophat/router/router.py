@@ -170,6 +170,7 @@ class LocalRouter(object):
                     output = []
                     # XXX Not generic
                     for table in self.G_nf.graph.nodes():
+                        print "GNF table", table
                         fields = [f for f in self.G_nf.get_fields(table)]
                         fields = list(set(fields))
 
@@ -177,15 +178,20 @@ class LocalRouter(object):
                         columns = []
                         for field in fields:
                             column = {
-                                'column': field,
-                                'description': field,
+                                'column': field.field_name,       # field(_name)
+                                'description': field.description, # description
                                 'header': field,
                                 'title': field,
-                                'unit': 'N/A',
+                                'unit': 'N/A',          # !
                                 'info_type': 'N/A',
                                 'resource_type': 'N/A',
                                 'value_type': 'N/A',
-                                'allowed_values': 'N/A'
+                                'allowed_values': 'N/A',
+                                # ----
+                                'type': field.type,               # type
+                                'is_array': field.is_array,       # array?
+                                'qualifier': field.qualifier      # qualifier (const/RW)
+                                                        # ? category == dimension
                             }
                             columns.append(column)
 

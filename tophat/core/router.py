@@ -173,7 +173,7 @@ class THLocalRouter(LocalRouter):
                 raise ValueError("In %s: in class %r: key(s) not found: %r" % (filename, cur_class_name, invalid_keys))
 
         # Rq: We cannot check type consistency while a table might refer to types provided by another file.
-        # This we can't use get_invalid_types yet
+        # Thus we can't use get_invalid_types yet
 
         # Feed RIB
         for cur_class_name, cur_class in classes.items():
@@ -331,12 +331,16 @@ class THLocalRouter(LocalRouter):
     def build_tables(self):
         # Build one table per key {'Table' : THRoute}
         tables = self.rib.keys() # HUM
+        for t in tables:
+            print "BUILD TABLES", t
         
         # Table normalization
         tables_3nf = DBNorm(tables).tables_3nf
         
+        print "================================== BDGraph for normalized"
         # Join graph
         self.G_nf = DBGraph(tables_3nf)
+        print "================================== BDGraph for normalized DONE"
 
     def get_static_routes(self, directory = METADATA_DIRECTORY):
         """
