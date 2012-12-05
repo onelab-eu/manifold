@@ -76,7 +76,12 @@ class Table:
         \brief Convert a Table instance into a string ('%s')
         \return The corresponding string
         """
-        return "<Table name='%s' platform='%s' fields='%r' keys='%r'>" % (self.name, self.platform, self.fields, self.keys)
+        return "<{%s}::%s fields = {%s} keys = {%s}>" % (
+            ', '.join([p            for p in sorted(self.platform)]),
+            self.name,
+            ', '.join([f.field_name for f in sorted(self.fields)]),
+            self.keys
+        )
 
     def __repr__(self):
         """
@@ -131,7 +136,7 @@ class Table:
         for field in self.fields:
             if field.field_name == field_name:
                 return field
-        raise ValueError("get_field: field '%s' not found in '%s'. Available fields: %s" % (field_name, self.name, self.fields))
+        raise ValueError("get_field: field '%s' not found in '%s::%s'. Available fields: %s" % (field_name, self.platform, self.name, self.fields))
 
     def get_field_names(self):
         field_names = []

@@ -186,6 +186,11 @@ class THLocalRouter(LocalRouter):
         # stored outside of the platform table
 
         # Finds the gateway corresponding to the platform
+        if isinstance(platform, (tuple, list, set, frozenset)):
+            if len(list(platform)) > 1:
+                print "W: get_gateway: only keeping the first platform in %s" % platform
+            platform = list(platform)[0]
+
         try:
             p = db.query(Platform).filter(Platform.platform == platform).one()
         except Exception, e:
@@ -407,9 +412,21 @@ class THLocalRouter(LocalRouter):
         for table in self.G_nf.graph.nodes(False):
             if table.name == table_name:
                 return table 
-        raise ValueError("get_table: field not found (table_name = %s, field_name = %s)" % (table_name, field_name))
+        raise ValueError("get_table: table not found (table_name = %s): available tables: %s" % (
+            table_name,
+            [(t.platform, t.name) for t in self.G_nf.graph.nodes(False)]
+        ))
 
     def process_subqueries(self, query, user):
+        """
+        \brief Compute the AST (tree of SQL operators) related to a query
+        \sa tophat/core/ast.py
+        \param query The query issued by the user
+        \param user The user
+        \return An AST instance representing the query plane related to the query
+        """
+        print "-" * 100
+        print ">>>>>>> entering process_subqueries %s (need fields %s) " % (query.fact_table, query.fields)
         table_name = query.fact_table
         table = self.get_table(table_name)
         qp = AST(self, user)
@@ -473,9 +490,8 @@ class THLocalRouter(LocalRouter):
                 subfilters = subquery['filters'] if 'filters' in subquery else []
                 subparams  = subquery['params']  if 'params'  in subquery else []
                 subfields  = subquery['fields']  if 'fields'  in subquery else []
-                subts      = subquery['fields']  if 'fields'  in subquery else "now"
+                subts      = query.ts
 
-                print "-" * 100
                 print "method     = ", method
                 print "subfilters = ", subfilters
                 print "subparams  = ", subparams 
@@ -527,6 +543,7 @@ class THLocalRouter(LocalRouter):
                 # exact idea of what will be the returned fields.
 
                 # Formulate the query we are trying to resolve
+                print "Preparing subquery on", method
                 subquery = Query(query.action, method, subfilters, subparams, subfields, subts)
 
                 child_ast = self.process_subqueries(subquery, user)
@@ -539,6 +556,7 @@ class THLocalRouter(LocalRouter):
         else:
             parent = Query(query.action, query.fact_table, cur_filters, cur_params, cur_fields, query.ts)
             qp = self.process_query(parent, user)
+
         return qp
 
     def get_table_max_fields(fields, tables):
@@ -552,6 +570,11 @@ class THLocalRouter(LocalRouter):
         return ret
 
     def get_query_plan(self, query, user):
+        # DEBUG
+        print "get_query_plan: here is G_nf"
+        for node in dict(self.G_nf.graph.nodes(True)):
+            print node
+
         qp = self.process_subqueries(query, user)
 
         # Now we apply the operators
