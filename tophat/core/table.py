@@ -89,7 +89,7 @@ class Table:
         \return The corresponding string
         """
         if self.platform:
-            return "%s::%s" % (self.platform, self.name)
+            return "<{%s}::%s>" % (', '.join([p for p in sorted(self.platform)]), self.name)
         else:
             return self.name
 
@@ -167,5 +167,110 @@ class Table:
                 fields_keys.add(key)
             else:
                 raise TypeError("Invalid key: %r (type not supported: %r)" % (key, type(key)))
-            break # TODO we only consider the first key
         return fields_keys
+
+    def get_names_from_keys(self):
+        """
+        \return A set of tuple of field names
+            Each sub-array correspond to a key of 'self'.
+            Each element of these subarray is a Strings
+        """
+        names_keys = Set() 
+        for key in self.keys:
+            if isinstance(key, (tuple, list)):
+                name_key = []
+                for field in key:
+                    if isinstance(field, StringTypes):
+                        name_key.append(field)
+                    elif isinstance(field, MetadataField):
+                        name_key.append(field.field_name)
+                    else:
+                        raise TypeError("Invalid field: %r (type not supported: %r)" % (field, type(field)))
+                names_keys.add(tuple(name_key))
+            elif isinstance(key, StringTypes):
+                names_keys.add(key)
+            elif isinstance(key, MetadataField):
+                names_keys.add(key.field_name)
+            else:
+                raise TypeError("Invalid key: %r (type not supported: %r)" % (key, type(key)))
+        return names_keys
+
+    def determines(self, table):
+        """
+        \brief Test whether "self" determines "table" table.
+            u --> v iif
+                exists k | u.k == v (foreign key)
+                u.p == v.p          (platform equality)
+        Example: tophat::agent --> tophat::ip
+        \sa tophat/util/dbgraph.py
+        \param table The target candidate table
+        \return True iif self --> table
+        """
+        if Set(self.platform) == Set(table.platform):
+            keys = self.get_fields_from_keys()
+            for key in keys:
+                if len(list(key)) > 1:
+                    continue
+                else:
+                    key = list(key)[0]
+                if key.type == table.name:
+                    return True
+        return False
+
+    def includes(self, table):
+        """
+        \brief Test whether "self" includes "table" table.
+            u ==> v iif
+                u.p <= v.p (platform inclusion)
+                u.n == v.n (name equality)
+                u.f <= v.f (field inclusion)
+        Example: tophat::ip ==> {sonoma,tophat}::ip
+        \sa tophat/util/dbgraph.py
+        \param table The target candidate table
+        \return True iif self ==> table
+        """
+        if Set(self.platform) <= Set(table.platform) and table.name == self.name: 
+            fields_self  = Set([(field.field_name, field.type) for field in self.fields])
+            fields_table = Set([(field.field_name, field.type) for field in table.fields])
+            return fields_table <= fields_self
+        return False 
+
+#    def includes(self, table):
+#        """
+#        \brief Test whether "self" includes "table" table.
+#           Example: "ip_hop" table includes "ip" table because one of
+#             its fields is named "ip"
+#        \sa tophat/util/dbgraph.py
+#        \param table The target candidate table
+#        \return True iif self -> table
+#        """
+#        return table.name in self.get_field_names() 
+#
+    def provides(self, table):
+        """
+        \brief Test whether "self" provides a "table" table.
+            u ~~> f iif:
+                \exists k | v.k \in u.f (foreign key)
+                u.p == v.p
+            Example:
+                tophat::traceroute ~~> tophat::agent
+        \sa tophat/util/dbgraph.py
+        \param table The target candidate table
+        \return True iif self ~~> table
+        """
+        if self.name == "traceroute" and table.name == "agent":
+            print "TODO: provides(): bugged: traceroute should provides agent"
+        if self.platform == table.platform:
+            for key in table.keys:
+                # We ignore composite key (e.g. (source, destination, ts))
+                if isinstance(key, (list, tuple, set, frozenset)):
+                    continue
+                if isinstance(key, MetadataField):
+                    key_type = key.type
+                elif isinstance(key, StringTypes):
+                    key_type = table.get_field(key).type
+                if table.get_field(key_name).type == key_type:
+                    return True
+        return False
+
+
