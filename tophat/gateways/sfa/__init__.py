@@ -828,6 +828,8 @@ class SFA(FromNode):
                 s['lease'] = rsrc_leases['lease'] 
             if has_users:
                 s['users'] = [{'person_hrn': 'myslice.demo'}]
+            if self.debug:
+                s['debug'] = rsrc_leases['debug']
 
             return [s]
         #
@@ -915,6 +917,9 @@ class SFA(FromNode):
                     s['resource'] = rsrc_leases['resource']
                 if has_lease:
                     s['lease'] = rsrc_leases['lease'] 
+                if self.debug:
+                    s['debug'] = rsrc_leases['debug']
+
         if has_user:
             pass # TODO how to get slice users
 
@@ -1142,27 +1147,35 @@ class SFA(FromNode):
                     rsrc_slice['lease'].append(l)
 
             # Adding fake lease for all reservable nodes that do not have leases already
-            for r in rsrc_slice['resource']:
-                if ('exclusive' in r and r['exclusive'] in ['TRUE', True] and not r['urn'] in lease_urns) or (r['type'] == 'channel'):
-                    #urn = r['urn']
-                    #xrn = Xrn(urn)
-                    fake_lease = {
-                        'urn': r['urn'],
-                        'hrn': r['hrn'],
-                        'type': r['type'],
-                        'network': r['network'], #xrn.authority[0],
-                        'start_time': 0,
-                        'duration': 0,
-                        'granularity': 0,
-                        'slice_id': None
-                    }
-                    rsrc_slice['lease'].append(fake_lease)
+            print "W: removed fake leases: TO TEST"
+            #for r in rsrc_slice['resource']:
+            #    if ('exclusive' in r and r['exclusive'] in ['TRUE', True] and not r['urn'] in lease_urns) or (r['type'] == 'channel'):
+            #        #urn = r['urn']
+            #        #xrn = Xrn(urn)
+            #        fake_lease = {
+            #            'urn': r['urn'],
+            #            'hrn': r['hrn'],
+            #            'type': r['type'],
+            #            'network': r['network'], #xrn.authority[0],
+            #            'start_time': 0,
+            #            'duration': 0,
+            #            'granularity': 0,
+            #            'slice_id': None
+            #        }
+            #        rsrc_slice['lease'].append(fake_lease)
+            if self.debug:
+                rsrc_slice['debug'] = {'rspec': rspec}
 
             return rsrc_slice
             
         except Exception, e:
             print "E: get_resource", e
-            return {'resource': [], 'lease': []}
+            ret = {'resource': [], 'lease': []}
+            # EXCEPTIONS Some tests about giving back informations
+            if self.debug:
+                exc = {'context': 'get_resource_lease', 'e': e}
+                ret['debug'] = {'exception': exc}
+            return ret
 
     def add_rspec_to_cache(self, slice_hrn, rspec):
         print "W: RSpec caching disabled"
@@ -1205,6 +1218,7 @@ class SFA(FromNode):
             raise Exception, "Missing SFA::registry parameter in configuration."
         if not 'timeout' in self.config:
             self.config['timeout'] = None
+        self.debug = 'debug' in query.params and query.params['debug']
 
         self.logger = sfi_logger
 

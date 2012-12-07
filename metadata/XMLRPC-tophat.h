@@ -1,6 +1,8 @@
 class ip {
     const inet ip;
     const text hostname;
+    const unsigned asn;
+    const unsigned country;
     KEY(ip);
 };
 

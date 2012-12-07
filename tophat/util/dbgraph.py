@@ -27,7 +27,6 @@ class DBGraph:
 
         # Add the "table" node to the graph and attach the corresponding sources nodes
         sources = [t for t in self.tables if list(table.keys)[0] in t.get_fields_from_keys()]
-        print "DBGRAPH APPEND", table
         # It seems sources are useless now...
         self.graph.add_node(table, {'sources': sources})
 
@@ -38,23 +37,26 @@ class DBGraph:
             if node == table: # or set(node.keys) & set(table.keys):
                 continue
 
+            #print "======"
+            #print "NODE=", node
+            #print "TABLE=", table
             if node.determines(table):
-                print "append(): %r --> %r" % (node, table)
+                #print "append(): %r --> %r" % (node, table)
                 self.graph.add_edge(node, table, {'cost': True, 'type': None})
             elif table.determines(node):
-                print "append(): %r --> %r" % (table, node)
+                #print "append(): %r --> %r" % (table, node)
                 self.graph.add_edge(table, node, {'cost': True, 'type': None})
             elif node.includes(table):
-                print "append(): %r ==> %r" % (node, table)
+                #print "append(): %r ==> %r" % (node, table)
                 self.graph.add_edge(node, table, {'cost': True, 'type': None})
             elif table.includes(node):
-                print "append(): %r ==> %r" % (table, node)
+                #print "append(): %r ==> %r" % (table, node)
                 self.graph.add_edge(table, node, {'cost': True, 'type': None})
             elif node.provides(table):
-                print "append(): %r ~~> %r" % (node, table)
+                #print "append(): %r ~~> %r" % (node, table)
                 self.graph.add_edge(node, table, {'cost': True, 'type': None})
             elif table.provides(node):
-                print "append(): %r ~~> %r" % (table, node)
+                #print "append(): %r ~~> %r" % (table, node)
                 self.graph.add_edge(table, node, {'cost': True, 'type': None})
 
     def plot(self):
@@ -81,6 +83,12 @@ class DBGraph:
             )
         return root[0]
 
+    def get_edges(self):
+        return dfs_edges(self.graph)
+
+    def get_successors(self, node):
+        return self.graph.successors(node)
+
     def get_tree_edges(self, root):
         edges = dfs_edges(self.graph, root)
         if not edges:
@@ -91,16 +99,20 @@ class DBGraph:
 
     @staticmethod
     def prune_tree(tree_edges, nodes, fields):
-        # XXX
-        # XXX need improvements
-        # XXX
+        """
+        \brief returned a tree pruned from nodes not providing any useful field
+        """
+        # XXX to be improved
+        # XXX if a leaf only provides a key, then we need to remove it also,
+        # since we already have the foreign key in an other table
         tree = nx.DiGraph(tree_edges)
         # *** Compute the query plane ***
         for node in tree.nodes():
             data = nodes[node]
             if 'visited' in data and data['visited']:
                 break;
-            if (set(fields) & set(node.fields)):
+            node_fields = [f.field_name for f in node.fields]
+            if (set(fields) & set(node_fields)):
                 # mark all nodes until we reach the root (no pred) or a marked node
                 cur_node = node
                 # XXX DiGraph.predecessors_iter(n)
@@ -118,7 +130,7 @@ class DBGraph:
         for node in tree.nodes():
             if 'visited' in nodes[node]:
                 del nodes[node]['visited']
-        return visited_tree_edges
+        return nx.DiGraph(visited_tree_edges)
 
     # Let's do a DFS by maintaining a prefix
     def get_fields(self, root, prefix=''):

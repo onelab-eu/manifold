@@ -1,7 +1,9 @@
 from tophat.metadata.MetadataField import MetadataField
 from tophat.core.filter            import Filter
 from types                         import StringTypes
-from sets                          import Set
+# Deprecated since version 2.6: The built-in set/frozenset types replace this module.
+# from sets                          import Set
+
 
 def to_frozenset(t):
     """
@@ -154,7 +156,7 @@ class Table:
             Each sub-array correspond to a key of 'self'.
             Each element of these subarray is a MetadataField.
         """
-        fields_keys = Set() 
+        fields_keys = set() 
         for key in self.keys:
             if isinstance(key, (tuple, list)):
                 cur_key = []
@@ -175,7 +177,7 @@ class Table:
             Each sub-array correspond to a key of 'self'.
             Each element of these subarray is a Strings
         """
-        names_keys = Set() 
+        names_keys = set() 
         for key in self.keys:
             if isinstance(key, (tuple, list)):
                 name_key = []
@@ -206,7 +208,7 @@ class Table:
         \param table The target candidate table
         \return True iif self --> table
         """
-        if Set(self.platform) == Set(table.platform):
+        if set(self.platform) == set(table.platform):
             keys = self.get_fields_from_keys()
             for key in keys:
                 if len(list(key)) > 1:
@@ -229,9 +231,9 @@ class Table:
         \param table The target candidate table
         \return True iif self ==> table
         """
-        if Set(self.platform) <= Set(table.platform) and table.name == self.name: 
-            fields_self  = Set([(field.field_name, field.type) for field in self.fields])
-            fields_table = Set([(field.field_name, field.type) for field in table.fields])
+        if set(self.platform) <= set(table.platform) and table.name == self.name: 
+            fields_self  = set([(field.field_name, field.type) for field in self.fields])
+            fields_table = set([(field.field_name, field.type) for field in table.fields])
             return fields_table <= fields_self
         return False 
 
@@ -251,7 +253,7 @@ class Table:
         \brief Test whether "self" provides a "table" table.
             u ~~> f iif:
                 \exists k | v.k \in u.f (foreign key)
-                u.p == v.p
+                u.p == v.p (Jordan: only if the key is LOCAL, not implemented)
             Example:
                 tophat::traceroute ~~> tophat::agent
         \sa tophat/util/dbgraph.py
@@ -260,16 +262,23 @@ class Table:
         """
         if self.name == "traceroute" and table.name == "agent":
             print "TODO: provides(): bugged: traceroute should provides agent"
-        if self.platform == table.platform:
-            for key in table.keys:
-                # We ignore composite key (e.g. (source, destination, ts))
-                if isinstance(key, (list, tuple, set, frozenset)):
-                    continue
-                if isinstance(key, MetadataField):
-                    key_type = key.type
-                elif isinstance(key, StringTypes):
-                    key_type = table.get_field(key).type
-                if table.get_field(key_name).type == key_type:
+        # JORDAN: commented platform check since this only applies to LOCAL keys
+        #if self.platform == table.platform:
+        for key in table.keys:
+            # We ignore composite key (e.g. (source, destination, ts))
+            if isinstance(key, (list, tuple, set, frozenset)):
+                if len(key) > 1: continue
+                key = list(key)[0]
+            if isinstance(key, MetadataField):
+                key_type = key.type
+                key_name = key.field_name
+            elif isinstance(key, StringTypes):
+                key_type = table.get_field(key).type
+                key_name = key
+            if table.get_field(key_name).type == key_type:
+                # Jordan: added this test so that hop.ip does not point to
+                # agent
+                if table.name == key_name:
                     return True
         return False
 

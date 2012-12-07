@@ -170,7 +170,7 @@ class LocalRouter(object):
                     output = []
                     # XXX Not generic
                     for table in self.G_nf.graph.nodes():
-                        print "GNF table", table
+                        #print "GNF table", table
                         fields = [f for f in self.G_nf.get_fields(table)]
                         fields = list(set(fields))
 

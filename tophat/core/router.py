@@ -336,16 +336,16 @@ class THLocalRouter(LocalRouter):
     def build_tables(self):
         # Build one table per key {'Table' : THRoute}
         tables = self.rib.keys() # HUM
-        for t in tables:
-            print "BUILD TABLES", t
+        #for t in tables:
+        #    print "BUILD TABLES", t
         
         # Table normalization
         tables_3nf = DBNorm(tables).tables_3nf
         
-        print "================================== BDGraph for normalized"
+        #print "================================== BDGraph for normalized"
         # Join graph
         self.G_nf = DBGraph(tables_3nf)
-        print "================================== BDGraph for normalized DONE"
+        #print "================================== BDGraph for normalized DONE"
 
     def get_static_routes(self, directory = METADATA_DIRECTORY):
         """
@@ -429,12 +429,14 @@ class THLocalRouter(LocalRouter):
         print ">>>>>>> entering process_subqueries %s (need fields %s) " % (query.fact_table, query.fields)
         table_name = query.fact_table
         table = self.get_table(table_name)
-        qp = AST(self, user)
+        qp = AST(router=self, user=user)
 
         cur_filters = []
         cur_params = {}
         cur_fields = []
         subq = {}
+
+        debug = 'debug' in query.params and query.params['debug']
 
         # XXX there are some parameters that will be answered by the parent !!!! no need to request them from the children !!!!
         # XXX XXX XXX XXX XXX XXX ex slice.resource.PROPERTY
@@ -489,7 +491,7 @@ class THLocalRouter(LocalRouter):
 
                 # Recursive construction of the processed subquery
                 subfilters = subquery['filters'] if 'filters' in subquery else []
-                subparams  = subquery['params']  if 'params'  in subquery else []
+                subparams  = subquery['params']  if 'params'  in subquery else {}
                 subfields  = subquery['fields']  if 'fields'  in subquery else []
                 subts      = query.ts
 
@@ -545,6 +547,10 @@ class THLocalRouter(LocalRouter):
 
                 # Formulate the query we are trying to resolve
                 print "Preparing subquery on", method
+
+                if debug:
+                    subparams['debug'] = True
+
                 subquery = Query(query.action, method, subfilters, subparams, subfields, subts)
 
                 child_ast = self.process_subqueries(subquery, user)
@@ -573,9 +579,9 @@ class THLocalRouter(LocalRouter):
 
     def get_query_plan(self, query, user):
         # DEBUG
-        print "get_query_plan: here is G_nf"
-        for node in dict(self.G_nf.graph.nodes(True)):
-            print node
+        #print "get_query_plan: here is G_nf"
+        #for node in dict(self.G_nf.graph.nodes(True)):
+        #    print node
 
         qp = self.process_subqueries(query, user)
 
@@ -611,11 +617,7 @@ class THLocalRouter(LocalRouter):
         # Find a tree of tables rooted at the fact table (e.g. method) included
         # in the normalized graph.
         root = self.G_nf.get_root(query)
-        print type(self.G_nf.graph)
-        print "nodes =", self.G_nf.graph.nodes()
-        print "edges =", self.G_nf.graph.edges()
         tree = [arc for arc in self.G_nf.get_tree_edges(root)] # DFS tree 
-        print "tree = ", tree
 
         # Compute the fields involved explicitly in the query (e.g. in SELECT or WHERE)
         needed_fields = set(query.fields)
@@ -627,17 +629,72 @@ class THLocalRouter(LocalRouter):
         tree = DBGraph.prune_tree(tree, dict(self.G_nf.graph.nodes(True)), needed_fields)
 
         # TODO check whether every needed_fields is provided by a node of the tree
+        # We might only be able to partially answer a query. Inform the user
+        # about it
 
-        # tree == None the tree is reduced to the root node 
+        # Initialize a query plan
+        qp = AST(router=self, user=user)
+
+        # Process the root node
+        successors = self.G_nf.get_successors(root)
+        succ_keys = [list(iter(s.keys).next())[0] for s in successors]
+        current_fields = set(needed_fields) & set([f.field_name for f in root.fields])
+        current_fields |= set(succ_keys)
         q = Query(
             action     = query.action,
             fact_table = root.name,
-            filters    = query.filters,
-            params     = query.params,
-            fields     = needed_fields,
+            filters    = None, #query.filters,
+            params     = None, #query.params,
+            fields     = list(current_fields),
             ts         = query.ts
         )
-        return AST(self, user).From(root, q) # root, needed_fields)
+        qp = qp.From(root, q)
+
+        needed_fields -= current_fields
+
+        # (tree == None) means the tree is reduced to the root node. We are done
+        if not tree:
+            if needed_fields: 
+                print "UNRESOLVED FIELDS", needed_fields
+            return qp
+
+        # XXX Can be optimized by parallelizing...
+        # XXX Note: not all arcs are JOIN, some are just about adding fields, or
+        # better choosing the platform.
+        for _, node in self.G_nf.get_edges():
+            # Key is necessary for joining with the parent
+            # NOTE we will need to remember which key was collected
+            # maybe because it will be left in needed keys ???
+            key = iter(node.keys).next()
+
+
+            # We need to ask to the local table at least one key for each
+            # successor XXX let's suppose for now there is only one key
+            # XXX in case of compound keys, what to do ?
+            successors = self.G_nf.get_successors(node)
+            succ_keys = [iter(s.keys).next() for s in successors]
+
+            # Realize a left join ( XXX only for PROVIDES arcs)
+            needed_fields |= set(succ_keys) # This allows to remember which keys to take
+            current_fields = set(needed_fields) & set([f.field_name for f in node.fields])
+            # current_fields.add(key) useless since we know the key is in needed # fields
+
+            q = Query(
+                action     = query.action,
+                fact_table = node.name,
+                filters    = None, #query.filters,
+                params     = None, # query.params,
+                fields     = list(current_fields),
+                ts         = query.ts
+            )
+
+            qp = qp.join(AST(router=self, user=user).From(node, q), key)
+
+            needed_fields -= current_fields
+        
+        if needed_fields:
+            print "UNRESOLVED FIELDS", needed_fields
+        return qp
 
         # Explore the tree to compute which fields must be retrieved for each node/table
         # - A child node can be explored if and only if one of its key is provided
