@@ -475,6 +475,7 @@ class THLocalRouter(LocalRouter):
                 else:
                     cur_fields.append(field)
 
+        print "len(subq) =", len(subq)
         if len(subq):
             children_ast = []
             for method, subquery in subq.items():
@@ -556,6 +557,7 @@ class THLocalRouter(LocalRouter):
         else:
             parent = Query(query.action, query.fact_table, cur_filters, cur_params, cur_fields, query.ts)
             qp = self.process_query(parent, user)
+            print "type(qp) = ", type(qp)
 
         return qp
 
@@ -594,6 +596,68 @@ class THLocalRouter(LocalRouter):
         return qp
 
     def process_query(self, query, user):
+        return self.process_query_new(query, user)
+
+    def process_query_new(self, query, user):
+        """
+        \brief Compute the query plane related to a query which involves
+            no sub-queries. Sub-queries should already processed thanks to
+            process_subqueries().
+        \param query The query issued by the user.
+        \param user The user issuing the query (according to the user grants
+            the query plane might differ).
+        \return The AST instance representing the query plane.
+        """
+        # Find a tree of tables rooted at the fact table (e.g. method) included
+        # in the normalized graph.
+        root = self.G_nf.get_root(query)
+        print type(self.G_nf.graph)
+        print "nodes =", self.G_nf.graph.nodes()
+        print "edges =", self.G_nf.graph.edges()
+        tree = [arc for arc in self.G_nf.get_tree_edges(root)] # DFS tree 
+        print "tree = ", tree
+
+        # Compute the fields involved explicitly in the query (e.g. in SELECT or WHERE)
+        needed_fields = set(query.fields)
+        if query.filters:
+            needed_fields.update(query.filters.keys())
+
+        # Prune this tree to remove table that are not required to answer the query.
+        # As a consequence, each leave of the tree provides at least one queried field.
+        tree = DBGraph.prune_tree(tree, dict(self.G_nf.graph.nodes(True)), needed_fields)
+
+        # TODO check whether every needed_fields is provided by a node of the tree
+
+        # tree == None the tree is reduced to the root node 
+        q = Query(
+            action     = query.action,
+            fact_table = root.name,
+            filters    = query.filters,
+            params     = query.params,
+            fields     = needed_fields,
+            ts         = query.ts
+        )
+        return AST(self, user).From(root, q) # root, needed_fields)
+
+        # Explore the tree to compute which fields must be retrieved for each node/table
+        # - A child node can be explored if and only if one of its key is provided
+        # by the parent node (to join both table), so we need to retrieve the
+        # corresponding fields both in the parent and child.
+        # - Whenever a node is crossed, we compute if it provides some queried
+        # fields. If so, we also retrieve those fields
+
+         
+
+    def process_query_old(self, query, user):
+        """
+        \brief Compute the query plane related to a query which involves
+            no sub-queries. Sub-queries should already processed thanks to
+            process_subqueries().
+        \param query The query issued by the user.
+        \param user The user issuing the query (according to the user grants
+            the query plane might differ).
+        \return The AST instance representing the query plane.
+        """
         # We process a single query without caring about 1..N
         # former method
         nodes = dict(self.G_nf.graph.nodes(True)) # XXX
@@ -611,7 +675,7 @@ class THLocalRouter(LocalRouter):
         #visited_tree_edges = prune_query_tree(tree, tree_edges, nodes, needed_fields)
         visited_tree_edges = DBGraph.prune_tree(tree_edges, nodes, needed_fields)
         if not visited_tree_edges:
-            # The root is sufficient
+            # The root table is sufficient to retrieve the queried fields
             # OR WE COULD NOT ANSWER QUERY
             q = Query(
                 action     = query.action,
@@ -625,9 +689,10 @@ class THLocalRouter(LocalRouter):
 
         qp = None
         root = True
-        for s, e in visited_tree_edges:
+        for s, e in visited_tree_edges: # same order as if we would re-run a DFS
             # We start at the root if necessary
             if root:
+                # local_fields = fields required in the table we're considering
                 local_fields = set(needed_fields) & s.fields
 
                 it = iter(e.keys)

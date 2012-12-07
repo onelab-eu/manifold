@@ -11,6 +11,8 @@
 # Authors:
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
+from types                         import StringTypes
+
 class MetadataField:
     def __init__(self, qualifier, type, field_name, is_array = False, description = None):
         """
@@ -59,3 +61,4 @@ class MetadataField:
             a MetadataField as a key in a dictionnary)
         """
         return hash((self.qualifier, self.type, self.field_name, self.is_array))
+

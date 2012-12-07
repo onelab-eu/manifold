@@ -14,6 +14,18 @@ class DBGraph:
             self.append(table)
 
     def append(self, table):
+        """
+        \brief Add a table node not yet in the DB graph and build the arcs
+            to connect this node to the existing node.
+            - (u->v):1-1 is build is u provide a key of v
+            - (u->v):1-N is build is u has a field of type v
+        \param table The table we insert into the graph.
+        """
+        # Check table not yet in graph
+        if table in self.graph.nodes():
+            raise ValueError("%r is already in the graph" % table)
+
+        # Add the "table" node to the graph and attach the corresponding sources nodes
         sources = [t for t in self.tables if list(table.keys)[0] in t.get_fields_from_keys()]
         print "DBGRAPH APPEND", table
         # It seems sources are useless now...
@@ -22,44 +34,28 @@ class DBGraph:
         # We loop through the different _nodes_ of the graph to see whether
         # we need to establish some links
         for node, data in self.graph.nodes(True):
+            # Ignore the node we've just added
             if node == table: # or set(node.keys) & set(table.keys):
                 continue
 
-            # Another table is pointing to the considered _table_:
-            # FK -> local.PK
-            link = False
-            for k in table.keys:
-                # Checking for the presence of each key of the table in previously inserted tables
-                if isinstance(k, frozenset):
-                    if set(k) <= set(node.fields): # Multiple key XXX
-                        link = True
-                else:
-                    if k in node.fields:
-                        link = True
-            if link:
-                #print "EDGE: %s -> %s" % (node, table)
+            if node.determines(table):
+                print "append(): %r --> %r" % (node, table)
                 self.graph.add_edge(node, table, {'cost': True, 'type': None})
-            
-            # The considered _table_ has a pointer to the primary key of another table
-            # local.FK -> PK
-            link = False
-            # Testing for each possible key of the _node_
-            for k in node.keys:
-                if isinstance(k, frozenset):
-                    if set(k) <= set(t.fields): # Multiple key XXX
-                        link = True
-                else:
-                    # the considered key _k_ is a simple field
-                    if k in table.fields:
-                        link = True
-
-            if link:
-                #print "EDGE: %s -> %s" % (table, node)
+            elif table.determines(node):
+                print "append(): %r --> %r" % (table, node)
                 self.graph.add_edge(table, node, {'cost': True, 'type': None})
-
-            # If _table_ names the object _node_ 1..N (or 1..1)
-            if node.name in table.fields:
-                self.graph.add_edge(table, node, {'cost': True, 'type': '1..N'})
+            elif node.includes(table):
+                print "append(): %r ==> %r" % (node, table)
+                self.graph.add_edge(node, table, {'cost': True, 'type': None})
+            elif table.includes(node):
+                print "append(): %r ==> %r" % (table, node)
+                self.graph.add_edge(table, node, {'cost': True, 'type': None})
+            elif node.provides(table):
+                print "append(): %r ~~> %r" % (node, table)
+                self.graph.add_edge(node, table, {'cost': True, 'type': None})
+            elif table.provides(node):
+                print "append(): %r ~~> %r" % (table, node)
+                self.graph.add_edge(table, node, {'cost': True, 'type': None})
 
     def plot(self):
         DBGraph.plot_graph(self.graph)
