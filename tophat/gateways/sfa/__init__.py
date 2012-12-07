@@ -814,6 +814,10 @@ class SFA(FromNode):
             s['slice_hrn'] = "ple.upmc.agent"
             s['slice_description'] = 'DEMO SLICE'
 
+            if self.platform != 'ple':
+                s['resources'] = []
+                return [s]
+
             has_resources = False
             has_users = False
 
