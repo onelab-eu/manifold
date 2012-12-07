@@ -46,6 +46,7 @@ import json
 import signal
 
 from tophat.conf import ADMIN_USER, DEMO_HOOKS
+import traceback
 
 xslt='''<xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
 <xsl:output method="xml" indent="no"/>
@@ -676,15 +677,18 @@ class SFA(FromNode):
         api_options ['append'] = False
         api_options ['call_id'] = unique_call_id()
         result = self.sliceapi.CreateSliver(slice_urn, [slice_cred], rspec, users, *self.ois(self.sliceapi, api_options))
-        print "CreateSliver RSPEC", result
+        print "CreateSliver RSPEC"
         manifest = ReturnValue.get_value(result)
+        print "MANIFEST: ", str(result)[:100]
 
         if not manifest:
+            print "NO MANIFEST"
             return []
         rsrc_leases = self.parse_sfa_rspec(manifest)
 
         slice = {'slice_hrn': filters.get_eq('slice_hrn')}
         slice.update(rsrc_leases)
+        print "oK"
         return [slice]
 
     # minimally check a key argument
@@ -1232,45 +1236,49 @@ class SFA(FromNode):
         if not self.user_config:
             self.callback(None)
             return
-        self.bootstrap()
-        q = self.query
-        # Let's call the simplest query as possible to begin with
-        # This should use twisted XMLRPC
+        try:
+            self.bootstrap()
+            q = self.query
+            # Let's call the simplest query as possible to begin with
+            # This should use twisted XMLRPC
 
-        # Hardcoding the get network call until caching is implemented
-        if q.action == 'get' and q.fact_table == 'network':
-            platforms = db.query(Platform).filter(Platform.disabled == False).all()
-            output = []
-            for p in platforms:
-                self.callback({'network_hrn': p.platform, 'network_name': p.platform_longname})
-            self.callback(None)
-            return
+            # Hardcoding the get network call until caching is implemented
+            if q.action == 'get' and q.fact_table == 'network':
+                platforms = db.query(Platform).filter(Platform.disabled == False).all()
+                output = []
+                for p in platforms:
+                    self.callback({'network_hrn': p.platform, 'network_name': p.platform_longname})
+                self.callback(None)
+                return
 
-        # DIRTY HACK to allow slices to span on non federated testbeds
-        #
-        # user account will not reference another platform, and will implicitly
-        # contain information about the slice to associate USERHRN_slice
-        slice_hrn = None
-        if self.platform == 'senslab' and q.fact_table == 'slice' and q.filters.has_eq('slice_hrn'):
-            slice_hrn = q.filters.get_eq('slice_hrn')
-            if not self.user_config or not 'user_hrn' in self.user_config:
-                raise Exception, "Missing user configuration"
-            senslab_slice = '%s_slice' % self.user_config['user_hrn']
-            print "I: Using slice %s for senslab platform" % senslab_slice
-            local_filters = copy.deepcopy(q.filters)
-            local_filters.set_eq('slice_hrn', senslab_slice)
-        else:
-            local_filters = q.filters
-        
-        fields = list(q.fields)
-        # XXX This has been commented out until Metadata are back
-        # XXX Metadata.expand_output_fields(q.fact_table, list(q.fields))
-        result = getattr(self, "%s_%s" % (q.action, q.fact_table))(local_filters, q.params, fields)
-        for r in result:
-            # DIRTY HACK continued
-            if slice_hrn and 'slice_hrn' in r:
-                r['slice_hrn'] = slice_hrn
-            self.callback(r)
+            # DIRTY HACK to allow slices to span on non federated testbeds
+            #
+            # user account will not reference another platform, and will implicitly
+            # contain information about the slice to associate USERHRN_slice
+            slice_hrn = None
+            if self.platform == 'senslab' and q.fact_table == 'slice' and q.filters.has_eq('slice_hrn'):
+                slice_hrn = q.filters.get_eq('slice_hrn')
+                if not self.user_config or not 'user_hrn' in self.user_config:
+                    raise Exception, "Missing user configuration"
+                senslab_slice = '%s_slice' % self.user_config['user_hrn']
+                print "I: Using slice %s for senslab platform" % senslab_slice
+                local_filters = copy.deepcopy(q.filters)
+                local_filters.set_eq('slice_hrn', senslab_slice)
+            else:
+                local_filters = q.filters
+            
+            fields = Metadata.expand_output_fields(q.fact_table, list(q.fields))
+            result = getattr(self, "%s_%s" % (q.action, q.fact_table))(local_filters, q.params, fields)
+            for r in result:
+                # DIRTY HACK continued
+                if slice_hrn and 'slice_hrn' in r:
+                    r['slice_hrn'] = slice_hrn
+                self.callback(r)
+        except Exception, e:
+            print "W: Exception during SFA operation, ignoring...%s" % str(e)
+            traceback.print_exc()
+
+
         self.callback(None)
 
 

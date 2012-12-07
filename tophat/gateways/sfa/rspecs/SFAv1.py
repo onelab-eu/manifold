@@ -5,6 +5,10 @@ from tophat.gateways.sfa.rspecs import RSpecParser
 from tophat.core.filter import Filter
 from sfa.util.xml import XpathFilter
 
+# Maps properties within an element of a RSpec to entries in the returned
+# dictionary
+#    RSPEC_ELEMENT
+#        rspec_property -> dictionary_property
 MAP = {
     'node': {
         'location.country': 'country',
@@ -24,18 +28,27 @@ MAP = {
 RESOURCE_KEY = 'hrn'
 
 # HOOKS TO RUN OPERATIONS ON GIVEN FIELDS
-def channel_urn_hrn(value):
+def channel_urn_hrn_exclusive(value):
     output = {}
     # XXX HARDCODED FOR NITOS
     xrn = Xrn('%(network)s.nitos.channel.%(channel_num)s' % value, type='channel')
-    return {'urn': xrn.urn, 'hrn': xrn.hrn}
+    return {'urn': xrn.urn, 'hrn': xrn.hrn, 'exclusive': True}
 
+#   RSPEC_ELEMENT
+#       rspec_property -> dictionary that is merged when we encounter this
+#                         property (the property value is passed as an argument)
+#       '*' -> dictionary merged at the end, useful to add some properties made
+#              from the combination of several others (the full dictionary is
+#              passed as an argument)
 HOOKS = {
     'node': {
         'component_id': lambda value : {'hrn': Xrn(value).get_hrn(), 'urn': value}
     },
     'spectrum/channel': {
-        '*': lambda value: channel_urn_hrn(value)
+        '*': lambda value: channel_urn_hrn_exclusive(value)
+    },
+    '*': {
+        'exclusive': lambda value: {'exclusive': value.lower() not in ['false']}
     }
 }
 
@@ -54,7 +67,7 @@ class SFAv1Parser(RSpecParser):
             for r in resources:
                 val = r['urn'] if isinstance(r, dict) else r
                 auth = Xrn(val).authority
-                if not auth: raise Exception, "No authority in specified URN"
+                if not auth: raise Exception, "No authority in specified URN %s" % val
                 network = auth[0]
                 if not network in self.resources_by_network:
                     self.resources_by_network[network] = []
@@ -125,6 +138,8 @@ class SFAv1Parser(RSpecParser):
                 ret[k] = v
             if name in HOOKS and k in HOOKS[name]:
                 ret.update(HOOKS[name][k](v))
+            if '*' in HOOKS and k in HOOKS['*']:
+                ret.update(HOOKS['*'][k](v))
         if name in HOOKS and '*' in HOOKS[name]:
             ret.update(HOOKS[name]['*'](ret))
         return ret
@@ -228,11 +243,11 @@ class SFAv1Parser(RSpecParser):
                 if lease_tuple in lease_groups:
                     lease_groups[lease_tuple].append(l)
                 else:
-                    lease_groups[lease_groups] = [l]
+                    lease_groups[lease_tuple] = [l]
                     
             # Create RSpec content
             for lease_tuple, leases in lease_groups.items():
-                rspec.append('    <lease slice_id="%s" start_time="%s" duration="%s">' % lease_tuple)
+                rspec.append('    <lease slice_id="%s" start_time="%s" duration="%s">' % (slice_id, lease_tuple[0], lease_tuple[1]))
                 for l in leases:
                     type = Xrn(l['urn']).type
                     if type == 'node':

@@ -1,18 +1,12 @@
 #!/usr/bin/env python
 #! -*- coding: utf-8 -*-
 
-PLE_API = "https://www.planet-lab.eu/PLCAPI/"
-REG_URL = 'http://www.planet-lab.eu:12345'
-
-INTERFACE_HRN = 'ple'
-MYSLICE_HRN='ple.upmc.slicebrowser'
-#MYSLICE_API = "http://localhost:7080"
-#MYSLICE_API = "http://demo.myslice.info:7080"
-
 import sys
 import os.path
 import xmlrpclib
 import getpass
+
+from optparse import OptionParser
 
 # We should be able to package all these modules here
 from sfa.trust.credential import Credential
@@ -23,14 +17,17 @@ from sfa.util.xrn import get_authority
 
 class SfaHelper:
 
-    def __init__(self, user_hrn, private_key, sfi_dir):
+    def __init__(self, user_hrn, private_key, sfi_dir, reg_url, myslice_hrn, myslice_type):
         self.user_hrn = user_hrn
         self.private_key = private_key
         self.sfi_dir = sfi_dir
+        self.reg_url = reg_url
+        self.myslice_hrn = myslice_hrn
+        self.myslice_type = myslice_type
 
     # init self-signed cert, user credentials and gid
     def bootstrap (self):
-        bootstrap = SfaClientBootstrap (self.user_hrn, REG_URL, self.sfi_dir)
+        bootstrap = SfaClientBootstrap (self.user_hrn, self.reg_url, self.sfi_dir)
         # if -k is provided, use this to initialize private key
         if self.private_key:
             bootstrap.init_private_key_if_missing (self.private_key)
@@ -56,29 +53,6 @@ class SfaHelper:
         self.my_gid = bootstrap.my_gid ()
         self.bootstrap = bootstrap
 
-    # xxx should be supported by sfaclientbootstrap as well
-    def delegate_cred(self, object_cred, hrn, type='authority'):
-
-        # the gid and hrn of the object we are delegating
-        if isinstance(object_cred, str): # XXX Yes here we give a string...
-            object_cred = Credential(string=object_cred) 
-        object_gid = object_cred.get_gid_object()
-        object_hrn = object_gid.get_hrn()
-    
-        if not object_cred.get_privileges().get_all_delegate():
-            self.logger.error("Object credential %s does not have delegate bit set"%object_hrn)
-            return
-
-        # the delegating user's gid # XXX done in bootstrap
-        caller_gidfile = self.my_gid # already a string # XXX ERROR tell thierry
-  
-        # the gid of the user who will be delegated to
-        delegee_gid = self.bootstrap.gid(hrn,'user') # XXX bootstrap ERROR tell thierry
-        delegee_hrn = GID(delegee_gid).get_hrn()
-        # XXX pkey done in bootstrap
-        dcred = object_cred.delegate(delegee_gid, self.private_key, caller_gidfile)
-        return dcred.save_to_string(save_parents=True)
-
     def delegate(self, delegate_type, delegate_name):
         """
         (locally) create delegate credential for use by given hrn
@@ -87,28 +61,30 @@ class SfaHelper:
         if delegate_type == 'user':
             # done in bootstrap
             print "I: delegate user", delegate_name
-            cred = self.delegate_cred(self.my_credential_string, MYSLICE_HRN, 'user')
+            original_credential = self.my_credential_string
 
         elif delegate_type == 'slice':
             print "I: delegate slice", delegate_name
-            slice_cred = self.bootstrap.slice_credential_string(delegate_name)
-            cred = self.delegate_cred(slice_cred, MYSLICE_HRN, 'slice')
+            original_credential = self.bootstrap.slice_credential_string(delegate_name)
 
+        # this is for when you need to act as a PI
         elif delegate_type == 'authority':
             print "I: delegate authority", delegate_name
-            authority_cred = self.bootstrap.authority_credential_string(delegate_name)
-            cred = self.delegate_cred(authority_cred, MYSLICE_HRN, 'authority')
+            original_credential = self.bootstrap.authority_credential_string(delegate_name)
 
         else:
             print "E: Must specify either --user or --slice <hrn>"
             return
 
+        # we implicitly assume that say, ple.upmc.slicebrowser always is a user
+        # could as well have been an authority but for now.. 
+        cred = self.bootstrap.delegate_credential_string (original_credential, self.myslice_hrn, self.myslice_type)
         return cred
 
-def get_credentials(pl_username, private_key, sfi_dir, password):
+def get_credentials(pl_username, private_key, sfi_dir, pl_password, plcapi_url, reg_url, interface_hrn, myslice_hrn, myslice_type):
     # Getting user from PLE
-    auth = {'AuthMethod': 'password', 'Username': pl_username, 'AuthString': password}
-    ple = xmlrpclib.Server(PLE_API, allow_none = 1)
+    auth = {'AuthMethod': 'password', 'Username': pl_username, 'AuthString': pl_password}
+    ple = xmlrpclib.Server(plcapi_url, allow_none = 1)
     persons =  ple.GetPersons(auth, {'email': pl_username}, ['person_id', 'site_ids'])
     if not persons:
         raise Exception, "User not found."
@@ -121,16 +97,17 @@ def get_credentials(pl_username, private_key, sfi_dir, password):
     if not sites:
         raise Exception, "Site not found"
         sys.exit(1)
-    site_hrn = ".".join([INTERFACE_HRN, sites[0]['login_base']])
+    site_hrn = ".".join([interface_hrn, sites[0]['login_base']])
 
     user_hrn = email_to_hrn(site_hrn, pl_username)
 
     # Getting slices from PLE
+    print "I: retrieving slices at %s"%plcapi_url
     slices = ple.GetSlices(auth, {}, ['name', 'person_ids'])
     slices = [s for s in slices if person_id in s['person_ids']]
 
     # Delegating user account and slices
-    sfa = SfaHelper(user_hrn, private_key, sfi_dir)
+    sfa = SfaHelper(user_hrn, private_key, sfi_dir, reg_url, myslice_hrn, myslice_type)
     sfa.bootstrap()
 
     creds = []
@@ -154,7 +131,7 @@ def get_credentials(pl_username, private_key, sfi_dir, password):
         print "I: No authority credential."
 
     for s in slices:
-        s_hrn = slicename_to_hrn(INTERFACE_HRN, s['name'])
+        s_hrn = slicename_to_hrn(interface_hrn, s['name'])
         c = {
             'target': s_hrn,
             'type': 'slice',
@@ -164,45 +141,69 @@ def get_credentials(pl_username, private_key, sfi_dir, password):
     return creds
 
 
-def usage():
-    print "Usage: %s PL_USERNAME PRIVATE_KEY SFI_DIR API_USERNAME API_URL" % sys.argv[0]
-    print ""
-    print "Delegates control to MySlice"
-    print "    PL USERNAME"
-    print "    PRIVATE KEY"
-    print "    SFI_DIR       : default ~/.sfi"
-    print "    API_USERNAME"
-    print "    API_URL       : e.g: http://demo.myslice.info:7080"
-    print ""
-    print "Note: USER_PRIVATE_KEY is the name of the file containing your private key inside the .sfi directory as given by SFI_DIR."
+####################
+DEFAULT_MYSLICE_API = "http://demo.myslice.info:7080"
+DEFAULT_PRIVATE_KEY=os.path.expanduser("~/.ssh/id_rsa")
+DEFAULT_SFI_DIR=os.path.expanduser("~/.sfi/")
+DEFAULT_PLC_API = "https://www.planet-lab.eu/PLCAPI/"
+DEFAULT_REG_URL = 'http://www.planet-lab.eu:12345'
+DEFAULT_MYSLICE_HRN='ple.upmc.slicebrowser'
+DEFAULT_MYSLICE_TYPE='user'
+DEFAULT_INTERFACE_HRN = 'ple'
 
 def main():
-    argc = len(sys.argv)
-    if argc != 6:
-        usage()
+
+    usage="""%prog [options] platform api_username pl_username
+  Computes delegated credentials for you as a user and for your slices
+  and uploads them on a MySlice backend
+
+Example:
+  %prog ple thierry thierry.parmentelat@inria.fr"""
+
+    parser=OptionParser (usage=usage)
+    parser.add_option ("-u","--url",dest='myslice_api',default=DEFAULT_MYSLICE_API,
+                       help="Specify API url default is %s"%DEFAULT_MYSLICE_API)
+    parser.add_option ("-m","--myslice-hrn",dest='myslice_hrn',default=DEFAULT_MYSLICE_HRN,
+                       help="hrn that your myslice runs as, default is %s"%DEFAULT_MYSLICE_HRN)
+    parser.add_option ("-t","--myslice-type",dest='myslice_type',default=DEFAULT_MYSLICE_TYPE,
+                       help="the SFA type for MYSLICE_HRN, default is %s"%DEFAULT_MYSLICE_TYPE)
+    parser.add_option ("-k","--key",dest='private_key',default=DEFAULT_PRIVATE_KEY,
+                       help="Private key to use, default is %s"%DEFAULT_PRIVATE_KEY),
+    parser.add_option ("-s","--sfi-dir",dest='sfi_dir',default=DEFAULT_SFI_DIR,
+                       help="sfi directory default is %s"%DEFAULT_SFI_DIR)
+    parser.add_option ("-r","--reg-url",dest='reg_url',default=DEFAULT_REG_URL,
+                       help="URL for the registry interface, default is %s"%DEFAULT_REG_URL)
+    parser.add_option ("-p","--plcapi-url",dest='plc_api',default=DEFAULT_PLC_API,
+                       help="URL for the PLCAPI where Slices get fetched, default is %s"%DEFAULT_PLC_API)
+    parser.add_option ("-i","--interface-hrn",dest='interface_hrn',default=DEFAULT_INTERFACE_HRN,
+                       help="the toplevel HRN for your planetlab instance, default is %s"%DEFAULT_INTERFACE_HRN)
+    
+                       
+    (options,args)=parser.parse_args()
+    if len(args) != 3:
+        parser.print_help()
         sys.exit(1)
 
-    pl_username, private_key = sys.argv[1:3]
-    sfi_dir = sys.argv[3]
+    (platform, api_username, pl_username) = args
+    sfi_dir = options.sfi_dir
     if sfi_dir[-1] != '/':
         sfi_dir = sfi_dir + '/'
-    sfi_dir = os.path.expanduser(sfi_dir)
-    api_username = sys.argv[4]
-    MYSLICE_API = sys.argv[5]
-    password = getpass.getpass("Enter your PlanetLab password: ")
-    api_password = getpass.getpass("Enter your API password: ")
+    myslice_api = options.myslice_api
+    pl_password = getpass.getpass("Enter the PlanetLab password for %s: "%pl_username)
+    api_password = getpass.getpass("Enter your API password for %s: "%api_username)
 
-    creds = get_credentials(pl_username, private_key, sfi_dir, password)
+    creds = get_credentials(pl_username, options.private_key, sfi_dir, pl_password, 
+                            options.plc_api, options.reg_url, options.interface_hrn, 
+                            options.myslice_hrn, options.myslice_type)
 
     # Uploading credentials to MySlice
     auth = {'AuthMethod': 'password', 'Username': api_username, 'AuthString': api_password}
-    #print "W: delegation to demo user"
-    #auth = {'AuthMethod': 'password', 'Username': 'demo', 'password': 'demo'}
 
     try:
-        MySlice = xmlrpclib.Server(MYSLICE_API, allow_none = 1)
+        MySlice = xmlrpclib.Server(options.myslice_api, allow_none = 1)
         for c in creds:
-            MySlice.AddCredential(auth, c, 'ple')
+            MySlice.AddCredential(auth, c, platform)
+            print "I: uploading credential"
     except Exception, e:
         print "E: Error uploading credential: %s" % e
 
