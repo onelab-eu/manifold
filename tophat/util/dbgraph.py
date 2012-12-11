@@ -17,8 +17,8 @@ class DBGraph:
         """
         \brief Add a table node not yet in the DB graph and build the arcs
             to connect this node to the existing node.
-            - (u->v):1-1 is build is u provide a key of v
-            - (u->v):1-N is build is u has a field of type v
+            There are 3 types of arcs (determines, includes, provides)
+        \sa tophat/util/table.py
         \param table The table we insert into the graph.
         """
         # Check table not yet in graph
@@ -42,22 +42,22 @@ class DBGraph:
             #print "TABLE=", table
             if node.determines(table):
                 #print "append(): %r --> %r" % (node, table)
-                self.graph.add_edge(node, table, {'cost': True, 'type': None})
+                self.graph.add_edge(node, table, {'cost': True, 'type': '-->', 'info': node.get_determinant(table)})
             elif table.determines(node):
                 #print "append(): %r --> %r" % (table, node)
-                self.graph.add_edge(table, node, {'cost': True, 'type': None})
+                self.graph.add_edge(table, node, {'cost': True, 'type': '-->', 'info': table.get_determinant(node)})
             elif node.includes(table):
                 #print "append(): %r ==> %r" % (node, table)
-                self.graph.add_edge(node, table, {'cost': True, 'type': None})
+                self.graph.add_edge(node, table, {'cost': True, 'type': '==>', 'info': node.get_inclusion(table)})
             elif table.includes(node):
                 #print "append(): %r ==> %r" % (table, node)
-                self.graph.add_edge(table, node, {'cost': True, 'type': None})
+                self.graph.add_edge(table, node, {'cost': True, 'type': "==>", 'info': table.get_inclusion(node)})
             elif node.provides(table):
-                #print "append(): %r ~~> %r" % (node, table)
-                self.graph.add_edge(node, table, {'cost': True, 'type': None})
+                print "append(): %r ~~> %r" % (node, table)
+                self.graph.add_edge(node, table, {'cost': True, 'type': "~~>", 'info': node.get_provider(table)})
             elif table.provides(node):
-                #print "append(): %r ~~> %r" % (table, node)
-                self.graph.add_edge(table, node, {'cost': True, 'type': None})
+                print "append(): %r ~~> %r" % (table, node)
+                self.graph.add_edge(table, node, {'cost': True, 'type': "~~>", 'info': table.get_provider(node)})
 
     def plot(self):
         DBGraph.plot_graph(self.graph)
@@ -79,7 +79,7 @@ class DBGraph:
             raise Exception, "Cannot find root '%s' for query '%s'. Nodes available: %s" % (
                 query.fact_table,
                 query,
-                ["%s::%s" % (node[0].platform, node[0].name) for node in self.graph.nodes(True)]
+                ["%r" % node for node in self.graph.nodes(True)]
             )
         return root[0]
 
@@ -87,6 +87,11 @@ class DBGraph:
         return dfs_edges(self.graph)
 
     def get_successors(self, node):
+        """
+        \param node A node belonging to this DBGraph
+        \return A list of Table instances which corresponds to successors
+           of "node" in this DBGraph.
+        """
         return self.graph.successors(node)
 
     def get_tree_edges(self, root):

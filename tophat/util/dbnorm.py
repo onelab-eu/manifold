@@ -96,14 +96,14 @@ class DBNorm:
         rules = {}
         for table in self.tables:
             method = table.name
-            platform = table.platform
+            platforms = table.get_platforms()
             for key in table.get_fields_from_keys():
                 for field in table.fields:
                     if (key, method) not in rules.keys():
                         rules[(key, method)] = {}
                     if field not in rules[(key, method)]:
                         rules[(key, method)][field] = set()
-                    rules[(key, method)][field].add(platform)
+                    rules[(key, method)][field].add(platforms)
 
         fd_set0 = {}
         for rule, map_field_platforms in rules.items():
@@ -190,7 +190,7 @@ class DBNorm:
                 raise Exception("No source table found with key %s" % key)
 
             # Several platforms provide the requested table, we choose an arbitrary one
-            p = [s.platform for s in sources]
+            p = [s.get_platforms() for s in sources]
             if len(p) == 1:
                 p = p[0]
             else:

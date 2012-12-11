@@ -64,7 +64,7 @@ class FromNode(Node):
         self.user = user
 
     def dump(self, indent=0):
-        print ' ' * indent * 4, "SELECT %r FROM '%s:%s'" % (self.query.fields, self.platform, self.query.fact_table)
+        print ' ' * indent * 4, "SELECT %r FROM '%s::%s'" % (self.query.fields, self.platform, self.query.fact_table)
 
     def inject(self, records, only_keys):
         keys = self.router.metadata_get_keys(self.query.fact_table)
@@ -109,7 +109,7 @@ class FromNode(Node):
 
 #    def install(self, router, callback, start):
 #        self.router = router
-#        node = router.get_gateway(self.table.platform, self.table.name, self.fields)
+#        node = router.get_gateway(self.table.get_platforms(), self.table.name, self.fields)
 #        node.do_start = start
 #        self._source_id = router.sourcemgr.append(node, start=start)
 #        return node
@@ -529,15 +529,17 @@ class AST(object):
         """
         self.query = query
         # XXX print "W: We have two tables providing the same data: CHOICE or UNION ?"
-        if isinstance(table.platform, list) and len(table.platform)>1:
+        platforms = table.get_platforms()
+        if isinstance(platforms, (list, set, frozenset, tuple)) and len(platforms) > 1:
             children_ast = []
-            for p in table.platform:
+            for p in platforms:
                 t = copy(table)
-                t.platform = p
+                t.platforms = p
                 children_ast.append(AST(self.router, self.user).From(t,query))
             self.union(children_ast) # XXX DISJOINT ?
         else:
-            node = self.router.get_gateway(table.platform, self.query, self.user)
+            platform = list(platforms)[0] if isinstance(platforms, (list, set, frozenset, tuple)) else platforms
+            node = self.router.get_gateway(platform, self.query, self.user)
             node.source_id = self.router.sourcemgr.append(node)
             self.root = node
             self.root.callback = self.callback
