@@ -1234,6 +1234,7 @@ class SFA(FromNode):
 
     def do_start(self):
         if not self.user_config:
+            print "NOT CONFIG RETURN NONE"
             self.callback(None)
             return
         try:
@@ -1267,6 +1268,8 @@ class SFA(FromNode):
             else:
                 local_filters = q.filters
             
+            print "FILTERS", local_filters
+            print "FIELDS", q.fields
             fields = q.fields # Metadata.expand_output_fields(q.fact_table, list(q.fields))
             result = getattr(self, "%s_%s" % (q.action, q.fact_table))(local_filters, q.params, fields)
             for r in result:
@@ -1278,7 +1281,7 @@ class SFA(FromNode):
             print "W: Exception during SFA operation, ignoring...%s" % str(e)
             traceback.print_exc()
 
-
+        print "END CALLABCK"
         self.callback(None)
 
 

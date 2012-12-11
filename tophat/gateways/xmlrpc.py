@@ -14,6 +14,7 @@ class XMLRPC(FromNode):
         return "<XMLRPCGateway %s %s>" % (self.config['url'], self.query)
 
     def success_cb(self, table):
+        print "XMLRPC SUCCESS", len(table)
         for record in table:
             self.callback(record)
         self.callback(None)
@@ -54,15 +55,15 @@ class XMLRPC(FromNode):
                 print "ts      =", query.ts
                 print "=" * 100
 
-#                proxy.callRemote(
-#                    'Get',
-#                    auth,
-#                    query.fact_table,
-#                    query.ts,
-#                    query.filters,
-#                    list(query.fields)
-#                ).addCallbacks(source.success_cb, source.exception_cb)
-                sys.exit(0)
+                print proxy
+                proxy.callRemote(
+                    'Get',
+                    auth,
+                    query.fact_table,
+                    query.ts,
+                    query.filters,
+                    list(query.fields)
+                ).addCallbacks(source.success_cb, source.exception_cb)
 
             #reactor.callFromThread(wrap, self) # run wrap(self) in the event loop
             wrap(self)

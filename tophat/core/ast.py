@@ -150,6 +150,7 @@ class LeftJoin(Node):
         self.right_done = False
 
     def start(self):
+        self.dump()
         if self.left_done:
             self.right.start()
         else:
@@ -183,9 +184,8 @@ class LeftJoin(Node):
 
     def left_callback(self, record):
         if not record:
-            if self.left_done:
-                raise Exception, "pouet"
             self.left_done = True
+            # XXX inject in right 
             self.right.start()
             return
         # New result from the left operator
@@ -220,7 +220,6 @@ class LeftJoin(Node):
 
     def right_callback(self, record):
         try:
-            #print "right callback", record
             # We need to send a NULL record to signal the end of the table
             if not record:
                 self.right_done = True
@@ -331,7 +330,6 @@ class Union(Node):
             self.child_status += i+1
 
     def dump(self, indent=0):
-        print ' ' * indent * 4, 'UNION'
         for child in self.children:
             child.dump(indent+1)
 
@@ -482,90 +480,6 @@ class SubQuery(Node):
         for child in self.children:
             child.start()
 
-#            # old #####"
-#            ast = child.root
-#            # We suppose all results have the same shape, and that we have at
-#            # least one result
-#            if ast.query.fact_table not in self.parent_output[0]:
-#                raise Exception, "Missing primary key information in parent for child %s" % ast.query.fact_table
-#
-#            keys = self.router.metadata_get_keys(ast.query.fact_table)
-#            if not keys:
-#                raise Exception, "Cannot complete query: submethod %s has no key" % method
-#            key = list(keys).pop()
-#
-#            # Create a JOiN node
-#
-#            fact_table = ast.query.fact_table
-#            filters = ast.query.filters.union(ast.query.filters)
-#            fields = ast.query.fields.union(ast.query.fields)
-#
-#            fact_table_key = self.router.metadata_get_keys(fact_table)
-#            fact_table_key = next(iter(fact_table_key))
-#
-#            parent_keys = set([])
-#            for record in self.parent_output: 
-#                # eg. record == slice
-#                #     record[fact_table] == resource[]
-#                #       this variable hold the set of information we already
-#                #       have for each resource in the slice !
-#                #       -> we only need to request the rest, alongside with the
-#                #       key... note that all fields might be useful to complete
-#                #       the query, and not only the key !
-#                print "--------"
-#                print set([ x[fact_table_key] for x in record[fact_table] if fact_table_key in x])
-#                parent_keys.update(set([ x[fact_table_key] for x in record[fact_table] if fact_table_key in x]))
-#            print "======="
-#            print parent_keys
-#            import sys
-#            sys.exit(0)
-#            join = LeftJoin([x[fact_table] for x in self.parent_output], child, key)
-#
-#            # Update its query
-#            join.query = Query(fact_table=fact_table, filters=filters, params=params, fields=fields)
-#
-#            join.callback = lambda record: self.child_callback(i, record)
-#
-#            # This JOiN node becomes the new child
-#            self.children[i] = join
-#
-#            # Can itself be a subquery
-#            # Collect keys from parent results
-#            parent_keys = []
-#            for o in self.parent_output:
-#                if self.parent.query.fact_table in o:
-#                    # o[method] can be :
-#                    # - an id (1..)
-#                    # - an object (1..1)
-#                    # - a list of id (1..N)
-#                    # - a list of objects (1..N)
-#                    if isinstance(o[ast.query.fact_table], list):
-#                        # We inspected each returned object or key
-#                        for x in o[ast.query.fact_table]:
-#                            if isinstance(x, dict):
-#                                # - get key from metadata and add it
-#                                # - What to do with remaining fields, we
-#                                #   might not be able to get them
-#                                #   somewhere else
-#                                raise Exception, "returning subobjects not implemented (yet)."
-#                            else:
-#                                parent_keys.append(x)
-#                    else:
-#                        # 1..1
-#                        raise Exception, "1..1 relationships are not implemented (yet)."
-#                    parent_keys.extend(o['key']) # 1..N
-#
-#            # Add filter on method key
-#            if ast.query.filters.has_key(key):
-#                raise Exception, "Filters on keys are not allowed (yet) for subqueries"
-#            # XXX careful frozen sets !!
-#            ast.query.filters.add(Predicate(key, '=', parent_keys))
-#
-#        # Run child nodes
-#        #print "I: running subquery children"
-#        for child in self.children:
-#            child.start()
-
     def child_done(self, child_id):
         self.child_status -= child_id + 1
         assert self.child_status >= 0, "child status error in subquery"
@@ -596,76 +510,6 @@ class SubQuery(Node):
             self.child_done(child_id)
             return
         self.child_results[child_id].append(record)
-
-# in Filter ?
-def match_filters(dic, filter):
-    # We suppose if a field is in filter, it is therefore in the dic
-    if not filter:
-        return True
-    match = True
-    for k, op, v in filter:
-        if k not in dic:
-            return False
-
-        if op == '=':
-            if isinstance(v, list):
-                match &= (dic[k] in v) # array ?
-            else:
-                match &= (dic[k] == v)
-        elif op == '~':
-            if isinstance(v, list):
-                match &= (dic[k] not in v) # array ?
-            else:
-                match &= (dic[k] != v) # array ?
-        elif op == '<':
-            if isinstance(v, StringTypes):
-                # prefix match
-                match &= dic[k].startswith('%s.' % v)
-            else:
-                match &= (dic[k] < v)
-        elif op == '[':
-            if isinstance(v, StringTypes):
-                match &= dic[k] == v or dic[k].startswith('%s.' % v)
-            else:
-                match &= (dic[k] <= v)
-        elif op == '>':
-            if isinstance(v, StringTypes):
-                # prefix match
-                match &= v.startswith('%s.' % dic[k])
-            else:
-                match &= (dic[k] > v)
-        elif op == ']':
-            if isinstance(v, StringTypes):
-                # prefix match
-                match &= dic[k] == v or v.startswith('%s.' % dic[k])
-            else:
-                match &= (dic[k] >= v)
-        elif op == '&':
-            match &= (dic[k] & v) # array ?
-        elif op == '|':
-            match &= (dic[k] | v) # array ?
-        elif op == '{':
-            match &= (v in dic[k])
-        if not match:
-            return False
-    return match
-                
-
-
-
-class Filter(object):
-    def __init__(self, op, field, value):
-        self._op = op
-        self._field = field
-        self._value = value
-
-class Eq(Filter): 
-    def __init__(self, field, value):
-        super(Eq, self).__init__('==', field, value)
-
-    def dump(self):
-        return "%s %s %s" % (self._field, self._op, self._value)
-
 
 class AST(object):
     def __init__(self, router=None, user=None):

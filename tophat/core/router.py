@@ -666,6 +666,7 @@ class THLocalRouter(LocalRouter):
             # NOTE we will need to remember which key was collected
             # maybe because it will be left in needed keys ???
             key = iter(node.keys).next()
+            if isinstance(key, tuple): key = key[0]
 
 
             # We need to ask to the local table at least one key for each
@@ -675,9 +676,9 @@ class THLocalRouter(LocalRouter):
             succ_keys = [iter(s.keys).next() for s in successors]
 
             # Realize a left join ( XXX only for PROVIDES arcs)
-            needed_fields |= set(succ_keys) # This allows to remember which keys to take
             current_fields = set(needed_fields) & set([f.field_name for f in node.fields])
-            # current_fields.add(key) useless since we know the key is in needed # fields
+            current_fields |= set(succ_keys)
+            current_fields.add(key) 
 
             q = Query(
                 action     = query.action,
