@@ -288,65 +288,102 @@ class FromTable(From):
 # LEFT JOIN node
 #------------------------------------------------------------------
 
-#class LeftJoin(Node):
-#    """
-#    LEFT JOIN operator node
-#    """
-#
-#    def __init__(self, left, right, predicate):
-#        """
-#        Constructor
-#        """
-#        # Parameters
-#        self.left, self.right, self.predicate = left, right, predicate
-#        # Member variables
-#        self.left_map = {}
+class LeftJoin(Node):
+    """
+    LEFT JOIN operator node
+    """
+
+    def __init__(self, children, joins, callback):
+        """
+        Constructor
+        \param children A list of n Node instances
+        \param joins A list of n-1 "join" (= pair of set of mefields)
+            joins[i] allows to join child[i] and child[i+1]
+        \param callback The callback invoked when the LeftJoin
+            returns records. 
+        """
+        if not isinstance(children, list):
+            raise TypeError("Invalid type: %r must be a list" % children)
+        if not isinstance(joins, list):
+            raise TypeError("Invalid type: %r must be a list" % joins)
+        if not children:
+            raise ValueError("Invalid parameter: %r is empty" % children)
+        if len(joins) != len(children) - 1:
+            raise ValueError("Invalid length: %r must have a length of %d" % (joins, len(children) - 1))
+        self.children = children
+        self.joins = joins
+        self.callback = callback
+
+#TODO
+#        self.status = ChildStatus(self.all_done)
 #        # Set up callbacks
-#        left.callback, right.callback = self.left_callback, self.right_callback
-#
-#        super(LeftJoin, self).__init__()
-#
-#    def query(self):
+#        for i, child in enumerate(self.children):
+#            child.callback = ChildCallback(self, i)
+#            self.status.started(i)
+
+        super(LeftJoin, self).__init__()
+
+    def query(self):
+        """
+        \brief Returns the query representing the data produced by the nodes.
+        \return query representing the data produced by the nodes.
+        """
+        q = Query(self.children[0])
+        for child in self.children:
+            # XXX can we join on filtered lists ? I'm not sure !!!
+            # XXX some asserts needed
+            q.filters |= child.filters
+            q.fields  |= child.fields
+        return q
+        
+#    def inject(self, records):
 #        """
-#        \brief Returns the query representing the data produced by the nodes.
-#        \return query representing the data produced by the nodes.
+#        \brief Inject record / record keys into the node
+#        \param records list of dictionaries representing records, or list of
+#        record keys
 #        """
-#        lq, rq = self.left.query, self.right.query
-#        q = Query(lq)
-#        # Filters 
-#        # XXX can we join on filtered lists ? I'm not sure !!!
-#        # XXX some asserts needed
-#        q.filters |= rq.filters
-#        # Fields are the union of both sets of fields
-#        q.fields  |= rq.fields
-#        return q
-#        
-#    def inject(self, records, only_keys):
-#        # XXX Maybe the only_keys argument is optional and can be guessed
-#        # TODO Currently we support injection in the left branch only
-#        if only_keys:
-#            # TODO injection in the right branch
-#            # Injection makes sense in the right branch if it has the same key
-#            # as the left branch.
-#            self.left = self.left.inject(records, only_keys)
-#        else:
+#        if not records:
+#            return
+#        record = records[0]
+#
+#        # Are the records a list of full records, or only record keys
+#        is_record = isinstance(record, dict)
+#
+#        if is_record:
 #            records_inj = []
 #            for record in records:
 #                proj = do_projection(record, self.left.query.fields)
 #                records_inj.append(proj)
-#            self.left = self.left.inject(records_inj, only_keys)
+#            self.left = self.left.inject(records_inj)
 #            # TODO injection in the right branch: only the subset of fields
 #            # of the right branch
-#        return self
+#            return self
 #
+#        # TODO Currently we support injection in the left branch only
+#        # Injection makes sense in the right branch if it has the same key
+#        # as the left branch.
+#        self.left = self.left.inject(records)
+#        return self
+
+    def inject(self, records):
+        raise Exception("Not yet implemented")
+
 #    def start(self):
 #        """
 #        \brief Propagates a START message through the node
 #        """
 #        node = self.right if self.left_done else self.left
 #        node.start()
-#
-#
+
+    def start(self):
+        """
+        \brief Propagates a START message through the node
+        """
+        # Start all children
+        for i, child in enumerate(self.children):
+            child.start()
+            self.status.started(i)
+
 #    def dump(self, indent=0):
 #        """
 #        \brief Dump the current node
@@ -411,150 +448,7 @@ class FromTable(From):
 #        self.callback(left_record)
 #
 #        del self.left_map[key]
-
-
-class LeftJoin(Node):
-    """
-    LEFT JOIN operator node
-    """
-
-    def __init__(self, children, joins, callback):
-        """
-        Constructor
-        \param children A list of n Node instances
-        \param joins A list of n-1 "join" (= pair of set of mefields)
-            joins[i] allows to join child[i] and child[i+1]
-        \param callback The callback invoked when the LeftJoin
-            returns records. 
-        """
-        if not isinstance(children, list):
-            raise TypeError("Invalid type: %r must be a list" % children)
-        if not isinstance(joins, list):
-            raise TypeError("Invalid type: %r must be a list" % joins)
-        if not children:
-            raise ValueError("Invalid parameter: %r is empty" % children)
-        if len(joins) != len(children) - 1:
-            raise ValueError("Invalid length: %r must have a length of %d" % (joins, len(children) - 1))
-        self.children = children
-        self.joins = joins
-        self.callback = callback
-        super(LeftJoin, self).__init__()
-
-    def query(self):
-        """
-        \brief Returns the query representing the data produced by the nodes.
-        \return query representing the data produced by the nodes.
-        """
-        q = Query(self.children[0])
-        for child in self.children:
-            # XXX can we join on filtered lists ? I'm not sure !!!
-            # XXX some asserts needed
-            q.filters |= child.filters
-            q.fields  |= child.fields
-        return q
-        
-    def inject(self, records):
-        """
-        \brief Inject record / record keys into the node
-        \param records list of dictionaries representing records, or list of
-        record keys
-        """
-        if not records:
-            return
-        record = records[0]
-
-        # Are the records a list of full records, or only record keys
-        is_record = isinstance(record, dict)
-
-        if is_record:
-            records_inj = []
-            for record in records:
-                proj = do_projection(record, self.left.query.fields)
-                records_inj.append(proj)
-            self.left = self.left.inject(records_inj)
-            # TODO injection in the right branch: only the subset of fields
-            # of the right branch
-            return self
-
-        # TODO Currently we support injection in the left branch only
-        # Injection makes sense in the right branch if it has the same key
-        # as the left branch.
-        self.left = self.left.inject(records)
-        return self
-
-    def start(self):
-        """
-        \brief Propagates a START message through the node
-        """
-        node = self.right if self.left_done else self.left
-        node.start()
-
-
-    def dump(self, indent=0):
-        """
-        \brief Dump the current node
-        \param indent current indentation
-        """
-        self.tab(indent)
-        print "JOIN", self.predicate
-        if self.left:
-            self.left.dump(indent+1)
-        else:
-            print '[DATA]', self.left_results
-        self.right.dump(indent+1)
-
-    def left_callback(self, record):
-        """
-        \brief Process records received by the left child
-        \param record dictionary representing the received record 
-        """
-
-        if record == LAST_RECORD:
-            # Inject the keys from left records in the right child...
-            self.right.inject(self.left_map.keys())
-            # ... and start the right node
-            self.right.start()
-            return
-
-        # Directly send records missing information necessary to join
-        if self.predicate not in record or not record[self.predicate]:
-            print "W: Missing LEFTJOIN predicate %s in left record %r : forwarding" % \
-                    (self.predicate, record)
-            self.callback(record)
-
-        # Store the result in a hash for joining later
-        self.left_map[record[self.predicate]] = record
-
-    def right_callback(self, record):
-        """
-        \brief Process records received by the right child
-        \param record dictionary representing the received record 
-        """
-
-        if record == LAST_RECORD:
-            # Send records in left_results that have not been joined...
-            for leftrecord in self.left_results:
-                self.callback(leftrecord)
-            # ... and terminates
-            self.callback(LAST_RECORD)
-            return
-
-        # Skip records missing information necessary to join
-        if self.predicate not in record or not record[self.predicate]:
-            print "W: Missing LEFTJOIN predicate %s in right record %r: ignored" % \
-                    (self.predicate, record)
-            return
-        
-        key = record[self.predicate]
-        # We expect to receive information about keys we asked, and only these,
-        # so we are confident the key exists in the map
-        # XXX Dangers of duplicates ?
-        left_record = self.left_map[key]
-        left_record.update(record)
-        self.callback(left_record)
-
-        del self.left_map[key]
-
+#
 #------------------------------------------------------------------
 # PROJECTION node
 #------------------------------------------------------------------
@@ -714,7 +608,6 @@ class Union(Node):
         # Set up callbacks
         for i, child in enumerate(self.children):
             child.callback = ChildCallback(self, i)
-            self.status.started(i)
 
         super(Union, self).__init__()
 
@@ -741,8 +634,9 @@ class Union(Node):
         \brief Propagates a START message through the node
         """
         # Start all children
-        for child in self.children:
+        for i, child in enumerate(self.children):
             child.start()
+            self.status.started(i)
 
     def inject(self, records):
         """
@@ -829,7 +723,6 @@ class SubQuery(Node):
         for i, child in enumerate(self.children):
             child.callback = ChildCallback(self, i)
             self.child_results.append([])
-            self.status.started(i)
 
     def query(self):
         """
@@ -858,6 +751,8 @@ class SubQuery(Node):
         """
         # Start the parent first
         self.parent.start()
+        print "Il y a peut etre un bug ici :)"
+        self.status.started(0)
 
     def parent_callback(self, record):
         """
@@ -918,8 +813,9 @@ class SubQuery(Node):
 
         # We make another loop since the children might have been modified in
         # the previous one.
-        for child in self.children:
+        for i, child in enumerate(self.children):
             child.start()
+            self.status.started(i)
 
     def all_done(self):
         """
