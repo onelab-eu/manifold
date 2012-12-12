@@ -170,8 +170,6 @@ Example:
                        help="sfi directory default is %s"%DEFAULT_SFI_DIR)
     parser.add_option ("-r","--reg-url",dest='reg_url',default=DEFAULT_REG_URL,
                        help="URL for the registry interface, default is %s"%DEFAULT_REG_URL)
-    parser.add_option ("-p","--plcapi-url",dest='plc_api',default=DEFAULT_PLC_API,
-                       help="URL for the PLCAPI where Slices get fetched, default is %s"%DEFAULT_PLC_API)
                        
     (options,args)=parser.parse_args()
     if len(args) != 3:

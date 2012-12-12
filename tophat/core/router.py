@@ -12,7 +12,6 @@ from tophat.router              import *
 from tophat.core.table          import Table
 
 # Can we get rid of the source manager ?
-from tophat.core.sourcemgr      import SourceManager
 from tophat.gateways            import *
 from tophat.core.ast            import AST
 from tophat.core.query          import Query
@@ -128,7 +127,6 @@ class THLocalRouter(LocalRouter):
     def __init__(self):
         print "I: Init THLocalRouter" 
         self.reactor = ReactorThread()
-        self.sourcemgr = SourceManager(self.reactor)
         LocalRouter.__init__(self, Table, object)
         self.event = threading.Event()
         # initialize dummy list of credentials to be uploaded during the
@@ -431,7 +429,7 @@ class THLocalRouter(LocalRouter):
         print ">>>>>>> entering process_subqueries %s (need fields %s) " % (query.fact_table, query.fields)
         table_name = query.fact_table
         table = self.get_table(table_name)
-        qp = AST(router=self, user=user)
+        qp = AST(user)
 
         cur_filters = []
         cur_params = {}
@@ -668,7 +666,7 @@ class THLocalRouter(LocalRouter):
         # about it
 
         # Initialize a query plan
-        qp = AST(router = self, user = user)
+        qp = AST(user)
 
         # Process the root node
         successors = self.G_nf.get_successors(root)
@@ -726,7 +724,7 @@ class THLocalRouter(LocalRouter):
                 ts         = query.ts
             )
 
-            qp = qp.join(AST(router=self, user=user).From(node, q), key)
+            qp = qp.join(AST(user).From(node, q), key)
 
             needed_fields -= current_fields
         
@@ -779,7 +777,7 @@ class THLocalRouter(LocalRouter):
                 fields     = needed_fields,
                 ts         = query.ts
             )
-            return AST(self, user).From(root, q) # root, needed_fields)
+            return AST(user).From(root, q) # root, needed_fields)
 
         qp = None
         root = True
@@ -809,7 +807,7 @@ class THLocalRouter(LocalRouter):
                 # We adopt a greedy strategy to get the required fields (temporary)
                 # We assume there are no partitions
                 first_join = True
-                left = AST(self, user)
+                left = AST(user)
                 sources = nodes[s]['sources'][:]
                 while True:
                     max_table, max_fields = get_table_max_fields(local_fields, sources)
@@ -818,10 +816,10 @@ class THLocalRouter(LocalRouter):
                     sources.remove(max_table)
                     q = Query(action=query.action, fact_table=max_table.name, filters=query.filters, params=query.params, fields=list(max_fields))
                     if first_join:
-                        left = AST(self, user).From(max_table, q) # max_table, list(max_fields))
+                        left = AST(user).From(max_table, q) # max_table, list(max_fields))
                         first_join = False
                     else:
-                        right = AST(self, user).From(max_table, q) # max_table, list(max_fields))
+                        right = AST(user).From(max_table, q) # max_table, list(max_fields))
                         left = left.join(right, iter(s.keys).next())
                     local_fields.difference_update(max_fields)
                     needed_fields.difference_update(max_fields)
@@ -847,7 +845,7 @@ class THLocalRouter(LocalRouter):
             # We adopt a greedy strategy to get the required fields (temporary)
             # We assume there are no partitions
             first_join = True
-            left = AST(self, user)
+            left = AST(user)
             sources = nodes[e]['sources'][:]
             while True:
                 max_table, max_fields = get_table_max_fields(local_fields, sources)
@@ -855,10 +853,10 @@ class THLocalRouter(LocalRouter):
                     break;
                 q = Query(action=query.action, fact_table=max_table.name, filters=query.filters, params=query.params, fields=list(max_fields))
                 if first_join:
-                    left = AST(self, user).From(max_table, q) # max_table, list(max_fields))
+                    left = AST(user).From(max_table, q) # max_table, list(max_fields))
                     first_join = False
                 else:
-                    right = AST(self, user).From(max_table, q) #max_table, list(max_fields))
+                    right = AST(user).From(max_table, q) #max_table, list(max_fields))
                     left = left.join(right, iter(e.keys).next())
                 local_fields.difference_update(max_fields)
                 needed_fields.difference_update(max_fields)
