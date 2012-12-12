@@ -159,22 +159,156 @@ class From(Node):
         # XXX ??? XXX
         self.do_start()
 
+#class LeftJoin(Node):
+#    """
+#    LEFT JOIN operator node
+#    """
+#
+#    def __init__(self, left, right, predicate):
+#        """
+#        Constructor
+#        """
+#        # Parameters
+#        self.left, self.right, self.predicate = left, right, predicate
+#        # Member variables
+#        self.left_map = {}
+#        # Set up callbacks
+#        left.callback, right.callback = self.left_callback, self.right_callback
+#
+#        super(LeftJoin, self).__init__()
+#
+#    def query(self):
+#        """
+#        \brief Returns the query representing the data produced by the nodes.
+#        \return query representing the data produced by the nodes.
+#        """
+#        lq, rq = self.left.query, self.right.query
+#        q = Query(lq)
+#        # Filters 
+#        # XXX can we join on filtered lists ? I'm not sure !!!
+#        # XXX some asserts needed
+#        q.filters |= rq.filters
+#        # Fields are the union of both sets of fields
+#        q.fields  |= rq.fields
+#        return q
+#        
+#    def inject(self, records, only_keys):
+#        # XXX Maybe the only_keys argument is optional and can be guessed
+#        # TODO Currently we support injection in the left branch only
+#        if only_keys:
+#            # TODO injection in the right branch
+#            # Injection makes sense in the right branch if it has the same key
+#            # as the left branch.
+#            self.left = self.left.inject(records, only_keys)
+#        else:
+#            records_inj = []
+#            for record in records:
+#                proj = do_projection(record, self.left.query.fields)
+#                records_inj.append(proj)
+#            self.left = self.left.inject(records_inj, only_keys)
+#            # TODO injection in the right branch: only the subset of fields
+#            # of the right branch
+#        return self
+#
+#    def start(self):
+#        """
+#        \brief Propagates a START message through the node
+#        """
+#        node = self.right if self.left_done else self.left
+#        node.start()
+#
+#
+#    def dump(self, indent=0):
+#        """
+#        \brief Dump the current node
+#        \param indent current indentation
+#        """
+#        self.tab(indent)
+#        print "JOIN", self.predicate
+#        if self.left:
+#            self.left.dump(indent+1)
+#        else:
+#            print '[DATA]', self.left_results
+#        self.right.dump(indent+1)
+#
+#    def left_callback(self, record):
+#        """
+#        \brief Process records received by the left child
+#        \param record dictionary representing the received record 
+#        """
+#
+#        if record == LAST_RECORD:
+#            # Inject the keys from left records in the right child...
+#            self.right.inject(self.left_map.keys())
+#            # ... and start the right node
+#            self.right.start()
+#            return
+#
+#        # Directly send records missing information necessary to join
+#        if self.predicate not in record or not record[self.predicate]:
+#            print "W: Missing LEFTJOIN predicate %s in left record %r : forwarding" % \
+#                    (self.predicate, record)
+#            self.callback(record)
+#
+#        # Store the result in a hash for joining later
+#        self.left_map[record[self.predicate]] = record
+#
+#    def right_callback(self, record):
+#        """
+#        \brief Process records received by the right child
+#        \param record dictionary representing the received record 
+#        """
+#
+#        if record == LAST_RECORD:
+#            # Send records in left_results that have not been joined...
+#            for leftrecord in self.left_results:
+#                self.callback(leftrecord)
+#            # ... and terminates
+#            self.callback(LAST_RECORD)
+#            return
+#
+#        # Skip records missing information necessary to join
+#        if self.predicate not in record or not record[self.predicate]:
+#            print "W: Missing LEFTJOIN predicate %s in right record %r: ignored" % \
+#                    (self.predicate, record)
+#            return
+#        
+#        key = record[self.predicate]
+#        # We expect to receive information about keys we asked, and only these,
+#        # so we are confident the key exists in the map
+#        # XXX Dangers of duplicates ?
+#        left_record = self.left_map[key]
+#        left_record.update(record)
+#        self.callback(left_record)
+#
+#        del self.left_map[key]
+
+
 class LeftJoin(Node):
     """
     LEFT JOIN operator node
     """
 
-    def __init__(self, left, right, predicate):
+    def __init__(self, children, joins, callback):
         """
         Constructor
+        \param children A list of n Node instances
+        \param joins A list of n-1 "join" (= pair of set of mefields)
+            joins[i] allows to join child[i] and child[i+1]
+        \param callback The callback invoked when the LeftJoin
+            returns records. 
         """
-        # Parameters
-        self.left, self.right, self.predicate = left, right, predicate
-        # Member variables
-        self.left_map = {}
-        # Set up callbacks
-        left.callback, right.callback = self.left_callback, self.right_callback
-
+        if not isinstance(children, list):
+            raise TypeError("Invalid type: %r must be a list" % children)
+        if not isinstance(joins, list):
+            raise TypeError("Invalid type: %r must be a list" % joins)
+        if not children:
+            raise ValueError("Invalid parameter: %r is empty" % children)
+        if len(joins) != len(children) - 1:
+            raise ValueError("Invalid length: %r must have a length of %d" % (joins, len(children) - 1))
+        self.children = children
+        self.joins = joins
+        self.callback = callback
         super(LeftJoin, self).__init__()
 
     def query(self):
@@ -182,14 +316,12 @@ class LeftJoin(Node):
         \brief Returns the query representing the data produced by the nodes.
         \return query representing the data produced by the nodes.
         """
-        lq, rq = self.left.query, self.right.query
-        q = Query(lq)
-        # Filters 
-        # XXX can we join on filtered lists ? I'm not sure !!!
-        # XXX some asserts needed
-        q.filters |= rq.filters
-        # Fields are the union of both sets of fields
-        q.fields  |= rq.fields
+        q = Query(self.children[0])
+        for child in self.children:
+            # XXX can we join on filtered lists ? I'm not sure !!!
+            # XXX some asserts needed
+            q.filters |= child.filters
+            q.fields  |= child.fields
         return q
         
     def inject(self, records, only_keys):
@@ -730,34 +862,33 @@ class AST(object):
         """
         self.user = user
         self.router = router
-
         # The AST is initially empty
         self.root = None
 
-    def from(self, table, query):
-        """
-        \brief
-        \param table
-        \param query query requested to the platform
-        """
-        # TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! # XXX
-        self.query = query
-        # XXX print "W: We have two tables providing the same data: CHOICE or UNION ?"
-        platforms = table.get_platforms()
-        if isinstance(platforms, (list, set, frozenset, tuple)) and len(platforms) > 1:
-            children_ast = []
-            for p in platforms:
-                t = copy(table)
-                t.platforms = p
-                children_ast.append(AST(self.router, self.user).From(t,query))
-            self.union(children_ast) # XXX DISJOINT ?
-        else:
-            platform = list(platforms)[0] if isinstance(platforms, (list, set, frozenset, tuple)) else platforms
-            node = self.router.get_gateway(platform, self.query, self.user)
-            node.source_id = self.router.sourcemgr.append(node)
-            self.root = node
-            self.root.callback = self.callback
-        return self
+#    def from(self, table, query):
+#        """
+#        \brief
+#        \param table
+#        \param query query requested to the platform
+#        """
+#        # TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! # XXX
+#        self.query = query
+#        # XXX print "W: We have two tables providing the same data: CHOICE or UNION ?"
+#        platforms = table.get_platforms()
+#        if isinstance(platforms, (list, set, frozenset, tuple)) and len(platforms) > 1:
+#            children_ast = []
+#            for p in platforms:
+#                t = copy(table)
+#                t.platforms = p
+#                children_ast.append(AST(self.router, self.user).From(t,query))
+#            self.union(children_ast) # XXX DISJOINT ?
+#        else:
+#            platform = list(platforms)[0] if isinstance(platforms, (list, set, frozenset, tuple)) else platforms
+#            node = self.router.get_gateway(platform, self.query, self.user)
+#            node.source_id = self.router.sourcemgr.append(node)
+#            self.root = node
+#            self.root.callback = self.callback
+#        return self
 
     def union(self, children_ast):
         # If the current AST has already a root, it becomes the first child
@@ -820,7 +951,10 @@ class AST(object):
         \brief Dump the current AST
         \param indent current indentation
         """
-        self.root.dump(indent)
+        if self.root:
+            self.root.dump(indent)
+        else:
+            print "Empty AST (no root)"
 
     def start(self):
         """

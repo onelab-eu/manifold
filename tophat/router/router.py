@@ -50,7 +50,7 @@ class LocalRouter(object):
         #print "I: Booting router"
         # Install static routes in the RIB and FIB (TODO)
         #print "D: Reading static routes in: '%s'" % self.conf.STATIC_ROUTES_FILE
-        static_routes = self.get_static_routes(self.conf.STATIC_ROUTES_FILE)
+        static_routes = self.fetch_static_routes(self.conf.STATIC_ROUTES_FILE)
         #self.rib[dest] = route
         self.build_tables()
 

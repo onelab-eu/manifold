@@ -1,4 +1,4 @@
-from tophat.core.ast import FromNode
+from tophat.core.ast  import From
 from twisted.internet import reactor
 
 class SourceManager(list):
@@ -13,8 +13,8 @@ class SourceManager(list):
                 item.start()
 
     def append(self, item):
-        if not isinstance(item, FromNode):
-            raise TypeError("Item of class FromNode expected in argument. Got %s" % item.__class__.__name__)
+        if not isinstance(item, From):
+            raise TypeError("Item of class From expected in argument. Got %s" % item.__class__.__name__)
         pos = len(self)
         list.append(self, item)
         return pos

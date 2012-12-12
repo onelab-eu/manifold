@@ -247,10 +247,12 @@ def build_pruned_tree(g, needed_fields, map_vertex_pred):
     tree = get_sub_graph(g, vertices_to_keep)
 
     # Remove useless fields
+    missing_fields = deepcopy(needed_fields)
     for u in tree.nodes():
-        relevant_fields = map_vertex_fields[u]
+        relevant_fields_u = map_vertex_fields[u]
+        missing_fields -= (needed_fields & relevant_fields_u)
         for field in u.fields:
-            if field not in relevant_fields:
+            if field not in relevant_fields_u:
                 print "build_pruned_graph(): erasing %s from %r" % (field.field_name, u)
                 u.erase_field(field.field_name)
 
@@ -262,4 +264,5 @@ def build_pruned_tree(g, needed_fields, map_vertex_pred):
             print "build_pruned_graph(): erasing key %s from %r" % (key_v, v)
             v.erase_key(key_v)
 
+    print "missing_fields = ", missing_fields
     return tree 

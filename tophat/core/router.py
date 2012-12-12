@@ -349,7 +349,7 @@ class THLocalRouter(LocalRouter):
         self.G_nf = DBGraph(tables_3nf)
         #print "================================== BDGraph for normalized DONE"
 
-    def get_static_routes(self, directory = METADATA_DIRECTORY):
+    def fetch_static_routes(self, directory = METADATA_DIRECTORY):
         """
         \brief Retrieve static routes related to each plaform. 
             See:
@@ -479,7 +479,6 @@ class THLocalRouter(LocalRouter):
                 else:
                     cur_fields.append(field)
 
-        print "len(subq) =", len(subq)
         if len(subq):
             children_ast = []
             for method, subquery in subq.items():
@@ -632,7 +631,11 @@ class THLocalRouter(LocalRouter):
         # \sa tophat/util/pruned_graph.py
         pruned_tree = build_pruned_tree(self.G_nf.graph, needed_fields, map_vertex_pred)
 
-        return None
+        # Each node of the pruned tree only gathers relevant table, and only their
+        # relevant fields and their relevant key (if used)
+        qp = AST(router = self, user = user)
+
+        return qp 
 
 
     # OBSOLETE

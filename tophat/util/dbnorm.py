@@ -89,7 +89,6 @@ class DBNorm:
         \sa http://elm.eeng.dcu.ie/~ee221/EE221-DB-7.pdf p14
         \return The corresponding 3nf schema
         """
-        print "~" * 100, "to_3nf"
         return self.to_3nf_new()
 
     def make_fd_set(self):
