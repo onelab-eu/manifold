@@ -19,6 +19,8 @@ from tophat.core.query          import Query
 from tophat.models              import *
 from tophat.util.dbnorm         import DBNorm
 from tophat.util.dbgraph        import DBGraph
+from tophat.util.dfs            import dfs
+from tophat.util.pruned_tree    import build_pruned_tree
 
 from sfa.trust.credential       import Credential
 from tophat.gateways.sfa        import ADMIN_USER
@@ -602,8 +604,38 @@ class THLocalRouter(LocalRouter):
         return qp
 
     def process_query(self, query, user):
-        return self.process_query_new(query, user)
+        return self.process_query_mando(query, user)
 
+    def process_query_mando(self, query, user):
+        """
+        \brief Compute the query plane related to a query which involves
+            no sub-queries. Sub-queries should already processed thanks to
+            process_subqueries().
+        \param query The query issued by the user.
+        \param user The user issuing the query (according to the user grants
+            the query plane might differ).
+        \return The AST instance representing the query plane.
+        """
+        # Compute the fields involved explicitly in the query (e.g. in SELECT or WHERE)
+        needed_fields = set(query.fields)
+        if query.filters:
+            needed_fields.update(query.filters.keys())
+
+        # Retrieve the root node corresponding to the fact table
+        root = self.G_nf.get_root(query)
+
+        # Retrieve the (unique due to 3-nf) tree included in "self.G_nf" and rooted in "root"
+        # \sa tophat/util/dfs.py
+        map_vertex_pred = dfs(self.G_nf.graph, root)
+
+        # Compute the corresponding pruned tree 
+        # \sa tophat/util/pruned_graph.py
+        pruned_tree = build_pruned_tree(self.G_nf.graph, needed_fields, map_vertex_pred)
+
+        return None
+
+
+    # OBSOLETE
     def process_query_new(self, query, user):
         """
         \brief Compute the query plane related to a query which involves
@@ -706,8 +738,7 @@ class THLocalRouter(LocalRouter):
         # - Whenever a node is crossed, we compute if it provides some queried
         # fields. If so, we also retrieve those fields
 
-         
-
+    # OBSOLETE
     def process_query_old(self, query, user):
         """
         \brief Compute the query plane related to a query which involves

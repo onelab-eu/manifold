@@ -1,7 +1,7 @@
-import networkx as nx
+import networkx          as nx
 import matplotlib.pyplot as plt
-from networkx.algorithms.traversal.depth_first_search import dfs_tree, dfs_edges
-import copy
+from networkx.algorithms.traversal.depth_first_search import dfs_edges
+from copy                                             import deepcopy
 
 class DBGraph:
     def __init__(self, tables):
@@ -48,15 +48,15 @@ class DBGraph:
                 self.graph.add_edge(table, node, {'cost': True, 'type': '-->', 'info': table.get_determinant(node)})
             elif node.includes(table):
                 #print "append(): %r ==> %r" % (node, table)
-                self.graph.add_edge(node, table, {'cost': True, 'type': '==>', 'info': node.get_inclusion(table)})
+                self.graph.add_edge(node, table, {'cost': True, 'type': '==>', 'info': None})
             elif table.includes(node):
                 #print "append(): %r ==> %r" % (table, node)
-                self.graph.add_edge(table, node, {'cost': True, 'type': "==>", 'info': table.get_inclusion(node)})
+                self.graph.add_edge(table, node, {'cost': True, 'type': "==>", 'info': None})
             elif node.provides(table):
-                print "append(): %r ~~> %r" % (node, table)
+                #print "append(): %r ~~> %r" % (node, table)
                 self.graph.add_edge(node, table, {'cost': True, 'type': "~~>", 'info': node.get_provider(table)})
             elif table.provides(node):
-                print "append(): %r ~~> %r" % (table, node)
+                #print "append(): %r ~~> %r" % (table, node)
                 self.graph.add_edge(table, node, {'cost': True, 'type': "~~>", 'info': table.get_provider(node)})
 
     def plot(self):
@@ -68,6 +68,7 @@ class DBGraph:
         plt.show()
 
     def get_tree_edges(self, root):
+        print "get_tree_edges1" # pk on a 2 fonctions get_tree_edges ?
         return [e for e in dfs_edges(self.graph, root)]
 
     def get_root(self, query):
@@ -95,6 +96,7 @@ class DBGraph:
         return self.graph.successors(node)
 
     def get_tree_edges(self, root):
+        print "get_tree_edges2" # pk on a 2 fonctions get_tree_edges ?
         edges = dfs_edges(self.graph, root)
         if not edges:
             raise Exception, "Cannot build tree for query %s" % query
@@ -102,87 +104,81 @@ class DBGraph:
 
     #def prune_query_tree(tree, tree_edges, nodes, query_fields):
 
-    @staticmethod
-    def prune_tree(tree_edges, nodes, fields):
-        """
-        \brief returned a tree pruned from nodes not providing any useful field
-        """
-        # XXX to be improved
-        # XXX if a leaf only provides a key, then we need to remove it also,
-        # since we already have the foreign key in an other table
-        tree = nx.DiGraph(tree_edges)
-        # *** Compute the query plane ***
-        for node in tree.nodes():
-            data = nodes[node]
-            if 'visited' in data and data['visited']:
-                break;
-            node_fields = [f.field_name for f in node.fields]
-            if (set(fields) & set(node_fields)):
-                # mark all nodes until we reach the root (no pred) or a marked node
-                cur_node = node
-                # XXX DiGraph.predecessors_iter(n)
-                    #link = True
-                while True:
-                    if 'visited' in data and data['visited']:
-                        break
-                    data['visited'] = True
-                    pred = tree.predecessors(cur_node)
-                    if not pred:
-                        break
-                    cur_node = pred[0]
-                    data = nodes[cur_node]
-        visited_tree_edges = [e for e in tree_edges if 'visited' in nodes[e[0]] and 'visited' in nodes[e[1]]]
-        for node in tree.nodes():
-            if 'visited' in nodes[node]:
-                del nodes[node]['visited']
-        return nx.DiGraph(visited_tree_edges)
-
-    # Let's do a DFS by maintaining a prefix
-    def get_fields(self, root, prefix=''):
-        """
-        Produce edges in a depth-first-search starting at source.
-        """
-
-        def table_fields(table, prefix):
-            #return ["%s%s" % (prefix, f) for f in table.fields]
-            out = []
-            for f in table.fields:
-                # We will modify the fields of the Field object, hence we need
-                # to make a copy not to affect the original one
-                g = copy.deepcopy(f)
-                g.field_name = "%s%s" % (prefix, f.field_name)
-                out.append(g)
-            return out
-
-        visited = set()
-
-        for f in table_fields(root, prefix):
-            yield f
-        visited.add(root)
-        stack = [(root, self.graph.edges_iter(root, data=True), prefix)]
-
-        # iterate considering edges ...
-        while stack:
-            parent,children,prefix = stack[-1]
-            try:
-                
-                parent, child, data = next(children)
-                if child not in visited:
-                    if data['type'] == '1..N':
-                        # Recursive call
-                        for f in self.get_fields(child, "%s%s." % (prefix, child.name)):
-                            yield f
-                    else:
-                        # Normal JOINed table
-                        for f in table_fields(child, prefix):
-                            yield f
-                        visited.add(child)
-                        stack.append((child, self.graph.edges_iter(child, data=True), prefix))
-            except StopIteration:
-                stack.pop()
-
-       
-           
-                               
-
-
+#    @staticmethod
+#    def prune_tree(tree_edges, nodes, fields):
+#        """
+#        \brief returned a tree pruned from nodes not providing any useful field
+#        """
+#        # XXX to be improved
+#        # XXX if a leaf only provides a key, then we need to remove it also,
+#        # since we already have the foreign key in an other table
+#        tree = nx.DiGraph(tree_edges)
+#        # *** Compute the query plane ***
+#        for node in tree.nodes():
+#            data = nodes[node]
+#            if 'visited' in data and data['visited']:
+#                break;
+#            node_fields = [f.field_name for f in node.fields]
+#            if (set(fields) & set(node_fields)):
+#                # mark all nodes until we reach the root (no pred) or a marked node
+#                cur_node = node
+#                # XXX DiGraph.predecessors_iter(n)
+#                    #link = True
+#                while True:
+#                    if 'visited' in data and data['visited']:
+#                        break
+#                    data['visited'] = True
+#                    pred = tree.predecessors(cur_node)
+#                    if not pred:
+#                        break
+#                    cur_node = pred[0]
+#                    data = nodes[cur_node]
+#        visited_tree_edges = [e for e in tree_edges if 'visited' in nodes[e[0]] and 'visited' in nodes[e[1]]]
+#        for node in tree.nodes():
+#            if 'visited' in nodes[node]:
+#                del nodes[node]['visited']
+#        return nx.DiGraph(visited_tree_edges)
+#
+#    # Let's do a DFS by maintaining a prefix
+#    def get_fields(self, root, prefix=''):
+#        """
+#        Produce edges in a depth-first-search starting at source.
+#        """
+#
+#        def table_fields(table, prefix):
+#            #return ["%s%s" % (prefix, f) for f in table.fields]
+#            out = []
+#            for f in table.fields:
+#                # We will modify the fields of the Field object, hence we need
+#                # to make a copy not to affect the original one
+#                g = deepcopy(f)
+#                g.field_name = "%s%s" % (prefix, f.field_name)
+#                out.append(g)
+#            return out
+#
+#        visited = set()
+#
+#        for f in table_fields(root, prefix):
+#            yield f
+#        visited.add(root)
+#        stack = [(root, self.graph.edges_iter(root, data=True), prefix)]
+#
+#        # iterate considering edges ...
+#        while stack:
+#            parent,children,prefix = stack[-1]
+#            try:
+#                
+#                parent, child, data = next(children)
+#                if child not in visited:
+#                    if data['type'] == '1..N':
+#                        # Recursive call
+#                        for f in self.get_fields(child, "%s%s." % (prefix, child.name)):
+#                            yield f
+#                    else:
+#                        # Normal JOINed table
+#                        for f in table_fields(child, prefix):
+#                            yield f
+#                        visited.add(child)
+#                        stack.append((child, self.graph.edges_iter(child, data=True), prefix))
+#            except StopIteration:
+#                stack.pop()

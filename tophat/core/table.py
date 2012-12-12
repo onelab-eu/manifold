@@ -1,6 +1,18 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+# Class Table:
+# Stores the representation of a table in the 3-nf graph
+#
+# Copyright (C) UPMC Paris Universitas
+# Authors:
+#   Jordan Augé       <jordan.auge@lip6.fr>
+#   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
+
 from tophat.metadata.MetadataField import MetadataField
 from tophat.core.filter            import Filter
 from types                         import StringTypes
+from tophat.util.type              import returns, accepts 
 
 def to_frozenset(t):
     """
@@ -22,7 +34,12 @@ class Table:
     # Internal usage
     #-----------------------------------------------------------------------
 
+    @returns(bool)
     def check_fields(self, fields):
+        """
+        \brief Check whether fields parameter is well-formed in __init__
+        \return True iif fields is well-formed
+        """
         if fields == None:
             return False
         for field in fields:
@@ -30,12 +47,22 @@ class Table:
                 return False
         return True
 
+    @returns(bool)
     def check_partition(self, partition):
+        """
+        \brief Check whether partition parameter is well-formed in __init__
+        \return True iif partition is well-formed
+        """
         if partition == None:
             return True
         return isinstance(partition, Filter)
 
+    @returns(bool)
     def check_keys(self, keys):
+        """
+        \brief Check whether keys parameter is well-formed in __init__
+        \return True iif keys is well-formed
+        """
         if not isinstance(keys, (tuple, list, frozenset)):
             return False
         for key in keys:
@@ -72,10 +99,16 @@ class Table:
 
         # Initialize members
         # There will also be a list that the platform cannot provide, cf sources[i].fields
+
+        # TODO self.platform: use a dict { platform: Predicate} 
         self.platforms = platforms
         self.name = name
+
+        # TODO self.fields: use a dict { fieldname: MetadataField }
         self.fields = frozenset(fields)
         self.keys = to_frozenset(keys)
+
+        # TODO remove self.partition (see self.platforms)
         self.partition = partition # an instance of a Filter
         self.cost = cost
 
@@ -91,7 +124,7 @@ class Table:
         return "<{%s}::%s fields = {%s} keys = {%s}>" % (
             ', '.join([p            for p in sorted(self.get_platforms())]),
             self.name,
-            ', '.join([f.field_name for f in sorted(self.fields)]),
+            ', '.join([f.field_name for f in sorted(self.get_fields())]),
             self.keys
         )
 
@@ -110,6 +143,7 @@ class Table:
     # Accessors 
     #-----------------------------------------------------------------------
 
+    @returns(bool)
     def is_key(self, key):
         """
         \brief Test whether a field is a key of this table
@@ -118,14 +152,54 @@ class Table:
             if your testing a composite key.
         \return True iif only this is a key
         """
-        if isinstance(key, (list)):
+        if isinstance(key, (list, set, frozenset)):
             key = tuple(key)
         elif isinstance(key, (StringTypes, MetadataField)):
             key = (key,)
         elif not isinstance(key, tuple):
-            raise TypeError("is_key: %s must be a list, a tuple, or a string" % key)
+            raise TypeError("is_key: %s must be a list, a tuple, a set, a frozenset or a string" % key)
         key = tuple([k if isinstance(k, StringTypes) else k.field_name for k in key])
         return key in self.keys
+
+    def get_fields(self):
+        """
+        \return the MetadataField instances related to this table 
+        """
+        # TODO return self.values()
+        return self.fields
+
+    @returns(bool)
+    def erase_field(self, field_name):
+        """
+        \brief Remove a field from the table
+        \param field_name The name of the field we remove
+        \return True iif the field has been successfully removed
+        """
+        for field in self.get_fields():
+            if field.field_name == field_name:
+                fields = set(self.get_fields())
+                fields.remove(field)
+                self.fields = frozenset(fields)
+                return True
+        return False
+
+    @returns(bool)
+    def erase_key(self, key_to_remove):
+        """
+        \brief Remove a key from the table
+        \param key_to_remove A set of field names describing the key 
+        \return True iif the key has been successfully removed
+        """
+        if not isinstance(key_to_remove, set):
+            raise TypeError("Invalid type: %r is of type %r (must inherits set)" % (key_to_remove, type(key_to_remove)))
+
+        for key in self.keys: 
+            if key_to_remove == set(key):
+                keys = set(self.keys)
+                keys.erase(key)
+                self.keys = frozenset(keys)
+                return True
+        return False
 
     def get_field(self, field_name):
         """
@@ -141,21 +215,23 @@ class Table:
             raise TypeError("get_field: '%s' has an invalid type (%s): supported types are StringTypes and MetadataField" % (field_name, type(field_name)))
 
         # Search the corresponding field
-        for field in self.fields:
+        for field in self.get_fields():
             if field.field_name == field_name:
                 return field
-        raise ValueError("get_field: field '%s' not found in '%r'. Available fields: %s" % (field_name, self, self.fields))
+        raise ValueError("get_field: field '%s' not found in '%r'. Available fields: %s" % (field_name, self, self.get_fields()))
 
+    @returns(set)
     def get_field_names(self):
+        """
+        \brief Retrieve the field names of the fields stored in self.
+        \return A set of strings (one string per field name) if several fields
+        """
         field_names = []
-        for field in self.fields:
+        for field in self.get_fields():
             field_names.append(field.field_name)
-        if len(field_names) > 1:
-            return tuple(field_names)
-        elif len(field_names) == 1:
-            return field_names[0]
-        raise Exception("get_field_names: table '%r' has no field." % self)
+        return set(field_names)
 
+    @returns(set)
     def get_fields_from_keys(self):
         """
         \return A set of tuple of MetadataField.
@@ -177,6 +253,7 @@ class Table:
                 raise TypeError("Invalid key: %r (type not supported: %r)" % (key, type(key)))
         return fields_keys
 
+    @returns(set)
     def get_names_from_keys(self):
         """
         \return A set of tuple of field names
@@ -210,6 +287,7 @@ class Table:
     # Relations between two Table instances 
     #-----------------------------------------------------------------------
 
+    @returns(bool)
     def determines(self, table):
         """
         \brief Test whether "self" determines "table" table.
@@ -232,8 +310,9 @@ class Table:
                     return True
         return False
 
+    @returns(tuple)
     def get_determinant(self, table):
-         if set(self.get_platforms()) == set(table.get_platforms()):
+        if set(self.get_platforms()) == set(table.get_platforms()):
             keys = self.get_fields_from_keys()
             for key in keys:
                 if len(list(key)) > 1:
@@ -241,9 +320,10 @@ class Table:
                 else:
                     key = list(key)[0]
                 if key.type == table.name:
-                    return key.type 
-        return None 
+                    return (set([key.type]), None)
+        raise ValueError("%r does not determine %r" % (self, table))
 
+    @returns(bool)
     def includes(self, table):
         """
         \brief Test whether "self" includes "table" table.
@@ -257,24 +337,19 @@ class Table:
         \return True iif self ==> table
         """
         if set(self.get_platforms()) <= set(table.get_platforms()) and table.name == self.name: 
-            fields_self  = set([(field.field_name, field.type) for field in self.fields])
+            fields_self  = set([(field.field_name, field.type) for field in self.get_fields()])
             fields_table = set([(field.field_name, field.type) for field in table.fields])
             return fields_table <= fields_self
         return False 
 
-    def get_inclusion(self, table):
-        if set(self.get_platforms()) <= set(table.get_platforms()) and table.name == self.name: 
-            fields_self  = set([(field.field_name, field.type) for field in self.fields])
-            fields_table = set([(field.field_name, field.type) for field in table.fields])
-            return fields_table & fields_self
-        return None 
-
+    @returns(bool)
     def provides(self, table):
         """
         \brief Test whether "self" provides a "table" table.
             u ~~> f iif:
-                \exists k | v.k \in u.f (foreign key)
-                u.p == v.p (Jordan: only if the key is LOCAL, not implemented)
+            #    \exists k | v.k \in u.f (foreign key)
+            #    u.p == v.p (Jordan: only if the key is LOCAL, not implemented)
+                \exists f | u.f.type == v or u.f.name == v 
             Example:
                 tophat::traceroute ~~> tophat::agent
         \sa tophat/util/dbgraph.py
@@ -282,51 +357,57 @@ class Table:
         \return True iif self ~~> table
         """
         if self.get_platforms() == table.get_platforms():
-            for field in self.fields:
-                if field.type == table.name:
+            for field in self.get_fields():
+                if field.type == table.name or field.field_name == table.name:
                     return True
 
-        # JORDAN: commented platform check since this only applies to LOCAL keys
-        #if self.get_platforms() == table.get_platforms():
-        for key in table.keys:
-            # We ignore composite key (e.g. (source, destination, ts))
-            if isinstance(key, (list, tuple, set, frozenset)):
-                if len(key) > 1: continue
-                key = list(key)[0]
-            if isinstance(key, MetadataField):
-                key_type = key.type
-                key_name = key.field_name
-            elif isinstance(key, StringTypes):
-                key_type = table.get_field(key).type
-                key_name = key
-            if table.get_field(key_name).type == key_type:
-                # Jordan: added this test so that hop.ip does not point to
-                # agent
-                if table.name == key_name:
-                    return True
+        
+#        # JORDAN: commented platform check since this only applies to LOCAL keys
+#        #if self.get_platforms() == table.get_platforms():
+#        for key in table.keys:
+#            # We ignore composite key (e.g. (source, destination, ts))
+#            if isinstance(key, (list, tuple, set, frozenset)):
+#                if len(key) > 1: continue
+#                key = list(key)[0]
+#
+#            if isinstance(key, MetadataField):
+#                key_type = key.type
+#                key_name = key.field_name
+#            elif isinstance(key, StringTypes):
+#                key_type = table.get_field(key).type
+#                key_name = key
+#
+#            if table.get_field(key_name).type == key_type:
+#                # Jordan: added this test so that hop.ip does not point to
+#                # agent
+#                if table.name == key_name:
+#                    return True
         return False
 
-
+    @returns(tuple)
     def get_provider(self, table):
         if self.get_platforms() == table.get_platforms():
-            for field in self.fields:
-                if field.type == table.name:
-                    return field.type 
+            for field in self.get_fields():
+                if field.type == table.name or field.field_name == table.name:
+                    return (set([field.field_name]), None)
 
-        for key in table.keys:
-            # We ignore composite key (e.g. (source, destination, ts))
-            if isinstance(key, (list, tuple, set, frozenset)):
-                if len(key) > 1: continue
-                key = list(key)[0]
-            if isinstance(key, MetadataField):
-                key_type = key.type
-                key_name = key.field_name
-            elif isinstance(key, StringTypes):
-                key_type = table.get_field(key).type
-                key_name = key
-            if table.get_field(key_name).type == key_type:
-                if table.name == key_name:
-                    return table.name 
-        return None 
+#        for key in table.keys:
+#            # We ignore composite key (e.g. (source, destination, ts))
+#            if isinstance(key, (list, tuple, set, frozenset)):
+#                if len(key) > 1: continue
+#                key = list(key)[0]
+#
+#            if isinstance(key, MetadataField):
+#                key_type = key.type
+#                key_name = key.field_name
+#            elif isinstance(key, StringTypes):
+#                key_type = table.get_field(key).type
+#                key_name = key
+#
+#            if table.get_field(key_name).type == key_type:
+#                if table.name == key_name:
+#                    return (set([table.name]), None)
+
+        raise ValueError("%r does not provide %r" % (self, table))
 
 
