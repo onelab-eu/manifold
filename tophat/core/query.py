@@ -5,6 +5,7 @@
 from types import StringTypes
 from tophat.core.filter import Filter, Predicate
 from tophat.util.frozendict import frozendict
+from copy import deepcopy
 
 class ParameterError(StandardError): pass
 
@@ -20,6 +21,11 @@ class Query(object):
 
     def __init__(self, *args, **kwargs):
         l = len(kwargs.keys())
+
+
+        if len(args) == 1 and isinstance(args[0], Query):
+            # Copy
+            return deepcopy(args[0])
 
         # Initialization from a tuple
         if len(args) in range(2, 7) and type(args) == tuple:
