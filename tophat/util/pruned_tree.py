@@ -264,5 +264,8 @@ def build_pruned_tree(g, needed_fields, map_vertex_pred):
             print "build_pruned_graph(): erasing key %s from %r" % (key_v, v)
             v.erase_key(key_v)
 
-    print "missing_fields = ", missing_fields
+    if missing_fields == set():
+        print "build_pruned_graph(): each queried field has been successfully found"
+    else: 
+        print "build_pruned_graph(): the following queried fields have not been found: ", missing_fields
     return tree 

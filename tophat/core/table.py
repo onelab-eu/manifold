@@ -280,8 +280,9 @@ class Table:
                 raise TypeError("Invalid key: %r (type not supported: %r)" % (key, type(key)))
         return names_keys
 
+    @returns(set)
     def get_platforms(self):
-        return self.platforms
+        return set(self.platforms)
 
     #-----------------------------------------------------------------------
     # Relations between two Table instances 

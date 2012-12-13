@@ -1,11 +1,16 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
 #
-# TODO: add timestamp field
+# Query representation
 #
+# Copyright (C) UPMC Paris Universitas
+# Authors:
+#   Jordan Augé       <jordan.auge@lip6.fr>
 
-from types import StringTypes
-from tophat.core.filter import Filter, Predicate
+from types                  import StringTypes
+from tophat.core.filter     import Filter, Predicate
 from tophat.util.frozendict import frozendict
-from copy import deepcopy
+from copy                   import deepcopy
 
 class ParameterError(StandardError): pass
 
@@ -56,6 +61,7 @@ class Query(object):
             else:
                 self.fields = set([])
 
+            # "update table set x = 3" => params == set
             if 'params' in kwargs:
                 self.params = kwargs['params']
                 del kwargs['params']

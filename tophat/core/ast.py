@@ -27,7 +27,9 @@ DUMPSTR_SUBQUERIES = "<subqueries>"
 # Other constants
 #------------------------------------------------------------------
 
-# LAST RECORD MARKER
+# LAST_RECORD marker
+# This constant is returned when a AST node has finished to return
+# the records it provides.
 LAST_RECORD = None
 
 #------------------------------------------------------------------
@@ -139,7 +141,7 @@ class Node(object):
         # Callback triggered when the current node produces data.
         self.callback = None
         # Query representing the data produced by the node.
-        self.query = self.query()
+#        self.query = self.query()
 
     def set_callback(self, callback):
         """
@@ -173,6 +175,7 @@ class Node(object):
 class From(Node):
     """
     \brief FROM node
+    From Node are responsible to query a gateway (!= FromTable).
     """
 
     def __init__(self, query, table, key): # platform, query, config, user_config, user, key):
@@ -905,10 +908,11 @@ class AST(object):
         else:
             platform = list(platforms)[0] if isinstance(platforms, (list, set, frozenset, tuple)) else platforms
             # XXX get rid of router here !
-            node = self.router.get_gateway(platform, self.query, self.user)
-            node.source_id = self.router.sourcemgr.append(node)
-            self.root = node
-            self.root.callback = self.callback
+            print "ERROR: From: not yet implemented"
+#            node = self.router.get_gateway(platform, self.query, self.user)
+#            node.source_id = self.router.sourcemgr.append(node)
+#            self.root = node
+#            self.root.callback = self.callback
         return self
 
     def union(self, children_ast):
@@ -943,6 +947,7 @@ class AST(object):
         if not self.root: raise ValueError('AST not initialized')
         old_root = self.root
 
+        raise Exception("code out of date, bad constructor invoked")
         self.root = LeftJoin(old_root, right_child.root, predicate)
         self.root.callback = old_root.callback
         return self

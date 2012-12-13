@@ -1,17 +1,13 @@
 import os, sys, json, time, traceback, threading
-from copy                       import deepcopy
 from types                      import StringTypes
 
 from twisted.internet           import defer
 
-#from tophat.util.xmldict        import *
 from tophat.util.reactor_thread import ReactorThread
-from tophat.core.filter         import Filter, Predicate
-from tophat.core.param          import Param
+from tophat.core.filter         import Predicate
 from tophat.router              import *
 from tophat.core.table          import Table
 
-# Can we get rid of the source manager ?
 from tophat.gateways            import *
 from tophat.core.ast            import AST
 from tophat.core.query          import Query
@@ -20,6 +16,7 @@ from tophat.util.dbnorm         import DBNorm
 from tophat.util.dbgraph        import DBGraph
 from tophat.util.dfs            import dfs
 from tophat.util.pruned_tree    import build_pruned_tree
+from tophat.util.query_plane    import build_query_plane 
 
 from sfa.trust.credential       import Credential
 from tophat.gateways.sfa        import ADMIN_USER
@@ -27,9 +24,6 @@ from tophat.metadata.Metadata   import import_file_h
 
 METADATA_DIRECTORY = "/usr/share/myslice/metadata/"
 CACHE_LIFETIME     = 1800
-
-# DEBUG
-import traceback
 
 #------------------------------------------------------------------
 # Class callback
@@ -608,13 +602,19 @@ class THLocalRouter(LocalRouter):
         \brief Compute the query plane related to a query which involves
             no sub-queries. Sub-queries should already processed thanks to
             process_subqueries().
-        \param query The query issued by the user.
-        \param user The user issuing the query (according to the user grants
-            the query plane might differ).
+        \param query The Query instance representing the query issued by the user.
+            \sa tophat/core/query.py
+        \param user The User instance reprensenting the user issuing
+            the query. The query can be resolved in various way according to
+            the user grants.
+            \sa tophat/model/user.py
         \return The AST instance representing the query plane.
         """
+
         # Compute the fields involved explicitly in the query (e.g. in SELECT or WHERE)
         needed_fields = set(query.fields)
+        if needed_fields == set():
+            raise ValueError("No queried field")
         if query.filters:
             needed_fields.update(query.filters.keys())
 
@@ -625,15 +625,16 @@ class THLocalRouter(LocalRouter):
         # \sa tophat/util/dfs.py
         map_vertex_pred = dfs(self.G_nf.graph, root)
 
-        # Compute the corresponding pruned tree 
+        # Compute the corresponding pruned tree.
+        # Each node of the pruned tree only gathers relevant table, and only their
+        # relevant fields and their relevant key (if used).
         # \sa tophat/util/pruned_graph.py
         pruned_tree = build_pruned_tree(self.G_nf.graph, needed_fields, map_vertex_pred)
 
-        # Each node of the pruned tree only gathers relevant table, and only their
-        # relevant fields and their relevant key (if used)
-        qp = AST(router = self, user = user)
-
-        return qp 
+        # Compute the skeleton resulting query plane
+        # (e.g which does not take into account the query)
+        # It leads to a query plane made of Union, From, and LeftJoin nodes
+        return build_query_plane(user, pruned_tree)
 
 
     # OBSOLETE
