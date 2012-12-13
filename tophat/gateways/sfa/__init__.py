@@ -1232,7 +1232,7 @@ class SFA(From):
     def __str__(self):
         return "<SFAGateway %r: %s>" % (self.config['sm'], self.query)
 
-    def do_start(self):
+    def start(self):
         if not self.user_config:
             print "NOT CONFIG RETURN NONE"
             self.callback(None)

@@ -170,46 +170,6 @@ class Node(object):
 # FROM node
 #------------------------------------------------------------------
 
-class FromTable(Node):
-    """
-    \brief FROM node querying a list of records
-    """
-
-    def __init__(self, query, records=[]):
-        """
-        \brief Constructor
-        """
-        self.query, self.records = query, records
-        super(FromTable, self).__init__()
-
-    def query(self):
-        """
-        \brief Returns the query representing the data produced by the nodes.
-        \return query representing the data produced by the nodes.
-        """
-
-        # The query returned by a FROM node is exactly the one that was
-        # requested
-        return self.query
-
-    def dump(self, indent=0):
-        """
-        \brief Dump the current node
-        \param indent current indentation
-        """
-        q = self.query
-        self.tab(indent)
-        print DUMPSTR_FROMTABLE % (q.fields, self.records[0])
-
-    def start(self):
-        """
-        \brief Propagates a START message through the node
-        """
-        for record in self.records:
-            self.callback(record)
-        self.callback(LAST_RECORD)
-        
-
 class From(Node):
     """
     \brief FROM node
@@ -222,6 +182,7 @@ class From(Node):
         \param table
         \param key the key for elements returned from the node
         """
+        # TODO Depends on the query plane construction
         # Parameters
         self.query, self.table, self.key = query, table, key
         #self.platform, self.query, self.config, self.user_config, self.user, self.key = \
@@ -291,13 +252,37 @@ class From(Node):
         """
         \brief Propagates a START message through the node
         """
-        if self.done:
-            for result in self.results:
-                self.callback(result)
-            self.callback(LAST_RECORD)
-            return
-        # XXX ??? XXX
-        self.do_start()
+        raise Exception, "Cannot call start on a From class, expecting Gateway"
+
+class FromTable(From):
+    """
+    \brief FROM node querying a list of records
+    """
+
+    def __init__(self, query, records=[]):
+        """
+        \brief Constructor
+        """
+        self.query, self.records = query, records
+        super(FromTable, self).__init__()
+
+    def dump(self, indent=0):
+        """
+        \brief Dump the current node
+        \param indent current indentation
+        """
+        q = self.query
+        self.tab(indent)
+        print DUMPSTR_FROMTABLE % (q.fields, self.records[0])
+
+    def start(self):
+        """
+        \brief Propagates a START message through the node
+        """
+        for record in self.records:
+            self.callback(record)
+        self.callback(LAST_RECORD)
+        
 
 #------------------------------------------------------------------
 # LEFT JOIN node
