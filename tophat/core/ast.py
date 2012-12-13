@@ -293,15 +293,17 @@ class LeftJoin(Node):
     LEFT JOIN operator node
     """
 
-    def __init__(self, children, joins, callback):
+    def __init__(self, left_child, children, joins, callback):
         """
-        Constructor
-        \param children A list of n Node instances
-        \param joins A list of n-1 "join" (= pair of set of mefields)
+        \brief Constructor
+        \param left_child A instance of Node which model the left operand
+            of an n-ary join.
+        \param children A list of n-1 Node instances that we join to left_child
+        \param joins A list of n-1 "join" (= pair of set of MetadataField instances)
             joins[i] allows to join child[i] and child[i+1]
-        \param callback The callback invoked when the LeftJoin
-            returns records. 
+        \param callback The callback invoked when the LeftJoin instance returns records. 
         """
+        # Check parameters
         if not isinstance(children, list):
             raise TypeError("Invalid type: %r must be a list" % children)
         if not isinstance(joins, list):
@@ -310,9 +312,17 @@ class LeftJoin(Node):
             raise ValueError("Invalid parameter: %r is empty" % children)
         if len(joins) != len(children) - 1:
             raise ValueError("Invalid length: %r must have a length of %d" % (joins, len(children) - 1))
-        self.children = children
-        self.joins = joins
-        self.callback = callback
+        if not isinstance(left_child, Node):
+            raise TypeError("Invalid left child: %r must be of type Node" % left_child)
+        for child in children:
+            if not isinstance(child, Node):
+                raise TypeError("Invalid child: %r must be of type Node" % child)
+
+        # Initialization
+        self.left_child = left_child
+        self.children   = children
+        self.joins      = joins
+        self.callback   = callback
 
 #TODO
 #        self.status = ChildStatus(self.all_done)
@@ -379,10 +389,11 @@ class LeftJoin(Node):
         """
         \brief Propagates a START message through the node
         """
+        raise Exception("Not yet implemented")
         # Start all children
-        for i, child in enumerate(self.children):
-            child.start()
-            self.status.started(i)
+#        for i, child in enumerate(self.children):
+#            child.start()
+#            self.status.started(i)
 
 #    def dump(self, indent=0):
 #        """
