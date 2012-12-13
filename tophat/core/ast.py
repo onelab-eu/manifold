@@ -132,10 +132,9 @@ class Node(object):
         """
         Constructor
         """
-
         if node:
             if not isinstance(node, Node):
-                raise ValueError('Expected type Node, got %s' % node.__class__.__name__
+                raise ValueError('Expected type Node, got %s' % node.__class__.__name__)
             return deepcopy(node)
         # Callback triggered when the current node produces data.
         self.callback = None
@@ -216,19 +215,17 @@ class From(Node):
     \brief FROM node
     """
 
-    def __init__(self, query, table): platform, query, config, user_config, user, key):
+    def __init__(self, query, table, key): # platform, query, config, user_config, user, key):
         """
         \brief Constructor
-        \param platform
         \param query
-        \param config
-        \param user_config
-        \param user
+        \param table
         \param key the key for elements returned from the node
         """
         # Parameters
-        self.platform, self.query, self.config, self.user_config, self.user, self.key = \
-                platform, query, config, user_config, user, key
+        self.query, self.table, self.key = query, table, key
+        #self.platform, self.query, self.config, self.user_config, self.user, self.key = \
+        #        platform, query, config, user_config, user, key
         # Member variables
         # Temporarily store eventual parent subquery records
         self.records = []
@@ -813,18 +810,20 @@ class SubQuery(Node):
             child.start()
 
     def all_done(self):
+        """
+        \brief Called when all children are done: processes results stored in
+        the parent.
+        """
         for o in self.parent_output:
             # Dispatching child results
             for i, child in enumerate(self.children):
                 for record in o[child.query.fact_table]:
                     # Find the corresponding record in child_results and
                     # update the one in the parent with it
-                    #child_record = [r for r in self.child_results[i] if key in record and r[key] == record[key]][0]
                     if self.key in record:
                         for r in self.child_results[i]:
                             if self.key in r and r[self.key] == record[self.key]:
                                 record.update(r)
-
                     # XXX We ignore missing keys
             self.callback(o)
         self.callback(LAST_RECORD)
@@ -857,19 +856,18 @@ class AST(object):
     Abstract Syntax Tree used to represent a Query Plane. Acts as a factory.
     """
 
-    def __init__(self, router=None, user=None):
+    def __init__(self, user=None):
         """
         Constructor
         \param router
         \param user
         """
         self.user = user
-        self.router = router
 
         # The AST is initially empty
         self.root = None
 
-    def from(self, table, query):
+    def From(self, table, query):
         """
         \brief
         \param table
