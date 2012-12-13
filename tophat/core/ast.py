@@ -747,7 +747,7 @@ class SubQuery(Node):
 
     def run_children(self):
         """
-        Modify children queries to take the keys returned by the parent into account
+        \brief Modify children queries to take the keys returned by the parent into account
         """
         # Loop through children and inject the appropriate parent results
         for i, child in enumerate(self.children):
