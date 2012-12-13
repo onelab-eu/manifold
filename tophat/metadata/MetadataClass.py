@@ -29,6 +29,7 @@ class MetadataClass:
         self.class_name = class_name
         self.keys       = [] 
         self.fields     = []
+        self.partitions = []
 
     def get_invalid_keys(self):
         """

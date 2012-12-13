@@ -11,6 +11,8 @@
 
 import re
 
+from tophat.util.clause import Clause
+
 from MetadataClass import MetadataClass
 from MetadataEnum  import MetadataEnum
 from MetadataField import MetadataField
@@ -19,31 +21,34 @@ from MetadataField import MetadataField
 # Constants needed for .h parsing, see import_file_h(...)
 #------------------------------------------------------------------
 
-PATTERN_OPT_SPACE   = "\s*"
-PATTERN_SPACE       = "\s+"
-PATTERN_COMMENT     = "(((///?.*)|(/\*(\*<)?.*\*/))*)"
-PATTERN_BEGIN       = ''.join(["^", PATTERN_OPT_SPACE])
-PATTERN_END         = PATTERN_OPT_SPACE.join(['', PATTERN_COMMENT, "$"])
-PATTERN_SYMBOL      = "([0-9a-zA-Z_]+)"
-PATTERN_CONST       = "(const)?"
-PATTERN_CLASS       = "(onjoin|class)"
-PATTERN_ARRAY       = "(\[\])?"
-PATTERN_CLASS_BEGIN = PATTERN_SPACE.join([PATTERN_CLASS, PATTERN_SYMBOL, "{"])
-PATTERN_CLASS_FIELD = PATTERN_SPACE.join([PATTERN_CONST, PATTERN_SYMBOL, PATTERN_OPT_SPACE.join([PATTERN_SYMBOL, PATTERN_ARRAY, ";"])])
-PATTERN_CLASS_KEY   = PATTERN_OPT_SPACE.join(["KEY\((", PATTERN_SYMBOL, "(,", PATTERN_SYMBOL, ")*)\)", ";"])
-PATTERN_CLASS_END   = PATTERN_OPT_SPACE.join(["}", ";"])
-PATTERN_ENUM_BEGIN  = PATTERN_SPACE.join(["enum", PATTERN_SYMBOL, "{"])
-PATTERN_ENUM_FIELD  = PATTERN_OPT_SPACE.join(["\"(.+)\"", ",?"])
-PATTERN_ENUM_END    = PATTERN_OPT_SPACE.join(["}", ";"])
+PATTERN_OPT_SPACE    = "\s*"
+PATTERN_SPACE        = "\s+"
+PATTERN_COMMENT      = "(((///?.*)|(/\*(\*<)?.*\*/))*)"
+PATTERN_BEGIN        = ''.join(["^", PATTERN_OPT_SPACE])
+PATTERN_END          = PATTERN_OPT_SPACE.join(['', PATTERN_COMMENT, "$"])
+PATTERN_SYMBOL       = "([0-9a-zA-Z_]+)"
+PATTERN_CLAUSE       = "([0-9a-zA-Z_&\|\"()!=<> ]+)"
+PATTERN_CONST        = "(const)?"
+PATTERN_CLASS        = "(onjoin|class)"
+PATTERN_ARRAY        = "(\[\])?"
+PATTERN_CLASS_BEGIN  = PATTERN_SPACE.join([PATTERN_CLASS, PATTERN_SYMBOL, "{"])
+PATTERN_CLASS_FIELD  = PATTERN_SPACE.join([PATTERN_CONST, PATTERN_SYMBOL, PATTERN_OPT_SPACE.join([PATTERN_SYMBOL, PATTERN_ARRAY, ";"])])
+PATTERN_CLASS_KEY    = PATTERN_OPT_SPACE.join(["KEY\((", PATTERN_SYMBOL, "(,", PATTERN_SYMBOL, ")*)\)", ";"])
+PATTERN_CLASS_CLAUSE = PATTERN_OPT_SPACE.join(["PARTITIONBY\((", PATTERN_CLAUSE, ")\)", ";"])
+PATTERN_CLASS_END    = PATTERN_OPT_SPACE.join(["}", ";"])
+PATTERN_ENUM_BEGIN   = PATTERN_SPACE.join(["enum", PATTERN_SYMBOL, "{"])
+PATTERN_ENUM_FIELD   = PATTERN_OPT_SPACE.join(["\"(.+)\"", ",?"])
+PATTERN_ENUM_END     = PATTERN_OPT_SPACE.join(["}", ";"])
 
-REGEXP_EMPTY_LINE   = re.compile(''.join([PATTERN_BEGIN, PATTERN_COMMENT,     PATTERN_END]))
-REGEXP_CLASS_BEGIN  = re.compile(''.join([PATTERN_BEGIN, PATTERN_CLASS_BEGIN, PATTERN_END]))
-REGEXP_CLASS_FIELD  = re.compile(''.join([PATTERN_BEGIN, PATTERN_CLASS_FIELD, PATTERN_END]))
-REGEXP_CLASS_KEY    = re.compile(''.join([PATTERN_BEGIN, PATTERN_CLASS_KEY,   PATTERN_END]))
-REGEXP_CLASS_END    = re.compile(''.join([PATTERN_BEGIN, PATTERN_CLASS_END,   PATTERN_END]))
-REGEXP_ENUM_BEGIN   = re.compile(''.join([PATTERN_BEGIN, PATTERN_ENUM_BEGIN,  PATTERN_END]))
-REGEXP_ENUM_FIELD   = re.compile(''.join([PATTERN_BEGIN, PATTERN_ENUM_FIELD,  PATTERN_END]))
-REGEXP_ENUM_END     = re.compile(''.join([PATTERN_BEGIN, PATTERN_ENUM_END,    PATTERN_END]))
+REGEXP_EMPTY_LINE    = re.compile(''.join([PATTERN_BEGIN, PATTERN_COMMENT,      PATTERN_END]))
+REGEXP_CLASS_BEGIN   = re.compile(''.join([PATTERN_BEGIN, PATTERN_CLASS_BEGIN,  PATTERN_END]))
+REGEXP_CLASS_FIELD   = re.compile(''.join([PATTERN_BEGIN, PATTERN_CLASS_FIELD,  PATTERN_END]))
+REGEXP_CLASS_KEY     = re.compile(''.join([PATTERN_BEGIN, PATTERN_CLASS_KEY,    PATTERN_END]))
+REGEXP_CLASS_CLAUSE  = re.compile(''.join([PATTERN_BEGIN, PATTERN_CLASS_CLAUSE, PATTERN_END]))
+REGEXP_CLASS_END     = re.compile(''.join([PATTERN_BEGIN, PATTERN_CLASS_END,    PATTERN_END]))
+REGEXP_ENUM_BEGIN    = re.compile(''.join([PATTERN_BEGIN, PATTERN_ENUM_BEGIN,   PATTERN_END]))
+REGEXP_ENUM_FIELD    = re.compile(''.join([PATTERN_BEGIN, PATTERN_ENUM_FIELD,   PATTERN_END]))
+REGEXP_ENUM_END      = re.compile(''.join([PATTERN_BEGIN, PATTERN_ENUM_END,     PATTERN_END]))
 
 
 def import_file_h(filename):
@@ -100,6 +105,14 @@ def import_file_h(filename):
                 key = [key_elt.strip() for key_elt in key]
                 if key not in classes[cur_class_name].keys:
                     classes[cur_class_name].keys.append(key)
+                continue
+
+            #    PARTITIONBY(clause_string);
+            m = REGEXP_CLASS_CLAUSE.match(line)
+            if m:
+                clause_string = m.group(1)
+                clause = Clause(clause_string)
+                classes[cur_class_name].partitions.append(clause)
                 continue
 
             # };
