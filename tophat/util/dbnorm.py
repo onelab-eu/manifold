@@ -97,12 +97,12 @@ class DBNorm:
             method = table.name
             platforms = table.get_platforms()
             for key in table.get_fields_from_keys():
-                for field in table.fields:
+                for field in table.get_fields():
                     if (key, method) not in rules.keys():
                         rules[(key, method)] = {}
                     if field not in rules[(key, method)]:
                         rules[(key, method)][field] = set()
-                    rules[(key, method)][field].add(platforms)
+                    rules[(key, method)][field] |= platforms
 
         fd_set0 = {}
         for rule, map_field_platforms in rules.items():
@@ -130,24 +130,24 @@ class DBNorm:
         # For each set of FDs in G of the form (X->A1, X->A2, ... X->An)
         # containing all FDs in G with the same determinant X ...
         determinants = {}
-        for key, a in fd_set:
-            if len(list(key)) == 1:
-                key = list(key)[0]
-            if not key in determinants:
-                determinants[key] = set([])
-            determinants[key].add(a)
+        for triple, fields in fd_set:
+            if len(list(triple)) == 1:
+                triple = list(triple)[0]
+            if not triple in determinants:
+                determinants[triple] = set([])
+            determinants[triple].add(fields)
         
         # ... create relation R = (X, A1, A2, ..., An)
         # determinants: key: A MetadataClass key (array of strings), data: MetadataField
         relations = []
-        for t, y in determinants.items():
+        for triple, fields in determinants.items():
             # Search source tables related to the corresponding key key and values
-            key, platforms, method = t
-            sources = [t for t in self.tables if t.is_key(key)]
+            key, platforms, method = triple
+            sources = [table for table in self.tables if table.is_key(key)]
             if not sources:
                 raise Exception("No source table found with key %s" % key)
 
-            fields = list(y)
+            fields = list(fields)
             if isinstance(key, (frozenset, tuple)):
                 fields.extend(list(key))
             else:
@@ -188,12 +188,15 @@ class DBNorm:
             if not sources:
                 raise Exception("No source table found with key %s" % key)
 
-            # Several platforms provide the requested table, we choose an arbitrary one
-            p = [s.get_platforms() for s in sources]
-            if len(p) == 1:
-                p = p[0]
-            else:
-                p = list(set(p))
+            partitions = dict()
+            for source in sources:
+                for plaforms, clause in source.get_partitions():
+                    if not plaforms in partitions: 
+                        partitions[plaforms] = clause 
+                    else:
+                        # Several partitions provide the requested table, we've
+                        # already choose an arbitrary one and we ignore this one
+                        print "TODO union clause"
 
             n = list(sources)[0].name
             fields = list(y)
@@ -202,7 +205,7 @@ class DBNorm:
             else:
                 fields.append(key)
             k = [xi.field_name for xi in key] if isinstance(key, (frozenset, tuple)) else key.field_name
-            t = Table(p, n, fields, [k])
+            t = Table(partitions, n, fields, [k])
             relations.append(t)
         return relations
 

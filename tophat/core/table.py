@@ -34,31 +34,30 @@ class Table:
     # Internal usage
     #-----------------------------------------------------------------------
 
+    @staticmethod
     @returns(bool)
-    def check_fields(self, fields):
+    def check_fields(fields):
         """
         \brief Check whether fields parameter is well-formed in __init__
         \return True iif fields is well-formed
         """
         if fields == None:
             return False
-        for field in fields:
-            if not isinstance(field, MetadataField):
-                return False
+        elif isinstance(fields, (set, frozenset, list, tuple)):
+            for field in fields:
+                if not isinstance(field, MetadataField):
+                    return False
+        elif isinstance(fields, dict):
+            for field_name, metafield in fields.items():
+                if not isinstance(field_name, StringTypes):
+                    return False
+                elif not isinstance(metafield, MetadataField):
+                    return False
         return True
 
+    @staticmethod
     @returns(bool)
-    def check_partition(self, partition):
-        """
-        \brief Check whether partition parameter is well-formed in __init__
-        \return True iif partition is well-formed
-        """
-        if partition == None:
-            return True
-        return isinstance(partition, Filter)
-
-    @returns(bool)
-    def check_keys(self, keys):
+    def check_keys(keys):
         """
         \brief Check whether keys parameter is well-formed in __init__
         \return True iif keys is well-formed
@@ -74,43 +73,73 @@ class Table:
                 return False
         return True
 
+    @staticmethod
+    @returns(bool)
+    def check_partitions(partitions):
+        """
+        \brief Check whether keys partitions is well-formed in __init__
+        \return True iif keys is well-formed
+        """
+        if isinstance(partitions, (list, set, frozenset)):
+            # partitions carries a set of platforms
+            for platform in partitions:
+                if not isinstance(platform, StringTypes):
+                    return False
+        elif isinstance(partitions, StringTypes):
+            return True
+        elif isinstance(partitions, dict):
+            for platforms, clause in partitions.items():
+                if platforms and not isinstance(frozenset):
+                    return False
+                if clause and not isinstance(clause, Predicate):
+                    return False
+        return True 
+
     #-----------------------------------------------------------------------
     # Constructor 
     #-----------------------------------------------------------------------
 
-    def __init__(self, platforms, name, fields, keys, partition = None, cost = 1):
+    def __init__(self, partitions, name, fields, keys, cost = 1):
         """
         \brief Constructor
-        \param platforms The name of the platforms (for example: 'ple', 'omf', ...)
-            providing the data.
+        \param partitions A dictionary which indicates for each platform the corresponding
+            predicate (pass None if not Predicate needed e.g. always True).
         \param name The name of the table (for example: 'user', ...)
         \param fields The fields involved in the table (for example 'name', 'email', ...)
         \param keys The key of the table (for example 'email')
-        \param partition
         \param cost
         """
         # Check parameters
-        if not self.check_fields(fields):
-            raise TypeError("Table: __init__: invalid type for field '%s' (type: %r)" % (field, type(field)))
-        if not self.check_partition(partition):
-            raise ValueError("Table: __init__: invalid parameter partition: %s" % partition)
-        if not self.check_keys(keys):
-            raise TypeError("Table: __init__: invalid parameter keys: %s" % keys)
+        if not Table.check_fields(fields):
+            raise TypeError("Table: __init__: invalid parameter fields '%s' (type: %r)" % (fields, type(fields)))
+        if not Table.check_keys(keys):
+            raise TypeError("Table: __init__: invalid parameter keys: %s (type: %r)" % (keys, type(keys)))
+        if not Table.check_partitions(partitions):
+            raise TypeError("Table: __init__: invalid parameter partitions: %s (type: %r)" % (partitions, type(partitions)))
 
-        # Initialize members
-        # There will also be a list that the platform cannot provide, cf sources[i].fields
-
-        # TODO self.platform: use a dict { platform: Predicate} 
-        self.platforms = platforms
+        # self.partitions
+        self.partitions = dict()
+        if isinstance(partitions, (list, set, frozenset)):
+            for platform in partitions:
+                self.partitions[platform] = None
+        elif isinstance(partitions, StringTypes):
+            self.partitions[partitions] = None
+        elif isinstance(partitions, dict):
+            self.partitions = partitions 
         self.name = name
 
-        # TODO self.fields: use a dict { fieldname: MetadataField }
-        self.fields = frozenset(fields)
-        self.keys = to_frozenset(keys)
+        # self.fields
+        self.fields = dict()
+        if isinstance(fields, (list, set, frozenset)):
+            for field in fields:
+                field_name = field.field_name
+                self.fields[field_name] = field
+        elif isinstance(fields, dict):
+            self.fields = fields
 
-        # TODO remove self.partition (see self.platforms)
-        self.partition = partition # an instance of a Filter
+        self.keys = to_frozenset(keys)
         self.cost = cost
+        # TODO There will also be a list that the platform cannot provide, cf sources[i].fields
 
     #-----------------------------------------------------------------------
     # Outputs 
@@ -134,6 +163,7 @@ class Table:
         \return The corresponding string
         """
         platforms = self.get_platforms()
+        print "platforms = ", platforms
         if platforms:
             return "<{%s}::%s>" % (', '.join([p for p in sorted(platforms)]), self.name)
         else:
@@ -165,8 +195,7 @@ class Table:
         """
         \return the MetadataField instances related to this table 
         """
-        # TODO return self.values()
-        return self.fields
+        return self.fields.values()
 
     @returns(bool)
     def erase_field(self, field_name):
@@ -175,13 +204,9 @@ class Table:
         \param field_name The name of the field we remove
         \return True iif the field has been successfully removed
         """
-        for field in self.get_fields():
-            if field.field_name == field_name:
-                fields = set(self.get_fields())
-                fields.remove(field)
-                self.fields = frozenset(fields)
-                return True
-        return False
+        ret = field_name in self.fields
+        del(self.fields[field_name])
+        return ret
 
     @returns(bool)
     def erase_key(self, key_to_remove):
@@ -215,10 +240,10 @@ class Table:
             raise TypeError("get_field: '%s' has an invalid type (%s): supported types are StringTypes and MetadataField" % (field_name, type(field_name)))
 
         # Search the corresponding field
-        for field in self.get_fields():
-            if field.field_name == field_name:
-                return field
-        raise ValueError("get_field: field '%s' not found in '%r'. Available fields: %s" % (field_name, self, self.get_fields()))
+        try:
+            return self.fields[field_name]
+        except KeyError:
+            raise ValueError("get_field: field '%s' not found in '%r'. Available fields: %s" % (field_name, self, self.get_fields()))
 
     @returns(set)
     def get_field_names(self):
@@ -226,10 +251,7 @@ class Table:
         \brief Retrieve the field names of the fields stored in self.
         \return A set of strings (one string per field name) if several fields
         """
-        field_names = []
-        for field in self.get_fields():
-            field_names.append(field.field_name)
-        return set(field_names)
+        return set(self.fields.keys())
 
     @returns(set)
     def get_fields_from_keys(self):
@@ -280,9 +302,20 @@ class Table:
                 raise TypeError("Invalid key: %r (type not supported: %r)" % (key, type(key)))
         return names_keys
 
+    @returns(dict)
+    def get_partitions(self):
+        """
+        \return The dictionnary which map for each platform its corresponding clause
+            (e.g the partition). A None clause means that this clause is always True
+        """
+        return self.partitions
+
     @returns(set)
     def get_platforms(self):
-        return set(self.platforms)
+        """
+        \return The set of platform that corresponds to this table
+        """
+        return set(self.partitions.keys())
 
     #-----------------------------------------------------------------------
     # Relations between two Table instances 
@@ -313,7 +346,7 @@ class Table:
 
     @returns(tuple)
     def get_determinant(self, table):
-        if set(self.get_platforms()) == set(table.get_platforms()):
+        if self.get_platforms() == table.get_platforms():
             keys = self.get_fields_from_keys()
             for key in keys:
                 if len(list(key)) > 1:
@@ -337,9 +370,9 @@ class Table:
         \param table The target candidate table
         \return True iif self ==> table
         """
-        if set(self.get_platforms()) <= set(table.get_platforms()) and table.name == self.name: 
+        if self.get_platforms() <= table.get_platforms() and table.name == self.name: 
             fields_self  = set([(field.field_name, field.type) for field in self.get_fields()])
-            fields_table = set([(field.field_name, field.type) for field in table.fields])
+            fields_table = set([(field.field_name, field.type) for field in table.get_fields()])
             return fields_table <= fields_self
         return False 
 

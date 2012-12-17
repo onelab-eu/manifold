@@ -251,7 +251,7 @@ def build_pruned_tree(g, needed_fields, map_vertex_pred):
     for u in tree.nodes():
         relevant_fields_u = map_vertex_fields[u]
         missing_fields -= (needed_fields & relevant_fields_u)
-        for field in u.fields:
+        for field in u.get_fields():
             if field not in relevant_fields_u:
                 print "build_pruned_graph(): erasing %s from %r" % (field.field_name, u)
                 u.erase_field(field.field_name)
