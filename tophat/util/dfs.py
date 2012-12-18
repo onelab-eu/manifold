@@ -37,6 +37,7 @@ def dfs(graph, root):
             predecessor (if any) visited during the DFS
             exploration, None otherwise
     """
+    raise Exception("infinite loop")
     # Initialization
     map_vertex_color = {}
     map_vertex_pred  = {}
@@ -74,6 +75,7 @@ def dfs_visit(graph, u, map_vertex_color, map_vertex_pred):
     \param map_vertex_pred: maps each vertex to its predecessor (if any) visited
         during the DFS exploration, None otherwise
     """
+    print map_vertex_color
     for v in graph.successors(u):
         color_v = map_vertex_color[v]
         if color_v == dfs_color.WHITE:

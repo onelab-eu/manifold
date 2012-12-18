@@ -408,7 +408,7 @@ class THLocalRouter(LocalRouter):
                 return table 
         raise ValueError("get_table: table not found (table_name = %s): available tables: %s" % (
             table_name,
-            [(t.platform, t.name) for t in self.G_nf.graph.nodes(False)]
+            [(t.get_platforms(), t.name) for t in self.G_nf.graph.nodes(False)]
         ))
 
     def process_subqueries(self, query, user):

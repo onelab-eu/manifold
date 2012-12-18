@@ -1,26 +1,25 @@
+
 class ip {
     const inet ip;
     const text hostname;
-    const unsigned asn;
-    const unsigned country;
     KEY(ip);
 };
 
 class agent {
-    const ip ip;
-    const text th_agent;
+    const inet ip;
     KEY(ip);
 };
 
 class destination {
-    const ip ip;
+    const inet ip;
     KEY(ip);
 };
 
 class hop {
-    const ip  ip;
-    const int ttl;
+    const inet ip;
+    const int  ttl;
 };
+
 
 class traceroute {
     const agent       source;

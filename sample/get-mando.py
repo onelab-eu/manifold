@@ -40,6 +40,23 @@ query = Query(
     "2012-09-09 14:30:09"
 )
 
+query = Query(
+    # action
+    "get",
+    # from (= query.fact_table)
+    "agent",
+    # where (= query.filters)
+    [],
+    # query.params
+    {},
+    # select (= query.fields)
+    ["ip", "sw", "country"] ,
+    #["source.ip", "destination.ip"],
+    # timestamp
+    "2012-09-09 14:30:09"
+)
+
+
 print "=" * 150
 print query
 print "> action     = %r" % query.action

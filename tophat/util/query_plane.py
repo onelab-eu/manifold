@@ -27,7 +27,7 @@ def find_root(tree):
     for u in tree.nodes():
         if not tree.in_edges(u):
             return u
-    raise ValueError("No root node found")
+    raise ValueError("No root node found: edges: {%r}" % [e for e in tree.edges()])
 
 def get_from(froms, u, p):
     if u.name not in froms:

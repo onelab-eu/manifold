@@ -13,51 +13,65 @@ class DBGraph:
         for table in tables:
             self.append(table)
 
-    def append(self, table):
+    def append(self, u):
         """
         \brief Add a table node not yet in the DB graph and build the arcs
             to connect this node to the existing node.
             There are 3 types of arcs (determines, includes, provides)
         \sa tophat/util/table.py
-        \param table The table we insert into the graph.
+        \param u The table we insert into the graph.
         """
         # Check table not yet in graph
-        if table in self.graph.nodes():
-            raise ValueError("%r is already in the graph" % table)
+        if u in self.graph.nodes():
+            raise ValueError("%r is already in the graph" % u)
 
-        # Add the "table" node to the graph and attach the corresponding sources nodes
-        sources = [t for t in self.tables if list(table.keys)[0] in t.get_fields_from_keys()]
+        # Add the "u" node to the graph and attach the corresponding sources nodes
+        sources = [t for t in self.tables if list(u.keys)[0] in t.get_fields_from_keys()]
         # It seems sources are useless now...
-        self.graph.add_node(table, {'sources': sources})
+        self.graph.add_node(u, {'sources': sources})
 
         # We loop through the different _nodes_ of the graph to see whether
         # we need to establish some links
-        for node, data in self.graph.nodes(True):
+        for v, data in self.graph.nodes(True):
             # Ignore the node we've just added
-            if node == table: # or set(node.keys) & set(table.keys):
+            if u == v:
                 continue
 
-            #print "======"
-            #print "NODE=", node
-            #print "TABLE=", table
-            if node.determines(table):
-                #print "append(): %r --> %r" % (node, table)
-                self.graph.add_edge(node, table, {'cost': True, 'type': '-->', 'info': node.get_determinant(table)})
-            elif table.determines(node):
-                #print "append(): %r --> %r" % (table, node)
-                self.graph.add_edge(table, node, {'cost': True, 'type': '-->', 'info': table.get_determinant(node)})
-            elif node.includes(table):
-                #print "append(): %r ==> %r" % (node, table)
-                self.graph.add_edge(node, table, {'cost': True, 'type': '==>', 'info': None})
-            elif table.includes(node):
-                #print "append(): %r ==> %r" % (table, node)
-                self.graph.add_edge(table, node, {'cost': True, 'type': "==>", 'info': None})
-            elif node.provides(table):
-                #print "append(): %r ~~> %r" % (node, table)
-                self.graph.add_edge(node, table, {'cost': True, 'type': "~~>", 'info': node.get_provider(table)})
-            elif table.provides(node):
-                #print "append(): %r ~~> %r" % (table, node)
-                self.graph.add_edge(table, node, {'cost': True, 'type': "~~>", 'info': table.get_provider(node)})
+            # u -?-> v 
+            relation_uv = u.get_relation(v)
+            if relation_uv:
+                (label, fields_u) = relation_uv
+                print "%r %s %r" % (u, label, v)
+                self.graph.add_edge(u, v, {'cost': True, 'type': label, 'info': fields_u})
+
+            # v -?-> u
+            relation_vu = v.get_relation(u)
+            if relation_vu:
+                (label, fields_v) = relation_vu
+                print "%r %s %r" % (v, label, u)
+                self.graph.add_edge(v, u, {'cost': True, 'type': label, 'info': fields_v})
+
+#            #print "======"
+#            #print "NODE=", node
+#            #print "TABLE=", table
+#            if node.determines(table):
+#                print "append(): %r --> %r" % (node, table)
+#                self.graph.add_edge(node, table, {'cost': True, 'type': '-->', 'info': node.get_determinant(table)})
+#            elif table.determines(node):
+#                print "append(): %r --> %r" % (table, node)
+#                self.graph.add_edge(table, node, {'cost': True, 'type': '-->', 'info': table.get_determinant(node)})
+#            elif node.includes(table):
+#                print "append(): %r ==> %r" % (node, table)
+#                self.graph.add_edge(node, table, {'cost': True, 'type': '==>', 'info': None})
+#            elif table.includes(node):
+#                print "append(): %r ==> %r" % (table, node)
+#                self.graph.add_edge(table, node, {'cost': True, 'type': "==>", 'info': None})
+#            elif node.provides(table):
+#                print "append(): %r ~~> %r" % (node, table)
+#                self.graph.add_edge(node, table, {'cost': True, 'type': "~~>", 'info': node.get_provider(table)})
+#            elif table.provides(node):
+#                print "append(): %r ~~> %r" % (table, node)
+#                self.graph.add_edge(table, node, {'cost': True, 'type': "~~>", 'info': table.get_provider(node)})
 
     def plot(self):
         DBGraph.plot_graph(self.graph)
