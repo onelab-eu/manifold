@@ -169,7 +169,7 @@ class Table:
             return self.name
 
     #-----------------------------------------------------------------------
-    # Accessors 
+    # Methods 
     #-----------------------------------------------------------------------
 
     @returns(bool)
@@ -346,7 +346,36 @@ class Table:
 
     #-----------------------------------------------------------------------
     # Relations between two Table instances 
+    # Notations in documentation:
+    #   u == self  : the source node
+    #   v == table : the target node
+    #   x.n        : the name of node x
+    #   x.k        : the keys of node x
+    #   x.f        : a field of node x
+    #   x.f.n      : the field name of the field f of node x
+    #   x.f.t      : the field type of the field f of node x
     #-----------------------------------------------------------------------
+
+    @returns(set)
+    def get_fields_in_key(self, fields):
+        """
+        \brief Compute which fields belong to a single-key of "self" Table.
+        \param fields A set of MetadataField
+        \return A set of MetaField (that may be empty) included in "fields"
+        """
+        fields_in_key = set()
+        for field in fields: 
+            key_types = self.get_types_from_keys()
+            for key_type in key_types:
+                if len(list(key_type)):
+                    # Skip composite keys
+                    continue
+                elif isinstance(key_type, StringTypes):
+                    if field.type == key_type:
+                        fields_in_key.add(field) 
+                else:
+                    raise TypeError("Invalid key type %r, type name expected (e.g. string)" % key_type)
+        return fields_in_key 
 
     @returns(set)
     def get_connecting_fields(self, table):
@@ -362,56 +391,48 @@ class Table:
                 connecting_fields.add(field)
         return connecting_fields 
 
-    @returns(set)
-    def get_provider_fields(self, connecting_fields):
-        """
-        \brief (Internal use, since this function is called in a specific context)
-            Find among connecting fields those verifying (allow to deduce whether self ~~> table)
-            f not in u.k (P2)
-        \param connecting_fields Connecting fields (set of MetadataField)
-            \sa get_connecting_fields()
-        \return The set of MetadataField verifying (P2)
-        """
-        provider_fields = set()
-        for field in connecting_fields: 
-            key_types = self.get_types_from_keys()
-            for key_type in key_types:
-                if isinstance(key_type, (tuple, list, set, frozenset)):
-                    # Skip composite keys
-                    continue
-                elif isinstance(key_type, StringTypes):
-                    if field.type == key_type:
-                        provider_fields.add(field) 
-                else:
-                    raise TypeError("Invalid key type %r, type name expected (e.g. string)" % key_type)
-        return provider_fields 
-
     @returns(bool)
     def includes(self, table):
         """
         \brief (Internal use, since this function is called in a specific context)
-            Test whether self ==> table
+            Test whether self and table have the same table name.
+            u ==> v iif u.n == v.n
             Example: tophat::ip ==> {tophat, sonoma}::ip
         \param table The target candidate table
         \return True iif u ==> v
         """
-        return self.name == table.name 
+        return self.name == table.name
 
     @returns(bool)
     def inherits(self, table):
         """
         \brief (Internal use, since this function is called in a specific context)
             Test whether self inherits table
+            Example: tophat::destination ==> {tophat, sonoma}::ip
         \param table The target candidate table
         \return True iif u --> v
         """
-        return (table.name,) in self.get_names_from_keys()
+        return (table.name,) in table.get_names_from_keys()
+
+    @returns(bool)
+    def has_intersecting_key(self, fields):
+        """
+        \brief Test whether a set of fields intersect at least one (single) key
+        \param fields A set of MetadataField
+        \return True iif at least one intersecting key exists, False otherwise 
+        """
+        for key in self.get_fields_from_keys():
+            if fields & set(key) != set():
+                return True
+        return False
 
     def get_relation(self, table):
         """
         \brief Compute which kind of relation connects
             the "self" Table (source node) to the "table"
-            Table (target node).
+            Table (target node). We assume that the graph
+            of table is at least 2nf.
+            \sa tophat/util/dbgraph.py
         \param table The target table
         \return
             - None if the both tables are unrelated
@@ -419,144 +440,17 @@ class Table:
                 - a string: "==>", "-->", "~~>"
                 - a set of MetadataField that will be stored in the arc 
         """
-        connecting_fields = self.get_connecting_fields(table)
-        if connecting_fields != set():
-            provider_fields = self.get_provider_fields(connecting_fields)
-            if provider_fields != set():
-                if self.includes(table):
+        u = self
+        v = table
+        connecting_fields_uv = u.get_connecting_fields(v)
+        if connecting_fields_uv != set():
+            connecting_fields_vu = v.get_connecting_fields(u)
+            if not u.has_intersecting_key(connecting_fields_uv):
+                return ("~~>", connecting_fields_uv)
+            elif u.includes(v):
+                # Patch: avoid to link tophat::ip ==> sonoma::ip
+                if u.get_platforms() <= v.get_platforms():
                     return ("==>", None)
-                elif self.inherits(table):
-                    return ("-->", connecting_fields) 
-                else:
-                    return ("~~>", provider_fields)
+            elif u.inherits(v):
+                return ("-->", v.get_fields_in_key(connecting_fields_uv)) 
         return None
-
-#
-#    @returns(bool)
-#    def determines(self, table):
-#        """
-#        \brief Test whether "self" determines "table" table.
-#            u --> v iif
-#                exists k | u.k == v (foreign key)
-#                u.p == v.p          (platform equality)
-#        Example: tophat::agent --> tophat::ip
-#        \sa tophat/util/dbgraph.py
-#        \param table The target candidate table
-#        \return True iif self --> table
-#        """
-#        if set(self.get_platforms()) == set(table.get_platforms()):
-#            keys = self.get_fields_from_keys()
-#            for key in keys:
-#                if len(list(key)) > 1:
-#                    #print "determines: ignoring composite key"
-#                    continue
-#                else:
-#                    key = list(key)[0]
-#               # print "> > key.type = %r ?= table.name = %r" % (key.type, table.name)
-#                if key.type == table.name or key.field_name == table.name:
-#                    return True
-#        return False
-#
-#    @returns(tuple)
-#    def get_determinant(self, table):
-#        if self.get_platforms() == table.get_platforms():
-#            keys = self.get_fields_from_keys()
-#            for key in keys:
-#                if len(list(key)) > 1:
-#                    continue
-#                else:
-#                    key = list(key)[0]
-#                if key.type == table.name or key.field_name == table.name:
-#                    return (set([key.type]), None)
-#        raise ValueError("%r does not determine %r" % (self, table))
-#
-#    @returns(bool)
-#    def includes(self, table):
-#        """
-#        \brief Test whether "self" includes "table" table.
-#            u ==> v iif
-#                u.p <= v.p (platform inclusion)
-#                u.n == v.n (name equality)
-#                u.f <= v.f (field inclusion)
-#        Example: tophat::ip ==> {sonoma,tophat}::ip
-#        \sa tophat/util/dbgraph.py
-#        \param table The target candidate table
-#        \return True iif self ==> table
-#        """
-#        if self.get_platforms() <= table.get_platforms() and table.name == self.name: 
-#            fields_self  = set([(field.field_name, field.type) for field in self.get_fields()])
-#            fields_table = set([(field.field_name, field.type) for field in table.get_fields()])
-#            return fields_table <= fields_self
-#        return False 
-#
-#    @returns(bool)
-#    def provides(self, table):
-#        """
-#        \brief Test whether "self" provides a "table" table.
-#            u ~~> f iif:
-#            #    \exists k | v.k \in u.f (foreign key)
-#            #    u.p == v.p (Jordan: only if the key is LOCAL, not implemented)
-#                \exists f | u.f.type == v or u.f.name == v 
-#            Example:
-#                tophat::traceroute ~~> tophat::agent
-#        \sa tophat/util/dbgraph.py
-#        \param table The target candidate table
-#        \return True iif self ~~> table
-#        """
-##        if self.get_platforms() == table.get_platforms():
-##            for field in self.get_fields():
-##                if field.type == table.name or field.field_name == table.name:
-##                    return True
-#
-#        
-#        # JORDAN: commented platform check since this only applies to LOCAL keys
-#        #if self.get_platforms() == table.get_platforms():
-#        for key in table.keys:
-#            # We ignore composite key (e.g. (source, destination, ts))
-#            if isinstance(key, (list, tuple, set, frozenset)):
-#                if len(key) > 1:
-#                    print "provides(): W: Ignoring key %r" % key
-#                    continue
-#                key = list(key)[0]
-#
-#            if isinstance(key, MetadataField):
-#                key_type = key.type
-#                key_name = key.field_name
-#            elif isinstance(key, StringTypes):
-#                key_type = table.get_field(key).type
-#                key_name = key
-#
-#            if table.get_field(key_name).type == key_type:
-#                # Jordan: added this test so that hop.ip does not point to
-#                # agent
-#                if table.name == key_name:
-#                    return True
-#        return False
-#
-#    @returns(tuple)
-#    def get_provider(self, table):
-##        if self.get_platforms() == table.get_platforms():
-##            for field in self.get_fields():
-##                if field.type == table.name or field.field_name == table.name:
-##                    return (set([field.field_name]), None)
-#
-#        for key in table.keys:
-#            # We ignore composite key (e.g. (source, destination, ts))
-#            if isinstance(key, (list, tuple, set, frozenset)):
-#                if len(key) > 1: continue
-#                key = list(key)[0]
-#
-#            if isinstance(key, MetadataField):
-#                key_type = key.type
-#                key_name = key.field_name
-#            elif isinstance(key, StringTypes):
-#                key_type = table.get_field(key).type
-#                key_name = key
-#
-#            if table.get_field(key_name).type == key_type:
-#                if table.name == key_name:
-#                    return (set([table.name]), None)
-#
-#        raise ValueError("%r does not provide %r" % (self, table))
-#
-#

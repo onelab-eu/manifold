@@ -33,9 +33,11 @@ def dfs(graph, root):
     \brief Run the DFS algorithm
     \param graph The graph we explore
     \param root The starting vertex
-    \return a dictionnary which maps each vertex to its
-            predecessor (if any) visited during the DFS
-            exploration, None otherwise
+    \return A dictionnary which maps each vertex of the tree
+            to its predecessor, None otherwise.
+            Only the root node as a predecessor equal to None.
+            Nodes not referenced in this dictionnary do not
+            belong to the tree.
     """
     # Initialization
     map_vertex_color = {}
@@ -44,9 +46,15 @@ def dfs(graph, root):
         map_vertex_color[u] = dfs_color.WHITE
         map_vertex_pred[u] = None 
 
-    x = 0
     # Recursive calls
-    dfs_visit(graph, root, map_vertex_color, map_vertex_pred, x)
+    dfs_visit(graph, root, map_vertex_color, map_vertex_pred)
+
+    # Remove from map_vertex_pred the vertices having no
+    # predecessor but the root node.
+    for v, u in map_vertex_pred.items():
+        if u == None and v != root:
+            del map_vertex_pred[v]
+
     return map_vertex_pred
 
 #DFS-VISIT(G, u) 
@@ -64,7 +72,7 @@ def dfs(graph, root):
 #  color[u] := BLACK
 #  f_time[u] := time := time + 1 
 
-def dfs_visit(graph, u, map_vertex_color, map_vertex_pred, x):
+def dfs_visit(graph, u, map_vertex_color, map_vertex_pred):
     """
     \brief Internal usage (DFS implementation) 
     \param graph The graph we explore
@@ -80,6 +88,6 @@ def dfs_visit(graph, u, map_vertex_color, map_vertex_pred, x):
         color_v = map_vertex_color[v]
         if color_v == dfs_color.WHITE:
             map_vertex_pred[v] = u
-            dfs_visit(graph, v, map_vertex_color, map_vertex_pred, x)
+            dfs_visit(graph, v, map_vertex_color, map_vertex_pred)
     map_vertex_color[u] = dfs_color.BLACK
 

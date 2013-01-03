@@ -405,7 +405,8 @@ class THLocalRouter(LocalRouter):
         """
         for table in self.G_nf.graph.nodes(False):
             if table.name == table_name:
-                return table 
+                return table
+
         raise ValueError("get_table: table not found (table_name = %s): available tables: %s" % (
             table_name,
             [(t.get_platforms(), t.name) for t in self.G_nf.graph.nodes(False)]
@@ -420,7 +421,7 @@ class THLocalRouter(LocalRouter):
         \return An AST instance representing the query plane related to the query
         """
         print "-" * 100
-        print ">>>>>>> entering process_subqueries %s (need fields %s) " % (query.fact_table, query.fields)
+        print "###>>>>>>> entering process_subqueries %s (need fields %s) " % (query.fact_table, query.fields)
         table_name = query.fact_table
         table = self.get_table(table_name)
         qp = AST(user)
