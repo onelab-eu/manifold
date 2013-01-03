@@ -37,7 +37,6 @@ def dfs(graph, root):
             predecessor (if any) visited during the DFS
             exploration, None otherwise
     """
-    raise Exception("infinite loop")
     # Initialization
     map_vertex_color = {}
     map_vertex_pred  = {}
@@ -45,8 +44,9 @@ def dfs(graph, root):
         map_vertex_color[u] = dfs_color.WHITE
         map_vertex_pred[u] = None 
 
+    x = 0
     # Recursive calls
-    dfs_visit(graph, root, map_vertex_color, map_vertex_pred)
+    dfs_visit(graph, root, map_vertex_color, map_vertex_pred, x)
     return map_vertex_pred
 
 #DFS-VISIT(G, u) 
@@ -64,7 +64,7 @@ def dfs(graph, root):
 #  color[u] := BLACK
 #  f_time[u] := time := time + 1 
 
-def dfs_visit(graph, u, map_vertex_color, map_vertex_pred):
+def dfs_visit(graph, u, map_vertex_color, map_vertex_pred, x):
     """
     \brief Internal usage (DFS implementation) 
     \param graph The graph we explore
@@ -75,11 +75,11 @@ def dfs_visit(graph, u, map_vertex_color, map_vertex_pred):
     \param map_vertex_pred: maps each vertex to its predecessor (if any) visited
         during the DFS exploration, None otherwise
     """
-    print map_vertex_color
+    map_vertex_color[u] = dfs_color.GRAY
     for v in graph.successors(u):
         color_v = map_vertex_color[v]
         if color_v == dfs_color.WHITE:
             map_vertex_pred[v] = u
-            dfs_visit(graph, v, map_vertex_color, map_vertex_pred)
+            dfs_visit(graph, v, map_vertex_color, map_vertex_pred, x)
     map_vertex_color[u] = dfs_color.BLACK
 

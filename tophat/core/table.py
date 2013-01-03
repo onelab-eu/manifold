@@ -283,8 +283,8 @@ class Table:
     def get_names_from_keys(self):
         """
         \return A set of tuple of field names
-            Each sub-array correspond to a key of 'self'.
-            Each element of these subarray is a Strings
+            Each tuple corresponds to a key of 'self'.
+            Each element of these tuples is a String.
         """
         names_keys = set() 
         for key in self.keys:
@@ -386,10 +386,12 @@ class Table:
                     raise TypeError("Invalid key type %r, type name expected (e.g. string)" % key_type)
         return provider_fields 
 
+    @returns(bool)
     def includes(self, table):
         """
         \brief (Internal use, since this function is called in a specific context)
             Test whether self ==> table
+            Example: tophat::ip ==> {tophat, sonoma}::ip
         \param table The target candidate table
         \return True iif u ==> v
         """
@@ -398,30 +400,35 @@ class Table:
     @returns(bool)
     def inherits(self, table):
         """
-        \brief Test whether self inherits table
+        \brief (Internal use, since this function is called in a specific context)
+            Test whether self inherits table
         \param table The target candidate table
         \return True iif u --> v
         """
-        return table.name in table.get_names_from_keys()
+        return (table.name,) in self.get_names_from_keys()
 
     def get_relation(self, table):
-        # ..>  ?
-        raise Exception("test ~~> buggué, mais résoudre le bug dfs avant en commentant cette exception")
+        """
+        \brief Compute which kind of relation connects
+            the "self" Table (source node) to the "table"
+            Table (target node).
+        \param table The target table
+        \return
+            - None if the both tables are unrelated
+            - Otherwise, a tuple made of
+                - a string: "==>", "-->", "~~>"
+                - a set of MetadataField that will be stored in the arc 
+        """
         connecting_fields = self.get_connecting_fields(table)
         if connecting_fields != set():
-            # ~~> ?
             provider_fields = self.get_provider_fields(connecting_fields)
-            if self.name == table.name and self.name == "ip":
-                print "connecting_fields =", connecting_fields
-                print "provider_fields=", provider_fields 
             if provider_fields != set():
-                return ("~~>", provider_fields)
-            # ==> ?
-            elif self.includes(table):
-                return ("==>", None)
-            # --> ?
-            elif self.inherits(table):
-                return ("-->", connecting_fields) 
+                if self.includes(table):
+                    return ("==>", None)
+                elif self.inherits(table):
+                    return ("-->", connecting_fields) 
+                else:
+                    return ("~~>", provider_fields)
         return None
 
 #
