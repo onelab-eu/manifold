@@ -673,7 +673,7 @@ class THLocalRouter(LocalRouter):
         # Process the root node
         successors = self.G_nf.get_successors(root)
         succ_keys = [list(iter(table.keys).next())[0] for table in successors]
-        current_fields = set(needed_fields) & set([f.field_name for f in root.fields])
+        current_fields = set(needed_fields) & set([field.get_name() for field in root.get_fields()])
         current_fields |= set(succ_keys)
         q = Query(
             action     = query.action,
@@ -711,7 +711,7 @@ class THLocalRouter(LocalRouter):
             succ_keys = [iter(s.keys).next() for s in successors]
 
             # Realize a left join ( XXX only for PROVIDES arcs)
-            current_fields = set(needed_fields) & set([f.field_name for f in node.fields])
+            current_fields = set(needed_fields) & set([field.get_name() for field in node.get_fields()])
             print "succ_keys = ", succ_keys 
             current_fields |= set(succ_keys)
             current_fields.add(key) 

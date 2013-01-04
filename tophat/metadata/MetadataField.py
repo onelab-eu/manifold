@@ -12,6 +12,7 @@
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
 from types                         import StringTypes
+from tophat.util.type              import returns, accepts 
 
 class MetadataField:
     def __init__(self, qualifier, type, field_name, is_array = False, description = None):
@@ -29,22 +30,29 @@ class MetadataField:
         self.qualifier   = qualifier
         self.type        = type
         self.field_name  = field_name
-        self.is_array    = is_array
+        self._is_array   = is_array
         self.description = description 
 
+    @returns(str)
     def __repr__(self):
         """
         \return the string (%r) corresponding to this MetadataField 
         """
-        #return "Field(%r, %r, %r)" % (self.qualifier, self.type, self.field_name)
-        return "<%s>" % self.field_name
+        return "<%s>" % self.get_name()
 
+    @returns(str)
     def __str__(self):
         """
         \return the string (%s) corresponding to this MetadataField 
         """
-        return "\n\tField(%r, %r, %r) // %r" % (self.qualifier, self.type, self.field_name, self.description)
+        return "\n\tField(%r, %r, %r) // %r" % (
+            self.get_qualifier(),
+            self.get_type(),
+            self.get_name(),
+            self.get_description()
+        )
 
+    @returns(bool)
     def __eq__(self, x):
         """
         \brief Compare two MetadataField
@@ -53,12 +61,45 @@ class MetadataField:
         """
         if not isinstance(x, MetadataField):
             raise TypeError("Invalid type: %r is of type %s" % (x, type(x)))
-        return (self.qualifier, self.type, self.field_name, self.is_array) == (x.qualifier, x.type, x.field_name, x.is_array)
+        return (
+            self.get_qualifier(),
+            self.get_type(),
+            self.get_name(),
+            self.is_array()
+        ) == (
+            x.get_qualifier(),
+            x.get_type(),
+            x.get_name(),
+            x.is_array()
+        )
 
     def __hash__(self):
         """
         \return The hash related to a MetadataField (required to use
             a MetadataField as a key in a dictionnary)
         """
-        return hash((self.qualifier, self.type, self.field_name, self.is_array))
+        return hash((
+            self.get_qualifier(),
+            self.get_type(),
+            self.get_name(),
+            self.is_array()
+        ))
 
+    @returns(str)
+    def get_description(self):
+        return self.description
+
+    def get_qualifier(self):
+        return self.qualifier
+
+    @returns(str)
+    def get_type(self):
+        return self.type
+
+    @returns(str)
+    def get_name(self):
+        return self.field_name
+
+    @returns(bool)
+    def is_array(self):
+        return self._is_array

@@ -16,7 +16,6 @@
 
 from tophat.util.type              import returns, accepts
 from tophat.metadata.MetadataField import MetadataField
-from types                         import StringTypes
 
 class Key(frozenset):
     """
@@ -28,42 +27,48 @@ class Key(frozenset):
     def check_fields(fields):
         """
         \brief (Internal use)
-        \param Test whether the fields parameter of the constructor is well-formed
-        \return True iif everything is fine, False otherwise
+               Test whether the fields parameter of the constructor is well-formed
+        \param fields The fields parameter passed to __init__
         """
         for field in fields:
             if not isinstance(field, MetadataField):
-                return False
-        return True
+                raise TypeError("field = %r is of type %r (MetadataField expected)" % (field, type(field)))
 
-    def __init__(fields):
+    def __init__(self, fields):
         """
         \brief Constructor
         \param fields The set of Metafields involved in the key.
         """
-        if check_fields(fields) == False:
-            raise TypeError("Invalid fields parameter: %r" % fields)
-        self = fields
+        Key.check_fields(fields)
+        frozenset.__init__(fields)
 
     @returns(bool)
-    def is_composite_key():
+    def is_composite(self):
         """
         \brief Test whether a key is made of more that one field (composite key)
         \return True if the key is composite, False otherwise
         """
         return len(list(self)) > 0
 
-    @returns(StringTypes)
-    def get_type():
-        if self.is_composite_key():
+    @returns(str)
+    def get_type(self):
+        if self.is_composite():
             raise ValueError("get_type cannot be called for a composite key")
-        return list(self)[0].type
+        return list(self)[0].get_type()
 
-    @returns(StringTypes)
-    def get_type():
-        if self.is_composite_key():
+    @returns(str)
+    def get_name(self):
+        if self.is_composite():
             raise ValueError("get_type cannot be called for a composite key")
-        return list(self)[0].field_name
+        return list(self)[0].get_name()
+
+    @returns(str)
+    def __str__(self):
+        return "KEY(%s)" % (", ".join(["%r" % field for field in self]))
+
+    @returns(str)
+    def __repr__(self):
+        return "KEY(%s)" % (", ".join(["%r" % field for field in self]))
 
 class Keys(set):
     """
@@ -71,34 +76,41 @@ class Keys(set):
     """
 
     @staticmethod
-    @returns(bool)
     def check_keys(keys):
         """
         \brief (Internal use)
-        \param Test whether the keys parameter of the constructor is well-formed
+               Test whether the keys parameter of the constructor is well-formed
+        \param keys The keys parameter passed to __init__
         \return True iif everything is fine, False otherwise
         """
-        if not isinstance(keys, (frozenset, set)):
-            return False
+        if not isinstance(keys, (frozenset, set, list)):
+            raise TypeError("keys = %r is of type %r (set or frozenset expected)" % (keys, type(keys)))
         for key in keys:
             if not isinstance(key, Key):
-                return False
-        return True
+                raise TypeError("key = %r is of type %r (Key expected)" % (key, type(key)))
 
-    def __init__(keys):
+    def __init__(self, keys = set()):
         """
         \brief Constructor
         \param keys A set of Key instances
         """
-        if check_fields(fields) == False:
-            raise TypeError("Invalid fields parameter: %r" % fields)
-        self = fields
+        Keys.check_keys(keys)
+        set.__init__(set(keys))
 
-    def get_field_names(self):
-        """
-        \brief Returns a set of fields making up one key. If multiple possible
-        keys exist, a unique one is returned, having a minimal size.
-        """
-        return min(self, key=len)
+    @returns(str)
+    def __str__(self):
+        return "{%s}" % (", ".join(["%s" % (key) for key in self]))
+
+    @returns(str)
+    def __repr__(self):
+        return "{%s}" % (", ".join(["%r" % (key) for key in self]))
+
+
+#    def get_field_names(self):
+#        """
+#        \brief Returns a set of fields making up one key. If multiple possible
+#        keys exist, a unique one is returned, having a minimal size.
+#        """
+#        return min(self, key=len)
             
             

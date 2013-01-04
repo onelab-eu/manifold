@@ -179,14 +179,12 @@ def get_sub_graph(g, vertices_to_keep):
     # Copy relevant vertices from g
     # We do not yet clean vertices since we'll need "in" operator to build the relevant arcs 
     for u in vertices_to_keep: 
-        #print "build_sub_graph(): duplicating vertex %r" % u
         sub_graph.add_node(u, deepcopy(g[u]))
 
     # Copy relevant arcs from g
     for e in g.edges():
         (u, v) = e
         if u in sub_graph.nodes() and v in sub_graph.nodes(): 
-            #print "build_sub_graph(): duplicating arc (%r %s %r)" % (u, g[u][v]["type"], v)
             sub_graph.add_edge(u, v, deepcopy(g.edge[u][v]))
 
     return sub_graph
@@ -224,7 +222,6 @@ def build_pruned_tree(g, needed_fields, map_vertex_pred):
         missing_fields -= (needed_fields & relevant_fields_u)
         for field in u.get_fields():
             if field not in relevant_fields_u:
-                #print "build_pruned_graph(): erasing %s from %r" % (field.field_name, u)
                 u.erase_field(field.field_name)
 
 #    # Remove useless keys

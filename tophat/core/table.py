@@ -11,19 +11,9 @@
 
 from tophat.metadata.MetadataField import MetadataField
 from tophat.core.filter            import Filter
+from tophat.core.key               import Key, Keys 
 from types                         import StringTypes
 from tophat.util.type              import returns, accepts 
-
-def to_frozenset(t):
-    """
-    \brief Convert an list of lists into a frozen set of tuples
-        ex: [['a', 'b'], ['c', 'd', 'e']] becomes {('a', 'b'), ('c', 'd', 'e')}
-    \param t The list of lists
-    \return The corresponding frozenset of tuples
-    """
-    if isinstance(t, list):
-        return frozenset([tuple(x) if isinstance(x, (tuple, list)) else x for x in t])
-    raise TypeError("to_frozenset: invalid parameter %r (list expected)" % t)
 
 class Table:
     """
@@ -35,43 +25,37 @@ class Table:
     #-----------------------------------------------------------------------
 
     @staticmethod
-    @returns(bool)
     def check_fields(fields):
         """
         \brief Check whether fields parameter is well-formed in __init__
-        \return True iif fields is well-formed
         """
         if fields == None:
             return False
         elif isinstance(fields, (set, frozenset, list, tuple)):
             for field in fields:
                 if not isinstance(field, MetadataField):
-                    return False
+                    raise TypeError("In fields = %r: %r is not of type MetadataField" % (fields, field))
         elif isinstance(fields, dict):
             for field_name, metafield in fields.items():
                 if not isinstance(field_name, StringTypes):
-                    return False
+                    raise TypeError("In fields = %r: %r is not of type StringTypes" % (fields, field_name))
                 elif not isinstance(metafield, MetadataField):
-                    return False
-        return True
+                    raise TypeError("In fields = %r: %r is not of type MetadataField" % (fields, metafield))
 
     @staticmethod
-    @returns(bool)
     def check_keys(keys):
         """
         \brief Check whether keys parameter is well-formed in __init__
-        \return True iif keys is well-formed
         """
         if not isinstance(keys, (tuple, list, frozenset)):
-            return False
+            raise TypeError("keys = %r is not of type tuple, list, frozenset" % keys) 
         for key in keys:
             if isinstance(key, (tuple, list, frozenset)):
                 for key_elt in key:
                     if not isinstance(key_elt, StringTypes):
-                        return False 
+                        raise TypeError("In key %r: %r is not of type StringTypes" % (key, key_elt))
             elif not isinstance(key, StringTypes):
-                return False
-        return True
+                raise TypeError("In key = %r: %r is not of type StringTypes" % key)
 
     @staticmethod
     @returns(bool)
@@ -84,15 +68,15 @@ class Table:
             # partitions carries a set of platforms
             for platform in partitions:
                 if not isinstance(platform, StringTypes):
-                    return False
+                   raise TypeError("In partitons = %r: platform = %r is not of type StringTypes" % (partitions, platform)) 
         elif isinstance(partitions, StringTypes):
             return True
         elif isinstance(partitions, dict):
             for platforms, clause in partitions.items():
-                if platforms and not isinstance(frozenset):
-                    return False
+                if platforms and not isinstance(platforms, frozenset):
+                    return TypeError("platforms = %r is not of type frozenset" % platforms) 
                 if clause and not isinstance(clause, Predicate):
-                    return False
+                    return TypeError("clause = %r is not of type Predicate" % clause) 
         return True 
 
     #-----------------------------------------------------------------------
@@ -110,12 +94,9 @@ class Table:
         \param cost
         """
         # Check parameters
-        if not Table.check_fields(fields):
-            raise TypeError("Table: __init__: invalid parameter fields '%s' (type: %r)" % (fields, type(fields)))
-        if not Table.check_keys(keys):
-            raise TypeError("Table: __init__: invalid parameter keys: %s (type: %r)" % (keys, type(keys)))
-        if not Table.check_partitions(partitions):
-            raise TypeError("Table: __init__: invalid parameter partitions: %s (type: %r)" % (partitions, type(partitions)))
+        Table.check_fields(fields)
+        Table.check_keys(keys)
+        Table.check_partitions(partitions)
 
         # self.partitions
         self.partitions = dict()
@@ -132,31 +113,36 @@ class Table:
         self.fields = dict()
         if isinstance(fields, (list, set, frozenset)):
             for field in fields:
-                field_name = field.field_name
-                self.fields[field_name] = field
+                self.insert_field(field)
         elif isinstance(fields, dict):
             self.fields = fields
 
-        self.keys = to_frozenset(keys)
+        #self.keys = to_frozenset(keys)
+        self.keys = Keys()
+        for key in keys:
+            self.insert_key(key)
         self.cost = cost
         # TODO There will also be a list that the platform cannot provide, cf sources[i].fields
 
+       
     #-----------------------------------------------------------------------
     # Outputs 
     #-----------------------------------------------------------------------
 
+    @returns(str)
     def __str__(self):
         """
         \brief Convert a Table instance into a string ('%s')
         \return The corresponding string
         """
-        return "<{%s}::%s fields = {%s} keys = {%s}>" % (
+        return "<{%s}::%s fields = {%s} keys = %r>" % (
             ', '.join([p            for p in sorted(self.get_platforms())]),
-            self.name,
-            ', '.join([f.field_name for f in sorted(self.get_fields())]),
+            self.get_name(),
+            ', '.join([f.get_name() for f in sorted(self.get_fields())]),
             self.keys
         )
 
+    @returns(unicode)
     def __repr__(self):
         """
         \brief Convert a Table instance into a string ('%r')
@@ -164,20 +150,27 @@ class Table:
         """
         platforms = self.get_platforms()
         if platforms:
-            return "<{%s}::%s>" % (', '.join([p for p in sorted(platforms)]), self.name)
+            return "<{%s}::%s>" % (', '.join([p for p in sorted(platforms)]), self.get_name())
         else:
-            return self.name
+            return self.get_name()
 
     #-----------------------------------------------------------------------
     # Methods 
     #-----------------------------------------------------------------------
 
+    @returns(str)
+    def get_name(self):
+        """
+        \return the table name of self
+        """
+        return self.name
+
     @returns(bool)
     def is_key(self, key):
         """
         \brief Test whether a field is a key of this table
-        \param key The name of the field.
-            You might pass an tuple or a list of fields (string or MetadataField)
+        \param key The name of the field (StringTypes or MetadataField).
+            You might pass an tuple or a list of fields (StringTypes or MetadataField)
             if your testing a composite key.
         \return True iif only this is a key
         """
@@ -187,9 +180,16 @@ class Table:
             key = (key,)
         elif not isinstance(key, tuple):
             raise TypeError("is_key: %s must be a list, a tuple, a set, a frozenset or a string" % key)
-        key = tuple([k if isinstance(k, StringTypes) else k.field_name for k in key])
-        return key in self.keys
+        key = set([k if isinstance(k, StringTypes) else k.get_name() for k in key])
+        return key in self.get_names_from_keys()
 
+    def insert_field(self, field):
+        """
+        \brief Add a field in self.
+        \param field A MetadataField instance 
+        """
+        self.fields[field.get_name()] = field
+ 
     def get_fields(self):
         """
         \return the MetadataField instances related to this table 
@@ -207,24 +207,27 @@ class Table:
         del(self.fields[field_name])
         return ret
 
-    @returns(bool)
-    def erase_key(self, key_to_remove):
+    def insert_key(self, key):
         """
-        \brief Remove a key from the table
-        \param key_to_remove A set of field names describing the key 
-        \return True iif the key has been successfully removed
+        \brief Add a field in self.
+        \param key Supported parameters
+            A Metafield  (a field belonging to this table)
+            A StringType (a field name, related to a field of this table)
+            A container (list, set, frozenset, tuple) made of StringType (field names)
         """
-        if not isinstance(key_to_remove, set):
-            raise TypeError("Invalid type: %r is of type %r (must inherits set)" % (key_to_remove, type(key_to_remove)))
-
-        for key in self.keys: 
-            if key_to_remove == set(key):
-                keys = set(self.keys)
-                keys.erase(key)
-                self.keys = frozenset(keys)
-                return True
-        return False
-
+        if isinstance(key, Key):
+            self.keys.add(key)
+        else:
+            if isinstance(key, MetadataField):
+                fields = frozenset(key)
+            elif isinstance(key, StringTypes):
+                fields = frozenset(self.get_field(key))
+            elif isinstance(key, (list, set, frozenset, tuple)):
+                fields = frozenset([self.get_field(key_elt) for key_elt in key])
+            else:
+                raise TypeError("key = %r is not of type Key nor MetadataField nor StringTypes")
+            self.keys.add(Key(fields))
+ 
     def get_field(self, field_name):
         """
         \brief Retrieve a MetadataField instance stored in self according to
@@ -234,7 +237,7 @@ class Table:
         """
         # Retrieve the field name
         if isinstance(field_name, MetadataField):
-            field_name = field_name.field_name
+            field_name = field_name.get_name()
         elif not isinstance(field_name, StringTypes):
             raise TypeError("get_field: '%s' has an invalid type (%s): supported types are StringTypes and MetadataField" % (field_name, type(field_name)))
 
@@ -252,32 +255,14 @@ class Table:
         """
         return set(self.fields.keys())
 
-    @returns(set)
+    @returns(Keys)
     def get_fields_from_keys(self):
         """
         \return A set of tuple of MetadataField.
             Each sub-array correspond to a key of 'self'.
             Each element of these subarray is a MetadataField.
         """
-        fields_keys = set() 
-        for key in self.keys:
-            if isinstance(key, (tuple, list)):
-                cur_key = []
-                for field in key:
-                    if isinstance(field, StringTypes):
-                        cur_key.append(self.get_field(field))
-                    elif isinstance(field, MetadataField):
-                        cur_key.append(field)
-                    else:
-                        raise TypeError("Invalid field: %r (type not supported: %r)" % (field, type(field)))
-                fields_keys.add(tuple(cur_key))
-            elif isinstance(key, StringTypes):
-                fields_keys.add(self.get_field(key))
-            elif isinstance(key, MetadataField):
-                fields_keys.add(key)
-            else:
-                raise TypeError("Invalid key: %r (type not supported: %r)" % (key, type(key)))
-        return fields_keys
+        return self.keys
 
     @returns(set)
     def get_names_from_keys(self):
@@ -286,25 +271,11 @@ class Table:
             Each tuple corresponds to a key of 'self'.
             Each element of these tuples is a String.
         """
-        names_keys = set() 
-        for key in self.keys:
-            if isinstance(key, (tuple, list)):
-                name_key = []
-                for field in key:
-                    if isinstance(field, StringTypes):
-                        name_key.append(field)
-                    elif isinstance(field, MetadataField):
-                        name_key.append(field.field_name)
-                    else:
-                        raise TypeError("Invalid field: %r (type not supported: %r)" % (field, type(field)))
-                names_keys.add(tuple(name_key))
-            elif isinstance(key, StringTypes):
-                names_keys.add(key)
-            elif isinstance(key, MetadataField):
-                names_keys.add(key.field_name)
-            else:
-                raise TypeError("Invalid key: %r (type not supported: %r)" % (key, type(key)))
-        return names_keys
+        return set([
+            frozenset([
+                field.get_name() for field in fields
+            ]) for fields in self.get_fields_from_keys()
+        ]) 
 
     @returns(set)
     def get_types_from_keys(self):
@@ -313,21 +284,12 @@ class Table:
             Each sub-array correspond to a key of 'self'.
             Each element of these subarray is a typename 
         """
-        fielded_keys = self.get_fields_from_keys()
-        ret = set()
-        for fielded_key in fielded_keys:
-            if len(list(fielded_key)) > 1:
-                type_key = []
-                for fielded_key_elt in fielded_key:
-                    type_key.append(fielded_key_elt.type)
-                ret.add(tuple(type_key))
 
-            fielded_key = list(fielded_key)[0]
-            if isinstance(fielded_key, MetadataField):
-                ret.add(fielded_key.type)
-            else:
-                raise TypeError("Invalid field: %r (type not supported: %r)" % (field, type(field)))
-        return ret
+        return set([
+            frozenset([
+                field.get_type() for field in fields
+            ]) for fields in self.get_fields_from_keys()
+        ]) 
 
     @returns(dict)
     def get_partitions(self):
@@ -365,16 +327,11 @@ class Table:
         """
         fields_in_key = set()
         for field in fields: 
-            key_types = self.get_types_from_keys()
-            for key_type in key_types:
-                if len(list(key_type)):
-                    # Skip composite keys
+            for key in self.keys:
+                if key.is_composite():
                     continue
-                elif isinstance(key_type, StringTypes):
-                    if field.type == key_type:
-                        fields_in_key.add(field) 
-                else:
-                    raise TypeError("Invalid key type %r, type name expected (e.g. string)" % key_type)
+                if field.type == key.get_type():
+                    fields_in_key.add(field) 
         return fields_in_key 
 
     @returns(set)
@@ -387,7 +344,7 @@ class Table:
         """
         connecting_fields = set()
         for field in self.get_fields():
-            if field.field_name == table.name or field.type == table.name:
+            if field.get_name() == table.get_name() or field.get_type() == table.get_name():
                 connecting_fields.add(field)
         return connecting_fields 
 
@@ -401,7 +358,7 @@ class Table:
         \param table The target candidate table
         \return True iif u ==> v
         """
-        return self.name == table.name
+        return self.get_name() == table.get_name()
 
     @returns(bool)
     def inherits(self, table):
@@ -412,19 +369,18 @@ class Table:
         \param table The target candidate table
         \return True iif u --> v
         """
-        return (table.name,) in table.get_names_from_keys()
+        name = set()
+        name.add(table.get_name())
+        return frozenset(name) in table.get_names_from_keys()
 
     @returns(bool)
-    def has_intersecting_key(self, fields):
+    def has_intersecting_key(self, fields, debug):
         """
         \brief Test whether a set of fields intersect at least one (single) key
-        \param fields A set of MetadataField
+        \param fields A set of MetadataField instances
         \return True iif at least one intersecting key exists, False otherwise 
         """
-        for key in self.get_fields_from_keys():
-            if fields & set(key) != set():
-                return True
-        return False
+        return fields in self.get_fields_from_keys()
 
     def get_relation(self, table):
         """
@@ -443,9 +399,10 @@ class Table:
         u = self
         v = table
         connecting_fields_uv = u.get_connecting_fields(v)
+        debug = (u.get_name() == "traceroute" and u.get_platforms() == set(["sonoma"]) and v.get_name() == "ip")
         if connecting_fields_uv != set():
             connecting_fields_vu = v.get_connecting_fields(u)
-            if not u.has_intersecting_key(connecting_fields_uv):
+            if not u.has_intersecting_key(connecting_fields_uv, debug):
                 return ("~~>", connecting_fields_uv)
             elif u.includes(v):
                 # Patch: avoid to link tophat::ip ==> sonoma::ip
