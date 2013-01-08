@@ -374,7 +374,7 @@ class Table:
         return frozenset(name) in table.get_names_from_keys()
 
     @returns(bool)
-    def has_intersecting_key(self, fields, debug):
+    def has_intersecting_key(self, fields):
         """
         \brief Test whether a set of fields intersect at least one (single) key
         \param fields A set of MetadataField instances
@@ -399,10 +399,9 @@ class Table:
         u = self
         v = table
         connecting_fields_uv = u.get_connecting_fields(v)
-        debug = (u.get_name() == "traceroute" and u.get_platforms() == set(["sonoma"]) and v.get_name() == "ip")
         if connecting_fields_uv != set():
             connecting_fields_vu = v.get_connecting_fields(u)
-            if not u.has_intersecting_key(connecting_fields_uv, debug):
+            if not u.has_intersecting_key(connecting_fields_uv):
                 return ("~~>", connecting_fields_uv)
             elif u.includes(v):
                 # Patch: avoid to link tophat::ip ==> sonoma::ip
