@@ -14,6 +14,7 @@ from tophat.core.ast            import AST, From, Union, LeftJoin
 from tophat.core.table          import Table 
 from tophat.core.query          import Query 
 from networkx                   import DiGraph
+from networkx.algorithms.traversal.depth_first_search import dfs_edges
 from tophat.util.type           import returns, accepts
 from tophat.models.user         import User
 
@@ -26,8 +27,9 @@ def find_root(tree):
     """
     for u in tree.nodes():
         if not tree.in_edges(u):
+            # The root is the only node with no incoming edge
             return u
-    raise ValueError("No root node found: edges: {%r}" % [e for e in tree.edges()])
+    raise ValueError("No root node found")
 
 def get_from(froms, u, p):
     if u.name not in froms:
@@ -46,6 +48,25 @@ def get_qp_rec(ast, tree, u, froms):
         already inserted.
         froms[table_name][platforms]
     """
+
+    # XXX Not sure we need the _froms_ parameter
+    u_partitions = u.get_partitions()
+    u_platforms = u_partitions.keys()
+
+    # We should have a pass that reconstitute platforms along with some
+    # attributes: overlap/disjoint - maximum/full
+    #
+    # I propose that we have two properties:
+    # platforms = name + clause = partition criterion
+    # partitions = set of (set of platforms realizing a partition + attributes)
+    #
+    # After pruning, 
+    # - partitions of the full space will be replaced by partitions of the
+    # needed space, and useless platforms will have been discarded
+    # - only one partition will remain (most exact/complete, then
+    # less costly. eventually involving the least number of platforms in the
+    # cost).
+
 #    query = Query(fact_table = u.name)
 #    print "u = %s" % u
 #
@@ -53,7 +74,7 @@ def get_qp_rec(ast, tree, u, froms):
 #    map_joins = dict() 
 #    set_unions = set()
 #
-#    # For each v successor of u
+#    # For each sv successor of u
 #    for e_uv in tree.out_edges(u):
 #        (_, v) = e_uv
 #        e_uv_type = tree[u][v]["type"]
@@ -109,6 +130,27 @@ def build_query_plane(user, pruned_tree):
     """
     ast = AST(user = user)
     root_table = find_root(pruned_tree)
-    froms = {}
-    get_qp_rec(ast, pruned_tree, root_table, froms)
+
+    # The AST contains two types of information: which joins must be done before
+    # others, which fields are required as join keys
+    # Join order can be impacted by several metrics, such as pi and sigmas
+    # We are not considering such optimizations at the moment, and only extract
+    # one arbitrary legit order
+
+    # We visit the nodes one by one
+    nodes = dfs_preorder_nodes(pruned_tree, root_table)
+    for node in nodes:
+        # A node is composed of several partitions, which after pruning must all
+        # be UNION'ed
+        print node
+
+
+    
+
+
+            
+
+    #froms = {}
+    #get_qp_rec(ast, pruned_tree, root_table, froms)
+
     return ast
