@@ -1,4 +1,58 @@
 from tophat.core.table import Table
+from tophat.core.key   import Key 
+from types             import StringTypes
+from tophat.util.type  import returns, accepts
+
+class Determinant:
+    def __init__(self, key, platforms, method):
+        if not isinstance(key, Key):
+            raise TypeError("Invalid key %r (type = %r)" % (key, type(key)))
+        if not isinstance(platforms, frozenset):
+            raise TypeError("Invalid platforms %r (type = %r)" % (platforms, type(platforms)))
+        if not isinstance(method, StringTypes):
+            raise TypeError("Invalid method %r (type = %r)" % (method, type(method))) 
+        self.key = key
+        self.platforms = platforms
+        self.method = method
+
+    @returns(Key)
+    def get_key(self):
+        return self.key
+
+    @returns(frozenset)
+    def get_platforms(self):
+        return self.platforms
+
+    @returns(str)
+    def get_method(self):
+        return self.method
+
+    def __hash__(self):
+        return hash((
+            self.get_key(),
+            self.get_platforms(),
+            self.get_method()
+        ))
+
+    @returns(bool)
+    def __eq__(self, x):
+        if not isinstance(x, Determinant):
+            raise TypeError("Invalid paramater %r of type %r" % (x, type(x)))
+        return self.get_key() == x.get_key() and self.get_platforms() == x.get_platforms() and self.get_method() == x.get_method()
+
+    @returns(str)
+    def __str__(self):
+        return (
+            self.get_key(),
+            self.get_platforms(),
+            self.get_method()
+        ).__str__()
+
+    @returns(str)
+    def __repr__(self):
+        return self.__str__()
+
+
 class DBNorm:
     """
     Database schema normalization support
@@ -27,20 +81,28 @@ class DBNorm:
             A fd is a tuple made of the key (e.g a tuple of fields) and a field 
         \return The corresponding closure (~ reachable vertices)
         """
-        def in_closure(y, closure):
-            if isinstance(y, (set, frozenset, tuple, list)):
-                y_in_closure = True
-                for y_elt in y:
-                    y_in_closure &= y_elt in closure
-                return y_in_closure
+        def in_closure(determinant, closure):
+            if not isinstance(determinant, Determinant):
+                raise TypeError("Invalid type of determinant (%r)" % type(determinant))
+            key = determinant.get_key()
+            if key.is_composite():
+                key_in_closure = True
+                for key_elt in key:
+                    key_in_closure &= key_elt in closure
+                return key_in_closure
             else:
-                return y in closure
+                return key in closure
+            return False
 
         # Transform attributes into a set
         if not isinstance(attributes, (set, frozenset, tuple, list)):
             closure = set([attributes])
         else:
             closure = set(attributes)
+
+#        print ">> INIT: attribute_closure:"
+#        print ">> fd_set = %r" % fd_set
+#        print ">> attributes = %r" % closure 
 
         # Compute closure
         while True:
@@ -62,18 +124,30 @@ class DBNorm:
         # replace each FD X -> (A1, A2, ..., An) by n FD X->A1, X->A2, ..., X->An
         min_cover = set([(y, attr) for y, z in fd_set for attr in z if y != attr])
 
-        for key, a in min_cover.copy():
-            reduced_min_cover = set([fd for fd in min_cover if fd != (key,a)])
-            x_plus = self.attribute_closure(key, reduced_min_cover)
+        print "-" * 100
+        print "1) min_cover = ", min_cover
+        print "-" * 100
+
+        for determinant, a in min_cover.copy():
+            reduced_min_cover = set([fd for fd in min_cover if fd != (determinant, a)])
+            x_plus = self.attribute_closure(determinant, reduced_min_cover)
             if a in x_plus:
                 min_cover = reduced_min_cover
 
-        for key, a in min_cover:
-            if isinstance(key, frozenset):
+        print "-" * 100
+        print "2) min_cover = ", min_cover
+        print "-" * 100
+
+        for determinant, a in min_cover:
+            key = determinant.get_key() 
+            if key.is_composite():
                 for b in key:
                     # Compute (X-B)+ with respect to (G-(X->A)) U ((X-B)->A) = S
                     x_minus_b = frozenset([i for i in key if i != b])
-                    s = set([fd for fd in min_cover if fd != (key,a)])
+                    print "min_cover = %r " % min_cover
+                    print "key = %r" % key
+                    print "a = %r" % a
+                    s = set([fd for fd in min_cover if fd != (key, a)])
                     s.add((x_minus_b, a))
                     x_minus_b_plus = self.attribute_closure(x_minus_b, s) 
                     if b in x_minus_b_plus:
@@ -109,14 +183,16 @@ class DBNorm:
             (key, method) = rule
             for field, platforms in map_field_platforms.items():
                 platforms = frozenset(platforms)
-                triplet = (key, platforms, method)
-                if triplet not in fd_set0.keys():
-                    fd_set0[triplet] = set()
-                fd_set0[triplet].add(field)
+                determinant = Determinant(key, platforms, method)
+                if determinant not in fd_set0.keys():
+                    print "fd_set0 = ", fd_set0
+                    print "determinant = ", determinant
+                    fd_set0[determinant] = set()
+                fd_set0[determinant].add(field)
 
         fd_set = set()
-        for triplet, fields in fd_set0.items():
-            fd_set.add((triplet, frozenset(fields)))
+        for determinant, fields in fd_set0.items():
+            fd_set.add((determinant, frozenset(fields)))
 
         return fd_set
 
@@ -126,33 +202,35 @@ class DBNorm:
 
         # Find a minimal cover
         fd_set = self.fd_minimal_cover(fd_set)
+
+        print "fd_set = %r" % fd_set
         
         # For each set of FDs in G of the form (X->A1, X->A2, ... X->An)
         # containing all FDs in G with the same determinant X ...
         determinants = {}
-        for triple, fields in fd_set:
-            if len(list(triple)) == 1:
-                triple = list(triple)[0]
-            if not triple in determinants:
-                determinants[triple] = set([])
-            determinants[triple].add(fields)
+        for determinant, fields in fd_set:
+            if not determinant in determinants:
+                determinants[determinant] = set([])
+            determinants[determinant].add(fields)
         
         # ... create relation R = (X, A1, A2, ..., An)
         # determinants: key: A MetadataClass key (array of strings), data: MetadataField
         relations = []
-        for triple, fields in determinants.items():
+        for determinant, fields in determinants.items():
             # Search source tables related to the corresponding key key and values
-            key, platforms, method = triple
+            key = determinant.get_key()
+            platforms = determinant.get_key()
+            method = determinant.get_method()
             sources = [table for table in self.tables if table.is_key(key)]
             if not sources:
                 raise Exception("No source table found with key %s" % key)
 
             fields = list(fields)
-            if isinstance(key, (frozenset, tuple)):
+            if key.is_composite():
                 fields.extend(list(key))
             else:
                 fields.append(key)
-            k = [xi.field_name for xi in key] if isinstance(key, (frozenset, tuple)) else key.field_name
+            k = [xi.get_name() for xi in key] if key.is_composite() else key.get_name()
             t = Table(platforms, method, fields, [k])
             relations.append(t)
         return relations
@@ -200,11 +278,11 @@ class DBNorm:
 
             n = list(sources)[0].name
             fields = list(y)
-            if isinstance(key, (frozenset, tuple)):
+            if key.is_composite():
                 fields.extend(list(key))
             else:
                 fields.append(key)
-            k = [xi.field_name for xi in key] if isinstance(key, (frozenset, tuple)) else key.field_name
+            k = [xi.get_name() for xi in key] if key.is_composite() else key.get_name()
             t = Table(partitions, n, fields, [k])
             relations.append(t)
         return relations

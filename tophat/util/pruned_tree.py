@@ -179,6 +179,7 @@ def get_sub_graph(g, vertices_to_keep):
     # Copy relevant vertices from g
     # We do not yet clean vertices since we'll need "in" operator to build the relevant arcs 
     for u in vertices_to_keep: 
+        print type(g[u])
         sub_graph.add_node(u, deepcopy(g[u]))
 
     # Copy relevant arcs from g

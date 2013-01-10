@@ -48,7 +48,7 @@ class Key(frozenset):
         \brief Test whether a key is made of more that one field (composite key)
         \return True if the key is composite, False otherwise
         """
-        return len(list(self)) > 0
+        return len(list(self)) > 1
 
     @returns(str)
     def get_type(self):

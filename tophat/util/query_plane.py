@@ -137,14 +137,14 @@ def build_query_plane(user, pruned_tree):
     # We are not considering such optimizations at the moment, and only extract
     # one arbitrary legit order
 
-    # We visit the nodes one by one
-    nodes = dfs_preorder_nodes(pruned_tree, root_table)
-    for node in nodes:
-        # A node is composed of several partitions, which after pruning must all
-        # be UNION'ed
-        print node
-
-
+#test    # We visit the nodes one by one
+#test    nodes = dfs_preorder_nodes(pruned_tree, root_table)
+#test    for node in nodes:
+#test        # A node is composed of several partitions, which after pruning must all
+#test        # be UNION'ed
+#test        print node
+#test
+#test
     
 
 

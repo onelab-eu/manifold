@@ -129,7 +129,7 @@ class Table:
     # Outputs 
     #-----------------------------------------------------------------------
 
-    @returns(str)
+    @returns(unicode)
     def __str__(self):
         """
         \brief Convert a Table instance into a string ('%s')

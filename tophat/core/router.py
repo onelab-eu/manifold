@@ -596,6 +596,9 @@ class THLocalRouter(LocalRouter):
         return qp
 
     def process_query(self, query, user):
+        print "Tables:"
+        for u in self.G_nf.graph.nodes(False):
+            print "%s" % u
         return self.process_query_mando(query, user)
 
     def process_query_mando(self, query, user):
