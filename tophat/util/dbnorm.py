@@ -1,7 +1,8 @@
-from tophat.core.table import Table
-from tophat.core.key   import Key 
-from types             import StringTypes
-from tophat.util.type  import returns, accepts
+from tophat.core.table             import Table
+from tophat.core.key               import Key 
+from tophat.metadata.MetadataField import MetadataField
+from types                         import StringTypes
+from tophat.util.type              import returns, accepts
 
 class Determinant:
     def __init__(self, key, platforms, method):
@@ -12,8 +13,13 @@ class Determinant:
         if not isinstance(method, StringTypes):
             raise TypeError("Invalid method %r (type = %r)" % (method, type(method))) 
         self.key = key
-        self.platforms = platforms
+        self.platforms = {}
+        for platform in platforms:
+            self.map_platforms_method[platform] = method
         self.method = method
+
+    def add_platform(self, platform, method):
+        self.map_platforms_method[platform] = method
 
     @returns(Key)
     def get_key(self):
@@ -21,7 +27,7 @@ class Determinant:
 
     @returns(frozenset)
     def get_platforms(self):
-        return self.platforms
+        return frozenset(self.map_platforms_method.keys())
 
     @returns(str)
     def get_method(self):
@@ -48,10 +54,13 @@ class Determinant:
             self.get_method()
         ).__str__()
 
-    @returns(str)
+    @returns(unicode)
     def __repr__(self):
-        return self.__str__()
-
+        return "(%r, {%s}, METH(%s))" % (
+            self.get_key(),
+            ', '.join([p for p in self.get_platforms()]),
+            self.get_method()
+        )
 
 class DBNorm:
     """
@@ -189,12 +198,14 @@ class DBNorm:
         return fd_set
 
     #---------------------------------------------------------------------------
+    @returns(list)
     def to_3nf(self):
         """
         \brief Compute a 3nf schema according to self.tables
         \sa http://elm.eeng.dcu.ie/~ee221/EE221-DB-7.pdf p14
-        \return The corresponding 3nf schema
+        \return The corresponding list of Table instances in the 3nf schema
         """
+        # Compute functional dependancies
         fd_set = self.make_fd_set()
 
         # Find a minimal cover
@@ -202,35 +213,38 @@ class DBNorm:
 
         print "fd_set = %r" % fd_set
         
-        # For each set of FDs in G of the form (X->A1, X->A2, ... X->An)
-        # containing all FDs in G with the same determinant X ...
-        determinants = {}
+        # Transform "fd_set" : set((Determinant, MetadataField))
+        # into      "fds"    : dict{Determinant, set(MetadataField)}
+        fds = {}
         for determinant, fields in fd_set:
-            if not determinant in determinants:
-                determinants[determinant] = set([])
-            determinants[determinant].add(fields)
+            print "fd_set> %r => %r" % (determinant, fields)
+            if not determinant in fds:
+                fds[determinant] = set([])
+            fds[determinant].add(fields)
+
+        for determinant, fields in fds.items():
+            print "d> %r => %r" % (determinant, fields)
+            
         
         # ... create relation R = (X, A1, A2, ..., An)
-        # determinants: key: A MetadataClass key (array of strings), data: MetadataField
         relations = []
-        for determinant, fields in determinants.items():
+        for determinant, fields in fds.items():
             # Search source tables related to the corresponding key key and values
             key = determinant.get_key()
-            platforms = determinant.get_key()
+            platforms = determinant.get_platforms()
             method = determinant.get_method()
-            sources = [table for table in self.tables if table.is_key(key)]
+            sources = [table for table in self.tables if table.has_key(key)]
             if not sources:
                 raise Exception("No source table found with key %s" % key)
 
+            print "a) fields = ", fields
             fields = list(fields)
-            if key.is_composite():
-                fields.extend(list(key))
-            else:
-                fields.append(key)
-            k = [xi.get_name() for xi in key] if key.is_composite() else key.get_name()
-            t = Table(platforms, None, method, fields, [k]) # None = methods
-            # k = [xi.field_name for xi in key] if isinstance(key, (frozenset, tuple)) else key.field_name
-            # t = Table(platforms, method, fields, [k])
+            for key_elt in key:
+                if not isinstance(key_elt, MetadataField):
+                    raise TypeError("Inconsistent key %r, %r is not of type MetadataField" % (key, key_elt))
+                fields.append(key_elt)
+            print "b) fields = ", fields
+            t = Table(platforms, None, method, fields, [key]) # None = methods
             relations.append(t)
         return relations
 
@@ -260,7 +274,7 @@ class DBNorm:
 #        relations = []
 #        for key, y in determinants.items():
 #            # Search source tables related to the corresponding key key and values
-#            sources = [t for t in self.tables if t.is_key(key)]
+#            sources = [t for t in self.tables if t.has_key(key)]
 #            if not sources:
 #                raise Exception("No source table found with key %s" % key)
 #

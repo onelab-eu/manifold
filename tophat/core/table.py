@@ -47,15 +47,14 @@ class Table:
         """
         \brief Check whether keys parameter is well-formed in __init__
         """
-        if not isinstance(keys, (tuple, list, frozenset)):
+        if not isinstance(keys, (tuple, list, set, frozenset)):
             raise TypeError("keys = %r is not of type tuple, list, frozenset" % keys) 
         for key in keys:
-            if isinstance(key, (tuple, list, frozenset)):
-                for key_elt in key:
-                    if not isinstance(key_elt, StringTypes):
-                        raise TypeError("In key %r: %r is not of type StringTypes" % (key, key_elt))
-            elif not isinstance(key, StringTypes):
-                raise TypeError("In key = %r: %r is not of type StringTypes" % key)
+            if not isinstance(key, (tuple, list, set, frozenset)):
+                raise TypeError("In keys = %r: %r is not of type Key (type %r)" % (keys, key, type(key)))
+            for key_elt in key:
+                if not isinstance(key_elt, (StringTypes,MetadataField)):
+                    raise TypeError("In key %r: %r is not of type StringTypes" % (key, key_elt))
 
     @staticmethod
     @returns(bool)
@@ -89,6 +88,7 @@ class Table:
         \param partitions A dictionary which indicates for each platform the corresponding
             predicate (pass None if not Predicate needed e.g. always True).
         \param name The name of the table (for example: 'user', ...)
+        \param methods
         \param fields The fields involved in the table (for example 'name', 'email', ...)
         \param keys The key of the table (for example 'email')
         \param cost
@@ -96,11 +96,11 @@ class Table:
         # Check parameters
         Table.check_fields(fields)
         Table.check_keys(keys)
+        #Table.check_methods(methods)
         Table.check_partitions(partitions)
 
         # self.partitions
         self.partitions = dict()
-        self.methods = dict()
         if isinstance(partitions, (list, set, frozenset)):
             for platform in partitions:
                 self.partitions[platform] = None
@@ -110,6 +110,9 @@ class Table:
             self.partitions = partitions 
         self.name = name
 
+        # self.methods
+        self.methods = dict()
+
         # self.fields
         self.fields = dict()
         if isinstance(fields, (list, set, frozenset)):
@@ -118,7 +121,6 @@ class Table:
         elif isinstance(fields, dict):
             self.fields = fields
 
-        #self.keys = to_frozenset(keys)
         self.keys = Keys()
         for key in keys:
             self.insert_key(key)
@@ -167,7 +169,7 @@ class Table:
         return self.name
 
     @returns(bool)
-    def is_key(self, key):
+    def has_key(self, key):
         """
         \brief Test whether a field is a key of this table
         \param key The name of the field (StringTypes or MetadataField).
@@ -180,7 +182,7 @@ class Table:
         elif isinstance(key, (StringTypes, MetadataField)):
             key = (key,)
         elif not isinstance(key, tuple):
-            raise TypeError("is_key: %s must be a list, a tuple, a set, a frozenset or a string" % key)
+            raise TypeError("has_key: %s must be a list, a tuple, a set, a frozenset or a string" % key)
         key = set([k if isinstance(k, StringTypes) else k.get_name() for k in key])
         return key in self.get_names_from_keys()
 
@@ -233,7 +235,7 @@ class Table:
         """
         \brief Retrieve a MetadataField instance stored in self according to
             its field name.
-        \param field_name The name of the requested field.
+        \param field_name The name of the requested field (String or MetadataField instance).
         \return The MetadataField instance identified by 'field_name'
         """
         # Retrieve the field name
