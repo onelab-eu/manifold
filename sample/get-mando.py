@@ -25,21 +25,37 @@ from tophat.core.router     import Query
 #    "2012-09-09 14:30:09"
 #)
 
+#query = Query(
+#    # action
+#    "get",
+#    # from (= query.fact_table)
+#    "hop",
+#    # where (= query.filters)
+#    [],
+#    # query.params
+#    {},
+#    # select (= query.fields)
+#    ["ip", "ttl", "hostname"] ,
+#    #["source.ip", "destination.ip"],
+#    # timestamp
+#    "2012-09-09 14:30:09"
+#)
 query = Query(
     # action
     "get",
     # from (= query.fact_table)
-    "hop",
+    "x",
     # where (= query.filters)
     [],
     # query.params
     {},
     # select (= query.fields)
-    ["ip", "ttl", "hostname"] ,
+    ["x", "y", "z", "t"] ,
     #["source.ip", "destination.ip"],
     # timestamp
     "2012-09-09 14:30:09"
 )
+
 
 print "=" * 150
 print query

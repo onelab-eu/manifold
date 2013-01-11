@@ -200,10 +200,6 @@ def build_query_plane(user, pruned_tree):
 
 
     
-
-
-            
-
     #froms = {}
     #get_qp_rec(ast, pruned_tree, root_table, froms)
 

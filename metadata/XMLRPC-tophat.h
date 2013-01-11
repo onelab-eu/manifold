@@ -1,32 +1,15 @@
+//tophat.h
 
-class ip {
-    const inet ip;
-    const text hostname;
-    KEY(ip);
+class x {
+    const int x;
+    const int y;
+    const int z;
+    KEY(x);
 };
 
-class agent {
-    const inet ip;
-    KEY(ip);
+class z {
+    const int z;
+    const int t;
+    KEY(z);
 };
-
-class destination {
-    const inet ip;
-    KEY(ip);
-};
-
-class hop {
-    const inet ip;
-    const int  ttl;
-};
-
-
-class traceroute {
-    const agent       source;
-    const destination destination;
-    const timestamp   ts;
-    const hop         hops[];
-    KEY(source, destination, ts);
-};
-
 
