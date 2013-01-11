@@ -59,7 +59,7 @@ class Key(frozenset):
     @returns(str)
     def get_name(self):
         if self.is_composite():
-            raise ValueError("get_type cannot be called for a composite key")
+            raise ValueError("get_name cannot be called for a composite key")
         return list(self)[0].get_name()
 
     @returns(str)

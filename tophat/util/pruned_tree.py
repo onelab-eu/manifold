@@ -13,7 +13,6 @@
 from networkx                   import DiGraph
 from tophat.util.dfs            import dfs_color
 from tophat.util.type           import returns, accepts
-from tophat.core.table          import Table
 from copy                       import deepcopy
 from types                      import StringTypes
 
@@ -164,30 +163,78 @@ def get_prunable_vertices(g, map_vertex_pred, map_vertex_fields):
 
     return vertices_to_prune 
 
-@accepts(DiGraph, set)
+def prune_vertex_pred(g, needed_fields, map_vertex_pred):
+    map_pred   = {}
+    map_fields = {}
+
+    for v, u in map_vertex_pred.items():
+        if not u: # root
+            map_pred[v] = None
+            continue
+        # If u is marked or has fields of interest
+        v_fields = set(v.fields.keys())
+        v_provided_fields = needed_fields & v_fields
+        join_fields = g.edge[u][v]['info']
+        v_provided_fields_nokey = v_provided_fields - join_fields
+        if v_provided_fields_nokey:
+            if not v in map_fields:
+                map_fields[v] = set()
+            map_fields[v] |= v_provided_fields
+            while v: # u->v, the root has a NULL predecessor
+                if v in map_pred: break;
+                u = map_vertex_pred[v]
+                join_fields = g.edge[u][v]['info']
+                print "JOIN FIELDS %r -> %r" % (u,v), g.edge[u][v]['info']
+                if not u in map_fields:
+                    map_fields[u] = set()
+                map_fields[u] |= join_fields
+                map_fields[v] |= join_fields
+                map_pred[v] = u
+                v = u
+        # else: we will find the fields when looking at u
+    return map_pred, map_fields
+    
+@accepts(DiGraph, set, dict)
 @returns(DiGraph)
-def get_sub_graph(g, vertices_to_keep):
+def get_sub_graph(g, vertices_to_keep, map_fields):
     """
     \brief Extract a subgraph from a given graph g. Each vertex and
         arc of this subgraph is a deepcopy of those of g.
     \param g The original graph
-    \param vertices_to_prune The vertices keep in g.
+    \param vertices_to_keep The vertices to keep in g.
     \return The corresponding subgraph
     """
     sub_graph = DiGraph()
+    map_vertex = {}
+    map_fields_ret = {}
 
     # Copy relevant vertices from g
-    # We do not yet clean vertices since we'll need "in" operator to build the relevant arcs 
     for u in vertices_to_keep: 
-        sub_graph.add_node(u, deepcopy(g[u]))
+        u_copy = deepcopy(u)
+        map_vertex[u] = u_copy
+        sub_graph.add_node(u_copy) # no data on nodes
 
     # Copy relevant arcs from g
-    for e in g.edges():
-        (u, v) = e
-        if u in sub_graph.nodes() and v in sub_graph.nodes(): 
-            sub_graph.add_edge(u, v, deepcopy(g.edge[u][v]))
+    for u, v in g.edges():
+        try:
+            u_copy, v_copy = map_vertex[u], map_vertex[v]
+        except: continue
+        sub_graph.add_edge(u_copy, v_copy, deepcopy(g.edge[u][v]))
 
-    return sub_graph
+    for node, fields in map_fields.items():
+        map_fields_ret[map_vertex[node]] = fields
+
+    return (sub_graph, map_fields_ret)
+
+def prune_tree_fields(tree, needed_fields, map_vertex_fields):
+    missing_fields = deepcopy(needed_fields)
+    for u in tree.nodes():
+        relevant_fields_u = map_vertex_fields[u]
+        missing_fields -= relevant_fields_u
+        for field in u.get_fields():
+            if field.field_name not in relevant_fields_u:
+                u.erase_field(field.field_name)
+    return missing_fields
 
 @accepts(DiGraph, set, dict)
 @returns(DiGraph)
@@ -204,25 +251,30 @@ def build_pruned_tree(g, needed_fields, map_vertex_pred):
         without impacting g. Such graph is typically embedded in a DBGraph instance.
         \sa tophat/util/dbgraph.py
     """
-    print "needed_fields = %r" % needed_fields
-    print "map_vertex_pred = %r" % map_vertex_pred
-    map_vertex_fields = compute_required_fields(g, needed_fields, map_vertex_pred)
-    vertices_to_keep  = set(map_vertex_fields.keys())
-    if vertices_to_keep == set():
-        raise Exception("Invalid query, no table kept, check predecessor map: %r" % map_vertex_pred)
-    vertices_to_keep -= get_prunable_vertices(g, map_vertex_pred, map_vertex_fields)
-    if vertices_to_keep == set():
-        raise Exception("Invalid query, every table pruned")
-    tree = get_sub_graph(g, vertices_to_keep)
 
-    # Remove useless fields
-    missing_fields = deepcopy(needed_fields)
-    for u in tree.nodes():
-        relevant_fields_u = map_vertex_fields[u]
-        missing_fields -= (needed_fields & relevant_fields_u)
-        for field in u.get_fields():
-            if field not in relevant_fields_u:
-                u.erase_field(field.field_name)
+    # We will select nodes of interest in map_vertex_pred before building a copy
+    # of the tree rooted at the fact_table
+    map_vertex_pred, map_vertex_fields = prune_vertex_pred(g, needed_fields, map_vertex_pred)
+    #map_vertex_fields = compute_required_fields(g, needed_fields, map_vertex_pred)
+    #vertices_to_keep  = set(map_vertex_fields.keys())
+    #if vertices_to_keep == set():
+    #    raise Exception("Invalid query, no table kept, check predecessor map: %r" % map_vertex_pred)
+    #vertices_to_keep -= get_prunable_vertices(g, map_vertex_pred, map_vertex_fields)
+    #if vertices_to_keep == set():
+    #    raise Exception("Invalid query, every table pruned")
+    vertices_to_keep = set(map_vertex_pred.keys())
+    print "map vertex fields", map_vertex_fields
+    tree, map_vertex_fields = get_sub_graph(g, vertices_to_keep, map_vertex_fields)
+
+    missing_fields = prune_tree_fields(tree, needed_fields, map_vertex_fields)
+    if missing_fields == set():
+        print "build_pruned_graph(): each queried field has been successfully found"
+    else: 
+        print "build_pruned_graph(): the following queried fields have not been found: ", missing_fields
+
+    #prune_tree_partitions(tree)
+
+    print [n for n in tree.nodes()]
 
 #    # Remove useless keys
 #    for e in tree.edges():
@@ -232,8 +284,4 @@ def build_pruned_tree(g, needed_fields, map_vertex_pred):
 #            #print "build_pruned_graph(): erasing key %s from %r" % (key_v, v)
 #            v.erase_key(key_v)
 
-    if missing_fields == set():
-        print "build_pruned_graph(): each queried field has been successfully found"
-    else: 
-        print "build_pruned_graph(): the following queried fields have not been found: ", missing_fields
     return tree 

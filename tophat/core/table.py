@@ -83,7 +83,7 @@ class Table:
     # Constructor 
     #-----------------------------------------------------------------------
 
-    def __init__(self, partitions, name, fields, keys, cost = 1):
+    def __init__(self, partitions, methods, name, fields, keys, cost = 1):
         """
         \brief Constructor
         \param partitions A dictionary which indicates for each platform the corresponding
@@ -100,6 +100,7 @@ class Table:
 
         # self.partitions
         self.partitions = dict()
+        self.methods = dict()
         if isinstance(partitions, (list, set, frozenset)):
             for platform in partitions:
                 self.partitions[platform] = None
@@ -298,6 +299,18 @@ class Table:
             (e.g the partition). A None clause means that this clause is always True
         """
         return self.partitions
+
+    def get_method(self, platform):
+        """
+        \return The method corresponding to the given platform
+        """
+        return self.methods[platform]
+
+    def get_methods(self):
+        """
+        \return The dictionary mapping each platform to its corresponding method
+        """
+        return self.methods
 
     @returns(set)
     def get_platforms(self):

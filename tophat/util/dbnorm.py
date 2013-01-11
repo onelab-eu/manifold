@@ -28,6 +28,7 @@ class DBNorm:
         \return The corresponding closure (~ reachable vertices)
         """
         def in_closure(y, closure):
+            print "in closure: Y", y 
             if isinstance(y, (set, frozenset, tuple, list)):
                 y_in_closure = True
                 for y_elt in y:
@@ -83,14 +84,6 @@ class DBNorm:
 
         return min_cover
 
-    def to_3nf(self):
-        """
-        \brief Compute a 3nf schema according to self.tables
-        \sa http://elm.eeng.dcu.ie/~ee221/EE221-DB-7.pdf p14
-        \return The corresponding 3nf schema
-        """
-        return self.to_3nf_new()
-
     def make_fd_set(self):
         rules = {}
         for table in self.tables:
@@ -121,11 +114,17 @@ class DBNorm:
         return fd_set
 
     #---------------------------------------------------------------------------
-    def to_3nf_new(self):
+    def to_3nf(self):
+        """
+        \brief Compute a 3nf schema according to self.tables
+        \sa http://elm.eeng.dcu.ie/~ee221/EE221-DB-7.pdf p14
+        \return The corresponding 3nf schema
+        """
         fd_set = self.make_fd_set()
 
         # Find a minimal cover
         fd_set = self.fd_minimal_cover(fd_set)
+        print "FD SET", fd_set
         
         # For each set of FDs in G of the form (X->A1, X->A2, ... X->An)
         # containing all FDs in G with the same determinant X ...
@@ -153,60 +152,60 @@ class DBNorm:
             else:
                 fields.append(key)
             k = [xi.field_name for xi in key] if isinstance(key, (frozenset, tuple)) else key.field_name
-            t = Table(platforms, method, fields, [k])
+            t = Table(platforms, None, method, fields, [k]) # None = methods
             relations.append(t)
         return relations
 
 
-    #---------------------------------------------------------------------------
-    def to_3nf_bak(self):
-        #fd_set = set([(key, table.get_field_names()) for table in self.tables for key in table.keys])
-        fd_set = set([(key, table.fields) for table in self.tables for key in table.get_fields_from_keys()])
-
-        for x in list(fd_set):
-            print "FD_SET", x
-
-        # Find a minimal cover
-        fd_set = self.fd_minimal_cover(fd_set)
-        
-        # For each set of FDs in G of the form (X->A1, X->A2, ... X->An)
-        # containing all FDs in G with the same determinant X ...
-        determinants = {}
-        for key, a in fd_set:
-            if len(list(key)) == 1:
-                key = list(key)[0]
-            if not key in determinants:
-                determinants[key] = set([])
-            determinants[key].add(a)
-        
-        # ... create relation R = (X, A1, A2, ..., An)
-        # determinants: key: A MetadataClass key (array of strings), data: MetadataField
-        relations = []
-        for key, y in determinants.items():
-            # Search source tables related to the corresponding key key and values
-            sources = [t for t in self.tables if t.is_key(key)]
-            if not sources:
-                raise Exception("No source table found with key %s" % key)
-
-            partitions = dict()
-            for source in sources:
-                for plaforms, clause in source.get_partitions():
-                    if not plaforms in partitions: 
-                        partitions[plaforms] = clause 
-                    else:
-                        # Several partitions provide the requested table, we've
-                        # already choose an arbitrary one and we ignore this one
-                        print "TODO union clause"
-
-            n = list(sources)[0].name
-            fields = list(y)
-            if isinstance(key, (frozenset, tuple)):
-                fields.extend(list(key))
-            else:
-                fields.append(key)
-            k = [xi.field_name for xi in key] if isinstance(key, (frozenset, tuple)) else key.field_name
-            t = Table(partitions, n, fields, [k])
-            relations.append(t)
-        return relations
-
+#    #---------------------------------------------------------------------------
+#    def to_3nf_bak(self):
+#        #fd_set = set([(key, table.get_field_names()) for table in self.tables for key in table.keys])
+#        fd_set = set([(key, table.fields) for table in self.tables for key in table.get_fields_from_keys()])
+#
+#        for x in list(fd_set):
+#            print "FD_SET", x
+#
+#        # Find a minimal cover
+#        fd_set = self.fd_minimal_cover(fd_set)
+#        
+#        # For each set of FDs in G of the form (X->A1, X->A2, ... X->An)
+#        # containing all FDs in G with the same determinant X ...
+#        determinants = {}
+#        for key, a in fd_set:
+#            if len(list(key)) == 1:
+#                key = list(key)[0]
+#            if not key in determinants:
+#                determinants[key] = set([])
+#            determinants[key].add(a)
+#        
+#        # ... create relation R = (X, A1, A2, ..., An)
+#        # determinants: key: A MetadataClass key (array of strings), data: MetadataField
+#        relations = []
+#        for key, y in determinants.items():
+#            # Search source tables related to the corresponding key key and values
+#            sources = [t for t in self.tables if t.is_key(key)]
+#            if not sources:
+#                raise Exception("No source table found with key %s" % key)
+#
+#            partitions = dict()
+#            for source in sources:
+#                for plaforms, clause in source.get_partitions():
+#                    if not plaforms in partitions: 
+#                        partitions[plaforms] = clause 
+#                    else:
+#                        # Several partitions provide the requested table, we've
+#                        # already choose an arbitrary one and we ignore this one
+#                        print "TODO union clause"
+#
+#            n = list(sources)[0].name
+#            fields = list(y)
+#            if isinstance(key, (frozenset, tuple)):
+#                fields.extend(list(key))
+#            else:
+#                fields.append(key)
+#            k = [xi.field_name for xi in key] if isinstance(key, (frozenset, tuple)) else key.field_name
+#            t = Table(partitions, None, n, fields, [k]) # None = methods
+#            relations.append(t)
+#        return relations
+#
 

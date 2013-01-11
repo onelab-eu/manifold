@@ -10,11 +10,15 @@
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 #   Jordan Augé       <jordan.auge@lip6.fr> 
 
+# NOTE: The fastest way to traverse all edges of a graph is via
+# adjacency_iter(), but the edges() method is often more convenient.
+
+
 from tophat.core.ast            import AST, From, Union, LeftJoin
 from tophat.core.table          import Table 
 from tophat.core.query          import Query 
 from networkx                   import DiGraph
-from networkx.algorithms.traversal.depth_first_search import dfs_edges
+from networkx.algorithms.traversal.depth_first_search import dfs_preorder_nodes
 from tophat.util.type           import returns, accepts
 from tophat.models.user         import User
 
@@ -128,7 +132,7 @@ def build_query_plane(user, pruned_tree):
         - either because it is needed to join tables involved in the 3nf-tree)
     \return an AST instance which describes the resulting query plane
     """
-    ast = AST(user = user)
+    ast = None # AST(user = user)
     root_table = find_root(pruned_tree)
 
     # The AST contains two types of information: which joins must be done before
@@ -137,12 +141,62 @@ def build_query_plane(user, pruned_tree):
     # We are not considering such optimizations at the moment, and only extract
     # one arbitrary legit order
 
+    from_cache = {}
+    # key = platform method
+
+    def get_joined_tables(table, platform): # pruned_tree
+        # adjacency dict keyed by neighbor to edge attributes
+        for succ, edge_data in pruned_tree[table]:
+            if not platform in succ.get_platforms():
+                continue
+            try:
+                succ.get_method(platform)
+            except:
+                continue
+            #edge_type = 
+            #is_joined = 
+            
+        
+
+    def get_from_ast(platform, table):
+        cache = []
+        if (platform,table) in cache:
+            # Return a FromList node cached
+            pass 
+        else:
+            # Determines the set of FromList operators that have to be created
+            # and add them to a list
+            pass#get_joined_tables
+
+            # Create a FROM NODE towards this platform
+
+
     # We visit the nodes one by one
     nodes = dfs_preorder_nodes(pruned_tree, root_table)
+    print "Nodes of the pruned tree:"
     for node in nodes:
-        # A node is composed of several partitions, which after pruning must all
-        # be UNION'ed
-        print node
+        partitions = node.get_partitions()
+        subtree = AST(user=user)
+        if len(partitions) == 1:
+            print "no union"
+            # Retrieve the From operator associated to platform::method
+            #  - either as a FromList operator, for information provided
+            #  indirectly by another query
+            #  - or as a From operator, for information that needs to be
+            #  retrieved directly from platforms
+            platform = partitions.keys()[0]
+            from_ast = get_from_ast(platform, node.name)
+            subtree = from_ast 
+        else:
+            print "union"
+            # A node is composed of several partitions, which must all be
+            # UNION'ed: { platform : filter }
+            for platform, clause in partitions.items():
+                # NOTE clause is unused
+                from_ast = get_from_ast(platform, node.name)
+                subtree = ast.union(from_ast)
+        ast = ast.join(subtree)
+
 
 
     

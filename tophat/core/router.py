@@ -171,7 +171,7 @@ class THLocalRouter(LocalRouter):
 
         # Feed RIB
         for cur_class_name, cur_class in classes.items():
-            t = Table(platform, cur_class_name, cur_class.fields, cur_class.keys)
+            t = Table(platform, None, cur_class_name, cur_class.fields, cur_class.keys) # None = methods
             self.rib[t] = platform
         return routes
 

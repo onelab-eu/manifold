@@ -82,7 +82,6 @@ class DBGraph:
         plt.show()
 
     def get_tree_edges(self, root):
-        print "get_tree_edges1" # pk on a 2 fonctions get_tree_edges ?
         return [e for e in dfs_edges(self.graph, root)]
 
     def get_root(self, query):
@@ -108,13 +107,6 @@ class DBGraph:
            of "node" in this DBGraph.
         """
         return self.graph.successors(node)
-
-    def get_tree_edges(self, root):
-        print "get_tree_edges2" # pk on a 2 fonctions get_tree_edges ?
-        edges = dfs_edges(self.graph, root)
-        if not edges:
-            raise Exception, "Cannot build tree for query %s" % query
-        return edges
 
     #def prune_query_tree(tree, tree_edges, nodes, query_fields):
 
