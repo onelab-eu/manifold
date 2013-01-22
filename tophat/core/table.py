@@ -193,6 +193,7 @@ class Table:
         """
         self.fields[field.get_name()] = field
  
+    @returns(list)
     def get_fields(self):
         """
         \return the MetadataField instances related to this table 

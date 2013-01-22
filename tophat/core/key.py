@@ -81,7 +81,6 @@ class Keys(set):
         \brief (Internal use)
                Test whether the keys parameter of the constructor is well-formed
         \param keys The keys parameter passed to __init__
-        \return True iif everything is fine, False otherwise
         """
         if not isinstance(keys, (frozenset, set, list)):
             raise TypeError("keys = %r is of type %r (set or frozenset expected)" % (keys, type(keys)))
@@ -92,7 +91,7 @@ class Keys(set):
     def __init__(self, keys = set()):
         """
         \brief Constructor
-        \param keys A set of Key instances
+        \param keys A set/frozenset/list of Key instances
         """
         Keys.check_keys(keys)
         set.__init__(set(keys))

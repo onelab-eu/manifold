@@ -1,66 +1,310 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+# DBNorm 
+# Compute a 3nf schema
+#
+# Copyright (C) UPMC Paris Universitas
+# Authors:
+#   Jordan Augé       <jordan.auge@lip6.fr>
+#   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
+
 from tophat.core.table             import Table
 from tophat.core.key               import Key 
 from tophat.metadata.MetadataField import MetadataField
 from types                         import StringTypes
 from tophat.util.type              import returns, accepts
+from copy                          import copy, deepcopy
+
+#------------------------------------------------------------------------------
 
 class Determinant:
-    def __init__(self, key, platforms, method):
+    """
+    A Determinant models the left operand of a "rule" that allow to retrieve one or more field
+
+        Notations:
+            {platforms}::method{key*, fields}
+
+        Example: 
+            Consider a method m provided by a platform P providing fields y, z for a key k:
+            P::m{k*,y, z}
+            Then (m, k) is a Determinant of fields {y, z}
+            and (m, k) --> {y,z} is a functional dependancy (fd) provided by P::m
+
+    To compute the 3nf schema, ONLY the method and the key (m, k) are relevant
+    and that is why Determinant only stores the method and the key, not the platform.
+    Indeed if we consider a Determinant to be (P, m, k) rather than (m, k), we
+    could miss some functional dependancies the right 3nf schema (see example above).
+
+        Example :
+            Inputs:
+
+                T::x{x*, y, z} T::z{z*, t}
+                S::x{x*, y, z, t}
+
+            If we consider platform in the determinant, it leads to:
+
+                3nf table            |  Method
+                ---------------------+--------------------
+                {S, T}x::{x*, y, z}  |  (S::x and T::x)
+                T::z{z*, t}          |  (T::z)
+                (so we don't detect that S::z allows to deduce {S,T}::t)
+
+            ... instead of:
+
+                3nf table            |  Method
+                ---------------------+--------------------
+                {S, T}::x{x*, y, z}  |  (S::x and T::x)
+                {S, T}::z{z*, t}     [  (S::x and T::z)
+    """
+
+    @staticmethod
+    def check_init(key, method):
+        """
+        \brief (Internal use)
+            Check whether parameters passed to __init__ are well-formed 
+        """
         if not isinstance(key, Key):
             raise TypeError("Invalid key %r (type = %r)" % (key, type(key)))
-        if not isinstance(platforms, frozenset):
-            raise TypeError("Invalid platforms %r (type = %r)" % (platforms, type(platforms)))
         if not isinstance(method, StringTypes):
             raise TypeError("Invalid method %r (type = %r)" % (method, type(method))) 
+
+    def __init__(self, key, method):
+        """
+        \brief Constructor
+        \brief key The key of the determinant (k)
+        \param method The name of the table/method (m)
+        """
+        Determinant.check_init(key, method)
         self.key = key
-        self.platforms = {}
-        for platform in platforms:
-            self.map_platforms_method[platform] = method
         self.method = method
 
-    def add_platform(self, platform, method):
-        self.map_platforms_method[platform] = method
+    def set_key(self, key):
+        if not isinstance(key, Key):
+            raise TypeError("Invalid key %s (%s)" % (key, type(key)))
+        self.key = key
 
     @returns(Key)
     def get_key(self):
+        """
+        \return The Key instance related to this determinant (k)
+        """
         return self.key
-
-    @returns(frozenset)
-    def get_platforms(self):
-        return frozenset(self.map_platforms_method.keys())
 
     @returns(str)
     def get_method(self):
+        """
+        \returns A string (the method related to this determinant) (m)
+        """
         return self.method
 
     def __hash__(self):
-        return hash((
-            self.get_key(),
-            self.get_platforms(),
-            self.get_method()
-        ))
+        """
+        \returns The hash of a determinant 
+        """
+        return hash(self.get_key())
 
     @returns(bool)
     def __eq__(self, x):
+        """
+        \brief Compare two Determinant instances
+        \param x The Determinant instance compared to "self"
+        \return True iif self == x
+        """
         if not isinstance(x, Determinant):
             raise TypeError("Invalid paramater %r of type %r" % (x, type(x)))
-        return self.get_key() == x.get_key() and self.get_platforms() == x.get_platforms() and self.get_method() == x.get_method()
+        return self.get_key() == x.get_key() and self.get_method() == x.get_method()
 
-    @returns(str)
+    @returns(unicode)
     def __str__(self):
+        """
+        \return The (verbose) string representing a Determinant instance
+        """
         return (
             self.get_key(),
-            self.get_platforms(),
             self.get_method()
         ).__str__()
 
-    @returns(unicode)
+    @returns(str)
     def __repr__(self):
-        return "(%r, {%s}, METH(%s))" % (
+        """
+        \return The (synthetic) string representing a Determinant instance
+        """
+        return "(%r, METH(%s))" % (
             self.get_key(),
-            ', '.join([p for p in self.get_platforms()]),
             self.get_method()
         )
+
+#------------------------------------------------------------------------------
+
+class Fd:
+    """
+    Functionnal dependancy.
+    This represents what MetadataField we can retrieve for a given Determinant.
+    """
+    @staticmethod
+    def check_init(determinant, fields, map_platform_method):
+        """
+        \brief (Internal use)
+            Check whether parameters passed to __init__ are well-formed 
+        """
+        if not isinstance(map_platform_method, dict):
+            raise TypeError("Invalid map_platform_method %s (%s)" % (map_platform_method, type(map_platform_method)))
+        for platform, method in map_platform_method.items():
+            if not isinstance(platform, StringTypes):
+                raise TypeError("Invalid platform %s (%s)" % (platform, type(platform)))
+            if not isinstance(method, StringTypes):
+                raise TypeError("Invalid method %s (%s)" % (method, type(method)))
+        if not isinstance(determinant, Determinant):
+            raise TypeError("Invalid determinant %s (%s)" % (determinant, type(determinant)))
+        if not isinstance(fields, (list, set, frozenset)):
+            raise TypeError("Invalid fields %s (%s)" % (fields, type(fields)))
+        for field in fields:
+            if not isinstance(field, MetadataField):
+                raise TypeError("Invalid field %s (%s) in fields %s" % (field, type(fields), MetadataField))
+
+    def __init__(self, determinant, fields, map_platform_method):
+        """
+        \brief Constructor 
+        \param determinant A Determinant instance
+        \param fields A frozenset of MetadataField instances
+        \param map_platform_method A dictionnary which associates a platform name (String) to a method (String)
+        """
+        Fd.check_init(determinant, fields, map_platform_method)
+        self.determinant = determinant
+        self.fields = set(fields)
+        self.map_platform_method = map_platform_method
+
+    def get_map_platform_method(self):
+        return self.map_platform_method
+
+    def set_key(self, key):
+        self.determinant.set_key(key)
+
+    @returns(frozenset)
+    def get_platforms(self):
+        """
+        \returns A frozenset of string (the platforms related to this Fd) (P)
+        """
+        return frozenset(self.map_platform_method.keys())
+
+    #@returns(Determinant)
+    def get_determinant(self):
+        return self.determinant
+
+    def get_field(self):
+        if len(self.fields) != 1:
+            raise ValueError("This fd has not exactly one field: %r" % self)
+        return list(self.fields)[0]
+
+    @returns(set)
+    def get_fields(self):
+        return self.fields
+
+    @returns(set)
+    def split(self):
+        """
+        \brief Split a fd
+            Example: [k -> {f1, f2...}] is split into {[k -> f1], [k -> f2], ...}
+        \returns A set of Fd instances
+        """
+        fds = set()
+        for field in self.get_fields():
+            fields = set()
+            fields.add(field)
+            fds.add(Fd(
+                self.get_determinant(),
+                fields,
+                self.get_map_platform_method()
+            ))
+        return fds 
+
+    @returns(unicode)
+    def __str__(self):
+        return "%10s [%s => %s]" % (
+            self.map_platform_method,
+            self.get_determinant(),
+            self.get_fields(),
+        )
+
+    @returns(unicode)
+    def __repr__(self):
+        return "{%10s} [%r => %r]" % (
+            ', '.join(["%s::%s" % (p,m) for p, m in self.map_platform_method.items()]),
+            self.get_determinant(),
+            self.get_fields()
+        )
+
+    def __ior__(self, x):
+        """
+        \brief |= overloading
+        \param x A Fd instance that we merge with self
+        \return self
+        """
+        if self.get_determinant() != x.get_determinant():
+            raise ValueError("Cannot call |= with parameter self = %r and x = %r" % (self, x))
+        self.fields |= x.get_fields()
+        for p, m in x.get_map_platform_method.items():
+            self.map_platform_method[p] = m
+
+#------------------------------------------------------------------------------
+
+class Fds(set):
+    """
+    Functionnal dependancies.
+    """
+    @staticmethod
+    def check_init(fds):
+        """
+        \brief (Internal use)
+        \param fds A set of Fd instances
+        """
+        if not isinstance(fds, set):
+            raise TypeError("Invalid fds %s (type %s)" % (fds, type(fds)))
+        for fd in fds:
+            if not isinstance(fd, Fd):
+                raise TypeError("Invalid fd %s (type %s)" % (fd, type(fd)))
+
+    def __init__(self, fds = set()):
+        """
+        \brief Constructor
+        \param fds A set of Fd instances
+        """
+        Fds.check_init(fds)
+        print "__init__: %r" % fds
+        set.__init__(fds)
+
+    def collapse(self):
+        """
+        \brief Aggregate each fd by determinant 
+        """
+        map_determinant_fd = {}
+        for fd in self:
+            determinant = fd.get_determinant()
+            if determinant not in map_determinant_fd.keys():
+                map_determinant_fd[determinant] = fd
+            else:
+                map_determinant_fd[determinant] |= fd
+        return Fds(set(map_determinant_fd.values()))
+
+    #@returns(Fds)
+    def split(self):
+        """
+        \brief Split a Fds instance
+        \returns A set of Fd instances
+        """
+        fds = Fds()
+        for fd in self:
+            fds |= fd.split()
+        return fds 
+
+    def __str__(self):
+        return '\n'.join(["%s" % fd for fd in self])
+
+    def __repr__(self):
+        return '\n'.join(["%r" % fd for fd in self])
+
+#------------------------------------------------------------------------------
 
 class DBNorm:
     """
@@ -81,123 +325,122 @@ class DBNorm:
             self.tables = tables
             self.tables_3nf = self.to_3nf()
 
-    def attribute_closure(self, attributes, fd_set):
+    @staticmethod
+    def check_closure(fields, fds):
         """
-        \brief Compute the closure of a set of attributes under the set of functional dependencies fd_set
-        \sa http://elm.eeng.dcu.ie/~ee221/EE221-DB-7.pdf p7
-        \param attributes The attributes (~ source vertices)
-        \param fd_set The functionnal dependancies (~ arcs)
-            A fd is a tuple made of the key (e.g a tuple of fields) and a field 
-        \return The corresponding closure (~ reachable vertices)
+        \brief (Internal use)
+            Check wether paramaters passed to closure()
+            are well-formed.
         """
-        def in_closure(determinant, closure):
-            if not isinstance(determinant, Determinant):
-                raise TypeError("Invalid type of determinant (%r)" % type(determinant))
-            key = determinant.get_key()
-            if key.is_composite():
-                key_in_closure = True
-                for key_elt in key:
-                    key_in_closure &= key_elt in closure
-                return key_in_closure
-            else:
-                return key in closure
-            return False
+        if not isinstance(fds, Fds):
+            raise TypeError("Invalid type of fields (%r)" % type(fds))
+        if not isinstance(fields, (frozenset, set)):
+            raise TypeError("Invalid type of fields (%r)" % type(fields))
+        for field in fields:
+            if not isinstance(field, MetadataField):
+                raise TypeError("Invalid attribute: type (%r)" % type(field))
 
-        # Transform attributes into a set
-        if not isinstance(attributes, (set, frozenset, tuple, list)):
-            closure = set([attributes])
-        else:
-            closure = set(attributes)
-
-#        print ">> INIT: attribute_closure:"
-#        print ">> fd_set = %r" % fd_set
-#        print ">> attributes = %r" % closure 
-
-        # Compute closure
-        while True:
-            old_closure = closure.copy()
-            for y, z in fd_set: # y -> z
-                if in_closure(y, closure):
-                    closure.add(z)
-            if old_closure == closure:
+    @staticmethod
+    @accepts(set, Fds)
+    @returns(set)
+    def closure(x, fds):
+        """
+        \brief Compute the closure of a set of attributes under the
+            set of functional dependencies
+            \sa http://elm.eeng.dcu.ie/~ee221/EE221-DB-7.pdf p7
+        \param x A set of MetadataField instances 
+        \param fds A Fds instance
+        \return A set of MetadataField instances 
+        """
+        DBNorm.check_closure(x, fds)
+        x_plus = set(x)                              # x+ = x
+        while True:                                  # repeat
+            old_x_plus = x_plus.copy()               #   temp_x+ = x+
+            for fd in fds:                           #   for each fd (y -> z)
+                key = fd.get_determinant().get_key() #     get y
+                if key <= x_plus:                    #     if y \subseteq x+
+                    x_plus |= fd.get_fields()        #       x+ = x+ \cup z
+            if old_x_plus == x_plus:                 # until temp_x+ = x+
                 break
-        return closure
+        return x_plus
     
-    def fd_minimal_cover(self, fd_set):
+    @returns(Fds)
+    def make_fd_set(self):
+        """
+        \brief Compute the set of functionnal dependancies
+        \returns A Fds instance
+        """
+        fds = Fds() 
+        for table in self.tables:
+            for key in table.get_fields_from_keys():
+                map_platforms_method = {}
+                method = table.get_name()
+                for platform in table.get_platforms():
+                    map_platforms_method[platform] = method
+                fds.add(
+                    Fd(
+                        Determinant(key, method),
+                        table.get_fields(),
+                        map_platforms_method
+                    )
+                )
+        #return fds.collapse()
+        return fds
+
+    @staticmethod
+    @accepts(Fds)
+    @returns(Fds)
+    def fd_minimal_cover(fds):
         """
         \brief Compute the functionnal dependancy minimal cover
-        \sa http://elm.eeng.dcu.ie/~ee221/EE221-DB-7.pdf p10
-        \param fd_set The functionnal dependancies
-        \return The minimal cover
+        \sa http://elm.eeng.dcu.ie/~ee221/EE221-DB-7.pdf p11
+        \param fds A Fds instance 
+        \return The corresponding min cover (Fds instance)
         """
-        # replace each FD X -> (A1, A2, ..., An) by n FD X->A1, X->A2, ..., X->An
-        min_cover = set([(y, attr) for y, z in fd_set for attr in z if y != attr])
+        g = fds.split()                                     # replace {[x -> {a1, ..., an}]} by g = {[x -> a1], ..., [x -> an]}
+        print ">>>>>>>>>"
+        print "fds =\n%r" % fds
+        print "g(%r) =\n%r" % (len(g),g)
 
-        print "-" * 100
-        print "1) min_cover = ", min_cover
-        print "-" * 100
+        g_copy = g.copy()
+        for fd in g_copy:                                   # for each fd = [x -> a]:
+            print "---"
+            #print "fd = %r" % fd
+            g2 = Fds(set([f for f in g if fd != f]))        #   g' = g \ {fd}
 
-        for determinant, a in min_cover.copy():
-            reduced_min_cover = set([fd for fd in min_cover if fd != (determinant, a)])
-            x_plus = self.attribute_closure(determinant, reduced_min_cover)
-            if a in x_plus:
-                min_cover = reduced_min_cover
+            #####
+            print "%r" % g
+            for f in g:
+                print "%r != %r ? %r" % (fd, f, fd != f)
+            print "==> g2 = %r" % [f for f in g if fd != f]
+            print "==> g2 = %r" % set([f for f in g if fd != f])
+            print "==> g2 = %r" % g2 
+            #print "g(%r) =\n%r" % (len(g),g)
+            #print "g2(%r) =\n%r" % (len(g2),g2)
+            #print "g_copy(%r) =\n%r" % (len(g_copy),g_copy)
+            x  = fd.get_determinant().get_key()
+            a  = fd.get_field()
+            x_plus = DBNorm.closure(set(x), g2)             #   compute x+ according to g'
+            if a in x_plus:                                 #   if a \in x+:
+                g = g2                                      #     g = g'
 
-        print "-" * 100
-        print "2) min_cover = ", min_cover
-        print "-" * 100
+        for fd in g.copy():                                 # for each fd = [x -> a] in g:
+            x = fd.get_determinant().get_key()
+            if x.is_composite():                            #   if x has multiple attributes:
+                for b in x:                                 #     for each b in x:
 
-        for determinant, a in min_cover:
-            key = determinant.get_key() 
-            if key.is_composite():
-                for b in key:
-                    # Compute (X-B)+ with respect to (G-(X->A)) U ((X-B)->A) = S
-                    x_minus_b = frozenset([i for i in key if i != b])
-                    print "min_cover = %r " % min_cover
-                    print "key = %r" % key
-                    print "a = %r" % a
-                    s = set([fd for fd in min_cover if fd != (key, a)])
-                    s.add((x_minus_b, a))
-                    x_minus_b_plus = self.attribute_closure(x_minus_b, s) 
-                    if b in x_minus_b_plus:
-                        reduced_min_cover = set([fd for fd in min_cover if fd != (key,a)])
-                        min_cover = reduced_min_cover
-                        min_cover.add( (x_minus_b, a) )
+                    x_b = Key([xi for xi in x if xi != b])  #       x_b = x - b
+                    g2  = Fds([f for f in g if fd != f])    #       g'  = g \ {fd} \cup {fd'}
+                    fd2 = fd.copy()                         #          with fd' = [(x - b) -> a]
+                    fd2.set_key(x_b)
+                    g2.add(fd2)
+                    x_b_plus = DBNorm.closure(set(x_b), g2) #       compute (x - b)+ with repect to g'
 
-        return min_cover
+                    if b in x_b_plus:                       #       if b \subseteq (x - b)+:
+                        g = g2                              #         replace [x -> a] in g by [(x - b) -> a]
 
-    def make_fd_set(self):
-        rules = {}
-        for table in self.tables:
-            method = table.name
-            platforms = table.get_platforms()
-            for key in table.get_fields_from_keys():
-                for field in table.get_fields():
-                    if (key, method) not in rules.keys():
-                        rules[(key, method)] = {}
-                    if field not in rules[(key, method)]:
-                        rules[(key, method)][field] = set()
-                    rules[(key, method)][field] |= platforms
+        return g
 
-        fd_set0 = {}
-        for rule, map_field_platforms in rules.items():
-            (key, method) = rule
-            for field, platforms in map_field_platforms.items():
-                platforms = frozenset(platforms)
-                determinant = Determinant(key, platforms, method)
-                if determinant not in fd_set0.keys():
-                    print "fd_set0 = ", fd_set0
-                    print "determinant = ", determinant
-                    fd_set0[determinant] = set()
-                fd_set0[determinant].add(field)
-
-        fd_set = set()
-        for determinant, fields in fd_set0.items():
-            fd_set.add((determinant, frozenset(fields)))
-
-        return fd_set
-
-    #---------------------------------------------------------------------------
     @returns(list)
     def to_3nf(self):
         """
@@ -207,36 +450,28 @@ class DBNorm:
         """
         # Compute functional dependancies
         fd_set = self.make_fd_set()
+        print "\nmake_fd_set:\n%r" % fd_set
 
         # Find a minimal cover
-        fd_set = self.fd_minimal_cover(fd_set)
+        fd_set = DBNorm.fd_minimal_cover(fd_set)
+        print "\nfd_minimal_cover:\n%r" % fd_set
 
-        print "fd_set = %r" % fd_set
-        
-        # Transform "fd_set" : set((Determinant, MetadataField))
-        # into      "fds"    : dict{Determinant, set(MetadataField)}
-        fds = {}
-        for determinant, fields in fd_set:
-            print "fd_set> %r => %r" % (determinant, fields)
-            if not determinant in fds:
-                fds[determinant] = set([])
-            fds[determinant].add(fields)
-
-        for determinant, fields in fds.items():
-            print "d> %r => %r" % (determinant, fields)
-            
+        # Aggregate functionnal dependancies by determinant
+        fds = fd_set.collapse()
+        print "\ncollapse:\n%r" % fd_set
         
         # ... create relation R = (X, A1, A2, ..., An)
         relations = []
-        for determinant, fields in fds.items():
+        for fd in fds:
             # Search source tables related to the corresponding key key and values
-            key = determinant.get_key()
-            platforms = determinant.get_platforms()
+            key = fd.get_determinant().get_key()
+            platforms = fd.get_platforms()
             method = determinant.get_method()
             sources = [table for table in self.tables if table.has_key(key)]
             if not sources:
                 raise Exception("No source table found with key %s" % key)
 
+            #DEBUG
             print "a) fields = ", fields
             fields = list(fields)
             for key_elt in key:
@@ -248,54 +483,3 @@ class DBNorm:
             relations.append(t)
         return relations
 
-#    #---------------------------------------------------------------------------
-#    def to_3nf_bak(self):
-#        #fd_set = set([(key, table.get_field_names()) for table in self.tables for key in table.keys])
-#        fd_set = set([(key, table.fields) for table in self.tables for key in table.get_fields_from_keys()])
-#
-#        for x in list(fd_set):
-#            print "FD_SET", x
-#
-#        # Find a minimal cover
-#        fd_set = self.fd_minimal_cover(fd_set)
-#        
-#        # For each set of FDs in G of the form (X->A1, X->A2, ... X->An)
-#        # containing all FDs in G with the same determinant X ...
-#        determinants = {}
-#        for key, a in fd_set:
-#            if len(list(key)) == 1:
-#                key = list(key)[0]
-#            if not key in determinants:
-#                determinants[key] = set([])
-#            determinants[key].add(a)
-#        
-#        # ... create relation R = (X, A1, A2, ..., An)
-#        # determinants: key: A MetadataClass key (array of strings), data: MetadataField
-#        relations = []
-#        for key, y in determinants.items():
-#            # Search source tables related to the corresponding key key and values
-#            sources = [t for t in self.tables if t.has_key(key)]
-#            if not sources:
-#                raise Exception("No source table found with key %s" % key)
-#
-#            partitions = dict()
-#            for source in sources:
-#                for plaforms, clause in source.get_partitions():
-#                    if not plaforms in partitions: 
-#                        partitions[plaforms] = clause 
-#                    else:
-#                        # Several partitions provide the requested table, we've
-#                        # already choose an arbitrary one and we ignore this one
-#                        print "TODO union clause"
-#
-#            n = list(sources)[0].name
-#            fields = list(y)
-#            if isinstance(key, (frozenset, tuple)):
-#                fields.extend(list(key))
-#            else:
-#                fields.append(key)
-#            k = [xi.field_name for xi in key] if isinstance(key, (frozenset, tuple)) else key.field_name
-#            t = Table(partitions, None, n, fields, [k]) # None = methods
-#            relations.append(t)
-#        return relations
-#

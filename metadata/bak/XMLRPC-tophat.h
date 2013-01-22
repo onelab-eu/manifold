@@ -20,7 +20,6 @@ class hop {
     const int  ttl;
 };
 
-
 class traceroute {
     const agent       source;
     const destination destination;
