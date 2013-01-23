@@ -69,7 +69,7 @@ print "=" * 150
 # Instantiate a TopHat router
 with THLocalRouter() as router:
     user = router.authenticate(auth)
-    directory = router.conf.STATIC_ROUTES_FILE
+    #directory = router.conf.STATIC_ROUTES_FILE
     #print router.get_static_routes(directory)
     result = router.forward(query, execute = False, user = user)
     if result:

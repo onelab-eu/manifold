@@ -26,7 +26,7 @@ class DBGraph:
             raise ValueError("%r is already in the graph" % u)
 
         # Add the "u" node to the graph and attach the corresponding sources nodes
-        sources = [t for t in self.tables if list(u.keys)[0] in t.get_fields_from_keys()]
+        sources = [t for t in self.tables if list(u.keys)[0] in t.get_keys()]
         # It seems sources are useless now...
         self.graph.add_node(u, {'sources': sources})
 

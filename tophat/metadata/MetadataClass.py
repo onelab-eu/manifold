@@ -22,8 +22,8 @@ class MetadataClass:
         \param qualifier A value among None and "onjoin"
         \param class_name The name of the class
         \param keys An array containing a set of key.
-            A key is made of one or more field names.
-        \param fields An array containing the set of MetadataField related to this MetadataClass
+            A key is made of one or more field names (String).
+        \param fields An array containing the set of Field instances related to this MetadataClass
         """
         self.qualifier  = qualifier
         self.class_name = class_name
@@ -41,7 +41,7 @@ class MetadataClass:
             for key_elt in key:
                 key_elt_found = False 
                 for field in self.fields:
-                    if key_elt == field.field_name: 
+                    if key_elt == field.get_name(): 
                         key_elt_found = True 
                         break
                 if key_elt_found == False:

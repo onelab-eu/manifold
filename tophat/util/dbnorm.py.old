@@ -1,6 +1,6 @@
 from tophat.core.table             import Table
 from tophat.core.key               import Key 
-from tophat.metadata.MetadataField import MetadataField
+from tophat.core.field             import Field
 from types                         import StringTypes
 from tophat.util.type              import returns, accepts
 
@@ -171,7 +171,7 @@ class DBNorm:
         for table in self.tables:
             method = table.name
             platforms = table.get_platforms()
-            for key in table.get_fields_from_keys():
+            for key in table.get_keys():
                 for field in table.get_fields():
                     if (key, method) not in rules.keys():
                         rules[(key, method)] = {}
@@ -213,8 +213,8 @@ class DBNorm:
 
         print "fd_set = %r" % fd_set
         
-        # Transform "fd_set" : set((Determinant, MetadataField))
-        # into      "fds"    : dict{Determinant, set(MetadataField)}
+        # Transform "fd_set" : set((Determinant, Field))
+        # into      "fds"    : dict{Determinant, set(Field)}
         fds = {}
         for determinant, fields in fd_set:
             print "fd_set> %r => %r" % (determinant, fields)
@@ -240,8 +240,8 @@ class DBNorm:
             print "a) fields = ", fields
             fields = list(fields)
             for key_elt in key:
-                if not isinstance(key_elt, MetadataField):
-                    raise TypeError("Inconsistent key %r, %r is not of type MetadataField" % (key, key_elt))
+                if not isinstance(key_elt, Field):
+                    raise TypeError("Inconsistent key %r, %r is not of type Field" % (key, key_elt))
                 fields.append(key_elt)
             print "b) fields = ", fields
             t = Table(platforms, None, method, fields, [key]) # None = methods
@@ -251,7 +251,7 @@ class DBNorm:
 #    #---------------------------------------------------------------------------
 #    def to_3nf_bak(self):
 #        #fd_set = set([(key, table.get_field_names()) for table in self.tables for key in table.keys])
-#        fd_set = set([(key, table.fields) for table in self.tables for key in table.get_fields_from_keys()])
+#        fd_set = set([(key, table.fields) for table in self.tables for key in table.get_keys()])
 #
 #        for x in list(fd_set):
 #            print "FD_SET", x
@@ -270,7 +270,7 @@ class DBNorm:
 #            determinants[key].add(a)
 #        
 #        # ... create relation R = (X, A1, A2, ..., An)
-#        # determinants: key: A MetadataClass key (array of strings), data: MetadataField
+#        # determinants: key: A MetadataClass key (array of strings), data: Field
 #        relations = []
 #        for key, y in determinants.items():
 #            # Search source tables related to the corresponding key key and values

@@ -139,7 +139,7 @@ def get_prunable_vertices(g, map_vertex_pred, map_vertex_fields):
         for v in map_vertex_fields.keys():
             if map_vertex_color[v] == prune_color.GRAY:
                 fields_v = map_vertex_fields[v]
-                keys_v = v.get_fields_from_keys()
+                keys_v = v.get_keys()
 
                 # v can be safely pruned if it has a predecessor
                 # and if its queried fields are those used 
@@ -195,14 +195,16 @@ def prune_vertex_pred(g, needed_fields, map_vertex_pred):
     return map_pred, map_fields
     
 @accepts(DiGraph, set, dict)
-@returns(DiGraph)
+@returns(tuple)
 def get_sub_graph(g, vertices_to_keep, map_fields):
     """
     \brief Extract a subgraph from a given graph g. Each vertex and
         arc of this subgraph is a deepcopy of those of g.
     \param g The original graph
     \param vertices_to_keep The vertices to keep in g.
-    \return The corresponding subgraph
+    \param map_fields
+    \return A tuple made of a DiGraph instance (the subgraph)
+        and a dict 
     """
     sub_graph = DiGraph()
     map_vertex = {}
@@ -232,8 +234,8 @@ def prune_tree_fields(tree, needed_fields, map_vertex_fields):
         relevant_fields_u = map_vertex_fields[u]
         missing_fields -= relevant_fields_u
         for field in u.get_fields():
-            if field.field_name not in relevant_fields_u:
-                u.erase_field(field.field_name)
+            if field.get_name() not in relevant_fields_u:
+                u.erase_field(field.get_name())
     return missing_fields
 
 @accepts(DiGraph, set, dict)

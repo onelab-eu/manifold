@@ -12,10 +12,58 @@
 from tophat.core.table             import Table
 from tophat.core.key               import Key 
 from tophat.core.field             import Field
-from tophat.core.method            import Method 
 from types                         import StringTypes
 from tophat.util.type              import returns, accepts
 from copy                          import copy, deepcopy
+
+class Method:
+    @staticmethod
+    @accepts(unicode, str)
+    def check_init(platform, name):
+        """
+        \brief (Internal use)
+            Check whether parameters passed to __init__ are well-formed 
+        """
+        if not isinstance(platform, StringTypes):
+            raise TypeError("Invalid platform %r (type = %r)" % (platform, type(platform)))
+        if not isinstance(name, StringTypes):
+            raise TypeError("Invalid name %r (type = %r)" % (name, type(name))) 
+
+    def __init__(self, platform, name):
+        """
+        \brief Constructor
+        \param platform The name of the platform provinding this method
+        \param name The name of the method.
+            This is the name of corresponding table announced by this platform.
+        """
+        Method.check_init(platform, name)
+        self.platform = platform
+        self.name = name
+
+    @returns(unicode)
+    def get_platform(self):
+        return self.platform
+
+    @returns(str)
+    def get_name(self):
+        return self.name
+
+    @returns(unicode)
+    def __str__(self):
+        """
+        \return The (verbose) string representing a Method instance
+        """
+        return self.__repr__()
+
+    @returns(unicode)
+    def __repr__(self):
+        """
+        \return The (synthetic) string representing a Method instance
+        """
+        return "%s::%s" % (self.get_platform(), self.get_name())
+
+    def __hash__(self):
+        return hash((self.get_platform(), self.get_name()))
 
 #------------------------------------------------------------------------------
 
@@ -32,9 +80,6 @@ class Determinant:
         The corresponding functionnal dependancy is:
 
             (t, k) --> {y,z}
-
-        t is required in the determinant since it leads to different semantic meanings.
-        For example if t' inherits t and uses the same key(s), t' only provide information for a subset of keys of t.
     """
 
     @staticmethod
@@ -156,18 +201,12 @@ class Fd:
     @returns(set)
     def get_platforms(self):
         """
-        \returns A set of strings (the platforms able to provide 
-            every fields involved in the key of this fd)
+        \returns A set of strings (the platforms related to this Fd) (P)
         """
         platforms = set()
-        first = True
-        print "get_platforms %s" % self
-        for field in self.get_determinant().get_key():
-            platforms_cur = set([method.get_platform() for method in self.map_field_methods[field]])
-            if first:
-                platforms |= platforms_cur 
-            else:
-                platforms &= platforms_cur 
+        for field, methods in self.map_field_methods.items():
+            for method in methods:
+                platforms.add(method.get_platform())
         return platforms
 
     def get_determinant(self):
@@ -238,23 +277,12 @@ class Fd:
         \return self
         """
         if (self.get_determinant() == fd.get_determinant()) == False:
-            raise ValueError("Cannot call |= with parameters self = %r and fd = %r" % (self, fd))
+            raise ValueError("Cannot call |= with parameter self = %r and fd = %r" % (self, fd))
         for field, methods in fd.map_field_methods.items():
             if field not in self.map_field_methods.keys():
                 self.map_field_methods[field] = set()
             self.map_field_methods[field] |= methods
         return self
-
-    def merge_methods(self, fd):
-        """
-        \brief (Internal usage)
-        \param fd The Fd instance that we "merge" with self. self and fd must have
-            the same output fields but may have different keys.
-        """
-        if self.get_fields() != fd.get_fields():
-            raise ValueError("Cannot call merge_methods with self = %r and fd = %r" % (self, fd))
-        for field in self.map_field_methods.keys():
-            self.map_field_methods[field] |= fd.map_field_methods[field]
 
 #------------------------------------------------------------------------------
 
@@ -287,17 +315,17 @@ class Fds(set):
     #@returns(Fds)
     def collapse(self):
         """
-        \brief Aggregate each Fd of this Fds by Key 
+        \brief Aggregate each Fd of this Fds by Determinant 
         \returns The corresponding Fds instance 
         """
-        map_key_fd = {}
+        map_determinant_fd = {}
         for fd in self:
-            key = fd.get_determinant().get_key()
-            if key not in map_key_fd.keys():
-                map_key_fd[key] = fd
+            determinant = fd.get_determinant()
+            if determinant not in map_determinant_fd.keys():
+                map_determinant_fd[determinant] = fd
             else:
-                map_key_fd[key] |= fd
-        return Fds(set(map_key_fd.values()))
+                map_determinant_fd[determinant] |= fd
+        return Fds(set(map_determinant_fd.values()))
 
     #@returns(Fds)
     def split(self):
@@ -309,6 +337,24 @@ class Fds(set):
         for fd in self:
             fds |= fd.split()
         return fds 
+
+    def merge(self, fd):
+        """
+        \brief Merge (if possible) an Fd with a dependancy stored in this Fds.
+            If fd cannot be merged, self is not modified.
+        \param fd A Fd instance
+        """
+        if not isinstance(fd, Fd):
+            raise TypeError("Invalid fd = %r (%r)" % (fd, type(fd)))
+        for f in self:
+            try:
+                fd |= f
+                self.remove(f)
+                self.add(fd)
+                return
+            except:
+                continue
+        print "Can't merge fd = %r into fds = %r" % (fd, fds)
 
     @returns(str)
     def __str__(self):
@@ -399,19 +445,16 @@ class DBNorm:
 
     @staticmethod
     @accepts(Fds)
-    @returns(tuple)
+    @returns(Fds)
     def fd_minimal_cover(fds):
         """
         \brief Compute the functionnal dependancy minimal cover
         \sa http://elm.eeng.dcu.ie/~ee221/EE221-DB-7.pdf p11
         \param fds A Fds instance 
-        \return A couple made of
-            - a Fds instance (fd kept, e.g. min cover)
-            - a Fds instance (fd removed)
+        \return The corresponding min cover (Fds instance)
         """
         g = fds.split()                                     # replace {[x -> {a1, ..., an}]} by g = {[x -> a1], ..., [x -> an]}
 
-        fds_removed = Fds()
         g_copy = g.copy()
         for fd in g_copy:                                   # for each fd = [x -> a]:
             g2 = Fds(set([f for f in g if fd != f]))        #   g' = g \ {fd}
@@ -419,7 +462,11 @@ class DBNorm:
             a  = fd.get_field()
             x_plus = DBNorm.closure(set(x), g2)             #   compute x+ according to g'
             if a in x_plus:                                 #   if a \in x+:
-                fds_removed.add(fd)
+                print "> remove fd = %s" % fd
+                try:
+                    g2.merge(fd)
+                except Exception, e:
+                    pass
                 g = g2                                      #     g = g'
 
         for fd in g.copy():                                 # for each fd = [x -> a] in g:
@@ -437,35 +484,7 @@ class DBNorm:
                     if b in x_b_plus:                       #       if b \subseteq (x - b)+:
                         g = g2                              #         replace [x -> a] in g by [(x - b) -> a]
 
-        return (g, fds_removed) 
-
-    @staticmethod
-    @returns(Fds)
-    def reinject_fds(fds, fds_removed):
-        for fd in fds_removed:
-            key = fd.get_determinant().get_key()
-            if not key.is_composite() and key.get_field() == fd.get_field():
-                # The min cover algorithm has removed x --> x dependancies
-                # However we need these fds to deduce the entry points of
-                # the table and how to retrieve this field. 
-                # fields |= key
-                fds.add(fd)
-            else:
-                # During the min cover algorithm, this fd has been removed
-                # However its method remains relevant, so reinject this
-                # method in the fd set.
-                merged = False
-                fields = fd.get_fields()
-                for f in fds:
-                    if f.get_fields() == fields:
-                        # update fd
-                        fds.remove(f)
-                        f.merge_methods(fd)
-                        fds.add(f)
-                        merged = True
-                if not merged:
-                    raise Exception("Can't merge %s with %s" % (fd, fds))
-        return fds
+        return g
 
     @returns(list)
     def to_3nf(self):
@@ -476,41 +495,25 @@ class DBNorm:
         """
         # Compute functional dependancies
         print "-" * 100
-        print "Compute functional dependancies"
+        print "make_fd_set:"
         print "-" * 100
         fds = self.make_fd_set()
         print "%s" % fds
 
-        # Compute the map which refer for each key the platforms
-        # which support this key 
-        map_key_platforms = dict()
-        for fd in fds:
-            key = fd.get_determinant().get_key()
-            if key not in map_key_platforms.keys():
-                map_key_platforms[key] = set()
-            for table in self.tables:
-                if table.has_key(key):
-                    map_key_platforms[key] |= table.get_platforms()
-
         # Find a minimal cover
         print "-" * 100
-        print "Minimal cover"
+        print "fd_minimal_cover:"
         print "-" * 100
-        (fds_min_cover, fds_removed) = DBNorm.fd_minimal_cover(fds)
-        print "%s" % fds_min_cover
-
-        print "-" * 100
-        print "Reinject removed Fds"
-        print "-" * 100
-        fds = DBNorm.reinject_fds(fds_min_cover, fds_removed)
+        fds = DBNorm.fd_minimal_cover(fds)
         print "%s" % fds
 
+        # Aggregate functionnal dependancies by determinant
         print "-" * 100
-        print "Aggregate Fds by Key"
+        print "collapse:"
         print "-" * 100
         fds = fds.collapse()
         print "%s" % fds
-
+        
         # ... create relation R = (X, A1, A2, ..., An)
         relations = []
         for fd in fds:
@@ -521,9 +524,10 @@ class DBNorm:
                 raise Exception("No source table found with key %s" % key)
 
             fields = fd.get_fields()
+            fields |= key
             relations.append(Table(
                 fd.get_platforms(),
-                fd.get_map_field_methods(),
+                None,
                 key.get_name(),
                 fields,
                 [key]

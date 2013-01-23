@@ -3,9 +3,9 @@
 #
 # Class Key:
 #   Represent a key of a Table instance
-#   A key is a set of (eventually one) MetadataFields.
+#   A key is a set of (eventually one) Fields.
 #   \sa tophat/core/table.py
-#   \sa tophat/metadata/MetadataField.py
+#   \sa tophat/core/field.py
 # Class Keys:
 #   A Table instance carries a Keys instance, e.g a set of Key instances.
 #
@@ -14,13 +14,13 @@
 #   Jordan Augé       <jordan.auge@lip6.fr>
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
-from tophat.util.type              import returns, accepts
-from tophat.metadata.MetadataField import MetadataField
+from tophat.util.type      import returns, accepts
+from tophat.core.field     import Field
 
 class Key(frozenset):
     """
     Implements a key for a table.
-    A key is a set of (eventually one) MetadataFields.
+    A key is a set of (eventually one) Fields.
     """
 
     @staticmethod
@@ -31,8 +31,8 @@ class Key(frozenset):
         \param fields The fields parameter passed to __init__
         """
         for field in fields:
-            if not isinstance(field, MetadataField):
-                raise TypeError("field = %r is of type %r (MetadataField expected)" % (field, type(field)))
+            if not isinstance(field, Field):
+                raise TypeError("field = %r is of type %r (Field expected)" % (field, type(field)))
 
     def __init__(self, fields):
         """
@@ -50,17 +50,18 @@ class Key(frozenset):
         """
         return len(list(self)) > 1
 
-    @returns(str)
-    def get_type(self):
+    def get_field(self):
         if self.is_composite():
-            raise ValueError("get_type cannot be called for a composite key")
-        return list(self)[0].get_type()
+            raise ValueError("get_field cannot be called for a composite key")
+        return list(self)[0]
 
     @returns(str)
     def get_name(self):
-        if self.is_composite():
-            raise ValueError("get_name cannot be called for a composite key")
-        return list(self)[0].get_name()
+        return self.get_field().get_name()
+
+    @returns(str)
+    def get_type(self):
+        return self.get_field().get_type()
 
     @returns(str)
     def __str__(self):

@@ -302,7 +302,7 @@ class LeftJoin(Node):
         \param left_child A instance of Node which model the left operand
             of an n-ary join.
         \param children A list of n-1 Node instances that we join to left_child
-        \param joins A list of n-1 "join" (= pair of set of MetadataField instances)
+        \param joins A list of n-1 "join" (= pair of set of Field instances)
             joins[i] allows to join child[i] and child[i+1]
         \param callback The callback invoked when the LeftJoin instance returns records. 
         """
