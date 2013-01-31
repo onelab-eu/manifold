@@ -9,17 +9,19 @@
 #   Jordan Augé       <jordan.auge@lip6.fr>
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
+import copy
+from types                         import StringTypes
+
 from tophat.core.table             import Table
 from tophat.core.key               import Key 
 from tophat.core.field             import Field
 from tophat.core.method            import Method 
-from types                         import StringTypes
 from tophat.util.type              import returns, accepts
-from copy                          import copy, deepcopy
+from tophat.util.dbgraph           import DBGraph
 
 #------------------------------------------------------------------------------
 
-class Determinant:
+class Determinant(object):
     """
     A Determinant models the left operand of a "rule" that allow to retrieve one or more field
 
@@ -113,7 +115,7 @@ class Determinant:
 
 #------------------------------------------------------------------------------
 
-class Fd:
+class Fd(object):
     """
     Functionnal dependancy.
     determinant --> fields
@@ -161,7 +163,6 @@ class Fd:
         """
         platforms = set()
         first = True
-        print "get_platforms %s" % self
         for field in self.get_determinant().get_key():
             platforms_cur = set([method.get_platform() for method in self.map_field_methods[field]])
             if first:
@@ -169,6 +170,13 @@ class Fd:
             else:
                 platforms &= platforms_cur 
         return platforms
+
+    @returns(set)
+    def get_methods(self):
+        ret = set()
+        for _, methods in self.get_map_field_methods().items():
+            ret |= methods
+        return ret
 
     def get_determinant(self):
         return self.determinant
@@ -212,9 +220,9 @@ class Fd:
             self.get_determinant(),
             cr2,
             cr2.join([
-                "%r\t(via {%s})" % (
+                "%20r\t(via {%s})" % (
                     field,
-                    ' '.join(['%r' % method for method in methods])
+                    ', '.join(['%r' % method for method in sorted(methods)])
                 ) for field, methods in self.map_field_methods.items()
             ]),
             cr
@@ -224,7 +232,7 @@ class Fd:
     def __repr__(self):
         return "[%r => {%s}]" % (
             self.get_determinant(),
-            ' ,'.join(["%r" % field for field in self.get_fields()])
+            ', '.join(["%r" % field for field in self.get_fields()])
         )
 
     @returns(dict)
@@ -237,24 +245,13 @@ class Fd:
         \param fd A Fd instance that we merge with self
         \return self
         """
-        if (self.get_determinant() == fd.get_determinant()) == False:
+        if (self.get_determinant().get_key() == fd.get_determinant().get_key()) == False:
             raise ValueError("Cannot call |= with parameters self = %r and fd = %r" % (self, fd))
         for field, methods in fd.map_field_methods.items():
             if field not in self.map_field_methods.keys():
                 self.map_field_methods[field] = set()
             self.map_field_methods[field] |= methods
         return self
-
-    def merge_methods(self, fd):
-        """
-        \brief (Internal usage)
-        \param fd The Fd instance that we "merge" with self. self and fd must have
-            the same output fields but may have different keys.
-        """
-        if self.get_fields() != fd.get_fields():
-            raise ValueError("Cannot call merge_methods with self = %r and fd = %r" % (self, fd))
-        for field in self.map_field_methods.keys():
-            self.map_field_methods[field] |= fd.map_field_methods[field]
 
 #------------------------------------------------------------------------------
 
@@ -268,7 +265,7 @@ class Fds(set):
         \brief (Internal use)
         \param fds A set of Fd instances
         """
-        if not isinstance(fds, set):
+        if not isinstance(fds, (list, set)):
             raise TypeError("Invalid fds %s (type %s)" % (fds, type(fds)))
         for fd in fds:
             if not isinstance(fd, Fd):
@@ -277,7 +274,7 @@ class Fds(set):
     def __init__(self, fds = set()):
         """
         \brief Constructor of Fds
-        \param fds A set of Fd instances
+        \param fds A set or a list of Fd instances
         """
         Fds.check_init(fds)
         # /!\ Don't call set.__init(fds), copy explicitly each fd 
@@ -294,10 +291,13 @@ class Fds(set):
         for fd in self:
             key = fd.get_determinant().get_key()
             if key not in map_key_fd.keys():
+                if len(key) == 3: # DEBUG
+                    for k in map_key_fd.keys():
+                        print "%s ?= %s : %r" % (key, k, k == key)
                 map_key_fd[key] = fd
             else:
                 map_key_fd[key] |= fd
-        return Fds(set(map_key_fd.values()))
+        return Fds(map_key_fd.values())
 
     #@returns(Fds)
     def split(self):
@@ -320,7 +320,7 @@ class Fds(set):
 
 #------------------------------------------------------------------------------
 
-class DBNorm:
+class DBNorm(object):
     """
     Database schema normalization support
     http://elm.eeng.dcu.ie/~ee221/EE221-DB-7.pdf
@@ -334,10 +334,10 @@ class DBNorm:
         """
         if tables == None:
             self.tables = []
-            self.tables_3nf = None
+            self.g_3nf = None
         else:
             self.tables = tables
-            self.tables_3nf = self.to_3nf()
+            self.g_3nf = self.to_3nf()
 
     @staticmethod
     def check_closure(fields, fds):
@@ -414,7 +414,7 @@ class DBNorm:
         fds_removed = Fds()
         g_copy = g.copy()
         for fd in g_copy:                                   # for each fd = [x -> a]:
-            g2 = Fds(set([f for f in g if fd != f]))        #   g' = g \ {fd}
+            g2 = Fds([f for f in g if fd != f])             #   g' = g \ {fd}
             x  = fd.get_determinant().get_key()
             a  = fd.get_field()
             x_plus = DBNorm.closure(set(x), g2)             #   compute x+ according to g'
@@ -429,7 +429,7 @@ class DBNorm:
 
                     x_b = Key([xi for xi in x if xi != b])  #       x_b = x - b
                     g2  = Fds([f for f in g if fd != f])    #       g'  = g \ {fd} \cup {fd'}
-                    fd2 = fd.copy()                         #          with fd' = [(x - b) -> a]
+                    fd2 = copy.deepcopy(fd)                 #          with fd' = [(x - b) -> a]
                     fd2.set_key(x_b)
                     g2.add(fd2)
                     x_b_plus = DBNorm.closure(set(x_b), g2) #       compute (x - b)+ with repect to g'
@@ -440,34 +440,42 @@ class DBNorm:
         return (g, fds_removed) 
 
     @staticmethod
-    @returns(Fds)
-    def reinject_fds(fds, fds_removed):
+    #@accepts(DBGraph, Fds)
+    def reinject_fds(g_3nf, fds_removed):
         for fd in fds_removed:
-            key = fd.get_determinant().get_key()
-            if not key.is_composite() and key.get_field() == fd.get_field():
-                # The min cover algorithm has removed x --> x dependancies
-                # However we need these fds to deduce the entry points of
-                # the table and how to retrieve this field. 
-                # fields |= key
-                fds.add(fd)
-            else:
-                # During the min cover algorithm, this fd has been removed
-                # However its method remains relevant, so reinject this
-                # method in the fd set.
-                merged = False
-                fields = fd.get_fields()
-                for f in fds:
-                    if f.get_fields() == fields:
-                        # update fd
-                        fds.remove(f)
-                        f.merge_methods(fd)
-                        fds.add(f)
-                        merged = True
-                if not merged:
-                    raise Exception("Can't merge %s with %s" % (fd, fds))
-        return fds
+            print "-" * 80
+            print "Reinjecting %s" % fd
+            fd_field = fd.get_field()
+            methods = fd.get_methods()
 
-    @returns(list)
+            # Find an arbitrary table in which the fd can be reinjected
+            reinjected = False
+            tables = g_3nf.graph.nodes(False)
+            for table in tables: 
+                if fd_field in table.get_fields():
+                    reinjected = True
+                    print "> Injecting %r into %r" % (fd, table)
+                    table.insert_methods(methods)
+
+                    # Reinject in each parent table  until reaching a node having the right method name
+                    while table.get_name() != fd.get_determinant().get_method_name():
+                        predecessors = g_3nf.graph.predecessors(table)
+                        if len(predecessors) > 1:
+                            raise Exception("Several predecessors in 3nf graph for table %r: %r" % (table, preds))
+                        if len(predecessors) == 0:
+                            break
+                        table = predecessors[0] 
+                        print ">> Injecting %r into %r" % (fd, table)
+                        table.insert_methods(methods)
+                    break
+
+            if not reinjected:
+                for table in tables:
+                    print "%r keys = %r" % (table.get_name(), table.get_keys())
+                    for field in table.get_fields():
+                        print "\t%r" % field
+                raise Exception("Cannot reinject %s into %s" % (fd, tables))
+
     def to_3nf(self):
         """
         \brief Compute a 3nf schema according to self.tables
@@ -476,7 +484,7 @@ class DBNorm:
         """
         # Compute functional dependancies
         print "-" * 100
-        print "Compute functional dependancies"
+        print "1) Computing functional dependancies"
         print "-" * 100
         fds = self.make_fd_set()
         print "%s" % fds
@@ -494,39 +502,52 @@ class DBNorm:
 
         # Find a minimal cover
         print "-" * 100
-        print "Minimal cover"
+        print "2) Computing minimal cover"
         print "-" * 100
         (fds_min_cover, fds_removed) = DBNorm.fd_minimal_cover(fds)
         print "%s" % fds_min_cover
 
         print "-" * 100
-        print "Reinject removed Fds"
+        print "3) Make 3nf-tables"
         print "-" * 100
-        fds = DBNorm.reinject_fds(fds_min_cover, fds_removed)
-        print "%s" % fds
-
-        print "-" * 100
-        print "Aggregate Fds by Key"
-        print "-" * 100
-        fds = fds.collapse()
+        fds = fds_min_cover.collapse()
         print "%s" % fds
 
         # ... create relation R = (X, A1, A2, ..., An)
-        relations = []
+        tables_3nf = []
+        table_names = set() # DEBUG
         for fd in fds:
-            # Search source tables related to the corresponding key and values
-            key = fd.get_determinant().get_key()
-            sources = [table for table in self.tables if table.has_key(key)]
-            if not sources:
-                raise Exception("No source table found with key %s" % key)
+            platforms = set()
+            for methods in fd.get_map_field_methods().values():
+                for method in methods:
+                    platforms.add(method.get_platform())
 
-            fields = fd.get_fields()
-            relations.append(Table(
-                fd.get_platforms(),
+            # DEBUG
+            table_name = fd.get_determinant().get_method_name()
+            if table_name in table_names:
+                print "W: another table %r already exists" % table_name
+
+            tables_3nf.append(Table(
+                platforms,
                 fd.get_map_field_methods(),
-                key.get_name(),
-                fields,
-                [key]
+                table_name,
+                fd.get_fields(),
+                [fd.get_determinant().get_key()]
             ))
-        return relations
+
+            # DEBUG
+            table_names.add(table_name)
+
+        print "-" * 100
+        print "4) Building DBgraph"
+        print "-" * 100
+        graph_3nf = DBGraph(tables_3nf)
+
+        print "-" * 100
+        print "5) Reinjecting removed Fds"
+        print "-" * 100
+        DBNorm.reinject_fds(graph_3nf, fds_removed)
+        print "%s" % fds
+
+        return graph_3nf 
 

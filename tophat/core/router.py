@@ -330,16 +330,7 @@ class THLocalRouter(LocalRouter):
     def build_tables(self):
         # Build one table per key {'Table' : THRoute}
         tables = self.rib.keys() # HUM
-        #for t in tables:
-        #    print "BUILD TABLES", t
-        
-        # Table normalization
-        tables_3nf = DBNorm(tables).tables_3nf
-        
-        #print "================================== BDGraph for normalized"
-        # Join graph
-        self.G_nf = DBGraph(tables_3nf)
-        #print "================================== BDGraph for normalized DONE"
+        self.G_nf = DBNorm(tables).g_3nf 
 
     def fetch_static_routes(self, directory = METADATA_DIRECTORY):
         """
@@ -403,13 +394,15 @@ class THLocalRouter(LocalRouter):
         \return The corresponding Table instance
         \sa tophat/core/table.py
         """
+        print "coucou", isinstance(self.G_nf, DBGraph)
+        print "coucou", type(self.G_nf)
         for table in self.G_nf.graph.nodes(False):
             if table.name == table_name:
                 return table
 
         raise ValueError("get_table: table not found (table_name = %s): available tables: %s" % (
             table_name,
-            [(t.get_platforms(), t.name) for t in self.G_nf.graph.nodes(False)]
+            ["%r" % table for table in self.G_nf.graph.nodes(False)]
         ))
 
     def process_subqueries(self, query, user):

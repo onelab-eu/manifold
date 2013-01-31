@@ -100,8 +100,8 @@ class Table:
         Table.check_map_field_methods(map_field_methods)
         Table.check_partitions(partitions)
         if map_field_methods:
-            if map_field_methods.keys() != list(fields):
-                raise ValueError("Incoherent parameters: %r keys must be equal to %r" % (map_field_methods.keys(), fields))
+            if set(map_field_methods.keys()) != set(fields):
+                raise ValueError("Incoherent parameters: %r must be equal to %r" % (map_field_methods.keys(), fields))
 
     #-----------------------------------------------------------------------
     # Constructor 
@@ -115,7 +115,7 @@ class Table:
         \param name The name of the table (for example: 'user', ...)
         \param map_field_methods Pass None or a dictionnary which maps for each field
             the corresponding methods to retrieve them: {Field => set(Method)}
-        \param fields The fields involved in the table (for example 'name', 'email', ...)
+        \param fields A set/list of Fields involved in the table (for example 'name', 'email', ...)
         \param keys The key of the table (for example 'email')
         \param cost
         """
@@ -131,10 +131,6 @@ class Table:
         elif isinstance(partitions, dict):
             self.partitions = partitions 
 
-
-        # Init self.methods
-        self.methods = dict()
-
         # Init self.fields
         self.fields = dict()
         if isinstance(fields, (list, set, frozenset)):
@@ -148,12 +144,18 @@ class Table:
         for key in keys:
             self.insert_key(key)
 
+        # Init self.platforms
+        self.platforms = set(self.partitions.keys())
+        if isinstance(map_field_methods, dict):
+            for methods in map_field_methods.values():
+                for method in methods:
+                    self.platforms.add(method.get_platform())
+ 
         # Other fields
         self.name = name
         self.cost = cost
-        # TODO There will also be a list that the platform cannot provide, cf sources[i].fields
-
-       
+        self.map_field_methods = map_field_methods
+      
     #-----------------------------------------------------------------------
     # Outputs 
     #-----------------------------------------------------------------------
@@ -198,9 +200,7 @@ class Table:
     def has_key(self, key):
         """
         \brief Test whether a field is a key of this table
-        \param key The name of the field (StringTypes or Field).
-        You might pass an tuple or a list of fields (StringTypes or Field)
-        if your testing a composite key.
+        \param key A Key instance 
         \return True iif only this is a key
         """
         if not isinstance(key, Key):
@@ -214,12 +214,12 @@ class Table:
         """
         self.fields[field.get_name()] = field
  
-    @returns(list)
+    @returns(set)
     def get_fields(self):
         """
         \return the Field instances related to this table 
         """
-        return self.fields.values()
+        return set(self.fields.values())
 
     @returns(bool)
     def erase_field(self, field_name):
@@ -253,6 +253,21 @@ class Table:
                 raise TypeError("key = %r is not of type Key nor Field nor StringTypes")
             self.keys.add(Key(fields))
  
+    def insert_methods(self, methods):
+        """
+        \brief Add a pseudo method for every field of the table
+        \param method A Method instance
+        """
+        # update self.map_field_methods
+        for field in self.map_field_methods.keys():
+            key = Key([field])
+            if not self.has_key(key):
+                self.map_field_methods[field] |= methods
+
+        # update self.platforms
+        for method in methods:
+            self.platforms.add(method.get_platform())
+
     def get_field(self, field_name):
         """
         \brief Retrieve a Field instance stored in self according to
@@ -329,7 +344,7 @@ class Table:
         """
         \return The set of platform that corresponds to this table
         """
-        return set(self.partitions.keys())
+        return self.platforms
 
     #-----------------------------------------------------------------------
     # Relations between two Table instances 

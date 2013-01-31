@@ -10,7 +10,7 @@
 from types                         import StringTypes
 from tophat.util.type              import returns, accepts
 
-class Method:
+class Method(object):
     @staticmethod
     @accepts(unicode, str)
     def check_init(platform, name):
@@ -59,4 +59,7 @@ class Method:
     def __hash__(self):
         return hash((self.get_platform(), self.get_name()))
 
+    @returns(bool)
+    def __eq__(self, x):
+        return self.get_platform() == x.get_platform() and self.get_name() == x.get_name()
 

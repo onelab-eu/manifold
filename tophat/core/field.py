@@ -10,7 +10,7 @@
 from types                         import StringTypes
 from tophat.util.type              import returns, accepts 
 
-class Field:
+class Field(object):
     def __init__(self, qualifier, type, name, is_array = False, description = None):
         """
         \brief Constructor

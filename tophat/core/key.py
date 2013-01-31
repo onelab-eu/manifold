@@ -71,6 +71,13 @@ class Key(frozenset):
     def __repr__(self):
         return "KEY(%s)" % (", ".join(["%r" % field for field in self]))
 
+    @returns(bool)
+    def __eq__(self, x):
+        return set([f.get_name() for f in self]) == set(f.get_name() for f in x)
+
+    def __hash__(self):
+        return hash(tuple([f.get_name() for f in self]))
+
 class Keys(set):
     """
     Implements a set of keys for a table.
