@@ -9,6 +9,16 @@
 #   Jordan Augé       <jordan.auge@lip6.fr>
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
+# Hypotheses:
+# - unique naming: columns having the same name in several table have the same semantic
+#   - example: T1.date and T2.date and T1 -> T2, "date" refers to the same date 
+#   - if not, the both date should be explictely disambiguited (for instance T1_date and T2_date)
+#      - example: traceroute.date (date of the traceroute) and traceroute.agent.date (date of the last boot)
+#        is unallowed since "date" does not have the same meaning in the traceroute and the agent tables.
+# - underlying ontology: an given column has always the name it would have in the underlying ontology
+#   - example: P1::traceroute.destination and P2::traceroute.target is unallowed since
+#     destination and target have the same meaning.
+
 import copy
 from types                         import StringTypes
 
@@ -287,13 +297,17 @@ class Fds(set):
         \brief Aggregate each Fd of this Fds by Key 
         \returns The corresponding Fds instance 
         """
+        # Warning: this collapse assume that every keys (determinant) use
+        # the same types. For example if P1::T use a key (ip source, ip target,
+        # timestamp ts) and P2::T a key (agent source, destination target,
+        # timestamp ts), these two determinant are different and lead to
+        # two tables T in the 3nf schema.
+        # Warning: if a table has several keys, it will also lead to
+        # several table (one per table).
         map_key_fd = {}
         for fd in self:
             key = fd.get_determinant().get_key()
             if key not in map_key_fd.keys():
-                if len(key) == 3: # DEBUG
-                    for k in map_key_fd.keys():
-                        print "%s ?= %s : %r" % (key, k, k == key)
                 map_key_fd[key] = fd
             else:
                 map_key_fd[key] |= fd
@@ -378,6 +392,53 @@ class DBNorm(object):
                 break
         return x_plus
     
+    @staticmethod
+    @returns(dict)
+    @accepts(set, Fds)
+    def closure_ext(x, fds):
+        """
+        \brief Compute the closure of a set of attributes under the
+            set of functional dependencies
+            \sa http://elm.eeng.dcu.ie/~ee221/EE221-DB-7.pdf p7
+        \param x A set of Field instances (usually it should be a Key instance) 
+        \param fds A Fds instance (each fd must have exactly one output field)
+        \return A dictionnary where each key is a field in the closure of x
+            and where each corresponding data is the set of fd that
+            have been used to get this field.
+        """
+        # x = source node
+        # x+ = vertices reachable from x (at the current iteration)
+        # y -> z = an arc (a fd) that is visited during the DFS from (closure of) x
+
+        DBNorm.check_closure(x, fds)
+        x_plus_ext = dict()
+        for x_elt in x:
+            x_plus_ext[x_elt] = None                   # x+ = x
+
+        added = True
+        while added:                                   # repeat will we visit at least one new fd
+            added = False
+            for fd in fds:                             #   for each fd (y -> z)
+                y = fd.get_determinant().get_key()
+                x_plus = set(x_plus_ext.keys())
+                if y <= x_plus:                        #     if y in x+
+                    z = fd.get_field()
+                    if z not in x_plus:                #       if z not in x+
+                        added = True                   #          this fd is relevant, let's visit it
+                        x_plus_ext[z] = set()          #          x+ u= y
+
+                        # "z" is retrieved thanks to "fd" and
+                        # each fds needed to retrieve "y"
+                        x_plus_ext[z].add(fd)
+                        for y_elt in y:
+                            if x_plus_ext[y_elt]:
+                                x_plus_ext[z] |= x_plus_ext[y_elt]
+#        print "x = %r" % x
+#        print "x_plus_ext:"
+#        for k, d in x_plus_ext.items():
+#            print "\t%r => %r" % (k, d)
+        return x_plus_ext
+ 
     @returns(Fds)
     def make_fd_set(self):
         """
@@ -419,6 +480,7 @@ class DBNorm(object):
             a  = fd.get_field()
             x_plus = DBNorm.closure(set(x), g2)             #   compute x+ according to g'
             if a in x_plus:                                 #   if a \in x+:
+                print "rm %s" % fd
                 fds_removed.add(fd)
                 g = g2                                      #     g = g'
 
@@ -440,41 +502,44 @@ class DBNorm(object):
         return (g, fds_removed) 
 
     @staticmethod
-    #@accepts(DBGraph, Fds)
-    def reinject_fds(g_3nf, fds_removed):
-        for fd in fds_removed:
-            print "-" * 80
-            print "Reinjecting %s" % fd
-            fd_field = fd.get_field()
-            methods = fd.get_methods()
+    @accepts(Fds, Fds)
+    def reinject_fds(fds_min_cover, fds_removed):
+        """
+        \brief "Reinject" Fds removed by fd_minimal_cover in the remaining fds.
+            Example: P1 provides x -> y, y -> z
+                     P2 provides x -> z
+                     P3 provides x -> z'
+            The min cover is x -> y, y -> z, y -> z' and only the P1 fds are remaining
+            Reinjecting "x->z" in the min cover consist in adding P2 into x -> y and y -> z
+                since it is an (arbitrary) path from x to z.
+        \param fds_min_cover A Fds instance
+        \param fds_removed A Fds instance
+        """
+        map_determinant_closure = dict()
+        for fd_removed in fds_removed:
+            x = fd_removed.get_determinant().get_key()
+            if x not in map_determinant_closure.keys():
+                map_determinant_closure[x] = DBNorm.closure_ext(set(x), fds_min_cover)  
+            y = fd_removed.get_field()
+            
+            if y not in map_determinant_closure[x].keys():
+                # This should never happen!
+                raise Exception("Inconsistent closure: x+ doesn't provide y with x = %r and y = %r" % (x, y))
 
-            # Find an arbitrary table in which the fd can be reinjected
-            reinjected = False
-            tables = g_3nf.graph.nodes(False)
-            for table in tables: 
-                if fd_field in table.get_fields():
-                    reinjected = True
-                    print "> Injecting %r into %r" % (fd, table)
-                    table.insert_methods(methods)
+            # Update each "fd" in "fd_min_cover" involved in x --> ... --> y
+            # This path is stored in map_determinant_closure[x][y]
+            methods = fd_removed.get_map_field_methods()[y]
 
-                    # Reinject in each parent table  until reaching a node having the right method name
-                    while table.get_name() != fd.get_determinant().get_method_name():
-                        predecessors = g_3nf.graph.predecessors(table)
-                        if len(predecessors) > 1:
-                            raise Exception("Several predecessors in 3nf graph for table %r: %r" % (table, preds))
-                        if len(predecessors) == 0:
-                            break
-                        table = predecessors[0] 
-                        print ">> Injecting %r into %r" % (fd, table)
-                        table.insert_methods(methods)
-                    break
+            if not map_determinant_closure[x]:
+                # This should never happen!
+                raise Exception("Closure not found x = %r")
 
-            if not reinjected:
-                for table in tables:
-                    print "%r keys = %r" % (table.get_name(), table.get_keys())
-                    for field in table.get_fields():
-                        print "\t%r" % field
-                raise Exception("Cannot reinject %s into %s" % (fd, tables))
+            # Is there fd to update ?
+            if map_determinant_closure[x][y]:
+                # If true, update each fd.
+                # This fd [u --> v] is included in the path x --> ... --> y and v is a single field
+                for fd in map_determinant_closure[x][y]:
+                    fd.get_map_field_methods()[fd.get_field()] |= methods 
 
     def to_3nf(self):
         """
@@ -487,7 +552,7 @@ class DBNorm(object):
         print "1) Computing functional dependancies"
         print "-" * 100
         fds = self.make_fd_set()
-        print "%s" % fds
+        print "%r" % fds
 
         # Compute the map which refer for each key the platforms
         # which support this key 
@@ -505,10 +570,23 @@ class DBNorm(object):
         print "2) Computing minimal cover"
         print "-" * 100
         (fds_min_cover, fds_removed) = DBNorm.fd_minimal_cover(fds)
-        print "%s" % fds_min_cover
+        print "%r" % fds_min_cover
 
         print "-" * 100
-        print "3) Make 3nf-tables"
+        print "2)a) Reinjecting fd key --> key"
+        print "-" * 100
+        for fd in fds:
+            if fd.get_fields() <= fd.get_determinant().get_key():
+                print "add %r" % fd
+                fds_min_cover.add(fd)
+
+        print "-" * 100
+        print "2)b) Reinjecting fd removed" 
+        print "-" * 100
+        DBNorm.reinject_fds(fds_min_cover, fds_removed)
+
+        print "-" * 100
+        print "3) Collapse fds and make 3nf-tables"
         print "-" * 100
         fds = fds_min_cover.collapse()
         print "%s" % fds
@@ -522,10 +600,11 @@ class DBNorm(object):
                 for method in methods:
                     platforms.add(method.get_platform())
 
-            # DEBUG
             table_name = fd.get_determinant().get_method_name()
             if table_name in table_names:
-                print "W: another table %r already exists" % table_name
+                # This happens if a table is provided by different keys (two keys are
+                # equal iif the field are the same (type + name)
+                raise Exception("W: another table %r already exists" % table_name)
 
             tables_3nf.append(Table(
                 platforms,
@@ -535,7 +614,6 @@ class DBNorm(object):
                 [fd.get_determinant().get_key()]
             ))
 
-            # DEBUG
             table_names.add(table_name)
 
         print "-" * 100
@@ -543,10 +621,12 @@ class DBNorm(object):
         print "-" * 100
         graph_3nf = DBGraph(tables_3nf)
 
-        print "-" * 100
-        print "5) Reinjecting removed Fds"
-        print "-" * 100
-        DBNorm.reinject_fds(graph_3nf, fds_removed)
+#        print "-" * 100
+#        print "5) Reinjecting removed Fds"
+#        print "-" * 100
+##        DBNorm.reinject_fds(graph_3nf, fds_removed)
+#        DBNorm.reinject_fds(fds, fds_removed)
+#
         print "%s" % fds
 
         return graph_3nf 

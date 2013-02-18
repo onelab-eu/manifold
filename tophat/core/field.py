@@ -41,11 +41,10 @@ class Field(object):
         """
         \return the string (%s) corresponding to this Field 
         """
-        return "\n\tField(%r, %r, %r) // %r" % (
+        return "<%s %s %s>" % (
             self.get_qualifier(),
             self.get_type(),
-            self.get_name(),
-            self.get_description()
+            self.get_name()
         )
 
     @returns(bool)

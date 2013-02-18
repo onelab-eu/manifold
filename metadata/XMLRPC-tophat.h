@@ -23,8 +23,8 @@ class hop {
 };
 
 class traceroute {
-    const agent       source;
-    const destination destination;
+    const ip source;
+    const ip destination;
     const timestamp   ts;
     const hop         hops[];
     KEY(source, destination, ts);
