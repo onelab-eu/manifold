@@ -44,6 +44,7 @@ class DBGraph:
                 print "%r %s %r" % (u, label, v)
                 self.graph.add_edge(u, v, {'cost': True, 'type': label, 'info': fields_u})
 
+
             # v -?-> u
             relation_vu = v.get_relation(u)
             if relation_vu:
@@ -51,27 +52,11 @@ class DBGraph:
                 print "%r %s %r" % (v, label, u)
                 self.graph.add_edge(v, u, {'cost': True, 'type': label, 'info': fields_v})
 
-#            #print "======"
-#            #print "NODE=", node
-#            #print "TABLE=", table
-#            if node.determines(table):
-#                print "append(): %r --> %r" % (node, table)
-#                self.graph.add_edge(node, table, {'cost': True, 'type': '-->', 'info': node.get_determinant(table)})
-#            elif table.determines(node):
-#                print "append(): %r --> %r" % (table, node)
-#                self.graph.add_edge(table, node, {'cost': True, 'type': '-->', 'info': table.get_determinant(node)})
-#            elif node.includes(table):
-#                print "append(): %r ==> %r" % (node, table)
-#                self.graph.add_edge(node, table, {'cost': True, 'type': '==>', 'info': None})
-#            elif table.includes(node):
-#                print "append(): %r ==> %r" % (table, node)
-#                self.graph.add_edge(table, node, {'cost': True, 'type': "==>", 'info': None})
-#            elif node.provides(table):
-#                print "append(): %r ~~> %r" % (node, table)
-#                self.graph.add_edge(node, table, {'cost': True, 'type': "~~>", 'info': node.get_provider(table)})
-#            elif table.provides(node):
-#                print "append(): %r ~~> %r" % (table, node)
-#                self.graph.add_edge(table, node, {'cost': True, 'type': "~~>", 'info': table.get_provider(node)})
+#            if u.is_connected_to(v):
+#                self.graph.add_edge(u, v, {'cost': True, 'type': label, 'info': fields_u})
+#            if v.is_connected_to(u):
+#                self.graph.add_edge(v, u, {'cost': True, 'type': label, 'info': fields_v})
+
 
     def plot(self):
         DBGraph.plot_graph(self.graph)

@@ -41,8 +41,8 @@ class Field(object):
         """
         \return the string (%s) corresponding to this Field 
         """
-        return "<%s %s %s>" % (
-            self.get_qualifier(),
+        return "%s%s %s" % (
+            "%s " % self.get_qualifier() if self.get_qualifier() != None else '',
             self.get_type(),
             self.get_name()
         )

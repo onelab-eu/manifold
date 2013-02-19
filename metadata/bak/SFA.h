@@ -14,7 +14,7 @@ class lease {
     interval    duration;
     text        network;
     const text  hrn;
-    const text  type;
+    const text  lease_type;
     KEY(urn);
 };
 
@@ -59,7 +59,7 @@ class resource {
     const pl_distro pldistro;               /**< Fedora or CentOS distribution to use for node or slivers */
     const text      services;
     const int       site_id;
-    const text      type;
+    const text      resource_type;
     KEY(hrn);
 };
 

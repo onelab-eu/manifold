@@ -166,11 +166,11 @@ class Table:
         \brief Convert a Table instance into a string ('%s')
         \return The corresponding string
         """
-        return "<{%s}::%s fields = {%s} keys = %r>" % (
-            ', '.join([p            for p in sorted(self.get_platforms())]),
+        return "{%s}::%s {\n\t%s;\n\n\t%s;\n};" % (
+            ', '.join([p          for p in sorted(self.get_platforms())]),
             self.get_name(),
-            ', '.join([f.get_name() for f in sorted(self.get_fields())]),
-            self.keys
+            ';\n\t'.join(["%s" % f for f in sorted(self.get_fields())]),
+            ';\n\t'.join(["%s" % k for k in self.get_keys()])
         )
 
     @returns(unicode)
@@ -378,13 +378,13 @@ class Table:
     def get_connecting_fields(self, table):
         """
         \brief Find fields verifying: 
-            exists f | u.f.t == v.n or u.f.n == v.n (P1)
+            exists f | u.f.t == v.n (P1)
         \param table The target candidate table
         \return The set of Field f verifying (P1) 
         """
         connecting_fields = set()
         for field in self.get_fields():
-            if field.get_name() == table.get_name() or field.get_type() == table.get_name():
+            if field.get_type() == table.get_name():
                 connecting_fields.add(field)
         return connecting_fields 
 
@@ -440,7 +440,6 @@ class Table:
         v = table
         connecting_fields_uv = u.get_connecting_fields(v)
         if connecting_fields_uv != set():
-            connecting_fields_vu = v.get_connecting_fields(u)
             if not u.has_intersecting_key(connecting_fields_uv):
                 return ("~~>", connecting_fields_uv)
             elif u.includes(v):
@@ -450,3 +449,25 @@ class Table:
             elif u.inherits(v):
                 return ("-->", v.get_fields_in_key(connecting_fields_uv)) 
         return None
+
+#    def is_connected_to(self, table):
+#        u = self
+#        v = table
+#        connecting_fields = set()
+#
+#        # Find a field of u having a type equal to the table name of v
+#        for field in u.get_fields():
+#            if field.get_type() == v.get_name():
+#                fields_u = set()
+#                fields_u.add(field)
+#                return (fields_u, None)
+#
+#        # Find a subset of fields of u equal to a key of v
+#        for key_v in v.get_keys():
+#            if key_v.is_composite():
+#                if key_v <= u.get_fields():
+#                    return (set(key_v), set(key_v)) 
+#            else:
+#
+#        return False
+#

@@ -6,8 +6,8 @@
 #
 # Copyright (C) UPMC Paris Universitas
 # Authors:
-#   Jordan Augé       <jordan.auge@lip6.fr>
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
+#   Jordan Augé       <jordan.auge@lip6.fr>
 
 # Hypotheses:
 # - unique naming: columns having the same name in several table have the same semantic
@@ -18,6 +18,7 @@
 # - underlying ontology: an given column has always the name it would have in the underlying ontology
 #   - example: P1::traceroute.destination and P2::traceroute.target is unallowed since
 #     destination and target have the same meaning.
+#
 
 import copy
 from types                         import StringTypes
@@ -33,10 +34,13 @@ from tophat.util.dbgraph           import DBGraph
 
 class Determinant(object):
     """
-    A Determinant models the left operand of a "rule" that allow to retrieve one or more field
+    A Determinant models the left operand of a "rule" that allow to retrieve
+    one or more field thanks to a key.
 
     Example: 
-        Consider a table/method named t provided by a platform P providing fields y, z for a key k:
+
+        Consider a table/method named t provided by a platform P providing
+        fields y, z for a key k:
 
             P::t{k*,y, z}
 
@@ -45,8 +49,9 @@ class Determinant(object):
 
             (t, k) --> {y,z}
 
-        t is required in the determinant since it leads to different semantic meanings.
-        For example if t' inherits t and uses the same key(s), t' only provide information for a subset of keys of t.
+        t is required in the determinant since it leads to different
+        semantic meanings. For example if t' inherits t and uses the same
+        key(s), t' only provide information for a subset of keys of t.
     """
 
     @staticmethod
@@ -220,17 +225,19 @@ class Fd(object):
 
     #@returns(str)
     def __str__(self):
-        cr = ''
+        cr  = ''
+        cr1 = ''
         cr2 = ''
         if len(self.get_fields()) > 1 :
-            cr ='\n'
-            cr2 ='\n\t'
+            cr  = '\n'
+            cr1 = '\n'
+            cr2 = '\n\t'
         
         return "[%s => {%s%s%s}]" % (
             self.get_determinant(),
-            cr2,
+            cr1,
             cr2.join([
-                "%20r\t(via {%s})" % (
+                "%20s\t(via {%s})" % (
                     field,
                     ', '.join(['%r' % method for method in sorted(methods)])
                 ) for field, methods in self.map_field_methods.items()
@@ -256,7 +263,7 @@ class Fd(object):
         \return self
         """
         if (self.get_determinant().get_key() == fd.get_determinant().get_key()) == False:
-            raise ValueError("Cannot call |= with parameters self = %r and fd = %r" % (self, fd))
+            raise ValueError("Cannot call |= with parameters (invalid determinants)\n\tself = %r\n\tfd   = %r" % (self, fd))
         for field, methods in fd.map_field_methods.items():
             if field not in self.map_field_methods.keys():
                 self.map_field_methods[field] = set()
@@ -287,31 +294,39 @@ class Fds(set):
         \param fds A set or a list of Fd instances
         """
         Fds.check_init(fds)
-        # /!\ Don't call set.__init(fds), copy explicitly each fd 
+        # /!\ Don't call set.__init__(fds), copy explicitly each fd 
         for fd in fds:
             self.add(fd)
 
-    #@returns(Fds)
-    def collapse(self):
+#OBSOLETE|    #@returns(Fds)
+#OBSOLETE|    def collapse(self):
+#OBSOLETE|        """
+#OBSOLETE|        \brief Aggregate each Fd of this Fds by method name 
+#OBSOLETE|        \returns The corresponding Fds instance 
+#OBSOLETE|        """
+#OBSOLETE|        map_method_fd = dict() 
+#OBSOLETE|        for fd in self:
+#OBSOLETE|            method = fd.get_determinant().get_method_name()
+#OBSOLETE|            if method not in map_method_fd.keys():
+#OBSOLETE|                map_method_fd[method] = fd
+#OBSOLETE|            else:
+#OBSOLETE|                map_method_fd[method] |= fd
+#OBSOLETE|
+#OBSOLETE|        return Fds(map_method_fd.values())
+
+    @returns(dict)
+    def group_by_method(self):
         """
-        \brief Aggregate each Fd of this Fds by Key 
-        \returns The corresponding Fds instance 
+        \brief Group a set of Fd stored in this Fds by method
+        \returns A dictionnary {method_name : Fds}
         """
-        # Warning: this collapse assume that every keys (determinant) use
-        # the same types. For example if P1::T use a key (ip source, ip target,
-        # timestamp ts) and P2::T a key (agent source, destination target,
-        # timestamp ts), these two determinant are different and lead to
-        # two tables T in the 3nf schema.
-        # Warning: if a table has several keys, it will also lead to
-        # several table (one per table).
-        map_key_fd = {}
+        map_method_fds = dict() 
         for fd in self:
-            key = fd.get_determinant().get_key()
-            if key not in map_key_fd.keys():
-                map_key_fd[key] = fd
-            else:
-                map_key_fd[key] |= fd
-        return Fds(map_key_fd.values())
+            method = fd.get_determinant().get_method_name()
+            if method not in map_method_fds.keys():
+                map_method_fds[method] = Fds()
+            map_method_fds[method].add(fd)
+        return map_method_fds
 
     #@returns(Fds)
     def split(self):
@@ -433,20 +448,19 @@ class DBNorm(object):
                         for y_elt in y:
                             if x_plus_ext[y_elt]:
                                 x_plus_ext[z] |= x_plus_ext[y_elt]
-#        print "x = %r" % x
-#        print "x_plus_ext:"
-#        for k, d in x_plus_ext.items():
-#            print "\t%r => %r" % (k, d)
         return x_plus_ext
  
+    @staticmethod
     @returns(Fds)
-    def make_fd_set(self):
+    @accepts(list)
+    def make_fd_set(tables):
         """
         \brief Compute the set of functionnal dependancies
+        \param A list of input Table instances
         \returns A Fds instance
         """
         fds = Fds() 
-        for table in self.tables:
+        for table in tables:
             name = table.get_name()
             for key in table.get_keys():
                 for field in table.get_fields():
@@ -517,6 +531,7 @@ class DBNorm(object):
         """
         map_determinant_closure = dict()
         for fd_removed in fds_removed:
+            print "Reinjecting %s" % fd_removed
             x = fd_removed.get_determinant().get_key()
             if x not in map_determinant_closure.keys():
                 map_determinant_closure[x] = DBNorm.closure_ext(set(x), fds_min_cover)  
@@ -551,7 +566,7 @@ class DBNorm(object):
         print "-" * 100
         print "1) Computing functional dependancies"
         print "-" * 100
-        fds = self.make_fd_set()
+        fds = DBNorm.make_fd_set(self.tables)
         print "%r" % fds
 
         # Compute the map which refer for each key the platforms
@@ -570,64 +585,87 @@ class DBNorm(object):
         print "2) Computing minimal cover"
         print "-" * 100
         (fds_min_cover, fds_removed) = DBNorm.fd_minimal_cover(fds)
-        print "%r" % fds_min_cover
+        #print "%r" % fds_min_cover
 
         print "-" * 100
-        print "2)a) Reinjecting fd key --> key"
+        print "3) Reinjecting fds 'key --> key'"
         print "-" * 100
         for fd in fds:
             if fd.get_fields() <= fd.get_determinant().get_key():
-                print "add %r" % fd
                 fds_min_cover.add(fd)
+        print "%s" % fds_min_cover
 
         print "-" * 100
-        print "2)b) Reinjecting fd removed" 
+        print "4) Reinjecting fd removed" 
         print "-" * 100
         DBNorm.reinject_fds(fds_min_cover, fds_removed)
 
+#OBSOLETE|        print "-" * 100
+#OBSOLETE|        print "5) Collapse fds and make 3nf-tables"
+#OBSOLETE|        print "-" * 100
+#OBSOLETE|        fds = fds_min_cover.collapse()
+#OBSOLETE|        print "%s" % fds
+#OBSOLETE|
+#OBSOLETE|        # ... create relation R = (X, A1, A2, ..., An)
+#OBSOLETE|        tables_3nf = []
+#OBSOLETE|        table_names = set() # DEBUG
+#OBSOLETE|        for fd in fds:
+#OBSOLETE|            platforms = set()
+#OBSOLETE|            for methods in fd.get_map_field_methods().values():
+#OBSOLETE|                for method in methods:
+#OBSOLETE|                    platforms.add(method.get_platform())
+#OBSOLETE|
+#OBSOLETE|            # DEBUG begin
+#OBSOLETE|            table_name = fd.get_determinant().get_method_name()
+#OBSOLETE|            if table_name in table_names:
+#OBSOLETE|                # This happens if a table is provided by different keys (two keys are
+#OBSOLETE|                # equal iif the field are the same (type + name)
+#OBSOLETE|                raise Exception("W: another table %r already exists" % table_name)
+#OBSOLETE|            # DEBUG end 
+#OBSOLETE|
+#OBSOLETE|            tables_3nf.append(Table(
+#OBSOLETE|                platforms,
+#OBSOLETE|                fd.get_map_field_methods(),
+#OBSOLETE|                table_name,
+#OBSOLETE|                fd.get_fields(),
+#OBSOLETE|                [fd.get_determinant().get_key()]
+#OBSOLETE|            ))
+        
         print "-" * 100
-        print "3) Collapse fds and make 3nf-tables"
+        print "5) Grouping fds by method"
         print "-" * 100
-        fds = fds_min_cover.collapse()
-        print "%s" % fds
+        fdss = fds_min_cover.group_by_method()
+        for table_name, fds in fdss.items():
+            print "%s:\n%s" % (table_name, fds)
 
-        # ... create relation R = (X, A1, A2, ..., An)
+        print "-" * 100
+        print "6) Making 3-nf tables" 
+        print "-" * 100
         tables_3nf = []
-        table_names = set() # DEBUG
-        for fd in fds:
-            platforms = set()
-            for methods in fd.get_map_field_methods().values():
-                for method in methods:
-                    platforms.add(method.get_platform())
+        for table_name, fds in fdss.items():
+            platforms         = set()
+            map_field_methods = dict()
+            fields            = set()
+            keys              = set()
+            for fd in fds:
+                keys.add(fd.get_determinant().get_key())
+                fields |= fd.get_fields()
+                for field, methods in fd.get_map_field_methods().items():
+                    if field not in map_field_methods:
+                        map_field_methods[field] = set()
+                    map_field_methods[field] |= methods
+                    for method in methods:
+                        platforms.add(method.get_platform())
 
-            table_name = fd.get_determinant().get_method_name()
-            if table_name in table_names:
-                # This happens if a table is provided by different keys (two keys are
-                # equal iif the field are the same (type + name)
-                raise Exception("W: another table %r already exists" % table_name)
+            table = Table(platforms, map_field_methods, table_name, fields, keys)
+            print "%s\n" % table
+            tables_3nf.append(table)
 
-            tables_3nf.append(Table(
-                platforms,
-                fd.get_map_field_methods(),
-                table_name,
-                fd.get_fields(),
-                [fd.get_determinant().get_key()]
-            ))
-
-            table_names.add(table_name)
-
+ 
         print "-" * 100
-        print "4) Building DBgraph"
+        print "7) Building DBgraph"
         print "-" * 100
         graph_3nf = DBGraph(tables_3nf)
-
-#        print "-" * 100
-#        print "5) Reinjecting removed Fds"
-#        print "-" * 100
-##        DBNorm.reinject_fds(graph_3nf, fds_removed)
-#        DBNorm.reinject_fds(fds, fds_removed)
-#
-        print "%s" % fds
 
         return graph_3nf 
 
