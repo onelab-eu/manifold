@@ -6,6 +6,7 @@
 # Copyright (C) UPMC Paris Universitas
 # Authors:
 #   Jordan Augé       <jordan.auge@lip6.fr>
+#   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
 from types                  import StringTypes
 from tophat.core.filter     import Filter, Predicate
@@ -27,7 +28,6 @@ class Query(object):
     def __init__(self, *args, **kwargs):
         l = len(kwargs.keys())
 
-
         if len(args) == 1 and isinstance(args[0], Query):
             # Copy
             return deepcopy(args[0])
@@ -38,47 +38,46 @@ class Query(object):
             self.action, self.fact_table, self.filters, self.params, self.fields, self.ts = args
 
         # Initialization from a dict (action & fact_table are mandatory)
-        elif 'fact_table' in kwargs:
-            if 'action' in kwargs:
-                self.action = kwargs['action']
-                del kwargs['action']
+        elif "fact_table" in kwargs:
+            if "action" in kwargs:
+                self.action = kwargs["action"]
+                del kwargs["action"]
             else:
                 print "W: defaulting to get action"
-                self.action = 'get'
+                self.action = "get"
 
-            self.fact_table = kwargs['fact_table']
-            del kwargs['fact_table']
+            self.fact_table = kwargs["fact_table"]
+            del kwargs["fact_table"]
 
-            if 'filters' in kwargs:
-                self.filters = kwargs['filters']
-                del kwargs['filters']
+            if "filters" in kwargs:
+                self.filters = kwargs["filters"]
+                del kwargs["filters"]
             else:
                 self.filters = Filter([])
 
-            if 'fields' in kwargs:
-                self.fields = set(kwargs['fields'])
-                del kwargs['fields']
+            if "fields" in kwargs:
+                self.fields = set(kwargs["fields"])
+                del kwargs["fields"]
             else:
                 self.fields = set([])
 
             # "update table set x = 3" => params == set
-            if 'params' in kwargs:
-                self.params = kwargs['params']
-                del kwargs['params']
+            if "params" in kwargs:
+                self.params = kwargs["params"]
+                del kwargs["params"]
             else:
                 self.params = {}
 
-            if 'ts' in kwargs:
-                self.ts = kwargs['ts']
-                del kwargs['ts']
+            if "ts" in kwargs:
+                self.ts = kwargs["ts"]
+                del kwargs["ts"]
             else:
-                self.ts = 'now' 
+                self.ts = "now" 
 
             if kwargs:
                 raise ParameterError, "Invalid parameter(s) : %r" % kwargs.keys()
-                return
         else:
-                raise ParameterError, "No valid constructor found for %s : args=%r" % (self.__class__.__name__, args)
+                raise ParameterError, "No valid constructor found for %s : args = %r" % (self.__class__.__name__, args)
 
         if not self.filters: self.filters = Filter([])
         if not self.params:  self.params  = {}
@@ -100,7 +99,11 @@ class Query(object):
                 raise TypeError("Invalid field name %s (string expected, got %s)" % (field, type(field)))
 
     def __str__(self):
-        return "SELECT %s FROM %s WHERE %s" % (', '.join(self.fields), self.fact_table, self.filters)
+        return "SELECT %s FROM %s WHERE %s" % (
+            ", ".join(self.fields),
+            self.fact_table,
+            self.filters
+        )
 
     def __key(self):
         return (self.action, self.fact_table, self.filters, frozendict(self.params), frozenset(self.fields))

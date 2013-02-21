@@ -3,20 +3,20 @@ from types                      import StringTypes
 
 from twisted.internet           import defer
 
-from tophat.util.reactor_thread import ReactorThread
-from tophat.core.filter         import Predicate
 from tophat.router              import *
-from tophat.core.table          import Table
-
-from tophat.gateways            import *
+from tophat.core.filter         import Predicate
 from tophat.core.ast            import AST
+from tophat.core.key            import Key
 from tophat.core.query          import Query
+from tophat.core.table          import Table
+from tophat.gateways            import *
 from tophat.models              import *
 from tophat.util.dbnorm         import DBNorm
 from tophat.util.dbgraph        import DBGraph
 from tophat.util.dfs            import dfs
 from tophat.util.pruned_tree    import build_pruned_tree
 from tophat.util.query_plane    import build_query_plane 
+from tophat.util.reactor_thread import ReactorThread
 
 from sfa.trust.credential       import Credential
 from tophat.gateways.sfa        import ADMIN_USER
@@ -298,20 +298,20 @@ class THLocalRouter(LocalRouter):
         #if not delegate == 'ple.upmc.slicebrowser':
         #    raise PLCInvalidArgument, "Credential should be delegated to ple.upmc.slicebrowser instead of %s" % delegate;
         #cred_fields = {
-        #    'credential_person_id': self.caller['person_id'],
-        #    'credential_target': cred.get_gid_object().get_hrn(),
-        #    'credential_expiration':  cred.get_expiration(),
-        #    'credential_type': cred.get_gid_object().get_type(),
-        #    'credential': cred.save_to_string()
+        #    "credential_person_id" : self.caller["person_id"],
+        #    "credential_target"    : cred.get_gid_object().get_hrn(),
+        #    "credential_expiration": cred.get_expiration(),
+        #    "credential_type"      : cred.get_gid_object().get_type(),
+        #    "credential"           : cred.save_to_string()
         #}
 
     def cred_to_struct(self, cred):
-        c = Credential(string=cred)
+        c = Credential(string = cred)
         return {
-            'target': c.get_gid_object().get_hrn(),
-            'expiration':  c.get_expiration(),
-            'type': c.get_gid_object().get_type(),
-            'credential': c.save_to_string()
+            "target"     : c.get_gid_object().get_hrn(),
+            "expiration" : c.get_expiration(),
+            "type"       : c.get_gid_object().get_type(),
+            "credential" : c.save_to_string()
         }
 
     def get_credentials(self, platform, user):
@@ -320,10 +320,10 @@ class THLocalRouter(LocalRouter):
         account = [a for a in user.accounts if a.platform.platform == platform][0]
         config = account.config_get()
 
-        creds.append(self.cred_to_struct(config['user_credential']))
-        for sc in config['slice_credentials'].values():
+        creds.append(self.cred_to_struct(config["user_credential"]))
+        for sc in config["slice_credentials"].values():
             creds.append(self.cred_to_struct(sc))
-        creds.append(self.cred_to_struct(config['authority_credential']))
+        creds.append(self.cred_to_struct(config["authority_credential"]))
 
         return creds
 
@@ -365,26 +365,26 @@ class THLocalRouter(LocalRouter):
 
         return routes
 
-    def get_platform_max_fields(self, fields, join):
-        # Search for the platform::method that allows for the largest number of missing fields
-        _fields = [f.split('.')[0] for f in fields]
-        maxfields = 0
-        ret = (None, None)
-        
-        for dest, route in self.rib.items():
-            # HACK to make tophat on join
-            if not join and dest.platform in ['tophat', 'myslice']:
-                continue
-            isect = set(dest.fields).intersection(set(_fields))
-            if len(isect) > maxfields:
-                maxfields = len(isect)
-                ret = (dest, isect)
-        return ret
+#OBSOLETE|    def get_platform_max_fields(self, fields, join):
+#OBSOLETE|        # Search for the platform::method that allows for the largest number of missing fields
+#OBSOLETE|        _fields = [f.split(".")[0] for f in fields]
+#OBSOLETE|        maxfields = 0
+#OBSOLETE|        ret = (None, None)
+#OBSOLETE|        
+#OBSOLETE|        for dest, route in self.rib.items():
+#OBSOLETE|            # HACK to make tophat on join
+#OBSOLETE|            if not join and dest.platform in ["tophat", "myslice"]:
+#OBSOLETE|                continue
+#OBSOLETE|            isect = set(dest.fields).intersection(set(_fields))
+#OBSOLETE|            if len(isect) > maxfields:
+#OBSOLETE|                maxfields = len(isect)
+#OBSOLETE|                ret = (dest, isect)
+#OBSOLETE|        return ret
 
     def metadata_get_keys(self, table_name):
-        for t in self.rib.keys(): # HUM
-            if t.name == table_name:
-                return t.keys
+        for table in self.rib.keys(): # HUM
+            if table.get_name() == table_name:
+                return table.get_keys()
         return None
 
     def get_table(self, table_name):
@@ -394,8 +394,6 @@ class THLocalRouter(LocalRouter):
         \return The corresponding Table instance
         \sa tophat/core/table.py
         """
-        print "coucou", isinstance(self.G_nf, DBGraph)
-        print "coucou", type(self.G_nf)
         for table in self.G_nf.graph.nodes(False):
             if table.name == table_name:
                 return table
@@ -424,44 +422,44 @@ class THLocalRouter(LocalRouter):
         cur_fields = []
         subq = {}
 
-        debug = 'debug' in query.params and query.params['debug']
+        debug = "debug" in query.params and query.params["debug"]
 
         # XXX there are some parameters that will be answered by the parent !!!! no need to request them from the children !!!!
         # XXX XXX XXX XXX XXX XXX ex slice.resource.PROPERTY
 
         if query.filters:
             for pred in query.filters:
-                if '.' in pred.key:
-                    method, subkey = pred.key.split('.', 1)
+                if "." in pred.key:
+                    method, subkey = pred.key.split(".", 1)
                     if not method in subq:
                         subq[method] = {}
-                    if not 'filters' in subq[method]:
-                        subq[method]['filters'] = []
-                    subq[method]['filters'].append(Predicate(subkey, pred.op, pred.value))
+                    if not "filters" in subq[method]:
+                        subq[method]["filters"] = []
+                    subq[method]["filters"].append(Predicate(subkey, pred.op, pred.value))
                 else:
                     cur_filters.append(pred)
 
         if query.params:
             for key, value in query.params.items():
-                if '.' in key:
-                    method, subkey = key.split('.', 1)
+                if "." in key:
+                    method, subkey = key.split(".", 1)
                     if not method in subq:
                         subq[method] = {}
-                    if not 'params' in subq[method]:
-                        subq[method]['params'] = {}
-                    subq[method]['params'][subkey, value]
+                    if not "params" in subq[method]:
+                        subq[method]["params"] = {}
+                    subq[method]["params"][subkey, value]
                 else:
                     cur_params[key] = value
 
         if query.fields:
             for field in query.fields:
-                if '.' in field:
-                    method, subfield = field.split('.', 1)
+                if "." in field:
+                    method, subfield = field.split(".", 1)
                     if not method in subq:
                         subq[method] = {}
-                    if not 'fields' in subq[method]:
-                        subq[method]['fields'] = []
-                    subq[method]['fields'].append(subfield)
+                    if not "fields" in subq[method]:
+                        subq[method]["fields"] = []
+                    subq[method]["fields"].append(subfield)
                 else:
                     cur_fields.append(field)
 
@@ -472,14 +470,14 @@ class THLocalRouter(LocalRouter):
                 # We append the method name (eg. resources) which should return the list of keys
                 # (and eventually more information, but they will be ignored for the moment)
 
-                method = table.get_field(method).type
+                method = table.get_field(method).get_type()
                 if not method in cur_fields:
                     cur_fields.append(method)
 
                 # Recursive construction of the processed subquery
-                subfilters = subquery['filters'] if 'filters' in subquery else []
-                subparams  = subquery['params']  if 'params'  in subquery else {}
-                subfields  = subquery['fields']  if 'fields'  in subquery else []
+                subfilters = subquery["filters"] if "filters" in subquery else []
+                subparams  = subquery["params"]  if "params"  in subquery else {}
+                subfields  = subquery["fields"]  if "fields"  in subquery else []
                 subts      = query.ts
 
                 print "method     = ", method
@@ -487,15 +485,16 @@ class THLocalRouter(LocalRouter):
                 print "subparams  = ", subparams 
                 print "subfields  = ", subfields 
 
-                # XXX Adding primary key in subquery to be able to merge
+                # Adding primary key in subquery to be able to merge
                 keys = self.metadata_get_keys(method)
                 if keys:
                     key = list(keys).pop()
-                    if isinstance(key, (tuple, frozenset, list)):
-                        for key_elt in key:
-                            subfields.append(key_elt)
-                    elif isinstance(key, StringTypes):
-                        subfields.append(key)
+                    print "W: selecting arbitrary key %s to join with '%s'" % (key, method)
+                    if isinstance(key, Key):
+                        for field in key:
+                            field_name = field.get_name()
+                            if field_name not in subfields:
+                                subfields.append(field_name)
                     else:
                         raise TypeError("Invalid type: key = %s (type %s)" % (key, type(key)))
 
@@ -536,7 +535,7 @@ class THLocalRouter(LocalRouter):
                 print "Preparing subquery on", method
 
                 if debug:
-                    subparams['debug'] = True
+                    subparams["debug"] = True
 
                 subquery = Query(query.action, method, subfilters, subparams, subfields, subts)
 
@@ -589,9 +588,9 @@ class THLocalRouter(LocalRouter):
         return qp
 
     def process_query(self, query, user):
-        print "Tables:"
-        for u in self.G_nf.graph.nodes(False):
-            print "%s" % u
+#DEBUG|        print "Tables:"
+#DEBUG|        for u in self.G_nf.graph.nodes(False):
+#DEBUG|            print "%s" % u
         return self.process_query_mando(query, user)
 
     def process_query_mando(self, query, user):
@@ -620,6 +619,10 @@ class THLocalRouter(LocalRouter):
 
         # Retrieve the (unique due to 3-nf) tree included in "self.G_nf" and rooted in "root"
         # \sa tophat/util/dfs.py
+        print "Entering DFS(%r) in graph:" % root
+        for edge in self.G_nf.graph.edges():
+            (u, v) = edge
+            print "\t%r %s %r via %r" % (u, self.G_nf.graph[u][v]["type"], v, self.G_nf.graph[u][v]["info"])
         map_vertex_pred = dfs(self.G_nf.graph, root)
 
         # Compute the corresponding pruned tree.
@@ -633,239 +636,238 @@ class THLocalRouter(LocalRouter):
         # It leads to a query plane made of Union, From, and LeftJoin nodes
         return build_query_plane(user, pruned_tree)
 
-
-    # OBSOLETE
-    def process_query_new(self, query, user):
-        """
-        \brief Compute the query plane related to a query which involves
-            no sub-queries. Sub-queries should already processed thanks to
-            process_subqueries().
-        \param query The query issued by the user.
-        \param user The user issuing the query (according to the user grants
-            the query plane might differ).
-        \return The AST instance representing the query plane.
-        """
-        # Find a tree of tables rooted at the fact table (e.g. method) included
-        # in the normalized graph.
-        root = self.G_nf.get_root(query)
-        tree = [arc for arc in self.G_nf.get_tree_edges(root)] # DFS tree 
-
-        # Compute the fields involved explicitly in the query (e.g. in SELECT or WHERE)
-        needed_fields = set(query.fields)
-        if query.filters:
-            needed_fields.update(query.filters.keys())
-
-        # Prune this tree to remove table that are not required to answer the query.
-        # As a consequence, each leave of the tree provides at least one queried field.
-        tree = DBGraph.prune_tree(tree, dict(self.G_nf.graph.nodes(True)), needed_fields)
-
-        # TODO check whether every needed_fields is provided by a node of the tree
-        # We might only be able to partially answer a query. Inform the user
-        # about it
-
-        # Initialize a query plan
-        qp = AST(user)
-
-        # Process the root node
-        successors = self.G_nf.get_successors(root)
-        succ_keys = [list(iter(table.keys).next())[0] for table in successors]
-        current_fields = set(needed_fields) & set([field.get_name() for field in root.get_fields()])
-        current_fields |= set(succ_keys)
-        q = Query(
-            action     = query.action,
-            fact_table = root.name,
-            filters    = None, #query.filters,
-            params     = None, #query.params,
-            fields     = list(current_fields),
-            ts         = query.ts
-        )
-        qp = qp.From(root, q)
-
-        needed_fields -= current_fields
-
-        # (tree == None) means the tree is reduced to the root node. We are done
-        if not tree:
-            if needed_fields: 
-                print "UNRESOLVED FIELDS", needed_fields
-            return qp
-
-        # XXX Can be optimized by parallelizing...
-        # XXX Note: not all arcs are JOIN, some are just about adding fields, or
-        # better choosing the platform.
-        for _, node in self.G_nf.get_edges():
-            # Key is necessary for joining with the parent
-            # NOTE we will need to remember which key was collected
-            # maybe because it will be left in needed keys ???
-            key = iter(node.keys).next()
-            if isinstance(key, tuple): key = key[0]
-
-
-            # We need to ask to the local table at least one key for each
-            # successor XXX let's suppose for now there is only one key
-            # XXX in case of compound keys, what to do ?
-            successors = self.G_nf.get_successors(node)
-            succ_keys = [iter(s.keys).next() for s in successors]
-
-            # Realize a left join ( XXX only for PROVIDES arcs)
-            current_fields = set(needed_fields) & set([field.get_name() for field in node.get_fields()])
-            print "succ_keys = ", succ_keys 
-            current_fields |= set(succ_keys)
-            current_fields.add(key) 
-
-            print "current_fields = ", current_fields
-            q = Query(
-                action     = query.action,
-                fact_table = node.name,
-                filters    = None, #query.filters,
-                params     = None, # query.params,
-                fields     = list(current_fields),
-                ts         = query.ts
-            )
-
-            qp = qp.join(AST(user).From(node, q), key)
-
-            needed_fields -= current_fields
-        
-        if needed_fields:
-            print "UNRESOLVED FIELDS", needed_fields
-        return qp
-
-        # Explore the tree to compute which fields must be retrieved for each node/table
-        # - A child node can be explored if and only if one of its key is provided
-        # by the parent node (to join both table), so we need to retrieve the
-        # corresponding fields both in the parent and child.
-        # - Whenever a node is crossed, we compute if it provides some queried
-        # fields. If so, we also retrieve those fields
-
-    # OBSOLETE
-    def process_query_old(self, query, user):
-        """
-        \brief Compute the query plane related to a query which involves
-            no sub-queries. Sub-queries should already processed thanks to
-            process_subqueries().
-        \param query The query issued by the user.
-        \param user The user issuing the query (according to the user grants
-            the query plane might differ).
-        \return The AST instance representing the query plane.
-        """
-        # We process a single query without caring about 1..N
-        # former method
-        nodes = dict(self.G_nf.graph.nodes(True)) # XXX
-
-        # Builds the query tree rooted at the fact table
-        root = self.G_nf.get_root(query)
-        tree_edges = [e for e in self.G_nf.get_tree_edges(root)] # generator
-
-        # Necessary fields are the one in the query augmented by the keys in the filters
-        needed_fields = set(query.fields)
-        if query.filters:
-            needed_fields.update(query.filters.keys())
-
-        # Prune the tree from useless tables
-        #visited_tree_edges = prune_query_tree(tree, tree_edges, nodes, needed_fields)
-        visited_tree_edges = DBGraph.prune_tree(tree_edges, nodes, needed_fields)
-        if not visited_tree_edges:
-            # The root table is sufficient to retrieve the queried fields
-            # OR WE COULD NOT ANSWER QUERY
-            q = Query(
-                action     = query.action,
-                fact_table = root.name,
-                filters    = query.filters,
-                params     = query.params,
-                fields     = needed_fields,
-                ts         = query.ts
-            )
-            return AST(user).From(root, q) # root, needed_fields)
-
-        qp = None
-        root = True
-        for s, e in visited_tree_edges: # same order as if we would re-run a DFS
-            # We start at the root if necessary
-            if root:
-                # local_fields = fields required in the table we're considering
-                local_fields = set(needed_fields) & s.fields
-
-                it = iter(e.keys)
-                join_key = None
-                while join_key not in s.fields:
-                    join_key = it.next()
-                local_fields.add(join_key)
-
-                # We add fields necessary for performing joins = keys of all the children
-                # XXX does not work for multiple keys
-                ###print "LOCAL FIELDS", local_fields
-                ###for ss,ee in visited_tree_edges:
-                ###    if ss == s:
-                ###        local_fields.update(ee.keys)
-                ###print "LOCAL FIELDS", local_fields
-
-                if not local_fields:
-                    break
-
-                # We adopt a greedy strategy to get the required fields (temporary)
-                # We assume there are no partitions
-                first_join = True
-                left = AST(user)
-                sources = nodes[s]['sources'][:]
-                while True:
-                    max_table, max_fields = get_table_max_fields(local_fields, sources)
-                    if not max_table:
-                        raise Exception, 'get_table_max_fields error: could not answer fields: %r for query %s' % (local_fields, query)
-                    sources.remove(max_table)
-                    q = Query(action=query.action, fact_table=max_table.name, filters=query.filters, params=query.params, fields=list(max_fields))
-                    if first_join:
-                        left = AST(user).From(max_table, q) # max_table, list(max_fields))
-                        first_join = False
-                    else:
-                        right = AST(user).From(max_table, q) # max_table, list(max_fields))
-                        left = left.join(right, iter(s.keys).next())
-                    local_fields.difference_update(max_fields)
-                    needed_fields.difference_update(max_fields)
-                    if not local_fields:
-                        break
-                    # read the key
-                    local_fields.add(iter(s.keys).next())
-                qp = left
-                root = False
-
-            if not needed_fields:
-                return qp
-            local_fields = set(needed_fields) & e.fields
-
-            # Adding key for the join
-            it = iter(e.keys)
-            join_key = None
-            while join_key not in s.fields:
-                join_key = it.next()
-            local_fields.add(join_key)
-            # former ? local_fields.update(e.keys)
-
-            # We adopt a greedy strategy to get the required fields (temporary)
-            # We assume there are no partitions
-            first_join = True
-            left = AST(user)
-            sources = nodes[e]['sources'][:]
-            while True:
-                max_table, max_fields = get_table_max_fields(local_fields, sources)
-                if not max_table:
-                    break;
-                q = Query(action=query.action, fact_table=max_table.name, filters=query.filters, params=query.params, fields=list(max_fields))
-                if first_join:
-                    left = AST(user).From(max_table, q) # max_table, list(max_fields))
-                    first_join = False
-                else:
-                    right = AST(user).From(max_table, q) #max_table, list(max_fields))
-                    left = left.join(right, iter(e.keys).next())
-                local_fields.difference_update(max_fields)
-                needed_fields.difference_update(max_fields)
-                if not local_fields:
-                    break
-                # readd the key
-                local_fields.add(iter(e.keys).next())
-
-            key = iter(e.keys).next()
-            qp = qp.join(left, key) # XXX
-        return qp
+#OBSOLETE|    def process_query_new(self, query, user):
+#OBSOLETE|        """
+#OBSOLETE|        \brief Compute the query plane related to a query which involves
+#OBSOLETE|            no sub-queries. Sub-queries should already processed thanks to
+#OBSOLETE|            process_subqueries().
+#OBSOLETE|        \param query The query issued by the user.
+#OBSOLETE|        \param user The user issuing the query (according to the user grants
+#OBSOLETE|            the query plane might differ).
+#OBSOLETE|        \return The AST instance representing the query plane.
+#OBSOLETE|        """
+#OBSOLETE|        # Find a tree of tables rooted at the fact table (e.g. method) included
+#OBSOLETE|        # in the normalized graph.
+#OBSOLETE|        root = self.G_nf.get_root(query)
+#OBSOLETE|        tree = [arc for arc in self.G_nf.get_tree_edges(root)] # DFS tree 
+#OBSOLETE|
+#OBSOLETE|        # Compute the fields involved explicitly in the query (e.g. in SELECT or WHERE)
+#OBSOLETE|        needed_fields = set(query.fields)
+#OBSOLETE|        if query.filters:
+#OBSOLETE|            needed_fields.update(query.filters.keys())
+#OBSOLETE|
+#OBSOLETE|        # Prune this tree to remove table that are not required to answer the query.
+#OBSOLETE|        # As a consequence, each leave of the tree provides at least one queried field.
+#OBSOLETE|        tree = DBGraph.prune_tree(tree, dict(self.G_nf.graph.nodes(True)), needed_fields)
+#OBSOLETE|
+#OBSOLETE|        # TODO check whether every needed_fields is provided by a node of the tree
+#OBSOLETE|        # We might only be able to partially answer a query. Inform the user
+#OBSOLETE|        # about it
+#OBSOLETE|
+#OBSOLETE|        # Initialize a query plan
+#OBSOLETE|        qp = AST(user)
+#OBSOLETE|
+#OBSOLETE|        # Process the root node
+#OBSOLETE|        successors = self.G_nf.get_successors(root)
+#OBSOLETE|        print "W: Selecting an arbitrary key for each successors %r" % successors
+#OBSOLETE|        succ_keys = [list(iter(table.get_keys()).next())[0] for table in successors]
+#OBSOLETE|        current_fields = set(needed_fields) & set([field.get_name() for field in root.get_fields()])
+#OBSOLETE|        current_fields |= set(succ_keys)
+#OBSOLETE|        q = Query(
+#OBSOLETE|            action     = query.action,
+#OBSOLETE|            fact_table = root.name,
+#OBSOLETE|            filters    = None, #query.filters,
+#OBSOLETE|            params     = None, #query.params,
+#OBSOLETE|            fields     = list(current_fields),
+#OBSOLETE|            ts         = query.ts
+#OBSOLETE|        )
+#OBSOLETE|        qp = qp.From(root, q)
+#OBSOLETE|
+#OBSOLETE|        needed_fields -= current_fields
+#OBSOLETE|
+#OBSOLETE|        # (tree == None) means the tree is reduced to the root node. We are done
+#OBSOLETE|        if not tree:
+#OBSOLETE|            if needed_fields: 
+#OBSOLETE|                print "E: Unresolved fields", needed_fields
+#OBSOLETE|            return qp
+#OBSOLETE|
+#OBSOLETE|        # XXX Can be optimized by parallelizing...
+#OBSOLETE|        # XXX Note: not all arcs are JOIN, some are just about adding fields, or
+#OBSOLETE|        # better choosing the platform.
+#OBSOLETE|        for _, node in self.G_nf.get_edges():
+#OBSOLETE|            # Key is necessary for joining with the parent
+#OBSOLETE|            # NOTE we will need to remember which key was collected
+#OBSOLETE|            # maybe because it will be left in needed keys ???
+#OBSOLETE|            key = iter(node.keys).next()
+#OBSOLETE|            if isinstance(key, tuple): key = key[0]
+#OBSOLETE|
+#OBSOLETE|
+#OBSOLETE|            # We need to ask to the local table at least one key for each
+#OBSOLETE|            # successor XXX let's suppose for now there is only one key
+#OBSOLETE|            # XXX in case of compound keys, what to do ?
+#OBSOLETE|            successors = self.G_nf.get_successors(node)
+#OBSOLETE|            succ_keys = [iter(s.keys).next() for s in successors]
+#OBSOLETE|
+#OBSOLETE|            # Realize a left join ( XXX only for PROVIDES arcs)
+#OBSOLETE|            current_fields = set(needed_fields) & set([field.get_name() for field in node.get_fields()])
+#OBSOLETE|            print "succ_keys = ", succ_keys 
+#OBSOLETE|            current_fields |= set(succ_keys)
+#OBSOLETE|            current_fields.add(key) 
+#OBSOLETE|
+#OBSOLETE|            print "current_fields = ", current_fields
+#OBSOLETE|            q = Query(
+#OBSOLETE|                action     = query.action,
+#OBSOLETE|                fact_table = node.name,
+#OBSOLETE|                filters    = None, #query.filters,
+#OBSOLETE|                params     = None, # query.params,
+#OBSOLETE|                fields     = list(current_fields),
+#OBSOLETE|                ts         = query.ts
+#OBSOLETE|            )
+#OBSOLETE|
+#OBSOLETE|            qp = qp.join(AST(user).From(node, q), key)
+#OBSOLETE|
+#OBSOLETE|            needed_fields -= current_fields
+#OBSOLETE|        
+#OBSOLETE|        if needed_fields:
+#OBSOLETE|            print "E: Unresolved fields", needed_fields
+#OBSOLETE|        return qp
+#OBSOLETE|
+#OBSOLETE|        # Explore the tree to compute which fields must be retrieved for each node/table
+#OBSOLETE|        # - A child node can be explored if and only if one of its key is provided
+#OBSOLETE|        # by the parent node (to join both table), so we need to retrieve the
+#OBSOLETE|        # corresponding fields both in the parent and child.
+#OBSOLETE|        # - Whenever a node is crossed, we compute if it provides some queried
+#OBSOLETE|        # fields. If so, we also retrieve those fields
+#OBSOLETE|
+#OBSOLETE|    # OBSOLETE
+#OBSOLETE|    def process_query_old(self, query, user):
+#OBSOLETE|        """
+#OBSOLETE|        \brief Compute the query plane related to a query which involves
+#OBSOLETE|            no sub-queries. Sub-queries should already processed thanks to
+#OBSOLETE|            process_subqueries().
+#OBSOLETE|        \param query The query issued by the user.
+#OBSOLETE|        \param user The user issuing the query (according to the user grants
+#OBSOLETE|            the query plane might differ).
+#OBSOLETE|        \return The AST instance representing the query plane.
+#OBSOLETE|        """
+#OBSOLETE|        # We process a single query without caring about 1..N
+#OBSOLETE|        # former method
+#OBSOLETE|        nodes = dict(self.G_nf.graph.nodes(True)) # XXX
+#OBSOLETE|
+#OBSOLETE|        # Builds the query tree rooted at the fact table
+#OBSOLETE|        root = self.G_nf.get_root(query)
+#OBSOLETE|        tree_edges = [e for e in self.G_nf.get_tree_edges(root)] # generator
+#OBSOLETE|
+#OBSOLETE|        # Necessary fields are the one in the query augmented by the keys in the filters
+#OBSOLETE|        needed_fields = set(query.fields)
+#OBSOLETE|        if query.filters:
+#OBSOLETE|            needed_fields.update(query.filters.keys())
+#OBSOLETE|
+#OBSOLETE|        # Prune the tree from useless tables
+#OBSOLETE|        #visited_tree_edges = prune_query_tree(tree, tree_edges, nodes, needed_fields)
+#OBSOLETE|        visited_tree_edges = DBGraph.prune_tree(tree_edges, nodes, needed_fields)
+#OBSOLETE|        if not visited_tree_edges:
+#OBSOLETE|            # The root table is sufficient to retrieve the queried fields
+#OBSOLETE|            # OR WE COULD NOT ANSWER QUERY
+#OBSOLETE|            q = Query(
+#OBSOLETE|                action     = query.action,
+#OBSOLETE|                fact_table = root.name,
+#OBSOLETE|                filters    = query.filters,
+#OBSOLETE|                params     = query.params,
+#OBSOLETE|                fields     = needed_fields,
+#OBSOLETE|                ts         = query.ts
+#OBSOLETE|            )
+#OBSOLETE|            return AST(user).From(root, q) # root, needed_fields)
+#OBSOLETE|
+#OBSOLETE|        qp = None
+#OBSOLETE|        root = True
+#OBSOLETE|        for s, e in visited_tree_edges: # same order as if we would re-run a DFS
+#OBSOLETE|            # We start at the root if necessary
+#OBSOLETE|            if root:
+#OBSOLETE|                # local_fields = fields required in the table we're considering
+#OBSOLETE|                local_fields = set(needed_fields) & s.fields
+#OBSOLETE|
+#OBSOLETE|                it = iter(e.keys)
+#OBSOLETE|                join_key = None
+#OBSOLETE|                while join_key not in s.fields:
+#OBSOLETE|                    join_key = it.next()
+#OBSOLETE|                local_fields.add(join_key)
+#OBSOLETE|
+#OBSOLETE|                # We add fields necessary for performing joins = keys of all the children
+#OBSOLETE|                # XXX does not work for multiple keys
+#OBSOLETE|                ###print "LOCAL FIELDS", local_fields
+#OBSOLETE|                ###for ss,ee in visited_tree_edges:
+#OBSOLETE|                ###    if ss == s:
+#OBSOLETE|                ###        local_fields.update(ee.keys)
+#OBSOLETE|                ###print "LOCAL FIELDS", local_fields
+#OBSOLETE|
+#OBSOLETE|                if not local_fields:
+#OBSOLETE|                    break
+#OBSOLETE|
+#OBSOLETE|                # We adopt a greedy strategy to get the required fields (temporary)
+#OBSOLETE|                # We assume there are no partitions
+#OBSOLETE|                first_join = True
+#OBSOLETE|                left = AST(user)
+#OBSOLETE|                sources = nodes[s]['sources'][:]
+#OBSOLETE|                while True:
+#OBSOLETE|                    max_table, max_fields = get_table_max_fields(local_fields, sources)
+#OBSOLETE|                    if not max_table:
+#OBSOLETE|                        raise Exception, 'get_table_max_fields error: could not answer fields: %r for query %s' % (local_fields, query)
+#OBSOLETE|                    sources.remove(max_table)
+#OBSOLETE|                    q = Query(action=query.action, fact_table=max_table.name, filters=query.filters, params=query.params, fields=list(max_fields))
+#OBSOLETE|                    if first_join:
+#OBSOLETE|                        left = AST(user).From(max_table, q) # max_table, list(max_fields))
+#OBSOLETE|                        first_join = False
+#OBSOLETE|                    else:
+#OBSOLETE|                        right = AST(user).From(max_table, q) # max_table, list(max_fields))
+#OBSOLETE|                        left = left.join(right, iter(s.keys).next())
+#OBSOLETE|                    local_fields.difference_update(max_fields)
+#OBSOLETE|                    needed_fields.difference_update(max_fields)
+#OBSOLETE|                    if not local_fields:
+#OBSOLETE|                        break
+#OBSOLETE|                    # read the key
+#OBSOLETE|                    local_fields.add(iter(s.keys).next())
+#OBSOLETE|                qp = left
+#OBSOLETE|                root = False
+#OBSOLETE|
+#OBSOLETE|            if not needed_fields:
+#OBSOLETE|                return qp
+#OBSOLETE|            local_fields = set(needed_fields) & e.fields
+#OBSOLETE|
+#OBSOLETE|            # Adding key for the join
+#OBSOLETE|            it = iter(e.keys)
+#OBSOLETE|            join_key = None
+#OBSOLETE|            while join_key not in s.fields:
+#OBSOLETE|                join_key = it.next()
+#OBSOLETE|            local_fields.add(join_key)
+#OBSOLETE|            # former ? local_fields.update(e.keys)
+#OBSOLETE|
+#OBSOLETE|            # We adopt a greedy strategy to get the required fields (temporary)
+#OBSOLETE|            # We assume there are no partitions
+#OBSOLETE|            first_join = True
+#OBSOLETE|            left = AST(user)
+#OBSOLETE|            sources = nodes[e]['sources'][:]
+#OBSOLETE|            while True:
+#OBSOLETE|                max_table, max_fields = get_table_max_fields(local_fields, sources)
+#OBSOLETE|                if not max_table:
+#OBSOLETE|                    break;
+#OBSOLETE|                q = Query(action=query.action, fact_table=max_table.name, filters=query.filters, params=query.params, fields=list(max_fields))
+#OBSOLETE|                if first_join:
+#OBSOLETE|                    left = AST(user).From(max_table, q) # max_table, list(max_fields))
+#OBSOLETE|                    first_join = False
+#OBSOLETE|                else:
+#OBSOLETE|                    right = AST(user).From(max_table, q) #max_table, list(max_fields))
+#OBSOLETE|                    left = left.join(right, iter(e.keys).next())
+#OBSOLETE|                local_fields.difference_update(max_fields)
+#OBSOLETE|                needed_fields.difference_update(max_fields)
+#OBSOLETE|                if not local_fields:
+#OBSOLETE|                    break
+#OBSOLETE|                # readd the key
+#OBSOLETE|                local_fields.add(iter(e.keys).next())
+#OBSOLETE|
+#OBSOLETE|            key = iter(e.keys).next()
+#OBSOLETE|            qp = qp.join(left, key) # XXX
+#OBSOLETE|        return qp
 
     def do_forward(self, query, route, deferred, execute=True, user=None):
         """

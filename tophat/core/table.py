@@ -6,8 +6,8 @@
 #
 # Copyright (C) UPMC Paris Universitas
 # Authors:
-#   Jordan Augé       <jordan.auge@lip6.fr>
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
+#   Jordan Augé       <jordan.auge@lip6.fr>
 
 from tophat.core.field      import Field
 from tophat.core.filter     import Filter
@@ -358,21 +358,21 @@ class Table:
     #   x.f.t      : the field type of the field f of node x
     #-----------------------------------------------------------------------
 
-    @returns(set)
-    def get_fields_in_key(self, fields):
-        """
-        \brief Compute which fields belong to a single-key of "self" Table.
-        \param fields A set of Field
-        \return A set of MetaField (that may be empty) included in "fields"
-        """
-        fields_in_key = set()
-        for field in fields: 
-            for key in self.keys:
-                if key.is_composite():
-                    continue
-                if field.type == key.get_type():
-                    fields_in_key.add(field) 
-        return fields_in_key 
+#OBSOLETE|    @returns(set)
+#OBSOLETE|    def get_fields_in_key(self, fields):
+#OBSOLETE|        """
+#OBSOLETE|        \brief Compute which fields belong to a single-key of "self" Table.
+#OBSOLETE|        \param fields A set of Field
+#OBSOLETE|        \return A set of MetaField (that may be empty) included in "fields"
+#OBSOLETE|        """
+#OBSOLETE|        fields_in_key = set()
+#OBSOLETE|        for field in fields: 
+#OBSOLETE|            for key in self.keys:
+#OBSOLETE|                if key.is_composite():
+#OBSOLETE|                    continue
+#OBSOLETE|                if field.type == key.get_type():
+#OBSOLETE|                    fields_in_key.add(field) 
+#OBSOLETE|        return fields_in_key 
 
     @returns(set)
     def get_connecting_fields(self, table):
@@ -388,17 +388,26 @@ class Table:
                 connecting_fields.add(field)
         return connecting_fields 
 
-    @returns(bool)
-    def includes(self, table):
-        """
-        \brief (Internal use, since this function is called in a specific context)
-            Test whether self and table have the same table name.
-            u ==> v iif u.n == v.n
-            Example: tophat::ip ==> {tophat, sonoma}::ip
-        \param table The target candidate table
-        \return True iif u ==> v
-        """
-        return self.get_name() == table.get_name()
+    @returns(Keys)
+    def get_connecting_keys(self, fields):
+        connecting_keys = Keys()
+        for field in fields:
+            key = Key([field])
+            if key in self.get_keys():
+                connecting_keys.add(key)
+        return connecting_keys
+
+#OBSOLETE|    @returns(bool)
+#OBSOLETE|    def includes(self, table):
+#OBSOLETE|        """
+#OBSOLETE|        \brief (Internal use, since this function is called in a specific context)
+#OBSOLETE|            Test whether self and table have the same table name.
+#OBSOLETE|            u ==> v iif u.n == v.n
+#OBSOLETE|            Example: tophat::ip ==> {tophat, sonoma}::ip
+#OBSOLETE|        \param table The target candidate table
+#OBSOLETE|        \return True iif u ==> v
+#OBSOLETE|        """
+#OBSOLETE|        return self.get_name() == table.get_name()
 
     @returns(bool)
     def inherits(self, table):
@@ -413,14 +422,9 @@ class Table:
         name.add(table.get_name())
         return frozenset(name) in table.get_names_from_keys()
 
-    @returns(bool)
-    def has_intersecting_key(self, fields):
-        """
-        \brief Test whether a set of fields intersect at least one (single) key
-        \param fields A set of Field instances
-        \return True iif at least one intersecting key exists, False otherwise 
-        """
-        return fields in self.get_keys()
+#OBSOLETE|    @returns(bool)
+#OBSOLETE|    def has_intersecting_keys(self, fields):
+#OBSOLETE|        return fields in self.get_keys():
 
     def get_relation(self, table):
         """
@@ -440,34 +444,12 @@ class Table:
         v = table
         connecting_fields_uv = u.get_connecting_fields(v)
         if connecting_fields_uv != set():
-            if not u.has_intersecting_key(connecting_fields_uv):
+            connecting_keys_uv = u.get_connecting_keys(connecting_fields_uv)
+            if connecting_keys_uv == set():
                 return ("~~>", connecting_fields_uv)
-            elif u.includes(v):
-                # Patch: avoid to link tophat::ip ==> sonoma::ip
-                if u.get_platforms() <= v.get_platforms():
-                    return ("==>", None)
+#OBSOLETE|            elif u.includes(v):
+#OBSOLETE|                return ("==>", None)
             elif u.inherits(v):
-                return ("-->", v.get_fields_in_key(connecting_fields_uv)) 
+                return ("-->", connecting_keys_uv) 
         return None
 
-#    def is_connected_to(self, table):
-#        u = self
-#        v = table
-#        connecting_fields = set()
-#
-#        # Find a field of u having a type equal to the table name of v
-#        for field in u.get_fields():
-#            if field.get_type() == v.get_name():
-#                fields_u = set()
-#                fields_u.add(field)
-#                return (fields_u, None)
-#
-#        # Find a subset of fields of u equal to a key of v
-#        for key_v in v.get_keys():
-#            if key_v.is_composite():
-#                if key_v <= u.get_fields():
-#                    return (set(key_v), set(key_v)) 
-#            else:
-#
-#        return False
-#

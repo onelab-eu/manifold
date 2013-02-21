@@ -1,30 +1,38 @@
-from tophat.router.conf import Conf
-from tophat.router.rib import RIB
-from tophat.router.fib import FIB
-from tophat.router.flowtable import FlowTable
-
-from sqlalchemy.sql import operators
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+# Query representation
+#
+# Copyright (C) UPMC Paris Universitas
+# Authors:
+#   Jordan Augé       <jordan.auge@lip6.fr>
 
 import copy
 import time
 import random
 import base64
 
-from tophat.auth import Auth
-from tophat.models import *
-from tophat.util.misc import get_sqla_filters, xgetattr
+from sqlalchemy.sql          import operators
+
+from tophat.router.conf      import Conf
+from tophat.router.rib       import RIB
+from tophat.router.fib       import FIB
+from tophat.router.flowtable import FlowTable
+from tophat.auth             import Auth
+from tophat.models           import *
+from tophat.util.misc        import get_sqla_filters, xgetattr
 
 class LocalRouter(object):
     """
     Implements an abstraction of a Router.
     """
 
-    LOCAL_NAMESPACE = 'tophat'
+    LOCAL_NAMESPACE = "tophat"
 
     _map_local_table = {
-        'platform' : Platform,
-        'user'     : User,
-        'account'  : Account
+        "platform" : Platform,
+        "user"     : User,
+        "account"  : Account
     }
 
     def __init__(self, dest_cls=object, route_cls=object):
@@ -140,9 +148,9 @@ class LocalRouter(object):
 
     def local_query(self, query):
         _map_action = {
-            'get'    : self.local_query_get,
-            'update' : self.local_query_update,
-            'create' : self.local_query_create
+            "get"    : self.local_query_get,
+            "update" : self.local_query_update,
+            "create" : self.local_query_create
         }
         return _map_action[query.action](query)
 
@@ -163,10 +171,10 @@ class LocalRouter(object):
                 q = copy.deepcopy(query)
                 q.fact_table = table
                 return self.local_query(q)
-            elif namespace == 'metadata':
+            elif namespace == "metadata":
                 # Metadata are obtained for the 3nf representation in
                 # memory
-                if table == 'table':
+                if table == "table":
                     output = []
                     # XXX Not generic
                     for table in self.G_nf.graph.nodes():
@@ -178,25 +186,28 @@ class LocalRouter(object):
                         columns = []
                         for field in fields:
                             column = {
-                                'column': field.field_name,       # field(_name)
-                                'description': field.description, # description
-                                'header': field,
-                                'title': field,
-                                'unit': 'N/A',          # !
-                                'info_type': 'N/A',
-                                'resource_type': 'N/A',
-                                'value_type': 'N/A',
-                                'allowed_values': 'N/A',
+                                "column"         : field.get_name(),        # field(_name)
+                                "description"    : field.get_description(), # description
+                                "header"         : field,
+                                "title"          : field,
+                                "unit"           : "N/A",                   # !
+                                "info_type"      : "N/A",
+                                "resource_type"  : "N/A",
+                                "value_type"     : "N/A",
+                                "allowed_values" : "N/A",
                                 # ----
-                                'type': field.type,               # type
-                                'is_array': field.is_array,       # array?
-                                'qualifier': field.qualifier      # qualifier (const/RW)
-                                                        # ? category == dimension
+                                "type": field.type,                         # type
+                                "is_array"       : field.is_array(),        # array?
+                                "qualifier"      : field.get_qualifier()    # qualifier (const/RW)
+                                                                            # ? category == dimension
                             }
                             columns.append(column)
 
                         # Add table metadata
-                        output.append({'table': table.name, 'column': columns})
+                        output.append({
+                            "table"  : table.get_name(),
+                            "column" : columns
+                        })
                     return output
                 else:
                     raise Exception, "Unsupported metadata request '%s'" % table
