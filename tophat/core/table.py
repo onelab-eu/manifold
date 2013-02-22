@@ -253,6 +253,21 @@ class Table:
                 raise TypeError("key = %r is not of type Key nor Field nor StringTypes")
             self.keys.add(Key(fields))
  
+    @returns(bool)
+    def erase_key(self, key):
+        """
+        \brief Remove a Key for this table 
+        \param key A Key instance 
+        \return True iif the Key has been found and successfully removed 
+        """
+        l = len(list(self.keys))
+        keys = Keys()
+        for k in self.get_keys():
+            if k != key:
+                keys.add(k)
+        self.keys = keys
+        return l != len(list(self.keys))
+
     def insert_methods(self, methods):
         """
         \brief Add a pseudo method for every field of the table
@@ -346,6 +361,20 @@ class Table:
         """
         return self.platforms
 
+    @returns(set)
+    def get_fields_with_name(self, names):
+        """
+        \brief Retrieve a set of Field according to their name
+        \param names The name of the requested fields (String instances)
+        \return The set of Field instances nested in this table having a name
+            in names.
+        """
+        fields = set()
+        for field in self.get_fields():
+            if field.get_name() in names:
+                fields.add(field)
+        return fields
+
     #-----------------------------------------------------------------------
     # Relations between two Table instances 
     # Notations in documentation:
@@ -391,9 +420,8 @@ class Table:
     @returns(Keys)
     def get_connecting_keys(self, fields):
         connecting_keys = Keys()
-        for field in fields:
-            key = Key([field])
-            if key in self.get_keys():
+        for key in self.get_keys():
+            if key <= fields:
                 connecting_keys.add(key)
         return connecting_keys
 

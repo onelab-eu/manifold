@@ -69,8 +69,9 @@ class Key(frozenset):
 
     @returns(str)
     def __repr__(self):
-        return "KEY(%s)" % (", ".join(["%r" % field for field in self]))
+        return "KEY(%s)" % (", ".join(["%s" % field for field in self]))
 
+# DO NOT UNCOMMENT
 #    @returns(bool)
 #    def __eq__(self, x):
 #        return set([f.get_name() for f in self]) == set(f.get_name() for f in x)
@@ -106,11 +107,11 @@ class Keys(set):
 
     @returns(str)
     def __str__(self):
-        return "{%s}" % (", ".join(["%s" % (key) for key in self]))
+        return "{%s}" % (", ".join(["%s" % key for key in self]))
 
     @returns(str)
     def __repr__(self):
-        return "{%s}" % (", ".join(["%r" % (key) for key in self]))
+        return "{%s}" % (", ".join(["%r" % key for key in self]))
 
 
 #    def get_field_names(self):
@@ -119,5 +120,3 @@ class Keys(set):
 #        keys exist, a unique one is returned, having a minimal size.
 #        """
 #        return min(self, key=len)
-            
-            

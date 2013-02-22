@@ -494,7 +494,7 @@ class DBNorm(object):
             a  = fd.get_field()
             x_plus = DBNorm.closure(set(x), g2)             #   compute x+ according to g'
             if a in x_plus:                                 #   if a \in x+:
-                print "rm %s" % fd
+                #print "rm %s" % fd
                 fds_removed.add(fd)
                 g = g2                                      #     g = g'
 
@@ -531,7 +531,7 @@ class DBNorm(object):
         """
         map_determinant_closure = dict()
         for fd_removed in fds_removed:
-            print "Reinjecting %s" % fd_removed
+            #print "Reinjecting %s" % fd_removed
             x = fd_removed.get_determinant().get_key()
             if x not in map_determinant_closure.keys():
                 map_determinant_closure[x] = DBNorm.closure_ext(set(x), fds_min_cover)  
@@ -567,7 +567,7 @@ class DBNorm(object):
         print "1) Computing functional dependancies"
         print "-" * 100
         fds = DBNorm.make_fd_set(self.tables)
-        print "%r" % fds
+        #print "%r" % fds
 
         # Compute the map which refer for each key the platforms
         # which support this key 
@@ -593,7 +593,7 @@ class DBNorm(object):
         for fd in fds:
             if fd.get_fields() <= fd.get_determinant().get_key():
                 fds_min_cover.add(fd)
-        print "%s" % fds_min_cover
+        #print "%s" % fds_min_cover
 
         print "-" * 100
         print "4) Reinjecting fd removed" 
@@ -635,8 +635,8 @@ class DBNorm(object):
         print "5) Grouping fds by method"
         print "-" * 100
         fdss = fds_min_cover.group_by_method()
-        for table_name, fds in fdss.items():
-            print "%s:\n%s" % (table_name, fds)
+        #for table_name, fds in fdss.items():
+        #    print "%s:\n%s" % (table_name, fds)
 
         print "-" * 100
         print "6) Making 3-nf tables" 

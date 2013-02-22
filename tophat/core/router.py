@@ -60,7 +60,7 @@ class Callback:
 
 class THDestination(Destination, Query):
     """
-    Implements a destination in TopHat == a query
+    Implements a destination in TopHat == a view == a query
     """
     
     def __str__(self):
