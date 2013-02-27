@@ -1,33 +1,18 @@
-
-class ip {
-    const inet ip;
-    const text hostname;
-    KEY(ip);
+class x {
+    const x x; 
+    const y y; 
+    KEY(x);
 };
 
-class agent {
-    const ip   ip;
-    const text agentinf;
-    KEY(ip);
+class y {
+    const y y; 
+    const z z; 
+    KEY(y);
 };
 
-class destination {
-    const ip   ip;
-    const bool inpl;
-    KEY(ip);
+class z {
+    const z z; 
+    const int t; 
+    KEY(z);
 };
-
-class hop {
-    const ip   ip;
-    const int  ttl;
-};
-
-class traceroute {
-    const agent       source;
-    const destination destination;
-    const timestamp   ts;
-    const hop         hops[];
-    KEY(source, destination, ts);
-};
-
 
