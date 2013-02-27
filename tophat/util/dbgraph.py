@@ -1,6 +1,18 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+# A DBGraph represent a DB schema, where each node represents a Table
+# and where a (u, v) arc means that Tables u and v can be joined
+# (u left join v).
+#
+# Copyright (C) UPMC Paris Universitas
+# Authors:
+#   Jordan Augé       <jordan.auge@lip6.fr> 
+#   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
+
 import networkx          as nx
 import matplotlib.pyplot as plt
-from networkx.algorithms.traversal.depth_first_search import dfs_edges
+#OBSOLETE|from networkx.algorithms.traversal.depth_first_search import dfs_edges
 from copy                                             import deepcopy
 
 class DBGraph:
@@ -20,13 +32,13 @@ class DBGraph:
         \sa tophat/util/table.py
         \param u The Table instance we are adding to the graph.
         """
-        # Check table not yet in graph
+        # Adding the node u in the graph (if not yet in the graph) 
         if u in self.graph.nodes():
             raise ValueError("%r is already in the graph" % u)
         self.graph.add_node(u)
 
-        # We loop through the different _nodes_ of the graph to see whether
-        # we need to establish some links
+        # For each node v != u in the graph, check whether we can connect
+        # u to v and v to u 
         for v, data in self.graph.nodes(True):
             # Ignore the node we've just added
             if u == v:
@@ -54,8 +66,8 @@ class DBGraph:
         nx.draw_graphviz(graph)
         plt.show()
 
-    def get_tree_edges(self, root):
-        return [e for e in dfs_edges(self.graph, root)]
+#OBSOLETE|    def get_tree_edges(self, root):
+#OBSOLETE|        return [e for e in dfs_edges(self.graph, root)]
 
     def get_root(self, query):
         """
@@ -70,17 +82,17 @@ class DBGraph:
             )
         return root[0]
 
-    def get_edges(self):
-        return dfs_edges(self.graph)
-
-    def get_successors(self, node):
-        """
-        \param node A node belonging to this DBGraph
-        \return A list of Table instances which corresponds to successors
-           of "node" in this DBGraph.
-        """
-        return self.graph.successors(node)
-
+#OBSOLETE|    def get_edges(self):
+#OBSOLETE|        return dfs_edges(self.graph)
+#OBSOLETE|
+#OBSOLETE|    def get_successors(self, node):
+#OBSOLETE|        """
+#OBSOLETE|        \param node A node belonging to this DBGraph
+#OBSOLETE|        \return A list of Table instances which corresponds to successors
+#OBSOLETE|           of "node" in this DBGraph.
+#OBSOLETE|        """
+#OBSOLETE|        return self.graph.successors(node)
+#OBSOLETE|
 #OBSOLETE|    @staticmethod
 #OBSOLETE|    def prune_tree(tree_edges, nodes, fields):
 #OBSOLETE|        """

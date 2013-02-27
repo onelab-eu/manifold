@@ -5,6 +5,9 @@ import sys
 import itertools
 from tophat.core.filter import Filter, Predicate
 from tophat.core.query import Query
+from tophat.core.table import Table 
+from tophat.core.field import Field
+from tophat.core.key   import Key
 from copy import copy, deepcopy
 import traceback
 
@@ -865,7 +868,6 @@ class SubQuery(Node):
         """
         \brief Inject record / record keys into the node
         \param records list of dictionaries representing records, or list of
-        record keys
         """
         raise Exception, "Not implemented"
 
@@ -875,14 +877,14 @@ class SubQuery(Node):
 
 class AST(object):
     """
-    Abstract Syntax Tree used to represent a Query Plane. Acts as a factory.
+    Abstract Syntax Tree used to represent a Query Plane.
+    Acts as a factory.
     """
 
-    def __init__(self, user=None):
+    def __init__(self, user = None):
         """
-        Constructor
-        \param router
-        \param user
+        \brief Constructor
+        \param user A User instance
         """
         self.user = user
         # The AST is initially empty
@@ -890,13 +892,14 @@ class AST(object):
 
     def From(self, table, query):
         """
-        \brief
-        \param table
-        \param query query requested to the platform
+        \brief Build a FROM node
+        \param table A Table wrapped by the from operator
+        \param query A Query requested to the platform
         """
         # TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! # XXX
         self.query = query
         # XXX print "W: We have two tables providing the same data: CHOICE or UNION ?"
+        print "table %r %r" % (table, type(table))
         platforms = table.get_platforms()
         if isinstance(platforms, (list, set, frozenset, tuple)) and len(platforms) > 1:
             children_ast = []
@@ -938,16 +941,14 @@ class AST(object):
     # TODO Can we use decorators for such functions ?
     def leftjoin(self, right_child, predicate):
         """
-        \brief Performs a LEFT JOIN between the current AST and the _right_
-        parameter:
-            ast <- ast ⋈ right 
-        \param right_child right child of the resulting AST
-        \return AST corresponding to the LEFT JOIN
+        \brief Performs a LEFT JOIN between two AST instances
+            self ⋈ right_child
+        \param right_child right operand of the LEFT JOIN 
+        \return The resulting AST
         """
         if not self.root: raise ValueError('AST not initialized')
         old_root = self.root
 
-        raise Exception("code out of date, bad constructor invoked")
         self.root = LeftJoin(old_root, right_child.root, predicate)
         self.root.callback = old_root.callback
         return self
@@ -1020,10 +1021,17 @@ class AST(object):
         
 
 def main():
-    a = AST().From('A').join(AST().From('B')).projection('c').selection(Eq('c', 'test'))
-    a.dump()
-#    a.swaphead()
-#    a.dump()
+    q = Query("get", "x", [], {}, ["x", "z"], None)
+    x = Field(None, "int", "x")
+    y = Field(None, "int", "x")
+    z = Field(None, "int", "x")
+    a = Table(["p"], None, 'A', [x, y], [Key([x])])
+    b = Table(["p"], None, 'B', [y, z], [Key([y])])
+    pred = None
+    ast = AST().From(a, q).leftjoin(AST().From(b, q), pred).projection('c').selection(Eq('c', 'test'))
+    ast.dump()
+#    ast.swaphead()
+#    ast.dump()
 
 if __name__ == "__main__":
     main()

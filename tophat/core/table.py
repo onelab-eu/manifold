@@ -9,10 +9,12 @@
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 #   Jordan Augé       <jordan.auge@lip6.fr>
 
+from copy                   import deepcopy
+from types                  import StringTypes
+
 from tophat.core.field      import Field
 from tophat.core.filter     import Filter
 from tophat.core.key        import Key, Keys 
-from types                  import StringTypes
 from tophat.util.type       import returns, accepts 
 from tophat.core.method     import Method 
 
@@ -112,6 +114,7 @@ class Table:
         \brief Constructor
         \param partitions A dictionary which indicates for each platform the corresponding
             predicate (pass None if not Predicate needed e.g. always True).
+            You can also pass a set/list of platform names
         \param name The name of the table (for example: 'user', ...)
         \param map_field_methods Pass None or a dictionnary which maps for each field
             the corresponding methods to retrieve them: {Field => set(Method)}
@@ -155,7 +158,7 @@ class Table:
         self.name = name
         self.cost = cost
         self.map_field_methods = map_field_methods
-      
+
     #-----------------------------------------------------------------------
     # Outputs 
     #-----------------------------------------------------------------------
@@ -236,9 +239,9 @@ class Table:
         """
         \brief Add a field in self.
         \param key Supported parameters
-            A Metafield  (a field belonging to this table)
+            A Field      (a Field instance belonging to this table)
             A StringType (a field name, related to a field of this table)
-            A container (list, set, frozenset, tuple) made of StringType (field names)
+            A container  (list, set, frozenset, tuple) made of StringType (field names)
         """
         if isinstance(key, Key):
             self.keys.add(key)
@@ -257,7 +260,8 @@ class Table:
     def erase_key(self, key):
         """
         \brief Remove a Key for this table 
-        \param key A Key instance 
+        \param key A Key instance.
+            \warning This Key must refer Field instance(s) of this table. 
         \return True iif the Key has been found and successfully removed 
         """
         l = len(list(self.keys))
@@ -267,6 +271,12 @@ class Table:
                 keys.add(k)
         self.keys = keys
         return l != len(list(self.keys))
+
+    def erase_keys(self):
+        """
+        \brief Remove every Key for this table
+        """
+        self.keys = Keys()
 
     def insert_methods(self, methods):
         """
@@ -374,6 +384,40 @@ class Table:
             if field.get_name() in names:
                 fields.add(field)
         return fields
+
+    @staticmethod
+    #@returns(Table)
+    #@accepts(Table, set)
+    def make_sub_table(u, relevant_fields):
+        """
+        \brief Build a sub Table according to a given u Table such as
+            - each field of the sub Table is in relevant_fields
+            - each key only involve Fields of relevant_fields
+        \param u A Table instance
+        \param relevant_fields A set of Fields belonging to table
+        \return The corresponding subtable
+        """
+        copy_u = deepcopy(u)
+
+        for field in u.get_fields():
+            if field not in relevant_fields:
+                copy_u.erase_field(field.get_name())
+
+        # In copy_u, Key instances refer to Field instance of u, which is
+        # wrong. We've to rebuild properly the relevant keys based on
+        # Field instances of copy_u.
+        copy_u.erase_keys()
+
+        # We rebuild each Key having a sense in the reduced Table,
+        # e.g. those involving only remaining Fields
+        for key in u.get_keys():
+            if set(key) <= relevant_fields:
+                key_copy = set()
+                for field in key:
+                    key_copy.add(copy_u.get_field(field.get_name()))
+                copy_u.insert_key(Key(key_copy))
+
+        return copy_u
 
     #-----------------------------------------------------------------------
     # Relations between two Table instances 

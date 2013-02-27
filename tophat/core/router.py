@@ -411,8 +411,9 @@ class THLocalRouter(LocalRouter):
         \param user The user
         \return An AST instance representing the query plane related to the query
         """
-        print "-" * 100
-        print "###>>>>>>> entering process_subqueries %s (need fields %s) " % (query.fact_table, query.fields)
+        print "=" * 100
+        print "Entering process_subqueries %s (need fields %s) " % (query.fact_table, query.fields)
+        print "=" * 100
         table_name = query.fact_table
         table = self.get_table(table_name)
         qp = AST(user)

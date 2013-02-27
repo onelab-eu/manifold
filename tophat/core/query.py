@@ -8,10 +8,11 @@
 #   Jordan Augé       <jordan.auge@lip6.fr>
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
-from types                  import StringTypes
-from tophat.core.filter     import Filter, Predicate
-from tophat.util.frozendict import frozendict
-from copy                   import deepcopy
+from types                      import StringTypes
+from tophat.core.filter         import Filter, Predicate
+from tophat.util.frozendict     import frozendict
+from tophat.util.type           import returns, accepts
+from copy                       import deepcopy
 
 class ParameterError(StandardError): pass
 
@@ -98,6 +99,7 @@ class Query(object):
             if not isinstance(field, StringTypes):
                 raise TypeError("Invalid field name %s (string expected, got %s)" % (field, type(field)))
 
+    @returns(str)
     def __str__(self):
         return "SELECT %s FROM %s WHERE %s" % (
             ", ".join(self.fields),
@@ -105,9 +107,29 @@ class Query(object):
             self.filters
         )
 
+    @returns(str)
+    def __repr__(self):
+        return self.__str__()
+
     def __key(self):
         return (self.action, self.fact_table, self.filters, frozendict(self.params), frozenset(self.fields))
 
     def __hash__(self):
         return hash(self.__key())
+
+    @returns(str)
+    def get_action(self):
+        return self.action
+
+    @returns(frozenset)
+    def get_select(self):
+        return frozenset(self.fields)
+
+    @returns(str)
+    def get_from(self):
+        return self.fact_table
+
+    @returns(Filter)
+    def get_where(self):
+        return self.filters
 

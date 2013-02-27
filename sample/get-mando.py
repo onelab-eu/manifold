@@ -5,25 +5,34 @@ from config                 import auth
 from tophat.core.router     import THLocalRouter
 from tophat.core.router     import Query
 
-# Require type inference
 query = Query(
-    # action
     "get",
-    # from (= query.fact_table)
-    "traceroute",
-    # where (= query.filters)
-    [
-        ["source.ip",      "=", "141.22.213.34"],
-        ["destination.ip", "=", "139.91.90.239"]
-    ],
-    # query.params
+    "x",
+    [],
     {},
-    # select (= query.fields)
-    #["source.ip", "destination.ip", "hops.ttl", "hops.ip", "hops.hostname"] ,
-    ["source.ip", "destination.ip"],
-    # timestamp
-    "2012-09-09 14:30:09"
+    ["x", "t"],
+    None
 )
+
+## Require type inference
+#query = Query(
+#    # action
+#    "get",
+#    # from (= query.fact_table)
+#    "traceroute",
+#    # where (= query.filters)
+#    [
+#        ["source.ip",      "=", "141.22.213.34"],
+#        ["destination.ip", "=", "139.91.90.239"]
+#    ],
+#    # query.params
+#    {},
+#    # select (= query.fields)
+#    #["source.ip", "destination.ip", "hops.ttl", "hops.ip", "hops.hostname"] ,
+#    ["source.ip", "destination.ip"],
+#    # timestamp
+#    "2012-09-09 14:30:09"
+#)
 
 #query = Query(
 #    # action

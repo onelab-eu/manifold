@@ -7,19 +7,16 @@
 #
 # Copyright (C) UPMC Paris Universitas
 # Authors:
-#   Jordan Augé       <jordan.auge@lip6.fr> 
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
+#   Jordan Augé       <jordan.auge@lip6.fr> 
 
-from networkx                   import DiGraph
 from copy                       import deepcopy
+from networkx                   import DiGraph
 from types                      import StringTypes
 from tophat.util.type           import returns, accepts
 from tophat.core.field          import Field
 from tophat.core.key            import Key, Keys
-
-def print_map(dico):
-    for k, d in dico.items():
-        print "\t%r => %r" % (k,d)
+from tophat.core.table          import Table 
 
 #OBSOLETE|def prune_precedessor_map_old(g, needed_fields, map_vertex_pred):
 #OBSOLETE|    map_pred   = {}
@@ -53,6 +50,62 @@ def print_map(dico):
 #OBSOLETE|        # else: we will find the fields when looking at u
 #OBSOLETE|    return map_pred, map_fields
 #OBSOLETE|
+#OBSOLETE|@accepts(DiGraph, set, dict)
+#OBSOLETE|@returns(tuple)
+#OBSOLETE|def get_sub_graph(g, vertices_to_keep, map_vertex_fields):
+#OBSOLETE|    """
+#OBSOLETE|    \brief Extract a subgraph from a given graph g. Each vertex and
+#OBSOLETE|        arc of this subgraph is a deepcopy of those of g.
+#OBSOLETE|    \param g The original graph
+#OBSOLETE|    \param vertices_to_keep The vertices to keep in g.
+#OBSOLETE|    \param map_vertex_fields Store for for each vertex which fields
+#OBSOLETE|        are relevant
+#OBSOLETE|    \return A tuple made of
+#OBSOLETE|        a DiGraph instance (the subgraph)
+#OBSOLETE|        a dict 
+#OBSOLETE|    """
+#OBSOLETE|    sub_graph = DiGraph()
+#OBSOLETE|    map_vertex = {}
+#OBSOLETE|    map_vertex_fields_ret = {}
+#OBSOLETE|
+#OBSOLETE|    # Copy relevant vertices from g
+#OBSOLETE|    print "Keeping those tables:"
+#OBSOLETE|    for u in vertices_to_keep: 
+#OBSOLETE|        print "%r" % u
+#OBSOLETE|        u_copy = deepcopy(u)
+#OBSOLETE|        map_vertex[u] = u_copy
+#OBSOLETE|        sub_graph.add_node(u_copy) # no data on nodes
+#OBSOLETE|
+#OBSOLETE|    # Copy relevant arcs from g
+#OBSOLETE|    for u, v in g.edges():
+#OBSOLETE|        try:
+#OBSOLETE|            u_copy, v_copy = map_vertex[u], map_vertex[v]
+#OBSOLETE|        except:
+#OBSOLETE|            continue
+#OBSOLETE|        sub_graph.add_edge(u_copy, v_copy, deepcopy(g.edge[u][v]))
+#OBSOLETE|
+#OBSOLETE|    for u, fields in map_vertex_fields.items():
+#OBSOLETE|        u_copy = map_vertex[u]
+#OBSOLETE|        map_vertex_fields_ret[u_copy] = fields
+#OBSOLETE|
+#OBSOLETE|    print "Leaving get_sub_graph: map_vertex_fields:"
+#OBSOLETE|    for k, d in map_vertex_fields_ret.items():
+#OBSOLETE|        print "\t%r => %r" % (k, d)
+#OBSOLETE|
+#OBSOLETE|    return (sub_graph, map_vertex_fields_ret)
+#OBSOLETE|
+#OBSOLETE|def prune_tree_fields(tree, needed_fields, map_vertex_fields):
+#OBSOLETE|    print "needed_fields = %r" % needed_fields
+#OBSOLETE|    print "tree =\n\t%s" % ("\n\t".join(["%r" % u for u in tree.nodes()]))
+#OBSOLETE|    missing_fields = deepcopy(needed_fields)
+#OBSOLETE|    for u in tree.nodes():
+#OBSOLETE|        print "u = %r in map_vertex_fields.keys() = %r" % (u, map_vertex_fields.keys())
+#OBSOLETE|        relevant_fields_u = map_vertex_fields[u]
+#OBSOLETE|        missing_fields -= relevant_fields_u
+#OBSOLETE|        for field in u.get_fields():
+#OBSOLETE|            if field.get_name() not in relevant_fields_u:
+#OBSOLETE|                u.erase_field(field.get_name())
+#OBSOLETE|    return missing_fields
 
 @returns(tuple)
 @accepts(DiGraph, set, dict)
@@ -103,12 +156,20 @@ def prune_precedessor_map(g, queried_fields, map_vertex_pred):
             if isinstance(key_u, Key):
                 update_map(relevant_keys, u, key_u)
 
-            fields_u = set(key_u)
+            if isinstance(key_u, Key):
+                fields_u = set(key_u)
+            elif isinstance(key_u, Field):
+                fields_u = set()
+                fields_u.add(key_u)
+            else:
+                raise TypeError("Unexpected info on arc (%r, %r): %r" % (u, v, key_u))
+
             update_map(relevant_fields, u, fields_u) 
+            update_map(relevant_fields, v, v.get_fields_with_name(set([field.get_name() for field in u.get_fields()]))) 
 
             # The field explicitely queried by the user have already
             # been stored in relevant_fields during a previous iteration
-            if u in predecessor:
+            if u in predecessor.keys(): 
                 break
 
             # Update infos about u 
@@ -120,97 +181,28 @@ def prune_precedessor_map(g, queried_fields, map_vertex_pred):
             u = predecessor[u]
 
     return (predecessor, relevant_keys, relevant_fields)
-# 
-#@accepts(DiGraph, set, dict)
-#@returns(tuple)
-#def get_sub_graph(g, vertices_to_keep, map_vertex_fields):
-#    """
-#    \brief Extract a subgraph from a given graph g. Each vertex and
-#        arc of this subgraph is a deepcopy of those of g.
-#    \param g The original graph
-#    \param vertices_to_keep The vertices to keep in g.
-#    \param map_vertex_fields Store for for each vertex which fields
-#        are relevant
-#    \return A tuple made of
-#        a DiGraph instance (the subgraph)
-#        a dict 
-#    """
-#    sub_graph = DiGraph()
-#    map_vertex = {}
-#    map_vertex_fields_ret = {}
-#
-#    # Copy relevant vertices from g
-#    print "Keeping those tables:"
-#    for u in vertices_to_keep: 
-#        print "%r" % u
-#        u_copy = deepcopy(u)
-#        map_vertex[u] = u_copy
-#        sub_graph.add_node(u_copy) # no data on nodes
-#
-#    # Copy relevant arcs from g
-#    for u, v in g.edges():
-#        try:
-#            u_copy, v_copy = map_vertex[u], map_vertex[v]
-#        except:
-#            continue
-#        sub_graph.add_edge(u_copy, v_copy, deepcopy(g.edge[u][v]))
-#
-#    for u, fields in map_vertex_fields.items():
-#        u_copy = map_vertex[u]
-#        map_vertex_fields_ret[u_copy] = fields
-#
-#    print "Leaving get_sub_graph: map_vertex_fields:"
-#    for k, d in map_vertex_fields_ret.items():
-#        print "\t%r => %r" % (k, d)
-#
-#    return (sub_graph, map_vertex_fields_ret)
-#
-#def prune_tree_fields(tree, needed_fields, map_vertex_fields):
-#    print "needed_fields = %r" % needed_fields
-#    print "tree =\n\t%s" % ("\n\t".join(["%r" % u for u in tree.nodes()]))
-#    missing_fields = deepcopy(needed_fields)
-#    for u in tree.nodes():
-#        print "u = %r in map_vertex_fields.keys() = %r" % (u, map_vertex_fields.keys())
-#        relevant_fields_u = map_vertex_fields[u]
-#        missing_fields -= relevant_fields_u
-#        for field in u.get_fields():
-#            if field.get_name() not in relevant_fields_u:
-#                u.erase_field(field.get_name())
-#    return missing_fields
 
 
-def make_sub_graph(g, relevant_keys, relevant_fields):
+@returns(DiGraph)
+@accepts(DiGraph, dict)
+def make_sub_graph(g, relevant_fields):
     """
     \brief Create a reduced graph based on g.
         We only keep vertices having a key in relevant_fields
+    \param g A DiGraph instance (the full 3nf graph)
+    \param relevant_fields A dictionnary {Table: Fields}
+        indicating for each Table which Field(s) are relevant.
+    \return The corresponding sub-3nf-graph
     """
     sub_graph = DiGraph()
     copy = dict()
-
     vertices_to_keep = set(relevant_fields.keys())
 
     # Copy relevant vertices from g
     for u in vertices_to_keep: 
-        print "Adding %r" % u
-        copy_u = deepcopy(u)
+        copy_u = Table.make_sub_table(u, relevant_fields[u])
         copy[u] = copy_u
-
-        for field in u.get_fields():
-            if field not in relevant_fields[u]:
-                copy_u.erase_field(field.get_name())
-
-        # Select an arbitrary key if no key is needed to ensure that the resulting table
-        # has at least one key
-        relevant_keys_u = relevant_keys[u] if u in relevant_keys.keys() else set(list(u.get_keys())[0])
-
-#TODO: in Table: make_sub_table: the key of the subtable must refer to fields of the subtable
-#TODO|        print "> relevant keys are %s" % ', '.join(["%s" % k for k in relevant_keys_u])
-#TODO|        for key in u.get_keys():
-#TODO|            if key not in relevant_keys_u:
-#TODO|                print ">> erasing key %s" % key 
-#TODO|                copy_u.erase_key(key)
-
-        print "%s" % copy_u
+        print "\nAdding %s" % copy_u
         sub_graph.add_node(copy_u) # no data on nodes
 
     # Copy relevant arcs from g
@@ -246,21 +238,11 @@ def build_pruned_tree(g, needed_fields, map_vertex_pred):
     # of the tree rooted at the fact_table
 
     print "-" * 100
-    print "Prune useless nodes/arcs from tree"
+    print "Prune useless keys/nodes/arcs from tree"
     print "-" * 100
     
-#    print "Before pruning, predecessor map is:"
-#    print_map(map_vertex_pred)
-
     (predecessor, relevant_keys, relevant_fields) = prune_precedessor_map(g, needed_fields, map_vertex_pred)
-#    print "After pruning, predecessor map is:"
-#    print_map(predecessor)
-#    print "Relevant keys:"
-#    print_map(relevant_keys)
-#    print "Relevant fields:"
-#    print_map(relevant_fields)
-
-    tree = make_sub_graph(g, relevant_keys, relevant_fields)
+    tree = make_sub_graph(g, relevant_fields)
 
     # Print tree
     print "-" * 100
@@ -268,13 +250,5 @@ def build_pruned_tree(g, needed_fields, map_vertex_pred):
     print "-" * 100
     for table in tree.nodes():
         print "%s\n" % table
-
-#    # Remove useless keys
-#    for e in tree.edges():
-#        (u, v) = e
-#        (_, key_v) = tree[u][v]["info"]
-#        if key_v:
-#            #print "build_pruned_graph(): erasing key %s from %r" % (key_v, v)
-#            v.erase_key(key_v)
 
     return tree 

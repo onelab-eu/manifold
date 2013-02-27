@@ -72,9 +72,10 @@ class Key(frozenset):
         return "KEY(%s)" % (", ".join(["%s" % field for field in self]))
 
 # DO NOT UNCOMMENT
-#    @returns(bool)
-#    def __eq__(self, x):
+    @returns(bool)
+    def __eq__(self, x):
 #        return set([f.get_name() for f in self]) == set(f.get_name() for f in x)
+        return self.__hash__() == x.__hash__()
 #
 #    def __hash__(self):
 #        return hash(tuple([f.get_name() for f in self]))
