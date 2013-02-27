@@ -265,7 +265,8 @@ def build_query_plane(user, pruned_tree):
     ordered_tables = dfs_preorder_nodes(pruned_tree, root_node)
     for table in ordered_tables:
         print "table %r" % table
-        ast.leftjoin(from_table(table, cache), predicate)
+        from_node = from_table(table, cache)
+        ast.leftjoin(AST(user = user).from_node, predicate)
 
     return ast
 
@@ -276,20 +277,22 @@ def from_table(table, cache = None):
         children.append(from_partition(platform, table.get_name(), table.get_field_names(), None, cache))
     if len(children) == 1:
         return children[0]
-    return Union(children, table.get_keys()[0])
+    return Union(children, list(table.get_keys())[0])
 
 def from_partition(platform, table_name, field_names, annotations, cache = None):
     # annotations:  je sais que P1:X me fournit aussi P1:Y et P1:Z
-    from_list = cache.get(p, m)
-    if cache and from_list in cache:
-        return from_list
-#    else: # "vrai" from
-#        # create From
+    if cache:
+        try:
+            return cache[(platform, table_name)]
+        except:
+            pass
+
+#    # create From
+#    create demux # alimenter pi/dups avant le from (cf left join) 
+#    for each annotation
+#        create pi -> dup -> fromlist(annotation)
 #        if cache:
-#            create demux # alimenter pi/dups avant le from (cf left join) 
-#            for each annotation
-#                create pi -> dup -> fromlist(annotation)
-#                cache.add(fromlist)
-#            callback From sur union
-#        return From
+#            cache.add(fromlist)
+#    callback From sur union
+#    return From
     return None

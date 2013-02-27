@@ -1,4 +1,3 @@
-from tophat.core.ast import From
 #import GeoIP
 
 geo_fields = {
@@ -16,7 +15,7 @@ allowed_fields = ['ip', 'hostname']
 allowed_fields.extend(geo_fields.keys())
 
 
-class MaxMind(From):
+class MaxMind(object):
 
     def __str__(self):
         return "<MaxMindGateway %s>" % self.query

@@ -1,15 +1,14 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import sys
-import itertools
+import sys, itertools, traceback
+from copy import copy, deepcopy
+
 from tophat.core.filter import Filter, Predicate
 from tophat.core.query import Query
 from tophat.core.table import Table 
 from tophat.core.field import Field
 from tophat.core.key   import Key
-from copy import copy, deepcopy
-import traceback
 
 # NOTES
 # - What about a Record type
@@ -144,7 +143,7 @@ class Node(object):
         # Callback triggered when the current node produces data.
         self.callback = None
         # Query representing the data produced by the node.
-#        self.query = self.query()
+#        self.query = self.get_query()
 
     def set_callback(self, callback):
         """
@@ -155,7 +154,7 @@ class Node(object):
         self.callback = callback
         # Basic information about the data provided by a node
 
-    def query(self):
+    def get_query(self):
         """
         \brief Returns the query representing the data produced by the nodes.
         \return query representing the data produced by the nodes.
@@ -181,25 +180,22 @@ class From(Node):
     From Node are responsible to query a gateway (!= FromTable).
     """
 
-    def __init__(self, query, table, key): # platform, query, config, user_config, user, key):
+    def __init__(self, table, query):
         """
         \brief Constructor
-        \param query
-        \param table
-        \param key the key for elements returned from the node
+        \param table A Table instance (the 3nf table)
+            \sa tophat/core/table.py
+            \sa tophat/util/dbgraph.py
+            \sa tophat/util/dbnorm.py
+        \param query A Query instance: the query passed to the gateway to fetch records 
         """
-        # TODO Depends on the query plane construction
-        # Parameters
-        self.query, self.table, self.key = query, table, key
-        #self.platform, self.query, self.config, self.user_config, self.user, self.key = \
-        #        platform, query, config, user_config, user, key
-        # Member variables
-        # Temporarily store eventual parent subquery records
-        self.records = []
+        assert isinstance(query, Query), "Invalid type: query = %r (%r)" % (query, type(query))
+        assert isinstance(table, Table), "Invalid type: table = %r (%r)" % (table, type(table))
 
+        self.query, self.table = query, table
         super(From, self).__init__()
 
-    def query(self):
+    def get_query(self):
         """
         \brief Returns the query representing the data produced by the nodes.
         \return query representing the data produced by the nodes.
@@ -209,14 +205,20 @@ class From(Node):
         # requested
         return self.query
 
-    def dump(self, indent=0):
+    def get_table(self):
+        return self.table
+
+    def get_platform(self):
+        return list(self.get_table().get_platforms())[0]
+
+    def dump(self, indent = 0):
         """
         \brief Dump the current node
         \param indent current indentation
         """
-        q = self.query
+        q = self.get_query()
         self.tab(indent)
-        print DUMPSTR_FROM % (q.fields, self.platform, q.fact_table)
+        print DUMPSTR_FROM % (q.get_select(), self.get_platform(), q.get_from())
 
     def inject(self, records):
         """
@@ -299,17 +301,8 @@ class LeftJoin(Node):
     LEFT JOIN operator node
     """
 
-    def __init__(self, left_child, children, joins, callback):
-        """
-        \brief Constructor
-        \param left_child A instance of Node which model the left operand
-            of an n-ary join.
-        \param children A list of n-1 Node instances that we join to left_child
-        \param joins A list of n-1 "join" (= pair of set of Field instances)
-            joins[i] allows to join child[i] and child[i+1]
-        \param callback The callback invoked when the LeftJoin instance returns records. 
-        """
-        # Check parameters
+    @staticmethod
+    def check_init(self, left_child, children, joins, callback):
         if not isinstance(children, list):
             raise TypeError("Invalid type: %r must be a list" % children)
         if not isinstance(joins, list):
@@ -323,6 +316,20 @@ class LeftJoin(Node):
         for child in children:
             if not isinstance(child, Node):
                 raise TypeError("Invalid child: %r must be of type Node" % child)
+
+
+    def __init__(self, left_child, children, joins, callback):
+        """
+        \brief Constructor
+        \param left_child A instance of Node which model the left operand
+            of an n-ary join.
+        \param children A list of n-1 Node instances that we join to left_child
+        \param joins A list of n-1 "join" (= pair of set of Field instances)
+            joins[i] allows to join child[i] and child[i+1]
+        \param callback The callback invoked when the LeftJoin instance returns records. 
+        """
+        # Check parameters
+        LeftJoin.check_init(left_child, children, joins, callback)
 
         # Initialization
         self.left_child = left_child
@@ -339,7 +346,7 @@ class LeftJoin(Node):
 
         super(LeftJoin, self).__init__()
 
-    def query(self):
+    def get_query(self):
         """
         \brief Returns the query representing the data produced by the nodes.
         \return query representing the data produced by the nodes.
@@ -489,7 +496,7 @@ class Projection(Node):
 
         super(Projection, self).__init__()
 
-    def query(self):
+    def get_query(self):
         """
         \brief Returns the query representing the data produced by the nodes.
         \return query representing the data produced by the nodes.
@@ -556,7 +563,7 @@ class Selection(Node):
 
         super(Selection, self).__init__()
 
-    def query(self):
+    def get_query(self):
         """
         \brief Returns the query representing the data produced by the nodes.
         \return query representing the data produced by the nodes.
@@ -628,7 +635,7 @@ class Union(Node):
 
         super(Union, self).__init__()
 
-    def query(self):
+    def get_query(self):
         """
         \brief Returns the query representing the data produced by the nodes.
         \return query representing the data produced by the nodes.
@@ -741,7 +748,7 @@ class SubQuery(Node):
             child.callback = ChildCallback(self, i)
             self.child_results.append([])
 
-    def query(self):
+    def get_query(self):
         """
         \brief Returns the query representing the data produced by the nodes.
         \return query representing the data produced by the nodes.
@@ -890,32 +897,25 @@ class AST(object):
         # The AST is initially empty
         self.root = None
 
+    def is_empty(self):
+        return self.root == None
+
     def From(self, table, query):
         """
         \brief Build a FROM node
         \param table A Table wrapped by the from operator
         \param query A Query requested to the platform
+        \return The updated AST
         """
-        # TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! # XXX
+        assert self.is_empty(), "From: should be instantiated on an empty AST"
         self.query = query
-        # XXX print "W: We have two tables providing the same data: CHOICE or UNION ?"
-        print "table %r %r" % (table, type(table))
         platforms = table.get_platforms()
-        if isinstance(platforms, (list, set, frozenset, tuple)) and len(platforms) > 1:
-            children_ast = []
-            for p in platforms:
-                t = copy(table)
-                t.platforms = p
-                children_ast.append(AST(self.user).From(t,query))
-            self.union(children_ast) # XXX DISJOINT ?
-        else:
-            platform = list(platforms)[0] if isinstance(platforms, (list, set, frozenset, tuple)) else platforms
-            # XXX get rid of router here !
-            print "ERROR: From: not yet implemented"
-#            node = self.router.get_gateway(platform, self.query, self.user)
-#            node.source_id = self.router.sourcemgr.append(node)
-#            self.root = node
-#            self.root.callback = self.callback
+        assert len(platforms) == 1, "From: table = %r should be related to only one platform" % table
+        platform = list(platforms)[0]
+
+        node = From(table, query) 
+        self.root = node
+        self.root.callback = self.callback
         return self
 
     def union(self, children_ast):
@@ -939,16 +939,19 @@ class AST(object):
         return self
 
     # TODO Can we use decorators for such functions ?
-    def leftjoin(self, right_child, predicate):
+    def left_join(self, right_child, predicate):
         """
         \brief Performs a LEFT JOIN between two AST instances
             self ⋈ right_child
-        \param right_child right operand of the LEFT JOIN 
+        \param right_child An AST instance (right operand of the LEFT JOIN )
+        \param predicate A Predicate instance used to perform the join 
         \return The resulting AST
         """
-        if not self.root: raise ValueError('AST not initialized')
-        old_root = self.root
+        assert isinstance(right_child, AST), "Invalid right_child = %r (%r)" % (right_child, type(right_child))
+        assert isinstance(predicate, Predicate), "Invalid predicate = %r (%r)" % (predicate, type(Predicate))
+        assert not self.is_empty(), "No left table"
 
+        old_root = self.root
         self.root = LeftJoin(old_root, right_child.root, predicate)
         self.root.callback = old_root.callback
         return self
@@ -1028,7 +1031,8 @@ def main():
     a = Table(["p"], None, 'A', [x, y], [Key([x])])
     b = Table(["p"], None, 'B', [y, z], [Key([y])])
     pred = None
-    ast = AST().From(a, q).leftjoin(AST().From(b, q), pred).projection('c').selection(Eq('c', 'test'))
+    
+    ast = AST().From(a, q).left_join(AST().From(b, q), pred)#.projection('c').selection(Eq('c', 'test'))
     ast.dump()
 #    ast.swaphead()
 #    ast.dump()
