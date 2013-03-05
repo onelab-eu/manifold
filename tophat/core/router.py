@@ -9,7 +9,7 @@ from tophat.core.ast            import AST
 from tophat.core.key            import Key
 from tophat.core.query          import Query
 from tophat.core.table          import Table
-from tophat.gateways            import *
+from manifold.gateways            import *
 from tophat.models              import *
 from tophat.util.dbnorm         import Cache, to_3nf 
 from tophat.util.dbgraph        import DBGraph
@@ -19,7 +19,7 @@ from tophat.util.query_plane    import build_query_plane
 from tophat.util.reactor_thread import ReactorThread
 
 from sfa.trust.credential       import Credential
-from tophat.gateways.sfa        import ADMIN_USER
+from manifold.gateways.sfa        import ADMIN_USER
 from tophat.metadata.Metadata   import import_file_h
 
 METADATA_DIRECTORY = "/usr/share/myslice/metadata/"
