@@ -659,7 +659,6 @@ def to_3nf(tables):
         print "%s\n" % table
         tables_3nf.append(table)
 
-
     print "-" * 100
     print "6) Building DBgraph"
     print "-" * 100
