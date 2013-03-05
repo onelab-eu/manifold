@@ -11,7 +11,7 @@ from tophat.core.query          import Query
 from tophat.core.table          import Table
 from tophat.gateways            import *
 from tophat.models              import *
-from tophat.util.dbnorm         import DBNorm
+from tophat.util.dbnorm         import Cache, to_3nf 
 from tophat.util.dbgraph        import DBGraph
 from tophat.util.dfs            import dfs
 from tophat.util.pruned_tree    import build_pruned_tree
@@ -330,7 +330,7 @@ class THLocalRouter(LocalRouter):
     def build_tables(self):
         # Build one table per key {'Table' : THRoute}
         tables = self.rib.keys() # HUM
-        self.G_nf = DBNorm(tables).g_3nf 
+        (self.g_3nf, self.cache) = to_3nf(tables)
 
     def fetch_static_routes(self, directory = METADATA_DIRECTORY):
         """
@@ -387,35 +387,22 @@ class THLocalRouter(LocalRouter):
                 return table.get_keys()
         return None
 
-    def get_table(self, table_name):
-        """
-        \brief Retrieve the Table instance related to 'table_name' from the graph.
-        \param table_name The name of the table
-        \return The corresponding Table instance
-        \sa tophat/core/table.py
-        """
-        for table in self.G_nf.graph.nodes(False):
-            if table.name == table_name:
-                return table
-
-        raise ValueError("get_table: table not found (table_name = %s): available tables: %s" % (
-            table_name,
-            ["%r" % table for table in self.G_nf.graph.nodes(False)]
-        ))
-
     def process_subqueries(self, query, user):
         """
         \brief Compute the AST (tree of SQL operators) related to a query
         \sa tophat/core/ast.py
-        \param query The query issued by the user
-        \param user The user
+        \param query A Query issued by the user
+        \param user A User instance (carry user's information) 
         \return An AST instance representing the query plane related to the query
         """
         print "=" * 100
-        print "Entering process_subqueries %s (need fields %s) " % (query.get_from(), query.fields)
+        print "Entering process_subqueries %s (need fields %s) " % (query.get_from(), query.get_select())
         print "=" * 100
         table_name = query.get_from()
-        table = self.get_table(table_name)
+        table = self.g_3nf.find_node(table_name)
+        if not table:
+            raise ValueError("Can't find table %r related to query %r" % (table_name, query))
+
         qp = AST(user)
 
         cur_filters = []
@@ -543,32 +530,27 @@ class THLocalRouter(LocalRouter):
                 child_ast = self.process_subqueries(subquery, user)
                 children_ast.append(child_ast.root)
 
-            parent = Query(query.get_action(), query.get_from(), cur_filters, cur_params, cur_fields, query.ts)
+            parent = Query(query.get_action(), query.get_from(), cur_filters, cur_params, cur_fields, query.get_ts())
             parent_ast = self.process_query(parent, user)
             qp = parent_ast
             qp.subquery(children_ast)
         else:
-            parent = Query(query.get_action(), query.get_from(), cur_filters, cur_params, cur_fields, query.ts)
+            parent = Query(query.get_action(), query.get_from(), cur_filters, cur_params, cur_fields, query.get_ts())
             qp = self.process_query(parent, user)
 
         return qp
 
-    def get_table_max_fields(fields, tables):
-        maxfields = 0
-        ret = (None, None)
-        for t in tables:
-            isect = set(fields).intersection(t.fields)
-            if len(isect) > maxfields:
-                maxfields = len(isect)
-                ret = (t, isect)
-        return ret
+#OBSOLETE|    def get_table_max_fields(fields, tables):
+#OBSOLETE|        maxfields = 0
+#OBSOLETE|        ret = (None, None)
+#OBSOLETE|        for t in tables:
+#OBSOLETE|            isect = set(fields).intersection(t.fields)
+#OBSOLETE|            if len(isect) > maxfields:
+#OBSOLETE|                maxfields = len(isect)
+#OBSOLETE|                ret = (t, isect)
+#OBSOLETE|        return ret
 
     def get_query_plan(self, query, user):
-        # DEBUG
-        #print "get_query_plan: here is G_nf"
-        #for node in dict(self.G_nf.graph.nodes(True)):
-        #    print node
-
         qp = self.process_subqueries(query, user)
 
         # Now we apply the operators
@@ -589,7 +571,7 @@ class THLocalRouter(LocalRouter):
 
     def process_query(self, query, user):
 #DEBUG|        print "Tables:"
-#DEBUG|        for u in self.G_nf.graph.nodes(False):
+#DEBUG|        for u in self.g_3nf.graph.nodes(False):
 #DEBUG|            print "%s" % u
         return self.process_query_mando(query, user)
 
@@ -615,21 +597,21 @@ class THLocalRouter(LocalRouter):
             needed_fields.update(query.filters.keys())
 
         # Retrieve the root node corresponding to the fact table
-        root = self.G_nf.find_node(query.get_from())
+        root = self.g_3nf.find_node(query.get_from())
 
-        # Retrieve the (unique due to 3-nf) tree included in "self.G_nf" and rooted in "root"
+        # Retrieve the (unique due to 3-nf) tree included in "self.g_3nf" and rooted in "root"
         # \sa tophat/util/dfs.py
         print "Entering DFS(%r) in graph:" % root
-        for edge in self.G_nf.graph.edges():
+        for edge in self.g_3nf.graph.edges():
             (u, v) = edge
-            print "\t%r %s %r via %r" % (u, self.G_nf.graph[u][v]["type"], v, self.G_nf.graph[u][v]["info"])
-        map_vertex_pred = dfs(self.G_nf.graph, root)
+            print "\t%r %s %r via %r" % (u, self.g_3nf.graph[u][v]["type"], v, self.g_3nf.graph[u][v]["info"])
+        map_vertex_pred = dfs(self.g_3nf.graph, root)
 
         # Compute the corresponding pruned tree.
         # Each node of the pruned tree only gathers relevant table, and only their
         # relevant fields and their relevant key (if used).
         # \sa tophat/util/pruned_graph.py
-        pruned_tree = build_pruned_tree(self.G_nf.graph, needed_fields, map_vertex_pred)
+        pruned_tree = build_pruned_tree(self.g_3nf.graph, needed_fields, map_vertex_pred)
 
         # Compute the skeleton resulting query plane
         # (e.g which does not take into account the query)
@@ -648,8 +630,8 @@ class THLocalRouter(LocalRouter):
 #OBSOLETE|        """
 #OBSOLETE|        # Find a tree of tables rooted at the fact table (e.g. method) included
 #OBSOLETE|        # in the normalized graph.
-#OBSOLETE|        root = self.G_nf.find_node(query.get_from())
-#OBSOLETE|        tree = [arc for arc in self.G_nf.get_tree_edges(root)] # DFS tree 
+#OBSOLETE|        root = self.g_3nf.find_node(query.get_from())
+#OBSOLETE|        tree = [arc for arc in self.g_3nf.get_tree_edges(root)] # DFS tree 
 #OBSOLETE|
 #OBSOLETE|        # Compute the fields involved explicitly in the query (e.g. in SELECT or WHERE)
 #OBSOLETE|        needed_fields = set(query.fields)
@@ -658,7 +640,7 @@ class THLocalRouter(LocalRouter):
 #OBSOLETE|
 #OBSOLETE|        # Prune this tree to remove table that are not required to answer the query.
 #OBSOLETE|        # As a consequence, each leave of the tree provides at least one queried field.
-#OBSOLETE|        tree = DBGraph.prune_tree(tree, dict(self.G_nf.graph.nodes(True)), needed_fields)
+#OBSOLETE|        tree = DBGraph.prune_tree(tree, dict(self.g_3nf.graph.nodes(True)), needed_fields)
 #OBSOLETE|
 #OBSOLETE|        # TODO check whether every needed_fields is provided by a node of the tree
 #OBSOLETE|        # We might only be able to partially answer a query. Inform the user
@@ -668,7 +650,7 @@ class THLocalRouter(LocalRouter):
 #OBSOLETE|        qp = AST(user)
 #OBSOLETE|
 #OBSOLETE|        # Process the root node
-#OBSOLETE|        successors = self.G_nf.get_successors(root)
+#OBSOLETE|        successors = self.g_3nf.get_successors(root)
 #OBSOLETE|        print "W: Selecting an arbitrary key for each successors %r" % successors
 #OBSOLETE|        succ_keys = [list(iter(table.get_keys()).next())[0] for table in successors]
 #OBSOLETE|        current_fields = set(needed_fields) & set([field.get_name() for field in root.get_fields()])
@@ -694,7 +676,7 @@ class THLocalRouter(LocalRouter):
 #OBSOLETE|        # XXX Can be optimized by parallelizing...
 #OBSOLETE|        # XXX Note: not all arcs are JOIN, some are just about adding fields, or
 #OBSOLETE|        # better choosing the platform.
-#OBSOLETE|        for _, node in self.G_nf.get_edges():
+#OBSOLETE|        for _, node in self.g_3nf.get_edges():
 #OBSOLETE|            # Key is necessary for joining with the parent
 #OBSOLETE|            # NOTE we will need to remember which key was collected
 #OBSOLETE|            # maybe because it will be left in needed keys ???
@@ -705,7 +687,7 @@ class THLocalRouter(LocalRouter):
 #OBSOLETE|            # We need to ask to the local table at least one key for each
 #OBSOLETE|            # successor XXX let's suppose for now there is only one key
 #OBSOLETE|            # XXX in case of compound keys, what to do ?
-#OBSOLETE|            successors = self.G_nf.get_successors(node)
+#OBSOLETE|            successors = self.g_3nf.get_successors(node)
 #OBSOLETE|            succ_keys = [iter(s.keys).next() for s in successors]
 #OBSOLETE|
 #OBSOLETE|            # Realize a left join ( XXX only for PROVIDES arcs)
@@ -752,11 +734,11 @@ class THLocalRouter(LocalRouter):
 #OBSOLETE|        """
 #OBSOLETE|        # We process a single query without caring about 1..N
 #OBSOLETE|        # former method
-#OBSOLETE|        nodes = dict(self.G_nf.graph.nodes(True)) # XXX
+#OBSOLETE|        nodes = dict(self.g_3nf.graph.nodes(True)) # XXX
 #OBSOLETE|
 #OBSOLETE|        # Builds the query tree rooted at the fact table
-#OBSOLETE|        root = self.G_nf.find_node(query.get_from())
-#OBSOLETE|        tree_edges = [e for e in self.G_nf.get_tree_edges(root)] # generator
+#OBSOLETE|        root = self.g_3nf.find_node(query.get_from())
+#OBSOLETE|        tree_edges = [e for e in self.g_3nf.get_tree_edges(root)] # generator
 #OBSOLETE|
 #OBSOLETE|        # Necessary fields are the one in the query augmented by the keys in the filters
 #OBSOLETE|        needed_fields = set(query.fields)

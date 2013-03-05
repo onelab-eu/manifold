@@ -49,7 +49,7 @@ class Determinant(object):
 
             (t, k) --> {y,z}
 
-        t is required in the determinant since it leads to different
+        t is required in the Determinant since it leads to different
         semantic meanings. For example if t' inherits t and uses the same
         key(s), t' only provide information for a subset of keys of t.
     """
@@ -60,10 +60,8 @@ class Determinant(object):
         \brief (Internal use)
             Check whether parameters passed to __init__ are well-formed 
         """
-        if not isinstance(key, Key):
-            raise TypeError("Invalid key %r (type = %r)" % (key, type(key)))
-        if not isinstance(method_name, StringTypes):
-            raise TypeError("Invalid method_name %r (type = %r)" % (method_name, type(method_name))) 
+        assert isinstance(key, Key),                 "Invalid key %r (type = %r)" % (key, type(key))
+        assert isinstance(method_name, StringTypes), "Invalid method_name %r (type = %r)" % (method_name, type(method_name)) 
 
     def __init__(self, key, method_name):
         """
@@ -76,8 +74,11 @@ class Determinant(object):
         self.method_name = method_name
 
     def set_key(self, key):
-        if not isinstance(key, Key):
-            raise TypeError("Invalid key %s (%s)" % (key, type(key)))
+        """
+        \brief Set the key related to this Determinant
+        \param key A Key instance
+        """
+        assert isinstance(key, Key), "Invalid key %s (%s)" % (key, type(key))
         self.key = key
 
     @returns(Key)
@@ -107,8 +108,7 @@ class Determinant(object):
         \param x The Determinant instance compared to "self"
         \return True iif self == x
         """
-        if not isinstance(x, Determinant):
-            raise TypeError("Invalid paramater %r of type %r" % (x, type(x)))
+        assert isinstance(x, Determinant), "Invalid paramater %r (type %r)" % (x, type(x))
         return self.get_key() == x.get_key() and self.get_method_name() == x.get_method_name()
 
     @returns(str)
@@ -133,7 +133,7 @@ class Determinant(object):
 class Fd(object):
     """
     Functionnal dependancy.
-    determinant --> fields
+    Determinant --> {Field}
     For each field, we store which Method(s) (e.g. (platform, table_name))
     can provide this field.
     """
@@ -143,18 +143,13 @@ class Fd(object):
         \brief (Internal use)
             Check whether parameters passed to __init__ are well-formed 
         """
-        if not isinstance(determinant, Determinant):
-            raise TypeError("Invalid determinant %s (%s)" % (determinant, type(determinant)))
-        if not isinstance(map_field_methods, dict):
-            raise TypeError("Invalid map_field_methods %s (%s)" % (map_field_methods, type(map_field_methods)))
+        assert isinstance(determinant, Determinant), "Invalid determinant %s (%s)"       % (determinant, type(determinant))
+        assert isinstance(map_field_methods, dict),  "Invalid map_field_methods %s (%s)" % (map_field_methods, type(map_field_methods))
         for field, methods in map_field_methods.items():
-            if not isinstance(field, Field):
-                raise TypeError("Invalid field %s (%s)" % (field, type(field)))
-            if not isinstance(methods, set):
-                raise TypeError("Invalid methods %s (%s)" % (methods, type(methods)))
+            assert isinstance(field, Field), "Invalid field %s (%s)" % (field, type(field))
+            assert isinstance(methods, set), "Invalid methods %s (%s)" % (methods, type(methods))
             for method in methods:
-                if not isinstance(method, Method):
-                    raise TypeError("Invalid method %s (%s)" % (method, type(method)))
+                assert isinstance(method, Method), "Invalid method %s (%s)" % (method, type(method))
 
     def __init__(self, determinant, map_field_methods):
         """
@@ -168,6 +163,11 @@ class Fd(object):
         self.map_field_methods = map_field_methods 
 
     def set_key(self, key):
+        """
+        \brief Set another Key for this Fd
+        \param key The new Key instance
+        """
+        assert isinstance(key, Key), "Invalid key = %r (%r)" % (key, type(Key))
         self.determinant.set_key(key)
 
     @returns(set)
@@ -188,21 +188,35 @@ class Fd(object):
 
     @returns(set)
     def get_methods(self):
+        """
+        \returns The set of Method instances related to this Fd
+        """
         ret = set()
         for _, methods in self.get_map_field_methods().items():
             ret |= methods
         return ret
 
+    @returns(Determinant)
     def get_determinant(self):
+        """
+        \return The Determinant instance related to this Fd
+        """
         return self.determinant
 
     @returns(set)
     def get_fields(self):
+        """
+        \return The set of output Field instances related to this Fd
+        """
         return set(self.map_field_methods.keys())
 
+    @returns(Field)
     def get_field(self):
-        if len(self.map_field_methods) != 1:
-            raise ValueError("This fd has not exactly one field: %r" % self)
+        """
+        \return The Field instance related to this Fd
+            (assuming this Fd has exactly one output Field)
+        """
+        assert len(self.map_field_methods) == 1, "This fd has not exactly one field: %r" % self
         for field in self.map_field_methods.keys():
             return field
 
@@ -225,13 +239,13 @@ class Fd(object):
 
     #@returns(str)
     def __str__(self):
-        cr  = ''
-        cr1 = ''
-        cr2 = ''
+        cr  = ""
+        cr1 = ""
+        cr2 = ""
         if len(self.get_fields()) > 1 :
-            cr  = '\n'
-            cr1 = '\n'
-            cr2 = '\n\t'
+            cr  = "\n"
+            cr1 = "\n"
+            cr2 = "\n\t"
         
         return "[%s => {%s%s%s}]" % (
             self.get_determinant(),
@@ -239,7 +253,7 @@ class Fd(object):
             cr2.join([
                 "%20s\t(via {%s})" % (
                     field,
-                    ', '.join(['%r' % method for method in sorted(methods)])
+                    ", ".join(["%r" % method for method in sorted(methods)])
                 ) for field, methods in self.map_field_methods.items()
             ]),
             cr
@@ -349,319 +363,307 @@ class Fds(set):
 
 #------------------------------------------------------------------------------
 
-class DBNorm(object):
+class Cache(dict):
     """
-    Database schema normalization support
-    http://elm.eeng.dcu.ie/~ee221/EE221-DB-7.pdf
+    Cache class
+    It stores information concerning the Fd removed from the 3nf graph
     """
+    def update(self, fd_removed): 
+        """
+        \brief Store in the cache that the Fd (key --> field)
+            has been removed from the 3nf graph
+        \param fd_removed The Fd removed from the 3nf graph 
+        """
+        assert isinstance(fd_removed, Fd), "Invalid fd = %r (%r)" % (fd, type(fd))
+        key = fd_removed.get_determinant().get_key()
+        field = fd_removed.get_field()
+        methods = fd_removed.get_map_field_methods()[field]
 
-    def __init__(self, tables = None):
-        """
-        \brief Initializes the set of tables
-        \param tables The set of tables (Table instances)
-        \sa tophat/core/table.py
-        """
-        if tables == None:
-            self.tables = []
-            self.g_3nf = None
+        if key not in self.keys():
+            self[key] = dict()
+        if field not in self[key].keys():
+            self[key][field] = set()
+
+        # Do not add [x --> x] in the self
+        if not key.is_composite():
+            if key.get_field() == field:
+                return 
+        self[key][field] |= methods
+
+#====================================================================
+# Database normalization
+#
+# It extends algorithm presented in:
+#
+#    http://elm.eeng.dcu.ie/~ee221/EE221-DB-7.pdf
+#
+# In another file, you should only require to import Cache class
+# and to_3nf function (and call this function).
+#====================================================================
+
+@accepts(set, Fds)
+def check_closure(fields, fds):
+    """
+    \brief (Internal use)
+        Check wether paramaters passed to closure()
+        are well-formed.
+    """
+    assert isinstance(fds, Fds),                 "Invalid type of fds (%r)"    % type(fds)
+    assert isinstance(fields, (frozenset, set)), "Invalid type of fields (%r)" % type(fields)
+    for field in fields:
+        assert isinstance(field, Field), "Invalid attribute: type (%r)" % type(field)
+
+@accepts(set, Fds)
+@returns(set)
+def closure(x, fds):
+    """
+    \brief Compute the closure of a set of attributes under the
+        set of functional dependencies
+        \sa http://elm.eeng.dcu.ie/~ee221/EE221-DB-7.pdf p7
+    \param x A set of Field instances 
+    \param fds A Fds instance
+    \return A set of Field instances 
+    """
+    check_closure(x, fds)
+    x_plus = set(x)                              # x+ = x
+    while True:                                  # repeat
+        old_x_plus = x_plus.copy()               #   temp_x+ = x+
+        for fd in fds:                           #   for each fd (y -> z)
+            key = fd.get_determinant().get_key() #     get y
+            if key <= x_plus:                    #     if y \subseteq x+
+                x_plus |= fd.get_fields()        #       x+ = x+ \cup z
+        if old_x_plus == x_plus:                 # until temp_x+ = x+
+            break
+    return x_plus
+
+@returns(dict)
+@accepts(set, Fds)
+def closure_ext(x, fds):
+    """
+    \brief Compute the closure of a set of attributes under the
+        set of functional dependencies
+        \sa http://elm.eeng.dcu.ie/~ee221/EE221-DB-7.pdf p7
+    \param x A set of Field instances (usually it should be a Key instance) 
+    \param fds A Fds instance (each fd must have exactly one output field)
+    \return A dictionnary {Field => list(Fd)} where
+        - key is a Field in the closure x+
+        - data is the sequence of Fd used to retrieve this Field
+    """
+    # x = source node
+    # x+ = vertices reachable from x (at the current iteration)
+    # y -> z = an arc (a fd) that is visited during the DFS from (closure of) x
+
+    check_closure(x, fds)
+    x_plus_ext = dict()
+    for x_elt in x:
+        x_plus_ext[x_elt] = list()                 # x+ = x
+
+    print "computing closure with x = %r" % x
+    added = True
+    while added:                                   # repeat will we visit at least one new fd
+        added = False
+        for fd in fds:                             #   for each fd (y -> z)
+            y = fd.get_determinant().get_key()
+            x_plus = set(x_plus_ext.keys())
+            if y <= x_plus:                        #     if y in x+
+                z = fd.get_field()
+                if z not in x_plus:                #       if z not in x+
+                    added = True                   #          this fd is relevant, let's visit it
+#OBSOLETE|                        x_plus_ext[z] = set()          #          x+ u= y
+#OBSOLETE|
+#OBSOLETE|                        # "z" is retrieved thanks to "fd" and
+#OBSOLETE|                        # each fds needed to retrieve "y"
+#OBSOLETE|                        for y_elt in y:
+#OBSOLETE|                            if x_plus_ext[y_elt]:
+#OBSOLETE|                                x_plus_ext[z] |= x_plus_ext[y_elt]
+                    x_plus_ext[z] = list()
+                    for y_elt in y:
+                        x_plus_ext[z] += x_plus_ext[y_elt]
+                    x_plus_ext[z].append(fd)
+                    
+    for k, d in x_plus_ext.items():
+        print "\t%r => %r" % (k,d)
+    print "------------"
+    return x_plus_ext
+
+@returns(Fds)
+@accepts(list)
+def make_fd_set(tables):
+    """
+    \brief Compute the set of functionnal dependancies
+    \param A list of input Table instances
+    \returns A Fds instance
+    """
+    fds = Fds() 
+    for table in tables:
+        name = table.get_name()
+        for key in table.get_keys():
+            for field in table.get_fields():
+                map_field_methods = dict()
+                methods = set()
+                for platform in table.get_platforms():
+                    methods.add(Method(platform, name))
+                map_field_methods[field] = methods
+                fds.add(Fd(Determinant(key, name), map_field_methods))
+    return fds
+
+@accepts(Fds)
+@returns(tuple)
+def fd_minimal_cover(fds):
+    """
+    \brief Compute the functionnal dependancy minimal cover
+    \sa http://elm.eeng.dcu.ie/~ee221/EE221-DB-7.pdf p11
+    \param fds A Fds instance 
+    \return A couple made of
+        - a Fds instance (fd kept, e.g. min cover)
+        - a Fds instance (fd removed)
+    """
+    g = fds.split()                                     # replace {[x -> {a1, ..., an}]} by g = {[x -> a1], ..., [x -> an]}
+
+    fds_removed = Fds()
+    g_copy = g.copy()
+    for fd in g_copy:                                   # for each fd = [x -> a]:
+        g2 = Fds([f for f in g if fd != f])             #   g' = g \ {fd}
+        x  = fd.get_determinant().get_key()
+        a  = fd.get_field()
+        x_plus = closure(set(x), g2)                    #   compute x+ according to g'
+        if a in x_plus:                                 #   if a \in x+:
+            #print "rm %s" % fd
+            fds_removed.add(fd)
+            g = g2                                      #     g = g'
+
+    for fd in g.copy():                                 # for each fd = [x -> a] in g:
+        x = fd.get_determinant().get_key()
+        if x.is_composite():                            #   if x has multiple attributes:
+            for b in x:                                 #     for each b in x:
+
+                x_b = Key([xi for xi in x if xi != b])  #       x_b = x - b
+                g2  = Fds([f for f in g if fd != f])    #       g'  = g \ {fd} \cup {fd'}
+                fd2 = copy.deepcopy(fd)                 #          with fd' = [(x - b) -> a]
+                fd2.set_key(x_b)
+                g2.add(fd2)
+                x_b_plus = closure(set(x_b), g2)        #       compute (x - b)+ with repect to g'
+
+                if b in x_b_plus:                       #       if b \subseteq (x - b)+:
+                    g = g2                              #         replace [x -> a] in g by [(x - b) -> a]
+
+    return (g, fds_removed) 
+
+@returns(Cache)
+@accepts(Fds, Fds)
+def reinject_fds(fds_min_cover, fds_removed):
+    """
+    \brief "Reinject" Fds removed by fd_minimal_cover in the remaining fds.
+        Example: P1 provides x -> y, y -> z
+                 P2 provides x -> z
+                 P3 provides y -> z'
+        The min cover is x -> y, y -> z, y -> z' and only the P1 fds are remaining
+        Reinjecting "x -> z" in the min cover consist in adding P2 into x -> y and y -> z
+            since it is an (arbitrary) path from x to z.
+    \param fds_min_cover A Fds instance
+    \param fds_removed A Fds instance
+    \returns A Cache instance 
+    """
+    #---------------------------------------------------------------------------
+
+    #---------------------------------------------------------------------------
+
+    cache = Cache()
+
+    # For each removed Fd [x --> y]
+    for fd_removed in fds_removed:
+
+        if fd_removed.get_fields() <= fd_removed.get_determinant().get_key():
+            # This includes [x --> x] fd
+            print "Reinjecting %s" % fd_removed
+            fds_min_cover.add(fd_removed)
         else:
-            self.tables = tables
-            self.g_3nf = self.to_3nf()
+            # (p::m) [x --> y] is a shortcut in the 3nf graph,
+            # store (p::m) it in the cache for (x, y) where
+            # - p stands for a platform
+            # - m stands for a method name ((p::m) is thus a Method instance)
+            # - x stands for the Key used by fd_removed
+            # - y stands for the output Field of fd_removed
+            print "Adding to cache fd_removed = %r" % fd_removed 
+            cache.update(fd_removed)
+         
+    return cache                
 
-    @staticmethod
-    def check_closure(fields, fds):
-        """
-        \brief (Internal use)
-            Check wether paramaters passed to closure()
-            are well-formed.
-        """
-        if not isinstance(fds, Fds):
-            raise TypeError("Invalid type of fields (%r)" % type(fds))
-        if not isinstance(fields, (frozenset, set)):
-            raise TypeError("Invalid type of fields (%r)" % type(fields))
-        for field in fields:
-            if not isinstance(field, Field):
-                raise TypeError("Invalid attribute: type (%r)" % type(field))
-
-    @staticmethod
-    @accepts(set, Fds)
-    @returns(set)
-    def closure(x, fds):
-        """
-        \brief Compute the closure of a set of attributes under the
-            set of functional dependencies
-            \sa http://elm.eeng.dcu.ie/~ee221/EE221-DB-7.pdf p7
-        \param x A set of Field instances 
-        \param fds A Fds instance
-        \return A set of Field instances 
-        """
-        DBNorm.check_closure(x, fds)
-        x_plus = set(x)                              # x+ = x
-        while True:                                  # repeat
-            old_x_plus = x_plus.copy()               #   temp_x+ = x+
-            for fd in fds:                           #   for each fd (y -> z)
-                key = fd.get_determinant().get_key() #     get y
-                if key <= x_plus:                    #     if y \subseteq x+
-                    x_plus |= fd.get_fields()        #       x+ = x+ \cup z
-            if old_x_plus == x_plus:                 # until temp_x+ = x+
-                break
-        return x_plus
-    
-    @staticmethod
-    @returns(dict)
-    @accepts(set, Fds)
-    def closure_ext(x, fds):
-        """
-        \brief Compute the closure of a set of attributes under the
-            set of functional dependencies
-            \sa http://elm.eeng.dcu.ie/~ee221/EE221-DB-7.pdf p7
-        \param x A set of Field instances (usually it should be a Key instance) 
-        \param fds A Fds instance (each fd must have exactly one output field)
-        \return A dictionnary {Field => list(Fd)} where
-            - key is a Field in the closure x+
-            - data is the sequence of Fd used to retrieve this Field
-        """
-        # x = source node
-        # x+ = vertices reachable from x (at the current iteration)
-        # y -> z = an arc (a fd) that is visited during the DFS from (closure of) x
-
-        DBNorm.check_closure(x, fds)
-        x_plus_ext = dict()
-        for x_elt in x:
-            x_plus_ext[x_elt] = None                   # x+ = x
-
-        added = True
-        while added:                                   # repeat will we visit at least one new fd
-            added = False
-            for fd in fds:                             #   for each fd (y -> z)
-                y = fd.get_determinant().get_key()
-                x_plus = set(x_plus_ext.keys())
-                if y <= x_plus:                        #     if y in x+
-                    z = fd.get_field()
-                    if z not in x_plus:                #       if z not in x+
-                        added = True                   #          this fd is relevant, let's visit it
-                        x_plus_ext[z] = set()          #          x+ u= y
-
-                        # "z" is retrieved thanks to "fd" and
-                        # each fds needed to retrieve "y"
-                        x_plus_ext[z].add(fd)
-                        for y_elt in y:
-                            if x_plus_ext[y_elt]:
-                                x_plus_ext[z] |= x_plus_ext[y_elt]
-        return x_plus_ext
- 
-    @staticmethod
-    @returns(Fds)
-    @accepts(list)
-    def make_fd_set(tables):
-        """
-        \brief Compute the set of functionnal dependancies
-        \param A list of input Table instances
-        \returns A Fds instance
-        """
-        fds = Fds() 
-        for table in tables:
-            name = table.get_name()
-            for key in table.get_keys():
-                for field in table.get_fields():
-                    map_field_methods = dict()
-                    methods = set()
-                    for platform in table.get_platforms():
-                        methods.add(Method(platform, name))
-                    map_field_methods[field] = methods
-                    fds.add(Fd(Determinant(key, name), map_field_methods))
-        return fds
-
-    @staticmethod
-    @accepts(Fds)
-    @returns(tuple)
-    def fd_minimal_cover(fds):
-        """
-        \brief Compute the functionnal dependancy minimal cover
-        \sa http://elm.eeng.dcu.ie/~ee221/EE221-DB-7.pdf p11
-        \param fds A Fds instance 
-        \return A couple made of
-            - a Fds instance (fd kept, e.g. min cover)
-            - a Fds instance (fd removed)
-        """
-        g = fds.split()                                     # replace {[x -> {a1, ..., an}]} by g = {[x -> a1], ..., [x -> an]}
-
-        fds_removed = Fds()
-        g_copy = g.copy()
-        for fd in g_copy:                                   # for each fd = [x -> a]:
-            g2 = Fds([f for f in g if fd != f])             #   g' = g \ {fd}
-            x  = fd.get_determinant().get_key()
-            a  = fd.get_field()
-            x_plus = DBNorm.closure(set(x), g2)             #   compute x+ according to g'
-            if a in x_plus:                                 #   if a \in x+:
-                #print "rm %s" % fd
-                fds_removed.add(fd)
-                g = g2                                      #     g = g'
-
-        for fd in g.copy():                                 # for each fd = [x -> a] in g:
-            x = fd.get_determinant().get_key()
-            if x.is_composite():                            #   if x has multiple attributes:
-                for b in x:                                 #     for each b in x:
-
-                    x_b = Key([xi for xi in x if xi != b])  #       x_b = x - b
-                    g2  = Fds([f for f in g if fd != f])    #       g'  = g \ {fd} \cup {fd'}
-                    fd2 = copy.deepcopy(fd)                 #          with fd' = [(x - b) -> a]
-                    fd2.set_key(x_b)
-                    g2.add(fd2)
-                    x_b_plus = DBNorm.closure(set(x_b), g2) #       compute (x - b)+ with repect to g'
-
-                    if b in x_b_plus:                       #       if b \subseteq (x - b)+:
-                        g = g2                              #         replace [x -> a] in g by [(x - b) -> a]
-
-        return (g, fds_removed) 
-
-    @staticmethod
-    @accepts(Fds, Fds)
-    def reinject_fds(fds_min_cover, fds_removed):
-        """
-        \brief "Reinject" Fds removed by fd_minimal_cover in the remaining fds.
-            Example: P1 provides x -> y, y -> z
-                     P2 provides x -> z
-                     P3 provides y -> z'
-            The min cover is x -> y, y -> z, y -> z' and only the P1 fds are remaining
-            Reinjecting "x -> z" in the min cover consist in adding P2 into x -> y and y -> z
-                since it is an (arbitrary) path from x to z.
-        \param fds_min_cover A Fds instance
-        \param fds_removed A Fds instance
-        """
-        # map for each Determinant (source of a path) its extended closure {Field => list(Fd)}
-        map_determinant_closure = dict()
-        for fd_removed in fds_removed:
-            #print "Reinjecting %s" % fd_removed
-            x = fd_removed.get_determinant().get_key()
-            if x not in map_determinant_closure.keys():
-                map_determinant_closure[x] = DBNorm.closure_ext(set(x), fds_min_cover)  
-            y = fd_removed.get_field()
-            
-            # This should never happen because it means that we've removed x --> y from the min_cover
-            assert y in map_determinant_closure[x].keys(), "Inconsistent fds_min_cover = %r and fd_removed = %r" % (map_determinant_closure, fd_removed)
-
-            # Update each "fd" in "fd_min_cover" involved in x --> ... --> y
-            # This path is stored in map_determinant_closure[x][y]
-            methods = fd_removed.get_map_field_methods()[y]
-            fds_3nf = map_determinant_closure[x][y]
-
-            # Is there fd to update ?
-            if fds_3nf:
-                # This fd [u --> v] is included in the path x --> ... --> y and v is a single field
-                for fd in fds_3nf: 
-                    fd.get_map_field_methods()[fd.get_field()] |= methods 
-
-    def to_3nf(self):
-        """
-        \brief Compute a 3nf schema according to self.tables
+@returns(tuple)
+@accepts(list)
+def to_3nf(tables):
+    """
+    \brief Compute a 3nf schema
         \sa http://elm.eeng.dcu.ie/~ee221/EE221-DB-7.pdf p14
-        \return The corresponding list of Table instances in the 3nf schema
-        """
-        # Compute functional dependancies
-        print "-" * 100
-        print "1) Computing functional dependancies"
-        print "-" * 100
-        fds = DBNorm.make_fd_set(self.tables)
-        #print "%r" % fds
+    \param A list of Table instances (the schema we want to normalize)
+    \return A pair made of
+        - the 3nf graph (DbGraph instance)
+        - a Cache instance (storing the shortcuts removed from the 3nf graph)
+    """
+    # Compute functional dependancies
+    print "-" * 100
+    print "1) Computing functional dependancies"
+    print "-" * 100
+    fds = make_fd_set(tables)
+    #print "%r" % fds
 
-        # Compute the map which refer for each key the platforms
-        # which support this key 
-        map_key_platforms = dict()
-        for fd in fds:
-            key = fd.get_determinant().get_key()
-            if key not in map_key_platforms.keys():
-                map_key_platforms[key] = set()
-            for table in self.tables:
-                if table.has_key(key):
-                    map_key_platforms[key] |= table.get_platforms()
-
-        # Find a minimal cover
-        print "-" * 100
-        print "2) Computing minimal cover"
-        print "-" * 100
-        (fds_min_cover, fds_removed) = DBNorm.fd_minimal_cover(fds)
-        #print "%r" % fds_min_cover
-
-        print "-" * 100
-        print "3) Reinjecting fds 'key --> key'"
-        print "-" * 100
-        for fd in fds:
-            if fd.get_fields() <= fd.get_determinant().get_key():
-                fds_min_cover.add(fd)
-        #print "%s" % fds_min_cover
-
-        print "-" * 100
-        print "4) Reinjecting fd removed" 
-        print "-" * 100
-        DBNorm.reinject_fds(fds_min_cover, fds_removed)
-
-#OBSOLETE|        print "-" * 100
-#OBSOLETE|        print "5) Collapse fds and make 3nf-tables"
-#OBSOLETE|        print "-" * 100
-#OBSOLETE|        fds = fds_min_cover.collapse()
-#OBSOLETE|        print "%s" % fds
-#OBSOLETE|
-#OBSOLETE|        # ... create relation R = (X, A1, A2, ..., An)
-#OBSOLETE|        tables_3nf = []
-#OBSOLETE|        table_names = set() # DEBUG
+#OBSOLETE|        # Compute the map which refer for each key the platforms
+#OBSOLETE|        # which support this key 
+#OBSOLETE|        map_key_platforms = dict()
 #OBSOLETE|        for fd in fds:
-#OBSOLETE|            platforms = set()
-#OBSOLETE|            for methods in fd.get_map_field_methods().values():
-#OBSOLETE|                for method in methods:
-#OBSOLETE|                    platforms.add(method.get_platform())
-#OBSOLETE|
-#OBSOLETE|            # DEBUG begin
-#OBSOLETE|            table_name = fd.get_determinant().get_method_name()
-#OBSOLETE|            if table_name in table_names:
-#OBSOLETE|                # This happens if a table is provided by different keys (two keys are
-#OBSOLETE|                # equal iif the field are the same (type + name)
-#OBSOLETE|                raise Exception("W: another table %r already exists" % table_name)
-#OBSOLETE|            # DEBUG end 
-#OBSOLETE|
-#OBSOLETE|            tables_3nf.append(Table(
-#OBSOLETE|                platforms,
-#OBSOLETE|                fd.get_map_field_methods(),
-#OBSOLETE|                table_name,
-#OBSOLETE|                fd.get_fields(),
-#OBSOLETE|                [fd.get_determinant().get_key()]
-#OBSOLETE|            ))
-        
-        print "-" * 100
-        print "5) Grouping fds by method"
-        print "-" * 100
-        fdss = fds_min_cover.group_by_method()
-        #for table_name, fds in fdss.items():
-        #    print "%s:\n%s" % (table_name, fds)
+#OBSOLETE|            key = fd.get_determinant().get_key()
+#OBSOLETE|            if key not in map_key_platforms.keys():
+#OBSOLETE|                map_key_platforms[key] = set()
+#OBSOLETE|            for table in tables:
+#OBSOLETE|                if table.has_key(key):
+#OBSOLETE|                    map_key_platforms[key] |= table.get_platforms()
 
-        print "-" * 100
-        print "6) Making 3-nf tables" 
-        print "-" * 100
-        tables_3nf = []
-        for table_name, fds in fdss.items():
-            platforms         = set()
-            map_field_methods = dict()
-            fields            = set()
-            keys              = set()
-            for fd in fds:
-                keys.add(fd.get_determinant().get_key())
-                fields |= fd.get_fields()
-                for field, methods in fd.get_map_field_methods().items():
-                    if field not in map_field_methods:
-                        map_field_methods[field] = set()
-                    map_field_methods[field] |= methods
-                    for method in methods:
-                        platforms.add(method.get_platform())
+    # Find a minimal cover
+    print "-" * 100
+    print "2) Computing minimal cover"
+    print "-" * 100
+    (fds_min_cover, fds_removed) = fd_minimal_cover(fds)
 
-            table = Table(platforms, map_field_methods, table_name, fields, keys)
-            print "%s\n" % table
-            tables_3nf.append(table)
+    print "-" * 100
+    print "3) Reinjecting fd removed"
+    print "-" * 100
+    cache = reinject_fds(fds_min_cover, fds_removed)
 
- 
-        print "-" * 100
-        print "7) Building DBgraph"
-        print "-" * 100
-        graph_3nf = DBGraph(tables_3nf)
+    print "-" * 100
+    print "4) Grouping fds by method"
+    print "-" * 100
+    fdss = fds_min_cover.group_by_method()
+    #for table_name, fds in fdss.items():
+    #    print "%s:\n%s" % (table_name, fds)
 
-        return graph_3nf 
+    print "-" * 100
+    print "5) Making 3-nf tables" 
+    print "-" * 100
+    tables_3nf = []
+    for table_name, fds in fdss.items():
+        platforms         = set()
+        map_field_methods = dict()
+        fields            = set()
+        keys              = set()
+        for fd in fds:
+            keys.add(fd.get_determinant().get_key())
+            fields |= fd.get_fields()
+            for field, methods in fd.get_map_field_methods().items():
+                if field not in map_field_methods:
+                    map_field_methods[field] = set()
+                map_field_methods[field] |= methods
+                for method in methods:
+                    platforms.add(method.get_platform())
+
+        table = Table(platforms, map_field_methods, table_name, fields, keys)
+        print "%s\n" % table
+        tables_3nf.append(table)
+
+
+    print "-" * 100
+    print "6) Building DBgraph"
+    print "-" * 100
+    graph_3nf = DBGraph(tables_3nf)
+
+    return (graph_3nf, cache)
 
