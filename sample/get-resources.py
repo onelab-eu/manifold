@@ -1,31 +1,40 @@
 #!/usr/bin/env python
-# -*- coding:utf-8 */
+# -*- coding: utf-8 -*-
 
-import sys
+MYSLICE_API='http://demo.myslice.info:7080'
+
+# Connection to XMLRPC server
 import xmlrpclib
+srv = xmlrpclib.ServerProxy(MYSLICE_API, allow_none=True)
 
-#query1 = ('get', 'nodes', [['country', '=', 'France']], {}, ['hostname', 'arch', 'country'])
-query2 = ('get', 'resources', [], {}, ['hostname', 'asn', 'city'])
+# Authentication token
+auth = {"AuthMethod": "password", "Username": "jordan.auge@lip6.fr", "AuthString": "XXXXXXXX"}
 
+def print_slice(result):
+    print "SLICE: %s" % result['slice_hrn']
+    cpt = 0
+    for i in result['resource']:
+        if not 'sliver' in i:
+            continue
+        if cpt == 5:
+            break
+        asn = i['asn'] if 'asn' in i else 'None'
+        country = i['country'] if 'country' in i else 'None'
+        print "  - %s %s %s" % (i['hrn'], country, asn)
+        cpt += 1
+    print "    (only 5 first displayed)"
 
 def print_result(result):
     cpt = 0
     for i in result:
         if cpt == 5:
             break
-        print "[%d] " % cpt, i
+        print_slice(i)
         cpt += 1
-    print "... (only 5 first displayed)"
+    print "(only 5  displayed)"
     print "============================="
 
-from tophat.core.router import THLocalRouter
-from tophat.core.query import Query
 
-# Instantiate a TopHat router
-with THLocalRouter() as router:
-    # TODO How to make it work without __enter__ __exit__ ??
-    #router = Router()
+res =  srv.Get(auth, "resource", [["hostname", "=", "ple6.ipv6.lip6.fr"]], {}, ["hostname", "city"])
 
-    for query in [query2]: #query1, query2]:
-        result = router.forward(Query(*query))
-        print_result(result)
+print_result(res)
