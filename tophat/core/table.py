@@ -112,15 +112,16 @@ class Table:
     def __init__(self, partitions, map_field_methods, name, fields, keys, cost = 1):
         """
         \brief Constructor
-        \param partitions A dictionary which indicates for each platform the corresponding
-            predicate (pass None if not Predicate needed e.g. always True).
-            You can also pass a set/list of platform names
+        \param partitions It can be either:
+            - a dictionary {String => Predicate} where each key is the name of a platform
+            and each data is a Predicate or None. None means that the condition is always True.
+            - or either set/list of platform names
         \param name The name of the table (for example: 'user', ...)
         \param map_field_methods Pass None or a dictionnary which maps for each field
             the corresponding methods to retrieve them: {Field => set(Method)}
         \param fields A set/list of Fields involved in the table (for example 'name', 'email', ...)
         \param keys The key of the table (for example 'email')
-        \param cost
+        \param cost An integer (unused for the moment)
         """
         # Check parameters
         Table.check_init(partitions, map_field_methods, name, fields, keys, cost)
@@ -388,7 +389,7 @@ class Table:
     @staticmethod
     #@returns(Table)
     #@accepts(Table, set)
-    def make_sub_table(u, relevant_fields):
+    def make_table_from_fields(u, relevant_fields):
         """
         \brief Build a sub Table according to a given u Table such as
             - each field of the sub Table is in relevant_fields
@@ -418,6 +419,50 @@ class Table:
                 copy_u.insert_key(Key(key_copy))
 
         return copy_u
+
+    @staticmethod
+    #@returns(Table)
+    #@accepts(Table, str)
+    def make_table_from_platform(table, fields, platform):
+        """
+        \brief Extract from a Table instance its Key(s) and Field(s)
+            related to a given platform name to make another Table
+            instance related to this platform
+        \param table A Table instance
+        \param fields A set of Fields (those we're extracting)
+        \param platform A String value (the name of the platform)
+        \return The corresponding Table
+        """
+        # Extract the corresponding subtable
+        ret = Table.make_table_from_fields(table, fields)
+
+        # Compute the new map_field_method 
+        updated_map_field_methods = dict()
+        for field, methods in table.map_field_methods.items():
+            if field in fields:
+                for method in methods:
+                    if platform == method.get_platform():
+                        updated_map_field_methods[field] = set([method])
+                        break
+                assert len(updated_map_field_methods[field]) != 0, "No method related to field %r and platform %r" % (field, platform)
+
+        ret.map_field_methods = updated_map_field_methods
+        ret.platforms = set([platform])
+        return ret
+
+    @returns(dict)
+    def get_annotations(self):
+        """
+        \return A dictionnary which map for each Method (e.g. platform +
+            method name) the set of Field that can be retrieved 
+        """
+        map_method_fields = dict()
+        for field, methods in self.map_field_methods.items():
+            for method in methods:
+                if method not in map_method_fields.keys():
+                    map_method_fields[method] = set()
+                map_method_fields[method].add(field)
+        return map_method_fields 
 
     #-----------------------------------------------------------------------
     # Relations between two Table instances 

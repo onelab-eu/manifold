@@ -18,9 +18,9 @@ query = Query(
 #query = Query(
 #    # action
 #    "get",
-#    # from (= query.fact_table)
+#    # from
 #    "traceroute",
-#    # where (= query.filters)
+#    # where
 #    [
 #        ["source.ip",      "=", "141.22.213.34"],
 #        ["destination.ip", "=", "139.91.90.239"]
@@ -33,13 +33,13 @@ query = Query(
 #    # timestamp
 #    "2012-09-09 14:30:09"
 #)
-
+#
 #query = Query(
 #    # action
 #    "get",
-#    # from (= query.fact_table)
+#    # from
 #    "hop",
-#    # where (= query.filters)
+#    # where
 #    [],
 #    # query.params
 #    {},
@@ -52,13 +52,13 @@ query = Query(
 #query = Query(
 #    # action
 #    "get",
-#    # from (= query.fact_table)
+#    # from
 #    "x",
-#    # where (= query.filters)
+#    # where
 #    [],
 #    # query.params
 #    {},
-#    # select (= query.fields)
+#    # select
 #    ["x", "y", "z", "t"] ,
 #    #["source.ip", "destination.ip"],
 #    # timestamp
@@ -67,12 +67,12 @@ query = Query(
 
 
 print "=" * 150
-print query
-print "> action     = %r" % query.action
-print "> fact_table = %r" % query.fact_table
-print "> filters    = %r" % query.filters
-print "> params     = %r" % query.params
-print "> fields     = %r" % query.fields
+print "%r" % query
+print "> action = %r" % query.get_action()
+print "> select = %r" % query.get_select()
+print "> from   = %r" % query.get_from()
+print "> where  = %r" % query.get_where()
+print "> params = %r" % query.get_params()
 print "=" * 150
 
 # Instantiate a TopHat router

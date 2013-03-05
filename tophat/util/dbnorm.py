@@ -417,9 +417,9 @@ class DBNorm(object):
             \sa http://elm.eeng.dcu.ie/~ee221/EE221-DB-7.pdf p7
         \param x A set of Field instances (usually it should be a Key instance) 
         \param fds A Fds instance (each fd must have exactly one output field)
-        \return A dictionnary where each key is a field in the closure of x
-            and where each corresponding data is the set of fd that
-            have been used to get this field.
+        \return A dictionnary {Field => list(Fd)} where
+            - key is a Field in the closure x+
+            - data is the sequence of Fd used to retrieve this Field
         """
         # x = source node
         # x+ = vertices reachable from x (at the current iteration)
@@ -522,13 +522,14 @@ class DBNorm(object):
         \brief "Reinject" Fds removed by fd_minimal_cover in the remaining fds.
             Example: P1 provides x -> y, y -> z
                      P2 provides x -> z
-                     P3 provides x -> z'
+                     P3 provides y -> z'
             The min cover is x -> y, y -> z, y -> z' and only the P1 fds are remaining
-            Reinjecting "x->z" in the min cover consist in adding P2 into x -> y and y -> z
+            Reinjecting "x -> z" in the min cover consist in adding P2 into x -> y and y -> z
                 since it is an (arbitrary) path from x to z.
         \param fds_min_cover A Fds instance
         \param fds_removed A Fds instance
         """
+        # map for each Determinant (source of a path) its extended closure {Field => list(Fd)}
         map_determinant_closure = dict()
         for fd_removed in fds_removed:
             #print "Reinjecting %s" % fd_removed
@@ -537,23 +538,18 @@ class DBNorm(object):
                 map_determinant_closure[x] = DBNorm.closure_ext(set(x), fds_min_cover)  
             y = fd_removed.get_field()
             
-            if y not in map_determinant_closure[x].keys():
-                # This should never happen!
-                raise Exception("Inconsistent closure: x+ doesn't provide y with x = %r and y = %r" % (x, y))
+            # This should never happen because it means that we've removed x --> y from the min_cover
+            assert y in map_determinant_closure[x].keys(), "Inconsistent fds_min_cover = %r and fd_removed = %r" % (map_determinant_closure, fd_removed)
 
             # Update each "fd" in "fd_min_cover" involved in x --> ... --> y
             # This path is stored in map_determinant_closure[x][y]
             methods = fd_removed.get_map_field_methods()[y]
-
-            if not map_determinant_closure[x]:
-                # This should never happen!
-                raise Exception("Closure not found x = %r")
+            fds_3nf = map_determinant_closure[x][y]
 
             # Is there fd to update ?
-            if map_determinant_closure[x][y]:
-                # If true, update each fd.
+            if fds_3nf:
                 # This fd [u --> v] is included in the path x --> ... --> y and v is a single field
-                for fd in map_determinant_closure[x][y]:
+                for fd in fds_3nf: 
                     fd.get_map_field_methods()[fd.get_field()] |= methods 
 
     def to_3nf(self):

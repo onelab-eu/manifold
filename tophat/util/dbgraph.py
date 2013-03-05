@@ -10,19 +10,81 @@
 #   Jordan Augé       <jordan.auge@lip6.fr> 
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
-import networkx          as nx
-import matplotlib.pyplot as plt
+from copy                       import deepcopy
+from networkx                   import draw_graphviz, DiGraph
 #OBSOLETE|from networkx.algorithms.traversal.depth_first_search import dfs_edges
-from copy                                             import deepcopy
+import matplotlib.pyplot        as plt
 
+#OBSOLETE|from tophat.core.query          import Query 
+from tophat.core.table          import Table 
+from tophat.core.key            import Key
+from tophat.util.type           import returns, accepts
+from tophat.util.predicate      import Predicate 
+
+# TODO DBGraph should inherit nx.DiGraph
 class DBGraph:
     def __init__(self, tables):
         """
         Maintains a JOIN graph between the different tables of the database
         """
-        self.graph = nx.DiGraph()
+        self.graph = DiGraph()
         for table in tables:
             self.append(table)
+
+    def make_arc(self, u, v):
+        """
+        \brief Connect a "u" Table to a "v" Table (if necessary) in the DbGraph
+        \param u The source node (Table instance)
+        \param v The target node (Table instance)
+        """
+        #-----------------------------------------------------------------------
+
+        #returns(Predicate)
+        #@accepts(set, Key)
+        def make_predicate(fields_u, key_v):
+            """
+            \brief Compute the Predicate to JOIN a "u" Table with "v" Table
+            \param fields_u The set of Field of u required to JOIN with v
+            \param key_v The Key of v involved in the JOIN. You may pass None
+                if v has no key.
+            \return This function returns :
+                - either None iif u embeds a set of v instances
+                - either a Predicate instance which indicates how to join u and v
+            """
+            if len(fields_u) == 1 and list(fields_u)[0].is_array():
+                # u embed an array of element of type v, so there is
+                # no JOIN and thus no Predicate.
+                # Note that v do not even require to have a key
+                return None
+
+            # u and v can be joined
+            # This code only support Key made of only one Field
+            assert key_v,                       "Can't join with None key"
+            assert len(fields_u) == len(key_v), "Can't join fields = %r with key = %r" % (fields_u, key_v)
+            assert len(key_v) == 1,             "Composite key not supported: key = %r" % key_v
+
+            return Predicate(
+                "%s" % list(fields_u)[0].get_name(),
+                "==",
+                "%s" % list(key_v)[0].get_name()
+            )
+
+        #-----------------------------------------------------------------------
+
+        if u == v:
+            return
+
+        relation_uv = u.get_relation(v)
+        if relation_uv:
+            (label, fields_u) = relation_uv
+            key_v = list(v.get_keys())[0] if len(v.get_keys()) > 0 else None
+            self.graph.add_edge(u, v, {
+                "cost"      : True,
+                "type"      : label,                          # "-->" | "~~>"
+                "info"      : fields_u,                       # set of Field
+                "predicate" : make_predicate(fields_u, key_v) # None | Predicate
+            })
+            self.print_arc(u, v)
 
     def append(self, u):
         """
@@ -40,47 +102,83 @@ class DBGraph:
         # For each node v != u in the graph, check whether we can connect
         # u to v and v to u 
         for v, data in self.graph.nodes(True):
-            # Ignore the node we've just added
-            if u == v:
-                continue
+            self.make_arc(u, v)
+            self.make_arc(v, u)
 
-            # u -?-> v 
-            relation_uv = u.get_relation(v)
-            if relation_uv:
-                (label, fields_u) = relation_uv
-                print "%r %s %r" % (u, label, v)
-                self.graph.add_edge(u, v, {"cost": True, "type": label, "info": fields_u})
-
-            # v -?-> u
-            relation_vu = v.get_relation(u)
-            if relation_vu:
-                (label, fields_v) = relation_vu
-                print "%r %s %r" % (v, label, u)
-                self.graph.add_edge(v, u, {"cost": True, "type": label, "info": fields_v})
+    def print_arc(self, u, v):
+        """
+        \brief Print a (u, v) arc
+        \param u The source node (Table instance)
+        \param v The target node (Table instance)
+        """
+        arc = self.graph[u][v]
+        print "%r %s %r via %r" % (u, arc["type"], v, arc["info"])
 
     def plot(self):
+        """
+        \brief Produce de graphviz file related to this DBGraph and show the graph
+        """
         DBGraph.plot_graph(self.graph)
 
     @staticmethod
+    #@accepts(DBGraph)
     def plot_graph(graph):
-        nx.draw_graphviz(graph)
+        """
+        \brief Produce de graphviz file related to a DBGraph and show the graph
+        \param graph A DBGraph instance
+        """
+        draw_graphviz(graph)
         plt.show()
 
 #OBSOLETE|    def get_tree_edges(self, root):
 #OBSOLETE|        return [e for e in dfs_edges(self.graph, root)]
 
-    def get_root(self, query):
+    def find_node(self, table_name):
         """
-        Extract the query tree rooted at the fact table
+        \brief Search a Table instance in the DbGraph for a given table name
+        \param table_name A String value (the name of the table)
+        \return The corresponding Table instance, None if not found
         """
-        root = [node[0] for node in self.graph.nodes(True) if node[0].get_name() == query.fact_table]
-        if not root:
-            raise Exception, "Cannot find root '%s' for query '%s'. Nodes available: %s" % (
-                query.fact_table,
-                query,
-                ["%r" % node for node in self.graph.nodes(True)]
-            )
-        return root[0]
+        for table in self.graph.nodes(False):
+            if table.get_name() == table_name:
+                return table
+        return None
+
+#OBSOLETE|    #@returns(Table)
+#OBSOLETE|    def get_root(self, query):
+#OBSOLETE|        """
+#OBSOLETE|        \brief Find the root node related to the queried table (see query.get_from())
+#OBSOLETE|        \param query A Query instance
+#OBSOLETE|        \return The corresponding node (Table instance)
+#OBSOLETE|        """
+#OBSOLETE|        assert isinstance(query, Query), "Invalid query = %r (%r)" % (query, type(query))
+#OBSOLETE|        root = [node[0] for node in self.graph.nodes(True) if node[0].get_name() == query.get_from()]
+#OBSOLETE|
+#OBSOLETE|        if not root:
+#OBSOLETE|            raise Exception, "Cannot find root '%s' for query '%s'. Nodes available: %s" % (
+#OBSOLETE|                query.get_from(),
+#OBSOLETE|                query,
+#OBSOLETE|                ["%r" % node for node in self.graph.nodes(True)]
+#OBSOLETE|            )
+#OBSOLETE|
+#OBSOLETE|        assert len(root) == 1, "Invalid DBGraph. Candidate(s) root(s) = %r" % root
+#OBSOLETE|        return root[0]
+
+# TODO This should be a method of DBGraph and DBGraph should inherits DiGraph
+@accepts(DiGraph)
+def find_root(tree):
+    """
+    \brief Search the root node of a tree
+    \param tree A DiGraph instance representing a tree
+    \return The corresponding root node, None if not found
+    """
+    ret = None
+    for u in tree.nodes():
+        if not tree.in_edges(u):
+            # The root is the only node with no incoming edge
+            ret = u
+            break
+    return ret
 
 #OBSOLETE|    def get_edges(self):
 #OBSOLETE|        return dfs_edges(self.graph)
@@ -101,7 +199,7 @@ class DBGraph:
 #OBSOLETE|        # XXX to be improved
 #OBSOLETE|        # XXX if a leaf only provides a key, then we need to remove it also,
 #OBSOLETE|        # since we already have the foreign key in an other table
-#OBSOLETE|        tree = nx.DiGraph(tree_edges)
+#OBSOLETE|        tree = DiGraph(tree_edges)
 #OBSOLETE|        # *** Compute the query plane ***
 #OBSOLETE|        for node in tree.nodes():
 #OBSOLETE|            data = nodes[node]
@@ -126,7 +224,7 @@ class DBGraph:
 #OBSOLETE|        for node in tree.nodes():
 #OBSOLETE|            if 'visited' in nodes[node]:
 #OBSOLETE|                del nodes[node]['visited']
-#OBSOLETE|        return nx.DiGraph(visited_tree_edges)
+#OBSOLETE|        return DiGraph(visited_tree_edges)
 #OBSOLETE|
 #OBSOLETE|    # Let's do a DFS by maintaining a prefix
 #OBSOLETE|    def get_fields(self, root, prefix=''):

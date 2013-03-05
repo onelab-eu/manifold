@@ -20,20 +20,8 @@ from tophat.core.ast            import AST, From, Union, LeftJoin
 from tophat.core.table          import Table 
 from tophat.core.query          import Query 
 from tophat.util.type           import returns, accepts
+from tophat.util.dbgraph        import find_root
 from tophat.models.user         import User
-
-@accepts(DiGraph)
-def find_root(tree):
-    """
-    \brief (Internal use) Search the root node of a tree
-    \param tree A DiGraph instance representing a tree
-    \return The corresponding root node
-    """
-    for u in tree.nodes():
-        if not tree.in_edges(u):
-            # The root is the only node with no incoming edge
-            return u
-    raise ValueError("No root node found")
 
 #OBSOLETE|@returns(From)
 #OBSOLETE|@accepts(dict, Table, str)
@@ -243,13 +231,14 @@ def find_root(tree):
 # Join des tables ordonnées (chercher dans le cache) 
 # Pour chaque "étage": UNION DE FROM chaque plateforme (si elle fournit)
 
-@accepts(User, DiGraph)
+@accepts(User, Query, DiGraph)
 @returns(AST)
-def build_query_plane(user, pruned_tree):
+def build_query_plane(user, user_query, pruned_tree):
     """
     \brief Compute a query plane according to a pruned tree
     \param user The User instance representing the user issuing the query
         \sa tophat/model/user.py
+    \param user_query A Query instance (the query issued by the user)
     \param pruned_tree A DiGraph instance representing the 3nf-tree
         such as each remaining key in and each remaining field
         (stored in the DiGraph nodes) is needed 
@@ -257,42 +246,101 @@ def build_query_plane(user, pruned_tree):
         - either because it is needed to join tables involved in the 3nf-tree)
     \return an AST instance which describes the resulting query plane
     """
+    print "-" * 80
     print "build_query_plane()"
+    print "-" * 80
+    print "W: dummy cache" 
     cache = None 
     ast = AST(user = user)
+
+    # Find the root node in the pruned 3nf tree
     root_node = find_root(pruned_tree)
-    root_name = root_node.get_name()
+
+    # Exploring this tree according to a DFS algorithm leads to a table
+    # ordering leading to feasible successive joins
     ordered_tables = dfs_preorder_nodes(pruned_tree, root_node)
     for table in ordered_tables:
-        print "table %r" % table
-        from_node = from_table(table, cache)
-        ast.leftjoin(AST(user = user).from_node, predicate)
+        from_asts = list()
+        key = list(table.get_keys())[0]
 
+        # For each platform related to the current table, extract the
+        # corresponding table and build the corresponding FROM node
+        map_method_fields = table.get_annotations()
+        for method, fields in map_method_fields.items(): 
+            sub_table = Table.make_table_from_platform(table, fields, method.get_platform())
+            print "sub_table %s" % sub_table
+
+            query = Query(
+                user_query.get_action(),                # action
+                method.get_name(),                      # from
+                [],                                     # where will be eventually optimized later
+                user_query.get_params(),                # params
+                [field.get_name() for field in fields], # select
+                user_query.get_ts()                     # ts
+            )
+
+            from_ast = AST(user = user).From(sub_table, query)
+            from_asts.append(from_ast)
+
+        # Add the current table in the query plane 
+        if ast.is_empty():
+            # Process this table, which is the root of the 3nf tree
+            ast.union(from_asts, key)
+        else:
+            # Retrieve in-edge (u-->v): there is always exactly 1
+            # predecessor in the 3nf tree since v is not the root.
+            v = table
+            preds = pruned_tree.predecessors(v)
+            assert len(preds) == 1, "pruned_tree is not a tree: predecessors(%r) = %r" % (table, preds)
+            u = preds[0]
+            predicate = pruned_tree[u][v]["predicate"]
+            ast.left_join(AST(user = user).union(from_asts, key), predicate)
     return ast
 
-def from_table(table, cache = None):
-    children = list()
-    for platform, predicate in table.get_partitions().items():
-        # TODO annotations
-        children.append(from_partition(platform, table.get_name(), table.get_field_names(), None, cache))
-    if len(children) == 1:
-        return children[0]
-    return Union(children, list(table.get_keys())[0])
-
-def from_partition(platform, table_name, field_names, annotations, cache = None):
-    # annotations:  je sais que P1:X me fournit aussi P1:Y et P1:Z
-    if cache:
-        try:
-            return cache[(platform, table_name)]
-        except:
-            pass
-
-#    # create From
-#    create demux # alimenter pi/dups avant le from (cf left join) 
-#    for each annotation
-#        create pi -> dup -> fromlist(annotation)
-#        if cache:
-#            cache.add(fromlist)
-#    callback From sur union
-#    return From
-    return None
+#@returns(AST)
+#def from_table(user, query, table, cache = None):
+#    """
+#    \param user The User issuing the query
+#    \param query A Query instance (used to retrieve records from the platform)
+#    \param table The Table queried by the user
+#    \param cache
+#    \return An AST instance able to query efficiently the table
+#    """
+#    # Split per platform
+#    from_asts = list()
+#    for platform, predicate in table.get_partitions().items():
+#        table = Table([platform], None, table.get_name(), table.get_fields(), table.get_keys())
+#        ast = AST(user = user).From(table, query)
+#        from_asts.append(ast)
+#        #from_nodes.append(from_partition(platform, table.get_name(), table.get_field_names(), None, cache))
+#
+#    # Craft an AST made of:
+#    # - 1 FROM node (1 child)
+#    # - 1 UNION node gathering n>1 FROM nodes
+#    ast = None
+#    if len(from_asts) == 1:
+#        ast = from_asts[0]
+#    else:
+#        assert len(table.get_keys()) != 0, "This table has no key!\n%s!" % table
+#        ast = AST(user = user)
+#        key = list(table.get_keys())[0]
+#        ast.union(from_asts, key)
+#    return ast 
+#
+#def from_partition(platform, table_name, field_names, annotations, cache = None):
+#    # annotations:  je sais que P1:X me fournit aussi P1:Y et P1:Z
+#    if cache:
+#        try:
+#            return cache[(platform, table_name)]
+#        except:
+#            pass
+#
+##    # create From
+##    create demux # alimenter pi/dups avant le from (cf left join) 
+##    for each annotation
+##        create pi -> dup -> fromlist(annotation)
+##        if cache:
+##            cache.add(fromlist)
+##    callback From sur union
+##    return From
+#    return None
