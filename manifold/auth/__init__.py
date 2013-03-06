@@ -1,10 +1,10 @@
-from tophat.models import db, User, Session as DBSession
+from manifold.models import db, User, Session as DBSession
 import time
 
 import crypt
 from hashlib import md5
 
-from tophat.conf import ADMIN_USER
+from manifold.gateway.sfa import ADMIN_USER
 
 #-------------------------------------------------------------------------------
 # Helper functions

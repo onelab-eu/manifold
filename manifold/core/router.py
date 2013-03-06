@@ -1,4 +1,5 @@
 import os, sys, json, time, traceback #, threading
+#<<<<<<< HEAD
 from types                        import StringTypes
 
 from twisted.internet             import defer
@@ -16,75 +17,109 @@ from tophat.util.dbgraph          import DBGraph
 from tophat.util.dfs              import dfs
 from tophat.util.pruned_tree      import build_pruned_tree
 from tophat.util.query_plane      import build_query_plan 
+#=======
+#from types                      import StringTypes
+#
+#from twisted.internet           import defer
+#
+#from manifold.core.filter         import Predicate
+#from manifold.core.ast            import AST
+#from manifold.core.key            import Key
+#from manifold.core.query        import Query
+#from manifold.core.table          import Table
+#from manifold.gateways          import Gateway
+#from manifold.models              import *
+#from manifold.core.dbnorm         import Cache, to_3nf 
+#from manifold.core.dbgraph        import DBGraph
+#from manifold.util.dfs            import dfs
+#from manifold.core.pruned_tree    import build_pruned_tree
+#from manifold.core.query_plane    import build_query_plane 
+#>>>>>>> e5c021c5bc05b9ed282b137b730cb609a404668a
 from manifold.util.reactor_thread import ReactorThread
 from tophat.util.type             import returns, accepts
 from sfa.trust.credential         import Credential
 from manifold.gateways.sfa        import ADMIN_USER
-from tophat.metadata.Metadata     import import_file_h
+from manifold.metadata.Metadata   import import_file_h
 from manifold.util.callback       import Callback
 
-METADATA_DIRECTORY = "/usr/share/myslice/metadata/"
+#import copy
+#import time
+#import random
+#import base64
+#
+#from sqlalchemy.sql          import operators
+#
+#from tophat.router.conf      import Conf
+#from tophat.router.rib       import RIB
+#from tophat.router.fib       import FIB
+#from tophat.router.flowtable import FlowTable
+#from manifold.models           import *
+#from manifold.util.misc        import get_sqla_filters, xgetattr
+
+STATIC_ROUTES_FILE = "/usr/share/myslice/metadata/"
 CACHE_LIFETIME     = 1800
 
 #------------------------------------------------------------------
 # Class Destination
 # Represent the destination (a query in our case) of a TopHat route
 #------------------------------------------------------------------
-
-class Destination(Destination, Query):
-    """
-    Implements a destination in TopHat == a view == a query
-    """
-    
-    def __str__(self):
-        return "<Destination / Query: %s" % self.query
+#
+#class Destination(Destination, Query):
+#    """
+#    Implements a destination in TopHat == a view == a query
+#    """
+#    
+#    def __str__(self):
+#        return "<Destination / Query: %s" % self.query
 
 #------------------------------------------------------------------
 # Class Route
 #------------------------------------------------------------------
 
-class Route(Route):
+class Route(object):
     """
     Implements a TopHat route.
     """
 
-    def __init__(self, destination, peer, cost, timestamp):
-
-        if type(destination) != Destination:
-            raise TypeError("Destination of type %s expected in argument. Got %s" % (type(destination), Destination))
-
-        # Assert the route corresponds to an existing peer
-        # Assert the cost corresponds to a right cost
-        # Eventually the timestamp would not be a parameter but assigned
-
-        super(Route, self).__init__(self, destination, peer, cost, timestamp)
-
-    def push(identifier, record):
-        pass
+    pass
+#
+#    def __init__(self, destination, peer, cost, timestamp):
+#
+#        if type(destination) != Destination:
+#            raise TypeError("Destination of type %s expected in argument. Got %s" % (type(destination), Destination))
+#
+#        # Assert the route corresponds to an existing peer
+#        # Assert the cost corresponds to a right cost
+#        # Eventually the timestamp would not be a parameter but assigned
+#
+#        super(Route, self).__init__(self, destination, peer, cost, timestamp)
+#
+#    def push(identifier, record):
+#        pass
 
 #------------------------------------------------------------------
 # Class Cost
 # Cost related to a route in the routing table
 #------------------------------------------------------------------
-
-class Cost(int):
-    """
-    Let's use (N, min, +) semiring for cost
-    """
-
-    def __add__(self, other):
-        return Cost(min(self, other))
-
-    def __mul__(self, other):
-        return Cost(self + other)
+#
+#class Cost(int):
+#    """
+#    Let's use (N, min, +) semiring for cost
+#    """
+#
+#    def __add__(self, other):
+#        return Cost(min(self, other))
+#
+#    def __mul__(self, other):
+#        return Cost(self + other)
 
 #------------------------------------------------------------------
-# Class LocalRouter
+# Class Router
 # Router configured only with static/local routes, and which
 # does not handle routing messages
 #------------------------------------------------------------------
 
-class LocalRouter(LocalRouter):
+class Router(object):
     """
     Implements a TopHat router.
 
@@ -92,13 +127,38 @@ class LocalRouter(LocalRouter):
     """
 
     def __init__(self):
-        print "I: Init LocalRouter" 
+        print "I: Init Router" 
         self.reactor = ReactorThread()
-        LocalRouter.__init__(self, Table, object)
-        #self.event = threading.Event()
+
+        #self.route_cls = route_cls
+        #self.conf = Conf()
+        self.rib = {} #RIB(dest_cls, Route)
+        #self.fib = FIB(Route)
+        #self.flow_table = FlowTable(route_cls)
+        self.boot()
+
+        # account.manage()
+
+        # XXX we insert a dummy platform
+        #p = Platform(platform = 'mytestbed', platform_longname='MyTestbed')
+        #db.add(p) 
+        #p = Platform(platform = 'tophat', platform_longname='TopHat')
+        #db.add(p) 
+
         # initialize dummy list of credentials to be uploaded during the
         # current session
         self.cache = {}
+
+    def boot(self):
+        #print "I: Booting router"
+        # Install static routes in the RIB and FIB (TODO)
+        #print "D: Reading static routes in: '%s'" % self.conf.STATIC_ROUTES_FILE
+        static_routes = self.fetch_static_routes(STATIC_ROUTES_FILE)
+        #self.rib[dest] = route
+        self.build_tables()
+
+        # Read peers into the configuration file
+        # TODO
 
     def __enter__(self):
         self.reactor.startReactor()
@@ -110,7 +170,7 @@ class LocalRouter(LocalRouter):
 
     def import_file_h(self, directory, platform, gateway_type):
         """
-        \brief Import a .h file (see tophat/metadata/*.h)
+        \brief Import a .h file (see manifold.metadata/*.h)
         \param directory The directory storing the .h files
             Example: router.conf.STATIC_ROUTES_FILE = "/usr/share/myslice/metadata/"
         \param platform The name of the platform we are configuring
@@ -330,7 +390,7 @@ class LocalRouter(LocalRouter):
         """
         self.g_3nf = to_3nf(self.metadata_get_tables())
 
-    def fetch_static_routes(self, directory = METADATA_DIRECTORY):
+    def fetch_static_routes(self, directory = STATIC_ROUTES_FILE):
         """
         \brief Retrieve static routes related to each plaform. 
             See:
@@ -380,7 +440,7 @@ class LocalRouter(LocalRouter):
     def process_subqueries(self, query, user):
         """
         \brief Compute the AST (tree of SQL operators) related to a query
-        \sa tophat/core/ast.py
+        \sa manifold.core.ast.py
         \param query A Query issued by the user
         \param user A User instance (carry user's information) 
         \return An AST instance representing the query plan related to the query
@@ -565,6 +625,71 @@ class LocalRouter(LocalRouter):
 
         return qp
 
+    #---------------
+    # Local queries
+    #---------------
+
+    def local_query_get(self, query):
+        #
+        # XXX How are we handling subqueries
+        #
+
+        fields = query.fields
+        # XXX else tap into metadata
+
+        cls = self._map_local_table[query.fact_table]
+
+        # Transform a Filter into a sqlalchemy expression
+        _filters = get_sqla_filters(cls, query.filters)
+        _fields = xgetattr(cls, query.fields) if query.fields else None
+
+        if query.fields:
+            res = db.query( *_fields ).filter(_filters)
+        else:
+            res = db.query( cls ).filter(_filters)
+
+        tuplelist = res.all()
+        # only 2.7+ table = [ { fields[idx] : val for idx, val in enumerate(t) } for t in tuplelist]
+        table = [ dict([(fields[idx], val) for idx, val in enumerate(t)]) for t in tuplelist]
+        return table
+
+    def local_query_update(self, query):
+
+        cls = self._map_local_table[query.fact_table]
+
+        _fields = xgetattr(cls, query.fields)
+        _filters = get_sqla_filters(cls, query.filters)
+        # only 2.7+ _params = { getattr(cls, k): v for k,v in query.params.items() }
+        _params = dict([ (getattr(cls, k), v) for k,v in query.params.items() ])
+
+        #db.query(cls).update(_params, synchronize_session=False)
+        db.query(cls).filter(_filters).update(_params, synchronize_session=False)
+        db.commit()
+
+        return []
+
+    def local_query_create(self, query):
+
+        assert not query.filters, "Filters should be empty for a create request"
+        #assert not query.fields, "Fields should be empty for a create request"
+
+
+        cls = self._map_local_table[query.fact_table]
+        params = cls.process_params(query.params)
+        new_obj = cls(**params)
+        db.add(new_obj)
+        db.commit()
+        
+        return []
+
+    def local_query(self, query):
+        _map_action = {
+            "get"    : self.local_query_get,
+            "update" : self.local_query_update,
+            "create" : self.local_query_create
+        }
+        return _map_action[query.action](query)
+
     @returns(AST)
     def process_query(self, query, user):
         return self.process_query_mando(query, user)
@@ -594,13 +719,13 @@ class LocalRouter(LocalRouter):
         root = self.g_3nf.find_node(query.get_from())
 
         # Retrieve the (unique due to 3-nf) tree included in "self.g_3nf" and rooted in "root"
-        # \sa tophat/util/dfs.py
+        # \sa manifold.util.dfs.py
         print "Entering DFS(%r) in graph:" % root
 
         # Compute the corresponding pruned tree.
         # Each node of the pruned tree only gathers relevant table, and only their
         # relevant fields and their relevant key (if used).
-        # \sa tophat/util/pruned_graph.py
+        # \sa manifold.util.pruned_graph.py
         pruned_tree = build_pruned_tree(self.g_3nf.graph, needed_fields, dfs(self.g_3nf.graph, root))
 
         # Compute the skeleton resulting query plan
@@ -841,6 +966,119 @@ class LocalRouter(LocalRouter):
 #OBSOLETE|            qp = qp.join(left, key) # XXX
 #OBSOLETE|        return qp
 
+    # This function is directly called for a Router
+    # Decoupling occurs before for queries received through sockets
+    def forward(self, query, deferred=False, execute=True, user=None):
+        """
+        A query is forwarded. Eventually it affects the forwarding plane, and expects an answer.
+        NOTE : a query is like a flow
+        """
+
+        # Handling internal queries
+        if ':' in query.fact_table:
+            #try:
+            namespace, table = query.fact_table.rsplit(':', 2)
+            if namespace == self.LOCAL_NAMESPACE:
+                q = copy.deepcopy(query)
+                q.fact_table = table
+                return self.local_query(q)
+            elif namespace == "metadata":
+                # Metadata are obtained for the 3nf representation in
+                # memory
+                if table == "table":
+                    output = []
+                    # XXX Not generic
+                    for table in self.G_nf.graph.nodes():
+                        #print "GNF table", table
+                        fields = [f for f in self.G_nf.get_fields(table)]
+                        fields = list(set(fields))
+
+                        # Build columns from fields
+                        columns = []
+                        for field in fields:
+                            column = {
+                                "column"         : field.get_name(),        # field(_name)
+                                "description"    : field.get_description(), # description
+                                "header"         : field,
+                                "title"          : field,
+                                "unit"           : "N/A",                   # !
+                                "info_type"      : "N/A",
+                                "resource_type"  : "N/A",
+                                "value_type"     : "N/A",
+                                "allowed_values" : "N/A",
+                                # ----
+                                "type": field.type,                         # type
+                                "is_array"       : field.is_array(),        # array?
+                                "qualifier"      : field.get_qualifier()    # qualifier (const/RW)
+                                                                            # ? category == dimension
+                            }
+                            columns.append(column)
+
+                        # Add table metadata
+                        output.append({
+                            "table"  : table.get_name(),
+                            "column" : columns
+                        })
+                    return output
+                else:
+                    raise Exception, "Unsupported metadata request '%s'" % table
+            else:
+                raise Exception, "Unsupported namespace '%s'" % namespace
+            #except Exception, e:
+            #    raise Exception, "Error during local request: %s" % e
+        route = None
+
+        #print "(forward)"
+
+        # eg. a query arrive (similar to a packet)packet arrives (query)
+        
+        # we look at the destination of the query
+        # valid destinations are the ones that form a DAG given the NF schema
+        #destination = query.destination
+        #print "(got destination)", destination
+        #
+        # In flow table ?
+        #try:
+        #    print "(searching for route in flow table)"
+        #    route = self.flow_table[destination]
+        #    print "(found route in flow table)"
+        #except KeyError, key:
+        #    print "(route not in flow table, try somewhere else)"
+        #    # In FIB ?
+        #    try:
+        #        route = self.fib[destination]
+        #    except KeyError, key:
+        #        # In RIB ? raise exception if not found
+        #        try:
+        #            route = self.rib[destination]
+        #        except KeyError, key:
+        #            raise Exception, "Unknown destination: %r" % key
+        #            return None
+        #
+        #        # Add to FIB
+        #        fib[destination] = route
+        #    
+        #    # Add to flow table
+        #    flow_table[destination] = route
+
+        return self.do_forward(query, route, deferred, execute, user)
+            
+        # in tophat this is a AST + a set of queries to _next_hops_
+        #  - we forward processed subqueries to next hops and we process them
+        #  - out = f(FW(f(in, peer1)), FW(in, peer2), FW(...), ...)
+        #    This is an AST !!! we need to decouple gateways for ends of the query plane / AST
+        #  - a function of what to do with the list of results : not query by query but result by result... partial combination also work...
+        #  - in fact a multipipe in which ot insert any result that come
+        # in BGP this is a next hop to which to forward
+        #
+        # if the destination is not in the FIB, compute the associated route and add it, otherwise retrieve it (the most specific one)
+        # TODO Steiner tree, dmst, spf, etc.
+        # Typically a BGP router maintains a shortest path to all destinations, we don't do this.
+        #
+        # Eventually pass the message to the data plane, to establish query plane (route + operators from query) and circuits (gateways)
+        #
+        # Are we waiting for an answer or not (one shot query, callback (different communication channel), changes (risk of timeout), streaming)
+
     def do_forward(self, query, route, deferred, execute=True, user=None):
         """
         Effectively runs the forwarding of the query to the route
@@ -914,8 +1152,3 @@ class LocalRouter(LocalRouter):
         #self.event.clear()
 
         return cb.results
-
-class Router(LocalRouter, Router):
-    pass
-
-

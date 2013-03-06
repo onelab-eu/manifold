@@ -13,9 +13,7 @@ import hashlib
 import zlib
 import copy # DIRTY HACK SENSLAB
 
-from tophat.util.faults                 import *
-
-from tophat.core.filter                 import *
+from manifold.core.filter                 import *
 from manifold.gateways                  import Gateway
 from manifold.gateways.sfa.rspecs.SFAv1 import SFAv1Parser # as Parser
 
@@ -40,12 +38,13 @@ from sfa.rspecs.version_manager import VersionManager
 from sfa.client.client_helper import pg_users_arg, sfa_users_arg
 from sfa.client.sfaserverproxy import SfaServerProxy, ServerException
 from sfa.client.return_value import ReturnValue
-from tophat.models import User, Account, Platform, db
+from manifold.models import User, Account, Platform, db
 import json
 import signal
-
-from tophat.conf import ADMIN_USER, DEMO_HOOKS
 import traceback
+
+ADMIN_USER = 'admin'
+DEMO_HOOKS = ['demo']
 
 xslt='''<xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
 <xsl:output method="xml" indent="no"/>
@@ -371,7 +370,7 @@ class SFAGateway(Gateway):
 
     def sfa_list_records(self, cred, hrns, record_type=None):
         if record_type not in [None, 'user', 'slice', 'authority', 'node']:
-            raise PLCInvalidArgument('Wrong filter in sfa_list')
+            raise Exception('Wrong filter in sfa_list')
         records = self.registry.List(hrns, cred)
         if record_type:
             records = filter_records(record_type, records)
@@ -379,7 +378,7 @@ class SFAGateway(Gateway):
 
     def sfa_resolve_records(self, cred, xrns, record_type=None):
         if record_type not in [None, 'user', 'slice', 'authority', 'node']:
-            raise PLCInvalidArgument('Wrong filter in sfa_list')
+            raise Exception('Wrong filter in sfa_list')
 
         #try:
         print "CONNECTING TO REGISTRY", self.registry

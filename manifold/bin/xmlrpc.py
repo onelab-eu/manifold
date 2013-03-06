@@ -78,7 +78,7 @@ class XMLRPCDaemon(Daemon):
         from twisted.web        import xmlrpc, server
         from twisted.internet   import reactor
         # This also imports manifold.util.reactor_thread that uses reactor
-        from manifold.core.router       import LocalRouter
+        from manifold.core.router       import Router
 
         name = Options().gateway
 
@@ -95,7 +95,7 @@ class XMLRPCDaemon(Daemon):
 
             self.gw_or_router = Gateway.get(name)(*args)
         else:
-            self.gw_or_router = LocalRouter()
+            self.gw_or_router = Router()
             self.gw_or_router.__enter__()
 
         # used with XMLRPCAPI

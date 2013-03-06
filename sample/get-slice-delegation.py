@@ -28,7 +28,7 @@ def print_result(result):
     #print "============================="
 
 
-from manifold.core.router import THLocalRouter
+from manifold.core.router import THRouter
 from manifold.core.router import Query
 from delegation import *
 
@@ -44,7 +44,7 @@ password = getpass.getpass("Enter your password: ")
 creds = get_credentials(pl_username, private_key, sfi_dir, password)
 
 # Instantiate a TopHat router
-with THLocalRouter() as router:
+with THRouter() as router:
     user = router.authenticate({'AuthMethod': 'password', 'Username': 'demo', 'password': 'demo'})
     for c in creds:
         router.add_credential(c, user)
