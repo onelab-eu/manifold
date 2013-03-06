@@ -1,129 +1,101 @@
-import os, sys, json, time, traceback, threading
-from types                      import StringTypes
+import os, sys, json, time, traceback #, threading
+from types                        import StringTypes
 
-from twisted.internet           import defer
+from twisted.internet             import defer
 
-from tophat.router              import *
-from tophat.core.filter         import Predicate
-from tophat.core.ast            import AST
-from tophat.core.key            import Key, Keys
-from manifold.core.query        import Query
-from tophat.core.table          import Table
-from manifold.gateways          import *
-from tophat.models              import *
-from tophat.util.dbnorm         import to_3nf 
-from tophat.util.dbgraph        import DBGraph
-from tophat.util.dfs            import dfs
-from tophat.util.pruned_tree    import build_pruned_tree
-from tophat.util.query_plane    import build_query_plan 
-from tophat.util.reactor_thread import ReactorThread
-from tophat.util.type           import returns, accepts
-
-from sfa.trust.credential       import Credential
-from manifold.gateways.sfa      import ADMIN_USER
-from tophat.metadata.Metadata   import import_file_h
+from tophat.router                import *
+from tophat.core.filter           import Predicate
+from tophat.core.ast              import AST
+from tophat.core.key              import Key, Keys
+from manifold.core.query          import Query
+from tophat.core.table            import Table
+from manifold.gateways            import Gateway
+from tophat.models                import *
+from tophat.util.dbnorm           import to_3nf 
+from tophat.util.dbgraph          import DBGraph
+from tophat.util.dfs              import dfs
+from tophat.util.pruned_tree      import build_pruned_tree
+from tophat.util.query_plane      import build_query_plan 
+from manifold.util.reactor_thread import ReactorThread
+from tophat.util.type             import returns, accepts
+from sfa.trust.credential         import Credential
+from manifold.gateways.sfa        import ADMIN_USER
+from tophat.metadata.Metadata     import import_file_h
+from manifold.util.callback       import Callback
 
 METADATA_DIRECTORY = "/usr/share/myslice/metadata/"
 CACHE_LIFETIME     = 1800
 
 #------------------------------------------------------------------
-# Class callback
-#------------------------------------------------------------------
-
-class Callback:
-    def __init__(self, deferred=None, event=None, router=None, cache_id=None):
-        self.results = []
-        self._deferred = deferred
-        self.event = event
-
-        # Used for caching...
-        self.router = router
-        self.cache_id = cache_id
-
-    def __call__(self, value):
-        if not value:
-            if self.cache_id:
-                # Add query results to cache (expires in 30min)
-                #print "Result added to cached under id", self.cache_id
-                self.router.cache[self.cache_id] = (self.results, time.time() + CACHE_LIFETIME)
-
-            if self._deferred:
-                self._deferred.callback(self.results)
-            else:
-                self.event.set()
-            return
-        self.results.append(value)
-
-#------------------------------------------------------------------
-# Class THDestination
+# Class Destination
 # Represent the destination (a query in our case) of a TopHat route
 #------------------------------------------------------------------
 
-class THDestination(Destination, Query):
+class Destination(Destination, Query):
     """
     Implements a destination in TopHat == a view == a query
     """
     
     def __str__(self):
-        return "<THDestination / Query: %s" % self.query
+        return "<Destination / Query: %s" % self.query
 
 #------------------------------------------------------------------
-# Class THRoute
+# Class Route
 #------------------------------------------------------------------
 
-class THRoute(Route):
+class Route(Route):
     """
     Implements a TopHat route.
     """
 
     def __init__(self, destination, peer, cost, timestamp):
 
-        if type(destination) != THDestination:
-            raise TypeError("Destination of type %s expected in argument. Got %s" % (type(destination), THDestination))
+        if type(destination) != Destination:
+            raise TypeError("Destination of type %s expected in argument. Got %s" % (type(destination), Destination))
 
         # Assert the route corresponds to an existing peer
         # Assert the cost corresponds to a right cost
         # Eventually the timestamp would not be a parameter but assigned
 
-        super(THRoute, self).__init__(self, destination, peer, cost, timestamp)
+        super(Route, self).__init__(self, destination, peer, cost, timestamp)
 
     def push(identifier, record):
         pass
 
 #------------------------------------------------------------------
-# Class THCost
+# Class Cost
 # Cost related to a route in the routing table
 #------------------------------------------------------------------
 
-class THCost(int):
+class Cost(int):
     """
     Let's use (N, min, +) semiring for cost
     """
 
     def __add__(self, other):
-        return THCost(min(self, other))
+        return Cost(min(self, other))
 
     def __mul__(self, other):
-        return THCost(self + other)
+        return Cost(self + other)
 
 #------------------------------------------------------------------
-# Class THLocalRouter
+# Class LocalRouter
 # Router configured only with static/local routes, and which
 # does not handle routing messages
 #------------------------------------------------------------------
 
-class THLocalRouter(LocalRouter):
+class LocalRouter(LocalRouter):
     """
     Implements a TopHat router.
 
-    Specialized to handle THAnnounces/THRoutes, ...
+    Specialized to handle Announces/Routes, ...
     """
 
     def __init__(self):
-        print "I: Init THLocalRouter" 
+        print "I: Init LocalRouter" 
         self.reactor = ReactorThread()
         LocalRouter.__init__(self, Table, object)
-        self.event = threading.Event()
+        #self.event = threading.Event()
         # initialize dummy list of credentials to be uploaded during the
         # current session
         self.cache = {}
@@ -193,10 +165,11 @@ class THLocalRouter(LocalRouter):
 
         # Get the corresponding class
         gtype = p.gateway_type.encode('latin1')
-        try:
-            gw = getattr(__import__('tophat.gateways', globals(), locals(), gtype), gtype)
-        except Exception, e:
-            raise Exception, "E: Cannot import gateway class '%s': %s" % (gtype, e)
+        gw = Gateway.get(gtype)
+        #try:
+        #    gw = getattr(__import__('tophat.gateways', globals(), locals(), gtype), gtype)
+        #except Exception, e:
+        #    raise Exception, "E: Cannot import gateway class '%s': %s" % (gtype, e)
 
         # Gateway config
         gconf = json.loads(p.config)
@@ -909,7 +882,8 @@ class THLocalRouter(LocalRouter):
         # Building query plan
         qp = self.get_query_plan(query, user)
         d = defer.Deferred() if deferred else None
-        cb = Callback(d, self.event, router=self, cache_id=h)
+        cb = Callback(d, router=self, cache_id=h)
+        #cb = Callback(d, self.event, router=self, cache_id=h)
         qp.callback = cb
 
         # Now we only need to start it for Get.
@@ -935,12 +909,13 @@ class THLocalRouter(LocalRouter):
         qp.start()
 
         if deferred: return d
-        self.event.wait()
-        self.event.clear()
+        cb.wait()
+        #self.event.wait()
+        #self.event.clear()
 
         return cb.results
 
-class THRouter(THLocalRouter, Router):
+class Router(LocalRouter, Router):
     pass
 
 

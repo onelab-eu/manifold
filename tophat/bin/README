@@ -1,0 +1,32 @@
+easy_install bbfreeze
++ patchelf
+
+bb-freeze delegate.py
+makeself dist/ delegate.sh "MySlice delegate credentials" ./delegate
+#makeself --nomd5 --nocrc dist/ delegate.sh "MySlice delegate credentials" ./delegate
+
+$ ./delegate.sh ple jordan.auge@lip6.fr ple.upmc.jordan_auge
+Verifying archive integrity... All good.
+Uncompressing MySlice delegate credentials.......................................
+Enter your API password for jordan.auge@lip6.fr: 
+I: delegate user ple.upmc.jordan_auge
+I: delegate authority ple.upmc
+I: delegate slice ple.upmc.agent2
+I: delegate slice ple.upmc.agent
+I: delegate slice ple.upmc.nice
+I: delegate slice ple.upmc.tophat
+I: delegate slice ple.upmc.omftest
+I: delegate slice ple.upmc.omftest2
+I: delegate slice ple.upmc.myslicedemo
+I: uploading credential
+I: uploading credential
+I: uploading credential
+I: uploading credential
+I: uploading credential
+I: uploading credential
+I: uploading credential
+I: uploading credential
+I: uploading credential
+
+http://pastie.org/private/4gj9tzd67jln4skftj89ag
+delegate.py.pastie

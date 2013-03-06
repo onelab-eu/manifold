@@ -2,7 +2,7 @@
 # -*- coding:utf-8 */
 
 from config                 import auth
-from tophat.core.router     import THLocalRouter
+from manifold.core.router     import THLocalRouter
 from tophat.util.predicate  import Predicate 
 from manifold.core.query    import Query
 

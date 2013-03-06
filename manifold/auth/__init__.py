@@ -6,9 +6,37 @@ from hashlib import md5
 
 from tophat.conf import ADMIN_USER
 
+#-------------------------------------------------------------------------------
+# Helper functions
+#-------------------------------------------------------------------------------
+
+row2dict = lambda r: {c.name: getattr(r, c.name) for c in r.__table__.columns}
+
+def make_account_dict(account):
+    account_dict = row2dict(account)
+    account_dict['platform'] = account.platform.platform
+    del account_dict['platform_id']
+    del account_dict['config']
+    return account_dict
+
+def make_user_dict(user):
+    user_dict = row2dict(user)
+    user_dict['accounts'] = [make_account_dict(a) for a in user.accounts]
+    del user_dict['user_id']
+    del user_dict['password']
+    return user_dict
+
 # TODO Shall we track origin of newly created users ?
 
+#-------------------------------------------------------------------------------
+# Exceptions
+#-------------------------------------------------------------------------------
+
 class AuthenticationFailure(Exception): pass
+
+#-------------------------------------------------------------------------------
+# Auth class
+#-------------------------------------------------------------------------------
 
 class Auth(object):
     def __new__(cls, auth):
@@ -31,6 +59,17 @@ class Auth(object):
 
     def __init__(self, auth):
         self.auth = auth
+
+    def AuthCheck(self):
+        return 1
+
+    def GetSession(self, auth):
+        return Session().get_session(auth)
+
+    def GetPersons(self, auth):
+        user = self.authenticate(args[0])
+        return [make_user_dict(user)]
+        #return [{'email': user.email, 'first_name': user.email, 'last_name': '', 'user_hrn': 'TODO'}]
 
 class Password(Auth):
     """
@@ -55,7 +94,7 @@ class Password(Auth):
             crypt.crypt(plaintext, password[:12]) != password:
             raise AuthenticationFailure, "Password verification failed %s" % crypt.crypt(plaintext, password[:12])
 
-        return user
+        return make_user_dict(user)
 
 class Anonymous(Auth):
     def check(self):
@@ -78,10 +117,26 @@ class Session(Auth):
 
         user = sess.user
         if user and sess.expires > time.time():
-            return user
+            return make_user_dict(user)
         else:
             sess.delete()
             raise AuthenticationFailure, "Invalid session: %s" % e
+
+    def get_session(self, auth):
+        # Before a new session is added, delete expired sessions
+        db.query(Session).filter(Session.expires < int(time.time())).delete()
+
+        s = Session()
+        # Generate 32 random bytes
+        bytes = random.sample(xrange(0, 256), 32)
+        # Base64 encode their string representation
+        s.session = base64.b64encode("".join(map(chr, bytes)))
+        s.user = self.authenticate(auth)
+        s.expires = int(time.time()) + (24 * 60 * 60)
+        db.add(s)
+        db.commit()
+        return s.session
+
 
 class PLEAuth(Auth):
     """
@@ -114,7 +169,7 @@ class PLEAuth(Auth):
             user = User(email=auth['Username'].lower())
             db.add(user)
             db.commit()
-            return user
+            return make_user_dict(user)
 
 class PLCAuth(Auth):
     """
@@ -147,7 +202,7 @@ class PLCAuth(Auth):
             user = User(email=auth['Username'].lower())
             db.add(user)
             db.commit()
-            return user
+            return make_user_dict(user)
 
 class ManagedAuth(Auth):
     """
@@ -184,4 +239,4 @@ class ManagedAuth(Auth):
             user = User(email=auth['Username'].lower())
             db.add(user)
             db.commit()
-            return user
+            return make_user_dict(user)

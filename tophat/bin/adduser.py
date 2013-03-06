@@ -8,7 +8,7 @@ import time
 from random import Random
 import crypt
 
-from tophat.core.router import THLocalRouter
+from manifold.core.router import THLocalRouter
 from manifold.core.query import Query
 
 
