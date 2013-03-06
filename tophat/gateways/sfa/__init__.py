@@ -13,7 +13,6 @@ import hashlib
 import zlib
 import copy # DIRTY HACK SENSLAB
 
-from tophat.core.ast import From
 from tophat.util.faults import *
 
 from tophat.core.filter import *
@@ -140,7 +139,7 @@ import uuid
 def unique_call_id(): return uuid.uuid4().urn
 
 
-class SFA(From):
+class SFA(object):
 
 ################################################################################
 # BEGIN SFA CODE

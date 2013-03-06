@@ -11,11 +11,10 @@
 
 import re
 
-from tophat.util.clause import Clause
-
-from MetadataClass import MetadataClass
-from MetadataEnum  import MetadataEnum
-from MetadataField import MetadataField
+from tophat.util.clause             import Clause
+from tophat.metadata.MetadataClass  import MetadataClass
+from tophat.metadata.MetadataEnum   import MetadataEnum
+from tophat.core.field              import Field 
 
 #------------------------------------------------------------------
 # Constants needed for .h parsing, see import_file_h(...)
@@ -64,7 +63,7 @@ def import_file_h(filename):
             - data: the corresponding MetadataEnum instance
     \sa MetadataEnum.py
     \sa MetadataClass.py
-    \sa MetadataField.py
+    \sa Field.py
     """
     # Load file
     fp = open(filename, "r")
@@ -88,10 +87,10 @@ def import_file_h(filename):
             m = REGEXP_CLASS_FIELD.match(line)
             if m:
                 classes[cur_class_name].fields.append(
-                    MetadataField(
+                    Field(
                         qualifier   = m.group(1),
                         type        = m.group(2),
-                        field_name  = m.group(3),
+                        name        = m.group(3),
                         is_array    = (m.group(4) != None), 
                         description = m.group(5).strip("/*<")
                     )
@@ -124,7 +123,7 @@ def import_file_h(filename):
                         raise ValueError("Trying to add implicit key %s which is already in use" % key_name)
                     print "I: Adding implicit key %s in %s" % (key_name, cur_class_name) 
                     cur_class.keys.append([key_name])
-                    cur_class.fields.append(MetadataField("const", "unsigned", key_name, False, "Dummy key"))
+                    cur_class.fields.append(Field("const", "unsigned", key_name, False, "Dummy key"))
                 cur_class_name = None
                 continue
 
