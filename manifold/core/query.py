@@ -27,16 +27,30 @@ class Query(object):
     """
 
     def __init__(self, *args, **kwargs):
-        l = len(kwargs.keys())
+        #l = len(kwargs.keys())
+        len_args = len(args)
 
         if len(args) == 1 and isinstance(args[0], Query):
             # Copy
             return deepcopy(args[0])
 
         # Initialization from a tuple
-        if len(args) in range(2, 7) and type(args) == tuple:
+
+        if len_args in range(2, 7) and type(args) == tuple:
             # Note: range(x,y) <=> [x, y[
-            self.action, self.fact_table, self.filters, self.params, self.fields, self.ts = args
+
+            # XXX UGLY
+            if len_args == 3:
+                self.action = 'get'
+                self.params = {}
+                self.ts     = 'now'
+                self.fact_table, self.filters, self.fields = args
+            elif len_args == 4:
+                self.fact_table, self.filters, self.params, self.fields = args
+                self.action = 'get'
+                self.ts     = 'now'
+            else:
+                self.action, self.fact_table, self.filters, self.params, self.fields, self.ts = args
 
         # Initialization from a dict (action & fact_table are mandatory)
         elif "fact_table" in kwargs:

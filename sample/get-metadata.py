@@ -6,8 +6,8 @@ import xmlrpclib
 
 query = ('get', 'metadata:table', [], {}, [], 'latest')
 
-from tophat.core.router import THLocalRouter
-from tophat.core.router import Query
+from manifold.core.router import THLocalRouter
+from manifold.core.router import Query
 
 # Instantiate a TopHat router
 with THLocalRouter() as router:
