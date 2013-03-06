@@ -5,12 +5,42 @@ from tophat.util.misc import contains
 
 # New modifier: { contains 
 
-operators = {'==': eq, '!=': ne, '<': lt, '<=': le, '>': gt, '>=': ge, '&&': and_, '||': or_, 'contains': contains}
-operators_short = { '=': eq, '~': ne, '<': lt, '[': le, '>': gt, ']': ge, '&': and_, '|': or_, '}': contains}
+operators = {
+    "=="       : eq,
+    "!="       : ne,
+    "<"        : lt,
+    "<="       : le,
+    ">"        : gt,
+    ">="       : ge,
+    "&&"       : and_,
+    "||"       : or_,
+    "contains" : contains
+}
+
+operators_short = {
+    "=" : eq,
+    "~" : ne,
+    "<" : lt,
+    "[" : le,
+    ">" : gt,
+    "]" : ge,
+    "&" : and_,
+    "|" : or_,
+    "}" : contains
+}
 
 class Predicate:
 
     def __init__(self, *args, **kwargs):
+        """
+        \brief Build a predicate (left, operator, right)
+        \param You can pass:
+            - three args (left, operator, right)
+            - one argument (list or tuple) containing three elements (variable, operator, value)
+            "operator" is a String defined in operators or in operators_short and refers
+                to a binary operation.
+            "left" and "right" refers to a variable/constant involved in the Predicate.
+        """
         if len(args) == 3:
             key, op, value = args
         elif len(args) == 1 and isinstance(args[0], (tuple,list)) and len(args[0]) == 3:

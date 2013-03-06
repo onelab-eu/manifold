@@ -1,14 +1,12 @@
 # Inspired from http://twistedmatrix.com/documents/10.1.0/web/howto/xmlrpc.html
 
 from twisted.web.xmlrpc import Proxy
-from tophat.core.ast import From
 from twisted.internet import reactor
-
 
 # DEBUG
 import sys
 
-class XMLRPC(From):
+class XMLRPC(object):
 
     def __str__(self):
         return "<XMLRPCGateway %s %s>" % (self.config['url'], self.query)

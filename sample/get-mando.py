@@ -5,7 +5,16 @@ from config                 import auth
 from tophat.core.router     import THLocalRouter
 from tophat.core.router     import Query
 
-# Require type inference
+query = Query(
+    "get",
+    "x",
+    [],
+    {},
+    ["x", "t"],
+    None
+)
+
+## Require type inference
 #query = Query(
 #    # action
 #    "get",
@@ -19,8 +28,8 @@ from tophat.core.router     import Query
 #    # query.params
 #    {},
 #    # select (= query.fields)
-#    ["source.ip", "destination.ip", "hops.ttl", "hops.ip", "hops.hostname"] ,
-#    #["source.ip", "destination.ip"],
+#    #["source.ip", "destination.ip", "hops.ttl", "hops.ip", "hops.hostname"] ,
+#    ["source.ip", "destination.ip"],
 #    # timestamp
 #    "2012-09-09 14:30:09"
 #)
@@ -40,21 +49,21 @@ from tophat.core.router     import Query
 #    # timestamp
 #    "2012-09-09 14:30:09"
 #)
-query = Query(
-    # action
-    "get",
-    # from (= query.fact_table)
-    "x",
-    # where (= query.filters)
-    [],
-    # query.params
-    {},
-    # select (= query.fields)
-    ["x", "y", "z", "t"] ,
-    #["source.ip", "destination.ip"],
-    # timestamp
-    "2012-09-09 14:30:09"
-)
+#query = Query(
+#    # action
+#    "get",
+#    # from (= query.fact_table)
+#    "x",
+#    # where (= query.filters)
+#    [],
+#    # query.params
+#    {},
+#    # select (= query.fields)
+#    ["x", "y", "z", "t"] ,
+#    #["source.ip", "destination.ip"],
+#    # timestamp
+#    "2012-09-09 14:30:09"
+#)
 
 
 print "=" * 150
@@ -69,7 +78,7 @@ print "=" * 150
 # Instantiate a TopHat router
 with THLocalRouter() as router:
     user = router.authenticate(auth)
-    directory = router.conf.STATIC_ROUTES_FILE
+    #directory = router.conf.STATIC_ROUTES_FILE
     #print router.get_static_routes(directory)
     result = router.forward(query, execute = False, user = user)
     if result:

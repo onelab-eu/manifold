@@ -1,15 +1,18 @@
-//tophat.h
-
 class x {
-    const int x;
-    const int y;
-    const int z;
+    const x x; 
+    const y y; 
     KEY(x);
 };
 
+class y {
+    const y y; 
+    const z z; 
+    KEY(y);
+};
+
 class z {
-    const int z;
-    const int t;
+    const z z; 
+    const int t; 
     KEY(z);
 };
 

@@ -11,8 +11,10 @@
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
 import pyparsing as pp
+import operator, re
+
 from tophat.util.predicate import Predicate, operators
-from types import StringTypes
+from types                 import StringTypes
 
 # XXX When to use Keyword vs. Regex vs. CaselessLiteral
 # XXX capitalization ?
@@ -21,7 +23,6 @@ from types import StringTypes
 # choice for grammar keywords, since they inherently avoid mistaking the leading
 # 'in' of 'inside' as the keyword 'in' in your grammar.
 
-import operator, re
 
 class Clause(object):
 

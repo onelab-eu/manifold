@@ -1,12 +1,25 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+#
+# Abstract Syntax Tree: 
+#   An AST represents a query plan. It is made of a set
+#   of interconnected Node instance which may be an SQL
+#   operator (SELECT, FROM, UNION, LEFT JOIN, ...).
+#
+# Copyright (C) UPMC Paris Universitas
+# Authors:
+#   Jordan Augé       <jordan.auge@lip6.fr> 
+#   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
 import sys
-import itertools
-from tophat.core.filter import Filter, Predicate
-from tophat.core.query import Query
-from copy import copy, deepcopy
-import traceback
+from copy                       import copy, deepcopy
+
+from tophat.core.filter         import Filter, Predicate
+from tophat.core.query          import Query
+from tophat.core.table          import Table 
+from tophat.core.field          import Field
+from tophat.core.key            import Key
+from tophat.util.type           import returns, accepts
 
 # NOTES
 # - What about a Record type
@@ -56,6 +69,10 @@ class ChildCallback:
         # Pass the record to the parent with the right child identifier
         self.parent.child_callback(self.child_id, record)
 
+#------------------------------------------------------------------
+# ChildStatus
+#------------------------------------------------------------------
+
 class ChildStatus:
     """
     Monitor child completion status
@@ -64,7 +81,7 @@ class ChildStatus:
     def __init__(self, all_done_cb):
         """
         \brief Constructor
-        \param all_done_cb callback to raise when are children are completed
+        \param all_done_cb Callback to raise when are children are completed
         """
         self.all_done_cb = all_done_cb
         self.counter = 0
@@ -72,12 +89,14 @@ class ChildStatus:
     def started(self, child_id):
         """
         \brief Call this function to signal that a child has completed
+        \param child_id The integer identifying a given child node
         """
         self.counter += child_id + 1
 
     def completed(self, child_id):
         """
         \brief Call this function to signal that a child has completed
+        \param child_id The integer identifying a given child node
         """
         self.status.child_status -= child_id + 1
         assert self.child_status >= 0, "Child status error: %d" % self.child_status
@@ -132,7 +151,7 @@ class Node(object):
 
     def __init__(self, node = None):
         """
-        Constructor
+        \brief Constructor
         """
         if node:
             if not isinstance(node, Node):
@@ -141,18 +160,18 @@ class Node(object):
         # Callback triggered when the current node produces data.
         self.callback = None
         # Query representing the data produced by the node.
-#        self.query = self.query()
+#        self.query = self.get_query()
 
     def set_callback(self, callback):
         """
         \brief Associates a callback to the current node
         \param callback The callback to associate
         """
-
         self.callback = callback
         # Basic information about the data provided by a node
 
-    def query(self):
+    @returns(Query)
+    def get_query(self):
         """
         \brief Returns the query representing the data produced by the nodes.
         \return query representing the data produced by the nodes.
@@ -178,48 +197,59 @@ class From(Node):
     From Node are responsible to query a gateway (!= FromTable).
     """
 
-    def __init__(self, query, table, key): # platform, query, config, user_config, user, key):
+    def __init__(self, table, query):
         """
         \brief Constructor
-        \param query
-        \param table
-        \param key the key for elements returned from the node
+        \param table A Table instance (the 3nf table)
+            \sa tophat/core/table.py
+        \param query A Query instance: the query passed to the gateway to fetch records 
         """
-        # TODO Depends on the query plane construction
-        # Parameters
-        self.query, self.table, self.key = query, table, key
-        #self.platform, self.query, self.config, self.user_config, self.user, self.key = \
-        #        platform, query, config, user_config, user, key
-        # Member variables
-        # Temporarily store eventual parent subquery records
-        self.records = []
+        assert isinstance(query, Query), "Invalid type: query = %r (%r)" % (query, type(query))
+        assert isinstance(table, Table), "Invalid type: table = %r (%r)" % (table, type(table))
 
+        self.query, self.table = query, table
         super(From, self).__init__()
 
-    def query(self):
+    @returns(Query)
+    def get_query(self):
         """
         \brief Returns the query representing the data produced by the nodes.
         \return query representing the data produced by the nodes.
         """
-
         # The query returned by a FROM node is exactly the one that was
         # requested
         return self.query
 
-    def dump(self, indent=0):
+    #@returns(Table)
+    def get_table(self):
+        """
+        \return The Table instance queried by this FROM node.
+        """
+        return self.table
+
+    @returns(str)
+    def get_platform(self):
+        """
+        \return The name of the platform queried by this FROM node.
+        """
+        return list(self.get_table().get_platforms())[0]
+
+    def dump(self, indent = 0):
         """
         \brief Dump the current node
         \param indent current indentation
         """
-        q = self.query
+        q = self.get_query()
         self.tab(indent)
-        print DUMPSTR_FROM % (q.fields, self.platform, q.fact_table)
+        print DUMPSTR_FROM % (q.get_select(), self.get_platform(), q.get_from())
 
+    #@returns(From)
     def inject(self, records):
         """
         \brief Inject record / record keys into the node
-        \param records list of dictionaries representing records, or list of
-        record keys
+        \param records list of dictionaries representing records,
+                       or list of record keys
+        \return This node
         """
         if not records:
             return
@@ -250,7 +280,6 @@ class From(Node):
 
         return join
 
-
     def start(self):
         """
         \brief Propagates a START message through the node
@@ -262,21 +291,25 @@ class FromTable(From):
     \brief FROM node querying a list of records
     """
 
-    def __init__(self, query, records=[]):
+    def __init__(self, query, records = []):
         """
         \brief Constructor
+        \param query A Query instance
+        \param records A list of records (dictionnary instances)
         """
+        assert isinstance(query,   Query), "Invalid query = %r (%r)"   % (query,   type(query))
+        assert isinstance(records, list),  "Invalid records = %r (%r)" % (records, type(records))
+
         self.query, self.records = query, records
         super(FromTable, self).__init__()
 
-    def dump(self, indent=0):
+    def dump(self, indent = 0):
         """
         \brief Dump the current node
         \param indent current indentation
         """
-        q = self.query
         self.tab(indent)
-        print DUMPSTR_FROMTABLE % (q.fields, self.records[0])
+        print DUMPSTR_FROMTABLE % (self.get_query().fields, self.records[0])
 
     def start(self):
         """
@@ -285,7 +318,6 @@ class FromTable(From):
         for record in self.records:
             self.callback(record)
         self.callback(LAST_RECORD)
-        
 
 #------------------------------------------------------------------
 # LEFT JOIN node
@@ -296,173 +328,162 @@ class LeftJoin(Node):
     LEFT JOIN operator node
     """
 
-    def __init__(self, left_child, children, joins, callback):
+    @staticmethod
+    def check_init(left_child, right_child, predicate, callback):
+        assert issubclass(type(left_child),  Node), "Invalid left child = %r (%r)"  % (left_child,  type(left_child))
+        assert issubclass(type(right_child), Node), "Invalid right child = %r (%r)" % (right_child, type(right_child))
+        assert isinstance(predicate, Predicate), "Invalid predicate = %r (%r)" % (predicate, type(predicate))
+
+    def __init__(self, left_child, right_child, predicate, callback):
         """
         \brief Constructor
-        \param left_child A instance of Node which model the left operand
-            of an n-ary join.
-        \param children A list of n-1 Node instances that we join to left_child
-        \param joins A list of n-1 "join" (= pair of set of MetadataField instances)
-            joins[i] allows to join child[i] and child[i+1]
+        \param left_child  A Node instance corresponding to left  operand of the LEFT JOIN
+        \param right_child A Node instance corresponding to right operand of the LEFT JOIN
+        \param predicate A Predicate instance invoked to determine whether two record of
+            left_child and right_child can be joined.
         \param callback The callback invoked when the LeftJoin instance returns records. 
         """
         # Check parameters
-        if not isinstance(children, list):
-            raise TypeError("Invalid type: %r must be a list" % children)
-        if not isinstance(joins, list):
-            raise TypeError("Invalid type: %r must be a list" % joins)
-        if not children:
-            raise ValueError("Invalid parameter: %r is empty" % children)
-        if len(joins) != len(children) - 1:
-            raise ValueError("Invalid length: %r must have a length of %d" % (joins, len(children) - 1))
-        if not isinstance(left_child, Node):
-            raise TypeError("Invalid left child: %r must be of type Node" % left_child)
-        for child in children:
-            if not isinstance(child, Node):
-                raise TypeError("Invalid child: %r must be of type Node" % child)
+        LeftJoin.check_init(left_child, right_child, predicate, callback)
 
         # Initialization
-        self.left_child = left_child
-        self.children   = children
-        self.joins      = joins
-        self.callback   = callback
+        self.left      = left_child
+        self.right     = right_child 
+        self.predicate = predicate
+        self.callback  = callback
 
-#TODO
-#        self.status = ChildStatus(self.all_done)
-#        # Set up callbacks
-#        for i, child in enumerate(self.children):
-#            child.callback = ChildCallback(self, i)
-#            self.status.started(i)
+        # Set up callbacks
+        self.status = ChildStatus(self.all_done)
+        for i, child in enumerate(self.get_children()):
+            child.callback = ChildCallback(self, i)
+            self.status.started(i)
 
         super(LeftJoin, self).__init__()
 
-    def query(self):
+    def get_children(self):
+        return [self.left, self.right]
+
+    def all_done(self):
+        print "LeftJoin::all_done: not yet implemented"
+        pass
+
+    @returns(Query)
+    def get_query(self):
         """
-        \brief Returns the query representing the data produced by the nodes.
-        \return query representing the data produced by the nodes.
+        \return The query representing AST reprensenting the AST rooted
+            at this node.
         """
-        q = Query(self.children[0])
-        for child in self.children:
+        q = Query(self.get_children()[0])
+        for child in self.get_children():
             # XXX can we join on filtered lists ? I'm not sure !!!
             # XXX some asserts needed
             q.filters |= child.filters
             q.fields  |= child.fields
         return q
         
-#    def inject(self, records):
-#        """
-#        \brief Inject record / record keys into the node
-#        \param records list of dictionaries representing records, or list of
-#        record keys
-#        """
-#        if not records:
-#            return
-#        record = records[0]
-#
-#        # Are the records a list of full records, or only record keys
-#        is_record = isinstance(record, dict)
-#
-#        if is_record:
-#            records_inj = []
-#            for record in records:
-#                proj = do_projection(record, self.left.query.fields)
-#                records_inj.append(proj)
-#            self.left = self.left.inject(records_inj)
-#            # TODO injection in the right branch: only the subset of fields
-#            # of the right branch
-#            return self
-#
-#        # TODO Currently we support injection in the left branch only
-#        # Injection makes sense in the right branch if it has the same key
-#        # as the left branch.
-#        self.left = self.left.inject(records)
-#        return self
-
+    #@returns(LeftJoin)
     def inject(self, records):
-        raise Exception("Not yet implemented")
+        """
+        \brief Inject record / record keys into the node
+        \param records A list of dictionaries representing records,
+                       or a list of record keys
+        \returns This node
+        """
+        if not records:
+            return
+        record = records[0]
 
-#    def start(self):
-#        """
-#        \brief Propagates a START message through the node
-#        """
-#        node = self.right if self.left_done else self.left
-#        node.start()
+        # Are the records a list of full records, or only record keys
+        is_record = isinstance(record, dict)
+
+        if is_record:
+            records_inj = []
+            for record in records:
+                proj = do_projection(record, self.left.query.fields)
+                records_inj.append(proj)
+            self.left = self.left.inject(records_inj)
+            # TODO injection in the right branch: only the subset of fields
+            # of the right branch
+            return self
+
+        # TODO Currently we support injection in the left branch only
+        # Injection makes sense in the right branch if it has the same key
+        # as the left branch.
+        self.left = self.left.inject(records)
+        return self
 
     def start(self):
         """
         \brief Propagates a START message through the node
         """
-        raise Exception("Not yet implemented")
-        # Start all children
-#        for i, child in enumerate(self.children):
-#            child.start()
-#            self.status.started(i)
+        node = self.right if self.left_done else self.left
+        node.start()
 
-#    def dump(self, indent=0):
-#        """
-#        \brief Dump the current node
-#        \param indent current indentation
-#        """
-#        self.tab(indent)
-#        print "JOIN", self.predicate
-#        if self.left:
-#            self.left.dump(indent+1)
-#        else:
-#            print '[DATA]', self.left_results
-#        self.right.dump(indent+1)
-#
-#    def left_callback(self, record):
-#        """
-#        \brief Process records received by the left child
-#        \param record dictionary representing the received record 
-#        """
-#
-#        if record == LAST_RECORD:
-#            # Inject the keys from left records in the right child...
-#            self.right.inject(self.left_map.keys())
-#            # ... and start the right node
-#            self.right.start()
-#            return
-#
-#        # Directly send records missing information necessary to join
-#        if self.predicate not in record or not record[self.predicate]:
-#            print "W: Missing LEFTJOIN predicate %s in left record %r : forwarding" % \
-#                    (self.predicate, record)
-#            self.callback(record)
-#
-#        # Store the result in a hash for joining later
-#        self.left_map[record[self.predicate]] = record
-#
-#    def right_callback(self, record):
-#        """
-#        \brief Process records received by the right child
-#        \param record dictionary representing the received record 
-#        """
-#
-#        if record == LAST_RECORD:
-#            # Send records in left_results that have not been joined...
-#            for leftrecord in self.left_results:
-#                self.callback(leftrecord)
-#            # ... and terminates
-#            self.callback(LAST_RECORD)
-#            return
-#
-#        # Skip records missing information necessary to join
-#        if self.predicate not in record or not record[self.predicate]:
-#            print "W: Missing LEFTJOIN predicate %s in right record %r: ignored" % \
-#                    (self.predicate, record)
-#            return
-#        
-#        key = record[self.predicate]
-#        # We expect to receive information about keys we asked, and only these,
-#        # so we are confident the key exists in the map
-#        # XXX Dangers of duplicates ?
-#        left_record = self.left_map[key]
-#        left_record.update(record)
-#        self.callback(left_record)
-#
-#        del self.left_map[key]
-#
+    def dump(self, indent=0):
+        """
+        \brief Dump the current node
+        \param indent current indentation
+        """
+        self.tab(indent)
+        print "JOIN", self.predicate
+        if self.left:
+            self.left.dump(indent + 1)
+        else:
+            print '[DATA]', self.left_results
+        self.right.dump(indent + 1)
+
+    def left_callback(self, record):
+        """
+        \brief Process records received by the left child
+        \param record A dictionary representing the received record 
+        """
+
+        if record == LAST_RECORD:
+            # Inject the keys from left records in the right child...
+            self.right.inject(self.left_map.keys())
+            # ... and start the right node
+            self.right.start()
+            return
+
+        # Directly send records missing information necessary to join
+        if self.predicate not in record or not record[self.predicate]:
+            print "W: Missing LEFTJOIN predicate %s in left record %r : forwarding" % \
+                    (self.predicate, record)
+            self.callback(record)
+
+        # Store the result in a hash for joining later
+        self.left_map[record[self.predicate]] = record
+
+    def right_callback(self, record):
+        """
+        \brief Process records received by the right child
+        \param record A dictionary representing the received record 
+        """
+
+        if record == LAST_RECORD:
+            # Send records in left_results that have not been joined...
+            for leftrecord in self.left_results:
+                self.callback(leftrecord)
+            # ... and terminates
+            self.callback(LAST_RECORD)
+            return
+
+        # Skip records missing information necessary to join
+        if self.predicate not in record or not record[self.predicate]:
+            print "W: Missing LEFTJOIN predicate %s in right record %r: ignored" % \
+                    (self.predicate, record)
+            return
+        
+        key = record[self.predicate]
+        # We expect to receive information about keys we asked, and only these,
+        # so we are confident the key exists in the map
+        # XXX Dangers of duplicates ?
+        left_record = self.left_map[key]
+        left_record.update(record)
+        self.callback(left_record)
+
+        del self.left_map[key]
+
 #------------------------------------------------------------------
 # PROJECTION node
 #------------------------------------------------------------------
@@ -472,30 +493,36 @@ class Projection(Node):
     PROJECTION operator node (cf SELECT clause in SQL)
     """
 
-    def __init__(self, node, fields, key):
+    def __init__(self, child, fields):
         """
-        Constructor
-        \param node
-        \param fields
-        \param key the key for elements returned from the node
+        \brief Constructor
+        \param child A Node instance which will be the child of
+            this Node.
+        \param fields A list of String corresponding of field names
+            we're selecting.
         """
-        # Parameters
-        self.node, self.fields, self.key = node, fields, key
-        # Set up callbacks
-        self.node.callback = self.callback
-
+        self.child, self.fields = child, fields
+        self.child.callback = self.callback
         super(Projection, self).__init__()
 
-    def query(self):
+    @returns(list)
+    def get_fields(self):
+        """
+        \returns The list of field names selected in this node.
+        """
+        return self.fields
+
+    @returns(Query)
+    def get_query(self):
         """
         \brief Returns the query representing the data produced by the nodes.
-        \return query representing the data produced by the nodes.
+        \return The Query representing the data produced by the nodes.
         """
-        q = Query(self.node.query)
+        q = Query(self.child.get_query())
+
         # Projection restricts the set of available fields (intersection)
         q.fields &= fields
         return q
-
 
     def dump(self, indent):
         """
@@ -504,21 +531,23 @@ class Projection(Node):
         """
         self.tab(indent)
         print DUMPSTR_PROJECTION % self.fields
-        self.node.dump(indent+1)
+        self.child.dump(indent+1)
 
     def start(self):
         """
         \brief Propagates a START message through the node
         """
-        self.node.start()
+        self.child.start()
 
+    #@returns(Projection)
     def inject(self, records):
         """
         \brief Inject record / record keys into the node
-        \param records list of dictionaries representing records, or list of
-        record keys
+        \param records A list of dictionaries representing records,
+                       or a list of record keys
+        \return This node
         """
-        self.node = self.node.inject(records)
+        self.child = self.child.inject(records)
         return self
 
     def callback(self, record):
@@ -531,65 +560,68 @@ class Projection(Node):
         self.callback(record)
 
 #------------------------------------------------------------------
-# SELECTION node
+# Selection node (WHERE)
 #------------------------------------------------------------------
 
 class Selection(Node):
     """
-    SELECTION operator node (cf WHERE clause in SQL)
+    Selection operator node (cf WHERE clause in SQL)
     """
 
-    def __init__(self, node, filters, key):
+    def __init__(self, child, filters):
         """
-        Constructor
-        \param node
-        \param filters
-        \param key the key for elements returned from the node
+        \brief Constructor
+        \param child A Node instance (the child of this Node)
+        \param filters A set of Predicate instances
         """
-        # Parameters
-        self.node, self.filters, self.key = node, filters, key
-        # Set up callbacks
-        self.node.callback = self.callback
+        assert issubclass(type(child), Node), "Invalid child = %r (%r)"   % (child,   type(child))
+        assert isinstance(filters, set),      "Invalid filters = %r (%r)" % (filters, type(filters))
 
+        self.child, self.filters = child, filters
+        self.child.callback = self.callback
         super(Selection, self).__init__()
 
-    def query(self):
+    @returns(Query)
+    def get_query(self):
         """
-        \brief Returns the query representing the data produced by the nodes.
-        \return query representing the data produced by the nodes.
+        \brief Returns the query representing the data produced by the childs.
+        \return query representing the data produced by the childs.
         """
-        q = Query(self.node.query)
+        q = Query(self.child.get_query())
+
         # Selection add filters (union)
         q.filters |= filters
         return q
 
-    def dump(self, indent=0):
+    def dump(self, indent = 0):
         """
-        \brief Dump the current node
-        \param indent current indentation
+        \brief Dump the current child
+        \param indent The current indentation
         """
         self.tab(indent)
         print DUMPSTR_SELECTION % self.filters
-        self.node.dump(indent+1)
+        self.child.dump(indent + 1)
 
     def start(self):
         """
-        \brief Propagates a START message through the node
+        \brief Propagates a START message through the child
         """
-        self.node.start()
+        self.child.start()
 
+    #@returns(Selection)
     def inject(self, records):
         """
-        \brief Inject record / record keys into the node
-        \param records list of dictionaries representing records, or list of
-        record keys
+        \brief Inject record / record keys into the child
+        \param records A list of dictionaries representing records,
+                       or list of record keys
+        \return This node
         """
-        self.node = self.node.inject(records)
+        self.child = self.child.inject(records)
         return self
 
     def callback(self, record):
         """
-        \brief Processes records received by the child node
+        \brief Processes records received by the child node 
         \param record dictionary representing the received record
         """
         if record != LAST_RECORD and self.filters:
@@ -620,12 +652,14 @@ class Union(Node):
         self.key_list = []
         self.status = ChildStatus(self.all_done)
         # Set up callbacks
+        print "self.children = %r" % self.children
         for i, child in enumerate(self.children):
             child.callback = ChildCallback(self, i)
 
         super(Union, self).__init__()
 
-    def query(self):
+    @returns(Query)
+    def get_query(self):
         """
         \brief Returns the query representing the data produced by the nodes.
         \return query representing the data produced by the nodes.
@@ -726,10 +760,13 @@ class SubQuery(Node):
         """
         # Parameters
         self.parent, self.children, self.key = parent, children, key
+
         # Member variables
         self.parent_output = []
+
         # Set up callbacks
         parent.callback = self.parent_callback
+
         # Prepare array for storing results from children: parent result can
         # only be propagated once all children have replied
         self.child_results = []
@@ -738,14 +775,14 @@ class SubQuery(Node):
             child.callback = ChildCallback(self, i)
             self.child_results.append([])
 
-    def query(self):
+    @returns(Query)
+    def get_query(self):
         """
         \brief Returns the query representing the data produced by the nodes.
         \return query representing the data produced by the nodes.
         """
         # Query is unchanged XXX ???
-        return Query(self.parent.query)
-
+        return Query(self.parent.get_query())
 
     def dump(self, indent=0):
         """
@@ -865,7 +902,6 @@ class SubQuery(Node):
         """
         \brief Inject record / record keys into the node
         \param records list of dictionaries representing records, or list of
-        record keys
         """
         raise Exception, "Not implemented"
 
@@ -875,54 +911,54 @@ class SubQuery(Node):
 
 class AST(object):
     """
-    Abstract Syntax Tree used to represent a Query Plane. Acts as a factory.
+    Abstract Syntax Tree used to represent a Query Plane.
+    Acts as a factory.
     """
 
-    def __init__(self, user=None):
+    def __init__(self, user = None):
         """
-        Constructor
-        \param router
-        \param user
+        \brief Constructor
+        \param user A User instance
         """
         self.user = user
         # The AST is initially empty
         self.root = None
 
+    @returns(bool)
+    def is_empty(self):
+        """
+        \return True iif the AST has no Node.
+        """
+        return self.root == None
+
+    #@returns(AST)
     def From(self, table, query):
         """
-        \brief
-        \param table
-        \param query query requested to the platform
+        \brief Build a FROM node
+        \param table A Table wrapped by the from operator
+        \param query A Query requested to the platform
+        \return The updated AST
         """
-        # TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! # XXX
+        assert self.is_empty(),                 "From: should be instantiated on an empty AST"
+        assert len(table.get_platforms()) == 1, "From: table = %r should be related to only one platform" % table
         self.query = query
-        # XXX print "W: We have two tables providing the same data: CHOICE or UNION ?"
         platforms = table.get_platforms()
-        if isinstance(platforms, (list, set, frozenset, tuple)) and len(platforms) > 1:
-            children_ast = []
-            for p in platforms:
-                t = copy(table)
-                t.platforms = p
-                children_ast.append(AST(self.user).From(t,query))
-            self.union(children_ast) # XXX DISJOINT ?
-        else:
-            platform = list(platforms)[0] if isinstance(platforms, (list, set, frozenset, tuple)) else platforms
-            # XXX get rid of router here !
-            print "ERROR: From: not yet implemented"
-#            node = self.router.get_gateway(platform, self.query, self.user)
-#            node.source_id = self.router.sourcemgr.append(node)
-#            self.root = node
-#            self.root.callback = self.callback
+        platform = list(platforms)[0]
+
+        node = From(table, query) 
+        self.root = node
+        self.root.callback = self.callback
         return self
 
+    #@returns(AST)
     def union(self, children_ast):
         """
         \brief Transforms an AST into a UNION of AST
         \param children_ast a list of ast to UNION
-        \return AST corresponding to the UNION
+        \return The AST corresponding to the UNION
         """
         # If the current AST has already a root, it becomes the first child
-        if self.root:
+        if not self.is_empty():
             old_root = self.root
             children = [self.root]
         else:
@@ -935,51 +971,58 @@ class AST(object):
             self.root.callback = old_root.callback
         return self
 
-    # TODO Can we use decorators for such functions ?
-    def leftjoin(self, right_child, predicate):
+    #@returns(AST)
+    def left_join(self, right_child, predicate):
         """
-        \brief Performs a LEFT JOIN between the current AST and the _right_
-        parameter:
-            ast <- ast ⋈ right 
-        \param right_child right child of the resulting AST
-        \return AST corresponding to the LEFT JOIN
+        \brief Performs a LEFT JOIN between two AST instances
+            self ⋈ right_child
+        \param right_child An AST instance (right operand of the LEFT JOIN )
+        \param predicate A Predicate instance used to perform the join 
+        \return The resulting AST
         """
-        if not self.root: raise ValueError('AST not initialized')
-        old_root = self.root
+        assert isinstance(right_child, AST),     "Invalid right_child = %r (%r)" % (right_child, type(right_child))
+        assert isinstance(predicate, Predicate), "Invalid predicate = %r (%r)" % (predicate, type(Predicate))
+        assert not self.is_empty(),              "No left table"
 
-        raise Exception("code out of date, bad constructor invoked")
-        self.root = LeftJoin(old_root, right_child.root, predicate)
+        old_root = self.root
+        self.root = LeftJoin(old_root, right_child.root, predicate, None)
         self.root.callback = old_root.callback
         return self
 
+    #@returns(AST)
     def projection(self, fields):
         """
-        \brief Performs a PROJECTION on the current AST according to _fields_: 
+        \brief Performs a SELECT (Projection) on the current AST according to _fields_: 
             ast <- π_fields(ast)
-        \param fields the set of fields on which to project
-        \return AST corresponding to the PROJECTION
+        \param fields the list of fields on which to project
+        \return The AST corresponding to the SELECT 
         """
-        if not self.root: raise ValueError('AST not initialized')
-        old_root = self.root
+        assert not self.is_empty(),      "AST not initialized"
+        assert isinstance(fields, list), "Invalid fields = %r (%r)" % (fields, type(fields))
 
+        old_root = self.root
         self.root = Projection(old_root, fields)
         self.root.callback = old_root.callback
         return self
 
+    #@returns(AST)
     def selection(self, filters):
         """
-        \brief Performs a SELECTION on the current AST according to _filters_: 
+        \brief Performs a WHERE (Selection) on the current AST according to _filters_: 
             ast <- σ_filters(ast)
-        \param filters the set of filters to apply
-        \return AST corresponding to the SELECTION
+        \param filters A set of Predicate to apply
+            TODO We should use here a Clause instance
+        \return The AST corresponding to the WHERE 
         """
-        if not self.root: raise ValueError('AST not initialized')
-        old_root = self.root
+        assert not self.is_empty(),      "AST not initialized"
+        assert isinstance(filters, set), "Invalid filters = %r (%r)" % (filters, type(filters))
 
+        old_root = self.root
         self.root = Selection(old_root, filters)
         self.root.callback = old_root.callback
         return self
 
+    #@returns(AST)
     def subquery(self, children_ast):
         """
         \brief Performs a SUBQUERY operation of the current AST
@@ -987,22 +1030,22 @@ class AST(object):
         the current AST
         \return AST corresponding to the SUBQUERY
         """
-        if not self.root: raise ValueError('AST not initialized')
+        assert not self.is_empty(), "AST not initialized"
         old_root = self.root
 
         self.root = SubQuery(old_root, children_ast)
         self.root.callback = old_root.callback
         return self
 
-    def dump(self, indent=0):
+    def dump(self, indent = 0):
         """
         \brief Dump the current AST
         \param indent current indentation
         """
-        if self.root:
-            self.root.dump(indent)
-        else:
+        if self.is_empty():
             print "Empty AST (no root)"
+        else:
+            self.root.dump(indent)
 
     def start(self):
         """
@@ -1020,10 +1063,23 @@ class AST(object):
         
 
 def main():
-    a = AST().From('A').join(AST().From('B')).projection('c').selection(Eq('c', 'test'))
-    a.dump()
-#    a.swaphead()
-#    a.dump()
+    q = Query("get", "x", [], {}, ["x", "z"], None)
+
+    x = Field(None, "int", "x")
+    y = Field(None, "int", "y")
+    z = Field(None, "int", "z")
+
+    a = Table(["p"], None, "A", [x, y], [Key([x])])
+    b = Table(["p"], None, "B", [y, z], [Key([y])])
+    
+    ast = AST().From(a, q).left_join(
+        AST().From(b, q),
+        Predicate(a.get_field("y"), "=", b.get_field("y"))
+    ).projection(["x"]).selection(set([Predicate("z", "=", 1)]))
+
+    ast.dump()
+#    ast.swaphead()
+#    ast.dump()
 
 if __name__ == "__main__":
     main()
