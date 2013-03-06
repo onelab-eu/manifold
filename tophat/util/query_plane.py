@@ -233,7 +233,7 @@ from tophat.models.user         import User
 
 @accepts(User, Query, DiGraph)
 @returns(AST)
-def build_query_plane(user, user_query, pruned_tree):
+def build_query_plan(user, user_query, pruned_tree):
     """
     \brief Compute a query plane according to a pruned tree
     \param user The User instance representing the user issuing the query
@@ -295,6 +295,14 @@ def build_query_plane(user, user_query, pruned_tree):
             u = preds[0]
             predicate = pruned_tree[u][v]["predicate"]
             ast.left_join(AST(user = user).union(from_asts, key), predicate)
+
+    # Add WHERE node the tree
+    if user_query.get_where() != set():
+        ast.selection(user_query.get_where())
+
+    # Add SELECT node above the tree
+    ast.projection(list(user_query.get_select()))
+
     return ast
 
 #@returns(AST)
