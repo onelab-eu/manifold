@@ -1,46 +1,27 @@
 import os, sys, json, time, traceback #, threading
-#<<<<<<< HEAD
 from types                        import StringTypes
 
 from twisted.internet             import defer
 
-from tophat.router                import *
-from tophat.core.filter           import Predicate
-from tophat.core.ast              import AST
-from tophat.core.key              import Key, Keys
+from manifold.core.filter         import Predicate
+from manifold.core.ast            import AST
+from manifold.core.key            import Key, Keys
 from manifold.core.query          import Query
-from tophat.core.table            import Table
+from manifold.core.table          import Table
 from manifold.gateways            import Gateway
-from tophat.models                import *
-from tophat.util.dbnorm           import to_3nf 
-from tophat.util.dbgraph          import DBGraph
-from tophat.util.dfs              import dfs
-from tophat.util.pruned_tree      import build_pruned_tree
-from tophat.util.query_plane      import build_query_plan 
-#=======
-#from types                      import StringTypes
-#
-#from twisted.internet           import defer
-#
-#from manifold.core.filter         import Predicate
-#from manifold.core.ast            import AST
-#from manifold.core.key            import Key
-#from manifold.core.query        import Query
-#from manifold.core.table          import Table
-#from manifold.gateways          import Gateway
-#from manifold.models              import *
-#from manifold.core.dbnorm         import Cache, to_3nf 
-#from manifold.core.dbgraph        import DBGraph
-#from manifold.util.dfs            import dfs
-#from manifold.core.pruned_tree    import build_pruned_tree
-#from manifold.core.query_plane    import build_query_plane 
-#>>>>>>> e5c021c5bc05b9ed282b137b730cb609a404668a
+from manifold.models              import *
+from manifold.core.dbnorm         import to_3nf 
+from manifold.core.dbgraph        import DBGraph
+from manifold.util.dfs            import dfs
+from manifold.core.pruned_tree    import build_pruned_tree
+from manifold.core.query_plane    import build_query_plan
 from manifold.util.reactor_thread import ReactorThread
-from tophat.util.type             import returns, accepts
-from sfa.trust.credential         import Credential
+from manifold.util.type           import returns, accepts
 from manifold.gateways.sfa        import ADMIN_USER
 from manifold.metadata.Metadata   import import_file_h
 from manifold.util.callback       import Callback
+
+from sfa.trust.credential         import Credential
 
 #import copy
 #import time

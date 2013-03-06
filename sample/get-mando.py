@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 # -*- coding:utf-8 */
 
-from config                 import auth
-from manifold.core.router   import Router
-from tophat.util.predicate  import Predicate 
-from manifold.core.query    import Query
+from config                   import auth
+from manifold.core.router     import Router
+from manifold.util.predicate  import Predicate 
+from manifold.core.query      import Query
 
 query = Query(
     "get",
