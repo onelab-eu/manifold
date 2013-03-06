@@ -19,6 +19,7 @@ from networkx.algorithms.traversal.depth_first_search import dfs_preorder_nodes
 from manifold.core.ast            import AST, From, Union, LeftJoin
 from manifold.core.table          import Table 
 from manifold.core.query          import Query 
+from manifold.core.key            import Key 
 from manifold.util.type           import returns, accepts
 from manifold.core.dbgraph        import find_root
 from manifold.models.user         import User
@@ -142,11 +143,48 @@ def build_query_plan(user, user_query, pruned_tree):
         - either because it is needed to join tables involved in the 3nf-tree)
     \return an AST instance which describes the resulting query plane
     """
+    def get_methods_supporting_key(table, key):
+        # TO MOVE IN PRUNING
+        assert isinstance(table, Table), "Invalid table = %r (%r)" % (table, type(table))
+        assert isinstance(key,   Key),   "Invalid key = %r (%r)"   % (key,   type(key))
+        assert len(key) >= 0,            "Empty key"
+
+        key_methods = None
+        for key_elt in key:
+            if key_methods == None:
+                key_methods = set(table.map_field_methods[key_elt])
+            else:
+                key_methods &= table.map_field_methods[key_elt]
+        return key_methods 
+
+    def get_methods_needing_demux(tables):
+        map_method_fields = dict()
+        map_tablename_method = dict()
+
+        for table in tables:
+
+            # Intersecting keys
+            for key in table.get_keys():
+                for method in get_methods_supporting_key(table, key):
+                    table_name = table.get_name()
+                    if table_name not in map_tablename_method.keys():
+                        map_tablename_method[table.get_name()] = set()
+                    map_tablename_method[table.get_name()].add(method)
+                
+            # Intersecting fields 
+            for field, methods in table.map_field_methods.items():
+                for method in methods:
+                    if method not in map_method_fields.keys():
+                        map_method_fields[method] = set()
+                    map_method_fields[method].add(field)
+
+                    if method.get_name() != table.get_name():
+                        methods_demux.add(method)
+        return methods_demux 
+
     print "-" * 80
     print "build_query_plane()"
     print "-" * 80
-    print "W: dummy cache" 
-    cache = None 
     ast = AST(user = user)
 
     # Find the root node in the pruned 3nf tree
@@ -154,28 +192,63 @@ def build_query_plan(user, user_query, pruned_tree):
 
     # Exploring this tree according to a DFS algorithm leads to a table
     # ordering leading to feasible successive joins
+    map_method_demux = dict()
+    map_method_bestkey = dict()
+
+    methods_needing_demux = get_methods_needing_demux(pruned_tree.nodes(False))
+    print "methods_needing_demux = %r" % methods_needing_demux
+
     ordered_tables = dfs_preorder_nodes(pruned_tree, root_node)
     for table in ordered_tables:
         from_asts = list()
         key = list(table.get_keys())[0]
 
+        # Rq: the best key should/could be computed during the pruning
+        # Compute which methods support the current key
+        # The more we are explore the tree, the best the key is
+        for method in get_methods_supporting_key(table, key):
+            map_method_bestkey[method] = key
+
         # For each platform related to the current table, extract the
         # corresponding table and build the corresponding FROM node
         map_method_fields = table.get_annotations()
         for method, fields in map_method_fields.items(): 
-            sub_table = Table.make_table_from_platform(table, fields, method.get_platform())
-            print "sub_table %s" % sub_table
+            if method.get_name() == table.get_name():
+                # The table announced by the platform fits with the 3nf schema
+                # Build the corresponding FROM 
+                sub_table = Table.make_table_from_platform(table, fields, method.get_platform())
 
-            query = Query(
-                user_query.get_action(),                # action
-                method.get_name(),                      # from
-                [],                                     # where will be eventually optimized later
-                user_query.get_params(),                # params
-                [field.get_name() for field in fields], # select
-                user_query.get_ts()                     # ts
-            )
+                query = Query(
+                    user_query.get_action(),                # action
+                    method.get_name(),                      # from
+                    [],                                     # where will be eventually optimized later
+                    user_query.get_params(),                # params
+                    [field.get_name() for field in fields], # select
+                    user_query.get_ts()                     # ts
+                )
 
-            from_ast = AST(user = user).From(sub_table, query)
+                from_ast = AST(user = user).From(sub_table, query)
+                map_method_demux[method] = from_ast.get_root()
+            else:
+                # The table announced by the platform doesn't fit with the 3nf schema
+                # Build a FROMLIST + DUP(best_key) + SELECT(best_key u {fields}) branch
+                # and plug it to the above the FROM referenced in map_method_from[method] 
+                # Ask this FROM node for fetching fields
+                from_node = map_method_demux[method] # TO FIX
+                key_dup = map_method_bestkey[method]
+                select_fields = list(set(fields) | set(key_dup))
+                from_node.add_fields_to_query([field.get_name() for field in fields])
+
+                print "FROMLIST -- DUP(%r) -- SELECT(%r) -- %r" % (key_dup, select_fields, from_node) 
+
+                # Build a new AST (the branch we'll add) above an existing FROM node
+                from_ast = AST(user = user)
+                from_ast.root = from_node
+                #TODO from_node.add_callback(from_ast.callback)
+
+                # Add DUP and SELECT to this AST
+                #TODO from_ast.duplicate(key_dup).projection(select_fields)
+                
             from_asts.append(from_ast)
 
         # Add the current table in the query plane 

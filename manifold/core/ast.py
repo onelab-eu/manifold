@@ -12,7 +12,8 @@
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
 import sys
-from copy                       import copy, deepcopy
+from copy                         import copy, deepcopy
+from types                        import StringTypes
 
 from manifold.core.filter         import Filter, Predicate
 from manifold.core.query          import Query
@@ -31,7 +32,7 @@ from manifold.util.type           import returns, accepts
 
 DUMPSTR_FROM       = "SELECT %s FROM %s::%s" 
 DUMPSTR_FROMTABLE  = "SELECT %s FROM [%r, ...]" 
-DUMPSTR_PROJECTION = "SELECT [%s]" 
+DUMPSTR_PROJECTION = "SELECT %s" 
 DUMPSTR_SELECTION  = "WHERE %s"
 DUMPSTR_UNION      = "UNION"
 DUMPSTR_SUBQUERIES = "<subqueries>"
@@ -181,11 +182,29 @@ class Node(object):
         # implement this method
         raise Exception, "Nodes should implement the query function: %s" % self.__class__.__name__
 
-    def tab(self, indent):
+    @staticmethod
+    def tab(indent):
         """
         \brief print _indent_ tabs
         """
         sys.stdout.write(' ' * indent * 4)
+
+    def dump(self, indent = 0):
+        """
+        \brief Dump the current node
+        \param indent current indentation
+        """
+        Node.tab(indent)
+        print "%r" % self
+
+    @returns(StringTypes)
+    def __repr__(self):
+        return "This method should be overloaded!"
+
+    @returns(StringTypes)
+    def __str__(self):
+        return self.__repr__() 
+
 
 #------------------------------------------------------------------
 # FROM node
@@ -220,6 +239,14 @@ class From(Node):
         # requested
         return self.query
 
+    def add_fields_to_query(self, field_names):
+        """
+        \brief Add field names (list of String) to the SELECT clause of the embedded query
+        """
+        for field_name in field_names:
+            assert isinstance(field_name, StringTypes), "Invalid field_name = %r in field_names = %r" % (field_name, field_names)
+        self.query.fields = frozenset(set(self.query.fields) | set(field_names))
+
     #@returns(Table)
     def get_table(self):
         """
@@ -234,13 +261,9 @@ class From(Node):
         """
         return list(self.get_table().get_platforms())[0]
 
-    def dump(self, indent = 0):
-        """
-        \brief Dump the current node
-        \param indent current indentation
-        """
-        self.tab(indent)
-        print DUMPSTR_FROM % (
+    #@returns(StringTypes)
+    def __repr__(self):
+        return DUMPSTR_FROM % (
             ', '.join(self.get_query().get_select()),
             self.get_platform(),
             self.get_query().get_from()
@@ -314,13 +337,8 @@ class FromTable(From):
         self.query, self.records = query, records
         super(FromTable, self).__init__()
 
-    def dump(self, indent = 0):
-        """
-        \brief Dump the current node
-        \param indent current indentation
-        """
-        self.tab(indent)
-        print DUMPSTR_FROMTABLE % (
+    def __repr__(self, indent = 0):
+        return DUMPSTR_FROMTABLE % (
             ', '.join(self.get_query().get_select()),
             self.records[0]
         )
@@ -346,7 +364,7 @@ class LeftJoin(Node):
     def check_init(left_child, right_child, predicate, callback):
         assert issubclass(type(left_child),  Node), "Invalid left child = %r (%r)"  % (left_child,  type(left_child))
         assert issubclass(type(right_child), Node), "Invalid right child = %r (%r)" % (right_child, type(right_child))
-        assert isinstance(predicate, Predicate), "Invalid predicate = %r (%r)" % (predicate, type(predicate))
+        assert isinstance(predicate, Predicate),    "Invalid predicate = %r (%r)"   % (predicate,   type(predicate))
 
     def __init__(self, left_child, right_child, predicate, callback):
         """
@@ -374,6 +392,7 @@ class LeftJoin(Node):
 
         super(LeftJoin, self).__init__()
 
+    @returns(list)
     def get_children(self):
         return [self.left, self.right]
 
@@ -433,18 +452,21 @@ class LeftJoin(Node):
         node = self.right if self.left_done else self.left
         node.start()
 
-    def dump(self, indent=0):
+    def dump(self, indent = 0):
         """
         \brief Dump the current node
         \param indent current indentation
         """
-        self.tab(indent)
-        print "JOIN", self.predicate
+        Node.tab(indent)
+        print "%r" % self
         if self.left:
             self.left.dump(indent + 1)
         else:
             print '[DATA]', self.left_results
         self.right.dump(indent + 1)
+
+    def __repr__(self):
+        return "JOIN %s %s %s" % self.predicate.get_str_tuple()
 
     def left_callback(self, record):
         """
@@ -543,9 +565,12 @@ class Projection(Node):
         \brief Dump the current node
         \param indent current indentation
         """
-        self.tab(indent)
-        print DUMPSTR_PROJECTION % self.fields
+        Node.tab(indent)
+        print "%r" % self 
         self.child.dump(indent+1)
+
+    def __repr__(self):
+        return DUMPSTR_PROJECTION % ", ".join(self.fields)
 
     def start(self):
         """
@@ -612,9 +637,12 @@ class Selection(Node):
         \brief Dump the current child
         \param indent The current indentation
         """
-        self.tab(indent)
-        print DUMPSTR_SELECTION % self.filters
+        Node.tab(indent)
+        print "%r" % self
         self.child.dump(indent + 1)
+
+    def __repr__(self):
+        return DUMPSTR_SELECTION % ' AND '.join(["%s %s %s" % f.get_str_tuple() for f in self.filters])
 
     def start(self):
         """
@@ -642,6 +670,109 @@ class Selection(Node):
             record = self.filters.filter(record)
         self.callback(record)
 
+
+#------------------------------------------------------------------
+# DEMUX node
+#------------------------------------------------------------------
+
+class Demux(Node):
+
+    def __init__(self, child):
+        """
+        \brief Constructor
+        \param child A Node instance, child of this Dup Node
+        """
+        self.child = child
+        self.status = ChildStatus(self.all_done)
+        self.child.callback = ChildCallback(self, 0)
+        super(Demux, self).__init__()
+
+    def add_callback(self, callback):
+        """
+        \brief Add a parent callback to this Node
+        """
+        self.parent_callbacks.append(callback)
+
+    def callback(self, record):
+        """
+        \brief Processes records received by the child node
+        \param record dictionary representing the received record
+        """
+        for callback in self.parent_callbacks:
+            callbacks(record)
+
+    def dump(self, indent = 0):
+        """
+        \brief Dump the current node
+        \param indent current indentation
+        """
+        Node.tab(indent)
+        print "DEMUX" 
+
+    def start(self):
+        """
+        \brief Propagates a START message through the node
+        """
+        self.child.start()
+        self.status.started(0)
+
+#------------------------------------------------------------------
+# DUP node
+#------------------------------------------------------------------
+
+class Dup(Node):
+
+    def __init__(self, child):
+        """
+        \brief Constructor
+        \param child A Node instance, child of this Dup Node
+        """
+        self.child = child
+        self.status = ChildStatus(self.all_done)
+        self.child.callback = ChildCallback(self, 0)
+        self.child_results = set()
+        super(Dup, self).__init__()
+
+    @returns(Query)
+    def get_query(self):
+        """
+        \brief Returns the query representing the data produced by the nodes.
+        \return query representing the data produced by the nodes.
+        """
+        return Query(self.child.get_query())
+ 
+    def dump(self, indent = 0):
+        """
+        \brief Dump the current node
+        \param indent current indentation
+        """
+        Node.tab(indent)
+        print "DUP" 
+
+    def start(self):
+        """
+        \brief Propagates a START message through the node
+        """
+        self.child.start()
+        self.status.started(0)
+
+    def child_callback(self, child_id, record):
+        """
+        \brief Processes records received by a child node
+        \param record dictionary representing the received record
+        """
+        assert child_id == 0
+
+        if record == LAST_RECORD:
+            self.status.completed(child_id)
+            return
+
+        if record not in self.child_results:
+            self.child_results.add(record)
+            self.callback(record)
+            return
+
+
 #------------------------------------------------------------------
 # UNION node
 #------------------------------------------------------------------
@@ -653,9 +784,11 @@ class Union(Node):
 
     def __init__(self, children, key):
         """
-        Constructor
-        \param children
-        \param key the key for elements returned from the node
+        \brief Constructor
+        \param children A list of Node instances, the children of
+            this Union Node.
+        \param key A Key instance, corresponding to the key for
+            elements returned from the node
         """
         # Parameters
         self.children, self.key = children, key
@@ -679,17 +812,20 @@ class Union(Node):
         """
         # We suppose all child queries have the same format, and that we have at
         # least one child
-        return Query(self.children[0].query)
+        return Query(self.children[0].get_query())
         
     def dump(self, indent = 0):
         """
         \brief Dump the current node
         \param indent current indentation
         """
-        self.tab(indent)
-        print DUMPSTR_UNION
+        Node.tab(indent)
+        print "%r" % self
         for child in self.children:
             child.dump(indent + 1)
+
+    def __repr__(self):
+        return DUMPSTR_UNION
 
     def start(self):
         """
@@ -798,17 +934,20 @@ class SubQuery(Node):
         # Query is unchanged XXX ???
         return Query(self.parent.get_query())
 
-    def dump(self, indent=0):
+    def dump(self, indent = 0):
         """
         \brief Dump the current node
         \param indent current indentation
         """
-        self.parent.dump(indent+1)
+        self.parent.dump(indent + 1)
         if not self.children: return
-        self.tab(indent)
-        print DUMPSTR_SUBQUERIES
+        Node.tab(indent)
+        print "%r" % self 
         for child in self.children:
-            child.dump(indent+1)
+            child.dump(indent + 1)
+
+    def __repr__(self):
+        return DUMPSTR_SUBQUERIES
 
     def start(self):
         """
@@ -966,8 +1105,8 @@ class AST(object):
         assert len(table.get_platforms()) == 1, "Table = %r should be related to only one platform" % table
 
         self.query = query
-        platforms = table.get_platforms()
-        platform = list(platforms)[0]
+#OBSOLETE|        platforms = table.get_platforms()
+#OBSOLETE|        platform = list(platforms)[0]
 
         node = From(table, query) 
         self.root = node
