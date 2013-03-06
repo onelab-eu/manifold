@@ -581,8 +581,8 @@ def reinject_fds(fds_min_cover, fds_removed):
                 with arcs (x --> y) and (y --> z) (feasible joins)
 
             In other words, the transitive fds x --> z and x --> t provided
-            by p2::x are reinjected along the underlying 3nf fds (resp. x --> y --> z
-            and x --> y --> z --> t) <= WE PROVIDE ANNOTATION IN THIS FUNCTION ON EACH UNDERLYING 3NF FD: see (2)
+            by p2::x are reinjected along the underlying 3nf fds path (resp. x --> y --> z
+            and x --> y --> z --> t) <= WE PROVIDE ANNOTATIONS ON THE FIRST AND LAST OF FD OF THESE PATHS (2)
 
             Note that since this reinjection is made along an 3nf path
             querying p2::x ALWAYS allows to retrieve both the y and z 3nf-tables;
@@ -605,26 +605,45 @@ def reinject_fds(fds_min_cover, fds_removed):
     \return The remaining removed Fd instances
     """
     fds_remaining = Fds()
-    map_key_closure = dict()
 
-    # For each removed Fd [x --> y] {p::m}
+    # (1) 
+    map_key_fdreinjected = dict()
+    fd_not_reinjected = Fds()
     for fd_removed in fds_removed:
         x = fd_removed.get_determinant().get_key()
-        y = fd_removed.get_fields()
-        if y <= x: 
-            # Reinject Fd [key --> field \subseteq key] (1)
+        y = fd_removed.get_field()
+        m = fd_removed.get_methods()
+        if y in x: 
+            # Reinject Fd [key --> field \subseteq key]
             fds_min_cover.add(fd_removed)
-        else:
-            # Compute (if not cached) the underlying 3nf fds allowing to retrieve y from x 
-            if x not in map_key_closure.keys():
-                map_key_closure[x] = closure_ext(set(x), fds_min_cover) 
 
-            # For each fd involved in the 3nf path x --> ... --> y, add this method
-            for y_elt in y:
-                assert y_elt in map_key_closure[x].keys(), "Inconsistent closure x = %r y = %r fds_min_cover = %r" % (x, y, fds_min_cover)
-                for fd in map_key_closure[x][y_elt]:
-                    print "> Dispatching %r on %r" % (fd_removed, fd)
-                    fd.add_methods(fd_removed.get_methods())
+            # Memorize this reinjected Fd in map_key_fdreinjected
+            if x not in map_key_fdreinjected.keys():
+                map_key_fdreinjected[x] = set()
+            map_key_fdreinjected[x].add(fd_removed)
+        else:
+            # This fd will be dispatched during (2)
+            fd_not_reinjected.add(fd_removed)
+
+    # (2)
+    map_key_closure = dict()
+    for fd_removed in fd_not_reinjected:
+        x = fd_removed.get_determinant().get_key()
+        y = fd_removed.get_field()
+        m = fd_removed.get_methods()
+
+        # Compute (if not cached) the underlying 3nf fds allowing to retrieve y from x 
+        if x not in map_key_closure.keys():
+            map_key_closure[x] = closure_ext(set(x), fds_min_cover) 
+
+        # Reinject removed_fd [x --> y] on its key eg on each [x --> x_elt] fd (share key)
+        for fd in map_key_fdreinjected[x]:
+            fd.add_methods(m)
+
+        # Reinject removed_fd [x --> y] on the last fd of the 3nf path from x to y (share field)
+        for fd in map_key_closure[x][y]:
+            if (fd.get_determinant().get_key() == x and fd.get_field() in set(x)) or fd.get_field() == y:
+                fd.add_methods(m)
 
 #@returns(DBGraph)
 @accepts(list)
@@ -677,24 +696,46 @@ def to_3nf(tables):
     print "5) Making 3-nf tables" 
     print "-" * 100
     tables_3nf = []
+    map_tablename_key_methods = dict()
+    map_tablename_method_fields = dict()
+
     for table_name, fds in fdss.items():
         platforms         = set()
-        map_field_methods = dict()
         fields            = set()
         keys              = set()
+        map_field_methods = dict() # <--- this sucks and should be removed from Table
+
+        # Annotations needed for the query plane
+        map_key_methods   = dict()
+        map_method_fields = dict()
+
         for fd in fds:
             keys.add(fd.get_determinant().get_key())
             fields |= fd.get_fields()
+
             for field, methods in fd.get_map_field_methods().items():
+
                 if field not in map_field_methods:
                     map_field_methods[field] = set()
                 map_field_methods[field] |= methods
+
+                if not key in map_key_methods.keys():
+                    map_key_methods[key] = set()
+                map_key_methods[key] |= methods 
+
                 for method in methods:
+
+                    if not method in map_method_fields.keys():
+                        map_method_fields[method] = set()
+                    map_method_fields[method].add(field)
+
                     platforms.add(method.get_platform())
 
         table = Table(platforms, map_field_methods, table_name, fields, keys)
         print "%s\n" % table
         tables_3nf.append(table)
+        map_tablename_key_methods[table_name] = map_key_methods
+        map_tablename_method_fields[table_name] = map_method_fields
 
     print "-" * 100
     print "6) Building DBgraph"
