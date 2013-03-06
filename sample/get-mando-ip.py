@@ -2,7 +2,7 @@
 # -*- coding:utf-8 */
 
 from config                 import auth
-from manifold.core.router     import THLocalRouter
+from manifold.core.router     import THRouter
 from manifold.core.router     import Query
 
 query = Query(
@@ -33,7 +33,7 @@ print "> fields     = %r" % query.fields
 print "=" * 150
 
 # Instantiate a TopHat router
-with THLocalRouter() as router:
+with THRouter() as router:
     user = router.authenticate(auth)
     directory = router.conf.STATIC_ROUTES_FILE
     result = router.forward(query, execute = False, user = user)

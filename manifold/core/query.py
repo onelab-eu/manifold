@@ -9,9 +9,9 @@
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
 from types                      import StringTypes
-from tophat.core.filter         import Filter, Predicate
-from tophat.util.frozendict     import frozendict
-from tophat.util.type           import returns, accepts
+from manifold.core.filter         import Filter, Predicate
+from manifold.util.frozendict     import frozendict
+from manifold.util.type           import returns, accepts
 from copy                       import deepcopy
 
 class ParameterError(StandardError): pass
