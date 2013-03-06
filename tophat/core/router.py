@@ -6,20 +6,21 @@ from twisted.internet           import defer
 from tophat.router              import *
 from tophat.core.filter         import Predicate
 from tophat.core.ast            import AST
-from tophat.core.key            import Key
+from tophat.core.key            import Key, Keys
 from manifold.core.query        import Query
 from tophat.core.table          import Table
 from manifold.gateways          import *
 from tophat.models              import *
-from tophat.util.dbnorm         import Cache, to_3nf 
+from tophat.util.dbnorm         import to_3nf 
 from tophat.util.dbgraph        import DBGraph
 from tophat.util.dfs            import dfs
 from tophat.util.pruned_tree    import build_pruned_tree
-from tophat.util.query_plane    import build_query_plane 
+from tophat.util.query_plane    import build_query_plan 
 from tophat.util.reactor_thread import ReactorThread
+from tophat.util.type           import returns, accepts
 
 from sfa.trust.credential       import Credential
-from manifold.gateways.sfa        import ADMIN_USER
+from manifold.gateways.sfa      import ADMIN_USER
 from tophat.metadata.Metadata   import import_file_h
 
 METADATA_DIRECTORY = "/usr/share/myslice/metadata/"
@@ -327,10 +328,34 @@ class THLocalRouter(LocalRouter):
 
         return creds
 
+    @returns(list)
+    def metadata_get_tables(self):
+        """
+        \return The list of Table instances announced in the metadata
+            collected by this router
+        """
+        return self.rib.keys() # HUM
+
+    @returns(Keys)
+    def metadata_get_keys(self, table_name):
+        """
+        \brief Retrieve the Key instances related to a Table announced
+            in the metadata
+        \param table_name The name of the table
+        \return The Keys instance related to this table, None if
+            table_name is not found in the metadata
+        """
+        for table in self.metadata_get_tables():
+            if table.get_name() == table_name:
+                return table.get_keys()
+        return None
+
     def build_tables(self):
-        # Build one table per key {'Table' : THRoute}
-        tables = self.rib.keys() # HUM
-        (self.g_3nf, self.cache) = to_3nf(tables)
+        """
+        \brief Compute the 3nf schema according to the Tables
+            announced in the metadata
+        """
+        self.g_3nf = to_3nf(self.metadata_get_tables())
 
     def fetch_static_routes(self, directory = METADATA_DIRECTORY):
         """
@@ -341,7 +366,6 @@ class THLocalRouter(LocalRouter):
         \param directory Containing static route files. 
         \return The corresponding static routes
         """
-
         routes = []
 
         # Query the database to retrieve which configuration file has to be
@@ -351,15 +375,14 @@ class THLocalRouter(LocalRouter):
         # For each platform, load the corresponding .h file
         for platform in platforms:
             gateway = None
-            #try:
-            tables = self.import_file_h(
-                directory,
-                platform.platform,
-                platform.gateway_type
-            )
-            #except Exception, why:
-            #    print "ERROR in get_static_routes: ", why
-            #    break
+            try:
+                tables = self.import_file_h(
+                    directory,
+                    platform.platform,
+                    platform.gateway_type
+                )
+            except Exception, why:
+                print "Error while importing %s in get_static_routes: %s" % (platform, why)
             
             routes.extend(tables)
 
@@ -381,19 +404,13 @@ class THLocalRouter(LocalRouter):
 #OBSOLETE|                ret = (dest, isect)
 #OBSOLETE|        return ret
 
-    def metadata_get_keys(self, table_name):
-        for table in self.rib.keys(): # HUM
-            if table.get_name() == table_name:
-                return table.get_keys()
-        return None
-
     def process_subqueries(self, query, user):
         """
         \brief Compute the AST (tree of SQL operators) related to a query
         \sa tophat/core/ast.py
         \param query A Query issued by the user
         \param user A User instance (carry user's information) 
-        \return An AST instance representing the query plane related to the query
+        \return An AST instance representing the query plan related to the query
         """
         print "=" * 100
         print "Entering process_subqueries %s (need fields %s) " % (query.get_from(), query.get_select())
@@ -410,7 +427,7 @@ class THLocalRouter(LocalRouter):
         cur_fields = []
         subq = {}
 
-        debug = "debug" in query.params and query.params["debug"]
+        debug = "debug" in query.get_params() and query.get_params()["debug"]
 
         # XXX there are some parameters that will be answered by the parent !!!! no need to request them from the children !!!!
         # XXX XXX XXX XXX XXX XXX ex slice.resource.PROPERTY
@@ -551,6 +568,12 @@ class THLocalRouter(LocalRouter):
 #OBSOLETE|        return ret
 
     def get_query_plan(self, query, user):
+        """
+        \brief Compute the query plan related to a user's query
+        \param query The Query issued by the user
+        \param user A User instance
+        \return An AST instance
+        """
         qp = self.process_subqueries(query, user)
 
         # Now we apply the operators
@@ -569,15 +592,14 @@ class THLocalRouter(LocalRouter):
 
         return qp
 
+    @returns(AST)
     def process_query(self, query, user):
-#DEBUG|        print "Tables:"
-#DEBUG|        for u in self.g_3nf.graph.nodes(False):
-#DEBUG|            print "%s" % u
         return self.process_query_mando(query, user)
 
+    @returns(AST)
     def process_query_mando(self, query, user):
         """
-        \brief Compute the query plane related to a query which involves
+        \brief Compute the query plan related to a query which involves
             no sub-queries. Sub-queries should already processed thanks to
             process_subqueries().
         \param query The Query instance representing the query issued by the user.
@@ -586,15 +608,14 @@ class THLocalRouter(LocalRouter):
             the query. The query can be resolved in various way according to
             the user grants.
             \sa tophat/model/user.py
-        \return The AST instance representing the query plane.
+        \return The AST instance representing the query plan.
         """
 
         # Compute the fields involved explicitly in the query (e.g. in SELECT or WHERE)
-        needed_fields = set(query.fields)
+        needed_fields = set(query.get_select())
         if needed_fields == set():
             raise ValueError("No queried field")
-        if query.filters:
-            needed_fields.update(query.filters.keys())
+        needed_fields.update(query.get_where().keys())
 
         # Retrieve the root node corresponding to the fact table
         root = self.g_3nf.find_node(query.get_from())
@@ -602,31 +623,27 @@ class THLocalRouter(LocalRouter):
         # Retrieve the (unique due to 3-nf) tree included in "self.g_3nf" and rooted in "root"
         # \sa tophat/util/dfs.py
         print "Entering DFS(%r) in graph:" % root
-        for edge in self.g_3nf.graph.edges():
-            (u, v) = edge
-            print "\t%r %s %r via %r" % (u, self.g_3nf.graph[u][v]["type"], v, self.g_3nf.graph[u][v]["info"])
-        map_vertex_pred = dfs(self.g_3nf.graph, root)
 
         # Compute the corresponding pruned tree.
         # Each node of the pruned tree only gathers relevant table, and only their
         # relevant fields and their relevant key (if used).
         # \sa tophat/util/pruned_graph.py
-        pruned_tree = build_pruned_tree(self.g_3nf.graph, needed_fields, map_vertex_pred)
+        pruned_tree = build_pruned_tree(self.g_3nf.graph, needed_fields, dfs(self.g_3nf.graph, root))
 
-        # Compute the skeleton resulting query plane
+        # Compute the skeleton resulting query plan
         # (e.g which does not take into account the query)
-        # It leads to a query plane made of Union, From, and LeftJoin nodes
-        return build_query_plane(user, query, pruned_tree)
+        # It leads to a query plan made of Union, From, and LeftJoin nodes
+        return build_query_plan(user, query, pruned_tree)
 
 #OBSOLETE|    def process_query_new(self, query, user):
 #OBSOLETE|        """
-#OBSOLETE|        \brief Compute the query plane related to a query which involves
+#OBSOLETE|        \brief Compute the query plan related to a query which involves
 #OBSOLETE|            no sub-queries. Sub-queries should already processed thanks to
 #OBSOLETE|            process_subqueries().
 #OBSOLETE|        \param query The query issued by the user.
 #OBSOLETE|        \param user The user issuing the query (according to the user grants
-#OBSOLETE|            the query plane might differ).
-#OBSOLETE|        \return The AST instance representing the query plane.
+#OBSOLETE|            the query plan might differ).
+#OBSOLETE|        \return The AST instance representing the query plan.
 #OBSOLETE|        """
 #OBSOLETE|        # Find a tree of tables rooted at the fact table (e.g. method) included
 #OBSOLETE|        # in the normalized graph.
@@ -724,13 +741,13 @@ class THLocalRouter(LocalRouter):
 #OBSOLETE|    # OBSOLETE
 #OBSOLETE|    def process_query_old(self, query, user):
 #OBSOLETE|        """
-#OBSOLETE|        \brief Compute the query plane related to a query which involves
+#OBSOLETE|        \brief Compute the query plan related to a query which involves
 #OBSOLETE|            no sub-queries. Sub-queries should already processed thanks to
 #OBSOLETE|            process_subqueries().
 #OBSOLETE|        \param query The query issued by the user.
 #OBSOLETE|        \param user The user issuing the query (according to the user grants
-#OBSOLETE|            the query plane might differ).
-#OBSOLETE|        \return The AST instance representing the query plane.
+#OBSOLETE|            the query plan might differ).
+#OBSOLETE|        \return The AST instance representing the query plan.
 #OBSOLETE|        """
 #OBSOLETE|        # We process a single query without caring about 1..N
 #OBSOLETE|        # former method
@@ -865,9 +882,9 @@ class THLocalRouter(LocalRouter):
             self.get_query_plan(query, user)
             return None
 
-        # The query plane will be the same whatever the action: it represents
+        # The query plan will be the same whatever the action: it represents
         # the easier way to reach the destination = routing
-        # We do not need the full query for the query plane, in fact just the
+        # We do not need the full query for the query plan, in fact just the
         # destination, which is a subpart of the query = (fact, filters, fields)
         # action = what to do on this QP
         # ts = how it behaves

@@ -120,12 +120,15 @@ def prune_precedessor_map(g, queried_fields, map_vertex_pred):
         satisfied:
         - u provides a field queried by the user
         - u is involved in a join required to answer to the query
-    \param map_vertex_pred A dictionnary which maps a vertex and
+    \param map_vertex_pred A dictionnary {Talbe => Table} which maps a vertex and
         its predecessor in the tree we're considering
     \return A tuple made of
-        - predecessors A predecessor map included in map_vertex_pred
+        - predecessors A dictionnary {Table => Table} included in map_vertex_pred
             containing only the relevant arcs
-        - relevant_fields
+        - relevant_keys A dictionnary {Table => set(Key)} which indicates
+            for each 3nf Table which are its relevant Keys
+        - relevant_fields A dictionnary {Table => set(Field)} which indicates
+            for each 3nf Table which are its relevant Fields
     """
     def update_map(m, k, s):
         if k not in m.keys():
@@ -134,7 +137,7 @@ def prune_precedessor_map(g, queried_fields, map_vertex_pred):
 
     # Vertices in predecessors have been already examined in a previous iteration
     predecessor     = dict()
-    #UNUSED|relevant_keys   = dict()
+    relevant_keys   = dict()
     relevant_fields = dict()
 
     for v, u in map_vertex_pred.items():
@@ -150,9 +153,16 @@ def prune_precedessor_map(g, queried_fields, map_vertex_pred):
 
         # Backtrack to the root or to an already visited node
         while u: # Current arc is (u --> v)
-            key_u = list(g.edge[u][v]["info"])[0] # select the first key (arbitrary!)
-            #UNUSED|if isinstance(key_u, Key):
-            #UNUSED|    update_map(relevant_keys, u, key_u)
+
+            # Fields use to JOIN the both tables are relevant
+            # - In u: these Fields are stored in the (u --> v) arc
+            # - In v: we assume the join in achieved with the first v's key 
+            key_u = list(g.edge[u][v]["info"])[0] # select the first join (arbitrary) (Key or set(Field) instances depending on the arc label) 
+            key_v = list(v.get_keys())[0]         # select the first key (arbitrary)
+
+            if isinstance(key_u, Key):
+                update_map(relevant_keys, u, key_u)
+            update_map(relevant_keys, v, key_v)
 
             if isinstance(key_u, Key):
                 fields_u = set(key_u)
@@ -163,7 +173,7 @@ def prune_precedessor_map(g, queried_fields, map_vertex_pred):
                 raise TypeError("Unexpected info on arc (%r, %r): %r" % (u, v, key_u))
 
             update_map(relevant_fields, u, fields_u) 
-            update_map(relevant_fields, v, v.get_fields_with_name(set([field.get_name() for field in u.get_fields()]))) 
+            update_map(relevant_fields, v, key_v) 
 
             # The field explicitely queried by the user have already
             # been stored in relevant_fields during a previous iteration
@@ -178,7 +188,7 @@ def prune_precedessor_map(g, queried_fields, map_vertex_pred):
             v = u
             u = predecessor[u]
 
-    return (predecessor, relevant_fields)
+    return (predecessor, relevant_keys, relevant_fields)
 
 
 @returns(DiGraph)
@@ -226,20 +236,18 @@ def build_pruned_tree(g, needed_fields, map_vertex_pred):
     \param needed_fields A set of Field instances, queried by the user
     \param map_vertex_pred The predecessor map related to the tree we are pruning
         \sa tophat/util/dfs.py
-    \return An instance of networkx.DiGraph representing the pruned 3-nf tree 
+    \return 
+         An instance of networkx.DiGraph representing the pruned 3-nf tree 
         Data related to this graph are copied from g, so it can be safely modified
         without impacting g. Such graph is typically embedded in a DBGraph instance.
         \sa tophat/util/dbgraph.py
     """
    
-    # We will select nodes of interest in map_vertex_pred before building a copy
-    # of the tree rooted at the fact_table
-
     print "-" * 100
     print "Prune useless keys/nodes/arcs from tree"
     print "-" * 100
     
-    (predecessor, relevant_fields) = prune_precedessor_map(g, needed_fields, map_vertex_pred)
+    (_, relevant_keys, relevant_fields) = prune_precedessor_map(g, needed_fields, map_vertex_pred)
     tree = make_sub_graph(g, relevant_fields)
 
     # Print tree
@@ -249,4 +257,4 @@ def build_pruned_tree(g, needed_fields, map_vertex_pred):
     for table in tree.nodes():
         print "%s\n" % table
 
-    return tree 
+    return tree
