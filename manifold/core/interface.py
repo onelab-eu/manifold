@@ -20,7 +20,7 @@ class Interface(object):
         if platforms:
             self.platforms = platforms
         else:
-            self.platforms = Storage.execute(Query().get('platform'))
+            self.platforms = Storage.execute(Query().get('platform'), format='object')
 
         self.allowed_capabilities = allowed_capabilities
         self.metadata = {}

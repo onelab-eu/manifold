@@ -16,6 +16,7 @@ from manifold.gateways.sfa          import ADMIN_USER
 from manifold.util.callback         import Callback
 from manifold.core.interface        import Interface
 from manifold.util.reactor_thread   import ReactorThread
+from manifold.util.storage          import DBStorage as Storage
 # XXX cannot use the wrapper with sample script
 # XXX cannot use the thread with xmlrpc -n
 #from manifold.util.reactor_wrapper  import ReactorWrapper as ReactorThread
@@ -38,13 +39,14 @@ class Router(Interface):
     Specialized to handle Announces/Routes, ...
     """
 
+    LOCAL_NAMESPACE = "local"
+
     def boot(self):
         #print "I: Booting router"
         # Install static routes in the RIB and FIB (TODO)
         #print "D: Reading static routes in: '%s'" % self.conf.STATIC_ROUTES_FILE
         #static_routes = self.fetch_static_routes(STATIC_ROUTES_FILE)
         #self.rib[dest] = route
-        ReactorThread().start_reactor()
         # initialize dummy list of credentials to be uploaded during the
         # current session
         self.cache = {}
@@ -54,6 +56,7 @@ class Router(Interface):
         self.build_tables()
 
     def __enter__(self):
+        ReactorThread().start_reactor()
         return self
 
     def __exit__(self, type, value, traceback):
@@ -185,61 +188,59 @@ class Router(Interface):
         A query is forwarded. Eventually it affects the forwarding plane, and expects an answer.
         NOTE : a query is like a flow
         """
-
+        namespace = None
         # Handling internal queries
         if ':' in query.fact_table:
-            #try:
             namespace, table = query.fact_table.rsplit(':', 2)
-            if namespace == self.LOCAL_NAMESPACE:
-                q = copy.deepcopy(query)
-                q.fact_table = table
-                return self.local_query(q)
-            elif namespace == "metadata":
-                # Metadata are obtained for the 3nf representation in
-                # memory
-                if table == "table":
-                    output = []
-                    # XXX Not generic
-                    for table in self.G_nf.graph.nodes():
-                        #print "GNF table", table
-                        fields = [f for f in self.G_nf.get_fields(table)]
-                        fields = list(set(fields))
+        
+        if namespace == self.LOCAL_NAMESPACE:
+            q = copy.deepcopy(query)
+            q.fact_table = table
+            return Storage.execute(q)
+        elif namespace == "metadata":
+            # Metadata are obtained for the 3nf representation in
+            # memory
+            if table == "table":
+                output = []
+                # XXX Not generic
+                for table in self.G_nf.graph.nodes():
+                    #print "GNF table", table
+                    fields = [f for f in self.G_nf.get_fields(table)]
+                    fields = list(set(fields))
 
-                        # Build columns from fields
-                        columns = []
-                        for field in fields:
-                            column = {
-                                "column"         : field.get_name(),        # field(_name)
-                                "description"    : field.get_description(), # description
-                                "header"         : field,
-                                "title"          : field,
-                                "unit"           : "N/A",                   # !
-                                "info_type"      : "N/A",
-                                "resource_type"  : "N/A",
-                                "value_type"     : "N/A",
-                                "allowed_values" : "N/A",
-                                # ----
-                                "type": field.type,                         # type
-                                "is_array"       : field.is_array(),        # array?
-                                "qualifier"      : field.get_qualifier()    # qualifier (const/RW)
-                                                                            # ? category == dimension
-                            }
-                            columns.append(column)
+                    # Build columns from fields
+                    columns = []
+                    for field in fields:
+                        column = {
+                            "column"         : field.get_name(),        # field(_name)
+                            "description"    : field.get_description(), # description
+                            "header"         : field,
+                            "title"          : field,
+                            "unit"           : "N/A",                   # !
+                            "info_type"      : "N/A",
+                            "resource_type"  : "N/A",
+                            "value_type"     : "N/A",
+                            "allowed_values" : "N/A",
+                            # ----
+                            "type": field.type,                         # type
+                            "is_array"       : field.is_array(),        # array?
+                            "qualifier"      : field.get_qualifier()    # qualifier (const/RW)
+                                                                        # ? category == dimension
+                        }
+                        columns.append(column)
 
-                        # Add table metadata
-                        output.append({
-                            "table"  : table.get_name(),
-                            "column" : columns
-                        })
-                    return output
-                else:
-                    raise Exception, "Unsupported metadata request '%s'" % table
+                    # Add table metadata
+                    output.append({
+                        "table"  : table.get_name(),
+                        "column" : columns
+                    })
+                return output
             else:
-                raise Exception, "Unsupported namespace '%s'" % namespace
-        route = None
+                raise Exception, "Unsupported metadata request '%s'" % table
+        elif namespace:
+            raise Exception, "Unsupported namespace '%s'" % namespace
 
-
-        return self.do_forward(query, route, deferred, execute, user)
+        return self.do_forward(query, None, deferred, execute, user)
             
     def do_forward(self, query, route, deferred, execute=True, user=None):
         """
