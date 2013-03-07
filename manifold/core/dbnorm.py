@@ -88,7 +88,7 @@ class Determinant(object):
         """
         return self.key
 
-    @returns(str)
+    @returns(StringTypes)
     def get_method_name(self):
         """
         \returns A string (the method_name related to this determinant) (m)
@@ -111,14 +111,14 @@ class Determinant(object):
         assert isinstance(x, Determinant), "Invalid paramater %r (type %r)" % (x, type(x))
         return self.get_key() == x.get_key() and self.get_method_name() == x.get_method_name()
 
-    @returns(str)
+    @returns(StringTypes)
     def __str__(self):
         """
         \return The (verbose) string representing a Determinant instance
         """
         return self.__repr__()
 
-    @returns(str)
+    @returns(StringTypes)
     def __repr__(self):
         """
         \return The (synthetic) string representing a Determinant instance
@@ -238,7 +238,7 @@ class Fd(object):
                 fds.add(Fd(determinant, map_field_methods))
         return fds 
 
-    #@returns(str)
+    #@returns(StringTypes)
     def __str__(self):
         cr  = ""
         cr1 = ""
@@ -260,7 +260,7 @@ class Fd(object):
             cr
         )
 
-    @returns(str)
+    @returns(StringTypes)
     def __repr__(self):
         return "[%r => {%s}]" % (
             self.get_determinant(),
@@ -363,11 +363,11 @@ class Fds(set):
             fds |= fd.split()
         return fds 
 
-    @returns(str)
+    @returns(StringTypes)
     def __str__(self):
         return '\n'.join(["%s" % fd for fd in self])
 
-    @returns(str)
+    @returns(StringTypes)
     def __repr__(self):
         return '\n'.join(["%r" % fd for fd in self])
 
@@ -621,6 +621,7 @@ def reinject_fds(fds_min_cover, fds_removed):
             if x not in map_key_fdreinjected.keys():
                 map_key_fdreinjected[x] = set()
             map_key_fdreinjected[x].add(fd_removed)
+            print "(1) %r" % fd_removed
         else:
             # This fd will be dispatched during (2)
             fd_not_reinjected.add(fd_removed)
@@ -631,6 +632,7 @@ def reinject_fds(fds_min_cover, fds_removed):
         x = fd_removed.get_determinant().get_key()
         y = fd_removed.get_field()
         m = fd_removed.get_methods()
+        print "(2) %r" % fd_removed
 
         # Compute (if not cached) the underlying 3nf fds allowing to retrieve y from x 
         if x not in map_key_closure.keys():
@@ -683,6 +685,9 @@ def to_3nf(tables):
     print "-" * 100
     print "3) Reinjecting fds removed during normalization"
     print "-" * 100
+    for fd_removed in fds_removed:
+        print "(0) %r" % fd_removed
+
     reinject_fds(fds_min_cover, fds_removed)
 
     print "-" * 100
@@ -695,47 +700,66 @@ def to_3nf(tables):
     print "-" * 100
     print "5) Making 3-nf tables" 
     print "-" * 100
-    tables_3nf = []
-    map_tablename_key_methods = dict()
-    map_tablename_method_fields = dict()
+    tables_3nf = list()
+    map_tablename_methods = dict() # map table_name with methods to demux
 
     for table_name, fds in fdss.items():
         platforms         = set()
         fields            = set()
         keys              = set()
-        map_field_methods = dict() # <--- this sucks and should be removed from Table
+        map_field_methods = dict() # <--- TODO this map should be removed from Table
 
         # Annotations needed for the query plane
-        map_key_methods   = dict()
+        map_method_keys   = dict()
         map_method_fields = dict()
 
         for fd in fds:
-            keys.add(fd.get_determinant().get_key())
+            key = fd.get_determinant().get_key()
+            keys.add(key)
             fields |= fd.get_fields()
 
             for field, methods in fd.get_map_field_methods().items():
 
+                # TODO this map should be removed from Table
                 if field not in map_field_methods:
                     map_field_methods[field] = set()
                 map_field_methods[field] |= methods
 
-                if not key in map_key_methods.keys():
-                    map_key_methods[key] = set()
-                map_key_methods[key] |= methods 
-
                 for method in methods:
 
+                    # key annotation
+                    if not method in map_method_keys.keys():
+                        map_method_keys[method] = set()
+                    map_method_keys[method].add(key)
+
+                    # field annotations
                     if not method in map_method_fields.keys():
                         map_method_fields[method] = set()
                     map_method_fields[method].add(field)
 
+                    # demux annotation
+                    method_name = method.get_name()
+                    if method_name != table_name :
+                        if method_name not in map_tablename_methods.keys():
+                            map_tablename_methods[method_name] = set()
+                        map_tablename_methods[method_name].add(method)
+
                     platforms.add(method.get_platform())
 
         table = Table(platforms, map_field_methods, table_name, fields, keys)
+
+        # inject field and key annotation in the Table object
+        table.map_method_keys   = map_method_keys
+        table.map_method_fields = map_method_fields
         print "%s\n" % table
         tables_3nf.append(table)
-        map_tablename_key_methods[table_name] = map_key_methods
-        map_tablename_method_fields[table_name] = map_method_fields
+
+    # inject demux annotation
+    for table in tables_3nf:
+        if table.get_name() in map_tablename_methods.keys():
+            table.methods_demux = map_tablename_methods[table.get_name()]
+        else:
+            table.methods_demux = set()
 
     print "-" * 100
     print "6) Building DBgraph"

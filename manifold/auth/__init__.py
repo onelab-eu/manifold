@@ -1,4 +1,4 @@
-from manifold.models import db, User, Session as DBSession
+from manifold.models import db, DBUser as User, DBSession 
 import time
 
 import crypt

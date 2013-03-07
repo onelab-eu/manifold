@@ -14,6 +14,7 @@ class PluginFactory(type):
         except AttributeError:
             setattr(cls, 'registry', {})
             registry = getattr(cls, 'registry')
+        # XXX
         if name != "Gateway":
             if name.endswith('Gateway'):
                 name = name[:-7]
@@ -21,7 +22,7 @@ class PluginFactory(type):
             registry[name] = cls
 
         def get(self, name):
-            return registry[name]
+            return registry[name.lower()]
 
         # Adding a class method get to retrieve plugins by name
         setattr(cls, 'get', classmethod(get))

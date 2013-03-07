@@ -3,6 +3,8 @@ import os.path
 
 from manifold.util.singleton    import Singleton
 
+# http://docs.python.org/dev/library/argparse.html#upgrading-optparse-code
+
 
 class Options(object):
 

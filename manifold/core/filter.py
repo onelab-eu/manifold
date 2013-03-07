@@ -37,7 +37,7 @@ class Filter(set):
         return f
 
     def __str__(self):
-        return ' AND '.join([str(pred) for pred in self])
+        return '<Filter: %s>' % ' AND '.join([str(pred) for pred in self])
 
     def __repr__(self):
         return self.__str__()

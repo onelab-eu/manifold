@@ -12,15 +12,17 @@
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
 import sys
-from copy                         import copy, deepcopy
-from types                        import StringTypes
+from copy                       import copy, deepcopy
+from types                      import StringTypes
 
-from manifold.core.filter         import Filter, Predicate
-from manifold.core.query          import Query
-from manifold.core.table          import Table 
-from manifold.core.field          import Field
-from manifold.core.key            import Key
-from manifold.util.type           import returns, accepts
+from types                      import StringTypes
+from manifold.core.filter       import Filter, Predicate
+from manifold.core.query        import Query, AnalyzedQuery
+from manifold.core.table        import Table 
+from manifold.core.field        import Field
+from manifold.core.key          import Key
+from manifold.util.type         import returns, accepts
+from manifold.util.log          import *
 
 # NOTES
 # - What about a Record type
@@ -171,6 +173,12 @@ class Node(object):
         self.callback = callback
         # Basic information about the data provided by a node
 
+    def get_callback(self):
+        """
+        \brief Return the callback related to this Node 
+        """
+        return self.callback
+
     @returns(Query)
     def get_query(self):
         """
@@ -227,6 +235,7 @@ class From(Node):
         assert isinstance(table, Table), "Invalid type: table = %r (%r)" % (table, type(table))
 
         self.query, self.table = query, table
+        self.gateway = None
         super(From, self).__init__()
 
     @returns(Query)
@@ -254,7 +263,7 @@ class From(Node):
         """
         return self.table
 
-    @returns(unicode)
+    @returns(StringTypes)
     def get_platform(self):
         """
         \return The name of the platform queried by this FROM node.
@@ -300,9 +309,9 @@ class From(Node):
         parent_query.fields = provided_fields
         parent_from = FromTable(parent_query, records)
 
-        old_self_callback = self.callback
+        old_self_callback = self.get_callback()
         join = LeftJoin(parent_from, self, self.key)
-        join.callback = old_self_callback
+        join.set_callback(old_self_callback)
 
         return join
 
@@ -315,10 +324,13 @@ class From(Node):
         self.gateway.start()
 
     def set_gateway(self, gateway):
-        gateway.set_callback(self.callback)
-        print gateway
-        print self.callback
+        gateway.set_callback(self.get_callback())
         self.gateway = gateway
+
+    def set_callback(self, callback):
+        super(From, self).set_callback(callback)
+        if self.gateway:
+            self.gateway.set_callback(callback)
 
 class FromTable(From):
     """
@@ -382,12 +394,12 @@ class LeftJoin(Node):
         self.left      = left_child
         self.right     = right_child 
         self.predicate = predicate
-        self.callback  = callback
+        self.set_callback(callback)
 
         # Set up callbacks
         self.status = ChildStatus(self.all_done)
         for i, child in enumerate(self.get_children()):
-            child.callback = ChildCallback(self, i)
+            child.set_callback(ChildCallback(self, i))
             self.status.started(i)
 
         super(LeftJoin, self).__init__()
@@ -534,17 +546,19 @@ class Projection(Node):
         \brief Constructor
         \param child A Node instance which will be the child of
             this Node.
-        \param fields A list of String corresponding of field names
-            we're selecting.
+        \param fields A list of Field instances corresponding to
+            the fields we're selecting.
         """
+        for field in fields:
+            assert isinstance(field, Field), "Invalid field %r (%r)" % (field, type(field))
         self.child, self.fields = child, fields
-        self.child.callback = self.callback
+        self.child.set_callback(self.get_callback())
         super(Projection, self).__init__()
 
     @returns(list)
     def get_fields(self):
         """
-        \returns The list of field names selected in this node.
+        \returns The list of Field instances selected in this node.
         """
         return self.fields
 
@@ -560,6 +574,12 @@ class Projection(Node):
         q.fields &= fields
         return q
 
+    def get_child(self):
+        """
+        \return A Node instance (the child Node) of this Demux instance.
+        """
+        return self.child
+
     def dump(self, indent):
         """
         \brief Dump the current node
@@ -570,7 +590,7 @@ class Projection(Node):
         self.child.dump(indent+1)
 
     def __repr__(self):
-        return DUMPSTR_PROJECTION % ", ".join(self.fields)
+        return DUMPSTR_PROJECTION % ", ".join([field.get_name() for field in self.get_fields()])
 
     def start(self):
         """
@@ -617,7 +637,7 @@ class Selection(Node):
         assert isinstance(filters, set),      "Invalid filters = %r (%r)" % (filters, type(filters))
 
         self.child, self.filters = child, filters
-        self.child.callback = self.callback
+        self.child.set_callback(self.get_callback())
         super(Selection, self).__init__()
 
     @returns(Query)
@@ -666,9 +686,11 @@ class Selection(Node):
         \brief Processes records received by the child node 
         \param record dictionary representing the received record
         """
-        if record != LAST_RECORD and self.filters:
-            record = self.filters.filter(record)
-        self.callback(record)
+        if record == LAST_RECORD or (self.filters and self.filters.match(record)):
+            self.callback(record)
+        #if record != LAST_RECORD and self.filters:
+        #    record = self.filters.filter(record)
+        #self.callback(record)
 
 
 #------------------------------------------------------------------
@@ -683,8 +705,8 @@ class Demux(Node):
         \param child A Node instance, child of this Dup Node
         """
         self.child = child
-        self.status = ChildStatus(self.all_done)
-        self.child.callback = ChildCallback(self, 0)
+        #TO FIX self.status = ChildStatus(self.all_done)
+        self.child.set_callback(ChildCallback(self, 0))
         super(Demux, self).__init__()
 
     def add_callback(self, callback):
@@ -701,13 +723,18 @@ class Demux(Node):
         for callback in self.parent_callbacks:
             callbacks(record)
 
+    @returns(StringTypes)
+    def __repr__(self):
+        return "DEMUX (built above %r)" % self.get_child() 
+
     def dump(self, indent = 0):
         """
         \brief Dump the current node
         \param indent current indentation
         """
         Node.tab(indent)
-        print "DEMUX" 
+        print "%r" % self
+        self.get_child().dump(indent + 1)
 
     def start(self):
         """
@@ -716,20 +743,38 @@ class Demux(Node):
         self.child.start()
         self.status.started(0)
 
+    def get_child(self):
+        """
+        \return A Node instance (the child Node) of this Demux instance.
+        """
+        return self.child
+
+    def add_parent(self, parent):
+        """
+        \brief Add a parent Node to this Demux Node.
+        \param parent A Node instance
+        """
+        assert issubclass(Node, type(parent)), "Invalid parent %r (%r)" % (parent, type(parent))
+        print "not yet implemented"
+
 #------------------------------------------------------------------
 # DUP node
 #------------------------------------------------------------------
 
 class Dup(Node):
 
-    def __init__(self, child):
+    def __init__(self, child, key):
         """
         \brief Constructor
         \param child A Node instance, child of this Dup Node
+        \param key A Key instance
         """
+        #assert issubclass(Node, type(child)), "Invalid child %r (%r)" % (child, type(child))
+        #assert isinstance(Key,  type(key)),   "Invalid key %r (%r)"   % (key,   type(key))
+
         self.child = child
-        self.status = ChildStatus(self.all_done)
-        self.child.callback = ChildCallback(self, 0)
+        #TO FIX self.status = ChildStatus(self.all_done)
+        self.child.set_callback(ChildCallback(self, 0))
         self.child_results = set()
         super(Dup, self).__init__()
 
@@ -740,14 +785,21 @@ class Dup(Node):
         \return query representing the data produced by the nodes.
         """
         return Query(self.child.get_query())
- 
+
+    def get_child(self):
+        """
+        \return A Node instance (the child Node) of this Demux instance.
+        """
+        return self.child
+
     def dump(self, indent = 0):
         """
         \brief Dump the current node
         \param indent current indentation
         """
         Node.tab(indent)
-        print "DUP" 
+        print "DUP (built above %r)" % self.get_child()
+        self.get_child().dump(indent + 1)
 
     def start(self):
         """
@@ -800,7 +852,7 @@ class Union(Node):
         self.status = ChildStatus(self.all_done)
         # Set up callbacks
         for i, child in enumerate(self.children):
-            child.callback = ChildCallback(self, i)
+            child.set_callback(ChildCallback(self, i))
 
         super(Union, self).__init__()
 
@@ -915,14 +967,14 @@ class SubQuery(Node):
         self.parent_output = []
 
         # Set up callbacks
-        parent.callback = self.parent_callback
+        parent.set_callback(self.parent_callback)
 
         # Prepare array for storing results from children: parent result can
         # only be propagated once all children have replied
         self.child_results = []
         self.status = ChildStatus(self.all_done)
         for i, child in enumerate(self.children):
-            child.callback = ChildCallback(self, i)
+            child.set_callback(ChildCallback(self, i))
             self.child_results.append([])
 
     @returns(Query)
@@ -1094,9 +1146,9 @@ class AST(object):
     #@returns(AST)
     def From(self, table, query):
         """
-        \brief Build a FROM node
-        \param table A Table wrapped by the from operator
-        \param query A Query requested to the platform
+        \brief Append a FROM Node to this AST
+        \param table The Table wrapped by the FROM operator
+        \param query The Query sent to the platform
         \return The updated AST
         """
         assert self.is_empty(),                 "Should be instantiated on an empty AST"
@@ -1110,13 +1162,13 @@ class AST(object):
 
         node = From(table, query) 
         self.root = node
-        self.root.callback = self.callback
+        self.root.set_callback(self.get_callback())
         return self
 
     #@returns(AST)
     def union(self, children_ast, key):
         """
-        \brief Transforms an AST into a UNION of AST
+        \brief Make an AST which is the UNION of self (left operand) and children_ast (right operand)
         \param children_ast A list of AST gathered by this UNION operator
         \param key A Key instance
             \sa manifold.core.key.py 
@@ -1139,13 +1191,13 @@ class AST(object):
 
         self.root = Union(children, key)
         if old_root:
-            self.root.callback = old_root.callback
+            self.root.set_callback(old_root.get_callback())
         return self
 
     #@returns(AST)
     def left_join(self, right_child, predicate):
         """
-        \brief Performs a LEFT JOIN between two AST instances
+        \brief Make an AST which is the LEFT JOIN of self (left operand) and children_ast (right operand) 
             self ⋈ right_child
         \param right_child An AST instance (right operand of the LEFT JOIN )
         \param predicate A Predicate instance used to perform the join 
@@ -1157,13 +1209,40 @@ class AST(object):
 
         old_root = self.get_root()
         self.root = LeftJoin(old_root, right_child.get_root(), predicate, None)
-        self.root.callback = old_root.callback
+        self.root.set_callback(old_root.get_callback())
+        return self
+
+    #@returns(AST)
+    def demux(self):
+        """
+        \brief Append a DEMUX Node above this AST
+        \return The updated AST 
+        """
+        assert not self.is_empty(),      "AST not initialized"
+
+        old_root = self.get_root()
+        self.root = Demux(old_root)
+        self.root.set_callback(old_root.get_callback())
+        return self
+
+    #@returns(AST)
+    def dup(self, key):
+        """
+        \brief Append a DUP Node above this AST
+        \param key A Key instance, allowing to detecting duplicates
+        \return The updated AST 
+        """
+        assert not self.is_empty(),      "AST not initialized"
+
+        old_root = self.get_root()
+        self.root = Dup(old_root, key)
+        self.root.set_callback(old_root.get_callback())
         return self
 
     #@returns(AST)
     def projection(self, fields):
         """
-        \brief Performs a SELECT (Projection) on the current AST according to _fields_: 
+        \brief Append a SELECT Node (Projection) above this AST
             ast <- π_fields(ast)
         \param fields the list of fields on which to project
         \return The AST corresponding to the SELECT 
@@ -1173,16 +1252,15 @@ class AST(object):
 
         old_root = self.get_root()
         self.root = Projection(old_root, fields)
-        self.root.callback = old_root.callback
+        self.root.set_callback(old_root.get_callback())
         return self
 
     #@returns(AST)
     def selection(self, filters):
         """
-        \brief Performs a WHERE (Selection) on the current AST according to _filters_: 
+        \brief Append a WHERE Node (Selection) above this AST
             ast <- σ_filters(ast)
         \param filters A set of Predicate to apply
-            TODO We should use here a Clause instance
         \return The AST corresponding to the WHERE 
         """
         assert not self.is_empty(),      "AST not initialized"
@@ -1191,22 +1269,22 @@ class AST(object):
 
         old_root = self.get_root()
         self.root = Selection(old_root, filters)
-        self.root.callback = old_root.callback
+        self.root.set_callback(old_root.get_callback())
         return self
 
     #@returns(AST)
     def subquery(self, children_ast):
         """
-        \brief Performs a SUBQUERY operation of the current AST
+        \brief Append a SUBQUERY Node above the current AST
         \param children_ast the set of children AST to be added as subqueries to
-        the current AST
+            the current AST
         \return AST corresponding to the SUBQUERY
         """
         assert not self.is_empty(), "AST not initialized"
         old_root = self.get_root()
 
         self.root = SubQuery(old_root, children_ast)
-        self.root.callback = old_root.callback
+        self.root.set_callback(old_root.get_callback())
         return self
 
     def dump(self, indent = 0):
@@ -1228,12 +1306,19 @@ class AST(object):
 
     @property
     def callback(self):
+        log_info("I: callback property is deprecated")
         return self.root.callback
 
     @callback.setter
     def callback(self, callback):
+        log_info("I: callback property is deprecated")
         self.root.callback = callback
-        
+
+    def get_callback(self):
+        return self.root.get_callback()
+
+    def set_callback(self, callback):
+        self.root.set_callback(callback)
 
 #------------------------------------------------------------------
 # Example

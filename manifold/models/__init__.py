@@ -35,10 +35,10 @@ Session = sessionmaker(bind=engine)
 db = Session()
 
 # Models
-from manifold.models.platform import Platform
-from manifold.models.user import User
-from manifold.models.account import Account
-from manifold.models.session import Session
+from manifold.models.platform   import Platform as DBPlatform 
+from manifold.models.user       import User     as DBUser
+from manifold.models.account    import Account  as DBAccount
+from manifold.models.session    import Session  as DBSession
 
 Base.metadata.create_all(engine)
 

@@ -1,11 +1,10 @@
 from manifold.core.interface    import Interface
-from manifold.core.query_plane  import QueryPlane
+from manifold.core.query_plan  import QueryPlan
 
 class Forwarder(Interface):
 
     def forward(self, query, deferred=False, user=None):
-        qp = QueryPlane()
-        qp.build_simple(query, self.metadata)
+        qp = QueryPlan()
+        qp.build_simple(query, self.metadata, self.allowed_capabilities)
+        self.instanciate_gateways(qp)
         return qp.execute()
-
-
