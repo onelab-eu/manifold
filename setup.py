@@ -2,7 +2,7 @@
 # -*- coding:utf-8 */
 
 import os
-import tophat
+import manifold
 from glob import glob
 from setuptools import find_packages, setup
 
@@ -10,9 +10,9 @@ ROOT_PATH = os.path.abspath(os.path.dirname(__file__))
 long_description = open(os.path.join(ROOT_PATH, 'README.rst')).read()
 
 setup(
-    name        = "tophat",
-    version     = tophat.__version__,
-    description = "TopHat interconnection framework",
+    name        = "manifold",
+    version     = manifold.__version__,
+    description = "MANIFOLD interconnection framework",
     long_description=long_description,
     author      = "Jordan Augé, Marc-Olivier Buob",
     url         = "http://www.top-hat.info",

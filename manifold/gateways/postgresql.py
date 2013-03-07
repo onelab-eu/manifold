@@ -21,16 +21,16 @@ psycopg2.extensions.register_type(psycopg2._psycopg.UNICODEARRAY)
 
 import re, datetime
 import pgdb
-from uuid import uuid4
-from types import StringTypes, NoneType
-from pprint import pformat
-
-from manifold.gateways import Gateway
-from manifold.util.log import *
-from manifold.util.predicate import and_, or_, inv, add, mul, sub, mod, truediv, lt, le, ne, gt, ge, eq, neg, contains
-# Metadata
-from manifold.metadata.MetadataClass  import MetadataClass
-from manifold.core.field              import Field 
+from uuid                               import uuid4
+from types                              import StringTypes, NoneType
+from pprint                             import pformat
+from manifold.gateways                  import Gateway
+from manifold.util.log                  import *
+from manifold.core.capabilities         import Capabilities
+from manifold.util.predicate            import and_, or_, inv, add, mul, sub, mod, truediv, lt, le, ne, gt, ge, eq, neg, contains
+from manifold.metadata.MetadataClass    import MetadataClass
+from manifold.core.field                import Field 
+from manifold.core.announce             import Announce
 
 
 class PostgreSQLGateway(Gateway):
@@ -471,8 +471,7 @@ class PostgreSQLGateway(Gateway):
             # FIELDS:
             fields = []
             curs.execute(self.SQL_TABLE_FIELDS, (table_name, ))
-            fields = curs.fetchall()
-            for field in fields:
+            for field in curs.fetchall():
                 # PostgreSQL types vs base types
                 fields.append(Field(
                     qualifier   = '' if field.is_updatable == 'YES' else 'const',
@@ -493,7 +492,7 @@ class PostgreSQLGateway(Gateway):
         
             # Build metadata
             mc = MetadataClass('class', table_name)
-            mc.fields = fields
+            mc.fields = set(fields)
             mc.keys.append(primary_keys[table_name])
             #mc.partitions.append()
         

@@ -38,7 +38,7 @@ from sfa.rspecs.version_manager import VersionManager
 from sfa.client.client_helper import pg_users_arg, sfa_users_arg
 from sfa.client.sfaserverproxy import SfaServerProxy, ServerException
 from sfa.client.return_value import ReturnValue
-from manifold.models import User, Account, Platform, db
+from manifold.models import DBUser as User, DBAccount as Account, DBPlatform as Platform, db
 import json
 import signal
 import traceback
@@ -1199,7 +1199,7 @@ class SFAGateway(Gateway):
 
     def __init__(self, router, platform, query, config, user_config, user):
 #        FromNode.__init__(self, platform, query, config)
-        super(SFA, self).__init__(router, platform, query, config, user_config, user)
+        super(SFAGateway, self).__init__(router, platform, query, config, user_config, user)
         # self.config has always ['caller']
         # Check the presence of mandatory fields, default others
         #if not 'hashrequest' in self.config:    
@@ -1216,7 +1216,6 @@ class SFAGateway(Gateway):
             raise Exception, "Missing SFA::registry parameter in configuration."
         if not 'timeout' in self.config:
             self.config['timeout'] = None
-        self.debug = 'debug' in query.params and query.params['debug']
 
         self.logger = sfi_logger
 
@@ -1227,6 +1226,9 @@ class SFAGateway(Gateway):
         return "<SFAGateway %r: %s>" % (self.config['sm'], self.query)
 
     def start(self):
+        assert self.query, "Cannot run gateway with not query associated"
+
+        self.debug = 'debug' in query.params and query.params['debug']
         if not self.user_config:
             print "NOT CONFIG RETURN NONE"
             self.callback(None)
@@ -1406,3 +1408,6 @@ class SFAGateway(Gateway):
             config['slice_credentials'] = {}
 
         return config
+
+    def get_metadata(self):
+        return []

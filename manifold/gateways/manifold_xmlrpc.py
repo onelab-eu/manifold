@@ -1,14 +1,12 @@
 # Inspired from http://twistedmatrix.com/documents/10.1.0/web/howto/xmlrpc.html
 
-from __future__ import absolute_import
-#from manifold.gateways import Gateway
-#from twisted.web.xmlrpc import Proxy
+from manifold.gateways import Gateway
 #from twisted.internet import reactor
 
 # DEBUG
 import sys
 
-class ManifoldGateway(object):#Gateway):
+class ManifoldGateway(Gateway):
 
     def __str__(self):
         return "<ManifoldGateway %s %s>" % (self.config['url'], self.query)
@@ -21,8 +19,10 @@ class ManifoldGateway(object):#Gateway):
 
     def exception_cb(self, error):
         print 'Error during Manifold call: ', error
+        self.callback(None)
 
     def start(self):
+        from twisted.web.xmlrpc import Proxy
         try:
             def wrap(source):
                 proxy = Proxy(self.config['url'], allowNone = True)

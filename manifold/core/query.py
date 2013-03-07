@@ -27,6 +27,10 @@ class Query(object):
     """
 
     def __init__(self, *args, **kwargs):
+
+        # Initialize optional parameters
+        self.clear()
+    
         #l = len(kwargs.keys())
         len_args = len(args)
 
@@ -91,8 +95,8 @@ class Query(object):
 
             if kwargs:
                 raise ParameterError, "Invalid parameter(s) : %r" % kwargs.keys()
-        else:
-                raise ParameterError, "No valid constructor found for %s : args = %r" % (self.__class__.__name__, args)
+        #else:
+        #        raise ParameterError, "No valid constructor found for %s : args = %r" % (self.__class__.__name__, args)
 
         if not self.filters: self.filters = Filter([])
         if not self.params:  self.params  = {}
@@ -113,7 +117,15 @@ class Query(object):
             if not isinstance(field, StringTypes):
                 raise TypeError("Invalid field name %s (string expected, got %s)" % (field, type(field)))
 
-    @returns(str)
+    def clear(self):
+        self.action = 'get'
+        self.fact_table = None
+        self.filters = Filter([])
+        self.params  = {}
+        self.fields  = set([])
+        self.ts      = "now" 
+
+    @returns(StringTypes)
     def __str__(self):
         return "SELECT %s FROM %s WHERE %s" % (
             ", ".join(self.get_select()),
@@ -121,7 +133,7 @@ class Query(object):
             self.get_where()
         )
 
-    @returns(str)
+    @returns(StringTypes)
     def __repr__(self):
         return self.__str__()
 
@@ -131,7 +143,7 @@ class Query(object):
     def __hash__(self):
         return hash(self.__key())
 
-    @returns(str)
+    @returns(StringTypes)
     def get_action(self):
         return self.action
 
@@ -139,7 +151,7 @@ class Query(object):
     def get_select(self):
         return frozenset(self.fields)
 
-    @returns(str)
+    @returns(StringTypes)
     def get_from(self):
         return self.fact_table
 
@@ -151,6 +163,141 @@ class Query(object):
     def get_params(self):
         return self.params
 
-    @returns(str)
+    @returns(StringTypes)
     def get_ts(self):
         return self.ts
+
+#DEPRECATED#
+#DEPRECATED#    def make_filters(self, filters):
+#DEPRECATED#        return Filter(filters)
+#DEPRECATED#
+#DEPRECATED#    def make_fields(self, fields):
+#DEPRECATED#        if isinstance(fields, (list, tuple)):
+#DEPRECATED#            return set(fields)
+#DEPRECATED#        else:
+#DEPRECATED#            raise Exception, "Invalid field specification"
+
+    #--------------------------------------------------------------------------- 
+    # LINQ-like syntax
+    #--------------------------------------------------------------------------- 
+
+    @classmethod
+    def action(self, action, fact_table):
+        query = Query()
+        query.action = 'get'
+        query.fact_table = fact_table
+        return query
+
+    @classmethod
+    def get(self, fact_table): return self.action('get', fact_table)
+
+    @classmethod
+    def update(self, fact_table): return self.action('update', fact_table)
+    
+    @classmethod
+    def create(self, fact_table): return self.action('create', fact_table)
+    
+    @classmethod
+    def delete(self, fact_table): return self.action('delete', fact_table)
+    
+    @classmethod
+    def execute(self, fact_table): return self.action('execute', fact_table)
+
+    def filter_by(self, filters):
+        if not isinstance(filters, (set, list, tuple, Filter)):
+            filters = [filters]
+        for predicate in filters:
+            self.filters.add(predicate)
+        return self
+            
+    def select(self, fields):
+        if not isinstance(fields, (set, list, tuple)):
+            fields = [fields]
+        for field in fields:
+            self.fields.add(field)
+        return self
+
+    def set(self, params):
+        self.params.update(params)
+        return self
+
+class AnalyzedQuery(Query):
+
+    # XXX we might need to propagate special parameters sur as DEBUG, etc.
+
+    def __init__(self, query):
+        self.clear()
+        self._analyzed = None
+        self.analyze(query)
+
+    @returns(StringTypes)
+    def __str__(self):
+        out = []
+        out.append("SELECT %s FROM %s WHERE %s" % (
+            ", ".join(self.get_select()),
+            self.get_from(),
+            self.get_where()
+        ))
+        out.append('--- SUBQUERIES ---')
+        for subquery in self.subqueries():
+            out.append('  ', str(subquery))
+        return "\n".join(out)
+
+    def clear(self):
+        super(AnalyzedQuery, self).clear()
+        self._subqueries = {}
+
+    def subquery(self, method):
+        if not method in self._subqueries:
+            self._subqueries[method] = analyzed_query
+            analyzed_query = AnalyzedQuery()
+            analyzed_query.action = self._analyzed.action
+            analyzed_query.fact_table = self._analyzed.fact_table
+        return self._subqueries[method]
+
+    def subqueries(self):
+        for subquery in self._subqueries.itervalues():
+            yield subquery
+
+    def filter_by(self, filters):
+        if not filters: return self
+        if not isinstance(filters, (set, list, tuple, Filter)):
+            filters = [filters]
+        for predicate in filters:
+            if '.' in predicate.key:
+                method, subkey = pred.key.split('.', 1)
+                sub_pred = Predicate(subkey, pred.op, pred.value)
+                self.subquery(method).filter_by(sub_pred)
+            else:
+                super(AnalyzedQuery, self).filter_by(predicate)
+        return self
+
+    def select(self, fields):
+        if not isinstance(fields, (set, list, tuple)):
+            fields = [fields]
+        for field in fields:
+            if '.' in field:
+                method, subfield = field.split('.', 1)
+                self.subquery(method).select(subfield)
+            else:
+                super(AnalyzedQuery, self).select(field)
+        return self
+
+    def set(self, params):
+        for param, value in self.params.items():
+            if '.' in param:
+                method, subparam = param.split('.', 1)
+                self.subquery(method).set({subparam: value})
+            else:
+                super(AnalyzedQuery, self).set({param: value})
+        return self
+        
+    def analyze(self, query):
+        self._analyzed = query
+        self.clear()
+        self.action = query.action
+        self.fact_table = query.fact_table
+        self.filter_by(query.filters)
+        self.set(query.params)
+        self.select(query.fields)
+        self._analyzed = None

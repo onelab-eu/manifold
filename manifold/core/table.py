@@ -162,7 +162,7 @@ class Table:
     # Outputs 
     #-----------------------------------------------------------------------
 
-    @returns(unicode)
+    @returns(StringTypes)
     def __str__(self):
         """
         \brief Convert a Table instance into a string ('%s')
@@ -176,7 +176,7 @@ class Table:
             ';\n\t'.join(["%s" % k for k in self.get_keys()])
         )
 
-    @returns(unicode)
+    @returns(StringTypes)
     def __repr__(self):
         """
         \brief Convert a Table instance into a string ('%r')
@@ -192,7 +192,7 @@ class Table:
     # Methods 
     #-----------------------------------------------------------------------
 
-    @returns(str)
+    @returns(StringTypes)
     def get_name(self):
         """
         \return the table name of self
@@ -421,7 +421,7 @@ class Table:
 
     @staticmethod
     #@returns(Table)
-    #@accepts(Table, str)
+    #@accepts(Table, StringTypes)
     def make_table_from_platform(table, fields, platform):
         """
         \brief Extract from a Table instance its Key(s) and Field(s)

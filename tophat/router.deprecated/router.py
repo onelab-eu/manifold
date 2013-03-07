@@ -26,17 +26,17 @@ class FlowAwareRouter(LocalRouter):
     def __init__(self):
         self.flow_table = FlowTable()
 
-    def get_query_plane(self, packet):
+    def get_query_plan(self, packet):
 
         # Get flow from packet
 
         try:
-            query_plane = self.flowtable[flow]
+            query_plan = self.flowtable[flow]
 
         # TODO change exception name
         except KeyError, flow:
-            # Compute query_plane from route in FIB
-            query_plane = None
+            # Compute query_plan from route in FIB
+            query_plan = None
 
             try:
                 route = self.fib[destination]
@@ -50,7 +50,7 @@ class FlowAwareRouter(LocalRouter):
                 self.fib.add(route)
             
             # We have the route, compute a query plane
-            query_plane = None
+            query_plan = None
 
         
 class Router(LocalRouter):

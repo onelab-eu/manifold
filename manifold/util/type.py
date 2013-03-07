@@ -39,6 +39,7 @@ Needed to cast params as floats in function def (or simply divide by 2.0).
 
 '''
 import sys
+from itertools import izip
 
 def accepts(*types, **kw):
     '''Function decorator. Checks decorated function's arguments are
@@ -54,7 +55,7 @@ def accepts(*types, **kw):
     '''
     if not kw:
         # default level: MEDIUM
-        debug = 1
+        debug = 2
     else:
         debug = kw['debug']
     try:
@@ -64,7 +65,8 @@ def accepts(*types, **kw):
                     return f(*args)
                 assert len(args) == len(types)
                 argtypes = tuple(map(type, args))
-                if argtypes != types:
+                if not compare_types(types, argtypes):
+                # if argtypes != types:
                     msg = info(f.__name__, types, argtypes, 0)
                     if debug is 1:
                         print >> sys.stderr, 'TypeWarning: ', msg
@@ -79,6 +81,17 @@ def accepts(*types, **kw):
     except TypeError, msg:
         raise TypeError, msg
 
+def compare_types(expected, actual):
+    if isinstance(expected, tuple):
+        if isinstance(actual, tuple):
+            for x, y in izip(expected, actual):
+                if not compare_types(x ,y):
+                    return False
+            return True
+        else:
+            return actual == type(None) or actual in expected
+    else:
+        return actual == type(None) or actual == expected or issubclass(actual, expected)
 
 def returns(ret_type, **kw):
     '''Function decorator. Checks decorated function's return value
@@ -103,7 +116,9 @@ def returns(ret_type, **kw):
                 if debug is 0:
                     return result
                 res_type = type(result)
-                if res_type != ret_type:
+                if not compare_types(ret_type, res_type): 
+                # if res_type != ret_type: # JORDAN: fix to allow for # StringTypes = (str, unicode)
+                # XXX note that this check should be recursive
                     msg = info(f.__name__, (ret_type,), (res_type,), 1)
                     if debug is 1:
                         print >> sys.stderr, 'TypeWarning: ', msg
@@ -121,7 +136,6 @@ def returns(ret_type, **kw):
 def info(fname, expected, actual, flag):
     '''Convenience function returns nicely formatted error/warning msg.'''
     format = lambda types: ', '.join([str(t).split("'")[1] for t in types])
-    expected, actual = format(expected), format(actual)
     msg = "'{}' method ".format( fname )\
           + ("accepts", "returns")[flag] + " ({}), but ".format(expected)\
           + ("was given", "result is")[flag] + " ({})".format(actual)

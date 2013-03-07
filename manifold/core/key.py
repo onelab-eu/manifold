@@ -14,8 +14,9 @@
 #   Jordan Augé       <jordan.auge@lip6.fr>
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
-from manifold.util.type      import returns, accepts
-from manifold.core.field     import Field
+from types                  import StringTypes
+from manifold.util.type     import returns, accepts
+from manifold.core.field    import Field
 
 class Key(frozenset):
     """
@@ -55,19 +56,19 @@ class Key(frozenset):
             raise ValueError("get_field cannot be called for a composite key")
         return list(self)[0]
 
-    @returns(str)
+    @returns(StringTypes)
     def get_name(self):
         return self.get_field().get_name()
 
-    @returns(str)
+    @returns(StringTypes)
     def get_type(self):
         return self.get_field().get_type()
 
-    @returns(str)
+    @returns(StringTypes)
     def __str__(self):
         return "KEY(%s)" % (", ".join(["%s" % field for field in self]))
 
-    @returns(str)
+    @returns(StringTypes)
     def __repr__(self):
         return "KEY(%s)" % (", ".join(["%s" % field for field in self]))
 
@@ -106,11 +107,11 @@ class Keys(set):
         Keys.check_keys(keys)
         set.__init__(set(keys))
 
-    @returns(str)
+    @returns(StringTypes)
     def __str__(self):
         return "{%s}" % (", ".join(["%s" % key for key in self]))
 
-    @returns(str)
+    @returns(StringTypes)
     def __repr__(self):
         return "{%s}" % (", ".join(["%r" % key for key in self]))
 

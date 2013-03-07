@@ -2,6 +2,7 @@ from operator import (
     and_, or_, inv, add, mul, sub, mod, truediv, lt, le, ne, gt, ge, eq, neg
     )
 from manifold.util.misc import contains
+from types import StringTypes
 
 # New modifier: { contains 
 

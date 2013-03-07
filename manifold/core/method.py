@@ -8,11 +8,11 @@
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
 from types                         import StringTypes
-from manifold.util.type              import returns, accepts
+from manifold.util.type            import returns, accepts
 
 class Method(object):
     @staticmethod
-    @accepts(unicode, str)
+    #@accepts(StringTypes, StringTypes)
     def check_init(platform, name):
         """
         \brief (Internal use)
@@ -34,22 +34,22 @@ class Method(object):
         self.platform = platform
         self.name = name
 
-    @returns(unicode)
+    @returns(StringTypes)
     def get_platform(self):
         return self.platform
 
-    @returns(str)
+    @returns(StringTypes)
     def get_name(self):
         return self.name
 
-    @returns(unicode)
+    @returns(StringTypes)
     def __str__(self):
         """
         \return The (verbose) string representing a Method instance
         """
         return self.__repr__()
 
-    @returns(unicode)
+    @returns(StringTypes)
     def __repr__(self):
         """
         \return The (synthetic) string representing a Method instance
