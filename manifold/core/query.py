@@ -34,9 +34,13 @@ class Query(object):
         #l = len(kwargs.keys())
         len_args = len(args)
 
-        if len(args) == 1 and isinstance(args[0], Query):
+        if len(args) == 1:
+            if isinstance(args[0], Query):
             # Copy
-            return deepcopy(args[0])
+                return deepcopy(args[0])
+            elif isinstance(args[0], dict):
+                kwargs = args[0]
+                args = []
 
         # Initialization from a tuple
 
@@ -56,7 +60,7 @@ class Query(object):
             else:
                 self.action, self.fact_table, self.filters, self.params, self.fields, self.ts = args
 
-        # Initialization from a dict (action & fact_table are mandatory)
+        # Initialization from a dict
         elif "fact_table" in kwargs:
             if "action" in kwargs:
                 self.action = kwargs["action"]
@@ -64,6 +68,7 @@ class Query(object):
             else:
                 print "W: defaulting to get action"
                 self.action = "get"
+
 
             self.fact_table = kwargs["fact_table"]
             del kwargs["fact_table"]
@@ -116,6 +121,7 @@ class Query(object):
         for field in self.fields:
             if not isinstance(field, StringTypes):
                 raise TypeError("Invalid field name %s (string expected, got %s)" % (field, type(field)))
+
 
     def clear(self):
         self.action = 'get'
