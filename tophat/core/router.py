@@ -7,9 +7,9 @@ from tophat.router              import *
 from tophat.core.filter         import Predicate
 from tophat.core.ast            import AST
 from tophat.core.key            import Key
-from tophat.core.query          import Query
+from manifold.core.query        import Query
 from tophat.core.table          import Table
-from manifold.gateways            import *
+from manifold.gateways          import *
 from tophat.models              import *
 from tophat.util.dbnorm         import DBNorm
 from tophat.util.dbgraph        import DBGraph
@@ -600,7 +600,7 @@ class THLocalRouter(LocalRouter):
             no sub-queries. Sub-queries should already processed thanks to
             process_subqueries().
         \param query The Query instance representing the query issued by the user.
-            \sa tophat/core/query.py
+            \sa manifold/core/query.py
         \param user The User instance reprensenting the user issuing
             the query. The query can be resolved in various way according to
             the user grants.

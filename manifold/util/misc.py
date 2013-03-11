@@ -1,8 +1,10 @@
 import os, glob, inspect
 
-def find_local_modules():
-    __all__ = [ os.path.basename(f)[:-3] for f in
-    glob.glob(os.path.dirname(__file__)+"/*.py")]
-    print inspect.getouterframes( inspect.currentframe() ) [1]
-    print __file__
+def find_local_modules(filepath):
+    modules = []
+    for f in glob.glob(os.path.dirname(filepath)+"/*.py"):
+        name = os.path.basename(f)[:-3]
+        if name != '__init__':
+            modules.append(name)
+    return modules 
 

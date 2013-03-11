@@ -5,7 +5,7 @@ import sys
 import getpass
 
 from tophat.core.router import THLocalRouter
-from tophat.core.query import Query
+from manifold.core.query import Query
 
 def usage():
     print "Usage: %s USER PLATFORM TYPE CONFIG" % sys.argv[0]

@@ -18,7 +18,7 @@ from networkx.algorithms.traversal.depth_first_search import dfs_preorder_nodes
 
 from tophat.core.ast            import AST, From, Union, LeftJoin
 from tophat.core.table          import Table 
-from tophat.core.query          import Query 
+from manifold.core.query          import Query 
 from tophat.util.type           import returns, accepts
 from tophat.models.user         import User
 

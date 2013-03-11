@@ -17,7 +17,7 @@ from tophat.util.faults import *
 
 from tophat.core.filter import *
 #from tophat.core.metadata import Metadata
-from tophat.gateways.sfa.rspecs.SFAv1 import SFAv1Parser as Parser
+from manifold.gateways.sfa.rspecs.SFAv1 import SFAv1Parser # as Parser
 
 from sfa.trust.certificate import Keypair, Certificate
 from sfa.trust.gid import GID
@@ -561,11 +561,11 @@ class SFA(object):
     ############################################################################ 
 
     def parse_sfa_rspec(self, rspec):
-        parser = Parser(rspec)
+        parser = SFAv1Parser(rspec)
         return parser.to_dict()
 
     def build_sfa_rspec(self, slice_id, resources, leases):
-        parser = Parser(resources, leases)
+        parser = SFAv1Parser(resources, leases)
         return parser.to_rspec(slice_id)
 
 

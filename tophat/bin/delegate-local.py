@@ -22,8 +22,7 @@ from sfa.planetlab.plxrn import hostname_to_hrn, slicename_to_hrn, email_to_hrn,
 from sfa.util.xrn import get_authority
 
 from tophat.core.router import THLocalRouter
-from tophat.core.router import Query
-
+from manifold.core.query import Query
 
 class SfaHelper:
 

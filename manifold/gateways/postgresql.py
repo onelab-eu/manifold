@@ -1,64 +1,147 @@
+
+# COMMENT ON TABLE mytable IS 'This is my table.';
+#
+# All comments are stored in pg_description
+# To get the comments on a table, you need to join it to pg_class
+#
+# SELECT obj_description(oid)
+# FROM pg_class
+# WHERE relkind = 'r'
+#
+#
+# COMMENT ON COLUMN addresses.address_id IS 'Unique identifier for the> addresses table';
+
 # Some code borrowed from MyPLC PostgreSQL code
 import psycopg2
 import psycopg2.extensions
+import psycopg2.extras
 psycopg2.extensions.register_type(psycopg2.extensions.UNICODE)
 # UNICODEARRAY not exported yet
 psycopg2.extensions.register_type(psycopg2._psycopg.UNICODEARRAY)
 
+import re, datetime
 import pgdb
+from uuid import uuid4
 from types import StringTypes, NoneType
+from pprint import pformat
 
-# XXX We should be able to import all operators at once
+from manifold.gateways import * #Gateway
+from manifold.util.log import *
 from tophat.util.predicate import and_, or_, inv, add, mul, sub, mod, truediv, lt, le, ne, gt, ge, eq, neg, contains
+# Metadata
+from tophat.metadata.MetadataClass  import MetadataClass
+from tophat.core.field              import Field 
 
-class PostgreSQL(object):
 
-    SQL_STR = "SELECT %(fields) FROM %(table) WHERE %(filters)";
+class PostgreSQL(Gateway):
+
+    SQL_STR = "SELECT %(fields)s FROM %(table)s WHERE %(filters)s";
 
     SQL_OPERATORS = {
         eq: '='
     }
 
-    # XXX This should be set in a parent class
-    def __str__(self):
-        return "<PostgreSQLGateway %s>" % self.query
+    #-------------------------------------------------------------------------------
+    # METADATA 
+    #-------------------------------------------------------------------------------
 
-    def __init__(self):
-        self.debug = False
-        #self.debug = True
-        self.connection = None
+    SQL_TABLE_NAMES = """
+    SELECT
+        table_name 
+    FROM
+        information_schema.tables 
+    WHERE table_schema='public' AND table_type='BASE TABLE'
+    """
+
+    SQL_TABLE_FIELDS = """
+    SELECT 
+        column_name, data_type, is_updatable, is_nullable
+    FROM
+        information_schema.columns
+    WHERE
+        table_name=%s ORDER BY ordinal_position
+    """
+
+    SQL_TABLE_KEYS = """
+    SELECT
+        tc.table_name,
+        kcu.column_name  
+    FROM   
+        information_schema.table_constraints AS tc   
+        JOIN information_schema.key_column_usage AS kcu ON tc.constraint_name = kcu.constraint_name
+    WHERE 
+        constraint_type = 'PRIMARY KEY' AND tc.table_name=%s;
+    """
+
+    SQL_TABLE_FOREIGN_KEYS = """
+    SELECT
+        kcu.column_name, 
+        ccu.table_name AS foreign_table_name
+    FROM 
+        information_schema.table_constraints AS tc 
+        JOIN information_schema.key_column_usage AS kcu ON tc.constraint_name = kcu.constraint_name
+        JOIN information_schema.constraint_column_usage AS ccu ON ccu.constraint_name = tc.constraint_name
+    WHERE constraint_type = 'FOREIGN KEY' AND tc.table_name=%s;
+    """
+    # FULL REQUEST:
+    # SELECT
+    #     tc.constraint_name, tc.table_name, kcu.column_name, 
+    #     ccu.table_name AS foreign_table_name,
+    #     ccu.column_name AS foreign_column_name 
+    # FROM 
+    #     information_schema.table_constraints AS tc 
+    #     JOIN information_schema.key_column_usage AS kcu ON tc.constraint_name = kcu.constraint_name
+    #     JOIN information_schema.constraint_column_usage AS ccu ON ccu.constraint_name = tc.constraint_name
+    # WHERE constraint_type = 'FOREIGN KEY' AND tc.table_name=%s;
 
     #---------------------------------------------------------------------------
     # PostgreSQL interface and helper functions
     #---------------------------------------------------------------------------
 
-    def cursor(self):
+    # XXX This should be set in a parent class
+    def __str__(self):
+        return "<PostgreSQLGateway %s>" % self.query
+
+    def __init__(self, router, platform, query, config, user_config, user):
+        super(PostgreSQL, self).__init__(router, platform, query, config, user_config, user)
+        self.debug = False
+        #self.debug = True
+        self.connection = None
+        self.callback = None
+
+    def set_callback(self, cb):
+        self.callback = cb
+
+    def cursor(self, cursor_factory=None): #psycopg2.extras.NamedTupleCursor
         if self.connection is None:
             # (Re)initialize database connection
             if psycopg2:
                 try:
                     # Try UNIX socket first
-                    self.connection = psycopg2.connect(user = self.api.config.TOPHAT_DB_USER,
-                                                       password = self.api.config.TOPHAT_DB_PASSWORD,
-                                                       database = self.api.config.TOPHAT_DB_NAME)
+                    self.connection = psycopg2.connect(user = self.config['db_user'],
+                                                       password = self.config['db_password'],
+                                                       database = self.config['db_name'])
                 except psycopg2.OperationalError:
                     # Fall back on TCP
-                    self.connection = psycopg2.connect(user = self.api.config.TOPHAT_DB_USER,
-                                                       password = self.api.config.TOPHAT_DB_PASSWORD,
-                                                       database = self.api.config.TOPHAT_DB_NAME,
-                                                       host = self.api.config.TOPHAT_DB_HOST,
-                                                       port = self.api.config.TOPHAT_DB_PORT)
+                    self.connection = psycopg2.connect(user = self.config['db_user'],
+                                                       password = self.config['db_password'],
+                                                       database = self.config['db_name'],
+                                                       host = self.config['db_host'],
+                                                       port = self.config['db_port'])
                 self.connection.set_client_encoding("UNICODE")
             else:
-                self.connection = pgdb.connect(user = self.api.config.TOPHAT_DB_USER,
-                                               password = self.api.config.TOPHAT_DB_PASSWORD,
+                self.connection = pgdb.connect(user = self.config['db_user'],
+                                               password = self.config['db_password'],
                                                host = "%s:%d" % (api.config.TOPHAT_DB_HOST, api.config.TOPHAT_DB_PORT),
-                                               database = self.api.config.TOPHAT_DB_NAME)
+                                               database = self.config['db_name'])
 
         (self.rowcount, self.description, self.lastrowid) = \
                         (None, None, None)
 
-        return self.connection.cursor()
+        if cursor_factory:
+            return self.connection.cursor(cursor_factory=cursor_factory)
+        else:
+            return self.connection.cursor()
 
     def close(self):
         if self.connection is not None:
@@ -161,8 +244,8 @@ class PostgreSQL(object):
     # see http://www.python.org/dev/peps/pep-0249/
     # accepts either None, a single dict, a tuple of single dict - in which case it execute's
     # or a tuple of several dicts, in which case it executemany's
-    def execute(self, query, params = None):
-        cursor = self.cursor()
+    def execute(self, query, params = None, cursor_factory=None):
+        cursor = self.cursor(cursor_factory)
         try:
 
             # psycopg2 requires %()s format for all parameters,
@@ -177,22 +260,22 @@ class PostgreSQL(object):
 
             if not params:
                 if self.debug:
-                    print >> log,'execute0',query
+                    log_debug('execute0',query)
                 cursor.execute(query)
             elif isinstance(params,dict):
                 if self.debug:
-                    print >> log,'execute-dict: params',params,'query',query%params
+                    log_debug('execute-dict: params',params,'query',query%params)
                 cursor.execute(query,params)
             elif isinstance(params,tuple) and len(params)==1:
                 if self.debug:
-                    print >> log,'execute-tuple',query%params[0]
+                    log_debug('execute-tuple',query%params[0])
                 cursor.execute(query,params[0])
             else:
                 #param_seq=(params,)
                 param_seq=params
                 if self.debug:
                     for params in param_seq:
-                        print >> log,'executemany',query%params
+                        log_debug('executemany',query%params)
                 cursor.executemany(query, param_seq)
             (self.rowcount, self.description, self.lastrowid) = \
                             (cursor.rowcount, cursor.description, cursor.lastrowid)
@@ -201,21 +284,22 @@ class PostgreSQL(object):
                 self.rollback()
             except:
                 pass
-            uuid = commands.getoutput("uuidgen")
-            print >> log, "Database error %s:" % uuid
-            print >> log, e
-            print >> log, "Query:"
-            print >> log, query
-            print >> log, "Params:"
-            print >> log, pformat(params)
+            uuid = uuid4() #commands.getoutput("uuidgen")
+            log_debug("Database error %s:" % uuid)
+            log_debug(e)
+            log_debug("Query:")
+            log_debug(query)
+            log_debug("Params:")
+            log_debug(pformat(params))
             msg = str(e).rstrip() # jordan
-            raise TopHatDBError("Please contact " + \
-                             self.api.config.TOPHAT_NAME + " Support " + \
-                             "<" + self.api.config.TOPHAT_MAIL_SUPPORT_ADDRESS + ">" + \
+            raise Exception("Please contact " + \
+                             self.config['name'] + " Support " + \
+                             "<" + self.config['mail_support_address'] + ">" + \
                              " and reference " + uuid + " - " + msg)
 
         return cursor
 
+    # see instead: psycopg2.extras.NamedTupleCursor
     def selectall(self, query, params = None, hashref = True, key_field = None):
         """
         Return each row as a dictionary keyed on field name (like DBI
@@ -282,7 +366,7 @@ class PostgreSQL(object):
         field, op_, value = predicate.get_tuple()
         op = None
 
-        if instance(value, (list, tuple, set)):
+        if isinstance(value, (list, tuple, set)):
             # handling filters like '~slice_id':[]
             # this should return true, as it's the opposite of 'slice_id':[] which is false
             # prior to this fix, 'slice_id':[] would have returned ``slice_id IN (NULL) '' which is unknown 
@@ -350,9 +434,9 @@ class PostgreSQL(object):
 
     def get_sql(self):
         params = {
-            'table': query.fact_table,
-            'filters': query.filters,
-            'fields': query.fields
+            'table': self.query.fact_table,
+            'filters': self.get_where(self.query.filters),
+            'fields': ', '.join(self.query.fields)
         }
         sql = self.SQL_STR % params
         return sql
@@ -369,3 +453,58 @@ class PostgreSQL(object):
         self.callback(None)
 
         return 
+
+    def get_metadata(self):
+        routes = []
+        
+        curs = self.cursor(cursor_factory=psycopg2.extras.NamedTupleCursor)
+        curs.execute(self.SQL_TABLE_NAMES)
+        tables = (x[0] for x in curs.fetchall())
+        
+        for table_name in tables:
+        
+            # FOREIGN KEYS:
+            # We build a foreign_keys dictionary associating each field of
+            # the table with the table it references.
+            curs.execute(self.SQL_TABLE_FOREIGN_KEYS, (table_name, ))
+            fks = curs.fetchall()
+            foreign_keys = { fk.column_name: fk.foreign_table_name for fk in fks }
+        
+            # COMMENTS:
+            # We build a comments dictionary associating each field of the table with
+            # its comment.
+            comments = {}
+        
+            # FIELDS:
+            fields = []
+            curs.execute(self.SQL_TABLE_FIELDS, (table_name, ))
+            fields = curs.fetchall()
+            for field in fields:
+                # PostgreSQL types vs base types
+                fields.append(Field(
+                    qualifier   = '' if field.is_updatable == 'YES' else 'const',
+                    type        = foreign_keys[field.column_name] if field.column_name in foreign_keys else field.data_type,
+                    name        = field.column_name,
+                    is_array    = False, # XXX we might need some heuristics here
+                    description = comments[field.column_name] if field.column_name in comments else '(null)'
+                ))
+        
+            # PRIMARY KEYS: XXX simple key ?
+            # We build a key dictionary associating each table with its primary key
+            curs.execute(self.SQL_TABLE_KEYS, (table_name, ))
+            fks = curs.fetchall()
+            primary_keys = { fk.table_name: fk.column_name for fk in fks }
+        
+            # PARTITIONS:
+            # TODO
+        
+            # Build metadata
+            mc = MetadataClass('class', table_name)
+            mc.fields = fields
+            mc.keys.append(primary_keys[table_name])
+            #mc.partitions.append()
+        
+            # Platform 
+        
+            routes.append(mc)
+        return routes

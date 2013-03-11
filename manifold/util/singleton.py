@@ -13,3 +13,7 @@ class Singleton(type):
         if cls.instance is None:
             cls.instance=super(Singleton,cls).__call__(*args,**kw)
         return cls.instance
+
+
+# See also
+# http://stackoverflow.com/questions/6760685/creating-a-singleton-in-python

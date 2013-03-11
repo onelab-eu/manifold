@@ -4,7 +4,7 @@
 from twisted.web import xmlrpc, server
 from twisted.internet import reactor
 from tophat.core.router import THLocalRouter
-from tophat.core.query import Query 
+from manifold.core.query import Query 
 
 router = THLocalRouter()
 router.__enter__()
