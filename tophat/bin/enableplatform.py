@@ -4,7 +4,7 @@
 import sys
 
 from tophat.core.router import THLocalRouter
-from tophat.core.query import Query
+from manifold.core.query import Query
 
 def usage():
     print "Usage: %s NAME" % sys.argv[0]

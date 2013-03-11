@@ -1,7 +1,7 @@
 from types import StringTypes 
 from sfa.rspecs.rspec import RSpec
 from sfa.util.xrn import Xrn, get_leaf
-from tophat.gateways.sfa.rspecs import RSpecParser
+from manifold.gateways.sfa.rspecs import RSpecParser
 from tophat.core.filter import Filter
 from sfa.util.xml import XpathFilter
 

@@ -9,7 +9,7 @@ from random import Random
 import crypt
 
 from tophat.core.router import THLocalRouter
-from tophat.core.query import Query
+from manifold.core.query import Query
 
 
 def usage():

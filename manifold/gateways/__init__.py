@@ -15,7 +15,7 @@ class Gateway(object):
         are running
         \param platform (string) name of the platform
         \param query (Query) query to be sent to the platform
-        \param config (dict) platform configuration
+        \param config (dict) platform gateway configuration
         \param userconfig (dict) user configuration (account)
         \param user (dict) user information
         \sa manifold.core.router
@@ -32,12 +32,12 @@ class Gateway(object):
 # List of gateways
 #-------------------------------------------------------------------------------
 
-import os
-import glob
+#import os, glob
+#from manifold.util.misc import find_local_modules
 
 # XXX Remove __init__
 # XXX Missing recursion for sfa
-__all__ = find_local_modules()
-[ os.path.basename(f)[:-3] for f in glob.glob(os.path.dirname(__file__)+"/*.py")]
+#__all__ = find_local_modules(__file__)
+#[ os.path.basename(f)[:-3] for f in glob.glob(os.path.dirname(__file__)+"/*.py")]
 
-from tophat.gateways.sfa import SFA
+#from manifold.gateways.sfa import SFA

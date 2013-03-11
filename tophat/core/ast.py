@@ -15,7 +15,7 @@ import sys
 from copy                       import copy, deepcopy
 
 from tophat.core.filter         import Filter, Predicate
-from tophat.core.query          import Query
+from manifold.core.query          import Query
 from tophat.core.table          import Table 
 from tophat.core.field          import Field
 from tophat.core.key            import Key
