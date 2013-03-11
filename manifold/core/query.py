@@ -133,3 +133,11 @@ class Query(object):
     def get_where(self):
         return self.filters
 
+    @returns(dict)
+    def get_params(self):
+        return self.params
+
+    
+    @returns(str)
+    def get_ts(self):
+        return self.ts

@@ -29,8 +29,8 @@ from tophat.util.type           import returns, accepts
 # Constants used for dumping AST nodes
 #------------------------------------------------------------------
 
-DUMPSTR_FROM       = "SELECT %r FROM '%s::%s'" 
-DUMPSTR_FROMTABLE  = "SELECT %r FROM [%r, ...]" 
+DUMPSTR_FROM       = "SELECT %s FROM %s::%s" 
+DUMPSTR_FROMTABLE  = "SELECT %s FROM [%r, ...]" 
 DUMPSTR_PROJECTION = "SELECT [%s]" 
 DUMPSTR_SELECTION  = "WHERE %s"
 DUMPSTR_UNION      = "UNION"
@@ -227,7 +227,7 @@ class From(Node):
         """
         return self.table
 
-    @returns(str)
+    @returns(unicode)
     def get_platform(self):
         """
         \return The name of the platform queried by this FROM node.
@@ -239,9 +239,12 @@ class From(Node):
         \brief Dump the current node
         \param indent current indentation
         """
-        q = self.get_query()
         self.tab(indent)
-        print DUMPSTR_FROM % (q.get_select(), self.get_platform(), q.get_from())
+        print DUMPSTR_FROM % (
+            ', '.join(self.get_query().get_select()),
+            self.get_platform(),
+            self.get_query().get_from()
+        )
 
     #@returns(From)
     def inject(self, records):
@@ -309,7 +312,10 @@ class FromTable(From):
         \param indent current indentation
         """
         self.tab(indent)
-        print DUMPSTR_FROMTABLE % (self.get_query().fields, self.records[0])
+        print DUMPSTR_FROMTABLE % (
+            ', '.join(self.get_query().get_select()),
+            self.records[0]
+        )
 
     def start(self):
         """
@@ -652,7 +658,6 @@ class Union(Node):
         self.key_list = []
         self.status = ChildStatus(self.all_done)
         # Set up callbacks
-        print "self.children = %r" % self.children
         for i, child in enumerate(self.children):
             child.callback = ChildCallback(self, i)
 
@@ -668,14 +673,15 @@ class Union(Node):
         # least one child
         return Query(self.children[0].query)
         
-    def dump(self, indent=0):
+    def dump(self, indent = 0):
         """
         \brief Dump the current node
         \param indent current indentation
         """
+        self.tab(indent)
         print DUMPSTR_UNION
         for child in self.children:
-            child.dump(indent+1)
+            child.dump(indent + 1)
 
     def start(self):
         """
@@ -924,12 +930,19 @@ class AST(object):
         # The AST is initially empty
         self.root = None
 
+    def get_root(self):
+        """
+        \return The root Node of this AST (if any), None otherwise
+        """
+        return self.root
+
     @returns(bool)
     def is_empty(self):
         """
         \return True iif the AST has no Node.
         """
-        return self.root == None
+        return self.get_root() == None
+
 
     #@returns(AST)
     def From(self, table, query):
@@ -939,8 +952,11 @@ class AST(object):
         \param query A Query requested to the platform
         \return The updated AST
         """
-        assert self.is_empty(),                 "From: should be instantiated on an empty AST"
-        assert len(table.get_platforms()) == 1, "From: table = %r should be related to only one platform" % table
+        assert self.is_empty(),                 "Should be instantiated on an empty AST"
+        assert isinstance(table, Table),        "Invalid table = %r (%r)" % (table, type(table))
+        assert isinstance(query, Query),        "Invalid query = %r (%r)" % (query, type(query))
+        assert len(table.get_platforms()) == 1, "Table = %r should be related to only one platform" % table
+
         self.query = query
         platforms = table.get_platforms()
         platform = list(platforms)[0]
@@ -951,22 +967,30 @@ class AST(object):
         return self
 
     #@returns(AST)
-    def union(self, children_ast):
+    def union(self, children_ast, key):
         """
         \brief Transforms an AST into a UNION of AST
-        \param children_ast a list of ast to UNION
+        \param children_ast A list of AST gathered by this UNION operator
+        \param key A Key instance
+            \sa tophat/core/key.py 
         \return The AST corresponding to the UNION
         """
-        # If the current AST has already a root, it becomes the first child
+        assert isinstance(key, Key),           "Invalid key %r (type %r)"          % (key, type(key))
+        assert isinstance(children_ast, list), "Invalid children_ast %r (type %r)" % (children_ast, type(children_ast))
+
+        # If the current AST has already a root node, this node become a child
+        # of this Union node ...
+        old_root = None
         if not self.is_empty():
-            old_root = self.root
-            children = [self.root]
+            old_root = self.get_root()
+            children = [self.get_root()]
         else:
             children = []
-        # then all all other children
-        children.extend(children_ast)
 
-        self.root = Union(children)
+        # ... as the other children
+        children.extend([ast.get_root() for ast in children_ast])
+
+        self.root = Union(children, key)
         if old_root:
             self.root.callback = old_root.callback
         return self
@@ -984,8 +1008,8 @@ class AST(object):
         assert isinstance(predicate, Predicate), "Invalid predicate = %r (%r)" % (predicate, type(Predicate))
         assert not self.is_empty(),              "No left table"
 
-        old_root = self.root
-        self.root = LeftJoin(old_root, right_child.root, predicate, None)
+        old_root = self.get_root()
+        self.root = LeftJoin(old_root, right_child.get_root(), predicate, None)
         self.root.callback = old_root.callback
         return self
 
@@ -1000,7 +1024,7 @@ class AST(object):
         assert not self.is_empty(),      "AST not initialized"
         assert isinstance(fields, list), "Invalid fields = %r (%r)" % (fields, type(fields))
 
-        old_root = self.root
+        old_root = self.get_root()
         self.root = Projection(old_root, fields)
         self.root.callback = old_root.callback
         return self
@@ -1017,7 +1041,7 @@ class AST(object):
         assert not self.is_empty(),      "AST not initialized"
         assert isinstance(filters, set), "Invalid filters = %r (%r)" % (filters, type(filters))
 
-        old_root = self.root
+        old_root = self.get_root()
         self.root = Selection(old_root, filters)
         self.root.callback = old_root.callback
         return self
@@ -1031,7 +1055,7 @@ class AST(object):
         \return AST corresponding to the SUBQUERY
         """
         assert not self.is_empty(), "AST not initialized"
-        old_root = self.root
+        old_root = self.get_root()
 
         self.root = SubQuery(old_root, children_ast)
         self.root.callback = old_root.callback
@@ -1051,7 +1075,8 @@ class AST(object):
         """
         \brief Propagates a START message through the AST
         """
-        self.root.start()
+        assert not self.is_empty(), "Empty AST, cannot send START message"
+        self.get_root().start()
 
     @property
     def callback(self):
@@ -1061,6 +1086,10 @@ class AST(object):
     def callback(self, callback):
         self.root.callback = callback
         
+
+#------------------------------------------------------------------
+# Example
+#------------------------------------------------------------------
 
 def main():
     q = Query("get", "x", [], {}, ["x", "z"], None)
@@ -1078,8 +1107,6 @@ def main():
     ).projection(["x"]).selection(set([Predicate("z", "=", 1)]))
 
     ast.dump()
-#    ast.swaphead()
-#    ast.dump()
 
 if __name__ == "__main__":
     main()
