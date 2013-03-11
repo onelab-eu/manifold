@@ -125,8 +125,6 @@ def prune_precedessor_map(g, queried_fields, map_vertex_pred):
     \return A tuple made of
         - predecessors A predecessor map included in map_vertex_pred
             containing only the relevant arcs
-        - relevant_keys A dictionnary which map for each vertex
-            it(s) relevant key(s)
         - relevant_fields
     """
     def update_map(m, k, s):
@@ -136,7 +134,7 @@ def prune_precedessor_map(g, queried_fields, map_vertex_pred):
 
     # Vertices in predecessors have been already examined in a previous iteration
     predecessor     = dict()
-    relevant_keys   = dict()
+    #UNUSED|relevant_keys   = dict()
     relevant_fields = dict()
 
     for v, u in map_vertex_pred.items():
@@ -153,8 +151,8 @@ def prune_precedessor_map(g, queried_fields, map_vertex_pred):
         # Backtrack to the root or to an already visited node
         while u: # Current arc is (u --> v)
             key_u = list(g.edge[u][v]["info"])[0] # select the first key (arbitrary!)
-            if isinstance(key_u, Key):
-                update_map(relevant_keys, u, key_u)
+            #UNUSED|if isinstance(key_u, Key):
+            #UNUSED|    update_map(relevant_keys, u, key_u)
 
             if isinstance(key_u, Key):
                 fields_u = set(key_u)
@@ -180,7 +178,7 @@ def prune_precedessor_map(g, queried_fields, map_vertex_pred):
             v = u
             u = predecessor[u]
 
-    return (predecessor, relevant_keys, relevant_fields)
+    return (predecessor, relevant_fields)
 
 
 @returns(DiGraph)
@@ -200,7 +198,7 @@ def make_sub_graph(g, relevant_fields):
 
     # Copy relevant vertices from g
     for u in vertices_to_keep: 
-        copy_u = Table.make_sub_table(u, relevant_fields[u])
+        copy_u = Table.make_table_from_fields(u, relevant_fields[u])
         copy[u] = copy_u
         print "\nAdding %s" % copy_u
         sub_graph.add_node(copy_u) # no data on nodes
@@ -212,8 +210,8 @@ def make_sub_graph(g, relevant_fields):
         except:
             continue
 
-        print "Adding %r --> %r" % (copy_u, copy_v)
         sub_graph.add_edge(copy_u, copy_v, deepcopy(g.edge[u][v]))
+        print "Adding %r %s %r via %r" % (copy_u, g.edge[u][v]["type"], copy_v, g.edge[u][v]["info"])
 
     return sub_graph
 
@@ -241,7 +239,7 @@ def build_pruned_tree(g, needed_fields, map_vertex_pred):
     print "Prune useless keys/nodes/arcs from tree"
     print "-" * 100
     
-    (predecessor, relevant_keys, relevant_fields) = prune_precedessor_map(g, needed_fields, map_vertex_pred)
+    (predecessor, relevant_fields) = prune_precedessor_map(g, needed_fields, map_vertex_pred)
     tree = make_sub_graph(g, relevant_fields)
 
     # Print tree
