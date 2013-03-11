@@ -3,7 +3,7 @@
 
 from config                 import auth
 from tophat.core.router     import THLocalRouter
-from tophat.core.router     import Query
+from manifold.core.query    import Query
 
 query = Query(
     "get",
