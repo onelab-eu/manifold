@@ -68,7 +68,7 @@ class Auth(object):
 
     def GetPersons(self, auth):
         user = self.authenticate(args[0])
-        return make_user_dict(user)
+        return [make_user_dict(user)]
         #return [{'email': user.email, 'first_name': user.email, 'last_name': '', 'user_hrn': 'TODO'}]
 
 class Password(Auth):
