@@ -1,13 +1,19 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+from manifold.util.plugin_factory import PluginFactory
+#from manifold.util.misc import find_local_modules
+
 #-------------------------------------------------------------------------------
 # Generic Gateway class
 #-------------------------------------------------------------------------------
 
 class Gateway(object):
-    # XXX explain why router is needed
-    # XXX document better config, user_config & user parameters
+    
+    registry = {}
+
+    __metaclass__ = PluginFactory
+
     def __init__(self, router, platform, query, config, user_config, user):
         """
         Constructor
@@ -21,6 +27,8 @@ class Gateway(object):
         \sa manifold.core.router
         \sa manifold.core.query
         """
+        # XXX explain why router is needed
+        # XXX document better config, user_config & user parameters
         self.router      = router
         self.platform    = platform
         self.query       = query
@@ -40,4 +48,12 @@ class Gateway(object):
 #__all__ = find_local_modules(__file__)
 #[ os.path.basename(f)[:-3] for f in glob.glob(os.path.dirname(__file__)+"/*.py")]
 
-#from manifold.gateways.sfa import SFA
+def register():
+    from manifold.gateways.postgresql       import PostgreSQLGateway
+    from manifold.gateways.tdmi             import TDMIGateway
+    from manifold.gateways.sfa              import SFAGateway
+    from manifold.gateways.maxmind          import MaxMindGateway
+
+register()
+
+__all__ = ['Gateway']
