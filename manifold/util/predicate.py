@@ -1,7 +1,7 @@
 from operator import (
     and_, or_, inv, add, mul, sub, mod, truediv, lt, le, ne, gt, ge, eq, neg
     )
-from tophat.util.misc import contains
+from manifold.util.misc import contains
 
 # New modifier: { contains 
 

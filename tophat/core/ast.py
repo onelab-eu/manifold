@@ -19,7 +19,7 @@ from manifold.core.query          import Query
 from tophat.core.table          import Table 
 from tophat.core.field          import Field
 from tophat.core.key            import Key
-from tophat.util.type           import returns, accepts
+from manifold.util.type           import returns, accepts
 
 # NOTES
 # - What about a Record type

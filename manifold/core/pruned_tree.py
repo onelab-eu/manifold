@@ -13,7 +13,7 @@
 from copy                       import deepcopy
 from networkx                   import DiGraph
 from types                      import StringTypes
-from tophat.util.type           import returns, accepts
+from manifold.util.type           import returns, accepts
 from tophat.core.field          import Field
 from tophat.core.key            import Key, Keys
 from tophat.core.table          import Table 
@@ -225,11 +225,11 @@ def build_pruned_tree(g, needed_fields, map_vertex_pred):
     \param g The 3-nf graph
     \param needed_fields A set of Field instances, queried by the user
     \param map_vertex_pred The predecessor map related to the tree we are pruning
-        \sa tophat/util/dfs.py
+        \sa manifold.util.dfs.py
     \return An instance of networkx.DiGraph representing the pruned 3-nf tree 
         Data related to this graph are copied from g, so it can be safely modified
         without impacting g. Such graph is typically embedded in a DBGraph instance.
-        \sa tophat/util/dbgraph.py
+        \sa manifold.core.dbgraph.py
     """
    
     # We will select nodes of interest in map_vertex_pred before building a copy

@@ -15,7 +15,7 @@ from types                  import StringTypes
 from tophat.core.field      import Field
 from tophat.core.filter     import Filter
 from tophat.core.key        import Key, Keys 
-from tophat.util.type       import returns, accepts 
+from manifold.util.type       import returns, accepts 
 from tophat.core.method     import Method 
 
 class Table:
@@ -549,7 +549,7 @@ class Table:
             the "self" Table (source node) to the "table"
             Table (target node). We assume that the graph
             of table is at least 2nf.
-            \sa tophat/util/dbgraph.py
+            \sa manifold.core.dbgraph.py
         \param table The target table
         \return
             - None if the both tables are unrelated

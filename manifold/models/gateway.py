@@ -14,7 +14,7 @@ log = logging.getLogger(__name__)
 #import re
 #import crypt
 #
-#from tophat.util.parameter import Parameter
+#from manifold.util.parameter import Parameter
 #from tophat.core.filter import Filter
 #from tophat.core.table import Table, Row
 #from tophat.core.metadata.platform import Platform

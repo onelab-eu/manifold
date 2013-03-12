@@ -12,7 +12,7 @@ import os
 import importlib
 
 from tophat.conf import global_settings
-from tophat.util.functional import LazyObject
+from manifold.util.functional import LazyObject
 
 # Configuration variables to be moved to a configuration file
 ADMIN_USER = 'admin'
