@@ -4,7 +4,7 @@
 import sys
 import getpass
 
-from tophat.core.router import THLocalRouter
+from manifold.core.router import THLocalRouter
 from manifold.core.query import Query
 
 def usage():

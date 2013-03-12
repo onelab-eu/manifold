@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding:utf-8 */
 
-from tophat.core.router import THQuery, THLocalRouter as Router
+from manifold.core.router import THQuery, THLocalRouter as Router
 
 query1 = THQuery(action='get', fact_table='tophat:platform', filters=[], params=None, fields=['platform', 'platform_longname'])
 query2 = THQuery(action='get', fact_table='tophat:user')

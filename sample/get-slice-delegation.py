@@ -28,8 +28,8 @@ def print_result(result):
     #print "============================="
 
 
-from tophat.core.router import THLocalRouter
-from tophat.core.router import Query
+from manifold.core.router import THLocalRouter
+from manifold.core.router import Query
 from delegation import *
 
 pl_username = 'jordan.auge@lip6.fr'

@@ -18,8 +18,8 @@ def print_result(result):
     print "... (only 5 first displayed)"
     print "============================="
 
-from tophat.core.router import THLocalRouter
-from tophat.core.router import THQuery
+from manifold.core.router import THLocalRouter
+from manifold.core.router import THQuery
 
 # Instantiate a TopHat router
 with THLocalRouter() as router:

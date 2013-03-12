@@ -3,7 +3,7 @@
 
 import sys
 
-from tophat.core.router import THLocalRouter
+from manifold.core.router import THLocalRouter
 from manifold.core.query import Query
 
 def usage():

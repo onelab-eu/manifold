@@ -8,8 +8,8 @@ from config import auth
 
 query = ('create', 'slice', [], {'slice_hrn': 'ple.upmc.myslicedemo3'}, [])
 
-from tophat.core.router import THLocalRouter
-from tophat.core.router import Query
+from manifold.core.router import THLocalRouter
+from manifold.core.router import Query
 
 # Instantiate a TopHat router
 with THLocalRouter() as router:
