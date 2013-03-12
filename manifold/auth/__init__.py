@@ -1,4 +1,4 @@
-from tophat.models import db, User, Session as DBSession
+from manifold.models import db, User, Session as DBSession
 import time
 
 import crypt

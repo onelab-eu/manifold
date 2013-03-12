@@ -9,7 +9,7 @@ from tophat.core.key            import Key
 from manifold.core.query        import Query
 from tophat.core.table          import Table
 from manifold.gateways          import Gateway
-from tophat.models              import *
+from manifold.models              import *
 from tophat.util.dbnorm         import Cache, to_3nf 
 from tophat.util.dbgraph        import DBGraph
 from tophat.util.dfs            import dfs
@@ -18,7 +18,7 @@ from tophat.util.query_plane    import build_query_plane
 from manifold.util.reactor_thread import ReactorThread
 from sfa.trust.credential       import Credential
 from manifold.gateways.sfa        import ADMIN_USER
-from tophat.metadata.Metadata   import import_file_h
+from manifold.metadata.Metadata   import import_file_h
 from manifold.util.callback     import Callback
 
 #import copy
@@ -32,7 +32,7 @@ from manifold.util.callback     import Callback
 #from tophat.router.rib       import RIB
 #from tophat.router.fib       import FIB
 #from tophat.router.flowtable import FlowTable
-#from tophat.models           import *
+#from manifold.models           import *
 #from tophat.util.misc        import get_sqla_filters, xgetattr
 
 STATIC_ROUTES_FILE = "/usr/share/myslice/metadata/"
@@ -149,7 +149,7 @@ class Router(object):
 
     def import_file_h(self, directory, platform, gateway_type):
         """
-        \brief Import a .h file (see tophat/metadata/*.h)
+        \brief Import a .h file (see manifold.metadata/*.h)
         \param directory The directory storing the .h files
             Example: router.conf.STATIC_ROUTES_FILE = "/usr/share/myslice/metadata/"
         \param platform The name of the platform we are configuring

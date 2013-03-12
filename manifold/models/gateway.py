@@ -1,7 +1,7 @@
 from elixir import (Field, Unicode, Integer, Entity, Boolean,
         using_table_options, ManyToOne)
 
-from tophat.models.base import BaseEntityMixin
+from manifold.models.base import BaseEntityMixin
 from tophat.conf import settings
 
 import logging

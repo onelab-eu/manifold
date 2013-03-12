@@ -1,7 +1,7 @@
 from sqlalchemy import Column, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship, backref
 
-from tophat.models import Base
+from manifold.models import Base
 
 import logging
 log = logging.getLogger(__name__)

@@ -21,7 +21,7 @@ from tophat.core.table          import Table
 from manifold.core.query          import Query 
 from tophat.util.type           import returns, accepts
 from tophat.util.dbgraph        import find_root
-from tophat.models.user         import User
+from manifold.models.user         import User
 
 #OBSOLETE|@returns(From)
 #OBSOLETE|@accepts(dict, Table, str)

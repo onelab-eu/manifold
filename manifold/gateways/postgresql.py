@@ -29,7 +29,7 @@ from manifold.gateways import Gateway
 from manifold.util.log import *
 from tophat.util.predicate import and_, or_, inv, add, mul, sub, mod, truediv, lt, le, ne, gt, ge, eq, neg, contains
 # Metadata
-from tophat.metadata.MetadataClass  import MetadataClass
+from manifold.metadata.MetadataClass  import MetadataClass
 from tophat.core.field              import Field 
 
 
