@@ -12,8 +12,8 @@
 import re
 
 from tophat.util.clause             import Clause
-from tophat.metadata.MetadataClass  import MetadataClass
-from tophat.metadata.MetadataEnum   import MetadataEnum
+from manifold.metadata.MetadataClass  import MetadataClass
+from manifold.metadata.MetadataEnum   import MetadataEnum
 from tophat.core.field              import Field 
 
 #------------------------------------------------------------------
@@ -52,7 +52,7 @@ REGEXP_ENUM_END      = re.compile(''.join([PATTERN_BEGIN, PATTERN_ENUM_END,     
 
 def import_file_h(filename):
     """
-    \brief Import a .h file (see tophat/metadata/*.h)
+    \brief Import a .h file (see manifold.metadata/*.h)
     \param filename The path of the .h file
     \return A tuple made of two dictionnaries (classes, enums)
         classes:

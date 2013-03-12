@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, String, Boolean, Enum
 
-from tophat.models import Base
+from manifold.models import Base
 
 import logging
 log = logging.getLogger(__name__)

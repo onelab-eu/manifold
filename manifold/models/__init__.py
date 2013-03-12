@@ -35,14 +35,14 @@ Session = sessionmaker(bind=engine)
 db = Session()
 
 # Models
-from tophat.models.platform import Platform
-from tophat.models.user import User
-from tophat.models.account import Account
-from tophat.models.session import Session
+from manifold.models.platform import Platform
+from manifold.models.user import User
+from manifold.models.account import Account
+from manifold.models.session import Session
 
 Base.metadata.create_all(engine)
 
-#from tophat.models.field import Field
+#from manifold.models.field import Field
 
 
 # Create a session

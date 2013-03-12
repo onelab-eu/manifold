@@ -40,7 +40,7 @@ from sfa.rspecs.version_manager import VersionManager
 from sfa.client.client_helper import pg_users_arg, sfa_users_arg
 from sfa.client.sfaserverproxy import SfaServerProxy, ServerException
 from sfa.client.return_value import ReturnValue
-from tophat.models import User, Account, Platform, db
+from manifold.models import User, Account, Platform, db
 import json
 import signal
 
