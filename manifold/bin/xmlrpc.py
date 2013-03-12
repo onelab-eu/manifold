@@ -14,8 +14,8 @@ import sys
 from manifold.util.log          import *
 from manifold.util.options      import Options
 from manifold.util.daemon       import Daemon
-from manifold.core.query        import Query 
 from manifold.auth              import Auth
+from manifold.core.router       import LocalRouter
 
 class XMLRPCDaemon(Daemon):
     DEFAULTS = {
@@ -35,14 +35,6 @@ class XMLRPCDaemon(Daemon):
         Daemon.init_options()
         Options().parse()
         
-        #Logger(), Daemon(), self)
-
-        # XXX This one should be present by default
-        #opt.add_option(
-        #    "-c", "--config", dest = "cfg_file",
-        #    help = "Config file to use. Defaults to '%s'." % self.DEFAULTS['cfg_file']
-        #)
-        #
         # XXX how to avoid option conflicts : have a list of reserved ones for consistency
         # XXX can we support option groups ?
         
@@ -50,18 +42,6 @@ class XMLRPCDaemon(Daemon):
             self,
             self.terminate
         )
-        #    self.options.uid,
-        #    self.options.gid,
-        #    self.options.working_directory,
-        #    self.options.pid_filename,
-        #    self.options.no_daemon,
-        #    self.options.debug,
-        #    logging.getLogger('dispatcherd'),
-        #    self.options.rsyslog_host if self.options.rsyslog_enable == True else None,
-        #    self.options.rsyslog_port if self.options.rsyslog_enable == True else None,
-        #    self.options.log_file,
-        #    self.options.log_level
-        #)
 
     @classmethod
     def init_options(self):
@@ -96,8 +76,6 @@ class XMLRPCDaemon(Daemon):
         from twisted.web        import xmlrpc, server
         from twisted.internet   import reactor
 
-        #from tophat.core.router import THLocalRouter
-        #from manifold.core.query import Query
         #router = THLocalRouter()
         #router.__enter__()
 
@@ -115,28 +93,6 @@ class XMLRPCDaemon(Daemon):
                     user = None
                 # The rest define the query
                 return gw_or_router.forward(*args, deferred=True, user=user)
-
-            # AUTHENTICATION
-
-            def xmlrpc_AuthCheck(self, *args):
-                """
-                """
-                return 1
-
-            def xmlrpc_GetSession(self, *args):
-                """
-                """
-                # Need parameter validation
-                auth = args[0]
-                s = router.get_session(auth)
-                return s
-
-            def xmlrpc_GetPersons(self, *args):
-                """
-                """
-                user = self.authenticate(args[0])
-                return [{'email': user.email, 'first_name': user.email, 'last_name': '', 'user_hrn': 'TODO'}]
-
 
         # We can dynamically add functions corresponding to methods from the
         # Auth class

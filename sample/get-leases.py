@@ -4,8 +4,8 @@
 import sys
 import xmlrpclib
 
-from tophat.core.router import THLocalRouter
-from tophat.core.router import Query
+from manifold.core.router import THLocalRouter
+from manifold.core.router import Query
 
 query = ('get', 'slice', [['slice_hrn', '=', 'ple.upmc.agent']], {}, ['slice_hrn', 'resource.hostname'])
 

@@ -53,72 +53,72 @@ class Callback:
         self.results.append(value)
 
 #------------------------------------------------------------------
-# Class THDestination
+# Class Destination
 # Represent the destination (a query in our case) of a TopHat route
 #------------------------------------------------------------------
 
-class THDestination(Destination, Query):
+class Destination(Destination, Query):
     """
     Implements a destination in TopHat == a view == a query
     """
     
     def __str__(self):
-        return "<THDestination / Query: %s" % self.query
+        return "<Destination / Query: %s" % self.query
 
 #------------------------------------------------------------------
-# Class THRoute
+# Class Route
 #------------------------------------------------------------------
 
-class THRoute(Route):
+class Route(Route):
     """
     Implements a TopHat route.
     """
 
     def __init__(self, destination, peer, cost, timestamp):
 
-        if type(destination) != THDestination:
-            raise TypeError("Destination of type %s expected in argument. Got %s" % (type(destination), THDestination))
+        if type(destination) != Destination:
+            raise TypeError("Destination of type %s expected in argument. Got %s" % (type(destination), Destination))
 
         # Assert the route corresponds to an existing peer
         # Assert the cost corresponds to a right cost
         # Eventually the timestamp would not be a parameter but assigned
 
-        super(THRoute, self).__init__(self, destination, peer, cost, timestamp)
+        super(Route, self).__init__(self, destination, peer, cost, timestamp)
 
     def push(identifier, record):
         pass
 
 #------------------------------------------------------------------
-# Class THCost
+# Class Cost
 # Cost related to a route in the routing table
 #------------------------------------------------------------------
 
-class THCost(int):
+class Cost(int):
     """
     Let's use (N, min, +) semiring for cost
     """
 
     def __add__(self, other):
-        return THCost(min(self, other))
+        return Cost(min(self, other))
 
     def __mul__(self, other):
-        return THCost(self + other)
+        return Cost(self + other)
 
 #------------------------------------------------------------------
-# Class THLocalRouter
+# Class LocalRouter
 # Router configured only with static/local routes, and which
 # does not handle routing messages
 #------------------------------------------------------------------
 
-class THLocalRouter(LocalRouter):
+class LocalRouter(LocalRouter):
     """
     Implements a TopHat router.
 
-    Specialized to handle THAnnounces/THRoutes, ...
+    Specialized to handle Announces/Routes, ...
     """
 
     def __init__(self):
-        print "I: Init THLocalRouter" 
+        print "I: Init LocalRouter" 
         self.reactor = ReactorThread()
         LocalRouter.__init__(self, Table, object)
         self.event = threading.Event()
@@ -327,7 +327,7 @@ class THLocalRouter(LocalRouter):
         return creds
 
     def build_tables(self):
-        # Build one table per key {'Table' : THRoute}
+        # Build one table per key {'Table' : Route}
         tables = self.rib.keys() # HUM
         (self.g_3nf, self.cache) = to_3nf(tables)
 
@@ -922,7 +922,7 @@ class THLocalRouter(LocalRouter):
 
         return cb.results
 
-class THRouter(THLocalRouter, Router):
+class Router(LocalRouter, Router):
     pass
 
 

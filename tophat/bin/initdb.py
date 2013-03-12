@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding:utf-8 */
 
-from tophat.core.router import THLocalRouter
+from manifold.core.router import THLocalRouter
 
 def main():
     # Instantiate a TopHat router
