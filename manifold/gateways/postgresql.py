@@ -25,7 +25,7 @@ from uuid import uuid4
 from types import StringTypes, NoneType
 from pprint import pformat
 
-from manifold.gateways import * #Gateway
+from manifold.gateways import Gateway
 from manifold.util.log import *
 from tophat.util.predicate import and_, or_, inv, add, mul, sub, mod, truediv, lt, le, ne, gt, ge, eq, neg, contains
 # Metadata
@@ -33,7 +33,7 @@ from tophat.metadata.MetadataClass  import MetadataClass
 from tophat.core.field              import Field 
 
 
-class PostgreSQL(Gateway):
+class PostgreSQLGateway(Gateway):
 
     SQL_STR = "SELECT %(fields)s FROM %(table)s WHERE %(filters)s";
 
@@ -103,7 +103,7 @@ class PostgreSQL(Gateway):
         return "<PostgreSQLGateway %s>" % self.query
 
     def __init__(self, router, platform, query, config, user_config, user):
-        super(PostgreSQL, self).__init__(router, platform, query, config, user_config, user)
+        super(PostgreSQLGateway, self).__init__(router, platform, query, config, user_config, user)
         self.debug = False
         #self.debug = True
         self.connection = None
@@ -440,6 +440,10 @@ class PostgreSQL(Gateway):
         }
         sql = self.SQL_STR % params
         return sql
+
+    def forward(self, query, deferred=False, execute=True, user=None):
+        self.query = query
+        self.start()
 
     def start(self):
         # XXX We never stop gateways even when finished. Investigate ?

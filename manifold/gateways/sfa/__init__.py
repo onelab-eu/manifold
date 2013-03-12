@@ -13,10 +13,10 @@ import hashlib
 import zlib
 import copy # DIRTY HACK SENSLAB
 
-from tophat.util.faults import *
+from tophat.util.faults                 import *
 
-from tophat.core.filter import *
-#from tophat.core.metadata import Metadata
+from tophat.core.filter                 import *
+from manifold.gateways                  import Gateway
 from manifold.gateways.sfa.rspecs.SFAv1 import SFAv1Parser # as Parser
 
 from sfa.trust.certificate import Keypair, Certificate
@@ -139,7 +139,7 @@ import uuid
 def unique_call_id(): return uuid.uuid4().urn
 
 
-class SFA(object):
+class SFAGateway(Gateway):
 
 ################################################################################
 # BEGIN SFA CODE
@@ -797,10 +797,6 @@ class SFA(object):
                 slice_list.extend(hrns)
 
         return slice_list        
-
-    def get_user(self, filters = None, params = None, fields = None):
-        pass 
-
 
     def get_slice(self, filters = None, params = None, fields = None):
 

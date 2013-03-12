@@ -1,6 +1,9 @@
-from manifold.gateways import Gateway
+# To avoid naming conflicts when importing 
+from __future__ import absolute_import
 
-from tdmi.methods import *
+from manifold.gateways              import Gateway
+from manifold.gateways.postgresql   import PostgreSQLGateway
+from tdmi.methods                   import Traceroute
 
 METHOD_MAP = {
     'traceroute': Traceroute

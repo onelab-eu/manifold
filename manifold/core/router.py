@@ -1,4 +1,4 @@
-import os, sys, json, time, traceback, threading
+import os, sys, json, time, traceback #, threading
 from types                      import StringTypes
 
 from twisted.internet           import defer
@@ -9,48 +9,21 @@ from tophat.core.ast            import AST
 from tophat.core.key            import Key
 from manifold.core.query        import Query
 from tophat.core.table          import Table
-from manifold.gateways          import *
+from manifold.gateways          import Gateway
 from tophat.models              import *
 from tophat.util.dbnorm         import Cache, to_3nf 
 from tophat.util.dbgraph        import DBGraph
 from tophat.util.dfs            import dfs
 from tophat.util.pruned_tree    import build_pruned_tree
 from tophat.util.query_plane    import build_query_plane 
-from tophat.util.reactor_thread import ReactorThread
+from manifold.util.reactor_thread import ReactorThread
 from sfa.trust.credential       import Credential
 from manifold.gateways.sfa        import ADMIN_USER
 from tophat.metadata.Metadata   import import_file_h
+from manifold.util.callback     import Callback
 
 METADATA_DIRECTORY = "/usr/share/myslice/metadata/"
 CACHE_LIFETIME     = 1800
-
-#------------------------------------------------------------------
-# Class callback
-#------------------------------------------------------------------
-
-class Callback:
-    def __init__(self, deferred=None, event=None, router=None, cache_id=None):
-        self.results = []
-        self._deferred = deferred
-        self.event = event
-
-        # Used for caching...
-        self.router = router
-        self.cache_id = cache_id
-
-    def __call__(self, value):
-        if not value:
-            if self.cache_id:
-                # Add query results to cache (expires in 30min)
-                #print "Result added to cached under id", self.cache_id
-                self.router.cache[self.cache_id] = (self.results, time.time() + CACHE_LIFETIME)
-
-            if self._deferred:
-                self._deferred.callback(self.results)
-            else:
-                self.event.set()
-            return
-        self.results.append(value)
 
 #------------------------------------------------------------------
 # Class Destination
@@ -121,7 +94,7 @@ class LocalRouter(LocalRouter):
         print "I: Init LocalRouter" 
         self.reactor = ReactorThread()
         LocalRouter.__init__(self, Table, object)
-        self.event = threading.Event()
+        #self.event = threading.Event()
         # initialize dummy list of credentials to be uploaded during the
         # current session
         self.cache = {}
@@ -191,10 +164,11 @@ class LocalRouter(LocalRouter):
 
         # Get the corresponding class
         gtype = p.gateway_type.encode('latin1')
-        try:
-            gw = getattr(__import__('tophat.gateways', globals(), locals(), gtype), gtype)
-        except Exception, e:
-            raise Exception, "E: Cannot import gateway class '%s': %s" % (gtype, e)
+        gw = Gateway.get(gtype)
+        #try:
+        #    gw = getattr(__import__('tophat.gateways', globals(), locals(), gtype), gtype)
+        #except Exception, e:
+        #    raise Exception, "E: Cannot import gateway class '%s': %s" % (gtype, e)
 
         # Gateway config
         gconf = json.loads(p.config)
@@ -891,7 +865,8 @@ class LocalRouter(LocalRouter):
         # Building query plan
         qp = self.get_query_plan(query, user)
         d = defer.Deferred() if deferred else None
-        cb = Callback(d, self.event, router=self, cache_id=h)
+        cb = Callback(d, router=self, cache_id=h)
+        #cb = Callback(d, self.event, router=self, cache_id=h)
         qp.callback = cb
 
         # Now we only need to start it for Get.
@@ -917,8 +892,9 @@ class LocalRouter(LocalRouter):
         qp.start()
 
         if deferred: return d
-        self.event.wait()
-        self.event.clear()
+        cb.wait()
+        #self.event.wait()
+        #self.event.clear()
 
         return cb.results
 
