@@ -2,7 +2,7 @@ from types import StringTypes
 from sfa.rspecs.rspec import RSpec
 from sfa.util.xrn import Xrn, get_leaf
 from manifold.gateways.sfa.rspecs import RSpecParser
-from tophat.core.filter import Filter
+from manifold.core.filter import Filter
 from sfa.util.xml import XpathFilter
 
 # Maps properties within an element of a RSpec to entries in the returned

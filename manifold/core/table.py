@@ -12,11 +12,11 @@
 from copy                   import deepcopy
 from types                  import StringTypes
 
-from tophat.core.field      import Field
-from tophat.core.filter     import Filter
-from tophat.core.key        import Key, Keys 
+from manifold.core.field      import Field
+from manifold.core.filter     import Filter
+from manifold.core.key        import Key, Keys 
 from manifold.util.type       import returns, accepts 
-from tophat.core.method     import Method 
+from manifold.core.method     import Method 
 
 class Table:
     """

@@ -3,11 +3,11 @@ from types                      import StringTypes
 
 from twisted.internet           import defer
 
-from tophat.core.filter         import Predicate
-from tophat.core.ast            import AST
-from tophat.core.key            import Key
+from manifold.core.filter         import Predicate
+from manifold.core.ast            import AST
+from manifold.core.key            import Key
 from manifold.core.query        import Query
-from tophat.core.table          import Table
+from manifold.core.table          import Table
 from manifold.gateways          import Gateway
 from manifold.models              import *
 from manifold.core.dbnorm         import Cache, to_3nf 
@@ -403,7 +403,7 @@ class Router(object):
     def process_subqueries(self, query, user):
         """
         \brief Compute the AST (tree of SQL operators) related to a query
-        \sa tophat/core/ast.py
+        \sa manifold.core.ast.py
         \param query A Query issued by the user
         \param user A User instance (carry user's information) 
         \return An AST instance representing the query plane related to the query

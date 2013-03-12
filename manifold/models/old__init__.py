@@ -1,11 +1,11 @@
 import os
 import xml.etree.cElementTree as ElementTree
 
-from tophat.core.table import Row
-from tophat.core.metadata.method import Method, Methods
-from tophat.core.metadata.field import Field, Fields
-from tophat.core.metadata.gateway import Gateway, Gateways
-from tophat.core.metadata.platform import Platform, Platforms
+from manifold.core.table import Row
+from manifold.core.metadata.method import Method, Methods
+from manifold.core.metadata.field import Field, Fields
+from manifold.core.metadata.gateway import Gateway, Gateways
+from manifold.core.metadata.platform import Platform, Platforms
 
 import json
 

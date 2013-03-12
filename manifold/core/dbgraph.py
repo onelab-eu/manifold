@@ -15,9 +15,9 @@ from networkx                   import draw_graphviz, DiGraph
 #OBSOLETE|from networkx.algorithms.traversal.depth_first_search import dfs_edges
 import matplotlib.pyplot        as plt
 
-#OBSOLETE|from tophat.core.query          import Query 
-from tophat.core.table          import Table 
-from tophat.core.key            import Key
+#OBSOLETE|from manifold.core.query          import Query 
+from manifold.core.table          import Table 
+from manifold.core.key            import Key
 from manifold.util.type           import returns, accepts
 from manifold.util.predicate      import Predicate 
 

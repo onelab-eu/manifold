@@ -30,7 +30,7 @@ from manifold.util.log import *
 from manifold.util.predicate import and_, or_, inv, add, mul, sub, mod, truediv, lt, le, ne, gt, ge, eq, neg, contains
 # Metadata
 from manifold.metadata.MetadataClass  import MetadataClass
-from tophat.core.field              import Field 
+from manifold.core.field              import Field 
 
 
 class PostgreSQLGateway(Gateway):

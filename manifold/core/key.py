@@ -4,8 +4,8 @@
 # Class Key:
 #   Represent a key of a Table instance
 #   A key is a set of (eventually one) Fields.
-#   \sa tophat/core/table.py
-#   \sa tophat/core/field.py
+#   \sa manifold.core.table.py
+#   \sa manifold.core.field.py
 # Class Keys:
 #   A Table instance carries a Keys instance, e.g a set of Key instances.
 #
@@ -15,7 +15,7 @@
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
 from manifold.util.type      import returns, accepts
-from tophat.core.field     import Field
+from manifold.core.field     import Field
 
 class Key(frozenset):
     """

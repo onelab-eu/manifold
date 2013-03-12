@@ -14,7 +14,7 @@ import re
 from manifold.util.clause             import Clause
 from manifold.metadata.MetadataClass  import MetadataClass
 from manifold.metadata.MetadataEnum   import MetadataEnum
-from tophat.core.field              import Field 
+from manifold.core.field              import Field 
 
 #------------------------------------------------------------------
 # Constants needed for .h parsing, see import_file_h(...)
