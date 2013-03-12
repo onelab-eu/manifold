@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 #
 # Convert a 3nf-tree into an AST (e.g. a query plan)
-# \sa tophat/util/pruned_tree.py
+# \sa manifold.core.pruned_tree.py
 # \sa tophat/core/ast.py
 #
 # Copyright (C) UPMC Paris Universitas
@@ -19,8 +19,8 @@ from networkx.algorithms.traversal.depth_first_search import dfs_preorder_nodes
 from tophat.core.ast            import AST, From, Union, LeftJoin
 from tophat.core.table          import Table 
 from manifold.core.query          import Query 
-from tophat.util.type           import returns, accepts
-from tophat.util.dbgraph        import find_root
+from manifold.util.type           import returns, accepts
+from manifold.core.dbgraph        import find_root
 from manifold.models.user         import User
 
 #OBSOLETE|@returns(From)

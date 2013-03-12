@@ -13,8 +13,6 @@ import hashlib
 import zlib
 import copy # DIRTY HACK SENSLAB
 
-from tophat.util.faults                 import *
-
 from tophat.core.filter                 import *
 from manifold.gateways                  import Gateway
 from manifold.gateways.sfa.rspecs.SFAv1 import SFAv1Parser # as Parser
@@ -371,7 +369,7 @@ class SFAGateway(Gateway):
 
     def sfa_list_records(self, cred, hrns, record_type=None):
         if record_type not in [None, 'user', 'slice', 'authority', 'node']:
-            raise PLCInvalidArgument('Wrong filter in sfa_list')
+            raise Exception('Wrong filter in sfa_list')
         records = self.registry.List(hrns, cred)
         if record_type:
             records = filter_records(record_type, records)
@@ -379,7 +377,7 @@ class SFAGateway(Gateway):
 
     def sfa_resolve_records(self, cred, xrns, record_type=None):
         if record_type not in [None, 'user', 'slice', 'authority', 'node']:
-            raise PLCInvalidArgument('Wrong filter in sfa_list')
+            raise Exception('Wrong filter in sfa_list')
 
         #try:
         print "CONNECTING TO REGISTRY", self.registry

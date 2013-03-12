@@ -11,7 +11,7 @@
 
 import re
 
-from tophat.util.clause             import Clause
+from manifold.util.clause             import Clause
 from manifold.metadata.MetadataClass  import MetadataClass
 from manifold.metadata.MetadataEnum   import MetadataEnum
 from tophat.core.field              import Field 

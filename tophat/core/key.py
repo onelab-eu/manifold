@@ -14,7 +14,7 @@
 #   Jordan Augé       <jordan.auge@lip6.fr>
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
-from tophat.util.type      import returns, accepts
+from manifold.util.type      import returns, accepts
 from tophat.core.field     import Field
 
 class Key(frozenset):

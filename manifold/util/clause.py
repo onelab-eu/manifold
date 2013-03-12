@@ -13,7 +13,7 @@
 import pyparsing as pp
 import operator, re
 
-from tophat.util.predicate import Predicate, operators
+from manifold.util.predicate import Predicate, operators
 from types                 import StringTypes
 
 # XXX When to use Keyword vs. Regex vs. CaselessLiteral

@@ -10,11 +10,11 @@ from manifold.core.query        import Query
 from tophat.core.table          import Table
 from manifold.gateways          import Gateway
 from manifold.models              import *
-from tophat.util.dbnorm         import Cache, to_3nf 
-from tophat.util.dbgraph        import DBGraph
-from tophat.util.dfs            import dfs
-from tophat.util.pruned_tree    import build_pruned_tree
-from tophat.util.query_plane    import build_query_plane 
+from manifold.core.dbnorm         import Cache, to_3nf 
+from manifold.core.dbgraph        import DBGraph
+from manifold.util.dfs            import dfs
+from manifold.core.pruned_tree    import build_pruned_tree
+from manifold.core.query_plane    import build_query_plane 
 from manifold.util.reactor_thread import ReactorThread
 from sfa.trust.credential       import Credential
 from manifold.gateways.sfa        import ADMIN_USER
@@ -33,7 +33,7 @@ from manifold.util.callback     import Callback
 #from tophat.router.fib       import FIB
 #from tophat.router.flowtable import FlowTable
 #from manifold.models           import *
-#from tophat.util.misc        import get_sqla_filters, xgetattr
+#from manifold.util.misc        import get_sqla_filters, xgetattr
 
 STATIC_ROUTES_FILE = "/usr/share/myslice/metadata/"
 CACHE_LIFETIME     = 1800
@@ -678,7 +678,7 @@ class Router(object):
         root = self.g_3nf.find_node(query.get_from())
 
         # Retrieve the (unique due to 3-nf) tree included in "self.g_3nf" and rooted in "root"
-        # \sa tophat/util/dfs.py
+        # \sa manifold.util.dfs.py
         print "Entering DFS(%r) in graph:" % root
         for edge in self.g_3nf.graph.edges():
             (u, v) = edge
@@ -688,7 +688,7 @@ class Router(object):
         # Compute the corresponding pruned tree.
         # Each node of the pruned tree only gathers relevant table, and only their
         # relevant fields and their relevant key (if used).
-        # \sa tophat/util/pruned_graph.py
+        # \sa manifold.util.pruned_graph.py
         pruned_tree = build_pruned_tree(self.g_3nf.graph, needed_fields, map_vertex_pred)
 
         # Compute the skeleton resulting query plane

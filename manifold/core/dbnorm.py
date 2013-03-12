@@ -27,8 +27,8 @@ from tophat.core.table             import Table
 from tophat.core.key               import Key 
 from tophat.core.field             import Field
 from tophat.core.method            import Method 
-from tophat.util.type              import returns, accepts
-from tophat.util.dbgraph           import DBGraph
+from manifold.util.type              import returns, accepts
+from manifold.core.dbgraph           import DBGraph
 
 #------------------------------------------------------------------------------
 

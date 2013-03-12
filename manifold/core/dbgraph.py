@@ -18,8 +18,8 @@ import matplotlib.pyplot        as plt
 #OBSOLETE|from tophat.core.query          import Query 
 from tophat.core.table          import Table 
 from tophat.core.key            import Key
-from tophat.util.type           import returns, accepts
-from tophat.util.predicate      import Predicate 
+from manifold.util.type           import returns, accepts
+from manifold.util.predicate      import Predicate 
 
 # TODO DBGraph should inherit nx.DiGraph
 class DBGraph:
@@ -91,7 +91,7 @@ class DBGraph:
         \brief Add a table node not yet in the DB graph and build the arcs
             to connect this node to the existing node.
             There are 3 types of arcs (determines, includes, provides)
-        \sa tophat/util/table.py
+        \sa manifold.util.table.py
         \param u The Table instance we are adding to the graph.
         """
         # Adding the node u in the graph (if not yet in the graph) 

@@ -27,7 +27,7 @@ from pprint import pformat
 
 from manifold.gateways import Gateway
 from manifold.util.log import *
-from tophat.util.predicate import and_, or_, inv, add, mul, sub, mod, truediv, lt, le, ne, gt, ge, eq, neg, contains
+from manifold.util.predicate import and_, or_, inv, add, mul, sub, mod, truediv, lt, le, ne, gt, ge, eq, neg, contains
 # Metadata
 from manifold.metadata.MetadataClass  import MetadataClass
 from tophat.core.field              import Field 
