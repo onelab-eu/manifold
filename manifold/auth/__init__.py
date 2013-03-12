@@ -6,11 +6,11 @@ from hashlib import md5
 
 from tophat.conf import ADMIN_USER
 
-row2dict = lambda r: {c.name: getattr(r, c.name) for c in r.__table__.columns}
-
 #-------------------------------------------------------------------------------
 # Helper functions
 #-------------------------------------------------------------------------------
+
+row2dict = lambda r: {c.name: getattr(r, c.name) for c in r.__table__.columns}
 
 def make_account_dict(account):
     account_dict = row2dict(account)
