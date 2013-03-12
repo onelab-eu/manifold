@@ -104,7 +104,8 @@ class XMLRPCDaemon(Daemon):
         class XMLRPCAPI(xmlrpc.XMLRPC):
 
             def authenticate(self, auth):
-                return Auth(auth).check()
+                user = Auth(auth).check()
+                return user
 
             # QUERIES
             def xmlrpc_forward(self, *args):
