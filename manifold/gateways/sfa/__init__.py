@@ -13,7 +13,7 @@ import hashlib
 import zlib
 import copy # DIRTY HACK SENSLAB
 
-from tophat.core.filter                 import *
+from manifold.core.filter                 import *
 from manifold.gateways                  import Gateway
 from manifold.gateways.sfa.rspecs.SFAv1 import SFAv1Parser # as Parser
 

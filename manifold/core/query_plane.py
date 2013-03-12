@@ -3,7 +3,7 @@
 #
 # Convert a 3nf-tree into an AST (e.g. a query plan)
 # \sa manifold.core.pruned_tree.py
-# \sa tophat/core/ast.py
+# \sa manifold.core.ast.py
 #
 # Copyright (C) UPMC Paris Universitas
 # Authors:
@@ -16,8 +16,8 @@
 from networkx                                         import DiGraph
 from networkx.algorithms.traversal.depth_first_search import dfs_preorder_nodes
 
-from tophat.core.ast            import AST, From, Union, LeftJoin
-from tophat.core.table          import Table 
+from manifold.core.ast            import AST, From, Union, LeftJoin
+from manifold.core.table          import Table 
 from manifold.core.query          import Query 
 from manifold.util.type           import returns, accepts
 from manifold.core.dbgraph        import find_root

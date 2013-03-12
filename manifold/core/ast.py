@@ -14,11 +14,11 @@
 import sys
 from copy                       import copy, deepcopy
 
-from tophat.core.filter         import Filter, Predicate
+from manifold.core.filter         import Filter, Predicate
 from manifold.core.query          import Query
-from tophat.core.table          import Table 
-from tophat.core.field          import Field
-from tophat.core.key            import Key
+from manifold.core.table          import Table 
+from manifold.core.field          import Field
+from manifold.core.key            import Key
 from manifold.util.type           import returns, accepts
 
 # NOTES
@@ -201,7 +201,7 @@ class From(Node):
         """
         \brief Constructor
         \param table A Table instance (the 3nf table)
-            \sa tophat/core/table.py
+            \sa manifold.core.table.py
         \param query A Query instance: the query passed to the gateway to fetch records 
         """
         assert isinstance(query, Query), "Invalid type: query = %r (%r)" % (query, type(query))
@@ -972,7 +972,7 @@ class AST(object):
         \brief Transforms an AST into a UNION of AST
         \param children_ast A list of AST gathered by this UNION operator
         \param key A Key instance
-            \sa tophat/core/key.py 
+            \sa manifold.core.key.py 
         \return The AST corresponding to the UNION
         """
         assert isinstance(key, Key),           "Invalid key %r (type %r)"          % (key, type(key))

@@ -14,9 +14,9 @@ from copy                       import deepcopy
 from networkx                   import DiGraph
 from types                      import StringTypes
 from manifold.util.type           import returns, accepts
-from tophat.core.field          import Field
-from tophat.core.key            import Key, Keys
-from tophat.core.table          import Table 
+from manifold.core.field          import Field
+from manifold.core.key            import Key, Keys
+from manifold.core.table          import Table 
 
 #OBSOLETE|def prune_precedessor_map_old(g, needed_fields, map_vertex_pred):
 #OBSOLETE|    map_pred   = {}

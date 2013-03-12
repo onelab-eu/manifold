@@ -15,9 +15,9 @@ log = logging.getLogger(__name__)
 #import crypt
 #
 #from manifold.util.parameter import Parameter
-#from tophat.core.filter import Filter
-#from tophat.core.table import Table, Row
-#from tophat.core.metadata.platform import Platform
+#from manifold.core.filter import Filter
+#from manifold.core.table import Table, Row
+#from manifold.core.metadata.platform import Platform
 
 class Gateway(BaseEntityMixin, Entity):
     gateway_id = Field(Integer, primary_key=True, doc="Gateway identifier")

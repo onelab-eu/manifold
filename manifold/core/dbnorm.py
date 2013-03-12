@@ -23,10 +23,10 @@
 import copy
 from types                         import StringTypes
 
-from tophat.core.table             import Table
-from tophat.core.key               import Key 
-from tophat.core.field             import Field
-from tophat.core.method            import Method 
+from manifold.core.table             import Table
+from manifold.core.key               import Key 
+from manifold.core.field             import Field
+from manifold.core.method            import Method 
 from manifold.util.type              import returns, accepts
 from manifold.core.dbgraph           import DBGraph
 
