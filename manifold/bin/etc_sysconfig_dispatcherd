@@ -1,0 +1,7 @@
+SYSLOG_FACILITY="user"
+SYSLOG_PREFIX="dispatcherd"
+
+TOPHATAGENT=/usr/sbin/dispatcherd
+PID_FILE=/var/run/dispatcherd.pid
+LOG_FILE=/var/log/dispatcherd.log
+CONFIG=/etc/tophat/dispatcherd.conf

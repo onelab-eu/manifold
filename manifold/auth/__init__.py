@@ -32,6 +32,16 @@ class Auth(object):
     def __init__(self, auth):
         self.auth = auth
 
+    def AuthCheck(self):
+        return 1
+
+    def GetSession(self, auth):
+        return Session().get_session(auth)
+
+    def GetPersons(self, auth):
+        user = self.authenticate(args[0])
+        return [{'email': user.email, 'first_name': user.email, 'last_name': '', 'user_hrn': 'TODO'}]
+
 class Password(Auth):
     """
     """
@@ -82,6 +92,22 @@ class Session(Auth):
         else:
             sess.delete()
             raise AuthenticationFailure, "Invalid session: %s" % e
+
+    def get_session(self, auth):
+        # Before a new session is added, delete expired sessions
+        db.query(Session).filter(Session.expires < int(time.time())).delete()
+
+        s = Session()
+        # Generate 32 random bytes
+        bytes = random.sample(xrange(0, 256), 32)
+        # Base64 encode their string representation
+        s.session = base64.b64encode("".join(map(chr, bytes)))
+        s.user = self.authenticate(auth)
+        s.expires = int(time.time()) + (24 * 60 * 60)
+        db.add(s)
+        db.commit()
+        return s.session
+
 
 class PLEAuth(Auth):
     """
