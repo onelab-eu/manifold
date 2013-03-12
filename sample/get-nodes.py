@@ -18,11 +18,11 @@ def print_result(result):
     print "... (only 5 first displayed)"
     print "============================="
 
-from manifold.core.router import THLocalRouter
+from manifold.core.router import THRouter
 from manifold.core.router import THQuery
 
 # Instantiate a TopHat router
-with THLocalRouter() as router:
+with THRouter() as router:
     # TODO How to make it work without __enter__ __exit__ ??
     #router = Router()
 

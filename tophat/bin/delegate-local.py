@@ -21,7 +21,7 @@ from sfa.client.sfaclientlib import SfaClientBootstrap
 from sfa.planetlab.plxrn import hostname_to_hrn, slicename_to_hrn, email_to_hrn, hrn_to_pl_slicename
 from sfa.util.xrn import get_authority
 
-from manifold.core.router import THLocalRouter
+from manifold.core.router import THRouter
 from manifold.core.query import Query
 
 class SfaHelper:
@@ -195,7 +195,7 @@ def main():
     auth = {'AuthMethod': 'password', 'Username': api_username, 'AuthString': api_password}
 
     # Instantiate a TopHat router
-    with THLocalRouter() as router:
+    with THRouter() as router:
         user = router.authenticate(auth)
         for c in creds:
             router.add_credential(c, 'ple', user)

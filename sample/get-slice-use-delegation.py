@@ -28,11 +28,11 @@ def print_result(result):
     #print "============================="
 
 
-from manifold.core.router import THLocalRouter
+from manifold.core.router import THRouter
 from manifold.core.router import Query
 
 # Instantiate a TopHat router
-with THLocalRouter() as router:
+with THRouter() as router:
     user = router.authenticate({'AuthMethod': 'password', 'Username': 'demo', 'password': 'demo'})
     result = router.forward(Query(*query), user) #, execute=False)
     if result:

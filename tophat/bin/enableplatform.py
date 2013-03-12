@@ -3,7 +3,7 @@
 
 import sys
 
-from manifold.core.router import THLocalRouter
+from manifold.core.router import THRouter
 from manifold.core.query import Query
 
 def usage():
@@ -24,7 +24,7 @@ def main():
     query = Query(action='update', fact_table='tophat:platform', filters=platform_filters, params=platform_params)
 
     # Instantiate a TopHat router
-    with THLocalRouter() as router:
+    with THRouter() as router:
         router.forward(query)
 
 if __name__ == '__main__':
