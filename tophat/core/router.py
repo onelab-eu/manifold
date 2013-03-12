@@ -17,7 +17,6 @@ from tophat.util.dfs            import dfs
 from tophat.util.pruned_tree    import build_pruned_tree
 from tophat.util.query_plane    import build_query_plane 
 from tophat.util.reactor_thread import ReactorThread
-
 from sfa.trust.credential       import Credential
 from manifold.gateways.sfa        import ADMIN_USER
 from tophat.metadata.Metadata   import import_file_h

@@ -18,7 +18,6 @@ from tophat.router.conf      import Conf
 from tophat.router.rib       import RIB
 from tophat.router.fib       import FIB
 from tophat.router.flowtable import FlowTable
-from tophat.auth             import Auth
 from tophat.models           import *
 from tophat.util.misc        import get_sqla_filters, xgetattr
 
@@ -64,25 +63,6 @@ class LocalRouter(object):
 
         # Read peers into the configuration file
         # TODO
-
-    def authenticate(self, auth):
-        print "I: authenticate"
-        return Auth(auth).check()
-
-    def get_session(self, auth):
-        # Before a new session is added, delete expired sessions
-        db.query(Session).filter(Session.expires < int(time.time())).delete()
-
-        s = Session()
-        # Generate 32 random bytes
-        bytes = random.sample(xrange(0, 256), 32)
-        # Base64 encode their string representation
-        s.session = base64.b64encode("".join(map(chr, bytes)))
-        s.user = self.authenticate(auth)
-        s.expires = int(time.time()) + (24 * 60 * 60)
-        db.add(s)
-        db.commit()
-        return s.session
 
     def get_query_plane(self, packet):
         pass

@@ -3,3 +3,6 @@
 
 For building debian packages:
 - python-stdeb
+
+For daemon
+- lockfile
