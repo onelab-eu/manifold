@@ -2,7 +2,6 @@ from elixir import (Field, Unicode, Integer, Entity, Boolean,
         using_table_options, ManyToOne)
 
 from manifold.models.base import BaseEntityMixin
-from tophat.conf import settings
 
 import logging
 log = logging.getLogger(__name__)

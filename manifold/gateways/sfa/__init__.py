@@ -41,9 +41,10 @@ from sfa.client.return_value import ReturnValue
 from manifold.models import User, Account, Platform, db
 import json
 import signal
-
-from tophat.conf import ADMIN_USER, DEMO_HOOKS
 import traceback
+
+ADMIN_USER = 'admin'
+DEMO_HOOKS = ['demo']
 
 xslt='''<xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
 <xsl:output method="xml" indent="no"/>
