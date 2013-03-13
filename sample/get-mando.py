@@ -1,14 +1,15 @@
 #!/usr/bin/env python
 # -*- coding:utf-8 */
 
-from config                 import auth
+from config                   import auth
 from manifold.core.router     import Router
-from manifold.core.query    import Query
+from manifold.util.predicate  import Predicate 
+from manifold.core.query      import Query
 
 query = Query(
     "get",
     "x",
-    [],
+    [Predicate("x", "=", "1")],
     {},
     ["x", "t"],
     None
