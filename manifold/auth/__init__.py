@@ -4,7 +4,7 @@ import time
 import crypt
 from hashlib import md5
 
-from manifold.gateway.sfa import ADMIN_USER
+from manifold.gateways.sfa import ADMIN_USER
 
 #-------------------------------------------------------------------------------
 # Helper functions

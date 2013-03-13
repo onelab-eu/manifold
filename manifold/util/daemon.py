@@ -19,7 +19,7 @@ from manifold.util.options      import Options
 
 import atexit, os, signal, lockfile, logging, sys
 
-class Daemon():
+class Daemon(object):
     __metaclass__ = Singleton
 
     DEFAULTS = {

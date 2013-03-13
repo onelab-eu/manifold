@@ -93,7 +93,7 @@ class Table:
                     raise TypeError("Invalid method = %r (%r) in %r" % (method, type(method), map_field_methods))
 
     @staticmethod
-    def check_init(partitions, map_field_methods, name, fields, keys, cost):
+    def check_init(partitions, map_field_methods, name, fields, keys):
         """
         \brief Check whether parameters passed to __init__ are well formed
         """
@@ -109,7 +109,7 @@ class Table:
     # Constructor 
     #-----------------------------------------------------------------------
 
-    def __init__(self, partitions, map_field_methods, name, fields, keys, cost = 1):
+    def __init__(self, partitions, map_field_methods, name, fields, keys):
         """
         \brief Constructor
         \param partitions It can be either:
@@ -121,10 +121,9 @@ class Table:
             the corresponding methods to retrieve them: {Field => set(Method)}
         \param fields A set/list of Fields involved in the table (for example 'name', 'email', ...)
         \param keys The key of the table (for example 'email')
-        \param cost An integer (unused for the moment)
         """
         # Check parameters
-        Table.check_init(partitions, map_field_methods, name, fields, keys, cost)
+        Table.check_init(partitions, map_field_methods, name, fields, keys)
 
         self.partitions = dict()
         if isinstance(partitions, (list, set, frozenset)):
@@ -157,7 +156,6 @@ class Table:
  
         # Other fields
         self.name = name
-        self.cost = cost
         self.map_field_methods = map_field_methods
 
     #-----------------------------------------------------------------------

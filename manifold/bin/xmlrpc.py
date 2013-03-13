@@ -14,10 +14,16 @@ import sys
 from manifold.util.log          import *
 from manifold.util.options      import Options
 from manifold.util.daemon       import Daemon
-from manifold.auth              import Auth
 from manifold.gateways          import Gateway
 from manifold.core.query        import Query
 from manifold.util.callback     import Callback
+from manifold.core.ast          import AST
+from manifold.core.table        import Table
+from manifold.core.platform     import Platform
+
+#-------------------------------------------------------------------------------
+# Class XMLRPCDaemon
+#-------------------------------------------------------------------------------
 
 class XMLRPCDaemon(Daemon):
     DEFAULTS = {
@@ -66,6 +72,15 @@ class XMLRPCDaemon(Daemon):
             default = False
         )
         
+    def get_gateway_config(self, gateway_name):
+        log_info("Hardcoded CSV|PostgreSQL configuration")
+        if gateway_name == 'postgresql':
+            config = {'db_user':'postgres', 'db_password':None, 'db_name':'test'}
+        elif gateway_name == 'csv':
+            config = {'filename': '/tmp/test.csv'}
+        else:
+            config = {}
+        return config
 
     def main(self):
         """
@@ -86,58 +101,29 @@ class XMLRPCDaemon(Daemon):
             log_info("Initializing gateway : %s" % name)
             # Gateway initialization
             # XXX neither user nor query are known in advance
-            log_info("Hardcoded PostgreSQL configuration")
-            if name == 'postgresql':
-                config = {'db_user':'postgres', 'db_password':None, 'db_name':'test'}
-            else:
-                config = {}
-            args = [None, name, None, config, {}, {}]
-
-            self.gw_or_router = Gateway.get(name)(*args)
         else:
             self.gw_or_router = Router()
             self.gw_or_router.__enter__()
 
-        # used with XMLRPCAPI
-        gw_or_router = self.gw_or_router
+        # Get metadata for all accessible platforms. If more than one, we will
+        # need routing (supposing we don't need routing for a single one)
+        # In fact this is somehow having a router everytime
+        #announces = self.gw_or_router.get_metadata()
+        #if not announces:
+        #    raise Exception, "Gateway or router returned no announce."
+        #platform_capabilities = announces[0].capabilities
+        #platform_fields = {}
+        #for announce in announces:
+        #    print "platform_fields[", announce.table.class_name, "] = ", announce.table.fields
+        #    platform_fields[announce.table.class_name] = announce.table.fields
 
-        class XMLRPCAPI(xmlrpc.XMLRPC):
+        # This imports twisted code so we need to import it locally
+        from manifold.core.xmlrpc_api import XMLRPCAPI
 
-            def authenticate(self, auth):
-                user = Auth(auth).check()
-                return user
-
-            # QUERIES
-            def xmlrpc_forward(self, *args):
-                """
-                """
-                if not Options().disable_auth:
-                    # The first argument should be an authentication token
-                    user = self.authenticate(args[0])
-                    #args = list(args)
-                    args = args[1:]
-                else:
-                    user = None
-                # The rest define the query
-                query = Query(*args)
-
-                # Can we factorize this ?
-                cb = Callback()
-                gw_or_router.set_callback(cb)
-                gw_or_router.forward(query, deferred=False, user=user)
-                cb.wait()
-
-                return cb.results
-
-        # We can dynamically add functions corresponding to methods from the
-        # Auth class
-        for k, v in vars(Auth).items():
-            if not k.startswith('_'):
-                setattr(XMLRPCAPI, "xmlrpc_%s" % k, v)
+        platforms = [Platform('dummy name', name, self.get_gateway_config(name))]
 
         try:
-            reactor.listenTCP(Options().xmlrpc_port, server.Site(XMLRPCAPI(allowNone=True)))
-            #reactor.callFromThread(lambda: reactor.listenTCP(Options().xmlrpc_port, server.Site(XMLRPCAPI(allowNone=True))))
+            reactor.listenTCP(Options().xmlrpc_port, server.Site(XMLRPCAPI(platforms, allowNone=True)))
             reactor.run()
         except Exception, e:
             # TODO If database gets disconnected, we can sleep/attempt reconnection

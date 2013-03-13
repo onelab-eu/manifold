@@ -287,7 +287,15 @@ class From(Node):
         """
         \brief Propagates a START message through the node
         """
-        raise Exception, "Cannot call start on a From class, expecting Gateway"
+        if not self.gateway:
+            raise Exception, "Cannot call start on a From class, expecting Gateway"
+        self.gateway.start()
+
+    def set_gateway(self, gateway):
+        gateway.set_callback(self.callback)
+        print gateway
+        print self.callback
+        self.gateway = gateway
 
 class FromTable(From):
     """
