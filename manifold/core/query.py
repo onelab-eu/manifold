@@ -113,7 +113,7 @@ class Query(object):
             if not isinstance(field, StringTypes):
                 raise TypeError("Invalid field name %s (string expected, got %s)" % (field, type(field)))
 
-    @returns(str)
+    @returns(StringTypes)
     def __str__(self):
         return "SELECT %s FROM %s WHERE %s" % (
             ", ".join(self.get_select()),
@@ -121,7 +121,7 @@ class Query(object):
             self.get_where()
         )
 
-    @returns(str)
+    @returns(StringTypes)
     def __repr__(self):
         return self.__str__()
 
@@ -131,7 +131,7 @@ class Query(object):
     def __hash__(self):
         return hash(self.__key())
 
-    @returns(str)
+    @returns(StringTypes)
     def get_action(self):
         return self.action
 
@@ -139,7 +139,7 @@ class Query(object):
     def get_select(self):
         return frozenset(self.fields)
 
-    @returns(str)
+    @returns(StringTypes)
     def get_from(self):
         return self.fact_table
 
@@ -151,6 +151,6 @@ class Query(object):
     def get_params(self):
         return self.params
 
-    @returns(str)
+    @returns(StringTypes)
     def get_ts(self):
         return self.ts

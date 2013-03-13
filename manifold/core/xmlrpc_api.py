@@ -4,6 +4,7 @@ from manifold.util.options      import Options
 from twisted.web                import xmlrpc
 from manifold.core.forwarder    import Forwarder
 from manifold.core.router       import Router
+from manifold.core.capabilities import Capabilities
 
 #-------------------------------------------------------------------------------
 # Class XMLRPCAPI
@@ -34,6 +35,10 @@ class XMLRPCAPI(xmlrpc.XMLRPC, object):
             raise Exception, "Wrong arguments"
         super(XMLRPCAPI, self).__init__(**kwargs)
 
+        self.allowed_capabilities = Capabilities()
+        self.allowed_capabilities.selection = True
+        self.allowed_capabilities.projection = True
+
     def authenticate(self, auth):
         user = Auth(auth).check()
         return user
@@ -53,8 +58,9 @@ class XMLRPCAPI(xmlrpc.XMLRPC, object):
         query = Query(*args)
 
         cls = Forwarder if len(self.platforms) == 1 else Router
-        interface = cls(self.platforms)
-        interface.forward(query, user=user)
+
+        interface = cls(self.platforms, self.allowed_capabilities)
+        return interface.forward(query, user=user)
 
         # FORMER CODE FOR ROUTER
         # cb = Callback()
@@ -63,6 +69,4 @@ class XMLRPCAPI(xmlrpc.XMLRPC, object):
         # gw_or_router.set_callback(cb) # XXX should be removed from Gateway
         # gw_or_router.forward(query, deferred=False, user=user)
         # cb.wait()
-
-        return cb.results
 

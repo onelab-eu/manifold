@@ -16,12 +16,14 @@
 from networkx                                         import DiGraph
 from networkx.algorithms.traversal.depth_first_search import dfs_preorder_nodes
 
-from manifold.core.ast            import AST, From, Union, LeftJoin
-from manifold.core.table          import Table 
-from manifold.core.query          import Query 
-from manifold.util.type           import returns, accepts
-from manifold.core.dbgraph        import find_root
-from manifold.models.user         import User
+from manifold.core.ast          import AST, From, Union, LeftJoin
+from manifold.core.table        import Table 
+from manifold.core.query        import Query 
+from manifold.util.type         import returns, accepts
+from manifold.core.dbgraph      import find_root
+from manifold.models.user       import User
+from manifold.util.callback     import Callback
+from manifold.core.filter       import Filter
 
 class QueryPlan(object):
 
@@ -41,7 +43,7 @@ class QueryPlan(object):
         # What if we cannot answer the query ? or answer it partially
         # What about subqueries, and onjoin ?
 
-        return self.build_simple(query, metadata, allowed_capabilities)
+        return None
 
     def build_simple(self, query, metadata, allowed_capabilities):
         """
@@ -50,49 +52,55 @@ class QueryPlan(object):
 
         # XXX Check whether we can answer query.fact_table
 
+
+        # Here we assume we have a single platform
+        platform = metadata.keys()[0]
+        announce = metadata[platform][query.fact_table] # eg. table test
+        
+
         # Set up an AST for missing capabilities (need configuration)
         #
         # Selection ?
-        if query.filters and not platform_capabilities.selection:
+        if query.filters and not announce.capabilities.selection:
+            if not allowed_capabilities.projection:
+                raise Exception, 'Cannot answer query: PROJECTION'
             add_selection = query.filters
-            query.filters = []
+            query.filters = Filter()
         else:
             add_selection = None
         #
         # Projection ?
-        if query.fields < platform_fields[query.fact_table] \
-                and not platform_capabilities.projection:
+        #
+        announce_fields = set([f.get_name() for f in announce.table.fields])
+        if query.fields < announce_fields and not announce.capabilities.projection:
+            if not allowed_capabilities.projection:
+                raise Exception, 'Cannot answer query: PROJECTION'
             add_projection = query.fields
-            query.fields = [] # all
+            query.fields = set()
         else:
             add_projection = None
 
-        t = Table({u'dummy':''}, {}, '', set(), set())
+        t = Table({platform:''}, {}, query.fact_table, set(), set())
         self.ast = self.ast.From(t, query)
 
         # XXX associate the From node to the Gateway
         fromnode = self.ast.root
         self.froms.append(fromnode)
-        fromnode.set_gateway(gw_or_router)
+        #fromnode.set_gateway(gw_or_router)
+        #gw_or_router.query = query
 
-        gw_or_router.query = query
 
         if add_selection:
-            print "SUPPLEMENTING selection"
             self.ast = self.ast.selection(add_selection) # set of predicates
         if add_projection:
-            print "SUPPLEMENTING projection"
             self.ast = self.ast.projection(add_projection) # list of fields
 
-        print "GENERATED AST="
         self.ast.dump()
 
-    def set_callback(self, callback):
-        self.ast.set_callback(callback)
 
     def execute(self, callback=None):
         cb = callback if callback else Callback()
-        self.set_callback(cb)
+        self.ast.set_callback(cb)
         self.ast.start()
         if not callback:
             return cb.get_results()

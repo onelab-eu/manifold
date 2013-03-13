@@ -14,12 +14,14 @@
 import sys
 from copy                       import copy, deepcopy
 
-from manifold.core.filter         import Filter, Predicate
-from manifold.core.query          import Query
-from manifold.core.table          import Table 
-from manifold.core.field          import Field
-from manifold.core.key            import Key
-from manifold.util.type           import returns, accepts
+from types                      import StringTypes
+from manifold.core.filter       import Filter, Predicate
+from manifold.core.query        import Query
+from manifold.core.table        import Table 
+from manifold.core.field        import Field
+from manifold.core.key          import Key
+from manifold.util.type         import returns, accepts
+from manifold.util.log          import *
 
 # NOTES
 # - What about a Record type
@@ -227,7 +229,7 @@ class From(Node):
         """
         return self.table
 
-    @returns(unicode)
+    @returns(StringTypes)
     def get_platform(self):
         """
         \return The name of the platform queried by this FROM node.
@@ -293,9 +295,12 @@ class From(Node):
 
     def set_gateway(self, gateway):
         gateway.set_callback(self.callback)
-        print gateway
-        print self.callback
         self.gateway = gateway
+
+    def set_callback(self, callback):
+        super(From, self).set_callback(callback)
+        if self.gateway:
+            self.gateway.set_callback(callback)
 
 class FromTable(From):
     """
@@ -638,9 +643,11 @@ class Selection(Node):
         \brief Processes records received by the child node 
         \param record dictionary representing the received record
         """
-        if record != LAST_RECORD and self.filters:
-            record = self.filters.filter(record)
-        self.callback(record)
+        if record == LAST_RECORD or (self.filters and self.filters.match(record)):
+            self.callback(record)
+        #if record != LAST_RECORD and self.filters:
+        #    record = self.filters.filter(record)
+        #self.callback(record)
 
 #------------------------------------------------------------------
 # UNION node
@@ -966,8 +973,8 @@ class AST(object):
         assert len(table.get_platforms()) == 1, "Table = %r should be related to only one platform" % table
 
         self.query = query
-        platforms = table.get_platforms()
-        platform = list(platforms)[0]
+        #platforms = table.get_platforms()
+        #platform = list(platforms)[0]
 
         node = From(table, query) 
         self.root = node
@@ -1089,12 +1096,19 @@ class AST(object):
 
     @property
     def callback(self):
+        log_info("I: callback property is deprecated")
         return self.root.callback
 
     @callback.setter
     def callback(self, callback):
+        log_info("I: callback property is deprecated")
         self.root.callback = callback
-        
+
+    def get_callback(self):
+        return self.root.callback
+
+    def set_callback(self, callback):
+        self.root.set_callback(callback)
 
 #------------------------------------------------------------------
 # Example

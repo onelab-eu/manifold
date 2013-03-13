@@ -120,7 +120,7 @@ class XMLRPCDaemon(Daemon):
         # This imports twisted code so we need to import it locally
         from manifold.core.xmlrpc_api import XMLRPCAPI
 
-        platforms = [Platform('dummy name', name, self.get_gateway_config(name))]
+        platforms = [Platform(u'dummy_platform', name, self.get_gateway_config(name))]
 
         try:
             reactor.listenTCP(Options().xmlrpc_port, server.Site(XMLRPCAPI(platforms, allowNone=True)))

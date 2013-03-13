@@ -29,14 +29,14 @@ class Field(object):
         self._is_array   = is_array
         self.description = description 
 
-    @returns(str)
+    @returns(StringTypes)
     def __repr__(self):
         """
         \return the string (%r) corresponding to this Field 
         """
         return "<%s>" % self.get_name()
 
-    @returns(str)
+    @returns(StringTypes)
     def __str__(self):
         """
         \return the string (%s) corresponding to this Field 
@@ -80,18 +80,18 @@ class Field(object):
             self.is_array()
         ))
 
-    @returns(str)
+    @returns(StringTypes)
     def get_description(self):
         return self.description
 
     def get_qualifier(self):
         return self.qualifier
 
-    @returns(str)
+    @returns(StringTypes)
     def get_type(self):
         return self.type
 
-    @returns(str)
+    @returns(StringTypes)
     def get_name(self):
         return self.name
 
