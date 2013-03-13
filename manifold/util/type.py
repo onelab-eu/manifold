@@ -87,7 +87,6 @@ def compare_types(expected, actual):
             equal = True
             for x, y in izip(expected, actual):
                 ret = compare_types(x ,y)
-                print "recursive compare returned", ret
                 equal &= ret
             return equal
         else:
