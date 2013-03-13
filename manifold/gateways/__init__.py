@@ -14,6 +14,8 @@ class Gateway(object):
 
     __metaclass__ = PluginFactory
 
+    # XXX most of these parameters should not be required to construct a gateway
+    # see manifold.core.forwarder for example
     def __init__(self, router, platform, query, config, user_config, user):
         """
         Constructor
@@ -43,6 +45,9 @@ class Gateway(object):
 
     def set_callback(self, cb):
         self.callback = cb
+
+    def set_query(self, query):
+        self.query = query
 
 
 #-------------------------------------------------------------------------------

@@ -2,12 +2,34 @@
 from __future__ import absolute_import
 
 import csv, os.path
-
+from datetime                           import datetime
 from manifold.gateways                  import Gateway
 from manifold.metadata.MetadataClass    import MetadataClass
 from manifold.core.announce             import Announce
 from manifold.core.capabilities         import Capabilities
 from manifold.core.field                import Field 
+
+# Heuristics for type guessing
+
+heuristics = (
+    lambda value: datetime.strptime(value, "%Y-%m-%d"),
+    int,
+    float,
+)
+
+def convert(value):
+    for type in heuristics:
+        try:
+            return type(value)
+        except ValueError:
+            continue
+    # All other heuristics failed it is a string
+    return value
+
+def convert_dict(dic):
+    for k, v in dic.items():
+        dic[k] = convert(v)
+    return dic
 
 class CSVGateway(Gateway):
 
@@ -45,7 +67,7 @@ class CSVGateway(Gateway):
             reader = csv.DictReader(csvfile, dialect=self.dialect)
             try:
                 for row in reader:
-                    self.callback(row)
+                    self.callback(convert_dict(row))
                 self.callback(None)
             except csv.Error as e:
                 sys.exit('file %s, line %d: %s' % (filename, reader.line_num, e))

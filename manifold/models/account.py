@@ -27,7 +27,7 @@ class Account(Base):
         if not gtype:
             print "I: Undefined gateway"
             return {}
-        gw = getattr(__import__('tophat.gateways', globals(), locals(), gtype), gtype)
+        gw = getattr(__import__('manifold.gateways', globals(), locals(), gtype), gtype)
 
         print "I: Calling manage on the platform"
         config = json.dumps(gw.manage(self.user, self.platform, json.loads(self.config)))

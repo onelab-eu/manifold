@@ -88,7 +88,7 @@ class Determinant(object):
         """
         return self.key
 
-    @returns(str)
+    @returns(StringTypes)
     def get_method_name(self):
         """
         \returns A string (the method_name related to this determinant) (m)
@@ -111,14 +111,14 @@ class Determinant(object):
         assert isinstance(x, Determinant), "Invalid paramater %r (type %r)" % (x, type(x))
         return self.get_key() == x.get_key() and self.get_method_name() == x.get_method_name()
 
-    @returns(str)
+    @returns(StringTypes)
     def __str__(self):
         """
         \return The (verbose) string representing a Determinant instance
         """
         return self.__repr__()
 
-    @returns(str)
+    @returns(StringTypes)
     def __repr__(self):
         """
         \return The (synthetic) string representing a Determinant instance
@@ -238,7 +238,7 @@ class Fd(object):
                 fds.add(Fd(determinant, map_field_methods))
         return fds 
 
-    #@returns(str)
+    #@returns(StringTypes)
     def __str__(self):
         cr  = ""
         cr1 = ""
@@ -260,7 +260,7 @@ class Fd(object):
             cr
         )
 
-    @returns(str)
+    @returns(StringTypes)
     def __repr__(self):
         return "[%r => {%s}]" % (
             self.get_determinant(),
@@ -363,11 +363,11 @@ class Fds(set):
             fds |= fd.split()
         return fds 
 
-    @returns(str)
+    @returns(StringTypes)
     def __str__(self):
         return '\n'.join(["%s" % fd for fd in self])
 
-    @returns(str)
+    @returns(StringTypes)
     def __repr__(self):
         return '\n'.join(["%r" % fd for fd in self])
 
