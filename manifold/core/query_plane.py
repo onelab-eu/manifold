@@ -23,7 +23,7 @@ from manifold.util.type           import returns, accepts
 from manifold.core.dbgraph        import find_root
 from manifold.models.user         import User
 
-class QueryPlane(object):
+class QueryPlan(object):
 
     def __init__(self):
         self.ast = AST()
@@ -129,7 +129,7 @@ class QueryPlane(object):
 
 @accepts(User, Query, DiGraph)
 @returns(AST)
-def build_query_plane(user, user_query, pruned_tree):
+def build_query_plan(user, user_query, pruned_tree):
     """
     \brief Compute a query plane according to a pruned tree
     \param user The User instance representing the user issuing the query
@@ -191,6 +191,14 @@ def build_query_plane(user, user_query, pruned_tree):
             u = preds[0]
             predicate = pruned_tree[u][v]["predicate"]
             ast.left_join(AST(user = user).union(from_asts, key), predicate)
+
+    # Add WHERE node the tree
+    if user_query.get_where() != set():
+        ast.selection(user_query.get_where())
+
+    # Add SELECT node above the tree
+    ast.projection(list(user_query.get_select()))
+
     return ast
 
 #@returns(AST)
@@ -240,184 +248,3 @@ def build_query_plane(user, user_query, pruned_tree):
 ##    callback From sur union
 ##    return From
 #    return None
-
-#OBSOLETE|@returns(From)
-#OBSOLETE|@accepts(dict, Table, str)
-#OBSOLETE|def get_from(froms, table, platform):
-#OBSOLETE|    """
-#OBSOLETE|    \brief Retrieve (and create if not found) a From node
-#OBSOLETE|        thanks to a dictionnary
-#OBSOLETE|    \param froms A dictionnary {String : From} mapping for
-#OBSOLETE|        a given table
-#OBSOLETE|    \param table A Table instance
-#OBSOLETE|    \param platform A String value (the name of the platform
-#OBSOLETE|        providing the table)
-#OBSOLETE|    \return The corresponding From node
-#OBSOLETE|    """
-#OBSOLETE|    table_name = table.get_name()
-#OBSOLETE|    if table_name not in froms:
-#OBSOLETE|        froms[table_name] = {}
-#OBSOLETE|    if platform not in froms[table_name]:
-#OBSOLETE|        froms[table_name][platform] =  From(query, table_name, table.get_keys())
-#OBSOLETE|    return froms[table_name][platform]
-#OBSOLETE|
-#OBSOLETE|def get_qp_rec(ast, tree, u, froms):
-#OBSOLETE|    """
-#OBSOLETE|    \brief (Internal use)
-#OBSOLETE|    \param ast The AST we are building 
-#OBSOLETE|    \param tree A DiGraph instance representing the 3nf-tree
-#OBSOLETE|    \param u The Table of the 3-nf tree we're processing
-#OBSOLETE|    \params froms A dictionnary which stores the From nodes
-#OBSOLETE|        already inserted.
-#OBSOLETE|        froms[table_name][platforms]
-#OBSOLETE|    """
-#OBSOLETE|
-#OBSOLETE|    # XXX Not sure we need the _froms_ parameter
-#OBSOLETE|    u_partitions = u.get_partitions()
-#OBSOLETE|    u_platforms = u_partitions.keys()
-#OBSOLETE|
-#OBSOLETE|    # We should have a pass that reconstitute platforms along with some
-#OBSOLETE|    # attributes: overlap/disjoint - maximum/full
-#OBSOLETE|    #
-#OBSOLETE|    # I propose that we have two properties:
-#OBSOLETE|    # platforms = name + clause = partition criterion
-#OBSOLETE|    # partitions = set of (set of platforms realizing a partition + attributes)
-#OBSOLETE|    #
-#OBSOLETE|    # After pruning, 
-#OBSOLETE|    # - partitions of the full space will be replaced by partitions of the
-#OBSOLETE|    # needed space, and useless platforms will have been discarded
-#OBSOLETE|    # - only one partition will remain (most exact/complete, then
-#OBSOLETE|    # less costly. eventually involving the least number of platforms in the
-#OBSOLETE|    # cost).
-#OBSOLETE|
-#OBSOLETE|#    query = Query(fact_table = u.name)
-#OBSOLETE|#    print "u = %s" % u
-#OBSOLETE|#
-#OBSOLETE|#    # Map a right table to its left tables
-#OBSOLETE|#    map_joins = dict() 
-#OBSOLETE|#    set_unions = set()
-#OBSOLETE|#
-#OBSOLETE|#    # For each sv successor of u
-#OBSOLETE|#    for e_uv in tree.out_edges(u):
-#OBSOLETE|#        (_, v) = e_uv
-#OBSOLETE|#        e_uv_type = tree[u][v]["type"]
-#OBSOLETE|#        u_childs = []
-#OBSOLETE|#
-#OBSOLETE|#        if e_uv_type in ["-->", "~~>"]:
-#OBSOLETE|#            # Check consistency
-#OBSOLETE|#            if u.get_platforms() != v.get_platforms():
-#OBSOLETE|#                raise ValueError("Inconsistant platforms: (%s %r %s): %s %s", (u, e_uv_type, v, u.get_platforms(), v.get_platforms())
-#OBSOLETE|#
-#OBSOLETE|#            # For each up in u, for each vp in v, memorize "up LEFT JOIN vp"
-#OBSOLETE|#            plaforms_uv = u.get_platforms()
-#OBSOLETE|#            for p in plaforms_uv :
-#OBSOLETE|#                up = get_from(froms, u, p) 
-#OBSOLETE|#                vp = get_from(froms, v, p)
-#OBSOLETE|#                if up no in map_joins:
-#OBSOLETE|#                    map_joins = set()
-#OBSOLETE|#                map_joins[up].add(vp)
-#OBSOLETE|#
-#OBSOLETE|#            # Memorize that we've to build a "UNION of each up"
-#OBSOLETE|#            set_union.add(u.name)
-#OBSOLETE|#
-#OBSOLETE|#        elif e_uv_type == "==>":
-#OBSOLETE|#            # Check consistency
-#OBSOLETE|#            if u.get_platforms() <= v.get_platforms():
-#OBSOLETE|#                raise ValueError("Inconsistant platforms: (%s %r %s): %s %s", (u, e_uv_type, v, u.get_platforms(), v.get_platforms())
-#OBSOLETE|#
-#OBSOLETE|#            # platforms in u provide more information than those in v
-#OBSOLETE|#            # If u in the prune_tree, it means that we require some fields
-#OBSOLETE|#            # only in u, so only the platforms related to u can help.
-#OBSOLETE|#            
-#OBSOLETE|#        else:
-#OBSOLETE|#            raise ValueError("Invalid arc type: (%s %r %s)" % (u, e_uv_type, v))
-#OBSOLETE|#                 
-#OBSOLETE|#            
-#OBSOLETE|#
-#OBSOLETE|#        print "(u,v) = (%r %s %r)" % (u, tree[u][v]["type"], v)
-#OBSOLETE|        
-#OBSOLETE|
-#OBSOLETE|@accepts(User, DiGraph)
-#OBSOLETE|@returns(AST)
-#OBSOLETE|def build_query_plane(user, pruned_tree):
-#OBSOLETE|    """
-#OBSOLETE|    \brief Compute a query plane according to a pruned tree
-#OBSOLETE|    \param user The User instance representing the user issuing the query
-#OBSOLETE|        \sa tophat/model/user.py
-#OBSOLETE|    \param pruned_tree A DiGraph instance representing the 3nf-tree
-#OBSOLETE|        such as each remaining key in and each remaining field
-#OBSOLETE|        (stored in the DiGraph nodes) is needed 
-#OBSOLETE|        - either because it is explicitly queried by the user or either because
-#OBSOLETE|        - either because it is needed to join tables involved in the 3nf-tree)
-#OBSOLETE|    \return an AST instance which describes the resulting query plane
-#OBSOLETE|    """
-#OBSOLETE|    ast = None # AST(user = user)
-#OBSOLETE|    root_table = find_root(pruned_tree)
-#OBSOLETE|
-#OBSOLETE|    # The AST contains two types of information: which joins must be done before
-#OBSOLETE|    # others, which fields are required as join keys
-#OBSOLETE|    # Join order can be impacted by several metrics, such as pi and sigmas
-#OBSOLETE|    # We are not considering such optimizations at the moment, and only extract
-#OBSOLETE|    # one arbitrary legit order
-#OBSOLETE|
-#OBSOLETE|    from_cache = {}
-#OBSOLETE|    # key = platform method
-#OBSOLETE|
-#OBSOLETE|    def get_joined_tables(table, platform): # pruned_tree
-#OBSOLETE|        # adjacency dict keyed by neighbor to edge attributes
-#OBSOLETE|        for succ, edge_data in pruned_tree[table]:
-#OBSOLETE|            if not platform in succ.get_platforms():
-#OBSOLETE|                continue
-#OBSOLETE|            try:
-#OBSOLETE|                succ.get_method(platform)
-#OBSOLETE|            except:
-#OBSOLETE|                continue
-#OBSOLETE|            #edge_type = 
-#OBSOLETE|            #is_joined = 
-#OBSOLETE|            
-#OBSOLETE|        
-#OBSOLETE|
-#OBSOLETE|    def get_from_ast(platform, table):
-#OBSOLETE|        cache = []
-#OBSOLETE|        if (platform, table) in cache:
-#OBSOLETE|            # Return a FromList node cached
-#OBSOLETE|            pass 
-#OBSOLETE|        else:
-#OBSOLETE|            # Determines the set of FromList operators that have to be created
-#OBSOLETE|            # and add them to a list
-#OBSOLETE|            pass#get_joined_tables
-#OBSOLETE|
-#OBSOLETE|            # Create a FROM NODE towards this platform
-#OBSOLETE|
-#OBSOLETE|
-#OBSOLETE|    # We visit the nodes one by one
-#OBSOLETE|    nodes = dfs_preorder_nodes(pruned_tree, root_table)
-#OBSOLETE|    print "Nodes of the pruned tree:"
-#OBSOLETE|    for node in nodes:
-#OBSOLETE|        partitions = node.get_partitions()
-#OBSOLETE|        subtree = AST(user=user)
-#OBSOLETE|        if len(partitions) == 1:
-#OBSOLETE|            print "no union"
-#OBSOLETE|            # Retrieve the From operator associated to platform::method
-#OBSOLETE|            #  - either as a FromList operator, for information provided
-#OBSOLETE|            #  indirectly by another query
-#OBSOLETE|            #  - or as a From operator, for information that needs to be
-#OBSOLETE|            #  retrieved directly from platforms
-#OBSOLETE|            platform = partitions.keys()[0]
-#OBSOLETE|            from_ast = get_from_ast(platform, node.name)
-#OBSOLETE|            subtree = from_ast 
-#OBSOLETE|        else:
-#OBSOLETE|            print "union"
-#OBSOLETE|            # A node is composed of several partitions, which must all be
-#OBSOLETE|            # UNION'ed: { platform : filter }
-#OBSOLETE|            for platform, clause in partitions.items():
-#OBSOLETE|                # NOTE clause is unused
-#OBSOLETE|                from_ast = get_from_ast(platform, node.name)
-#OBSOLETE|                subtree = ast.union(from_ast)
-#OBSOLETE|        ast = ast.join(subtree)
-#OBSOLETE|
-#OBSOLETE|    
-#OBSOLETE|    #froms = {}
-#OBSOLETE|    #get_qp_rec(ast, pruned_tree, root_table, froms)
-#OBSOLETE|
-#OBSOLETE|    return ast

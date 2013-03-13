@@ -1048,6 +1048,7 @@ class AST(object):
         """
         assert not self.is_empty(),      "AST not initialized"
         assert isinstance(filters, set), "Invalid filters = %r (%r)" % (filters, type(filters))
+        assert filters != set(),         "Empty set of filters"
 
         old_root = self.get_root()
         self.root = Selection(old_root, filters)

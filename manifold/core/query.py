@@ -116,9 +116,9 @@ class Query(object):
     @returns(str)
     def __str__(self):
         return "SELECT %s FROM %s WHERE %s" % (
-            ", ".join(self.fields),
-            self.fact_table,
-            self.filters
+            ", ".join(self.get_select()),
+            self.get_from(),
+            self.get_where()
         )
 
     @returns(str)
@@ -151,7 +151,6 @@ class Query(object):
     def get_params(self):
         return self.params
 
-    
     @returns(str)
     def get_ts(self):
         return self.ts

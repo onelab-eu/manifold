@@ -168,10 +168,11 @@ class Table:
         \brief Convert a Table instance into a string ('%s')
         \return The corresponding string
         """
-        return "{%s}::%s {\n\t%s;\n\n\t%s;\n};" % (
+        return "{%s}::%s {\n\t%s\n\n\t%s;\n};" % (
             ', '.join([p          for p in sorted(self.get_platforms())]),
             self.get_name(),
-            ';\n\t'.join(["%s" % f for f in sorted(self.get_fields())]),
+#            ';\n\t'.join(["%s" % f for f in sorted(self.get_fields())]),
+            '\n\t'.join(["%s;\t// via %r" % (field, methods) for field, methods in self.map_field_methods.items()]),
             ';\n\t'.join(["%s" % k for k in self.get_keys()])
         )
 
@@ -495,6 +496,8 @@ class Table:
         """
         \brief Find fields verifying: 
             exists f | u.f.t == v.n (P1)
+            u = self
+            v = table
         \param table The target candidate table
         \return The set of Field f verifying (P1) 
         """
@@ -506,6 +509,11 @@ class Table:
 
     @returns(Keys)
     def get_connecting_keys(self, fields):
+        """
+        \brief Find Key(s) of self such has k \subseteq fields
+        \param fields A set of Field instances
+        \return The corresponding Keys (set of Key) instance
+        """
         connecting_keys = Keys()
         for key in self.get_keys():
             if key <= fields:
