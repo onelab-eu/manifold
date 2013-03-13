@@ -143,7 +143,7 @@ def build_query_plan(user, user_query, pruned_tree):
     \return an AST instance which describes the resulting query plane
     """
     print "-" * 80
-    print "build_query_plane()"
+    print "build_query_plan()"
     print "-" * 80
     print "W: dummy cache" 
     cache = None 

@@ -14,7 +14,7 @@ from manifold.core.dbnorm         import to_3nf
 from manifold.core.dbgraph        import DBGraph
 from manifold.util.dfs            import dfs
 from manifold.core.pruned_tree    import build_pruned_tree
-from manifold.core.query_plane    import build_query_plan
+from manifold.core.query_plan    import build_query_plan
 from manifold.util.reactor_thread import ReactorThread
 from manifold.util.type           import returns, accepts
 from manifold.gateways.sfa        import ADMIN_USER
