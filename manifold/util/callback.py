@@ -36,4 +36,8 @@ class Callback:
     def wait(self):
         self.event.wait()
         self.event.clear()
+
+    def get_results(self):
+        self.wait()
+        return self.results
         

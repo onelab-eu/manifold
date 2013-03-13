@@ -98,19 +98,11 @@ class PostgreSQLGateway(Gateway):
     # PostgreSQL interface and helper functions
     #---------------------------------------------------------------------------
 
-    # XXX This should be set in a parent class
-    def __str__(self):
-        return "<PostgreSQLGateway %s>" % self.query
-
     def __init__(self, router, platform, query, config, user_config, user):
         super(PostgreSQLGateway, self).__init__(router, platform, query, config, user_config, user)
         self.debug = False
         #self.debug = True
         self.connection = None
-        self.callback = None
-
-    def set_callback(self, cb):
-        self.callback = cb
 
     def cursor(self, cursor_factory=None): #psycopg2.extras.NamedTupleCursor
         if self.connection is None:
@@ -446,9 +438,6 @@ class PostgreSQLGateway(Gateway):
         self.start()
 
     def start(self):
-        # XXX We never stop gateways even when finished. Investigate ?
-        self.started = True
-
         sql = self.get_sql()
         params = None
 
@@ -459,7 +448,7 @@ class PostgreSQLGateway(Gateway):
         return 
 
     def get_metadata(self):
-        routes = []
+        announces = []
         
         curs = self.cursor(cursor_factory=psycopg2.extras.NamedTupleCursor)
         curs.execute(self.SQL_TABLE_NAMES)
@@ -508,7 +497,11 @@ class PostgreSQLGateway(Gateway):
             mc.keys.append(primary_keys[table_name])
             #mc.partitions.append()
         
-            # Platform 
-        
-            routes.append(mc)
-        return routes
+            cap = Capabilities()
+            cap.selection = True
+            cap.projection = True
+
+            announce = Announce(mc, cap)
+            announces.append(announce)
+
+        return announces

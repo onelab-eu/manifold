@@ -36,6 +36,15 @@ class Gateway(object):
         self.user_config = user_config
         self.user        = user
 
+        self.callback    = None
+
+    def __str__(self):
+        return "<%s %s>" % (self.__class__.__name__, self.query)
+
+    def set_callback(self, cb):
+        self.callback = cb
+
+
 #-------------------------------------------------------------------------------
 # List of gateways
 #-------------------------------------------------------------------------------
@@ -53,6 +62,7 @@ def register():
     from manifold.gateways.tdmi             import TDMIGateway
     from manifold.gateways.sfa              import SFAGateway
     from manifold.gateways.maxmind          import MaxMindGateway
+    from manifold.gateways.csv              import CSVGateway
 
 register()
 

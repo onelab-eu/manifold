@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from manifold.gateways.postgresql import PostgreSQL
+from manifold.gateways.postgresql import PostgreSQLGateway
 from manifold.core.query import Query
 from manifold.util.log import Logger
 
