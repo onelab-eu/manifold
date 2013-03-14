@@ -2,9 +2,6 @@ from manifold.auth              import Auth
 from manifold.core.query        import Query
 from manifold.util.options      import Options
 from twisted.web                import xmlrpc
-from manifold.core.forwarder    import Forwarder
-from manifold.core.router       import Router
-from manifold.core.capabilities import Capabilities
 
 #-------------------------------------------------------------------------------
 # Class XMLRPCAPI
@@ -26,18 +23,14 @@ class XMLRPCAPI(xmlrpc.XMLRPC, object):
 
     def __init__(self, *args, **kwargs):
         if len(args) == 1:
-            assert 'platforms' not in kwargs, "Cannot specify platforms argument twice"
-            self.platforms = args[0]
+            assert 'interface' not in kwargs, "Cannot specify interface argument twice"
+            self.interface = args[0]
         elif len(args) == 0:
-            assert 'platforms' in kwargs, "platforms argument mush be specified"
-            self.platforms = kwargs['platforms']
+            assert 'interface' in kwargs, "interface argument mush be specified"
+            self.interface = kwargs['interface']
         else:
             raise Exception, "Wrong arguments"
         super(XMLRPCAPI, self).__init__(**kwargs)
-
-        self.allowed_capabilities = Capabilities()
-        self.allowed_capabilities.selection = True
-        self.allowed_capabilities.projection = True
 
     def authenticate(self, auth):
         user = Auth(auth).check()
@@ -57,10 +50,7 @@ class XMLRPCAPI(xmlrpc.XMLRPC, object):
         # The rest defines the query
         query = Query(*args)
 
-        cls = Forwarder if len(self.platforms) == 1 else Router
-
-        interface = cls(self.platforms, self.allowed_capabilities)
-        return interface.forward(query, user=user)
+        return self.interface.forward(query, user=user)
 
         # FORMER CODE FOR ROUTER
         # cb = Callback()

@@ -27,6 +27,13 @@ class Query(object):
     """
 
     def __init__(self, *args, **kwargs):
+
+        # Initialize optional parameters
+        self.filters = Filter([])
+        self.params  = {}
+        self.fields  = set([])
+        self.ts      = "now" 
+
         #l = len(kwargs.keys())
         len_args = len(args)
 
@@ -91,8 +98,8 @@ class Query(object):
 
             if kwargs:
                 raise ParameterError, "Invalid parameter(s) : %r" % kwargs.keys()
-        else:
-                raise ParameterError, "No valid constructor found for %s : args = %r" % (self.__class__.__name__, args)
+        #else:
+        #        raise ParameterError, "No valid constructor found for %s : args = %r" % (self.__class__.__name__, args)
 
         if not self.filters: self.filters = Filter([])
         if not self.params:  self.params  = {}
@@ -154,3 +161,49 @@ class Query(object):
     @returns(StringTypes)
     def get_ts(self):
         return self.ts
+
+    #--------------------------------------------------------------------------- 
+    # Checks
+    #--------------------------------------------------------------------------- 
+
+    def make_filters(self, filters):
+        return Filter(filters)
+
+    def make_fields(self, fields):
+        if isinstance(fields, (list, tuple)):
+            return set(fields)
+        else:
+            raise Exception, "Invalid field specification"
+
+    #--------------------------------------------------------------------------- 
+    # LINQ-like syntax
+    #--------------------------------------------------------------------------- 
+
+    @classmethod
+    def action(self, action, fact_table):
+        query = Query()
+        query.action = 'get'
+        query.fact_table = fact_table
+        return query
+
+    @classmethod
+    def get(self, fact_table): return self.action('get', fact_table)
+
+    @classmethod
+    def update(self, fact_table): return self.action('update', fact_table)
+    
+    @classmethod
+    def create(self, fact_table): return self.action('create', fact_table)
+    
+    @classmethod
+    def delete(self, fact_table): return self.action('delete', fact_table)
+    
+    @classmethod
+    def execute(self, fact_table): return self.action('execute', fact_table)
+
+    def filters(self, filters):
+        self.filters = self.make_filters(filters)
+        return self
+
+    def fields(self, fields):
+        self.fields = self.make_fields(fields)

@@ -1,8 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from manifold.util.plugin_factory import PluginFactory
-#from manifold.util.misc import find_local_modules
+from manifold.core.announce         import Announces
+from manifold.util.plugin_factory   import PluginFactory
+#from manifold.util.misc             import find_local_modules
 
 #-------------------------------------------------------------------------------
 # Generic Gateway class
@@ -49,6 +50,13 @@ class Gateway(object):
     def set_query(self, query):
         self.query = query
 
+    def get_metadata(self):
+        gateway_type = self.__class__.__name__
+        if gateway_type.endswith('Gateway'):
+            gateway_type = gateway_type[:-7]
+        gateway_type = gateway_type.lower()
+        return Announces.from_dot_h(self.platform, gateway_type)
+
 
 #-------------------------------------------------------------------------------
 # List of gateways
@@ -68,6 +76,8 @@ def register():
     from manifold.gateways.sfa              import SFAGateway
     from manifold.gateways.maxmind          import MaxMindGateway
     from manifold.gateways.csv              import CSVGateway
+    from manifold.gateways.manifold_xmlrpc  import ManifoldGateway
+    from manifold.gateways.sqlalchemy       import SQLAlchemyGateway
 
 register()
 
