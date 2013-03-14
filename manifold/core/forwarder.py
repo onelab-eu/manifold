@@ -8,5 +8,3 @@ class Forwarder(Interface):
         qp.build_simple(query, self.metadata, self.allowed_capabilities)
         self.instanciate_gateways(qp)
         return qp.execute()
-
-

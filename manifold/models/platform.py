@@ -1,9 +1,8 @@
 from sqlalchemy import Column, Integer, String, Boolean, Enum
 
 from manifold.models import Base
-
-import logging
-log = logging.getLogger(__name__)
+from manifold.core.platform import Platform as Object
+import json
 
 class Platform(Base):
     platform_id = Column(Integer, primary_key=True, doc="Platform identifier")
@@ -22,3 +21,7 @@ class Platform(Base):
     gateway_type = Column(String, doc="Type of the gateway to use to connect to this platform")
     auth_type = Column(Enum('none', 'default', 'user', 'reference', 'managed'), default='default')
     config = Column(String, doc="Default configuration (serialized in JSON)")
+
+    def get_object(self):
+        config = json.loads(self.config) if self.config else {}
+        return Object(self.platform, self.gateway_type, config)

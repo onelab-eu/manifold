@@ -1,98 +1,31 @@
-import os, sys, json, time, traceback #, threading
-from types                        import StringTypes
+import os, sys, json, copy, time, traceback #, threading
+from types                          import StringTypes
+from twisted.internet               import defer
+from manifold.core.filter           import Predicate
+from manifold.core.ast              import AST
+from manifold.core.key              import Key, Keys
+from manifold.core.query            import Query
+from manifold.core.table            import Table
+from manifold.gateways              import Gateway
+from manifold.models                import DBPlatform as Platform, DBUser as User, DBAccount as Account, db
+from manifold.core.dbnorm           import to_3nf 
+from manifold.core.dbgraph          import DBGraph
+from manifold.util.dfs              import dfs
+from manifold.core.pruned_tree      import build_pruned_tree
+from manifold.core.query_plan       import build_query_plan
+from manifold.util.type             import returns, accepts
+from manifold.gateways.sfa          import ADMIN_USER
+from manifold.util.callback         import Callback
+from manifold.core.interface        import Interface
+from manifold.util.reactor_thread   import ReactorThread
+# XXX cannot use the wrapper with sample script
+# XXX cannot use the thread with xmlrpc -n
+#from manifold.util.reactor_wrapper  import ReactorWrapper as ReactorThread
 
-from twisted.internet             import defer
+# TO BE REMOVED
+from sfa.trust.credential           import Credential
 
-from manifold.core.filter         import Predicate
-from manifold.core.ast            import AST
-from manifold.core.key            import Key, Keys
-from manifold.core.query          import Query
-from manifold.core.table          import Table
-from manifold.gateways            import Gateway
-from manifold.models              import *
-from manifold.core.dbnorm         import to_3nf 
-from manifold.core.dbgraph        import DBGraph
-from manifold.util.dfs            import dfs
-from manifold.core.pruned_tree    import build_pruned_tree
-from manifold.core.query_plan    import build_query_plan
-from manifold.util.reactor_thread import ReactorThread
-from manifold.util.type           import returns, accepts
-from manifold.gateways.sfa        import ADMIN_USER
-from manifold.metadata.Metadata   import import_file_h
-from manifold.util.callback       import Callback
-
-from sfa.trust.credential         import Credential
-
-#import copy
-#import time
-#import random
-#import base64
-#
-#from sqlalchemy.sql          import operators
-#
-#from tophat.router.conf      import Conf
-#from tophat.router.rib       import RIB
-#from tophat.router.fib       import FIB
-#from tophat.router.flowtable import FlowTable
-#from manifold.models           import *
-#from manifold.util.misc        import get_sqla_filters, xgetattr
-
-STATIC_ROUTES_FILE = "/usr/share/myslice/metadata/"
 CACHE_LIFETIME     = 1800
-
-#------------------------------------------------------------------
-# Class Destination
-# Represent the destination (a query in our case) of a TopHat route
-#------------------------------------------------------------------
-#
-#class Destination(Destination, Query):
-#    """
-#    Implements a destination in TopHat == a view == a query
-#    """
-#    
-#    def __str__(self):
-#        return "<Destination / Query: %s" % self.query
-
-#------------------------------------------------------------------
-# Class Route
-#------------------------------------------------------------------
-
-class Route(object):
-    """
-    Implements a TopHat route.
-    """
-
-    pass
-#
-#    def __init__(self, destination, peer, cost, timestamp):
-#
-#        if type(destination) != Destination:
-#            raise TypeError("Destination of type %s expected in argument. Got %s" % (type(destination), Destination))
-#
-#        # Assert the route corresponds to an existing peer
-#        # Assert the cost corresponds to a right cost
-#        # Eventually the timestamp would not be a parameter but assigned
-#
-#        super(Route, self).__init__(self, destination, peer, cost, timestamp)
-#
-#    def push(identifier, record):
-#        pass
-
-#------------------------------------------------------------------
-# Class Cost
-# Cost related to a route in the routing table
-#------------------------------------------------------------------
-#
-#class Cost(int):
-#    """
-#    Let's use (N, min, +) semiring for cost
-#    """
-#
-#    def __add__(self, other):
-#        return Cost(min(self, other))
-#
-#    def __mul__(self, other):
-#        return Cost(self + other)
 
 #------------------------------------------------------------------
 # Class Router
@@ -100,94 +33,33 @@ class Route(object):
 # does not handle routing messages
 #------------------------------------------------------------------
 
-class Router(object):
+class Router(Interface):
     """
     Implements a TopHat router.
 
     Specialized to handle Announces/Routes, ...
     """
 
-    def __init__(self):
-        print "I: Init Router" 
-        self.reactor = ReactorThread()
-
-        #self.route_cls = route_cls
-        #self.conf = Conf()
-        self.rib = {} #RIB(dest_cls, Route)
-        #self.fib = FIB(Route)
-        #self.flow_table = FlowTable(route_cls)
-        self.boot()
-
-        # account.manage()
-
-        # XXX we insert a dummy platform
-        #p = Platform(platform = 'mytestbed', platform_longname='MyTestbed')
-        #db.add(p) 
-        #p = Platform(platform = 'tophat', platform_longname='TopHat')
-        #db.add(p) 
-
-        # initialize dummy list of credentials to be uploaded during the
-        # current session
-        self.cache = {}
-
     def boot(self):
         #print "I: Booting router"
         # Install static routes in the RIB and FIB (TODO)
         #print "D: Reading static routes in: '%s'" % self.conf.STATIC_ROUTES_FILE
-        static_routes = self.fetch_static_routes(STATIC_ROUTES_FILE)
+        #static_routes = self.fetch_static_routes(STATIC_ROUTES_FILE)
         #self.rib[dest] = route
+        ReactorThread().start_reactor()
+        # initialize dummy list of credentials to be uploaded during the
+        # current session
+        self.cache = {}
+
+        super(Router, self).boot()
+
         self.build_tables()
 
-        # Read peers into the configuration file
-        # TODO
-
     def __enter__(self):
-        self.reactor.startReactor()
         return self
 
     def __exit__(self, type, value, traceback):
-        self.reactor.stopReactor()
-        self.reactor.join()
-
-    def import_file_h(self, directory, platform, gateway_type):
-        """
-        \brief Import a .h file (see manifold.metadata/*.h)
-        \param directory The directory storing the .h files
-            Example: router.conf.STATIC_ROUTES_FILE = "/usr/share/myslice/metadata/"
-        \param platform The name of the platform we are configuring
-            Examples: "ple", "senslab", "tophat", "omf", ...
-        \param gateway_types The type of the gateway
-            Examples: "SFA", "XMLRPC", "MaxMind"
-            See:
-                sqlite3 /var/myslice/db.sqlite
-                > select gateway_type from platform;
-        """
-        # Check path
-        filename = os.path.join(directory, "%s.h" % gateway_type)
-        if not os.path.exists(filename):
-            filename = os.path.join(directory, "%s-%s.h" % (gateway_type, platform))
-            if not os.path.exists(filename):
-                raise Exception, "Metadata file '%s' not found (platform = %r, gateway_type = %r)" % (filename, platform, gateway_type)
-
-        # Read input file
-        routes = []
-        print "I: Platform %s: Processing %s" % (platform, filename)
-        (classes, enums) = import_file_h(filename)
-
-        # Check class consistency
-        for cur_class_name, cur_class in classes.items():
-            invalid_keys = cur_class.get_invalid_keys()
-            if invalid_keys:
-                raise ValueError("In %s: in class %r: key(s) not found: %r" % (filename, cur_class_name, invalid_keys))
-
-        # Rq: We cannot check type consistency while a table might refer to types provided by another file.
-        # Thus we can't use get_invalid_types yet
-
-        # Feed RIB
-        for cur_class_name, cur_class in classes.items():
-            t = Table(platform, None, cur_class_name, cur_class.fields, cur_class.keys) # None = methods
-            self.rib[t] = platform
-        return routes
+        ReactorThread().stop_reactor()
 
     def get_gateway(self, platform, query, user):
         # XXX Ideally, some parameters regarding MySlice user account should be
@@ -342,13 +214,13 @@ class Router(object):
 
         return creds
 
-    @returns(list)
-    def metadata_get_tables(self):
-        """
-        \return The list of Table instances announced in the metadata
-            collected by this router
-        """
-        return self.rib.keys() # HUM
+# DEPRECATED     @returns(list)
+# DEPRECATED     def metadata_get_tables(self):
+# DEPRECATED         """
+# DEPRECATED         \return The list of Table instances announced in the metadata
+# DEPRECATED             collected by this router
+# DEPRECATED         """
+# DEPRECATED         return self.rib.keys() # HUM
 
     @returns(Keys)
     def metadata_get_keys(self, table_name):
@@ -359,7 +231,7 @@ class Router(object):
         \return The Keys instance related to this table, None if
             table_name is not found in the metadata
         """
-        for table in self.metadata_get_tables():
+        for table in self.tables: #self.metadata_get_tables():
             if table.get_name() == table_name:
                 return table.get_keys()
         return None
@@ -369,38 +241,47 @@ class Router(object):
         \brief Compute the 3nf schema according to the Tables
             announced in the metadata
         """
-        self.g_3nf = to_3nf(self.metadata_get_tables())
+        # XXX Temporary: all announces are in MetadataClass format. Let's transform them to tables
+        self.tables = []
+        for platform, announces in self.metadata.items():
+            for class_name, announce in announces.items():
+                x = announce.table
+                table = Table(platform, None, x.class_name, x.fields, x.keys)
+                self.tables.append(table)
 
-    def fetch_static_routes(self, directory = STATIC_ROUTES_FILE):
-        """
-        \brief Retrieve static routes related to each plaform. 
-            See:
-                sqlite3 /var/myslice/db.sqlite
-                > select platform, gateway_type from platform;
-        \param directory Containing static route files. 
-        \return The corresponding static routes
-        """
-        routes = []
+        self.g_3nf = to_3nf(self.tables)
+        #self.g_3nf = to_3nf(self.metadata_get_tables())
 
-        # Query the database to retrieve which configuration file has to be
-        # loaded for each platform. 
-        platforms = db.query(Platform).filter(Platform.disabled == False).all()
-
-        # For each platform, load the corresponding .h file
-        for platform in platforms:
-            gateway = None
-            try:
-                tables = self.import_file_h(
-                    directory,
-                    platform.platform,
-                    platform.gateway_type
-                )
-            except Exception, why:
-                print "Error while importing %s in get_static_routes: %s" % (platform, why)
-            
-            routes.extend(tables)
-
-        return routes
+# DEPRECATED     def fetch_static_routes(self, directory = STATIC_ROUTES_FILE):
+# DEPRECATED         """
+# DEPRECATED         \brief Retrieve static routes related to each plaform. 
+# DEPRECATED             See:
+# DEPRECATED                 sqlite3 /var/myslice/db.sqlite
+# DEPRECATED                 > select platform, gateway_type from platform;
+# DEPRECATED         \param directory Containing static route files. 
+# DEPRECATED         \return The corresponding static routes
+# DEPRECATED         """
+# DEPRECATED         routes = []
+# DEPRECATED 
+# DEPRECATED         # Query the database to retrieve which configuration file has to be
+# DEPRECATED         # loaded for each platform. 
+# DEPRECATED         platforms = db.query(Platform).filter(Platform.disabled == False).all()
+# DEPRECATED 
+# DEPRECATED         # For each platform, load the corresponding .h file
+# DEPRECATED         for platform in platforms:
+# DEPRECATED             gateway = None
+# DEPRECATED             try:
+# DEPRECATED                 tables = self.import_file_h(
+# DEPRECATED                     directory,
+# DEPRECATED                     platform.platform,
+# DEPRECATED                     platform.gateway_type
+# DEPRECATED                 )
+# DEPRECATED             except Exception, why:
+# DEPRECATED                 print "Error while importing %s in get_static_routes: %s" % (platform, why)
+# DEPRECATED             
+# DEPRECATED             routes.extend(tables)
+# DEPRECATED 
+# DEPRECATED         return routes
 
 #OBSOLETE|    def get_platform_max_fields(self, fields, join):
 #OBSOLETE|        # Search for the platform::method that allows for the largest number of missing fields
@@ -606,70 +487,70 @@ class Router(object):
 
         return qp
 
-    #---------------
-    # Local queries
-    #---------------
-
-    def local_query_get(self, query):
-        #
-        # XXX How are we handling subqueries
-        #
-
-        fields = query.fields
-        # XXX else tap into metadata
-
-        cls = self._map_local_table[query.fact_table]
-
-        # Transform a Filter into a sqlalchemy expression
-        _filters = get_sqla_filters(cls, query.filters)
-        _fields = xgetattr(cls, query.fields) if query.fields else None
-
-        if query.fields:
-            res = db.query( *_fields ).filter(_filters)
-        else:
-            res = db.query( cls ).filter(_filters)
-
-        tuplelist = res.all()
-        # only 2.7+ table = [ { fields[idx] : val for idx, val in enumerate(t) } for t in tuplelist]
-        table = [ dict([(fields[idx], val) for idx, val in enumerate(t)]) for t in tuplelist]
-        return table
-
-    def local_query_update(self, query):
-
-        cls = self._map_local_table[query.fact_table]
-
-        _fields = xgetattr(cls, query.fields)
-        _filters = get_sqla_filters(cls, query.filters)
-        # only 2.7+ _params = { getattr(cls, k): v for k,v in query.params.items() }
-        _params = dict([ (getattr(cls, k), v) for k,v in query.params.items() ])
-
-        #db.query(cls).update(_params, synchronize_session=False)
-        db.query(cls).filter(_filters).update(_params, synchronize_session=False)
-        db.commit()
-
-        return []
-
-    def local_query_create(self, query):
-
-        assert not query.filters, "Filters should be empty for a create request"
-        #assert not query.fields, "Fields should be empty for a create request"
-
-
-        cls = self._map_local_table[query.fact_table]
-        params = cls.process_params(query.params)
-        new_obj = cls(**params)
-        db.add(new_obj)
-        db.commit()
-        
-        return []
-
-    def local_query(self, query):
-        _map_action = {
-            "get"    : self.local_query_get,
-            "update" : self.local_query_update,
-            "create" : self.local_query_create
-        }
-        return _map_action[query.action](query)
+#DEPRECATED#    #---------------
+#DEPRECATED#    # Local queries
+#DEPRECATED#    #---------------
+#DEPRECATED#
+#DEPRECATED#    def local_query_get(self, query):
+#DEPRECATED#        #
+#DEPRECATED#        # XXX How are we handling subqueries
+#DEPRECATED#        #
+#DEPRECATED#
+#DEPRECATED#        fields = query.fields
+#DEPRECATED#        # XXX else tap into metadata
+#DEPRECATED#
+#DEPRECATED#        cls = self._map_local_table[query.fact_table]
+#DEPRECATED#
+#DEPRECATED#        # Transform a Filter into a sqlalchemy expression
+#DEPRECATED#        _filters = get_sqla_filters(cls, query.filters)
+#DEPRECATED#        _fields = xgetattr(cls, query.fields) if query.fields else None
+#DEPRECATED#
+#DEPRECATED#        if query.fields:
+#DEPRECATED#            res = db.query( *_fields ).filter(_filters)
+#DEPRECATED#        else:
+#DEPRECATED#            res = db.query( cls ).filter(_filters)
+#DEPRECATED#
+#DEPRECATED#        tuplelist = res.all()
+#DEPRECATED#        # only 2.7+ table = [ { fields[idx] : val for idx, val in enumerate(t) } for t in tuplelist]
+#DEPRECATED#        table = [ dict([(fields[idx], val) for idx, val in enumerate(t)]) for t in tuplelist]
+#DEPRECATED#        return table
+#DEPRECATED#
+#DEPRECATED#    def local_query_update(self, query):
+#DEPRECATED#
+#DEPRECATED#        cls = self._map_local_table[query.fact_table]
+#DEPRECATED#
+#DEPRECATED#        _fields = xgetattr(cls, query.fields)
+#DEPRECATED#        _filters = get_sqla_filters(cls, query.filters)
+#DEPRECATED#        # only 2.7+ _params = { getattr(cls, k): v for k,v in query.params.items() }
+#DEPRECATED#        _params = dict([ (getattr(cls, k), v) for k,v in query.params.items() ])
+#DEPRECATED#
+#DEPRECATED#        #db.query(cls).update(_params, synchronize_session=False)
+#DEPRECATED#        db.query(cls).filter(_filters).update(_params, synchronize_session=False)
+#DEPRECATED#        db.commit()
+#DEPRECATED#
+#DEPRECATED#        return []
+#DEPRECATED#
+#DEPRECATED#    def local_query_create(self, query):
+#DEPRECATED#
+#DEPRECATED#        assert not query.filters, "Filters should be empty for a create request"
+#DEPRECATED#        #assert not query.fields, "Fields should be empty for a create request"
+#DEPRECATED#
+#DEPRECATED#
+#DEPRECATED#        cls = self._map_local_table[query.fact_table]
+#DEPRECATED#        params = cls.process_params(query.params)
+#DEPRECATED#        new_obj = cls(**params)
+#DEPRECATED#        db.add(new_obj)
+#DEPRECATED#        db.commit()
+#DEPRECATED#        
+#DEPRECATED#        return []
+#DEPRECATED#
+#DEPRECATED#    def local_query(self, query):
+#DEPRECATED#        _map_action = {
+#DEPRECATED#            "get"    : self.local_query_get,
+#DEPRECATED#            "update" : self.local_query_update,
+#DEPRECATED#            "create" : self.local_query_create
+#DEPRECATED#        }
+#DEPRECATED#        return _map_action[query.action](query)
 
     @returns(AST)
     def process_query(self, query, user):

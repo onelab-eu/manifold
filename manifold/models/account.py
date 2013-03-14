@@ -1,7 +1,7 @@
 from sqlalchemy import Column, ForeignKey, Integer, String, Enum
 from sqlalchemy.orm import relationship, backref
 
-from manifold.models import Base, User, Platform, db
+from manifold.models import Base, DBUser, DBPlatform, db
 import json
 
 import logging

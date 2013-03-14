@@ -20,6 +20,12 @@ from manifold.util.callback     import Callback
 from manifold.core.ast          import AST
 from manifold.core.table        import Table
 from manifold.core.platform     import Platform
+from manifold.core.forwarder    import Forwarder
+from manifold.core.router       import Router
+from manifold.core.capabilities import Capabilities
+#from manifold.util.reactor_thread   import ReactorThread
+from manifold.util.reactor_wrapper  import ReactorWrapper as ReactorThread
+from manifold.util.storage      import DBStorage as Storage
 
 #-------------------------------------------------------------------------------
 # Class XMLRPCDaemon
@@ -56,7 +62,7 @@ class XMLRPCDaemon(Daemon):
         # Processing
         opt = Options()
         opt.add_option(
-            "-p", "--port", dest = "xmlrpc_port",
+            "-P", "--port", dest = "xmlrpc_port",
             help = "Port on which the XMLRPC server will listen.", 
             default = 7080
         )
@@ -64,6 +70,11 @@ class XMLRPCDaemon(Daemon):
         opt.add_option(
             "-g", "--gateway", dest = "gateway",
             help = "Gateway exposed by the server, None for acting as a router.",
+            default = None
+        )
+        opt.add_option(
+            "-p", "--platform", dest = "platform",
+            help = "Platform exposed by the server, None for acting as a router.",
             default = None
         )
         opt.add_option(
@@ -91,52 +102,43 @@ class XMLRPCDaemon(Daemon):
         # NOTE it is important to import those files only after daemonization,
         # since they open files we cannot easily preserve
         from twisted.web        import xmlrpc, server
-        from twisted.internet   import reactor
+        #from twisted.internet   import reactor
         # This also imports manifold.util.reactor_thread that uses reactor
         from manifold.core.router       import Router
 
-        name = Options().gateway
-
-        if name:
-            log_info("Initializing gateway : %s" % name)
-            # Gateway initialization
-            # XXX neither user nor query are known in advance
-        else:
-            self.gw_or_router = Router()
-            self.gw_or_router.__enter__()
-
-        # Get metadata for all accessible platforms. If more than one, we will
-        # need routing (supposing we don't need routing for a single one)
-        # In fact this is somehow having a router everytime
-        #announces = self.gw_or_router.get_metadata()
-        #if not announces:
-        #    raise Exception, "Gateway or router returned no announce."
-        #platform_capabilities = announces[0].capabilities
-        #platform_fields = {}
-        #for announce in announces:
-        #    print "platform_fields[", announce.table.class_name, "] = ", announce.table.fields
-        #    platform_fields[announce.table.class_name] = announce.table.fields
+        assert not ( Options().platform and Options().gateway), "Both gateway and platform cannot be specified at commandline" 
 
         # This imports twisted code so we need to import it locally
         from manifold.core.xmlrpc_api import XMLRPCAPI
 
-        platforms = [Platform(u'dummy_platform', name, self.get_gateway_config(name))]
+        # This should be configurable
+        allowed_capabilities = Capabilities()
+        allowed_capabilities.selection = True
+        allowed_capabilities.projection = True
+
+        # XXX We should harmonize interfaces between Router and Forwarder
+        if Options().platform:
+            platforms = Storage.execute(Query().get('platform'))
+            # We pass a single platform to Forwarder
+            platform = [p for p in platforms if p.name == Options().platform][0]
+            self.interface = Forwarder(platform, allowed_capabilities)
+
+        elif Options().gateway:
+            platform = Platform(u'dummy', Options().gateway, self.get_gateway_config(Options().gateway))
+            self.interface = Forwarder(platform, allowed_capabilities)
+
+        else:
+            self.interface = Router()
 
         try:
-            reactor.listenTCP(Options().xmlrpc_port, server.Site(XMLRPCAPI(platforms, allowNone=True)))
-            reactor.run()
+            ReactorThread().listenTCP(Options().xmlrpc_port, server.Site(XMLRPCAPI(self.interface, allowNone=True)))
+            ReactorThread().start_reactor()
         except Exception, e:
             # TODO If database gets disconnected, we can sleep/attempt reconnection
             log_error("Error in XMLRPC API: %s" % str(e))
 
     def terminate(self):
-        # NOTE because we had to make the other import local, we _have to_
-        # reimport reactor here
-        from twisted.internet import reactor
-        reactor.stop()
-        if not Options().gateway:
-            self.gw_or_router.__exit__()
-
+        ReactorThread().stop_reactor()
 
 if __name__ == '__main__':
     XMLRPCDaemon().start()

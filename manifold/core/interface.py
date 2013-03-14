@@ -1,5 +1,7 @@
 from manifold.gateways      import Gateway
 from manifold.core.platform import Platform
+from manifold.core.query    import Query
+from manifold.util.storage  import DBStorage as Storage
 
 class Interface(object):
     """
@@ -10,21 +12,26 @@ class Interface(object):
     # This is in fact a router initialized with a single gateway
     # Better, a router should inherit interface
 
-    def __init__(self, platforms, allowed_capabilities):
+    def __init__(self, platforms=None, allowed_capabilities=None):
         """
         \brief
         \param platforms A list of platforms and their configuration
         """
-        self.platforms = platforms
+        if platforms:
+            self.platforms = platforms
+        else:
+            self.platforms = Storage.execute(Query().get('platform'))
+
         self.allowed_capabilities = allowed_capabilities
         self.metadata = {}
         self.boot()
 
     def boot(self):
+        if not isinstance(self.platforms, list):
+            self.platforms = [self.platforms]
         for platform in self.platforms:
             args = [None, platform.name, None, platform.gateway_config, {}, {}]
             gw = Gateway.get(platform.gateway_name)(*args)
-            # A set of announces
             metadata = gw.get_metadata()
             self.metadata[platform.name] = {m.table.class_name:m for m in metadata}
 

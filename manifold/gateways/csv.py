@@ -55,10 +55,6 @@ class CSVGateway(Gateway):
 
         self.get_metadata()
 
-    def forward(self, query, deferred=False, execute=True, user=None):
-        self.query = query
-        self.start()
-
     def start(self):
         assert self.query, "Query should have been associated before start"
         # XXX how to start on multiple files ?
