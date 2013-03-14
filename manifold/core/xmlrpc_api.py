@@ -49,8 +49,20 @@ class XMLRPCAPI(xmlrpc.XMLRPC, object):
             user = None
         # The rest defines the query
         query = Query(*args)
-
         return self.interface.forward(query, user=user)
+
+    def xmlrpc_action(self, action, args):
+        
+        pos = 0 if Options().disable_auth else 1
+        args[pos]['action'] = action
+        #args = list(args)
+        #args.insert(pos, action)
+        return self.xmlrpc_forward(*args)
+        
+    def xmlrpc_Get(self, *args):    return self.xmlrpc_action('get', args)
+    def xmlrpc_Update(self, *args): return self.xmlrpc_action('update', args)
+    def xmlrpc_Create(self, *args): return self.xmlrpc_action('create', args)
+    def xmlrpc_Delete(self, *args): return self.xmlrpc_action('delete', args)
 
         # FORMER CODE FOR ROUTER
         # cb = Callback()

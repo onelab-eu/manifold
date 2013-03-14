@@ -118,7 +118,7 @@ class XMLRPCDaemon(Daemon):
 
         # XXX We should harmonize interfaces between Router and Forwarder
         if Options().platform:
-            platforms = Storage.execute(Query().get('platform'))
+            platforms = Storage.execute(Query().get('platform'), format='object')
             # We pass a single platform to Forwarder
             platform = [p for p in platforms if p.name == Options().platform][0]
             self.interface = Forwarder(platform, allowed_capabilities)

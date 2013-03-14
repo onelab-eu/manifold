@@ -27,7 +27,8 @@ def get_sqla_filters(cls, filters):
         return None
 
 def row2dict(row):
-    return {c.name: getattr(row, c.name) for c in row.__table__.columns}
+    return {c: getattr(row, c) for c in row.keys()}
+    #return {c.name: getattr(row, c.name) for c in row.__table__.columns}
 
 class SQLAlchemyGateway(Gateway):
 
