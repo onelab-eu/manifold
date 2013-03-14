@@ -230,14 +230,34 @@ class AnalyzedQuery(Query):
         self._analyzed = None
         self.analyze(query)
 
+    @returns(StringTypes)
+    def __str__(self):
+        out = []
+        out.append("SELECT %s FROM %s WHERE %s" % (
+            ", ".join(self.get_select()),
+            self.get_from(),
+            self.get_where()
+        ))
+        out.append('--- SUBQUERIES ---')
+        for subquery in self.subqueries():
+            out.append('  ', str(subquery))
+        return "\n".join(out)
+
     def clear(self):
         super(AnalyzedQuery, self).clear()
         self._subqueries = {}
 
     def subquery(self, method):
         if not method in self._subqueries:
-            self._subqueries[method] = AnalyzedQuery().action(self._analyzed.action, self._analyzed.fact_table)
+            self._subqueries[method] = analyzed_query
+            analyzed_query = AnalyzedQuery()
+            analyzed_query.action = self._analyzed.action
+            analyzed_query.fact_table = self._analyzed.fact_table
         return self._subqueries[method]
+
+    def subqueries(self):
+        for subquery in self._subqueries.itervalues():
+            yield subquery
 
     def filter_by(self, filters):
         if not filters: return self
@@ -252,7 +272,7 @@ class AnalyzedQuery(Query):
                 super(AnalyzedQuery, self).filter_by(predicate)
         return self
 
-    def select(self, filters):
+    def select(self, fields):
         if not isinstance(fields, (set, list, tuple)):
             fields = [fields]
         for field in fields:
@@ -264,7 +284,7 @@ class AnalyzedQuery(Query):
         return self
 
     def set(self, params):
-        for param, value in query.params.items():
+        for param, value in self.params.items():
             if '.' in param:
                 method, subparam = param.split('.', 1)
                 self.subquery(method).set({subparam: value})
@@ -275,7 +295,9 @@ class AnalyzedQuery(Query):
     def analyze(self, query):
         self._analyzed = query
         self.clear()
+        self.action = query.action
+        self.fact_table = query.fact_table
         self.filter_by(query.filters)
         self.set(query.params)
-        self.fields(query.fields)
+        self.select(query.fields)
         self._analyzed = None

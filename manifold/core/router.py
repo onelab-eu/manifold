@@ -4,15 +4,13 @@ from twisted.internet               import defer
 from manifold.core.filter           import Predicate
 from manifold.core.ast              import AST
 from manifold.core.key              import Key, Keys
-from manifold.core.query            import Query
+from manifold.core.query            import Query, AnalyzedQuery
 from manifold.core.table            import Table
 from manifold.gateways              import Gateway
 from manifold.models                import DBPlatform as Platform, DBUser as User, DBAccount as Account, db
 from manifold.core.dbnorm           import to_3nf 
 from manifold.core.dbgraph          import DBGraph
-from manifold.util.dfs              import dfs
-from manifold.core.pruned_tree      import build_pruned_tree
-from manifold.core.query_plan       import build_query_plan
+from manifold.core.query_plan       import QueryPlan
 from manifold.util.type             import returns, accepts
 from manifold.gateways.sfa          import ADMIN_USER
 from manifold.util.callback         import Callback
@@ -300,158 +298,89 @@ class Router(Interface):
 #OBSOLETE|                ret = (dest, isect)
 #OBSOLETE|        return ret
 
-    def process_subqueries(self, query, user):
-        """
-        \brief Compute the AST (tree of SQL operators) related to a query
-        \sa manifold.core.ast.py
-        \param query A Query issued by the user
-        \param user A User instance (carry user's information) 
-        \return An AST instance representing the query plan related to the query
-        """
-        print "=" * 100
-        print "Entering process_subqueries %s (need fields %s) " % (query.get_from(), query.get_select())
-        print "=" * 100
-        table_name = query.get_from()
-        table = self.g_3nf.find_node(table_name)
-        if not table:
-            raise ValueError("Can't find table %r related to query %r" % (table_name, query))
+#DEPRECATED#    def process_subqueries(self, query, user):
+#DEPRECATED#        """
+#DEPRECATED#        \brief Compute the AST (tree of SQL operators) related to a query
+#DEPRECATED#        \sa manifold.core.ast.py
+#DEPRECATED#        \param query A Query issued by the user
+#DEPRECATED#        \param user A User instance (carry user's information) 
+#DEPRECATED#        \return An AST instance representing the query plan related to the query
+#DEPRECATED#        """
+#DEPRECATED#        print "=" * 100
+#DEPRECATED#        print "Entering process_subqueries %s (need fields %s) " % (query.get_from(), query.get_select())
+#DEPRECATED#        print "=" * 100
+#DEPRECATED#        table_name = query.get_from()
+#DEPRECATED#        table = self.g_3nf.find_node(table_name)
+#DEPRECATED#        if not table:
+#DEPRECATED#            raise ValueError("Can't find table %r related to query %r" % (table_name, query))
+#DEPRECATED#
+#DEPRECATED#        qp = AST(user)
+#DEPRECATED#
+#DEPRECATED#        analyzed_query = AnalyzedQuery(query)
+#DEPRECATED#        for subquery in analyzed_query.subqueries():
+#DEPRECATED#
+#DEPRECATED#            method = table.get_field(method).get_type()
+#DEPRECATED#            if not method in cur_fields:
+#DEPRECATED#                subquery.select(method)
+#DEPRECATED#
+#DEPRECATED#            # Adding primary key in subquery to be able to merge
+#DEPRECATED#            keys = self.metadata_get_keys(method)
+#DEPRECATED#            if keys:
+#DEPRECATED#                key = list(keys).pop()
+#DEPRECATED#                print "W: selecting arbitrary key %s to join with '%s'" % (key, method)
+#DEPRECATED#                if isinstance(key, Key):
+#DEPRECATED#                    for field in key:
+#DEPRECATED#                        field_name = field.get_name()
+#DEPRECATED#                        if field_name not in subfields:
+#DEPRECATED#                            subquery.select(field_name)
+#DEPRECATED#                else:
+#DEPRECATED#                    raise TypeError("Invalid type: key = %s (type %s)" % (key, type(key)))
+#DEPRECATED#
+#DEPRECATED#            child_ast = self.process_subqueries(subquery, user)
+#DEPRECATED#            children_ast.append(child_ast.root)
+#DEPRECATED#
+#DEPRECATED#            parent_ast = self.process_query(analyzed_query, user)
+#DEPRECATED#            qp = parent_ast
+#DEPRECATED#            qp.subquery(children_ast)
+#DEPRECATED#        else:
+#DEPRECATED#            qp = self.process_query(analyzed_query, user)
+#DEPRECATED#
+#DEPRECATED#        return qp
 
-        qp = AST(user)
+            # XXX Adding subfields either requested by the users or
+            # necessary for the join
 
-        cur_filters = []
-        cur_params = {}
-        cur_fields = []
-        subq = {}
+            # NOTE: when requesting fields from a subquery, there
+            # are several possibilities:
+            # 1 - only keys are returned
+            # 2 - fields are returned but we cannot predict
+            # 3 - we have a list of fields that can be returned
+            # (default)
+            # 4 - all fields can be returned
+            # BTW can we specify which fields we want to force the
+            # platform to do most of the work for us ?
+            #
+            # To begin with, let's only consider case 1 and 4
+            # XXX where to get this information in metadata
+            # XXX case 2 could be handled by injection (we inject
+            # fields before starting, and if we have all required
+            # fields, we can return directly).
+            # XXX case 3 could be a special case of 4
 
-        debug = "debug" in query.get_params() and query.get_params()["debug"]
+            # We have two solutions:
+            # 1) build the whole child ast (there might be several
+            # solutions and one will be chosen) then inject the
+            # results we already have (we might be able to inject
+            # more in a non chosen solution maybe ?? or maybe not
+            # since we are in 3nf)
+            # 2) build the child ast considering that we have
+            # already a set of fields
+            # 
+            # Let's start with solution 1) since it might be more
+            # robust in the current state given we don't have an
+            # exact idea of what will be the returned fields.
 
-        # XXX there are some parameters that will be answered by the parent !!!! no need to request them from the children !!!!
-        # XXX XXX XXX XXX XXX XXX ex slice.resource.PROPERTY
 
-        if query.filters:
-            for pred in query.filters:
-                if "." in pred.key:
-                    method, subkey = pred.key.split(".", 1)
-                    if not method in subq:
-                        subq[method] = {}
-                    if not "filters" in subq[method]:
-                        subq[method]["filters"] = []
-                    subq[method]["filters"].append(Predicate(subkey, pred.op, pred.value))
-                else:
-                    cur_filters.append(pred)
-
-        if query.params:
-            for key, value in query.params.items():
-                if "." in key:
-                    method, subkey = key.split(".", 1)
-                    if not method in subq:
-                        subq[method] = {}
-                    if not "params" in subq[method]:
-                        subq[method]["params"] = {}
-                    subq[method]["params"][subkey, value]
-                else:
-                    cur_params[key] = value
-
-        if query.fields:
-            for field in query.fields:
-                if "." in field:
-                    method, subfield = field.split(".", 1)
-                    if not method in subq:
-                        subq[method] = {}
-                    if not "fields" in subq[method]:
-                        subq[method]["fields"] = []
-                    subq[method]["fields"].append(subfield)
-                else:
-                    cur_fields.append(field)
-
-        if len(subq):
-            children_ast = []
-            for method, subquery in subq.items():
-                # We need to add the keys of each subquery
-                # We append the method name (eg. resources) which should return the list of keys
-                # (and eventually more information, but they will be ignored for the moment)
-
-                method = table.get_field(method).get_type()
-                if not method in cur_fields:
-                    cur_fields.append(method)
-
-                # Recursive construction of the processed subquery
-                subfilters = subquery["filters"] if "filters" in subquery else []
-                subparams  = subquery["params"]  if "params"  in subquery else {}
-                subfields  = subquery["fields"]  if "fields"  in subquery else []
-                subts      = query.get_ts()
-
-                print "method     = ", method
-                print "subfilters = ", subfilters
-                print "subparams  = ", subparams 
-                print "subfields  = ", subfields 
-
-                # Adding primary key in subquery to be able to merge
-                keys = self.metadata_get_keys(method)
-                if keys:
-                    key = list(keys).pop()
-                    print "W: selecting arbitrary key %s to join with '%s'" % (key, method)
-                    if isinstance(key, Key):
-                        for field in key:
-                            field_name = field.get_name()
-                            if field_name not in subfields:
-                                subfields.append(field_name)
-                    else:
-                        raise TypeError("Invalid type: key = %s (type %s)" % (key, type(key)))
-
-                # XXX Adding subfields either requested by the users or
-                # necessary for the join
-
-                # NOTE: when requesting fields from a subquery, there
-                # are several possibilities:
-                # 1 - only keys are returned
-                # 2 - fields are returned but we cannot predict
-                # 3 - we have a list of fields that can be returned
-                # (default)
-                # 4 - all fields can be returned
-                # BTW can we specify which fields we want to force the
-                # platform to do most of the work for us ?
-                #
-                # To begin with, let's only consider case 1 and 4
-                # XXX where to get this information in metadata
-                # XXX case 2 could be handled by injection (we inject
-                # fields before starting, and if we have all required
-                # fields, we can return directly).
-                # XXX case 3 could be a special case of 4
-
-                # We have two solutions:
-                # 1) build the whole child ast (there might be several
-                # solutions and one will be chosen) then inject the
-                # results we already have (we might be able to inject
-                # more in a non chosen solution maybe ?? or maybe not
-                # since we are in 3nf)
-                # 2) build the child ast considering that we have
-                # already a set of fields
-                # 
-                # Let's start with solution 1) since it might be more
-                # robust in the current state given we don't have an
-                # exact idea of what will be the returned fields.
-
-                # Formulate the query we are trying to resolve
-                print "Preparing subquery on", method
-
-                if debug:
-                    subparams["debug"] = True
-
-                subquery = Query(query.get_action(), method, subfilters, subparams, subfields, subts)
-
-                child_ast = self.process_subqueries(subquery, user)
-                children_ast.append(child_ast.root)
-
-            parent = Query(query.get_action(), query.get_from(), cur_filters, cur_params, cur_fields, query.get_ts())
-            parent_ast = self.process_query(parent, user)
-            qp = parent_ast
-            qp.subquery(children_ast)
-        else:
-            parent = Query(query.get_action(), query.get_from(), cur_filters, cur_params, cur_fields, query.get_ts())
-            qp = self.process_query(parent, user)
-
-        return qp
 
 #OBSOLETE|    def get_table_max_fields(fields, tables):
 #OBSOLETE|        maxfields = 0
@@ -463,30 +392,30 @@ class Router(Interface):
 #OBSOLETE|                ret = (t, isect)
 #OBSOLETE|        return ret
 
-    def get_query_plan(self, query, user):
-        """
-        \brief Compute the query plan related to a user's query
-        \param query The Query issued by the user
-        \param user A User instance
-        \return An AST instance
-        """
-        qp = self.process_subqueries(query, user)
-
-        # Now we apply the operators
-        #qp = qp.selection(query.filters) 
-        #qp = qp.projection(query.fields) 
-        #qp = qp.sort(query.get_sort()) 
-        #qp = qp.limit(query.get_limit()) 
-
-        # We should now have a query plan
-        print ""
-        print "QUERY PLAN:"
-        print "-----------"
-        qp.dump()
-        print ""
-        print ""
-
-        return qp
+#DEPRECATED#    def get_query_plan(self, query, user):
+#DEPRECATED#        """
+#DEPRECATED#        \brief Compute the query plan related to a user's query
+#DEPRECATED#        \param query The Query issued by the user
+#DEPRECATED#        \param user A User instance
+#DEPRECATED#        \return An AST instance
+#DEPRECATED#        """
+#DEPRECATED#        qp = self.process_subqueries(query, user)
+#DEPRECATED#
+#DEPRECATED#        # Now we apply the operators
+#DEPRECATED#        #qp = qp.selection(query.filters) 
+#DEPRECATED#        #qp = qp.projection(query.fields) 
+#DEPRECATED#        #qp = qp.sort(query.get_sort()) 
+#DEPRECATED#        #qp = qp.limit(query.get_limit()) 
+#DEPRECATED#
+#DEPRECATED#        # We should now have a query plan
+#DEPRECATED#        print ""
+#DEPRECATED#        print "QUERY PLAN:"
+#DEPRECATED#        print "-----------"
+#DEPRECATED#        qp.dump()
+#DEPRECATED#        print ""
+#DEPRECATED#        print ""
+#DEPRECATED#
+#DEPRECATED#        return qp
 
 #DEPRECATED#    #---------------
 #DEPRECATED#    # Local queries
@@ -553,48 +482,48 @@ class Router(Interface):
 #DEPRECATED#        }
 #DEPRECATED#        return _map_action[query.action](query)
 
-    @returns(AST)
-    def process_query(self, query, user):
-        return self.process_query_mando(query, user)
-
-    @returns(AST)
-    def process_query_mando(self, query, user):
-        """
-        \brief Compute the query plan related to a query which involves
-            no sub-queries. Sub-queries should already processed thanks to
-            process_subqueries().
-        \param query The Query instance representing the query issued by the user.
-            \sa manifold/core/query.py
-        \param user The User instance reprensenting the user issuing
-            the query. The query can be resolved in various way according to
-            the user grants.
-            \sa tophat/model/user.py
-        \return The AST instance representing the query plan.
-        """
-
-        # Compute the fields involved explicitly in the query (e.g. in SELECT or WHERE)
-        needed_fields = set(query.get_select())
-        if needed_fields == set():
-            raise ValueError("No queried field")
-        needed_fields.update(query.get_where().keys())
-
-        # Retrieve the root node corresponding to the fact table
-        root = self.g_3nf.find_node(query.get_from())
-
-        # Retrieve the (unique due to 3-nf) tree included in "self.g_3nf" and rooted in "root"
-        # \sa manifold.util.dfs.py
-        print "Entering DFS(%r) in graph:" % root
-
-        # Compute the corresponding pruned tree.
-        # Each node of the pruned tree only gathers relevant table, and only their
-        # relevant fields and their relevant key (if used).
-        # \sa manifold.util.pruned_graph.py
-        pruned_tree = build_pruned_tree(self.g_3nf.graph, needed_fields, dfs(self.g_3nf.graph, root))
-
-        # Compute the skeleton resulting query plan
-        # (e.g which does not take into account the query)
-        # It leads to a query plan made of Union, From, and LeftJoin nodes
-        return build_query_plan(user, query, pruned_tree)
+#DEPRECATED#    @returns(AST)
+#DEPRECATED#    def process_query(self, query, user):
+#DEPRECATED#        return self.process_query_mando(query, user)
+#DEPRECATED#
+#DEPRECATED#    @returns(AST)
+#DEPRECATED#    def process_query_mando(self, query, user):
+#DEPRECATED#        """
+#DEPRECATED#        \brief Compute the query plan related to a query which involves
+#DEPRECATED#            no sub-queries. Sub-queries should already processed thanks to
+#DEPRECATED#            process_subqueries().
+#DEPRECATED#        \param query The Query instance representing the query issued by the user.
+#DEPRECATED#            \sa manifold/core/query.py
+#DEPRECATED#        \param user The User instance reprensenting the user issuing
+#DEPRECATED#            the query. The query can be resolved in various way according to
+#DEPRECATED#            the user grants.
+#DEPRECATED#            \sa tophat/model/user.py
+#DEPRECATED#        \return The AST instance representing the query plan.
+#DEPRECATED#        """
+#DEPRECATED#
+#DEPRECATED#        # Compute the fields involved explicitly in the query (e.g. in SELECT or WHERE)
+#DEPRECATED#        needed_fields = set(query.get_select())
+#DEPRECATED#        if needed_fields == set():
+#DEPRECATED#            raise ValueError("No queried field")
+#DEPRECATED#        needed_fields.update(query.get_where().keys())
+#DEPRECATED#
+#DEPRECATED#        # Retrieve the root node corresponding to the fact table
+#DEPRECATED#        root = self.g_3nf.find_node(query.get_from())
+#DEPRECATED#
+#DEPRECATED#        # Retrieve the (unique due to 3-nf) tree included in "self.g_3nf" and rooted in "root"
+#DEPRECATED#        # \sa manifold.util.dfs.py
+#DEPRECATED#        print "Entering DFS(%r) in graph:" % root
+#DEPRECATED#
+#DEPRECATED#        # Compute the corresponding pruned tree.
+#DEPRECATED#        # Each node of the pruned tree only gathers relevant table, and only their
+#DEPRECATED#        # relevant fields and their relevant key (if used).
+#DEPRECATED#        # \sa manifold.util.pruned_graph.py
+#DEPRECATED#        pruned_tree = build_pruned_tree(self.g_3nf.graph, needed_fields, dfs(self.g_3nf.graph, root))
+#DEPRECATED#
+#DEPRECATED#        # Compute the skeleton resulting query plan
+#DEPRECATED#        # (e.g which does not take into account the query)
+#DEPRECATED#        # It leads to a query plan made of Union, From, and LeftJoin nodes
+#DEPRECATED#        return build_query_plan(user, query, pruned_tree)
 
 #OBSOLETE|    def process_query_new(self, query, user):
 #OBSOLETE|        """
@@ -953,7 +882,16 @@ class Router(Interface):
 
 
         if not execute: 
-            self.get_query_plan(query, user)
+            qp = QueryPlan()
+            qp.build(query, self.g_3nf, self.allowed_capabilities, user)
+
+            print ""
+            print "QUERY PLAN:"
+            print "-----------"
+            qp.dump()
+            print ""
+            print ""
+
             return None
 
         # The query plan will be the same whatever the action: it represents
@@ -981,17 +919,14 @@ class Router(Interface):
                     del self.cache[h]
 
         # Building query plan
-        qp = self.get_query_plan(query, user)
-        d = defer.Deferred() if deferred else None
-        cb = Callback(d, router=self, cache_id=h)
-        #cb = Callback(d, self.event, router=self, cache_id=h)
-        qp.callback = cb
+        qp = QueryPlan()
+        qp.build(query, self.g_3nf, self.allowed_capabilities, user)
 
-        # Now we only need to start it for Get.
-        if query.get_action() == "get":
-            pass
+        #d = defer.Deferred() if deferred else None
+        #cb = Callback(d, router=self, cache_id=h)
+        #qp.callback = cb
 
-        elif query.get_action() == "update":
+        if query.get_action() == "update":
             # At the moment we can only update if the primary key is present
             keys = self.metadata_get_keys(query.get_from())
             if not keys:
@@ -1001,17 +936,4 @@ class Router(Interface):
             if not query.filters.has_eq(key):
                 raise Exception, "The key field '%s' must be present in update request" % key
 
-        elif query.get_action() == "create":
-           pass 
-
-        else:
-            raise Exception, "Action not supported: %s" % query.get_action()
-
-        qp.start()
-
-        if deferred: return d
-        cb.wait()
-        #self.event.wait()
-        #self.event.clear()
-
-        return cb.results
+        return qp.execute()
