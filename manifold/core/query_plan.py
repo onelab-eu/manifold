@@ -18,12 +18,14 @@ from networkx.algorithms.traversal.depth_first_search import dfs_preorder_nodes
 
 from manifold.core.ast          import AST, From, Union, LeftJoin
 from manifold.core.table        import Table 
-from manifold.core.query        import Query 
+from manifold.core.query        import Query, AnalyzedQuery 
 from manifold.util.type         import returns, accepts
 from manifold.core.dbgraph      import find_root
 from manifold.models.user       import User
 from manifold.util.callback     import Callback
 from manifold.core.filter       import Filter
+from manifold.util.dfs          import dfs
+from manifold.core.pruned_tree  import build_pruned_tree
 
 class QueryPlan(object):
 
@@ -31,19 +33,101 @@ class QueryPlan(object):
         self.ast = AST()
         self.froms = []
 
-    def build(self, query, metadata, allowed_capabilities):
+    # metadata == router.g_3nf
+    def build(self, query, metadata, allowed_capabilities, user = None):
         """
-        \brief Builds a query plane for a router or a platform
-        \param query
+        \brief Builds a query plane for a router or a platform, consisting
+        mainly in the AST (tree of SQL operators) related to a query
+        \sa manifold.core.ast.py
+        \param query A Query issued by the user
         \param metadata a list of metadata for all platforms
         \param allowed_capabilities the set of operators we can use to build the
         query plane (this is a parameter of the router)
+        \param user A User instance (carry user's information) 
         """
-        # We answer a query given 
-        # What if we cannot answer the query ? or answer it partially
-        # What about subqueries, and onjoin ?
+        print "=" * 100
+        print "Entering process_subqueries %s (need fields %s) " % (query.get_from(), query.get_select())
+        print "=" * 100
+        table_name = query.get_from()
+        table = metadata.find_node(table_name)
+        if not table:
+            raise ValueError("Can't find table %r related to query %r" % (table_name, query))
 
-        return None
+        analyzed_query = AnalyzedQuery(query)
+
+        qp = AST(user)
+
+        children_ast = None
+        for subquery in analyzed_query.subqueries():
+
+            method = table.get_field(method).get_type()
+            if not method in cur_fields:
+                subquery.select(method)
+
+            # Adding primary key in subquery to be able to merge
+            keys = metadata_get_keys(method)
+            if keys:
+                key = list(keys).pop()
+                print "W: selecting arbitrary key %s to join with '%s'" % (key, method)
+                if isinstance(key, Key):
+                    for field in key:
+                        field_name = field.get_name()
+                        if field_name not in subfields:
+                            subquery.select(field_name)
+                else:
+                    raise TypeError("Invalid type: key = %s (type %s)" % (key, type(key)))
+
+            child_ast = self.process_subqueries(subquery, user)
+            children_ast.append(child_ast.root)
+
+        qp = self.process_query(analyzed_query, metadata, user)
+        if children_ast: qp.subquery(children_ast)
+
+        self.ast = qp
+
+    @returns(AST)
+    def process_query(self, query, metadata, user):
+        """
+        \brief Compute the query plan related to a query which involves
+            no sub-queries. Sub-queries should already processed thanks to
+            process_subqueries().
+        \param query The Query instance representing the query issued by the user.
+            \sa manifold/core/query.py
+        \param user The User instance reprensenting the user issuing
+            the query. The query can be resolved in various way according to
+            the user grants.
+            \sa tophat/model/user.py
+        \return The AST instance representing the query plan.
+        """
+
+        # Compute the fields involved explicitly in the query (e.g. in SELECT or WHERE)
+        needed_fields = set(query.get_select())
+        if needed_fields == set():
+            raise ValueError("No queried field")
+        needed_fields.update(query.get_where().keys())
+
+        # Retrieve the root node corresponding to the fact table
+        print query
+        print "QUERY FROM", query.get_from()
+        print "METADATA FOR DFS", metadata
+        for t in metadata.graph.nodes():
+            print str(t)
+        root = metadata.find_node(query.get_from())
+
+        # Retrieve the (unique due to 3-nf) tree included in "self.g_3nf" and rooted in "root"
+        # \sa manifold.util.dfs.py
+        print "Entering DFS(%r) in graph:" % root
+
+        # Compute the corresponding pruned tree.
+        # Each node of the pruned tree only gathers relevant table, and only their
+        # relevant fields and their relevant key (if used).
+        # \sa manifold.util.pruned_graph.py
+        pruned_tree = build_pruned_tree(metadata.graph, needed_fields, dfs(metadata.graph, root))
+
+        # Compute the skeleton resulting query plan
+        # (e.g which does not take into account the query)
+        # It leads to a query plan made of Union, From, and LeftJoin nodes
+        return build_query_plan(user, query, pruned_tree)
 
     def build_simple(self, query, metadata, allowed_capabilities):
         """
@@ -105,7 +189,9 @@ class QueryPlan(object):
         if not callback:
             return cb.get_results()
         return
-        
+
+    def dump(self):
+        self.ast.dump()
 
 # Marco's code
 

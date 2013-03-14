@@ -84,16 +84,14 @@ def accepts(*types, **kw):
 def compare_types(expected, actual):
     if isinstance(expected, tuple):
         if isinstance(actual, tuple):
-            equal = True
             for x, y in izip(expected, actual):
-                ret = compare_types(x ,y)
-                equal &= ret
-            return equal
+                if not compare_types(x ,y):
+                    return False
+            return True
         else:
-            return actual in expected
+            return actual == type(None) or actual in expected
     else:
-        
-        return actual == type(None) or actual == expected
+        return actual == type(None) or actual == expected or issubclass(actual, expected)
 
 def returns(ret_type, **kw):
     '''Function decorator. Checks decorated function's return value
