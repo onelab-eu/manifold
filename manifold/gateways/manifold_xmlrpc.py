@@ -1,7 +1,6 @@
 # Inspired from http://twistedmatrix.com/documents/10.1.0/web/howto/xmlrpc.html
 
 from manifold.gateways import Gateway
-#from twisted.web.xmlrpc import Proxy
 #from twisted.internet import reactor
 
 # DEBUG
@@ -23,6 +22,7 @@ class ManifoldGateway(Gateway):
         self.callback(None)
 
     def start(self):
+        from twisted.web.xmlrpc import Proxy
         try:
             def wrap(source):
                 proxy = Proxy(self.config['url'], allowNone = True)

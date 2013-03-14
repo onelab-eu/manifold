@@ -61,70 +61,70 @@ class Router(Interface):
     def __exit__(self, type, value, traceback):
         ReactorThread().stop_reactor()
 
-    def get_gateway(self, platform, query, user):
-        # XXX Ideally, some parameters regarding MySlice user account should be
-        # stored outside of the platform table
-
-        # Finds the gateway corresponding to the platform
-        if isinstance(platform, (tuple, list, set, frozenset)):
-            if len(list(platform)) > 1:
-                print "W: get_gateway: only keeping the first platform in %s" % platform
-            platform = list(platform)[0]
-
-        try:
-            p = db.query(Platform).filter(Platform.platform == platform).one()
-        except Exception, e:
-            raise Exception, "E: Missing gateway information for platform '%s': %s" % (platform, e)
-
-        # Get the corresponding class
-        gtype = p.gateway_type.encode('latin1')
-        gw = Gateway.get(gtype)
-        #try:
-        #    gw = getattr(__import__('tophat.gateways', globals(), locals(), gtype), gtype)
-        #except Exception, e:
-        #    raise Exception, "E: Cannot import gateway class '%s': %s" % (gtype, e)
-
-        # Gateway config
-        gconf = json.loads(p.config)
-
-        # Get user account
-        accounts = [a for a in user.accounts if a.platform.platform == platform]
-        if not accounts:
-            # No user account for platform, let's skip it
-            print "E: No user account for platform : %s" % platform
-            account = None 
-            return gw(self, platform, query, gconf, None, user)
-            #account = Account(user=user, platform=p, auth_type='managed', config='{}')
-            #db.add(account)
-            #db.commit()
-        else:
-            account = accounts[0]
-        
-
-        # User account config
-        if account.auth_type == 'reference':
-            ref_platform = json.loads(account.config)['reference_platform']
-            ref_accounts = [a for a in user.accounts if a.platform.platform == ref_platform]
-            if not ref_accounts:
-                raise Exception, "reference account does not exist"
-            ref_account = ref_accounts[0]
-            aconf = ref_account.config
-        else:
-            aconf = account.config
-        aconf = json.loads(aconf)
-
-#        if account.auth_type == 'reference':
-#            reference_platform = json.loads(account.config)['reference_platform']
-#            ref_accounts = [a for a in user.accounts if a.platform.platform == reference_platform]
-#            if not ref_accounts:
-#                raise Exception, "reference account does not exist"
-#            ref_account = ref_accounts[0]
-#            aconf = json.loads(ref_account.config) if account else None
-#            if aconf: aconf['reference_platform'] = reference_platform
-#        else:
-#            aconf = json.loads(account.config) if account else None
-
-        return gw(self, platform, query, gconf, aconf, user)
+#DEPRECATED#    def get_gateway(self, platform, query, user):
+#DEPRECATED#        # XXX Ideally, some parameters regarding MySlice user account should be
+#DEPRECATED#        # stored outside of the platform table
+#DEPRECATED#
+#DEPRECATED#        # Finds the gateway corresponding to the platform
+#DEPRECATED#        if isinstance(platform, (tuple, list, set, frozenset)):
+#DEPRECATED#            if len(list(platform)) > 1:
+#DEPRECATED#                print "W: get_gateway: only keeping the first platform in %s" % platform
+#DEPRECATED#            platform = list(platform)[0]
+#DEPRECATED#
+#DEPRECATED#        try:
+#DEPRECATED#            p = db.query(Platform).filter(Platform.platform == platform).one()
+#DEPRECATED#        except Exception, e:
+#DEPRECATED#            raise Exception, "E: Missing gateway information for platform '%s': %s" % (platform, e)
+#DEPRECATED#
+#DEPRECATED#        # Get the corresponding class
+#DEPRECATED#        gtype = p.gateway_type.encode('latin1')
+#DEPRECATED#        gw = Gateway.get(gtype)
+#DEPRECATED#        #try:
+#DEPRECATED#        #    gw = getattr(__import__('tophat.gateways', globals(), locals(), gtype), gtype)
+#DEPRECATED#        #except Exception, e:
+#DEPRECATED#        #    raise Exception, "E: Cannot import gateway class '%s': %s" % (gtype, e)
+#DEPRECATED#
+#DEPRECATED#        # Gateway config
+#DEPRECATED#        gconf = json.loads(p.config)
+#DEPRECATED#
+#DEPRECATED#        # Get user account
+#DEPRECATED#        accounts = [a for a in user.accounts if a.platform.platform == platform]
+#DEPRECATED#        if not accounts:
+#DEPRECATED#            # No user account for platform, let's skip it
+#DEPRECATED#            print "E: No user account for platform : %s" % platform
+#DEPRECATED#            account = None 
+#DEPRECATED#            return gw(self, platform, query, gconf, None, user)
+#DEPRECATED#            #account = Account(user=user, platform=p, auth_type='managed', config='{}')
+#DEPRECATED#            #db.add(account)
+#DEPRECATED#            #db.commit()
+#DEPRECATED#        else:
+#DEPRECATED#            account = accounts[0]
+#DEPRECATED#        
+#DEPRECATED#
+#DEPRECATED#        # User account config
+#DEPRECATED#        if account.auth_type == 'reference':
+#DEPRECATED#            ref_platform = json.loads(account.config)['reference_platform']
+#DEPRECATED#            ref_accounts = [a for a in user.accounts if a.platform.platform == ref_platform]
+#DEPRECATED#            if not ref_accounts:
+#DEPRECATED#                raise Exception, "reference account does not exist"
+#DEPRECATED#            ref_account = ref_accounts[0]
+#DEPRECATED#            aconf = ref_account.config
+#DEPRECATED#        else:
+#DEPRECATED#            aconf = account.config
+#DEPRECATED#        aconf = json.loads(aconf)
+#DEPRECATED#
+#DEPRECATED##        if account.auth_type == 'reference':
+#DEPRECATED##            reference_platform = json.loads(account.config)['reference_platform']
+#DEPRECATED##            ref_accounts = [a for a in user.accounts if a.platform.platform == reference_platform]
+#DEPRECATED##            if not ref_accounts:
+#DEPRECATED##                raise Exception, "reference account does not exist"
+#DEPRECATED##            ref_account = ref_accounts[0]
+#DEPRECATED##            aconf = json.loads(ref_account.config) if account else None
+#DEPRECATED##            if aconf: aconf['reference_platform'] = reference_platform
+#DEPRECATED##        else:
+#DEPRECATED##            aconf = json.loads(account.config) if account else None
+#DEPRECATED#
+#DEPRECATED#        return gw(self, platform, query, gconf, aconf, user)
 
     def add_credential(self, cred, platform, user):
         print "I: Adding credential to platform '%s' and user '%s'" % (platform, user.email)
@@ -236,6 +236,7 @@ class Router(Interface):
                 return table.get_keys()
         return None
 
+    # 1. NORMALIZATION
     def build_tables(self):
         """
         \brief Compute the 3nf schema according to the Tables

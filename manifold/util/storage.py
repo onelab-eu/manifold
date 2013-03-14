@@ -10,6 +10,7 @@ class Storage(object):
 class DBStorage(Storage):
     @classmethod
     def execute(self, query):
+        # XXX Need to pass local parameters
         gw = Gateway.get('sqlalchemy')(format='object')
         gw.set_query(query)
         cb = Callback()
