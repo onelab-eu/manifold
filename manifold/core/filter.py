@@ -8,7 +8,8 @@ except NameError:
 import time
 import datetime # Jordan
 #from manifold.util.parameter import Parameter, Mixed, python_type
-from manifold.util.predicate import Predicate
+from manifold.util.predicate import Predicate, eq
+from itertools                  import ifilter
 
 class Filter(set):
     """
@@ -70,6 +71,23 @@ class Filter(set):
 
     def has_eq(self, key):
         return self.has_op(key, eq)
+
+    def get(self, key):
+        ret = []
+        for x in self:
+            if x.key == key:
+                ret.append(x)
+        return ret
+
+    def delete(self, key):
+        to_del = []
+        for x in self:
+            if x.key == key:
+                to_del.append(x)
+        for x in to_del:
+            self.remove(x)
+            
+        #self = filter(lambda x: x.key != key, self)
 
     def get_op(self, key, op):
         for x in self:

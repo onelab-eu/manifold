@@ -8,7 +8,7 @@ import time
 from random import Random
 import crypt
 
-from manifold.core.router import THRouter
+from manifold.core.router import Router
 from manifold.core.query import Query
 
 
@@ -41,11 +41,11 @@ def main():
         'email': email,
         'password': password
     }
-    query = Query(action='create', fact_table='tophat:user', params=user_params)
+    query = Query(action='create', fact_table='local:user', params=user_params)
 
 
     # Instantiate a TopHat router
-    with THRouter() as router:
+    with Router() as router:
         router.forward(query)
 
 if __name__ == '__main__':

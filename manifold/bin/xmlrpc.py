@@ -140,5 +140,8 @@ class XMLRPCDaemon(Daemon):
     def terminate(self):
         ReactorThread().stop_reactor()
 
-if __name__ == '__main__':
+def main():
     XMLRPCDaemon().start()
+
+if __name__ == '__main__':
+    main()

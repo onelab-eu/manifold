@@ -1,4 +1,4 @@
-from manifold.models import db, DBUser as User, DBSession 
+from manifold.models import *
 import time
 
 import crypt
@@ -12,17 +12,18 @@ from manifold.gateways.sfa import ADMIN_USER
 
 row2dict = lambda r: {c.name: getattr(r, c.name) for c in r.__table__.columns}
 
+# XXX This should be replaced by User and Platform object classes
 def make_account_dict(account):
     account_dict = row2dict(account)
     account_dict['platform'] = account.platform.platform
-    del account_dict['platform_id']
-    del account_dict['config']
+    #del account_dict['platform_id']
+    #del account_dict['config'] # XXX
     return account_dict
 
 def make_user_dict(user):
     user_dict = row2dict(user)
     user_dict['accounts'] = [make_account_dict(a) for a in user.accounts]
-    del user_dict['user_id']
+    #del user_dict['user_id']
     del user_dict['password']
     return user_dict
 
@@ -94,7 +95,7 @@ class Password(Auth):
             crypt.crypt(plaintext, password[:12]) != password:
             raise AuthenticationFailure, "Password verification failed %s" % crypt.crypt(plaintext, password[:12])
 
-        return make_user_dict(user)
+        return user
 
 class Anonymous(Auth):
     def check(self):
@@ -117,7 +118,7 @@ class Session(Auth):
 
         user = sess.user
         if user and sess.expires > time.time():
-            return make_user_dict(user)
+            return user
         else:
             sess.delete()
             raise AuthenticationFailure, "Invalid session: %s" % e
@@ -169,7 +170,7 @@ class PLEAuth(Auth):
             user = User(email=auth['Username'].lower())
             db.add(user)
             db.commit()
-            return make_user_dict(user)
+            return user
 
 class PLCAuth(Auth):
     """
@@ -202,7 +203,7 @@ class PLCAuth(Auth):
             user = User(email=auth['Username'].lower())
             db.add(user)
             db.commit()
-            return make_user_dict(user)
+            return user
 
 class ManagedAuth(Auth):
     """
@@ -239,4 +240,4 @@ class ManagedAuth(Auth):
             user = User(email=auth['Username'].lower())
             db.add(user)
             db.commit()
-            return make_user_dict(user)
+            return user

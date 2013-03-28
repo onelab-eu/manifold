@@ -94,6 +94,7 @@ class ChildStatus:
         \brief Call this function to signal that a child has completed
         \param child_id The integer identifying a given child node
         """
+        print "*** started", child_id
         self.counter += child_id + 1
 
     def completed(self, child_id):
@@ -101,9 +102,10 @@ class ChildStatus:
         \brief Call this function to signal that a child has completed
         \param child_id The integer identifying a given child node
         """
-        self.status.child_status -= child_id + 1
-        assert self.child_status >= 0, "Child status error: %d" % self.child_status
-        if self.child_status == 0:
+        print "*** completed", child_id
+        self.counter -= child_id + 1
+        assert self.counter >= 0, "Child status error: %d" % self.counter
+        if self.counter == 0:
             self.all_done_cb()
 
 #------------------------------------------------------------------
@@ -687,6 +689,7 @@ class Selection(Node):
         \param record dictionary representing the received record
         """
         if record == LAST_RECORD or (self.filters and self.filters.match(record)):
+            print "SELECTION CALLBACK", record
             self.callback(record)
         #if record != LAST_RECORD and self.filters:
         #    record = self.filters.filter(record)
@@ -884,9 +887,11 @@ class Union(Node):
         \brief Propagates a START message through the node
         """
         # Start all children
+        print "STARTING UNION"
+        print "with children", self.children
         for i, child in enumerate(self.children):
-            child.start()
             self.status.started(i)
+            child.start()
 
     def inject(self, records):
         """
@@ -899,8 +904,8 @@ class Union(Node):
         return self
 
     def all_done(self):
-        for record in self.child_results.values():
-            self.callback(record)
+        #for record in self.child_results.values():
+        #    self.callback(record)
         self.callback(LAST_RECORD)
 
     def child_callback(self, child_id, record):
@@ -910,20 +915,25 @@ class Union(Node):
         \param record dictionary representing the received record
         """
         if record == LAST_RECORD:
+            print "COMPLETED in child_callback", child_id
             self.status.completed(child_id)
             return
+        
+        key = self.key.get_name()
+
         # DISTINCT not implemented, just forward the record
-        if not self.key:
+        if not key:
             self.callback(record)
             return
         # Ignore records that have no key
-        if self.key not in record:
+        if key not in record:
             print "W: UNION ignored record without key"
             return
         # Ignore duplicate records
-        if record[self.key] in self.key_list:
-            print "W: UNION ignored duplicate record"
-            return
+        #if record[key] in key_list:
+        #    print "W: UNION ignored duplicate record"
+        #    return
+        print "UNION CALLBACK", record
         self.callback(record)
 
         # XXX This code was necessary at some point to merge records... let's

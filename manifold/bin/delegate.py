@@ -111,30 +111,33 @@ class SfaHelper:
 
         creds = []
 
-        c = {
-            'target': self.user_hrn,
-            'type': 'user',
-            'cred': self.delegate('user', self.user_hrn)
-        }
+        #c = {
+        #    'target': self.user_hrn,
+        #    'type': 'user',
+        #    'cred': self.delegate('user', self.user_hrn)
+        #}
+        c = self.delegate('user', self.user_hrn)
         creds.append(c)
 
         try:
             user_auth = get_authority(self.user_hrn)
-            c = {
-                'target': user_auth,
-                'type': 'authority',
-                'cred': self.delegate('authority', user_auth)
-            }
+            #c = {
+            #    'target': user_auth,
+            #    'type': 'authority',
+            #    'cred': self.delegate('authority', user_auth)
+            #}
+            c = self.delegate('authority', user_auth)
             creds.append(c)
         except Exception:
             print "I: No authority credential."
 
         for s in slices:
-            c = {
-                'target': s,
-                'type': 'slice',
-                'cred': self.delegate('slice', s)
-            }
+            #c = {
+            #    'target': s,
+            #    'type': 'slice',
+            #    'cred': self.delegate('slice', s)
+            #}
+            c =  self.delegate('slice', s)
             creds.append(c)
         return creds
 
@@ -193,7 +196,14 @@ Example:
     try:
         MySlice = xmlrpclib.Server(options.myslice_api, allow_none = 1)
         for c in creds:
-            MySlice.AddCredential(auth, c, platform)
+            #MySlice.AddCredential(auth, c, platform)
+            query = {
+                'action':       'update',
+                'fact_table':   'local:account',
+                'filters':      [['platform', '=', platform]],
+                'params':       {'credential': c}
+            }
+            MySlice.Update(auth, query)
             print "I: uploading credential"
     except Exception, e:
         print "E: Error uploading credential: %s" % e

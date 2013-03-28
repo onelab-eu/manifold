@@ -32,14 +32,15 @@ class Gateway(object):
         """
         # XXX explain why router is needed
         # XXX document better config, user_config & user parameters
-        self.router      = router
-        self.platform    = platform
-        self.query       = query
-        self.config      = config
-        self.user_config = user_config
-        self.user        = user
+        self.router         = router
+        self.platform       = platform
+        self.query          = query
+        self.config         = config
+        self.user_config    = user_config
+        self.user           = user
 
-        self.callback    = None
+        self.callback       = None
+        self.result_value   = []
 
     def __str__(self):
         return "<%s %s>" % (self.__class__.__name__, self.query)
@@ -50,12 +51,19 @@ class Gateway(object):
     def set_query(self, query):
         self.query = query
 
+    def set_user_config(self, user_config):
+        self.user_config = user_config
+
     def get_metadata(self):
         gateway_type = self.__class__.__name__
         if gateway_type.endswith('Gateway'):
             gateway_type = gateway_type[:-7]
         gateway_type = gateway_type.lower()
         return Announces.from_dot_h(self.platform, gateway_type)
+
+    def get_result_value(self):
+        return self.result_value
+        
 
 
 #-------------------------------------------------------------------------------

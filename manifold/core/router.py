@@ -7,7 +7,7 @@ from manifold.core.key              import Key, Keys
 from manifold.core.query            import Query, AnalyzedQuery
 from manifold.core.table            import Table
 from manifold.gateways              import Gateway
-from manifold.models                import DBPlatform as Platform, DBUser as User, DBAccount as Account, db
+from manifold.models                import *
 from manifold.core.dbnorm           import to_3nf 
 from manifold.core.dbgraph          import DBGraph
 from manifold.core.query_plan       import QueryPlan
@@ -17,6 +17,7 @@ from manifold.util.callback         import Callback
 from manifold.core.interface        import Interface
 from manifold.util.reactor_thread   import ReactorThread
 from manifold.util.storage          import DBStorage as Storage
+from manifold.core.result_value     import ResultValue
 # XXX cannot use the wrapper with sample script
 # XXX cannot use the thread with xmlrpc -n
 #from manifold.util.reactor_wrapper  import ReactorWrapper as ReactorThread
@@ -39,8 +40,6 @@ class Router(Interface):
     Specialized to handle Announces/Routes, ...
     """
 
-    LOCAL_NAMESPACE = "local"
-
     def boot(self):
         #print "I: Booting router"
         # Install static routes in the RIB and FIB (TODO)
@@ -62,93 +61,93 @@ class Router(Interface):
     def __exit__(self, type, value, traceback):
         ReactorThread().stop_reactor()
 
-    def add_credential(self, cred, platform, user):
-        print "I: Adding credential to platform '%s' and user '%s'" % (platform, user.email)
-        accounts = [a for a in user.accounts if a.platform.platform == platform]
-        if not accounts:
-            raise Exception, "Missing user account"
-        account = accounts[0]
-        config = account.config_get()
-
-
-        if isinstance(cred, dict):
-            cred = cred['cred']
-        
-        c = Credential(string=cred)
-        c_type = c.get_gid_object().get_type()
-        c_target = c.get_gid_object().get_hrn()
-        delegate = c.get_gid_caller().get_hrn()
-
-        # Get the account of the admin user in the database
-        try:
-            admin_user = db.query(User).filter(User.email == ADMIN_USER).one()
-        except Exception, e:
-            raise Exception, 'Missing admin user. %s' % str(e)
-
-        # Get user account
-        admin_accounts = [a for a in admin_user.accounts if a.platform.platform == platform]
-        if not admin_accounts:
-            raise Exception, "Accounts should be created for MySlice admin user"
-        admin_account = admin_accounts[0]
-        admin_config = admin_account.config_get()
-        admin_user_hrn = admin_config['user_hrn']
-
-        if account.auth_type != 'user':
-            raise Exception, "Cannot upload credential to a non-user managed account."
-        # Inspect admin account for platform
-        if delegate != admin_user_hrn: 
-            raise Exception, "Credential should be delegated to %s instead of %s" % (admin_user_hrn, delegate)
-
-        if c_type == 'user':
-            config['user_credential'] = cred
-        elif c_type == 'slice':
-            if not 'slice_credentials' in config:
-                config['slice_credentials'] = {}
-            config['slice_credentials'][c_target] = cred
-        elif c_type == 'authority':
-            config['authority_credential'] = cred
-        else:
-            raise Exception, "Invalid credential type"
-        
-        account.config_set(config)
-
-        #print "USER: " + cred.get_gid_caller().get_hrn()
-        #print "USER: " + cred.get_subject()
-        #print "DELEGATED BY: " + cred.parent.get_gid_caller().get_hrn()
-        #print "TARGET: " + cred.get_gid_object().get_hrn()
-        #print "EXPIRATION: " + cred.get_expiration().strftime("%d/%m/%y %H:%M:%S")
-        #delegate = cred.get_gid_caller().get_hrn()
-        #if not delegate == 'ple.upmc.slicebrowser':
-        #    raise PLCInvalidArgument, "Credential should be delegated to ple.upmc.slicebrowser instead of %s" % delegate;
-        #cred_fields = {
-        #    "credential_person_id" : self.caller["person_id"],
-        #    "credential_target"    : cred.get_gid_object().get_hrn(),
-        #    "credential_expiration": cred.get_expiration(),
-        #    "credential_type"      : cred.get_gid_object().get_type(),
-        #    "credential"           : cred.save_to_string()
-        #}
-
-    def cred_to_struct(self, cred):
-        c = Credential(string = cred)
-        return {
-            "target"     : c.get_gid_object().get_hrn(),
-            "expiration" : c.get_expiration(),
-            "type"       : c.get_gid_object().get_type(),
-            "credential" : c.save_to_string()
-        }
-
-    def get_credentials(self, platform, user):
-        creds = []
-
-        account = [a for a in user.accounts if a.platform.platform == platform][0]
-        config = account.config_get()
-
-        creds.append(self.cred_to_struct(config["user_credential"]))
-        for sc in config["slice_credentials"].values():
-            creds.append(self.cred_to_struct(sc))
-        creds.append(self.cred_to_struct(config["authority_credential"]))
-
-        return creds
+#DEPRECATED#    def add_credential(self, cred, platform, user):
+#DEPRECATED#        print "I: Adding credential to platform '%s' and user '%s'" % (platform, user.email)
+#DEPRECATED#        accounts = [a for a in user.accounts if a.platform.platform == platform]
+#DEPRECATED#        if not accounts:
+#DEPRECATED#            raise Exception, "Missing user account"
+#DEPRECATED#        account = accounts[0]
+#DEPRECATED#        config = account.config_get()
+#DEPRECATED#
+#DEPRECATED#
+#DEPRECATED#        if isinstance(cred, dict):
+#DEPRECATED#            cred = cred['cred']
+#DEPRECATED#        
+#DEPRECATED#        c = Credential(string=cred)
+#DEPRECATED#        c_type = c.get_gid_object().get_type()
+#DEPRECATED#        c_target = c.get_gid_object().get_hrn()
+#DEPRECATED#        delegate = c.get_gid_caller().get_hrn()
+#DEPRECATED#
+#DEPRECATED#        # Get the account of the admin user in the database
+#DEPRECATED#        try:
+#DEPRECATED#            admin_user = db.query(User).filter(User.email == ADMIN_USER).one()
+#DEPRECATED#        except Exception, e:
+#DEPRECATED#            raise Exception, 'Missing admin user. %s' % str(e)
+#DEPRECATED#
+#DEPRECATED#        # Get user account
+#DEPRECATED#        admin_accounts = [a for a in admin_user.accounts if a.platform.platform == platform]
+#DEPRECATED#        if not admin_accounts:
+#DEPRECATED#            raise Exception, "Accounts should be created for MySlice admin user"
+#DEPRECATED#        admin_account = admin_accounts[0]
+#DEPRECATED#        admin_config = admin_account.config_get()
+#DEPRECATED#        admin_user_hrn = admin_config['user_hrn']
+#DEPRECATED#
+#DEPRECATED#        if account.auth_type != 'user':
+#DEPRECATED#            raise Exception, "Cannot upload credential to a non-user managed account."
+#DEPRECATED#        # Inspect admin account for platform
+#DEPRECATED#        if delegate != admin_user_hrn: 
+#DEPRECATED#            raise Exception, "Credential should be delegated to %s instead of %s" % (admin_user_hrn, delegate)
+#DEPRECATED#
+#DEPRECATED#        if c_type == 'user':
+#DEPRECATED#            config['user_credential'] = cred
+#DEPRECATED#        elif c_type == 'slice':
+#DEPRECATED#            if not 'slice_credentials' in config:
+#DEPRECATED#                config['slice_credentials'] = {}
+#DEPRECATED#            config['slice_credentials'][c_target] = cred
+#DEPRECATED#        elif c_type == 'authority':
+#DEPRECATED#            config['authority_credential'] = cred
+#DEPRECATED#        else:
+#DEPRECATED#            raise Exception, "Invalid credential type"
+#DEPRECATED#        
+#DEPRECATED#        account.config_set(config)
+#DEPRECATED#
+#DEPRECATED#        #print "USER: " + cred.get_gid_caller().get_hrn()
+#DEPRECATED#        #print "USER: " + cred.get_subject()
+#DEPRECATED#        #print "DELEGATED BY: " + cred.parent.get_gid_caller().get_hrn()
+#DEPRECATED#        #print "TARGET: " + cred.get_gid_object().get_hrn()
+#DEPRECATED#        #print "EXPIRATION: " + cred.get_expiration().strftime("%d/%m/%y %H:%M:%S")
+#DEPRECATED#        #delegate = cred.get_gid_caller().get_hrn()
+#DEPRECATED#        #if not delegate == 'ple.upmc.slicebrowser':
+#DEPRECATED#        #    raise PLCInvalidArgument, "Credential should be delegated to ple.upmc.slicebrowser instead of %s" % delegate;
+#DEPRECATED#        #cred_fields = {
+#DEPRECATED#        #    "credential_person_id" : self.caller["person_id"],
+#DEPRECATED#        #    "credential_target"    : cred.get_gid_object().get_hrn(),
+#DEPRECATED#        #    "credential_expiration": cred.get_expiration(),
+#DEPRECATED#        #    "credential_type"      : cred.get_gid_object().get_type(),
+#DEPRECATED#        #    "credential"           : cred.save_to_string()
+#DEPRECATED#        #}
+#DEPRECATED#
+#DEPRECATED#    def cred_to_struct(self, cred):
+#DEPRECATED#        c = Credential(string = cred)
+#DEPRECATED#        return {
+#DEPRECATED#            "target"     : c.get_gid_object().get_hrn(),
+#DEPRECATED#            "expiration" : c.get_expiration(),
+#DEPRECATED#            "type"       : c.get_gid_object().get_type(),
+#DEPRECATED#            "credential" : c.save_to_string()
+#DEPRECATED#        }
+#DEPRECATED#
+#DEPRECATED#    def get_credentials(self, platform, user):
+#DEPRECATED#        creds = []
+#DEPRECATED#
+#DEPRECATED#        account = [a for a in user.accounts if a.platform.platform == platform][0]
+#DEPRECATED#        config = account.config_get()
+#DEPRECATED#
+#DEPRECATED#        creds.append(self.cred_to_struct(config["user_credential"]))
+#DEPRECATED#        for sc in config["slice_credentials"].values():
+#DEPRECATED#            creds.append(self.cred_to_struct(sc))
+#DEPRECATED#        creds.append(self.cred_to_struct(config["authority_credential"]))
+#DEPRECATED#
+#DEPRECATED#        return creds
 
     @returns(Keys)
     def metadata_get_keys(self, table_name):
@@ -196,7 +195,8 @@ class Router(Interface):
         if namespace == self.LOCAL_NAMESPACE:
             q = copy.deepcopy(query)
             q.fact_table = table
-            return Storage.execute(q)
+            print "LOCAL QUERY TO STORAGE"
+            return Storage.execute(q, user=user)
         elif namespace == "metadata":
             # Metadata are obtained for the 3nf representation in
             # memory
@@ -240,7 +240,13 @@ class Router(Interface):
         elif namespace:
             raise Exception, "Unsupported namespace '%s'" % namespace
 
-        return self.do_forward(query, None, deferred, execute, user)
+        try:
+            ret = self.do_forward(query, None, deferred, execute, user)
+            return ret
+        except Exception, e:
+            print "EXC in forward", e
+            traceback.print_exc()
+            return []
             
     def do_forward(self, query, route, deferred, execute=True, user=None):
         """
@@ -263,7 +269,7 @@ class Router(Interface):
             print ""
             print ""
 
-            return None
+            return ResultValue.get_success(None)
 
         # The query plan will be the same whatever the action: it represents
         # the easier way to reach the destination = routing
@@ -293,9 +299,18 @@ class Router(Interface):
         qp = QueryPlan()
         qp.build(query, self.g_3nf, self.allowed_capabilities, user)
 
+        print ""
+        print "QUERY PLAN:"
+        print "-----------"
+        qp.dump()
+        print ""
+        print ""
+
         #d = defer.Deferred() if deferred else None
         #cb = Callback(d, router=self, cache_id=h)
         #qp.callback = cb
+
+        self.instanciate_gateways(qp, user)
 
         if query.get_action() == "update":
             # At the moment we can only update if the primary key is present
@@ -307,4 +322,5 @@ class Router(Interface):
             if not query.filters.has_eq(key):
                 raise Exception, "The key field '%s' must be present in update request" % key
 
-        return qp.execute()
+        results = qp.execute()
+        return ResultValue.get_result_value(results, qp.get_result_value_array())

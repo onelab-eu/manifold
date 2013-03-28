@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 # -*- coding:utf-8 */
 
-from manifold.core.router import THRouter
+from manifold.core.router import Router
 
 def main():
     # Instantiate a TopHat router
-    with THRouter() as router:
+    with Router() as router:
         pass
 
 if __name__ == '__main__':

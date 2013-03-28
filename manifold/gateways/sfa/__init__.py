@@ -13,7 +13,9 @@ import hashlib
 import zlib
 import copy # DIRTY HACK SENSLAB
 
-from manifold.core.filter                 import *
+from manifold.core.result_value         import ResultValue
+
+from manifold.core.filter               import Filter
 from manifold.gateways                  import Gateway
 from manifold.gateways.sfa.rspecs.SFAv1 import SFAv1Parser # as Parser
 
@@ -38,10 +40,18 @@ from sfa.rspecs.version_manager import VersionManager
 from sfa.client.client_helper import pg_users_arg, sfa_users_arg
 from sfa.client.sfaserverproxy import SfaServerProxy, ServerException
 from sfa.client.return_value import ReturnValue
-from manifold.models import DBUser as User, DBAccount as Account, DBPlatform as Platform, db
+from manifold.models import *
 import json
 import signal
 import traceback
+
+# FOR DEBUG
+def row2dict(row):
+    d = {}
+    for column in row.__table__.columns:
+        d[column.name] = getattr(row, column.name)
+
+    return d
 
 ADMIN_USER = 'admin'
 DEMO_HOOKS = ['demo']
@@ -83,6 +93,9 @@ def filter_records(type, records):
             filtered_records.append(record)
     return filtered_records
 
+# XXX We should get inspiration from RSpecs parsing for HOOKS
+# eg. to transform urn to hrn
+# currently this is hardcoded because I'm too lazy facing SFA deficiencies
 def project_select_and_rename_fields(table, pkey, filters, fields, map_fields=None):
     filtered = []
     for row in table:
@@ -107,7 +120,10 @@ def project_select_and_rename_fields(table, pkey, filters, fields, map_fields=No
                 # if no fields = keep everything
                 if not fields or k in fields or k == pkey:
                     c[k] = v
+            if 'slice_urn' in row and ('slice_hrn' in fields or not fields):
+                c['slice_hrn'] = urn_to_hrn(row['slice_urn'])[0]
             filtered.append(c)
+
     return filtered
 
 ################################################################################
@@ -140,6 +156,17 @@ def unique_call_id(): return uuid.uuid4().urn
 
 class SFAGateway(Gateway):
 
+    config_fields = [
+        'user_credential',      # string representing a user_credential
+        'slice_credentials',    # dictionary mapping a slice_hrn to the
+                                # corresponding slice credential
+        'authority_credential',
+        'sscert',
+        'user_private_key',
+        'user_hrn',
+        'gid'
+    ]
+
 ################################################################################
 # BEGIN SFA CODE
 ################################################################################
@@ -149,7 +176,8 @@ class SFAGateway(Gateway):
         'last_updated': 'slice_last_updated', # last_updated != last == checked,
         'geni_creator': 'slice_geni_creator',
         'node_ids': 'slice_node_ids',       # X This should be 'nodes.id' but we do not want IDs
-        'researcher': 'users.person_hrn',   # This should be 'users.hrn'
+        'reg-researchers': 'users.person_hrn',   # This should be 'users.hrn'
+        'reg-urn': 'slice_urn',     # slice_geni_urn ???
         'site_id': 'slice_site_id',         # X ID 
         'site': 'slice_site',               # authority.hrn
         'authority': 'authority_hrn',       # isn't it the same ???
@@ -246,6 +274,7 @@ class SFAGateway(Gateway):
         else:
             account = accounts[0]
 
+        # XXX ACCOUNT MANAGEMENT : to be improved
         config_new = None
         if account.auth_type == 'reference':
             ref_platform = json.loads(account.config)['reference_platform']
@@ -254,13 +283,13 @@ class SFAGateway(Gateway):
             if not ref_accounts:
                 raise Exception, "reference account does not exist"
             ref_account = ref_accounts[0]
-            config_new = json.dumps(SFA.manage(ADMIN_USER, ref_platform, json.loads(ref_account.config)))
+            config_new = json.dumps(SFAGateway.manage(ADMIN_USER, ref_platform, json.loads(ref_account.config)))
             if ref_account.config != config_new:
                 ref_account.config = config_new
                 db.add(ref_account)
                 db.commit()
         else:
-            config_new = json.dumps(SFA.manage(ADMIN_USER, platform, json.loads(account.config)))
+            config_new = json.dumps(SFAGateway.manage(ADMIN_USER, platform, json.loads(account.config)))
             if account.config != config_new:
                 account.config = config_new
                 db.add(account)
@@ -581,7 +610,10 @@ class SFAGateway(Gateway):
         if type == 'user':
             if target:
                 raise Exception, "Cannot retrieve specific user credential for now"
-            return self.user_config['user_credential']
+            try:
+                return self.user_config['user_credential']
+            except TypeError, e:
+                raise Exception, "Missing user credential %s" %  str(e)
         elif type == 'authority':
             if target:
                 raise Exception, "Cannot retrieve specific authority credential for now"
@@ -922,7 +954,7 @@ class SFAGateway(Gateway):
             pass # TODO how to get slice users
 
         # remove join fields
-        if 'slice_hrn' not in fields:
+        if fields and 'slice_hrn' not in fields:
             for s in filtered:
                 del s['slice_hrn']
 
@@ -1225,10 +1257,11 @@ class SFAGateway(Gateway):
     def __str__(self):
         return "<SFAGateway %r: %s>" % (self.config['sm'], self.query)
 
+
     def start(self):
         assert self.query, "Cannot run gateway with not query associated"
 
-        self.debug = 'debug' in query.params and query.params['debug']
+        self.debug = 'debug' in self.query.params and self.query.params['debug']
         if not self.user_config:
             print "NOT CONFIG RETURN NONE"
             self.callback(None)
@@ -1263,21 +1296,32 @@ class SFAGateway(Gateway):
                 local_filters.set_eq('slice_hrn', senslab_slice)
             else:
                 local_filters = q.filters
+
+
+            # 
+            # XXX This should be run in a thread
+            #
             
-            print "FILTERS", local_filters
-            print "FIELDS", q.fields
             fields = q.fields # Metadata.expand_output_fields(q.fact_table, list(q.fields))
             result = getattr(self, "%s_%s" % (q.action, q.fact_table))(local_filters, q.params, fields)
             for r in result:
                 # DIRTY HACK continued
                 if slice_hrn and 'slice_hrn' in r:
+                    print "Dirty hack continued"
                     r['slice_hrn'] = slice_hrn
+                print "CALLBACK IN SFA", r
                 self.callback(r)
         except Exception, e:
-            print "W: Exception during SFA operation, ignoring...%s" % str(e)
-            traceback.print_exc()
+            rv = ResultValue(
+                origin      = (ResultValue.GATEWAY, self.__class__.__name__),
+                type        = ResultValue.ERROR, 
+                code        = ResultValue.ERROR, 
+                description = str(e), 
+                traceback   = traceback.format_exc())
+            self.result_value.append(rv)
+            #print "W: Exception during SFA operation, ignoring...%s" % str(e)
+            #traceback.print_exc()
 
-        print "END CALLABCK"
         self.callback(None)
 
 
@@ -1408,6 +1452,3 @@ class SFAGateway(Gateway):
             config['slice_credentials'] = {}
 
         return config
-
-    def get_metadata(self):
-        return []

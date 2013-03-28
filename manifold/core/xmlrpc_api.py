@@ -1,7 +1,10 @@
+import traceback
+
 from manifold.auth              import Auth
 from manifold.core.query        import Query
 from manifold.util.options      import Options
 from twisted.web                import xmlrpc
+from manifold.core.result_value import ResultValue
 
 #-------------------------------------------------------------------------------
 # Class XMLRPCAPI
@@ -33,8 +36,7 @@ class XMLRPCAPI(xmlrpc.XMLRPC, object):
         super(XMLRPCAPI, self).__init__(**kwargs)
 
     def authenticate(self, auth):
-        user = Auth(auth).check()
-        return user
+        return Auth(auth).check()
 
     # QUERIES
     def xmlrpc_forward(self, *args):
@@ -49,7 +51,20 @@ class XMLRPCAPI(xmlrpc.XMLRPC, object):
             user = None
         # The rest defines the query
         query = Query(*args)
-        return self.interface.forward(query, user=user)
+        try:
+            rv = self.interface.forward(query, user=user)
+            # replace ResultValue by dict
+            if 'description' in rv and isinstance(rv['description'], list):
+                rv['description'] = [dict(x) for x in rv['description']]
+            return dict(rv)
+
+        except Exception, e:
+            return dict(ResultValue(
+                origin      = (ResultValue.CORE, self.__class__.__name__),
+                type        = ResultValue.ERROR, 
+                code        = ResultValue.ERROR,
+                description = str(e),
+                traceback   = traceback.format_exc()))
 
     def xmlrpc_action(self, action, args):
         
