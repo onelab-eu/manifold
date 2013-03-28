@@ -18,6 +18,10 @@ class Base(object):
     def __tablename__(cls):
         return cls.__name__.lower()
 
+    # By default, we do not filter the content of the table according to the
+    # authenticated user
+    user_filter = False
+
     __mapper_args__= {'always_refresh': True}
 
     #id =  Column(Integer, primary_key=True)
@@ -26,7 +30,11 @@ class Base(object):
     #    return {c.name: getattr(self, c.name) for c in self.__table__.columns}
 
     @staticmethod
-    def process_params(params):
+    def process_filters(filters):
+        return filters
+
+    @staticmethod
+    def process_params(params, filters, users):
         return params
 
 Base = declarative_base(cls=Base)
@@ -35,10 +43,10 @@ Session = sessionmaker(bind=engine)
 db = Session()
 
 # Models
-from manifold.models.platform   import Platform as DBPlatform 
-from manifold.models.user       import User     as DBUser
-from manifold.models.account    import Account  as DBAccount
-from manifold.models.session    import Session  as DBSession
+from manifold.models.platform   import Platform
+from manifold.models.user       import User
+from manifold.models.account    import Account
+from manifold.models.session    import Session
 
 Base.metadata.create_all(engine)
 

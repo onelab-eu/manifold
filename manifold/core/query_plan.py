@@ -33,6 +33,14 @@ class QueryPlan(object):
         self.ast = AST()
         self.froms = []
 
+    def get_result_value_array(self):
+        # Iterate over gateways to get their result values
+        # XXX We might need tasks
+        result = []
+        for from_node in self.froms:
+            result.extend(from_node.gateway.get_result_value())
+        return result
+
     # metadata == router.g_3nf
     def build(self, query, metadata, allowed_capabilities, user = None):
         """
@@ -107,11 +115,11 @@ class QueryPlan(object):
         needed_fields.update(query.get_where().keys())
 
         # Retrieve the root node corresponding to the fact table
-        print query
-        print "QUERY FROM", query.get_from()
-        print "METADATA FOR DFS", metadata
-        for t in metadata.graph.nodes():
-            print str(t)
+        #print query
+        #print "QUERY FROM", query.get_from()
+        #print "METADATA FOR DFS", metadata
+        #for t in metadata.graph.nodes():
+        #    print str(t)
         root = metadata.find_node(query.get_from())
 
         # Retrieve the (unique due to 3-nf) tree included in "self.g_3nf" and rooted in "root"
@@ -127,7 +135,7 @@ class QueryPlan(object):
         # Compute the skeleton resulting query plan
         # (e.g which does not take into account the query)
         # It leads to a query plan made of Union, From, and LeftJoin nodes
-        return build_query_plan(user, query, pruned_tree)
+        return self.build_query_plan(user, query, pruned_tree)
 
     def build_simple(self, query, metadata, allowed_capabilities):
         """
@@ -176,8 +184,8 @@ class QueryPlan(object):
 
         if add_selection:
             self.ast = self.ast.selection(add_selection) # set of predicates
-        if add_projection:
-            self.ast = self.ast.projection(add_projection) # list of fields
+        #if add_projection:
+        #    self.ast = self.ast.projection(add_projection) # list of fields
 
         self.ast.dump()
 
@@ -193,160 +201,163 @@ class QueryPlan(object):
     def dump(self):
         self.ast.dump()
 
-# Marco's code
+    # Pour chaque table
+        # m1:
+        #   P1 m1 (a, b, c, d, e)
+        #   P2 m1 (a, b, c, d)
+        # m2:
+        #   P2 m2 (d, e)
+    # Cache
+    # A chaque fois qu'on croise une clé et qu'il n'y a pas de trou : DUP + PROJ
+    # Parcours: feuilles d'abord join avec ce qui a été déjà join
+    # Si la table vient de plusieurs plateformes, construire l'union des from de chaque partition
+    #     Mais certains de ces FromTable sont simplement des Cache (FromList)
 
-# Pour chaque table
-    # m1:
-    #   P1 m1 (a, b, c, d, e)
-    #   P2 m1 (a, b, c, d)
-    # m2:
-    #   P2 m2 (d, e)
-# Cache
-# A chaque fois qu'on croise une clé et qu'il n'y a pas de trou : DUP + PROJ
-# Parcours: feuilles d'abord join avec ce qui a été déjà join
-# Si la table vient de plusieurs plateformes, construire l'union des from de chaque partition
-#     Mais certains de ces FromTable sont simplement des Cache (FromList)
+    # TODO: les noeuds From doivent avoir plusieurs callbacks
+    # - alimentation des union et des fromlists
+    # TODO: create noeud DUP
+    # TODO: Cache: associe à chaque methode des FROM_LIST
 
-# TODO: les noeuds From doivent avoir plusieurs callbacks
-# - alimentation des union et des fromlists
-# TODO: create noeud DUP
-# TODO: Cache: associe à chaque methode des FROM_LIST
+    # 1) UNION des froms sur toutes les partitions
+    # 2) JOIN (dfs)
+    # 3) DUP(SELECT()) qui alimente des FROM_LIST
 
-# 1) UNION des froms sur toutes les partitions
-# 2) JOIN (dfs)
-# 3) DUP(SELECT()) qui alimente des FROM_LIST
+    # DFS : but ordonner dans quel ordre les champs sont query
+    # => "graphe des vues" ordonné et annoté comportant éventuellement des "trous"
+    # Join des tables ordonnées (chercher dans le cache) 
+    # Pour chaque "étage": UNION DE FROM chaque plateforme (si elle fournit)
 
-# DFS : but ordonner dans quel ordre les champs sont query
-# => "graphe des vues" ordonné et annoté comportant éventuellement des "trous"
-# Join des tables ordonnées (chercher dans le cache) 
-# Pour chaque "étage": UNION DE FROM chaque plateforme (si elle fournit)
+    # @accepts(User, Query, DiGraph)
+    # @returns(AST)
+    def build_query_plan(self, user, user_query, pruned_tree):
+        """
+        \brief Compute a query plane according to a pruned tree
+        \param user The User instance representing the user issuing the query
+            \sa tophat/model/user.py
+        \param user_query A Query instance (the query issued by the user)
+        \param pruned_tree A DiGraph instance representing the 3nf-tree
+            such as each remaining key in and each remaining field
+            (stored in the DiGraph nodes) is needed 
+            - either because it is explicitly queried by the user or either because
+            - either because it is needed to join tables involved in the 3nf-tree)
+        \return an AST instance which describes the resulting query plane
+        """
+        # <<<<<<<< DEBUG DEBUT
+        tables = pruned_tree.nodes(False)
 
-@accepts(User, Query, DiGraph)
-@returns(AST)
-def build_query_plan(user, user_query, pruned_tree):
-    """
-    \brief Compute a query plane according to a pruned tree
-    \param user The User instance representing the user issuing the query
-        \sa tophat/model/user.py
-    \param user_query A Query instance (the query issued by the user)
-    \param pruned_tree A DiGraph instance representing the 3nf-tree
-        such as each remaining key in and each remaining field
-        (stored in the DiGraph nodes) is needed 
-        - either because it is explicitly queried by the user or either because
-        - either because it is needed to join tables involved in the 3nf-tree)
-    \return an AST instance which describes the resulting query plane
-    """
-    # <<<<<<<< DEBUG DEBUT
-    tables = pruned_tree.nodes(False)
+        # annotations
+        print "-" * 80
+        print "Annotations"
+        print "-" * 80
+        for table in tables:
+            print "---------------- Table %r ----------------" % table
+            print "> map_key_methods"
+            for k, d in table.map_method_keys.items():
+                print "%r => %r" % (k, d)
 
-    # annotations
-    print "-" * 80
-    print "Annotations"
-    print "-" * 80
-    for table in tables:
-        print "---------------- Table %r ----------------" % table
-        print "> map_key_methods"
-        for k, d in table.map_method_keys.items():
-            print "%r => %r" % (k, d)
+            print "> map_method_fields"
+            for k, d in table.map_method_fields.items():
+                print "%r => %r" % (k, d)
+        # >>>>>>>> DEBUG FIN 
 
-        print "> map_method_fields"
-        for k, d in table.map_method_fields.items():
-            print "%r => %r" % (k, d)
-    # >>>>>>>> DEBUG FIN 
+        print "-" * 80
+        print "build_query_plan()"
+        print "-" * 80
+        ast = AST(user = user)
 
-    print "-" * 80
-    print "build_query_plan()"
-    print "-" * 80
-    ast = AST(user = user)
+        # Find the root node in the pruned 3nf tree
+        root_node = find_root(pruned_tree)
 
-    # Find the root node in the pruned 3nf tree
-    root_node = find_root(pruned_tree)
+        # Exploring this tree according to a DFS algorithm leads to a table
+        # ordering leading to feasible successive joins
+        map_method_bestkey = dict()
+        map_method_demux   = dict()
 
-    # Exploring this tree according to a DFS algorithm leads to a table
-    # ordering leading to feasible successive joins
-    map_method_bestkey = dict()
-    map_method_demux   = dict()
+        ordered_tables = dfs_preorder_nodes(pruned_tree, root_node)
+        for table in ordered_tables:
+            from_asts = list()
+            key = list(table.get_keys())[0]
 
-    ordered_tables = dfs_preorder_nodes(pruned_tree, root_node)
-    for table in ordered_tables:
-        from_asts = list()
-        key = list(table.get_keys())[0]
+            # Update the key used by a given method
+            # The more we iterate, the best the key is
+            for method, keys in table.map_method_keys.items():
+                if key in table.map_method_keys[method]: 
+                    map_method_bestkey[method] = key 
 
-        # Update the key used by a given method
-        # The more we iterate, the best the key is
-        for method, keys in table.map_method_keys.items():
-            if key in table.map_method_keys[method]: 
-                map_method_bestkey[method] = key 
+            # For each platform related to the current table, extract the
+            # corresponding table and build the corresponding FROM node
+            map_method_fields = table.get_annotations()
+            for method, fields in map_method_fields.items(): 
+                if method.get_name() == table.get_name():
+                    # The table announced by the platform fits with the 3nf schema
+                    # Build the corresponding FROM 
+                    sub_table = Table.make_table_from_platform(table, fields, method.get_platform())
+                    field_names = [field.get_name() for field in fields]
 
-        # For each platform related to the current table, extract the
-        # corresponding table and build the corresponding FROM node
-        map_method_fields = table.get_annotations()
-        for method, fields in map_method_fields.items(): 
-            if method.get_name() == table.get_name():
-                # The table announced by the platform fits with the 3nf schema
-                # Build the corresponding FROM 
-                sub_table = Table.make_table_from_platform(table, fields, method.get_platform())
-                field_names = [field.get_name() for field in fields]
+                    query = Query(
+                        user_query.get_action(),  # action
+                        method.get_name(),        # from
+                        [],                       # where will be eventually optimized later
+                        user_query.get_params(),  # params
+                        field_names,              # select
+                        user_query.get_ts()       # ts
+                    )
 
-                query = Query(
-                    user_query.get_action(),  # action
-                    method.get_name(),        # from
-                    [],                       # where will be eventually optimized later
-                    user_query.get_params(),  # params
-                    field_names,              # select
-                    user_query.get_ts()       # ts
-                )
+                    from_ast = AST(user = user).From(sub_table, query)
 
-                from_ast = AST(user = user).From(sub_table, query)
-                if method in table.methods_demux:
-                    from_ast.demux().projection(list(fields))
-                    demux_node = from_ast.get_root().get_child()
-                    assert isinstance(demux_node, Demux), "Bug"
-                    map_method_demux[method] = demux_node 
+                    self.froms.append(from_ast.root)
 
+                    if method in table.methods_demux:
+                        from_ast.demux().projection(list(fields))
+                        demux_node = from_ast.get_root().get_child()
+                        assert isinstance(demux_node, Demux), "Bug"
+                        map_method_demux[method] = demux_node 
+
+                else:
+                    # The table announced by the platform doesn't fit with the 3nf schema
+                    # Build a FROMLIST + DUP(best_key) + SELECT(best_key u {fields}) branch
+                    # and plug it to the above the DEMUX node referenced in map_method_demux
+                    # Ask this FROM node for fetching fields
+                    demux_node = map_method_demux[method]
+                    from_node = demux_node.get_child()
+                    key_dup = map_method_bestkey[method]
+                    select_fields = list(set(fields) | set(key_dup))
+                    from_node.add_fields_to_query([field.get_name() for field in fields])
+
+                    print "FROMLIST -- DUP(%r) -- SELECT(%r) -- %r -- %r" % (key_dup, select_fields, demux_node, from_node) 
+
+                    # Build a new AST (the branch we'll add) above an existing FROM node
+                    from_ast = AST(user = user)
+                    from_ast.root = demux_node
+                    #TODO from_node.add_callback(from_ast.callback)
+
+                    self.froms.append(from_ast.root)
+
+                    # Add DUP and SELECT to this AST
+                    from_ast.dup(key_dup).projection(select_fields)
+                    
+                from_asts.append(from_ast)
+
+            # Add the current table in the query plane 
+            if ast.is_empty():
+                # Process this table, which is the root of the 3nf tree
+                ast.union(from_asts, key)
             else:
-                # The table announced by the platform doesn't fit with the 3nf schema
-                # Build a FROMLIST + DUP(best_key) + SELECT(best_key u {fields}) branch
-                # and plug it to the above the DEMUX node referenced in map_method_demux
-                # Ask this FROM node for fetching fields
-                demux_node = map_method_demux[method]
-                from_node = demux_node.get_child()
-                key_dup = map_method_bestkey[method]
-                select_fields = list(set(fields) | set(key_dup))
-                from_node.add_fields_to_query([field.get_name() for field in fields])
+                # Retrieve in-edge (u-->v): there is always exactly 1
+                # predecessor in the 3nf tree since v is not the root.
+                v = table
+                preds = pruned_tree.predecessors(v)
+                assert len(preds) == 1, "pruned_tree is not a tree: predecessors(%r) = %r" % (table, preds)
+                u = preds[0]
+                predicate = pruned_tree[u][v]["predicate"]
+                ast.left_join(AST(user = user).union(from_asts, key), predicate)
 
-                print "FROMLIST -- DUP(%r) -- SELECT(%r) -- %r -- %r" % (key_dup, select_fields, demux_node, from_node) 
+        # Add WHERE node the tree
+        if user_query.get_where() != set():
+            ast.selection(user_query.get_where())
 
-                # Build a new AST (the branch we'll add) above an existing FROM node
-                from_ast = AST(user = user)
-                from_ast.root = demux_node
-                #TODO from_node.add_callback(from_ast.callback)
+        # Add SELECT node above the tree
+        #TODO ast.projection(list(user_query.get_select()))
 
-                # Add DUP and SELECT to this AST
-                from_ast.dup(key_dup).projection(select_fields)
-                
-            from_asts.append(from_ast)
-
-        # Add the current table in the query plane 
-        if ast.is_empty():
-            # Process this table, which is the root of the 3nf tree
-            ast.union(from_asts, key)
-        else:
-            # Retrieve in-edge (u-->v): there is always exactly 1
-            # predecessor in the 3nf tree since v is not the root.
-            v = table
-            preds = pruned_tree.predecessors(v)
-            assert len(preds) == 1, "pruned_tree is not a tree: predecessors(%r) = %r" % (table, preds)
-            u = preds[0]
-            predicate = pruned_tree[u][v]["predicate"]
-            ast.left_join(AST(user = user).union(from_asts, key), predicate)
-
-    # Add WHERE node the tree
-    if user_query.get_where() != set():
-        ast.selection(user_query.get_where())
-
-    # Add SELECT node above the tree
-    #TODO ast.projection(list(user_query.get_select()))
-
-    return ast
+        return ast
 

@@ -4,7 +4,7 @@
 import sys
 import getpass
 
-from manifold.core.router import THRouter
+from manifold.core.router import Router
 from manifold.core.query import Query
 
 def usage():
@@ -27,10 +27,10 @@ def main():
         'auth_type': type,
         'config': config
     }
-    query = Query(action='create', fact_table='tophat:account', params=account_params)
+    query = Query(action='create', fact_table='local:account', params=account_params)
 
     # Instantiate a TopHat router
-    with THRouter() as router:
+    with Router() as router:
         router.forward(query)
 
 if __name__ == '__main__':

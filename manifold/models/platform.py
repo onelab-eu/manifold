@@ -24,4 +24,4 @@ class Platform(Base):
 
     def get_object(self):
         config = json.loads(self.config) if self.config else {}
-        return Object(self.platform, self.gateway_type, config)
+        return Object(self.platform, self.gateway_type, config, self.auth_type)

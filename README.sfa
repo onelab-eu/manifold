@@ -1,0 +1,29 @@
+SFA Resolve call is not compatible between PLE and PLC for example
+- What is the difference ?
+- How can it be detected ?
+
+(augej@adreena)(~/repos/tophat) sfi.py list plc
+sfi command list failed BEG TRACEBACK
+Traceback (most recent call last):
+  File "/usr/local/lib/python2.7/dist-packages/sfa/client/sfi.py", line 579, in main
+    self.dispatch(command, command_options, command_args)
+  File "/usr/local/lib/python2.7/dist-packages/sfa/client/sfi.py", line 545, in dispatch
+    return method(command_options, command_args)
+  File "/usr/local/lib/python2.7/dist-packages/sfa/client/sfi.py", line 890, in list
+    list = self.registry().List(hrn, self.my_credential_string, options)
+  File "/usr/local/lib/python2.7/dist-packages/sfa/client/sfaserverproxy.py", line 112, in func
+    return getattr(self.serverproxy, name)(*args, **kwds)
+  File "/usr/lib/python2.7/xmlrpclib.py", line 1224, in __call__
+    return self.__send(self.__name, args)
+  File "/usr/lib/python2.7/xmlrpclib.py", line 1578, in __request
+    verbose=self.__verbose
+  File "/usr/lib/python2.7/xmlrpclib.py", line 1264, in request
+    return self.single_request(host, handler, request_body, verbose)
+  File "/usr/lib/python2.7/xmlrpclib.py", line 1297, in single_request
+    return self.parse_response(response)
+  File "/usr/lib/python2.7/xmlrpclib.py", line 1473, in parse_response
+    return u.close()
+  File "/usr/local/lib/python2.7/dist-packages/sfa/client/sfaserverproxy.py", line 26, in close
+    raise ServerException(e.faultString)
+ServerException: Internal API error: : List: Expected 2 arguments, got 3
+sfi command list failed END TRACEBACK

@@ -48,6 +48,8 @@ Example:
                 raise Exception, "Not platform named '%s'" % platform
             platform_id = platforms[0]['platform_id']
 
+            # Params depend on the credential type
+
             query = {
                 'fact_table': 'local:account',
                 'filters'   : [['platform_id', '=', platform_id]],

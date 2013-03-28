@@ -1,11 +1,12 @@
-from __future__ import absolute_import
-from manifold.gateways      import Gateway
-
-from sqlalchemy import create_engine
+from __future__                 import absolute_import
+from sqlalchemy                 import create_engine
 from sqlalchemy.ext.declarative import declarative_base, declared_attr
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm             import sessionmaker
+from manifold.gateways          import Gateway
+from manifold.models            import *
 
-from manifold.models import *
+import traceback
+import json
 
 def xgetattr(cls, list_attr):
     ret = []
@@ -19,7 +20,7 @@ def get_sqla_filters(cls, filters):
         for p in filters:
             f = p.op(getattr(cls, p.key), p.value)
             if _filters:
-                _filters = f and _filters
+                _filters = _filters and f
             else:
                 _filters = f
         return _filters
@@ -33,20 +34,21 @@ def row2dict(row):
 class SQLAlchemyGateway(Gateway):
 
     map_fact_table = {
-        'platform' : DBPlatform,
-        'user'     : DBUser,
-        'account'  : DBAccount,
-        'session'  : DBSession
+        'platform' : Platform,
+        'user'     : User,
+        'account'  : Account,
+        'session'  : Session
     }
 
-    def __init__(self, format='dict'):
+    def __init__(self, router=None, platform=None, query=None, config=None, user_config=None, user=None, format='dict'):
 
         assert format in ['dict', 'object'], 'Unknown return format for gateway SQLAlchemy'
         self.format = format
 
+        super(SQLAlchemyGateway, self).__init__(router, platform, query, config, user_config, user)
+
         #engine = create_engine('sqlite:///:memory:?check_same_thread=False', echo=False)
         engine = create_engine('sqlite:////var/myslice/db.sqlite?check_same_thread=False', echo=False)
-        
         
         class Base(object):
             @declared_attr
@@ -60,9 +62,9 @@ class SQLAlchemyGateway(Gateway):
             #def to_dict(self):
             #    return {c.name: getattr(self, c.name) for c in self.__table__.columns}
         
-            @staticmethod
-            def process_params(params):
-                return params
+            #@staticmethod
+            #def process_params(params):
+            #    return params
         
         Base = declarative_base(cls=Base)
         
@@ -96,7 +98,7 @@ class SQLAlchemyGateway(Gateway):
         _fields = xgetattr(cls, query.fields) if query.fields else None
 
         res = db.query( *_fields ) if _fields else db.query( cls )
-        if _filters:
+        if query.filters:
             res = res.filter(_filters)
 
         tuplelist = res.all()
@@ -106,16 +108,50 @@ class SQLAlchemyGateway(Gateway):
 
     def local_query_update(self, query):
 
-        cls = self.map_fact_table[query.fact_table]
+        # XXX The filters that are accepted in config depend on the gateway
+        # Real fields : user_credential
+        # Convenience fields : credential, then redispatched to real fields
+        # same for get, update, etc.
 
-        _fields = xgetattr(cls, query.fields)
-        _filters = get_sqla_filters(cls, query.filters)
-        # only 2.7+ _params = { getattr(cls, k): v for k,v in query.params.items() }
-        _params = dict([ (getattr(cls, k), v) for k,v in query.params.items() ])
+        # XXX What about filters on such fields
 
-        #db.query(cls).update(_params, synchronize_session=False)
-        db.query(cls).filter(_filters).update(_params, synchronize_session=False)
-        db.commit()
+        try:
+            if not query.filters.has_eq('platform_id') and not query.filters.has_eq('platform'):
+                raise Exception, "Cannot update JSON fields on multiple platforms"
+
+            cls = self.map_fact_table[query.fact_table]
+
+            # Note: we can request several values
+
+            # FIELDS: exclude them
+            _fields = xgetattr(cls, query.fields)
+
+
+            # FILTERS: Note we cannot filter on json fields
+            _filters = cls.process_filters(query.filters)
+            _filters = get_sqla_filters(cls, _filters)
+
+            # PARAMS
+            #
+            # The fields we can update in params are either:
+            # - the original fields, including json encoded ones
+            # - fields inside the json encoded ones
+            # - convenience fields
+            # We refer to the model for transforming the params structure into the
+            # final one
+            _params = cls.process_params(query.params, _filters, self.user)
+            # only 2.7+ _params = { getattr(cls, k): v for k,v in query.params.items() }
+            _params = dict([ (getattr(cls, k), v) for k,v in _params.items() ])
+
+            #db.query(cls).update(_params, synchronize_session=False)
+            q = db.query(cls).filter(_filters)
+            if cls.user_filter:
+                q = q.filter(getattr(cls, 'user_id') == self.user.user_id)
+            q = q.update(_params, synchronize_session=False)
+            db.commit()
+        except Exception, e:
+            print "Exception in local query update", e
+            print traceback.print_exc()
 
         return []
 
