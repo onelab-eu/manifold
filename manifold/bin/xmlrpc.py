@@ -124,7 +124,8 @@ class XMLRPCDaemon(Daemon):
             self.interface = Forwarder(platform, allowed_capabilities)
 
         elif Options().gateway:
-            platform = Platform(u'dummy', Options().gateway, self.get_gateway_config(Options().gateway))
+            # XXX user
+            platform = Platform(u'dummy', Options().gateway, self.get_gateway_config(Options().gateway), 'user')
             self.interface = Forwarder(platform, allowed_capabilities)
 
         else:
