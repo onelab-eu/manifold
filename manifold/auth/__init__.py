@@ -65,7 +65,7 @@ class Auth(object):
         return 1
 
     def GetSession(self, auth):
-        return Session().get_session(auth)
+        return Session(auth).get_session()
 
     def GetPersons(self, auth):
         user = self.authenticate(args[0])
@@ -123,7 +123,7 @@ class Session(Auth):
             sess.delete()
             raise AuthenticationFailure, "Invalid session: %s" % e
 
-    def get_session(self, auth):
+    def get_session(self):
         # Before a new session is added, delete expired sessions
         db.query(Session).filter(Session.expires < int(time.time())).delete()
 
@@ -132,7 +132,7 @@ class Session(Auth):
         bytes = random.sample(xrange(0, 256), 32)
         # Base64 encode their string representation
         s.session = base64.b64encode("".join(map(chr, bytes)))
-        s.user = self.authenticate(auth)
+        s.user = self.authenticate(self.auth)
         s.expires = int(time.time()) + (24 * 60 * 60)
         db.add(s)
         db.commit()
