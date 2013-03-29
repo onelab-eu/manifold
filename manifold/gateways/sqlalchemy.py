@@ -160,9 +160,10 @@ class SQLAlchemyGateway(Gateway):
         assert not query.filters, "Filters should be empty for a create request"
         #assert not query.fields, "Fields should be empty for a create request"
 
+        print "CREATE SELF.USER=", self.user
 
         cls = self.map_fact_table[query.fact_table]
-        params = cls.process_params(query.params)
+        params = cls.process_params(query.params, None, self.user)
         new_obj = cls(**params)
         db.add(new_obj)
         db.commit()

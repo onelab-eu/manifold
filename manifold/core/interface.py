@@ -39,6 +39,17 @@ class Interface(object):
             metadata = gw.get_metadata()
             self.metadata[platform.name] = {m.table.class_name:m for m in metadata}
 
+
+    def get_gateway_config(self, gateway_name):
+        log_info("Hardcoded CSV|PostgreSQL configuration")
+        if gateway_name == 'postgresql':
+            config = {'db_user':'postgres', 'db_password':None, 'db_name':'test'}
+        elif gateway_name == 'csv':
+            config = {'filename': '/tmp/test.csv'}
+        else:
+            config = {}
+        return config
+
     def instanciate_gateways(self, query_plan, user):
         """
         \brief instanciate gateway instances in the query plane
@@ -46,6 +57,9 @@ class Interface(object):
         \param user (dict)
         \sa manifold.core.query_plan
         """
+        # XXX Platforms only serve for metadata
+        # in fact we should initialize filters from the instance, then rely on
+        # Storage including those filters...
         try:
             for from_node in query_plan.froms:
                 assert len(from_node.table.platforms) == 1, "Several platforms declared in FROM node"
@@ -56,31 +70,34 @@ class Interface(object):
                     raise Exception, "Cannot find platform data for '%s'" % name
                 platform = platform[0]
 
-                # User account information
-                accounts = [a for a in user.accounts if a.platform.platform == platform.name]
-                if not accounts:
-                    raise Exception, 'No such account'
-                account = accounts[0]
-
-                if not account.auth_type or account.auth_type == 'default':
-                    print "W: should set account auth type"
-                    continue
-
-                if account.auth_type == 'user':
-                    args = [None, name, None, platform.gateway_config, json.loads(account.config), user]
-                elif account.auth_type == 'reference':
-                    ref_platform = json.loads(account.config)['reference_platform']
-                    # XXX STORAGE
-                    ref_platform = db.query(Platform).filter(Platform.platform == ref_platform).one()
-                    ref_accounts = [a for a in user.accounts if a.platform == ref_platform]
-                    if not ref_accounts:
-                        raise Exception, "reference account does not exist"
-                    ref_account = ref_accounts[0]
-
-                    args = [None, name, None, platform.gateway_config, json.loads(ref_account.config), user]
-                    
+                if name == 'dummy':
+                    args = [None, name, None, platform.gateway_config, None, user]
                 else:
-                    raise Exception('auth type not implemented: %s' % account.auth_type)
+                    # User account information
+                    accounts = [a for a in user.accounts if a.platform.platform == platform.name]
+                    if not accounts:
+                        raise Exception, 'No such account'
+                    account = accounts[0]
+
+                    if not account.auth_type or account.auth_type == 'default':
+                        print "W: should set account auth type"
+                        continue
+
+                    if account.auth_type == 'user':
+                        args = [None, name, None, platform.gateway_config, json.loads(account.config), user]
+                    elif account.auth_type == 'reference':
+                        ref_platform = json.loads(account.config)['reference_platform']
+                        # XXX STORAGE
+                        ref_platform = db.query(Platform).filter(Platform.platform == ref_platform).one()
+                        ref_accounts = [a for a in user.accounts if a.platform == ref_platform]
+                        if not ref_accounts:
+                            raise Exception, "reference account does not exist"
+                        ref_account = ref_accounts[0]
+
+                        args = [None, name, None, platform.gateway_config, json.loads(ref_account.config), user]
+                        
+                    else:
+                        raise Exception('auth type not implemented: %s' % account.auth_type)
 
                 gw = Gateway.get(platform.gateway_name)(*args)
 

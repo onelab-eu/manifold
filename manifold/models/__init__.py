@@ -34,7 +34,7 @@ class Base(object):
         return filters
 
     @staticmethod
-    def process_params(params, filters, users):
+    def process_params(params, filters, user):
         return params
 
 Base = declarative_base(cls=Base)
