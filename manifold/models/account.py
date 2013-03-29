@@ -50,7 +50,6 @@ class Account(Base):
 
     @staticmethod
     def process_filters(filters):
-        print "process filters begin", filters
         user_filters = filters.get('user')
         filters.delete('user')
         if user_filters:
@@ -71,23 +70,48 @@ class Account(Base):
                 ret = ret.filter(Platform.platform == pf.value)
                 ret = ret.one()
                 filters.add(Predicate('platform_id', '=', ret[0]))
-        print "process filters", filters
         return filters
         
     @staticmethod
     def process_params(params, filters, user):
 
+        # PARAMS
+# TODO        user_filters = filters.get('user')
+# TODO        filters.delete('user')
+# TODO        if user_filters:
+# TODO            for uf in user_filters:
+# TODO                assert uf.op == eq, "Only == is supported for convenience filter 'user'" 
+# TODO                ret = db.query(User.user_id)
+# TODO                ret = ret.filter(User.email == uf.value)
+# TODO                ret = ret.one()
+# TODO                filters.add(Predicate('user_id', '=', ret[0]))
+# TODO            
+# TODO        platform_filters = filters.get('platform')
+# TODO        filters.delete('platform')
+# TODO        if platform_filters:
+# TODO            for pf in platform_filters:
+# TODO                print "PF=", pf
+# TODO                assert pf.op == eq, "Only == is supported for convenience filter 'platform'"
+# TODO                ret = db.query(Platform.platform_id)
+# TODO                ret = ret.filter(Platform.platform == pf.value)
+# TODO                ret = ret.one()
+# TODO                filters.add(Predicate('platform_id', '=', ret[0]))
+# TODO        return filters
+
         # JSON ENCODED FIELDS are constructed into the json_fields variable
         given = set(params.keys())
         accepted = set([c.name for c in Account.__table__.columns])
         given_json_fields = given - accepted
+
+        print "PARAMS:", params
         
         if given_json_fields:
             if 'config' in given_json_fields:
                 raise Exception, "Cannot mix full JSON specification & JSON encoded fields"
 
             r = db.query(Account.config).filter(filters)
-            r = r.filter(Account.user_id == user.user_id)
+            if user:
+                r = r.filter(Account.user_id == user.user_id)
             r = r.filter(filters) #Account.platform_id == platform_id)
             r = r.one()
             try:
