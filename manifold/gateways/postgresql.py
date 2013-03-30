@@ -469,11 +469,11 @@ class PostgreSQLGateway(Gateway):
             comments = {}
         
             # FIELDS:
-            fields = []
+            fields = set()
             curs.execute(self.SQL_TABLE_FIELDS, (table_name, ))
             for field in curs.fetchall():
                 # PostgreSQL types vs base types
-                fields.append(Field(
+                fields.add(Field(
                     qualifier   = '' if field.is_updatable == 'YES' else 'const',
                     type        = foreign_keys[field.column_name] if field.column_name in foreign_keys else field.data_type,
                     name        = field.column_name,
@@ -492,7 +492,7 @@ class PostgreSQLGateway(Gateway):
         
             # Build metadata
             mc = MetadataClass('class', table_name)
-            mc.fields = set(fields)
+            mc.fields = fields
             mc.keys.append(primary_keys[table_name])
             #mc.partitions.append()
         
