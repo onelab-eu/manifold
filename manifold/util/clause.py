@@ -13,7 +13,7 @@
 import pyparsing as pp
 import operator, re
 
-from manifold.util.predicate import Predicate, operators
+from manifold.util.predicate import Predicate
 from types                 import StringTypes
 
 # XXX When to use Keyword vs. Regex vs. CaselessLiteral
@@ -34,16 +34,16 @@ class Clause(object):
     def __init__(self, *args, **kwargs):
         if len(args) == 2:
             # unary
-            self.operator = operators[args[0]]
+            self.operator = Predicate.operators[args[0]]
             self.operands = [args[1]]
         elif len(args) == 3:
-            self.operator = operators[args[1]]
+            self.operator = Predicate.operators[args[1]]
             self.operands = [args[0], args[2]]
         else:
             raise Exception, "Clause can only be unary or binary"
                 
     def opstr(self, operator):
-        ops = [string for string, op in operators.items() if op == operator]
+        ops = [string for string, op in Predicate.operators.items() if op == operator]
         return ops[0] if ops else ''
 
     def __repr__(self):
@@ -66,7 +66,7 @@ class ClauseStringParser(object):
 
         # Regex string representing the set of possible operators
         # Example : ">=|<=|!=|>|<|="
-        OPERATOR_RX = '|'.join([re.sub('\|', '\|', o) for o in operators.keys()])
+        OPERATOR_RX = '|'.join([re.sub('\|', '\|', o) for o in Predicate.operators.keys()])
 
         # predicate
         field = pp.Word(pp.alphanums + '_')

@@ -1,7 +1,7 @@
 from manifold.models import *
 import time
 
-import crypt
+import crypt, base64, random
 from hashlib import md5
 
 from manifold.gateways.sfa import ADMIN_USER
@@ -39,40 +39,15 @@ class AuthenticationFailure(Exception): pass
 # Auth class
 #-------------------------------------------------------------------------------
 
-class Auth(object):
-    def __new__(cls, auth):
-        if not 'AuthMethod' in auth:
-            raise AuthenticationFailure, "AuthMethod should be specified"
-        if auth['AuthMethod'] == 'anonymous':
-            return super(Auth, cls).__new__(Anonymous)
-        elif auth['AuthMethod'] == 'password':
-            return super(Auth, cls).__new__(Password)
-        elif auth['AuthMethod'] == 'session':
-            return super(Auth, cls).__new__(Session)
-        elif auth['AuthMethod'] == 'ple':
-            return super(Auth, cls).__new__(PLEAuth)
-        elif auth['AuthMethod'] == 'plc':
-            return super(Auth, cls).__new__(PLCAuth)
-        elif auth['AuthMethod'] == 'managed':
-            return super(Auth, cls).__new__(ManagedAuth)
-        else:
-            raise AuthenticationFailure, "Unsupported authentication method: %s" % auth['AuthMethod']
+# http://code.activestate.com/recipes/86900/
 
+class AuthMethod(object):
+    """
+    """
     def __init__(self, auth):
         self.auth = auth
 
-    def AuthCheck(self):
-        return 1
-
-    def GetSession(self, auth):
-        return Session(auth).get_session()
-
-    def GetPersons(self, auth):
-        user = self.authenticate(args[0])
-        return [make_user_dict(user)]
-        #return [{'email': user.email, 'first_name': user.email, 'last_name': '', 'user_hrn': 'TODO'}]
-
-class Password(Auth):
+class PasswordAuth(AuthMethod):
     """
     """
     def check(self):
@@ -97,11 +72,11 @@ class Password(Auth):
 
         return user
 
-class Anonymous(Auth):
+class AnonymousAuth(AuthMethod):
     def check(self):
         return None
 
-class Session(Auth):
+class SessionAuth(AuthMethod):
     """
     Secondary authentication method. After authenticating with a
     primary authentication method, call GetSession() to generate a
@@ -112,7 +87,7 @@ class Session(Auth):
         assert self.auth.has_key('session')
 
         try:
-            sess = db.query(DBSession).filter(DBSession.session == self.auth['session']).one()
+            sess = db.query(Session).filter(Session.session == self.auth['session']).one()
         except Exception, e:
             raise AuthenticationFailure, "No such session: %s" % e
 
@@ -120,10 +95,11 @@ class Session(Auth):
         if user and sess.expires > time.time():
             return user
         else:
-            sess.delete()
-            raise AuthenticationFailure, "Invalid session: %s" % e
+            db.delete(sess)
+            raise AuthenticationFailure, "Invalid session"
 
-    def get_session(self):
+    def get_session(self, user):
+        assert user, "A user associated to a session should not be NULL"
         # Before a new session is added, delete expired sessions
         db.query(Session).filter(Session.expires < int(time.time())).delete()
 
@@ -132,14 +108,14 @@ class Session(Auth):
         bytes = random.sample(xrange(0, 256), 32)
         # Base64 encode their string representation
         s.session = base64.b64encode("".join(map(chr, bytes)))
-        s.user = self.authenticate(self.auth)
+        s.user = user #self.authenticate(self.auth)
         s.expires = int(time.time()) + (24 * 60 * 60)
         db.add(s)
         db.commit()
         return s.session
 
 
-class PLEAuth(Auth):
+class PLEAuth(AuthMethod):
     """
     Authentication towards PLE
     """
@@ -172,7 +148,7 @@ class PLEAuth(Auth):
             db.commit()
             return user
 
-class PLCAuth(Auth):
+class PLCAuth(AuthMethod):
     """
     Authentication towards PLC
     """
@@ -205,7 +181,7 @@ class PLCAuth(Auth):
             db.commit()
             return user
 
-class ManagedAuth(Auth):
+class ManagedAuth(AuthMethod):
     """
     """
 
@@ -241,3 +217,47 @@ class ManagedAuth(Auth):
             db.add(user)
             db.commit()
             return user
+
+class Auth(object):
+
+    auth_map = {
+        'anonymous': AnonymousAuth,
+        'password': PasswordAuth,
+        'session': SessionAuth,
+        'ple': PLEAuth,
+        'plc': PLCAuth,
+        'managed': ManagedAuth
+    }
+
+    def __init__(self, auth):
+        if not 'AuthMethod' in auth:
+            raise AuthenticationFailure, "AuthMethod should be specified"
+
+        try:
+            self.auth_method = self.auth_map[auth['AuthMethod']](auth)
+        except Exception, e:
+            raise AuthenticationFailure, "Unsupported authentication method: %s" % auth['AuthMethod']
+
+    def check(self):
+        return self.auth_method.check()
+
+    def AuthCheck(self):
+        return 1
+
+    # These are temporary functions...
+
+    def GetSession(self, *args):
+        auth = args[0]
+        user = Auth(auth).check()
+        return SessionAuth(auth).get_session(user)
+
+    def GetPersons(self, *args):
+        auth = args[0]
+        print "getpersons auth=", auth
+        user = Auth(auth).check()
+        dic = make_user_dict(user)
+        dic.update({'first_name': 'FIRST', 'last_name': 'LAST'})
+        return [dic]
+        #return [{'email': user.email, 'first_name': user.email, 'last_name': '', 'user_hrn': 'TODO'}]
+
+

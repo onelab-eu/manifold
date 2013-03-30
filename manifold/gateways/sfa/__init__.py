@@ -1309,7 +1309,6 @@ class SFAGateway(Gateway):
                 if slice_hrn and 'slice_hrn' in r:
                     print "Dirty hack continued"
                     r['slice_hrn'] = slice_hrn
-                print "CALLBACK IN SFA", r
                 self.callback(r)
         except Exception, e:
             rv = ResultValue(

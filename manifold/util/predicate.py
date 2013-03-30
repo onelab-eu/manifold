@@ -5,32 +5,31 @@ from manifold.util.misc import contains
 from types import StringTypes
 
 # New modifier: { contains 
-
-operators = {
-    "=="       : eq,
-    "!="       : ne,
-    "<"        : lt,
-    "<="       : le,
-    ">"        : gt,
-    ">="       : ge,
-    "&&"       : and_,
-    "||"       : or_,
-    "contains" : contains
-}
-
-operators_short = {
-    "=" : eq,
-    "~" : ne,
-    "<" : lt,
-    "[" : le,
-    ">" : gt,
-    "]" : ge,
-    "&" : and_,
-    "|" : or_,
-    "}" : contains
-}
-
 class Predicate:
+
+    operators = {
+        "=="       : eq,
+        "!="       : ne,
+        "<"        : lt,
+        "<="       : le,
+        ">"        : gt,
+        ">="       : ge,
+        "&&"       : and_,
+        "||"       : or_,
+        "contains" : contains
+    }
+
+    operators_short = {
+        "=" : eq,
+        "~" : ne,
+        "<" : lt,
+        "[" : le,
+        ">" : gt,
+        "]" : ge,
+        "&" : and_,
+        "|" : or_,
+        "}" : contains
+    }
 
     def __init__(self, *args, **kwargs):
         """
@@ -51,10 +50,10 @@ class Predicate:
         else:
             raise Exception, "Bad initializer for Predicate"
         self.key = key
-        if op in operators.keys():
-            self.op = operators[op]
-        elif op in operators_short.keys():
-            self.op = operators_short[op]
+        if op in self.operators.keys():
+            self.op = self.operators[op]
+        elif op in self.operators_short.keys():
+            self.op = self.operators_short[op]
         else:
             self.op = op
         self.value = value
@@ -72,7 +71,7 @@ class Predicate:
         return (self.key, self.op, self.value)
 
     def get_str_op(self):
-        op_str = [s for s, op in operators.iteritems() if op == self.op]
+        op_str = [s for s, op in self.operators.iteritems() if op == self.op]
         return op_str[0]
 
     def get_str_tuple(self):

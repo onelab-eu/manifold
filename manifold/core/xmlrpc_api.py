@@ -35,22 +35,20 @@ class XMLRPCAPI(xmlrpc.XMLRPC, object):
             raise Exception, "Wrong arguments"
         super(XMLRPCAPI, self).__init__(**kwargs)
 
-    def authenticate(self, auth):
-        return Auth(auth).check()
-
     # QUERIES
     def xmlrpc_forward(self, *args):
         """
         """
-        # The first argument is eventually an authentication token
         if not Options().disable_auth:
-            auth = args[0]
-            user = self.authenticate(auth)
-            args = args[1:]
+            assert len(args) == 2, "Wrong arguments for XMLRPC forward call"
+            auth, query = args
+            user = Auth(auth).check()
         else:
+            assert len(args) == 1, "Wrong arguments for XMLRPC forward call"
+            query = args[0]
             user = None
-        # The rest defines the query
-        query = Query(*args)
+
+        query = Query(query)
         try:
             rv = self.interface.forward(query, user=user)
             # replace ResultValue by dict
@@ -66,18 +64,16 @@ class XMLRPCAPI(xmlrpc.XMLRPC, object):
                 description = str(e),
                 traceback   = traceback.format_exc()))
 
-    def xmlrpc_action(self, action, args):
-        
+    def _xmlrpc_action(self, action, *args):
+        # The first argument is eventually an authentication token
         pos = 0 if Options().disable_auth else 1
         args[pos]['action'] = action
-        #args = list(args)
-        #args.insert(pos, action)
         return self.xmlrpc_forward(*args)
-        
-    def xmlrpc_Get(self, *args):    return self.xmlrpc_action('get', args)
-    def xmlrpc_Update(self, *args): return self.xmlrpc_action('update', args)
-    def xmlrpc_Create(self, *args): return self.xmlrpc_action('create', args)
-    def xmlrpc_Delete(self, *args): return self.xmlrpc_action('delete', args)
+            
+    def xmlrpc_Get   (self, *args): return self._xmlrpc_action('get',    *args)
+    def xmlrpc_Update(self, *args): return self._xmlrpc_action('update', *args)
+    def xmlrpc_Create(self, *args): return self._xmlrpc_action('create', *args)
+    def xmlrpc_Delete(self, *args): return self._xmlrpc_action('delete', *args)
 
         # FORMER CODE FOR ROUTER
         # cb = Callback()

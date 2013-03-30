@@ -85,8 +85,9 @@ class ResultValue(dict):
     def get_error(self, error):
         return {'code': error, 'value': self.ERRSTR[error] }
 
+    @classmethod
     def get_success(self, result):
-        return {'code': success, 'result': result } 
+        return {'code': self.SUCCESS, 'result': result } 
 
 # 67    <code>
 # 68      <value>9</value>

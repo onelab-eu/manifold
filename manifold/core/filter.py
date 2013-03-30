@@ -31,7 +31,7 @@ class Filter(set):
     def from_dict(d):
         f = Filter()
         for key, value in d.items():
-            if key[0] in Predicate.OPERATORS.keys():
+            if key[0] in Predicate.operators.keys():
                 f.add(Predicate(key[1:], key[0], value))
             else:
                 f.add(Predicate(key, '=', value))
