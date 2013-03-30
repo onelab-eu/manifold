@@ -689,7 +689,6 @@ class Selection(Node):
         \param record dictionary representing the received record
         """
         if record == LAST_RECORD or (self.filters and self.filters.match(record)):
-            print "SELECTION CALLBACK", record
             self.callback(record)
         #if record != LAST_RECORD and self.filters:
         #    record = self.filters.filter(record)
@@ -887,8 +886,6 @@ class Union(Node):
         \brief Propagates a START message through the node
         """
         # Start all children
-        print "STARTING UNION"
-        print "with children", self.children
         for i, child in enumerate(self.children):
             self.status.started(i)
             child.start()
@@ -933,7 +930,6 @@ class Union(Node):
         #if record[key] in key_list:
         #    print "W: UNION ignored duplicate record"
         #    return
-        print "UNION CALLBACK", record
         self.callback(record)
 
         # XXX This code was necessary at some point to merge records... let's

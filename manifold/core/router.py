@@ -203,9 +203,8 @@ class Router(Interface):
             if table == "table":
                 output = []
                 # XXX Not generic
-                for table in self.G_nf.graph.nodes():
-                    #print "GNF table", table
-                    fields = [f for f in self.G_nf.get_fields(table)]
+                for table in self.g_3nf.graph.nodes():
+                    fields = [f for f in table.get_fields()]
                     fields = list(set(fields))
 
                     # Build columns from fields
@@ -234,7 +233,7 @@ class Router(Interface):
                         "table"  : table.get_name(),
                         "column" : columns
                     })
-                return output
+                return ResultValue.get_success(output)
             else:
                 raise Exception, "Unsupported metadata request '%s'" % table
         elif namespace:

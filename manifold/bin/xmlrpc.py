@@ -82,7 +82,9 @@ class XMLRPCDaemon(Daemon):
             help = "Disable authentication",
             default = False
         )
-        
+
+    # DUPLICATED IN INTERFACE
+    # XXX should be removed
     def get_gateway_config(self, gateway_name):
         log_info("Hardcoded CSV|PostgreSQL configuration")
         if gateway_name == 'postgresql':
@@ -92,7 +94,7 @@ class XMLRPCDaemon(Daemon):
         else:
             config = {}
         return config
-
+        
     def main(self):
         """
         \brief Runs a XMLRPC server
@@ -125,6 +127,7 @@ class XMLRPCDaemon(Daemon):
 
         elif Options().gateway:
             # XXX user
+            # XXX Change Forwarded initializer
             platform = Platform(u'dummy', Options().gateway, self.get_gateway_config(Options().gateway), 'user')
             self.interface = Forwarder(platform, allowed_capabilities)
 
