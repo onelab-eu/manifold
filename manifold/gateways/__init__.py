@@ -86,6 +86,7 @@ def register():
     from manifold.gateways.csv              import CSVGateway
     from manifold.gateways.manifold_xmlrpc  import ManifoldGateway
     from manifold.gateways.sqlalchemy       import SQLAlchemyGateway
+    from manifold.gateways.oml              import OMLGateway
 
 register()
 

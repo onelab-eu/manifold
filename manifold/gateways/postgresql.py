@@ -28,7 +28,7 @@ from manifold.gateways                  import Gateway
 from manifold.util.log                  import *
 from manifold.core.capabilities         import Capabilities
 from manifold.util.predicate            import and_, or_, inv, add, mul, sub, mod, truediv, lt, le, ne, gt, ge, eq, neg, contains
-from manifold.metadata.MetadataClass    import MetadataClass
+from manifold.core.table                import Table
 from manifold.core.field                import Field 
 from manifold.core.announce             import Announce
 
@@ -44,6 +44,11 @@ class PostgreSQLGateway(Gateway):
     #-------------------------------------------------------------------------------
     # METADATA 
     #-------------------------------------------------------------------------------
+
+    SQL_DATABASE_NAMES = """
+    SELECT datname FROM pg_database
+    WHERE datistemplate = false;
+    """
 
     SQL_TABLE_NAMES = """
     SELECT
@@ -107,25 +112,25 @@ class PostgreSQLGateway(Gateway):
     def cursor(self, cursor_factory=None): #psycopg2.extras.NamedTupleCursor
         if self.connection is None:
             # (Re)initialize database connection
+            cfg = {
+                'user':     self.config['db_user'],
+                'password': self.config['db_password']
+            }
+            cfg['database'] = self.config['db_name'] if 'db_name' in self.config else 'postgres'
+
             if psycopg2:
                 try:
                     # Try UNIX socket first
-                    self.connection = psycopg2.connect(user = self.config['db_user'],
-                                                       password = self.config['db_password'],
-                                                       database = self.config['db_name'])
+                    self.connection = psycopg2.connect(**cfg)
                 except psycopg2.OperationalError:
                     # Fall back on TCP
-                    self.connection = psycopg2.connect(user = self.config['db_user'],
-                                                       password = self.config['db_password'],
-                                                       database = self.config['db_name'],
-                                                       host = self.config['db_host'],
-                                                       port = self.config['db_port'])
+                    cfg['host'] = self.config['db_host']
+                    cfg['port'] = self.config['db_port'] if 'db_port' in self.config else 5432
+                    self.connection = psycopg2.connect(**cfg)
                 self.connection.set_client_encoding("UNICODE")
             else:
-                self.connection = pgdb.connect(user = self.config['db_user'],
-                                               password = self.config['db_password'],
-                                               host = "%s:%d" % (api.config.TOPHAT_DB_HOST, api.config.TOPHAT_DB_PORT),
-                                               database = self.config['db_name'])
+                cfg['host'] = "%s:%d" % (api.config.TOPHAT_DB_HOST, api.config.TOPHAT_DB_PORT)
+                self.connection = pgdb.connect(**cfg)
 
         (self.rowcount, self.description, self.lastrowid) = \
                         (None, None, None)
@@ -447,6 +452,9 @@ class PostgreSQLGateway(Gateway):
 
         return 
 
+    def get_databases(self):
+        return [x['datname'] for x in self.selectall(self.SQL_DATABASE_NAMES) if x['datname'] != 'postgres']
+
     def get_metadata(self):
         announces = []
         
@@ -456,24 +464,14 @@ class PostgreSQLGateway(Gateway):
         
         for table_name in tables:
         
-            # FOREIGN KEYS:
-            # We build a foreign_keys dictionary associating each field of
-            # the table with the table it references.
-            curs.execute(self.SQL_TABLE_FOREIGN_KEYS, (table_name, ))
-            fks = curs.fetchall()
-            foreign_keys = { fk.column_name: fk.foreign_table_name for fk in fks }
-        
-            # COMMENTS:
-            # We build a comments dictionary associating each field of the table with
-            # its comment.
-            comments = {}
-        
+            t = Table(None, None, table_name, None, None) #fields, primary_keys[table_name])
+
             # FIELDS:
             fields = set()
             curs.execute(self.SQL_TABLE_FIELDS, (table_name, ))
             for field in curs.fetchall():
                 # PostgreSQL types vs base types
-                fields.add(Field(
+                t.insert_field(Field(
                     qualifier   = '' if field.is_updatable == 'YES' else 'const',
                     type        = foreign_keys[field.column_name] if field.column_name in foreign_keys else field.data_type,
                     name        = field.column_name,
@@ -486,21 +484,35 @@ class PostgreSQLGateway(Gateway):
             curs.execute(self.SQL_TABLE_KEYS, (table_name, ))
             fks = curs.fetchall()
             primary_keys = { fk.table_name: fk.column_name for fk in fks }
+            
+            for k in primary_keys[table_name]:
+                t.insert_key(k)
+
+            # FOREIGN KEYS:
+            # We build a foreign_keys dictionary associating each field of
+            # the table with the table it references.
+            curs.execute(self.SQL_TABLE_FOREIGN_KEYS, (table_name, ))
+            fks = curs.fetchall()
+            foreign_keys = { fk.column_name: fk.foreign_table_name for fk in fks }
+        
+            # COMMENTS:
+            # We build a comments dictionary associating each field of the table with
+            # its comment.
+            comments = {}
+        
         
             # PARTITIONS:
             # TODO
         
-            # Build metadata
-            mc = MetadataClass('class', table_name)
-            mc.fields = fields
-            mc.keys.append(primary_keys[table_name])
-            #mc.partitions.append()
+            #mc = MetadataClass('class', table_name)
+            #mc.fields = fields
+            #mc.keys.append(primary_keys[table_name])
         
             cap = Capabilities()
             cap.selection = True
             cap.projection = True
 
-            announce = Announce(mc, cap)
+            announce = Announce(t, cap)
             announces.append(announce)
 
         return announces

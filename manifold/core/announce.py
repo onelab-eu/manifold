@@ -1,6 +1,7 @@
 import os
 from manifold.metadata.Metadata         import import_file_h
-from manifold.metadata.MetadataClass    import MetadataClass
+#from manifold.metadata.MetadataClass    import MetadataClass
+from manifold.core.table                import Table
 from manifold.core.capabilities         import Capabilities
 
 STATIC_ROUTES_FILE = "/usr/share/myslice/metadata/"
@@ -44,7 +45,7 @@ class Announces(object):
                 raise Exception, "Metadata file '%s' not found (platform = %r, gateway_type = %r)" % (filename, platform, gateway_type)
 
         # Read input file
-        print "I: Platform %s: Processing %s" % (platform, filename)
+        #print "I: Platform %s: Processing %s" % (platform, filename)
         (classes, enums) = import_file_h(filename)
 
         # Check class consistency
@@ -61,13 +62,13 @@ class Announces(object):
             # t = Table(platform, None, cur_class_name, cur_class.fields, cur_class.keys) # None = methods
             # self.rib[t] = platform
 
-            # XXX We are building MetadataClass but soon we will rename it in Table
-            mc = MetadataClass('class', cur_class_name)
-            mc.fields = set(cur_class.fields) # XXX set should be mandatory
-            mc.keys = cur_class.keys
+            #mc = MetadataClass('class', cur_class_name)
+            #mc.fields = set(cur_class.fields) # XXX set should be mandatory
+            #mc.keys = cur_class.keys
+            t = Table(platform, None, cur_class_name, cur_class.fields, cur_class.keys) # XXX qualifier ?
 
             cap = Capabilities()
 
-            announce = Announce(mc, cap)
+            announce = Announce(t, cap)
             announces.append(announce)
         return announces

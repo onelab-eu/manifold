@@ -50,6 +50,7 @@ class Table:
         """
         \brief Check whether keys parameter is well-formed in __init__
         """
+        if not keys: return
         if not isinstance(keys, (tuple, list, set, frozenset)):
             raise TypeError("keys = %r is not of type tuple, list, frozenset" % keys) 
         for key in keys:
@@ -144,8 +145,9 @@ class Table:
         
         # Init self.keys
         self.keys = Keys()
-        for key in keys:
-            self.insert_key(key)
+        if keys:
+            for key in keys:
+                self.insert_key(key)
 
         # Init self.platforms
         self.platforms = set(self.partitions.keys())
@@ -156,7 +158,7 @@ class Table:
  
         # Other fields
         self.name = name
-        self.map_field_methods = map_field_methods
+        self.map_field_methods = map_field_methods if map_field_methods else {}
 
     #-----------------------------------------------------------------------
     # Outputs 
@@ -168,10 +170,10 @@ class Table:
         \brief Convert a Table instance into a string ('%s')
         \return The corresponding string
         """
-        return "{%s}::%s {\n\t%s\n\n\t%s;\n};" % (
+        return "{%s}::%s {\n\t%s\n%s\n\t%s;\n};" % (
             ', '.join([p          for p in sorted(self.get_platforms())]),
             self.get_name(),
-#            ';\n\t'.join(["%s" % f for f in sorted(self.get_fields())]),
+            ';\n\t'.join(["%s" % f for f in sorted(self.get_fields())]),
             '\n\t'.join(["%s;\t// via %r" % (field, methods) for field, methods in self.map_field_methods.items()]),
             ';\n\t'.join(["%s" % k for k in self.get_keys()])
         )
@@ -247,7 +249,7 @@ class Table:
             self.keys.add(key)
         else:
             if isinstance(key, Field):
-                fields = frozenset(key)
+                fields = frozenset([key])
             elif isinstance(key, StringTypes):
                 fields = frozenset(self.get_field(key))
             elif isinstance(key, (list, set, frozenset, tuple)):
@@ -576,3 +578,46 @@ class Table:
                 return ("-->", connecting_keys_uv) 
         return None
 
+
+    #-----------------------------------------------------------------------
+    # Inherited from MetadataClass XXX
+    #-----------------------------------------------------------------------
+
+    def get_invalid_keys(self):
+        """
+        \return The keys that involving one or more field not present in the table
+        """
+        invalid_keys = []
+        for key in self.keys:
+            key_found = True
+            for key_elt in key:
+                key_elt_found = False 
+                for field in self.fields.values():
+                    if key_elt == field:#.get_name(): 
+                        key_elt_found = True 
+                        break
+                if key_elt_found == False:
+                    key_found = False
+                    break
+            if key_found == False:
+                invalid_keys.append(key)
+                break
+        return invalid_keys
+
+    def get_field_names(self):
+        """
+        \return The list of the fields in the MetadataClass
+        """
+        return [field.get_name() for field in self.fields]
+
+    def get_invalid_types(self, valid_types):
+        """
+        \return Types not present in the table
+        """
+        invalid_types = []
+        for field in self.fields:
+            cur_type = field.type
+            if cur_type not in valid_types and cur_type not in MetadataClass.BASE_TYPES: 
+                print ">> %r: adding invalid type %r (valid_types = %r)" % (self.class_name, cur_type, valid_types)
+                invalid_types.append(cur_type)
+        return invalid_types

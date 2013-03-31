@@ -21,7 +21,6 @@ class Interface(object):
         \brief
         \param platforms A list of platforms and their configuration
         """
-        print "PLATFORMS=", platforms
         if platforms:
             self.platforms = platforms
         else:
@@ -33,11 +32,15 @@ class Interface(object):
     def boot(self):
         if not isinstance(self.platforms, list):
             self.platforms = [self.platforms]
+        self.tables = []
         for platform in self.platforms:
             args = [None, platform.name, None, platform.gateway_config, {}, None]
             gw = Gateway.get(platform.gateway_name)(*args)
             metadata = gw.get_metadata()
-            self.metadata[platform.name] = {m.table.class_name:m for m in metadata}
+            #self.metadata[platform.name] = {m.table.name:m for m in metadata}
+            #self.metadata[platform.name] = {m.table.class_name:m for m in metadata}
+            for m in metadata:
+                self.tables.append(m.table)
 
 
     def get_gateway_config(self, gateway_name):
