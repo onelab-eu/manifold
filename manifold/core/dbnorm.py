@@ -439,7 +439,7 @@ def closure_ext(x, fds):
     for x_elt in x:
         x_plus_ext[x_elt] = set()                 # x+ = x
 
-    print "computing closure with x = %r and fds = %r" % (x, fds)
+    #print "computing closure with x = %r and fds = %r" % (x, fds)
     added = True
     while added:                                   # repeat will we visit at least one new fd
         added = False
@@ -621,7 +621,7 @@ def reinject_fds(fds_min_cover, fds_removed):
             if x not in map_key_fdreinjected.keys():
                 map_key_fdreinjected[x] = set()
             map_key_fdreinjected[x].add(fd_removed)
-            print "(1) %r" % fd_removed
+            #print "(1) %r" % fd_removed
         else:
             # This fd will be dispatched during (2)
             fd_not_reinjected.add(fd_removed)
@@ -632,7 +632,7 @@ def reinject_fds(fds_min_cover, fds_removed):
         x = fd_removed.get_determinant().get_key()
         y = fd_removed.get_field()
         m = fd_removed.get_methods()
-        print "(2) %r" % fd_removed
+        #print "(2) %r" % fd_removed
 
         # Compute (if not cached) the underlying 3nf fds allowing to retrieve y from x 
         if x not in map_key_closure.keys():
@@ -659,9 +659,9 @@ def to_3nf(tables):
         - a Cache instance (storing the shortcuts removed from the 3nf graph)
     """
     # Compute functional dependancies
-    print "-" * 100
-    print "1) Computing functional dependancies"
-    print "-" * 100
+    #print "-" * 100
+    #print "1) Computing functional dependancies"
+    #print "-" * 100
     fds = make_fd_set(tables)
     #print "%r" % fds
 
@@ -677,29 +677,29 @@ def to_3nf(tables):
 #OBSOLETE|                    map_key_platforms[key] |= table.get_platforms()
 
     # Find a minimal cover
-    print "-" * 100
-    print "2) Computing minimal cover"
-    print "-" * 100
+    #print "-" * 100
+    #print "2) Computing minimal cover"
+    #print "-" * 100
     (fds_min_cover, fds_removed) = fd_minimal_cover(fds)
 
-    print "-" * 100
-    print "3) Reinjecting fds removed during normalization"
-    print "-" * 100
-    for fd_removed in fds_removed:
-        print "(0) %r" % fd_removed
+    #print "-" * 100
+    #print "3) Reinjecting fds removed during normalization"
+    #print "-" * 100
+    #for fd_removed in fds_removed:
+    #    print "(0) %r" % fd_removed
 
     reinject_fds(fds_min_cover, fds_removed)
 
-    print "-" * 100
-    print "4) Grouping fds by method"
-    print "-" * 100
+    #print "-" * 100
+    #print "4) Grouping fds by method"
+    #print "-" * 100
     fdss = fds_min_cover.group_by_method()
     #for table_name, fds in fdss.items():
     #    print "%s:\n%s" % (table_name, fds)
 
-    print "-" * 100
-    print "5) Making 3-nf tables" 
-    print "-" * 100
+    #print "-" * 100
+    #print "5) Making 3-nf tables" 
+    #print "-" * 100
     tables_3nf = list()
     map_tablename_methods = dict() # map table_name with methods to demux
 
@@ -751,7 +751,7 @@ def to_3nf(tables):
         # inject field and key annotation in the Table object
         table.map_method_keys   = map_method_keys
         table.map_method_fields = map_method_fields
-        print "%s\n" % table
+        #print "%s\n" % table
         tables_3nf.append(table)
 
     # inject demux annotation
@@ -761,9 +761,9 @@ def to_3nf(tables):
         else:
             table.methods_demux = set()
 
-    print "-" * 100
-    print "6) Building DBgraph"
-    print "-" * 100
+    #print "-" * 100
+    #print "6) Building DBgraph"
+    #print "-" * 100
     graph_3nf = DBGraph(tables_3nf)
 
     return graph_3nf

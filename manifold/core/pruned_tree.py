@@ -210,7 +210,7 @@ def make_sub_graph(g, relevant_fields):
     for u in vertices_to_keep: 
         copy_u = Table.make_table_from_fields(u, relevant_fields[u])
         copy[u] = copy_u
-        print "\nAdding %s" % copy_u
+        #print "\nAdding %s" % copy_u
         sub_graph.add_node(copy_u) # no data on nodes
 
     # Copy relevant arcs from g
@@ -221,7 +221,7 @@ def make_sub_graph(g, relevant_fields):
             continue
 
         sub_graph.add_edge(copy_u, copy_v, deepcopy(g.edge[u][v]))
-        print "Adding %r %s %r via %r" % (copy_u, g.edge[u][v]["type"], copy_v, g.edge[u][v]["info"])
+        #print "Adding %r %s %r via %r" % (copy_u, g.edge[u][v]["type"], copy_v, g.edge[u][v]["info"])
 
     return sub_graph
 
@@ -243,18 +243,18 @@ def build_pruned_tree(g, needed_fields, map_vertex_pred):
         \sa manifold.core.dbgraph.py
     """
    
-    print "-" * 100
-    print "Prune useless keys/nodes/arcs from tree"
-    print "-" * 100
+    #print "-" * 100
+    #print "Prune useless keys/nodes/arcs from tree"
+    #print "-" * 100
     
     (_, relevant_keys, relevant_fields) = prune_precedessor_map(g, needed_fields, map_vertex_pred)
     tree = make_sub_graph(g, relevant_fields)
 
     # Print tree
-    print "-" * 100
-    print "Minimal tree:"
-    print "-" * 100
-    for table in tree.nodes():
-        print "%s\n" % table
+    #print "-" * 100
+    #print "Minimal tree:"
+    #print "-" * 100
+    #for table in tree.nodes():
+    #    print "%s\n" % table
 
     return tree

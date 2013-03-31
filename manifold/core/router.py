@@ -49,10 +49,11 @@ class Router(Interface):
         # initialize dummy list of credentials to be uploaded during the
         # current session
         self.cache = {}
-
+        
         super(Router, self).boot()
-
-        self.build_tables()
+        
+        self.g_3nf = to_3nf(self.tables)
+#DEPRECATED#        self.build_tables()
 
     def __enter__(self):
         ReactorThread().start_reactor()
@@ -163,22 +164,24 @@ class Router(Interface):
                 return table.get_keys()
         return None
 
-    # 1. NORMALIZATION
-    def build_tables(self):
-        """
-        \brief Compute the 3nf schema according to the Tables
-            announced in the metadata
-        """
-        # XXX Temporary: all announces are in MetadataClass format. Let's transform them to tables
-        self.tables = []
-        for platform, announces in self.metadata.items():
-            for class_name, announce in announces.items():
-                x = announce.table
-                table = Table(platform, None, x.class_name, x.fields, x.keys)
-                self.tables.append(table)
-
-        self.g_3nf = to_3nf(self.tables)
-        #self.g_3nf = to_3nf(self.metadata_get_tables())
+#DEPRECATED#    # 1. NORMALIZATION
+#DEPRECATED#    def build_tables(self):
+#DEPRECATED#        """
+#DEPRECATED#        \brief Compute the 3nf schema according to the Tables
+#DEPRECATED#            announced in the metadata
+#DEPRECATED#        """
+#DEPRECATED#        # XXX Temporary: all announces are in MetadataClass format. Let's transform them to tables
+#DEPRECATED#        self.tables = []
+#DEPRECATED#        for platform, announces in self.metadata.items():
+#DEPRECATED#            # XXX how is self.metadata constructed ???
+#DEPRECATED#            for class_name, announce in announces.items():
+#DEPRECATED#                #x = announce.table
+#DEPRECATED#                #table = Table(platform, None, x.class_name, x.fields, x.keys)
+#DEPRECATED#                #self.tables.append(table)
+#DEPRECATED#                self.tables.append(announce.table)
+#DEPRECATED#
+#DEPRECATED#        self.g_3nf = to_3nf(self.tables)
+#DEPRECATED#        #self.g_3nf = to_3nf(self.metadata_get_tables())
 
     # This function is directly called for a Router
     # Decoupling occurs before for queries received through sockets

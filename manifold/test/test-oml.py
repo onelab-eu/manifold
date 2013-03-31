@@ -13,14 +13,13 @@ def print_err(err):
         print "\t", line
     print ''
 
-q = [auth,
-    'slice',
-    [['slice_hrn', '=', 'ple.upmc.myslicedemo']],
-    {},
-    ['measurements']
-]
+q = {
+    'fact_table':   'slice',
+    'filters':      [['slice_hrn', '=', 'ple.upmc.myslicedemo']],
+    'fields':       ['slice_hrn', 'lease_id']
+}
 
-ret = srv.forward(*q)
+ret = srv.forward(auth, q)
 if ret['code'] != 0:
     if isinstance(ret['description'], list):
         # We have a list of errors

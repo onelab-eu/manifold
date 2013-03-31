@@ -4,7 +4,7 @@ from __future__ import absolute_import
 import csv, os.path
 from datetime                           import datetime
 from manifold.gateways                  import Gateway
-from manifold.metadata.MetadataClass    import MetadataClass
+from manifold.core.table                import Table
 from manifold.core.announce             import Announce
 from manifold.core.capabilities         import Capabilities
 from manifold.core.field                import Field 
@@ -81,9 +81,9 @@ class CSVGateway(Gateway):
         for filename in self.config['filename']:
             with open(filename, 'rb') as csvfile:
                 reader = csv.DictReader(csvfile, dialect=self.dialect)
-                fields = []
+                fields = set()
                 for field in reader.fieldnames:
-                    fields.append(Field(
+                    fields.add(Field(
                         qualifier   = 'const', # unless we want to update the CSV file
                         type        = 'string',
                         name        = field,
@@ -91,13 +91,13 @@ class CSVGateway(Gateway):
                         description = '(null)'
                     ))
 
-                mc = MetadataClass('class', self.get_base(filename))
-                mc.fields = set(fields) # XXX set should be mandatory
-                mc.keys = reader.fieldnames[0]
-
+                #mc = MetadataClass('class', self.get_base(filename))
+                #mc.fields = set(fields) # XXX set should be mandatory
+                #mc.keys = reader.fieldnames[0]
+                t = Table(None, None, self.get_base(filename), fields, reader.fieldnames[0])
                 cap = Capabilities()
 
-                announce = Announce(mc, cap)
+                announce = Announce(t, cap)
                 announces.append(announce)
 
         return announces

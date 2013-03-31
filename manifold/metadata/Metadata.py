@@ -12,9 +12,11 @@
 import re
 
 from manifold.util.clause             import Clause
-from manifold.metadata.MetadataClass  import MetadataClass
+#from manifold.metadata.MetadataClass  import MetadataClass
+from manifold.core.table              import Table
 from manifold.metadata.MetadataEnum   import MetadataEnum
 from manifold.core.field              import Field 
+from manifold.core.key                import Key, Keys
 
 #------------------------------------------------------------------
 # Constants needed for .h parsing, see import_file_h(...)
@@ -86,7 +88,7 @@ def import_file_h(filename):
             #    const MyType my_field[]; /**< Comment */
             m = REGEXP_CLASS_FIELD.match(line)
             if m:
-                classes[cur_class_name].fields.append(
+                classes[cur_class_name].insert_field(
                     Field(
                         qualifier   = m.group(1),
                         type        = m.group(2),
@@ -102,8 +104,10 @@ def import_file_h(filename):
             if m:
                 key = m.group(1).split(',')
                 key = [key_elt.strip() for key_elt in key]
-                if key not in classes[cur_class_name].keys:
-                    classes[cur_class_name].keys.append(key)
+                classes[cur_class_name].insert_key(key)
+                # XXX
+                #if key not in classes[cur_class_name].keys:
+                #     classes[cur_class_name].keys.append(key)
                 continue
 
             #    PARTITIONBY(clause_string);
@@ -153,7 +157,8 @@ def import_file_h(filename):
             if m:
                 qualifier      = m.group(1)
                 cur_class_name = m.group(2)
-                classes[cur_class_name] = MetadataClass(qualifier, cur_class_name)
+                #classes[cur_class_name] = MetadataClass(qualifier, cur_class_name)
+                classes[cur_class_name] = Table(None, None, cur_class_name, None, Keys()) # qualifier ??
                 continue
 
             # enum MyEnum {

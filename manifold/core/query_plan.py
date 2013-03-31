@@ -53,9 +53,9 @@ class QueryPlan(object):
         query plane (this is a parameter of the router)
         \param user A User instance (carry user's information) 
         """
-        print "=" * 100
-        print "Entering process_subqueries %s (need fields %s) " % (query.get_from(), query.get_select())
-        print "=" * 100
+        #print "=" * 100
+        #print "Entering process_subqueries %s (need fields %s) " % (query.get_from(), query.get_select())
+        #print "=" * 100
         table_name = query.get_from()
         table = metadata.find_node(table_name)
         if not table:
@@ -124,7 +124,7 @@ class QueryPlan(object):
 
         # Retrieve the (unique due to 3-nf) tree included in "self.g_3nf" and rooted in "root"
         # \sa manifold.util.dfs.py
-        print "Entering DFS(%r) in graph:" % root
+        #print "Entering DFS(%r) in graph:" % root
 
         # Compute the corresponding pruned tree.
         # Each node of the pruned tree only gathers relevant table, and only their
@@ -243,26 +243,26 @@ class QueryPlan(object):
         \return an AST instance which describes the resulting query plane
         """
         # <<<<<<<< DEBUG DEBUT
-        tables = pruned_tree.nodes(False)
-
-        # annotations
-        print "-" * 80
-        print "Annotations"
-        print "-" * 80
-        for table in tables:
-            print "---------------- Table %r ----------------" % table
-            print "> map_key_methods"
-            for k, d in table.map_method_keys.items():
-                print "%r => %r" % (k, d)
-
-            print "> map_method_fields"
-            for k, d in table.map_method_fields.items():
-                print "%r => %r" % (k, d)
+        #tables = pruned_tree.nodes(False)
+        #
+        ## annotations
+        #print "-" * 80
+        #print "Annotations"
+        #print "-" * 80
+        #for table in tables:
+        #    print "---------------- Table %r ----------------" % table
+        #    print "> map_key_methods"
+        #    for k, d in table.map_method_keys.items():
+        #        print "%r => %r" % (k, d)
+        #
+        #    print "> map_method_fields"
+        #    for k, d in table.map_method_fields.items():
+        #        print "%r => %r" % (k, d)
         # >>>>>>>> DEBUG FIN 
 
-        print "-" * 80
-        print "build_query_plan()"
-        print "-" * 80
+        #print "-" * 80
+        #print "build_query_plan()"
+        #print "-" * 80
         ast = AST(user = user)
 
         # Find the root node in the pruned 3nf tree
