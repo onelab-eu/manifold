@@ -94,7 +94,6 @@ class ChildStatus:
         \brief Call this function to signal that a child has completed
         \param child_id The integer identifying a given child node
         """
-        print "*** started", child_id
         self.counter += child_id + 1
 
     def completed(self, child_id):
@@ -102,7 +101,6 @@ class ChildStatus:
         \brief Call this function to signal that a child has completed
         \param child_id The integer identifying a given child node
         """
-        print "*** completed", child_id
         self.counter -= child_id + 1
         assert self.counter >= 0, "Child status error: %d" % self.counter
         if self.counter == 0:
@@ -912,7 +910,6 @@ class Union(Node):
         \param record dictionary representing the received record
         """
         if record == LAST_RECORD:
-            print "COMPLETED in child_callback", child_id
             self.status.completed(child_id)
             return
         

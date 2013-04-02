@@ -20,7 +20,7 @@
 #     destination and target have the same meaning.
 #
 
-import copy
+import sys, copy
 from types                         import StringTypes
 
 from manifold.core.table             import Table
@@ -346,10 +346,12 @@ class Fds(set):
         """
         map_method_fds = dict() 
         for fd in self:
+            _field, _platforms = fd.map_field_methods.items()[0]
             method = fd.get_determinant().get_method_name()
-            if method not in map_method_fds.keys():
-                map_method_fds[method] = Fds()
-            map_method_fds[method].add(fd)
+            dict_key = (method, frozenset(_platforms))
+            if dict_key not in map_method_fds.keys():
+                map_method_fds[dict_key] = Fds()
+            map_method_fds[dict_key].add(fd)
         return map_method_fds
 
     #@returns(Fds)
@@ -615,7 +617,7 @@ def reinject_fds(fds_min_cover, fds_removed):
         m = fd_removed.get_methods()
         if y in x: 
             # Reinject Fd [key --> field \subseteq key]
-            fds_min_cover.add(fd_removed)
+            fds_min_cover.add(fd_removed)# XXX quid si on enleve ca ?
 
             # Memorize this reinjected Fd in map_key_fdreinjected
             if x not in map_key_fdreinjected.keys():
@@ -638,13 +640,25 @@ def reinject_fds(fds_min_cover, fds_removed):
         if x not in map_key_closure.keys():
             map_key_closure[x] = closure_ext(set(x), fds_min_cover) 
 
+#        print "------"
+#        print "key", x
+#        print "last fd", map_key_closure[x][y]
+#        print "*****", fd_removed.map_field_methods
+#        print "------"
+
         # Reinject removed_fd [x --> y] on its key eg on each [x --> x_elt] fd (share key)
         for fd in map_key_fdreinjected[x]:
-            fd.add_methods(m)
+            #print " >1> ADD METHOD ", m, "TO FD", fd
+            if fd.get_determinant().get_method_name() == list(m)[0].get_name():
+                # XXX this is not sufficient if the naming is the same
+                fd.add_methods(m)
+#            else:
+#                print " >1> NOT ADDING METHOD ", m, "TO FD", fd
 
         # Reinject removed_fd [x --> y] on the last fd of the 3nf path from x to y (share field)
         for fd in map_key_closure[x][y]:
             if (fd.get_determinant().get_key() == x and fd.get_field() in set(x)) or fd.get_field() == y:
+                #print " >2> ADD METHOD ", m, "TO FD", fd
                 fd.add_methods(m)
 
 #@returns(DBGraph)
@@ -659,11 +673,11 @@ def to_3nf(tables):
         - a Cache instance (storing the shortcuts removed from the 3nf graph)
     """
     # Compute functional dependancies
-    #print "-" * 100
-    #print "1) Computing functional dependancies"
-    #print "-" * 100
+    print "-" * 100
+    print "1) Computing functional dependancies"
+    print "-" * 100
     fds = make_fd_set(tables)
-    #print "%r" % fds
+    print "%r" % fds
 
 #OBSOLETE|        # Compute the map which refer for each key the platforms
 #OBSOLETE|        # which support this key 
@@ -677,25 +691,25 @@ def to_3nf(tables):
 #OBSOLETE|                    map_key_platforms[key] |= table.get_platforms()
 
     # Find a minimal cover
-    #print "-" * 100
-    #print "2) Computing minimal cover"
-    #print "-" * 100
+    print "-" * 100
+    print "2) Computing minimal cover"
+    print "-" * 100
     (fds_min_cover, fds_removed) = fd_minimal_cover(fds)
 
-    #print "-" * 100
-    #print "3) Reinjecting fds removed during normalization"
-    #print "-" * 100
-    #for fd_removed in fds_removed:
-    #    print "(0) %r" % fd_removed
+    print "-" * 100
+    print "3) Reinjecting fds removed during normalization"
+    print "-" * 100
+#    for fd_removed in fds_removed:
+#        print "(0) %r" % fd_removed
 
     reinject_fds(fds_min_cover, fds_removed)
 
-    #print "-" * 100
-    #print "4) Grouping fds by method"
-    #print "-" * 100
+    print "-" * 100
+    print "4) Grouping fds by method"
+    print "-" * 100
     fdss = fds_min_cover.group_by_method()
-    #for table_name, fds in fdss.items():
-    #    print "%s:\n%s" % (table_name, fds)
+#    for table_name, fds in fdss.items():
+#        print "### \t%s:\n%s" % (table_name, fds)
 
     #print "-" * 100
     #print "5) Making 3-nf tables" 
@@ -703,11 +717,13 @@ def to_3nf(tables):
     tables_3nf = list()
     map_tablename_methods = dict() # map table_name with methods to demux
 
-    for table_name, fds in fdss.items():
+    for table_name_platforms, fds in fdss.items():
         platforms         = set()
         fields            = set()
         keys              = set()
         map_field_methods = dict() # <--- TODO this map should be removed from Table
+
+        table_name, _ = table_name_platforms
 
         # Annotations needed for the query plane
         map_method_keys   = dict()
@@ -751,7 +767,7 @@ def to_3nf(tables):
         # inject field and key annotation in the Table object
         table.map_method_keys   = map_method_keys
         table.map_method_fields = map_method_fields
-        #print "%s\n" % table
+        print "%s\n" % table
         tables_3nf.append(table)
 
     # inject demux annotation

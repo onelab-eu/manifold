@@ -65,12 +65,12 @@ class OMLGateway(PostgreSQLGateway):
         # - Here we have an example of a gateway that might not support the
         # same operators on the different tables
 
-        t = Table('oml', None, 'slicepp', None, None)
+        t = Table('oml', None, 'slice', None, None)
 
         fields = set()
         slice_hrn = Field(
             qualifier   = 'const',
-            type        = 'string',
+            type        = 'text',
             name        = 'slice_hrn',
             is_array    = False,
             description = 'Slice Human Readable Name'
