@@ -84,7 +84,7 @@ class DBGraph:
                 "info"      : fields_u,                       # set of Field
                 "predicate" : make_predicate(fields_u, key_v) # None | Predicate
             })
-            #self.print_arc(u, v)
+            self.print_arc(u, v)
 
     def append(self, u):
         """

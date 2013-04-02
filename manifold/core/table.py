@@ -170,12 +170,12 @@ class Table:
         \brief Convert a Table instance into a string ('%s')
         \return The corresponding string
         """
-        return "{%s}::%s {\n\t%s\n%s\n\t%s;\n};" % (
+        return "{%s}::%s {\n\t%s;\n\t%s;\n};" % (
             ', '.join([p          for p in sorted(self.get_platforms())]),
             self.get_name(),
             ';\n\t'.join(["%s" % f for f in sorted(self.get_fields())]),
-            '\n\t'.join(["%s;\t// via %r" % (field, methods) for field, methods in self.map_field_methods.items()]),
-            ';\n\t'.join(["%s" % k for k in self.get_keys()])
+#            '\n\t'.join(["%s;\t// via %r" % (field, methods) for field, methods in self.map_field_methods.items()]),
+            '\n\t;'.join(["%s" % k for k in self.get_keys()])
         )
 
     @returns(StringTypes)
@@ -567,15 +567,22 @@ class Table:
         """
         u = self
         v = table
+        print "-----------------------------"
+        print "u <--?--> v", u, v
         connecting_fields_uv = u.get_connecting_fields(v)
+        print "connecting_fields", connecting_fields_uv
         if connecting_fields_uv != set():
             connecting_keys_uv = u.get_connecting_keys(connecting_fields_uv)
+            print "connecting keys", connecting_keys_uv
             if connecting_keys_uv == set():
+                print '######', "~~>", connecting_fields_uv
                 return ("~~>", connecting_fields_uv)
 #OBSOLETE|            elif u.includes(v):
 #OBSOLETE|                return ("==>", None)
             elif u.inherits(v):
+                print '######', "-->", connecting_keys_uv
                 return ("-->", connecting_keys_uv) 
+        print '######', "NONE"
         return None
 
 

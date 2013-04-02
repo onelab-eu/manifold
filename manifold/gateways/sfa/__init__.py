@@ -1199,7 +1199,7 @@ class SFAGateway(Gateway):
             return rsrc_slice
             
         except Exception, e:
-            print "E: get_resource", e
+            # XXX disabled temp XXX print "E: get_resource", e
             ret = {'resource': [], 'lease': []}
             # EXCEPTIONS Some tests about giving back informations
             if self.debug:
