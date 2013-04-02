@@ -607,26 +607,35 @@ def reinject_fds(fds_min_cover, fds_removed):
     fds_remaining = Fds()
 
     # (1) 
+    # Reinject x --> x or x --> x_elt where x_elt is in x
+    # (removed during fd_min_cover but required to build the tables)
+    # This should be done only if not "onjoin"
     map_key_fdreinjected = dict()
     fd_not_reinjected = Fds()
     for fd_removed in fds_removed:
         x = fd_removed.get_determinant().get_key()
         y = fd_removed.get_field()
         m = fd_removed.get_methods()
+
+        # Is x --> y of type "x --> x" or "x --> x_elt"
         if y in x: 
             # Reinject Fd [key --> field \subseteq key]
             fds_min_cover.add(fd_removed)
 
+##### OBSOLETE <<<
             # Memorize this reinjected Fd in map_key_fdreinjected
+            # This will be need in (2)
             if x not in map_key_fdreinjected.keys():
                 map_key_fdreinjected[x] = set()
             map_key_fdreinjected[x].add(fd_removed)
+##### OBSOLETE >>>
+            # Memorize this reinjected Fd in map_key_fdreinjected
             #print "(1) %r" % fd_removed
         else:
-            # This fd will be dispatched during (2)
+            # This fd will be reinjected during (2)
             fd_not_reinjected.add(fd_removed)
 
-    # (2)
+    # (2) Reinject shortcut since they may be relevant during the query plane computation
     map_key_closure = dict()
     for fd_removed in fd_not_reinjected:
         x = fd_removed.get_determinant().get_key()
@@ -638,11 +647,17 @@ def reinject_fds(fds_min_cover, fds_removed):
         if x not in map_key_closure.keys():
             map_key_closure[x] = closure_ext(set(x), fds_min_cover) 
 
+##### OBSOLETE <<<
         # Reinject removed_fd [x --> y] on its key eg on each [x --> x_elt] fd (share key)
+        # These Fds have already been reinjected in (1) and stored in map_key_fdreinjected
         for fd in map_key_fdreinjected[x]:
             fd.add_methods(m)
+##### OBSOLETE >>>
 
-        # Reinject removed_fd [x --> y] on the last fd of the 3nf path from x to y (share field)
+        # Reinject removed_fd [x --> y] on the first and the last fd of the 3nf path from x to y (share field)
+        # A closure stores a set of Fd 
+        # - The first fd of this path verifies: fd.get_determinant().get_key() == x and fd.get_field() in set(x)
+        # - The last  fd of this path verifies: fd.get_field() == y
         for fd in map_key_closure[x][y]:
             if (fd.get_determinant().get_key() == x and fd.get_field() in set(x)) or fd.get_field() == y:
                 fd.add_methods(m)
