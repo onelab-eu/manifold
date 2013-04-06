@@ -139,13 +139,19 @@ def prune_precedessor_map(g, queried_fields, map_vertex_pred):
     predecessor     = dict()
     relevant_keys   = dict()
     relevant_fields = dict()
-
     for v, u in map_vertex_pred.items():
         queried_fields_v = v.get_fields_with_name(queried_fields) 
+        # Let's remove fields present in the parent
+        queried_fields_u = u.get_fields_with_name(queried_fields) if u else set()
+        queried_fields_v_unique = queried_fields_v - queried_fields_u
+
+        # We are interested in the table if
+        # 1) it is the root
+        # 2) if provides fields that are not present in the parent
 
         # We store information about v iif it is the root node
         # or if provides relevant fields
-        if not (u == None or queried_fields_v != set()):
+        if not (u == None or queried_fields_v_unique != set()):
             continue
 
         update_map(relevant_fields, v, queried_fields_v)
@@ -256,5 +262,6 @@ def build_pruned_tree(g, needed_fields, map_vertex_pred):
     #print "-" * 100
     #for table in tree.nodes():
     #    print "%s\n" % table
+    #print "-" * 100
 
     return tree

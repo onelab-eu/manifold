@@ -30,5 +30,5 @@ ret = ret['result']
 
 print "===== RESULTS ====="
 for r in ret:
-    print r['slice_hrn']
+    print r
 

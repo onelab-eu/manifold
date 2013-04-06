@@ -457,13 +457,17 @@ class Table:
         \return A dictionnary which map for each Method (e.g. platform +
             method name) the set of Field that can be retrieved 
         """
-        map_method_fields = dict()
-        for field, methods in self.map_field_methods.items():
-            for method in methods:
-                if method not in map_method_fields.keys():
-                    map_method_fields[method] = set()
-                map_method_fields[method].add(field)
-        return map_method_fields 
+        return self.map_method_fields 
+# Commented by Jordan, we already have this information stored in the table
+# and we suppressed map_field_methods from the table
+#
+#        map_method_fields = dict()
+#        for field, methods in self.map_field_methods.items():
+#            for method in methods:
+#                if method not in map_method_fields.keys():
+#                    map_method_fields[method] = set()
+#                map_method_fields[method].add(field)
+#        return map_method_fields 
 
     #-----------------------------------------------------------------------
     # Relations between two Table instances 
@@ -510,7 +514,7 @@ class Table:
         return connecting_fields 
 
     @returns(Keys)
-    def get_connecting_keys(self, fields):
+    def get_connecting_keys_mando(self, fields):
         """
         \brief Find Key(s) of self such has k \subseteq fields
         \param fields A set of Field instances
@@ -551,7 +555,53 @@ class Table:
 #OBSOLETE|    def has_intersecting_keys(self, fields):
 #OBSOLETE|        return fields in self.get_keys():
 
+    def get_connecting_fields_jordan(self, table):
+        # Does u has a field or a set of fields that are keys in v
+        # XXX wrong content and wront name
+        u, v = self, table
+        for v_key in v.keys(): # MAYBE A SINGLE KEY ?
+            if v_key <= u.fields:
+                return (u.fields.intersection(v_key), v_key)
+        return None
+
     def get_relation(self, table):
+        """
+        \brief Compute which kind of relation connects
+            the "self" Table (source node) to the "table"
+            Table (target node). We assume that the graph
+            of table is at least 2nf.
+            \sa manifold.core.dbgraph.py
+        \param table The target table
+        \return
+            - None if the both tables are unrelated
+            - Otherwise, a tuple made of
+                - a string: "==>", "-->", "~~>"
+                - a set of Field that will be stored in the arc 
+        """
+        # We only test relations u --> v
+        u = self
+        v = table
+
+        connecting_fields = u.get_connecting_fields(v)
+        if connecting_fields:
+            # FK --> PK : simple join or view
+            return ('~~>', connecting_fields)
+
+        connecting_keys = u.keys.intersection(v.keys)
+        if connecting_keys:
+            connecting_keys = iter(connecting_keys).next() # pick one
+            # u.PK --> v.PK
+            if u.get_name() != v.get_name():
+                # Different name = inheritance
+                # XXX direction ????
+                return ('-->', connecting_keys)
+            else:
+                if u.get_platforms() >= v.get_platforms():
+                    # Specialization = parent tables created during dbnorm
+                    # (same name, and full set of platforms)
+                    return ('==>', connecting_keys)
+                    
+    def get_relation_mando(self, table):
         """
         \brief Compute which kind of relation connects
             the "self" Table (source node) to the "table"
@@ -567,22 +617,22 @@ class Table:
         """
         u = self
         v = table
-        print "-----------------------------"
-        print "u <--?--> v", u, v
+#        print "-----------------------------"
+#        print "u <--?--> v", u, v
         connecting_fields_uv = u.get_connecting_fields(v)
-        print "connecting_fields", connecting_fields_uv
+#        print "connecting_fields", connecting_fields_uv
         if connecting_fields_uv != set():
             connecting_keys_uv = u.get_connecting_keys(connecting_fields_uv)
-            print "connecting keys", connecting_keys_uv
+#            print "connecting keys", connecting_keys_uv
             if connecting_keys_uv == set():
-                print '######', "~~>", connecting_fields_uv
+#                print '######', "~~>", connecting_fields_uv
                 return ("~~>", connecting_fields_uv)
 #OBSOLETE|            elif u.includes(v):
 #OBSOLETE|                return ("==>", None)
             elif u.inherits(v):
-                print '######', "-->", connecting_keys_uv
+#                print '######', "-->", connecting_keys_uv
                 return ("-->", connecting_keys_uv) 
-        print '######', "NONE"
+#        print '######', "NONE"
         return None
 
 

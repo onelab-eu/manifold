@@ -12,7 +12,7 @@ from types                      import StringTypes
 from manifold.core.filter         import Filter, Predicate
 from manifold.util.frozendict     import frozendict
 from manifold.util.type           import returns, accepts
-from copy                       import deepcopy
+import copy
 
 class ParameterError(StandardError): pass
 
@@ -35,10 +35,7 @@ class Query(object):
         len_args = len(args)
 
         if len(args) == 1:
-            if isinstance(args[0], Query):
-            # Copy
-                return deepcopy(args[0])
-            elif isinstance(args[0], dict):
+            if isinstance(args[0], dict):
                 kwargs = args[0]
                 args = []
 
@@ -122,6 +119,8 @@ class Query(object):
             if not isinstance(field, StringTypes):
                 raise TypeError("Invalid field name %s (string expected, got %s)" % (field, type(field)))
 
+    def copy(self):
+        return copy.deepcopy(self)
 
     def clear(self):
         self.action = 'get'
