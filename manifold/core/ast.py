@@ -11,12 +11,13 @@
 #   Jordan Augé       <jordan.auge@lip6.fr> 
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
-import sys
+import sys, random
 from copy                       import copy, deepcopy
 from types                      import StringTypes
 
 from types                      import StringTypes
-from manifold.core.filter       import Filter, Predicate
+from manifold.core.filter       import Filter
+from manifold.util.predicate    import Predicate, eq
 from manifold.core.query        import Query, AnalyzedQuery
 from manifold.core.table        import Table 
 from manifold.core.field        import Field
@@ -224,7 +225,8 @@ class From(Node):
     From Node are responsible to query a gateway (!= FromTable).
     """
 
-    def __init__(self, table, query):
+    def __init__(self, platform, query):
+    #def __init__(self, table, query):
         """
         \brief Constructor
         \param table A Table instance (the 3nf table)
@@ -232,9 +234,11 @@ class From(Node):
         \param query A Query instance: the query passed to the gateway to fetch records 
         """
         assert isinstance(query, Query), "Invalid type: query = %r (%r)" % (query, type(query))
-        assert isinstance(table, Table), "Invalid type: table = %r (%r)" % (table, type(table))
+        # XXX replaced by platform name (string)
+        #assert isinstance(table, Table), "Invalid type: table = %r (%r)" % (table, type(table))
 
-        self.query, self.table = query, table
+        #self.query, self.table = query, table
+        self.query, self.platform = query, platform
         self.gateway = None
         super(From, self).__init__()
 
@@ -256,19 +260,20 @@ class From(Node):
             assert isinstance(field_name, StringTypes), "Invalid field_name = %r in field_names = %r" % (field_name, field_names)
         self.query.fields = frozenset(set(self.query.fields) | set(field_names))
 
-    #@returns(Table)
-    def get_table(self):
-        """
-        \return The Table instance queried by this FROM node.
-        """
-        return self.table
+#    #@returns(Table)
+#    def get_table(self):
+#        """
+#        \return The Table instance queried by this FROM node.
+#        """
+#        return self.table
 
     @returns(StringTypes)
     def get_platform(self):
         """
         \return The name of the platform queried by this FROM node.
         """
-        return list(self.get_table().get_platforms())[0]
+        return self.platform
+        #return list(self.get_table().get_platforms())[0]
 
     #@returns(StringTypes)
     def __repr__(self):
@@ -279,13 +284,16 @@ class From(Node):
         )
 
     #@returns(From)
-    def inject(self, records):
+    def inject(self, records, key):
         """
         \brief Inject record / record keys into the node
         \param records list of dictionaries representing records,
                        or list of record keys
         \return This node
         """
+        print "INJECTING IN FROM:"
+        print records
+        print "------"
         if not records:
             return
         record = records[0]
@@ -295,22 +303,25 @@ class From(Node):
 
         # If the injection does not provides all needed fields, we need to
         # request them and join
-        provided_fields = set(record.keys()) if is_record else set([self.key])
+        provided_fields = set(record.keys()) if is_record else set([key])
         needed_fields = self.query.fields
         missing_fields = needed_fields - provided_fields
 
         if not missing_fields:
-            return FromTable(self.query, records)
+            return FromTable(self.query, records, key)
 
-        missing_fields |= self.key
+        missing_fields.add(key) # |= key
         self.query.fields = missing_fields
 
-        parent_query = Query(self.query)
-        parent_query.fields = provided_fields
-        parent_from = FromTable(parent_query, records)
+        #parent_query = self.query.copy()
+        #parent_query.fields = provided_fields
+        #parent_from = FromTable(parent_query, records, key)
 
         old_self_callback = self.get_callback()
-        join = LeftJoin(parent_from, self, self.key)
+        join = LeftJoin(records, self, Predicate(key, '==', key))
+        print " ***** CREATING LEFT JOIN FOR REINJECT PLANE", join.identifier
+        print "       |_ LEFT ", records
+        print "       |_ RIGHT", self
         join.set_callback(old_self_callback)
 
         return join
@@ -319,6 +330,7 @@ class From(Node):
         """
         \brief Propagates a START message through the node
         """
+        print "STARTING FROM", self
         if not self.gateway:
             raise Exception, "Cannot call start on a From class, expecting Gateway"
         self.gateway.start()
@@ -337,7 +349,7 @@ class FromTable(From):
     \brief FROM node querying a list of records
     """
 
-    def __init__(self, query, records = []):
+    def __init__(self, query, records, key):
         """
         \brief Constructor
         \param query A Query instance
@@ -346,8 +358,8 @@ class FromTable(From):
         assert isinstance(query,   Query), "Invalid query = %r (%r)"   % (query,   type(query))
         assert isinstance(records, list),  "Invalid records = %r (%r)" % (records, type(records))
 
-        self.query, self.records = query, records
-        super(FromTable, self).__init__()
+        self.records, self.key = records, key
+        super(FromTable, self).__init__(None, query)
 
     def __repr__(self, indent = 0):
         return DUMPSTR_FROMTABLE % (
@@ -360,6 +372,8 @@ class FromTable(From):
         \brief Propagates a START message through the node
         """
         for record in self.records:
+            if not isinstance(record, dict):
+                record = {self.key: record}
             self.callback(record)
         self.callback(LAST_RECORD)
 
@@ -373,12 +387,12 @@ class LeftJoin(Node):
     """
 
     @staticmethod
-    def check_init(left_child, right_child, predicate, callback):
-        assert issubclass(type(left_child),  Node), "Invalid left child = %r (%r)"  % (left_child,  type(left_child))
+    def check_init(left_child, right_child, predicate): #, callback):
+        #assert issubclass(type(left_child),  Node), "Invalid left child = %r (%r)"  % (left_child,  type(left_child))
         assert issubclass(type(right_child), Node), "Invalid right child = %r (%r)" % (right_child, type(right_child))
         assert isinstance(predicate, Predicate),    "Invalid predicate = %r (%r)"   % (predicate,   type(predicate))
 
-    def __init__(self, left_child, right_child, predicate, callback):
+    def __init__(self, left_child, right_child, predicate):#, callback):
         """
         \brief Constructor
         \param left_child  A Node instance corresponding to left  operand of the LEFT JOIN
@@ -387,20 +401,36 @@ class LeftJoin(Node):
             left_child and right_child can be joined.
         \param callback The callback invoked when the LeftJoin instance returns records. 
         """
+        assert predicate.op == eq
+
         # Check parameters
-        LeftJoin.check_init(left_child, right_child, predicate, callback)
+        LeftJoin.check_init(left_child, right_child, predicate)#, callback)
 
         # Initialization
         self.left      = left_child
         self.right     = right_child 
         self.predicate = predicate
-        self.set_callback(callback)
+#        self.set_callback(callback)
+        self.left_map  = {}
+        if isinstance(left_child, list):
+            self.left_done = True
+            for r in left_child:
+                if isinstance(r, dict):
+                    self.left_map[r[self.predicate.key]] = r
+                else:
+                    self.left_map[r] = {self.predicate.key: r}
+        else:
+            self.left_done = False
+            left_child.set_callback(self.left_callback)
+        right_child.set_callback(self.right_callback)
 
         # Set up callbacks
-        self.status = ChildStatus(self.all_done)
-        for i, child in enumerate(self.get_children()):
-            child.set_callback(ChildCallback(self, i))
-            self.status.started(i)
+        #self.status = ChildStatus(self.all_done)
+        #for i, child in enumerate(self.get_children()):
+        #    child.set_callback(ChildCallback(self, i))
+        #    self.status.started(i)
+
+        self.identifier = random.randint(1,9999)
 
         super(LeftJoin, self).__init__()
 
@@ -427,13 +457,15 @@ class LeftJoin(Node):
         return q
         
     #@returns(LeftJoin)
-    def inject(self, records):
+    def inject(self, records, key):
         """
         \brief Inject record / record keys into the node
         \param records A list of dictionaries representing records,
                        or a list of record keys
         \returns This node
         """
+
+        print "!! LEFT JOIN WAS ASKED INJECT"
         if not records:
             return
         record = records[0]
@@ -446,7 +478,8 @@ class LeftJoin(Node):
             for record in records:
                 proj = do_projection(record, self.left.query.fields)
                 records_inj.append(proj)
-            self.left = self.left.inject(records_inj)
+            print " > propagation inject to left member: ", self.left
+            self.left = self.left.inject(records_inj, key)
             # TODO injection in the right branch: only the subset of fields
             # of the right branch
             return self
@@ -454,7 +487,8 @@ class LeftJoin(Node):
         # TODO Currently we support injection in the left branch only
         # Injection makes sense in the right branch if it has the same key
         # as the left branch.
-        self.left = self.left.inject(records)
+        print " > propagate in left member", self.left
+        self.left = self.left.inject(records, key)
         return self
 
     def start(self):
@@ -474,11 +508,11 @@ class LeftJoin(Node):
         if self.left:
             self.left.dump(indent + 1)
         else:
-            print '[DATA]', self.left_results
+            print '[DATA]', self.left_map.values()
         self.right.dump(indent + 1)
 
     def __repr__(self):
-        return "JOIN %s %s %s" % self.predicate.get_str_tuple()
+        return "%s, ID:#%d" % ("JOIN %s %s %s" % self.predicate.get_str_tuple(), self.identifier) 
 
     def left_callback(self, record):
         """
@@ -488,49 +522,57 @@ class LeftJoin(Node):
 
         if record == LAST_RECORD:
             # Inject the keys from left records in the right child...
-            self.right.inject(self.left_map.keys())
+            self.right.inject(self.left_map.keys(), self.predicate.value)
             # ... and start the right node
             self.right.start()
+            self.left_done = True
             return
 
         # Directly send records missing information necessary to join
-        if self.predicate not in record or not record[self.predicate]:
+        if self.predicate.key not in record or not record[self.predicate.key]:
             print "W: Missing LEFTJOIN predicate %s in left record %r : forwarding" % \
                     (self.predicate, record)
             self.callback(record)
 
         # Store the result in a hash for joining later
-        self.left_map[record[self.predicate]] = record
+        print "LEFT CALLBACK, adding in LEFT MAP", record
+        self.left_map[record[self.predicate.key]] = record
 
     def right_callback(self, record):
         """
         \brief Process records received by the right child
         \param record A dictionary representing the received record 
         """
-
         if record == LAST_RECORD:
             # Send records in left_results that have not been joined...
-            for leftrecord in self.left_results:
+            for leftrecord in self.left_map.values():
                 self.callback(leftrecord)
             # ... and terminates
             self.callback(LAST_RECORD)
             return
 
         # Skip records missing information necessary to join
-        if self.predicate not in record or not record[self.predicate]:
+        if self.predicate.value not in record or not record[self.predicate.value]:
             print "W: Missing LEFTJOIN predicate %s in right record %r: ignored" % \
                     (self.predicate, record)
             return
         
-        key = record[self.predicate]
+        key = record[self.predicate.value]
         # We expect to receive information about keys we asked, and only these,
         # so we are confident the key exists in the map
         # XXX Dangers of duplicates ?
+        print "RIGHT RECORD", record
+        print "LEFT MAP", self.left_map
         left_record = self.left_map[key]
+        print "LEFT RECORD BEFORE UPDATE", left_record
         left_record.update(record)
+        print "CALLBACK ISSUED BY JOIN", left_record
         self.callback(left_record)
 
+        print "deleted from left map", key
         del self.left_map[key]
+        print "LEFT MAP", self.left_map
+        
 
 #------------------------------------------------------------------
 # PROJECTION node
@@ -599,14 +641,14 @@ class Projection(Node):
         self.child.start()
 
     #@returns(Projection)
-    def inject(self, records):
+    def inject(self, records, key):
         """
         \brief Inject record / record keys into the node
         \param records A list of dictionaries representing records,
                        or a list of record keys
         \return This node
         """
-        self.child = self.child.inject(records)
+        self.child = self.child.inject(records, key)
         return self
 
     def callback(self, record):
@@ -671,14 +713,14 @@ class Selection(Node):
         self.child.start()
 
     #@returns(Selection)
-    def inject(self, records):
+    def inject(self, records, key):
         """
         \brief Inject record / record keys into the child
         \param records A list of dictionaries representing records,
                        or list of record keys
         \return This node
         """
-        self.child = self.child.inject(records)
+        self.child = self.child.inject(records, key)
         return self
 
     def callback(self, record):
@@ -686,7 +728,9 @@ class Selection(Node):
         \brief Processes records received by the child node 
         \param record dictionary representing the received record
         """
+        print "[WHERE", self.filters, "]", record
         if record == LAST_RECORD or (self.filters and self.filters.match(record)):
+            print "where issued callback", record
             self.callback(record)
         #if record != LAST_RECORD and self.filters:
         #    record = self.filters.filter(record)
@@ -872,7 +916,7 @@ class Union(Node):
         \param indent current indentation
         """
         Node.tab(indent)
-        print "%r" % self
+        print "%r" % self, self.callback
         for child in self.children:
             child.dump(indent + 1)
 
@@ -886,21 +930,31 @@ class Union(Node):
         # Start all children
         for i, child in enumerate(self.children):
             self.status.started(i)
+        for i, child in enumerate(self.children):
             child.start()
 
-    def inject(self, records):
+    def inject(self, records, key):
         """
         \brief Inject record / record keys into the node
         \param records list of dictionaries representing records, or list of
         record keys
         """
+        print "UNION BEFORE INJECT"
         for i, child in enumerate(self.children):
-            self.children[i] = child.inject(records)
+            print "  * ", child
+        print "---------"
+        for i, child in enumerate(self.children):
+            self.children[i] = child.inject(records, key)
+        print "UNION AFTER INJECT"
+        for i, child in enumerate(self.children):
+            print "  * ", child
+        print "---------"
         return self
 
     def all_done(self):
         #for record in self.child_results.values():
         #    self.callback(record)
+        print "UNION ALL DONE"
         self.callback(LAST_RECORD)
 
     def child_callback(self, child_id, record):
@@ -1066,9 +1120,9 @@ class SubQuery(Node):
             
             # child is the AST receiving the injection
             if only_key:
-                self.children[i] = child.inject(child_keys_all)
+                self.children[i] = child.inject(child_keys_all, key) # XXX key ?
             else:
-                self.children[i] = child.inject(child_record_all)
+                self.children[i] = child.inject(child_record_all, key) # XXX key ?
 
         # We make another loop since the children might have been modified in
         # the previous one.
@@ -1106,7 +1160,7 @@ class SubQuery(Node):
         # Store the results for later...
         self.child_results[child_id].append(record)
 
-    def inject(self, records):
+    def inject(self, records, key):
         """
         \brief Inject record / record keys into the node
         \param records list of dictionaries representing records, or list of
@@ -1147,7 +1201,8 @@ class AST(object):
 
 
     #@returns(AST)
-    def From(self, table, query):
+    def From(self, platform, query):
+    #def From(self, table, query):
         """
         \brief Append a FROM Node to this AST
         \param table The Table wrapped by the FROM operator
@@ -1155,15 +1210,16 @@ class AST(object):
         \return The updated AST
         """
         assert self.is_empty(),                 "Should be instantiated on an empty AST"
-        assert isinstance(table, Table),        "Invalid table = %r (%r)" % (table, type(table))
+        #assert isinstance(table, Table),        "Invalid table = %r (%r)" % (table, type(table))
         assert isinstance(query, Query),        "Invalid query = %r (%r)" % (query, type(query))
-        assert len(table.get_platforms()) == 1, "Table = %r should be related to only one platform" % table
+        #assert len(table.get_platforms()) == 1, "Table = %r should be related to only one platform" % table
 
         self.query = query
 #OBSOLETE|        platforms = table.get_platforms()
 #OBSOLETE|        platform = list(platforms)[0]
 
-        node = From(table, query) 
+        node = From(platform, query) 
+        #node = From(table, query) 
         self.root = node
         self.root.set_callback(self.get_callback())
         return self
@@ -1211,7 +1267,8 @@ class AST(object):
         assert not self.is_empty(),              "No left table"
 
         old_root = self.get_root()
-        self.root = LeftJoin(old_root, right_child.get_root(), predicate, None)
+        print " ***** CREATING LEFT JOIN FOR QUERY PLANE"
+        self.root = LeftJoin(old_root, right_child.get_root(), predicate)#, None)
         self.root.set_callback(old_root.get_callback())
         return self
 

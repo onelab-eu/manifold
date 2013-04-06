@@ -78,13 +78,15 @@ class DBGraph:
         if relation_uv:
             (label, fields_u) = relation_uv
             key_v = list(v.get_keys())[0] if len(v.get_keys()) > 0 else None
+            #print "EDGE", u, "      *** ", label, " ***      ", v
             self.graph.add_edge(u, v, {
                 "cost"      : True,
                 "type"      : label,                          # "-->" | "~~>"
                 "info"      : fields_u,                       # set of Field
                 "predicate" : make_predicate(fields_u, key_v) # None | Predicate
             })
-            self.print_arc(u, v)
+            #print "PREDICATE IN DBGRAPH", make_predicate(fields_u, key_v) 
+            #self.print_arc(u, v)
 
     def append(self, u):
         """
@@ -141,6 +143,10 @@ class DBGraph:
         """
         for table in self.graph.nodes(False):
             if table.get_name() == table_name:
+                # We need to check whether it has a parent with the same name
+                for parent, _ in self.graph.in_edges(table):
+                    if parent.get_name() == table_name:
+                        return parent
                 return table
         return None
 
@@ -172,13 +178,11 @@ def find_root(tree):
     \param tree A DiGraph instance representing a tree
     \return The corresponding root node, None if not found
     """
-    ret = None
     for u in tree.nodes():
         if not tree.in_edges(u):
             # The root is the only node with no incoming edge
-            ret = u
-            break
-    return ret
+            return u
+    return None
 
 #OBSOLETE|    def get_edges(self):
 #OBSOLETE|        return dfs_edges(self.graph)

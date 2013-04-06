@@ -12,7 +12,7 @@ class OMLGateway(PostgreSQLGateway):
 
     def get_slice(self):
         return [{
-            'slice_hrn': 'ple.upmc.myslice_demo',
+            'slice_hrn': 'ple.upmc.myslicedemo',
             'lease_id':  100
         }, {
             'slice_hrn': 'ple.upmc.agent',

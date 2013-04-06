@@ -24,7 +24,7 @@ import sys, copy
 from types                         import StringTypes
 
 from manifold.core.table             import Table
-from manifold.core.key               import Key 
+from manifold.core.key               import Key, Keys 
 from manifold.core.field             import Field
 from manifold.core.method            import Method 
 from manifold.util.type              import returns, accepts
@@ -354,6 +354,26 @@ class Fds(set):
             map_method_fds[dict_key].add(fd)
         return map_method_fds
 
+    # Replaces the previous function
+    @returns(dict)
+    def group_by_tablename_method(self):
+        """
+        \brief Group a set of Fd stored in this Fds by tablename then method
+        \returns A dictionnary {method_name : Fds}
+        """
+        map_method_fds = {}
+        for fd in self:
+            _field, _platforms = fd.map_field_methods.items()[0]
+            _platforms = frozenset(_platforms)
+
+            method = fd.get_determinant().get_method_name()
+            if method not in map_method_fds:
+                 map_method_fds[method] = {}
+            if _platforms not in map_method_fds[method]:
+                map_method_fds[method][_platforms] = Fds()
+            map_method_fds[method][_platforms].add(fd)
+        return map_method_fds
+
     #@returns(Fds)
     def split(self):
         """
@@ -528,7 +548,43 @@ def fd_minimal_cover(fds):
     return (g, fds_removed) 
 
 @accepts(Fds, Fds)
+@accepts(Fds, Fds)
 def reinject_fds(fds_min_cover, fds_removed):
+    """
+    \brief Reinject Fds removed by fd_minimal_cover in the remaining fds.
+    \param fds_min_cover A Fds instance gatehring the Fd involved in the 3nf graph
+    \param fds_removed A Fds instance gathering the Fd instances removed during the normalization.
+        An Fd in this set is:
+        (1) either a Fd [x --> x]
+            or a Fd [x --> x_i] with x = (x_0, ..., x_N)
+            (We ignore such Fds and will take care of keys when building final tables)
+        (2) either a Fd [x --> y] which is redundant with an existing Fd
+            (We reinject the information in the corresponding Fd)
+        (3) either a Fd [x --> z] which is a transitive Fds such as x --> ... --> z
+            (We reinject the information along the whole path)
+
+        Both last cases can be treated in the same way
+    """
+
+    map_key_closure = {}
+    for fd_removed in fds_removed:
+        x = fd_removed.get_determinant().get_key()
+        y = fd_removed.get_field()
+        m = fd_removed.get_methods()
+
+        # (1)
+        if y in x: continue
+
+        # Compute (if not cached) the underlying 3nf fds allowing to retrieve y from x 
+        if x not in map_key_closure.keys():
+            map_key_closure[x] = closure_ext(set(x), fds_min_cover) 
+
+        for fd in map_key_closure[x][y]:
+            #if (fd.get_determinant().get_key() == x and fd.get_field() in set(x)) or fd.get_field() == y:
+            fd.add_methods(m)
+
+
+def reinject_fds_mando(fds_min_cover, fds_removed):
     """
     \brief "Reinject" Fds removed by fd_minimal_cover in the remaining fds.
     \param fds_min_cover A Fds instance gatehring the Fd involved in the 3nf graph
@@ -609,26 +665,35 @@ def reinject_fds(fds_min_cover, fds_removed):
     fds_remaining = Fds()
 
     # (1) 
+    # Reinject x --> x or x --> x_elt where x_elt is in x
+    # (removed during fd_min_cover but required to build the tables)
+    # This should be done only if not "onjoin"
     map_key_fdreinjected = dict()
     fd_not_reinjected = Fds()
     for fd_removed in fds_removed:
         x = fd_removed.get_determinant().get_key()
         y = fd_removed.get_field()
         m = fd_removed.get_methods()
+
+        # Is x --> y of type "x --> x" or "x --> x_elt"
         if y in x: 
             # Reinject Fd [key --> field \subseteq key]
-            fds_min_cover.add(fd_removed)# XXX quid si on enleve ca ?
+            fds_min_cover.add(fd_removed)
 
+##### OBSOLETE <<<
             # Memorize this reinjected Fd in map_key_fdreinjected
+            # This will be need in (2)
             if x not in map_key_fdreinjected.keys():
                 map_key_fdreinjected[x] = set()
             map_key_fdreinjected[x].add(fd_removed)
+##### OBSOLETE >>>
+            # Memorize this reinjected Fd in map_key_fdreinjected
             #print "(1) %r" % fd_removed
         else:
-            # This fd will be dispatched during (2)
+            # This fd will be reinjected during (2)
             fd_not_reinjected.add(fd_removed)
 
-    # (2)
+    # (2) Reinject shortcut since they may be relevant during the query plane computation
     map_key_closure = dict()
     for fd_removed in fd_not_reinjected:
         x = fd_removed.get_determinant().get_key()
@@ -640,22 +705,20 @@ def reinject_fds(fds_min_cover, fds_removed):
         if x not in map_key_closure.keys():
             map_key_closure[x] = closure_ext(set(x), fds_min_cover) 
 
-#        print "------"
-#        print "key", x
-#        print "last fd", map_key_closure[x][y]
-#        print "*****", fd_removed.map_field_methods
-#        print "------"
-
+##### OBSOLETE <<<
         # Reinject removed_fd [x --> y] on its key eg on each [x --> x_elt] fd (share key)
+        # These Fds have already been reinjected in (1) and stored in map_key_fdreinjected
         for fd in map_key_fdreinjected[x]:
             #print " >1> ADD METHOD ", m, "TO FD", fd
             if fd.get_determinant().get_method_name() == list(m)[0].get_name():
                 # XXX this is not sufficient if the naming is the same
                 fd.add_methods(m)
-#            else:
-#                print " >1> NOT ADDING METHOD ", m, "TO FD", fd
+##### OBSOLETE >>>
 
-        # Reinject removed_fd [x --> y] on the last fd of the 3nf path from x to y (share field)
+        # Reinject removed_fd [x --> y] on the first and the last fd of the 3nf path from x to y (share field)
+        # A closure stores a set of Fd 
+        # - The first fd of this path verifies: fd.get_determinant().get_key() == x and fd.get_field() in set(x)
+        # - The last  fd of this path verifies: fd.get_field() == y
         for fd in map_key_closure[x][y]:
             if (fd.get_determinant().get_key() == x and fd.get_field() in set(x)) or fd.get_field() == y:
                 #print " >2> ADD METHOD ", m, "TO FD", fd
@@ -673,11 +736,11 @@ def to_3nf(tables):
         - a Cache instance (storing the shortcuts removed from the 3nf graph)
     """
     # Compute functional dependancies
-    print "-" * 100
-    print "1) Computing functional dependancies"
-    print "-" * 100
+    #print "-" * 100
+    #print "1) Computing functional dependancies"
+    #print "-" * 100
     fds = make_fd_set(tables)
-    print "%r" % fds
+    #print "%r" % fds
 
 #OBSOLETE|        # Compute the map which refer for each key the platforms
 #OBSOLETE|        # which support this key 
@@ -691,23 +754,24 @@ def to_3nf(tables):
 #OBSOLETE|                    map_key_platforms[key] |= table.get_platforms()
 
     # Find a minimal cover
-    print "-" * 100
-    print "2) Computing minimal cover"
-    print "-" * 100
+    #print "-" * 100
+    #print "2) Computing minimal cover"
+    #print "-" * 100
     (fds_min_cover, fds_removed) = fd_minimal_cover(fds)
 
-    print "-" * 100
-    print "3) Reinjecting fds removed during normalization"
-    print "-" * 100
+    #print "-" * 100
+    #print "3) Reinjecting fds removed during normalization"
+    #print "-" * 100
 #    for fd_removed in fds_removed:
 #        print "(0) %r" % fd_removed
 
     reinject_fds(fds_min_cover, fds_removed)
 
-    print "-" * 100
-    print "4) Grouping fds by method"
-    print "-" * 100
-    fdss = fds_min_cover.group_by_method()
+    #print "-" * 100
+    #print "4) Grouping fds by method"
+    #print "-" * 100
+    #fdss = fds_min_cover.group_by_method() # Mando
+    fdss = fds_min_cover.group_by_tablename_method() # Jordan
 #    for table_name, fds in fdss.items():
 #        print "### \t%s:\n%s" % (table_name, fds)
 
@@ -717,58 +781,132 @@ def to_3nf(tables):
     tables_3nf = list()
     map_tablename_methods = dict() # map table_name with methods to demux
 
-    for table_name_platforms, fds in fdss.items():
-        platforms         = set()
-        fields            = set()
-        keys              = set()
-        map_field_methods = dict() # <--- TODO this map should be removed from Table
+    # for table_name_platforms, fds in fdss.items():
+    for table_name, map_platform_fds in fdss.items():
 
-        table_name, _ = table_name_platforms
+        # For the potential parent table
+        #
 
+        # Stores the number of distinct platforms set
+        cpt_platforms = 0
+        # Stores the set of platforms
+        all_platforms = set()
+        common_fields = None
+        common_keys = None
         # Annotations needed for the query plane
-        map_method_keys   = dict()
-        map_method_fields = dict()
+        all_tables = []
 
-        for fd in fds:
-            key = fd.get_determinant().get_key()
-            keys.add(key)
-            fields |= fd.get_fields()
+        for platform, fds in map_platform_fds.items():
+            platforms         = set()
+            fields            = set()
+            keys              = Keys()
+            # XXX Jordan: I removed occurrences in the rest of the code
+            map_field_methods = dict() # <--- TODO this map should be removed from Table
 
-            for field, methods in fd.get_map_field_methods().items():
+            # Annotations needed for the query plane
+            map_method_keys   = dict()
+            map_method_fields = dict()
 
-                # TODO this map should be removed from Table
-                if field not in map_field_methods:
-                    map_field_methods[field] = set()
-                map_field_methods[field] |= methods
+            for fd in fds:
+                key = fd.get_determinant().get_key()
+                keys.add(key)
+                fields |= fd.get_fields()
+                
+                # We need to add fields from the key
+                for key_field in key:
+                    fields.add(key_field)
 
+                for field, methods in fd.get_map_field_methods().items():
+
+                    # TODO this map should be removed from Table
+                    # XXX jordan: then, I commented it...
+                    #if field not in map_field_methods:
+                    #    map_field_methods[field] = set()
+                    #map_field_methods[field] |= methods
+
+                    for method in methods:
+
+                        # key annotation
+                        if not method in map_method_keys.keys():
+                            map_method_keys[method] = set()
+                        map_method_keys[method].add(key)
+
+                        # field annotations
+                        if not method in map_method_fields.keys():
+                            map_method_fields[method] = set()
+                        map_method_fields[method].add(field)
+                        map_method_fields[method].add(key_field)
+
+                        # demux annotation
+                        method_name = method.get_name()
+                        if method_name != table_name :
+                            if method_name not in map_tablename_methods.keys():
+                                map_tablename_methods[method_name] = set()
+                            map_tablename_methods[method_name].add(method)
+
+                        platforms.add(method.get_platform())
+
+            table = Table(platforms, None, table_name, fields, keys)
+            # XXX Jordan : i nullified it
+            #table = Table(platforms, map_field_methods, table_name, fields, keys)
+
+            # inject field and key annotation in the Table object
+            table.map_method_keys   = map_method_keys
+            table.map_method_fields = map_method_fields
+            tables_3nf.append(table)
+            all_tables.append(table)
+            #print "TABLE 3nf:", table
+            #print "     method fields", map_method_fields
+
+            cpt_platforms += 1
+            all_platforms |= platforms
+            if not common_fields:
+                common_fields = fields
+            else:
+                common_fields &= fields
+
+            if not common_keys:
+                common_keys = keys
+            else:
+                common_keys &= keys
+
+
+        # Need to add a parent table if more than two sets of platforms
+        if cpt_platforms > 1:
+            table = Table(all_platforms, None, table_name, common_fields, common_keys)
+
+            # Migrate common fields from children to parents, except keys
+            ##map_common_method_keys   = dict()
+            map_common_method_fields = dict()
+
+            for field in common_fields:
+                methods = set()
+                for child_table in all_tables:
+                    # Objective = remove the field from child table
+                    # Several methods can have it
+                    for _method, _fields in child_table.map_method_fields.items():
+                        if field in _fields:
+                            methods.add(_method)
+                            if not common_keys.has_field(field):
+                                _fields.remove(field)
+
+                if not common_keys.has_field(field):
+                    del child_table.fields[field.get_name()]
+                # Add the field with all methods to parent table
                 for method in methods:
+                    if not method in map_common_method_fields: map_common_method_fields[method] = set()
+                    map_common_method_fields[method].add(field)
 
-                    # key annotation
-                    if not method in map_method_keys.keys():
-                        map_method_keys[method] = set()
-                    map_method_keys[method].add(key)
+            map_common_method_fields[method].add(field)
 
-                    # field annotations
-                    if not method in map_method_fields.keys():
-                        map_method_fields[method] = set()
-                    map_method_fields[method].add(field)
+            # inject field and key annotation in the Table object
+            table.map_method_keys   = dict() #map_common_method_keys
+            table.map_method_fields = map_common_method_fields
+            tables_3nf.append(table)
+            #print "TABLE 3nf:", table
 
-                    # demux annotation
-                    method_name = method.get_name()
-                    if method_name != table_name :
-                        if method_name not in map_tablename_methods.keys():
-                            map_tablename_methods[method_name] = set()
-                        map_tablename_methods[method_name].add(method)
-
-                    platforms.add(method.get_platform())
-
-        table = Table(platforms, map_field_methods, table_name, fields, keys)
-
-        # inject field and key annotation in the Table object
-        table.map_method_keys   = map_method_keys
-        table.map_method_fields = map_method_fields
-        print "%s\n" % table
-        tables_3nf.append(table)
+        # XXX we already know about the links between those two platforms
+        # but we can find them easily (cf dbgraph)
 
     # inject demux annotation
     for table in tables_3nf:

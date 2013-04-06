@@ -65,8 +65,7 @@ class Interface(object):
         # Storage including those filters...
         try:
             for from_node in query_plan.froms:
-                assert len(from_node.table.platforms) == 1, "Several platforms declared in FROM node"
-                name = iter(from_node.table.platforms).next()
+                name = from_node.get_platform()
 
                 platform = [p for p in self.platforms if p.name == name]
                 if not platform:
@@ -76,32 +75,42 @@ class Interface(object):
                 if name == 'dummy':
                     args = [None, name, None, platform.gateway_config, None, user]
                 else:
-                    # User account information
-                    accounts = [a for a in user.accounts if a.platform.platform == platform.name]
-                    if not accounts:
-                        raise Exception, 'No such account'
-                    account = accounts[0]
 
-                    if not account.auth_type or account.auth_type == 'default':
+                    if not platform.auth_type:
                         print "W: should set account auth type"
                         continue
 
-                    if account.auth_type == 'user':
-                        args = [None, name, None, platform.gateway_config, json.loads(account.config), user]
-                    elif account.auth_type == 'reference':
-                        ref_platform = json.loads(account.config)['reference_platform']
-                        # XXX STORAGE
-                        ref_platform = db.query(Platform).filter(Platform.platform == ref_platform).one()
-                        ref_accounts = [a for a in user.accounts if a.platform == ref_platform]
-                        if not ref_accounts:
-                            raise Exception, "reference account does not exist"
-                        ref_account = ref_accounts[0]
+                    # XXX platforms might have multiple auth types (like pam)
+                    # XXX we should refer to storage
 
-                        args = [None, name, None, platform.gateway_config, json.loads(ref_account.config), user]
-                        
+                    if platform.auth_type == 'none':
+                        config = {}
+
+                    # For default, take myslice account
+
+                    elif platform.auth_type == 'user':
+                        # User account information
+                        accounts = [a for a in user.accounts if a.platform.platform == platform.name]
+                        if not accounts:
+                            raise Exception, 'No such account'
+                        account = accounts[0]
+
+                        config = json.loads(account.config)
+
+                        if account.auth_type == 'reference':
+                            ref_platform = config['reference_platform']
+                            ref_platform = db.query(Platform).filter(Platform.platform == ref_platform).one()
+                            ref_accounts = [a for a in user.accounts if a.platform == ref_platform]
+                            if not ref_accounts:
+                                raise Exception, "reference account does not exist"
+                            ref_account = ref_accounts[0]
+
+                            config = json.loads(ref_account.config)
+
                     else:
-                        raise Exception('auth type not implemented: %s' % account.auth_type)
-
+                        raise Exception('auth type not implemented: %s' % platform.auth_type)
+                
+                args = [None, name, None, platform.gateway_config, config, user]
                 gw = Gateway.get(platform.gateway_name)(*args)
 
                 gw.set_query(from_node.query)

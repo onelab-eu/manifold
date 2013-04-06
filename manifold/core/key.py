@@ -115,6 +115,11 @@ class Keys(set):
     def __repr__(self):
         return "{%s}" % (", ".join(["%r" % key for key in self]))
 
+    def has_field(self, field):
+        for key in self:
+            if field in key:
+                return True
+        return False
 
 #    def get_field_names(self):
 #        """

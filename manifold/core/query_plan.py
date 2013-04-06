@@ -116,7 +116,6 @@ class QueryPlan(object):
 
         # Retrieve the root node corresponding to the fact table
         #print query
-        #print "QUERY FROM", query.get_from()
         #print "METADATA FOR DFS", metadata
         #for t in metadata.graph.nodes():
         #    print str(t)
@@ -278,6 +277,7 @@ class QueryPlan(object):
             from_asts = list()
             key = list(table.get_keys())[0]
 
+            # XXX I don't understand this -- Jordan
             # Update the key used by a given method
             # The more we iterate, the best the key is
             for method, keys in table.map_method_keys.items():
@@ -291,9 +291,10 @@ class QueryPlan(object):
                 if method.get_name() == table.get_name():
                     # The table announced by the platform fits with the 3nf schema
                     # Build the corresponding FROM 
-                    sub_table = Table.make_table_from_platform(table, fields, method.get_platform())
+                    #sub_table = Table.make_table_from_platform(table, fields, method.get_platform())
                     field_names = [field.get_name() for field in fields]
 
+                    # XXX We lack field pruning
                     query = Query(
                         user_query.get_action(),  # action
                         method.get_name(),        # from
@@ -303,7 +304,8 @@ class QueryPlan(object):
                         user_query.get_ts()       # ts
                     )
 
-                    from_ast = AST(user = user).From(sub_table, query)
+                    platform = method.get_platform()
+                    from_ast = AST(user = user).From(platform, query)
 
                     self.froms.append(from_ast.root)
 
@@ -338,6 +340,7 @@ class QueryPlan(object):
                     
                 from_asts.append(from_ast)
 
+            print "-----> BUILDING UNION", from_asts
             # Add the current table in the query plane 
             if ast.is_empty():
                 # Process this table, which is the root of the 3nf tree
@@ -350,6 +353,7 @@ class QueryPlan(object):
                 assert len(preds) == 1, "pruned_tree is not a tree: predecessors(%r) = %r" % (table, preds)
                 u = preds[0]
                 predicate = pruned_tree[u][v]["predicate"]
+                print "**** LEFT JOIN PREDICATE ***", predicate
                 ast.left_join(AST(user = user).union(from_asts, key), predicate)
 
         # Add WHERE node the tree
