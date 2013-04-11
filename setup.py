@@ -2,7 +2,7 @@
 # -*- coding:utf-8 */
 
 import os
-import tophat
+import manifold
 from glob import glob
 from setuptools import find_packages, setup
 
@@ -10,9 +10,9 @@ ROOT_PATH = os.path.abspath(os.path.dirname(__file__))
 long_description = open(os.path.join(ROOT_PATH, 'README.rst')).read()
 
 setup(
-    name        = "tophat",
-    version     = tophat.__version__,
-    description = "TopHat interconnection framework",
+    name        = "manifold",
+    version     = manifold.__version__,
+    description = "MANIFOLD interconnection framework",
     long_description=long_description,
     author      = "Jordan Augé, Marc-Olivier Buob",
     url         = "http://www.top-hat.info",
@@ -26,6 +26,9 @@ setup(
         'sqlalchemy>=0.7',
     #    'Elixir>=0.7.1',
     #    'restkit>=3.2.0',
+    #    'twisted',
+    #    'BeautifulSoup',
+    #    'sfa', 'sfa-common', 'sfa-plc'
     ],
     license     = "GPLv3",
     packages = find_packages(),
@@ -33,15 +36,15 @@ setup(
     scripts=['scripts/myslice-reset-db.sh', 'scripts/myslice-init-db.sh'],
     entry_points={
         'console_scripts': [
-            'tophat-xmlrpc = tophat.bin.xmlrpc:main',
-            'myslice-sfa-delegate = tophat.bin.delegate:main',
-            'myslice-init-db = tophat.bin.initdb:main',
-            'myslice-add-user = tophat.bin.adduser:main',
-            'myslice-add-account = tophat.bin.addaccount:main',
-            'myslice-add-platform = tophat.bin.addplatform:main',
-            'myslice-disable-platform = tophat.bin.disableplatform:main',
-            'myslice-enable-platform = tophat.bin.enableplatform:main',
-            'myslice-upload-credential = tophat.bin.uploadcredential:main',
+            'manifold-xmlrpc = manifold.bin.xmlrpc:main',
+            'myslice-sfa-delegate = manifold.bin.delegate:main',
+            'myslice-init-db = manifold.bin.initdb:main',
+            'myslice-add-user = manifold.bin.adduser:main',
+            'myslice-add-account = manifold.bin.addaccount:main',
+            'myslice-add-platform = manifold.bin.addplatform:main',
+            'myslice-disable-platform = manifold.bin.disableplatform:main',
+            'myslice-enable-platform = manifold.bin.enableplatform:main',
+            'myslice-upload-credential = manifold.bin.uploadcredential:main',
         ],
     },
 

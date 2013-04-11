@@ -6,11 +6,11 @@ import xmlrpclib
 
 query = ('get', 'metadata:table', [], {}, [], 'latest')
 
-from tophat.core.router import THLocalRouter
-from tophat.core.router import Query
+from manifold.core.router import THRouter
+from manifold.core.router import Query
 
 # Instantiate a TopHat router
-with THLocalRouter() as router:
+with THRouter() as router:
     result = router.forward(Query(*query), execute=True)
     for x in result:
         print x['table']

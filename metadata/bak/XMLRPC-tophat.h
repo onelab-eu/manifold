@@ -6,20 +6,21 @@ class ip {
 };
 
 class agent {
-    const inet ip;
+    const ip   ip;
+    const text agentinf;
     KEY(ip);
 };
 
 class destination {
-    const inet ip;
+    const ip   ip;
+    const bool inpl;
     KEY(ip);
 };
 
 class hop {
-    const inet ip;
+    const ip   ip;
     const int  ttl;
 };
-
 
 class traceroute {
     const agent       source;
