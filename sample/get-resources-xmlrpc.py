@@ -31,8 +31,8 @@ MySlice = xmlrpclib.Server(MYSLICE_API, allow_none = True)
 res = MySlice.forward(*query2)
 print res[0:4]
 
-#from tophat.core.router import THLocalRouter as Router
-#from tophat.core.router import THQuery as Query
+#from manifold.core.router import THRouter as Router
+#from manifold.core.router import THQuery as Query
 #
 ## Instantiate a TopHat router
 #with Router() as router:

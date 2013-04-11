@@ -2,8 +2,8 @@
 # -*- coding:utf-8 */
 
 from config                 import auth
-from tophat.core.router     import THLocalRouter
-from tophat.core.router     import Query
+from manifold.core.router     import THRouter
+from manifold.core.router     import Query
 
 query = Query(
     # action
@@ -33,9 +33,8 @@ print "> fields     = %r" % query.fields
 print "=" * 150
 
 # Instantiate a TopHat router
-with THLocalRouter() as router:
+with THRouter() as router:
     user = router.authenticate(auth)
     directory = router.conf.STATIC_ROUTES_FILE
-    print router.get_static_routes(directory)
     result = router.forward(query, execute = False, user = user)
     print result
