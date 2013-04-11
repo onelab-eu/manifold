@@ -69,6 +69,9 @@ class Announces(object):
 
             cap = Capabilities()
 
+            cap.selection = True
+            cap.projection = True
+
             announce = Announce(t, cap)
             announces.append(announce)
         return announces

@@ -52,7 +52,8 @@ class Router(Interface):
         
         super(Router, self).boot()
         
-        self.g_3nf = to_3nf(self.tables)
+        #self.g_3nf = to_3nf(self.tables)
+        self.g_3nf = to_3nf(self.metadata)
 #DEPRECATED#        self.build_tables()
 
     def __enter__(self):

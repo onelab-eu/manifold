@@ -23,13 +23,17 @@ from manifold.util.predicate      import Predicate
 
 # TODO DBGraph should inherit nx.DiGraph
 class DBGraph:
-    def __init__(self, tables):
+    def __init__(self, tables, map_method_capabilities):
         """
         Maintains a JOIN graph between the different tables of the database
         """
         self.graph = DiGraph()
         for table in tables:
             self.append(table)
+        self.map_method_capabilities = map_method_capabilities
+
+    def get_capabilities(self, platform, method):
+        return self.map_method_capabilities[(platform, method)]
 
     def make_arc(self, u, v):
         """
