@@ -165,6 +165,7 @@ class Node(object):
         self.callback = None
         # Query representing the data produced by the node.
 #        self.query = self.get_query()
+        self.identifier = random.randint(0,9999)
 
     def set_callback(self, callback):
         """
@@ -180,6 +181,13 @@ class Node(object):
         """
         return self.callback
 
+    def send(self, record):
+        """
+        \brief calls the parent callback with the record passed in parameter
+        """
+        #print "[%12s #%04d] SEND [ %r ]" % (self.__class__.__name__, self.identifier, record)
+        self.callback(record)
+
     @returns(Query)
     def get_query(self):
         """
@@ -187,23 +195,25 @@ class Node(object):
         \return query representing the data produced by the nodes.
         """
 
+        return self.query
+
         # Raise an exception in the base class to force child classes to
         # implement this method
-        raise Exception, "Nodes should implement the query function: %s" % self.__class__.__name__
+        #raise Exception, "Nodes should implement the query function: %s" % self.__class__.__name__
 
-    @staticmethod
-    def tab(indent):
+    def tab(self, indent):
         """
         \brief print _indent_ tabs
         """
-        sys.stdout.write(' ' * indent * 4)
+        print "[%04d]" % self.identifier, ' ' * 4 * indent,
+        #        sys.stdout.write(' ' * indent * 4)
 
     def dump(self, indent = 0):
         """
         \brief Dump the current node
         \param indent current indentation
         """
-        Node.tab(indent)
+        self.tab(indent)
         print "%r" % self
 
     @returns(StringTypes)
@@ -213,6 +223,17 @@ class Node(object):
     @returns(StringTypes)
     def __str__(self):
         return self.__repr__() 
+
+    def optimize(self):
+        tree = self.optimize_selection(Filter())
+        #tree = tree.optimize_projection(set())
+        return tree
+    
+    def optimize_selection(self, filter):
+        raise Exception, "%s::optimize_selection() not implemented" % self.__class__.__name__
+
+    def optimize_projection(self, fields):
+        raise Exception, "%s::optimize_projection() not implemented" % self.__class__.__name__
 
 
 #------------------------------------------------------------------
@@ -225,7 +246,7 @@ class From(Node):
     From Node are responsible to query a gateway (!= FromTable).
     """
 
-    def __init__(self, platform, query):
+    def __init__(self, platform, query, capabilities):
     #def __init__(self, table, query):
         """
         \brief Constructor
@@ -238,19 +259,20 @@ class From(Node):
         #assert isinstance(table, Table), "Invalid type: table = %r (%r)" % (table, type(table))
 
         #self.query, self.table = query, table
-        self.query, self.platform = query, platform
+        self.platform, self.query, self.capabilities = platform, query, capabilities
         self.gateway = None
         super(From, self).__init__()
 
-    @returns(Query)
-    def get_query(self):
-        """
-        \brief Returns the query representing the data produced by the nodes.
-        \return query representing the data produced by the nodes.
-        """
-        # The query returned by a FROM node is exactly the one that was
-        # requested
-        return self.query
+#    @returns(Query)
+#    def get_query(self):
+#        """
+#        \brief Returns the query representing the data produced by the nodes.
+#        \return query representing the data produced by the nodes.
+#        """
+#        print "From::get_query()"
+#        # The query returned by a FROM node is exactly the one that was
+#        # requested
+#        return self.query
 
     def add_fields_to_query(self, field_names):
         """
@@ -284,7 +306,7 @@ class From(Node):
         )
 
     #@returns(From)
-    def inject(self, records, key):
+    def inject(self, records, key, query):
         """
         \brief Inject record / record keys into the node
         \param records list of dictionaries representing records,
@@ -307,6 +329,22 @@ class From(Node):
         if not missing_fields:
             return FromTable(self.query, records, key)
 
+
+        old_self_callback = self.get_callback()
+
+        # If the inject only provide keys, add a WHERE, else a WHERE+JOIN
+        if not is_record or provided_fields < records[0].keys():
+            # We will filter the query by inserting a where on 
+            list_of_keys = records.keys() if is_record else records
+            predicate = Predicate(key, '==', list_of_keys)
+            where = Selection(self, Filter().filter_by(predicate))
+            where.query = self.query.copy().filter_by(predicate)
+            where.set_callback(old_self_callback)
+            # XXX need reoptimization
+            return where
+        else:
+            print "From::inject() - INJECTING RECORDS"
+
         missing_fields.add(key) # |= key
         self.query.fields = missing_fields
 
@@ -314,8 +352,8 @@ class From(Node):
         #parent_query.fields = provided_fields
         #parent_from = FromTable(parent_query, records, key)
 
-        old_self_callback = self.get_callback()
         join = LeftJoin(records, self, Predicate(key, '==', key))
+        join.query = query
         join.set_callback(old_self_callback)
 
         return join
@@ -336,6 +374,20 @@ class From(Node):
         super(From, self).set_callback(callback)
         if self.gateway:
             self.gateway.set_callback(callback)
+
+    def optimize_selection(self, filter):
+        if self.capabilities.selection:
+            # Push filters into the From node
+            for predicate in filter:
+                self.query.filters.add(predicate)
+            return self
+        else:
+            # Create a new Selection node
+            old_self_callback = self.get_callback()
+            selection = Selection(self, filter)
+            selection.query = self.query.copy().filter_by(filter)
+            selection.set_callback(old_self_callback)
+            return selection
 
 class FromTable(From):
     """
@@ -367,8 +419,8 @@ class FromTable(From):
         for record in self.records:
             if not isinstance(record, dict):
                 record = {self.key: record}
-            self.callback(record)
-        self.callback(LAST_RECORD)
+            self.send(record)
+        self.send(LAST_RECORD)
 
 #------------------------------------------------------------------
 # LEFT JOIN node
@@ -417,28 +469,42 @@ class LeftJoin(Node):
             left_child.set_callback(self.left_callback)
         right_child.set_callback(self.right_callback)
 
+        if not isinstance(left_child, list):
+            self.query = self.left.get_query().copy()
+            self.query.filters |= self.right.get_query().filters
+            self.query.fields  |= self.right.get_query().fields
+
+#        for child in self.get_children():
+#            # XXX can we join on filtered lists ? I'm not sure !!!
+#            # XXX some asserts needed
+#            # XXX NOT WORKING !!!
+#            q.filters |= child.filters
+#            q.fields  |= child.fields
+
         super(LeftJoin, self).__init__()
 
     @returns(list)
     def get_children(self):
         return [self.left, self.right]
 
-    @returns(Query)
-    def get_query(self):
-        """
-        \return The query representing AST reprensenting the AST rooted
-            at this node.
-        """
-        q = Query(self.get_children()[0])
-        for child in self.get_children():
-            # XXX can we join on filtered lists ? I'm not sure !!!
-            # XXX some asserts needed
-            q.filters |= child.filters
-            q.fields  |= child.fields
-        return q
+#    @returns(Query)
+#    def get_query(self):
+#        """
+#        \return The query representing AST reprensenting the AST rooted
+#            at this node.
+#        """
+#        print "LeftJoin::get_query()"
+#        q = Query(self.get_children()[0])
+#        for child in self.get_children():
+#            # XXX can we join on filtered lists ? I'm not sure !!!
+#            # XXX some asserts needed
+#            # XXX NOT WORKING !!!
+#            q.filters |= child.filters
+#            q.fields  |= child.fields
+#        return q
         
     #@returns(LeftJoin)
-    def inject(self, records, key):
+    def inject(self, records, key, query):
         """
         \brief Inject record / record keys into the node
         \param records A list of dictionaries representing records,
@@ -458,7 +524,7 @@ class LeftJoin(Node):
             for record in records:
                 proj = do_projection(record, self.left.query.fields)
                 records_inj.append(proj)
-            self.left = self.left.inject(records_inj, key)
+            self.left = self.left.inject(records_inj, key, query) # XXX
             # TODO injection in the right branch: only the subset of fields
             # of the right branch
             return self
@@ -466,7 +532,7 @@ class LeftJoin(Node):
         # TODO Currently we support injection in the left branch only
         # Injection makes sense in the right branch if it has the same key
         # as the left branch.
-        self.left = self.left.inject(records, key)
+        self.left = self.left.inject(records, key, query) # XXX
         return self
 
     def start(self):
@@ -481,12 +547,13 @@ class LeftJoin(Node):
         \brief Dump the current node
         \param indent current indentation
         """
-        Node.tab(indent)
+        self.tab(indent)
         print "%r" % self
-        if self.left:
-            self.left.dump(indent + 1)
-        else:
+        if isinstance(self.left, list):
+            self.tab(indent),
             print '[DATA]', self.left_map.values()
+        else:
+            self.left.dump(indent + 1)
         self.right.dump(indent + 1)
 
     def __repr__(self):
@@ -499,18 +566,30 @@ class LeftJoin(Node):
         """
 
         if record == LAST_RECORD:
-            # Inject the keys from left records in the right child...
-            self.right.inject(self.left_map.keys(), self.predicate.value)
-            # ... and start the right node
-            self.right.start()
+            # left_done. Injection is not the right way to do this.
+            # We need to insert a filter on the key in the right member
+            predicate = Predicate(self.predicate.value, '==', self.left_map.keys())
+            where = Selection(self.right, Filter().filter_by(predicate))
+            where.query = self.right.query.copy().filter_by(predicate)
+            where.set_callback(self.right.get_callback())
+            self.right = where
+            self.right = self.right.optimize()
+            self.right.set_callback(self.right_callback)
             self.left_done = True
+            self.right.start()
             return
+
+            ## Inject the keys from left records in the right child...
+            #query = Query().filter_by(self.left.get_query().filters).select(self.predicate.value) # XXX
+            #self.right.inject(self.left_map.keys(), self.predicate.value, query)
+            ## ... and start the right node
+            #return
 
         # Directly send records missing information necessary to join
         if self.predicate.key not in record or not record[self.predicate.key]:
             print "W: Missing LEFTJOIN predicate %s in left record %r : forwarding" % \
                     (self.predicate, record)
-            self.callback(record)
+            self.send(record)
 
         # Store the result in a hash for joining later
         self.left_map[record[self.predicate.key]] = record
@@ -523,9 +602,9 @@ class LeftJoin(Node):
         if record == LAST_RECORD:
             # Send records in left_results that have not been joined...
             for leftrecord in self.left_map.values():
-                self.callback(leftrecord)
+                self.send(leftrecord)
             # ... and terminates
-            self.callback(LAST_RECORD)
+            self.send(LAST_RECORD)
             return
 
         # Skip records missing information necessary to join
@@ -538,12 +617,50 @@ class LeftJoin(Node):
         # We expect to receive information about keys we asked, and only these,
         # so we are confident the key exists in the map
         # XXX Dangers of duplicates ?
+        #print "in Join::right_callback()"
+        #self.dump()
+        #print "-" * 50
+        #print "self.left_map", self.left_map
+        #print "searching for key=", key
         left_record = self.left_map[key]
         left_record.update(record)
-        self.callback(left_record)
+        self.send(left_record)
 
         del self.left_map[key]
-        
+
+    def optimize_selection(self, filter):
+        # LEFT JOIN
+        # We are pushing selections down as much as possible:
+        # - selection on filters on the left: can push down in the left child
+        # - selection on filters on the right: cannot push down
+        # - selection on filters on the key / common fields ??? TODO
+        parent_filter, left_filter = Filter(), Filter()
+        for predicate in filter:
+            if predicate.key in self.left.get_query().fields:
+                left_filter.add(predicate)
+            else:
+                parent_filter.add(predicate)
+
+        if left_filter:
+            print "LEFT FILTER", left_filter
+            self.left = self.left.optimize_selection(left_filter)
+            #selection = Selection(self.left, left_filter)
+            #selection.query = self.left.copy().filter_by(left_filter)
+            self.left.set_callback(self.left_callback)
+            #self.left = selection
+        else:
+            print "NO LEFT FILTER"
+
+        if parent_filter:
+            print "PARENT_FILTER"
+            old_self_callback = self.get_callback()
+            selection = Selection(self, parent_filter)
+            selection.query = self.query.copy().filter_by(parent_filter)
+            selection.set_callback(old_self_callback)
+            return selection
+        else:
+            print "NO PARENT FILTER"
+        return self
 
 #------------------------------------------------------------------
 # PROJECTION node
@@ -566,6 +683,10 @@ class Projection(Node):
             assert isinstance(field, Field), "Invalid field %r (%r)" % (field, type(field))
         self.child, self.fields = child, fields
         self.child.set_callback(self.get_callback())
+
+        self.query = self.child.get_query().copy()
+        self.query.fields &= fields
+
         super(Projection, self).__init__()
 
     @returns(list)
@@ -575,17 +696,18 @@ class Projection(Node):
         """
         return self.fields
 
-    @returns(Query)
-    def get_query(self):
-        """
-        \brief Returns the query representing the data produced by the nodes.
-        \return The Query representing the data produced by the nodes.
-        """
-        q = Query(self.child.get_query())
-
-        # Projection restricts the set of available fields (intersection)
-        q.fields &= fields
-        return q
+#    @returns(Query)
+#    def get_query(self):
+#        """
+#        \brief Returns the query representing the data produced by the nodes.
+#        \return The Query representing the data produced by the nodes.
+#        """
+#        print "Projection()::get_query()"
+#        q = Query(self.child.get_query())
+#
+#        # Projection restricts the set of available fields (intersection)
+#        q.fields &= fields
+#        return q
 
     def get_child(self):
         """
@@ -598,7 +720,7 @@ class Projection(Node):
         \brief Dump the current node
         \param indent current indentation
         """
-        Node.tab(indent)
+        self.tab(indent)
         print "%r" % self 
         self.child.dump(indent+1)
 
@@ -612,14 +734,14 @@ class Projection(Node):
         self.child.start()
 
     #@returns(Projection)
-    def inject(self, records, key):
+    def inject(self, records, key, query):
         """
         \brief Inject record / record keys into the node
         \param records A list of dictionaries representing records,
                        or a list of record keys
         \return This node
         """
-        self.child = self.child.inject(records, key)
+        self.child = self.child.inject(records, key, query) # XXX
         return self
 
     def callback(self, record):
@@ -629,7 +751,7 @@ class Projection(Node):
         """
         if record != LAST_RECORD:
             record = do_projection(record)
-        self.callback(record)
+        self.send(record)
 
 #------------------------------------------------------------------
 # Selection node (WHERE)
@@ -651,26 +773,31 @@ class Selection(Node):
 
         self.child, self.filters = child, filters
         self.child.set_callback(self.get_callback())
+
+        self.query = self.child.get_query().copy()
+        self.query.filters |= filters
+
         super(Selection, self).__init__()
 
-    @returns(Query)
-    def get_query(self):
-        """
-        \brief Returns the query representing the data produced by the childs.
-        \return query representing the data produced by the childs.
-        """
-        q = Query(self.child.get_query())
-
-        # Selection add filters (union)
-        q.filters |= filters
-        return q
+#    @returns(Query)
+#    def get_query(self):
+#        """
+#        \brief Returns the query representing the data produced by the childs.
+#        \return query representing the data produced by the childs.
+#        """
+#        print "Selection::get_query()"
+#        q = Query(self.child.get_query())
+#
+#        # Selection add filters (union)
+#        q.filters |= filters
+#        return q
 
     def dump(self, indent = 0):
         """
         \brief Dump the current child
         \param indent The current indentation
         """
-        Node.tab(indent)
+        self.tab(indent)
         print "%r" % self
         self.child.dump(indent + 1)
 
@@ -684,14 +811,14 @@ class Selection(Node):
         self.child.start()
 
     #@returns(Selection)
-    def inject(self, records, key):
+    def inject(self, records, key, query):
         """
         \brief Inject record / record keys into the child
         \param records A list of dictionaries representing records,
                        or list of record keys
         \return This node
         """
-        self.child = self.child.inject(records, key)
+        self.child = self.child.inject(records, key, query) # XXX
         return self
 
     def callback(self, record):
@@ -700,11 +827,16 @@ class Selection(Node):
         \param record dictionary representing the received record
         """
         if record == LAST_RECORD or (self.filters and self.filters.match(record)):
-            self.callback(record)
+            self.send(record)
         #if record != LAST_RECORD and self.filters:
         #    record = self.filters.filter(record)
-        #self.callback(record)
+        #self.send(record)
 
+    def optimize_selection(self, filter):
+        # Concatenate both selections...
+        for predicate in self.filters:
+            filter.add(predicate)
+        return self.child.optimize_selection(filter)
 
 #------------------------------------------------------------------
 # DEMUX node
@@ -745,7 +877,7 @@ class Demux(Node):
         \brief Dump the current node
         \param indent current indentation
         """
-        Node.tab(indent)
+        self.tab(indent)
         print "%r" % self
         self.get_child().dump(indent + 1)
 
@@ -810,7 +942,7 @@ class Dup(Node):
         \brief Dump the current node
         \param indent current indentation
         """
-        Node.tab(indent)
+        self.tab(indent)
         print "DUP (built above %r)" % self.get_child()
         self.get_child().dump(indent + 1)
 
@@ -834,7 +966,7 @@ class Dup(Node):
 
         if record not in self.child_results:
             self.child_results.add(record)
-            self.callback(record)
+            self.send(record)
             return
 
 
@@ -867,25 +999,29 @@ class Union(Node):
         for i, child in enumerate(self.children):
             child.set_callback(ChildCallback(self, i))
 
+        # We suppose all children have the same format...
+        self.query = self.children[0].get_query()
+
         super(Union, self).__init__()
 
-    @returns(Query)
-    def get_query(self):
-        """
-        \brief Returns the query representing the data produced by the nodes.
-        \return query representing the data produced by the nodes.
-        """
-        # We suppose all child queries have the same format, and that we have at
-        # least one child
-        return Query(self.children[0].get_query())
+#    @returns(Query)
+#    def get_query(self):
+#        """
+#        \brief Returns the query representing the data produced by the nodes.
+#        \return query representing the data produced by the nodes.
+#        """
+#        # We suppose all child queries have the same format, and that we have at
+#        # least one child
+#        print "Union::get_query()"
+#        return Query(self.children[0].get_query())
         
     def dump(self, indent = 0):
         """
         \brief Dump the current node
         \param indent current indentation
         """
-        Node.tab(indent)
-        print "%r" % self, self.callback
+        self.tab(indent)
+        print "%r" % self
         for child in self.children:
             child.dump(indent + 1)
 
@@ -902,20 +1038,20 @@ class Union(Node):
         for i, child in enumerate(self.children):
             child.start()
 
-    def inject(self, records, key):
+    def inject(self, records, key, query):
         """
         \brief Inject record / record keys into the node
         \param records list of dictionaries representing records, or list of
         record keys
         """
         for i, child in enumerate(self.children):
-            self.children[i] = child.inject(records, key)
+            self.children[i] = child.inject(records, key, query)
         return self
 
     def all_done(self):
         #for record in self.child_results.values():
-        #    self.callback(record)
-        self.callback(LAST_RECORD)
+        #    self.send(record)
+        self.send(LAST_RECORD)
 
     def child_callback(self, child_id, record):
         """
@@ -931,7 +1067,7 @@ class Union(Node):
 
         # DISTINCT not implemented, just forward the record
         if not key:
-            self.callback(record)
+            self.send(record)
             return
         # Ignore records that have no key
         if key not in record:
@@ -941,7 +1077,7 @@ class Union(Node):
         #if record[key] in key_list:
         #    print "W: UNION ignored duplicate record"
         #    return
-        self.callback(record)
+        self.send(record)
 
         # XXX This code was necessary at some point to merge records... let's
         # keep it for a while
@@ -960,6 +1096,23 @@ class Union(Node):
         #            # else: nothing to do
         #else:
         #    self.child_results[record[self.key]] = record
+
+#DEPRECATED#    def optimize(self):
+#DEPRECATED#        for i, child in enumerate(self.children):
+#DEPRECATED#            self.children[i] = child.optimize()
+#DEPRECATED#        return self
+
+    def optimize_selection(self, filter):
+        # UNION: apply selection to all children
+        for i, child in enumerate(self.children):
+            old_child_callback= child.get_callback()
+            self.children[i] = child.optimize_selection(filter)
+            #selection = Selection(child, filter)
+            #selection.query = child.query.copy().filter_by(filter)
+            self.children[i].set_callback(old_child_callback)
+            #selection.set_callback(child.get_callback())
+            #self.children[i] = selection
+        return self
 
 #------------------------------------------------------------------
 # SUBQUERY node
@@ -994,6 +1147,8 @@ class SubQuery(Node):
             child.set_callback(ChildCallback(self, i))
             self.child_results.append([])
 
+        super(SubQuery, self).__init__()
+
     @returns(Query)
     def get_query(self):
         """
@@ -1010,7 +1165,7 @@ class SubQuery(Node):
         """
         self.parent.dump(indent + 1)
         if not self.children: return
-        Node.tab(indent)
+        self.tab(indent)
         print "%r" % self 
         for child in self.children:
             child.dump(indent + 1)
@@ -1024,8 +1179,6 @@ class SubQuery(Node):
         """
         # Start the parent first
         self.parent.start()
-        print "Il y a peut etre un bug ici :)"
-        self.status.started(0)
 
     def parent_callback(self, record):
         """
@@ -1046,6 +1199,64 @@ class SubQuery(Node):
         """
         # Loop through children and inject the appropriate parent results
         for i, child in enumerate(self.children):
+            # We have two cases:
+            # (1) either the parent query has subquery fields (a list of child
+            #     ids + eventually some additional information)
+            # (2) either the child has a backreference to the parent
+            #
+            # In all cases, we will collect all identifiers to proceed to a
+            # single child query for efficiency purposes, unless it's not
+            # possible (?).
+            #
+            # We have several parent records stored in self.parent_output
+            #
+            # /!\ Can we have a mix of (1) and (2) ? For now, let's suppose NO.
+            #  *  We could expect key information to be stored in the DBGraph
+
+            parent_query = self.parent.get_query()
+            child_query  = child.get_query()
+
+            #print "PARENT_TABLE", parent_query.fact_table
+            parent_key = self.key
+            #print "----"
+            print "PARENT KEY", parent_key
+            print "CHILD FIELDS", child_query.fields
+            #print "----"
+
+            # (1) in the parent, we might have a field named after the child
+            # method containing either records or identifiers of the children
+            
+            if child_query.fact_table in parent_query.fields:
+                pass
+
+            elif parent_key.get_names() <= child_query.fields:
+                # CASE (2) : The child has a backreference to the parent
+                # We will inject a where condition in the child
+                # /!\ Complicated when the parent has a multi_key
+                assert len(parent_key) == 1, "Multiple keys for parent not supported in Union::run_children() for case (2)"
+                parent_key = parent_key.get_name()
+                
+                # Collect parent ids
+                parent_ids = [record[parent_key] for record in self.parent_output]
+
+                # Inject a where in the right child (NOTE: we could have planned this where since the beginning maybe ?)
+                predicate = Predicate(parent_key, '==', parent_ids)
+                old_child_callback= child.get_callback()
+                where = Selection(child, Filter().filter_by(predicate))
+                where.query = child.query.copy().filter_by(predicate)
+                where.set_callback(child.get_callback())
+                #self.children[i] = where
+                self.children[i] = where.optimize()
+                self.children[i].set_callback(old_child_callback)
+            else:
+                raise Exception, "No link between parent and child queries"
+
+            #print "-" * 50
+            #print "UPDATED CHILDREN"
+            #print "-" * 50
+            #self.dump()
+            #print "-" * 50
+
             # The parent_output should already have either a set of keys or a
             # set of records. They will serve an input for the JOINS
             # keys = filters for the left part of the first JOIN
@@ -1053,61 +1264,78 @@ class SubQuery(Node):
             #     we can request less and make a JOIN with existing data
 
             # Collect the list of all child records in order to make a single
-            # child query; we will have to dispatch the results
-            child_record_all = []
-            child_keys_all = []
-            only_key = False # We have only the key in child records
-            for parent_record in self.parent_output:
-                # XXX We are supposing 1..N here
-                if not isinstance(parent_record[child.query.fact_table], list):
-                    raise Exception, "run_children received 1..1 record; 1..N implemented only."
-                for child_record in parent_record[child.query.fact_table]:
-                    if isinstance(child_record, dict):
-                        if not self.key in child_record:
-                            # XXX case for links in slice.resource
-                            continue
-                        if not child_record[self.key] in child_keys_all:
-                            child_record_all.append(child_record)
-                            child_keys_all.append(child_record[self.key])
-                        # else duplicate
-                    else:
-                        # XXX We should be injecting keys only what is common
-                        # between all records. For this we should be remembering
-                        # the list of child_record fields that are in common in
-                        # all child records.
-                        only_key = True
-                        child_keys_all.append(child_record)
-            
-            # child is the AST receiving the injection
-            if only_key:
-                self.children[i] = child.inject(child_keys_all, key) # XXX key ?
-            else:
-                self.children[i] = child.inject(child_record_all, key) # XXX key ?
+            # child query; we will have to dispatch the results in all_done
+            # later on.
+
+#DEPRECATED#            child_record_all = []
+#DEPRECATED#            child_keys_all = []
+#DEPRECATED#            only_key = False # We have only the key in child records
+#DEPRECATED#            for parent_record in self.parent_output:
+#DEPRECATED#                # XXX We are supposing 1..N here
+#DEPRECATED#                if not isinstance(parent_record[child.query.fact_table], list):
+#DEPRECATED#                    raise Exception, "run_children received 1..1 record; 1..N implemented only."
+#DEPRECATED#                for child_record in parent_record[child.query.fact_table]:
+#DEPRECATED#                    if isinstance(child_record, dict):
+#DEPRECATED#                        if not self.key in child_record:
+#DEPRECATED#                            # XXX case for links in slice.resource
+#DEPRECATED#                            continue
+#DEPRECATED#                        if not child_record[self.key] in child_keys_all:
+#DEPRECATED#                            child_record_all.append(child_record)
+#DEPRECATED#                            child_keys_all.append(child_record[self.key])
+#DEPRECATED#                        # else duplicate
+#DEPRECATED#                    else:
+#DEPRECATED#                        # XXX We should be injecting keys only what is common
+#DEPRECATED#                        # between all records. For this we should be remembering
+#DEPRECATED#                        # the list of child_record fields that are in common in
+#DEPRECATED#                        # all child records.
+#DEPRECATED#                        only_key = True
+#DEPRECATED#                        child_keys_all.append(child_record)
+#DEPRECATED#            
+#DEPRECATED#            # child is the AST receiving the injection
+#DEPRECATED#            if only_key:
+#DEPRECATED#                self.children[i] = child.inject(child_keys_all, key) # XXX key ?
+#DEPRECATED#            else:
+#DEPRECATED#                self.children[i] = child.inject(child_record_all, key) # XXX key ?
 
         # We make another loop since the children might have been modified in
         # the previous one.
         for i, child in enumerate(self.children):
-            child.start()
             self.status.started(i)
+        for i, child in enumerate(self.children):
+            child.start()
 
     def all_done(self):
         """
-        \brief Called when all children are done: processes results stored in
-        the parent.
+        \brief Called when all children of the current subquery are done: we
+         process results stored in the parent.
         """
+        print "SubQuery::all_done()"
+        # XXX Suppose simple keys
+        key = self.key.get_name()
+
         for o in self.parent_output:
+            print " > parent output", o
+            print "-----------------"
             # Dispatching child results
             for i, child in enumerate(self.children):
-                for record in o[child.query.fact_table]:
-                    # Find the corresponding record in child_results and
-                    # update the one in the parent with it
-                    if self.key in record:
-                        for r in self.child_results[i]:
-                            if self.key in r and r[self.key] == record[self.key]:
-                                record.update(r)
-                    # XXX We ignore missing keys
-            self.callback(o)
-        self.callback(LAST_RECORD)
+                if not child.query.fact_table in o:
+                    # (2)
+                    o[child.query.fact_table] = []
+                    for child_record in self.child_results[i]:
+                        if child_record[key] == o[key]:
+                            o[child.query.fact_table].append(child_record)
+                else:
+                    # (1)
+                    for record in o[child.query.fact_table]:
+                        # Find the corresponding record in child_results and
+                        # update the one in the parent with it
+                        if key in record:
+                            for r in self.child_results[i]:
+                                if key in r and r[key] == record[key]:
+                                    record.update(r)
+                        # XXX We ignore missing keys
+            self.send(o)
+        self.send(LAST_RECORD)
 
     def child_callback(self, child_id, record):
         """
@@ -1120,7 +1348,7 @@ class SubQuery(Node):
         # Store the results for later...
         self.child_results[child_id].append(record)
 
-    def inject(self, records, key):
+    def inject(self, records, key, query):
         """
         \brief Inject record / record keys into the node
         \param records list of dictionaries representing records, or list of
@@ -1161,7 +1389,7 @@ class AST(object):
 
 
     #@returns(AST)
-    def From(self, platform, query):
+    def From(self, platform, query, capabilities):
     #def From(self, table, query):
         """
         \brief Append a FROM Node to this AST
@@ -1174,12 +1402,11 @@ class AST(object):
         assert isinstance(query, Query),        "Invalid query = %r (%r)" % (query, type(query))
         #assert len(table.get_platforms()) == 1, "Table = %r should be related to only one platform" % table
 
-        self.query = query
+        # USELESS ? # self.query = query
 #OBSOLETE|        platforms = table.get_platforms()
 #OBSOLETE|        platform = list(platforms)[0]
 
-        node = From(platform, query) 
-        #node = From(table, query) 
+        node = From(platform, query, capabilities) 
         self.root = node
         self.root.set_callback(self.get_callback())
         return self
@@ -1208,7 +1435,10 @@ class AST(object):
         # ... as the other children
         children.extend([ast.get_root() for ast in children_ast])
 
-        self.root = Union(children, key)
+        if len(children) > 1:
+            self.root = Union(children, key)
+        else:
+            self.root = children[0]
         if old_root:
             self.root.set_callback(old_root.get_callback())
         return self
@@ -1292,7 +1522,7 @@ class AST(object):
         return self
 
     #@returns(AST)
-    def subquery(self, children_ast):
+    def subquery(self, children_ast, parent_key):
         """
         \brief Append a SUBQUERY Node above the current AST
         \param children_ast the set of children AST to be added as subqueries to
@@ -1302,7 +1532,7 @@ class AST(object):
         assert not self.is_empty(), "AST not initialized"
         old_root = self.get_root()
 
-        self.root = SubQuery(old_root, children_ast)
+        self.root = SubQuery(old_root, children_ast, parent_key)
         self.root.set_callback(old_root.get_callback())
         return self
 
@@ -1338,6 +1568,9 @@ class AST(object):
 
     def set_callback(self, callback):
         self.root.set_callback(callback)
+
+    def optimize(self):
+        self.root.optimize()
 
 #------------------------------------------------------------------
 # Example

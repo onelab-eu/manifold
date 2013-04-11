@@ -37,6 +37,10 @@ class Filter(set):
                 f.add(Predicate(key, '=', value))
         return f
 
+    def filter_by(self, predicate):
+        self.add(predicate)
+        return self
+
     def __str__(self):
         return '<Filter: %s>' % ' AND '.join([str(pred) for pred in self])
 

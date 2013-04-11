@@ -38,7 +38,7 @@ class Predicate:
             - three args (left, operator, right)
             - one argument (list or tuple) containing three elements (variable, operator, value)
             "operator" is a String defined in operators or in operators_short and refers
-                to a binary operation.
+                tMao a binary operation.
             "left" and "right" refers to a variable/constant involved in the Predicate.
         """
         if len(args) == 3:
@@ -56,7 +56,10 @@ class Predicate:
             self.op = self.operators_short[op]
         else:
             self.op = op
-        self.value = value
+        if isinstance(value, (list, set)):
+            self.value = tuple(value)
+        else:
+            self.value = value
 
     def __str__(self):
         return "Pred(%s, %s, %s)" % self.get_str_tuple()

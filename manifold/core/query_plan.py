@@ -18,6 +18,7 @@ from networkx.algorithms.traversal.depth_first_search import dfs_preorder_nodes
 
 from manifold.core.ast          import AST, From, Union, LeftJoin, Demux, Dup
 from manifold.core.table        import Table 
+from manifold.core.key          import Key
 from manifold.core.query        import Query, AnalyzedQuery 
 from manifold.util.type         import returns, accepts
 from manifold.core.dbgraph      import find_root
@@ -43,6 +44,9 @@ class QueryPlan(object):
 
     # metadata == router.g_3nf
     def build(self, query, metadata, allowed_capabilities, user = None):
+        self.ast = self.process_subqueries(query, metadata, allowed_capabilities, user)
+
+    def process_subqueries(self, query, metadata, allowed_capabilities, user):
         """
         \brief Builds a query plane for a router or a platform, consisting
         mainly in the AST (tree of SQL operators) related to a query
@@ -62,36 +66,45 @@ class QueryPlan(object):
             raise ValueError("Can't find table %r related to query %r" % (table_name, query))
 
         analyzed_query = AnalyzedQuery(query)
-
         qp = AST(user)
 
-        children_ast = None
-        for subquery in analyzed_query.subqueries():
+        children_ast = []
+        for method, subquery in analyzed_query.subqueries():
 
-            method = table.get_field(method).get_type()
-            if not method in cur_fields:
-                subquery.select(method)
+            # ???
+            #method = table.get_field(method).get_type()
+            #if not method in cur_fields:
+
+            # We add the method of the subquery because it will help us get the identifiers to reinject in the subquery... XXX requires reflection about JOINS and SQs for 1..1 1..N etc.
+            # We need the key of this method
+            
+            analyzed_query.select(method)
 
             # Adding primary key in subquery to be able to merge
-            keys = metadata_get_keys(method)
+
+            print "METHOD=", method
+            keys = metadata.find_node(method).keys
+            # XXX Such information should be found on the arcs of dbgraph
             if keys:
                 key = list(keys).pop()
                 print "W: selecting arbitrary key %s to join with '%s'" % (key, method)
                 if isinstance(key, Key):
                     for field in key:
                         field_name = field.get_name()
-                        if field_name not in subfields:
+                        if field_name not in subquery.fields:
                             subquery.select(field_name)
                 else:
                     raise TypeError("Invalid type: key = %s (type %s)" % (key, type(key)))
 
-            child_ast = self.process_subqueries(subquery, user)
+            child_ast = self.process_subqueries(subquery, metadata, allowed_capabilities, user)
             children_ast.append(child_ast.root)
 
         qp = self.process_query(analyzed_query, metadata, user)
-        if children_ast: qp.subquery(children_ast)
+        if children_ast:
+            parent_key = list(metadata.find_node(method).keys).pop()
+            qp.subquery(children_ast, parent_key)
 
-        self.ast = qp
+        return qp
 
     @returns(AST)
     def process_query(self, query, metadata, user):
@@ -134,12 +147,13 @@ class QueryPlan(object):
         # Compute the skeleton resulting query plan
         # (e.g which does not take into account the query)
         # It leads to a query plan made of Union, From, and LeftJoin nodes
-        return self.build_query_plan(user, query, pruned_tree)
+        return self.build_query_plan(user, query, pruned_tree, metadata)
 
     def build_simple(self, query, metadata, allowed_capabilities):
         """
         \brief Builds a query plan to a single gateway
         """
+        # XXX allowed_capabilities should be a property of the query plan !
 
         # XXX Check whether we can answer query.fact_table
 
@@ -172,7 +186,7 @@ class QueryPlan(object):
             add_projection = None
 
         t = Table({platform:''}, {}, query.fact_table, set(), set())
-        self.ast = self.ast.From(t, query)
+        self.ast = self.ast.From(t, query, metadata.get_capabilities(platform, query.fact_table))
 
         # XXX associate the From node to the Gateway
         fromnode = self.ast.root
@@ -228,7 +242,7 @@ class QueryPlan(object):
 
     # @accepts(User, Query, DiGraph)
     # @returns(AST)
-    def build_query_plan(self, user, user_query, pruned_tree):
+    def build_query_plan(self, user, user_query, pruned_tree, metadata):
         """
         \brief Compute a query plane according to a pruned tree
         \param user The User instance representing the user issuing the query
@@ -305,7 +319,7 @@ class QueryPlan(object):
                     )
 
                     platform = method.get_platform()
-                    from_ast = AST(user = user).From(platform, query)
+                    from_ast = AST(user = user).From(platform, query, metadata.get_capabilities(platform, query.fact_table))
 
                     self.froms.append(from_ast.root)
 
@@ -340,7 +354,6 @@ class QueryPlan(object):
                     
                 from_asts.append(from_ast)
 
-            print "-----> BUILDING UNION", from_asts
             # Add the current table in the query plane 
             if ast.is_empty():
                 # Process this table, which is the root of the 3nf tree
@@ -353,7 +366,6 @@ class QueryPlan(object):
                 assert len(preds) == 1, "pruned_tree is not a tree: predecessors(%r) = %r" % (table, preds)
                 u = preds[0]
                 predicate = pruned_tree[u][v]["predicate"]
-                print "**** LEFT JOIN PREDICATE ***", predicate
                 ast.left_join(AST(user = user).union(from_asts, key), predicate)
 
         # Add WHERE node the tree
