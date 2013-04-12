@@ -5,7 +5,7 @@ from sqlalchemy.orm import sessionmaker
 
 # exceptions.Exception: Error during local request: (ProgrammingError) SQLite objects created in a thread can only be used in that same thread.The object was created in thread id 139885302400768 and this is thread id 139885208180480 'SELECT platform.platform AS platform_platform \nFROM platform' [immutabledict({})]
 #engine = create_engine('sqlite:///:memory:?check_same_thread=False', echo=False)
-engine = create_engine('sqlite:////var/myslice/db.mando.sqlite?check_same_thread=False', echo=False)
+engine = create_engine('sqlite:////var/myslice/db.sqlite?check_same_thread=False', echo=False)
 
 # OLD from tophat.conf import settings
 # OLD from sqlalchemy.pool import StaticPool
