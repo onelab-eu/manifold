@@ -125,9 +125,7 @@ class Filter(set):
 
     def match(self, dic):
         for predicate in self:
-            print ". predicate", predicate
             if not predicate.match(dic, ignore_missing=True):
-                print "no match", dic, "=> FALSE"
                 return False
         return True
 

@@ -291,9 +291,6 @@ class From(Node):
                        or list of record keys
         \return This node
         """
-        print "INJECTING IN FROM:"
-        print records
-        print "------"
         if not records:
             return
         record = records[0]
@@ -319,9 +316,6 @@ class From(Node):
 
         old_self_callback = self.get_callback()
         join = LeftJoin(records, self, Predicate(key, '==', key))
-        print " ***** CREATING LEFT JOIN FOR REINJECT PLANE", join.identifier
-        print "       |_ LEFT ", records
-        print "       |_ RIGHT", self
         join.set_callback(old_self_callback)
 
         return join
@@ -330,7 +324,6 @@ class From(Node):
         """
         \brief Propagates a START message through the node
         """
-        print "STARTING FROM", self
         if not self.gateway:
             raise Exception, "Cannot call start on a From class, expecting Gateway"
         self.gateway.start()
@@ -424,23 +417,11 @@ class LeftJoin(Node):
             left_child.set_callback(self.left_callback)
         right_child.set_callback(self.right_callback)
 
-        # Set up callbacks
-        #self.status = ChildStatus(self.all_done)
-        #for i, child in enumerate(self.get_children()):
-        #    child.set_callback(ChildCallback(self, i))
-        #    self.status.started(i)
-
-        self.identifier = random.randint(1,9999)
-
         super(LeftJoin, self).__init__()
 
     @returns(list)
     def get_children(self):
         return [self.left, self.right]
-
-    def all_done(self):
-        print "LeftJoin::all_done: not yet implemented"
-        pass
 
     @returns(Query)
     def get_query(self):
@@ -465,7 +446,6 @@ class LeftJoin(Node):
         \returns This node
         """
 
-        print "!! LEFT JOIN WAS ASKED INJECT"
         if not records:
             return
         record = records[0]
@@ -478,7 +458,6 @@ class LeftJoin(Node):
             for record in records:
                 proj = do_projection(record, self.left.query.fields)
                 records_inj.append(proj)
-            print " > propagation inject to left member: ", self.left
             self.left = self.left.inject(records_inj, key)
             # TODO injection in the right branch: only the subset of fields
             # of the right branch
@@ -487,7 +466,6 @@ class LeftJoin(Node):
         # TODO Currently we support injection in the left branch only
         # Injection makes sense in the right branch if it has the same key
         # as the left branch.
-        print " > propagate in left member", self.left
         self.left = self.left.inject(records, key)
         return self
 
@@ -512,7 +490,7 @@ class LeftJoin(Node):
         self.right.dump(indent + 1)
 
     def __repr__(self):
-        return "%s, ID:#%d" % ("JOIN %s %s %s" % self.predicate.get_str_tuple(), self.identifier) 
+        return "JOIN %s %s %s" % self.predicate.get_str_tuple()
 
     def left_callback(self, record):
         """
@@ -535,7 +513,6 @@ class LeftJoin(Node):
             self.callback(record)
 
         # Store the result in a hash for joining later
-        print "LEFT CALLBACK, adding in LEFT MAP", record
         self.left_map[record[self.predicate.key]] = record
 
     def right_callback(self, record):
@@ -561,17 +538,11 @@ class LeftJoin(Node):
         # We expect to receive information about keys we asked, and only these,
         # so we are confident the key exists in the map
         # XXX Dangers of duplicates ?
-        print "RIGHT RECORD", record
-        print "LEFT MAP", self.left_map
         left_record = self.left_map[key]
-        print "LEFT RECORD BEFORE UPDATE", left_record
         left_record.update(record)
-        print "CALLBACK ISSUED BY JOIN", left_record
         self.callback(left_record)
 
-        print "deleted from left map", key
         del self.left_map[key]
-        print "LEFT MAP", self.left_map
         
 
 #------------------------------------------------------------------
@@ -728,9 +699,7 @@ class Selection(Node):
         \brief Processes records received by the child node 
         \param record dictionary representing the received record
         """
-        print "[WHERE", self.filters, "]", record
         if record == LAST_RECORD or (self.filters and self.filters.match(record)):
-            print "where issued callback", record
             self.callback(record)
         #if record != LAST_RECORD and self.filters:
         #    record = self.filters.filter(record)
@@ -939,22 +908,13 @@ class Union(Node):
         \param records list of dictionaries representing records, or list of
         record keys
         """
-        print "UNION BEFORE INJECT"
-        for i, child in enumerate(self.children):
-            print "  * ", child
-        print "---------"
         for i, child in enumerate(self.children):
             self.children[i] = child.inject(records, key)
-        print "UNION AFTER INJECT"
-        for i, child in enumerate(self.children):
-            print "  * ", child
-        print "---------"
         return self
 
     def all_done(self):
         #for record in self.child_results.values():
         #    self.callback(record)
-        print "UNION ALL DONE"
         self.callback(LAST_RECORD)
 
     def child_callback(self, child_id, record):
@@ -1267,7 +1227,6 @@ class AST(object):
         assert not self.is_empty(),              "No left table"
 
         old_root = self.get_root()
-        print " ***** CREATING LEFT JOIN FOR QUERY PLANE"
         self.root = LeftJoin(old_root, right_child.get_root(), predicate)#, None)
         self.root.set_callback(old_root.get_callback())
         return self

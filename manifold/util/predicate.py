@@ -84,14 +84,9 @@ class Predicate:
             return ignore_missing
 
         if self.op == eq:
-            print "EQ"
             if isinstance(self.value, list):
                 return (dic[self.key] in self.value) # array ?
             else:
-                print "NO LIST"
-                print "key=", self.key
-                print " ==?", dic[self.key]
-                print " ==?", self.value
                 return (dic[self.key] == self.value)
         elif self.op == ne:
             if isinstance(self.value, list):
