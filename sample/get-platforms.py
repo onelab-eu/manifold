@@ -1,13 +1,13 @@
 #!/usr/bin/env python
 # -*- coding:utf-8 */
 
-from manifold.core.router import THQuery, THRouter as Router
+from manifold.core.router import Query, Router
 
-query1 = THQuery(action='get', fact_table='tophat:platform', filters=[], params=None, fields=['platform', 'platform_longname'])
-query2 = THQuery(action='get', fact_table='tophat:user')
-query3 = THQuery(action='get', fact_table='tophat:account')
+query1 = Query(action='get', fact_table='local:platform', filters=[], params=None, fields=['platform', 'platform_longname'])
+query2 = Query(action='get', fact_table='local:user')
+query3 = Query(action='get', fact_table='local:account')
 
-update = THQuery(action='update', fact_table='tophat:platform', params={'platform_longname': 'PlanetLab Europe testbed'}, filters=[['platform', '=', '''ple''']], fields=['platform', 'platform_longname'])
+update = Query(action='update', fact_table='local:platform', params={'platform_longname': 'PlanetLab Europe testbed'}, filters=[['platform', '=', '''ple''']], fields=['platform', 'platform_longname'])
 
 # Instantiate a TopHat router
 with Router() as router:

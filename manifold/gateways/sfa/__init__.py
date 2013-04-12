@@ -833,7 +833,38 @@ class SFAGateway(Gateway):
                     hrns = list(hrns)
                 slice_list.extend(hrns)
 
-        return slice_list        
+        return slice_list
+ 
+    # This function will return information about a given network using SFA GetVersion call
+    # Depending on the object Queried, if fact_table is network then get_network is triggered by
+    # result = getattr(self, "%s_%s" % (q.action, q.fact_table))(local_filters, q.params, fields)
+    def get_network(self, filters = None, params = None, fields = None):
+        # Network (AM) 
+        server = self.sliceapi
+        version = self.get_cached_server_version(server)
+        print "########## get_network getVersion =  %s",version
+        # Hardcoding the get network call until caching is implemented
+        #if q.action == 'get' and q.fact_table == 'network':
+        #platforms = db.query(Platform).filter(Platform.disabled == False).all()
+        #for p in platforms:
+        #    print "########## platform = %s",p.platform
+        #    result={'network_hrn': p.platform, 'network_name': p.platform_longname}
+        #    #self.callback({'network_hrn': p.platform, 'network_name': p.platform_longname})
+        #for r in version:
+        #    print r
+
+        # forward what has been retrieved from the SFA getVersion call
+        result=version
+        
+        # add these fields to match MySlice needs
+        for k,v in version.items():
+            if k=='hrn':
+                result['network_hrn']=v
+            if k=='testbed':
+                result['network_name']=v
+        #result={'network_hrn': version['hrn'], 'network_name': version['testbed']}
+        #print result
+        return result
 
     def get_slice(self, filters = None, params = None, fields = None):
         #
@@ -1287,13 +1318,14 @@ class SFAGateway(Gateway):
             # This should use twisted XMLRPC
 
             # Hardcoding the get network call until caching is implemented
-            if q.action == 'get' and q.fact_table == 'network':
-                platforms = db.query(Platform).filter(Platform.disabled == False).all()
-                output = []
-                for p in platforms:
-                    self.callback({'network_hrn': p.platform, 'network_name': p.platform_longname})
-                self.callback(None)
-                return
+            #if q.action == 'get' and q.fact_table == 'network':
+            #    platforms = db.query(Platform).filter(Platform.disabled == False).all()
+            #    output = []
+            #    for p in platforms:
+            #        self.callback({'network_hrn': p.platform, 'network_name': p.platform_longname})
+            #    # return None to inform that everything has been transmitted
+            #    self.callback(None)
+            #    return
 
             # DIRTY HACK to allow slices to span on non federated testbeds
             #
@@ -1318,12 +1350,17 @@ class SFAGateway(Gateway):
             
             fields = q.fields # Metadata.expand_output_fields(q.fact_table, list(q.fields))
             result = getattr(self, "%s_%s" % (q.action, q.fact_table))(local_filters, q.params, fields)
-            for r in result:
-                # DIRTY HACK continued
-                if slice_hrn and 'slice_hrn' in r:
-                    print "Dirty hack continued"
-                    r['slice_hrn'] = slice_hrn
-                self.callback(r)
+
+            # DIRTY HACK continued
+            if slice_hrn:
+                for r in result:
+                    # DIRTY HACK continued
+                    if slice_hrn and 'slice_hrn' in r:
+                        print "Dirty hack continued"
+                        r['slice_hrn'] = slice_hrn
+                    self.callback(r)
+            else:
+                self.callback(result)
         except Exception, e:
             print "Exception in sfa method call", e
             print traceback.print_exc()
@@ -1337,6 +1374,7 @@ class SFAGateway(Gateway):
             #print "W: Exception during SFA operation, ignoring...%s" % str(e)
             #traceback.print_exc()
 
+        # return None to inform that everything has been transmitted
         self.callback(None)
 
 
