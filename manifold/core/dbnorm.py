@@ -567,13 +567,29 @@ def reinject_fds(fds_min_cover, fds_removed):
     """
 
     map_key_closure = {}
+    key_fd_by_method = {}
+    methods_with_fds = []
+
     for fd_removed in fds_removed:
         x = fd_removed.get_determinant().get_key()
         y = fd_removed.get_field()
         m = fd_removed.get_methods()
 
+        method = list(m)[0].get_name()
+
         # (1)
-        if y in x: continue
+        if y in x: 
+            # We cannot simply readd them since it will cause new relations in the 3nf.
+            # fds_min_cover.add(fd_removed)
+            
+            # We have a single method in each fd
+            if not method in key_fd_by_method:
+                key_fd_by_method[method] = []
+            key_fd_by_method[method].append(fd_removed)
+
+            continue
+
+        methods_with_fds.append(method)
 
         # Compute (if not cached) the underlying 3nf fds allowing to retrieve y from x 
         if x not in map_key_closure.keys():
@@ -582,6 +598,11 @@ def reinject_fds(fds_min_cover, fds_removed):
         for fd in map_key_closure[x][y]:
             #if (fd.get_determinant().get_key() == x and fd.get_field() in set(x)) or fd.get_field() == y:
             fd.add_methods(m)
+
+    for method, fds in key_fd_by_method.items():
+        if not method in methods_with_fds:
+            for fd in fds:
+                fds_min_cover.add(fd)
 
 
 def reinject_fds_mando(fds_min_cover, fds_removed):
@@ -769,8 +790,8 @@ def to_3nf(metadata):
     print "-" * 100
     print "3) Reinjecting fds removed during normalization"
     print "-" * 100
-    for fd_removed in fds_removed:
-        print "(0) %r" % fd_removed
+    #for fd_removed in fds_removed:
+    #    print "(0) %r" % fd_removed
 
     reinject_fds(fds_min_cover, fds_removed)
 
@@ -808,7 +829,7 @@ def to_3nf(metadata):
             fields            = set()
             keys              = Keys()
             # XXX Jordan: I removed occurrences in the rest of the code
-            map_field_methods = dict() # <--- TODO this map should be removed from Table
+            #map_field_methods = dict() # <--- TODO this map should be removed from Table
 
             # Annotations needed for the query plane
             map_method_keys   = dict()

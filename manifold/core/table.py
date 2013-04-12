@@ -665,7 +665,8 @@ class Table:
         """
         \return The list of the fields in the MetadataClass
         """
-        return [field.get_name() for field in self.fields]
+        #return [field.get_name() for field in self.fields]
+        return self.fields.keys()
 
     def get_invalid_types(self, valid_types):
         """

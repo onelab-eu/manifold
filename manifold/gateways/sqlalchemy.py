@@ -100,7 +100,6 @@ class SQLAlchemyGateway(Gateway):
         res = db.query( *_fields ) if _fields else db.query( cls )
         if query.filters:
             res = res.filter(_filters)
-
         tuplelist = res.all()
         # only 2.7+ table = [ { fields[idx] : val for idx, val in enumerate(t) } for t in tuplelist]
 
@@ -181,6 +180,7 @@ class SQLAlchemyGateway(Gateway):
         # XXX For local namespace queries, we need to keep a dict
         for t in table:
             row = row2dict(t) if self.format == 'dict' else t.get_object()
+            print "ROW=", row
             self.callback(row)
         self.callback(None)
 
