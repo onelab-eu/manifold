@@ -199,8 +199,8 @@ class Router(Interface):
         if namespace == self.LOCAL_NAMESPACE:
             q = copy.deepcopy(query)
             q.fact_table = table
-            print "LOCAL QUERY TO STORAGE"
-            return Storage.execute(q, user=user)
+            output =  Storage.execute(q, user=user)
+            return ResultValue.get_success(output)
         elif namespace == "metadata":
             # Metadata are obtained for the 3nf representation in
             # memory

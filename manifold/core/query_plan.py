@@ -69,8 +69,10 @@ class QueryPlan(object):
         qp = AST(user)
 
         children_ast = []
+        subquery_methods = set()
         for method, subquery in analyzed_query.subqueries():
 
+            subquery_methods.add(method)
             # ???
             #method = table.get_field(method).get_type()
             #if not method in cur_fields:
@@ -101,8 +103,13 @@ class QueryPlan(object):
 
         qp = self.process_query(analyzed_query, metadata, user)
         if children_ast:
-            parent_key = list(metadata.find_node(method).keys).pop()
-            qp.subquery(children_ast, parent_key)
+            # We are not interested in the 3nf fields, but in the set of fields that will be available when we answer the whole parent query
+            # parent_fields = metadata.find_node(query.fact_table).get_field_names() # wrong
+            # XXX Note that we should request in the parent any field needed for subqueries
+            parent_fields = analyzed_query.fields - subquery_methods
+
+            # XXX some fields are 1..N fields and should not be present in this list...
+            qp.subquery(children_ast, parent_fields)
 
         return qp
 

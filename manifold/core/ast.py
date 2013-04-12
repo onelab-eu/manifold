@@ -1217,9 +1217,9 @@ class SubQuery(Node):
             child_query  = child.get_query()
 
             #print "PARENT_TABLE", parent_query.fact_table
-            parent_key = self.key
+            parent_fields = self.key
             #print "----"
-            print "PARENT KEY", parent_key
+            print "PARENT FIELDS", parent_fields
             print "CHILD FIELDS", child_query.fields
             #print "----"
 
@@ -1229,14 +1229,13 @@ class SubQuery(Node):
             if child_query.fact_table in parent_query.fields:
                 pass
 
-            elif parent_key.get_names() <= child_query.fields:
+            elif parent_fields <= child_query.fields:
                 # CASE (2) : The child has a backreference to the parent
                 # We will inject a where condition in the child
                 # /!\ Complicated when the parent has a multi_key
-                assert len(parent_key) == 1, "Multiple keys for parent not supported in Union::run_children() for case (2)"
-                parent_key = parent_key.get_name()
-                
                 # Collect parent ids
+                
+                # XXX
                 parent_ids = [record[parent_key] for record in self.parent_output]
 
                 # Inject a where in the right child (NOTE: we could have planned this where since the beginning maybe ?)
