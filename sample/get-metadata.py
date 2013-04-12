@@ -6,13 +6,16 @@ import xmlrpclib
 
 query = ('get', 'metadata:table', [], {}, [], 'latest')
 
-from manifold.core.router import THRouter
+from manifold.core.router import Router
 from manifold.core.router import Query
 
 # Instantiate a TopHat router
-with THRouter() as router:
+with Router() as router:
     result = router.forward(Query(*query), execute=True)
-    for x in result:
-        print x['table']
-        for c in x['column'][0:5]:
-            print "  - %s" % c['column']
+    #print result
+    if result['code']==0:
+        for x in result['result']:
+            #print x
+            print x['table']
+            for c in x['column'][0:5]:
+                print "  - %s" % c['column']
