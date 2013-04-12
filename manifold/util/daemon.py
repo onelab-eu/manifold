@@ -172,7 +172,7 @@ class Daemon(object):
         # Reference which file descriptors must remain opened while
         # daemonizing (for instance the file descriptor related to
         # the logger)
-        # XXX in logger XXX self.files_to_keep = []
+        self.files_to_keep = []
 
         # Initialize self.log (require self.files_to_keep)
         #if self.log: # for debugging by using stdout, log may be equal to None

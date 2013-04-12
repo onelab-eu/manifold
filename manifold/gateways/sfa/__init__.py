@@ -24,7 +24,6 @@ from sfa.trust.gid import GID
 from sfa.trust.credential import Credential
 # from sfa.trust.sfaticket import SfaTicket
 
-from sfa.util.sfalogging import sfi_logger
 from sfa.util.xrn import Xrn, get_leaf, get_authority, hrn_to_urn, urn_to_hrn
 from sfa.util.config import Config
 from sfa.util.version import version_core
@@ -37,10 +36,12 @@ from sfa.rspecs.rspec import RSpec
 from sfa.rspecs.version_manager import VersionManager
 
 #from sfa.client.sfaclientlib import SfaClientBootstrap
-from sfa.client.client_helper import pg_users_arg, sfa_users_arg
-from sfa.client.sfaserverproxy import SfaServerProxy, ServerException
-from sfa.client.return_value import ReturnValue
-from manifold.models import *
+from sfa.client.client_helper   import pg_users_arg, sfa_users_arg
+from sfa.client.sfaserverproxy  import SfaServerProxy, ServerException
+from sfa.client.return_value    import ReturnValue
+from manifold.models            import *
+from manifold.util.predicate    import contains
+from manifold.util.log          import log_info
 import json
 import signal
 import traceback
@@ -145,7 +146,7 @@ def get_network_name(hostname):
         else:
             name = t
     except Exception, why:
-        print why
+        print 'Exception in get_network_name', why
         name = None
     signal.alarm(0)
     return name
@@ -317,7 +318,7 @@ class SFAGateway(Gateway):
                 timeout=self.config['timeout'],
                 verbose=self.config['debug'])  
 
-        print "leaves temp files"
+        print "I: SfaGateway() : leaves temp files"
         #os.unlink(pkey_fn.name)
         #os.unlink(cert_fn.name)
 
@@ -336,7 +337,7 @@ class SFAGateway(Gateway):
             version= ReturnValue.get_value(result)
             # cache version for 20 minutes
             cache.add(cache_key, version, ttl= 60*20)
-            self.logger.info("Updating cache")
+            log_info("Updating cache")
 
         return version   
         
@@ -394,6 +395,7 @@ class SFAGateway(Gateway):
         api_options['call_id']=unique_call_id()
         results = self.sliceapi.ListSlices(cred, *self.ois(self.sliceapi,api_options)) # user cred
         results = results['value']
+        
         #{'output': '', 'geni_api': 2, 'code': {'am_type': 'sfa', 'geni_code': 0, 'am_code': None}, 'value': [
         return [urn_to_hrn(r)[0] for r in results]
 
@@ -410,7 +412,7 @@ class SFAGateway(Gateway):
             raise Exception('Wrong filter in sfa_list')
 
         #try:
-        print "CONNECTING TO REGISTRY", self.registry
+        #print "CONNECTING TO REGISTRY", self.registry
         records = self.registry.Resolve(xrns, cred, {'details': True})
         #except Exception, why:
         #    print "[Sfa::sfa_resolve_records] ERROR : %s" % why
@@ -801,6 +803,7 @@ class SFAGateway(Gateway):
         if not filters or not (filters.has_eq('slice_hrn') or filters.has_eq('authority_hrn') or filters.has_op('users.person_hrn', contains)):
         #if not input_filter or not ('slice_hrn' in input_filter or 'authority_hrn' in input_filter or '{users.person_hrn' in input_filter):
             # no details specified, get the full list of slices
+        
             return self.sfa_get_slices_hrn(cred)
 
         # XXX We would need the subquery for this !!
@@ -822,9 +825,12 @@ class SFAGateway(Gateway):
                     slice_list.extend([r['hrn'] for r in records])
 
             if filters.has_eq('slice_hrn'):
+                print "got it"
                 hrns = filters.get_eq('slice_hrn')
-                if not isinstance(hrns, list):
+                if not isinstance(hrns, (tuple, list)):
                     hrns = [hrns]
+                else:
+                    hrns = list(hrns)
                 slice_list.extend(hrns)
 
         return slice_list
@@ -861,7 +867,6 @@ class SFAGateway(Gateway):
         return result
 
     def get_slice(self, filters = None, params = None, fields = None):
-
         #
         # DEMO hook
         #
@@ -902,12 +907,12 @@ class SFAGateway(Gateway):
         if slice_list == []:
             return slice_list
         
-
         # B/ Get slice information
         
         # - Do we have a need for filtering or additional information ?
         if fields == set(['slice_hrn']) and not filters: # XXX we should also support slice_urn etc.
             # No need for filtering or additional information
+            print "I: No need for filtering or additional information"
             return [{'slice_hrn': hrn} for hrn in slice_list]
             
         # - Do we need to filter the slice_list by authority ?
@@ -916,6 +921,7 @@ class SFAGateway(Gateway):
             for p in predicates:
                 slice_list = [s for s in slice_list if p.match({'authority_hrn': get_authority(s)})]
         if slice_list == []:
+            print "I: empty slice list 2"
             return slice_list
 
         # Depending on the information we need, we don't need to call Resolve
@@ -935,6 +941,7 @@ class SFAGateway(Gateway):
         # cred = self._get_cred('user', self.user.user_hrnself.config['caller']['person_hrn'])
         cred = self._get_cred('user')
         # - Resolving slice hrns to get additional information
+        print "calling resolve records"
         slices = self.sfa_resolve_records(cred, slice_list, 'slice')
         # Merge resulting information
         for (hrn, slice) in itertools.izip(slice_list, slices):
@@ -1231,6 +1238,7 @@ class SFAGateway(Gateway):
             
         except Exception, e:
             # XXX disabled temp XXX print "E: get_resource", e
+            print "E: SfaGateway::get_resource_lease():", e
             ret = {'resource': [], 'lease': []}
             # EXCEPTIONS Some tests about giving back informations
             if self.debug:
@@ -1280,7 +1288,9 @@ class SFAGateway(Gateway):
         if not 'timeout' in self.config:
             self.config['timeout'] = None
 
-        self.logger = sfi_logger
+        # XXX Need to import sfi_logger here so that it is properly daemonized
+        #from sfa.util.sfalogging import sfi_logger
+        #self.logger = sfi_logger
 
         # Check user accounts & prepare managers proxy
         #self.bootstrap()
@@ -1348,6 +1358,8 @@ class SFAGateway(Gateway):
             else:
                 self.callback(result)
         except Exception, e:
+            print "Exception in sfa method call", e
+            print traceback.print_exc()
             rv = ResultValue(
                 origin      = (ResultValue.GATEWAY, self.__class__.__name__),
                 type        = ResultValue.ERROR, 

@@ -16,7 +16,7 @@ def print_err(err):
 q = {
     'fact_table':   'slice',
     'filters':      [['slice_hrn', '=', 'ple.upmc.myslicedemo']],
-    'fields':       ['slice_hrn', 'lease_id']
+    'fields':       ['slice_hrn', 'lease_id', 'application.measurement_point']
 }
 
 ret = srv.forward(auth, q)

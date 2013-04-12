@@ -209,6 +209,7 @@ class Query(object):
     def execute(self, fact_table): return self.action('execute', fact_table)
 
     def filter_by(self, *args):
+        print "query::filter_by"
         if len(args) == 1:
             filters = args[0]
             if not isinstance(filters, (set, list, tuple, Filter)):
@@ -237,10 +238,11 @@ class AnalyzedQuery(Query):
 
     # XXX we might need to propagate special parameters sur as DEBUG, etc.
 
-    def __init__(self, query):
+    def __init__(self, query=None):
         self.clear()
         self._analyzed = None
-        self.analyze(query)
+        if query:
+            self.analyze(query)
 
     @returns(StringTypes)
     def __str__(self):
@@ -250,9 +252,8 @@ class AnalyzedQuery(Query):
             self.get_from(),
             self.get_where()
         ))
-        out.append('--- SUBQUERIES ---')
-        for subquery in self.subqueries():
-            out.append('  ', str(subquery))
+        for method, subquery in self.subqueries():
+            out.append('  [SQ : %s] %s' % (method, str(subquery)))
         return "\n".join(out)
 
     def clear(self):
@@ -260,16 +261,17 @@ class AnalyzedQuery(Query):
         self._subqueries = {}
 
     def subquery(self, method):
+        # Allows for the construction of a subquery
         if not method in self._subqueries:
-            self._subqueries[method] = analyzed_query
             analyzed_query = AnalyzedQuery()
             analyzed_query.action = self._analyzed.action
-            analyzed_query.fact_table = self._analyzed.fact_table
+            analyzed_query.fact_table = method
+            self._subqueries[method] = analyzed_query
         return self._subqueries[method]
 
     def subqueries(self):
-        for subquery in self._subqueries.itervalues():
-            yield subquery
+        for method, subquery in self._subqueries.iteritems():
+            yield (method, subquery)
 
     def filter_by(self, filters):
         if not filters: return self

@@ -26,6 +26,9 @@ setup(
         'sqlalchemy>=0.7',
     #    'Elixir>=0.7.1',
     #    'restkit>=3.2.0',
+    #    'twisted',
+    #    'BeautifulSoup',
+    #    'sfa', 'sfa-common', 'sfa-plc'
     ],
     license     = "GPLv3",
     packages = find_packages(),
