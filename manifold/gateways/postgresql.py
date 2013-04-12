@@ -107,6 +107,7 @@ class PostgreSQLGateway(Gateway):
         super(PostgreSQLGateway, self).__init__(router, platform, query, config, user_config, user)
         self.debug = False
         #self.debug = True
+        self.db_name = 'postgres'
         self.connection = None
 
     def cursor(self, cursor_factory=None): #psycopg2.extras.NamedTupleCursor
@@ -116,7 +117,7 @@ class PostgreSQLGateway(Gateway):
                 'user':     self.config['db_user'],
                 'password': self.config['db_password']
             }
-            cfg['database'] = self.config['db_name'] if 'db_name' in self.config else 'postgres'
+            cfg['database'] = self.config['db_name'] if 'db_name' in self.config else self.db_name
 
             if psycopg2:
                 try:
