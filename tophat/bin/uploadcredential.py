@@ -25,9 +25,9 @@ Example:
     parser.add_option ("-u","--url",dest='url',action='store',default=DEFAULT_MYSLICE_API,
                        help="Specify API url (default is %s)"%DEFAULT_MYSLICE_API)
     parser.add_option ("-o","--old",action='store_true',dest='old_api',default=False,
-                       help="If your backend runs old API (using AddCredential)")
+                       help="if your backend runs old API (using AddCredential)")
     parser.add_option ("-n","--new",action='store_false',dest='old_api',
-                       help="If your backend runs new API (no AddCredential anymore)")
+                       help="default -- if your backend runs new API (use Update)")
     (options,args)=parser.parse_args()
 
     if len(args)<=2: 
