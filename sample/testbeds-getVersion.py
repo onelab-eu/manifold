@@ -18,27 +18,10 @@ q = {
     'fields':       ['network_hrn']
 }
 
-q_platform = {
-    'fact_table':   'local:platform', 
-    'fields':       ['platform', 'platform_description']
-}
-
-#q_update = {
-#    'action': 'update',
-#    'fact_table': 'local:platform',
-#    'filters': [['platform','=','ple']],
-#    'params': {'platform_description':'test'}
-#}
-
-#ret = srv.forward(auth, q_platform)
-#print "====> PLATFORM"
-#for r in ret:
-#    print r
-#print ret
-
 ret = srv.forward(auth, q)
 print "====> NETWORKS"
 #print ret
+
 if 'code' in ret.keys() and ret['code'] != 0:
     if isinstance(ret['description'], list):
         # We have a list of errors

@@ -159,11 +159,12 @@ class SQLAlchemyGateway(Gateway):
         assert not query.filters, "Filters should be empty for a create request"
         #assert not query.fields, "Fields should be empty for a create request"
 
-        print "CREATE SELF.USER=", self.user
+        print "CREATE SELF.QUERY=", self.query
 
         cls = self.map_fact_table[query.fact_table]
         params = cls.process_params(query.params, None, self.user)
         new_obj = cls(**params)
+        print "local_query_create ---- new_obj = ",new_obj
         db.add(new_obj)
         db.commit()
         
@@ -176,6 +177,7 @@ class SQLAlchemyGateway(Gateway):
             "update" : self.local_query_update,
             "create" : self.local_query_create
         }
+        print "sqlalchemy ---- query = ",self.query
         table = _map_action[self.query.action](self.query)
         # XXX For local namespace queries, we need to keep a dict
         for t in table:
