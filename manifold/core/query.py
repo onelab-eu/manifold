@@ -132,15 +132,35 @@ class Query(object):
 
     @returns(StringTypes)
     def __str__(self):
-        return "SELECT %s FROM %s WHERE %s" % (
-            ", ".join(self.get_select()) if self.get_select() else '*',
-            self.get_from(),
-            self.get_where()
-        )
-
-    @returns(StringTypes)
-    def __repr__(self):
-        return self.__str__()
+        if self.action == "get" or self.action=="delete":
+            return "%s %s FROM %s WHERE %s" % (
+                "SELECT" if self.action == "get" else self.action.upper(),
+                ", ".join(self.get_select()) if self.get_select() else '*',
+                self.get_from(),
+                self.get_where()
+            )
+        elif self.action == "create":
+            #INSERT INTO table_name (column1, column2, column3,...)
+            #VALUES (value1, value2, value3,...)
+            return "INSERT INTO %s (%s) VALUES (%s)" % (
+                self.get_from(),
+                ", ".join(self.params),
+                ", ".join(self.params.values())
+            )
+        elif self.action == "update":
+            #UPDATE table_name
+            #SET column1=value, column2=value2,...
+            #WHERE some_column=some_value
+            for p in self.params: 
+                s=p+"="+p.values()+", "
+            return "UPDATE %s SET %s WHERE %s" % (
+                self.get_from(),
+                s,
+                self.get_where()
+            )
+    #@returns(StringTypes)
+    #def __repr__(self):
+    #    return self.__str__()
 
     def __key(self):
         return (self.action, self.fact_table, self.filters, frozendict(self.params), frozenset(self.fields))

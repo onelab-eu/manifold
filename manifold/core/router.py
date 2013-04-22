@@ -196,9 +196,12 @@ class Router(Interface):
         if ':' in query.fact_table:
             namespace, table = query.fact_table.rsplit(':', 2)
         
+        print "ROUTER FORWARD ----- query = ",query
+        print "ROUTER FORWARD ----- namespace = ",namespace
         if namespace == self.LOCAL_NAMESPACE:
             q = copy.deepcopy(query)
             q.fact_table = table
+            print "local namespace q = ",q
             output =  Storage.execute(q, user=user)
             return ResultValue.get_success(output)
         elif namespace == "metadata":
