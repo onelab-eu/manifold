@@ -1,0 +1,13 @@
+Source: manifold
+Maintainer: Jordan Auge <jordan.auge@lip6.fr>
+Section: misc
+Priority: optional
+Standards-Version: 3.9.2
+Build-Depends: devscripts, debhelper (>=7.0.50~), debconf, dpatch, python-setuptools, make
+
+Package: manifold
+Architecture: any
+# this list needs to be fine-tuned, first stab from stdeb.cfg
+Depends: python, python-sqlalchemy, python-twisted, python-sfa, python-networkx, python-BeautifulSoup, python-geoip, sqlite3
+Description: Manifold infrastructure
+

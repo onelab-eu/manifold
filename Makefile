@@ -74,6 +74,59 @@ deb:
 	python setup.py --command-packages=stdeb.command bdist_deb
 	@echo "Debian package in subdirectory 'deb_dist'."
 
-
-
 .PHONY: all clean distclean dist test coverage install MANIFEST deb
+
+#################### Thierry's additions for the packaging system
+# overwritten by the specfile
+DESTDIR="/"
+PREFIX=/usr
+
+# version is managed in manifold.spec, could maybe use PL's module-tools for that ?!?
+rpmversion:=$(shell rpm -q --specfile manifold.spec --queryformat="%{version}\n" | head -1)
+# somehow %{taglevel} is empty, turns out %{release} has what we want
+rpmtaglevel:=$(shell rpm -q --specfile manifold.spec --queryformat="%{release}\n" 2> /dev/null | head -1)
+VERSIONTAG=$(rpmversion)-$(rpmtaglevel)
+
+# general stuff
+PROJECT=manifold
+DATE=$(shell date -u +"%a, %d %b %Y %T")
+DEBIAN_TARBALL=../$(PROJECT)_$(VERSIONTAG).orig.tar.bz2
+
+
+# for fedora/rpm - not used yet ?
+buildrpm:
+	python setup.py build
+
+installrpm:
+	python setup.py install --prefix=$(PREFIX) --root=$(DESTDIR)
+
+# for debian/ubuntu
+debian: debian/changelog debian.source debian.package
+
+force:
+
+debian/changelog: debian/changelog.in
+	sed -e "s|@VERSION@|$(VERSION)|" -e "s|@DATE@|$(DATE)|" debian/changelog.in > debian/changelog
+
+# TARBALL is passed from the main build (/build/Makefile) to the 'make debian' call
+debian.source: force 
+	rsync -a $(TARBALL) $(DEBIAN_TARBALL)
+
+debian.package:
+	debuild -uc -us -b 
+
+debian.clean:
+	$(MAKE) -f debian/rules clean
+	rm -rf build/ MANIFEST ../*.tar.gz ../*.dsc ../*.build
+	find . -name '*.pyc' -delete
+
+
+#################### convenience, for debugging only
+# make +foo : prints the value of $(foo)
+# make ++foo : idem but verbose, i.e. foo=$(foo)
+++%: varname=$(subst +,,$@)
+++%:
+	@echo "$(varname)=$($(varname))"
++%: varname=$(subst +,,$@)
++%:
+	@echo "$($(varname))"
