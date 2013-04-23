@@ -1,6 +1,14 @@
 #!/usr/bin/env python
 #! -*- coding: utf-8 -*-
 
+# XXX
+# Thierry April 2013
+# This code is mostly useful only in conjunction with sfa
+# For this reason I am moving it right into the sfi code,
+# further changes here are probably not very useful
+# see the ManifoldUploader class in sfa/client/manifolduploader.py
+# XXX
+
 DEFAULT_MYSLICE_API = "http://demo.myslice.info:7080"
 
 # xxx
