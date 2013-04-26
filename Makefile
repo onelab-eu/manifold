@@ -87,7 +87,6 @@ DATE=$(shell date -u +"%a, %d %b %Y %T")
 # NAME, VERSION and RELEASE are passed from the build environment (that gets it from the specfile)
 DEBIAN_VERSION=$(VERSION)-$(RELEASE)
 DEBIAN_TARBALL=../$(NAME)_$(DEBIAN_VERSION).orig.tar.gz
-DEB
 
 # for fedora/rpm - not used yet ?
 buildrpm:
