@@ -7,7 +7,11 @@
 # where the version number is set; here whoever we keep the original 
 # way of managing version number in the python source
 # module-tools probably won't work nice here
-%define version %(python -c "import tophat; print tophat.__version__")
+# xxx this would be the right way to go but unfortunately it won't run
+# under spec2make...
+# %define version %(python -c "import tophat; print tophat.__version__")
+# so we need to keep both places in sync (tophat/__init__.py)
+%define version 0.9
 %define taglevel 0
 
 %define release %{taglevel}%{?pldistro:.%{pldistro}}%{?date:.%{date}}
