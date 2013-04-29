@@ -1208,8 +1208,8 @@ class SFAGateway(Gateway):
     def get_resource_lease(self, input_filter = None, params = None, output_fields = None):
         # DEMO
         if self.user.email in DEMO_HOOKS:
-            #rspec = open('/usr/share/myslice/scripts/sample-sliver.rspec', 'r')
-            rspec = open('/usr/share/myslice/scripts/nitos.rspec', 'r')
+            #rspec = open('/usr/share/manifold/scripts/sample-sliver.rspec', 'r')
+            rspec = open('/usr/share/manifold/scripts/nitos.rspec', 'r')
             return self.parse_sfa_rspec(rspec)
 
             # Add random lat-lon values

@@ -32,7 +32,7 @@ setup(
     ],
     license     = "GPLv3",
     packages = find_packages(),
-    data_files = [ ('/usr/share/myslice/metadata/', glob('metadata/*.h')) ],
+    data_files = [ ('/usr/share/manifold/metadata/', glob('metadata/*.h')) ],
     scripts=['scripts/myslice-reset-db.sh', 'scripts/myslice-init-db.sh'],
     entry_points={
         'console_scripts': [

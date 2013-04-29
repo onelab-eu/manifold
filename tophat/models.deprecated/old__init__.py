@@ -85,7 +85,7 @@ class XmlDictConfig(dict):
 
 class Metadata(Row):
 
-    DIRECTORY='/usr/share/myslice/metadata'
+    DIRECTORY='/usr/share/manifold/metadata'
 
     # None means : get everything
     @staticmethod
