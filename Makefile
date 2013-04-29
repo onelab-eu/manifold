@@ -115,6 +115,9 @@ debian.clean:
 	rm -rf build/ MANIFEST ../*.tar.gz ../*.dsc ../*.build
 	find . -name '*.pyc' -delete
 
+####################
+tags:
+	git ls-files | xargs etags
 
 #################### convenience, for debugging only
 # make +foo : prints the value of $(foo)
