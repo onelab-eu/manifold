@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #! -*- coding: utf-8 -*-
-
+import pprint
 import xmlrpclib
 from config import auth
 
@@ -44,21 +44,23 @@ if 'code' in ret.keys() and ret['code'] != 0:
         # We have a list of errors
         for err in ret['description']:
             print_err(err)
-
-ret = ret['result']
-
-print "===== RESULTS ====="
-for r in ret:
+    print "===== RETURN WITH ERRORS ====="
+    pprint.pprint(ret)
+else:
+    print "===== RESULTS ====="
+    pprint.pprint(ret)
+    #ret = ret['result']
+#for r in ret:
     #print r
-    q_update = {
-        'action': 'update',
-        'fact_table': 'local:platform',
-        'filters': [['platform','=',r['hrn']]],
-        'params': {'platform_description':r['hostname']}
-    }
+    #q_update = {
+    #    'action': 'update',
+    #    'fact_table': 'local:platform',
+    #    'filters': [['platform','=',r['hrn']]],
+    #    'params': {'platform_description':r['hostname']}
+    #}
     # update platforms set platform_description=r['hostname'] where platform=r['hrn']
-    ret_update = srv.forward(auth, q_update)
-    print "====> UPDATE = ", q_update
+    #ret_update = srv.forward(auth, q_update)
+    #print "====> UPDATE = ", q_update
     #for r in ret:
     #    print r
-    print ret_update
+    #print ret_update
