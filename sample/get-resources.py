@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-MYSLICE_API='http://demo.myslice.info:7080'
+MYSLICE_API='http://localhost:7080'
 
 # Connection to XMLRPC server
 import xmlrpclib

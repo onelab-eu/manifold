@@ -118,6 +118,8 @@ class Interface(object):
                 gw.set_query(from_node.query)
                 from_node.set_gateway(gw)
         except Exception, e:
+            import traceback
+            print traceback.print_exc()
             print "EXC inst gw", e
 
 

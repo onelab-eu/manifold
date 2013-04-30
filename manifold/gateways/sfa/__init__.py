@@ -37,7 +37,7 @@ from sfa.rspecs.version_manager import VersionManager
 
 #from sfa.client.sfaclientlib import SfaClientBootstrap
 from sfa.client.client_helper   import pg_users_arg, sfa_users_arg
-from sfa.client.sfaserverproxy  import SfaServerProxy, ServerException
+from sfa.client.sfaserverproxy  import SfaServerProxy as _SfaServerProxy, ServerException
 from sfa.client.return_value    import ReturnValue
 from manifold.models            import *
 from manifold.util.predicate    import contains
@@ -45,6 +45,39 @@ from manifold.util.log          import log_info
 import json
 import signal
 import traceback
+
+class TimeOutException(Exception):
+    pass
+
+def timeout(signum, frame):
+    raise TimeOutException, "Command ran for too long"
+
+# @loic overriding SfaServerProxy class to handle DNS timeout when a gateway URL is unknown
+class SfaServerProxy(_SfaServerProxy):
+    def __getattr__(self, name):
+        def func(*args, **kwds):
+            print "------------------------------------->> Override class"
+            import time
+            localtime=time.localtime()
+            timeString=time.strftime("%H:%M:%S",localtime)
+            print timeString,
+            print "before getattr ",name,args,kwds
+            signal.signal(signal.SIGALRM, timeout)
+            signal.alarm(5)
+            ret=None
+            try:
+                ret=getattr(self.serverproxy, name)(*args, **kwds)
+                signal.alarm(0)
+            except TimeOutException:
+                pass
+            except Exception, why:
+                print 'Exception in SFA Gateway SfaServerProxy ', why
+            #    localtime=time.localtime()
+            #    timeString=time.strftime("%H:%M:%S",localtime)
+            #    print timeString
+                signal.alarm(0)
+            return ret        
+        return func
 
 # FOR DEBUG
 def row2dict(row):
@@ -128,12 +161,6 @@ def project_select_and_rename_fields(table, pkey, filters, fields, map_fields=No
     return filtered
 
 ################################################################################
-
-class TimeOutException(Exception):
-    pass
-
-def timeout(signum, frame):
-    raise TimeOutException, "Command ran for too long"
 
 def get_network_name(hostname):
     signal.signal(signal.SIGALRM, timeout)
@@ -310,7 +337,7 @@ class SFAGateway(Gateway):
         cert_fn.write(config['gid']) 
         pkey_fn.close()
         cert_fn.close()
-
+        
         self.registry = SfaServerProxy(reg_url, pkey_fn.name, cert_fn.name,
                 timeout=self.config['timeout'],
                 verbose=self.config['debug'])  
@@ -842,7 +869,6 @@ class SFAGateway(Gateway):
         # Network (AM) 
         server = self.sliceapi
         version = self.get_cached_server_version(server)
-        print "########## get_network getVersion =  %s",version
         # Hardcoding the get network call until caching is implemented
         #if q.action == 'get' and q.fact_table == 'network':
         #platforms = db.query(Platform).filter(Platform.disabled == False).all()
@@ -856,14 +882,15 @@ class SFAGateway(Gateway):
         # forward what has been retrieved from the SFA getVersion call
         result=version
         
-        # add these fields to match MySlice needs
-        for k,v in version.items():
-            if k=='hrn':
-                result['network_hrn']=v
-            if k=='testbed':
-                result['network_name']=v
-        #result={'network_hrn': version['hrn'], 'network_name': version['testbed']}
-        #print result
+        if version is not None: 
+            # add these fields to match MySlice needs
+            for k,v in version.items():
+                if k=='hrn':
+                    result['network_hrn']=v
+                if k=='testbed':
+                    result['network_name']=v
+            #result={'network_hrn': version['hrn'], 'network_name': version['testbed']}
+            #print result
         return result
 
     def get_slice(self, filters = None, params = None, fields = None):
@@ -1289,8 +1316,9 @@ class SFAGateway(Gateway):
             self.config['debug'] = False
         if not 'registry' in self.config:
             raise Exception, "Missing SFA::registry parameter in configuration."
+        # @loic Added default 5sec timeout if parameter self.config['timeout'] is not set
         if not 'timeout' in self.config:
-            self.config['timeout'] = None
+            self.config['timeout'] = 5
 
         # XXX Need to import sfi_logger here so that it is properly daemonized
         #from sfa.util.sfalogging import sfi_logger
@@ -1436,7 +1464,8 @@ class SFAGateway(Gateway):
 
             # We need to connect through a HTTPS connection using the generated private key
             registry_url = json.loads(platform.config)['registry']
-            registry_proxy = SfaServerProxy (registry_url, pkey_fn.name, cert_fn.name)
+            # @loic Added default 5sec timeout 
+            registry_proxy = SfaServerProxy (registry_url, pkey_fn.name, cert_fn.name, timeout=5)
 
             try:
                 credential_string = registry_proxy.GetSelfCredential (config['sscert'], config['user_hrn'], 'user')
@@ -1462,7 +1491,8 @@ class SFAGateway(Gateway):
 
             # We need to connect through a HTTPS connection using the generated private key
             registry_url = json.loads(platform.config)['registry']
-            registry_proxy = SfaServerProxy(registry_url, pkey_fn.name, cert_fn.name)
+            # @loic Added default 5sec timeout
+            registry_proxy = SfaServerProxy(registry_url, pkey_fn.name, cert_fn.name, timeout=5)
 
             records = registry_proxy.Resolve(config['user_hrn'].encode('latin1'), config['user_credential'])
             records = [record for record in records if record['type']=='user']
@@ -1488,7 +1518,8 @@ class SFAGateway(Gateway):
 
             # We need to connect through a HTTPS connection using the generated private key
             registry_url = json.loads(platform.config)['registry']
-            registry_proxy = SfaServerProxy(registry_url, pkey_fn.name, cert_fn.name)
+            # @loic Added default 5sec timeout
+            registry_proxy = SfaServerProxy(registry_url, pkey_fn.name, cert_fn.name, timeout=5)
 
             try:
                 credential_string=registry_proxy.GetCredential (config['user_credential'], config['user_hrn'].encode('latin1'), 'authority')
