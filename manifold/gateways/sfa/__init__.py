@@ -46,6 +46,9 @@ import json
 import signal
 import traceback
 
+# For debug
+import pprint
+
 class TimeOutException(Exception):
     pass
 
@@ -55,13 +58,9 @@ def timeout(signum, frame):
 # @loic overriding SfaServerProxy class to handle DNS timeout when a gateway URL is unknown
 class SfaServerProxy(_SfaServerProxy):
     def __getattr__(self, name):
+        if self.url is not None:
+            print "in Sfa Gateway - SfaServerProxy connecting to ",self.url
         def func(*args, **kwds):
-            print "------------------------------------->> Override class"
-            import time
-            localtime=time.localtime()
-            timeString=time.strftime("%H:%M:%S",localtime)
-            print timeString,
-            print "before getattr ",name,args,kwds
             signal.signal(signal.SIGALRM, timeout)
             signal.alarm(5)
             ret=None
@@ -72,9 +71,6 @@ class SfaServerProxy(_SfaServerProxy):
                 pass
             except Exception, why:
                 print 'Exception in SFA Gateway SfaServerProxy ', why
-            #    localtime=time.localtime()
-            #    timeString=time.strftime("%H:%M:%S",localtime)
-            #    print timeString
                 signal.alarm(0)
             return ret        
         return func
@@ -304,6 +300,9 @@ class SFAGateway(Gateway):
 
         # XXX ACCOUNT MANAGEMENT : to be improved
         config_new = None
+        print "SfaGateway::bootstrap() ACCOUNT MANAGEMENT"
+        #pprint.pprint(account.config)
+        
         if account.auth_type == 'reference':
             ref_platform = json.loads(account.config)['reference_platform']
             ref_platform = db.query(Platform).filter(Platform.platform == ref_platform).one()
@@ -311,7 +310,10 @@ class SFAGateway(Gateway):
             if not ref_accounts:
                 raise Exception, "reference account does not exist"
             ref_account = ref_accounts[0]
+            print "Found the refered account"
+            #pprint.pprint(ref_account.config)
             config_new = json.dumps(SFAGateway.manage(ADMIN_USER, ref_platform, json.loads(ref_account.config)))
+            #pprint.pprint(config_new)
             if ref_account.config != config_new:
                 ref_account.config = config_new
                 db.add(ref_account)
@@ -322,6 +324,9 @@ class SFAGateway(Gateway):
                 account.config = config_new
                 db.add(account)
                 db.commit()
+
+        # @loic update the user config, if the account is a reference, the query will be sent using the refered account
+        self.user_config=json.loads(config_new)
 
         # Initialize manager proxies
 
@@ -529,6 +534,7 @@ class SFAGateway(Gateway):
                 except Exception, why:
                     print "E: ", why
                     version = None
+                    print traceback.print_exc()
 
                 if version:
                     output.append(version)
@@ -637,6 +643,8 @@ class SFAGateway(Gateway):
     # default allows the use of MySlice's own credentials
     def _get_cred(self, type, target=None):
         if type == 'user':
+            print "entering _get_cred function"
+            #pprint.pprint(self.user_config)
             if target:
                 raise Exception, "Cannot retrieve specific user credential for now"
             try:
@@ -1221,7 +1229,6 @@ class SFAGateway(Gateway):
                 hrn = None
                 #cred = self._get_cred('user', self.config['caller']['person_hrn'])
                 cred = self._get_cred('user')
-        
             # We request the list of nodes in the slice
             rspec = self.sfa_get_resources(cred, hrn)
             rsrc_slice = self.parse_sfa_rspec(rspec)
@@ -1270,6 +1277,7 @@ class SFAGateway(Gateway):
         except Exception, e:
             # XXX disabled temp XXX print "E: get_resource", e
             print "E: SfaGateway::get_resource_lease():", e
+            print traceback.print_exc()
             ret = {'resource': [], 'lease': []}
             # EXCEPTIONS Some tests about giving back informations
             if self.debug:
