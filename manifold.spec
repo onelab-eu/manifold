@@ -21,7 +21,7 @@ Name: %{name}
 Version: %{version}
 Release: %{release}
 License: GPLv3
-Source0: %{name}-%{version}.tar.gz
+Source0: %{name}-%{version}.tar.bz2
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
 
 Vendor: OpenLab
