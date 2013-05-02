@@ -32,11 +32,11 @@ all:
 	./setup.py build
 
 mrproper: 
-	rm -Rf build /usr/local/lib/python2.7/dist-packages/tophat
+	rm -Rf build /usr/lib/python2.7/dist-packages/tophat
 # /Jordan
 
 install: all
-	./setup.py install --prefix=$(PREFIX)
+	./setup.py install --prefix=$(PREFIX) --root=$(DESTDIR)
 
 test: all
 	retval=0; \
