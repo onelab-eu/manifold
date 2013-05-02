@@ -76,7 +76,9 @@ deb:
 
 .PHONY: all clean distclean dist test coverage install MANIFEST deb
 
+########################################
 #################### Thierry's additions for the packaging system
+########################################
 # overwritten by the specfile
 DESTDIR="/"
 PREFIX=/usr
@@ -84,11 +86,16 @@ PREFIX=/usr
 # general stuff
 DATE=$(shell date -u +"%a, %d %b %Y %T")
 
-# NAME, VERSION and RELEASE are passed from the build environment (that gets it from the specfile)
-DEBIAN_VERSION=$(VERSION)-$(RELEASE)
-DEBIAN_TARBALL=../$(NAME)_$(DEBIAN_VERSION).orig.tar.gz
+# This is called from the build with the following variables set 
+# (see build/Makefile and target_debian)
+# (.) RPMTARBALL
+# (.) RPMVERSION
+# (.) RPMRELEASE
+# (.) RPMNAME
+DEBVERSION=$(RPMVERSION).$(RPMRELEASE)
+DEBTARBALL=../$(RPMNAME)_$(DEBVERSION).orig.tar.gz
 
-# for fedora/rpm - not used yet ?
+# for fedora/rpm - not used yet ..
 buildrpm:
 	python setup.py build
 
@@ -101,11 +108,11 @@ debian: debian/changelog debian.source debian.package
 force:
 
 debian/changelog: debian/changelog.in
-	sed -e "s|@VERSION@|$(DEBIAN_VERSION)|" -e "s|@DATE@|$(DATE)|" debian/changelog.in > debian/changelog
+	sed -e "s|@VERSION@|$(DEBVERSION)|" -e "s|@DATE@|$(DATE)|" debian/changelog.in > debian/changelog
 
 # TARBALL is passed from the main build (/build/Makefile) to the 'make debian' call
 debian.source: force 
-	rsync -a $(TARBALL) $(DEBIAN_TARBALL)
+	rsync -a $(TARBALL) $(DEBTARBALL)
 
 debian.package:
 	debuild -uc -us -b 
