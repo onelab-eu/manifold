@@ -3,6 +3,9 @@ TESTDIR     = $(CURDIR)/test
 TESTLIB     = $(TESTDIR)/lib
 BUILDDIR    = $(CURDIR)/build
 DISTDIR     = $(CURDIR)/dist
+# overwritten by the specfile
+DESTDIR="/"
+PREFIX=/usr
 
 # stupid distutils, it's broken in so many ways
 SUBBUILDDIR = $(shell python -c 'import distutils.util, sys; \
@@ -33,7 +36,7 @@ mrproper:
 # /Jordan
 
 install: all
-	./setup.py install
+	./setup.py install --prefix=$(PREFIX)
 
 test: all
 	retval=0; \
@@ -79,10 +82,6 @@ deb:
 ########################################
 #################### Thierry's additions for the packaging system
 ########################################
-# overwritten by the specfile
-DESTDIR="/"
-PREFIX=/usr
-
 # general stuff
 DATE=$(shell date -u +"%a, %d %b %Y %T")
 
@@ -97,7 +96,7 @@ DEBTARBALL=../$(RPMNAME)_$(DEBVERSION).orig.tar.bz2
 
 # for fedora/rpm - not used yet ..
 buildrpm:
-	python setup.py build
+	python setup.py build --prefix=$(PREFIX) --root=$(DESTDIR)
 
 installrpm:
 	python setup.py install --prefix=$(PREFIX) --root=$(DESTDIR)
@@ -110,9 +109,8 @@ force:
 debian/changelog: debian/changelog.in
 	sed -e "s|@VERSION@|$(DEBVERSION)|" -e "s|@DATE@|$(DATE)|" debian/changelog.in > debian/changelog
 
-# TARBALL is passed from the main build (/build/Makefile) to the 'make debian' call
 debian.source: force 
-	rsync -a $(TARBALL) $(DEBTARBALL)
+	rsync -a $(RPMTARBALL) $(DEBTARBALL)
 
 debian.package:
 	debuild -uc -us -b 
