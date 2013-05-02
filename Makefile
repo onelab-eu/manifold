@@ -93,7 +93,7 @@ DATE=$(shell date -u +"%a, %d %b %Y %T")
 # (.) RPMRELEASE
 # (.) RPMNAME
 DEBVERSION=$(RPMVERSION).$(RPMRELEASE)
-DEBTARBALL=../$(RPMNAME)_$(DEBVERSION).orig.tar.gz
+DEBTARBALL=../$(RPMNAME)_$(DEBVERSION).orig.tar.bz2
 
 # for fedora/rpm - not used yet ..
 buildrpm:
