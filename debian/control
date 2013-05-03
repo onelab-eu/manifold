@@ -8,6 +8,13 @@ Build-Depends: devscripts, debhelper (>=7.0.50~), debconf, dpatch, python-setupt
 Package: manifold
 Architecture: any
 # this list needs to be fine-tuned, first stab from stdeb.cfg
-Depends: python, python-sqlalchemy, python-twisted, python-sfa, python-networkx, python-BeautifulSoup, python-geoip, sqlite3
+Depends: python, python-sqlalchemy, python-twisted, python-sfa, python-networkx, python-BeautifulSoup, python-geoip, sqlite3. manifold-metadata
 Description: Manifold infrastructure
 
+# Thierry: the recipe I'm using somehow only works with several packages - go figure...
+# so I'm creating this separate thing right now, any other split would work as well
+# for now this seems to contain a devel package (.h files)
+Package: manifold-metadata
+Architecture: any
+Depends:
+Description: Manifold metadata header files xxx to be reviewed
