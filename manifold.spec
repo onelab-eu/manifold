@@ -11,7 +11,7 @@
 # under spec2make...
 # %define version %(python -c "import tophat; print tophat.__version__")
 # so we need to keep both places in sync (tophat/__init__.py)
-%define version 0.9
+%define version 2.0
 %define taglevel 0
 
 %define release %{taglevel}%{?pldistro:.%{pldistro}}%{?date:.%{date}}
