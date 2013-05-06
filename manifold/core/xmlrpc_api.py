@@ -57,16 +57,21 @@ class XMLRPCAPI(xmlrpc.XMLRPC, object):
             return dict(rv)
 
         except Exception, e:
-            return dict(ResultValue(
+            ret = dict(ResultValue(
                 origin      = (ResultValue.CORE, self.__class__.__name__),
                 type        = ResultValue.ERROR, 
                 code        = ResultValue.ERROR,
                 description = str(e),
                 traceback   = traceback.format_exc()))
+            return ret
 
     def _xmlrpc_action(self, action, *args):
         # The first argument is eventually an authentication token
         pos = 0 if Options().disable_auth else 1
+        print "args=", args
+        print "pos=", pos
+        print "action", action
+        print "========"
         args[pos]['action'] = action
         return self.xmlrpc_forward(*args)
             

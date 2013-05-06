@@ -90,7 +90,7 @@ class DBGraph:
                 "predicate" : make_predicate(fields_u, key_v) # None | Predicate
             })
             #print "PREDICATE IN DBGRAPH", make_predicate(fields_u, key_v) 
-            #self.print_arc(u, v)
+            self.print_arc(u, v)
 
     def append(self, u):
         """
@@ -154,6 +154,63 @@ class DBGraph:
                 return table
         return None
 
+    def get_announce_tables(self):
+        tables = []
+        for table in self.graph.nodes(False):
+            # Ignore child tables with the same name as parents
+            keep = True
+            for parent, _ in self.graph.in_edges(table):
+                if parent.get_name() == table.get_name():
+                    keep = False
+            if keep:
+                tables.append(Table(None, None, table.get_name(), set(self.get_fields(table)), table.get_keys()))
+        return tables
+
+    # Let's do a DFS by maintaining a prefix
+    def get_fields(self, root, prefix=''):
+        """
+        Produce edges in a depth-first-search starting at source.
+        """
+
+        def table_fields(table, prefix):
+            #return ["%s%s" % (prefix, f) for f in table.fields]
+            out = []
+            for f in table.fields.values():
+                # We will modify the fields of the Field object, hence we need
+                # to make a copy not to affect the original one
+                g = deepcopy(f)
+                g.field_name = "%s%s" % (prefix, f.get_name())
+                out.append(g)
+            return out
+
+        visited = set()
+
+        for f in table_fields(root, prefix):
+            yield f
+        visited.add(root)
+        stack = [(root, self.graph.edges_iter(root, data=True), prefix)]
+
+        # iterate considering edges ...
+        while stack:
+            parent,children,prefix = stack[-1]
+            try:
+                
+                parent, child, data = next(children)
+                if child not in visited:
+                    if data['type'] == '1..N':
+                        # Recursive call
+                        #for f in self.get_fields(child, "%s%s." % (prefix, child.get_name())):
+                        #    yield f
+                        pass
+                    else:
+                        # Normal JOINed table
+                        for f in table_fields(child, prefix):
+                            yield f
+                        visited.add(child)
+                        stack.append((child, self.graph.edges_iter(child, data=True), prefix))
+            except StopIteration:
+                stack.pop()
+
 #OBSOLETE|    #@returns(Table)
 #OBSOLETE|    def get_root(self, query):
 #OBSOLETE|        """
@@ -187,7 +244,7 @@ def find_root(tree):
             # The root is the only node with no incoming edge
             return u
     return None
-
+    
 #OBSOLETE|    def get_edges(self):
 #OBSOLETE|        return dfs_edges(self.graph)
 #OBSOLETE|
@@ -234,46 +291,4 @@ def find_root(tree):
 #OBSOLETE|                del nodes[node]['visited']
 #OBSOLETE|        return DiGraph(visited_tree_edges)
 #OBSOLETE|
-#OBSOLETE|    # Let's do a DFS by maintaining a prefix
-#OBSOLETE|    def get_fields(self, root, prefix=''):
-#OBSOLETE|        """
-#OBSOLETE|        Produce edges in a depth-first-search starting at source.
-#OBSOLETE|        """
-#OBSOLETE|
-#OBSOLETE|        def table_fields(table, prefix):
-#OBSOLETE|            #return ["%s%s" % (prefix, f) for f in table.fields]
-#OBSOLETE|            out = []
-#OBSOLETE|            for f in table.fields:
-#OBSOLETE|                # We will modify the fields of the Field object, hence we need
-#OBSOLETE|                # to make a copy not to affect the original one
-#OBSOLETE|                g = deepcopy(f)
-#OBSOLETE|                g.field_name = "%s%s" % (prefix, f.field_name)
-#OBSOLETE|                out.append(g)
-#OBSOLETE|            return out
-#OBSOLETE|
-#OBSOLETE|        visited = set()
-#OBSOLETE|
-#OBSOLETE|        for f in table_fields(root, prefix):
-#OBSOLETE|            yield f
-#OBSOLETE|        visited.add(root)
-#OBSOLETE|        stack = [(root, self.graph.edges_iter(root, data=True), prefix)]
-#OBSOLETE|
-#OBSOLETE|        # iterate considering edges ...
-#OBSOLETE|        while stack:
-#OBSOLETE|            parent,children,prefix = stack[-1]
-#OBSOLETE|            try:
-#OBSOLETE|                
-#OBSOLETE|                parent, child, data = next(children)
-#OBSOLETE|                if child not in visited:
-#OBSOLETE|                    if data['type'] == '1..N':
-#OBSOLETE|                        # Recursive call
-#OBSOLETE|                        for f in self.get_fields(child, "%s%s." % (prefix, child.get_name())):
-#OBSOLETE|                            yield f
-#OBSOLETE|                    else:
-#OBSOLETE|                        # Normal JOINed table
-#OBSOLETE|                        for f in table_fields(child, prefix):
-#OBSOLETE|                            yield f
-#OBSOLETE|                        visited.add(child)
-#OBSOLETE|                        stack.append((child, self.graph.edges_iter(child, data=True), prefix))
-#OBSOLETE|            except StopIteration:
-#OBSOLETE|                stack.pop()
+    

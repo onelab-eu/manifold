@@ -81,6 +81,10 @@ class Predicate:
         return (self.key, self.get_str_op(), self.value,)
 
     def match(self, dic, ignore_missing=False):
+        if isinstance(self.key, tuple):
+            print "PREDICATE MATCH", self.key
+            print dic
+            print "-----------------------------"
         
         # Can we match ?
         if self.key not in dic:
