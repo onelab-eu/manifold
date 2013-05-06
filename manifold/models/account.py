@@ -64,7 +64,6 @@ class Account(Base):
         filters.delete('platform')
         if platform_filters:
             for pf in platform_filters:
-                print "PF=", pf
                 assert pf.op == eq, "Only == is supported for convenience filter 'platform'"
                 ret = db.query(Platform.platform_id)
                 ret = ret.filter(Platform.platform == pf.value)
@@ -75,35 +74,30 @@ class Account(Base):
     @staticmethod
     def process_params(params, filters, user):
 
-        # PARAMS
-# TODO        user_filters = filters.get('user')
-# TODO        filters.delete('user')
-# TODO        if user_filters:
-# TODO            for uf in user_filters:
-# TODO                assert uf.op == eq, "Only == is supported for convenience filter 'user'" 
-# TODO                ret = db.query(User.user_id)
-# TODO                ret = ret.filter(User.email == uf.value)
-# TODO                ret = ret.one()
-# TODO                filters.add(Predicate('user_id', '=', ret[0]))
-# TODO            
-# TODO        platform_filters = filters.get('platform')
-# TODO        filters.delete('platform')
-# TODO        if platform_filters:
-# TODO            for pf in platform_filters:
-# TODO                print "PF=", pf
-# TODO                assert pf.op == eq, "Only == is supported for convenience filter 'platform'"
-# TODO                ret = db.query(Platform.platform_id)
-# TODO                ret = ret.filter(Platform.platform == pf.value)
-# TODO                ret = ret.one()
-# TODO                filters.add(Predicate('platform_id', '=', ret[0]))
-# TODO        return filters
+        # PARAMS 
+        # added by Loic, based on the process_filters functions
+        user_params = params.get('user')
+        del params['user']
+        if user_params:
+            #print "user_params=",user_params
+            ret = db.query(User.user_id)
+            ret = ret.filter(User.email == user_params)
+            ret = ret.one()
+            params['user_id']=ret[0]
+
+        platform_params = params.get('platform')
+        del params['platform']
+        if platform_params:
+            #print "platform_params=", platform_params
+            ret = db.query(Platform.platform_id)
+            ret = ret.filter(Platform.platform == platform_params)
+            ret = ret.one()
+            params['platform_id']=ret[0]
 
         # JSON ENCODED FIELDS are constructed into the json_fields variable
         given = set(params.keys())
         accepted = set([c.name for c in Account.__table__.columns])
         given_json_fields = given - accepted
-
-        print "PARAMS:", params
         
         if given_json_fields:
             if 'config' in given_json_fields:

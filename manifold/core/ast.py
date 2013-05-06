@@ -366,9 +366,13 @@ class From(Node):
         """
         \brief Propagates a START message through the node
         """
+        # @loic Added self.send(LAST_RECORD) if no Gateway is selected, then send no result
+        # That might mean that the user has no account for the platform
         if not self.gateway:
-            raise Exception, "Cannot call start on a From class, expecting Gateway"
-        self.gateway.start()
+            self.send(LAST_RECORD)
+            #raise Exception, "Cannot call start on a From class, expecting Gateway"
+        else:
+            self.gateway.start()
 
     def set_gateway(self, gateway):
         gateway.set_callback(self.get_callback())

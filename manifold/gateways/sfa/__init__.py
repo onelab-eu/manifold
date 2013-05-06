@@ -37,7 +37,7 @@ from sfa.rspecs.version_manager import VersionManager
 
 #from sfa.client.sfaclientlib import SfaClientBootstrap
 from sfa.client.client_helper   import pg_users_arg, sfa_users_arg
-from sfa.client.sfaserverproxy  import SfaServerProxy, ServerException
+from sfa.client.sfaserverproxy  import SfaServerProxy as _SfaServerProxy, ServerException
 from sfa.client.return_value    import ReturnValue
 from manifold.models            import *
 from manifold.util.predicate    import contains
@@ -45,6 +45,35 @@ from manifold.util.log          import log_info
 import json
 import signal
 import traceback
+
+# For debug
+import pprint
+
+class TimeOutException(Exception):
+    pass
+
+def timeout(signum, frame):
+    raise TimeOutException, "Command ran for too long"
+
+# @loic overriding SfaServerProxy class to handle DNS timeout when a gateway URL is unknown
+class SfaServerProxy(_SfaServerProxy):
+    def __getattr__(self, name):
+        if self.url is not None:
+            print "in Sfa Gateway - SfaServerProxy connecting to ",self.url
+        def func(*args, **kwds):
+            signal.signal(signal.SIGALRM, timeout)
+            signal.alarm(5)
+            ret=None
+            try:
+                ret=getattr(self.serverproxy, name)(*args, **kwds)
+                signal.alarm(0)
+            except TimeOutException:
+                pass
+            except Exception, why:
+                print 'Exception in SFA Gateway SfaServerProxy ', why
+                signal.alarm(0)
+            return ret        
+        return func
 
 # FOR DEBUG
 def row2dict(row):
@@ -128,12 +157,6 @@ def project_select_and_rename_fields(table, pkey, filters, fields, map_fields=No
     return filtered
 
 ################################################################################
-
-class TimeOutException(Exception):
-    pass
-
-def timeout(signum, frame):
-    raise TimeOutException, "Command ran for too long"
 
 def get_network_name(hostname):
     signal.signal(signal.SIGALRM, timeout)
@@ -277,6 +300,9 @@ class SFAGateway(Gateway):
 
         # XXX ACCOUNT MANAGEMENT : to be improved
         config_new = None
+        print "SfaGateway::bootstrap() ACCOUNT MANAGEMENT"
+        #pprint.pprint(account.config)
+        
         if account.auth_type == 'reference':
             ref_platform = json.loads(account.config)['reference_platform']
             ref_platform = db.query(Platform).filter(Platform.platform == ref_platform).one()
@@ -284,7 +310,10 @@ class SFAGateway(Gateway):
             if not ref_accounts:
                 raise Exception, "reference account does not exist"
             ref_account = ref_accounts[0]
+            print "Found the refered account"
+            #pprint.pprint(ref_account.config)
             config_new = json.dumps(SFAGateway.manage(ADMIN_USER, ref_platform, json.loads(ref_account.config)))
+            #pprint.pprint(config_new)
             if ref_account.config != config_new:
                 ref_account.config = config_new
                 db.add(ref_account)
@@ -295,6 +324,9 @@ class SFAGateway(Gateway):
                 account.config = config_new
                 db.add(account)
                 db.commit()
+
+        # @loic update the user config, if the account is a reference, the query will be sent using the refered account
+        self.user_config=json.loads(config_new)
 
         # Initialize manager proxies
 
@@ -310,7 +342,7 @@ class SFAGateway(Gateway):
         cert_fn.write(config['gid']) 
         pkey_fn.close()
         cert_fn.close()
-
+        
         self.registry = SfaServerProxy(reg_url, pkey_fn.name, cert_fn.name,
                 timeout=self.config['timeout'],
                 verbose=self.config['debug'])  
@@ -502,6 +534,7 @@ class SFAGateway(Gateway):
                 except Exception, why:
                     print "E: ", why
                     version = None
+                    print traceback.print_exc()
 
                 if version:
                     output.append(version)
@@ -610,6 +643,8 @@ class SFAGateway(Gateway):
     # default allows the use of MySlice's own credentials
     def _get_cred(self, type, target=None):
         if type == 'user':
+            print "entering _get_cred function"
+            #pprint.pprint(self.user_config)
             if target:
                 raise Exception, "Cannot retrieve specific user credential for now"
             try:
@@ -842,7 +877,6 @@ class SFAGateway(Gateway):
         # Network (AM) 
         server = self.sliceapi
         version = self.get_cached_server_version(server)
-        print "########## get_network getVersion =  %s",version
         # Hardcoding the get network call until caching is implemented
         #if q.action == 'get' and q.fact_table == 'network':
         #platforms = db.query(Platform).filter(Platform.disabled == False).all()
@@ -856,14 +890,15 @@ class SFAGateway(Gateway):
         # forward what has been retrieved from the SFA getVersion call
         result=version
         
-        # add these fields to match MySlice needs
-        for k,v in version.items():
-            if k=='hrn':
-                result['network_hrn']=v
-            if k=='testbed':
-                result['network_name']=v
-        #result={'network_hrn': version['hrn'], 'network_name': version['testbed']}
-        #print result
+        if version is not None: 
+            # add these fields to match MySlice needs
+            for k,v in version.items():
+                if k=='hrn':
+                    result['network_hrn']=v
+                if k=='testbed':
+                    result['network_name']=v
+            #result={'network_hrn': version['hrn'], 'network_name': version['testbed']}
+            #print result
         return result
 
     def get_slice(self, filters = None, params = None, fields = None):
@@ -1174,8 +1209,8 @@ class SFAGateway(Gateway):
     def get_resource_lease(self, input_filter = None, params = None, output_fields = None):
         # DEMO
         if self.user.email in DEMO_HOOKS:
-            #rspec = open('/usr/share/myslice/scripts/sample-sliver.rspec', 'r')
-            rspec = open('/usr/share/myslice/scripts/nitos.rspec', 'r')
+            #rspec = open('/usr/share/manifold/scripts/sample-sliver.rspec', 'r')
+            rspec = open('/usr/share/manifold/scripts/nitos.rspec', 'r')
             return self.parse_sfa_rspec(rspec)
 
             # Add random lat-lon values
@@ -1195,7 +1230,6 @@ class SFAGateway(Gateway):
                 hrn = None
                 #cred = self._get_cred('user', self.config['caller']['person_hrn'])
                 cred = self._get_cred('user')
-        
             # We request the list of nodes in the slice
             rspec = self.sfa_get_resources(cred, hrn)
             rsrc_slice = self.parse_sfa_rspec(rspec)
@@ -1244,6 +1278,7 @@ class SFAGateway(Gateway):
         except Exception, e:
             # XXX disabled temp XXX print "E: get_resource", e
             print "E: SfaGateway::get_resource_lease():", e
+            print traceback.print_exc()
             ret = {'resource': [], 'lease': []}
             # EXCEPTIONS Some tests about giving back informations
             if self.debug:
@@ -1290,8 +1325,9 @@ class SFAGateway(Gateway):
             self.config['debug'] = False
         if not 'registry' in self.config:
             raise Exception, "Missing SFA::registry parameter in configuration."
+        # @loic Added default 5sec timeout if parameter self.config['timeout'] is not set
         if not 'timeout' in self.config:
-            self.config['timeout'] = None
+            self.config['timeout'] = 5
 
         # XXX Need to import sfi_logger here so that it is properly daemonized
         #from sfa.util.sfalogging import sfi_logger
@@ -1434,7 +1470,8 @@ class SFAGateway(Gateway):
 
             # We need to connect through a HTTPS connection using the generated private key
             registry_url = json.loads(platform.config)['registry']
-            registry_proxy = SfaServerProxy (registry_url, pkey_fn.name, cert_fn.name)
+            # @loic Added default 5sec timeout 
+            registry_proxy = SfaServerProxy (registry_url, pkey_fn.name, cert_fn.name, timeout=5)
 
             try:
                 credential_string = registry_proxy.GetSelfCredential (config['sscert'], config['user_hrn'], 'user')
@@ -1460,7 +1497,8 @@ class SFAGateway(Gateway):
 
             # We need to connect through a HTTPS connection using the generated private key
             registry_url = json.loads(platform.config)['registry']
-            registry_proxy = SfaServerProxy(registry_url, pkey_fn.name, cert_fn.name)
+            # @loic Added default 5sec timeout
+            registry_proxy = SfaServerProxy(registry_url, pkey_fn.name, cert_fn.name, timeout=5)
 
             records = registry_proxy.Resolve(config['user_hrn'].encode('latin1'), config['user_credential'])
             records = [record for record in records if record['type']=='user']
@@ -1486,7 +1524,8 @@ class SFAGateway(Gateway):
 
             # We need to connect through a HTTPS connection using the generated private key
             registry_url = json.loads(platform.config)['registry']
-            registry_proxy = SfaServerProxy(registry_url, pkey_fn.name, cert_fn.name)
+            # @loic Added default 5sec timeout
+            registry_proxy = SfaServerProxy(registry_url, pkey_fn.name, cert_fn.name, timeout=5)
 
             try:
                 credential_string=registry_proxy.GetCredential (config['user_credential'], config['user_hrn'].encode('latin1'), 'authority')

@@ -39,6 +39,8 @@ class QueryPlan(object):
         # XXX We might need tasks
         result = []
         for from_node in self.froms:
+            # If no Gateway 
+            if not from_node.gateway: continue
             result.extend(from_node.gateway.get_result_value())
         return result
 

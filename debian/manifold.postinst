@@ -1,0 +1,3 @@
+#!/bin/bash
+# if this requires a service to be running, add something like this
+# update-rc.d manifold defaults
