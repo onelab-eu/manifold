@@ -4,6 +4,7 @@
 from manifold.core.announce         import Announces
 from manifold.util.plugin_factory   import PluginFactory
 #from manifold.util.misc             import find_local_modules
+from manifold.core.ast              import LAST_RECORD
 
 #-------------------------------------------------------------------------------
 # Generic Gateway class
@@ -39,6 +40,7 @@ class Gateway(object):
         self.user_config    = user_config
         self.user           = user
 
+        self.identifier     = None # The gateway will receive the identifier from the ast FROM node
         self.callback       = None
         self.result_value   = []
 
@@ -64,7 +66,15 @@ class Gateway(object):
     def get_result_value(self):
         return self.result_value
         
+    def send(self, record):
+        """
+        \brief calls the parent callback with the record passed in parameter
+        """
+        #print "[%12s #%04d] SEND [ %r ]" % (self.__class__.__name__, self.identifier, record)
+        self.callback(record)
 
+    def set_identifier(self, identifier):
+        self.identifier = identifier
 
 #-------------------------------------------------------------------------------
 # List of gateways

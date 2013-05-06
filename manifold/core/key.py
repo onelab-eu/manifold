@@ -124,6 +124,11 @@ class Keys(set):
                 return True
         return False
 
+    def one(self):
+        assert len(self) == 1, "Cannot call one() when multiple keys"
+        # XXX Note we might need to prevent multiple key cases
+        return iter(self).next()
+
 #    def get_field_names(self):
 #        """
 #        \brief Returns a set of fields making up one key. If multiple possible

@@ -16,7 +16,7 @@ import copy # DIRTY HACK SENSLAB
 from manifold.core.result_value         import ResultValue
 
 from manifold.core.filter               import Filter
-from manifold.gateways                  import Gateway
+from manifold.gateways                  import Gateway, LAST_RECORD
 from manifold.gateways.sfa.rspecs.SFAv1 import SFAv1Parser # as Parser
 
 from sfa.trust.certificate import Keypair, Certificate
@@ -849,7 +849,7 @@ class SFAGateway(Gateway):
         #for p in platforms:
         #    print "########## platform = %s",p.platform
         #    result={'network_hrn': p.platform, 'network_name': p.platform_longname}
-        #    #self.callback({'network_hrn': p.platform, 'network_name': p.platform_longname})
+        #    #self.send({'network_hrn': p.platform, 'network_name': p.platform_longname})
         #for r in version:
         #    print r
 
@@ -987,6 +987,7 @@ class SFAGateway(Gateway):
                     print "W: Could not collect resource/leases for slice %s" % hrn
                 if has_resource:
                     s['resource'] = rsrc_leases['resource']
+                    print "SFA RESOURCES", s['resource']
                 if has_lease:
                     s['lease'] = rsrc_leases['lease'] 
                 if self.debug:
@@ -1309,7 +1310,7 @@ class SFAGateway(Gateway):
         self.debug = 'debug' in self.query.params and self.query.params['debug']
         if not self.user_config:
             print "NOT CONFIG RETURN NONE"
-            self.callback(None)
+            self.send(LAST_RECORD)
             return
         try:
             self.bootstrap()
@@ -1322,9 +1323,9 @@ class SFAGateway(Gateway):
             #    platforms = db.query(Platform).filter(Platform.disabled == False).all()
             #    output = []
             #    for p in platforms:
-            #        self.callback({'network_hrn': p.platform, 'network_name': p.platform_longname})
+            #        self.send({'network_hrn': p.platform, 'network_name': p.platform_longname})
             #    # return None to inform that everything has been transmitted
-            #    self.callback(None)
+            #    self.send(LAST_RECORD)
             #    return
 
             # DIRTY HACK to allow slices to span on non federated testbeds
@@ -1352,15 +1353,12 @@ class SFAGateway(Gateway):
             result = getattr(self, "%s_%s" % (q.action, q.fact_table))(local_filters, q.params, fields)
 
             # DIRTY HACK continued
-            if slice_hrn:
-                for r in result:
-                    # DIRTY HACK continued
-                    if slice_hrn and 'slice_hrn' in r:
-                        print "Dirty hack continued"
-                        r['slice_hrn'] = slice_hrn
-                    self.callback(r)
-            else:
-                self.callback(result)
+            for r in result:
+                # DIRTY HACK continued
+                if slice_hrn and 'slice_hrn' in r:
+                    print "Dirty hack continued"
+                    r['slice_hrn'] = slice_hrn
+                self.send(r)
         except Exception, e:
             print "Exception in sfa method call", e
             print traceback.print_exc()
@@ -1375,7 +1373,7 @@ class SFAGateway(Gateway):
             #traceback.print_exc()
 
         # return None to inform that everything has been transmitted
-        self.callback(None)
+        self.send(LAST_RECORD)
 
 
     @staticmethod

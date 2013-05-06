@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 #! -*- coding: utf-8 -*-
 
-import xmlrpclib
+import xmlrpclib, pprint
 from config import auth
 
 srv = xmlrpclib.Server("http://localhost:7080/", allow_none = True)
@@ -16,7 +16,7 @@ def print_err(err):
 q = {
     'fact_table':   'slice',
     'filters':      [['slice_hrn', '=', 'ple.upmc.myslicedemo']],
-    'fields':       ['slice_hrn', 'lease_id', 'application.measurement_point']
+    'fields':       ['slice_hrn', 'application.measurement_point.counter']
 }
 
 ret = srv.forward(auth, q)
@@ -30,5 +30,5 @@ ret = ret['result']
 
 print "===== RESULTS ====="
 for r in ret:
-    print r
+    pprint.pprint(r)
 

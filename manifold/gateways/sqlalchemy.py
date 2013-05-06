@@ -159,8 +159,6 @@ class SQLAlchemyGateway(Gateway):
         assert not query.filters, "Filters should be empty for a create request"
         #assert not query.fields, "Fields should be empty for a create request"
 
-        print "CREATE SELF.USER=", self.user
-
         cls = self.map_fact_table[query.fact_table]
         params = cls.process_params(query.params, None, self.user)
         new_obj = cls(**params)
@@ -180,7 +178,6 @@ class SQLAlchemyGateway(Gateway):
         # XXX For local namespace queries, we need to keep a dict
         for t in table:
             row = row2dict(t) if self.format == 'dict' else t.get_object()
-            print "ROW=", row
             self.callback(row)
         self.callback(None)
 

@@ -1,9 +1,9 @@
 
 class slice {
     const text  slice_hrn;   /**< Slice Human Readable name */
-    resource    resource;    /**< List of resources associated to the slice */
-    lease       lease;       /**< List of leases associated to the slice */
-    user        user;        /**< List of users associated to the slice */
+    resource    resource[];    /**< List of resources associated to the slice */
+    lease       lease[];       /**< List of leases associated to the slice */
+    user        user[];        /**< List of users associated to the slice */
     KEY(slice_hrn);
 };
 

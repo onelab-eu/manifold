@@ -209,7 +209,6 @@ class Query(object):
     def execute(self, fact_table): return self.action('execute', fact_table)
 
     def filter_by(self, *args):
-        print "query::filter_by"
         if len(args) == 1:
             filters = args[0]
             if not isinstance(filters, (set, list, tuple, Filter)):
@@ -240,7 +239,6 @@ class AnalyzedQuery(Query):
 
     def __init__(self, query=None):
         self.clear()
-        self._analyzed = None
         if query:
             self.analyze(query)
 
@@ -252,8 +250,11 @@ class AnalyzedQuery(Query):
             self.get_from(),
             self.get_where()
         ))
+        cpt = 1
         for method, subquery in self.subqueries():
-            out.append('  [SQ : %s] %s' % (method, str(subquery)))
+            out.append('  [SQ #%d : %s] %s' % (cpt, method, str(subquery)))
+            cpt += 1
+
         return "\n".join(out)
 
     def clear(self):
@@ -264,7 +265,7 @@ class AnalyzedQuery(Query):
         # Allows for the construction of a subquery
         if not method in self._subqueries:
             analyzed_query = AnalyzedQuery()
-            analyzed_query.action = self._analyzed.action
+            analyzed_query.action = self.action
             analyzed_query.fact_table = method
             self._subqueries[method] = analyzed_query
         return self._subqueries[method]
@@ -307,11 +308,9 @@ class AnalyzedQuery(Query):
         return self
         
     def analyze(self, query):
-        self._analyzed = query
         self.clear()
         self.action = query.action
         self.fact_table = query.fact_table
         self.filter_by(query.filters)
         self.set(query.params)
         self.select(query.fields)
-        self._analyzed = None

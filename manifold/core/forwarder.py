@@ -7,23 +7,9 @@ class Forwarder(Interface):
     # XXX This could be made more generic with the router
 
     def forward(self, query, deferred=False, user=None):
+        super(Router, self).forward(query, deferred, execute, user)
 
-        namespace = None
-        # Handling internal queries
-        if ':' in query.fact_table:
-            namespace, table = query.fact_table.rsplit(':', 2)
-        if namespace == self.LOCAL_NAMESPACE:
-            q = copy.deepcopy(query)
-            q.fact_table = table
-            print "LOCAL QUERY TO STORAGE"
-            # XXX should be about the current platform only
-            return Storage.execute(q, user=user)
-        elif namespace == "metadata":
-            # XXX Should be about the current platform only
-            raise Exception, "metadata not implemented"
-        elif namespace:
-            raise Exception, "Unsupported namespace '%s'" % namespace
-        
+        # We suppose we have no namespace from here
         qp = QueryPlan()
         qp.build_simple(query, self.metadata, self.allowed_capabilities)
         self.instanciate_gateways(qp, user)

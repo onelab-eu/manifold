@@ -36,11 +36,11 @@ print "====> PLATFORM"
 #    print r
 print ret
 
-ret = srv.forward(auth, q_update)
-print "====> UPDATE"
+#ret = srv.forward(auth, q_update)
+#print "====> UPDATE"
 #for r in ret:
 #    print r
-print ret
+#print ret
 
 ret = srv.forward(auth, q)
 if ret['code'] != 0:

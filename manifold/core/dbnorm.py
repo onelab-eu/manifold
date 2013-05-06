@@ -526,7 +526,7 @@ def fd_minimal_cover(fds):
         a  = fd.get_field()
         x_plus = closure(set(x), g2)                    #   compute x+ according to g'
         if a in x_plus:                                 #   if a \in x+:
-            print "rm %s" % fd
+            #print "rm %s" % fd
             fds_removed.add(fd)
             g = g2                                      #     g = g'
 
@@ -765,7 +765,7 @@ def to_3nf(metadata):
     for platform, announces in metadata.items():
         for announce in announces:
             tables.append(announce.table)
-            print "(%s, %s) -> %r" % (platform.name, announce.table.get_name(), announce.capabilities)
+            #print "(%s, %s) -> %r" % (platform.name, announce.table.get_name(), announce.capabilities)
             map_method_capabilities[(platform.name, announce.table.get_name())] = announce.capabilities
     fds = make_fd_set(tables)
     #print "%r" % fds
@@ -782,26 +782,26 @@ def to_3nf(metadata):
 #OBSOLETE|                    map_key_platforms[key] |= table.get_platforms()
 
     # Find a minimal cover
-    print "-" * 100
-    print "2) Computing minimal cover"
-    print "-" * 100
+    #print "-" * 100
+    #print "2) Computing minimal cover"
+    #print "-" * 100
     (fds_min_cover, fds_removed) = fd_minimal_cover(fds)
 
-    print "-" * 100
-    print "3) Reinjecting fds removed during normalization"
-    print "-" * 100
+    #print "-" * 100
+    #print "3) Reinjecting fds removed during normalization"
+    #print "-" * 100
     #for fd_removed in fds_removed:
     #    print "(0) %r" % fd_removed
 
     reinject_fds(fds_min_cover, fds_removed)
 
-    print "-" * 100
-    print "4) Grouping fds by method"
-    print "-" * 100
+    #print "-" * 100
+    #print "4) Grouping fds by method"
+    #print "-" * 100
     #fdss = fds_min_cover.group_by_method() # Mando
     fdss = fds_min_cover.group_by_tablename_method() # Jordan
-    for table_name, fds in fdss.items():
-        print "### \t%s:\n%s" % (table_name, fds)
+    #for table_name, fds in fdss.items():
+    #    print "### \t%s:\n%s" % (table_name, fds)
 
     #print "-" * 100
     #print "5) Making 3-nf tables" 
@@ -883,7 +883,7 @@ def to_3nf(metadata):
             table.map_method_fields = map_method_fields
             tables_3nf.append(table)
             all_tables.append(table)
-            print "TABLE 3nf:", table
+            #print "TABLE 3nf:", table, table.keys
             #print "     method fields", map_method_fields
 
             cpt_platforms += 1
@@ -931,7 +931,7 @@ def to_3nf(metadata):
             table.map_method_keys   = dict() #map_common_method_keys
             table.map_method_fields = map_common_method_fields
             tables_3nf.append(table)
-            print "TABLE 3nf:", table
+            #print "TABLE 3nf:", table, table.keys
 
         # XXX we already know about the links between those two platforms
         # but we can find them easily (cf dbgraph)
@@ -943,7 +943,7 @@ def to_3nf(metadata):
         else:
             table.methods_demux = set()
 
-    print "-" * 100
+    #print "-" * 100
     #print "6) Building DBgraph"
     #print "-" * 100
     graph_3nf = DBGraph(tables_3nf, map_method_capabilities)

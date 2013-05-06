@@ -33,7 +33,7 @@ from manifold.util.log          import *
 # Constants used for dumping AST nodes
 #------------------------------------------------------------------
 
-DUMPSTR_FROM       = "SELECT %s FROM %s::%s" 
+DUMPSTR_FROM       = "SELECT %s FROM %s::%s WHERE %s" 
 DUMPSTR_FROMTABLE  = "SELECT %s FROM [%r, ...]" 
 DUMPSTR_PROJECTION = "SELECT %s" 
 DUMPSTR_SELECTION  = "WHERE %s"
@@ -235,6 +235,9 @@ class Node(object):
     def optimize_projection(self, fields):
         raise Exception, "%s::optimize_projection() not implemented" % self.__class__.__name__
 
+    def get_identifier(self):
+        return self.identifier
+
 
 #------------------------------------------------------------------
 # FROM node
@@ -302,7 +305,8 @@ class From(Node):
         return DUMPSTR_FROM % (
             ', '.join(self.get_query().get_select()),
             self.get_platform(),
-            self.get_query().get_from()
+            self.get_query().get_from(),
+            self.get_query().get_where()
         )
 
     #@returns(From)
@@ -642,24 +646,18 @@ class LeftJoin(Node):
                 parent_filter.add(predicate)
 
         if left_filter:
-            print "LEFT FILTER", left_filter
             self.left = self.left.optimize_selection(left_filter)
             #selection = Selection(self.left, left_filter)
             #selection.query = self.left.copy().filter_by(left_filter)
             self.left.set_callback(self.left_callback)
             #self.left = selection
-        else:
-            print "NO LEFT FILTER"
 
         if parent_filter:
-            print "PARENT_FILTER"
             old_self_callback = self.get_callback()
             selection = Selection(self, parent_filter)
             selection.query = self.query.copy().filter_by(parent_filter)
             selection.set_callback(old_self_callback)
             return selection
-        else:
-            print "NO PARENT FILTER"
         return self
 
 #------------------------------------------------------------------
@@ -1139,6 +1137,10 @@ class SubQuery(Node):
         # Set up callbacks
         parent.set_callback(self.parent_callback)
 
+        self.query = self.parent.get_query().copy()
+        for i, child in enumerate(self.children):
+            self.query.fields.add(child.get_query().fact_table)
+
         # Prepare array for storing results from children: parent result can
         # only be propagated once all children have replied
         self.child_results = []
@@ -1149,24 +1151,26 @@ class SubQuery(Node):
 
         super(SubQuery, self).__init__()
 
-    @returns(Query)
-    def get_query(self):
-        """
-        \brief Returns the query representing the data produced by the nodes.
-        \return query representing the data produced by the nodes.
-        """
-        # Query is unchanged XXX ???
-        return Query(self.parent.get_query())
+#    @returns(Query)
+#    def get_query(self):
+#        """
+#        \brief Returns the query representing the data produced by the nodes.
+#        \return query representing the data produced by the nodes.
+#        """
+#        # Query is unchanged XXX ???
+#        return Query(self.parent.get_query())
 
     def dump(self, indent = 0):
         """
         \brief Dump the current node
         \param indent current indentation
         """
-        self.parent.dump(indent + 1)
+        self.tab(indent)
+        print '<main>'
+        self.parent.dump(indent+1)
         if not self.children: return
         self.tab(indent)
-        print "%r" % self 
+        print '<subqueries>'
         for child in self.children:
             child.dump(indent + 1)
 
@@ -1203,6 +1207,7 @@ class SubQuery(Node):
             # (1) either the parent query has subquery fields (a list of child
             #     ids + eventually some additional information)
             # (2) either the child has a backreference to the parent
+            #     ... eventually a partial reference in case of a 1..N relationship
             #
             # In all cases, we will collect all identifiers to proceed to a
             # single child query for efficiency purposes, unless it's not
@@ -1215,31 +1220,42 @@ class SubQuery(Node):
 
             parent_query = self.parent.get_query()
             child_query  = child.get_query()
+            parent_fields = parent_query.fields
+            child_fields = child_query.fields
 
-            #print "PARENT_TABLE", parent_query.fact_table
-            parent_fields = self.key
-            #print "----"
-            print "PARENT FIELDS", parent_fields
-            print "CHILD FIELDS", child_query.fields
-            #print "----"
+            intersection = parent_fields & child_fields
 
             # (1) in the parent, we might have a field named after the child
             # method containing either records or identifiers of the children
-            
             if child_query.fact_table in parent_query.fields:
+                # WHAT DO WE NEED TO DO
+                # We have the parent: it has a list of records/record keys which are the ones to fetch
+                # (whether it is 1..1 or 1..N)
+                # . if it is only keys: add a where
+                # . otherwise we need to inject records (and reprogram injection in a complex query plane)
+                #   (based on a left join)
                 pass
 
-            elif parent_fields <= child_query.fields:
-                # CASE (2) : The child has a backreference to the parent
-                # We will inject a where condition in the child
-                # /!\ Complicated when the parent has a multi_key
-                # Collect parent ids
-                
-                # XXX
-                parent_ids = [record[parent_key] for record in self.parent_output]
+            elif intersection: #parent_fields <= child_query.fields:
+                # Case (2) : the child has a backreference to the parent
+                # For each parent, we need the set of child that point to it...
+                # We can inject a where limiting the set of explored children to those found in parent
+                #
+                # Let's take into account the fact that the parent key can be composite
+                # (That's complicated to make the filter for composite keys) -- need OR
 
-                # Inject a where in the right child (NOTE: we could have planned this where since the beginning maybe ?)
-                predicate = Predicate(parent_key, '==', parent_ids)
+                if len(intersection) == 1:
+                    # single field. let's collect parent values
+                    field = iter(intersection).next()
+                    parent_ids = [record[field] for record in self.parent_output]
+                else:
+                    # multiple filters: we use tuples
+                    field = tuple(intersection)
+                    parent_ids = [tuple([record[f] for f in field]) for record in self.parent_output]
+                    
+                # We still need to inject part of the records, LEFT JOIN tout ca...
+                predicate = Predicate(field, '==', parent_ids)
+                print "INJECTING PREDICATE", predicate
                 old_child_callback= child.get_callback()
                 where = Selection(child, Filter().filter_by(predicate))
                 where.query = child.query.copy().filter_by(predicate)
@@ -1247,6 +1263,7 @@ class SubQuery(Node):
                 #self.children[i] = where
                 self.children[i] = where.optimize()
                 self.children[i].set_callback(old_child_callback)
+
             else:
                 raise Exception, "No link between parent and child queries"
 
@@ -1308,31 +1325,45 @@ class SubQuery(Node):
         \brief Called when all children of the current subquery are done: we
          process results stored in the parent.
         """
+
         print "SubQuery::all_done()"
-        # XXX Suppose simple keys
-        key = self.key.get_name()
 
         for o in self.parent_output:
-            print " > parent output", o
-            print "-----------------"
             # Dispatching child results
             for i, child in enumerate(self.children):
-                if not child.query.fact_table in o:
-                    # (2)
-                    o[child.query.fact_table] = []
-                    for child_record in self.child_results[i]:
-                        if child_record[key] == o[key]:
-                            o[child.query.fact_table].append(child_record)
-                else:
+                if child.query.fact_table in o:
                     # (1)
+                    # first, replace records by dictionaries. This only works for non-composite keys
+                    if o[child.query.fact_table]:
+                        record = o[child.query.fact_table][0]
+                        if not isinstance(record, dict):
+                            o[child.query.fact_table] = [{self.key.get_name(): record} for record in o[child.query.fact_table]]
+
                     for record in o[child.query.fact_table]:
                         # Find the corresponding record in child_results and
                         # update the one in the parent with it
-                        if key in record:
+                        print "> record", record
+                        for k, v in record.items():
+                            
+                            filter = Filter()
+                            for key_field_name in self.key.get_names():
+                                filter = filter.filter_by(Predicate(key_field_name, '==', record[key_field_name]))
                             for r in self.child_results[i]:
-                                if key in r and r[key] == record[key]:
+                                if filter.match(r):
+                                    #if key.get_name() in r and r[key.get_name()] == record[key.get_name()]:
                                     record.update(r)
-                        # XXX We ignore missing keys
+                else:
+                    # (2)
+                    # Child records that contain parent key. Build predicate.
+                    key_field_names = self.key.get_names()
+                    filter = Filter()
+                    for key_field_name in key_field_names:
+                        filter = filter.filter_by(Predicate(key_field_name, '==', o[key_field_name]))
+                    
+                    o[child.query.fact_table] = []
+                    for child_record in self.child_results[i]:
+                        if filter.match(child_record): # if child_record[key] == o[key]:
+                            o[child.query.fact_table].append(child_record)
             self.send(o)
         self.send(LAST_RECORD)
 
@@ -1353,6 +1384,20 @@ class SubQuery(Node):
         \param records list of dictionaries representing records, or list of
         """
         raise Exception, "Not implemented"
+
+    def optimize_selection(self, filter):
+        # SUBQUERY
+        parent_filter = Filter()
+        for predicate in filter:
+            if predicate.key in self.parent.get_query().fields:
+                parent_filter.add(predicate)
+            else:
+                raise Exception, "SubQuery::optimize_selection() is only partially implemented"
+
+        if parent_filter:
+            self.parent = self.parent.optimize_selection(parent_filter)
+            self.parent.set_callback(self.parent_callback)
+        return self
 
 #------------------------------------------------------------------
 # AST (Abstract Syntax Tree)
