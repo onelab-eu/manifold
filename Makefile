@@ -3,6 +3,9 @@ TESTDIR     = $(CURDIR)/test
 TESTLIB     = $(TESTDIR)/lib
 BUILDDIR    = $(CURDIR)/build
 DISTDIR     = $(CURDIR)/dist
+# overwritten by the specfile
+DESTDIR="/"
+PREFIX=/usr
 
 # stupid distutils, it's broken in so many ways
 SUBBUILDDIR = $(shell python -c 'import distutils.util, sys; \
@@ -29,11 +32,11 @@ all:
 	./setup.py build
 
 mrproper: 
-	rm -Rf build /usr/local/lib/python2.7/dist-packages/tophat
+	rm -Rf build /usr/lib/python2.7/dist-packages/tophat
 # /Jordan
 
 install: all
-	./setup.py install
+	./setup.py install --prefix=$(PREFIX) --root=$(DESTDIR)
 
 test: all
 	retval=0; \
@@ -74,6 +77,59 @@ deb:
 	python setup.py --command-packages=stdeb.command bdist_deb
 	@echo "Debian package in subdirectory 'deb_dist'."
 
-
-
 .PHONY: all clean distclean dist test coverage install MANIFEST deb
+
+########################################
+#################### Thierry's additions for the packaging system
+########################################
+# general stuff
+DATE=$(shell date -u +"%a, %d %b %Y %T")
+
+# This is called from the build with the following variables set 
+# (see build/Makefile and target_debian)
+# (.) RPMTARBALL
+# (.) RPMVERSION
+# (.) RPMRELEASE
+# (.) RPMNAME
+DEBVERSION=$(RPMVERSION).$(RPMRELEASE)
+DEBTARBALL=../$(RPMNAME)_$(DEBVERSION).orig.tar.bz2
+
+# for fedora/rpm - not used yet ..
+buildrpm:
+	python setup.py build --prefix=$(PREFIX) --root=$(DESTDIR)
+
+installrpm:
+	python setup.py install --prefix=$(PREFIX) --root=$(DESTDIR)
+
+# for debian/ubuntu
+debian: debian/changelog debian.source debian.package
+
+force:
+
+debian/changelog: debian/changelog.in
+	sed -e "s|@VERSION@|$(DEBVERSION)|" -e "s|@DATE@|$(DATE)|" debian/changelog.in > debian/changelog
+
+debian.source: force 
+	rsync -a $(RPMTARBALL) $(DEBTARBALL)
+
+debian.package:
+	debuild -uc -us -b 
+
+debian.clean:
+	$(MAKE) -f debian/rules clean
+	rm -rf build/ MANIFEST ../*.tar.gz ../*.dsc ../*.build
+	find . -name '*.pyc' -delete
+
+####################
+tags:
+	git ls-files | xargs etags
+
+#################### convenience, for debugging only
+# make +foo : prints the value of $(foo)
+# make ++foo : idem but verbose, i.e. foo=$(foo)
+++%: varname=$(subst +,,$@)
+++%:
+	@echo "$(varname)=$($(varname))"
++%: varname=$(subst +,,$@)
++%:
+	@echo "$($(varname))"

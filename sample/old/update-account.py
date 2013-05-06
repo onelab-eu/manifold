@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #! -*- coding: utf-8 -*-
-import pprint
+
 import xmlrpclib
 from config import auth
 
@@ -13,22 +13,29 @@ def print_err(err):
         print "\t", line
     print ''
 
-q = {
-    'fact_table':   'resource',
-    'fields':       ['hrn']
+q_account = {
+    'action': 'get', 
+    'fact_table': 'local:account', 
+    'filters': [['platform', '=', 'ple'], ['email', '=', 'loic.baron@lip6.fr']]
+}
+test = {'user_hrn':'loic','cred':'test'}
+q_update = {
+    'action': 'update',
+    'fact_table': 'local:account', 
+    'filters': [['platform', '=', 'ple'], ['user', '=', 'loic.baron@lip6.fr']],
+    'params': {'config':test}
 }
 
-ret = srv.forward(auth, q)
-print "====> RESOURCES"
-#print ret
+ret = srv.forward(auth, q_account)
+print "====> ACCOUNT"
+for r in ret:
+    print r
+print ret
+
 if 'code' in ret.keys() and ret['code'] != 0:
     if isinstance(ret['description'], list):
         # We have a list of errors
         for err in ret['description']:
             print_err(err)
-    print "===== RETURN WITH ERRORS ====="
-    pprint.pprint(ret)
-else:
-    print "===== RESULTS ====="
-    pprint.pprint(ret)
-    #ret = ret['result']
+
+ret = ret['result']

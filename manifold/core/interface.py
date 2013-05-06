@@ -120,6 +120,8 @@ class Interface(object):
                 gw.set_identifier(from_node.get_identifier())
                 from_node.set_gateway(gw)
         except Exception, e:
+            import traceback
+            print traceback.print_exc()
             print "EXC inst gw", e
 
     def get_metadata_objects(self):
