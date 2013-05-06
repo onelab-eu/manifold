@@ -5,4 +5,5 @@ Licensed under #TODO: Check license
 Description to be done.
 """
 
-__version__ = 0.3
+# please keep this in sync with %{version} in manifold.spec
+__version__ = 0.9
