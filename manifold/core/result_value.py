@@ -76,18 +76,18 @@ class ResultValue(dict):
         # result or not
         if not result_value_array:
             # No error
-            return ResultValue(code=self.SUCCESS, origin=[self.CORE, 0], result=results)
+            return ResultValue(code=self.SUCCESS, origin=[self.CORE, 0], value=results)
         else:
             # Handle errors
             return ResultValue(code=self.ERROR, type=self.ERROR, origin=[self.CORE, 0], description=result_value_array)
 
     @classmethod
     def get_error(self, error):
-        return {'code': error, 'origin': [self.CORE, 0], 'value': self.ERRSTR[error] }
+        return ResultValue(code=error, origin=[self.CORE, 0], value=self.ERRSTR[error])
 
     @classmethod
     def get_success(self, result):
-        return {'code': self.SUCCESS, 'origin': [self.CORE, 0], 'value': result } 
+        return ResultValue(code=self.SUCCESS, origin=[self.CORE, 0], value=result) 
 
 # 67    <code>
 # 68      <value>9</value>
