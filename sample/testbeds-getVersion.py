@@ -32,7 +32,7 @@ if 'code' in ret.keys() and ret['code']!= 0:
         for err in ret['description']:
             print_err(err)
 else:
-    ret = ret['result']
+    ret = ret['value']
     print "===== RESULTS ====="
     #for r in ret:
     print ret

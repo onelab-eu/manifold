@@ -43,13 +43,13 @@ class ResultValue(dict):
         RPCERROR    : ''
     }
 
-    ALLOWED_FIELDS = set(['origin', 'type', 'code', 'result', 'description', 'traceback', 'ts'])
+    ALLOWED_FIELDS = set(['origin', 'type', 'code', 'value', 'description', 'traceback', 'ts'])
 
     def __init__(self, **kwargs):
         
         # Checks
         given = set(kwargs.keys())
-        cstr_success = set(['code', 'origin', 'result']) <= given
+        cstr_success = set(['code', 'origin', 'value']) <= given
         cstr_error   = set(['code', 'type', 'origin', 'description']) <= given
         assert given < self.ALLOWED_FIELDS, "Wrong fields in ResultValue constructor: %r" % (given - self.ALLOWED_FIELDS)
         assert cstr_success or cstr_error, 'Incomplete set of fields in ResultValue constructor'
@@ -87,7 +87,7 @@ class ResultValue(dict):
 
     @classmethod
     def get_success(self, result):
-        return {'code': self.SUCCESS, 'origin': [self.CORE, 0], 'result': result } 
+        return {'code': self.SUCCESS, 'origin': [self.CORE, 0], 'value': result } 
 
 # 67    <code>
 # 68      <value>9</value>
