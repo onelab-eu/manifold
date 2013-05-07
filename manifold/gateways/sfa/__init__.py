@@ -1255,75 +1255,75 @@ class SFAGateway(Gateway):
             #    r['longitude'] = lon
         # END DEMO
 
-        try:
-            if input_filter and 'slice_hrn' in input_filter:
-                hrn = input_filter['slice_hrn']
-                cred = self._get_cred('slice', hrn)
-            else:
-                cred = self._get_cred('user')
+        #try:
+        if input_filter and 'slice_hrn' in input_filter:
+            hrn = input_filter['slice_hrn']
+            cred = self._get_cred('slice', hrn)
+        else:
+            cred = self._get_cred('user')
 
-            # and the full list of nodes (XXX this could be cached)
-            rspec = self.sfa_get_resources(cred)
-            if rspec is None:
-                raise Exception, "Gateway SFA No Rspec retreived, Check your Network connexion !"
-            rsrc_all = self.parse_sfa_rspec(rspec)
+        # and the full list of nodes (XXX this could be cached)
+        rspec = self.sfa_get_resources(cred)
+        if rspec is None:
+            raise Exception, "Gateway SFA No Rspec retreived, Check your Network connexion !"
+        rsrc_all = self.parse_sfa_rspec(rspec)
 
-            if input_filter and 'slice_hrn' in input_filter:
-                # We request the list of nodes in the slice
-                rspec_slice = self.sfa_get_resources(cred, hrn)
-                rsrc_slice = self.parse_sfa_rspec(rspec_slice)
+        if input_filter and 'slice_hrn' in input_filter:
+            # We request the list of nodes in the slice
+            rspec_slice = self.sfa_get_resources(cred, hrn)
+            rsrc_slice = self.parse_sfa_rspec(rspec_slice)
 
-                # List of nodes and leases present in the slice (check for 'sliver' is redundant)
-                sliver_urns = [ r['urn'] for r in rsrc_slice['resource'] if 'sliver' in r ]
-                lease_urns = [ l['urn'] for l in rsrc_slice['lease'] ]
+            # List of nodes and leases present in the slice (check for 'sliver' is redundant)
+            sliver_urns = [ r['urn'] for r in rsrc_slice['resource'] if 'sliver' in r ]
+            lease_urns = [ l['urn'] for l in rsrc_slice['lease'] ]
 
-                # We now build the final answer where the resources have all nodes...
-                for r in rsrc_all['resource']:
-                    if not r['urn'] in sliver_urns:
-                        rsrc_slice['resource'].append(r)
+            # We now build the final answer where the resources have all nodes...
+            for r in rsrc_all['resource']:
+                if not r['urn'] in sliver_urns:
+                    rsrc_slice['resource'].append(r)
 
-                # Adding leases for nodes not in the slice
-                for l in rsrc_all['lease']:
-                    # Don't add if we already have it
-                    if Xrn(l['slice_id']).hrn != hrn:
-                        rsrc_slice['lease'].append(l)
-            else:
-                hrn = None
-                #cred = self._get_cred('user', self.config['caller']['person_hrn'])
-                rsrc_slice=rsrc_all
-            # Adding fake lease for all reservable nodes that do not have leases already
-            #print "W: removed fake leases: TO TEST"
-            #for r in rsrc_slice['resource']:
-            #    if ('exclusive' in r and r['exclusive'] in ['TRUE', True] and not r['urn'] in lease_urns) or (r['type'] == 'channel'):
-            #        #urn = r['urn']
-            #        #xrn = Xrn(urn)
-            #        fake_lease = {
-            #            'urn': r['urn'],
-            #            'hrn': r['hrn'],
-            #            'type': r['type'],
-            #            'network': r['network'], #xrn.authority[0],
-            #            'start_time': 0,
-            #            'duration': 0,
-            #            'granularity': 0,
-            #            'slice_id': None
-            #        }
-            #        rsrc_slice['lease'].append(fake_lease)
-            if self.debug:
-                rsrc_slice['debug'] = {'rspec': rspec}
-            #print "__init__::get_resource_lease() resources in slice = "
-            #pprint.pprint(rsrc_slice)
-            return rsrc_slice
+            # Adding leases for nodes not in the slice
+            for l in rsrc_all['lease']:
+                # Don't add if we already have it
+                if Xrn(l['slice_id']).hrn != hrn:
+                    rsrc_slice['lease'].append(l)
+        else:
+            hrn = None
+            #cred = self._get_cred('user', self.config['caller']['person_hrn'])
+            rsrc_slice=rsrc_all
+        # Adding fake lease for all reservable nodes that do not have leases already
+        #print "W: removed fake leases: TO TEST"
+        #for r in rsrc_slice['resource']:
+        #    if ('exclusive' in r and r['exclusive'] in ['TRUE', True] and not r['urn'] in lease_urns) or (r['type'] == 'channel'):
+        #        #urn = r['urn']
+        #        #xrn = Xrn(urn)
+        #        fake_lease = {
+        #            'urn': r['urn'],
+        #            'hrn': r['hrn'],
+        #            'type': r['type'],
+        #            'network': r['network'], #xrn.authority[0],
+        #            'start_time': 0,
+        #            'duration': 0,
+        #            'granularity': 0,
+        #            'slice_id': None
+        #        }
+        #        rsrc_slice['lease'].append(fake_lease)
+        if self.debug:
+            rsrc_slice['debug'] = {'rspec': rspec}
+        #print "__init__::get_resource_lease() resources in slice = "
+        #pprint.pprint(rsrc_slice)
+        return rsrc_slice
             
-        except Exception, e:
-            # XXX disabled temp XXX print "E: get_resource", e
-            print "E: SfaGateway::get_resource_lease():", e
-            print traceback.print_exc()
-            ret = {'resource': [], 'lease': []}
-            # EXCEPTIONS Some tests about giving back informations
-            if self.debug:
-                exc = {'context': 'get_resource_lease', 'e': e}
-                ret['debug'] = {'exception': exc}
-            return ret
+        #except Exception, e:
+        #    # XXX disabled temp XXX print "E: get_resource", e
+        #    print "E: SfaGateway::get_resource_lease():", e
+        #    print traceback.print_exc()
+        #    ret = {'resource': [], 'lease': []}
+        #    # EXCEPTIONS Some tests about giving back informations
+        #    if self.debug:
+        #        exc = {'context': 'get_resource_lease', 'e': e}
+        #        ret['debug'] = {'exception': exc}
+        #    return ret
 
     def add_rspec_to_cache(self, slice_hrn, rspec):
         print "W: RSpec caching disabled"
