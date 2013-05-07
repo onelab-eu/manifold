@@ -413,12 +413,14 @@ class Table:
         # We rebuild each Key having a sense in the reduced Table,
         # e.g. those involving only remaining Fields
         for key in u.get_keys():
-            if set(key) <= relevant_fields:
-                key_copy = set()
-                for field in key:
-                    key_copy.add(copy_u.get_field(field.get_name()))
-                copy_u.insert_key(Key(key_copy))
+            # Jordan : we always need at least a key, and we suppose we have a single one. So let's disable the condition for now.
+            # if set(key) <= relevant_fields:
+            key_copy = set()
+            for field in key:
+                key_copy.add(copy_u.get_field(field.get_name()))
+            copy_u.insert_key(Key(key_copy))
 
+        table = copy_u
         return copy_u
 
     @staticmethod
@@ -497,7 +499,7 @@ class Table:
 #OBSOLETE|                    fields_in_key.add(field) 
 #OBSOLETE|        return fields_in_key 
 
-    @returns(set)
+    #@returns(set)
     def get_connecting_fields(self, table):
         """
         \brief Find fields verifying: 
@@ -507,11 +509,14 @@ class Table:
         \param table The target candidate table
         \return The set of Field f verifying (P1) 
         """
-        connecting_fields = set()
+        # For now we will suppose a single connecting field
+        #connecting_fields = set()
         for field in self.get_fields():
             if field.get_type() == table.get_name():
-                connecting_fields.add(field)
-        return connecting_fields 
+                return field
+        return None
+                #connecting_fields.add(field)
+        #return connecting_fields 
 
     @returns(Keys)
     def get_connecting_keys_mando(self, fields):
@@ -583,10 +588,16 @@ class Table:
         v = table
 
         connecting_fields = u.get_connecting_fields(v)
+        # We temporarity changed the relation to return a single field...
+        # 1) FK -> Table.PK
         if connecting_fields:
             # FK --> PK : simple join or view
-            return ('~~>', connecting_fields)
+            if connecting_fields.is_array():
+                return ('1..N', set([connecting_fields]))
+            else:
+                return ('~~>', set([connecting_fields]))
 
+        # 2) 
         connecting_keys = u.keys.intersection(v.keys)
         if connecting_keys:
             connecting_keys = iter(connecting_keys).next() # pick one

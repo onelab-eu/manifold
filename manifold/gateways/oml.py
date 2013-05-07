@@ -35,18 +35,26 @@ class OMLGateway(PostgreSQLGateway):
 
         # List applications
         out = self.selectall("SELECT value from _experiment_metadata where key != 'start_time';")
-        map_app_mps = {}
+        #map_app_mps = {}
+        #for app_dict in out:
+        #    _, app_mp, fields = app_dict['value'].split(' ', 3)
+        #    application, mp = app_mp.split('_', 2)
+        #    fields = [field.split(':', 2) for field in fields]
+        #    if not application in map_app_mps:
+        #        map_app_mps[application] = []
+        #    map_app_mps[application].append({'measurement_point': mp})
+        #
+        #ret = []
+        #for app, mps in map_app_mps.items():
+        #    ret.append({'lease_id': lease_id, 'application': application, 'measurement_point': mps})
+
+        ret = []
         for app_dict in out:
             _, app_mp, fields = app_dict['value'].split(' ', 3)
             application, mp = app_mp.split('_', 2)
-            fields = [field.split(':', 2) for field in fields]
-            if not application in map_app_mps:
-                map_app_mps[application] = []
-            map_app_mps[application].append({'measurement_point': mp})
+            #fields = [field.split(':', 2) for field in fields]
+            ret.append({'lease_id': lease_id, 'application': application})
 
-        ret = []
-        for app, mps in map_app_mps.items():
-            ret.append({'lease_id': lease_id, 'application': application, 'measurement_point': mps})
         print "APPLICATION ret=", ret
         return ret
 
@@ -57,6 +65,7 @@ class OMLGateway(PostgreSQLGateway):
         # Try connection to database 'lease_id', if error return none
 
         # List measurement points from _experiment_metadata
+        return [{'measurement_point': 'counter'}]
 
     def get_measurement_table(measure, filter=None, params=None, fields=None):
         # We should be connected to the right database
@@ -76,6 +85,7 @@ class OMLGateway(PostgreSQLGateway):
 
     def start(self):
         try:
+            print "QUERY", self.query.fact_table, " -- FILTER=", self.query.filters
             results = getattr(self, "get_%s" % self.query.fact_table)()
         except Exception, e:
             # Missing function = we are querying a measure. eg. get_counter
@@ -228,11 +238,10 @@ class OMLGateway(PostgreSQLGateway):
         #t.insert_key(application)
 
         cap = Capabilities()
-        cap.selection = True
-        cap.projection = True
+        cap.selection = False
+        cap.projection = False
 
         announce = Announce(t, cap)
         announces.append(announce)
 
-        print "OML ANNOUNCES", announces
         return announces

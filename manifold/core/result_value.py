@@ -49,8 +49,8 @@ class ResultValue(dict):
         
         # Checks
         given = set(kwargs.keys())
-        cstr_success = set(['type', 'result']) <= given
-        cstr_error   = set(['origin', 'type', 'code', 'description']) <= given
+        cstr_success = set(['code', 'origin', 'result']) <= given
+        cstr_error   = set(['code', 'type', 'origin', 'description']) <= given
         assert given < self.ALLOWED_FIELDS, "Wrong fields in ResultValue constructor: %r" % (given - self.ALLOWED_FIELDS)
         assert cstr_success or cstr_error, 'Incomplete set of fields in ResultValue constructor'
         
@@ -76,18 +76,18 @@ class ResultValue(dict):
         # result or not
         if not result_value_array:
             # No error
-            return ResultValue(type=self.SUCCESS, result=results)
+            return ResultValue(code=self.SUCCESS, origin=[self.CORE, 0], result=results)
         else:
             # Handle errors
-            return ResultValue(origin=[self.CORE, 0], type=self.ERROR, code=self.ERROR, description=result_value_array)
+            return ResultValue(code=self.ERROR, type=self.ERROR, origin=[self.CORE, 0], description=result_value_array)
 
     @classmethod
     def get_error(self, error):
-        return {'code': error, 'value': self.ERRSTR[error] }
+        return {'code': error, 'origin': [self.CORE, 0], 'value': self.ERRSTR[error] }
 
     @classmethod
     def get_success(self, result):
-        return {'code': self.SUCCESS, 'result': result } 
+        return {'code': self.SUCCESS, 'origin': [self.CORE, 0], 'result': result } 
 
 # 67    <code>
 # 68      <value>9</value>

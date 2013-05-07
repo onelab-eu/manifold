@@ -31,4 +31,9 @@ ret = ret['result']
 print "===== RESULTS ====="
 for r in ret:
     print r['slice_hrn']
-
+    for rr in r['resource']:
+        if not 'hostname' in rr:
+            print rr
+        else:
+            print "    >", rr['hostname']
+    print 

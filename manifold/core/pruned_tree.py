@@ -130,6 +130,7 @@ def prune_precedessor_map(g, queried_fields, map_vertex_pred):
         - relevant_fields A dictionnary {Table => set(Field)} which indicates
             for each 3nf Table which are its relevant Fields
     """
+    print "QUERIED FIELDS in prune_precedessor_map:", queried_fields
     def update_map(m, k, s):
         if k not in m.keys():
             m[k] = set()
@@ -155,6 +156,12 @@ def prune_precedessor_map(g, queried_fields, map_vertex_pred):
             continue
 
         update_map(relevant_fields, v, queried_fields_v)
+
+        key_v = list(v.get_keys())[0]         # select the first key (arbitrary)
+        update_map(relevant_keys, v, key_v)
+        update_map(relevant_fields, v, key_v) # we need to add fields from the key otherwise they will be pruned
+        # XXX note that we should avoid the pruning by doing an intelligent DFS integrating those conditions
+
         predecessor[v] = u 
 
         # Backtrack to the root or to an already visited node

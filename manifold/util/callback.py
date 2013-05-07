@@ -31,10 +31,8 @@ class Callback:
             else:
                 self.event.set()
             return self.event
-        #print "callback received value=", value
+
         self.results.append(value)
-        #print "RESULTS", self.results
-        #print "====="
 
     def wait(self):
         self.event.wait()
