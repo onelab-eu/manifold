@@ -26,7 +26,7 @@ if ret['code'] != 0:
         for err in ret['description']:
             print_err(err)
 
-ret = ret['result']
+ret = ret['value']
 
 print "===== RESULTS ====="
 for r in ret:
