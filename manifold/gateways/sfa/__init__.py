@@ -507,11 +507,13 @@ class SFAGateway(Gateway):
         #print "__init__::sfa_getresources() RSpec result = "
         #pprint.pprint(result)
         #print "__init__::sfa_getresources() RSpec version = ",RSpec(result['value']).version
+        print "************",result
         try:
             return result['value']
         except Exception, why:
-            print "E: __init__::sfa_getresources() ", why
-            return None
+            raise Exception, why
+            #print "E: __init__::sfa_getresources() ", why
+            #return None
 
     ########################################################################### 
     #
