@@ -1384,7 +1384,6 @@ class SFAGateway(Gateway):
 
         self.debug = 'debug' in self.query.params and self.query.params['debug']
         if not self.user_config:
-            print "NOT CONFIG RETURN NONE"
             self.send(LAST_RECORD)
             return
         try:
