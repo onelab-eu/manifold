@@ -300,8 +300,6 @@ class SFAGateway(Gateway):
 
         # XXX ACCOUNT MANAGEMENT : to be improved
         config_new = None
-        print "SfaGateway::bootstrap() ACCOUNT MANAGEMENT"
-        #pprint.pprint(account.config)
         
         if account.auth_type == 'reference':
             ref_platform = json.loads(account.config)['reference_platform']
@@ -310,10 +308,8 @@ class SFAGateway(Gateway):
             if not ref_accounts:
                 raise Exception, "reference account does not exist"
             ref_account = ref_accounts[0]
-            print "Found the refered account"
-            #pprint.pprint(ref_account.config)
+            print "SfaGateway::bootstrap() Found the refered account"
             config_new = json.dumps(SFAGateway.manage(ADMIN_USER, ref_platform, json.loads(ref_account.config)))
-            #pprint.pprint(config_new)
             if ref_account.config != config_new:
                 ref_account.config = config_new
                 db.add(ref_account)
@@ -463,6 +459,28 @@ class SFAGateway(Gateway):
         api_options ['call_id'] = unique_call_id()
         # ask for cached value if available
         api_options ['cached'] = True
+        # Get server capabilities
+        server_version = self.get_cached_server_version(self.sliceapi)
+        type_version=set()
+        # Versions matching to Gateway capabilities
+        try:
+          v=server_version['geni_ad_rspec_versions']
+          for w in v:
+            x=(w['type'],w['version'])
+            type_version.add(x)
+          print "type_version=",type_version
+          local_version=set([('SFA','1'),('GENI','3')])
+          common_version=type_version&local_version
+          print "COMMON = ",common_version
+          if ('SFA','1') in common_version:
+            api_options['geni_rspec_version'] = {'type': 'SFA', 'version': '1'}
+          else:
+            first_common=list(common_version)[0]
+            print "First Common = ",first_common
+            api_options['geni_rspec_version'] = {'type': first_common[0], 'version': first_common[1]}
+          print "Selected Version = ",api_options['geni_rspec_version']
+        except Exception, e:
+          print "E: Unsuported Rspec in __init__::sfa_getresources()"
         #api_options['info'] = options.info
         #if options.rspec_version:
         #    version_manager = VersionManager()
@@ -475,16 +493,27 @@ class SFAGateway(Gateway):
         #else:
         # {'output': ': ListResources: Unsupported RSpec version: [geni 3.0 None] is not suported here', 'geni_api': 2, 'code': {'am_type': 'sfa', 'geni_code': 13, 'am_code': 13}, 'value': ''}
         #api_options['geni_rspec_version'] = {'type': 'geni', 'version': '3.0'}
-        api_options['geni_rspec_version'] = {'type': 'SFA', 'version': '1'}
+        #api_options['geni_rspec_version'] = {'type': 'SFA', 'version': '1'}
         #api_options['geni_rspec_version'] = {'type': 'ProtoGENI', 'version': '2'}
         #api_options['geni_rspec_version'] = {'type': 'GENI', 'version': '3'}
-
         if hrn:
             api_options['geni_slice_urn'] = hrn_to_urn(hrn, 'slice')
-        result = self.sliceapi.ListResources(cred, api_options)
-        return ReturnValue.get_value(result)
+        print "__init__::sfa_getresources() server=",self.sliceapi
+        #print "__init__::sfa_getresources() cred=",cred
+        print "__init__::sfa_getresources() api_options=",api_options
+        result = self.sliceapi.ListResources([cred], api_options)
+        #print "__init__::sfa_getresources() ListResources result=",result
+        #return ReturnValue.get_value(result)
+        #print "__init__::sfa_getresources() RSpec result = "
+        #pprint.pprint(result)
+        #print "__init__::sfa_getresources() RSpec version = ",RSpec(result['value']).version
+        try:
+            return result['value']
+        except Exception, why:
+            print "E: __init__::sfa_getresources() ", why
+            return None
 
-    ############################################################################ 
+    ########################################################################### 
     #
     # GETVERSION & RECURSIVE SCAN
     #
@@ -1207,6 +1236,10 @@ class SFAGateway(Gateway):
         return result['resource']
 
     def get_resource_lease(self, input_filter = None, params = None, output_fields = None):
+        # DEBUG: open a rspec in a file
+        #rspec = open('/root/.sfi/ibbt.rspec', 'r')
+        #return self.parse_sfa_rspec(rspec)
+
         # DEMO
         if self.user.email in DEMO_HOOKS:
             #rspec = open('/usr/share/manifold/scripts/sample-sliver.rspec', 'r')
@@ -1227,34 +1260,39 @@ class SFAGateway(Gateway):
                 hrn = input_filter['slice_hrn']
                 cred = self._get_cred('slice', hrn)
             else:
-                hrn = None
-                #cred = self._get_cred('user', self.config['caller']['person_hrn'])
                 cred = self._get_cred('user')
-            # We request the list of nodes in the slice
-            rspec = self.sfa_get_resources(cred, hrn)
-            rsrc_slice = self.parse_sfa_rspec(rspec)
 
             # and the full list of nodes (XXX this could be cached)
             rspec = self.sfa_get_resources(cred)
+            if rspec is None:
+                raise Exception, "Gateway SFA No Rspec retreived, Check your Network connexion !"
             rsrc_all = self.parse_sfa_rspec(rspec)
 
-            # List of nodes and leases present in the slice (check for 'sliver' is redundant)
-            sliver_urns = [ r['urn'] for r in rsrc_slice['resource'] if 'sliver' in r ]
-            lease_urns = [ l['urn'] for l in rsrc_slice['lease'] ]
+            if input_filter and 'slice_hrn' in input_filter:
+                # We request the list of nodes in the slice
+                rspec_slice = self.sfa_get_resources(cred, hrn)
+                rsrc_slice = self.parse_sfa_rspec(rspec_slice)
 
-            # We now build the final answer where the resources have all nodes...
-            for r in rsrc_all['resource']:
-                if not r['urn'] in sliver_urns:
-                    rsrc_slice['resource'].append(r)
+                # List of nodes and leases present in the slice (check for 'sliver' is redundant)
+                sliver_urns = [ r['urn'] for r in rsrc_slice['resource'] if 'sliver' in r ]
+                lease_urns = [ l['urn'] for l in rsrc_slice['lease'] ]
 
-            # Adding leases for nodes not in the slice
-            for l in rsrc_all['lease']:
-                # Don't add if we already have it
-                if Xrn(l['slice_id']).hrn != hrn:
-                    rsrc_slice['lease'].append(l)
+                # We now build the final answer where the resources have all nodes...
+                for r in rsrc_all['resource']:
+                    if not r['urn'] in sliver_urns:
+                        rsrc_slice['resource'].append(r)
 
+                # Adding leases for nodes not in the slice
+                for l in rsrc_all['lease']:
+                    # Don't add if we already have it
+                    if Xrn(l['slice_id']).hrn != hrn:
+                        rsrc_slice['lease'].append(l)
+            else:
+                hrn = None
+                #cred = self._get_cred('user', self.config['caller']['person_hrn'])
+                rsrc_slice=rsrc_all
             # Adding fake lease for all reservable nodes that do not have leases already
-            print "W: removed fake leases: TO TEST"
+            #print "W: removed fake leases: TO TEST"
             #for r in rsrc_slice['resource']:
             #    if ('exclusive' in r and r['exclusive'] in ['TRUE', True] and not r['urn'] in lease_urns) or (r['type'] == 'channel'):
             #        #urn = r['urn']
@@ -1272,7 +1310,8 @@ class SFAGateway(Gateway):
             #        rsrc_slice['lease'].append(fake_lease)
             if self.debug:
                 rsrc_slice['debug'] = {'rspec': rspec}
-
+            #print "__init__::get_resource_lease() resources in slice = "
+            #pprint.pprint(rsrc_slice)
             return rsrc_slice
             
         except Exception, e:
@@ -1388,7 +1427,6 @@ class SFAGateway(Gateway):
             fields = q.fields # Metadata.expand_output_fields(q.fact_table, list(q.fields))
             result = getattr(self, "%s_%s" % (q.action, q.fact_table))(local_filters, q.params, fields)
 
-            # DIRTY HACK continued
             for r in result:
                 # DIRTY HACK continued
                 if slice_hrn and 'slice_hrn' in r:

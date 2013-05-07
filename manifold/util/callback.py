@@ -31,6 +31,7 @@ class Callback:
             else:
                 self.event.set()
             return self.event
+
         self.results.append(value)
 
     def wait(self):

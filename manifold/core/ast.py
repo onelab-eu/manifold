@@ -1073,7 +1073,7 @@ class Union(Node):
             return
         # Ignore records that have no key
         if key not in record:
-            print "W: UNION ignored record without key"
+            print "W: UNION ignored record without key ",record
             return
         # Ignore duplicate records
         #if record[key] in key_list:

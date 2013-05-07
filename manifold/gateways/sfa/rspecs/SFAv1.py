@@ -4,6 +4,8 @@ from sfa.util.xrn import Xrn, get_leaf
 from manifold.gateways.sfa.rspecs import RSpecParser
 from manifold.core.filter import Filter
 from sfa.util.xml import XpathFilter
+# for debug
+import pprint
 
 # Maps properties within an element of a RSpec to entries in the returned
 # dictionary
@@ -75,7 +77,9 @@ class SFAv1Parser(RSpecParser):
 
             self.leases_by_network = {}
             for l in leases:
-                val = l['urn'] if isinstance(l, dict) else r
+                # @loic Corrected bug
+                val = l['urn'] if isinstance(l, dict) else l[0]
+                #val = l['urn'] if isinstance(l, dict) else r
                 auth = Xrn(val).authority
                 if not auth: raise Exception, "No authority in specified URN"
                 network = auth[0]
@@ -144,9 +148,15 @@ class SFAv1Parser(RSpecParser):
             ret.update(HOOKS[name]['*'](ret))
         return ret
 
-    def parse_element(self, network, name):
-        elements = self.rspec.xml.xpath("/RSpec/network[@name='%s']/%s" % (network, name))
-        elements = [self.dict_from_elt(network, n.element) for n in elements]
+    def parse_element(self, name,network=None):
+        if network is None:
+            # TODO: use SFA Wrapper library
+            # self.rspec.version.get_nodes()
+            # self.rspec.version.get_links()
+            elements = self.rspec.xml.xpath("//default:%s | //%s" %(name,name))
+        else:
+            elements = self.rspec.xml.xpath("/RSpec/network[@name='%s']/%s" % (network, name))
+            elements = [self.dict_from_elt(network, n.element) for n in elements]
         if name in MAP:
             elements = [self.dict_rename(n, name) for n in elements]
         return elements
@@ -155,52 +165,72 @@ class SFAv1Parser(RSpecParser):
 
         networks = self.rspec.xml.xpath('/RSpec/network/@name')
         networks = [str(n.element) for n in networks]
+        
+        # @loic Added for GENIv3 with no networks
+        if not networks:
+            networks = []
+            networks.append("")
+            resources=self.dict_resources()
+            leases=self.dict_leases(resources)
+            #print "RESOURCES RESULTS FOR GENI v3 = "
+            #pprint.pprint(resources)
+        else:
+            # @loic Functions for resources and leases created
+            for network in networks:
+                print "Network=%s" % network
+                resources=self.dict_resources(network)
+                leases=self.dict_leases(resources,network)
+        return {'resource': resources, 'lease': leases}
 
-        resources = []
-        leases = []
+    # @loic Added function dict_resources
+    def dict_resources(self,network=None):
+        result=[]
+        # NODES / CHANNELS / LINKS
+        for type in ['node', 'spectrum/channel', 'link']:
+            result.extend(self.parse_element(type,network))
+        return result
 
-        for network in networks:
-            # NODES / CHANNELS / LINKS
-            for type in ['node', 'spectrum/channel', 'link']:
-                resources.extend(self.parse_element(network, type))
+    # @loic Added function dict_resources
+    def dict_leases(self,resources,network=""):
+        result=[]
+        # LEASES
+        lease_elems = self.rspec.xml.xpath("/RSpec/network[@name='%s']/lease" % network)
+        for l in lease_elems:
+           lease = dict(l.element.attrib)
+           for resource_elem in l.element.getchildren():
+                rsrc_lease = lease.copy()
+                filt = self.dict_from_elt(network, resource_elem)
+                match = Filter.from_dict(filt).filter(resources)
+                if len(match) == 0:
+                   #print "E: Ignored lease with no match:", filt
+                   continue
+                if len(match) > 1:
+                   #print "E: Ignored lease with multiple matches:", filt
+                   continue
+                match = match[0]
 
-            # LEASES
-            lease_elems = self.rspec.xml.xpath("/RSpec/network[@name='%s']/lease" % network)
-            for l in lease_elems:
-                lease = dict(l.element.attrib)
-                for resource_elem in l.element.getchildren():
-                    rsrc_lease = lease.copy()
-                    filt = self.dict_from_elt(network, resource_elem)
-                    match = Filter.from_dict(filt).filter(resources)
-                    if len(match) == 0:
-                        #print "E: Ignored lease with no match:", filt
-                        continue
-                    if len(match) > 1:
-                        #print "E: Ignored lease with multiple matches:", filt
-                        continue
-                    match = match[0]
-
-                    # Check whether the node is reservable
-                    # Check whether the node has some granularity
-                    if not 'exclusive' in match:
-                        #print "W: No information about reservation capabilities of the node:", filt
-                        pass
-                    else:
-                        if not match['exclusive']:
-                            print "W: lease on a non-reservable node:", filt
-                    if not 'granularity' in match:
-                        #print "W: Granularity not present in node:", filt
-                        pass
-                    else:
-                        rsrc_lease['granularity'] = match['granularity']
-                    if not 'urn' in match:
-                        #print "E: Ignored lease with missing 'urn' key:", filt
-                        continue
-                    rsrc_lease['urn'] = match['urn']
-                    rsrc_lease['network'] = Xrn(match['urn']).authority[0]
-                    rsrc_lease['hrn'] = Xrn(match['urn']).hrn
-                    rsrc_lease['type'] = Xrn(match['urn']).type
-                    leases.append(rsrc_lease)
+                # Check whether the node is reservable
+                # Check whether the node has some granularity
+                if not 'exclusive' in match:
+                    #print "W: No information about reservation capabilities of the node:", filt
+                    pass
+                else:
+                    if not match['exclusive']:
+                       print "W: lease on a non-reservable node:", filt
+                if not 'granularity' in match:
+                    #print "W: Granularity not present in node:", filt
+                    pass
+                else:
+                    rsrc_lease['granularity'] = match['granularity']
+                if not 'urn' in match:
+                    #print "E: Ignored lease with missing 'urn' key:", filt
+                    continue
+                rsrc_lease['urn'] = match['urn']
+                rsrc_lease['network'] = Xrn(match['urn']).authority[0]
+                rsrc_lease['hrn'] = Xrn(match['urn']).hrn
+                rsrc_lease['type'] = Xrn(match['urn']).type
+                result.append(rsrc_lease)
+        return result
         #print ""
         #print "========================================"
         #print "PARSING RSPECS leases:"
@@ -208,7 +238,6 @@ class SFAv1Parser(RSpecParser):
         #for l in leases:
         #    print l
         #print "======="
-        return {'resource': resources, 'lease': leases}
 
     def rspec_add_header(self, rspec):
         rspec.append('<?xml version="1.0"?>')
