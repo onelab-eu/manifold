@@ -4,6 +4,12 @@ import pprint
 import xmlrpclib
 from config import auth
 
+err_str = {
+    0: "OK",
+    1: "WARNING",
+    2: "ERROR"
+}
+
 srv = xmlrpclib.Server("http://localhost:7080/", allow_none = True)
 
 def print_err(err):
@@ -22,14 +28,16 @@ ret = srv.forward(auth, q)
 print "====> RESOURCES"
 #pprint.pprint(ret)
 
-if 'code' in ret.keys() and ret['code'] != 0:
+print "RETURN VALUE:", err_str[ret['code']]
+
+if 'description' in ret:
     if isinstance(ret['description'], list):
         # We have a list of errors
         for err in ret['description']:
             print_err(err)
-    print "===== RETURN WITH ERRORS ====="
-    pprint.pprint(ret)
-else:
-    print "===== RESULTS ====="
-    pprint.pprint(ret)
-    #ret = ret['result']
+    else:
+        print ret['description']
+
+if 'value' in ret:
+    print "***** Result:"
+    pprint.pprint(ret['value'])
