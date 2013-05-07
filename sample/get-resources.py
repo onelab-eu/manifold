@@ -20,7 +20,8 @@ q = {
 
 ret = srv.forward(auth, q)
 print "====> RESOURCES"
-#print ret
+#pprint.pprint(ret)
+
 if 'code' in ret.keys() and ret['code'] != 0:
     if isinstance(ret['description'], list):
         # We have a list of errors
