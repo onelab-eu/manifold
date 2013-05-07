@@ -18,6 +18,8 @@ from manifold.core.interface        import Interface
 from manifold.util.reactor_thread   import ReactorThread
 from manifold.util.storage          import DBStorage as Storage
 from manifold.core.result_value     import ResultValue
+
+from manifold.core.announce         import Announces
 # XXX cannot use the wrapper with sample script
 # XXX cannot use the thread with xmlrpc -n
 #from manifold.util.reactor_wrapper  import ReactorWrapper as ReactorThread
@@ -55,6 +57,9 @@ class Router(Interface):
         #self.g_3nf = to_3nf(self.tables)
         self.g_3nf = to_3nf(self.metadata)
 #DEPRECATED#        self.build_tables()
+        #print "****** ANNOUNCES ******"
+        #for a in Announces.get_announces(self.g_3nf):
+        #    print a
 
     def __enter__(self):
         ReactorThread().start_reactor()
@@ -191,79 +196,10 @@ class Router(Interface):
         A query is forwarded. Eventually it affects the forwarding plane, and expects an answer.
         NOTE : a query is like a flow
         """
-        namespace = None
-        # Handling internal queries
-        if ':' in query.fact_table:
-            namespace, table = query.fact_table.rsplit(':', 2)
-        
-        print "ROUTER FORWARD ----- query = ",query
-        print "ROUTER FORWARD ----- namespace = ",namespace
-        if namespace == self.LOCAL_NAMESPACE:
-            q = copy.deepcopy(query)
-            q.fact_table = table
-            print "local namespace q = ",q
-            output =  Storage.execute(q, user=user)
-            return ResultValue.get_success(output)
-        elif namespace == "metadata":
-            # Metadata are obtained for the 3nf representation in
-            # memory
-            if table == "table":
-                output = []
-                # XXX Not generic
-                for table in self.g_3nf.graph.nodes():
-                    fields = [f for f in table.get_fields()]
-                    fields = list(set(fields))
+        ret = super(Router, self).forward(query, deferred, execute, user)
+        if ret: return ret
 
-                    # Build columns from fields
-                    columns = []
-                    for field in fields:
-                        column = {
-                            "column"         : field.get_name(),        # field(_name)
-                            "description"    : field.get_description(), # description
-                            "header"         : field,
-                            "title"          : field,
-                            "unit"           : "N/A",                   # !
-                            "info_type"      : "N/A",
-                            "resource_type"  : "N/A",
-                            "value_type"     : "N/A",
-                            "allowed_values" : "N/A",
-                            # ----
-                            "type": field.type,                         # type
-                            "is_array"       : field.is_array(),        # array?
-                            "qualifier"      : field.get_qualifier()    # qualifier (const/RW)
-                                                                        # ? category == dimension
-                        }
-                        columns.append(column)
-
-                    # Add table metadata
-                    output.append({
-                        "table"  : table.get_name(),
-                        "column" : columns
-                    })
-                return ResultValue.get_success(output)
-            else:
-                raise Exception, "Unsupported metadata request '%s'" % table
-        elif namespace:
-            raise Exception, "Unsupported namespace '%s'" % namespace
-
-        try:
-            ret = self.do_forward(query, None, deferred, execute, user)
-            return ret
-        except Exception, e:
-            print "EXC in forward", e
-            traceback.print_exc()
-            return []
-            
-    def do_forward(self, query, route, deferred, execute=True, user=None):
-        """
-        Effectively runs the forwarding of the query to the route
-        """
-
-        # the route parameter is ignored until we clearly state what are the
-        # different entities of a router and their responsabilities
-
-
-
+        # We suppose we have no namespace from here
         if not execute: 
             qp = QueryPlan()
             qp.build(query, self.g_3nf, self.allowed_capabilities, user)

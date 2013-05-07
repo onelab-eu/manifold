@@ -1,8 +1,9 @@
-from manifold.gateways      import Gateway
-from manifold.core.platform import Platform
-from manifold.core.query    import Query
-from manifold.util.storage  import DBStorage as Storage
-from manifold.models        import *
+from manifold.gateways          import Gateway
+from manifold.core.platform     import Platform
+from manifold.core.query        import Query
+from manifold.util.storage      import DBStorage as Storage
+from manifold.models            import *
+from manifold.core.result_value import ResultValue
 import json
 
 class Interface(object):
@@ -116,12 +117,72 @@ class Interface(object):
                 gw = Gateway.get(platform.gateway_name)(*args)
 
                 gw.set_query(from_node.query)
+                gw.set_identifier(from_node.get_identifier())
                 from_node.set_gateway(gw)
         except Exception, e:
             import traceback
             print traceback.print_exc()
             print "EXC inst gw", e
 
+    def get_metadata_objects(self):
+        output = []
+        # XXX Not generic
+        for table in self.g_3nf.graph.nodes():
+            fields = [f for f in table.get_fields()]
+            fields = list(set(fields))
 
-    def forward(self, query):
-        raise Exception, 'Not implemented in base class'
+            # Build columns from fields
+            columns = []
+            for field in fields:
+                column = {
+                    'name'       : field.get_name(),
+                    'qualifier'  : field.get_qualifier(),
+                    'type'       : field.type,
+                    'is_array'   : field.is_array(),
+                    'description': field.get_description()
+                    #"column"         : field.get_name(),        # field(_name)
+                    #"description"    : field.get_description(), # description
+                    #"header"         : field,
+                    #"title"          : field,
+                    #"unit"           : "N/A",                   # !
+                    #"info_type"      : "N/A",
+                    #"resource_type"  : "N/A",
+                    #"value_type"     : "N/A",
+                    #"allowed_values" : "N/A",
+                    ## ----
+                    #"type": field.type,                         # type
+                    #"is_array"       : field.is_array(),        # array?
+                    #"qualifier"      : field.get_qualifier()    # qualifier (const/RW)
+                                                                # ? category == dimension
+                }
+                columns.append(column)
+
+            # Add table metadata
+            output.append({
+                "table"  : table.get_name(),
+                "column" : columns
+            })
+        return output
+
+    def forward(self, query, deferred=False, execute=True, user=None):
+        # Implements common functionalities = local queries, etc.
+        print "Interface::forward"
+
+        namespace = None
+        # Handling internal queries
+        if ':' in query.fact_table:
+            namespace, table = query.fact_table.rsplit(':', 2)
+
+        if namespace == self.LOCAL_NAMESPACE:
+            if table == 'objects':
+                output = self.get_metadata_objects()
+            else:
+                q = copy.deepcopy(query)
+                q.fact_table = table
+                output =  Storage.execute(q, user=user)
+            return ResultValue.get_success(output)
+        elif namespace:
+            raise Exception, "Unsupported namespace '%s'" % namespace
+ 
+        # None is returned to inform child classes they are in charge of the answer
+        return None

@@ -46,7 +46,8 @@ class QueryPlan(object):
 
     # metadata == router.g_3nf
     def build(self, query, metadata, allowed_capabilities, user = None):
-        self.ast = self.process_subqueries(query, metadata, allowed_capabilities, user)
+        analyzed_query = AnalyzedQuery(query)
+        self.ast = self.process_subqueries(analyzed_query, metadata, allowed_capabilities, user)
 
     def process_subqueries(self, query, metadata, allowed_capabilities, user):
         """
@@ -67,51 +68,92 @@ class QueryPlan(object):
         if not table:
             raise ValueError("Can't find table %r related to query %r" % (table_name, query))
 
-        analyzed_query = AnalyzedQuery(query)
+        # This should eventually be done once by moving it to the root function...
         qp = AST(user)
 
         children_ast = []
         subquery_methods = set()
-        for method, subquery in analyzed_query.subqueries():
+        for method, subquery in query.subqueries():
 
-            subquery_methods.add(method)
-            # ???
-            #method = table.get_field(method).get_type()
-            #if not method in cur_fields:
+            # We need to determine how to join with each subquery
+            # key of subquery
+            # key of parent query
 
-            # We add the method of the subquery because it will help us get the identifiers to reinject in the subquery... XXX requires reflection about JOINS and SQs for 1..1 1..N etc.
-            # We need the key of this method
+            # Here we need to analyze metadata = full information about a table...
+            # XXX Analysing subqueries might be a bit more complicated than that
+            # XXX We might need to inspect the arcs of DBGraph
+
+            # (1) Do we have a reachable field of type method[] that contains a
+            # list of identifier for child items
             
-            analyzed_query.select(method)
+            fields = [ f for f in metadata.get_fields(table) if f.get_name() == method]
+            if fields:
+                field = fields[0]
+                if field.is_array(): # 1..N
+                    # We add the field name to the set of retrieved fields
+                    query.select(method)
+                    #subquery_methods.add(method)
+                    print "*** Relation of type (1) between parent '%s' and child '%s'" % (table_name, method) 
+                else: # 1..1
+                    raise Exception, "1..1 relationships not handled"
 
-            # Adding primary key in subquery to be able to merge
+            # (2) Do we have pointers to the parent
+            else:
+                parent_fields = set(metadata.get_fields(table))
+                method_table = metadata.find_node(method)
+                child_key = method_table.get_keys().one()
+                # XXX why is it necessarily the key of the child, and not the fields...
+                print "PARENT_KEY", parent_fields
+                print "CHILD FIELDS", child_key
+                intersection = parent_fields & child_key
+                if intersection == parent_fields:
+                    # 1..1
+                    raise Exception, "1..1 relationships not handled"
 
-            print "METHOD=", method
-            keys = metadata.find_node(method).keys
-            # XXX Such information should be found on the arcs of dbgraph
-            if keys:
-                key = list(keys).pop()
-                print "W: selecting arbitrary key %s to join with '%s'" % (key, method)
-                if isinstance(key, Key):
-                    for field in key:
-                        field_name = field.get_name()
-                        if field_name not in subquery.fields:
-                            subquery.select(field_name)
+                elif intersection:
+                    # 1..N
+                    print "*** Relation of type (2) between parent '%s' and child '%s'" % (table_name, method) 
+                    # Add the fields in both the query and the subquery
+                    for field in intersection:
+                        query.select(field.get_name())
+                        subquery.select(field.get_name())
+                    
+
                 else:
-                    raise TypeError("Invalid type: key = %s (type %s)" % (key, type(key)))
+                    # Find a path
+                    import networkx as nx
+                    print "PATH=", nx.shortest_path(metadata.graph, table, method_table)
+                    raise Exception, "No relation between parent '%s' and child '%s'" % (table_name, method)
 
+            # XXX Between slice and application, we have leases... how to handle ???
+
+#            # (2) the 
+#            keys = metadata.find_node(method).keys
+#            # XXX Such information should be found on the arcs of dbgraph
+#            if keys:
+#                key = list(keys).pop()
+#                print "W: selecting arbitrary key %s to join with '%s'" % (key, method)
+#                if isinstance(key, Key):
+#                    for field in key:
+#                        field_name = field.get_name()
+#                        if field_name not in subquery.fields:
+#                            subquery.select(field_name)
+#                else:
+#                    raise TypeError("Invalid type: key = %s (type %s)" % (key, type(key)))
+
+            # Recursive processing of subqueries
             child_ast = self.process_subqueries(subquery, metadata, allowed_capabilities, user)
             children_ast.append(child_ast.root)
 
-        qp = self.process_query(analyzed_query, metadata, user)
+        qp = self.process_query(query, metadata, user)
         if children_ast:
             # We are not interested in the 3nf fields, but in the set of fields that will be available when we answer the whole parent query
             # parent_fields = metadata.find_node(query.fact_table).get_field_names() # wrong
             # XXX Note that we should request in the parent any field needed for subqueries
-            parent_fields = analyzed_query.fields - subquery_methods
+            parent_fields = query.fields - subquery_methods
 
             # XXX some fields are 1..N fields and should not be present in this list...
-            qp.subquery(children_ast, parent_fields)
+            qp.subquery(children_ast, table.keys.one())
 
         return qp
 
@@ -294,6 +336,8 @@ class QueryPlan(object):
         # ordering leading to feasible successive joins
         map_method_bestkey = dict()
         map_method_demux   = dict()
+
+        print "PROCESS_QUERY", user_query
 
         ordered_tables = dfs_preorder_nodes(pruned_tree, root_node)
         for table in ordered_tables:

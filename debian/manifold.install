@@ -1,0 +1,8 @@
+usr/lib*/python*/site-packages/manifold/__init__.py*
+usr/lib*/python*/site-packages/manifold/auth
+usr/lib*/python*/site-packages/manifold/bin
+usr/lib*/python*/site-packages/manifold/core
+usr/lib*/python*/site-packages/manifold/gateways
+usr/lib*/python*/site-packages/manifold/metadata
+usr/lib*/python*/site-packages/manifold/models
+usr/lib*/python*/site-packages/manifold/util
