@@ -79,7 +79,7 @@ class ResultValue(dict):
             return ResultValue(code=self.SUCCESS, origin=[self.CORE, 0], value=results)
         else:
             # Handle errors
-            return ResultValue(code=self.ERROR, type=self.ERROR, origin=[self.CORE, 0], description=result_value_array)
+            return ResultValue(code=self.WARNING, origin=[self.CORE, 0], description=result_value_array, value=results)
 
     @classmethod
     def get_error(self, error):
