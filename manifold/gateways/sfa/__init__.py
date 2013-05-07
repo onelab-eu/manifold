@@ -1433,8 +1433,11 @@ class SFAGateway(Gateway):
                     r['slice_hrn'] = slice_hrn
                 self.send(r)
         except Exception, e:
+            print "="*80
             print "Exception in sfa method call", e
-            print traceback.print_exc()
+            print "Traceback:"
+            traceback.print_exc()
+
             rv = ResultValue(
                 origin      = (ResultValue.GATEWAY, self.__class__.__name__),
                 type        = ResultValue.ERROR, 
