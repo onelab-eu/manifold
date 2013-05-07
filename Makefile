@@ -5,7 +5,7 @@ BUILDDIR    = $(CURDIR)/build
 DISTDIR     = $(CURDIR)/dist
 # overwritten by the specfile
 DESTDIR="/"
-PREFIX=/usr
+PREFIX=/usr/local
 
 # stupid distutils, it's broken in so many ways
 SUBBUILDDIR = $(shell python -c 'import distutils.util, sys; \
@@ -30,10 +30,6 @@ debug: clean all install
 
 all:
 	./setup.py build
-
-mrproper: 
-	rm -Rf build /usr/lib/python2.7/dist-packages/tophat
-# /Jordan
 
 install: all
 	./setup.py install --prefix=$(PREFIX) --root=$(DESTDIR)
