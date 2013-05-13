@@ -49,29 +49,42 @@ import traceback
 # For debug
 import pprint
 
+DEFAULT_TIMEOUT = 20
+DEFAULT_TIMEOUT_GETVERSION = 5
+
 class TimeOutException(Exception):
     pass
 
-def timeout(signum, frame):
+def timeout_callback(signum, frame):
     raise TimeOutException, "Command ran for too long"
 
 # @loic overriding SfaServerProxy class to handle DNS timeout when a gateway URL is unknown
+# NOTE: uses the DEFAULT_TIMEOUT, not the one in self.config
+# Exceptions are ignored and will be catched in the default manifold handler
 class SfaServerProxy(_SfaServerProxy):
     def __getattr__(self, name):
         if self.url is not None:
             print "in Sfa Gateway - SfaServerProxy connecting to ",self.url
         def func(*args, **kwds):
-            signal.signal(signal.SIGALRM, timeout)
-            signal.alarm(5)
-            ret=None
-            try:
-                ret=getattr(self.serverproxy, name)(*args, **kwds)
-                signal.alarm(0)
-            except TimeOutException:
-                pass
-            except Exception, why:
-                print 'Exception in SFA Gateway SfaServerProxy ', why
-                signal.alarm(0)
+            if 'timeout' in kwds:
+                timeout = kwds['timeout']
+                del kwds['timeout']
+            else:
+                timeout = DEFAULT_TIMEOUT
+                
+            signal.signal(signal.SIGALRM, timeout_callback)
+            signal.alarm(timeout)
+            #ret=None
+            #try:
+            ret=getattr(self.serverproxy, name)(*args, **kwds)
+            signal.alarm(0)
+            #except TimeOutException:
+            #    print "TIMEOUT"
+            #    pass
+            #except Exception, why:
+            #    print 'Exception in SFA Gateway SfaServerProxy ', why
+            #    signal.alarm(0)
+            #print "result ======", ret
             return ret        
         return func
 
@@ -159,7 +172,7 @@ def project_select_and_rename_fields(table, pkey, filters, fields, map_fields=No
 ################################################################################
 
 def get_network_name(hostname):
-    signal.signal(signal.SIGALRM, timeout)
+    signal.signal(signal.SIGALRM, timeout_callback)
     signal.alarm(5)
     try:
         soup = BeautifulSoup.BeautifulSoup(urllib.urlopen("http://%s"%hostname))
@@ -361,7 +374,7 @@ class SFAGateway(Gateway):
             version = cache.get(cache_key)
 
         if not version: 
-            result = server.GetVersion()
+            result = server.GetVersion(timeout=DEFAULT_TIMEOUT_GETVERSION)
             version= ReturnValue.get_value(result)
             # cache version for 20 minutes
             cache.add(cache_key, version, ttl= 60*20)
@@ -440,8 +453,11 @@ class SFAGateway(Gateway):
             raise Exception('Wrong filter in sfa_list')
 
         #try:
-        #print "CONNECTING TO REGISTRY", self.registry
+        print "==========="
+        print "CONNECTING TO REGISTRY", self.registry
         records = self.registry.Resolve(xrns, cred, {'details': True})
+        print "Sfa::sfa_resolve_records", xrns
+        print "    result", records
         #except Exception, why:
         #    print "[Sfa::sfa_resolve_records] ERROR : %s" % why
         #    return []
@@ -507,7 +523,7 @@ class SFAGateway(Gateway):
         #print "__init__::sfa_getresources() RSpec result = "
         #pprint.pprint(result)
         #print "__init__::sfa_getresources() RSpec version = ",RSpec(result['value']).version
-        print "************",result
+        #print "************",result
         if 'value' in result and result['value']:
             return result['value']
         else:
@@ -536,7 +552,7 @@ class SFAGateway(Gateway):
                 server = self.registry
             else:
                 server = self.sliceapi
-            result = server.GetVersion()
+            result = server.GetVersion(timeout=DEFAULT_TIMEOUT_GETVERSION)
             version = ReturnValue.get_value(result)
         return version
 
@@ -559,9 +575,9 @@ class SFAGateway(Gateway):
 
                 # performing xmlrpc call
                 print "D: Connecting to interface", interface
-                server = SfaServerProxy(interface, self.private_key, self.my_gid, timeout=5)
+                server = SfaServerProxy(interface, self.private_key, self.my_gid, timeout=DEFAULT_TIMEOUT_GETVERSION)
                 try:
-                    version = ReturnValue.get_value(server.GetVersion())
+                    version = ReturnValue.get_value(server.GetVersion(timeout=DEFAULT_TIMEOUT_GETVERSION))
                 except Exception, why:
                     print "E: ", why
                     version = None
@@ -1013,6 +1029,7 @@ class SFAGateway(Gateway):
         # - Resolving slice hrns to get additional information
         print "calling resolve records"
         slices = self.sfa_resolve_records(cred, slice_list, 'slice')
+        print "Resolve records returned", slices
         # Merge resulting information
         for (hrn, slice) in itertools.izip(slice_list, slices):
             slice['slice_hrn'] = hrn
@@ -1368,7 +1385,7 @@ class SFAGateway(Gateway):
             raise Exception, "Missing SFA::registry parameter in configuration."
         # @loic Added default 5sec timeout if parameter self.config['timeout'] is not set
         if not 'timeout' in self.config:
-            self.config['timeout'] = 5
+            self.config['timeout'] = DEFAULT_TIMEOUT
 
         # XXX Need to import sfi_logger here so that it is properly daemonized
         #from sfa.util.sfalogging import sfi_logger
@@ -1513,7 +1530,7 @@ class SFAGateway(Gateway):
             # We need to connect through a HTTPS connection using the generated private key
             registry_url = json.loads(platform.config)['registry']
             # @loic Added default 5sec timeout 
-            registry_proxy = SfaServerProxy (registry_url, pkey_fn.name, cert_fn.name, timeout=5)
+            registry_proxy = SfaServerProxy (registry_url, pkey_fn.name, cert_fn.name, timeout=DEFAULT_TIMEOUT_GETVERSION)
 
             try:
                 credential_string = registry_proxy.GetSelfCredential (config['sscert'], config['user_hrn'], 'user')
@@ -1540,7 +1557,7 @@ class SFAGateway(Gateway):
             # We need to connect through a HTTPS connection using the generated private key
             registry_url = json.loads(platform.config)['registry']
             # @loic Added default 5sec timeout
-            registry_proxy = SfaServerProxy(registry_url, pkey_fn.name, cert_fn.name, timeout=5)
+            registry_proxy = SfaServerProxy(registry_url, pkey_fn.name, cert_fn.name, timeout=DEFAULT_TIMEOUT_GETVERSION)
 
             records = registry_proxy.Resolve(config['user_hrn'].encode('latin1'), config['user_credential'])
             records = [record for record in records if record['type']=='user']
@@ -1567,7 +1584,7 @@ class SFAGateway(Gateway):
             # We need to connect through a HTTPS connection using the generated private key
             registry_url = json.loads(platform.config)['registry']
             # @loic Added default 5sec timeout
-            registry_proxy = SfaServerProxy(registry_url, pkey_fn.name, cert_fn.name, timeout=5)
+            registry_proxy = SfaServerProxy(registry_url, pkey_fn.name, cert_fn.name, timeout=DEFAULT_TIMEOUT_GETVERSION)
 
             try:
                 credential_string=registry_proxy.GetCredential (config['user_credential'], config['user_hrn'].encode('latin1'), 'authority')
