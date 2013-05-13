@@ -174,7 +174,7 @@ class Interface(object):
             namespace, table = query.object.rsplit(':', 2)
 
         if namespace == self.LOCAL_NAMESPACE:
-            if table == 'objects':
+            if table == 'object':
                 output = self.get_metadata_objects()
             else:
                 q = copy.deepcopy(query)
