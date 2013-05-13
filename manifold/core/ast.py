@@ -1143,7 +1143,7 @@ class SubQuery(Node):
 
         self.query = self.parent.get_query().copy()
         for i, child in enumerate(self.children):
-            self.query.fields.add(child.get_query().fact_table)
+            self.query.fields.add(child.get_query().object)
 
         # Prepare array for storing results from children: parent result can
         # only be propagated once all children have replied
@@ -1231,7 +1231,7 @@ class SubQuery(Node):
 
             # (1) in the parent, we might have a field named after the child
             # method containing either records or identifiers of the children
-            if child_query.fact_table in parent_query.fields:
+            if child_query.object in parent_query.fields:
                 # WHAT DO WE NEED TO DO
                 # We have the parent: it has a list of records/record keys which are the ones to fetch
                 # (whether it is 1..1 or 1..N)
@@ -1292,9 +1292,9 @@ class SubQuery(Node):
 #DEPRECATED#            only_key = False # We have only the key in child records
 #DEPRECATED#            for parent_record in self.parent_output:
 #DEPRECATED#                # XXX We are supposing 1..N here
-#DEPRECATED#                if not isinstance(parent_record[child.query.fact_table], list):
+#DEPRECATED#                if not isinstance(parent_record[child.query.object], list):
 #DEPRECATED#                    raise Exception, "run_children received 1..1 record; 1..N implemented only."
-#DEPRECATED#                for child_record in parent_record[child.query.fact_table]:
+#DEPRECATED#                for child_record in parent_record[child.query.object]:
 #DEPRECATED#                    if isinstance(child_record, dict):
 #DEPRECATED#                        if not self.key in child_record:
 #DEPRECATED#                            # XXX case for links in slice.resource
@@ -1335,15 +1335,15 @@ class SubQuery(Node):
         for o in self.parent_output:
             # Dispatching child results
             for i, child in enumerate(self.children):
-                if child.query.fact_table in o:
+                if child.query.object in o:
                     # (1)
                     # first, replace records by dictionaries. This only works for non-composite keys
-                    if o[child.query.fact_table]:
-                        record = o[child.query.fact_table][0]
+                    if o[child.query.object]:
+                        record = o[child.query.object][0]
                         if not isinstance(record, dict):
-                            o[child.query.fact_table] = [{self.key.get_name(): record} for record in o[child.query.fact_table]]
+                            o[child.query.object] = [{self.key.get_name(): record} for record in o[child.query.object]]
 
-                    for record in o[child.query.fact_table]:
+                    for record in o[child.query.object]:
                         # Find the corresponding record in child_results and
                         # update the one in the parent with it
                         print "> record", record
@@ -1364,10 +1364,10 @@ class SubQuery(Node):
                     for key_field_name in key_field_names:
                         filter = filter.filter_by(Predicate(key_field_name, '==', o[key_field_name]))
                     
-                    o[child.query.fact_table] = []
+                    o[child.query.object] = []
                     for child_record in self.child_results[i]:
                         if filter.match(child_record): # if child_record[key] == o[key]:
-                            o[child.query.fact_table].append(child_record)
+                            o[child.query.object].append(child_record)
             self.send(o)
         self.send(LAST_RECORD)
 

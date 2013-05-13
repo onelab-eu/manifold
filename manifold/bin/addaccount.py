@@ -30,7 +30,7 @@ def main():
     print "------------<<<",account_params
     print "U---------------",user
     print "P---------------",platform
-    query = Query(action='create', fact_table='local:account', params=account_params)
+    query = Query(action='create', object='local:account', params=account_params)
     print "Q---------------",query
     # Instantiate a TopHat router
     with Router() as router:

@@ -166,19 +166,19 @@ class Interface(object):
 
     def forward(self, query, deferred=False, execute=True, user=None):
         # Implements common functionalities = local queries, etc.
-        print "Interface::forward"
+        print "Interface::forward", query
 
         namespace = None
         # Handling internal queries
-        if ':' in query.fact_table:
-            namespace, table = query.fact_table.rsplit(':', 2)
+        if ':' in query.object:
+            namespace, table = query.object.rsplit(':', 2)
 
         if namespace == self.LOCAL_NAMESPACE:
-            if table == 'objects':
+            if table == 'object':
                 output = self.get_metadata_objects()
             else:
                 q = query.copy()
-                q.fact_table = table
+                q.object = table
                 output =  Storage.execute(q, user=user)
             return ResultValue.get_success(output)
         elif namespace:

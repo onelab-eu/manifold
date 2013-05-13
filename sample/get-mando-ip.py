@@ -8,7 +8,7 @@ from manifold.core.router     import Query
 query = Query(
     # action
     'get',
-    # from (= query.fact_table)
+    # from (= query.object)
     'ip',
     # where (= query.filters)
     [
@@ -26,7 +26,7 @@ query = Query(
 print "=" * 150
 print query
 print "> action     = %r" % query.action
-print "> fact_table = %r" % query.fact_table
+print "> object = %r" % query.object
 print "> filters    = %r" % query.filters
 print "> params     = %r" % query.params
 print "> fields     = %r" % query.fields

@@ -3,11 +3,11 @@
 
 from manifold.core.router import Query, Router
 
-query1 = Query(action='get', fact_table='local:platform', filters=[], params=None, fields=['platform', 'platform_longname'])
-query2 = Query(action='get', fact_table='local:user')
-query3 = Query(action='get', fact_table='local:account')
+query1 = Query(action='get', object='local:platform', filters=[], params=None, fields=['platform', 'platform_longname'])
+query2 = Query(action='get', object='local:user')
+query3 = Query(action='get', object='local:account')
 
-update = Query(action='update', fact_table='local:platform', params={'platform_longname': 'PlanetLab Europe testbed'}, filters=[['platform', '=', '''ple''']], fields=['platform', 'platform_longname'])
+update = Query(action='update', object='local:platform', params={'platform_longname': 'PlanetLab Europe testbed'}, filters=[['platform', '=', '''ple''']], fields=['platform', 'platform_longname'])
 
 # Instantiate a TopHat router
 with Router() as router:

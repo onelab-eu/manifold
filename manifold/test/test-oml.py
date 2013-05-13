@@ -14,7 +14,7 @@ def print_err(err):
     print ''
 
 q = {
-    'fact_table':   'slice',
+    'object':   'slice',
     'filters':      [['slice_hrn', '=', 'ple.upmc.myslicedemo']],
     'fields':       ['slice_hrn', 'application.measurement_point.counter']
 }
