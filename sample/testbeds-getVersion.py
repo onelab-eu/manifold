@@ -15,11 +15,11 @@ def print_err(err):
     print ''
 
 q = {
-    'fact_table':   'resource',
+    'object':   'resource',
     'fields':       ['hrn']
 }
 q = {
-    'fact_table':   'network',
+    'object':   'network',
     'fields':       ['network_hrn']
 }
 ret = srv.forward(auth, q)
@@ -38,7 +38,7 @@ else:
     print ret
 #    q_update = {
 #        'action': 'update',
-#        'fact_table': 'local:platform',
+#        'object': 'local:platform',
 #        'filters': [['platform','=',r['hrn']]],
 #        'params': {'platform_description':r['hostname']}
 #    }

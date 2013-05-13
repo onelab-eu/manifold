@@ -58,7 +58,7 @@ class CSVGateway(Gateway):
     def start(self):
         assert self.query, "Query should have been associated before start"
         # XXX how to start on multiple files ?
-        filename = self.map_filenames[self.query.fact_table]
+        filename = self.map_filenames[self.query.object]
         with open(filename , 'rb') as csvfile:
             reader = csv.DictReader(csvfile, dialect=self.dialect)
             try:

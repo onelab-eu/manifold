@@ -39,7 +39,7 @@ Example:
             MySlice = xmlrpclib.Server(options.url, allow_none = 1)
 
             query = {
-                'fact_table': 'local:platform',
+                'object': 'local:platform',
                 'filters'   : [['platform', '=', platform]],
                 'fields'    : ['platform_id']
             }
@@ -51,7 +51,7 @@ Example:
             # Params depend on the credential type
 
             query = {
-                'fact_table': 'local:account',
+                'object': 'local:account',
                 'filters'   : [['platform_id', '=', platform_id]],
                 'params'    : {'credential': delegated_credential}
             }

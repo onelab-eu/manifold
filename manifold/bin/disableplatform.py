@@ -21,7 +21,7 @@ def main():
     
     platform_filters = [['platform', '=', name]]
     platform_params = {'disabled': True}
-    query = Query(action='update', fact_table='local:platform', filters=platform_filters, params=platform_params)
+    query = Query(action='update', object='local:platform', filters=platform_filters, params=platform_params)
 
     # Instantiate a TopHat router
     with Router() as router:

@@ -85,11 +85,11 @@ class OMLGateway(PostgreSQLGateway):
 
     def start(self):
         try:
-            print "QUERY", self.query.fact_table, " -- FILTER=", self.query.filters
-            results = getattr(self, "get_%s" % self.query.fact_table)()
+            print "QUERY", self.query.object, " -- FILTER=", self.query.filters
+            results = getattr(self, "get_%s" % self.query.object)()
         except Exception, e:
             # Missing function = we are querying a measure. eg. get_counter
-            results = self.get_measurement_table(self.query.fact_table)()
+            results = self.get_measurement_table(self.query.object)()
         for row in results:
             self.callback(row)
         self.callback(None)

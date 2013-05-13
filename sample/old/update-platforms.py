@@ -3,10 +3,10 @@
 
 from manifold.core.router import Query, Router
 
-q = Query(action='get', fact_table='local:platform', filters=[], params=None, fields=['platform', 'platform_longname'])
+q = Query(action='get', object='local:platform', filters=[], params=None, fields=['platform', 'platform_longname'])
 
 # Update(object, filters, params, fields, callback)
-query = Query(action='update', fact_table='local:platform', params={['platform_description', '=', 'test']}, filters=[['platform','=','ple']])
+query = Query(action='update', object='local:platform', params={['platform_description', '=', 'test']}, filters=[['platform','=','ple']])
 
 # Instantiate a TopHat router
 with Router() as router:

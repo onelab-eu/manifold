@@ -33,7 +33,7 @@ def row2dict(row):
 
 class SQLAlchemyGateway(Gateway):
 
-    map_fact_table = {
+    map_object = {
         'platform' : Platform,
         'user'     : User,
         'account'  : Account,
@@ -91,7 +91,7 @@ class SQLAlchemyGateway(Gateway):
         fields = query.fields
         # XXX else tap into metadata
 
-        cls = self.map_fact_table[query.fact_table]
+        cls = self.map_object[query.object]
 
         # Transform a Filter into a sqlalchemy expression
         _filters = get_sqla_filters(cls, query.filters)
@@ -118,7 +118,7 @@ class SQLAlchemyGateway(Gateway):
             if not query.filters.has_eq('platform_id') and not query.filters.has_eq('platform'):
                 raise Exception, "Cannot update JSON fields on multiple platforms"
 
-            cls = self.map_fact_table[query.fact_table]
+            cls = self.map_object[query.object]
 
             # Note: we can request several values
 
@@ -159,7 +159,7 @@ class SQLAlchemyGateway(Gateway):
         assert not query.filters, "Filters should be empty for a create request"
         #assert not query.fields, "Fields should be empty for a create request"
 
-        cls = self.map_fact_table[query.fact_table]
+        cls = self.map_object[query.object]
         params = cls.process_params(query.params, None, self.user)
         new_obj = cls(**params)
         db.add(new_obj)

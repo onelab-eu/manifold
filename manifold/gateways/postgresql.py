@@ -432,7 +432,7 @@ class PostgreSQLGateway(Gateway):
 
     def get_sql(self):
         params = {
-            'table': self.query.fact_table,
+            'table': self.query.object,
             'filters': self.get_where(self.query.filters),
             'fields': ', '.join(self.query.fields)
         }

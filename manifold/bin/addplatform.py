@@ -38,7 +38,7 @@ def main():
         'config': config,
         'disabled': disabled
     }
-    query = Query(action='create', fact_table='local:platform', params=platform_params)
+    query = Query(action='create', object='local:platform', params=platform_params)
 
     # Instantiate a TopHat router
     with Router() as router:

@@ -21,8 +21,8 @@ class TDMIGateway(PostgreSQLGateway):
         self.db = PostgreSQL()
 
     def execute(self, query, user=None):
-        if query.fact_table in self.METHOD_MAP.keys():
-            return self.METHOD_MAP[query.fact_table](query, db=self.db)
+        if query.object in self.METHOD_MAP.keys():
+            return self.METHOD_MAP[query.object](query, db=self.db)
 
         # Generic query handling
         # What about subqueries ?
