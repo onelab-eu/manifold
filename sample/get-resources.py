@@ -26,7 +26,7 @@ q = {
 
 ret = srv.forward(auth, q)
 print "====> RESOURCES"
-#pprint.pprint(ret)
+pprint.pprint(ret)
 
 print "RETURN VALUE:", err_str[ret['code']]
 
