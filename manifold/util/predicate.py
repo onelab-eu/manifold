@@ -48,7 +48,7 @@ class Predicate:
         elif len(args) == 1 and isinstance(args[0], Predicate):
             key, op, value = args[0].get_tuple()
         else:
-            raise Exception, "Bad initializer for Predicate"
+            raise Exception, "Bad initializer for Predicate (args=%r)" % args
         self.key = key
         if op in self.operators.keys():
             self.op = self.operators[op]
