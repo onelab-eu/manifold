@@ -14,18 +14,18 @@ def print_err(err):
     print ''
 
 q = {
-    'fact_table':   'network',
+    'object':   'network',
     'fields':       ['network_hrn']
 }
 
 q_platform = {
-    'fact_table':   'local:platform', 
+    'object':   'local:platform', 
     'fields':       ['platform', 'platform_description']
 }
 
 #q_update = {
 #    'action': 'update',
-#    'fact_table': 'local:platform',
+#    'object': 'local:platform',
 #    'filters': [['platform','=','ple']],
 #    'params': {'platform_description':'test'}
 #}
@@ -54,7 +54,7 @@ else:
     #print r
     #q_update = {
     #    'action': 'update',
-    #    'fact_table': 'local:platform',
+    #    'object': 'local:platform',
     #    'filters': [['platform','=',r['hrn']]],
     #    'params': {'platform_description':r['hostname']}
     #}

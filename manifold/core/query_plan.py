@@ -148,7 +148,7 @@ class QueryPlan(object):
         qp = self.process_query(query, metadata, user)
         if children_ast:
             # We are not interested in the 3nf fields, but in the set of fields that will be available when we answer the whole parent query
-            # parent_fields = metadata.find_node(query.fact_table).get_field_names() # wrong
+            # parent_fields = metadata.find_node(query.object).get_field_names() # wrong
             # XXX Note that we should request in the parent any field needed for subqueries
             parent_fields = query.fields - subquery_methods
 
@@ -206,12 +206,12 @@ class QueryPlan(object):
         """
         # XXX allowed_capabilities should be a property of the query plan !
 
-        # XXX Check whether we can answer query.fact_table
+        # XXX Check whether we can answer query.object
 
 
         # Here we assume we have a single platform
         platform = metadata.keys()[0]
-        announce = metadata[platform][query.fact_table] # eg. table test
+        announce = metadata[platform][query.object] # eg. table test
         
 
         # Set up an AST for missing capabilities (need configuration)
@@ -236,8 +236,8 @@ class QueryPlan(object):
         else:
             add_projection = None
 
-        t = Table({platform:''}, {}, query.fact_table, set(), set())
-        self.ast = self.ast.From(t, query, metadata.get_capabilities(platform, query.fact_table))
+        t = Table({platform:''}, {}, query.object, set(), set())
+        self.ast = self.ast.From(t, query, metadata.get_capabilities(platform, query.object))
 
         # XXX associate the From node to the Gateway
         fromnode = self.ast.root
@@ -362,17 +362,13 @@ class QueryPlan(object):
                     field_names = [field.get_name() for field in fields]
 
                     # XXX We lack field pruning
-                    query = Query(
-                        user_query.get_action(),  # action
-                        method.get_name(),        # from
-                        [],                       # where will be eventually optimized later
-                        user_query.get_params(),  # params
-                        field_names,              # select
-                        user_query.get_ts()       # ts
-                    )
+                    query = Query.action(user_query.get_action(), method.get_name()) \
+                                .set(user_query.get_params()).select(field_names)
+                    # user_query.get_timestamp() # timestamp
+                    # where will be eventually optimized later
 
                     platform = method.get_platform()
-                    from_ast = AST(user = user).From(platform, query, metadata.get_capabilities(platform, query.fact_table))
+                    from_ast = AST(user = user).From(platform, query, metadata.get_capabilities(platform, query.object))
 
                     self.froms.append(from_ast.root)
 

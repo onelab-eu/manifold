@@ -20,7 +20,7 @@ def print_err(err):
     print ''
 
 q = {
-    'fact_table':   'resource',
+    'object':   'resource',
     'fields':       ['hrn']
 }
 

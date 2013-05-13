@@ -199,7 +199,7 @@ Example:
             #MySlice.AddCredential(auth, c, platform)
             query = {
                 'action':       'update',
-                'fact_table':   'local:account',
+                'object':   'local:account',
                 'filters':      [['platform', '=', platform]],
                 'params':       {'credential': c}
             }

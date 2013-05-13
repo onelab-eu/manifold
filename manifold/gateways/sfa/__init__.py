@@ -902,14 +902,14 @@ class SFAGateway(Gateway):
         return slice_list
  
     # This function will return information about a given network using SFA GetVersion call
-    # Depending on the object Queried, if fact_table is network then get_network is triggered by
-    # result = getattr(self, "%s_%s" % (q.action, q.fact_table))(local_filters, q.params, fields)
+    # Depending on the object Queried, if object is network then get_network is triggered by
+    # result = getattr(self, "%s_%s" % (q.action, q.object))(local_filters, q.params, fields)
     def get_network(self, filters = None, params = None, fields = None):
         # Network (AM) 
         server = self.sliceapi
         version = self.get_cached_server_version(server)
         # Hardcoding the get network call until caching is implemented
-        #if q.action == 'get' and q.fact_table == 'network':
+        #if q.action == 'get' and q.object == 'network':
         #platforms = db.query(Platform).filter(Platform.disabled == False).all()
         #for p in platforms:
         #    print "########## platform = %s",p.platform
@@ -1395,7 +1395,7 @@ class SFAGateway(Gateway):
             # This should use twisted XMLRPC
 
             # Hardcoding the get network call until caching is implemented
-            #if q.action == 'get' and q.fact_table == 'network':
+            #if q.action == 'get' and q.object == 'network':
             #    platforms = db.query(Platform).filter(Platform.disabled == False).all()
             #    output = []
             #    for p in platforms:
@@ -1409,7 +1409,7 @@ class SFAGateway(Gateway):
             # user account will not reference another platform, and will implicitly
             # contain information about the slice to associate USERHRN_slice
             slice_hrn = None
-            if self.platform == 'senslab' and q.fact_table == 'slice' and q.filters.has_eq('slice_hrn'):
+            if self.platform == 'senslab' and q.object == 'slice' and q.filters.has_eq('slice_hrn'):
                 slice_hrn = q.filters.get_eq('slice_hrn')
                 if not self.user_config or not 'user_hrn' in self.user_config:
                     raise Exception, "Missing user configuration"
@@ -1425,8 +1425,8 @@ class SFAGateway(Gateway):
             # XXX This should be run in a thread
             #
             
-            fields = q.fields # Metadata.expand_output_fields(q.fact_table, list(q.fields))
-            result = getattr(self, "%s_%s" % (q.action, q.fact_table))(local_filters, q.params, fields)
+            fields = q.fields # Metadata.expand_output_fields(q.object, list(q.fields))
+            result = getattr(self, "%s_%s" % (q.action, q.object))(local_filters, q.params, fields)
 
             for r in result:
                 # DIRTY HACK continued
