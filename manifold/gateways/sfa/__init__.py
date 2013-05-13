@@ -453,11 +453,7 @@ class SFAGateway(Gateway):
             raise Exception('Wrong filter in sfa_list')
 
         #try:
-        print "==========="
-        print "CONNECTING TO REGISTRY", self.registry
         records = self.registry.Resolve(xrns, cred, {'details': True})
-        print "Sfa::sfa_resolve_records", xrns
-        print "    result", records
         #except Exception, why:
         #    print "[Sfa::sfa_resolve_records] ERROR : %s" % why
         #    return []
