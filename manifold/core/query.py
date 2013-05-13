@@ -5,14 +5,24 @@
 #
 # Copyright (C) UPMC Paris Universitas
 # Authors:
-#   Jordan Augé       <jordan.auge@lip6.fr>
-#   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
+#   Jordan Augé         <jordan.auge@lip6.fr>
+#   Marc-Olivier Buob   <marc-olivier.buob@lip6.fr>
+#   Thierry Parmentelat <thierry.parmentelat@inria.fr>
 
 from types                      import StringTypes
 from manifold.core.filter         import Filter, Predicate
 from manifold.util.frozendict     import frozendict
 from manifold.util.type           import returns, accepts
 import copy
+
+import json
+import uuid
+
+def uniqid (): 
+    return uuid.uuid4().hex
+
+debug=False
+debug=True
 
 class ParameterError(StandardError): pass
 
@@ -26,7 +36,13 @@ class Query(object):
     2/ The set of fields specifies a AND between OR clauses.
     """
 
+    #--------------------------------------------------------------------------- 
+    # Constructor
+    #--------------------------------------------------------------------------- 
+
     def __init__(self, *args, **kwargs):
+
+        self.query_uuid = uniqid()
 
         # Initialize optional parameters
         self.clear()
@@ -48,17 +64,17 @@ class Query(object):
             if len_args == 3:
                 self.action = 'get'
                 self.params = {}
-                self.ts     = 'now'
-                self.fact_table, self.filters, self.fields = args
+                self.timestamp     = 'now'
+                self.object, self.filters, self.fields = args
             elif len_args == 4:
-                self.fact_table, self.filters, self.params, self.fields = args
+                self.object, self.filters, self.params, self.fields = args
                 self.action = 'get'
-                self.ts     = 'now'
+                self.timestamp     = 'now'
             else:
-                self.action, self.fact_table, self.filters, self.params, self.fields, self.ts = args
+                self.action, self.object, self.filters, self.params, self.fields, self.timestamp = args
 
         # Initialization from a dict
-        elif "fact_table" in kwargs:
+        elif "object" in kwargs:
             if "action" in kwargs:
                 self.action = kwargs["action"]
                 del kwargs["action"]
@@ -67,8 +83,8 @@ class Query(object):
                 self.action = "get"
 
 
-            self.fact_table = kwargs["fact_table"]
-            del kwargs["fact_table"]
+            self.object = kwargs["object"]
+            del kwargs["object"]
 
             if "filters" in kwargs:
                 self.filters = kwargs["filters"]
@@ -89,11 +105,11 @@ class Query(object):
             else:
                 self.params = {}
 
-            if "ts" in kwargs:
-                self.ts = kwargs["ts"]
-                del kwargs["ts"]
+            if "timestamp" in kwargs:
+                self.timestamp = kwargs["timestamp"]
+                del kwargs["timestamp"]
             else:
-                self.ts = "now" 
+                self.timestamp = "now" 
 
             if kwargs:
                 raise ParameterError, "Invalid parameter(s) : %r" % kwargs.keys()
@@ -103,7 +119,7 @@ class Query(object):
         if not self.filters: self.filters = Filter([])
         if not self.params:  self.params  = {}
         if not self.fields:  self.fields  = set([])
-        if not self.ts:      self.ts      = "now" 
+        if not self.timestamp:      self.timestamp      = "now" 
 
         if isinstance(self.filters, list):
             f = self.filters
@@ -119,54 +135,95 @@ class Query(object):
             if not isinstance(field, StringTypes):
                 raise TypeError("Invalid field name %s (string expected, got %s)" % (field, type(field)))
 
+    #--------------------------------------------------------------------------- 
+    # Helpers
+    #--------------------------------------------------------------------------- 
+
     def copy(self):
         return copy.deepcopy(self)
 
     def clear(self):
         self.action = 'get'
-        self.fact_table = None
+        self.object = None
         self.filters = Filter([])
         self.params  = {}
         self.fields  = set([])
-        self.ts      = "now" 
+        self.timestamp      = "now" 
+        self.timestamp  = 'now' # ignored for now
 
     @returns(StringTypes)
     def __str__(self):
-        if self.action == "get" or self.action=="delete":
-            return "%s %s FROM %s WHERE %s" % (
-                "SELECT" if self.action == "get" else self.action.upper(),
-                ", ".join(self.get_select()) if self.get_select() else '*',
-                self.get_from(),
-                self.get_where()
-            )
-        elif self.action == "create":
-            #INSERT INTO table_name (column1, column2, column3,...)
-            #VALUES (value1, value2, value3,...)
-            return "INSERT INTO %s (%s) VALUES (%s)" % (
-                self.get_from(),
-                ", ".join(self.params),
-                ", ".join(self.params.values())
-            )
-        elif self.action == "update":
-            #UPDATE table_name
-            #SET column1=value, column2=value2,...
-            #WHERE some_column=some_value
-            for p in self.params: 
-                s=p+"="+p.values()+", "
-            return "UPDATE %s SET %s WHERE %s" % (
-                self.get_from(),
-                s,
-                self.get_where()
-            )
-    #@returns(StringTypes)
-    #def __repr__(self):
-    #    return self.__str__()
+        return "SELECT %s FROM %s WHERE %s" % (
+            ", ".join(self.get_select()) if self.get_select() else '*',
+            self.get_from(),
+            self.get_where()
+        )
+
+    @returns(StringTypes)
+    def __repr__(self):
+        return self.__str__()
 
     def __key(self):
-        return (self.action, self.fact_table, self.filters, frozendict(self.params), frozenset(self.fields))
+        return (self.action, self.object, self.filters, frozendict(self.params), frozenset(self.fields))
 
     def __hash__(self):
+        print "HASH", self.__key()
         return hash(self.__key())
+
+    #--------------------------------------------------------------------------- 
+    # Conversion
+    #--------------------------------------------------------------------------- 
+
+    def to_dict(self):
+        return {
+            'action': self.action,
+            'object': self.object,
+            'timestamp': self.timestamp,
+            'filters': self.filters,
+            'params': self.params,
+            'fields': self.fields
+        }
+
+    def to_json (self, analyzed_query=None):
+        query_uuid=self.query_uuid
+        a=self.action
+        o=self.object
+        t=self.timestamp
+        f=json.dumps (self.filters.to_list())
+        p=json.dumps (self.params)
+        c=json.dumps (list(self.fields))
+        # xxx unique can be removed, but for now we pad the js structure
+        unique=0
+
+        if not analyzed_query:
+            aq = 'null'
+        else:
+            aq = analyzed_query.to_json()
+        sq="{}"
+        
+        result= """ new ManifoldQuery('%(a)s', '%(o)s', '%(t)s', %(f)s, %(p)s, %(c)s, %(unique)s, '%(query_uuid)s', %(aq)s, %(sq)s)"""%locals()
+        if debug: print 'ManifoldQuery.to_json:',result
+        return result
+    
+    # this builds a ManifoldQuery object from a dict as received from javascript through its ajax request 
+    # we use a json-encoded string - see manifold.js for the sender part 
+    # e.g. here's what I captured from the server's output
+    # manifoldproxy.proxy: request.POST <QueryDict: {u'json': [u'{"action":"get","object":"resource","timestamp":"latest","filters":[["slice_hrn","=","ple.inria.omftest"]],"params":[],"fields":["hrn","hostname"],"unique":0,"query_uuid":"436aae70a48141cc826f88e08fbd74b1","analyzed_query":null,"subqueries":{}}']}>
+    def fill_from_POST (self, POST_dict):
+        try:
+            json_string=POST_dict['json']
+            dict=json.loads(json_string)
+            for (k,v) in dict.iteritems(): 
+                setattr(self,k,v)
+        except:
+            print "Could not decode incoming ajax request as a Query, POST=",POST_dict
+            if (debug):
+                import traceback
+                traceback.print_exc()
+
+    #--------------------------------------------------------------------------- 
+    # Accessors
+    #--------------------------------------------------------------------------- 
 
     @returns(StringTypes)
     def get_action(self):
@@ -178,7 +235,7 @@ class Query(object):
 
     @returns(StringTypes)
     def get_from(self):
-        return self.fact_table
+        return self.object
 
     @returns(Filter)
     def get_where(self):
@@ -189,8 +246,8 @@ class Query(object):
         return self.params
 
     @returns(StringTypes)
-    def get_ts(self):
-        return self.ts
+    def get_timestamp(self):
+        return self.timestamp
 
 #DEPRECATED#
 #DEPRECATED#    def make_filters(self, filters):
@@ -207,26 +264,26 @@ class Query(object):
     #--------------------------------------------------------------------------- 
 
     @classmethod
-    def action(self, action, fact_table):
+    def action(self, action, object):
         query = Query()
-        query.action = 'get'
-        query.fact_table = fact_table
+        query.action = action
+        query.object = object
         return query
 
     @classmethod
-    def get(self, fact_table): return self.action('get', fact_table)
+    def get(self, object): return self.action('get', object)
 
     @classmethod
-    def update(self, fact_table): return self.action('update', fact_table)
+    def update(self, object): return self.action('update', object)
     
     @classmethod
-    def create(self, fact_table): return self.action('create', fact_table)
+    def create(self, object): return self.action('create', object)
     
     @classmethod
-    def delete(self, fact_table): return self.action('delete', fact_table)
+    def delete(self, object): return self.action('delete', object)
     
     @classmethod
-    def execute(self, fact_table): return self.action('execute', fact_table)
+    def execute(self, object): return self.action('execute', object)
 
     def filter_by(self, *args):
         if len(args) == 1:
@@ -235,7 +292,7 @@ class Query(object):
                 filters = [filters]
             for predicate in filters:
                 self.filters.add(predicate)
-        elif len(args) == 3:
+        elif len(args) == 3: 
             predicate = Predicate(*args)
             self.filters.add(predicate)
         else:
@@ -260,7 +317,10 @@ class AnalyzedQuery(Query):
     def __init__(self, query=None):
         self.clear()
         if query:
+            self.query_uuid = query.query_uuid
             self.analyze(query)
+        else:
+            self.query_uuid = uniqid()
 
     @returns(StringTypes)
     def __str__(self):
@@ -286,7 +346,7 @@ class AnalyzedQuery(Query):
         if not method in self._subqueries:
             analyzed_query = AnalyzedQuery()
             analyzed_query.action = self.action
-            analyzed_query.fact_table = method
+            analyzed_query.object = method
             self._subqueries[method] = analyzed_query
         return self._subqueries[method]
 
@@ -330,7 +390,27 @@ class AnalyzedQuery(Query):
     def analyze(self, query):
         self.clear()
         self.action = query.action
-        self.fact_table = query.fact_table
+        self.object = query.object
         self.filter_by(query.filters)
         self.set(query.params)
         self.select(query.fields)
+
+    def to_json (self):
+        query_uuid=self.query_uuid
+        a=self.action
+        o=self.object
+        t=self.timestamp
+        f=json.dumps (self.filters.to_list())
+        p=json.dumps (self.params)
+        c=json.dumps (list(self.fields))
+        # xxx unique can be removed, but for now we pad the js structure
+        unique=0
+
+        aq = 'null'
+        sq=", ".join ( [ "'%s':%s" % (object, subquery.to_json())
+                  for (object, subquery) in self._subqueries.iteritems()])
+        sq="{%s}"%sq
+        
+        result= """ new ManifoldQuery('%(a)s', '%(o)s', '%(t)s', %(f)s, %(p)s, %(c)s, %(unique)s, '%(query_uuid)s', %(aq)s, %(sq)s)"""%locals()
+        if debug: print 'ManifoldQuery.to_json:',result
+        return result

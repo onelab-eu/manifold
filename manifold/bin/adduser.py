@@ -41,7 +41,7 @@ def main():
         'email': email,
         'password': password
     }
-    query = Query(action='create', fact_table='local:user', params=user_params)
+    query = Query(action='create', object='local:user', params=user_params)
 
 
     # Instantiate a TopHat router

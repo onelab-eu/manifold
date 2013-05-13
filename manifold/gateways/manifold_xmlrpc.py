@@ -49,7 +49,7 @@ class ManifoldGateway(Gateway):
 
                 print "=" * 100
                 print "auth    =", auth
-                print "method  =", query.fact_table
+                print "method  =", query.object
                 print "filters =", query.filters
                 print "fields  =", query.fields
                 print "ts      =", query.ts
@@ -59,7 +59,7 @@ class ManifoldGateway(Gateway):
                 proxy.callRemote(
                     'Get',
                     auth,
-                    query.fact_table,
+                    query.object,
                     query.ts,
                     query.filters,
                     list(query.fields)

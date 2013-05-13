@@ -15,13 +15,13 @@ def print_err(err):
 
 q_account = {
     'action': 'get', 
-    'fact_table': 'local:account', 
+    'object': 'local:account', 
     'filters': [['platform', '=', 'ple'], ['email', '=', 'loic.baron@lip6.fr']]
 }
 test = {'user_hrn':'loic','cred':'test'}
 q_update = {
     'action': 'update',
-    'fact_table': 'local:account', 
+    'object': 'local:account', 
     'filters': [['platform', '=', 'ple'], ['user', '=', 'loic.baron@lip6.fr']],
     'params': {'config':test}
 }
