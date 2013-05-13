@@ -177,7 +177,7 @@ class Interface(object):
             if table == 'objects':
                 output = self.get_metadata_objects()
             else:
-                q = copy.deepcopy(query)
+                q = query.copy()
                 q.fact_table = table
                 output =  Storage.execute(q, user=user)
             return ResultValue.get_success(output)
