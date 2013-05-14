@@ -243,6 +243,7 @@ class Auth(object):
     
     @classmethod
     def AuthCheck(self, auth):
+        #print "AuthCheck auth=",auth
         Auth(auth).check()
         return 1
 
