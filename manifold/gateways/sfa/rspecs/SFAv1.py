@@ -177,7 +177,6 @@ class SFAv1Parser(RSpecParser):
         else:
             # @loic Functions for resources and leases created
             for network in networks:
-                print "Network=%s" % network
                 resources=self.dict_resources(network)
                 leases=self.dict_leases(resources,network)
         return {'resource': resources, 'lease': leases}

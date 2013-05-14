@@ -108,6 +108,8 @@ def import_file_h(filename):
         no_line += 1
         if REGEXP_EMPTY_LINE.match(line):
             continue
+        if line[0] == '#':
+            continue
         if cur_class_name: # current scope = class
             #    const MyType my_field[]; /**< Comment */
             m = REGEXP_CLASS_FIELD.match(line)

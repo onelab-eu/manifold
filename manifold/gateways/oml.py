@@ -152,7 +152,6 @@ class OMLGateway(PostgreSQLGateway):
         ))
         t.insert_key(slice_hrn)
 
-        t.capabilities.retrieve   = True
         t.capabilities.join       = True
         t.capabilities.selection  = True
         t.capabilities.projection = True

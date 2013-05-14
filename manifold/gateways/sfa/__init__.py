@@ -63,8 +63,8 @@ def timeout_callback(signum, frame):
 # Exceptions are ignored and will be catched in the default manifold handler
 class SfaServerProxy(_SfaServerProxy):
     def __getattr__(self, name):
-        if self.url is not None:
-            print "in Sfa Gateway - SfaServerProxy connecting to ",self.url
+        #if self.url is not None:
+        #    print "in Sfa Gateway - SfaServerProxy connecting to ",self.url
         def func(*args, **kwds):
             if 'timeout' in kwds:
                 timeout = kwds['timeout']
@@ -314,6 +314,7 @@ class SFAGateway(Gateway):
         # XXX ACCOUNT MANAGEMENT : to be improved
         config_new = None
         
+        # We manage MySlice accounts
         if account.auth_type == 'reference':
             ref_platform = json.loads(account.config)['reference_platform']
             ref_platform = db.query(Platform).filter(Platform.platform == ref_platform).one()
@@ -335,7 +336,7 @@ class SFAGateway(Gateway):
                 db.commit()
 
         # @loic update the user config, if the account is a reference, the query will be sent using the refered account
-        self.user_config=json.loads(config_new)
+        # XXX no !!!! XXX self.user_config=json.loads(config_new)
 
         # Initialize manager proxies
 
@@ -378,7 +379,7 @@ class SFAGateway(Gateway):
             version= ReturnValue.get_value(result)
             # cache version for 20 minutes
             cache.add(cache_key, version, ttl= 60*20)
-            log_info("Updating cache")
+            #log_info("Updating cache")
 
         return version   
         
@@ -475,24 +476,24 @@ class SFAGateway(Gateway):
         server_version = self.get_cached_server_version(self.sliceapi)
         type_version=set()
         # Versions matching to Gateway capabilities
-        try:
-          v=server_version['geni_ad_rspec_versions']
-          for w in v:
-            x=(w['type'],w['version'])
-            type_version.add(x)
-          print "type_version=",type_version
-          local_version=set([('SFA','1'),('GENI','3')])
-          common_version=type_version&local_version
-          print "COMMON = ",common_version
-          if ('SFA','1') in common_version:
-            api_options['geni_rspec_version'] = {'type': 'SFA', 'version': '1'}
-          else:
-            first_common=list(common_version)[0]
-            print "First Common = ",first_common
-            api_options['geni_rspec_version'] = {'type': first_common[0], 'version': first_common[1]}
-          print "Selected Version = ",api_options['geni_rspec_version']
-        except Exception, e:
-          print "E: Unsuported Rspec in __init__::sfa_getresources()"
+        #try:
+        v=server_version['geni_ad_rspec_versions']
+        for w in v:
+          x=(w['type'],w['version'])
+          type_version.add(x)
+        #print "type_version=",type_version
+        local_version=set([('SFA','1'),('GENI','3')])
+        common_version=type_version&local_version
+        #print "COMMON = ",common_version
+        if ('SFA','1') in common_version:
+          api_options['geni_rspec_version'] = {'type': 'SFA', 'version': '1'}
+        else:
+          first_common=list(common_version)[0]
+          #print "First Common = ",first_common
+          api_options['geni_rspec_version'] = {'type': first_common[0], 'version': first_common[1]}
+        #print "Selected Version = ",api_options['geni_rspec_version']
+        #except Exception, e:
+        #  print "E: Unsuported Rspec in __init__::sfa_getresources()"
         #api_options['info'] = options.info
         #if options.rspec_version:
         #    version_manager = VersionManager()
@@ -510,9 +511,9 @@ class SFAGateway(Gateway):
         #api_options['geni_rspec_version'] = {'type': 'GENI', 'version': '3'}
         if hrn:
             api_options['geni_slice_urn'] = hrn_to_urn(hrn, 'slice')
-        print "__init__::sfa_getresources() server=",self.sliceapi
+        #print "__init__::sfa_getresources() server=",self.sliceapi
         #print "__init__::sfa_getresources() cred=",cred
-        print "__init__::sfa_getresources() api_options=",api_options
+        #print "__init__::sfa_getresources() api_options=",api_options
         result = self.sliceapi.ListResources([cred], api_options)
         #print "__init__::sfa_getresources() ListResources result=",result
         #return ReturnValue.get_value(result)
@@ -686,7 +687,6 @@ class SFAGateway(Gateway):
     # default allows the use of MySlice's own credentials
     def _get_cred(self, type, target=None):
         if type == 'user':
-            print "entering _get_cred function"
             #pprint.pprint(self.user_config)
             if target:
                 raise Exception, "Cannot retrieve specific user credential for now"
@@ -903,7 +903,6 @@ class SFAGateway(Gateway):
                     slice_list.extend([r['hrn'] for r in records])
 
             if filters.has_eq('slice_hrn'):
-                print "got it"
                 hrns = filters.get_eq('slice_hrn')
                 if not isinstance(hrns, (tuple, list)):
                     hrns = [hrns]
@@ -1064,14 +1063,12 @@ class SFAGateway(Gateway):
                     print "W: Could not collect resource/leases for slice %s" % hrn
                 if has_resource:
                     s['resource'] = rsrc_leases['resource']
-                    print "SFA RESOURCES", s['resource']
                 if has_lease:
                     s['lease'] = rsrc_leases['lease'] 
                 if self.debug:
                     s['debug'] = rsrc_leases['debug']
 
         if has_user:
-            print "ADDING USERS TO SLICE DATA"
             for s in filtered:
                 s['user'] = [{'user_hrn': 'ple.upmc.jordan_auge_test'}]
 
@@ -1497,7 +1494,7 @@ class SFAGateway(Gateway):
             return {}
 
         if not 'user_private_key' in config:
-            print "I: SFA::manage: Generating user private key ofr user", user
+            print "I: SFA::manage: Generating user private key for user", user
             k = Keypair(create=True)
             config['user_public_key'] = k.get_pubkey_string()
             config['user_private_key'] = k.as_pem()
@@ -1595,5 +1592,7 @@ class SFAGateway(Gateway):
         if new_key or not 'slice_credentials' in config:
             # Generated on demand !
             config['slice_credentials'] = {}
+
+        # XXX We should generate delegated credentials here
 
         return config
