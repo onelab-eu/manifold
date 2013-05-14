@@ -26,7 +26,6 @@ from types                              import StringTypes, NoneType
 from pprint                             import pformat
 from manifold.gateways                  import Gateway
 from manifold.util.log                  import *
-from manifold.core.capabilities         import Capabilities
 from manifold.util.predicate            import and_, or_, inv, add, mul, sub, mod, truediv, lt, le, ne, gt, ge, eq, neg, contains
 from manifold.core.table                import Table
 from manifold.core.field                import Field 
@@ -509,11 +508,11 @@ class PostgreSQLGateway(Gateway):
             #mc.fields = fields
             #mc.keys.append(primary_keys[table_name])
         
-            cap = Capabilities()
-            cap.selection = True
-            cap.projection = True
+            t.capabilities.retrieve   = True
+            t.capabilities.join       = True
+            t.capabilities.selection  = True
+            t.capabilities.projection = True
 
-            announce = Announce(t, cap)
-            announces.append(announce)
+            announces.append(Announce(t))
 
         return announces

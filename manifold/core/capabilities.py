@@ -1,10 +1,16 @@
 class Capabilities(object):
     
-    KEYS = ['from', 'selection', 'projection', 'sort', 'limit', 'offset']
+    KEYS = ['retrieve', 'join', 'selection', 'projection', 'sort', 'limit', 'offset']
 
     def __init__(self, *args, **kwargs):
         for key in self.KEYS:
              object.__setattr__(self, key, False)
+
+    def __deepcopy__(self, memo):
+        capabilities = Capabilities()
+        for key in self.KEYS:
+            setattr(capabilities, key, getattr(self, key))
+        return capabilities
 
     def __setattr__(self, key, value):
         assert key in self.KEYS, "Unknown capability '%s'" % key

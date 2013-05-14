@@ -710,7 +710,7 @@ class SFAGateway(Gateway):
                 # Currently it is not possible to request for a slice credential
                 # with a delegated user credential...
                 if 'user_private_key' in self.user_config and self.user_config['user_private_key']:
-                    cred = SFA.generate_slice_credential(target, self.user_config)
+                    cred = SFAGateway.generate_slice_credential(target, self.user_config)
                     creds[target] = cred
                 else:
                     raise Exception , "no cred found of type %s towards %s " % (type, target)

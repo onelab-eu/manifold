@@ -234,7 +234,9 @@ class Node(object):
 
     def optimize_projection(self, fields):
         #raise Exception, "%s::optimize_projection() not implemented" % self.__class__.__name__
-        print "%s::optimize_projection() not implemented" % self.__class__.__name__
+        print "W: %s::optimize_projection() not implemented" % self.__class__.__name__
+        return self
+        
 
     def get_identifier(self):
         return self.identifier
@@ -651,6 +653,7 @@ class LeftJoin(Node):
         del self.left_map[key]
 
     def optimize_selection(self, filter):
+        print "LeftJoin::optimize_selection"
         # LEFT JOIN
         # We are pushing selections down as much as possible:
         # - selection on filters on the left: can push down in the left child
@@ -1151,8 +1154,12 @@ class SubQuery(Node):
         \param key the key for elements returned from the node
         """
         # Parameters
-        self.parent, self.children, self.key = parent, children, key
-
+        self.parent, self.key = parent, key
+        # Remove potentially None children
+        # TODO  how do we guarantee an answer to a subquery ? we should branch
+        # an empty FromList at query plane construction
+        self.children = [c for c in children if c]
+        
         # Member variables
         self.parent_output = []
 
@@ -1659,6 +1666,7 @@ class AST(object):
         self.root.optimize()
 
     def optimize_selection(self, filters):
+        print "AST::optimize_selection"
         old_cb = self.get_callback()
         self.root = self.root.optimize_selection(filters)
         self.set_callback(old_cb)

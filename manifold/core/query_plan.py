@@ -245,7 +245,7 @@ class QueryPlan(object):
         #fromnode.set_gateway(gw_or_router)
         #gw_or_router.query = query
 
-
+        if not self.root: return
         if add_selection:
             self.ast.optimize_selection(add_selection)
         if add_projection:
@@ -355,6 +355,7 @@ class QueryPlan(object):
             # corresponding table and build the corresponding FROM node
             map_method_fields = table.get_annotations()
             for method, fields in map_method_fields.items(): 
+                print "FOR", method, fields
                 if method.get_name() == table.get_name():
                     # The table announced by the platform fits with the 3nf schema
                     # Build the corresponding FROM 
@@ -368,7 +369,10 @@ class QueryPlan(object):
                     # where will be eventually optimized later
 
                     platform = method.get_platform()
-                    from_ast = AST(user = user).From(platform, query, metadata.get_capabilities(platform, query.object))
+                    capabilities = metadata.get_capabilities(platform, query.object)
+                    print "PLATFORM", platform, "CAPABILITY FROM", capabilities.retrieve
+                    if not capabilities.retrieve: continue
+                    from_ast = AST(user = user).From(platform, query, capabilities)
 
                     self.froms.append(from_ast.root)
 
@@ -406,7 +410,8 @@ class QueryPlan(object):
             # Add the current table in the query plane 
             if ast.is_empty():
                 # Process this table, which is the root of the 3nf tree
-                ast.union(from_asts, key)
+                if from_asts:
+                    ast.union(from_asts, key)
             else:
                 # Retrieve in-edge (u-->v): there is always exactly 1
                 # predecessor in the 3nf tree since v is not the root.
@@ -417,11 +422,15 @@ class QueryPlan(object):
                 predicate = pruned_tree[u][v]["predicate"]
                 ast.left_join(AST(user = user).union(from_asts, key), predicate)
 
-        # Add WHERE node the tree
-        if user_query.get_where() != set():
-            ast.selection(user_query.get_where())
+        if not ast.root: return ast
 
+        # Add WHERE node the tree
+        ast.optimize_selection(user_query.get_where())
         # Add SELECT node above the tree
+        ast.optimize_projection(user_query.get_select())
+
+        #if user_query.get_where() != set():
+        #    ast.selection(user_query.get_where())
         #TODO ast.projection(list(user_query.get_select()))
 
         return ast

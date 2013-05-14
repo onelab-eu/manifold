@@ -20,7 +20,7 @@ from manifold.util.clause             import Clause
 #from manifold.metadata.Metadata         import import_file_h
 #from manifold.metadata.MetadataEnum   import MetadataEnum
 
-STATIC_ROUTES_FILE = "/usr/share/myslice/metadata/"
+STATIC_ROUTES_FILE = "/usr/share/manifold/metadata/"
 
 #------------------------------------------------------------------
 # Constants needed for .h parsing, see import_file_h(...)
@@ -101,7 +101,6 @@ def import_file_h(filename):
     cur_enum_name = None
     classes = {}
     enums   = {}
-    capabilities = []
     no_line = -1
     for line in lines:
         line = line.rstrip("\r\n")
@@ -138,8 +137,8 @@ def import_file_h(filename):
             #    CAPABILITY(my_field1, my_field2);
             m = REGEXP_CLASS_CAP.match(line)
             if m:
-                capability = m.group(1).split(',')
-                capabilities.extend = [capability_elt.strip() for capability_elt in capability]
+                capability = map(lambda x: x.strip(),  m.group(1).split(','))
+                classes[cur_class_name].set_capability(capability)
                 continue
 
             #    PARTITIONBY(clause_string);
@@ -213,26 +212,22 @@ def import_file_h(filename):
 #        if invalid_keys:
 #            raise ValueError("In %s: in class %r: key(s) not found: %r" % (filename, cur_class_name, invalid_keys))
 
-    return (classes, enums, capabilities)
+    return (classes, enums)
 
 #------------------------------------------------------------------
 # Announce
 #------------------------------------------------------------------
 
 class Announce(object):
-    def __init__(self, table, capabilities, cost=None):
+    def __init__(self, table, cost=None):
         """
         \brief Constructor
         """
-        assert isinstance(capabilities, Capabilities), "Wrong capability argument"
-
         self.table = table
-        self.capabilities = capabilities
         self.cost = cost
 
     def __repr__(self):
-        cap_str = "%s%s" % ('S' if self.capabilities.selection else '', 'P' if self.capabilities.projection else '')
-        return "<Announce [%s] %r>" % (cap_str, self.table)
+        return "<Announce %r>" % self.table
 
 class Announces(object):
 
@@ -263,7 +258,7 @@ class Announces(object):
 
         # Read input file
         #print "I: Platform %s: Processing %s" % (platform, filename)
-        (classes, enums, capabilities) = import_file_h(filename)
+        (classes, enums) = import_file_h(filename)
 
         # Check class consistency
         for cur_class_name, cur_class in classes.items():
@@ -275,28 +270,13 @@ class Announces(object):
         # Thus we can't use get_invalid_types yet
 
         announces = []
-        for cur_class_name, cur_class in classes.items():
-            # t = Table(platform, None, cur_class_name, cur_class.fields, cur_class.keys) # None = methods
-            # self.rib[t] = platform
-
-            #mc = MetadataClass('class', cur_class_name)
-            #mc.fields = set(cur_class.fields) # XXX set should be mandatory
-            #mc.keys = cur_class.keys
-            t = Table(platform, None, cur_class_name, cur_class.fields, cur_class.keys) # XXX qualifier ?
-
-            cap = Capabilities()
-            for capability in capabilities:
-                setattr(cap, capability, True)
-            
-            announce = Announce(t, cap)
-            announces.append(announce)
+        for t in classes.values():
+            t.set_partitions(platform) # XXX This is weird
+            announces.append(Announce(t))
         return announces
 
     @classmethod
     def get_announces(self, metadata):
-        cap = Capabilities()
-        cap.selection = True
-        cap.projection = True
-        return [Announce(t, cap) for t in metadata.get_announce_tables()]
+        return [Announce(t) for t in metadata.get_announce_tables()]
         
         
