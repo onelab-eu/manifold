@@ -941,8 +941,8 @@ class SFAGateway(Gateway):
                 if k=='testbed':
                     result['network_name']=v
             #result={'network_hrn': version['hrn'], 'network_name': version['testbed']}
-            #print result
-        return result
+            #print "SfaGateway::get_network() =",result
+        return [result]
 
     def get_slice(self, filters = None, params = None, fields = None):
         #

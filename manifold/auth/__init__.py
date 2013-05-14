@@ -240,8 +240,11 @@ class Auth(object):
 
     def check(self):
         return self.auth_method.check()
-
-    def AuthCheck(self):
+    
+    @classmethod
+    def AuthCheck(self, auth):
+        #print "AuthCheck auth=",auth
+        Auth(auth).check()
         return 1
 
     # These are temporary functions...
