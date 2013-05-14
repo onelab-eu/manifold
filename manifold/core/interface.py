@@ -45,7 +45,6 @@ class Interface(object):
                 self.metadata[platform].append(m)
                 #self.tables.append(m.table)
 
-
     def get_gateway_config(self, gateway_name):
         log_info("Hardcoded CSV|PostgreSQL configuration")
         if gateway_name == 'postgresql':
@@ -177,7 +176,7 @@ class Interface(object):
             if table == 'object':
                 output = self.get_metadata_objects()
             else:
-                q = copy.deepcopy(query)
+                q = query.copy()
                 q.object = table
                 output =  Storage.execute(q, user=user)
             return ResultValue.get_success(output)
