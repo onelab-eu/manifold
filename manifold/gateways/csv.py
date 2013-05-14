@@ -6,7 +6,6 @@ from datetime                           import datetime
 from manifold.gateways                  import Gateway
 from manifold.core.table                import Table
 from manifold.core.announce             import Announce
-from manifold.core.capabilities         import Capabilities
 from manifold.core.field                import Field 
 
 # Heuristics for type guessing
@@ -95,10 +94,9 @@ class CSVGateway(Gateway):
                 #mc.fields = set(fields) # XXX set should be mandatory
                 #mc.keys = reader.fieldnames[0]
                 t = Table(None, None, self.get_base(filename), fields, reader.fieldnames[0])
-                cap = Capabilities()
-
-                announce = Announce(t, cap)
-                announces.append(announce)
+                t.capabilities.retrieve   = True
+                t.capabilities.join       = True
+                announces.append(Announce(t))
 
         return announces
         

@@ -3,7 +3,6 @@ from manifold.core.table                import Table
 from manifold.core.key                  import Key, Keys
 from manifold.core.field                import Field 
 from manifold.core.announce             import Announce
-from manifold.core.capabilities         import Capabilities
 import traceback
 
 class OMLGateway(PostgreSQLGateway):
@@ -152,12 +151,13 @@ class OMLGateway(PostgreSQLGateway):
             description = 'Lease identifier'
         ))
         t.insert_key(slice_hrn)
-        cap = Capabilities()
-        cap.selection = True
-        cap.projection = True
 
-        announce = Announce(t, cap)
-        announces.append(announce)
+        t.capabilities.retrieve   = True
+        t.capabilities.join       = True
+        t.capabilities.selection  = True
+        t.capabilities.projection = True
+
+        announces.append(Announce(t))
 
         # ANNOUNCE
         #
@@ -191,12 +191,13 @@ class OMLGateway(PostgreSQLGateway):
         t.insert_key(key)
         #t.insert_key(lease_id)
 
-        cap = Capabilities()
-        cap.selection = True
-        cap.projection = True
+        t.capabilities.retrieve   = True
+        t.capabilities.join       = True
+        t.capabilities.selection  = True
+        t.capabilities.projection = True
 
-        announce = Announce(t, cap)
-        announces.append(announce)
+        announces.append(Announce(t))
+
 
         # ANNOUNCE
         #
@@ -237,11 +238,11 @@ class OMLGateway(PostgreSQLGateway):
         t.insert_key(key)
         #t.insert_key(application)
 
-        cap = Capabilities()
-        cap.selection = False
-        cap.projection = False
+        t.capabilities.retrieve   = True
+        t.capabilities.join       = True
+        t.capabilities.selection  = True
+        t.capabilities.projection = True
 
-        announce = Announce(t, cap)
-        announces.append(announce)
+        announces.append(Announce(t))
 
         return announces

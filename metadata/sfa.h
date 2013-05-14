@@ -5,6 +5,7 @@ class slice {
     lease       lease[];       /**< List of leases associated to the slice */
     user        user[];        /**< List of users associated to the slice */
     KEY(slice_hrn);
+	CAPABILITY(retrieve,join);
 };
 
 class lease {
@@ -16,6 +17,7 @@ class lease {
     const text  hrn;
     const text  lease_type;
     KEY(urn);
+	CAPABILITY(retrieve,join);
 };
 
 enum boot_state {
@@ -61,12 +63,14 @@ class resource {
     const int       site_id;
     const text      resource_type;
     KEY(hrn);
+	CAPABILITY(retrieve,join);
 };
 
 class network {
     const text network_hrn;
     const text network_name;
     KEY(network_hrn);
+	CAPABILITY(retrieve,join);
 };
 
 class user {
@@ -78,5 +82,6 @@ class user {
     const text password;
     const text site;
     KEY(user_hrn);
+	CAPABILITY(join);
 };
 

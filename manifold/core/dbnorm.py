@@ -765,8 +765,7 @@ def to_3nf(metadata):
     for platform, announces in metadata.items():
         for announce in announces:
             tables.append(announce.table)
-            #print "(%s, %s) -> %r" % (platform.name, announce.table.get_name(), announce.capabilities)
-            map_method_capabilities[(platform.name, announce.table.get_name())] = announce.capabilities
+            map_method_capabilities[(platform.name, announce.table.get_name())] = announce.table.get_capabilities()
     fds = make_fd_set(tables)
     #print "%r" % fds
 
@@ -946,6 +945,8 @@ def to_3nf(metadata):
     #print "-" * 100
     #print "6) Building DBgraph"
     #print "-" * 100
+    # TODO: capabilities are now in tables, shall they be present in tables_3nf
+    # instead of relying on map_method_capabilities ?
     graph_3nf = DBGraph(tables_3nf, map_method_capabilities)
 
     return graph_3nf

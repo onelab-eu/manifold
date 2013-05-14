@@ -17,6 +17,7 @@ from manifold.core.filter     import Filter
 from manifold.core.key        import Key, Keys 
 from manifold.util.type       import returns, accepts 
 from manifold.core.method     import Method 
+from manifold.core.capabilities import Capabilities
 
 class Table:
     """
@@ -126,14 +127,7 @@ class Table:
         # Check parameters
         Table.check_init(partitions, map_field_methods, name, fields, keys)
 
-        self.partitions = dict()
-        if isinstance(partitions, (list, set, frozenset)):
-            for platform in partitions:
-                self.partitions[platform] = None
-        elif isinstance(partitions, StringTypes):
-            self.partitions[partitions] = None
-        elif isinstance(partitions, dict):
-            self.partitions = partitions 
+        self.set_partitions(partitions)
 
         # Init self.fields
         self.fields = dict()
@@ -150,11 +144,14 @@ class Table:
                 self.insert_key(key)
 
         # Init self.platforms
-        self.platforms = set(self.partitions.keys())
+        self.init_platforms()
         if isinstance(map_field_methods, dict):
             for methods in map_field_methods.values():
                 for method in methods:
                     self.platforms.add(method.get_platform())
+
+        # Init default capabilities (none)
+        self.capabilities = Capabilities()
  
         # Other fields
         self.name = name
@@ -258,6 +255,15 @@ class Table:
                 raise TypeError("key = %r is not of type Key nor Field nor StringTypes")
             self.keys.add(Key(fields))
 
+    def set_capability(self, capability):
+        if isinstance(capability, StringTypes):
+            capability = [capability]
+        elif isinstance(capability, (list, tuple, set, frozenset)):
+            capability = list(capability)
+        else:
+            raise TypeError("capability = %r is not of type String or iterable")
+        for c in capability:
+            setattr(self.capabilities, c, True)
  
     @returns(bool)
     def erase_key(self, key):
@@ -332,6 +338,13 @@ class Table:
         """
         return self.keys
 
+    @returns(Capabilities)
+    def get_capabilities(self):
+        """
+        \return A Capabilities object
+        """
+        return self.capabilities
+
     @returns(set)
     def get_names_from_keys(self):
         """
@@ -366,6 +379,21 @@ class Table:
             (e.g the partition). A None clause means that this clause is always True
         """
         return self.partitions
+
+    def set_partitions(self, partitions):
+        self.partitions = dict()
+        if isinstance(partitions, (list, set, frozenset)):
+            for platform in partitions:
+                self.partitions[platform] = None
+        elif isinstance(partitions, StringTypes):
+            self.partitions[partitions] = None
+        elif isinstance(partitions, dict):
+            self.partitions = partitions 
+
+        self.init_platforms()
+
+    def init_platforms(self):
+        self.platforms = set(self.partitions.keys())
 
     @returns(set)
     def get_platforms(self):
