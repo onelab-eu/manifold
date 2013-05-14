@@ -39,6 +39,9 @@ class XMLRPCAPI(xmlrpc.XMLRPC, object):
     def xmlrpc_forward(self, *args):
         """
         """
+        print "-------------------"
+        print "xmlrpc_api args = ",args
+        print "-------------------"
         if not Options().disable_auth:
             assert len(args) == 2, "Wrong arguments for XMLRPC forward call"
             auth, query = args

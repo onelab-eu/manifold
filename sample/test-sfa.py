@@ -13,6 +13,8 @@ def print_err(err):
         print "\t", line
     print ''
 
+q = {'action': 'get', 'fields': ['network_hrn'], 'object': 'network', 'params': [], 'filters': []}
+
 q = {
     'object':   'network',
     'fields':       ['network_hrn']
