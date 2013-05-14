@@ -257,6 +257,7 @@ class Table:
             else:
                 raise TypeError("key = %r is not of type Key nor Field nor StringTypes")
             self.keys.add(Key(fields))
+
  
     @returns(bool)
     def erase_key(self, key):

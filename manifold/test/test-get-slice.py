@@ -1,10 +1,13 @@
 #!/usr/bin/env python
 #! -*- coding: utf-8 -*-
 
-import xmlrpclib, pprint
-from config import auth
+from manifold.auth        import *
+from manifold.core.router import Router
+from manifold.core.query  import Query
+from config               import auth
+import sys, pprint
 
-srv = xmlrpclib.Server("http://localhost:7080/", allow_none = True)
+DEFAULT_SLICE = 'ple.upmc.myslicedemo'
 
 def print_err(err):
     print '-'*80
@@ -13,11 +16,16 @@ def print_err(err):
         print "\t", line
     print ''
 
-q = {
-    'object': 'local:objects'
-}
+slicename = sys.argv[1] if len(sys.argv) > 2 else DEFAULT_SLICE
+query = Query.get('slice').filter_by('slice_hrn', '=', slicename).select([
+    'slice_hrn',
+    'resource.hrn', 'resource.hostname', 'resource.type', 'resource.authority',
+    'user.user_hrn',
+    'application.measurement_point.counter'
+])
 
-ret = srv.forward(auth, q)
+ret = Router().forward(query, user=Auth(auth).check())
+
 if ret['code'] != 0:
     if isinstance(ret['description'], list):
         # We have a list of errors
@@ -29,4 +37,3 @@ ret = ret['value']
 print "===== RESULTS ====="
 for r in ret:
     pprint.pprint(r)
-

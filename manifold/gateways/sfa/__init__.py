@@ -975,7 +975,7 @@ class SFAGateway(Gateway):
                 s['resource'] = rsrc_leases['resource']
                 s['lease'] = rsrc_leases['lease'] 
             if has_users:
-                s['users'] = [{'person_hrn': 'myslice.demo'}]
+                s['user'] = [{'person_hrn': 'myslice.demo'}]
             if self.debug:
                 s['debug'] = rsrc_leases['debug']
 
@@ -1023,9 +1023,7 @@ class SFAGateway(Gateway):
         # cred = self._get_cred('user', self.user.user_hrnself.config['caller']['person_hrn'])
         cred = self._get_cred('user')
         # - Resolving slice hrns to get additional information
-        print "calling resolve records"
         slices = self.sfa_resolve_records(cred, slice_list, 'slice')
-        print "Resolve records returned", slices
         # Merge resulting information
         for (hrn, slice) in itertools.izip(slice_list, slices):
             slice['slice_hrn'] = hrn
@@ -1073,7 +1071,9 @@ class SFAGateway(Gateway):
                     s['debug'] = rsrc_leases['debug']
 
         if has_user:
-            pass # TODO how to get slice users
+            print "ADDING USERS TO SLICE DATA"
+            for s in filtered:
+                s['user'] = [{'user_hrn': 'ple.upmc.jordan_auge_test'}]
 
         # remove join fields
         if fields and 'slice_hrn' not in fields:

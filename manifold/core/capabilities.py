@@ -1,6 +1,6 @@
 class Capabilities(object):
     
-    KEYS = ['selection', 'projection', 'sort', 'limit', 'offset']
+    KEYS = ['from', 'selection', 'projection', 'sort', 'limit', 'offset']
 
     def __init__(self, *args, **kwargs):
         for key in self.KEYS:

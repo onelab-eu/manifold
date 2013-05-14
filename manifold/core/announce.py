@@ -12,8 +12,8 @@
 
 import os, re
 #from manifold.metadata.MetadataClass    import MetadataClass
-from manifold.core.table                import Table
-from manifold.core.capabilities         import Capabilities
+from manifold.core.table              import Table
+from manifold.core.capabilities       import Capabilities
 from manifold.core.field              import Field 
 from manifold.core.key                import Key, Keys
 from manifold.util.clause             import Clause
@@ -39,6 +39,7 @@ PATTERN_ARRAY        = "(\[\])?"
 PATTERN_CLASS_BEGIN  = PATTERN_SPACE.join([PATTERN_CLASS, PATTERN_SYMBOL, "{"])
 PATTERN_CLASS_FIELD  = PATTERN_SPACE.join([PATTERN_CONST, PATTERN_SYMBOL, PATTERN_OPT_SPACE.join([PATTERN_SYMBOL, PATTERN_ARRAY, ";"])])
 PATTERN_CLASS_KEY    = PATTERN_OPT_SPACE.join(["KEY\((", PATTERN_SYMBOL, "(,", PATTERN_SYMBOL, ")*)\)", ";"])
+PATTERN_CLASS_CAP    = PATTERN_OPT_SPACE.join(["CAPABILITY\((", PATTERN_SYMBOL, "(,", PATTERN_SYMBOL, ")*)\)", ";"])
 PATTERN_CLASS_CLAUSE = PATTERN_OPT_SPACE.join(["PARTITIONBY\((", PATTERN_CLAUSE, ")\)", ";"])
 PATTERN_CLASS_END    = PATTERN_OPT_SPACE.join(["}", ";"])
 PATTERN_ENUM_BEGIN   = PATTERN_SPACE.join(["enum", PATTERN_SYMBOL, "{"])
@@ -49,6 +50,7 @@ REGEXP_EMPTY_LINE    = re.compile(''.join([PATTERN_BEGIN, PATTERN_COMMENT,      
 REGEXP_CLASS_BEGIN   = re.compile(''.join([PATTERN_BEGIN, PATTERN_CLASS_BEGIN,  PATTERN_END]))
 REGEXP_CLASS_FIELD   = re.compile(''.join([PATTERN_BEGIN, PATTERN_CLASS_FIELD,  PATTERN_END]))
 REGEXP_CLASS_KEY     = re.compile(''.join([PATTERN_BEGIN, PATTERN_CLASS_KEY,    PATTERN_END]))
+REGEXP_CLASS_CAP     = re.compile(''.join([PATTERN_BEGIN, PATTERN_CLASS_CAP,    PATTERN_END]))
 REGEXP_CLASS_CLAUSE  = re.compile(''.join([PATTERN_BEGIN, PATTERN_CLASS_CLAUSE, PATTERN_END]))
 REGEXP_CLASS_END     = re.compile(''.join([PATTERN_BEGIN, PATTERN_CLASS_END,    PATTERN_END]))
 REGEXP_ENUM_BEGIN    = re.compile(''.join([PATTERN_BEGIN, PATTERN_ENUM_BEGIN,   PATTERN_END]))
@@ -99,6 +101,7 @@ def import_file_h(filename):
     cur_enum_name = None
     classes = {}
     enums   = {}
+    capabilities = []
     no_line = -1
     for line in lines:
         line = line.rstrip("\r\n")
@@ -130,6 +133,13 @@ def import_file_h(filename):
                 # XXX
                 #if key not in classes[cur_class_name].keys:
                 #     classes[cur_class_name].keys.append(key)
+                continue
+
+            #    CAPABILITY(my_field1, my_field2);
+            m = REGEXP_CLASS_CAP.match(line)
+            if m:
+                capability = m.group(1).split(',')
+                capabilities.extend = [capability_elt.strip() for capability_elt in capability]
                 continue
 
             #    PARTITIONBY(clause_string);
@@ -203,7 +213,7 @@ def import_file_h(filename):
 #        if invalid_keys:
 #            raise ValueError("In %s: in class %r: key(s) not found: %r" % (filename, cur_class_name, invalid_keys))
 
-    return (classes, enums)
+    return (classes, enums, capabilities)
 
 #------------------------------------------------------------------
 # Announce
@@ -214,7 +224,7 @@ class Announce(object):
         """
         \brief Constructor
         """
-        assert isinstance(capabilities, Capabilities), "Wrong capabilities argument"
+        assert isinstance(capabilities, Capabilities), "Wrong capability argument"
 
         self.table = table
         self.capabilities = capabilities
@@ -253,7 +263,7 @@ class Announces(object):
 
         # Read input file
         #print "I: Platform %s: Processing %s" % (platform, filename)
-        (classes, enums) = import_file_h(filename)
+        (classes, enums, capabilities) = import_file_h(filename)
 
         # Check class consistency
         for cur_class_name, cur_class in classes.items():
@@ -275,10 +285,9 @@ class Announces(object):
             t = Table(platform, None, cur_class_name, cur_class.fields, cur_class.keys) # XXX qualifier ?
 
             cap = Capabilities()
-
-            cap.selection = True
-            cap.projection = True
-
+            for capability in capabilities:
+                setattr(cap, capability, True)
+            
             announce = Announce(t, cap)
             announces.append(announce)
         return announces

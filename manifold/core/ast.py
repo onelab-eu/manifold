@@ -185,7 +185,7 @@ class Node(object):
         """
         \brief calls the parent callback with the record passed in parameter
         """
-        #print "[%12s #%04d] SEND [ %r ]" % (self.__class__.__name__, self.identifier, record)
+        print "[%12s #%04d] SEND [ %r ]" % (self.__class__.__name__, self.identifier, record)
         self.callback(record)
 
     @returns(Query)
@@ -226,14 +226,15 @@ class Node(object):
 
     def optimize(self):
         tree = self.optimize_selection(Filter())
-        #tree = tree.optimize_projection(set())
+        tree = tree.optimize_projection(set())
         return tree
     
     def optimize_selection(self, filter):
         raise Exception, "%s::optimize_selection() not implemented" % self.__class__.__name__
 
     def optimize_projection(self, fields):
-        raise Exception, "%s::optimize_projection() not implemented" % self.__class__.__name__
+        #raise Exception, "%s::optimize_projection() not implemented" % self.__class__.__name__
+        print "%s::optimize_projection() not implemented" % self.__class__.__name__
 
     def get_identifier(self):
         return self.identifier
@@ -317,12 +318,15 @@ class From(Node):
                        or list of record keys
         \return This node
         """
+        print "From::inject called"
+        print "-------------------"
         if not records:
             return
         record = records[0]
 
         # Are the records a list of full records, or only record keys
         is_record = isinstance(record, dict)
+        print "IS RECORD", is_record, "proof:", record
 
         # If the injection does not provides all needed fields, we need to
         # request them and join
@@ -330,7 +334,9 @@ class From(Node):
         needed_fields = self.query.fields
         missing_fields = needed_fields - provided_fields
 
+        print "MISSING FIELDS", missing_fields
         if not missing_fields:
+            print "  > FromTable"
             return FromTable(self.query, records, key)
 
 
@@ -356,8 +362,8 @@ class From(Node):
         #parent_query.fields = provided_fields
         #parent_from = FromTable(parent_query, records, key)
 
+        print "  > We do a join"
         join = LeftJoin(records, self, Predicate(key, '==', key))
-        join.query = query
         join.set_callback(old_self_callback)
 
         return join
@@ -477,10 +483,18 @@ class LeftJoin(Node):
             left_child.set_callback(self.left_callback)
         right_child.set_callback(self.right_callback)
 
-        if not isinstance(left_child, list):
+        if isinstance(left_child, list):
+            self.query = self.right.get_query().copy()
+            # adding left fields: we know left_child is always a dict, since it
+            # holds more than the key only, since otherwise we would not have
+            # injected but only added a filter.
+            if left_child:
+                self.query.fields |= left_child[0].keys()
+        else:
             self.query = self.left.get_query().copy()
             self.query.filters |= self.right.get_query().filters
             self.query.fields  |= self.right.get_query().fields
+        
 
 #        for child in self.get_children():
 #            # XXX can we join on filtered lists ? I'm not sure !!!
@@ -642,6 +656,8 @@ class LeftJoin(Node):
         # - selection on filters on the left: can push down in the left child
         # - selection on filters on the right: cannot push down
         # - selection on filters on the key / common fields ??? TODO
+        print "-"*80
+        print "LeftJoin::optimize_selection", filter
         parent_filter, left_filter = Filter(), Filter()
         for predicate in filter:
             if predicate.key in self.left.get_query().fields:
@@ -650,6 +666,7 @@ class LeftJoin(Node):
                 parent_filter.add(predicate)
 
         if left_filter:
+            print "JOIN left filter"
             self.left = self.left.optimize_selection(left_filter)
             #selection = Selection(self.left, left_filter)
             #selection.query = self.left.copy().filter_by(left_filter)
@@ -657,6 +674,7 @@ class LeftJoin(Node):
             #self.left = selection
 
         if parent_filter:
+            print "JOIN parent filter"
             old_self_callback = self.get_callback()
             selection = Selection(self, parent_filter)
             selection.query = self.query.copy().filter_by(parent_filter)
@@ -1199,6 +1217,7 @@ class SubQuery(Node):
                 self.run_children()
             return
         # Store the record for later...
+        print "  *** subquery received", record
         self.parent_output.append(record)
 
     def run_children(self):
@@ -1238,8 +1257,27 @@ class SubQuery(Node):
                 # . if it is only keys: add a where
                 # . otherwise we need to inject records (and reprogram injection in a complex query plane)
                 #   (based on a left join)
-                pass
-
+                print "!" * 80
+                print "Ignoring fields in parent that should be injected in children"
+                print "METHOD", child_query.object
+                print "!" * 80
+                for slice in self.parent_output:
+                    print "CONSIDERING PARENT RECORD", slice
+                    if not child_query.object in slice: continue
+                    users = slice[child_query.object]
+                    # users est soit une liste d'id, soit une liste de records
+                    user_data = []
+                    for user in users:
+                        if isinstance(user, dict):
+                            user_data.append(user)
+                        else:
+                            # have have a key
+                            user_data.append({self.key: user})
+                    # Let's inject user_data in the right child
+                    print "INJECTING IN CHILD"
+                    print child
+                    child.inject(user_data, self.key, None)
+                    
             elif intersection: #parent_fields <= child_query.fields:
                 # Case (2) : the child has a backreference to the parent
                 # For each parent, we need the set of child that point to it...
@@ -1619,6 +1657,16 @@ class AST(object):
 
     def optimize(self):
         self.root.optimize()
+
+    def optimize_selection(self, filters):
+        old_cb = self.get_callback()
+        self.root = self.root.optimize_selection(filters)
+        self.set_callback(old_cb)
+
+    def optimize_projection(self, fields):
+        old_cb = self.get_callback()
+        self.root = self.root.optimize_projection(fields)
+        self.set_callback(old_cb)
 
 #------------------------------------------------------------------
 # Example
