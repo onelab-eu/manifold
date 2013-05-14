@@ -11,7 +11,7 @@ log = logging.getLogger(__name__)
 
 class Account(Base):
 
-    user_filter = True
+    restrict_to_self = True
 
     platform_id = Column(Integer, ForeignKey('platform.platform_id'), primary_key=True, doc='Platform identifier')
     user_id = Column(Integer, ForeignKey('user.user_id'), primary_key=True, doc='User identifier')

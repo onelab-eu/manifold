@@ -28,8 +28,8 @@ def get_sqla_filters(cls, filters):
         return None
 
 def row2dict(row):
-    return {c: getattr(row, c) for c in row.keys()}
-    #return {c.name: getattr(row, c.name) for c in row.__table__.columns}
+    #return {c: getattr(row, c) for c in row.keys()}
+    return {c.name: getattr(row, c.name) for c in row.__table__.columns}
 
 class SQLAlchemyGateway(Gateway):
 
@@ -97,9 +97,17 @@ class SQLAlchemyGateway(Gateway):
         _filters = get_sqla_filters(cls, query.filters)
         _fields = xgetattr(cls, query.fields) if query.fields else None
 
+
         res = db.query( *_fields ) if _fields else db.query( cls )
         if query.filters:
             res = res.filter(_filters)
+
+        # Do we need to limit to the user's own results
+        try:
+            if cls.restrict_to_self:
+                res = res.filter(User.user_id == self.user.user_id)
+        except AttributeError: pass
+
         tuplelist = res.all()
         # only 2.7+ table = [ { fields[idx] : val for idx, val in enumerate(t) } for t in tuplelist]
 
