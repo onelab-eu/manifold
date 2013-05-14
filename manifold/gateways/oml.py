@@ -20,8 +20,8 @@ class OMLGateway(PostgreSQLGateway):
         }]
 
     def get_application(self, filter=None, params = None, fields = None):
-        print "GET_MEASUREMENT", filter, params, fields
-        print "FORCED LEASE ID TO 100"
+        #print "GET_MEASUREMENT", filter, params, fields
+        #print "FORCED LEASE ID TO 100"
         lease_id = 100
         lease_id_str = "%d" % lease_id
         # List databases
@@ -55,12 +55,12 @@ class OMLGateway(PostgreSQLGateway):
             #fields = [field.split(':', 2) for field in fields]
             ret.append({'lease_id': lease_id, 'application': application})
 
-        print "APPLICATION ret=", ret
+        #print "APPLICATION ret=", ret
         return ret
 
     def get_measurement_point(self, filter=None, params = None, fields = None):
         # Maybe this cannot be called directly ? maybe we rely on get_measurement
-        print "GET_MEASUREMENT_POINT", filter, params, fields
+        #print "GET_MEASUREMENT_POINT", filter, params, fields
 
         # Try connection to database 'lease_id', if error return none
 
@@ -69,14 +69,14 @@ class OMLGateway(PostgreSQLGateway):
 
     def get_measurement_table(measure, filter=None, params=None, fields=None):
         # We should be connected to the right database
-        print "OMLGateway::application"#, application
-        print "OMLGateway::measure", measure
+        #print "OMLGateway::application"#, application
+        #print "OMLGateway::measure", measure
 
         # We need the name of the measure + the application
         application = 'Application1'
         measure = 'counter'
-        print ">> OMLGateway::application", application
-        print ">> OMLGateway::measure", measure
+        #print ">> OMLGateway::application", application
+        #print ">> OMLGateway::measure", measure
 
         # Use postgresql query to sql function
         sql = 'SELECT * FROM "%s_%s";' % (application, measure)
@@ -85,7 +85,7 @@ class OMLGateway(PostgreSQLGateway):
 
     def start(self):
         try:
-            print "QUERY", self.query.object, " -- FILTER=", self.query.filters
+            #print "QUERY", self.query.object, " -- FILTER=", self.query.filters
             results = getattr(self, "get_%s" % self.query.object)()
         except Exception, e:
             # Missing function = we are querying a measure. eg. get_counter

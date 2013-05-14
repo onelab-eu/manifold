@@ -247,9 +247,9 @@ class QueryPlan(object):
 
 
         if add_selection:
-            self.ast = self.ast.selection(add_selection) # set of predicates
-        #if add_projection:
-        #    self.ast = self.ast.projection(add_projection) # list of fields
+            self.ast.optimize_selection(add_selection)
+        if add_projection:
+            self.ast.optimize_projection(add_projection)
 
         self.ast.dump()
 

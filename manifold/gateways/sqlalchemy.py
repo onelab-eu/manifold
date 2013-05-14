@@ -105,7 +105,7 @@ class SQLAlchemyGateway(Gateway):
         # Do we need to limit to the user's own results
         try:
             if cls.restrict_to_self:
-                res = res.filter(User.user_id == self.user.user_id)
+                res = res.filter(cls.user_id == self.user.user_id)
         except AttributeError: pass
 
         tuplelist = res.all()
@@ -152,7 +152,7 @@ class SQLAlchemyGateway(Gateway):
 
             #db.query(cls).update(_params, synchronize_session=False)
             q = db.query(cls).filter(_filters)
-            if cls.user_filter:
+            if cls.restrict_to_self:
                 q = q.filter(getattr(cls, 'user_id') == self.user.user_id)
             q = q.update(_params, synchronize_session=False)
             db.commit()
@@ -168,12 +168,14 @@ class SQLAlchemyGateway(Gateway):
         #assert not query.fields, "Fields should be empty for a create request"
 
         cls = self.map_object[query.object]
-        params = cls.process_params(query.params, None, self.user)
-        new_obj = cls(**params)
+
+        params = query.params
+        cls.process_params(query.params, None, self.user)
+        new_obj = cls(**params) if params else cls()
         db.add(new_obj)
         db.commit()
         
-        return []
+        return [new_obj]
 
     def start(self):
         assert self.query, "Cannot start gateway with no query associated"
