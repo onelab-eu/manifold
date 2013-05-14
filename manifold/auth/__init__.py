@@ -247,20 +247,20 @@ class Auth(object):
         Auth(auth).check()
         return 1
 
-    # These are temporary functions...
-
-    def GetSession(self, *args):
-        auth = args[0]
-        user = Auth(auth).check()
-        return SessionAuth(auth).get_session(user)
-
-    def GetPersons(self, *args):
-        auth = args[0]
-        print "getpersons auth=", auth
-        user = Auth(auth).check()
-        dic = make_user_dict(user)
-        dic.update({'first_name': 'FIRST', 'last_name': 'LAST'})
-        return [dic]
-        #return [{'email': user.email, 'first_name': user.email, 'last_name': '', 'user_hrn': 'TODO'}]
-
-
+# deprecated #     # These are temporary functions...
+# deprecated # 
+# deprecated #     def GetSession(self, *args):
+# deprecated #         auth = args[0]
+# deprecated #         user = Auth(auth).check()
+# deprecated #         return SessionAuth(auth).get_session(user)
+# deprecated # 
+# deprecated #     def GetPersons(self, *args):
+# deprecated #         auth = args[0]
+# deprecated #         print "getpersons auth=", auth
+# deprecated #         user = Auth(auth).check()
+# deprecated #         dic = make_user_dict(user)
+# deprecated #         dic.update({'first_name': 'FIRST', 'last_name': 'LAST'})
+# deprecated #         return [dic]
+# deprecated #         #return [{'email': user.email, 'first_name': user.email, 'last_name': '', 'user_hrn': 'TODO'}]
+# deprecated # 
+# deprecated # 
