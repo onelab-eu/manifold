@@ -130,7 +130,6 @@ def prune_precedessor_map(g, queried_fields, map_vertex_pred):
         - relevant_fields A dictionnary {Table => set(Field)} which indicates
             for each 3nf Table which are its relevant Fields
     """
-    print "QUERIED FIELDS in prune_precedessor_map:", queried_fields
     def update_map(m, k, s):
         if k not in m.keys():
             m[k] = set()

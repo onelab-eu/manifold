@@ -24,6 +24,7 @@ from manifold.core.field        import Field
 from manifold.core.key          import Key
 from manifold.util.type         import returns, accepts
 from manifold.util.log          import *
+from manifold.core.capabilities import Capabilities
 
 # NOTES
 # - What about a Record type
@@ -185,7 +186,7 @@ class Node(object):
         """
         \brief calls the parent callback with the record passed in parameter
         """
-        print "[%12s #%04d] SEND [ %r ]" % (self.__class__.__name__, self.identifier, record)
+        #print "[%12s #%04d] SEND [ %r ]" % (self.__class__.__name__, self.identifier, record)
         self.callback(record)
 
     @returns(Query)
@@ -333,19 +334,22 @@ class From(Node):
         # If the injection does not provides all needed fields, we need to
         # request them and join
         provided_fields = set(record.keys()) if is_record else set([key])
+        print "PROVIDED", provided_fields
         needed_fields = self.query.fields
+        print "NEEDED", needed_fields
         missing_fields = needed_fields - provided_fields
-
         print "MISSING FIELDS", missing_fields
-        if not missing_fields:
-            print "  > FromTable"
-            return FromTable(self.query, records, key)
-
 
         old_self_callback = self.get_callback()
 
+        if not missing_fields:
+            print "  > FromTable"
+            from_table = FromTable(self.query, records, key)
+            from_table.set_callback(old_self_callback)
+            return from_table
+
         # If the inject only provide keys, add a WHERE, else a WHERE+JOIN
-        if not is_record or provided_fields < records[0].keys():
+        if not is_record or provided_fields < set(records[0].keys()):
             # We will filter the query by inserting a where on 
             list_of_keys = records.keys() if is_record else records
             predicate = Predicate(key, '==', list_of_keys)
@@ -420,7 +424,7 @@ class FromTable(From):
         assert isinstance(records, list),  "Invalid records = %r (%r)" % (records, type(records))
 
         self.records, self.key = records, key
-        super(FromTable, self).__init__(None, query)
+        super(FromTable, self).__init__(None, query, Capabilities())
 
     def __repr__(self, indent = 0):
         return DUMPSTR_FROMTABLE % (
@@ -1224,7 +1228,6 @@ class SubQuery(Node):
                 self.run_children()
             return
         # Store the record for later...
-        print "  *** subquery received", record
         self.parent_output.append(record)
 
     def run_children(self):
@@ -1264,12 +1267,7 @@ class SubQuery(Node):
                 # . if it is only keys: add a where
                 # . otherwise we need to inject records (and reprogram injection in a complex query plane)
                 #   (based on a left join)
-                print "!" * 80
-                print "Ignoring fields in parent that should be injected in children"
-                print "METHOD", child_query.object
-                print "!" * 80
                 for slice in self.parent_output:
-                    print "CONSIDERING PARENT RECORD", slice
                     if not child_query.object in slice: continue
                     users = slice[child_query.object]
                     # users est soit une liste d'id, soit une liste de records
@@ -1281,8 +1279,6 @@ class SubQuery(Node):
                             # have have a key
                             user_data.append({self.key: user})
                     # Let's inject user_data in the right child
-                    print "INJECTING IN CHILD"
-                    print child
                     child.inject(user_data, self.key, None)
                     
             elif intersection: #parent_fields <= child_query.fields:
@@ -1388,14 +1384,15 @@ class SubQuery(Node):
                         if not isinstance(record, dict):
                             o[child.query.object] = [{self.key.get_name(): record} for record in o[child.query.object]]
 
+                    # XXX We need some merging here
+
                     for record in o[child.query.object]:
                         # Find the corresponding record in child_results and
                         # update the one in the parent with it
-                        print "> record", record
                         for k, v in record.items():
                             
                             filter = Filter()
-                            for key_field_name in self.key.get_names():
+                            for key_field_name in child.key.get_names():
                                 filter = filter.filter_by(Predicate(key_field_name, '==', record[key_field_name]))
                             for r in self.child_results[i]:
                                 if filter.match(r):
@@ -1666,7 +1663,6 @@ class AST(object):
         self.root.optimize()
 
     def optimize_selection(self, filters):
-        print "AST::optimize_selection"
         old_cb = self.get_callback()
         self.root = self.root.optimize_selection(filters)
         self.set_callback(old_cb)
