@@ -931,7 +931,7 @@ class SFAGateway(Gateway):
         # forward what has been retrieved from the SFA getVersion call
         result=version
         
-        if version is not None: 
+        if version is not None:
             # add these fields to match MySlice needs
             for k,v in version.items():
                 if k=='hrn':
