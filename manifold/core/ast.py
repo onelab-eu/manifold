@@ -1478,14 +1478,11 @@ class SubQuery(Node):
         parent_filter = Filter()
         for predicate in filter:
             if predicate.key in self.parent.get_query().fields:
-                print " + "
                 parent_filter.add(predicate)
             else:
                 raise Exception, "SubQuery::optimize_selection() is only partially implemented"
 
-        print "COUCOU", ["*%r*" % f for f in parent_filter]
         if parent_filter:
-            print "PARENT FILTER", parent_filter
             self.parent = self.parent.optimize_selection(parent_filter)
             self.parent.set_callback(self.parent_callback)
         return self
