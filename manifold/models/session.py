@@ -6,9 +6,6 @@ from manifold.models import Base
 import time, crypt, base64, random
 from hashlib import md5
 
-import logging
-log = logging.getLogger(__name__)
-
 class Session(Base):
 
     restrict_to_self = True

@@ -21,7 +21,7 @@ query = Query.get('slice').filter_by('slice_hrn', '=', slicename).select([
     'slice_hrn',
     'resource.hrn', 'resource.hostname', 'resource.type', 'resource.authority',
     'user.user_hrn',
-    'application.measurement_point.counter'
+#    'application.measurement_point.counter'
 ])
 
 ret = Router().forward(query, user=Auth(auth).check())

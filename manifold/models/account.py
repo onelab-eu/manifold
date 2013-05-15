@@ -5,9 +5,6 @@ from manifold.util.predicate    import Predicate
 from manifold.util.predicate    import and_, or_, inv, add, mul, sub, mod, truediv, lt, le, ne, gt, ge, eq, neg, contains
 from manifold.models            import Base, User, Platform, db
 import json
-import logging
-
-log = logging.getLogger(__name__)
 
 class Account(Base):
 
@@ -77,8 +74,8 @@ class Account(Base):
         # PARAMS 
         # added by Loic, based on the process_filters functions
         user_params = params.get('user')
-        del params['user']
         if user_params:
+            del params['user']
             #print "user_params=",user_params
             ret = db.query(User.user_id)
             ret = ret.filter(User.email == user_params)
@@ -86,8 +83,8 @@ class Account(Base):
             params['user_id']=ret[0]
 
         platform_params = params.get('platform')
-        del params['platform']
         if platform_params:
+            del params['platform']
             #print "platform_params=", platform_params
             ret = db.query(Platform.platform_id)
             ret = ret.filter(Platform.platform == platform_params)
@@ -120,8 +117,14 @@ class Account(Base):
                     # XXX NOTE This is SFA specific... it should be hooked by gateways
                     c = Credential(string=params[field])
                     c_type = c.get_gid_object().get_type()
-                    new_field = '%s_credential' % c_type
-                    json_fields[new_field] = params[field]
+                    if c_type == 'slice':
+                        if not 'slice_credentials' in json_fields:
+                            json_fields['slice_credentials'] = {}
+                        c_target = c.get_gid_object().get_hrn()
+                        json_fields['slice_credentials'][c_target] = params[field]
+                    else:
+                        new_field = '%s_credential' % c_type
+                        json_fields[new_field] = params[field]
                 else:
                     json_fields[field] = params[field]
                 del params[field]
