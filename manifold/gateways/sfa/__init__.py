@@ -36,12 +36,13 @@ from sfa.rspecs.rspec import RSpec
 from sfa.rspecs.version_manager import VersionManager
 
 #from sfa.client.sfaclientlib import SfaClientBootstrap
-from sfa.client.client_helper   import pg_users_arg, sfa_users_arg
-from sfa.client.sfaserverproxy  import SfaServerProxy as _SfaServerProxy, ServerException
-from sfa.client.return_value    import ReturnValue
-from manifold.models            import *
-from manifold.util.predicate    import contains
-from manifold.util.log          import log_info
+from sfa.client.client_helper    import pg_users_arg, sfa_users_arg
+from sfa.client.sfaserverproxy   import SfaServerProxy as _SfaServerProxy, ServerException
+from sfa.client.return_value     import ReturnValue
+from manifold.models             import *
+from manifold.util.predicate     import contains
+from manifold.util.log           import log_info
+from manifold.gateways.sfa.proxy import SFAProxy
 import json
 import signal
 import traceback
