@@ -49,7 +49,7 @@ class QueryPlan(object):
         analyzed_query = AnalyzedQuery(query)
         self.ast = self.process_subqueries(analyzed_query, metadata, allowed_capabilities, user)
 
-    def process_subqueries(self, query, metadata, allowed_capabilities, user):
+    def process_subqueries(self, query, metadata, allowed_capabilities, user, in_subquery = False):
         """
         \brief Builds a query plane for a router or a platform, consisting
         mainly in the AST (tree of SQL operators) related to a query
@@ -140,10 +140,10 @@ class QueryPlan(object):
 #                    raise TypeError("Invalid type: key = %s (type %s)" % (key, type(key)))
 
             # Recursive processing of subqueries
-            child_ast = self.process_subqueries(subquery, metadata, allowed_capabilities, user)
+            child_ast = self.process_subqueries(subquery, metadata, allowed_capabilities, user, in_subquery=True)
             children_ast.append(child_ast.root)
 
-        qp = self.process_query(query, metadata, user)
+        qp = self.process_query(query, metadata, user, in_subquery)
         if children_ast:
             # We are not interested in the 3nf fields, but in the set of fields that will be available when we answer the whole parent query
             # parent_fields = metadata.find_node(query.object).get_field_names() # wrong
@@ -156,7 +156,7 @@ class QueryPlan(object):
         return qp
 
     @returns(AST)
-    def process_query(self, query, metadata, user):
+    def process_query(self, query, metadata, user, in_subquery = False):
         """
         \brief Compute the query plan related to a query which involves
             no sub-queries. Sub-queries should already processed thanks to
@@ -196,7 +196,7 @@ class QueryPlan(object):
         # Compute the skeleton resulting query plan
         # (e.g which does not take into account the query)
         # It leads to a query plan made of Union, From, and LeftJoin nodes
-        return self.build_query_plan(user, query, pruned_tree, metadata)
+        return self.build_query_plan(user, query, pruned_tree, metadata, in_subquery)
 
     def build_simple(self, query, metadata, allowed_capabilities):
         """
@@ -291,7 +291,7 @@ class QueryPlan(object):
 
     # @accepts(User, Query, DiGraph)
     # @returns(AST)
-    def build_query_plan(self, user, user_query, pruned_tree, metadata):
+    def build_query_plan(self, user, user_query, pruned_tree, metadata, in_subquery = False):
         """
         \brief Compute a query plane according to a pruned tree
         \param user The User instance representing the user issuing the query
@@ -366,7 +366,9 @@ class QueryPlan(object):
 
                     platform = method.get_platform()
                     capabilities = metadata.get_capabilities(platform, query.object)
-                    if not capabilities.retrieve: continue
+
+                    # XXX Improve platform capabilities support
+                    if not in_subquery and not capabilities.retrieve: continue
                     from_ast = AST(user = user).From(platform, query, capabilities)
 
                     self.froms.append(from_ast.root)
