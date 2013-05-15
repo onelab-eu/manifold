@@ -1,4 +1,7 @@
 #!/usr/bin/env python
+
+#http://twistedmatrix.com/pipermail/twisted-python/2007-May/015357.html
+
 import sys
 from twisted.web import xmlrpc, server
 from twisted.internet import reactor, ssl
@@ -18,13 +21,18 @@ def makeSSLContext(myKey,trustedCA):
     # or listenSSL
 
     # Why these functioins... Not sure...
+    print "READING PKEY"
     fd = open(myKey,'r')
     theCert = ssl.PrivateCertificate.loadPEM(fd.read())
     fd.close()
-    fd = open(trustedCA,'r')
-    theCA = ssl.Certificate.loadPEM(fd.read())
-    fd.close()
-    ctx = theCert.options(theCA)
+    print "READING CA KEY"
+    if trustedCA:
+        fd = open(trustedCA,'r')
+        theCA = ssl.Certificate.loadPEM(fd.read())
+        fd.close()
+        ctx = theCert.options(theCA)
+    else:
+        ctx = theCert.options()
 
     # Now the options you can set look like Standard OpenSSL Library options
 
@@ -35,7 +43,7 @@ def makeSSLContext(myKey,trustedCA):
     # If True, verify certificates received from the peer and fail
     # the handshake if verification fails. Otherwise, allow anonymous
     # sessions and sessions with certificates which fail validation.
-    ctx.verify = True
+    ctx.verify = False #True
 
     # Depth in certificate chain down to which to verify.
     ctx.verifyDepth = 1
@@ -113,10 +121,9 @@ if __name__ == '__main__':
     # documents
 
     # Reading private key as PEM
-    from sfa.trust.certificate import Keypair
-
     PKEY = '/home/augej/.sfi/ple.upmc.jordan_auge.pkey'
-    myKey = Keypair(filename=PKEY).as_pem() # string=...
+    #from sfa.trust.certificate import Keypair
+    #myKey = Keypair(filename=PKEY).as_pem() # string=...
 
     print "running as", sys.argv[1]
     if sys.argv[1] == 'server':
@@ -126,8 +133,9 @@ if __name__ == '__main__':
         reactor.listenSSL(7080, server.Site(r),ctx)
         reactor.run()
     elif sys.argv[1] == 'client':
-        ctx = makeSSLContext(myKey=myKey, trustedCA=None)#'cacert.pem')
-        proxy = Proxy('https://www.planet-lab.eu:12345/')
+        ctx = makeSSLContext(myKey='client.pem', trustedCA=None)#'cacert.pem')
+        proxy = Proxy('https://www.planet-lab.eu:12346/')
         proxy.setSSLClientContext(ctx)
-        proxy.callRemote('GetVersion').addCallbacks(printValue, printError)
+        CRED = '/home/augej/.sfi/ple.upmc.jordan_auge.user.cred'
+        proxy.callRemote('ListResources', open(CRED).read()).addCallbacks(printValue, printError)
         reactor.run()
