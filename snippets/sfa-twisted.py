@@ -134,8 +134,8 @@ if __name__ == '__main__':
         reactor.run()
     elif sys.argv[1] == 'client':
         ctx = makeSSLContext(myKey='client.pem', trustedCA=None)#'cacert.pem')
-        proxy = Proxy('https://www.planet-lab.eu:12346/')
+        proxy = Proxy('https://www.planet-lab.eu:12346/', allowNone = True)
         proxy.setSSLClientContext(ctx)
         CRED = '/home/augej/.sfi/ple.upmc.jordan_auge.user.cred'
-        proxy.callRemote('ListResources', open(CRED).read()).addCallbacks(printValue, printError)
+        proxy.callRemote('ListResources', open(CRED).read(), {'rspec_version': 'SFA 1'}).addCallbacks(printValue, printError)
         reactor.run()
