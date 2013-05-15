@@ -1244,7 +1244,9 @@ class SFAGateway(Gateway):
 #        #    server = self.get_component_server_from_hrn(opts.component)
 #
 #        return self.sliceapi.SliverStatus(slice_urn, creds)
-
+    def get_lease(self,filters,params,fields):
+        result = self.get_resource_lease(filters,fields,params)
+        return result['lease']
 
     def get_resource(self, filters, params, fields):
         result = self.get_resource_lease(filters, fields, params)
