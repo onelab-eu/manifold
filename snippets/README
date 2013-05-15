@@ -1,0 +1,1 @@
+cat ~/.sfi/ple.upmc.jordan_auge.pkey ~/.sfi/ple.upmc.jordan_auge.user.gid > client.pem

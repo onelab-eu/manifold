@@ -181,7 +181,7 @@ class Query(object):
             'timestamp': self.timestamp,
             'filters': self.filters,
             'params': self.params,
-            'fields': self.fields
+            'fields': list(self.fields)
         }
 
     def to_json (self, analyzed_query=None):

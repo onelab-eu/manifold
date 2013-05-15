@@ -165,8 +165,6 @@ class Interface(object):
 
     def forward(self, query, deferred=False, execute=True, user=None):
         # Implements common functionalities = local queries, etc.
-        print "Interface::forward", query
-
         namespace = None
         # Handling internal queries
         if ':' in query.object:

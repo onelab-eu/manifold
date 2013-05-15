@@ -93,7 +93,7 @@ class QueryPlan(object):
                     # We add the field name to the set of retrieved fields
                     query.select(method)
                     #subquery_methods.add(method)
-                    print "*** Relation of type (1) between parent '%s' and child '%s'" % (table_name, method) 
+                    #print "*** Relation of type (1) between parent '%s' and child '%s'" % (table_name, method) 
                 else: # 1..1
                     raise Exception, "1..1 relationships not handled"
 
@@ -103,8 +103,6 @@ class QueryPlan(object):
                 method_table = metadata.find_node(method)
                 child_key = method_table.get_keys().one()
                 # XXX why is it necessarily the key of the child, and not the fields...
-                print "PARENT_KEY", parent_fields
-                print "CHILD FIELDS", child_key
                 intersection = parent_fields & child_key
                 if intersection == parent_fields:
                     # 1..1
@@ -112,7 +110,7 @@ class QueryPlan(object):
 
                 elif intersection:
                     # 1..N
-                    print "*** Relation of type (2) between parent '%s' and child '%s'" % (table_name, method) 
+                    #print "*** Relation of type (2) between parent '%s' and child '%s'" % (table_name, method) 
                     # Add the fields in both the query and the subquery
                     for field in intersection:
                         query.select(field.get_name())
@@ -122,7 +120,7 @@ class QueryPlan(object):
                 else:
                     # Find a path
                     import networkx as nx
-                    print "PATH=", nx.shortest_path(metadata.graph, table, method_table)
+                    #print "PATH=", nx.shortest_path(metadata.graph, table, method_table)
                     raise Exception, "No relation between parent '%s' and child '%s'" % (table_name, method)
 
             # XXX Between slice and application, we have leases... how to handle ???
@@ -306,23 +304,6 @@ class QueryPlan(object):
             - either because it is needed to join tables involved in the 3nf-tree)
         \return an AST instance which describes the resulting query plane
         """
-        # <<<<<<<< DEBUG DEBUT
-        #tables = pruned_tree.nodes(False)
-        #
-        ## annotations
-        #print "-" * 80
-        #print "Annotations"
-        #print "-" * 80
-        #for table in tables:
-        #    print "---------------- Table %r ----------------" % table
-        #    print "> map_key_methods"
-        #    for k, d in table.map_method_keys.items():
-        #        print "%r => %r" % (k, d)
-        #
-        #    print "> map_method_fields"
-        #    for k, d in table.map_method_fields.items():
-        #        print "%r => %r" % (k, d)
-        # >>>>>>>> DEBUG FIN 
 
         #print "-" * 80
         #print "build_query_plan()"
@@ -337,9 +318,25 @@ class QueryPlan(object):
         map_method_bestkey = dict()
         map_method_demux   = dict()
 
-        print "PROCESS_QUERY", user_query
+        #print "PROCESS_QUERY", user_query
 
         ordered_tables = dfs_preorder_nodes(pruned_tree, root_node)
+
+        # Let's remove parent tables from ordered tables
+        tmp = []
+        prev_table = None
+        cpt = 0
+        for table in ordered_tables:
+            if prev_table:
+                if prev_table.name == table.name:
+                    cpt += 1
+                else:
+                    cpt = 0
+                if cpt != 1: tmp.append(prev_table)
+            prev_table = table
+        tmp.append(prev_table)
+        ordered_tables = tmp
+        
         for table in ordered_tables:
             from_asts = list()
             key = list(table.get_keys())[0]
@@ -355,7 +352,6 @@ class QueryPlan(object):
             # corresponding table and build the corresponding FROM node
             map_method_fields = table.get_annotations()
             for method, fields in map_method_fields.items(): 
-                print "FOR", method, fields
                 if method.get_name() == table.get_name():
                     # The table announced by the platform fits with the 3nf schema
                     # Build the corresponding FROM 
@@ -370,7 +366,6 @@ class QueryPlan(object):
 
                     platform = method.get_platform()
                     capabilities = metadata.get_capabilities(platform, query.object)
-                    print "PLATFORM", platform, "CAPABILITY FROM", capabilities.retrieve
                     if not capabilities.retrieve: continue
                     from_ast = AST(user = user).From(platform, query, capabilities)
 

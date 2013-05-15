@@ -90,7 +90,7 @@ class DBGraph:
                 "predicate" : make_predicate(fields_u, key_v) # None | Predicate
             })
             #print "PREDICATE IN DBGRAPH", make_predicate(fields_u, key_v) 
-            self.print_arc(u, v)
+            #self.print_arc(u, v)
 
     def append(self, u):
         """

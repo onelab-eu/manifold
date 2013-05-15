@@ -5,7 +5,7 @@ class slice {
     lease       lease[];       /**< List of leases associated to the slice */
     user        user[];        /**< List of users associated to the slice */
     KEY(slice_hrn);
-	CAPABILITY(retrieve,join);
+	CAPABILITY(retrieve,join,selection);
 };
 
 class lease {
@@ -37,34 +37,40 @@ enum pl_distro {
 };
 
 class resource {
-    text            arch;                   /**< Platform architecture */
-    int             authority_id;           /**< The authority of the global PlanetLab federation that the site of the node belongs to */
-    boot_state      boot_state;             /**< The current status of the node */
-    unsigned        bw_limit;               /**< Bandwidth limits in effect on the node */
-    unsigned        bw_unallocated;
-    const int       client_id;
+##    text            arch;                   /**< Platform architecture */
+#    int             authority_id;           /**< The authority of the global PlanetLab federation that the site of the node belongs to */
+#    boot_state      boot_state;             /**< The current status of the node */
+#    unsigned        bw_limit;               /**< Bandwidth limits in effect on the node */
+#    unsigned        bw_unallocated;
+#    const int       client_id;
     const int       component_id;
     const int       component_manager_id;
     const text      component_name;
-    const text      disk_images;
+#    const text      disk_images;
     bool            exclusive;
-    const text      fc_distro;
-    const text      hardware_types;
+##    const text      fcdistro;
+#    const text      hardware_types;
     const text      hostname;               /**< Hostname */
     const text      hrn;                    /**< Human Readable name */
-    const text      interfaces;
+#    const text      interfaces;
     const int       latitude;               /**< Latitude */
     const int       longitude;              /**< Longitude */
     const network   network;
-    const int       node_id;
-    const bool      pl_initscripts;
-    const pl_distro pldistro;               /**< Fedora or CentOS distribution to use for node or slivers */
-    const text      services;
+#    const int       node_id;
+#    const bool      pl_initscripts;
+##    const pl_distro pldistro;               /**< Fedora or CentOS distribution to use for node or slivers */
+#    const text      services;
     const int       site_id;
-    const text      resource_type;
+#    const text      resource_type;
     KEY(hrn);
 	CAPABILITY(retrieve,join);
 };
+
+#>>> prov - need
+#set(['load', 'interface.ipv4', 'cpuy', 'cpuw', 'services.login.authentication', 'cpum', 'services.login.username', 'city', 'reliabilityw', 'services.login.port', 'slicesm', 'slices', 'astype', 'bwm', 'memm', 'slicesw', 'type', 'reliabilityy', 'sliver', 'responsew', 'bww', 'mem', 'bwy', 'responsey', 'urn', 'memw', 'interface.client_id', 'fcdistro', 'responsem', 'memy', 'response', 'loadm', 'interface.component_id', 'country', 'region', 'services.login.hostname', 'slicesy', 'loady', 'asnumber', 'bw', 'reliabilitym', 'reliability', 'cpu', 'loadw'])
+#>>> need-prov
+#set(['disk_images', 'fc_distro', 'bw_limit', 'boot_state', 'interfaces', 'authority_id', 'bw_unallocated', 'hardware_types', 'node_id', 'pl_initscripts', 'client_id', 'services', 'resource_type'])
+
 
 class network {
     const text network_hrn;
