@@ -11,9 +11,14 @@
 
 import sys
 
+from ast                        import literal_eval
+from manifold.models            import db
+from manifold.models.platform   import Platform as DBPlatform
+from manifold.models            import db
 from manifold.util.log          import *
 from manifold.util.options      import Options
 from manifold.util.daemon       import Daemon
+from manifold.util.type           import returns, accepts
 from manifold.gateways          import Gateway
 from manifold.core.query        import Query
 from manifold.util.callback     import Callback
@@ -86,13 +91,14 @@ class XMLRPCDaemon(Daemon):
     # DUPLICATED IN INTERFACE
     # XXX should be removed
     def get_gateway_config(self, gateway_name):
-        log_info("Hardcoded CSV|PostgreSQL configuration")
+        platform = db.query(DBPlatform).filter(DBPlatform.platform == gateway_name).one()
+        config = literal_eval(platform.gateway_conf)
         if gateway_name == 'postgresql':
+            log_info("Hardcoded CSV|PostgreSQL configuration")
             config = {'db_user':'postgres', 'db_password':None, 'db_name':'test'}
         elif gateway_name == 'csv':
+            log_info("Hardcoded CSV|PostgreSQL configuration")
             config = {'filename': '/tmp/test.csv'}
-        else:
-            config = {}
         return config
         
     def main(self):
