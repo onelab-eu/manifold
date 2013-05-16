@@ -1,0 +1,3 @@
+auth = {'AuthMethod': 'password', 'Username': 'demo', 'AuthString': 'demo'}
+
+

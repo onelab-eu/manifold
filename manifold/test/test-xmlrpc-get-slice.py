@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 #! -*- coding: utf-8 -*-
 
-import xmlrpclib
+import sys, xmlrpclib
 from config import auth
 
-srv = xmlrpclib.Server("http://dev.myslice.info:7080/", allow_none = True)
+srv = xmlrpclib.Server("http://localhost:7080/", allow_none = True)
 
 def print_err(err):
     print '-'*80
@@ -13,12 +13,17 @@ def print_err(err):
         print "\t", line
     print ''
 
-q = {
-    'object':   'local:platform',
-    'fields':       ['platform', 'platform_description']
+DEFAULT_SLICE = 'ple.upmc.myslicedemo'
+slicename = sys.argv[1] if len(sys.argv) > 2 else DEFAULT_SLICE
+query = {
+    'object'    : 'slice',
+    'filters'   : [['slice_hrn', '=', slicename]],
+    'fields'    : ['slice_hrn', 
+                   'resource.hrn', 'resource.hostname', 'resource.type', 'resource.authority',
+                   'user.user_hrn']
 }
 
-ret = srv.forward(auth, q)
+ret = srv.forward(auth, query)
 if ret['code'] != 0:
     if isinstance(ret['description'], list):
         # We have a list of errors
