@@ -284,6 +284,10 @@ class Query(object):
     @classmethod
     def execute(self, object): return self.action('execute', object)
 
+    def at(self, timestamp):
+        self.timestamp = timestamp
+        return self
+
     def filter_by(self, *args):
         if len(args) == 1:
             filters = args[0]
