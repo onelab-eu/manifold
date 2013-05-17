@@ -253,7 +253,7 @@ class From(Node):
     From Node are responsible to query a gateway (!= FromTable).
     """
 
-    def __init__(self, platform, query, capabilities):
+    def __init__(self, platform, query, capabilities, key):
     #def __init__(self, table, query):
         """
         \brief Constructor
@@ -266,7 +266,7 @@ class From(Node):
         #assert isinstance(table, Table), "Invalid type: table = %r (%r)" % (table, type(table))
 
         #self.query, self.table = query, table
-        self.platform, self.query, self.capabilities = platform, query, capabilities
+        self.platform, self.query, self.capabilities, self.key = platform, query, capabilities, key
         self.gateway = None
         super(From, self).__init__()
 
@@ -435,7 +435,7 @@ class FromTable(From):
         assert isinstance(records, list),  "Invalid records = %r (%r)" % (records, type(records))
 
         self.records, self.key = records, key
-        super(FromTable, self).__init__(None, query, Capabilities())
+        super(FromTable, self).__init__(None, query, Capabilities(), key)
 
     def __repr__(self, indent = 0):
         return DUMPSTR_FROMTABLE % (
@@ -1521,7 +1521,7 @@ class AST(object):
 
 
     #@returns(AST)
-    def From(self, platform, query, capabilities):
+    def From(self, platform, query, capabilities, key):
     #def From(self, table, query):
         """
         \brief Append a FROM Node to this AST
@@ -1538,7 +1538,7 @@ class AST(object):
 #OBSOLETE|        platforms = table.get_platforms()
 #OBSOLETE|        platform = list(platforms)[0]
 
-        node = From(platform, query, capabilities) 
+        node = From(platform, query, capabilities, key) 
         self.root = node
         self.root.set_callback(self.get_callback())
         return self
