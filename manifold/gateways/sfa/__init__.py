@@ -275,10 +275,10 @@ class SFAGateway(Gateway):
     
     # init self-signed cert, user credentials and gid
     def bootstrap (self):
-
+        print "------------------------------------------------------------->>>>>>>>>bootstrap"
         # Get the account of the admin user in the database
         try:
-            user = db.query(User).filter(User.email == ADMIN_USER).one()
+            admin = db.query(User).filter(User.email == ADMIN_USER).one()
         except Exception, e:
             raise Exception, 'Missing admin user: %s' % str(e)
             # No admin user account, let's create one
@@ -289,8 +289,8 @@ class SFAGateway(Gateway):
         # Get platform
         platform = db.query(Platform).filter(Platform.platform == self.platform).one()
 
-        # Get user account
-        accounts = [a for a in user.accounts if a.platform == platform]
+        # Get admin account
+        accounts = [a for a in admin.accounts if a.platform == platform]
         if not accounts:
             raise Exception, "Accounts should be created for MySlice admin user"
             # Let's make sure 'ple' reference account exists
@@ -318,7 +318,7 @@ class SFAGateway(Gateway):
         if account.auth_type == 'reference':
             ref_platform = json.loads(account.config)['reference_platform']
             ref_platform = db.query(Platform).filter(Platform.platform == ref_platform).one()
-            ref_accounts = [a for a in user.accounts if a.platform == ref_platform]
+            ref_accounts = [a for a in admin.accounts if a.platform == ref_platform]
             if not ref_accounts:
                 raise Exception, "reference account does not exist"
             ref_account = ref_accounts[0]
@@ -327,13 +327,57 @@ class SFAGateway(Gateway):
                 ref_account.config = config_new
                 db.add(ref_account)
                 db.commit()
+                
         else:
             config_new = json.dumps(SFAGateway.manage(ADMIN_USER, platform, json.loads(account.config)))
             if account.config != config_new:
                 account.config = config_new
                 db.add(account)
                 db.commit()
+####################################################
+# TODO: create a function instead of duplicated code
+####################################################
+        # Manage user account for the platform called by the gateway
+        # If the user has a private key but no credential, the manage function will retrieve it
+        print "platform = ",self.platform
+        print "platform = ",platform
+        print "self.user.accounts = ",self.user.accounts
 
+        # get user account for this platform
+        user_accounts = [a for a in self.user.accounts if a.platform == platform]
+        if not user_accounts:
+            raise Exception, "user account does not exist for platform = %s"% self.platform
+        else:
+            user_account=user_accounts[0]
+        # If the user account for this platform is a reference
+        # we need to get the config of the managed account
+        if user_account.auth_type=='reference':
+            # find the platform refered by the user account
+            ref_platform = json.loads(user_account.config)['reference_platform']
+            ref_platform = db.query(Platform).filter(Platform.platform == ref_platform).one()
+            # find the managed account configured as a reference
+            ref_accounts = [a for a in self.user.accounts if a.platform == ref_platform]
+            if not ref_accounts:
+                raise Exception, "reference account does not exist"
+            ref_account = ref_accounts[0]
+            # call manage function for this managed user account to update it 
+            # if the managed user account has only a private key, the credential will be retrieved 
+            new_user_config = json.dumps(SFAGateway.manage(self.user.email, ref_platform, json.loads(ref_account.config)))
+            # if the config retrieved is different from the config stored, we need to update it
+            if new_user_config != self.user_config:
+                self.user_config=json.loads(new_user_config)
+                db.add(ref_account)
+                db.commit()
+        else:
+            # call manage function for a managed user account to update it 
+            # if the managed user account has only a private key, the credential will be retrieved 
+            new_user_config = json.dumps(SFAGateway.manage(self.user.email, platform, json.loads(user_account.config)))
+            self.user_config=json.loads(new_user_config)
+            if user_account.config != new_user_config:
+                user_account.config = new_user_config
+                self.user_config=json.loads(new_user_config)
+                db.add(user_account)
+                db.commit()        
         # @loic update the user config, if the account is a reference, the query will be sent using the refered account
         # XXX no !!!! XXX self.user_config=json.loads(config_new)
 
@@ -375,6 +419,13 @@ class SFAGateway(Gateway):
 
         if not version: 
             result = server.GetVersion(timeout=DEFAULT_TIMEOUT_GETVERSION)
+            print "Connexion to = ",server
+            print "get_cached_server_version = ",result
+            print "code=",result.get('code')
+            code=result.get('code')
+            print "geni_code=",code.get('geni_code')
+            if code.get('geni_code')>0:
+               raise Exception(result['output']) 
             version= ReturnValue.get_value(result)
             # cache version for 20 minutes
             cache.add(cache_key, version, ttl= 60*20)
@@ -680,7 +731,6 @@ class SFAGateway(Gateway):
     # COMMANDS
     #
     ############################################################################ 
-
 
     # get a delegated credential of a given type to a specific target
     # default allows the use of MySlice's own credentials
