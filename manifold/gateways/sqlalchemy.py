@@ -28,8 +28,10 @@ def get_sqla_filters(cls, filters):
         return None
 
 def row2dict(row):
-    #return {c: getattr(row, c) for c in row.keys()}
-    return {c.name: getattr(row, c.name) for c in row.__table__.columns}
+    try:
+        return {c.name: getattr(row, c.name) for c in row.__table__.columns}
+    except:
+        return {c: getattr(row, c) for c in row.keys()}
 
 class SQLAlchemyGateway(Gateway):
 
@@ -122,43 +124,39 @@ class SQLAlchemyGateway(Gateway):
 
         # XXX What about filters on such fields
 
-        try:
-            if not query.filters.has_eq('platform_id') and not query.filters.has_eq('platform'):
-                raise Exception, "Cannot update JSON fields on multiple platforms"
+        if not query.filters.has_eq('platform_id') and not query.filters.has_eq('platform'):
+            raise Exception, "Cannot update JSON fields on multiple platforms"
 
-            cls = self.map_object[query.object]
+        cls = self.map_object[query.object]
 
-            # Note: we can request several values
+        # Note: we can request several values
 
-            # FIELDS: exclude them
-            _fields = xgetattr(cls, query.fields)
+        # FIELDS: exclude them
+        _fields = xgetattr(cls, query.fields)
 
 
-            # FILTERS: Note we cannot filter on json fields
-            _filters = cls.process_filters(query.filters)
-            _filters = get_sqla_filters(cls, _filters)
+        # FILTERS: Note we cannot filter on json fields
+        _filters = cls.process_filters(query.filters)
+        _filters = get_sqla_filters(cls, _filters)
 
-            # PARAMS
-            #
-            # The fields we can update in params are either:
-            # - the original fields, including json encoded ones
-            # - fields inside the json encoded ones
-            # - convenience fields
-            # We refer to the model for transforming the params structure into the
-            # final one
-            _params = cls.process_params(query.params, _filters, self.user)
-            # only 2.7+ _params = { getattr(cls, k): v for k,v in query.params.items() }
-            _params = dict([ (getattr(cls, k), v) for k,v in _params.items() ])
+        # PARAMS
+        #
+        # The fields we can update in params are either:
+        # - the original fields, including json encoded ones
+        # - fields inside the json encoded ones
+        # - convenience fields
+        # We refer to the model for transforming the params structure into the
+        # final one
+        _params = cls.process_params(query.params, _filters, self.user)
+        # only 2.7+ _params = { getattr(cls, k): v for k,v in query.params.items() }
+        _params = dict([ (getattr(cls, k), v) for k,v in _params.items() ])
 
-            #db.query(cls).update(_params, synchronize_session=False)
-            q = db.query(cls).filter(_filters)
-            if cls.restrict_to_self:
-                q = q.filter(getattr(cls, 'user_id') == self.user.user_id)
-            q = q.update(_params, synchronize_session=False)
-            db.commit()
-        except Exception, e:
-            print "Exception in local query update", e
-            print traceback.print_exc()
+        #db.query(cls).update(_params, synchronize_session=False)
+        q = db.query(cls).filter(_filters)
+        if cls.restrict_to_self:
+            q = q.filter(getattr(cls, 'user_id') == self.user.user_id)
+        q = q.update(_params, synchronize_session=False)
+        db.commit()
 
         return []
 
