@@ -449,7 +449,10 @@ class Table:
                 key_copy.add(copy_u.get_field(field.get_name()))
             copy_u.insert_key(Key(key_copy))
 
-        table = copy_u
+        # We need to update map_method_fields
+        for method, fields in copy_u.map_method_fields.items():
+            fields &= relevant_fields
+
         return copy_u
 
     @staticmethod

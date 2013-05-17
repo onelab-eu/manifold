@@ -42,9 +42,15 @@ class Options(object):
         # Load configuration file
         try:
             cfg_filename = sys.argv[sys.argv.index("-c") + 1]
-            cfg.add_file(cfg_filename)
+            try:
+                with open(cfg_filename): cfg.add_file(cfg_filename)
+            except IOError: 
+                raise Exception, "Cannot open specified configuration file: %s" % cfg_filename
         except ValueError:
-            cfg.add_file(self.CONF_FILE)
+            try:
+                with open(self.CONF_FILE): cfg.add_file(self.CONF_FILE)
+            except IOError: pass
+            
 
         # Load/override options from configuration file and command-line 
         (options, args) = cfg.parse(self._opt)
