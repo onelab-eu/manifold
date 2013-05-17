@@ -265,4 +265,5 @@ class Router(Interface):
                 raise Exception, "The key field '%s' must be present in update request" % key
 
         results = qp.execute()
+        print "results of router", results
         return ResultValue.get_result_value(results, qp.get_result_value_array())

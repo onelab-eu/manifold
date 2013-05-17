@@ -1,14 +1,11 @@
-
 import sys
-from twisted.web import xmlrpc, server
-from twisted.internet import reactor, ssl
-from twisted.python import log
+from manifold.util.reactor_thread import ReactorThread
 
 class SFAProxy(object):
     # Twisted HTTPS/XMLRPC inspired from
     # http://twistedmatrix.com/pipermail/twisted-python/2007-May/015357.html
 
-    def makeSSLContext(self, myKey,trustedCA):
+    def makeSSLContext(self, client_pem, trusted_ca_pem):
         '''Returns an ssl Context Object
        @param myKey a pem formated key and certifcate with for my current host
               the other end of this connection must have the cert from the CA
@@ -18,20 +15,18 @@ class SFAProxy(object):
               and you will only allow connections to a server signed by this CA
         '''
 
+        from twisted.internet import ssl
+
         # our goal in here is to make a SSLContext object to pass to connectSSL
         # or listenSSL
 
+        client_cert =  ssl.PrivateCertificate.loadPEM(client_pem)
         # Why these functioins... Not sure...
-        fd = open(myKey,'r')
-        theCert = ssl.PrivateCertificate.loadPEM(fd.read())
-        fd.close()
-        if trustedCA:
-            fd = open(trustedCA,'r')
-            theCA = ssl.Certificate.loadPEM(fd.read())
-            fd.close()
-            ctx = theCert.options(theCA)
+        if trusted_ca_pem:
+            trusted_ca = ssl.PrivateCertificate.loadPEM(trusted_ca_pem)
+            ctx = client_cert.options(trusted_ca)
         else:
-            ctx = theCert.options()
+            ctx = client_cert.options()
 
         # Now the options you can set look like Standard OpenSSL Library options
 
@@ -67,62 +62,68 @@ class SFAProxy(object):
 
         return ctx
 
-    class Proxy(xmlrpc.Proxy):
-        ''' See: http://twistedmatrix.com/projects/web/documentation/howto/xmlrpc.html
-            this is eacly like the xmlrpc.Proxy included in twisted but you can
-            give it a SSLContext object insted of just accepting the defaults..
-        '''
-        def setSSLClientContext(self,SSLClientContext):
-            self.SSLClientContext = SSLClientContext
-        def callRemote(self, method, *args):
-            factory = xmlrpc._QueryFactory(
-                self.path, self.host, method, self.user,
-                self.password, self.allowNone, args)
-            if self.secure:
-                from twisted.internet import ssl
-                try:
-                    self.SSLClientContext
-                except NameError:
-                    print "Must Set a SSL Context"
-                    print "use self.setSSLClientContext() first"
-                    # Its very bad to connect to ssl without some kind of
-                    # verfication of who your talking to
-                    # Using the default sslcontext without verification
-                    # Can lead to man in the middle attacks
-                reactor.connectSSL(self.host, self.port or 443,
-                                   factory,self.SSLClientContext)
-            else:
-                reactor.connectTCP(self.host, self.port or 80, factory)
-            return factory.deferred
-
-    def printValue(value):
-        print "SFAProxy SUCCESS:", repr(value)
-        #reactor.stop()
-
-    def printError(error):
+    def default_error_cb(self, error):
         print 'SFAProxy ERROR:', error
-        #reactor.stop()
 
-    def __init__(self, url, user):
-        ctx = self.makeSSLContext(myKey='client.pem', trustedCA=None)#'cacert.pem')
-        self.proxy = Proxy(url, allowNone=True)
+    def __init__(self, interface, pkey, cert, timeout):
+        from twisted.web      import xmlrpc
+        from twisted.internet import reactor
+        class Proxy(xmlrpc.Proxy):
+            ''' See: http://twistedmatrix.com/projects/web/documentation/howto/xmlrpc.html
+                this is eacly like the xmlrpc.Proxy included in twisted but you can
+                give it a SSLContext object insted of just accepting the defaults..
+            '''
+            def setSSLClientContext(self,SSLClientContext):
+                self.SSLClientContext = SSLClientContext
+            def callRemote(self, method, *args):
+                factory = xmlrpc._QueryFactory(
+                    self.path, self.host, method, self.user,
+                    self.password, self.allowNone, args)
+                if not self.secure: # XXX swapped
+                    from twisted.internet import ssl
+                    try:
+                        self.SSLClientContext
+                    except NameError:
+                        print "Must Set a SSL Context"
+                        print "use self.setSSLClientContext() first"
+                        # Its very bad to connect to ssl without some kind of
+                        # verfication of who your talking to
+                        # Using the default sslcontext without verification
+                        # Can lead to man in the middle attacks
+                    reactor.connectSSL(self.host, self.port or 443,
+                                       factory,self.SSLClientContext)
+                else:
+                    reactor.connectTCP(self.host, self.port or 80, factory)
+                return factory.deferred
+
+        # client_pem expects the concatenation of private key and certificate
+        # We do not verify server certificates for now
+        client_pem = "%s\n%s" % (pkey, cert)
+        ctx = self.makeSSLContext(client_pem, None)
+
+        self.proxy = Proxy(interface, allowNone=True)
         self.proxy.setSSLClientContext(ctx)
+        self.interface = interface
+        self.timeout = timeout
 
-        # Reading private key as PEM
-        #PKEY = '/home/augej/.sfi/ple.upmc.jordan_auge.pkey'
-        #from sfa.trust.certificate import Keypair
-        #myKey = Keypair(filename=PKEY).as_pem() # string=...
-
-        #CRED = '/home/augej/.sfi/ple.upmc.jordan_auge.user.cred'
-        #proxy.callRemote('ListResources', open(CRED).read(), {'rspec_version': 'SFA 1'}).addCallbacks(printValue, printError)
-        #reactor.run()
+    def get_interface(self):
+        return self.interface
 
     def __getattr__(self, name):
+        print "GETATTR", name
         # We transfer missing methods to the remote server
         def _missing(*args, **kwargs):
-            if kwargs:
-                raise Exception, "Cannot use named arguments with XMLRPC functions"
-            args = [name].extend(list(args))
-            self.proxy.callRemote(*args).addCallbacks(printValue, printError)
-            getattr(self.server, name)(*args, **kwargs)
+            try:
+                success_cb = kwargs['success']
+            except AttributeError:
+                raise Exception, "Internal error: missing success callback to SFAProxy call"
+            error_cb = kwargs.get('error', self.default_error_cb)
+
+            def wrap(source, args, success_cb, error_cb):
+                tmp = list(args)
+                args = [name]
+                args.extend(tmp)
+                print "CALLREMOTE", args
+                self.proxy.callRemote(*args).addCallbacks(success_cb, error_cb)
+            ReactorThread().callInReactor(wrap, self, args, success_cb, error_cb) # run wrap(self) in the event loop
         return _missing

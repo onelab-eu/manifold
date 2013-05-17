@@ -255,9 +255,13 @@ class QueryPlan(object):
     def execute(self, callback=None):
         cb = callback if callback else Callback()
         self.ast.set_callback(cb)
+        print "before ast start"
         self.ast.start()
+        print "after ast start"
         if not callback:
+            print "not callback, return results"
             return cb.get_results()
+        print "simple return"
         return
 
     def dump(self):
