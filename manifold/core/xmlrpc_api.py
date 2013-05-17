@@ -57,6 +57,9 @@ class XMLRPCAPI(xmlrpc.XMLRPC, object):
             # replace ResultValue by dict
             if 'description' in rv and isinstance(rv['description'], list):
                 rv['description'] = [dict(x) for x in rv['description']]
+            print "-------------------"
+            print "xmlrpc_api result = ",dict(rv)
+            print "-------------------"
             return dict(rv)
 
         except Exception, e:
