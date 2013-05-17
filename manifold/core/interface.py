@@ -175,6 +175,6 @@ class Interface(object):
             return ResultValue.get_success(output)
         elif namespace:
             raise Exception, "Unsupported namespace '%s'" % namespace
- 
+     
         # None is returned to inform child classes they are in charge of the answer
         return None
