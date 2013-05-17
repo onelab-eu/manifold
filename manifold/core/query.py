@@ -167,7 +167,6 @@ class Query(object):
         return (self.action, self.object, self.filters, frozendict(self.params), frozenset(self.fields))
 
     def __hash__(self):
-        print "HASH", self.__key()
         return hash(self.__key())
 
     #--------------------------------------------------------------------------- 

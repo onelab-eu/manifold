@@ -321,29 +321,22 @@ class From(Node):
                        or list of record keys
         \return This node
         """
-        print "From::inject called"
-        print "-------------------"
         if not records:
             return
         record = records[0]
 
         # Are the records a list of full records, or only record keys
         is_record = isinstance(record, dict)
-        print "IS RECORD", is_record, "proof:", record
 
         # If the injection does not provides all needed fields, we need to
         # request them and join
         provided_fields = set(record.keys()) if is_record else set([key])
-        print "PROVIDED", provided_fields
         needed_fields = self.query.fields
-        print "NEEDED", needed_fields
         missing_fields = needed_fields - provided_fields
-        print "MISSING FIELDS", missing_fields
 
         old_self_callback = self.get_callback()
 
         if not missing_fields:
-            print "  > FromTable"
             from_table = FromTable(self.query, records, key)
             from_table.set_callback(old_self_callback)
             return from_table
@@ -358,8 +351,8 @@ class From(Node):
             where.set_callback(old_self_callback)
             # XXX need reoptimization
             return where
-        else:
-            print "From::inject() - INJECTING RECORDS"
+        #else:
+        #    print "From::inject() - INJECTING RECORDS"
 
         missing_fields.add(key) # |= key
         self.query.fields = missing_fields
@@ -368,7 +361,6 @@ class From(Node):
         #parent_query.fields = provided_fields
         #parent_from = FromTable(parent_query, records, key)
 
-        print "  > We do a join"
         join = LeftJoin(records, self, Predicate(key, '==', key))
         join.set_callback(old_self_callback)
 
@@ -398,16 +390,35 @@ class From(Node):
     def optimize_selection(self, filter):
         if self.capabilities.selection:
             # Push filters into the From node
-            for predicate in filter:
-                self.query.filters.add(predicate)
+            self.query.filter_by(filter)
+            #old for predicate in filter:
+            #old    self.query.filters.add(predicate)
             return self
         else:
             # Create a new Selection node
             old_self_callback = self.get_callback()
             selection = Selection(self, filter)
-            selection.query = self.query.copy().filter_by(filter)
+            #selection.query = self.query.copy().filter_by(filter)
             selection.set_callback(old_self_callback)
             return selection
+
+    def optimize_projection(self, fields):
+        if self.capabilities.projection:
+            # Push fields into the From node
+            self.query.select(fields)
+            return self
+        else:
+            if fields - self.query.fields:
+                print "W: Missing fields in From"
+            if self.query.fields - fields:
+                # Create a new Projection node
+                old_self_callback = self.get_callback()
+                projection = Projection(self, fields)
+                #projection.query = self.query.copy().filter_by(filter) # XXX
+                projection.set_callback(old_self_callback)
+                return projection
+            return self
+            
 
 class FromTable(From):
     """
@@ -684,7 +695,8 @@ class LeftJoin(Node):
             print "JOIN parent filter"
             old_self_callback = self.get_callback()
             selection = Selection(self, parent_filter)
-            selection.query = self.query.copy().filter_by(parent_filter)
+            # XXX do we need to set query here ?
+            #selection.query = self.query.copy().filter_by(parent_filter)
             selection.set_callback(old_self_callback)
             return selection
         return self
@@ -706,8 +718,10 @@ class Projection(Node):
         \param fields A list of Field instances corresponding to
             the fields we're selecting.
         """
-        for field in fields:
-            assert isinstance(field, Field), "Invalid field %r (%r)" % (field, type(field))
+        #for field in fields:
+        #    assert isinstance(field, Field), "Invalid field %r (%r)" % (field, type(field))
+        if isinstance(fields, (list, tuple, frozenset)):
+            fields = set(fields)
         self.child, self.fields = child, fields
         self.child.set_callback(self.get_callback())
 
@@ -716,7 +730,7 @@ class Projection(Node):
 
         super(Projection, self).__init__()
 
-    @returns(list)
+    @returns(set)
     def get_fields(self):
         """
         \returns The list of Field instances selected in this node.
@@ -752,7 +766,7 @@ class Projection(Node):
         self.child.dump(indent+1)
 
     def __repr__(self):
-        return DUMPSTR_PROJECTION % ", ".join([field.get_name() for field in self.get_fields()])
+        return DUMPSTR_PROJECTION % ", ".join(self.get_fields())
 
     def start(self):
         """
@@ -779,6 +793,14 @@ class Projection(Node):
         if record != LAST_RECORD:
             record = do_projection(record)
         self.send(record)
+
+    def optimize_selection(self, filter):
+        print "W: Projection::optimize_selection() not implemented"
+        return self
+
+    def optimize_projection(self, fields):
+        # We only need the intersection of both
+        return self.optimize_projection(self.fields & fields)
 
 #------------------------------------------------------------------
 # Selection node (WHERE)
@@ -864,6 +886,21 @@ class Selection(Node):
         for predicate in self.filters:
             filter.add(predicate)
         return self.child.optimize_selection(filter)
+
+    def optimize_projection(self, fields):
+        # Do we have to add fields for filtering, if so, we have to remove them after
+        # otherwise we can just swap operators
+        keys = self.filters.keys()
+        self.child = self.child.optimize_projection(fields | keys)
+        if not keys <= fields:
+            # XXX add projection that removed added_fields
+            # or add projection that removes fields
+            old_self_callback = self.get_callback()
+            projection = Projection(self, fields)
+            projection.set_callback(old_self_callback)
+            return projection
+        return self
+
 
 #------------------------------------------------------------------
 # DEMUX node
@@ -1134,12 +1171,19 @@ class Union(Node):
         for i, child in enumerate(self.children):
             old_child_callback= child.get_callback()
             self.children[i] = child.optimize_selection(filter)
-            #selection = Selection(child, filter)
-            #selection.query = child.query.copy().filter_by(filter)
             self.children[i].set_callback(old_child_callback)
-            #selection.set_callback(child.get_callback())
-            #self.children[i] = selection
         return self
+
+    def optimize_projection(self, fields):
+        # UNION: apply projection to all children
+        # XXX in case of UNION with duplicate elimination, we need the key
+        # until then, apply projection to all children
+        for i, child in enumerate(self.children):
+            old_child_callback= child.get_callback()
+            self.children[i] = child.optimize_projection(fields)
+            self.children[i].set_callback(old_child_callback)
+        return self
+        
 
 #------------------------------------------------------------------
 # SUBQUERY node
@@ -1370,8 +1414,6 @@ class SubQuery(Node):
         \brief Called when all children of the current subquery are done: we
          process results stored in the parent.
         """
-
-        print "SubQuery::all_done()"
 
         for o in self.parent_output:
             # Dispatching child results
@@ -1662,12 +1704,14 @@ class AST(object):
     def optimize(self):
         self.root.optimize()
 
-    def optimize_selection(self, filters):
+    def optimize_selection(self, filter):
+        if not filter: return
         old_cb = self.get_callback()
-        self.root = self.root.optimize_selection(filters)
+        self.root = self.root.optimize_selection(filter)
         self.set_callback(old_cb)
 
     def optimize_projection(self, fields):
+        if not fields: return
         old_cb = self.get_callback()
         self.root = self.root.optimize_projection(fields)
         self.set_callback(old_cb)

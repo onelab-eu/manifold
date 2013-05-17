@@ -213,7 +213,7 @@ class SFAGateway(Gateway):
         'last_updated': 'slice_last_updated', # last_updated != last == checked,
         'geni_creator': 'slice_geni_creator',
         'node_ids': 'slice_node_ids',       # X This should be 'nodes.id' but we do not want IDs
-        'reg-researchers': 'users.person_hrn',   # This should be 'users.hrn'
+        'reg-researchers': 'user.user_hrn',   # This should be 'users.hrn'
         'reg-urn': 'slice_urn',     # slice_geni_urn ???
         'site_id': 'slice_site_id',         # X ID 
         'site': 'slice_site',               # authority.hrn
@@ -322,7 +322,6 @@ class SFAGateway(Gateway):
             if not ref_accounts:
                 raise Exception, "reference account does not exist"
             ref_account = ref_accounts[0]
-            print "SfaGateway::bootstrap() Found the refered account"
             config_new = json.dumps(SFAGateway.manage(ADMIN_USER, ref_platform, json.loads(ref_account.config)))
             if ref_account.config != config_new:
                 ref_account.config = config_new
@@ -932,7 +931,7 @@ class SFAGateway(Gateway):
         # forward what has been retrieved from the SFA getVersion call
         result=version
         
-        if version is not None: 
+        if version is not None:
             # add these fields to match MySlice needs
             for k,v in version.items():
                 if k=='hrn':
@@ -1030,8 +1029,6 @@ class SFAGateway(Gateway):
         # Selection
 
         # Projection and renaming
-        #print "SLICES BEFORE FILTERING:", slices
-        #print "USERS OF SLICE[0] =", slices[0]['reg-researchers']
         filtered = project_select_and_rename_fields(slices, 'slice_hrn', filters, fields, self.map_slice_fields)
         # XXX generic function to manage subrequests
         
@@ -1067,10 +1064,6 @@ class SFAGateway(Gateway):
                     s['lease'] = rsrc_leases['lease'] 
                 if self.debug:
                     s['debug'] = rsrc_leases['debug']
-
-        if has_user:
-            for s in filtered:
-                s['user'] = [{'user_hrn': 'ple.upmc.jordan_auge_test'}]
 
         # remove join fields
         if fields and 'slice_hrn' not in fields:
@@ -1241,7 +1234,9 @@ class SFAGateway(Gateway):
 #        #    server = self.get_component_server_from_hrn(opts.component)
 #
 #        return self.sliceapi.SliverStatus(slice_urn, creds)
-
+    def get_lease(self,filters,params,fields):
+        result = self.get_resource_lease(filters,fields,params)
+        return result['lease']
 
     def get_resource(self, filters, params, fields):
         result = self.get_resource_lease(filters, fields, params)
@@ -1445,13 +1440,8 @@ class SFAGateway(Gateway):
                     r['slice_hrn'] = slice_hrn
                 self.send(r)
         except Exception, e:
-            print "="*80
-            print "Exception in sfa method call", e
-            print "Traceback:"
-            traceback.print_exc()
-
             rv = ResultValue(
-                origin      = (ResultValue.GATEWAY, self.__class__.__name__),
+                origin      = (ResultValue.GATEWAY, self.__class__.__name__, platform, self.query),
                 type        = ResultValue.ERROR, 
                 code        = ResultValue.ERROR, 
                 description = str(e), 

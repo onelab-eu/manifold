@@ -13,12 +13,13 @@ def print_err(err):
         print "\t", line
     print ''
 
-q = {'action': 'get', 'fields': ['network_hrn'], 'object': 'network', 'params': [], 'filters': []}
-
-q = {
-    'object':   'network',
-    'fields':       ['network_hrn']
-}
+#q = {'action': 'get', 'fields': ['network_hrn'], 'object': 'network'}
+#q = {"action": "get", "fields": ["slice_hrn"], "object": "slice", "params": [], "filters": [["slice_hrn", "=", "ple.upmc.myslicedemo"]]}
+q = {"action": "get", "fields": ["slice_hrn", "lease.start_time", "lease.duration", "lease.urn", "lease.granularity", "lease.slice_id"], "object": "slice", "params": [], "filters": [["slice_hrn", "=", "ple.upmc.myslicedemo"]]}
+#q = {
+#    'object':   'network',
+#    'fields':       ['network_hrn']
+#}
 
 q_platform = {
     'object':   'local:platform', 
