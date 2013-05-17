@@ -75,6 +75,7 @@ class XMLRPCAPI(xmlrpc.XMLRPC, object):
         print "pos=", pos
         print "action", action
         print "========"
+        q = Query(*args).to_dict()
         args[pos]['action'] = action
         return self.xmlrpc_forward(*args)
             

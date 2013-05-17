@@ -24,7 +24,8 @@ query = Query.get('slice').filter_by('slice_hrn', '=', slicename).select([
 #    'application.measurement_point.counter'
 ])
 
-ret = Router().forward(query, user=Auth(auth).check())
+with Router() as router:
+    ret = router.forward(query, user=Auth(auth).check())
 
 if ret['code'] != 0:
     if isinstance(ret['description'], list):

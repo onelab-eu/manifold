@@ -18,8 +18,10 @@ class Callback:
         # Used for caching...
         self.router = router
         self.cache_id = cache_id
+        print "callback initialized"
 
     def __call__(self, value):
+        print "callback triggered", value
         if not value:
             if self.cache_id:
                 # Add query results to cache (expires in 30min)
@@ -39,6 +41,8 @@ class Callback:
         self.event.clear()
 
     def get_results(self):
+        print "get_results 1"
         self.wait()
+        print "get_results 2"
         return self.results
         
