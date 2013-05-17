@@ -1498,7 +1498,7 @@ class SFAGateway(Gateway):
                 self.send(r)
         except Exception, e:
             rv = ResultValue(
-                origin      = (ResultValue.GATEWAY, self.__class__.__name__, platform, self.query),
+                origin      = (ResultValue.GATEWAY, self.__class__.__name__, self.platform, str(self.query)),
                 type        = ResultValue.ERROR, 
                 code        = ResultValue.ERROR, 
                 description = str(e), 
