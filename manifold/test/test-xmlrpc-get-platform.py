@@ -4,7 +4,7 @@
 import xmlrpclib
 from config import auth
 
-srv = xmlrpclib.Server("http://localhost:7080/", allow_none = True)
+srv = xmlrpclib.Server("http://dev.myslice.info:7080/", allow_none = True)
 
 def print_err(err):
     print '-'*80
