@@ -360,26 +360,31 @@ class SFAGateway(Gateway):
             if not ref_accounts:
                 raise Exception, "reference account does not exist"
             ref_account = ref_accounts[0]
-            # call manage function for this managed user account to update it 
-            # if the managed user account has only a private key, the credential will be retrieved 
+            
             if ref_account.auth_type == 'managed':
+                # call manage function for this managed user account to update it 
+                # if the managed user account has only a private key, the credential will be retrieved 
                 new_user_config = json.dumps(SFAGateway.manage(self.user.email, ref_platform, json.loads(ref_account.config)))
-            # if the config retrieved is different from the config stored, we need to update it
-            if new_user_config != self.user_config:
-                self.user_config=json.loads(new_user_config)
-                db.add(ref_account)
-                db.commit()
+                # if the config retrieved is different from the config stored, we need to update it
+                if new_user_config != self.user_config:
+                    self.user_config=json.loads(new_user_config)
+                    db.add(ref_account)
+                    db.commit()
+            else:
+                # if user_account is not managed, just add the config of the refered account
+                self.user_config=json.loads(ref_account.config)
         else:
-            # call manage function for a managed user account to update it 
-            # if the managed user account has only a private key, the credential will be retrieved 
             if user_account.auth_type == 'managed':
+                # call manage function for a managed user account to update it 
+                # if the managed user account has only a private key, the credential will be retrieved 
                 new_user_config = json.dumps(SFAGateway.manage(self.user.email, platform, json.loads(user_account.config)))
-            self.user_config=json.loads(new_user_config)
-            if user_account.config != new_user_config:
-                user_account.config = new_user_config
                 self.user_config=json.loads(new_user_config)
-                db.add(user_account)
-                db.commit()        
+                if user_account.config != new_user_config:
+                    user_account.config = new_user_config
+                    self.user_config=json.loads(new_user_config)
+                    db.add(user_account)
+                    db.commit()
+
         # @loic update the user config, if the account is a reference, the query will be sent using the refered account
         # XXX no !!!! XXX self.user_config=json.loads(config_new)
 
@@ -980,7 +985,7 @@ class SFAGateway(Gateway):
         #for r in version:
         #    print r
 
-        # forward what has been retrieved from the SFA getVersion call
+        # forward what has been retrieved from the SFA GetVersion call
         result=version
         
         if version is not None:
