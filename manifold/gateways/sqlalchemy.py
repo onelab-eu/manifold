@@ -29,8 +29,10 @@ def get_sqla_filters(cls, filters):
 
 def row2dict(row):
     try:
+        print "ROW2DICT", {c.name: getattr(row, c.name) for c in row.__table__.columns}
         return {c.name: getattr(row, c.name) for c in row.__table__.columns}
     except:
+        print "ROW2DICT", {c: getattr(row, c) for c in row.keys()}
         return {c: getattr(row, c) for c in row.keys()}
 
 class SQLAlchemyGateway(Gateway):
