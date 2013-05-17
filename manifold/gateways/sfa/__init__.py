@@ -944,7 +944,14 @@ class SFAGateway(Gateway):
             cb_success(self.get_slice_demo(filters, params, fields))
 
         # Slice information is present in the registry only
+        # We can speed up lookup for slices belonging to one authority or for slices belonging to a given user
+        # Otherwise we have to do a recursive listing on the registry
+        # The strategy to list all active slices on the different AM is not good.
+        # (Note: can we optimize routing?)
         # 
+        
+        # For now let's start with recursive listing
+        
 
         # A/ List slices hrn XXX operator on slice_hrn
         def cb_slice_hrn_received(slice_list):
