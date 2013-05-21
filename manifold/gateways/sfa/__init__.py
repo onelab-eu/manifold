@@ -42,6 +42,8 @@ from manifold.models             import *
 from manifold.util.predicate     import contains
 from manifold.util.log           import log_info
 from manifold.gateways.sfa.proxy import SFAProxy
+from manifold.util.predicate     import eq, lt, le
+from manifold.util.misc          import make_list
 import json
 import signal
 import traceback
@@ -884,11 +886,6 @@ class SFAGateway(Gateway):
     def default_cb_success(self, result):
         print "W: default success callback"
         for r in result:
-            # DIRTY HACK continued
-            if slice_hrn and 'slice_hrn' in r:
-                print "Dirty hack continued"
-                r['slice_hrn'] = slice_hrn
-            print "SEND", r
             self.send(r)
         self.send(LAST_RECORD)
 
@@ -939,9 +936,21 @@ class SFAGateway(Gateway):
 
             return [s]
 
-    def get_slice(self, filters, params, fields, cb_success, cb_error):
+    def get_slice(self, filters, params, fields):
+        print "SFA GET SLICE"
+        from twisted.internet import defer
+
         if self.user.email in DEMO_HOOKS:
-            cb_success(self.get_slice_demo(filters, params, fields))
+            return self.get_slice_demo(filters, params, fields)
+
+        def get_slice_callback(result):
+            output = []
+            for (success, records) in result:
+                if not success:
+                    print "ERROR in CALLBACK", records
+                    continue
+                output.extend([r for r in records if r['type'] == 'slice'])
+            return output
 
         # Slice information is present in the registry only
         # We can speed up lookup for slices belonging to one authority or for slices belonging to a given user
@@ -949,37 +958,40 @@ class SFAGateway(Gateway):
         # The strategy to list all active slices on the different AM is not good.
         # (Note: can we optimize routing?)
         # 
+
+        # Let's find some additional information in filters in order to restrict our research
+        # 1) user's slices
+        
+        # 2) given authority
+        auth_hrn = filters.get_op('authority_hrn', [eq, lt, le])
+        recursive = True
+
+        auth_hrn = make_list(auth_hrn)
+        if not auth_hrn:
+            stack = [self.interface_hrn]
+        else:
+            stack = []
+            for hrn in auth_hrn:
+                if not '*' in hrn: # jokers ?
+                    stack.append(hrn)
+
         cred = self._get_cred('user')
 
-        result = []
+        if len(stack) > 1:
+            d = defer.Deferred()
+            deferred_list = []
+            while stack:
+                auth_xrn = stack.pop()
+                deferred_list.append(self.registry.List(auth_xrn, cred, {'recursive': recursive}))
+            defer.DeferredList(deferred_list).addCallback(get_slice_callback).chainDeferred(d)
+            return d
+        else:
+            print "SINGLE"
+            auth_xrn = stack.pop()
+            return self.registry.List(auth_xrn, cred, {'recursive': recursive})
+
+
         
-        # For now let's start with recursive listing
-        # We start at self.platform_hrn
-        start_authority = 'ple'
-        stack = [start_authority]
-        def get_slice_callback(result):
-            try:
-                from twisted.internet import defer
-                for (success, records) in result:
-                    if not success:
-                        print "ERROR in CALLBACK", records
-                        continue
-                    for record in records:
-                        if (record['type'] == 'slice'):
-                            result.append(record)
-                        elif (record['type'] == 'authority'):
-                            # "recursion"
-                            stack.append(record['hrn'])
-                deferred_list = []
-                if stack:
-                    while stack:
-                        auth_xrn = stack.pop()
-                        deferred_list.append(self.registry.List(auth_xrn, cred, {'recursive': True}))
-                    dl = defer.DeferredList(deferred_list).addCallback(get_slice_callback)
-            except Exception, e:
-                print "E: get_slice_callback", e
-                import traceback
-                traceback.print_exc()
         
 # REFERENCE # This code is known to crash sfawrap, saved for further reference
 # REFERENCE # 
@@ -1350,6 +1362,8 @@ class SFAGateway(Gateway):
         # @loic Added default 5sec timeout if parameter self.config['timeout'] is not set
         if not 'timeout' in self.config:
             self.config['timeout'] = DEFAULT_TIMEOUT
+        print "W: Hardcoded interface hrn = ple"
+        self.interface_hrn = 'ple'
 
 
     def __str__(self):
@@ -1367,30 +1381,9 @@ class SFAGateway(Gateway):
             self.bootstrap()
             q = self.query
 
-            # DIRTY HACK to allow slices to span on non federated testbeds
-            #
-            # user account will not reference another platform, and will implicitly
-            # contain information about the slice to associate USERHRN_slice
-            slice_hrn = None
-            if self.platform == 'senslab' and q.object == 'slice' and q.filters.has_eq('slice_hrn'):
-                slice_hrn = q.filters.get_eq('slice_hrn')
-                if not self.user_config or not 'user_hrn' in self.user_config:
-                    raise Exception, "Missing user configuration"
-                senslab_slice = '%s_slice' % self.user_config['user_hrn']
-                print "I: Using slice %s for senslab platform" % senslab_slice
-                local_filters = copy.deepcopy(q.filters)
-                local_filters.set_eq('slice_hrn', senslab_slice)
-            else:
-                local_filters = q.filters
-
-
-            # 
-            # XXX This should be run in a thread
-            #
-            
             fields = q.fields # Metadata.expand_output_fields(q.object, list(q.fields))
-            result = getattr(self, "%s_%s" % (q.action, q.object))(local_filters, q.params, fields, self.default_cb_success, self.default_cb_error)
-            print "done start"
+            d = getattr(self, "%s_%s" % (q.action, q.object))(q.filters, q.params, fields)
+            d.addCallbacks(self.default_cb_success, self.default_cb_error)
 
         except Exception, e:
             rv = ResultValue(
