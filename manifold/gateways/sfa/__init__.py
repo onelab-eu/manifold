@@ -949,9 +949,65 @@ class SFAGateway(Gateway):
         # The strategy to list all active slices on the different AM is not good.
         # (Note: can we optimize routing?)
         # 
+        cred = self._get_cred('user')
+
+        result = []
         
         # For now let's start with recursive listing
+        # We start at self.platform_hrn
+        start_authority = 'ple'
+        stack = [start_authority]
+        def get_slice_callback(result):
+            try:
+                from twisted.internet import defer
+                for (success, records) in result:
+                    if not success:
+                        print "ERROR in CALLBACK", records
+                        continue
+                    for record in records:
+                        if (record['type'] == 'slice'):
+                            result.append(record)
+                        elif (record['type'] == 'authority'):
+                            # "recursion"
+                            stack.append(record['hrn'])
+                deferred_list = []
+                if stack:
+                    while stack:
+                        auth_xrn = stack.pop()
+                        deferred_list.append(self.registry.List(auth_xrn, cred, {'recursive': True}))
+                    dl = defer.DeferredList(deferred_list).addCallback(get_slice_callback)
+            except Exception, e:
+                print "E: get_slice_callback", e
+                import traceback
+                traceback.print_exc()
         
+# REFERENCE # This code is known to crash sfawrap, saved for further reference
+# REFERENCE # 
+# REFERENCE #         def get_slice_callback(result):
+# REFERENCE #             try:
+# REFERENCE #                 from twisted.internet import defer
+# REFERENCE #                 for (success, records) in result:
+# REFERENCE #                     if not success:
+# REFERENCE #                         print "ERROR in CALLBACK", records
+# REFERENCE #                         continue
+# REFERENCE #                     for record in records:
+# REFERENCE #                         if (record['type'] == 'slice'):
+# REFERENCE #                             result.append(record)
+# REFERENCE #                         elif (record['type'] == 'authority'):
+# REFERENCE #                             # "recursion"
+# REFERENCE #                             stack.append(record['hrn'])
+# REFERENCE #                 deferred_list = []
+# REFERENCE #                 if stack:
+# REFERENCE #                     while stack:
+# REFERENCE #                         auth_xrn = stack.pop()
+# REFERENCE #                         deferred_list.append(self.registry.List(auth_xrn, cred, {'recursive': True}))
+# REFERENCE #                     dl = defer.DeferredList(deferred_list).addCallback(get_slice_callback)
+# REFERENCE #             except Exception, e:
+# REFERENCE #                 print "E: get_slice_callback", e
+# REFERENCE #                 import traceback
+# REFERENCE #                 traceback.print_exc()
+
+        get_slice_callback([])
 
         # A/ List slices hrn XXX operator on slice_hrn
         def cb_slice_hrn_received(slice_list):

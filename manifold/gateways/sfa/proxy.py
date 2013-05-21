@@ -62,9 +62,6 @@ class SFAProxy(object):
 
         return ctx
 
-    def default_error_cb(self, error):
-        print 'SFAProxy ERROR:', error
-
     def __init__(self, interface, pkey, cert, timeout):
         from twisted.web      import xmlrpc
         from twisted.internet import reactor
@@ -110,20 +107,19 @@ class SFAProxy(object):
         return self.interface
 
     def __getattr__(self, name):
-        print "GETATTR", name
         # We transfer missing methods to the remote server
-        def _missing(*args, **kwargs):
-            try:
-                success_cb = kwargs['success']
-            except AttributeError:
-                raise Exception, "Internal error: missing success callback to SFAProxy call"
-            error_cb = kwargs.get('error', self.default_error_cb)
-
-            def wrap(source, args, success_cb, error_cb):
+        def _missing(*args):
+            from twisted.internet import defer
+            d = defer.Deferred()
+            success_cb = lambda result: d.callback(result)
+            error_cb   = lambda error : d.errback(ValueError("Error in SFA Proxy %s" % error))
+            
+            def wrap(source, args):
                 tmp = list(args)
                 args = [name]
                 args.extend(tmp)
-                print "CALLREMOTE", args
-                self.proxy.callRemote(*args).addCallbacks(success_cb, error_cb)
-            ReactorThread().callInReactor(wrap, self, args, success_cb, error_cb) # run wrap(self) in the event loop
+                return self.proxy.callRemote(*args).addCallbacks(success_cb, error_cb)
+
+            ReactorThread().callInReactor(wrap, self, args)
+            return d
         return _missing
