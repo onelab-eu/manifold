@@ -19,6 +19,11 @@ from manifold.core.filter               import Filter
 from manifold.gateways                  import Gateway, LAST_RECORD
 from manifold.gateways.sfa.rspecs.SFAv1 import SFAv1Parser # as Parser
 
+##########################
+# TEMP IMPORT: delegate 
+from manifold.bin.delegate import SfaHelper
+#########################
+
 from sfa.trust.certificate import Keypair, Certificate
 from sfa.trust.gid import GID
 from sfa.trust.credential import Credential
@@ -39,6 +44,9 @@ from sfa.rspecs.version_manager import VersionManager
 from sfa.client.client_helper   import pg_users_arg, sfa_users_arg
 from sfa.client.sfaserverproxy  import SfaServerProxy as _SfaServerProxy, ServerException
 from sfa.client.return_value    import ReturnValue
+
+#########################
+# TODO: remove import * and use import db or whatever is needed
 from manifold.models            import *
 from manifold.util.predicate    import contains
 from manifold.util.log          import log_info
@@ -1574,6 +1582,14 @@ class SFAGateway(Gateway):
 
             try:
                 credential_string = registry_proxy.GetSelfCredential (config['sscert'], config['user_hrn'], 'user')
+                # @loic calling SfaHelper from manifold/bin/delegate.py
+                # delegate user credential to MySlice
+                # parameters user_hrn, private_key, sfi_dir, reg_url, myslice_hrn, myslice_type
+                # HARDCODED:
+                # TODO: What can we do with sfi_dir param??? 
+                # myslice_hrn = 'ple.upmc.slicebrowser' => get it from the admin user config
+                # myslice_type = 'user' => we implicitly assume that say, ple.upmc.slicebrowser always is a user, it could as well have been an authority but for now.. 
+                # SfaHelper(config['user_hrn'], config['user_private_key'], sfi_dir, registry_url, 'ple.upmc.slicebrowser', 'user')
             except:
                 # some urns hrns may replace non hierarchy delimiters '.' with an '_' instead of escaping the '.'
                 hrn = Xrn(config['user_hrn']).get_hrn().replace('\.', '_')

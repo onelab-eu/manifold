@@ -40,7 +40,11 @@ class SfaHelper:
         bootstrap = SfaClientBootstrap (self.user_hrn, self.reg_url, self.sfi_dir)
         # if -k is provided, use this to initialize private key
         if self.private_key:
-            bootstrap.init_private_key_if_missing (self.private_key)
+            try:
+                bootstrap.init_private_key_if_missing (self.private_key)
+            except:
+                print "E: Can't find private key, use -k option to specify your private key path"
+                sys.exit(1)
         else:
             # trigger legacy compat code if needed 
             # the name has changed from just <leaf>.pkey to <hrn>.pkey
@@ -52,7 +56,7 @@ class SfaHelper:
                     bootstrap.init_private_key_if_missing (legacy_private_key)
                     print "I: Copied private key from legacy location %s"%legacy_private_key
                 except:
-                    print "E: Can't find private key"
+                    print "E: Can't find private key, use -k option to specify your private key path"
                     sys.exit(1)
             
         # make it bootstrap
