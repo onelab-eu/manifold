@@ -1,7 +1,7 @@
 import sys
 import os, os.path
 import tempfile
-import datetime
+from datetime import datetime
 from lxml import etree
 from StringIO import StringIO
 from types import StringTypes, ListType
@@ -19,11 +19,6 @@ from manifold.core.filter               import Filter
 from manifold.gateways                  import Gateway, LAST_RECORD
 from manifold.gateways.sfa.rspecs.SFAv1 import SFAv1Parser # as Parser
 
-##########################
-# TEMP IMPORT: delegate 
-from manifold.bin.delegate import SfaHelper
-#########################
-
 from sfa.trust.certificate import Keypair, Certificate
 from sfa.trust.gid import GID
 from sfa.trust.credential import Credential
@@ -40,7 +35,7 @@ from sfa.rspecs.rspec import RSpec
 #from sfa.rspecs.rspec_converter import RSpecConverter
 from sfa.rspecs.version_manager import VersionManager
 
-#from sfa.client.sfaclientlib import SfaClientBootstrap
+from sfa.client.sfaclientlib import SfaClientBootstrap
 from sfa.client.client_helper   import pg_users_arg, sfa_users_arg
 from sfa.client.sfaserverproxy  import SfaServerProxy as _SfaServerProxy, ServerException
 from sfa.client.return_value    import ReturnValue
@@ -296,103 +291,14 @@ class SFAGateway(Gateway):
 
         # Get platform
         platform = db.query(Platform).filter(Platform.platform == self.platform).one()
-
-        # Get admin account
-        accounts = [a for a in admin.accounts if a.platform == platform]
-        if not accounts:
-            raise Exception, "Accounts should be created for MySlice admin user"
-            # Let's make sure 'ple' reference account exists
-            #ref_accounts = [a for a in user.accounts if a.platform.platform == 'ple']
-            #if not ref_accounts:
-            #    ref_platform = db.query(Platform).filter(Platform.platform == 'ple').one()
-            #    ref_config = {
-            #        'user_hrn': 'ple.upmc.slicebrowser',
-            #        'user_private_key': 'XXX' .encode('latin1')
-            #    }
-            #    ref_account = Account(user=user, platform=ref_platform, auth_type='managed', config=json.dumps(ref_config))
-            #    db.add(ref_account)
-            #
-            #if platform.platform != 'ple':
-            #    account = Account(user=user, platform=platform, auth_type='reference', config='{"reference_platform": "ple"}')
-            #    db.add(account)
-            #db.commit()
-        else:
-            account = accounts[0]
-
-        # XXX ACCOUNT MANAGEMENT : to be improved
-        config_new = None
         
-        # We manage MySlice accounts
-        if account.auth_type == 'reference':
-            ref_platform = json.loads(account.config)['reference_platform']
-            ref_platform = db.query(Platform).filter(Platform.platform == ref_platform).one()
-            ref_accounts = [a for a in admin.accounts if a.platform == ref_platform]
-            if not ref_accounts:
-                raise Exception, "reference account does not exist"
-            ref_account = ref_accounts[0]
-            config_new = json.dumps(SFAGateway.manage(ADMIN_USER, ref_platform, json.loads(ref_account.config)))
-            if ref_account.config != config_new:
-                ref_account.config = config_new
-                db.add(ref_account)
-                db.commit()
-                
-        else:
-            config_new = json.dumps(SFAGateway.manage(ADMIN_USER, platform, json.loads(account.config)))
-            if account.config != config_new:
-                account.config = config_new
-                db.add(account)
-                db.commit()
-####################################################
-# TODO: create a function instead of duplicated code
-####################################################
-        # Manage user account for the platform called by the gateway
-        # If the user has a private key but no credential, the manage function will retrieve it
-        print "platform = ",self.platform
-        print "platform = ",platform
-        print "self.user.accounts = ",self.user.accounts
+        # Get Admin config
+        new_admin_config=self.get_user_config(admin,platform)
+        self.admin_config=json.loads(new_admin_config)
 
-        # get user account for this platform
-        user_accounts = [a for a in self.user.accounts if a.platform == platform]
-        if not user_accounts:
-            raise Exception, "user account does not exist for platform = %s"% self.platform
-        else:
-            user_account=user_accounts[0]
-        # If the user account for this platform is a reference
-        # we need to get the config of the managed account
-        if user_account.auth_type=='reference':
-            # find the platform refered by the user account
-            ref_platform = json.loads(user_account.config)['reference_platform']
-            ref_platform = db.query(Platform).filter(Platform.platform == ref_platform).one()
-            # find the managed account configured as a reference
-            ref_accounts = [a for a in self.user.accounts if a.platform == ref_platform]
-            if not ref_accounts:
-                raise Exception, "reference account does not exist"
-            ref_account = ref_accounts[0]
-            
-            if ref_account.auth_type == 'managed':
-                # call manage function for this managed user account to update it 
-                # if the managed user account has only a private key, the credential will be retrieved 
-                new_user_config = json.dumps(SFAGateway.manage(self.user.email, ref_platform, json.loads(ref_account.config)))
-                # if the config retrieved is different from the config stored, we need to update it
-                if new_user_config != self.user_config:
-                    self.user_config=json.loads(new_user_config)
-                    db.add(ref_account)
-                    db.commit()
-            else:
-                # if user_account is not managed, just add the config of the refered account
-                self.user_config=json.loads(ref_account.config)
-        else:
-            if user_account.auth_type == 'managed':
-                # call manage function for a managed user account to update it 
-                # if the managed user account has only a private key, the credential will be retrieved 
-                new_user_config = json.dumps(SFAGateway.manage(self.user.email, platform, json.loads(user_account.config)))
-                self.user_config=json.loads(new_user_config)
-                if user_account.config != new_user_config:
-                    user_account.config = new_user_config
-                    self.user_config=json.loads(new_user_config)
-                    db.add(user_account)
-                    db.commit()
-
+        # Get User config
+        new_user_config=self.get_user_config(self.user,platform)
+        self.user_config=json.loads(new_user_config)
         # @loic update the user config, if the account is a reference, the query will be sent using the refered account
         # XXX no !!!! XXX self.user_config=json.loads(config_new)
 
@@ -403,11 +309,11 @@ class SFAGateway(Gateway):
         if not sm_url.startswith('http://') or sm_url.startswith('https://'):
             sm_url = 'http://' + sm_url
 
-        config = json.loads(config_new)
+        #config = json.loads(new_user_config)
         pkey_fn = tempfile.NamedTemporaryFile(delete=False)
-        pkey_fn.write(config['user_private_key'].encode('latin1'))
+        pkey_fn.write(self.user_config['user_private_key'].encode('latin1'))
         cert_fn = tempfile.NamedTemporaryFile(delete=False)
-        cert_fn.write(config['gid']) 
+        cert_fn.write(self.user_config['gid']) 
         pkey_fn.close()
         cert_fn.close()
         
@@ -422,6 +328,57 @@ class SFAGateway(Gateway):
         #os.unlink(pkey_fn.name)
         #os.unlink(cert_fn.name)
 
+    def get_user_config(self, u, p):
+        # Manage user account for the platform called by the gateway
+        # If the user has a private key but no credential, the manage function will retrieve it
+        print "user = ",u
+        print "platform = ",p
+        print "self.user.accounts = ",u.accounts
+
+        # get user account for this platform
+        user_accounts = [a for a in u.accounts if a.platform == p]
+        if not user_accounts:
+            raise Exception, "user %s has no account for platform = %s"% (u.email,p)
+        else:
+            user_account=user_accounts[0]
+        # If the user account for this platform is a reference
+        # we need to get the config of the managed account
+        if user_account.auth_type=='reference':
+            # find the platform refered by the user account
+            ref_platform = json.loads(user_account.config)['reference_platform']
+            ref_platform = db.query(Platform).filter(Platform.platform == ref_platform).one()
+            # find the managed account configured as a reference
+            ref_accounts = [a for a in u.accounts if a.platform == ref_platform]
+            if not ref_accounts:
+                raise Exception, "reference account does not exist"
+            ref_account = ref_accounts[0]
+            
+            if ref_account.auth_type == 'managed':
+                # call manage function for this managed user account to update it 
+                # if the managed user account has only a private key, the credential will be retrieved 
+                new_user_config = json.dumps(self.manage(u.email, ref_platform, json.loads(ref_account.config)))
+                # if the config retrieved is different from the config stored, we need to update it
+                if new_user_config != ref_account.config:
+                    db.add(ref_account)
+                    db.commit()
+                    user_account.config = new_user_config
+            # if user_account is not managed, just add the config of the refered account
+            else:
+                user_account.config = ref_account.config
+            #self.user_config=json.loads(ref_account.config)
+        else:
+            if user_account.auth_type == 'managed':
+                # call manage function for a managed user account to update it 
+                # if the managed user account has only a private key, the credential will be retrieved 
+                new_user_config = json.dumps(self.manage(u.email, p, json.loads(user_account.config)))
+                self.user_config=json.loads(new_user_config)
+                if user_account.config != new_user_config:
+                    db.add(user_account)
+                    db.commit()
+                    user_account.config = new_user_config
+
+        return user_account.config
+        #self.user_config=json.loads(new_user_config)
 
     def get_cached_server_version(self, server):
         # check local cache first
@@ -500,11 +457,21 @@ class SFAGateway(Gateway):
     def sfa_get_slices_hrn(self, cred):
         api_options = {}
         api_options['call_id']=unique_call_id()
-        results = self.sliceapi.ListSlices(cred, *self.ois(self.sliceapi,api_options)) # user cred
-        results = results['value']
-        
+        print "sfa_get_slices_hrn = ",self.user_config['user_hrn']
+        #######################################################################
+        # TODO: remove ListSlices call which is PlanetLab specific and use Resolve
+        #results = self.sliceapi.Resolve(self.user_config['user_hrn'],cred)
+        results = self.sfa_resolve_records(cred,self.user_config['user_hrn'],'user')
+        #results = self.sliceapi.ListSlices(cred, *self.ois(self.sliceapi,api_options)) # user cred
+        results=results[0]
+        print "res = ",results
+        if 'slices' in results:
+            results = results['slices']
+        else:
+            results=[]
         #{'output': '', 'geni_api': 2, 'code': {'am_type': 'sfa', 'geni_code': 0, 'am_code': None}, 'value': [
-        return [urn_to_hrn(r)[0] for r in results]
+        #return [urn_to_hrn(r)[0] for r in results]
+        return results
 
     def sfa_list_records(self, cred, hrns, record_type=None):
         if record_type not in [None, 'user', 'slice', 'authority', 'node']:
@@ -1522,10 +1489,33 @@ class SFAGateway(Gateway):
     @staticmethod
     def generate_slice_credential(target, config):
         raise Exception, "Not implemented. Run delegation script in the meantime"
+    
+    # @loic delegate function is used to delegate a user credential to the ADMIN_USER
+    def delegate(user_credential, user_private_key, admin_credential):
+        # if nessecary converting string to Credential object
+        if isinstance (user_credential, str):
+            user_credential = Credential (string=user_credential)
+        # get the user_gid and user_hrn from the credential
+        user_gid = user_credential.get_gid_object()
+        user_hrn = user_gid.get_hrn()
         
+        # does the user has the right to delegate all its privileges?
+        if not user_credential.get_privileges().get_all_delegate():
+            raise Exception, "E: SFA Gateway the user has no right to delegate"
 
-    @staticmethod
-    def manage(user, platform, config):
+        # if nessecary converting string to Credential object
+        if isinstance (admin_credential, str):
+            admin_credential = Credential (string=admin_credential)
+        # get the admin_gid and admin_hrn from the credential
+        admin_gid = admin_credential.get_gid_object()
+        admin_hrn = admin_gid.get_hrn()
+
+        delegated_credential = user_credential.delegate(admin_gid, user_private_key, user_gid)
+        print "delegated_cred = ",delegated_credential
+        return delegated_credential.save_to_string(save_parents=True)
+
+    #@staticmethod
+    def manage(self, user, platform, config):
         # The gateway should be able to perform user config management taks on
         # behalf of MySlice
         #
@@ -1542,8 +1532,8 @@ class SFAGateway(Gateway):
         from sfa.util.xrn import Xrn
         import json
 
+        # initialize new_key
         new_key = False
-
         if not 'user_hrn' in config:
             print "E: hrn needed to manage authentication"
             return {}
@@ -1564,7 +1554,21 @@ class SFAGateway(Gateway):
             self_signed.set_issuer(keypair, subject=config['user_hrn'].encode('latin1'))
             self_signed.sign()
             config['sscert'] = self_signed.save_to_string()
+       
+        # @loic Verify expiration of the user credential, delete it from config if expired, then it will be retreived in the next if
+        if 'user_credential' in config:
+            print "I: SFA user has credential = ",user
+            # from a string to a credential object to check expiration
+            cred = Credential(string=config['user_credential'])
+            if user is not ADMIN_USER and cred.parent is None:
+                print "I: SFA user is not an ADMIN"
+                print "user has no delegated credential"
+                del config['user_credential']
+            if cred.get_expiration() < datetime.now():
+                print "I: SFA Credential expired, removing config['user_credential'] for user = ",config['user_hrn']
+                del config['user_credential']
 
+        # if no user_credential or credential expired, registry_proxy.GetSelfCredential and delegate it to ADMIN_USER
         if new_key or not 'user_credential' in config: # or expired
             print "I: SFA::manage: Requesting user credential for user", user
             # Create temporary files for key and certificate in order to use existing code based on httplib
@@ -1578,18 +1582,24 @@ class SFAGateway(Gateway):
             # We need to connect through a HTTPS connection using the generated private key
             registry_url = json.loads(platform.config)['registry']
             # @loic Added default 5sec timeout 
-            registry_proxy = SfaServerProxy (registry_url, pkey_fn.name, cert_fn.name, timeout=DEFAULT_TIMEOUT_GETVERSION)
+            registry_proxy = SfaServerProxy (registry_url, pkey_fn.name, cert_fn.name, timeout=20)
 
             try:
                 credential_string = registry_proxy.GetSelfCredential (config['sscert'], config['user_hrn'], 'user')
-                # @loic calling SfaHelper from manifold/bin/delegate.py
-                # delegate user credential to MySlice
-                # parameters user_hrn, private_key, sfi_dir, reg_url, myslice_hrn, myslice_type
-                # HARDCODED:
-                # TODO: What can we do with sfi_dir param??? 
-                # myslice_hrn = 'ple.upmc.slicebrowser' => get it from the admin user config
-                # myslice_type = 'user' => we implicitly assume that say, ple.upmc.slicebrowser always is a user, it could as well have been an authority but for now.. 
-                # SfaHelper(config['user_hrn'], config['user_private_key'], sfi_dir, registry_url, 'ple.upmc.slicebrowser', 'user')
+                # if not ADMIN delegate user credential to MySlice
+                if user is not ADMIN_USER:
+                    print "I: SFA delegating credential..."
+                    # @loic calling internal delegate function
+                    # parameters: user cred to be delegated, user private key, admin credential
+                    try:
+                        print self.admin_config
+                        #print SFAGateway.admin_config
+                        #self.admin_config['user_credential']
+                        credential_string = self.delegate(credential_string, config['user_private_key'], self.admin_config['user_credential'])
+                    except Exception,e:
+                        print "delegation ERROR = ",e
+                    print "delegated = ",credential_string
+                    raise Exception, "toto"
             except:
                 # some urns hrns may replace non hierarchy delimiters '.' with an '_' instead of escaping the '.'
                 hrn = Xrn(config['user_hrn']).get_hrn().replace('\.', '_')
@@ -1611,6 +1621,8 @@ class SFAGateway(Gateway):
             cert_fn.close()
 
             # We need to connect through a HTTPS connection using the generated private key
+            print "platform = ",platform
+            print "platform.config = ",platform.config
             registry_url = json.loads(platform.config)['registry']
             # @loic Added default 5sec timeout
             registry_proxy = SfaServerProxy(registry_url, pkey_fn.name, cert_fn.name, timeout=DEFAULT_TIMEOUT_GETVERSION)
