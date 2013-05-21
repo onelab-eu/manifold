@@ -1,3 +1,13 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+# Functions for interacting with a PostgreSQL server 
+#
+# Jordan Auge       <jordan.auge@lip6.fr>
+# Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
+#
+# Copyright (C) 2013 UPMC 
+
 
 # COMMENT ON TABLE mytable IS 'This is my table.';
 #
@@ -8,8 +18,7 @@
 # FROM pg_class
 # WHERE relkind = 'r'
 #
-#
-# COMMENT ON COLUMN addresses.address_id IS 'Unique identifier for the> addresses table';
+# COMMENT ON COLUMN addresses.address_id IS 'Unique identifier for the addresses table';
 
 # Some code borrowed from MyPLC PostgreSQL code
 import psycopg2
@@ -28,13 +37,17 @@ from manifold.gateways                  import Gateway
 from manifold.util.log                  import *
 from manifold.util.predicate            import and_, or_, inv, add, mul, sub, mod, truediv, lt, le, ne, gt, ge, eq, neg, contains
 from manifold.core.table                import Table
-from manifold.core.field                import Field 
+from manifold.core.field                import Field
 from manifold.core.announce             import Announce
-
+from manifold.util.type                 import accepts, returns
 
 class PostgreSQLGateway(Gateway):
 
-    SQL_STR = "SELECT %(fields)s FROM %(table)s WHERE %(filters)s";
+    SQL_STR = """
+    SELECT %(fields)s
+        FROM %(table)s
+        WHERE %(filters)s
+    """;
 
     SQL_OPERATORS = {
         eq: '='
@@ -102,18 +115,24 @@ class PostgreSQLGateway(Gateway):
     # PostgreSQL interface and helper functions
     #---------------------------------------------------------------------------
 
-    def __init__(self, router, platform, query, config, user_config, user):
+    def __init__(self, router, platform, query, config, user_config, user, re_ignored_tables = []):
+        """
+        \param re_ignored_tables A List of re instances filtering tables that must be
+            not processed by PostgreSQLGateway. For instance you could filter tables
+            not exposed to Manifold.
+        """
         super(PostgreSQLGateway, self).__init__(router, platform, query, config, user_config, user)
         self.debug = False
         #self.debug = True
         self.db_name = 'postgres'
         self.connection = None
+        self.re_ignored_tables = re_ignored_tables
 
     def cursor(self, cursor_factory=None): #psycopg2.extras.NamedTupleCursor
         if self.connection is None:
             # (Re)initialize database connection
             cfg = {
-                'user':     self.config['db_user'],
+                'user'    : self.config['db_user'],
                 'password': self.config['db_password']
             }
             cfg['database'] = self.config['db_name'] if 'db_name' in self.config else self.db_name
@@ -241,7 +260,7 @@ class PostgreSQLGateway(Gateway):
     # see http://www.python.org/dev/peps/pep-0249/
     # accepts either None, a single dict, a tuple of single dict - in which case it execute's
     # or a tuple of several dicts, in which case it executemany's
-    def execute(self, query, params = None, cursor_factory=None):
+    def execute(self, query, params = None, cursor_factory = None):
         cursor = self.cursor(cursor_factory)
         try:
 
@@ -257,22 +276,22 @@ class PostgreSQLGateway(Gateway):
 
             if not params:
                 if self.debug:
-                    log_debug('execute0',query)
+                    log_debug('execute0', query)
                 cursor.execute(query)
-            elif isinstance(params,dict):
+            elif isinstance(params, dict):
                 if self.debug:
-                    log_debug('execute-dict: params',params,'query',query%params)
-                cursor.execute(query,params)
-            elif isinstance(params,tuple) and len(params)==1:
+                    log_debug('execute-dict: params', params, 'query', query % params)
+                cursor.execute(query, params)
+            elif isinstance(params, tuple) and len(params) == 1:
                 if self.debug:
-                    log_debug('execute-tuple',query%params[0])
-                cursor.execute(query,params[0])
+                    log_debug('execute-tuple', query % params[0])
+                cursor.execute(query, params[0])
             else:
                 #param_seq=(params,)
-                param_seq=params
+                param_seq = params
                 if self.debug:
                     for params in param_seq:
-                        log_debug('executemany',query%params)
+                        log_debug('executemany', query % params)
                 cursor.executemany(query, param_seq)
             (self.rowcount, self.description, self.lastrowid) = \
                             (cursor.rowcount, cursor.description, cursor.lastrowid)
@@ -289,10 +308,14 @@ class PostgreSQLGateway(Gateway):
             log_debug("Params:")
             log_debug(pformat(params))
             msg = str(e).rstrip() # jordan
-            raise Exception("Please contact " + \
-                             self.config['name'] + " Support " + \
-                             "<" + self.config['mail_support_address'] + ">" + \
-                             " and reference " + uuid + " - " + msg)
+            raise Exception(
+                "Please contact %(name)s Support <%(mail)s> and reference %(uuid)s - %(msg)s" % {
+                    "name" : self.config["name"] if "name" in self.config else "?",
+                    "mail" : self.config["mail_support_address"] if "mail_support_address" in self.config else "?",
+                    "uuid" : uuid,
+                    "msg"  : msg
+                }
+            )
 
         return cursor
 
@@ -356,7 +379,8 @@ class PostgreSQLGateway(Gateway):
     # Query to SQL 
     #---------------------------------------------------------------------------
 
-    def get_where_elt(self, predicate):
+    @classmethod
+    def get_where_elt(cls, predicate):
         # NOTE : & | operator on list, tuple, set: if not make one
         # NOTE : in MyPLC we could have several modifiers on a field
 
@@ -377,7 +401,7 @@ class PostgreSQLGateway(Gateway):
                     operator=""
                     value = "FALSE"
             else:
-                value = map(str, map(self.quote, value))
+                value = map(str, map(cls.quote, value))
                 if op_ == and_:
                     op = "@>"
                     value = "ARRAY[%s]" % ", ".join(value)
@@ -399,7 +423,7 @@ class PostgreSQLGateway(Gateway):
                 # actual replacement to % done in PostgreSQL.py
                 value = value.replace ('*','***')
                 value = value.replace ('%','***')
-                value = str(self.quote(value))
+                value = str(cls.quote(value))
             else:
                 op = "="
                 if op_ == lt:
@@ -411,9 +435,9 @@ class PostgreSQLGateway(Gateway):
                 if op_ == ge:
                     op = '>='
                 if isinstance(value, StringTypes) and value[-2:] != "()": # XXX
-                    value = str(self.quote(value))
+                    value = str(cls.quote(value))
                 if isinstance(value, datetime.datetime):
-                    value = str(self.quote(str(value)))
+                    value = str(cls.quote(str(value)))
         if field:
             clause = "\"%s\" %s %s" % (field, op, value)
         else:
@@ -424,38 +448,86 @@ class PostgreSQLGateway(Gateway):
 
         return clause
 
-    def get_where(self, filters):
+    @classmethod
+    def get_where(cls, filters):
+        """
+        Translate a set of Predicate instances in the corresponding SQL string
+        Args:
+            filters: A list of Predicate instances
+        Returns:
+            A String containing the corresponding SQL WHERE clause.
+            This String is equal to "" if filters is empty
+        """
         # NOTE : How to handle complex clauses
-        return ' AND '.join([self.get_where_elt(pred) for pred in filters])
-
+        return ' AND '.join([cls.get_where_elt(pred) for pred in filters])
 
     def get_sql(self):
+        """
+        Translate self.query in the corresponding postgresql command
+        Returns:
+            A String containing a postgresql command 
+        """
         params = {
-            'table': self.query.object,
-            'filters': self.get_where(self.query.filters),
-            'fields': ', '.join(self.query.fields)
+            "table"   : self.query.object,
+            "filters" : PostgreSQL.get_where(self.query.filters),
+            "fields"  : ", ".join(self.query.fields)
         }
         sql = self.SQL_STR % params
         return sql
 
-    def forward(self, query, deferred=False, execute=True, user=None):
+    def forward(self, query, deferred = False, execute = True, user = None):
+        """
+        Args
+            query: A Query instance that must be processed by this PostgreSQLGateway
+            deferred: A boolean
+            execute: A boolean which must be set to True if the query must be run.
+            user: A User instance or None
+        """
         self.query = query
         self.start()
 
     def start(self):
+        """
+        Fetch records stored in the postgresql database according to self.query
+        """
         sql = self.get_sql()
         params = None
-
-        for row in self.selectall(sql, params):
-            self.callback(row)
-        self.callback(None)
-
+        rows = self.selectall(sql, params)
+        rows.append(None)
+        map(self.send, rows)
         return 
 
+    @returns(list)
     def get_databases(self):
+        """
+        Retrieve the database names stored in postgresql
+        Returns:
+            A list of StringTypes containing the database names
+        """
         return [x['datname'] for x in self.selectall(self.SQL_DATABASE_NAMES) if x['datname'] != 'postgres']
 
+    # TODO this could be moved into Gateway to implement "Access List"
+    @returns(bool)
+    def is_ignored_table(self, table_name):
+        """
+        Check whether a Table must be processed by this PostgreSQLGateway
+        Args:
+            table_name: A StringValue corresponding to the name of the Table
+        Returns:
+            A bool equal to True iif this table must be ignored
+        """
+        for re_ignored_table in self.re_ignored_tables:
+            if re_ignored_table.match(table_name):
+                return True
+        return False
+
+    @returns(list)
     def get_metadata(self):
+        """
+        Build metadata by querying postgresql's information schema
+        Returns:
+            The list of corresponding Announce instances
+        """
         announces = []
         
         curs = self.cursor(cursor_factory=psycopg2.extras.NamedTupleCursor)
@@ -463,9 +535,26 @@ class PostgreSQLGateway(Gateway):
         tables = (x[0] for x in curs.fetchall())
         
         for table_name in tables:
-        
+            if self.is_ignored_table(table_name):
+                print "Ignoring %s" % table_name
+                continue
+            else:
+                print "Adding %s" % table_name
+
             t = Table(None, None, table_name, None, None) #fields, primary_keys[table_name])
 
+            # FOREIGN KEYS:
+            # We build a foreign_keys dictionary associating each field of
+            # the table with the table it references.
+            curs.execute(self.SQL_TABLE_FOREIGN_KEYS, (table_name, ))
+            fks = curs.fetchall()
+            foreign_keys = { fk.column_name: fk.foreign_table_name for fk in fks }
+ 
+            # COMMENTS:
+            # We build a comments dictionary associating each field of the table with
+            # its comment.
+            comments = {}
+ 
             # FIELDS:
             fields = set()
             curs.execute(self.SQL_TABLE_FIELDS, (table_name, ))
@@ -483,24 +572,19 @@ class PostgreSQLGateway(Gateway):
             # We build a key dictionary associating each table with its primary key
             curs.execute(self.SQL_TABLE_KEYS, (table_name, ))
             fks = curs.fetchall()
-            primary_keys = { fk.table_name: fk.column_name for fk in fks }
-            
-            for k in primary_keys[table_name]:
-                t.insert_key(k)
 
-            # FOREIGN KEYS:
-            # We build a foreign_keys dictionary associating each field of
-            # the table with the table it references.
-            curs.execute(self.SQL_TABLE_FOREIGN_KEYS, (table_name, ))
-            fks = curs.fetchall()
-            foreign_keys = { fk.column_name: fk.foreign_table_name for fk in fks }
-        
-            # COMMENTS:
-            # We build a comments dictionary associating each field of the table with
-            # its comment.
-            comments = {}
-        
-        
+#            primary_keys = {fk.table_name: fk.column_name for fk in fks}
+            primary_keys = dict()
+            for fk in fks:
+                foreign_key = fk.column_name
+                if table_name not in primary_keys.keys():
+                    primary_keys[table_name] = set()
+                primary_keys[table_name].add(foreign_key)
+ 
+            if table_name in primary_keys.keys():
+                for k in primary_keys[table_name]:
+                    t.insert_key(k)
+       
             # PARTITIONS:
             # TODO
         
