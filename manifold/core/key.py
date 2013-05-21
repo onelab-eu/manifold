@@ -38,7 +38,7 @@ class Key(frozenset):
     def __init__(self, fields):
         """
         \brief Constructor
-        \param fields The set of Metafields involved in the key.
+        \param fields The set of Field instances involved in the Key.
         """
         Key.check_fields(fields)
         frozenset.__init__(fields)

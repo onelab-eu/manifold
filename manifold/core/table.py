@@ -238,6 +238,7 @@ class Table:
         """
         \brief Add a field in self.
         \param key Supported parameters
+            A Key
             A Field      (a Field instance belonging to this table)
             A StringType (a field name, related to a field of this table)
             A container  (list, set, frozenset, tuple) made of StringType (field names)
@@ -248,7 +249,7 @@ class Table:
             if isinstance(key, Field):
                 fields = frozenset([key])
             elif isinstance(key, StringTypes):
-                fields = frozenset(self.get_field(key))
+                fields = frozenset([self.get_field(key)])
             elif isinstance(key, (list, set, frozenset, tuple)):
                 fields = frozenset([self.get_field(key_elt) for key_elt in key])
             else:
