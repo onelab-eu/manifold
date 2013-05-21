@@ -100,10 +100,12 @@ class QueryPlan(object):
             # (2) Do we have pointers to the parent
             else:
                 parent_fields = set(metadata.get_fields(table))
+                parent_key = table.get_keys().one()
                 method_table = metadata.find_node(method)
-                child_key = method_table.get_keys().one()
+                child_fields = set(metadata.get_fields(method_table))
                 # XXX why is it necessarily the key of the child, and not the fields...
-                intersection = parent_fields & child_key
+                intersection = parent_fields & child_fields
+                intersection2 = set([f.get_name() for f in child_fields if f.get_name() == table_name])
                 if intersection == parent_fields:
                     # 1..1
                     raise Exception, "1..1 relationships not handled"
@@ -115,6 +117,12 @@ class QueryPlan(object):
                     for field in intersection:
                         query.select(field.get_name())
                         subquery.select(field.get_name())
+
+                elif intersection2:
+                    # Child table references parent table name
+                    print "Adding to subquery", parent_key.get_names()
+                    subquery.select(parent_key.get_names())
+                    print "SUBQUERY", subquery
                     
 
                 else:
@@ -323,7 +331,10 @@ class QueryPlan(object):
         map_method_demux   = dict()
 
         #print "PROCESS_QUERY", user_query
+        print "PRUNED TREE", [n for n in pruned_tree.nodes()]
 
+        ordered_tables = dfs_preorder_nodes(pruned_tree, root_node)
+        print "ORDERED TABLES", [o for o in ordered_tables]
         ordered_tables = dfs_preorder_nodes(pruned_tree, root_node)
 
         # Let's remove parent tables from ordered tables
@@ -341,7 +352,9 @@ class QueryPlan(object):
         tmp.append(prev_table)
         ordered_tables = tmp
         
+        print '#'*80
         for table in ordered_tables:
+            print "TABLE", table
             from_asts = list()
             key = list(table.get_keys())[0]
 
@@ -355,7 +368,9 @@ class QueryPlan(object):
             # For each platform related to the current table, extract the
             # corresponding table and build the corresponding FROM node
             map_method_fields = table.get_annotations()
+            print '-'*80
             for method, fields in map_method_fields.items(): 
+                print "method & fields", method, fields
                 if method.get_name() == table.get_name():
                     # The table announced by the platform fits with the 3nf schema
                     # Build the corresponding FROM 
@@ -408,6 +423,7 @@ class QueryPlan(object):
                     
                 from_asts.append(from_ast)
 
+            print "="*80
             # Add the current table in the query plane 
             if ast.is_empty():
                 # Process this table, which is the root of the 3nf tree
@@ -416,11 +432,15 @@ class QueryPlan(object):
             else:
                 # Retrieve in-edge (u-->v): there is always exactly 1
                 # predecessor in the 3nf tree since v is not the root.
+                # XXX JE NE COMPRENDS PAS CA !!!
+                print "AST", ast.dump()
                 v = table
+                print "TABLE", v
                 preds = pruned_tree.predecessors(v)
                 assert len(preds) == 1, "pruned_tree is not a tree: predecessors(%r) = %r" % (table, preds)
                 u = preds[0]
                 predicate = pruned_tree[u][v]["predicate"]
+                print "PREDICATE", predicate
                 ast.left_join(AST(user = user).union(from_asts, key), predicate)
 
         if not ast.root: return ast
