@@ -5,7 +5,10 @@ BUILDDIR    = $(CURDIR)/build
 DISTDIR     = $(CURDIR)/dist
 # overwritten by the specfile
 DESTDIR="/"
-PREFIX=/usr/local
+# default prefix is /usr for smooth packaging
+# manual install might want to run 
+# make install PREFIX=/usr/local
+PREFIX=/usr
 
 # stupid distutils, it's broken in so many ways
 SUBBUILDDIR = $(shell python -c 'import distutils.util, sys; \
