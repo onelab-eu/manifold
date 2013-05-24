@@ -65,63 +65,58 @@ class Interface(object):
         # XXX Platforms only serve for metadata
         # in fact we should initialize filters from the instance, then rely on
         # Storage including those filters...
-        try:
-            for from_node in query_plan.froms:
-                name = from_node.get_platform()
+        for from_node in query_plan.froms:
+            name = from_node.get_platform()
 
-                platform = [p for p in self.platforms if p.name == name]
-                if not platform:
-                    raise Exception, "Cannot find platform data for '%s'" % name
-                platform = platform[0]
+            platform = [p for p in self.platforms if p.name == name]
+            if not platform:
+                raise Exception, "Cannot find platform data for '%s'" % name
+            platform = platform[0]
 
-                if name == 'dummy':
-                    args = [None, name, None, platform.gateway_config, None, user]
+            if name == 'dummy':
+                args = [None, name, None, platform.gateway_config, None, user]
+            else:
+
+                if not platform.auth_type:
+                    print "W: should set account auth type"
+                    continue
+
+                # XXX platforms might have multiple auth types (like pam)
+                # XXX we should refer to storage
+
+                if platform.auth_type in ['none', 'default']:
+                    config = {}
+
+                # For default, take myslice account
+
+                elif platform.auth_type == 'user':
+                    # User account information
+                    accounts = [a for a in user.accounts if a.platform.platform == platform.name]
+                    if not accounts:
+                        raise Exception, 'No such account'
+                    account = accounts[0]
+
+                    config = json.loads(account.config)
+
+                    if account.auth_type == 'reference':
+                        ref_platform = config['reference_platform']
+                        ref_platform = db.query(Platform).filter(Platform.platform == ref_platform).one()
+                        ref_accounts = [a for a in user.accounts if a.platform == ref_platform]
+                        if not ref_accounts:
+                            raise Exception, "reference account does not exist"
+                        ref_account = ref_accounts[0]
+
+                        config = json.loads(ref_account.config)
+
                 else:
+                    raise Exception('auth type not implemented: %s' % platform.auth_type)
+            
+            args = [None, name, None, platform.gateway_config, config, user]
+            gw = Gateway.get(platform.gateway_name)(*args)
 
-                    if not platform.auth_type:
-                        print "W: should set account auth type"
-                        continue
-
-                    # XXX platforms might have multiple auth types (like pam)
-                    # XXX we should refer to storage
-
-                    if platform.auth_type == 'none':
-                        config = {}
-
-                    # For default, take myslice account
-
-                    elif platform.auth_type == 'user':
-                        # User account information
-                        accounts = [a for a in user.accounts if a.platform.platform == platform.name]
-                        if not accounts:
-                            raise Exception, 'No such account'
-                        account = accounts[0]
-
-                        config = json.loads(account.config)
-
-                        if account.auth_type == 'reference':
-                            ref_platform = config['reference_platform']
-                            ref_platform = db.query(Platform).filter(Platform.platform == ref_platform).one()
-                            ref_accounts = [a for a in user.accounts if a.platform == ref_platform]
-                            if not ref_accounts:
-                                raise Exception, "reference account does not exist"
-                            ref_account = ref_accounts[0]
-
-                            config = json.loads(ref_account.config)
-
-                    else:
-                        raise Exception('auth type not implemented: %s' % platform.auth_type)
-                
-                args = [None, name, None, platform.gateway_config, config, user]
-                gw = Gateway.get(platform.gateway_name)(*args)
-
-                gw.set_query(from_node.query)
-                gw.set_identifier(from_node.get_identifier())
-                from_node.set_gateway(gw)
-        except Exception, e:
-            import traceback
-            print traceback.print_exc()
-            print "EXC inst gw", e
+            gw.set_query(from_node.query)
+            gw.set_identifier(from_node.get_identifier())
+            from_node.set_gateway(gw)
 
     def get_metadata_objects(self):
         output = []
@@ -180,6 +175,6 @@ class Interface(object):
             return ResultValue.get_success(output)
         elif namespace:
             raise Exception, "Unsupported namespace '%s'" % namespace
- 
+     
         # None is returned to inform child classes they are in charge of the answer
         return None

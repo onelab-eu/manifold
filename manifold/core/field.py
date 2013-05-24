@@ -7,10 +7,15 @@
 # Authors:
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
-from types                         import StringTypes
-from manifold.util.type              import returns, accepts 
+from types              import StringTypes
+from manifold.util.type import returns, accepts 
+from manifold.util.log  import Log
+
+BASE_TYPES = ['bool', 'int', 'unsigned', 'double', 'text', 'timestamp', 'interval', 'inet']
 
 class Field(object):
+
+
     def __init__(self, qualifier, type, name, is_array = False, description = None):
         """
         \brief Constructor
@@ -93,8 +98,16 @@ class Field(object):
 
     @returns(StringTypes)
     def get_name(self):
+        if not self.is_reference():
+            return self.name
+        # If the field is a reference to another table, we need to retrieve the key of this table
         return self.name
 
     @returns(bool)
     def is_array(self):
         return self._is_array
+
+    @returns(bool)
+    def is_reference(self):
+        Log.tmp(self.get_name(), "is reference ?", self.get_type(), BASE_TYPES)
+        return self.get_type() not in BASE_TYPES

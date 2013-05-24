@@ -14,7 +14,7 @@
 from __future__ import absolute_import
 
 from manifold.util.singleton    import Singleton
-from manifold.util.log          import *
+from manifold.util.log          import Log
 from manifold.util.options      import Options
 
 import atexit, os, signal, lockfile, logging, sys
@@ -27,7 +27,7 @@ class Daemon(object):
         "uid"                 : os.getuid(),
         "gid"                 : os.getgid(),
         "working_directory"   : "/",
-        "debug"               : False,
+        "debugmode"           : False,
         "no_daemon"           : False,
         "pid_filename"        : "/var/run/%s.pid" % Options().get_name()
     }
@@ -50,9 +50,9 @@ class Daemon(object):
         except AttributeError, e:
             print e
             # daemon and python-daemon conflict with each other
-            log_critical("Please install python-daemon instead of daemon. Remove daemon first.")
+            Log.critical("Please install python-daemon instead of daemon. Remove daemon first.")
         except ImportError:
-            log_critical("Please install python-daemon - easy_install python-daemon.")
+            Log.critical("Please install python-daemon - easy_install python-daemon.")
         return ret
 
     #------------------------------------------------------------------------
@@ -208,9 +208,9 @@ class Daemon(object):
             default = self.DEFAULTS['working_directory']
         )
         opt.add_option(
-            "-d", "--debug", action = "store_false", dest = "debug",
-            help = "Debug mode (useful for developers).",
-            default = self.DEFAULTS['debug']
+            "-D", "--debugmode", action = "store_false", dest = "debugmode",
+            help = "Daemon debug mode (useful for developers).",
+            default = self.DEFAULTS['debugmode']
         )
         opt.add_option(
             "-n", "--no-daemon", action = "store_true", dest = "no_daemon",
@@ -298,7 +298,7 @@ class Daemon(object):
             stderr             = sys.stderr,
             uid                = Options().uid,
             gid                = Options().gid,
-            files_preserve     = Logger().files_to_keep
+            files_preserve     = Log().files_to_keep
         )
 
         # Prepare signal handling to stop properly if the daemon is killed 
@@ -310,7 +310,7 @@ class Daemon(object):
             signal.SIGINT  : self.signal_handler
         }
 
-        if Options().debug == True:
+        if Options().debugmode == True:
             self.main()
         else:
             with dcontext:

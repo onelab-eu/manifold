@@ -36,26 +36,38 @@ class Options(object):
         # Initialize options to default values
         cfg = cfgparse.ConfigParser()
         cfg.add_optparse_help_option(self._opt)
-        for option_name in self._defaults:
-            cfg.add_option(option_name, default = self._defaults[option_name])
 
         # Load configuration file
         try:
             cfg_filename = sys.argv[sys.argv.index("-c") + 1]
-            cfg.add_file(cfg_filename)
+            try:
+                with open(cfg_filename): cfg.add_file(cfg_filename)
+            except IOError: 
+                raise Exception, "Cannot open specified configuration file: %s" % cfg_filename
         except ValueError:
-            cfg.add_file(self.CONF_FILE)
+            try:
+                with open(self.CONF_FILE): cfg.add_file(self.CONF_FILE)
+            except IOError: pass
 
+        for option_name in self._defaults:
+            cfg.add_option(option_name, default = self._defaults[option_name])
+            
         # Load/override options from configuration file and command-line 
         (options, args) = cfg.parse(self._opt)
+        print ">>>", options, args
         self.__dict__.update(vars(options))
 
     def add_option(self, *args, **kwargs):
+        default = kwargs.get('default', None)
+        self._defaults[kwargs['dest']] = default
         if 'default' in kwargs:
-            self._defaults[kwargs['dest']] = kwargs['default']
-            kwargs['help'] += " Defaults to %r." % kwargs['default']
+            # This is very important otherwise file content is not taken into account
             del kwargs['default']
+        kwargs['help'] += " Defaults to %r." % default
         self._opt.add_option(*args, **kwargs)
         
     def get_name(self):
         return self._name if self._name else os.path.basename(sys.argv[0])
+
+    def __repr__(self):
+        return "<Options: %r>" % self.__dict__
