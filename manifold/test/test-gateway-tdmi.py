@@ -1,87 +1,127 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+#
+# Tests for TDMI Gateway
+#
+# Copyright (C) UPMC Paris Universitas
+# Authors:
+#   Marc-Olivier Buob   <marc-olivier.buob@lip6.fr>
 
-from manifold.gateways.tdmi import TDMIGateway
-from manifold.core.query    import Query
-#from manifold.util.log      import Logger
+import sys
 
-#l = Logger("test_tdmi")
+from manifold.gateways.tdmi     import TDMIGateway
+from manifold.core.query        import Query
+from manifold.core.result_value import ResultValue
+from manifold.core.router       import Router 
+from manifold.util.storage      import DBStorage
+from manifold.util.type         import returns, accepts 
 
+@accepts(dict)
 def tdmi_callback(record):
     """
     Process a record fetched by the gateway
     Args:
-        record: A Record instance storing the fetched record
+        record: A dictionnary storing the fetched record
     """
-    print "TDMI: %r" % record
+    if record:
+        print "{"
+        for field_name in sorted(record.keys()):
+            print "\t%s: %s" % (field_name, record[field_name])
+        print "}"
+    else:
+        print "END"
 
-#cfg['SCHEME'] = 'password'
-#cfg['USERNAME'] = 'guest@top-hat.info'
-#cfg['PASSWORD'] = 'guest'
+@returns(Router)
+def make_tdmi_router():
+    """
+    Prepare a TDMI router/
+    Returns:
+        The corresponding Router instance.
+    """
+    # TODO select().where().one()
+    # Fetch tdmi configuration from myslice storage
+    platforms = DBStorage.execute(Query().get("platform"), format = "object")
+    try:
+        platform = [platform for platform in platforms if platform.name == "tdmi"][0]
+    except:
+        # TODO: we should use this acount
+        #'db_user'     : 'guest@top-hat.info'
+        #'db_password' : 'guest'
+        print """No information found about TDMI in the storage, you should run:
 
-# Default configuration
-config = {
-    "db_user"              : "postgres",
-#    "db_host"              : 132.227.62.103, 
-    "db_password"          : None,
-    "db_name"              : "tophat",
-#    "db_port"              : 5432,
-    "name"                 : "TopHat team",
-    "mail_support_address" : "xxx@xxx" 
-    ""
-}
+        myslice-add-platform "tdmi" "Tophat Dedicated Measurement Infrastructure" "TDMI" "none" '{"db_host": "132.227.62.103", "db_port": 5432, "db_user": "postgres", "db_password": null, "db_name": "tophat", "name" : "TopHat team", "mail_support_address" : "xxx@xxx" }' 1
+        """
+        sys.exit(-1)
 
-# Default query 
-query = Query(
-    action = "get",
-    object = "traceroute",
+    print platform
+    # Our Forwarder does not need any capability since pgsql is
+    return Router(platform)
+
+@returns(ResultValue)
+@accepts(Router, Query)
+def run_test(router, query):
+    """
+    Forward a query to the router and dump the result to the standard outpur
+    Params:
+        router: The router instance related to TDMI
+        query: The query instance send to the TDMI's router
+    """
+    print "=" * 80
+    return router.forward(query)
+
+
+# Print metadata stored in the router
+@accepts(Router)
+def dump_routing_table(router):
+    for platform, announces in router.metadata.items():
+        print "*** Platform %s:" % platform
+        for announce in announces:
+            print ">> %r (cost %r)" % (announce.get_table(), announce.get_cost())
+            print "%s\n" % announce.get_table()
+
+
+router = make_tdmi_router()
+dump_routing_table(router)
+
+# Query traceroute
+run_test(router, Query(
+    action  = "get",
+    object  = "traceroute",
     filters =  [
         ["agent_id",       "=", 11824],
         ["destination_id", "=", 1417]
         #["destination_id", "=", [1416, 1417]]
     ],
-    fields = [
+    fields  = [
     #    "src_ip", "dst_ip", "src_hostname", "dst_hostname",
         "agent",   "destination",
         "hops.ip", "hops.ttl", "hops.hostname", "timestamp"
     ],
     timestamp = "2012-09-09 14:30:09"
-)
+))
 
-# Prepare the TDMI gateway
-gw = TDMIGateway(
-    router      = None,
-    platform    = "tdmi",
-    query       = query,
-    config      = config,
-    user_config = None,
-    user        = None
-)
-gw.set_callback(tdmi_callback)
-gw.start()
+# Query agent 
+run_test(router, Query(
+    action  = "get",
+    object  = "agent",
+    filters =  [["agent_id", "=", 11824]],
+    fields  = ["agent_id", "ip", "hostname"]
+))
 
-#from tdmi.core.query  import Query
-#from tdmi.core.server import TDMIServer
-#
-#def run_test(query):
-#    s = TDMIServer()
-#    rows = s.execute(query)
-#    for row in rows:
-#        print row
-#
-# run_test(q)
+# Query traceroute JOIN agent
+run_test(router, Query(
+    action  = "get",
+    object  = "traceroute",
+    filters =  [
+        ["agent_id",       "=", 11824],
+        ["destination_id", "=", 1417]
+        #["destination_id", "=", [1416, 1417]]
+    ],
+    fields  = [
+        "agent", "agent.ip", "src_ip", "agent.hostname", "src_hostname",
+        "destination", "destination.ip", "dst_ip", "destination.hostname", "dst_hostname"
+    ],
+    timestamp = "2012-09-09 14:30:09"
+))
 
-# test 2
-#print 2, 100*"="
-#select = ["agent_id", "src_ip", "destination_id", "dst_ip", "first", "last", "timestamp", "hop_count"]
-#run_test(select, where, ts)
-#
-## test 3
-#print 3, 100*"="
-#ts = "latest"
-#where = {
-#    "src_ip": "141.22.213.34",
-#    "dst_ip": ["139.91.90.239", "195.116.60.211"]
-#}
-#run_test(select, where, ts)
-#
+

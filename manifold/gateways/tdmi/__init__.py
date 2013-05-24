@@ -105,7 +105,6 @@ class TDMIGateway(PostgreSQLGateway):
             if m:
                 table.name = m.group(1)
                 self.aliases[table.get_name()] = pgsql_name
-                print "Aliasing %s <-> %s" % (pgsql_name, table.get_name()) 
 
         # Fetch metadata from .h files
         announces_h = Announces.from_dot_h(self.get_platform(), self.get_gateway_type())
@@ -121,21 +120,14 @@ class TDMIGateway(PostgreSQLGateway):
             # Inject custom fields in their corresponding announce
             if table_name in self.custom_fields.keys():
                 for field in self.custom_fields[table_name]:
-                    print "Adding custom field %r in %r" % (field, table)
                     table.insert_field(field)
 
             # Inject custom keys in their corresponding announce
             if table_name in self.custom_keys.keys():
                 for key in self.custom_keys[table_name]:
-                    print "Adding custom key %r in %r" % (key, table)
                     table.insert_key(key)
 
         # TODO remove *_id fields
-
-        # DEBUG
-        print "Announces:"
-        for announce in announces:
-            print "%r" % announce.table
         return announces
 
     def start(self):
@@ -146,6 +138,10 @@ class TDMIGateway(PostgreSQLGateway):
         customized query.
         """
         query = self.query
+        print "-" * 80
+        print "%s" % query
+        print "%s" % query.timestamp
+        print "-" * 80
         if query.object in self.METHOD_MAP.keys():
             # This object is retrieved thanks to a stored procedure
             # See manifold/gateways/tdmi/methods/*

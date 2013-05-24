@@ -482,7 +482,7 @@ class PostgreSQLGateway(Gateway):
         """
         params = {
             "table"   : self.query.object,
-            "filters" : PostgreSQL.get_where(self.query.filters),
+            "filters" : PostgreSQLGateway.get_where(self.query.filters),
             "fields"  : ", ".join(self.query.fields)
         }
         sql = self.SQL_STR % params
@@ -682,10 +682,7 @@ class PostgreSQLGateway(Gateway):
         
         for table_name in table_names:
             if self.is_ignored_table(table_name):
-                #print "Ignoring %s" % table_name
                 continue
-            else:
-                print "Processing %s" % table_name
             announces.append(Announce(self.get_table(table_name)))
 
         return announces

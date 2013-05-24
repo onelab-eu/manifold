@@ -55,12 +55,14 @@ class Interface(object):
             config = {}
         return config
 
-    def instanciate_gateways(self, query_plan, user):
+    def instanciate_gateways(self, query_plan, user, timestamp = None):
         """
-        \brief instanciate gateway instances in the query plane
-        \param query_plan (QueryPlan)
-        \param user (dict)
-        \sa manifold.core.query_plan
+        Instanciate gateway instances in the query plane
+        See also manifold.core.query_plan
+        Args:
+            query_plan: A query plane instance, deduced from the Query
+            user: (dict)
+            timestamp: Timestamp (String instance) related to the Query
         """
         # XXX Platforms only serve for metadata
         # in fact we should initialize filters from the instance, then rely on
@@ -115,6 +117,7 @@ class Interface(object):
             gw = Gateway.get(platform.gateway_name)(*args)
 
             gw.set_query(from_node.query)
+            gw.query.timestamp = timestamp
             gw.set_identifier(from_node.get_identifier())
             from_node.set_gateway(gw)
 

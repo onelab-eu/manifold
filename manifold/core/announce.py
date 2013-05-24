@@ -17,6 +17,7 @@ from manifold.core.capabilities       import Capabilities
 from manifold.core.field              import Field 
 from manifold.core.key                import Key, Keys
 from manifold.util.clause             import Clause
+from manifold.util.type               import returns, accepts 
 
 STATIC_ROUTES_FILE = "/usr/share/manifold/metadata/"
 
@@ -219,12 +220,19 @@ def import_file_h(filename):
 #------------------------------------------------------------------
 
 class Announce(object):
-    def __init__(self, table, cost=None):
+    def __init__(self, table, cost = None):
         """
         \brief Constructor
         """
         self.table = table
         self.cost = cost
+
+    #@returns(Table)
+    def get_table(self):
+        return self.table
+
+    def get_cost(self):
+        return self.cost
 
     def __repr__(self):
         return "<Announce %r>" % self.table

@@ -86,7 +86,7 @@ class QueryPlan(object):
             # (1) Do we have a reachable field of type method[] that contains a
             # list of identifier for child items
             
-            fields = [ f for f in metadata.get_fields(table) if f.get_name() == method]
+            fields = [f for f in metadata.get_fields(table) if f.get_name() == method]
             if fields:
                 field = fields[0]
                 if field.is_array(): # 1..N
@@ -198,46 +198,68 @@ class QueryPlan(object):
         # It leads to a query plan made of Union, From, and LeftJoin nodes
         return self.build_query_plan(user, query, pruned_tree, metadata, in_subquery)
 
+    @staticmethod
+    def get_announce(metadata, platform, table_name):
+        """
+        Retrieve the announce corresponding to a given object name and related
+        to a given platform
+        Args:
+            metadata: A dictionnary { String => list(Announces) } which associate
+                a platform name (String instance) to its corresponding list of Announces.
+            platform: The platform name (String instance)
+            table_name: The name of the Table (String instance)
+        Returns:
+            The corresponding Announce (if any), None otherwise
+        """
+        announces = metadata[platform]
+        for announce in announces:
+            if announce.table.get_name() == table_name:
+                return announce
+        return None
+
     def build_simple(self, query, metadata, allowed_capabilities):
         """
-        \brief Builds a query plan to a single gateway
+        Builds a query plan to a single Table 
+        Args:
+            query: The handled Query instance
+            metadata: A dictionnary { String => list(Announces) } which associates
+                a platform name (String instance) to its corresponding list of Announces.
+            allowed_capabilities: capabilities enabled on this Forwarder
         """
-        # XXX allowed_capabilities should be a property of the query plan !
 
-        # XXX Check whether we can answer query.object
-
-
-        # Here we assume we have a single platform
+        assert len(metadata.keys()) == 1 # This assume we have a single platform 
+        table_name = query.get_from()
         platform = metadata.keys()[0]
-        announce = metadata[platform][query.object] # eg. table test
-        
+
+        announce = QueryPlan.get_announce(metadata, platform, table_name)
+        if not announce:
+            raise ValueError("Cannot answer query: FROM")
+
+        announced_table = announce.get_table()
 
         # Set up an AST for missing capabilities (need configuration)
-        #
         # Selection ?
-        if query.filters and not announce.capabilities.selection:
+        if query.get_where() and not announced_table.get_capabilities().selection:
             if not allowed_capabilities.projection:
-                raise Exception, 'Cannot answer query: PROJECTION'
-            add_selection = query.filters
+                raise ValueError("Cannot answer query: SELECTION")
+            add_selection = query.get_where()
             query.filters = Filter()
         else:
             add_selection = None
-        #
+
         # Projection ?
-        #
-        announce_fields = set([f.get_name() for f in announce.table.fields])
-        if query.fields < announce_fields and not announce.capabilities.projection:
+        announce_field_names = set([field.get_name() for field in announced_table.get_fields()])
+        if query.get_select() < announce_field_names and not announced_table.get_capabilities().projection:
             if not allowed_capabilities.projection:
-                raise Exception, 'Cannot answer query: PROJECTION'
-            add_projection = query.fields
+                raise ValueError("Cannot answer query: PROJECTION")
+            add_projection = query.get_select()
             query.fields = set()
         else:
             add_projection = None
 
-        t = Table({platform:''}, {}, query.object, set(), set())
-        key = metadata.get_key(query.object)
-        cap = metadata.get_capabilities(platform, query.object)
-        self.ast = self.ast.From(t, query, metadata.get_capabilities(platform, query.object), key)
+        t = Table(platform, {}, table_name, set(), set())
+        key = list(announced_table.get_keys())[0]
+        self.ast = self.ast.From(t, query, announced_table.get_capabilities(), key)
 
         # XXX associate the From node to the Gateway
         fromnode = self.ast.root
@@ -245,14 +267,13 @@ class QueryPlan(object):
         #fromnode.set_gateway(gw_or_router)
         #gw_or_router.query = query
 
-        if not self.root: return
+        if not self.ast.root: return
         if add_selection:
             self.ast.optimize_selection(add_selection)
         if add_projection:
             self.ast.optimize_projection(add_projection)
 
         self.ast.dump()
-
 
     def execute(self, callback=None):
         cb = callback if callback else Callback()

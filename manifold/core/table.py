@@ -113,16 +113,19 @@ class Table:
 
     def __init__(self, partitions, map_field_methods, name, fields, keys):
         """
-        \brief Constructor
-        \param partitions It can be either:
-            - a dictionary {String => Predicate} where each key is the name of a platform
-            and each data is a Predicate or None. None means that the condition is always True.
-            - or either set/list of platform names
-        \param name The name of the table (for example: 'user', ...)
-        \param map_field_methods Pass None or a dictionnary which maps for each field
-            the corresponding methods to retrieve them: {Field => set(Method)}
-        \param fields A set/list of Fields involved in the table (for example 'name', 'email', ...)
-        \param keys The key of the table (for example 'email')
+        Table constructor
+        Args:
+            partitions: It can be either:
+                - a string (the name of the platform)
+                - a dictionary {String => Predicate} where each key is the name
+                of a platform and each data is a Predicate or "None". "None" means
+                that the condition is always True.
+                - a set/list of platform names
+            name: The name of the table
+            map_field_methods: Pass "None" or a dictionnary which maps for each field
+                the corresponding methods to retrieve them: {Field => set(Method)}
+            fields: A set/list of Fields involved in the table
+            keys: A set of Key instances
         """
         # Check parameters
         Table.check_init(partitions, map_field_methods, name, fields, keys)
