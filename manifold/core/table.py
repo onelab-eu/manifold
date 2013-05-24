@@ -126,7 +126,6 @@ class Table:
         """
         # Check parameters
         Table.check_init(partitions, map_field_methods, name, fields, keys)
-
         self.set_partitions(partitions)
 
         # Init self.fields
@@ -170,7 +169,7 @@ class Table:
         return "{%s}::%s {\n\t%s;\n\t%s;\n};" % (
             ', '.join([p          for p in sorted(self.get_platforms())]),
             self.get_name(),
-            ';\n\t'.join(["%s" % f for f in sorted(self.get_fields())]),
+            ';\n\t'.join(["%s%s" % (f, "[]" if f.is_array() else "") for f in sorted(self.get_fields())]),
 #            '\n\t'.join(["%s;\t// via %r" % (field, methods) for field, methods in self.map_field_methods.items()]),
             '\n\t;'.join(["%s" % k for k in self.get_keys()])
         )

@@ -1,10 +1,25 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+#
+# Class to manage Manifold's gateways
+#
+# A Gateway handles Manifold's query and translate them to query the
+# underlying source of information (for instance a database, a CSV
+# file, a Web Service, etc.). Once the result is retrieved, the
+# Gateway translates each "record" in a python dictionnary having one key
+# per queried field and its corresponding value. At least the Gateway
+# send "None" to indicates that the whole set of "records" has been returned.
+#
+# Jordan Auge       <jordan.auge@lip6.fr>
+# Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
+#
+# Copyright (C) 2013 UPMC 
 
-from manifold.core.announce         import Announces
-from manifold.util.plugin_factory   import PluginFactory
-#from manifold.util.misc             import find_local_modules
-from manifold.core.ast              import LAST_RECORD
+from manifold.core.announce             import Announces
+from manifold.util.plugin_factory       import PluginFactory
+#from manifold.util.misc                 import find_local_modules
+from manifold.core.ast                  import LAST_RECORD
+from manifold.util.type                 import accepts, returns
 
 #-------------------------------------------------------------------------------
 # Generic Gateway class
@@ -56,12 +71,31 @@ class Gateway(object):
     def set_user_config(self, user_config):
         self.user_config = user_config
 
-    def get_metadata(self):
+    def get_gateway_type(self):
+        """
+        Returns:
+            The type of the gateway (String instance)
+        """
         gateway_type = self.__class__.__name__
-        if gateway_type.endswith('Gateway'):
+        if gateway_type.endswith("Gateway"):
             gateway_type = gateway_type[:-7]
-        gateway_type = gateway_type.lower()
-        return Announces.from_dot_h(self.platform, gateway_type)
+        return gateway_type.lower()
+
+    def get_platform(self):
+        """
+        Returns:
+            The platform managed by this Gateway (String instance) 
+        """
+        return self.platform
+
+    @returns(list)
+    def get_metadata(self):
+        """
+        Build metadata by loading header files
+        Returns:
+            The list of corresponding Announce instances
+        """
+        return Announces.from_dot_h(self.get_platform(), self.get_gateway_type())
 
     def get_result_value(self):
         return self.result_value
