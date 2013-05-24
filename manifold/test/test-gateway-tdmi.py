@@ -41,7 +41,8 @@ query = Query(
         #["destination_id", "=", [1416, 1417]]
     ],
     fields = [
-        "src_ip", "dst_ip", "src_hostname", "dst_hostname",
+    #    "src_ip", "dst_ip", "src_hostname", "dst_hostname",
+        "agent",   "destination",
         "hops.ip", "hops.ttl", "hops.hostname", "timestamp"
     ],
     timestamp = "2012-09-09 14:30:09"

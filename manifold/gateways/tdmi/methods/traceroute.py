@@ -109,12 +109,11 @@ class Traceroute(list):
             hops.append(new_ip_hop)
         return hops
 
-    def register_field(self, field_name, field_type):
+    def register_field(self, field_name):
         """
         Register a field in SELECT
         Args:
             field_name The field name
-            field_type The corresponding SQL type
         """
         if field_name not in self.selected_fields:
             field_type = "ip_hop_t[]" if field_name == "hops" else self.map_field_type[field_name]
@@ -136,6 +135,7 @@ class Traceroute(list):
         Raises:
             ValueError: if parameter select is not valid
         """
+        # TODO Factorize with make_table_from_view
         # List available fields by querying the database
         self.map_field_type = {}
         for record in self.db.selectall("SELECT field_name, field_type FROM get_fields('view_traceroute')", None):
@@ -147,12 +147,17 @@ class Traceroute(list):
         self.selected_sub_fields = {}
         if select == None:
             # By default, return every fields
-            for field in self.map_field_type:
-                self.register_field(field[0], field[1])
+            for (field_name, field_type) in self.map_field_type.items():
+                self.register_field(field_name)
         else:
             for field_name in select:
-                if self.map_field_type.has_key(field_name):
-                    self.register_field(field_name, self.map_field_type[field_name])
+                if field_name == "agent":
+                    self.register_field("src_ip")
+                elif field_name == "destination":
+                    self.register_field("dst_ip")
+                elif self.map_field_type.has_key(field_name):
+                    # This field can be deduced from postgresql
+                    self.register_field(field_name)
                 else:
                     # Is it a sub-field like "hops.ip" ?
                     field_split = field_name.split(".")
@@ -161,20 +166,20 @@ class Traceroute(list):
                         sub_field_name = field_split[1]
 
                         # Add the related field to SELECT (e.g. "hops")
-                        if (self.map_field_type.has_key(field_name)) and (field_name not in self.selected_fields) :
-                            self.register_field(field_name, self.map_field_type[field_name])
+                        if (self.map_field_type.has_key(field_name)) and (field_name not in self.selected_fields):
+                            self.register_field(field_name)
 
                         # Add the related sub-field 
                         if not self.selected_sub_fields.has_key(field_name):
                             self.selected_sub_fields[field_name] = []
                         self.selected_sub_fields[field_name].append(sub_field_name)
                     else:
-                        print "Ignoring invalid field in select: %s" % field_name
+                        print "Ignoring invalid field '%s' in select" % field_name
 
             # Do we select at least one field ?
             if not self.selected_fields:
                 raise ValueError("""
-                    %(select) does not select any valid fields.
+                    %(select)s does not select any valid fields.
                     Allowed values are: %(map_field_type)s
                     """ % {
                         "select"         : select,
@@ -198,18 +203,45 @@ class Traceroute(list):
         """
         (self.ts_min, self.ts_max) = ts_to_sql_bounds(ts)
 
-    def repack(self, traceroutes):
+    def repack(self, query, traceroutes):
         """
         Repack SQL tuples into dictionnaries.
         Here we convert hops (which is a string containing a SQL array of tuples)
         into an array of python dictionnary 
+
+        Args:
+            query: The Query instance handled by Manifold
+            traceroutes: The fetched traceroute records (list of dictionnaries)
         """
+        # Convert SQL string array related to traceroute's hops into python dictionnaries
         for field_name in self.selected_sub_fields:
-            # Convert SQL string array related to traceroute's hops into python dictionnaries
             if field_name == "hops":
                 for traceroute in traceroutes:
                     hops = traceroute["hops"]
                     traceroute["hops"] = self.repack_hops(hops, self.selected_sub_fields["hops"]) 
+
+        # TODO Factorize agent and destination crafting by using a generic function
+        # Craft 'agent' field if queried 
+        if "agent" in query.get_select():
+            remove_src_ip = ("src_ip" not in query.get_select())
+            for traceroute in traceroutes:
+                traceroute["agent"] = {
+                    "ip"       : traceroute["src_ip"],
+                    "platform" : "tdmi"
+                }
+                if remove_src_ip:
+                    del traceroute["src_ip"]
+
+        # Craft 'destination' field if queried 
+        if "destination" in query.get_select():
+            remove_dst_ip = ("dst_ip" not in query.get_select())
+            for traceroute in traceroutes:
+                traceroute["destination"] = {
+                    "ip" : traceroute["dst_ip"]
+                }
+                if remove_dst_ip:
+                    del traceroute["dst_ip"]
+            
         return traceroutes
 
     def __init__(self, query, db = None):
@@ -238,7 +270,7 @@ class Traceroute(list):
 
     def get_sql(self):
         # Craft the SQL query
-        return """
+        sql = """
             SELECT * FROM get_view_traceroutes(
                 %(select_sql)s,
                 '%(where_sql)s',
@@ -256,10 +288,5 @@ class Traceroute(list):
                 "table_fields_sql" : ', '.join(self.table_fields_sql)
             }
 
-#        # Run the SQL query
-#        ret = self.db.selectall(sql)
-#        for row in ret:
-#            self.append(row)
-#
-#        # Process the return result to make it more user-friendly
-#        self.repack()
+        print sql
+        return sql

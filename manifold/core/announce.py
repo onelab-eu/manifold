@@ -17,8 +17,6 @@ from manifold.core.capabilities       import Capabilities
 from manifold.core.field              import Field 
 from manifold.core.key                import Key, Keys
 from manifold.util.clause             import Clause
-#from manifold.metadata.Metadata         import import_file_h
-#from manifold.metadata.MetadataEnum   import MetadataEnum
 
 STATIC_ROUTES_FILE = "/usr/share/manifold/metadata/"
 
@@ -159,8 +157,9 @@ def import_file_h(filename):
                     if key_name in cur_class.get_field_names():
                         raise ValueError("Trying to add implicit key %s which is already in use" % key_name)
                     print "I: Adding implicit key %s in %s" % (key_name, cur_class_name) 
-                    cur_class.keys.append([key_name])
-                    cur_class.fields.append(Field("const", "unsigned", key_name, False, "Dummy key"))
+                    dummy_key_field = Field("const", "unsigned", key_name, False, "Dummy key");
+                    cur_class.insert_field(dummy_key_field)
+                    cur_class.keys.add(Key([dummy_key_field]))
                 cur_class_name = None
                 continue
 
@@ -190,7 +189,6 @@ def import_file_h(filename):
             if m:
                 qualifier      = m.group(1)
                 cur_class_name = m.group(2)
-                #classes[cur_class_name] = MetadataClass(qualifier, cur_class_name)
                 classes[cur_class_name] = Table(None, None, cur_class_name, None, Keys()) # qualifier ??
                 continue
 
@@ -235,6 +233,7 @@ class Announces(object):
 
     @classmethod
     def from_dot_h(self, platform_name, gateway_type):
+        print "I: Loading headers (static routes)"
         return self.import_file_h(STATIC_ROUTES_FILE, platform_name, gateway_type)
 
     @classmethod
@@ -242,7 +241,7 @@ class Announces(object):
         """
         \brief Import a .h file (see manifold.metadata/*.h)
         \param directory The directory storing the .h files
-            Example: router.conf.STATIC_ROUTES_FILE = "/usr/share/myslice/metadata/"
+            Example: router.conf.STATIC_ROUTES_FILE = "/usr/share/manifold/metadata/"
         \param platform The name of the platform we are configuring
             Examples: "ple", "senslab", "tophat", "omf", ...
         \param gateway_types The type of the gateway
@@ -259,7 +258,7 @@ class Announces(object):
                 raise Exception, "Metadata file '%s' not found (platform = %r, gateway_type = %r)" % (filename, platform, gateway_type)
 
         # Read input file
-        #print "I: Platform %s: Processing %s" % (platform, filename)
+        print "I: Platform %s: Processing %s" % (platform, filename)
         (classes, enums) = import_file_h(filename)
 
         # Check class consistency

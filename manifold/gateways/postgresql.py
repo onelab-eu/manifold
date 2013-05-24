@@ -70,6 +70,12 @@ class PostgreSQLGateway(Gateway):
     WHERE table_schema='public' AND table_type='BASE TABLE'
     """
 
+    SQL_VIEW_NAMES = """
+    SELECT    table_name
+        FROM  information_schema.views
+        WHERE table_schema = ANY(current_schemas(false))
+    """
+
     SQL_TABLE_FIELDS = """
     SELECT 
         column_name, data_type, is_updatable, is_nullable
@@ -115,18 +121,25 @@ class PostgreSQLGateway(Gateway):
     # PostgreSQL interface and helper functions
     #---------------------------------------------------------------------------
 
-    def __init__(self, router, platform, query, config, user_config, user, re_ignored_tables = []):
+    def __init__(self, router, platform, query, config, user_config, user, re_ignored_tables = None, re_allowed_tables = None):
         """
-        \param re_ignored_tables A List of re instances filtering tables that must be
-            not processed by PostgreSQLGateway. For instance you could filter tables
-            not exposed to Manifold.
+        Construct a PostgreSQLGateway instance
+        Args:
+            re_ignored_tables: A list of re instances filtering tables that must be
+                not processed by PostgreSQLGateway. For instance you could filter tables
+                not exposed to Manifold. You may pass None if you do not want to filter
+                any table
+            re_allowed_tables: A list of re instances allowing tables. This supersedes
+                table filtered by re_ignored_tables regular expressions. You may pass
+                None if every tables are exposed to Manifold
         """
         super(PostgreSQLGateway, self).__init__(router, platform, query, config, user_config, user)
         self.debug = False
         #self.debug = True
         self.db_name = 'postgres'
         self.connection = None
-        self.re_ignored_tables = re_ignored_tables
+        self.re_ignored_tables = re_ignored_tables if re_ignored_tables else []
+        self.re_allowed_tables = re_allowed_tables if re_allowed_tables else [re.compile(".*")]
 
     def cursor(self, cursor_factory=None): #psycopg2.extras.NamedTupleCursor
         if self.connection is None:
@@ -518,8 +531,164 @@ class PostgreSQLGateway(Gateway):
         """
         for re_ignored_table in self.re_ignored_tables:
             if re_ignored_table.match(table_name):
+                for re_allowed_table in self.re_allowed_tables:
+                    if re_allowed_table.match(table_name):
+                        return False
                 return True
         return False
+
+    def get_cursor(self):
+        return self.cursor(cursor_factory = psycopg2.extras.NamedTupleCursor)
+        
+    @staticmethod
+    def translate_sql_type(sql_type):
+        """
+        Translate a SQL type in its corresponding Manifold type
+        Args:
+            sql_type: A standard SQL type (for instance boolean, integer, ARRAY, etc.)
+        Returns;
+            The corresponding Manifold type
+        """
+        sql_type = sql_type.lower()
+        re_timestamp = re.compile("timestamp")
+        if sql_type == "integer":
+            return "int"
+        elif sql_type == "boolean":
+            return "bool"
+        elif sql_type == "array":
+            # TODO we need to infer the right type 
+            return "string"
+        elif sql_type == "real":
+            return "double"
+        elif sql_type in ["inet", "cidr", "text", "interval"]:
+            return sql_type
+        elif re_timestamp.match(sql_type):
+            return "timestamp"
+        else:
+            print "translate_sql_type: %r is not supported" % sql_type
+
+    #@returns(Table)
+    def get_table(self, table_name):
+        """
+        Build a Table instance according to a given table/view name by
+        quering the PostgreSQL schema.
+
+        Args:
+            table_name: Name of a view or a relation in PostgreSQL (String instance)
+        Returns:
+            The Table instance extracted from the PostgreSQL schema related
+            to the queried view/relation
+        """
+        cursor = self.get_cursor()
+        table = Table(self.platform, None, table_name, None, None) #fields, primary_keys[table_name])
+
+        # FOREIGN KEYS:
+        # We build a foreign_keys dictionary associating each field of
+        # the table with the table it references.
+        cursor.execute(self.SQL_TABLE_FOREIGN_KEYS, (table_name, ))
+        fks = cursor.fetchall()
+        foreign_keys = { fk.column_name: fk.foreign_table_name for fk in fks }
+
+        # COMMENTS:
+        # We build a comments dictionary associating each field of the table with
+        # its comment.
+        comments = {}
+
+        # FIELDS:
+        fields = set()
+        cursor.execute(self.SQL_TABLE_FIELDS, (table_name, ))
+        for field in cursor.fetchall():
+            # PostgreSQL types vs base types
+            table.insert_field(Field(
+                qualifier   = '' if field.is_updatable == 'YES' else 'const',
+                type        = foreign_keys[field.column_name] if field.column_name in foreign_keys else PostgreSQLGateway.translate_sql_type(field.data_type),
+                name        = field.column_name,
+                is_array    = (field.data_type == "ARRAY"),
+                description = comments[field.column_name] if field.column_name in comments else '(null)'
+            ))
+    
+        # PRIMARY KEYS: XXX simple key ?
+        # We build a key dictionary associating each table with its primary key
+        cursor.execute(self.SQL_TABLE_KEYS, (table_name, ))
+        fks = cursor.fetchall()
+
+#            primary_keys = {fk.table_name: fk.column_name for fk in fks}
+        primary_keys = dict()
+        for fk in fks:
+            foreign_key = fk.column_name
+            if table_name not in primary_keys.keys():
+                primary_keys[table_name] = set()
+            primary_keys[table_name].add(foreign_key)
+
+        if table_name in primary_keys.keys():
+            for k in primary_keys[table_name]:
+                table.insert_key(k)
+   
+        # PARTITIONS:
+        # TODO
+    
+        #mc = MetadataClass('class', table_name)
+        #mc.fields = fields
+        #mc.keys.append(primary_keys[table_name])
+    
+        table.capabilities.retrieve   = True
+        table.capabilities.join       = True
+        table.capabilities.selection  = True
+        table.capabilities.projection = True
+        return table
+
+    def get_generator(self, sql_query):
+        """
+        (Internal usage) Build a generator allowing to iterate on the first
+        field of a set of queried records
+        Args:
+            sql_query: A query passed to PostgreSQL (String instance)
+        Returns:
+            The correspnding generator instance
+        """
+        cursor = self.get_cursor()
+        cursor.execute(sql_query)
+        return (record[0] for record in cursor.fetchall())
+
+    def get_view_names(self):
+        """
+        Retrieve the view names stored in the database
+        Returns:
+            A generator allowing to iterate on each view names (String instance)
+        """
+        return self.get_generator(self.SQL_VIEW_NAMES)
+
+    def get_table_names(self):
+        """
+        Retrieve the table names stored in the database
+        Returns:
+            A generator allowing to iterate on each table names (String instance)
+        """
+        return self.get_generator(self.SQL_TABLE_NAMES)
+
+    @returns(list)
+    def get_metadata_from_names(self, table_names):
+        """
+        Build metadata by querying postgresql's information schema
+        Param
+            table_names: A structure on which we can iterate
+                (list, set, generator...) to retrieve table names
+                or view names. Filtered table names are ignored
+                (see self.is_ignored_table())
+        Returns:
+            The list of corresponding Announce instances
+        """
+        announces = []
+        
+        for table_name in table_names:
+            if self.is_ignored_table(table_name):
+                #print "Ignoring %s" % table_name
+                continue
+            else:
+                print "Processing %s" % table_name
+            announces.append(Announce(self.get_table(table_name)))
+
+        return announces
 
     @returns(list)
     def get_metadata(self):
@@ -528,75 +697,4 @@ class PostgreSQLGateway(Gateway):
         Returns:
             The list of corresponding Announce instances
         """
-        announces = []
-        
-        curs = self.cursor(cursor_factory=psycopg2.extras.NamedTupleCursor)
-        curs.execute(self.SQL_TABLE_NAMES)
-        tables = (x[0] for x in curs.fetchall())
-        
-        for table_name in tables:
-            if self.is_ignored_table(table_name):
-                print "Ignoring %s" % table_name
-                continue
-            else:
-                print "Adding %s" % table_name
-
-            t = Table(None, None, table_name, None, None) #fields, primary_keys[table_name])
-
-            # FOREIGN KEYS:
-            # We build a foreign_keys dictionary associating each field of
-            # the table with the table it references.
-            curs.execute(self.SQL_TABLE_FOREIGN_KEYS, (table_name, ))
-            fks = curs.fetchall()
-            foreign_keys = { fk.column_name: fk.foreign_table_name for fk in fks }
- 
-            # COMMENTS:
-            # We build a comments dictionary associating each field of the table with
-            # its comment.
-            comments = {}
- 
-            # FIELDS:
-            fields = set()
-            curs.execute(self.SQL_TABLE_FIELDS, (table_name, ))
-            for field in curs.fetchall():
-                # PostgreSQL types vs base types
-                t.insert_field(Field(
-                    qualifier   = '' if field.is_updatable == 'YES' else 'const',
-                    type        = foreign_keys[field.column_name] if field.column_name in foreign_keys else field.data_type,
-                    name        = field.column_name,
-                    is_array    = False, # XXX we might need some heuristics here
-                    description = comments[field.column_name] if field.column_name in comments else '(null)'
-                ))
-        
-            # PRIMARY KEYS: XXX simple key ?
-            # We build a key dictionary associating each table with its primary key
-            curs.execute(self.SQL_TABLE_KEYS, (table_name, ))
-            fks = curs.fetchall()
-
-#            primary_keys = {fk.table_name: fk.column_name for fk in fks}
-            primary_keys = dict()
-            for fk in fks:
-                foreign_key = fk.column_name
-                if table_name not in primary_keys.keys():
-                    primary_keys[table_name] = set()
-                primary_keys[table_name].add(foreign_key)
- 
-            if table_name in primary_keys.keys():
-                for k in primary_keys[table_name]:
-                    t.insert_key(k)
-       
-            # PARTITIONS:
-            # TODO
-        
-            #mc = MetadataClass('class', table_name)
-            #mc.fields = fields
-            #mc.keys.append(primary_keys[table_name])
-        
-            t.capabilities.retrieve   = True
-            t.capabilities.join       = True
-            t.capabilities.selection  = True
-            t.capabilities.projection = True
-
-            announces.append(Announce(t))
-
-        return announces
+        return self.get_metadata_from_names(self.get_table_names())
