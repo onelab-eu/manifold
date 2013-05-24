@@ -11,7 +11,7 @@ from socket               import gethostname
 from optparse             import OptionParser
 from getpass              import getpass
 from traceback            import print_exc
-from manifold.bin.sql     import SQLParser
+from manifold.input.sql   import SQLParser
 from manifold.test.config import auth
 from manifold.core.router import Router
 from manifold.auth        import Auth
