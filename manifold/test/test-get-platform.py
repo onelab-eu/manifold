@@ -1,10 +1,11 @@
 #!/usr/bin/env python
 #! -*- coding: utf-8 -*-
 
-import xmlrpclib
-from config import auth
-
-srv = xmlrpclib.Server("http://dev.myslice.info:7080/", allow_none = True)
+from manifold.auth        import *
+from manifold.core.router import Router
+from manifold.core.query  import Query
+from config               import auth
+import sys, pprint
 
 def print_err(err):
     print '-'*80
@@ -13,12 +14,10 @@ def print_err(err):
         print "\t", line
     print ''
 
-q = {
-    'object':   'local:platform',
-    'fields':       ['platform', 'platform_description']
-}
+query = Query.get('local:platform').select(['platform', 'platform_description'])
 
-ret = srv.forward(auth, q)
+ret = Router().forward(query, user=Auth(auth).check())
+
 if ret['code'] != 0:
     if isinstance(ret['description'], list):
         # We have a list of errors
@@ -29,5 +28,4 @@ ret = ret['value']
 
 print "===== RESULTS ====="
 for r in ret:
-    print r
-
+    pprint.pprint(r)

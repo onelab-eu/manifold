@@ -235,7 +235,9 @@ class QueryPlan(object):
             add_projection = None
 
         t = Table({platform:''}, {}, query.object, set(), set())
-        self.ast = self.ast.From(t, query, metadata.get_capabilities(platform, query.object))
+        key = metadata.get_key(query.object)
+        cap = metadata.get_capabilities(platform, query.object)
+        self.ast = self.ast.From(t, query, metadata.get_capabilities(platform, query.object), key)
 
         # XXX associate the From node to the Gateway
         fromnode = self.ast.root
@@ -369,7 +371,7 @@ class QueryPlan(object):
 
                     # XXX Improve platform capabilities support
                     if not in_subquery and not capabilities.retrieve: continue
-                    from_ast = AST(user = user).From(platform, query, capabilities)
+                    from_ast = AST(user = user).From(platform, query, capabilities, key)
 
                     self.froms.append(from_ast.root)
 

@@ -35,6 +35,9 @@ class DBGraph:
     def get_capabilities(self, platform, method):
         return self.map_method_capabilities[(platform, method)]
 
+    def get_key(self, method):
+        self.find_node(method).get_keys()
+
     def make_arc(self, u, v):
         """
         \brief Connect a "u" Table to a "v" Table (if necessary) in the DbGraph

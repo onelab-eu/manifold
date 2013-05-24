@@ -3,9 +3,12 @@ TESTDIR     = $(CURDIR)/test
 TESTLIB     = $(TESTDIR)/lib
 BUILDDIR    = $(CURDIR)/build
 DISTDIR     = $(CURDIR)/dist
+
 # overwritten by the specfile
-DESTDIR="/"
-PREFIX=/usr/local
+DESTDIR     = /
+# it's important to keep this ?= form here please
+# as PREFIX gets overridden when calling debuild through an env. variable
+PREFIX      ?= /usr/local
 
 # stupid distutils, it's broken in so many ways
 SUBBUILDDIR = $(shell python -c 'import distutils.util, sys; \
@@ -108,8 +111,12 @@ debian/changelog: debian/changelog.in
 debian.source: force 
 	rsync -a $(RPMTARBALL) $(DEBTARBALL)
 
+# overriding PREFIX here
+# at one point the PL build invoked 'make debian PREFIX=/usr RPMNAME=...'
+# so in principle we could have said PREFIX=$(PREFIX)
+# however this would be fragile and we want this in /usr anyways
 debian.package:
-	debuild -uc -us -b 
+	debuild --set-envvar PREFIX=/usr -uc -us -b 
 
 debian.clean:
 	$(MAKE) -f debian/rules clean
