@@ -148,7 +148,7 @@ class Query(object):
         self.filters = Filter([])
         self.params  = {}
         self.fields  = set([])
-        self.timestamp      = "now" 
+        self.timestamp  = "now" 
         self.timestamp  = 'now' # ignored for now
 
     @returns(StringTypes)

@@ -60,6 +60,7 @@ class Key(frozenset):
     def get_name(self):
         return self.get_field().get_name()
 
+    @returns(set)
     def get_names(self):
         return set([x.get_name() for x in self])
 

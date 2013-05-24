@@ -252,7 +252,7 @@ class Router(Interface):
         #cb = Callback(d, router=self, cache_id=h)
         #qp.callback = cb
 
-        self.instanciate_gateways(qp, user)
+        self.instanciate_gateways(qp, user, query.get_timestamp())
 
         if query.get_action() == "update":
             # At the moment we can only update if the primary key is present

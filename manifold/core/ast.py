@@ -296,7 +296,7 @@ class From(Node):
 #        """
 #        return self.table
 
-    @returns(StringTypes)
+#    @returns(StringTypes)
     def get_platform(self):
         """
         \return The name of the platform queried by this FROM node.
@@ -354,7 +354,8 @@ class From(Node):
         #else:
         #    print "From::inject() - INJECTING RECORDS"
 
-        missing_fields.add(key) # |= key
+        for field in key:
+            missing_fields.add(field.get_name())
         self.query.fields = missing_fields
 
         #parent_query = self.query.copy()
@@ -506,7 +507,8 @@ class LeftJoin(Node):
             # holds more than the key only, since otherwise we would not have
             # injected but only added a filter.
             if left_child:
-                self.query.fields |= left_child[0].keys()
+                for key in left_child[0].keys():
+                    self.query.fields |= key.get_names() 
         else:
             self.query = self.left.get_query().copy()
             self.query.filters |= self.right.get_query().filters
@@ -791,7 +793,7 @@ class Projection(Node):
         \param record dictionary representing the received record
         """
         if record != LAST_RECORD:
-            record = do_projection(record)
+            record = do_projection(record, self.fields)
         self.send(record)
 
     def optimize_selection(self, filter):
