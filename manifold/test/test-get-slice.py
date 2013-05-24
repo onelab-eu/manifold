@@ -1,11 +1,22 @@
 #!/usr/bin/env python
 #! -*- coding: utf-8 -*-
 
-from manifold.auth        import *
-from manifold.core.router import Router
-from manifold.core.query  import Query
-from config               import auth
 import sys, pprint
+
+from manifold.auth         import *
+from manifold.core.router  import Router
+from manifold.core.query   import Query
+from manifold.util.log     import Log
+from manifold.util.options import Options
+
+from config                import auth
+
+Log.init_options()
+Options().parse()
+try:
+    print "**", Options(), "**"
+except Exception, e:
+    log_error(str(e))
 
 DEFAULT_SLICE = 'ple.upmc.myslicedemo'
 
@@ -19,7 +30,7 @@ def print_err(err):
 slicename = sys.argv[1] if len(sys.argv) > 2 else DEFAULT_SLICE
 query = Query.get('slice').filter_by('slice_hrn', '=', slicename).select([
     'slice_hrn',
-    'resource.hrn', 'resource.hostname', 'resource.type', 'resource.authority',
+    'resource.resource_hrn', 'resource.hostname', 'resource.type', 'resource.authority',
     'user.user_hrn',
 #    'application.measurement_point.counter'
 ])

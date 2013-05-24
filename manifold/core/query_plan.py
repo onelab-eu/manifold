@@ -20,13 +20,14 @@ from manifold.core.ast          import AST, From, Union, LeftJoin, Demux, Dup
 from manifold.core.table        import Table 
 from manifold.core.key          import Key
 from manifold.core.query        import Query, AnalyzedQuery 
-from manifold.util.type         import returns, accepts
 from manifold.core.dbgraph      import find_root
-from manifold.models.user       import User
-from manifold.util.callback     import Callback
 from manifold.core.filter       import Filter
-from manifold.util.dfs          import dfs
 from manifold.core.pruned_tree  import build_pruned_tree
+from manifold.util.type         import returns, accepts
+from manifold.util.callback     import Callback
+from manifold.util.dfs          import dfs
+from manifold.util.log          import Log
+from manifold.models.user       import User
 
 class QueryPlan(object):
 
@@ -60,9 +61,11 @@ class QueryPlan(object):
         query plane (this is a parameter of the router)
         \param user A User instance (carry user's information) 
         """
-        #print "=" * 100
-        #print "Entering process_subqueries %s (need fields %s) " % (query.get_from(), query.get_select())
-        #print "=" * 100
+        print "Query=", query
+        Log.debug("=" * 100)
+        Log.debug("Entering process_subqueries %s (need fields %s) " % (query.get_from(), query.get_select()))
+        Log.debug("=" * 100)
+
         table_name = query.get_from()
         table = metadata.find_node(table_name)
         if not table:
@@ -104,6 +107,9 @@ class QueryPlan(object):
                 method_table = metadata.find_node(method)
                 child_fields = set(metadata.get_fields(method_table))
                 # XXX why is it necessarily the key of the child, and not the fields...
+                print "RELATION (2) ----------------------------"
+                print "parent_fields", parent_fields
+                print "child_fields", child_fields
                 intersection = parent_fields & child_fields
                 intersection2 = set([f.get_name() for f in child_fields if f.get_name() == table_name])
                 if intersection == parent_fields:
@@ -117,12 +123,12 @@ class QueryPlan(object):
                     for field in intersection:
                         query.select(field.get_name())
                         subquery.select(field.get_name())
+                        print "adding to subquery (intersection2)", field.get_name()
 
                 elif intersection2:
                     # Child table references parent table name
-                    print "Adding to subquery", parent_key.get_names()
+                    print "adding to subquery (intersection2)", parent_key.get_names()
                     subquery.select(parent_key.get_names())
-                    print "SUBQUERY", subquery
                     
 
                 else:
@@ -199,7 +205,7 @@ class QueryPlan(object):
         # Each node of the pruned tree only gathers relevant table, and only their
         # relevant fields and their relevant key (if used).
         # \sa manifold.util.pruned_graph.py
-        pruned_tree = build_pruned_tree(metadata.graph, needed_fields, dfs(metadata.graph, root))
+        pruned_tree = build_pruned_tree(metadata, needed_fields, dfs(metadata.graph, root))
 
         # Compute the skeleton resulting query plan
         # (e.g which does not take into account the query)
@@ -243,7 +249,9 @@ class QueryPlan(object):
             add_projection = None
 
         t = Table({platform:''}, {}, query.object, set(), set())
-        self.ast = self.ast.From(t, query, metadata.get_capabilities(platform, query.object))
+        key = metadata.get_key(query.object)
+        cap = metadata.get_capabilities(platform, query.object)
+        self.ast = self.ast.From(t, query, metadata.get_capabilities(platform, query.object), key)
 
         # XXX associate the From node to the Gateway
         fromnode = self.ast.root
@@ -388,7 +396,7 @@ class QueryPlan(object):
 
                     # XXX Improve platform capabilities support
                     if not in_subquery and not capabilities.retrieve: continue
-                    from_ast = AST(user = user).From(platform, query, capabilities)
+                    from_ast = AST(user = user).From(platform, query, capabilities, key)
 
                     self.froms.append(from_ast.root)
 
@@ -439,7 +447,7 @@ class QueryPlan(object):
                 preds = pruned_tree.predecessors(v)
                 assert len(preds) == 1, "pruned_tree is not a tree: predecessors(%r) = %r" % (table, preds)
                 u = preds[0]
-                predicate = pruned_tree[u][v]["predicate"]
+                predicate = pruned_tree[u][v]["relation"].get_predicate()
                 print "PREDICATE", predicate
                 ast.left_join(AST(user = user).union(from_asts, key), predicate)
 

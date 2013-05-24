@@ -60,9 +60,10 @@ def accepts(*types, **kw):
         debug = kw['debug']
     try:
         def decorator(f):
-            def newf(*args):
+            # XXX Missing full support of kwargs
+            def newf(*args, **kwargs):
                 if debug is 0:
-                    return f(*args)
+                    return f(*args, **kwargs)
                 assert len(args) == len(types)
                 argtypes = tuple(map(type, args))
                 if not compare_types(types, argtypes):
@@ -72,7 +73,7 @@ def accepts(*types, **kw):
                         print >> sys.stderr, 'TypeWarning: ', msg
                     elif debug is 2:
                         raise TypeError, msg
-                return f(*args)
+                return f(*args, **kwargs)
             newf.__name__ = f.__name__
             return newf
         return decorator
@@ -91,7 +92,7 @@ def compare_types(expected, actual):
         else:
             return actual == type(None) or actual in expected
     else:
-        return actual == type(None) or actual == expected or issubclass(actual, expected)
+        return actual == type(None) or actual == expected or isinstance(actual, expected) # issubclass(actual, expected)
 
 def returns(ret_type, **kw):
     '''Function decorator. Checks decorated function's return value
