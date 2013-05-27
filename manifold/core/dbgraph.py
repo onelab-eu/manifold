@@ -20,9 +20,11 @@ from manifold.core.table          import Table
 from manifold.core.key            import Key
 from manifold.util.type           import returns, accepts
 from manifold.util.predicate      import Predicate 
+from manifold.util.log            import Log
+from manifold.core.relation       import Relation
 
 # TODO DBGraph should inherit nx.DiGraph
-class DBGraph:
+class DBGraph(object):
     def __init__(self, tables, map_method_capabilities):
         """
         Maintains a JOIN graph between the different tables of the database
@@ -83,17 +85,15 @@ class DBGraph:
 
         relation_uv = u.get_relation(v)
         if relation_uv:
-            (label, fields_u) = relation_uv
+            (type, fields_u) = relation_uv
             key_v = list(v.get_keys())[0] if len(v.get_keys()) > 0 else None
-            #print "EDGE", u, "      *** ", label, " ***      ", v
-            self.graph.add_edge(u, v, {
-                "cost"      : True,
-                "type"      : label,                          # "-->" | "~~>"
-                "info"      : fields_u,                       # set of Field
-                "predicate" : make_predicate(fields_u, key_v) # None | Predicate
-            })
-            #print "PREDICATE IN DBGRAPH", make_predicate(fields_u, key_v) 
-            #self.print_arc(u, v)
+
+            # XXX Predicate and field_u are redundant, but fields are needed
+            # for pruned tree while predicate only hold field names. Shall we
+            # evolve predicates towards supporting Fields ?
+            predicate = make_predicate(fields_u, key_v)
+            self.graph.add_edge(u, v, relation=Relation(type, predicate))
+            Log.debug("NEW EDGE %s" % self.print_arc(u, v))
 
     def append(self, u):
         """
@@ -120,8 +120,9 @@ class DBGraph:
         \param u The source node (Table instance)
         \param v The target node (Table instance)
         """
-        arc = self.graph[u][v]
-        print "%r %s %r via %r" % (u, arc["type"], v, arc["info"])
+        relation = self.get_relation(u,v)
+        relation_type = relation.get_str_type()
+        return "%r %s %r via %s" % (u, relation_type, v, relation.get_predicate())
 
     def plot(self):
         """
@@ -199,8 +200,9 @@ class DBGraph:
             try:
                 
                 parent, child, data = next(children)
+                relation = data['relation']
                 if child not in visited:
-                    if data['type'] == '1..N':
+                    if relation.get_type() == Relation.types.LINK_1N:
                         # Recursive call
                         #for f in self.get_fields(child, "%s%s." % (prefix, child.get_name())):
                         #    yield f
@@ -214,25 +216,9 @@ class DBGraph:
             except StopIteration:
                 stack.pop()
 
-#OBSOLETE|    #@returns(Table)
-#OBSOLETE|    def get_root(self, query):
-#OBSOLETE|        """
-#OBSOLETE|        \brief Find the root node related to the queried table (see query.get_from())
-#OBSOLETE|        \param query A Query instance
-#OBSOLETE|        \return The corresponding node (Table instance)
-#OBSOLETE|        """
-#OBSOLETE|        assert isinstance(query, Query), "Invalid query = %r (%r)" % (query, type(query))
-#OBSOLETE|        root = [node[0] for node in self.graph.nodes(True) if node[0].get_name() == query.get_from()]
-#OBSOLETE|
-#OBSOLETE|        if not root:
-#OBSOLETE|            raise Exception, "Cannot find root '%s' for query '%s'. Nodes available: %s" % (
-#OBSOLETE|                query.get_from(),
-#OBSOLETE|                query,
-#OBSOLETE|                ["%r" % node for node in self.graph.nodes(True)]
-#OBSOLETE|            )
-#OBSOLETE|
-#OBSOLETE|        assert len(root) == 1, "Invalid DBGraph. Candidate(s) root(s) = %r" % root
-#OBSOLETE|        return root[0]
+    def get_relation(self, u, v):
+        return self.graph.edge[u][v]['relation']
+
 
 # TODO This should be a method of DBGraph and DBGraph should inherits DiGraph
 @accepts(DiGraph)
@@ -248,50 +234,4 @@ def find_root(tree):
             return u
     return None
     
-#OBSOLETE|    def get_edges(self):
-#OBSOLETE|        return dfs_edges(self.graph)
-#OBSOLETE|
-#OBSOLETE|    def get_successors(self, node):
-#OBSOLETE|        """
-#OBSOLETE|        \param node A node belonging to this DBGraph
-#OBSOLETE|        \return A list of Table instances which corresponds to successors
-#OBSOLETE|           of "node" in this DBGraph.
-#OBSOLETE|        """
-#OBSOLETE|        return self.graph.successors(node)
-#OBSOLETE|
-#OBSOLETE|    @staticmethod
-#OBSOLETE|    def prune_tree(tree_edges, nodes, fields):
-#OBSOLETE|        """
-#OBSOLETE|        \brief returned a tree pruned from nodes not providing any useful field
-#OBSOLETE|        """
-#OBSOLETE|        # XXX to be improved
-#OBSOLETE|        # XXX if a leaf only provides a key, then we need to remove it also,
-#OBSOLETE|        # since we already have the foreign key in an other table
-#OBSOLETE|        tree = DiGraph(tree_edges)
-#OBSOLETE|        # *** Compute the query plane ***
-#OBSOLETE|        for node in tree.nodes():
-#OBSOLETE|            data = nodes[node]
-#OBSOLETE|            if 'visited' in data and data['visited']:
-#OBSOLETE|                break;
-#OBSOLETE|            node_fields = [f.field_name for f in node.fields]
-#OBSOLETE|            if (set(fields) & set(node_fields)):
-#OBSOLETE|                # mark all nodes until we reach the root (no pred) or a marked node
-#OBSOLETE|                cur_node = node
-#OBSOLETE|                # XXX DiGraph.predecessors_iter(n)
-#OBSOLETE|                    #link = True
-#OBSOLETE|                while True:
-#OBSOLETE|                    if 'visited' in data and data['visited']:
-#OBSOLETE|                        break
-#OBSOLETE|                    data['visited'] = True
-#OBSOLETE|                    pred = tree.predecessors(cur_node)
-#OBSOLETE|                    if not pred:
-#OBSOLETE|                        break
-#OBSOLETE|                    cur_node = pred[0]
-#OBSOLETE|                    data = nodes[cur_node]
-#OBSOLETE|        visited_tree_edges = [e for e in tree_edges if 'visited' in nodes[e[0]] and 'visited' in nodes[e[1]]]
-#OBSOLETE|        for node in tree.nodes():
-#OBSOLETE|            if 'visited' in nodes[node]:
-#OBSOLETE|                del nodes[node]['visited']
-#OBSOLETE|        return DiGraph(visited_tree_edges)
-#OBSOLETE|
-    
+

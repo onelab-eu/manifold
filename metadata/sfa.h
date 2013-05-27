@@ -1,7 +1,6 @@
 
 class slice {
     const text  slice_hrn;   /**< Slice Human Readable name */
-    resource    resource[];    /**< List of resources associated to the slice */
     lease       lease[];       /**< List of leases associated to the slice */
     user        user[];        /**< List of users associated to the slice */
     KEY(slice_hrn);
@@ -51,7 +50,7 @@ class resource {
 ##    const text      fcdistro;
 #    const text      hardware_types;
     const text      hostname;               /**< Hostname */
-    const text      hrn;                    /**< Human Readable name */
+    const text      resource_hrn;                    /**< Human Readable name */
 #    const text      interfaces;
     const int       latitude;               /**< Latitude */
     const int       longitude;              /**< Longitude */
@@ -62,7 +61,8 @@ class resource {
 #    const text      services;
     const int       site_id;
 #    const text      resource_type;
-    KEY(hrn);
+	slice			slice[];
+    KEY(resource_hrn);
 	CAPABILITY(retrieve,join);
 };
 

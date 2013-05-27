@@ -9,17 +9,18 @@
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 #   Jordan Augé       <jordan.auge@lip6.fr>
 
-from copy                   import deepcopy
-from types                  import StringTypes
+from copy                       import deepcopy
+from types                      import StringTypes
 
-from manifold.core.field      import Field
-from manifold.core.filter     import Filter
-from manifold.core.key        import Key, Keys 
-from manifold.util.type       import returns, accepts 
-from manifold.core.method     import Method 
+from manifold.core.field        import Field
+from manifold.core.filter       import Filter
+from manifold.core.key          import Key, Keys 
+from manifold.core.method       import Method 
 from manifold.core.capabilities import Capabilities
-
-class Table:
+from manifold.core.relation     import Relation
+from manifold.util.type         import returns, accepts 
+from manifold.util.log          import Log
+class Table(object):
     """
     Implements a database table schema.
     """
@@ -402,8 +403,8 @@ class Table:
         """
         return self.platforms
 
-    @returns(set)
-    def get_fields_with_name(self, names):
+    #@returns(set) # XXX does not support named arguments
+    def get_fields_with_name(self, names, metadata=None):
         """
         \brief Retrieve a set of Field according to their name
         \param names The name of the requested fields (String instances)
@@ -412,6 +413,12 @@ class Table:
         """
         fields = set()
         for field in self.get_fields():
+            #if metadata and field.is_reference():
+            #    key = metadata.find_node(field.get_name()).get_keys().one()
+            #    for key_field in key:
+            #        if key_field.get_name() in names:
+            #            fields.add(field)
+            #elif field.get_name() in names:
             if field.get_name() in names:
                 fields.add(field)
         return fields
@@ -425,13 +432,13 @@ class Table:
             - each field of the sub Table is in relevant_fields
             - each key only involve Fields of relevant_fields
         \param u A Table instance
-        \param relevant_fields A set of Fields belonging to table
+        \param relevant_fields A set of field names belonging to table
         \return The corresponding subtable
         """
         copy_u = deepcopy(u)
 
         for field in u.get_fields():
-            if field not in relevant_fields:
+            if field.get_name() not in relevant_fields:
                 copy_u.erase_field(field.get_name())
 
         # In copy_u, Key instances refer to Field instance of u, which is
@@ -451,6 +458,7 @@ class Table:
 
         # We need to update map_method_fields
         for method, fields in copy_u.map_method_fields.items():
+            Log.tmp("update map_method", fields, relevant_fields)
             fields &= relevant_fields
 
         return copy_u
@@ -492,16 +500,6 @@ class Table:
             method name) the set of Field that can be retrieved 
         """
         return self.map_method_fields 
-# Commented by Jordan, we already have this information stored in the table
-# and we suppressed map_field_methods from the table
-#
-#        map_method_fields = dict()
-#        for field, methods in self.map_field_methods.items():
-#            for method in methods:
-#                if method not in map_method_fields.keys():
-#                    map_method_fields[method] = set()
-#                map_method_fields[method].add(field)
-#        return map_method_fields 
 
     #-----------------------------------------------------------------------
     # Relations between two Table instances 
@@ -515,21 +513,6 @@ class Table:
     #   x.f.t      : the field type of the field f of node x
     #-----------------------------------------------------------------------
 
-#OBSOLETE|    @returns(set)
-#OBSOLETE|    def get_fields_in_key(self, fields):
-#OBSOLETE|        """
-#OBSOLETE|        \brief Compute which fields belong to a single-key of "self" Table.
-#OBSOLETE|        \param fields A set of Field
-#OBSOLETE|        \return A set of MetaField (that may be empty) included in "fields"
-#OBSOLETE|        """
-#OBSOLETE|        fields_in_key = set()
-#OBSOLETE|        for field in fields: 
-#OBSOLETE|            for key in self.keys:
-#OBSOLETE|                if key.is_composite():
-#OBSOLETE|                    continue
-#OBSOLETE|                if field.type == key.get_type():
-#OBSOLETE|                    fields_in_key.add(field) 
-#OBSOLETE|        return fields_in_key 
 
     #@returns(set)
     def get_connecting_fields(self, table):
@@ -550,31 +533,6 @@ class Table:
                 #connecting_fields.add(field)
         #return connecting_fields 
 
-    @returns(Keys)
-    def get_connecting_keys_mando(self, fields):
-        """
-        \brief Find Key(s) of self such has k \subseteq fields
-        \param fields A set of Field instances
-        \return The corresponding Keys (set of Key) instance
-        """
-        connecting_keys = Keys()
-        for key in self.get_keys():
-            if key <= fields:
-                connecting_keys.add(key)
-        return connecting_keys
-
-#OBSOLETE|    @returns(bool)
-#OBSOLETE|    def includes(self, table):
-#OBSOLETE|        """
-#OBSOLETE|        \brief (Internal use, since this function is called in a specific context)
-#OBSOLETE|            Test whether self and table have the same table name.
-#OBSOLETE|            u ==> v iif u.n == v.n
-#OBSOLETE|            Example: tophat::ip ==> {tophat, sonoma}::ip
-#OBSOLETE|        \param table The target candidate table
-#OBSOLETE|        \return True iif u ==> v
-#OBSOLETE|        """
-#OBSOLETE|        return self.get_name() == table.get_name()
-
     @returns(bool)
     def inherits(self, table):
         """
@@ -587,10 +545,6 @@ class Table:
         name = set()
         name.add(table.get_name())
         return frozenset(name) in table.get_names_from_keys()
-
-#OBSOLETE|    @returns(bool)
-#OBSOLETE|    def has_intersecting_keys(self, fields):
-#OBSOLETE|        return fields in self.get_keys():
 
     def get_connecting_fields_jordan(self, table):
         # Does u has a field or a set of fields that are keys in v
@@ -619,15 +573,18 @@ class Table:
         u = self
         v = table
 
+        if not u.get_platforms() >= v.get_platforms():
+            return None
+
         connecting_fields = u.get_connecting_fields(v)
         # We temporarity changed the relation to return a single field...
         # 1) FK -> Table.PK
         if connecting_fields:
             # FK --> PK : simple join or view
             if connecting_fields.is_array():
-                return ('1..N', set([connecting_fields]))
+                return (Relation.types.LINK_1N, set([connecting_fields]))
             else:
-                return ('~~>', set([connecting_fields]))
+                return (Relation.types.LINK, set([connecting_fields]))
 
         # 2) 
         connecting_keys = u.keys.intersection(v.keys)
@@ -637,52 +594,13 @@ class Table:
             if u.get_name() != v.get_name():
                 # Different name = inheritance
                 # XXX direction ????
-                return ('-->', connecting_keys)
+                return (Relation.types.INHERITANCE, connecting_keys)
             else:
                 if u.get_platforms() >= v.get_platforms():
                     # Specialization = parent tables created during dbnorm
                     # (same name, and full set of platforms)
-                    return ('==>', connecting_keys)
+                    return (Relation.types.SPECIALIZATION, connecting_keys)
                     
-    def get_relation_mando(self, table):
-        """
-        \brief Compute which kind of relation connects
-            the "self" Table (source node) to the "table"
-            Table (target node). We assume that the graph
-            of table is at least 2nf.
-            \sa manifold.core.dbgraph.py
-        \param table The target table
-        \return
-            - None if the both tables are unrelated
-            - Otherwise, a tuple made of
-                - a string: "==>", "-->", "~~>"
-                - a set of Field that will be stored in the arc 
-        """
-        u = self
-        v = table
-#        print "-----------------------------"
-#        print "u <--?--> v", u, v
-        connecting_fields_uv = u.get_connecting_fields(v)
-#        print "connecting_fields", connecting_fields_uv
-        if connecting_fields_uv != set():
-            connecting_keys_uv = u.get_connecting_keys(connecting_fields_uv)
-#            print "connecting keys", connecting_keys_uv
-            if connecting_keys_uv == set():
-#                print '######', "~~>", connecting_fields_uv
-                return ("~~>", connecting_fields_uv)
-#OBSOLETE|            elif u.includes(v):
-#OBSOLETE|                return ("==>", None)
-            elif u.inherits(v):
-#                print '######', "-->", connecting_keys_uv
-                return ("-->", connecting_keys_uv) 
-#        print '######', "NONE"
-        return None
-
-
-    #-----------------------------------------------------------------------
-    # Inherited from MetadataClass XXX
-    #-----------------------------------------------------------------------
-
     def get_invalid_keys(self):
         """
         \return The keys that involving one or more field not present in the table
