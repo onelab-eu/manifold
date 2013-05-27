@@ -19,7 +19,7 @@ from manifold.core.filter               import Filter
 from manifold.gateways                  import Gateway, LAST_RECORD
 from manifold.gateways.sfa.rspecs.SFAv1 import SFAv1Parser # as Parser
 
-from sfa.trust.certificate import Keypair, Certificate
+from sfa.trust.certificate import Keypair, Certificate, set_passphrase
 from sfa.trust.gid import GID
 from sfa.trust.credential import Credential
 # from sfa.trust.sfaticket import SfaTicket
@@ -359,6 +359,7 @@ class SFAGateway(Gateway):
                 new_user_config = json.dumps(self.manage(u.email, ref_platform, json.loads(ref_account.config)))
                 # if the config retrieved is different from the config stored, we need to update it
                 if new_user_config != ref_account.config:
+                    print "===================================================================    UPDATING user account in the DB config=",new_user_config
                     db.add(ref_account)
                     db.commit()
                     user_account.config = new_user_config
@@ -371,11 +372,11 @@ class SFAGateway(Gateway):
                 # call manage function for a managed user account to update it 
                 # if the managed user account has only a private key, the credential will be retrieved 
                 new_user_config = json.dumps(self.manage(u.email, p, json.loads(user_account.config)))
-                self.user_config=json.loads(new_user_config)
                 if user_account.config != new_user_config:
+                    user_account.config = new_user_config
+                    print "===================================================================    UPDATING user account in the DB config=",new_user_config
                     db.add(user_account)
                     db.commit()
-                    user_account.config = new_user_config
 
         return user_account.config
         #self.user_config=json.loads(new_user_config)
@@ -461,6 +462,9 @@ class SFAGateway(Gateway):
         #######################################################################
         # TODO: remove ListSlices call which is PlanetLab specific and use Resolve
         #results = self.sliceapi.Resolve(self.user_config['user_hrn'],cred)
+        oCred = Credential(string=cred)
+        print "oCred = ",oCred.get_summary_tostring()
+        print "user_hrn = ",self.user_config['user_hrn']
         results = self.sfa_resolve_records(cred,self.user_config['user_hrn'],'user')
         #results = self.sliceapi.ListSlices(cred, *self.ois(self.sliceapi,api_options)) # user cred
         results=results[0]
@@ -1491,12 +1495,20 @@ class SFAGateway(Gateway):
         raise Exception, "Not implemented. Run delegation script in the meantime"
     
     # @loic delegate function is used to delegate a user credential to the ADMIN_USER
-    def delegate(user_credential, user_private_key, admin_credential):
+    def delegate(self, user_credential, user_private_key, admin_credential):
         # if nessecary converting string to Credential object
-        if isinstance (user_credential, str):
+        print "type of user cred = ",type(user_credential)
+        if not isinstance (user_credential, Credential):
+            print "this is not an object"
             user_credential = Credential (string=user_credential)
+        print "type of user cred = ",type(user_credential)
+        # How to set_passphrase of the PEM key if we don't have the  user password?
+        # For the moment we will use PEM keys without passphrase
+
         # get the user_gid and user_hrn from the credential
+        print "user get_gid_object"
         user_gid = user_credential.get_gid_object()
+        print "user get_hrn"
         user_hrn = user_gid.get_hrn()
         
         # does the user has the right to delegate all its privileges?
@@ -1504,16 +1516,19 @@ class SFAGateway(Gateway):
             raise Exception, "E: SFA Gateway the user has no right to delegate"
 
         # if nessecary converting string to Credential object
-        if isinstance (admin_credential, str):
+        if not isinstance (admin_credential, Credential):
+            print "this is not an object"
             admin_credential = Credential (string=admin_credential)
         # get the admin_gid and admin_hrn from the credential
+        print "admin get_gid_object()"
         admin_gid = admin_credential.get_gid_object()
+        print "admin get_hrn()"
         admin_hrn = admin_gid.get_hrn()
-
+        print "user_credential.delegate()"
         delegated_credential = user_credential.delegate(admin_gid, user_private_key, user_gid)
-        print "delegated_cred = ",delegated_credential
-        return delegated_credential.save_to_string(save_parents=True)
-
+        print "delegated_cred to str"
+        delegated_credential_str=delegated_credential.save_to_string(save_parents=True)
+        return delegated_credential_str
     #@staticmethod
     def manage(self, user, platform, config):
         # The gateway should be able to perform user config management taks on
@@ -1529,8 +1544,18 @@ class SFAGateway(Gateway):
         # - slice credentials (expiration!)
 
         from sfa.trust.certificate import Keypair
-        from sfa.util.xrn import Xrn
+        from sfa.util.xrn import Xrn, get_authority
         import json
+
+        # user_hrn is required to manage
+        # private & public keys in config or generate it
+        # self signed certificate
+        # get gid from registry
+        # get user_credential from registry, using self signed certificate
+        #  
+        # get_authority
+        #         
+
 
         # initialize new_key
         new_key = False
@@ -1585,27 +1610,14 @@ class SFAGateway(Gateway):
             registry_proxy = SfaServerProxy (registry_url, pkey_fn.name, cert_fn.name, timeout=20)
 
             try:
-                credential_string = registry_proxy.GetSelfCredential (config['sscert'], config['user_hrn'], 'user')
-                # if not ADMIN delegate user credential to MySlice
-                if user is not ADMIN_USER:
-                    print "I: SFA delegating credential..."
-                    # @loic calling internal delegate function
-                    # parameters: user cred to be delegated, user private key, admin credential
-                    try:
-                        print self.admin_config
-                        #print SFAGateway.admin_config
-                        #self.admin_config['user_credential']
-                        credential_string = self.delegate(credential_string, config['user_private_key'], self.admin_config['user_credential'])
-                    except Exception,e:
-                        print "delegation ERROR = ",e
-                    print "delegated = ",credential_string
-                    raise Exception, "toto"
+                original_user_credential = registry_proxy.GetSelfCredential (cert_fn.name, config['user_hrn'], 'user')
             except:
                 # some urns hrns may replace non hierarchy delimiters '.' with an '_' instead of escaping the '.'
                 hrn = Xrn(config['user_hrn']).get_hrn().replace('\.', '_')
-                credential_string=registry_proxy.GetSelfCredential (config['sscert'], hrn, 'user')
+                original_user_credential=registry_proxy.GetSelfCredential (config['sscert'], hrn, 'user')
 
-            config['user_credential'] = credential_string
+            # credential_string is not delegated yet, it will be used to retreive the GID
+            # config['user_credential'] = credential_string
 
             os.unlink(pkey_fn.name)
             os.unlink(cert_fn.name)
@@ -1626,11 +1638,16 @@ class SFAGateway(Gateway):
             registry_url = json.loads(platform.config)['registry']
             # @loic Added default 5sec timeout
             registry_proxy = SfaServerProxy(registry_url, pkey_fn.name, cert_fn.name, timeout=DEFAULT_TIMEOUT_GETVERSION)
-
-            records = registry_proxy.Resolve(config['user_hrn'].encode('latin1'), config['user_credential'])
+            print "manage user_hrn = ",config['user_hrn']
+            # credential_string is a temp cred for the user, not delegated yet
+            try:
+                user_cred = original_user_credential
+            except:
+                user_cred = config['user_credential']
+            records = registry_proxy.Resolve(config['user_hrn'],user_cred)
             records = [record for record in records if record['type']=='user']
             if not records:
-                raise RecordNotFound, "hrn %s (%s) unknown to registry %s"%(config['user_hrn'],'user',self.registry_url)
+                raise RecordNotFound, "hrn %s (%s) unknown to registry %s"%(config['user_hrn'],'user',registry_url)
             record = records[0]
             config['gid'] = record['gid']
 
@@ -1653,11 +1670,13 @@ class SFAGateway(Gateway):
             registry_url = json.loads(platform.config)['registry']
             # @loic Added default 5sec timeout
             registry_proxy = SfaServerProxy(registry_url, pkey_fn.name, cert_fn.name, timeout=DEFAULT_TIMEOUT_GETVERSION)
-
             try:
-                credential_string=registry_proxy.GetCredential (config['user_credential'], config['user_hrn'].encode('latin1'), 'authority')
+                user_cred = original_user_credential
+                # credential_string is temp, not delegated
+                credential_string=registry_proxy.GetCredential (user_cred, config['user_hrn'].encode('latin1'), 'authority')
                 config['authority_credential'] = credential_string
             except:
+                
                 pass # No authority credential
 
             os.unlink(pkey_fn.name)
@@ -1666,8 +1685,68 @@ class SFAGateway(Gateway):
 
         if new_key or not 'slice_credentials' in config:
             # Generated on demand !
-            config['slice_credentials'] = {}
+            #config['slice_credentials'] = {}
+            print "I: Generating slice credential for user", user
+            # Same code for slice credentials...
+
+            # Create temporary files for key and certificate in order to use existing code based on httplib
+            pkey_fn = tempfile.NamedTemporaryFile(delete=False)
+            pkey_fn.write(config['user_private_key'].encode('latin1'))
+            cert_fn = tempfile.NamedTemporaryFile(delete=False)
+            cert_fn.write(config['gid']) # We always use the GID
+            pkey_fn.close()
+            cert_fn.close()
+
+            # We need to connect through a HTTPS connection using the generated private key
+            registry_url = json.loads(platform.config)['registry']
+            # @loic Added default 5sec timeout
+            registry_proxy = SfaServerProxy(registry_url, pkey_fn.name, cert_fn.name, timeout=DEFAULT_TIMEOUT_GETVERSION)
+            try:
+                user_cred = original_user_credential
+            except:
+                user_cred = config['user_credential']
+            try:
+                # credential_string is temp, not delegated
+                credential_string=registry_proxy.GetCredential (user_cred, config['user_hrn'].encode('latin1'), 'slice')
+                config['slice_credential'][slice_name] = credential_string
+            except:
+                pass # No slice credential
+
+            os.unlink(pkey_fn.name)
+            os.unlink(cert_fn.name)
 
         # XXX We should generate delegated credentials here
+        # if not ADMIN delegate user credential to MySlice
+        if user is not ADMIN_USER:
+            print "I: SFA delegating credential..."
+            # @loic calling internal delegate function
+            # parameters: user cred to be delegated, user private key, admin credential
+            # Create temporary files for key and certificate in order to use existing code based on httplib
+            pkey_fn = tempfile.NamedTemporaryFile(delete=False)
+            pkey_fn.write(config['user_private_key'].encode('latin1'))
+            cert_fn = tempfile.NamedTemporaryFile(delete=False)
+            cert_fn.write(config['gid']) # We always use the GID
+            pkey_fn.close()
+            cert_fn.close()
+
+            try:
+                #print SFAGateway.admin_config
+                #self.admin_config['user_credential']
+                try:
+                    user_cred = original_user_credential
+                    print "I: SFA delegate user cred ", config['user_hrn']
+                    config['user_credential'] = self.delegate(user_cred, pkey_fn.name, self.admin_config['user_credential'])
+                except:
+                    print "I: SFA user cred already delegated"
+                if 'slice_credential' in config:
+                    print "I: SFA delegate slice cred ", config['user_hrn']
+                    config['slice_credential'] = self.delegate(config['slice_credential'], pkey_fn.name, self.admin_config['user_credential'])
+                if 'authority_credential' in config:
+                    print "I: SFA delegate authority cred ", config['user_hrn']
+                    config['authority_credential'] = self.delegate(config['authority_credential'], pkey_fn.name, self.admin_config['user_credential'])
+
+            except Exception,e:
+                print "delegation ERROR = ",e
+                print traceback.print_exc()
 
         return config
