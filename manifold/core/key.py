@@ -63,6 +63,10 @@ class Key(frozenset):
     def get_names(self):
         return set([x.get_name() for x in self])
 
+    def get_minimal_names(self):
+        return self.get_names() if self.is_composite() else self.get_name()
+        
+
     @returns(StringTypes)
     def get_type(self):
         return self.get_field().get_type()

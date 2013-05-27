@@ -1,9 +1,10 @@
-import sys, logging
-from logging                    import handlers
-from manifold.util.singleton    import Singleton
-from manifold.util.options      import Options
+import sys, logging, traceback, inspect
+from logging                 import handlers
+from manifold.util.singleton import Singleton
+from manifold.util.options   import Options
+from manifold.util.misc      import caller_name
 
-class Logger(object):
+class Log(object):
     __metaclass__ = Singleton
 
     DEFAULTS = {
@@ -12,13 +13,31 @@ class Logger(object):
         "rsyslog_host"        : "log.top-hat.info",
         "rsyslog_port"        : 28514,
         "log_file"            : "/var/log/tophat/dispatcher.log",
-        "log_level"           : "DEBUG"
+        "log_level"           : "DEBUG",
+        "debug"               : "default"
     }
 
+    # COLORS
+    color_ansi = {
+        'DEBUG'  : '\033[92m', # green
+        'INFO'   : '\033[94m', # blue
+        'WARNING': '\033[93m',
+        'ERROR'  : '\033[91m',
+        'HEADER' : '\033[95m', # ?
+        'END'    : '\033[0m',
+        'RECORD' : '\033[94m', # temporary messages 
+        'TMP'    : '\033[91m', # temporary messages 
+    }
+
+    @classmethod
+    def color(cls, color):
+        return cls.color_ansi[color] if cls.color else ''
+
     def __init__(self, name='(default)'):
-        self.log = None #logging.getLogger(name)
+        self.log = None #logging.getLog(name)
         self.files_to_keep = []
         self.init_log()
+        self.color = True
 
     @classmethod
     def init_options(self):
@@ -26,24 +45,34 @@ class Logger(object):
 
         opt.add_option(
             "--rsyslog-enable", action = "store_false", dest = "rsyslog_enable",
-            help = "Specify if log have to be written to a rsyslog server. Defaults to '%s'." % str(self.DEFAULTS["rsyslog_enable"])
+            help = "Specify if log have to be written to a rsyslog server.",
+            default = self.DEFAULTS["rsyslog_enable"]
         )
         opt.add_option(
             "--rsyslog-host", dest = "rsyslog_host",
-            help = "Rsyslog hostname. Defaults to '%s'." % str(self.DEFAULTS["rsyslog_host"])
+            help = "Rsyslog hostname.",
+            default = self.DEFAULTS["rsyslog_host"]
         )
         opt.add_option(
             "--rsyslog-port", type = "int", dest = "rsyslog_port",
-            help = "Rsyslog port. Defaults to '%s'." % str(self.DEFAULTS["rsyslog_port"])
+            help = "Rsyslog port.",
+            default = self.DEFAULTS["rsyslog_port"]
         )
         opt.add_option(
             "-o", "--log-file", dest = "log_file",
-            help = "Log filename. Defaults to '%s'." % str(self.DEFAULTS["log_file"])
+            help = "Log filename.",
+            default = self.DEFAULTS["log_file"]
         )
         opt.add_option(
             "-L", "--log-level", dest = "log_level",
             choices = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
-            help = "Log level. Defaults to '%s'." % self.DEFAULTS["log_level"]
+            help = "Log level",
+            default = self.DEFAULTS["log_level"]
+        )
+        opt.add_option(
+            "-d", "--debug", dest = "debug",
+            help = "Debug paths (a list of coma-separated python path: path.to.module.function).",
+            default = self.DEFAULTS["debug"]
         )
 
     def init_log(self, options=object()):
@@ -62,7 +91,7 @@ class Logger(object):
                 )
 
     #------------------------------------------------------------------------
-    # Logger
+    # Log
     #------------------------------------------------------------------------
 
     def make_handler_rsyslog(self, rsyslog_host, rsyslog_port, log_level):
@@ -122,48 +151,73 @@ class Logger(object):
     def get_logger(self):
         return self.log
 
-#-------------------------------------------------------------------------
-# Logger: logger abstraction
-#-------------------------------------------------------------------------
+    @classmethod
+    def msg(cls, msg, level=None, caller=None):
+        sys.stdout.write(cls.color(level))
+        if level:
+            print "%s" % level,
+        if caller:
+            print "[%30s]" % caller,
+        print msg,
+        print cls.color('END')
 
-import logging, traceback, inspect
-from logging import handlers
+    #---------------------------------------------------------------------
+    # Log: logger abstraction
+    #---------------------------------------------------------------------
 
-def log_critical(msg):
-    logger = Logger().get_logger()
-    if logger:
-        logger.critical("%s(): %s" % (inspect.stack()[2][3], msg))
-    else:
-        print "CRITICAL: %s" % msg
-    sys.exit(0)
+    @classmethod
+    def critical(cls, msg):
+        logger = Log().get_logger()
+        if logger:
+            logger.critical("%s(): %s" % (inspect.stack()[2][3], msg))
+        else:
+            cls.msg(msg, 'CRITICAL')
+        sys.exit(0)
 
-def log_error(msg):
-    logger = Logger().get_logger()
-    if logger:
-        logger.error("%s(): %s" % (inspect.stack()[2][3], msg))
-    else:
-        print "ERROR: %s" % msg
-        traceback.print_exc()
-    sys.exit(0)
+    @classmethod
+    def error(cls, msg):
+        logger = Log().get_logger()
+        if logger:
+            logger.error("%s(): %s" % (inspect.stack()[2][3], msg))
+        else:
+            cls.msg(msg, 'ERROR')
+            traceback.print_exc()
+        sys.exit(0)
 
-def log_warning(msg):
-    logger = Logger().get_logger()
-    if logger:
-        logger.warning("%s(): %s" % (inspect.stack()[2][3], msg))
-    else:
-        print "WARNING: %s" % msg
+    @classmethod
+    def warning(cls, msg):
+        logger = Log().get_logger()
+        if logger:
+            logger.warning("%s(): %s" % (inspect.stack()[2][3], msg))
+        else:
+            cls.msg(msg, 'WARNING')
 
-def log_info(msg):
-    logger = Logger().get_logger()
-    if logger:
-        logger.info("%s(): %s" % (inspect.stack()[2][3], msg))
-    else:
-        print "INFO: %s" % msg
+    @classmethod
+    def info(cls, msg):
+        logger = Log().get_logger()
+        if logger:
+            logger.info("%s(): %s" % (inspect.stack()[2][3], msg))
+        else:
+            cls.msg(msg, 'INFO')
 
-def log_debug(msg):
-    logger = Logger().get_logger()
-    if logger:
-        logger.debug("%s(): %s" % (inspect.stack()[2][3], msg))
-    else:
-        print "DEBUG: %s" % msg
+    @classmethod
+    def debug(cls, msg):
+        logger = Log().get_logger()
+        caller = caller_name()
+        # Eventually remove "" added to the configuration file
+        paths = tuple(Options().debug.split(','))
+        if paths and not caller.startswith(paths):
+            return
+        
+        if logger:
+            logger.debug("%s(): %s" % (inspect.stack()[2][3], msg))
+        else:
+            cls.msg(msg, 'DEBUG', caller)
 
+    @classmethod
+    def tmp(cls, *msg):
+        cls.msg(' '.join(map(lambda x: "%r"%x, msg)), 'TMP', caller_name())
+
+    @classmethod
+    def record(cls, *msg):
+        cls.msg(' '.join(map(lambda x: "%r"%x, msg)), 'RECORD', caller_name())

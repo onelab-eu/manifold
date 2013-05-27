@@ -94,10 +94,15 @@ class Filter(set):
         #self = filter(lambda x: x.key != key, self)
 
     def get_op(self, key, op):
-        for x in self:
-            if x.key == key and x.op == op:
-                return x.value
-        raise KeyError, key
+        if isinstance(op, list):
+            for x in self:
+                if x.key == key and x.op in op:
+                    return x.value
+        else:
+            for x in self:
+                if x.key == key and x.op == op:
+                    return x.value
+        return None
 
     def get_eq(self, key):
         return self.get_op(key, eq)
