@@ -206,7 +206,7 @@ class Log(object):
         caller = caller_name()
         # Eventually remove "" added to the configuration file
         paths = tuple(Options().debug.split(','))
-        if paths and not caller.startswith(paths):
+        if not (paths and caller.startswith(paths)):
             return
         
         if logger:

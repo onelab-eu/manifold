@@ -113,7 +113,6 @@ class Interface(object):
             
             args = [self, name, None, platform.gateway_config, config, user]
             gw = Gateway.get(platform.gateway_name)(*args)
-            print "init gw", gw
 
             gw.set_query(from_node.query)
             gw.set_identifier(from_node.get_identifier())

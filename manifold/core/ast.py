@@ -1203,12 +1203,6 @@ class SubQuery(Node):
         Log.warning("key argument is deprecated")
         # Parameters
         self.parent, self.predicates, self.key = parent, predicates, key
-        print "SUBQUERY INIT"
-        print "parent=", parent.get_query()
-        for i, child in enumerate(children):
-            if child:
-                print "child=", child.get_query()
-        print "------"
         # Remove potentially None children
         # TODO  how do we guarantee an answer to a subquery ? we should branch
         # an empty FromList at query plane construction
@@ -1222,7 +1216,6 @@ class SubQuery(Node):
 
         self.query = self.parent.get_query().copy()
         for i, child in enumerate(self.children):
-            print "subquery add fields", child.get_query().object
             self.query.fields.add(child.get_query().object)
 
         # Prepare array for storing results from children: parent result can
@@ -1731,7 +1724,6 @@ class AST(object):
     def optimize_projection(self, fields):
         if not fields: return
         old_cb = self.get_callback()
-        print "OPT PROJ", self.root
         self.root = self.root.optimize_projection(fields)
         self.set_callback(old_cb)
 
