@@ -15,12 +15,29 @@ from manifold.input.sql   import SQLParser
 from manifold.test.config import auth
 from manifold.core.router import Router
 from manifold.auth        import Auth
+import pprint
+
+def print_err(err):
+    print '-'*80
+    print 'Exception', err['code'], 'raised by', err['origin'], ':', err['description']
+    for line in err['traceback'].split("\n"):
+        print "\t", line
+    print ''
 
 with Router() as router:
     def evaluate(command):
         query, = SQLParser().parse(command)
         ret = router.forward(query, user=Auth(auth).check())
-        print ret
+        if ret['code'] != 0:
+            if isinstance(ret['description'], list):
+                # We have a list of errors
+                for err in ret['description']:
+                    print_err(err)
+
+        ret = ret['value']
+
+        print "===== RESULTS ====="
+        pprint.pprint(ret)
 
 sys.path.append(os.path.dirname(os.path.realpath(sys.argv[0])))
 
