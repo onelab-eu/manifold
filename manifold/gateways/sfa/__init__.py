@@ -1,6 +1,6 @@
 import sys
 import os, os.path
-import datetime
+from datetime import datetime
 from lxml import etree
 from StringIO import StringIO
 from types import StringTypes, ListType
@@ -257,9 +257,9 @@ class SFAGateway(Gateway):
         # Get platform
         platform = db.query(Platform).filter(Platform.platform == self.platform).one()
         
-        # Get Admin config
-        new_admin_config=self.get_user_config(admin,platform)
-        self.admin_config=json.loads(new_admin_config)
+# XXX DEL #         # Get Admin config
+# XXX DEL #         new_admin_config=self.get_user_config(admin,platform)
+# XXX DEL #         self.admin_config=json.loads(new_admin_config)
 
         # Get account
         accounts = [a for a in user.accounts if a.platform == platform]
@@ -268,7 +268,7 @@ class SFAGateway(Gateway):
         else:
             account = accounts[0]
 
-        config_new = None
+        new_user_config = None
         if account.auth_type == 'reference':
             ref_platform = json.loads(account.config)['reference_platform']
             ref_platform = db.query(Platform).filter(Platform.platform == ref_platform).one()
@@ -293,13 +293,13 @@ class SFAGateway(Gateway):
         elif account.auth_type == 'managed':
             # call manage function for a managed user account to update it 
             # if the managed user account has only a private key, the credential will be retrieved 
-            new_user_config = json.dumps(self.manage(u.email, p, json.loads(account.config)))
+            new_user_config = json.dumps(self.manage(user_email, self.platform, json.loads(account.config)))
             if account.config != new_user_config:
                 account.config = new_user_config
                 db.add(account)
                 db.commit()
 
-        return json.loads(new_user_config)
+        return json.loads(new_user_config) if new_user_config else None
 
     def make_user_proxy(self, interface, user_config):
         pkey    = user_config['user_private_key'].encode('latin1')
@@ -313,11 +313,15 @@ class SFAGateway(Gateway):
     
     # init self-signed cert, user credentials and gid
     def bootstrap (self):
+
         # Overwrite user config (reference & managed acccounts)
-        self.user_config = get.get_user_config(self.user.email)
+        new_user_config = self.get_user_config(self.user.email)
+        if new_user_config:
+            self.user_config = new_user_config
 
         # Cache admin config
         self.admin_config = self.get_user_config(ADMIN_USER)
+        assert self.admin_config, "Could not retrieve admin config"
 
         # Initialize manager proxies
         self.registry = self.make_user_proxy(self.config['registry'], self.admin_config)
@@ -1344,7 +1348,7 @@ class SFAGateway(Gateway):
     # ACCOUNT MANAGEMENT
     ############################################################################ 
 
-    def manage(user, platform, config):
+    def manage(self, user, platform, config):
         # The gateway should be able to perform user config management taks on
         # behalf of MySlice
         #
