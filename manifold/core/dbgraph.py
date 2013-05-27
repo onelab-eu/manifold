@@ -64,8 +64,6 @@ class DBGraph(object):
                 # u embed an array of element of type v, so there is
                 # no JOIN and thus no Predicate.
                 # Note that v do not even require to have a key
-                print "fields_u", fields_u
-                print "make_predicate returns none" 
                 return None
 
             # u and v can be joined
@@ -94,7 +92,7 @@ class DBGraph(object):
             # for pruned tree while predicate only hold field names. Shall we
             # evolve predicates towards supporting Fields ?
             predicate = make_predicate(fields_u, key_v)
-            self.graph.add_edge(u, v, relation=Relation(type, fields_u, predicate))
+            self.graph.add_edge(u, v, relation=Relation(type, predicate))
             Log.debug("NEW EDGE %s" % self.print_arc(u, v))
 
     def append(self, u):
@@ -124,7 +122,7 @@ class DBGraph(object):
         """
         relation = self.get_relation(u,v)
         relation_type = relation.get_str_type()
-        return "%r %s %r via %r" % (u, relation_type, v, relation.get_fields_u())
+        return "%r %s %r via %s" % (u, relation_type, v, relation.get_predicate())
 
     def plot(self):
         """

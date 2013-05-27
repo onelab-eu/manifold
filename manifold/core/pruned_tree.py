@@ -39,7 +39,7 @@ def prune_precedessor_map(metadata, queried_fields, map_vertex_pred):
         - predecessors A dictionnary {Table => Table} included in map_vertex_pred
             containing only the relevant arcs
         - relevant_keys A dictionnary {Table => set(Key)} which indicates
-            for each 3nf Table which are its relevant Keys
+            for each 3nf Table which are its relevant Keys NOT USED ANYMORE
         - relevant_fields A dictionnary {Table => set(Field)} which indicates
             for each 3nf Table which are its relevant Fields
     """
@@ -55,8 +55,6 @@ def prune_precedessor_map(metadata, queried_fields, map_vertex_pred):
 
     # Vertices in predecessors have been already examined in a previous iteration
     predecessor     = dict()
-    # A map that associate each table with the set of keys we will keep
-    relevant_keys   = dict()
     # A map that associates each table with the set of fields that it uniquely provides
     relevant_fields = dict()
 
@@ -69,11 +67,9 @@ def prune_precedessor_map(metadata, queried_fields, map_vertex_pred):
         # For each table, we determine the set of fields it provides that are
         # necessary to answer the query
         queried_fields_v = v.get_fields_with_name(queried_fields, metadata) 
-        print "queried_fields_v=", queried_fields_v
         # and those that are not present in the parent (foreign keys)
         queried_fields_u = u.get_fields_with_name(queried_fields, metadata) if u else set()
         queried_fields_v_unique = queried_fields_v - queried_fields_u
-        print "queried_fields_v_unique=", queried_fields_v_unique
 
         # If v is not the root or does not provide relevant fields (= not found
         # in the parent), then we prune it by not including it in the
@@ -106,47 +102,38 @@ def prune_precedessor_map(metadata, queried_fields, map_vertex_pred):
             # Relevants fields for table v are those contributing to the query
             # Including fields that might be in the key is not important, since
             # they are all added later on.
+            #
+            # eg. queried_fields has slice_hrn, but resource has slice
+            # relevant fields, hence queried_field_v should have slice
+            # XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX
             queried_fields_v = v.get_fields_with_name(queried_fields, metadata)
+            
+            # resolve
+            queried_fields_v = set(map(lambda x:x.get_name(), queried_fields_v))
+
             update_map(relevant_fields, v, queried_fields_v)
-            # XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX
-            # XXX issue: relevant_fields should contain the original field, but
-            # XXX they contain the key of the referenced table so they are not
-            # XXX kept by pruning
-            # XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX
-            # New function : resolve fields
 
             # KEYS
             #
             # Key fields are necessary to perform JOIN in at least one table (otherwise we would not have distinct 3nf tables)
             if u: # thus, we are not considering the root (no need for keys)
                 # for u, select the first join (arbitrary) (Key or set(Field) instances depending on the arc label) 
-                key_u = Key(metadata.get_relation(u,v).get_fields_u())
+                key_u = metadata.get_relation(u,v).get_predicate().get_key()
+                if isinstance(key_u, StringTypes):
+                    key_u = [key_u]
+                key_u = set(key_u)
                 # for v, arbitrarily choose the first key assuming it is used for the join
-                key_v = v.get_keys().one()
+                key_v = v.get_keys().one().get_names()
 
                 # Adding keys...
-                if isinstance(key_u, Key):
-                    update_map(relevant_keys, u, key_u)
-                update_map(relevant_keys, v, key_v)
-
-                # ... and fields
-                # XXX Let's determine once and for all what is present on the arcs, provide helper functions
-                # XXX Link referenced python source files
-                if isinstance(key_u, Key):              # U ...
-                    fields_u = set(key_u)
-                elif isinstance(key_u, Field):
-                    fields_u = set()
-                    fields_u.add(key_u)
-                else:
-                    raise TypeError("Unexpected info on arc (%r, %r): %r" % (u, v, key_u))
-
-                update_map(relevant_fields, u, fields_u) 
+                update_map(relevant_fields, u, key_u)
+                update_map(relevant_fields, v, key_v)
 
                 # Queries fields do not necessarily include fields from the key, so add
                 # them all the time, otherwise they will get pruned
                 update_map(relevant_fields, v, key_v) 
 
-            Log.debug("    [V] Table %r, relevant_fields=%r, relevant_keys=%r" % (v, relevant_fields[v], relevant_keys.get(v, None)))
+            Log.debug("    [V] Table %r, relevant_fields=%r" % (v, relevant_fields.get(v, None) ))
 
             # Stopping conditions:
             if not u:
@@ -159,7 +146,7 @@ def prune_precedessor_map(metadata, queried_fields, map_vertex_pred):
             u = map_vertex_pred[u]
 
 
-    return (predecessor, relevant_keys, relevant_fields)
+    return (predecessor, relevant_fields)
 
 
 @returns(DiGraph)
@@ -182,7 +169,6 @@ def make_sub_graph(metadata, relevant_fields):
     for u in vertices_to_keep: 
         copy_u = Table.make_table_from_fields(u, relevant_fields[u])
         copy[u] = copy_u
-        Log.debug("Adding %r" % copy_u)
         sub_graph.add_node(copy_u) # no data on nodes
 
     # Copy relevant arcs from g
@@ -221,7 +207,7 @@ def build_pruned_tree(metadata, needed_fields, map_vertex_pred):
     
     g = metadata.graph
 
-    (_, relevant_keys, relevant_fields) = prune_precedessor_map(metadata, needed_fields, map_vertex_pred)
+    (_, relevant_fields) = prune_precedessor_map(metadata, needed_fields, map_vertex_pred)
     tree = make_sub_graph(metadata, relevant_fields)
 
     # Print tree

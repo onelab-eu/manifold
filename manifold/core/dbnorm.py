@@ -322,22 +322,6 @@ class Fds(set):
         for fd in fds:
             self.add(fd)
 
-#OBSOLETE|    #@returns(Fds)
-#OBSOLETE|    def collapse(self):
-#OBSOLETE|        """
-#OBSOLETE|        \brief Aggregate each Fd of this Fds by method name 
-#OBSOLETE|        \returns The corresponding Fds instance 
-#OBSOLETE|        """
-#OBSOLETE|        map_method_fd = dict() 
-#OBSOLETE|        for fd in self:
-#OBSOLETE|            method = fd.get_determinant().get_method_name()
-#OBSOLETE|            if method not in map_method_fd.keys():
-#OBSOLETE|                map_method_fd[method] = fd
-#OBSOLETE|            else:
-#OBSOLETE|                map_method_fd[method] |= fd
-#OBSOLETE|
-#OBSOLETE|        return Fds(map_method_fd.values())
-
     @returns(dict)
     def group_by_method(self):
         """
@@ -827,8 +811,6 @@ def to_3nf(metadata):
             platforms         = set()
             fields            = set()
             keys              = Keys()
-            # XXX Jordan: I removed occurrences in the rest of the code
-            #map_field_methods = dict() # <--- TODO this map should be removed from Table
 
             # Annotations needed for the query plane
             map_method_keys   = dict()
@@ -841,15 +823,9 @@ def to_3nf(metadata):
                 
                 # We need to add fields from the key
                 for key_field in key:
-                    fields.add(key_field)
+                    fields.add(key_field) # XXX
 
                 for field, methods in fd.get_map_field_methods().items():
-
-                    # TODO this map should be removed from Table
-                    # XXX jordan: then, I commented it...
-                    #if field not in map_field_methods:
-                    #    map_field_methods[field] = set()
-                    #map_field_methods[field] |= methods
 
                     for method in methods:
 
@@ -861,8 +837,8 @@ def to_3nf(metadata):
                         # field annotations
                         if not method in map_method_fields.keys():
                             map_method_fields[method] = set()
-                        map_method_fields[method].add(field)
-                        map_method_fields[method].add(key_field)
+                        map_method_fields[method].add(field.get_name())
+                        map_method_fields[method].add(key_field.get_name())
 
                         # demux annotation
                         method_name = method.get_name()
@@ -874,8 +850,6 @@ def to_3nf(metadata):
                         platforms.add(method.get_platform())
 
             table = Table(platforms, None, table_name, fields, keys)
-            # XXX Jordan : i nullified it
-            #table = Table(platforms, map_field_methods, table_name, fields, keys)
 
             # inject field and key annotation in the Table object
             table.map_method_keys   = map_method_keys
@@ -912,25 +886,26 @@ def to_3nf(metadata):
                     # Objective = remove the field from child table
                     # Several methods can have it
                     for _method, _fields in child_table.map_method_fields.items():
-                        if field in _fields:
+                        if field.get_name() in _fields:
                             methods.add(_method)
                             if not common_keys.has_field(field):
-                                _fields.remove(field)
+                                _fields.remove(field.get_name())
 
                 if not common_keys.has_field(field):
                     del child_table.fields[field.get_name()]
                 # Add the field with all methods to parent table
                 for method in methods:
                     if not method in map_common_method_fields: map_common_method_fields[method] = set()
-                    map_common_method_fields[method].add(field)
+                    map_common_method_fields[method].add(field.get_name())
 
-            map_common_method_fields[method].add(field)
+            map_common_method_fields[method].add(field.get_name())
 
             # inject field and key annotation in the Table object
             table.map_method_keys   = dict() #map_common_method_keys
             table.map_method_fields = map_common_method_fields
             tables_3nf.append(table)
             #print "TABLE 3nf:", table, table.keys
+            #print "     method fields", map_common_method_fields
 
         # XXX we already know about the links between those two platforms
         # but we can find them easily (cf dbgraph)

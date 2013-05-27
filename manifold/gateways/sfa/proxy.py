@@ -1,5 +1,10 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
 import sys
 from manifold.util.reactor_thread import ReactorThread
+
+DEFAULT_TIMEOUT = 20
 
 class SFAProxy(object):
     # Twisted HTTPS/XMLRPC inspired from
@@ -62,7 +67,7 @@ class SFAProxy(object):
 
         return ctx
 
-    def __init__(self, interface, pkey, cert, timeout):
+    def __init__(self, interface, pkey, cert, timeout=DEFAULT_TIMEOUT):
         from twisted.web      import xmlrpc
         from twisted.internet import reactor
         class Proxy(xmlrpc.Proxy):
@@ -115,11 +120,44 @@ class SFAProxy(object):
             error_cb   = lambda error : d.errback(ValueError("Error in SFA Proxy %s" % error))
             
             def wrap(source, args):
-                tmp = list(args)
-                args = [name]
-                args.extend(tmp)
+                args = (name,) + args
                 return self.proxy.callRemote(*args).addCallbacks(success_cb, error_cb)
 
             ReactorThread().callInReactor(wrap, self, args)
             return d
         return _missing
+
+if __name__ == '__main__':
+    from twisted.internet import defer, reactor
+    import os, pprint
+
+    DEFAULT_INTERFACE = 'http://www.planet-lab.eu:12346'
+    DEFAULT_PKEY      = '/root/ple.upmc.slicebrowser.pkey'
+    DEFAULT_CERT      = '/root/ple.upmc.slicebrowser.user.gid'
+
+    @defer.inlineCallbacks
+    def main():
+        l = len(sys.argv)
+        if l not in (1, 4):
+            print "%s : Issues a GetVersion asynchronously towards a SFA interface" % sys.argv[0]
+            print
+            print "Usage: %s [INTERFACE PRIVATE_KEY CERTIFICATE]" % sys.argv[0]
+            print "Default values:"
+            print "    INTERFACE  : %s" % DEFAULT_INTERFACE
+            print "    PRIVATE_KEY: %s" % DEFAULT_PKEY
+            print "    CERTIFICATE: %s" % DEFAULT_CERT
+            os._exit(1)
+
+        interface = DEFAULT_INTERFACE if l == 1 else sys.argv[1]
+        pkey      = DEFAULT_PKEY      if l == 1 else sys.argv[2]
+        cert      = DEFAULT_CERT      if l == 1 else sys.argv[3]
+
+        proxy = SFAProxy(interface, open(pkey).read(), open(cert).read())
+        version = yield proxy.GetVersion()
+
+        pprint.pprint(version)
+
+        reactor.stop()
+
+    main()
+    reactor.run()

@@ -11,12 +11,8 @@
 
 import sys
 
-from manifold.util.log          import Log
-from manifold.util.options      import Options
-from manifold.util.daemon       import Daemon
 from manifold.gateways          import Gateway
 from manifold.core.query        import Query
-from manifold.util.callback     import Callback
 from manifold.core.ast          import AST
 from manifold.core.table        import Table
 from manifold.core.platform     import Platform
@@ -26,6 +22,10 @@ from manifold.core.capabilities import Capabilities
 #from manifold.util.reactor_thread   import ReactorThread
 from manifold.util.reactor_wrapper  import ReactorWrapper as ReactorThread
 from manifold.util.storage      import DBStorage as Storage
+from manifold.util.log          import Log
+from manifold.util.options      import Options
+from manifold.util.daemon       import Daemon
+from manifold.util.callback     import Callback
 
 #-------------------------------------------------------------------------------
 # Class XMLRPCDaemon
@@ -48,7 +48,6 @@ class XMLRPCDaemon(Daemon):
         Log.init_options()
         Daemon.init_options()
         Options().parse()
-        print "OPTIONS", Options()
         
         # XXX how to avoid option conflicts : have a list of reserved ones for consistency
         # XXX can we support option groups ?

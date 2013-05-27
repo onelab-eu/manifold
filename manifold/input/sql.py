@@ -48,7 +48,7 @@ class SQLParser(object):
 
         fields = field + pp.ZeroOrMore(',' + pp.Optional(pp.White()) + field)
         table = pp.Word(pp.alphanums + '_')
-        query = (kw_select + fields + kw_from + table + kw_where + clause).setParseAction(self.handleGet)
+        query = (kw_select + fields + kw_from + table + pp.Optional(kw_where + clause)).setParseAction(self.handleGet)
 
         self.bnf = query
 

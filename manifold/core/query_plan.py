@@ -21,8 +21,10 @@ from manifold.core.table        import Table
 from manifold.core.key          import Key
 from manifold.core.query        import Query, AnalyzedQuery 
 from manifold.core.dbgraph      import find_root
+from manifold.core.relation     import Relation
 from manifold.core.filter       import Filter
 from manifold.core.pruned_tree  import build_pruned_tree
+from manifold.util.predicate    import Predicate, contains, eq
 from manifold.util.type         import returns, accepts
 from manifold.util.callback     import Callback
 from manifold.util.dfs          import dfs
@@ -61,9 +63,9 @@ class QueryPlan(object):
         query plane (this is a parameter of the router)
         \param user A User instance (carry user's information) 
         """
-        print "Query=", query
         Log.debug("=" * 100)
         Log.debug("Entering process_subqueries %s (need fields %s) " % (query.get_from(), query.get_select()))
+        Log.tmp("Query=", query)
         Log.debug("=" * 100)
 
         table_name = query.get_from()
@@ -75,6 +77,7 @@ class QueryPlan(object):
         qp = AST(user)
 
         children_ast = []
+        predicates = {}
         subquery_methods = set()
         for method, subquery in query.subqueries():
 
@@ -86,6 +89,8 @@ class QueryPlan(object):
             # XXX Analysing subqueries might be a bit more complicated than that
             # XXX We might need to inspect the arcs of DBGraph
 
+            method_table = metadata.find_node(method)
+
             # (1) Do we have a reachable field of type method[] that contains a
             # list of identifier for child items
             
@@ -94,9 +99,11 @@ class QueryPlan(object):
                 field = fields[0]
                 if field.is_array(): # 1..N
                     # We add the field name to the set of retrieved fields
+                    #Log.tmp("=============================== Query.Select(", method, ")", query)
+                    child_key_fields = method_table.get_keys().one().get_minimal_names()
+                    predicates[method] = Predicate(method, contains, child_key_fields)
                     query.select(method)
-                    #subquery_methods.add(method)
-                    #print "*** Relation of type (1) between parent '%s' and child '%s'" % (table_name, method) 
+                    # TODO We need to be sure that the key is retrieved in the child
                 else: # 1..1
                     raise Exception, "1..1 relationships not handled"
 
@@ -104,7 +111,6 @@ class QueryPlan(object):
             else:
                 parent_fields = set(metadata.get_fields(table))
                 parent_key = table.get_keys().one()
-                method_table = metadata.find_node(method)
                 child_fields = set(metadata.get_fields(method_table))
                 # XXX why is it necessarily the key of the child, and not the fields...
                 print "RELATION (2) ----------------------------"
@@ -118,17 +124,30 @@ class QueryPlan(object):
 
                 elif intersection:
                     # 1..N
-                    #print "*** Relation of type (2) between parent '%s' and child '%s'" % (table_name, method) 
+                    print "*** Relation of type (2) between parent '%s' and child '%s'" % (table_name, method) 
                     # Add the fields in both the query and the subquery
                     for field in intersection:
+                        predicates[method] = Predicate(None, None, None)
                         query.select(field.get_name())
                         subquery.select(field.get_name())
-                        print "adding to subquery (intersection2)", field.get_name()
+                        Log.tmp("================================ adding to subquery (intersection)", field.get_name())
 
                 elif intersection2:
                     # Child table references parent table name
-                    print "adding to subquery (intersection2)", parent_key.get_names()
-                    subquery.select(parent_key.get_names())
+                    Log.tmp("=================================== adding to subquery (intersection2)", table.get_name()) #parent_key.get_names())
+                    print "PARENT MINIMAL KEY", parent_key.get_minimal_names()
+                    print "="*80
+                    print "="*80
+                    print "="*80
+                    print "="*80
+                    print "="*80
+                    print "="*80
+                    print "="*80
+                    print "="*80
+                    print "="*80
+                    predicates[method] = Predicate(parent_key.get_minimal_names(), eq, table.get_name())
+                    subquery.select(table.get_name())
+                    #subquery.select(parent_key.get_names())
                     
 
                 else:
@@ -138,20 +157,6 @@ class QueryPlan(object):
                     raise Exception, "No relation between parent '%s' and child '%s'" % (table_name, method)
 
             # XXX Between slice and application, we have leases... how to handle ???
-
-#            # (2) the 
-#            keys = metadata.find_node(method).keys
-#            # XXX Such information should be found on the arcs of dbgraph
-#            if keys:
-#                key = list(keys).pop()
-#                print "W: selecting arbitrary key %s to join with '%s'" % (key, method)
-#                if isinstance(key, Key):
-#                    for field in key:
-#                        field_name = field.get_name()
-#                        if field_name not in subquery.fields:
-#                            subquery.select(field_name)
-#                else:
-#                    raise TypeError("Invalid type: key = %s (type %s)" % (key, type(key)))
 
             # Recursive processing of subqueries
             child_ast = self.process_subqueries(subquery, metadata, allowed_capabilities, user, in_subquery=True)
@@ -165,7 +170,7 @@ class QueryPlan(object):
             parent_fields = query.fields - subquery_methods
 
             # XXX some fields are 1..N fields and should not be present in this list...
-            qp.subquery(children_ast, table.keys.one())
+            qp.subquery(children_ast, predicates, table.keys.one())
 
         return qp
 
@@ -183,6 +188,11 @@ class QueryPlan(object):
             \sa tophat/model/user.py
         \return The AST instance representing the query plan.
         """
+
+        Log.debug("-" * 100)
+        Log.debug("Entering process_query %s (need fields %s) " % (query.get_from(), query.get_select()))
+        Log.tmp("Query=", query)
+        Log.debug("-" * 100)
 
         # Compute the fields involved explicitly in the query (e.g. in SELECT or WHERE)
         needed_fields = set(query.get_select())
@@ -205,7 +215,9 @@ class QueryPlan(object):
         # Each node of the pruned tree only gathers relevant table, and only their
         # relevant fields and their relevant key (if used).
         # \sa manifold.util.pruned_graph.py
-        pruned_tree = build_pruned_tree(metadata, needed_fields, dfs(metadata.graph, root))
+        dfs_tree = dfs(metadata.graph, root, exclude_uv=lambda u,v: metadata.get_relation(u,v).get_type() == Relation.types.LINK_1N)
+        pruned_tree = build_pruned_tree(metadata, needed_fields, dfs_tree)
+        #pruned_tree = build_pruned_tree(metadata, needed_fields, dfs(metadata.graph, root))
 
         # Compute the skeleton resulting query plan
         # (e.g which does not take into account the query)
@@ -269,16 +281,19 @@ class QueryPlan(object):
 
 
     def execute(self, callback=None):
-        cb = callback if callback else Callback()
-        self.ast.set_callback(cb)
-        print "before ast start"
-        self.ast.start()
-        print "after ast start"
-        if not callback:
-            print "not callback, return results"
-            return cb.get_results()
-        print "simple return"
-        return
+        try:
+            cb = callback if callback else Callback()
+            self.ast.set_callback(cb)
+            print "before ast start"
+            self.ast.start()
+            print "after ast start"
+            if not callback:
+                print "not callback, return results"
+                return cb.get_results()
+            print "simple return"
+            return
+        except Exception, e:
+            print "E in execute", e
 
     def dump(self):
         self.ast.dump()
@@ -338,11 +353,6 @@ class QueryPlan(object):
         map_method_bestkey = dict()
         map_method_demux   = dict()
 
-        #print "PROCESS_QUERY", user_query
-        print "PRUNED TREE", [n for n in pruned_tree.nodes()]
-
-        ordered_tables = dfs_preorder_nodes(pruned_tree, root_node)
-        print "ORDERED TABLES", [o for o in ordered_tables]
         ordered_tables = dfs_preorder_nodes(pruned_tree, root_node)
 
         # Let's remove parent tables from ordered tables
@@ -360,9 +370,7 @@ class QueryPlan(object):
         tmp.append(prev_table)
         ordered_tables = tmp
         
-        print '#'*80
         for table in ordered_tables:
-            print "TABLE", table
             from_asts = list()
             key = list(table.get_keys())[0]
 
@@ -376,18 +384,15 @@ class QueryPlan(object):
             # For each platform related to the current table, extract the
             # corresponding table and build the corresponding FROM node
             map_method_fields = table.get_annotations()
-            print '-'*80
             for method, fields in map_method_fields.items(): 
-                print "method & fields", method, fields
                 if method.get_name() == table.get_name():
                     # The table announced by the platform fits with the 3nf schema
                     # Build the corresponding FROM 
                     #sub_table = Table.make_table_from_platform(table, fields, method.get_platform())
-                    field_names = [field.get_name() for field in fields]
 
                     # XXX We lack field pruning
                     query = Query.action(user_query.get_action(), method.get_name()) \
-                                .set(user_query.get_params()).select(field_names)
+                                .set(user_query.get_params()).select(fields)
                     # user_query.get_timestamp() # timestamp
                     # where will be eventually optimized later
 
@@ -415,7 +420,7 @@ class QueryPlan(object):
                     from_node = demux_node.get_child()
                     key_dup = map_method_bestkey[method]
                     select_fields = list(set(fields) | set(key_dup))
-                    from_node.add_fields_to_query([field.get_name() for field in fields])
+                    from_node.add_fields_to_query(fields)
 
                     print "FROMLIST -- DUP(%r) -- SELECT(%r) -- %r -- %r" % (key_dup, select_fields, demux_node, from_node) 
 
@@ -431,7 +436,6 @@ class QueryPlan(object):
                     
                 from_asts.append(from_ast)
 
-            print "="*80
             # Add the current table in the query plane 
             if ast.is_empty():
                 # Process this table, which is the root of the 3nf tree
@@ -456,6 +460,7 @@ class QueryPlan(object):
         # Add WHERE node the tree
         ast.optimize_selection(user_query.get_where())
         # Add SELECT node above the tree
+        Log.tmp("OPTIMIZE PROJECTION", user_query.get_select())
         ast.optimize_projection(user_query.get_select())
 
         #if user_query.get_where() != set():

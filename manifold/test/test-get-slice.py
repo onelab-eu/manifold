@@ -28,7 +28,7 @@ def print_err(err):
     print ''
 
 slicename = sys.argv[1] if len(sys.argv) > 2 else DEFAULT_SLICE
-query = Query.get('slice').filter_by('slice_hrn', '=', slicename).select([
+query = Query.get('slice').filter_by('slice_hrn', '==', slicename).select([
     'slice_hrn',
     'resource.resource_hrn', 'resource.hostname', 'resource.type', 'resource.authority',
     'user.user_hrn',
