@@ -25,6 +25,7 @@ class Log(object):
         'ERROR'  : '\033[91m',
         'HEADER' : '\033[95m', # ?
         'END'    : '\033[0m',
+        'RECORD' : '\033[94m', # temporary messages 
         'TMP'    : '\033[91m', # temporary messages 
     }
 
@@ -215,4 +216,8 @@ class Log(object):
 
     @classmethod
     def tmp(cls, *msg):
-        cls.msg(' '.join(msg), 'TMP', caller_name())
+        cls.msg(' '.join(map(lambda x: "%r"%x, msg)), 'TMP', caller_name())
+
+    @classmethod
+    def record(cls, *msg):
+        cls.msg(' '.join(map(lambda x: "%r"%x, msg)), 'RECORD', caller_name())

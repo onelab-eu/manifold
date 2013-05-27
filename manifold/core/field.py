@@ -109,5 +109,4 @@ class Field(object):
 
     @returns(bool)
     def is_reference(self):
-        Log.tmp(self.get_name(), "is reference ?", self.get_type(), BASE_TYPES)
         return self.get_type() not in BASE_TYPES

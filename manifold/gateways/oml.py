@@ -145,7 +145,7 @@ class OMLGateway(PostgreSQLGateway):
         t.insert_field(slice_hrn)
         t.insert_field(Field(
             qualifier   = 'const',
-            type        = 'integer',
+            type        = 'int',
             name        = 'lease_id',
             is_array    = False,
             description = 'Lease identifier'
@@ -170,7 +170,7 @@ class OMLGateway(PostgreSQLGateway):
 
         lease_id = Field(
             qualifier   = 'const',
-            type        = 'integer',
+            type        = 'int',
             name        = 'lease_id',
             is_array    = False,
             description = 'Lease identifier'
@@ -209,7 +209,7 @@ class OMLGateway(PostgreSQLGateway):
 
         lease_id = Field(
             qualifier   = 'const',
-            type        = 'integer',
+            type        = 'int',
             name        = 'lease_id',
             is_array    = False,
             description = 'Lease identifier'

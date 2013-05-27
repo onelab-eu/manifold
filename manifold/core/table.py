@@ -413,13 +413,13 @@ class Table(object):
         """
         fields = set()
         for field in self.get_fields():
-            if metadata and field.is_reference():
-                Log.tmp("field name=", field.get_name())
-                key = metadata.find_node(field.get_name()).get_keys().one()
-                for key_field in key:
-                    if key_field.get_name() in names:
-                        fields.add(key_field)
-            elif field.get_name() in names:
+            #if metadata and field.is_reference():
+            #    key = metadata.find_node(field.get_name()).get_keys().one()
+            #    for key_field in key:
+            #        if key_field.get_name() in names:
+            #            fields.add(field)
+            #elif field.get_name() in names:
+            if field.get_name() in names:
                 fields.add(field)
         return fields
 
@@ -432,13 +432,13 @@ class Table(object):
             - each field of the sub Table is in relevant_fields
             - each key only involve Fields of relevant_fields
         \param u A Table instance
-        \param relevant_fields A set of Fields belonging to table
+        \param relevant_fields A set of field names belonging to table
         \return The corresponding subtable
         """
         copy_u = deepcopy(u)
 
         for field in u.get_fields():
-            if field not in relevant_fields:
+            if field.get_name() not in relevant_fields:
                 copy_u.erase_field(field.get_name())
 
         # In copy_u, Key instances refer to Field instance of u, which is
@@ -458,6 +458,7 @@ class Table(object):
 
         # We need to update map_method_fields
         for method, fields in copy_u.map_method_fields.items():
+            Log.tmp("update map_method", fields, relevant_fields)
             fields &= relevant_fields
 
         return copy_u

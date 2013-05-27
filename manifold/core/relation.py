@@ -11,9 +11,8 @@ class Relation(object):
         'LINK'
     )
 
-    def __init__(self, type, fields_u, predicate):
+    def __init__(self, type, predicate):
         self.type = type
-        self.fields_u = fields_u
         self.predicate = predicate
 
     def get_type(self):
@@ -21,9 +20,6 @@ class Relation(object):
 
     def get_str_type(self):
         return self.types.get_str(self.type)
-
-    def get_fields_u(self):
-        return self.fields_u
 
     def get_predicate(self):
         return self.predicate
