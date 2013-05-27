@@ -126,9 +126,7 @@ class Router(Interface):
         #cb = Callback(d, router=self, cache_id=h)
         #qp.callback = cb
 
-        print "inst gw"
         self.instanciate_gateways(qp, user)
-        print "inst gw ok"
 
         if query.get_action() == "update":
             # At the moment we can only update if the primary key is present
@@ -140,6 +138,5 @@ class Router(Interface):
             if not query.filters.has_eq(key):
                 raise Exception, "The key field '%s' must be present in update request" % key
 
-        print "execute"
         results = qp.execute()
         return ResultValue.get_result_value(results, qp.get_result_value_array())

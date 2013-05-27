@@ -113,9 +113,6 @@ class QueryPlan(object):
                 parent_key = table.get_keys().one()
                 child_fields = set(metadata.get_fields(method_table))
                 # XXX why is it necessarily the key of the child, and not the fields...
-                print "RELATION (2) ----------------------------"
-                print "parent_fields", parent_fields
-                print "child_fields", child_fields
                 intersection = parent_fields & child_fields
                 intersection2 = set([f.get_name() for f in child_fields if f.get_name() == table_name])
                 if intersection == parent_fields:
@@ -124,27 +121,14 @@ class QueryPlan(object):
 
                 elif intersection:
                     # 1..N
-                    print "*** Relation of type (2) between parent '%s' and child '%s'" % (table_name, method) 
                     # Add the fields in both the query and the subquery
                     for field in intersection:
                         predicates[method] = Predicate(None, None, None)
                         query.select(field.get_name())
                         subquery.select(field.get_name())
-                        Log.tmp("================================ adding to subquery (intersection)", field.get_name())
 
                 elif intersection2:
                     # Child table references parent table name
-                    Log.tmp("=================================== adding to subquery (intersection2)", table.get_name()) #parent_key.get_names())
-                    print "PARENT MINIMAL KEY", parent_key.get_minimal_names()
-                    print "="*80
-                    print "="*80
-                    print "="*80
-                    print "="*80
-                    print "="*80
-                    print "="*80
-                    print "="*80
-                    print "="*80
-                    print "="*80
                     predicates[method] = Predicate(parent_key.get_minimal_names(), eq, table.get_name())
                     subquery.select(table.get_name())
                     #subquery.select(parent_key.get_names())
@@ -281,19 +265,12 @@ class QueryPlan(object):
 
 
     def execute(self, callback=None):
-        try:
-            cb = callback if callback else Callback()
-            self.ast.set_callback(cb)
-            print "before ast start"
-            self.ast.start()
-            print "after ast start"
-            if not callback:
-                print "not callback, return results"
-                return cb.get_results()
-            print "simple return"
-            return
-        except Exception, e:
-            print "E in execute", e
+        cb = callback if callback else Callback()
+        self.ast.set_callback(cb)
+        self.ast.start()
+        if not callback:
+            return cb.get_results()
+        return
 
     def dump(self):
         self.ast.dump()
