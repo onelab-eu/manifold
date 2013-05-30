@@ -301,9 +301,10 @@ class SFAGateway(Gateway):
 
         return json.loads(new_user_config) if new_user_config else None
 
-    def make_user_proxy(self, interface, user_config):
+    def make_user_proxy(self, interface, user_config, cert_type='gid'):
         pkey    = user_config['user_private_key'].encode('latin1')
-        cert    = user_config['gid']
+        # default is gid, if we don't have it (see manage function) we use self signed certificate
+        cert    = user_config[cert_type]
         timeout = self.config['timeout']
 
         if not interface.startswith('http://') or interface.startswith('https://'):
@@ -323,7 +324,7 @@ class SFAGateway(Gateway):
         self.admin_config = self.get_user_config(ADMIN_USER)
         assert self.admin_config, "Could not retrieve admin config"
 
-        # Initialize manager proxies
+        # Initialize manager proxies using MySlice Admin account
         self.registry = self.make_user_proxy(self.config['registry'], self.admin_config)
         self.sliceapi = self.make_user_proxy(self.config['sm'],       self.admin_config)
 
@@ -1344,6 +1345,37 @@ class SFAGateway(Gateway):
         delegated_credential_str=delegated_credential.save_to_string(save_parents=True)
         return delegated_credential_str
 
+    # TEST = PRESENT and NOT EXPIRED
+    def credentials_needed(self, cred_name, config):
+        # if cred_name is not defined in config, we need to get it from SFA Registry
+        if not cred_name in config:
+            # need_credential = True
+            return True
+        else:
+            # if config[cred_name] is a dict of credentials or a single credential
+            if isinstance(config[cred_name], dict):
+                # check expiration of each credential
+                for cred in config[cred_name].values():
+                    # if one of the credentials is expired, we need to get a new one from SFA Registry
+                    if self.credential_expired(cred):
+                        # need_credential = True
+                        return True
+                    else:
+                        need_credential = False
+            else:
+                # check expiration of the credential
+                need_credential = self.credential_expired(config[cred_name])
+            return need_credential
+
+    def credential_expired(self, cred):
+        # if the cred passed as argument is not an object
+        if not isinstance (cred, Credential):
+            # from a string to a credential object to check expiration
+            cred = Credential(string=config[cred_name])
+
+        # check expiration of credentials
+        return cred.get_expiration() < datetime.now()
+   
     ############################################################################ 
     # ACCOUNT MANAGEMENT
     ############################################################################ 
@@ -1364,19 +1396,32 @@ class SFAGateway(Gateway):
         from sfa.trust.certificate import Keypair
         from sfa.util.xrn import Xrn, get_authority
         import json
+        
+        # Check fields that are present and credentials that are not expired
+        # we will deduce the needed fields
 
-        # user_hrn is required to manage
-        # private & public keys in config or generate it
-        # self signed certificate
-        # get gid from registry
-        # get user_credential from registry, using self signed certificate
-        #  
-        # get_authority
-        #         
+        need_delegated_slice_credentials = credential_needed('delegated_slice_credentials', config)
+        need_delegated_authority_credentials = credential_needed('delegated_authority_credentials', config)
+        need_slice_credentials = need_delegated_slice_credentials
+        need_slice_list = need_slice_credentials
+        need_authority_credentials = need_delegated_authority_credentials
+        need_authority_list = need_authority_credentials
+        need_delegated_user_credential = credential_needed('delegated_user_credential', config)
+        need_gid = True
+        need_user_credential = need_authority_credentials or need_slice_list or need_slice_credentials or need_delegated_user_credential 
 
+        # As need_gid is always True, need_sscert will be True
+        #need_sscert = need_gid or need_user_credential
+        need_sscert = True
 
-        # initialize new_key
-        new_key = False
+        # As need_sscert is always True, need_user_private_key will be True
+        #need_user_private_key = need_sscert or need_delegated_user_credential or need_delegated_slice_credentials or need_delegated_authority_credentials
+        need_user_private_key = True
+
+        # As need_user_private_key is always True, need_user_hrn will be True
+        #need_user_hrn = need_user_private_key or need_auth_list or need_slice_list
+        need_user_hrn = True
+
         if not 'user_hrn' in config:
             print "E: hrn needed to manage authentication"
             return {}
@@ -1388,7 +1433,7 @@ class SFAGateway(Gateway):
             config['user_private_key'] = k.as_pem()
             new_key = True
 
-        if new_key or not 'sscert' in config or not config['sscert']:
+        if not 'sscert' in config:
             print "I: Generating self-signed certificate for user", user
             x = config['user_private_key'].encode('latin1')
             keypair = Keypair(string=x)
@@ -1398,189 +1443,82 @@ class SFAGateway(Gateway):
             self_signed.sign()
             config['sscert'] = self_signed.save_to_string()
 
-        # @loic Verify expiration of the user credential, delete it from config if expired, then it will be retreived in the next if
-        if 'user_credential' in config:
-            print "I: SFA user has credential = ",user
-            # from a string to a credential object to check expiration
-            cred = Credential(string=config['user_credential'])
-            if user is not ADMIN_USER and cred.parent is None:
-                print "I: SFA user is not an ADMIN"
-                print "user has no delegated credential"
-                del config['user_credential']
-            if cred.get_expiration() < datetime.now():
-                print "I: SFA Credential expired, removing config['user_credential'] for user = ",config['user_hrn']
-                del config['user_credential']
+        # create an SFA connexion to Registry, using user config
+        registry_proxy = make_user_proxy(self.config['registry'], config, 'sscert')
 
-        # if no user_credential or credential expired, registry_proxy.GetSelfCredential and delegate it to ADMIN_USER
-        if new_key or not 'user_credential' in config: # or expired
+        if need_user_credential and credential_needed('user_credential', config):
             print "I: SFA::manage: Requesting user credential for user", user
-            registry_url = json.loads(platform.config)['registry']
-            registry_proxy = make_user_proxy(registry_url, config)
             try:
-                original_user_credential = registry_proxy.GetSelfCredential (config['sscert'], config['user_hrn'], 'user')
-                # @loic calling SfaHelper from manifold/bin/delegate.py
-                # delegate user credential to MySlice
-                # parameters user_hrn, private_key, sfi_dir, reg_url, myslice_hrn, myslice_type
-                # HARDCODED:
-                # TODO: What can we do with sfi_dir param??? 
-                # myslice_hrn = 'ple.upmc.slicebrowser' => get it from the admin user config
-                # myslice_type = 'user' => we implicitly assume that say, ple.upmc.slicebrowser always is a user, it could as well have been an authority but for now.. 
-                # SfaHelper(config['user_hrn'], config['user_private_key'], sfi_dir, registry_url, 'ple.upmc.slicebrowser', 'user')
+                config['user_credential'] = registry_proxy.GetSelfCredential (config['sscert'], config['user_hrn'], 'user')
             except:
                 # some urns hrns may replace non hierarchy delimiters '.' with an '_' instead of escaping the '.'
                 hrn = Xrn(config['user_hrn']).get_hrn().replace('\.', '_')
-                original_user_credential = registry_proxy.GetSelfCredential (config['sscert'], hrn, 'user')
-            config['original_user_credential'] = original_user_credential
+                config['user_credential'] = registry_proxy.GetSelfCredential (config['sscert'], hrn, 'user')
 
-        if new_key or not 'gid' in config:
+        # SFA call Reslove to get the GID and the slice_list
+        if not 'gid' in config or need_slice_list:
             print "I: Generating GID for user", user
-            registry_url = json.loads(platform.config)['registry']
-            registry_proxy = make_user_proxy(registry_url, config)
-            records = registry_proxy.Resolve(config['user_hrn'].encode('latin1'), config['original_user_credential'])
+            records = registry_proxy.Resolve(config['user_hrn'].encode('latin1'), config['user_credential'])
             records = [record for record in records if record['type']=='user']
             if not records:
                 raise RecordNotFound, "hrn %s (%s) unknown to registry %s"%(config['user_hrn'],'user',registry_url)
             record = records[0]
             config['gid'] = record['gid']
-
-        if new_key or not 'authority_credential' in config:
-            print "I: Generating authority credential for user", user
-            registry_url = json.loads(platform.config)['registry']
-            registry_proxy = make_user_proxy(registry_url, config)
-
             try:
-                credential_string=registry_proxy.GetCredential (config['original_user_credential'], config['user_hrn'].encode('latin1'), 'authority')
-                config['authority_credential'] = credential_string
+                config['slice_list'] = record['reg-slices']
+            except:
+                print "W: user %s has no slices" % str(config['user_hrn'])
+
+        # delegate user_credential
+        if need_delegated_user_credential:
+            try:
+                user_cred = original_user_credential
+                print "I: SFA delegate user cred ", config['user_hrn']
+                config['delegated_user_credential'] = self.delegate(config['user_credential'], pkey_fn.name, self.admin_config['user_credential'])
+            except:
+                print "E: SFA::manage error in delegated_user_credential ",config['user_hrn']
+
+        if need_authority_list: #and not 'authority_list' in config:
+            config['authority_list'] = [get_authority(config['user_hrn'])]
+ 
+        # Get Authority credential for each authority of the authority_list
+        if need_authority_credentials: #and not 'authority_credentials' in config:
+            print "I: Generating authority credentials for each authority"
+            authority_credentials = []
+            try:
+                for authority_name in config['authority_list']:
+                    credential_string=registry_proxy.GetCredential (config['user_credential'], authority_name.encode('latin1'), 'authority')
+                    config['authority_credentials'][authority_name] = credential_string
             except: pass # No authority credential
 
-        if new_key or not 'slice_credentials' in config: 
-            # Generated on demand ! 
-            #config['slice_credentials'] = {} 
-            print "I: Generating slice credential for user", user 
-            # Same code for slice credentials... 
- 
-            # Create temporary files for key and certificate in order to use existing code based on httplib 
-            pkey_fn = tempfile.NamedTemporaryFile(delete=False) 
-            pkey_fn.write(config['user_private_key'].encode('latin1')) 
-            cert_fn = tempfile.NamedTemporaryFile(delete=False) 
-            cert_fn.write(config['gid']) # We always use the GID 
-            pkey_fn.close() 
-            cert_fn.close() 
- 
-            # We need to connect through a HTTPS connection using the generated private key 
-            registry_url = json.loads(platform.config)['registry'] 
-            # @loic Added default 5sec timeout 
-            registry_proxy = SfaServerProxy(registry_url, pkey_fn.name, cert_fn.name, timeout=DEFAULT_TIMEOUT_GETVERSION) 
+        # XXX TODO Factorization of slice and authority operations
+        # Get Slice credential for each slice of the slice_list 
+        if need_slice_credentials: 
+            print "I: Generating slice credentials for each slice of the user" 
             try: 
-                user_cred = original_user_credential 
-            except: 
-                user_cred = config['user_credential'] 
-            try: 
+                for slice_hrn in config['slice_list']
                 # credential_string is temp, not delegated 
-                credential_string=registry_proxy.GetCredential (user_cred, config['user_hrn'].encode('latin1'), 'slice') 
-                config['slice_credential'][slice_name] = credential_string 
+                    credential_string=registry_proxy.GetCredential (config['user_credential'], slice_hrn.encode('latin1'), 'slice') 
+                    config['slice_credentials'][slice_hrn] = credential_string 
             except: 
                 pass # No slice credential 
  
-            os.unlink(pkey_fn.name) 
-            os.unlink(cert_fn.name)
-
-
-        # XXX We should generate delegated credentials here
-        # if not ADMIN delegate user credential to MySlice
-        if user is not ADMIN_USER:
-            print "I: SFA delegating credential..."
-            # @loic calling internal delegate function
-            # parameters: user cred to be delegated, user private key, admin credential
-            # Create temporary files for key and certificate in order to use existing code based on httplib
-            pkey_fn = tempfile.NamedTemporaryFile(delete=False)
-            pkey_fn.write(config['user_private_key'].encode('latin1'))
-            cert_fn = tempfile.NamedTemporaryFile(delete=False)
-            cert_fn.write(config['gid']) # We always use the GID
-            pkey_fn.close()
-            cert_fn.close()
-
-            # We need to connect through a HTTPS connection using the generated private key
-            registry_url = json.loads(platform.config)['registry']
-            # @loic Added default 5sec timeout
-            registry_proxy = SfaServerProxy(registry_url, pkey_fn.name, cert_fn.name, timeout=DEFAULT_TIMEOUT_GETVERSION)
+        if need_delegated_authority_credentials:
+            print "I: Delegating authority credentials"
             try:
-                user_cred = original_user_credential
-                # credential_string is temp, not delegated
-                credential_string=registry_proxy.GetCredential (user_cred, config['user_hrn'].encode('latin1'), 'authority')
-                config['authority_credential'] = credential_string
+                for auth_name,auth_cred in config['authority_credentials']:
+                    delegated_auth_cred = self.delegate(auth_cred, config['user_private_key'], self.admin_config['user_credential'])                   
+                    config['delegated_authority_credentials'][auth_name] = delegated_auth_cred
             except:
-                
-                pass # No authority credential
+                print "E: SFA::manage error in delegated_authority_credentials"
 
-            os.unlink(pkey_fn.name)
-            os.unlink(cert_fn.name)
-
-
-        if new_key or not 'slice_credentials' in config:
-            # Generated on demand !
-            #config['slice_credentials'] = {}
-            print "I: Generating slice credential for user", user
-            # Same code for slice credentials...
-
-            # Create temporary files for key and certificate in order to use existing code based on httplib
-            pkey_fn = tempfile.NamedTemporaryFile(delete=False)
-            pkey_fn.write(config['user_private_key'].encode('latin1'))
-            cert_fn = tempfile.NamedTemporaryFile(delete=False)
-            cert_fn.write(config['gid']) # We always use the GID
-            pkey_fn.close()
-            cert_fn.close()
-
-            # We need to connect through a HTTPS connection using the generated private key
-            registry_url = json.loads(platform.config)['registry']
-            # @loic Added default 5sec timeout
-            registry_proxy = SfaServerProxy(registry_url, pkey_fn.name, cert_fn.name, timeout=DEFAULT_TIMEOUT_GETVERSION)
+        if need_delegated_slice_credentials:
+            print "I: Delegating slice credentials"
             try:
-                user_cred = original_user_credential
+                for slice_hrn,slice_cred in config['slice_credentials']:
+                    delegated_slice_cred = self.delegate(slice_cred, config['user_private_key'], self.admin_config['user_credential'])      
+                    config['delegated_slice_credentials'][slice_hrn] = delegated_slice_cred
             except:
-                user_cred = config['user_credential']
-            try:
-                # credential_string is temp, not delegated
-                credential_string=registry_proxy.GetCredential (user_cred, config['user_hrn'].encode('latin1'), 'slice')
-                config['slice_credential'][slice_name] = credential_string
-            except:
-                pass # No slice credential
-
-            os.unlink(pkey_fn.name)
-            os.unlink(cert_fn.name)
-
-        # XXX We should generate delegated credentials here
-        # if not ADMIN delegate user credential to MySlice
-        if user is not ADMIN_USER:
-            print "I: SFA delegating credential..."
-            # @loic calling internal delegate function
-            # parameters: user cred to be delegated, user private key, admin credential
-            # Create temporary files for key and certificate in order to use existing code based on httplib
-            pkey_fn = tempfile.NamedTemporaryFile(delete=False)
-            pkey_fn.write(config['user_private_key'].encode('latin1'))
-            cert_fn = tempfile.NamedTemporaryFile(delete=False)
-            cert_fn.write(config['gid']) # We always use the GID
-            pkey_fn.close()
-            cert_fn.close()
-
-            try:
-                #print SFAGateway.admin_config
-                #self.admin_config['user_credential']
-                try:
-                    user_cred = original_user_credential
-                    print "I: SFA delegate user cred ", config['user_hrn']
-                    config['user_credential'] = self.delegate(user_cred, pkey_fn.name, self.admin_config['user_credential'])
-                except:
-                    print "I: SFA user cred already delegated"
-                if 'slice_credential' in config:
-                    print "I: SFA delegate slice cred ", config['user_hrn']
-                    config['slice_credential'] = self.delegate(config['slice_credential'], pkey_fn.name, self.admin_config['user_credential'])
-                if 'authority_credential' in config:
-                    print "I: SFA delegate authority cred ", config['user_hrn']
-                    config['authority_credential'] = self.delegate(config['authority_credential'], pkey_fn.name, self.admin_config['user_credential'])
-
-            except Exception,e:
-                print "delegation ERROR = ",e
-                print traceback.print_exc()
+                print "E: SFA::manage error in delegated_slice_credentials"
 
         return config

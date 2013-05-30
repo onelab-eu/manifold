@@ -106,7 +106,7 @@ class SQLAlchemyGateway(Gateway):
 
         # Do we need to limit to the user's own results
         try:
-            if cls.restrict_to_self:
+            if cls.restrict_to_self and self.user.email != 'admin':
                 res = res.filter(cls.user_id == self.user.user_id)
         except AttributeError: pass
 
