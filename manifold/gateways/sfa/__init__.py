@@ -326,7 +326,8 @@ class SFAGateway(Gateway):
         Log.tmp("get admin config: ",ADMIN_USER)
         self.admin_config = yield self.get_user_config(ADMIN_USER)
         assert self.admin_config, "Could not retrieve admin config"
- 
+
+        Log.tmp("get user config: ",self.user.email) 
         # Overwrite user config (reference & managed acccounts)
         new_user_config = yield self.get_user_config(self.user.email)
         if new_user_config:
@@ -604,22 +605,24 @@ class SFAGateway(Gateway):
     # get a delegated credential of a given type to a specific target
     # default allows the use of MySlice's own credentials
     def _get_cred(self, type, target=None):
+        delegated='delegated_' if self.user.email!=ADMIN_USER else ''
+            
         if type == 'user':
             if target:
                 raise Exception, "Cannot retrieve specific user credential for now"
             try:
-                return self.user_config['delegated_user_credential']
+                return self.user_config['%suser_credential'%delegated]
             except TypeError, e:
                 raise Exception, "Missing user credential %s" %  str(e)
         elif type == 'authority':
             if target:
                 raise Exception, "Cannot retrieve specific authority credential for now"
-            return self.user_config['delegated_authority_credential']
+            return self.user_config['%sauthority_credential'%delegated]
         elif type == 'slice':
             if not 'delegated_slice_credentials' in self.user_config:
-                self.user_config['delegated_slice_credentials'] = {}
+                self.user_config['%sslice_credentials'%delegated] = {}
 
-            creds = self.user_config['delegated_slice_credentials']
+            creds = self.user_config['%sslice_credentials'%delegated]
             if target in creds:
                 cred = creds[target]
             else:
@@ -1426,7 +1429,12 @@ class SFAGateway(Gateway):
         need_gid = True
         need_user_credential = need_authority_credentials or need_slice_list or need_slice_credentials or need_delegated_user_credential 
 
-        # As need_gid is always True, need_sscert will be True
+        if self.user.email==ADMIN_USER:
+            need_delegated_user_credential=false
+            need_delegated_slice_credential=false
+            need_delegated_authority_credential=false
+
+         # As need_gid is always True, need_sscert will be True
         #need_sscert = need_gid or need_user_credential
         need_sscert = True
 
