@@ -1,0 +1,11 @@
+[console_scripts]
+myslice-init-db = manifold.bin.initdb:main
+myslice-add-account = manifold.bin.addaccount:main
+myslice-upload-credential = manifold.bin.uploadcredential:main
+manifold-xmlrpc = manifold.bin.xmlrpc:main
+myslice-sfa-delegate = manifold.bin.delegate:main
+myslice-add-platform = manifold.bin.addplatform:main
+myslice-enable-platform = manifold.bin.enableplatform:main
+myslice-disable-platform = manifold.bin.disableplatform:main
+myslice-add-user = manifold.bin.adduser:main
+
