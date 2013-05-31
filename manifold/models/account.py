@@ -115,16 +115,19 @@ class Account(Base):
                 if field == 'credential':
                     # We'll determine the type of credential
                     # XXX NOTE This is SFA specific... it should be hooked by gateways
+                    # @loic modified according to the SFA Gateway, to handle delegation
+                    # XXX TODO need to be improved...
                     c = Credential(string=params[field])
                     c_type = c.get_gid_object().get_type()
-                    if c_type == 'slice':
-                        if not 'slice_credentials' in json_fields:
-                            json_fields['slice_credentials'] = {}
-                        c_target = c.get_gid_object().get_hrn()
-                        json_fields['slice_credentials'][c_target] = params[field]
-                    else:
-                        new_field = '%s_credential' % c_type
+                    if c_type == 'user':
+                        new_field = 'delegated_%s_credential' % c_type
                         json_fields[new_field] = params[field]
+                    else: 
+                        cred_name='delegated_%s_credentials'% c_type
+                        if not cred_name in json_fields:
+                            json_fields[cred_name] = {}
+                        c_target = c.get_gid_object().get_hrn()
+                        json_fields[cred_name][c_target] = params[field]
                 else:
                     json_fields[field] = params[field]
                 del params[field]

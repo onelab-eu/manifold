@@ -16,7 +16,9 @@ def print_err(err):
 
 query = Query.get('resource').select(['resource_hrn', 'hostname'])
 
-ret = Router().forward(query, user=Auth(auth).check())
+# manage twisted reactor (thread) necessary for asynchronous processing
+with Router() as router:
+    ret = Router().forward(query, user=Auth(auth).check())
 
 if ret['code'] != 0:
     if isinstance(ret['description'], list):
