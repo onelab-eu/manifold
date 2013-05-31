@@ -11,12 +11,8 @@
 
 import sys
 
-from manifold.util.log          import *
-from manifold.util.options      import Options
-from manifold.util.daemon       import Daemon
 from manifold.gateways          import Gateway
 from manifold.core.query        import Query
-from manifold.util.callback     import Callback
 from manifold.core.ast          import AST
 from manifold.core.table        import Table
 from manifold.core.platform     import Platform
@@ -26,6 +22,10 @@ from manifold.core.capabilities import Capabilities
 #from manifold.util.reactor_thread   import ReactorThread
 from manifold.util.reactor_wrapper  import ReactorWrapper as ReactorThread
 from manifold.util.storage      import DBStorage as Storage
+from manifold.util.log          import Log
+from manifold.util.options      import Options
+from manifold.util.daemon       import Daemon
+from manifold.util.callback     import Callback
 
 #-------------------------------------------------------------------------------
 # Class XMLRPCDaemon
@@ -45,7 +45,7 @@ class XMLRPCDaemon(Daemon):
         \brief Constructor
         """
         self.init_options()
-        Logger.init_options()
+        Log.init_options()
         Daemon.init_options()
         Options().parse()
         
@@ -86,7 +86,7 @@ class XMLRPCDaemon(Daemon):
     # DUPLICATED IN INTERFACE
     # XXX should be removed
     def get_gateway_config(self, gateway_name):
-        log_info("Hardcoded CSV|PostgreSQL configuration")
+        Log.info("Hardcoded CSV|PostgreSQL configuration")
         if gateway_name == 'postgresql':
             config = {'db_user':'postgres', 'db_password':None, 'db_name':'test'}
         elif gateway_name == 'csv':
@@ -99,7 +99,7 @@ class XMLRPCDaemon(Daemon):
         """
         \brief Runs a XMLRPC server
         """
-        log_info("XMLRPC server daemon (%s) started." % sys.argv[0])
+        Log.info("XMLRPC server daemon (%s) started." % sys.argv[0])
 
         # NOTE it is important to import those files only after daemonization,
         # since they open files we cannot easily preserve
@@ -139,7 +139,7 @@ class XMLRPCDaemon(Daemon):
             ReactorThread().start_reactor()
         except Exception, e:
             # TODO If database gets disconnected, we can sleep/attempt reconnection
-            log_error("Error in XMLRPC API: %s" % str(e))
+            Log.error("Error in XMLRPC API: %s" % str(e))
 
     def terminate(self):
         ReactorThread().stop_reactor()

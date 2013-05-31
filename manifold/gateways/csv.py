@@ -2,11 +2,12 @@
 from __future__ import absolute_import
 
 import csv, os.path
-from datetime                           import datetime
-from manifold.gateways                  import Gateway
-from manifold.core.table                import Table
-from manifold.core.announce             import Announce
-from manifold.core.field                import Field 
+from datetime               import datetime
+from manifold.gateways      import Gateway
+from manifold.core.table    import Table
+from manifold.core.announce import Announce
+from manifold.core.field    import Field 
+from manifold.core.key      import Key
 
 # Heuristics for type guessing
 
@@ -16,19 +17,6 @@ heuristics = (
     float,
 )
 
-def convert(value):
-    for type in heuristics:
-        try:
-            return type(value)
-        except ValueError:
-            continue
-    # All other heuristics failed it is a string
-    return value
-
-def convert_dict(dic):
-    for k, v in dic.items():
-        dic[k] = convert(v)
-    return dic
 
 class CSVGateway(Gateway):
 
@@ -51,8 +39,28 @@ class CSVGateway(Gateway):
 
             # XXX FIELDS PER FILE
             assert self.has_headers or 'fields' in self.config, "Missing fields for csv file"
+            self.field_source = self.config['fields'].split(',') if 'fields' in self.config else reader.fieldnames
 
         self.get_metadata()
+
+    def convert(self, value):
+        for type in heuristics:
+            try:
+                return type(value)
+            except ValueError:
+                continue
+        # All other heuristics failed it is a string
+        return value
+
+    def convert_dict(self, dic):
+        if self.has_headers:
+            return dict([ (k, convert(v)) for k, v in dic.items()])
+        else:
+            # keys are wrong, we replace them
+            return dict(zip(self.field_source, dic.values()))
+        #for k, v in dic.items():
+        #    dic[k] = convert(v)
+        return dic
 
     def start(self):
         assert self.query, "Query should have been associated before start"
@@ -62,7 +70,7 @@ class CSVGateway(Gateway):
             reader = csv.DictReader(csvfile, dialect=self.dialect)
             try:
                 for row in reader:
-                    self.callback(convert_dict(row))
+                    self.callback(self.convert_dict(row))
                 self.callback(None)
             except csv.Error as e:
                 sys.exit('file %s, line %d: %s' % (filename, reader.line_num, e))
@@ -80,34 +88,29 @@ class CSVGateway(Gateway):
         for filename in self.config['filename']:
             with open(filename, 'rb') as csvfile:
                 reader = csv.DictReader(csvfile, dialect=self.dialect)
-                fields = set()
-                for field in reader.fieldnames:
-                    fields.add(Field(
+                key =  self.config['key'].split(',') if 'key' in self.config else field_source[0]
+
+                t = Table(self.platform, None, self.get_base(filename), None, None)
+
+                key_fields = set()
+                for field in self.field_source:
+                    f = Field(
                         qualifier   = 'const', # unless we want to update the CSV file
                         type        = 'string',
                         name        = field,
                         is_array    = False,
                         description = '(null)'
-                    ))
+                    )
+                    t.insert_field(f)
+                
+                    if field in key:
+                        key_fields.add(f)
 
-                #mc = MetadataClass('class', self.get_base(filename))
-                #mc.fields = set(fields) # XXX set should be mandatory
-                #mc.keys = reader.fieldnames[0]
-                t = Table(None, None, self.get_base(filename), fields, reader.fieldnames[0])
+                t.insert_key(key_fields)
+
                 t.capabilities.retrieve   = True
                 t.capabilities.join       = True
+
                 announces.append(Announce(t))
 
         return announces
-        
-        # XXX cannot infer the type, should be provided along fields ?
-        # Let's assume everything is a string for now...
-        print "FIELDNAMES", reader.fieldnames
-
-        
-
-        return []
-
-
-
-

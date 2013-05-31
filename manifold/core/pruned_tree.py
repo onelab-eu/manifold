@@ -13,108 +13,21 @@
 from copy                       import deepcopy
 from networkx                   import DiGraph
 from types                      import StringTypes
-from manifold.util.type           import returns, accepts
-from manifold.core.field          import Field
-from manifold.core.key            import Key, Keys
-from manifold.core.table          import Table 
-
-#OBSOLETE|def prune_precedessor_map_old(g, needed_fields, map_vertex_pred):
-#OBSOLETE|    map_pred   = {}
-#OBSOLETE|    map_fields = {}
-#OBSOLETE|
-#OBSOLETE|    for v, u in map_vertex_pred.items():
-#OBSOLETE|        if not u: # root
-#OBSOLETE|            map_pred[v] = None
-#OBSOLETE|            continue
-#OBSOLETE|        # If u is marked or has fields of interest
-#OBSOLETE|        v_fields = set(v.fields.keys())
-#OBSOLETE|        v_provided_fields = needed_fields & v_fields
-#OBSOLETE|        join_fields = g.edge[u][v]['info']
-#OBSOLETE|        v_provided_fields_nokey = v_provided_fields - join_fields
-#OBSOLETE|        if v_provided_fields_nokey:
-#OBSOLETE|            if not v in map_fields:
-#OBSOLETE|                map_fields[v] = set()
-#OBSOLETE|            map_fields[v] |= v_provided_fields
-#OBSOLETE|            while v: # u->v, the root has a NULL predecessor
-#OBSOLETE|                if v in map_pred:
-#OBSOLETE|                    break
-#OBSOLETE|                u = map_vertex_pred[v]
-#OBSOLETE|                join_fields = g.edge[u][v]['info']
-#OBSOLETE|                print "JOIN FIELDS %r -> %r" % (u,v), g.edge[u][v]['info']
-#OBSOLETE|                if not u in map_fields:
-#OBSOLETE|                    map_fields[u] = set()
-#OBSOLETE|                map_fields[u] |= join_fields
-#OBSOLETE|                map_fields[v] |= join_fields
-#OBSOLETE|                map_pred[v] = u
-#OBSOLETE|                v = u
-#OBSOLETE|        # else: we will find the fields when looking at u
-#OBSOLETE|    return map_pred, map_fields
-#OBSOLETE|
-#OBSOLETE|@accepts(DiGraph, set, dict)
-#OBSOLETE|@returns(tuple)
-#OBSOLETE|def get_sub_graph(g, vertices_to_keep, map_vertex_fields):
-#OBSOLETE|    """
-#OBSOLETE|    \brief Extract a subgraph from a given graph g. Each vertex and
-#OBSOLETE|        arc of this subgraph is a deepcopy of those of g.
-#OBSOLETE|    \param g The original graph
-#OBSOLETE|    \param vertices_to_keep The vertices to keep in g.
-#OBSOLETE|    \param map_vertex_fields Store for for each vertex which fields
-#OBSOLETE|        are relevant
-#OBSOLETE|    \return A tuple made of
-#OBSOLETE|        a DiGraph instance (the subgraph)
-#OBSOLETE|        a dict 
-#OBSOLETE|    """
-#OBSOLETE|    sub_graph = DiGraph()
-#OBSOLETE|    map_vertex = {}
-#OBSOLETE|    map_vertex_fields_ret = {}
-#OBSOLETE|
-#OBSOLETE|    # Copy relevant vertices from g
-#OBSOLETE|    print "Keeping those tables:"
-#OBSOLETE|    for u in vertices_to_keep: 
-#OBSOLETE|        print "%r" % u
-#OBSOLETE|        u_copy = deepcopy(u)
-#OBSOLETE|        map_vertex[u] = u_copy
-#OBSOLETE|        sub_graph.add_node(u_copy) # no data on nodes
-#OBSOLETE|
-#OBSOLETE|    # Copy relevant arcs from g
-#OBSOLETE|    for u, v in g.edges():
-#OBSOLETE|        try:
-#OBSOLETE|            u_copy, v_copy = map_vertex[u], map_vertex[v]
-#OBSOLETE|        except:
-#OBSOLETE|            continue
-#OBSOLETE|        sub_graph.add_edge(u_copy, v_copy, deepcopy(g.edge[u][v]))
-#OBSOLETE|
-#OBSOLETE|    for u, fields in map_vertex_fields.items():
-#OBSOLETE|        u_copy = map_vertex[u]
-#OBSOLETE|        map_vertex_fields_ret[u_copy] = fields
-#OBSOLETE|
-#OBSOLETE|    print "Leaving get_sub_graph: map_vertex_fields:"
-#OBSOLETE|    for k, d in map_vertex_fields_ret.items():
-#OBSOLETE|        print "\t%r => %r" % (k, d)
-#OBSOLETE|
-#OBSOLETE|    return (sub_graph, map_vertex_fields_ret)
-#OBSOLETE|
-#OBSOLETE|def prune_tree_fields(tree, needed_fields, map_vertex_fields):
-#OBSOLETE|    print "needed_fields = %r" % needed_fields
-#OBSOLETE|    print "tree =\n\t%s" % ("\n\t".join(["%r" % u for u in tree.nodes()]))
-#OBSOLETE|    missing_fields = deepcopy(needed_fields)
-#OBSOLETE|    for u in tree.nodes():
-#OBSOLETE|        print "u = %r in map_vertex_fields.keys() = %r" % (u, map_vertex_fields.keys())
-#OBSOLETE|        relevant_fields_u = map_vertex_fields[u]
-#OBSOLETE|        missing_fields -= relevant_fields_u
-#OBSOLETE|        for field in u.get_fields():
-#OBSOLETE|            if field.get_name() not in relevant_fields_u:
-#OBSOLETE|                u.erase_field(field.get_name())
-#OBSOLETE|    return missing_fields
+from manifold.core.field        import Field
+from manifold.core.key          import Key, Keys
+from manifold.core.table        import Table 
+from manifold.core.dbgraph      import DBGraph, Relation
+from manifold.util.log          import Log
+from manifold.util.type         import returns, accepts
 
 @returns(tuple)
-@accepts(DiGraph, set, dict)
-def prune_precedessor_map(g, queried_fields, map_vertex_pred):
+@accepts(DBGraph, set, dict)
+def prune_precedessor_map(metadata, queried_fields, map_vertex_pred):
     """
     \brief Prune from a predecessor map (representing a tree)
        the entries that are not needed (~ remove from a tree
        useless nodes).
-    \param g The graph on which is based the tree
+    \param metadata DBGraph instance
     \param queried_fields The fields that are queried by the user
         A node/table u is useful if one or both of those condition is
         satisfied:
@@ -126,10 +39,15 @@ def prune_precedessor_map(g, queried_fields, map_vertex_pred):
         - predecessors A dictionnary {Table => Table} included in map_vertex_pred
             containing only the relevant arcs
         - relevant_keys A dictionnary {Table => set(Key)} which indicates
-            for each 3nf Table which are its relevant Keys
+            for each 3nf Table which are its relevant Keys NOT USED ANYMORE
         - relevant_fields A dictionnary {Table => set(Field)} which indicates
             for each 3nf Table which are its relevant Fields
     """
+    # NOTE: The pruning step could be avoided if we integrated all these conditions into the DFS procedure
+
+    g = metadata.graph
+
+    # Helper function to manage a dictionary of sets
     def update_map(m, k, s):
         if k not in m.keys():
             m[k] = set()
@@ -137,75 +55,103 @@ def prune_precedessor_map(g, queried_fields, map_vertex_pred):
 
     # Vertices in predecessors have been already examined in a previous iteration
     predecessor     = dict()
-    relevant_keys   = dict()
+    # A map that associates each table with the set of fields that it uniquely provides
     relevant_fields = dict()
+
+    # XXX In debug comments, we need to explain for each table, why it has been
+    # kept or discarded succintly
+
+    # Loop in arbitrary order through the 3nf tables
     for v, u in map_vertex_pred.items():
-        queried_fields_v = v.get_fields_with_name(queried_fields) 
-        # Let's remove fields present in the parent
-        queried_fields_u = u.get_fields_with_name(queried_fields) if u else set()
+        Log.debug("Considering %r -> [[ %r ]]" % (u,v))
+        # For each table, we determine the set of fields it provides that are
+        # necessary to answer the query
+        queried_fields_v = v.get_fields_with_name(queried_fields, metadata) 
+        # and those that are not present in the parent (foreign keys)
+        queried_fields_u = u.get_fields_with_name(queried_fields, metadata) if u else set()
         queried_fields_v_unique = queried_fields_v - queried_fields_u
 
-        # We are interested in the table if
-        # 1) it is the root
-        # 2) if provides fields that are not present in the parent
-
-        # We store information about v iif it is the root node
-        # or if provides relevant fields
-        if not (u == None or queried_fields_v_unique != set()):
+        # If v is not the root or does not provide relevant fields (= not found
+        # in the parent), then we prune it by not including it in the
+        # predecessor map we return. (We do not need a table if all fields can
+        # be found in the parent.)
+        if u and not queried_fields_v_unique:
+            Log.debug("    [X] No interesting field")
             continue
 
-        update_map(relevant_fields, v, queried_fields_v)
+        # Let's now consider all pairs of table (u -> v) up to the root,
+        # focusing on table v
+        # 
+        # All tables back to the root are necessary at least to be able to
+        # retrieve v through successive joins (and we will thus need the keys
+        # of intermediate tables).
+        while True:
 
-        key_v = list(v.get_keys())[0]         # select the first key (arbitrary)
-        update_map(relevant_keys, v, key_v)
-        update_map(relevant_fields, v, key_v) # we need to add fields from the key otherwise they will be pruned
-        # XXX note that we should avoid the pruning by doing an intelligent DFS integrating those conditions
-
-        predecessor[v] = u 
-
-        # Backtrack to the root or to an already visited node
-        while u: # Current arc is (u --> v)
-
-            # Fields use to JOIN the both tables are relevant
-            # - In u: these Fields are stored in the (u --> v) arc
-            # - In v: we assume the join in achieved with the first v's key 
-            key_u = list(g.edge[u][v]["info"])[0] # select the first join (arbitrary) (Key or set(Field) instances depending on the arc label) 
-            key_v = list(v.get_keys())[0]         # select the first key (arbitrary)
-
-            if isinstance(key_u, Key):
-                update_map(relevant_keys, u, key_u)
-            update_map(relevant_keys, v, key_v)
-
-            if isinstance(key_u, Key):
-                fields_u = set(key_u)
-            elif isinstance(key_u, Field):
-                fields_u = set()
-                fields_u.add(key_u)
-            else:
-                raise TypeError("Unexpected info on arc (%r, %r): %r" % (u, v, key_u))
-
-            update_map(relevant_fields, u, fields_u) 
-            update_map(relevant_fields, v, key_v) 
-
-            # The field explicitely queried by the user have already
-            # been stored in relevant_fields during a previous iteration
-            if u in predecessor.keys(): 
+            # v has already been considered
+            if v in predecessor.keys():
+                Log.debug("    [X] Already processed %r" % v)
                 break
 
-            # Update infos about u 
-            relevant_fields[u] |= u.get_fields_with_name(queried_fields)
-            predecessor[u] = map_vertex_pred[u]
+            # TABLE
+            #
+            # Don't discard table v by adding it to the predecessor map
+            predecessor[v] = u
 
-            # Move to the previous arc
+            # FIELDS
+            #
+            # Relevants fields for table v are those contributing to the query
+            # Including fields that might be in the key is not important, since
+            # they are all added later on.
+            #
+            # eg. queried_fields has slice_hrn, but resource has slice
+            # relevant fields, hence queried_field_v should have slice
+            # XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX
+            queried_fields_v = v.get_fields_with_name(queried_fields, metadata)
+            
+            # resolve
+            queried_fields_v = set(map(lambda x:x.get_name(), queried_fields_v))
+
+            update_map(relevant_fields, v, queried_fields_v)
+
+            # KEYS
+            #
+            # Key fields are necessary to perform JOIN in at least one table (otherwise we would not have distinct 3nf tables)
+            if u: # thus, we are not considering the root (no need for keys)
+                # for u, select the first join (arbitrary) (Key or set(Field) instances depending on the arc label) 
+                key_u = metadata.get_relation(u,v).get_predicate().get_key()
+                if isinstance(key_u, StringTypes):
+                    key_u = [key_u]
+                key_u = set(key_u)
+                # for v, arbitrarily choose the first key assuming it is used for the join
+                key_v = v.get_keys().one().get_names()
+
+                # Adding keys...
+                update_map(relevant_fields, u, key_u)
+                update_map(relevant_fields, v, key_v)
+
+                # Queries fields do not necessarily include fields from the key, so add
+                # them all the time, otherwise they will get pruned
+                update_map(relevant_fields, v, key_v) 
+
+            Log.debug("    [V] Table %r, relevant_fields=%r" % (v, relevant_fields.get(v, None) ))
+
+            # Stopping conditions:
+            if not u:
+                # u = None : u is the root, no need to continue
+                Log.debug("<<< reached root")
+                break
+
+            # Move to the previous arc u' -> v'=u -> v
             v = u
-            u = predecessor[u]
+            u = map_vertex_pred[u]
 
-    return (predecessor, relevant_keys, relevant_fields)
+
+    return (predecessor, relevant_fields)
 
 
 @returns(DiGraph)
-@accepts(DiGraph, dict)
-def make_sub_graph(g, relevant_fields):
+@accepts(DBGraph, dict)
+def make_sub_graph(metadata, relevant_fields):
     """
     \brief Create a reduced graph based on g.
         We only keep vertices having a key in relevant_fields
@@ -214,6 +160,7 @@ def make_sub_graph(g, relevant_fields):
         indicating for each Table which Field(s) are relevant.
     \return The corresponding sub-3nf-graph
     """
+    g = metadata.graph
     sub_graph = DiGraph()
     copy = dict()
     vertices_to_keep = set(relevant_fields.keys())
@@ -222,7 +169,6 @@ def make_sub_graph(g, relevant_fields):
     for u in vertices_to_keep: 
         copy_u = Table.make_table_from_fields(u, relevant_fields[u])
         copy[u] = copy_u
-        #print "\nAdding %s" % copy_u
         sub_graph.add_node(copy_u) # no data on nodes
 
     # Copy relevant arcs from g
@@ -233,14 +179,14 @@ def make_sub_graph(g, relevant_fields):
             continue
 
         sub_graph.add_edge(copy_u, copy_v, deepcopy(g.edge[u][v]))
-        #print "Adding %r %s %r via %r" % (copy_u, g.edge[u][v]["type"], copy_v, g.edge[u][v]["info"])
+        Log.debug("Adding copy of : %s" % metadata.print_arc(u, v))
 
     return sub_graph
 
 
-@accepts(DiGraph, set, dict)
+@accepts(DBGraph, set, dict)
 @returns(DiGraph)
-def build_pruned_tree(g, needed_fields, map_vertex_pred):
+def build_pruned_tree(metadata, needed_fields, map_vertex_pred):
     """
     \brief Compute the pruned 3-nf tree included in a 3nf-graph g according
         to a predecessors map modeling a 3-nf tree and a set of need fields.
@@ -255,19 +201,21 @@ def build_pruned_tree(g, needed_fields, map_vertex_pred):
         \sa manifold.core.dbgraph.py
     """
    
-    #print "-" * 100
-    #print "Prune useless keys/nodes/arcs from tree"
-    #print "-" * 100
+    Log.debug("-" * 100)
+    Log.debug("Prune useless keys/nodes/arcs from tree")
+    Log.debug("-" * 100)
     
-    (_, relevant_keys, relevant_fields) = prune_precedessor_map(g, needed_fields, map_vertex_pred)
-    tree = make_sub_graph(g, relevant_fields)
+    g = metadata.graph
+
+    (_, relevant_fields) = prune_precedessor_map(metadata, needed_fields, map_vertex_pred)
+    tree = make_sub_graph(metadata, relevant_fields)
 
     # Print tree
-    #print "-" * 100
-    #print "Minimal tree:"
-    #print "-" * 100
-    #for table in tree.nodes():
-    #    print "%s\n" % table
-    #print "-" * 100
+    Log.debug("-" * 100)
+    Log.debug("Minimal tree:")
+    Log.debug("-" * 100)
+    for table in tree.nodes():
+        Log.debug("%s\n" % table)
+    Log.debug("-" * 100)
 
     return tree

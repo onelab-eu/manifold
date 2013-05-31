@@ -1,18 +1,31 @@
 #!/usr/bin/env python
-import xmlrpclib
-srv = xmlrpclib.ServerProxy("http://dev.myslice.info:7080/", allow_none=True)
-auth = {"AuthMethod": "password", "Username": "thierry", "AuthString": "thierry"}
-slicename= "ple.inria.heartbeat"
+#! -*- coding: utf-8 -*-
 
-q = {
-    'action' : 'get',
-    'object' : 'resource',
-    'filters': [["slice_hrn", "==",slicename]],
-    'fields' : ["network", "type", "hrn", "hostname"]
-}
-rs=srv.forward(auth, q)
+from manifold.auth        import *
+from manifold.core.router import Router
+from manifold.core.query  import Query
+from config               import auth
+import sys, pprint
 
-print rs
+def print_err(err):
+    print '-'*80
+    print 'Exception', err['code'], 'raised by', err['origin'], ':', err['description']
+    for line in err['traceback'].split("\n"):
+        print "\t", line
+    print ''
 
-print 'received',len(rs),'resources attached to',slicename
+query = Query.get('resource').select(['resource_hrn', 'hostname'])
 
+ret = Router().forward(query, user=Auth(auth).check())
+
+if ret['code'] != 0:
+    if isinstance(ret['description'], list):
+        # We have a list of errors
+        for err in ret['description']:
+            print_err(err)
+
+ret = ret['value']
+
+print "===== RESULTS ====="
+for r in ret:
+    pprint.pprint(r)

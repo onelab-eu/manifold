@@ -111,7 +111,7 @@ class Interface(object):
                 else:
                     raise Exception('auth type not implemented: %s' % platform.auth_type)
             
-            args = [None, name, None, platform.gateway_config, config, user]
+            args = [self, name, None, platform.gateway_config, config, user]
             gw = Gateway.get(platform.gateway_name)(*args)
 
             gw.set_query(from_node.query)
@@ -157,6 +157,9 @@ class Interface(object):
                 "column" : columns
             })
         return output
+
+    def metadata_get_keys(self, table_name):
+        return self.g_3nf.find_node(table_name).get_keys()
 
     def forward(self, query, deferred=False, execute=True, user=None):
         # Implements common functionalities = local queries, etc.
