@@ -17,13 +17,13 @@ from types                      import StringTypes
 
 from types                      import StringTypes
 from manifold.core.filter       import Filter
-from manifold.util.predicate    import Predicate, eq
+from manifold.util.predicate    import Predicate, eq, contains, included
 from manifold.core.query        import Query, AnalyzedQuery
 from manifold.core.table        import Table 
 from manifold.core.field        import Field
 from manifold.core.key          import Key
 from manifold.util.type         import returns, accepts
-from manifold.util.log          import *
+from manifold.util.log          import Log
 from manifold.core.capabilities import Capabilities
 
 # NOTES
@@ -186,7 +186,7 @@ class Node(object):
         """
         \brief calls the parent callback with the record passed in parameter
         """
-        #print "[%12s #%04d] SEND [ %r ]" % (self.__class__.__name__, self.identifier, record)
+        #Log.record("[#%04d] SEND [ %r ]" % (self.identifier, record))
         self.callback(record)
 
     @returns(Query)
@@ -215,7 +215,7 @@ class Node(object):
         \param indent current indentation
         """
         self.tab(indent)
-        print "%r" % self
+        print "%r (%r)" % (self, self.query)
 
     @returns(StringTypes)
     def __repr__(self):
@@ -237,7 +237,6 @@ class Node(object):
         #raise Exception, "%s::optimize_projection() not implemented" % self.__class__.__name__
         print "W: %s::optimize_projection() not implemented" % self.__class__.__name__
         return self
-        
 
     def get_identifier(self):
         return self.identifier
@@ -587,7 +586,7 @@ class LeftJoin(Node):
         \param indent current indentation
         """
         self.tab(indent)
-        print "%r" % self
+        print "%r (%s)" % (self, self.query)
         if isinstance(self.left, list):
             self.tab(indent),
             print '[DATA]', self.left_map.values()
@@ -762,7 +761,7 @@ class Projection(Node):
         \param indent current indentation
         """
         self.tab(indent)
-        print "%r" % self 
+        print "%r (%r)" % (self, self.query)
         self.child.dump(indent+1)
 
     def __repr__(self):
@@ -791,7 +790,7 @@ class Projection(Node):
         \param record dictionary representing the received record
         """
         if record != LAST_RECORD:
-            record = do_projection(record)
+            record = do_projection(record, self.fields)
         self.send(record)
 
     def optimize_selection(self, filter):
@@ -847,7 +846,7 @@ class Selection(Node):
         \param indent The current indentation
         """
         self.tab(indent)
-        print "%r" % self
+        print "%r (%r)" % (self, self.query)
         self.child.dump(indent + 1)
 
     def __repr__(self):
@@ -942,7 +941,7 @@ class Demux(Node):
         \param indent current indentation
         """
         self.tab(indent)
-        print "%r" % self
+        print "%r (%r)" % (self, self.query)
         self.get_child().dump(indent + 1)
 
     def start(self):
@@ -1085,7 +1084,7 @@ class Union(Node):
         \param indent current indentation
         """
         self.tab(indent)
-        print "%r" % self
+        print "%r (%r)" % (self, self.query)
         for child in self.children:
             child.dump(indent + 1)
 
@@ -1194,15 +1193,16 @@ class SubQuery(Node):
     SUBQUERY operator (cf nested SELECT statements in SQL)
     """
 
-    def __init__(self, parent, children, key):
+    def __init__(self, parent, children, predicates, key):
         """
         Constructor
         \param parent
         \param children
         \param key the key for elements returned from the node
         """
+        Log.warning("key argument is deprecated")
         # Parameters
-        self.parent, self.key = parent, key
+        self.parent, self.predicates, self.key = parent, predicates, key
         # Remove potentially None children
         # TODO  how do we guarantee an answer to a subquery ? we should branch
         # an empty FromList at query plane construction
@@ -1278,136 +1278,118 @@ class SubQuery(Node):
         """
         \brief Modify children queries to take the keys returned by the parent into account
         """
-        # Loop through children and inject the appropriate parent results
-        for i, child in enumerate(self.children):
-            # We have two cases:
-            # (1) either the parent query has subquery fields (a list of child
-            #     ids + eventually some additional information)
-            # (2) either the child has a backreference to the parent
-            #     ... eventually a partial reference in case of a 1..N relationship
-            #
-            # In all cases, we will collect all identifiers to proceed to a
-            # single child query for efficiency purposes, unless it's not
-            # possible (?).
-            #
-            # We have several parent records stored in self.parent_output
-            #
-            # /!\ Can we have a mix of (1) and (2) ? For now, let's suppose NO.
-            #  *  We could expect key information to be stored in the DBGraph
-
-            parent_query = self.parent.get_query()
-            child_query  = child.get_query()
-            parent_fields = parent_query.fields
-            child_fields = child_query.fields
-
-            intersection = parent_fields & child_fields
-
-            # (1) in the parent, we might have a field named after the child
-            # method containing either records or identifiers of the children
-            if child_query.object in parent_query.fields:
-                # WHAT DO WE NEED TO DO
-                # We have the parent: it has a list of records/record keys which are the ones to fetch
-                # (whether it is 1..1 or 1..N)
-                # . if it is only keys: add a where
-                # . otherwise we need to inject records (and reprogram injection in a complex query plane)
-                #   (based on a left join)
-                for slice in self.parent_output:
-                    if not child_query.object in slice: continue
-                    users = slice[child_query.object]
-                    # users est soit une liste d'id, soit une liste de records
-                    user_data = []
-                    for user in users:
-                        if isinstance(user, dict):
-                            user_data.append(user)
-                        else:
-                            # have have a key
-                            user_data.append({self.key: user})
-                    # Let's inject user_data in the right child
-                    child.inject(user_data, self.key, None)
-                    
-            elif intersection: #parent_fields <= child_query.fields:
-                # Case (2) : the child has a backreference to the parent
-                # For each parent, we need the set of child that point to it...
-                # We can inject a where limiting the set of explored children to those found in parent
+        try:
+            # Loop through children and inject the appropriate parent results
+            for i, child in enumerate(self.children):
+                # We have two cases:
+                # (1) either the parent query has subquery fields (a list of child
+                #     ids + eventually some additional information)
+                # (2) either the child has a backreference to the parent
+                #     ... eventually a partial reference in case of a 1..N relationship
                 #
-                # Let's take into account the fact that the parent key can be composite
-                # (That's complicated to make the filter for composite keys) -- need OR
+                # In all cases, we will collect all identifiers to proceed to a
+                # single child query for efficiency purposes, unless it's not
+                # possible (?).
+                #
+                # We have several parent records stored in self.parent_output
+                #
+                # /!\ Can we have a mix of (1) and (2) ? For now, let's suppose NO.
+                #  *  We could expect key information to be stored in the DBGraph
 
-                if len(intersection) == 1:
-                    # single field. let's collect parent values
-                    field = iter(intersection).next()
-                    parent_ids = [record[field] for record in self.parent_output]
-                else:
-                    # multiple filters: we use tuples
-                    field = tuple(intersection)
-                    parent_ids = [tuple([record[f] for f in field]) for record in self.parent_output]
+                #parent_query = self.parent.get_query()
+                #child_query  = child.get_query()
+                #parent_fields = parent_query.fields
+                #child_fields = child_query.fields
+                #intersection = parent_fields & child_fields
+
+                # The operation to be performed is understood only be looking at the predicate
+                predicate = self.predicates[child.get_query().object]
+                Log.debug("child %r, predicate=%r" % (child, predicate))
+
+                key, op, value = predicate.get_tuple()
+                if op == eq:
+                    # 1..N
+                    # Example: parent has slice_hrn, resource has a reference to slice
+                    print "key == ", key
+                    parent_ids = [record[key] for record in self.parent_output]
+                    predicate = Predicate(value, '==', parent_ids)
+
+                    # Injecting predicate: TODO use optimize_selection()
+                    old_child_callback= child.get_callback()
+                    self.children[i] = child.optimize_selection(Filter().filter_by(predicate))
+                    self.children[i].set_callback(old_child_callback)
+
+                elif op == contains:
+                    # 1..N
+                    # Example: parent 'slice' has a list of 'user' keys == user_hrn
+                    for slice in self.parent_output:
+                        if not child.get_query().object in slice: continue
+                        users = slice[key]
+                        # users est soit une liste d'id, soit une liste de records
+                        user_data = []
+                        for user in users:
+                            if isinstance(user, dict):
+                                user_data.append(user)
+                            else:
+                                # have have a key
+                                # XXX Take multiple keys into account
+                                user_data.append({value: user}) 
+                        # Let's inject user_data in the right child
+                        child.inject(user_data, value, None) 
                     
-                # We still need to inject part of the records, LEFT JOIN tout ca...
-                predicate = Predicate(field, '==', parent_ids)
-                print "INJECTING PREDICATE", predicate
-                old_child_callback= child.get_callback()
-                where = Selection(child, Filter().filter_by(predicate))
-                where.query = child.query.copy().filter_by(predicate)
-                where.set_callback(child.get_callback())
-                #self.children[i] = where
-                self.children[i] = where.optimize()
-                self.children[i].set_callback(old_child_callback)
+                else:
+                    raise Exception, "No link between parent and child queries"
+                
+    #            # (1) in the parent, we might have a field named after the child
+    #            # method containing either records or identifiers of the children
+    #            if child_query.object in parent_query.fields:
+    #                # WHAT DO WE NEED TO DO
+    #                # We have the parent: it has a list of records/record keys which are the ones to fetch
+    #                # (whether it is 1..1 or 1..N)
+    #                # . if it is only keys: add a where
+    #                # . otherwise we need to inject records (and reprogram injection in a complex query plane)
+    #                #   (based on a left join)
+    #                    
+    #            elif intersection: #parent_fields <= child_query.fields:
+    #                # Case (2) : the child has a backreference to the parent
+    #                # For each parent, we need the set of child that point to it...
+    #                # We can inject a where limiting the set of explored children to those found in parent
+    #                #
+    #                # Let's take into account the fact that the parent key can be composite
+    #                # (That's complicated to make the filter for composite keys) -- need OR
+    #
+    #                if len(intersection) == 1:
+    #                    # single field. let's collect parent values
+    #                    field = iter(intersection).next()
+    #                    parent_ids = [record[field] for record in self.parent_output]
+    #                else:
+    #                    # multiple filters: we use tuples
+    #                    field = tuple(intersection)
+    #                    parent_ids = [tuple([record[f] for f in field]) for record in self.parent_output]
+    #                    
+    #                # We still need to inject part of the records, LEFT JOIN tout ca...
+    #                predicate = Predicate(field, '==', parent_ids)
+    #                print "INJECTING PREDICATE", predicate
+    #                old_child_callback= child.get_callback()
+    #                where = Selection(child, Filter().filter_by(predicate))
+    #                where.query = child.query.copy().filter_by(predicate)
+    #                where.set_callback(child.get_callback())
+    #                #self.children[i] = where
+    #                self.children[i] = where.optimize()
+    #                self.children[i].set_callback(old_child_callback)
+    #
 
-            else:
-                raise Exception, "No link between parent and child queries"
-
-            #print "-" * 50
-            #print "UPDATED CHILDREN"
-            #print "-" * 50
-            #self.dump()
-            #print "-" * 50
-
-            # The parent_output should already have either a set of keys or a
-            # set of records. They will serve an input for the JOINS
-            # keys = filters for the left part of the first JOIN
-            # records = (partial) replacement for the first JOIN
-            #     we can request less and make a JOIN with existing data
-
-            # Collect the list of all child records in order to make a single
-            # child query; we will have to dispatch the results in all_done
-            # later on.
-
-#DEPRECATED#            child_record_all = []
-#DEPRECATED#            child_keys_all = []
-#DEPRECATED#            only_key = False # We have only the key in child records
-#DEPRECATED#            for parent_record in self.parent_output:
-#DEPRECATED#                # XXX We are supposing 1..N here
-#DEPRECATED#                if not isinstance(parent_record[child.query.object], list):
-#DEPRECATED#                    raise Exception, "run_children received 1..1 record; 1..N implemented only."
-#DEPRECATED#                for child_record in parent_record[child.query.object]:
-#DEPRECATED#                    if isinstance(child_record, dict):
-#DEPRECATED#                        if not self.key in child_record:
-#DEPRECATED#                            # XXX case for links in slice.resource
-#DEPRECATED#                            continue
-#DEPRECATED#                        if not child_record[self.key] in child_keys_all:
-#DEPRECATED#                            child_record_all.append(child_record)
-#DEPRECATED#                            child_keys_all.append(child_record[self.key])
-#DEPRECATED#                        # else duplicate
-#DEPRECATED#                    else:
-#DEPRECATED#                        # XXX We should be injecting keys only what is common
-#DEPRECATED#                        # between all records. For this we should be remembering
-#DEPRECATED#                        # the list of child_record fields that are in common in
-#DEPRECATED#                        # all child records.
-#DEPRECATED#                        only_key = True
-#DEPRECATED#                        child_keys_all.append(child_record)
-#DEPRECATED#            
-#DEPRECATED#            # child is the AST receiving the injection
-#DEPRECATED#            if only_key:
-#DEPRECATED#                self.children[i] = child.inject(child_keys_all, key) # XXX key ?
-#DEPRECATED#            else:
-#DEPRECATED#                self.children[i] = child.inject(child_record_all, key) # XXX key ?
-
-        # We make another loop since the children might have been modified in
-        # the previous one.
-        for i, child in enumerate(self.children):
-            self.status.started(i)
-        for i, child in enumerate(self.children):
-            child.start()
+            # We make another loop since the children might have been modified in
+            # the previous one.
+            for i, child in enumerate(self.children):
+                self.status.started(i)
+            for i, child in enumerate(self.children):
+                Log.debug("Starting child %r" % child)
+                child.start()
+        except Exception, e:
+            print "EEE:", e
+            import traceback
+            traceback.print_exc()
 
     def all_done(self):
         """
@@ -1418,40 +1400,66 @@ class SubQuery(Node):
         for o in self.parent_output:
             # Dispatching child results
             for i, child in enumerate(self.children):
-                if child.query.object in o:
-                    # (1)
+
+                predicate = self.predicates[child.get_query().object]
+                Log.debug("child %r, predicate=%r" % (child, predicate))
+
+                key, op, value = predicate.get_tuple()
+                if op == eq:
+                    # 1..N
+                    # Example: parent has slice_hrn, resource has a reference to slice
+                    #            PARENT       CHILD
+                    # Predicate: (slice_hrn,) == slice
+
+                    # Collect in parent all child such as they have a pointer to the parent
+                    if isinstance(key, StringTypes):
+                        # simple key
+                        filter = Filter().filter_by(Predicate(key, eq, o[key]))
+                    else:
+                        # Composite key, o[value] is a dictionary
+                        filter = Filter()
+                        for field in value:
+                            filter = filter.filter_by(Predicate(field, eq, o[value][field])) # o[value] might be multiple
+
+                    o[child.query.object] = []
+                    for child_record in self.child_results[i]:
+                        if filter.match(child_record):
+                            o[child.query.object].append(child_record)
+
+                elif op == contains:
+                    # 1..N
+                    # Example: parent 'slice' has a list of 'user' keys == user_hrn
+                    #            PARENT        CHILD
+                    # Predicate: user contains (user_hrn, )
+
                     # first, replace records by dictionaries. This only works for non-composite keys
                     if o[child.query.object]:
                         record = o[child.query.object][0]
                         if not isinstance(record, dict):
-                            o[child.query.object] = [{self.key.get_name(): record} for record in o[child.query.object]]
+                            o[child.query.object] = [{value: record} for record in o[child.query.object]]
 
-                    # XXX We need some merging here
-
-                    for record in o[child.query.object]:
-                        # Find the corresponding record in child_results and
-                        # update the one in the parent with it
-                        for k, v in record.items():
-                            
-                            filter = Filter()
-                            for key_field_name in child.key.get_names():
-                                filter = filter.filter_by(Predicate(key_field_name, '==', record[key_field_name]))
-                            for r in self.child_results[i]:
-                                if filter.match(r):
-                                    #if key.get_name() in r and r[key.get_name()] == record[key.get_name()]:
-                                    record.update(r)
-                else:
-                    # (2)
-                    # Child records that contain parent key. Build predicate.
-                    key_field_names = self.key.get_names()
-                    filter = Filter()
-                    for key_field_name in key_field_names:
-                        filter = filter.filter_by(Predicate(key_field_name, '==', o[key_field_name]))
+                    if isinstance(value, StringTypes):
+                        for record in o[child.query.object]:
+                            # Find the corresponding record in child_results and update the one in the parent with it
+                            for k, v in record.items():
+                                filter = Filter().filter_by(Predicate(value, eq, record[value]))
+                                for r in self.child_results[i]:
+                                    if filter.match(r):
+                                        record.update(r)
+                    else:
+                        for record in o[child.query.object]:
+                            # Find the corresponding record in child_results and update the one in the parent with it
+                            for k, v in record.items():
+                                filter = Filter()
+                                for field in value:
+                                    filter = filter.filter_by(Predicate(field, eq, record[field]))
+                                for r in self.child_results[i]:
+                                    if filter.match(r):
+                                        record.update(r)
                     
-                    o[child.query.object] = []
-                    for child_record in self.child_results[i]:
-                        if filter.match(child_record): # if child_record[key] == o[key]:
-                            o[child.query.object].append(child_record)
+                else:
+                    raise Exception, "No link between parent and child queries"
+
             self.send(o)
         self.send(LAST_RECORD)
 
@@ -1486,6 +1494,9 @@ class SubQuery(Node):
             self.parent = self.parent.optimize_selection(parent_filter)
             self.parent.set_callback(self.parent_callback)
         return self
+
+    def optimize_projection(self, fields):
+        sys.exit(0)
 
 #------------------------------------------------------------------
 # AST (Abstract Syntax Tree)
@@ -1654,7 +1665,7 @@ class AST(object):
         return self
 
     #@returns(AST)
-    def subquery(self, children_ast, parent_key):
+    def subquery(self, children_ast, predicates, parent_key):
         """
         \brief Append a SUBQUERY Node above the current AST
         \param children_ast the set of children AST to be added as subqueries to
@@ -1664,7 +1675,7 @@ class AST(object):
         assert not self.is_empty(), "AST not initialized"
         old_root = self.get_root()
 
-        self.root = SubQuery(old_root, children_ast, parent_key)
+        self.root = SubQuery(old_root, children_ast, predicates, parent_key)
         self.root.set_callback(old_root.get_callback())
         return self
 
@@ -1687,12 +1698,12 @@ class AST(object):
 
     @property
     def callback(self):
-        log_info("I: callback property is deprecated")
+        Log.info("I: callback property is deprecated")
         return self.root.callback
 
     @callback.setter
     def callback(self, callback):
-        log_info("I: callback property is deprecated")
+        Log.info("I: callback property is deprecated")
         self.root.callback = callback
 
     def get_callback(self):

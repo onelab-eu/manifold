@@ -1,0 +1,17 @@
+user_hrn keypair
+user_hrn auth_list
+user_hrn slice_list
+keypair sscert 
+keypair delegated_user_credential
+keypair delegated_slice_credentials
+keypair delegated_authority_credentials
+sscert gid
+sscert user_credential
+user_credential authority_credentials
+user_credential slice_list
+user_credential slice_credentials
+user_credential delegated_user_credential
+authority_list authority_credentials
+slice_list slice_credentials
+slice_credentials delegated_slice_credentials
+authority_credentials delegated_authority_credentials
