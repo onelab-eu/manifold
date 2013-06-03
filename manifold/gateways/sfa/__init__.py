@@ -16,7 +16,8 @@ import copy # DIRTY HACK SENSLAB
 from manifold.core.result_value         import ResultValue
 
 from manifold.core.filter               import Filter
-from manifold.gateways                  import Gateway, LAST_RECORD
+from manifold.gateways                  import Gateway
+from manifold.operators                 import LAST_RECORD
 
 from manifold.gateways.sfa.rspecs.SFAv1 import SFAv1Parser # as Parser
 
