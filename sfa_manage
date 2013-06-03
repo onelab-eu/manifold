@@ -1,0 +1,15 @@
+TEST = PRESENT and NOT EXPIRED
+
+NEED_delegated_slice_credentials = TEST
+NEED_delegated_authority_credentials = TEST
+NEED_slice_credentials = NEED_delegated_slice_credentials
+NEED_authority_credentials = NEED_delegated_authority_credentials
+NEED_slice_list = NEED_slice_credentials
+NEED_delegated_user_credential = TEST
+NEED_gid = TRUE
+NEED_user_credential = NEED_authority_credentials or 
+sscert
+keypair
+auth_list
+user_hrn
+authority_list
