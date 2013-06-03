@@ -223,8 +223,8 @@ class Log(object):
 
     @classmethod
     def record(cls, *msg):
-        pass
         #cls.msg(' '.join(map(lambda x: "%r"%x, make_list(msg))), 'RECORD', caller_name())
+        pass
 
     @classmethod
     def deprecated(cls, new):

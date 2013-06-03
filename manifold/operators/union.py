@@ -145,6 +145,7 @@ class Union(Node):
         # UNION: apply projection to all children
         # XXX in case of UNION with duplicate elimination, we need the key
         # until then, apply projection to all children
+        self.query.fields = fields
         for i, child in enumerate(self.children):
             old_child_callback= child.get_callback()
             self.children[i] = child.optimize_projection(fields)
