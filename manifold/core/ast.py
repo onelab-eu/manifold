@@ -66,8 +66,7 @@ class AST(object):
 
 
     #@returns(AST)
-    def From(self, platform, query, capabilities, key, needed_fields):
-    #def From(self, table, query):
+    def From(self, platform, query, capabilities, key):
         """
         \brief Append a FROM Node to this AST
         \param table The Table wrapped by the FROM operator
@@ -83,7 +82,7 @@ class AST(object):
 #OBSOLETE|        platforms = table.get_platforms()
 #OBSOLETE|        platform = list(platforms)[0]
 
-        node = From(platform, query, capabilities, key, needed_fields) 
+        node = From(platform, query, capabilities, key)
         self.root = node
         self.root.set_callback(self.get_callback())
         return self
