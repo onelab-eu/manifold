@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
+from manifold.util.log            import Log
 import sys
 from manifold.util.reactor_thread import ReactorThread
 
@@ -122,11 +122,14 @@ class SFAProxy(object):
             def wrap(source, args):
                 args = (name,) + args
                 return self.proxy.callRemote(*args).addCallbacks(success_cb, error_cb)
-
+            
             ReactorThread().callInReactor(wrap, self, args)
             return d
         return _missing
 
+    def __repr__(self):
+        return "<SfaProxy %s>"% self.interface
+        
 if __name__ == '__main__':
     from twisted.internet import defer, reactor
     import os, pprint
