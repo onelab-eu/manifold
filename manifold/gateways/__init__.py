@@ -18,7 +18,6 @@
 from manifold.core.announce             import Announces
 from manifold.util.plugin_factory       import PluginFactory
 #from manifold.util.misc                 import find_local_modules
-from manifold.core.ast                  import LAST_RECORD
 from manifold.util.type                 import accepts, returns
 from manifold.util.log                  import Log
 

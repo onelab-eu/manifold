@@ -1,4 +1,4 @@
-from manifold.gateways import LAST_RECORD
+from manifold.operators      import LAST_RECORD
 import threading
 
 #------------------------------------------------------------------
