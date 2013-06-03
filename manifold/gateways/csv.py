@@ -4,7 +4,8 @@ from __future__ import absolute_import
 import csv, os.path
 from itertools               import izip
 from datetime                import datetime
-from manifold.gateways       import Gateway, LAST_RECORD
+from manifold.gateways       import Gateway
+from manifold.operators      import LAST_RECORD
 from manifold.core.table     import Table
 from manifold.core.announce  import Announce
 from manifold.core.field     import Field 
