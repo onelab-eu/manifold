@@ -15,8 +15,9 @@
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
 from types                  import StringTypes
-from manifold.util.type     import returns, accepts
 from manifold.core.field    import Field
+from manifold.util.type     import returns, accepts
+from manifold.util.log      import Log
 
 class Key(frozenset):
     """
@@ -58,18 +59,36 @@ class Key(frozenset):
 
     @returns(StringTypes)
     def get_name(self):
-        return self.get_field().get_name()
-
-    def get_names(self):
-        return set([x.get_name() for x in self])
-
-    def get_minimal_names(self):
-        return self.get_names() if self.is_composite() else self.get_name()
-        
+        Log.deprecated('get_field_name')
+        return self.get_field_name()
 
     @returns(StringTypes)
+    def get_field_name(self):
+        return self.get_field().get_name()
+
+    @returns(set)
+    def get_field_names(self):
+        return set([x.get_name() for x in self])
+
+    @returns(set)
+    def get_names(self):
+        Log.deprecated('get_field_names')
+        return self.get_field_names()
+
+    def get_minimal_names(self):
+        return self.get_field_names() if self.is_composite() else self.get_name()
+        
+    @returns(StringTypes)
     def get_type(self):
+        Log.deprecated('get_field_type')
+        return self.get_field_type()
+
+    @returns(StringTypes)
+    def get_field_type(self):
         return self.get_field().get_type()
+
+    def get_field_types(self):
+        return set([field.get_type() for field in self])
 
     @returns(StringTypes)
     def __str__(self):

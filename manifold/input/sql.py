@@ -15,8 +15,8 @@ class SQLParser(object):
         SELECT [fields[*] FROM table WHERE clause
         """
 
-        #integer = pp.Word(nums)
-        #floatNumber = pp.Regex(r'\d+(\.\d*)?([eE]\d+)?')
+        integer = pp.Combine(pp.Optional(pp.oneOf("+ -")) + pp.Word(pp.nums)).setParseAction(lambda t:int(t[0]))
+        floatNumber = pp.Regex(r'\d+(\.\d*)?([eE]\d+)?')
         point = pp.Literal( "." )
         e     = pp.CaselessLiteral( "E" )
 
@@ -25,9 +25,9 @@ class SQLParser(object):
         OPERATOR_RX = '|'.join([re.sub('\|', '\|', o) for o in Predicate.operators.keys()])
 
         # predicate
-        field = pp.Word(pp.alphanums + '_')
+        field = pp.Word(pp.alphanums + '_' + '.')
         operator = pp.Regex(OPERATOR_RX).setName("operator")
-        value = pp.QuotedString('"') #| pp.Combine( pp.Word( "+-"+ pp.nums, pp.nums) + pp.Optional( point + pp.Optional( pp.Word( pp.nums ) ) ) + pp.Optional( e + pp.Word( "+-"+pp.nums, pp.nums ) ) )
+        value = pp.QuotedString('"') | integer ##| pp.Combine( pp.Word( "+-"+ pp.nums, pp.nums) + pp.Optional( point + pp.Optional( pp.Word( pp.nums ) ) ) + pp.Optional( e + pp.Word( "+-"+pp.nums, pp.nums ) ) )
 
         predicate = (field + operator + value).setParseAction(self.handlePredicate)
 

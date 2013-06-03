@@ -146,8 +146,10 @@ class Predicate:
         elif self.op == contains:
             method, subfield = self.key.split('.', 1)
             return not not [ x for x in dic[method] if x[subfield] == self.value] 
+        elif self.op == included:
+            return dic[self.key] in self.value
         else:
-            raise Exception, "Unexpected table format: %r", dic
+            raise Exception, "Unexpected table format: %r" % dic
 
     def filter(self, dic):
         """
@@ -187,3 +189,5 @@ class Predicate:
             print "----"
             return dic if self.match(dic) else None
 
+    def get_field_names(self):
+        return set([self.key])

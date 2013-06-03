@@ -10,10 +10,11 @@
 #   Jordan Augé       <jordan.auge@lip6.fr> 
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
-from copy                       import deepcopy
-from networkx                   import draw_graphviz, DiGraph
+from copy                 import deepcopy
+from networkx             import draw_graphviz, DiGraph
+from types                import StringTypes
 #OBSOLETE|from networkx.algorithms.traversal.depth_first_search import dfs_edges
-import matplotlib.pyplot        as plt
+import matplotlib.pyplot  as plt
 
 #OBSOLETE|from manifold.core.query          import Query 
 from manifold.core.table          import Table 
@@ -83,17 +84,21 @@ class DBGraph(object):
         if u == v:
             return
 
-        relation_uv = u.get_relation(v)
-        if relation_uv:
-            (type, fields_u) = relation_uv
-            key_v = list(v.get_keys())[0] if len(v.get_keys()) > 0 else None
-
-            # XXX Predicate and field_u are redundant, but fields are needed
-            # for pruned tree while predicate only hold field names. Shall we
-            # evolve predicates towards supporting Fields ?
-            predicate = make_predicate(fields_u, key_v)
-            self.graph.add_edge(u, v, relation=Relation(type, predicate))
+        relations = u.get_relations(v)
+        if relations:
+            self.graph.add_edge(u, v, relations=relations)
             Log.debug("NEW EDGE %s" % self.print_arc(u, v))
+
+#        if relation_uv:
+#            (type, fields_u) = relation_uv
+#            key_v = list(v.get_keys())[0] if len(v.get_keys()) > 0 else None
+#
+#            # XXX Predicate and field_u are redundant, but fields are needed
+#            # for pruned tree while predicate only hold field names. Shall we
+#            # evolve predicates towards supporting Fields ?
+#            predicate = make_predicate(fields_u, key_v)
+#            self.graph.add_edge(u, v, relation=Relation(type, predicate))
+#            Log.debug("NEW EDGE %s" % self.print_arc(u, v))
 
     def append(self, u):
         """
@@ -120,9 +125,9 @@ class DBGraph(object):
         \param u The source node (Table instance)
         \param v The target node (Table instance)
         """
-        relation = self.get_relation(u,v)
-        relation_type = relation.get_str_type()
-        return "%r %s %r via %s" % (u, relation_type, v, relation.get_predicate())
+        relations = self.get_relations(u,v)
+        relation_str = ', '.join(['%s %s' % (r.get_str_type(), r.get_predicate()) for r in relations])
+        return "%r -> %r : %s" % (u, v, relation_str)
 
     def plot(self):
         """
@@ -200,7 +205,7 @@ class DBGraph(object):
             try:
                 
                 parent, child, data = next(children)
-                relation = data['relation']
+                relation = data['relations']
                 if child not in visited:
                     if relation.get_type() == Relation.types.LINK_1N:
                         # Recursive call
@@ -216,9 +221,44 @@ class DBGraph(object):
             except StopIteration:
                 stack.pop()
 
-    def get_relation(self, u, v):
-        return self.graph.edge[u][v]['relation']
+    def get_relations(self, u, v):
+        # u --> v
+        if isinstance(u, StringTypes):
+            u = self.find_node(u)
+        if isinstance(v, StringTypes):
+            v = self.find_node(v)
+        return self.graph.edge[u][v]['relations']
 
+    def get_field_type(self, table, field_name):
+        return self.find_node(table).get_field_type(field_name)
+
+    # FORGET ABOUT THIS METHOD, NOT USED ANYMORE
+    def iter_tables(self, root):
+        seen = []
+        stack = [(None, root, None)]
+
+        stack_11 = ()
+        stack_1N = ()
+
+        def iter_tables_rec(u, v, relation):
+            # u = pred, v = current, relation(u->v)
+
+            if v in seen: return
+            seen.append(v)
+
+            stack_11 += ((u, v, relation),)
+
+            for neighbour in self.graph.successors(v):
+                for relation in self.get_relations(v, neighbour):
+                    if relation.get_type() in [Relation.types.LINK_1N]:
+                        # 1..N will be explored later, push on stack
+                        stack_1N += ((v, neighbour, relation),)
+                        continue
+                    iter_tables_rec(v, neighbour, relation)
+
+        iter_tables_rec(None, root, None)
+
+        return (stack_11, stack_1N)
 
 # TODO This should be a method of DBGraph and DBGraph should inherits DiGraph
 @accepts(DiGraph)

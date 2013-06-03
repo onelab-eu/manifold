@@ -2,7 +2,7 @@ import sys, logging, traceback, inspect
 from logging                 import handlers
 from manifold.util.singleton import Singleton
 from manifold.util.options   import Options
-from manifold.util.misc      import caller_name
+from manifold.util.misc      import caller_name, make_list
 
 class Log(object):
     __metaclass__ = Singleton
@@ -31,7 +31,7 @@ class Log(object):
 
     @classmethod
     def color(cls, color):
-        return cls.color_ansi[color] if cls.color else ''
+        return cls.color_ansi[color] if color else ''
 
     def __init__(self, name='(default)'):
         self.log = None #logging.getLog(name)
@@ -201,7 +201,7 @@ class Log(object):
             cls.msg(msg, 'INFO')
 
     @classmethod
-    def debug(cls, msg):
+    def debug(cls, *msg):
         logger = Log().get_logger()
         caller = caller_name()
         # Eventually remove "" added to the configuration file
@@ -215,12 +215,18 @@ class Log(object):
         if logger:
             logger.debug("%s(): %s" % (inspect.stack()[2][3], msg))
         else:
-            cls.msg(msg, 'DEBUG', caller)
+            cls.msg(' '.join(map(lambda x: "%r"%x, make_list(msg))), 'DEBUG', caller_name())
 
     @classmethod
     def tmp(cls, *msg):
-        cls.msg(' '.join(map(lambda x: "%r"%x, msg)), 'TMP', caller_name())
+        cls.msg(' '.join(map(lambda x: "%r"%x, make_list(msg))), 'TMP', caller_name())
 
     @classmethod
     def record(cls, *msg):
-        cls.msg(' '.join(map(lambda x: "%r"%x, msg)), 'RECORD', caller_name())
+        pass
+        #cls.msg(' '.join(map(lambda x: "%r"%x, make_list(msg))), 'RECORD', caller_name())
+
+    @classmethod
+    def deprecated(cls, new):
+        #cls.msg("Function %s is deprecated, please use %s" % (caller_name(skip=3), new))
+        pass

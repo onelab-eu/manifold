@@ -10,13 +10,13 @@
 from types              import StringTypes
 from manifold.util.type import returns, accepts 
 from manifold.util.log  import Log
+from manifold.types     import type_by_name, BASE_TYPES
 
-BASE_TYPES = ['bool', 'int', 'unsigned', 'double', 'text', 'timestamp', 'interval', 'inet']
 
 class Field(object):
 
 
-    def __init__(self, qualifier, type, name, is_array = False, description = None):
+    def __init__(self, qualifier, type, name, is_array = False, description = None, local=False):
         """
         \brief Constructor
         \param qualifier A value among None and "const"
@@ -33,6 +33,7 @@ class Field(object):
         self.name        = name
         self._is_array   = is_array
         self.description = description 
+        self.local       = False
 
     @returns(StringTypes)
     def __repr__(self):
@@ -110,3 +111,7 @@ class Field(object):
     @returns(bool)
     def is_reference(self):
         return self.get_type() not in BASE_TYPES
+
+    @returns(bool)
+    def is_local(self):
+        return self.local

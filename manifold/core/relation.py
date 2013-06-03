@@ -5,7 +5,9 @@ class Relation(object):
 
     types = Enum(
         'SPECIALIZATION',
-        'INHERITANCE',
+        'PARENT',
+        'CHILD',
+        'COLLECTION',
         'LINK_11', 
         'LINK_1N',
         'LINK'

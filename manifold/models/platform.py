@@ -18,7 +18,7 @@ class Platform(Base):
     first = Column(Integer, doc="First timestamp, in seconds since UNIX epoch")
     last = Column(Integer, doc="Last timestamp, in seconds since UNIX epoch")
     # @loic Is this gateway_conf different from config???
-    gateway_conf=Column(String, doc="Gateway config (serialized in JSON)")
+    #gateway_conf=Column(String, doc="Gateway config (serialized in JSON)")
     gateway_type = Column(String, doc="Type of the gateway to use to connect to this platform")
     auth_type = Column(Enum('none', 'default', 'user', 'reference', 'managed'), default='default')
     config = Column(String, doc="Default configuration (serialized in JSON)")
