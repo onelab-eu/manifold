@@ -153,16 +153,17 @@ class Query(object):
 
     @returns(StringTypes)
     def __str__(self):
-        return "SELECT %s FROM %s WHERE %s" % (
-            ", ".join(self.get_select()) if self.get_select() else '*',
-            self.get_from(),
-            self.get_where()
-        )
+        return "SELECT %(select)s%(from)s%(where)s%(at)s" % {
+            "select": ", ".join(self.get_select())          if self.get_select()    else "*",
+            "from"  : "\n  FROM  %s" % self.get_from(),
+            "where" : "\n  WHERE %s" % self.get_where()     if self.get_where()     else "",
+            "at"    : "\n  AT    %s" % self.get_timestamp() if self.get_timestamp() else ""
+        }
 
     @returns(StringTypes)
     def __repr__(self):
         return "SELECT %s FROM %s WHERE %s" % (
-            ", ".join(self.get_select()),
+            ", ".join(self.get_select()) if self.get_select() else '*',
             self.get_from(),
             self.get_where()
         )

@@ -9,15 +9,16 @@
 
 import sys
 
-from manifold.gateways.tdmi     import TDMIGateway
-from manifold.core.query        import Query
-from manifold.core.result_value import ResultValue
-from manifold.core.router       import Router 
-from manifold.util.storage      import DBStorage
-from manifold.util.type         import returns, accepts 
+from manifold.gateways.tdmi        import TDMIGateway
+from manifold.core.query           import Query
+from manifold.core.result_value    import ResultValue
+from manifold.core.router          import Router 
+from manifold.util.storage         import DBStorage
+from manifold.util.type            import returns, accepts 
+from manifold.util.log             import Log
 
 @accepts(dict)
-def tdmi_callback(record):
+def print_record(record):
     """
     Process a record fetched by the gateway
     Args:
@@ -53,13 +54,12 @@ def make_tdmi_router():
         """
         sys.exit(-1)
 
-    print platform
     # Our Forwarder does not need any capability since pgsql is
     return Router(platform)
 
 @returns(ResultValue)
 @accepts(Router, Query)
-def run_test(router, query):
+def run_query(router, query):
     """
     Forward a query to the router and dump the result to the standard outpur
     Params:
@@ -81,47 +81,56 @@ def dump_routing_table(router):
 
 
 router = make_tdmi_router()
-dump_routing_table(router)
+#dump_routing_table(router)
 
-# Query traceroute
-run_test(router, Query(
-    action  = "get",
-    object  = "traceroute",
-    filters =  [
-        ["agent_id",       "=", 11824],
-        ["destination_id", "=", 1417]
-        #["destination_id", "=", [1416, 1417]]
-    ],
-    fields  = [
-    #    "src_ip", "dst_ip", "src_hostname", "dst_hostname",
-        "agent",   "destination",
-        "hops.ip", "hops.ttl", "hops.hostname", "timestamp"
-    ],
-    timestamp = "2012-09-09 14:30:09"
-))
+queries = [
+    # Query traceroute
+    # TODO should work without querying src_ip
+    Query(
+        action  = "get",
+        object  = "traceroute",
+        filters =  [
+            ["agent_id",       "=", 11824],
+            ["destination_id", "=", 1417]
+            #["destination_id", "=", [1416, 1417]]
+        ],
+        fields  = [
+            "src_ip", "dst_ip",
+            "agent",   "destination",
+            "hops.ip", "hops.ttl"#, "hops.hostname", "timestamp"
+        ],
+        timestamp = "2012-09-09 14:30:09"
+    ),
 
-# Query agent 
-run_test(router, Query(
-    action  = "get",
-    object  = "agent",
-    filters =  [["agent_id", "=", 11824]],
-    fields  = ["agent_id", "ip", "hostname"]
-))
+    # Query agent 
+    Query(
+        action  = "get",
+        object  = "agent",
+        filters =  [["agent_id", "=", 11824]],
+        fields  = ["agent_id", "ip", "hostname", "platform"]
+    ),
 
-# Query traceroute JOIN agent
-run_test(router, Query(
-    action  = "get",
-    object  = "traceroute",
-    filters =  [
-        ["agent_id",       "=", 11824],
-        ["destination_id", "=", 1417]
-        #["destination_id", "=", [1416, 1417]]
-    ],
-    fields  = [
-        "agent", "agent.ip", "src_ip", "agent.hostname", "src_hostname",
-        "destination", "destination.ip", "dst_ip", "destination.hostname", "dst_hostname"
-    ],
-    timestamp = "2012-09-09 14:30:09"
-))
+    # Query traceroute JOIN agent
+    Query(
+        action  = "get",
+        object  = "traceroute",
+        filters =  [
+            ["agent_id",       "=", 11824],
+            ["destination_id", "=", 1417]
+            #["destination_id", "=", [1416, 1417]]
+        ],
+        fields  = [
+            "agent", "agent.ip", "src_ip", "agent.hostname"
+            "destination", "destination.ip", "dst_ip", "destination.hostname"
+        ],
+        timestamp = "2012-09-09 14:30:09"
+    )
+]
 
-
+for query in queries:
+    result_value = run_query(router, query)
+    if result_value["code"] == ResultValue.SUCCESS:
+        for record in result_value["value"]:
+            print_record(record)
+    else:
+        Log.error("Failed to run query:\n\n%s" % query)

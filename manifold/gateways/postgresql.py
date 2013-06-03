@@ -179,12 +179,12 @@ class PostgreSQLGateway(Gateway):
 
     @classmethod
     def _quote(self, x):
-        if isinstance(x, datetime):# DateTimeType):
+        if isinstance(x, datetime.datetime):# DateTimeType):
             x = str(x)
         elif isinstance(x, unicode):
             x = x.encode( 'utf-8' )
 
-        if isinstance(x, types.StringType):
+        if isinstance(x, StringTypes):
             x = "'%s'" % str(x).replace("\\", "\\\\").replace("'", "''")
         elif isinstance(x, (types.IntType, types.LongType, types.FloatType)):
             pass
@@ -215,7 +215,7 @@ class PostgreSQLGateway(Gateway):
         if isinstance(value, (list, tuple, set)):
             return "ARRAY[%s]" % ", ".join(map (PostgreSQL.quote_string, value))
         else:
-            return _quote(value)
+            return PostgreSQLGateway._quote(value)
 
     @classmethod
     def param(self, name, value):
@@ -474,19 +474,37 @@ class PostgreSQLGateway(Gateway):
         # NOTE : How to handle complex clauses
         return ' AND '.join([cls.get_where_elt(pred) for pred in filters])
 
+    @classmethod
+    def to_sql(self, query):
+        """
+        Translate self.query in the corresponding postgresql command
+        Args:
+            query: A Query instance
+        Returns:
+            A String containing a postgresql command 
+        """
+        params = {
+            "table"   : query.object,
+            "filters" : PostgreSQLGateway.get_where(query.filters),
+            "fields"  : ", ".join(query.fields)
+        }
+        sql = PostgreSQLGateway.SQL_STR % params
+        return sql
+
     def get_sql(self):
         """
         Translate self.query in the corresponding postgresql command
         Returns:
             A String containing a postgresql command 
         """
-        params = {
-            "table"   : self.query.object,
-            "filters" : PostgreSQLGateway.get_where(self.query.filters),
-            "fields"  : ", ".join(self.query.fields)
-        }
-        sql = self.SQL_STR % params
-        return sql
+#        params = {
+#            "table"   : self.query.object,
+#            "filters" : PostgreSQLGateway.get_where(self.query.filters),
+#            "fields"  : ", ".join(self.query.fields)
+#        }
+#        sql = self.SQL_STR % params
+#        return sql
+        return PostgreSQLGateway.to_sql(self.query)
 
     def forward(self, query, deferred = False, execute = True, user = None):
         """

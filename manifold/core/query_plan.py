@@ -92,7 +92,9 @@ class QueryPlan(object):
                 capabilities = metadata.get_capabilities(platform, query.object)
 
                 # XXX Improve platform capabilities support
-                if not capabilities.retrieve: continue
+                if not capabilities.retrieve:
+                    Log.warning("build_union: cannot retrieve data using %r" % method)
+                    continue
                 from_ast = AST(user = user).From(platform, query, capabilities, key, fields)
 
                 self.froms.append(from_ast.root)
@@ -130,6 +132,9 @@ class QueryPlan(object):
 
         # Add the current table in the query plane 
         # Process this table, which is the root of the 3nf tree
+        if len(from_asts) == 0:
+            Log.error("Cannot retrieve data related to table %r" % table)
+            return AST()
         return AST().union(from_asts, key)
 
     # metadata == router.g_3nf
@@ -156,7 +161,8 @@ class QueryPlan(object):
              ast.optimize_selection(query.get_where())
              #ast.optimize_projection(query.get_select())
 
-        Log.warning("Missing fields: %r" % missing_fields)
+        if missing_fields != set():
+            Log.warning("Missing fields: %r" % missing_fields)
         self.ast = ast
         
 

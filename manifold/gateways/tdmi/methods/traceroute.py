@@ -77,7 +77,7 @@ def string_to_int(s):
     return i
 
 #-----------------------------------------------------------------------
-# \class Traceroutes
+# \class Traceroute
 # Type related to a set of traceroute records
 #-----------------------------------------------------------------------
 
@@ -90,6 +90,8 @@ class Traceroute(list):
             python dictionnary.
         Args:
             hops_sql The string corresponding to the SQL array.
+            selected_sub_fields A list of field names related to a hop ("ttl", "ip"...) or None.
+                None means that every fields of hops have been fetched.
         Returns;
             The correspoding python dictionnary.
         """
@@ -98,13 +100,13 @@ class Traceroute(list):
         for hop in hops_sql.lstrip('"{').rstrip('}"').replace(',NULL','').rsplit('","'):
             ip_hop = hop.strip('"').rstrip(")").lstrip("(").split(",")
             new_ip_hop = {}
-            if "ip" in selected_sub_fields:
+            if not selected_sub_fields or "ip" in selected_sub_fields:
                 new_ip_hop["ip"] = ip_hop[0]
-            if "ttl" in selected_sub_fields: 
+            if not selected_sub_fields or "ttl" in selected_sub_fields: 
                 new_ip_hop["ttl"] = string_to_int(ip_hop[1])
-            if "hop_probecount" in selected_sub_fields: 
+            if not selected_sub_fields or "hop_probecount" in selected_sub_fields: 
                 new_ip_hop["hop_probecount"] = string_to_int(ip_hop[2])
-            if "path" in selected_sub_fields: 
+            if not selected_sub_fields or "path" in selected_sub_fields: 
                 new_ip_hop["path"] = string_to_int(ip_hop[3])
             hops.append(new_ip_hop)
         return hops
@@ -214,11 +216,15 @@ class Traceroute(list):
             traceroutes: The fetched traceroute records (list of dictionnaries)
         """
         # Convert SQL string array related to traceroute's hops into python dictionnaries
-        for field_name in self.selected_sub_fields:
-            if field_name == "hops":
-                for traceroute in traceroutes:
-                    hops = traceroute["hops"]
-                    traceroute["hops"] = self.repack_hops(hops, self.selected_sub_fields["hops"]) 
+#        for field_name in self.selected_sub_fields:
+#            if field_name == "hops":
+#                for traceroute in traceroutes:
+#                    hops = traceroute["hops"]
+#                    traceroute["hops"] = self.repack_hops(hops, self.selected_sub_fields["hops"]) 
+        if "hops" in query.get_select():
+            for traceroute in traceroutes:
+                hops = traceroute["hops"]
+                traceroute["hops"] = self.repack_hops(hops, None)
 
         # TODO Factorize agent and destination crafting by using a generic function
         # Craft 'agent' field if queried 

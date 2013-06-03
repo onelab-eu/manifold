@@ -318,7 +318,8 @@ class SubQuery(Node):
                 parent_filter.add(predicate)
             else:
                 print "PREDICATE=", predicate
-                raise Exception, "SubQuery::optimize_selection() is only partially implemented"
+#mando                raise Exception, "SubQuery::optimize_selection() is only partially implemented"
+                Log.warning("SubQuery::optimize_selection() is only partially implemented")
 
         if parent_filter:
             self.parent = self.parent.optimize_selection(parent_filter)

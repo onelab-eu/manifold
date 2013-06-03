@@ -7,6 +7,7 @@ from manifold.core.announce         import Announces
 from manifold.core.field            import Field 
 from manifold.gateways              import Gateway
 from manifold.gateways.postgresql   import PostgreSQLGateway
+from manifold.operators             import LAST_RECORD
 
 # Asynchronous support
 # http://initd.org/psycopg/docs/advanced.html
@@ -43,14 +44,19 @@ class TDMIGateway(PostgreSQLGateway):
 
         super(TDMIGateway, self).__init__(router, platform, query, config, user_config, user, re_ignored_tables, re_allowed_tables)
         from manifold.gateways.tdmi.methods   import Traceroute
+        from manifold.gateways.tdmi.methods   import Agent 
 
         # Some table doesn't exists in the PostgreSQL database.
         # Those pseudo-tables are managed by dedicated python objects 
         # (see for example manifold/gateways/tdmi/methods/*.py).
-        # For instance, Traceroute object craft a SQL query involving a stored procedure.
+        # For instance, Traceroute object crafts a SQL query involving a stored procedure.
+        # Since Hops does not exists in the pgsql schema and is only declared to describe
+        # the type hops involved in traceroute, we ignore queries related to hops. 
         self.connection = None
         self.METHOD_MAP = {
-            "traceroute" : Traceroute
+            "traceroute" : Traceroute,
+            "agent"      : Agent,
+            "hops"       : None 
         }
 
         # Some Fields do not exists in TDMI's database but are exposed to Manifold
@@ -138,23 +144,28 @@ class TDMIGateway(PostgreSQLGateway):
         customized query.
         """
         query = self.query
+        table_name = query.get_from()
+
         print "-" * 80
         print "%s" % query
-        print "%s" % query.timestamp
         print "-" * 80
-        if query.object in self.METHOD_MAP.keys():
-            # This object is retrieved thanks to a stored procedure
-            # See manifold/gateways/tdmi/methods/*
-            params = None
-            obj = self.METHOD_MAP[query.object](query, db = self)
-            sql = obj.get_sql()
-            rows = self.selectall(sql, params)
+        if table_name in self.METHOD_MAP.keys():
+            if self.METHOD_MAP[table_name]:
+                # See manifold/gateways/tdmi/methods/*
+                params = None
+                instance = self.METHOD_MAP[table_name](query, db = self)
+                sql = instance.get_sql()
+                rows = self.selectall(sql, params)
 
-            if obj.repack:
-                rows = obj.repack(query, rows)
-                
-            rows.append(None)
+                if instance.repack:
+                    rows = instance.repack(query, rows)
+            else:
+                # Dummy object, like hops
+                rows = list()
+
+            rows.append(LAST_RECORD)
             map(self.send, rows)
         else:
-            self.query.object = self.get_pgsql_name(self.query.object)
+            # Update FROM clause according to postgresql aliases
+            self.query.object = self.get_pgsql_name(table_name)
             return super(TDMIGateway, self).start()
