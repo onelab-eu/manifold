@@ -17,7 +17,7 @@ class From(Node):
     From Node are responsible to query a gateway (!= FromTable).
     """
 
-    def __init__(self, platform, query, capabilities, key):
+    def __init__(self, platform, query, capabilities, key, all_fields):
     #def __init__(self, table, query):
         """
         \brief Constructor
@@ -31,6 +31,7 @@ class From(Node):
 
         #self.query, self.table = query, table
         self.platform, self.query, self.capabilities, self.key = platform, query, capabilities, key
+        self.all_fields = all_fields
         self.gateway = None
         super(From, self).__init__()
 
@@ -70,8 +71,10 @@ class From(Node):
 
     #@returns(StringTypes)
     def __repr__(self):
+        fields = self.get_query().get_select()
+        fields = ', '.join(fields) if fields else '*'
         return DUMPSTR_FROM % (
-            ', '.join(self.get_query().get_select()),
+            fields,
             self.get_platform(),
             self.get_query().get_from(),
             self.get_query().get_where()
@@ -172,9 +175,10 @@ class From(Node):
             self.query.select(fields)
             return self
         else:
-            if fields - self.query.fields:
+            if fields - self.all_fields:
                 print "W: Missing fields in From"
-            if self.query.fields - fields:
+            self.query.select(None)
+            if self.all_fields - fields:
                 # Create a new Projection node
                 old_self_callback = self.get_callback()
                 projection = Projection(self, fields)

@@ -54,7 +54,7 @@ class QueryPlan(object):
             result.extend(from_node.gateway.get_result_value())
         return result
 
-    def build_union(self, user_query, table, fields, metadata, user):
+    def build_union(self, user_query, table, needed_fields, metadata, user):
         from_asts = list()
         key = list(table.get_keys())
         key = key[0] if key else None
@@ -84,7 +84,7 @@ class QueryPlan(object):
 
                 # XXX We lack field pruning
                 query = Query.action(user_query.get_action(), method.get_name()) \
-                            .set(user_query.get_params()).select(fields)
+                            .set(user_query.get_params()).select(fields & needed_fields)
                 # user_query.get_timestamp() # timestamp
                 # where will be eventually optimized later
 
@@ -93,7 +93,7 @@ class QueryPlan(object):
 
                 # XXX Improve platform capabilities support
                 if not capabilities.retrieve: continue
-                from_ast = AST(user = user).From(platform, query, capabilities, key)
+                from_ast = AST(user = user).From(platform, query, capabilities, key, fields)
 
                 self.froms.append(from_ast.root)
 
@@ -151,6 +151,11 @@ class QueryPlan(object):
         missing_fields |= query.get_subquery_names() # only if those subqueries are used XXX
 
         ast, missing_fields = self.process_subqueries(root, query, missing_fields, metadata, allowed_capabilities, user, 0)
+
+        if ast:
+             ast.optimize_selection(query.get_where())
+             #ast.optimize_projection(query.get_select())
+
         Log.warning("Missing fields: %r" % missing_fields)
         self.ast = ast
         
@@ -164,9 +169,10 @@ class QueryPlan(object):
 
         ast = None
         neighbour_ast_predicate_list = []
-        if not seen:
-            seen = set()
-
+        if not seen: seen = ()
+        if root in seen: return (None, missing_fields, ())
+        seen += (root,)
+        
         root_fields = set(root.get_field_names())
         unique_fields = root_fields & missing_fields
         if depth > 0:
@@ -190,9 +196,9 @@ class QueryPlan(object):
         for neighbour, relation in relations_11:
             if not missing_fields and not query.get_subquery_names():
                 break
-            if neighbour in seen:
-                continue
-            seen.add(neighbour)
+            #if neighbour in seen:
+            #    continue
+            #seen.add(neighbour)
             # we expect the set of missing_fields to reduce through exploration
             _ast, missing_fields, _relations_1N = self.process_query(neighbour, query, missing_fields, metadata, allowed_capabilities, user, seen, depth)
             if _ast:
@@ -202,12 +208,21 @@ class QueryPlan(object):
             relations_1N += _relations_1N
 
         if unique_fields or neighbour_ast_predicate_list: # we need root
+            if depth > 0:
+                # We add the key that will be necessary for join
+                unique_fields |= root.keys.one().get_names()
+            for _ast, _predicate in neighbour_ast_predicate_list:
+                unique_fields |= _predicate.get_field_names()
             ast = self.build_union(query, root, unique_fields, metadata, user)
             
         for _ast, _predicate in neighbour_ast_predicate_list:
             ast.left_join(_ast, _predicate)
             # XXX Make sure we have all necessary fields for LEFTJOIN
 
+        # XXX We need to do it from subquery to keep keys for 1..N relationships
+        #if ast:
+        #    ast.optimize_selection(query.get_where())
+        #    ast.optimize_projection(query.get_select())
 
         return (ast, missing_fields, relations_1N)
 

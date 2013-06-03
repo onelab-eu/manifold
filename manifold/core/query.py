@@ -303,6 +303,10 @@ class Query(object):
         return self
             
     def select(self, fields):
+        if not fields:
+            # Delete all fields
+            self.fields = set()
+            return
         if not isinstance(fields, (set, list, tuple)):
             fields = [fields]
         for field in fields:
@@ -329,8 +333,10 @@ class AnalyzedQuery(Query):
     @returns(StringTypes)
     def __str__(self):
         out = []
+        fields = self.get_select()
+        fields = ", ".join(fields) if fields else '*'
         out.append("SELECT %s FROM %s WHERE %s" % (
-            ", ".join(self.get_select()),
+            fields,
             self.get_from(),
             self.get_where()
         ))
