@@ -55,7 +55,6 @@ class ManifoldGateway(Gateway):
                 print "ts      =", query.ts
                 print "=" * 100
 
-                print proxy
                 proxy.callRemote(
                     'Get',
                     auth,

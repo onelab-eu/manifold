@@ -20,6 +20,7 @@ from manifold.util.plugin_factory       import PluginFactory
 #from manifold.util.misc                 import find_local_modules
 from manifold.core.ast                  import LAST_RECORD
 from manifold.util.type                 import accepts, returns
+from manifold.util.log                  import Log
 
 #-------------------------------------------------------------------------------
 # Generic Gateway class
@@ -33,7 +34,7 @@ class Gateway(object):
 
     # XXX most of these parameters should not be required to construct a gateway
     # see manifold.core.forwarder for example
-    def __init__(self, router, platform, query, config, user_config, user):
+    def __init__(self, interface, platform, query, config, user_config, user):
         """
         Constructor
         \param router (THRouter) reference to the router on which the gateways
@@ -48,7 +49,7 @@ class Gateway(object):
         """
         # XXX explain why router is needed
         # XXX document better config, user_config & user parameters
-        self.router         = router
+        self.interface      = interface
         self.platform       = platform
         self.query          = query
         self.config         = config
@@ -104,7 +105,7 @@ class Gateway(object):
         """
         \brief calls the parent callback with the record passed in parameter
         """
-        #print "[%12s #%04d] SEND [ %r ]" % (self.__class__.__name__, self.identifier, record)
+        Log.record("[#%04d] [ %r ]" % (self.identifier, record))
         self.callback(record)
 
     def set_identifier(self, identifier):

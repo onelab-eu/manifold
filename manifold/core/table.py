@@ -9,17 +9,21 @@
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 #   Jordan Augé       <jordan.auge@lip6.fr>
 
-from copy                   import deepcopy
-from types                  import StringTypes
+from copy                       import deepcopy
+from types                      import StringTypes
 
-from manifold.core.field      import Field
-from manifold.core.filter     import Filter
-from manifold.core.key        import Key, Keys 
-from manifold.util.type       import returns, accepts 
-from manifold.core.method     import Method 
+from manifold.core.field        import Field
+from manifold.types             import BASE_TYPES
+from manifold.core.filter       import Filter
+from manifold.core.key          import Key, Keys 
+from manifold.core.method       import Method 
 from manifold.core.capabilities import Capabilities
+from manifold.core.relation     import Relation
+from manifold.util.type         import returns, accepts 
+from manifold.util.log          import Log
+from manifold.util.predicate    import Predicate, eq
 
-class Table:
+class Table(object):
     """
     Implements a database table schema.
     """
@@ -225,6 +229,12 @@ class Table:
         """
         return set(self.fields.values())
 
+    def get_field(self, field_name):
+        return self.fields[field_name]
+
+    def get_field_type(self, field_name):
+        return self.get_field(field_name).get_type()
+
     @returns(bool)
     def erase_field(self, field_name):
         """
@@ -405,8 +415,8 @@ class Table:
         """
         return self.platforms
 
-    @returns(set)
-    def get_fields_with_name(self, names):
+    #@returns(set) # XXX does not support named arguments
+    def get_fields_with_name(self, names, metadata=None):
         """
         \brief Retrieve a set of Field according to their name
         \param names The name of the requested fields (String instances)
@@ -415,6 +425,12 @@ class Table:
         """
         fields = set()
         for field in self.get_fields():
+            #if metadata and field.is_reference():
+            #    key = metadata.find_node(field.get_name()).get_keys().one()
+            #    for key_field in key:
+            #        if key_field.get_name() in names:
+            #            fields.add(field)
+            #elif field.get_name() in names:
             if field.get_name() in names:
                 fields.add(field)
         return fields
@@ -428,13 +444,13 @@ class Table:
             - each field of the sub Table is in relevant_fields
             - each key only involve Fields of relevant_fields
         \param u A Table instance
-        \param relevant_fields A set of Fields belonging to table
+        \param relevant_fields A set of field names belonging to table
         \return The corresponding subtable
         """
         copy_u = deepcopy(u)
 
         for field in u.get_fields():
-            if field not in relevant_fields:
+            if field.get_name() not in relevant_fields:
                 copy_u.erase_field(field.get_name())
 
         # In copy_u, Key instances refer to Field instance of u, which is
@@ -445,15 +461,17 @@ class Table:
         # We rebuild each Key having a sense in the reduced Table,
         # e.g. those involving only remaining Fields
         for key in u.get_keys():
-            # Jordan : we always need at least a key, and we suppose we have a single one. So let's disable the condition for now.
-            # if set(key) <= relevant_fields:
-            key_copy = set()
-            for field in key:
-                key_copy.add(copy_u.get_field(field.get_name()))
-            copy_u.insert_key(Key(key_copy))
+            # We don't always have a key
+            # eg in a pruned tree, we do not need a key for the root unless we want to remove duplicates
+            if set(key) <= relevant_fields:
+                key_copy = set()
+                for field in key:
+                    key_copy.add(copy_u.get_field(field.get_name()))
+                copy_u.insert_key(Key(key_copy))
 
         # We need to update map_method_fields
         for method, fields in copy_u.map_method_fields.items():
+            Log.tmp("update map_method", fields, relevant_fields)
             fields &= relevant_fields
 
         return copy_u
@@ -495,16 +513,6 @@ class Table:
             method name) the set of Field that can be retrieved 
         """
         return self.map_method_fields 
-# Commented by Jordan, we already have this information stored in the table
-# and we suppressed map_field_methods from the table
-#
-#        map_method_fields = dict()
-#        for field, methods in self.map_field_methods.items():
-#            for method in methods:
-#                if method not in map_method_fields.keys():
-#                    map_method_fields[method] = set()
-#                map_method_fields[method].add(field)
-#        return map_method_fields 
 
     #-----------------------------------------------------------------------
     # Relations between two Table instances 
@@ -518,21 +526,6 @@ class Table:
     #   x.f.t      : the field type of the field f of node x
     #-----------------------------------------------------------------------
 
-#OBSOLETE|    @returns(set)
-#OBSOLETE|    def get_fields_in_key(self, fields):
-#OBSOLETE|        """
-#OBSOLETE|        \brief Compute which fields belong to a single-key of "self" Table.
-#OBSOLETE|        \param fields A set of Field
-#OBSOLETE|        \return A set of MetaField (that may be empty) included in "fields"
-#OBSOLETE|        """
-#OBSOLETE|        fields_in_key = set()
-#OBSOLETE|        for field in fields: 
-#OBSOLETE|            for key in self.keys:
-#OBSOLETE|                if key.is_composite():
-#OBSOLETE|                    continue
-#OBSOLETE|                if field.type == key.get_type():
-#OBSOLETE|                    fields_in_key.add(field) 
-#OBSOLETE|        return fields_in_key 
 
     #@returns(set)
     def get_connecting_fields(self, table):
@@ -553,31 +546,6 @@ class Table:
                 #connecting_fields.add(field)
         #return connecting_fields 
 
-    @returns(Keys)
-    def get_connecting_keys_mando(self, fields):
-        """
-        \brief Find Key(s) of self such has k \subseteq fields
-        \param fields A set of Field instances
-        \return The corresponding Keys (set of Key) instance
-        """
-        connecting_keys = Keys()
-        for key in self.get_keys():
-            if key <= fields:
-                connecting_keys.add(key)
-        return connecting_keys
-
-#OBSOLETE|    @returns(bool)
-#OBSOLETE|    def includes(self, table):
-#OBSOLETE|        """
-#OBSOLETE|        \brief (Internal use, since this function is called in a specific context)
-#OBSOLETE|            Test whether self and table have the same table name.
-#OBSOLETE|            u ==> v iif u.n == v.n
-#OBSOLETE|            Example: tophat::ip ==> {tophat, sonoma}::ip
-#OBSOLETE|        \param table The target candidate table
-#OBSOLETE|        \return True iif u ==> v
-#OBSOLETE|        """
-#OBSOLETE|        return self.get_name() == table.get_name()
-
     @returns(bool)
     def inherits(self, table):
         """
@@ -591,10 +559,6 @@ class Table:
         name.add(table.get_name())
         return frozenset(name) in table.get_names_from_keys()
 
-#OBSOLETE|    @returns(bool)
-#OBSOLETE|    def has_intersecting_keys(self, fields):
-#OBSOLETE|        return fields in self.get_keys():
-
     def get_connecting_fields_jordan(self, table):
         # Does u has a field or a set of fields that are keys in v
         # XXX wrong content and wront name
@@ -604,7 +568,15 @@ class Table:
                 return (u.fields.intersection(v_key), v_key)
         return None
 
-    def get_relation(self, table):
+    def is_child_of(self, table):
+        u = self
+        v = table
+        try:
+            return u.keys.one().get_type() == v.keys.one().get_type() and u.get_name() == u.keys.one().get_field_name()
+        except:
+            return False
+
+    def get_relations(self, table):
         """
         \brief Compute which kind of relation connects
             the "self" Table (source node) to the "table"
@@ -622,15 +594,108 @@ class Table:
         u = self
         v = table
 
+        relations = set()
+
+        v_key = v.keys.one()
+
+        for field in u.get_fields():
+            # 1. A field in u is explicitly typed againt v name
+            if field.get_type() == v.get_name():
+                if v_key.is_composite():
+                    Log.warning("Link (1) unsupported between u=%s and v=%s: v has a composite key" % (u.get_name(), v.get_name()))
+                    continue
+                p = Predicate(field.get_name(), eq, v_key.get_name())
+                if field.is_array():
+                    relations.add(Relation(Relation.types.LINK_1N, p)) # LINK_1N_FORWARD
+                else:
+                    if False: # field == key
+                        relations.add(Relation(Relation.types.PARENT, p)) # in which direction ?????
+                    else:
+                        if field.is_local():
+                            relations.add(Relation(Relation.types.LINK_11, p))
+                        else:
+                            if v.is_child_of(u):
+                                relations.add(Relation(Relation.types.CHILD, p))
+                            elif u.is_child_of(v):
+                                 relations.add(Relation(Relation.types.PARENT, p))
+                            else:
+                                if field.get_name() in ['source', 'destination', 'dns_target']:
+                                    Log.warning("Hardcoded source, destination and dns_target as 1..1 relationships")
+                                    relations.add(Relation(Relation.types.LINK_11, p))
+                                else:
+                                    relations.add(Relation(Relation.types.LINK, p))
+
+            # BAD
+            #if v_key.is_composite():
+            #    Log.warning("Link (2) unsupported between u=%s and v=%s: v has a composite key" % (u.get_name(), v.get_name()))
+            ## 2. A field is typed like the key
+            #if field.get_type() == v_key.get_field().get_type():
+            #    # In this case we might have inheritance
+            #    # We should point to the toplevel class, ie. if key field type == platform name
+            #    # We are back to the previous case.
+            #    # a child class is an instance of the parent class, no it should be ok
+                
+            # (3) A field point to part of v key (v is thus composite)
+            
+            if field.get_type() not in BASE_TYPES and set([field.get_type()]) < v_key.get_field_types():
+                # What if several possible combinations
+                # How to consider inheritance ?
+                vfield = [f for f in v_key if f.get_type() == field.get_type()][0]
+                p = Predicate(field.get_name(), eq, vfield.get_name())
+                relations.add(Relation(Relation.types.LINK_1N, p)) # LINK_1N_FORWARD ?
+                continue
+        
+
+        # Following relations don't involve a single field
+
+        # (4) A bit more complex: u presents the set of fields that make up v key
+
+        # (5) A bit more complex: u presents part of the fields that make up v key
+
+        if relations:
+            return relations
+
+        # --- REVERSE RELATIONS
+        u_key = u.keys.one()
+
+        for field in v.get_fields():
+            # (6) inv of (1) a field in v points to an existing type
+            # we could say we only look at key types at this stage
+            if field.get_type() == u.get_name():
+                if u_key.is_composite():
+                    Log.warning("Link (6) unsupported between u=%s and v=%s: u has a composite key" % (u.get_name(), v.get_name()))
+                    continue
+                p = Predicate(u_key.get_name(), eq, field.get_name())
+                if field.is_array():
+                    relations.add(Relation(Relation.types.COLLECTION, p)) # a u is many v ? approve this type
+                else:
+                    # if u parent
+                    if v.is_child_of(u):
+                        relations.add(Relation(Relation.types.CHILD, p))
+                    elif u.is_child_of(v):
+                         relations.add(Relation(Relation.types.PARENT, p))
+                    else:
+                        relations.add(Relation(Relation.types.LINK_1N, p)) # LINK_1N_BACKWARD
+
+        return relations
+
+        # OLD CODE FOLLOWS
+
+        # XXX This is broken
+        #if not u.get_platforms() >= v.get_platforms():
+        #    return None
+
         connecting_fields = u.get_connecting_fields(v)
         # We temporarity changed the relation to return a single field...
         # 1) FK -> Table.PK
         if connecting_fields:
+            if u.get_name() == 'packet' and v.get_name() == 'ip':
+                print "connecting fields", connecting_fields
             # FK --> PK : simple join or view
             if connecting_fields.is_array():
-                return ('1..N', set([connecting_fields]))
+                return (Relation.types.LINK_1N, set([connecting_fields]))
             else:
-                return ('~~>', set([connecting_fields]))
+                return (Relation.types.LINK, set([connecting_fields]))
 
         # 2) 
         connecting_keys = u.keys.intersection(v.keys)
@@ -640,52 +705,13 @@ class Table:
             if u.get_name() != v.get_name():
                 # Different name = inheritance
                 # XXX direction ????
-                return ('-->', connecting_keys)
+                return (Relation.types.INHERITANCE, connecting_keys)
             else:
                 if u.get_platforms() >= v.get_platforms():
                     # Specialization = parent tables created during dbnorm
                     # (same name, and full set of platforms)
-                    return ('==>', connecting_keys)
+                    return (Relation.types.SPECIALIZATION, connecting_keys)
                     
-    def get_relation_mando(self, table):
-        """
-        \brief Compute which kind of relation connects
-            the "self" Table (source node) to the "table"
-            Table (target node). We assume that the graph
-            of table is at least 2nf.
-            \sa manifold.core.dbgraph.py
-        \param table The target table
-        \return
-            - None if the both tables are unrelated
-            - Otherwise, a tuple made of
-                - a string: "==>", "-->", "~~>"
-                - a set of Field that will be stored in the arc 
-        """
-        u = self
-        v = table
-#        print "-----------------------------"
-#        print "u <--?--> v", u, v
-        connecting_fields_uv = u.get_connecting_fields(v)
-#        print "connecting_fields", connecting_fields_uv
-        if connecting_fields_uv != set():
-            connecting_keys_uv = u.get_connecting_keys(connecting_fields_uv)
-#            print "connecting keys", connecting_keys_uv
-            if connecting_keys_uv == set():
-#                print '######', "~~>", connecting_fields_uv
-                return ("~~>", connecting_fields_uv)
-#OBSOLETE|            elif u.includes(v):
-#OBSOLETE|                return ("==>", None)
-            elif u.inherits(v):
-#                print '######', "-->", connecting_keys_uv
-                return ("-->", connecting_keys_uv) 
-#        print '######', "NONE"
-        return None
-
-
-    #-----------------------------------------------------------------------
-    # Inherited from MetadataClass XXX
-    #-----------------------------------------------------------------------
-
     def get_invalid_keys(self):
         """
         \return The keys that involving one or more field not present in the table
@@ -712,6 +738,7 @@ class Table:
         \return The list of the fields in the MetadataClass
         """
         #return [field.get_name() for field in self.fields]
+        # XXX Shell we keep a dictionary for fields ?
         return self.fields.keys()
 
     def get_invalid_types(self, valid_types):
@@ -721,7 +748,7 @@ class Table:
         invalid_types = []
         for field in self.fields:
             cur_type = field.type
-            if cur_type not in valid_types and cur_type not in MetadataClass.BASE_TYPES: 
+            if cur_type not in valid_types and cur_type not in BASE_TYPES: 
                 print ">> %r: adding invalid type %r (valid_types = %r)" % (self.class_name, cur_type, valid_types)
                 invalid_types.append(cur_type)
         return invalid_types

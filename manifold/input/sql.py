@@ -3,6 +3,7 @@
 
 from manifold.core.query     import Query
 from manifold.util.predicate import Predicate
+from manifold.util.log       import Log
 import pyparsing as pp
 import re
 
@@ -14,8 +15,8 @@ class SQLParser(object):
         SELECT [fields[*] FROM table WHERE clause
         """
 
-        #integer = pp.Word(nums)
-        #floatNumber = pp.Regex(r'\d+(\.\d*)?([eE]\d+)?')
+        integer = pp.Combine(pp.Optional(pp.oneOf("+ -")) + pp.Word(pp.nums)).setParseAction(lambda t:int(t[0]))
+        floatNumber = pp.Regex(r'\d+(\.\d*)?([eE]\d+)?')
         point = pp.Literal( "." )
         e     = pp.CaselessLiteral( "E" )
 
@@ -24,9 +25,9 @@ class SQLParser(object):
         OPERATOR_RX = '|'.join([re.sub('\|', '\|', o) for o in Predicate.operators.keys()])
 
         # predicate
-        field = pp.Word(pp.alphanums + '_')
+        field = pp.Word(pp.alphanums + '_' + '.')
         operator = pp.Regex(OPERATOR_RX).setName("operator")
-        value = pp.QuotedString('"') #| pp.Combine( pp.Word( "+-"+ pp.nums, pp.nums) + pp.Optional( point + pp.Optional( pp.Word( pp.nums ) ) ) + pp.Optional( e + pp.Word( "+-"+pp.nums, pp.nums ) ) )
+        value = pp.QuotedString('"') | integer ##| pp.Combine( pp.Word( "+-"+ pp.nums, pp.nums) + pp.Optional( point + pp.Optional( pp.Word( pp.nums ) ) ) + pp.Optional( e + pp.Word( "+-"+pp.nums, pp.nums ) ) )
 
         predicate = (field + operator + value).setParseAction(self.handlePredicate)
 
@@ -46,9 +47,10 @@ class SQLParser(object):
         kw_from   = pp.CaselessKeyword('from')
         kw_where  = pp.CaselessKeyword('where')
 
-        fields = field + pp.ZeroOrMore(',' + pp.Optional(pp.White()) + field)
+        field_list = pp.delimitedList(field).setParseAction(lambda tokens: set(tokens.asList()))
+
         table = pp.Word(pp.alphanums + '_')
-        query = (kw_select + fields + kw_from + table + kw_where + clause).setParseAction(self.handleGet)
+        query = (kw_select + field_list + kw_from + table + kw_where + clause | kw_select + field_list + kw_from + table).setParseAction(self.handleGet)
 
         self.bnf = query
 
@@ -59,8 +61,13 @@ class SQLParser(object):
         return Clause(*args)
 
     def handleGet(self, args):
-        _, fields, _, object, _, filter = args
-        return Query.get(object).select(fields).filter_by(filter)
+        if len(args) == 6:
+            _, fields, _, object, _, filter = args
+            query = Query.get(object).select(fields).filter_by(filter)
+        else:
+            _, fields, _, object = args
+            query = Query.get(object).select(fields)
+        return query
 
     def parse(self, string):
         return self.bnf.parseString(string,parseAll=True)

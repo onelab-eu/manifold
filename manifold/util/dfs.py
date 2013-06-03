@@ -28,7 +28,7 @@ class dfs_color:
 #  end for
 #  return (p,d_time,f_time) 
 
-def dfs(graph, root):
+def dfs(graph, root, exclude_uv=None):
     """
     \brief Run the DFS algorithm
     \param graph The graph we explore
@@ -47,7 +47,9 @@ def dfs(graph, root):
         map_vertex_pred[u] = None 
 
     # Recursive calls
-    dfs_visit(graph, root, map_vertex_color, map_vertex_pred)
+    if not exclude_uv:
+        exclude_uv = lambda u,v: False
+    dfs_visit(graph, root, map_vertex_color, map_vertex_pred, exclude_uv)
 
     # Remove from map_vertex_pred the vertices having no
     # predecessor but the root node.
@@ -72,7 +74,7 @@ def dfs(graph, root):
 #  color[u] := BLACK
 #  f_time[u] := time := time + 1 
 
-def dfs_visit(graph, u, map_vertex_color, map_vertex_pred):
+def dfs_visit(graph, u, map_vertex_color, map_vertex_pred, exclude_uv):
     """
     \brief Internal usage (DFS implementation) 
     \param graph The graph we explore
@@ -86,8 +88,8 @@ def dfs_visit(graph, u, map_vertex_color, map_vertex_pred):
     map_vertex_color[u] = dfs_color.GRAY
     for v in graph.successors(u):
         color_v = map_vertex_color[v]
-        if color_v == dfs_color.WHITE:
+        if color_v == dfs_color.WHITE and not exclude_uv(u, v):
             map_vertex_pred[v] = u
-            dfs_visit(graph, v, map_vertex_color, map_vertex_pred)
+            dfs_visit(graph, v, map_vertex_color, map_vertex_pred, exclude_uv)
     map_vertex_color[u] = dfs_color.BLACK
 

@@ -1,3 +1,4 @@
+from manifold.gateways import LAST_RECORD
 import threading
 
 #------------------------------------------------------------------
@@ -20,7 +21,7 @@ class Callback:
         self.cache_id = cache_id
 
     def __call__(self, value):
-        if not value:
+        if value == LAST_RECORD:
             if self.cache_id:
                 # Add query results to cache (expires in 30min)
                 #print "Result added to cached under id", self.cache_id

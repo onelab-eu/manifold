@@ -1,34 +1,41 @@
+from types import StringTypes
+
 from operator import (
     and_, or_, inv, add, mul, sub, mod, truediv, lt, le, ne, gt, ge, eq, neg
     )
-from manifold.util.misc import contains
-from types import StringTypes
+
+# Define the inclusion operators
+class contains(type): pass
+class included(type): pass
+
 
 # New modifier: { contains 
 class Predicate:
 
     operators = {
-        "=="       : eq,
-        "!="       : ne,
-        "<"        : lt,
-        "<="       : le,
-        ">"        : gt,
-        ">="       : ge,
-        "&&"       : and_,
-        "||"       : or_,
-        "contains" : contains
+        '=='       : eq,
+        '!='       : ne,
+        '<'        : lt,
+        '<='       : le,
+        '>'        : gt,
+        '>='       : ge,
+        '&&'       : and_,
+        '||'       : or_,
+        'contains' : contains,
+        'included' : included
     }
 
     operators_short = {
-        "=" : eq,
-        "~" : ne,
-        "<" : lt,
-        "[" : le,
-        ">" : gt,
-        "]" : ge,
-        "&" : and_,
-        "|" : or_,
-        "}" : contains
+        '=' : eq,
+        '~' : ne,
+        '<' : lt,
+        '[' : le,
+        '>' : gt,
+        ']' : ge,
+        '&' : and_,
+        '|' : or_,
+        '}' : contains,
+        '{' : included
     }
 
     def __init__(self, *args, **kwargs):
@@ -69,6 +76,15 @@ class Predicate:
 
     def __hash__(self):
         return hash(self.get_tuple())
+
+    def get_key(self):
+        return self.key
+
+    def get_op(self):
+        return self.op
+
+    def get_value(self):
+        return self.value
 
     def get_tuple(self):
         return (self.key, self.op, self.value)
@@ -130,8 +146,10 @@ class Predicate:
         elif self.op == contains:
             method, subfield = self.key.split('.', 1)
             return not not [ x for x in dic[method] if x[subfield] == self.value] 
+        elif self.op == included:
+            return dic[self.key] in self.value
         else:
-            raise Exception, "Unexpected table format: %r", dic
+            raise Exception, "Unexpected table format: %r" % dic
 
     def filter(self, dic):
         """
@@ -171,3 +189,5 @@ class Predicate:
             print "----"
             return dic if self.match(dic) else None
 
+    def get_field_names(self):
+        return set([self.key])
