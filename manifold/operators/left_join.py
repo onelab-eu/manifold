@@ -162,29 +162,11 @@ class LeftJoin(Node):
             predicate = Predicate(self.predicate.value, included, self.left_map.keys())
             
             self.right = self.right.optimize_selection(Filter().filter_by(predicate))
-            print self.right
-            print "callback on", self
             self.right.set_callback(self.right_callback)
-
-#            where = Selection(self.right, Filter().filter_by(predicate))
-#            where.query = self.right.query.copy().filter_by(predicate)
-#            where.set_callback(self.right.get_callback())
-#            self.right = where
-#            self.right = self.right.optimize()
-#            self.right.set_callback(self.right_callback)
-
-            print "inject"
-            self.dump()
 
             self.left_done = True
             self.right.start()
             return
-
-            ## Inject the keys from left records in the right child...
-            #query = Query().filter_by(self.left.get_query().filters).select(self.predicate.value) # XXX
-            #self.right.inject(self.left_map.keys(), self.predicate.value, query)
-            ## ... and start the right node
-            #return
 
         # Directly send records missing information necessary to join
         if self.predicate.key not in record or not record[self.predicate.key]:
@@ -218,11 +200,6 @@ class LeftJoin(Node):
         # We expect to receive information about keys we asked, and only these,
         # so we are confident the key exists in the map
         # XXX Dangers of duplicates ?
-        #print "in Join::right_callback()"
-        #self.dump()
-        #print "-" * 50
-        #print "self.left_map", self.left_map
-        #print "searching for key=", key
         left_record = self.left_map[key]
         left_record.update(record)
         self.send(left_record)
