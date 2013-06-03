@@ -318,7 +318,7 @@ class Daemon(object):
                 try:
                     self.main()
                 except Exception, why:
-                    log_error("Unhandled exception in start: %s" % why)
+                    Log.error("Unhandled exception in start: %s" % why)
 
     def signal_handler(self, signal_id, frame):
         """

@@ -33,11 +33,12 @@ PATTERN_BEGIN        = ''.join(["^", PATTERN_OPT_SPACE])
 PATTERN_END          = PATTERN_OPT_SPACE.join(['', PATTERN_COMMENT, "$"])
 PATTERN_SYMBOL       = "([0-9a-zA-Z_]+)"
 PATTERN_CLAUSE       = "([0-9a-zA-Z_&\|\"()!=<> ]+)"
+PATTERN_LOCAL        = "(local)?"
 PATTERN_CONST        = "(const)?"
 PATTERN_CLASS        = "(onjoin|class)"
 PATTERN_ARRAY        = "(\[\])?"
 PATTERN_CLASS_BEGIN  = PATTERN_SPACE.join([PATTERN_CLASS, PATTERN_SYMBOL, "{"])
-PATTERN_CLASS_FIELD  = PATTERN_SPACE.join([PATTERN_CONST, PATTERN_SYMBOL, PATTERN_OPT_SPACE.join([PATTERN_SYMBOL, PATTERN_ARRAY, ";"])])
+PATTERN_CLASS_FIELD  = PATTERN_SPACE.join([PATTERN_LOCAL, PATTERN_CONST, PATTERN_SYMBOL, PATTERN_OPT_SPACE.join([PATTERN_SYMBOL, PATTERN_ARRAY, ";"])])
 PATTERN_CLASS_KEY    = PATTERN_OPT_SPACE.join(["KEY\((", PATTERN_SYMBOL, "(,", PATTERN_SYMBOL, ")*)\)", ";"])
 PATTERN_CLASS_CAP    = PATTERN_OPT_SPACE.join(["CAPABILITY\((", PATTERN_SYMBOL, "(,", PATTERN_SYMBOL, ")*)\)", ";"])
 PATTERN_CLASS_CLAUSE = PATTERN_OPT_SPACE.join(["PARTITIONBY\((", PATTERN_CLAUSE, ")\)", ";"])
@@ -111,16 +112,17 @@ def import_file_h(filename):
         if line[0] == '#':
             continue
         if cur_class_name: # current scope = class
-            #    const MyType my_field[]; /**< Comment */
+            #    local const MyType my_field[]; /**< Comment */
             m = REGEXP_CLASS_FIELD.match(line)
             if m:
                 classes[cur_class_name].insert_field(
                     Field(
-                        qualifier   = m.group(1),
-                        type        = m.group(2),
-                        name        = m.group(3),
-                        is_array    = (m.group(4) != None), 
-                        description = m.group(5).strip("/*<")
+                        qualifier   = m.group(2),
+                        type        = m.group(3),
+                        name        = m.group(4),
+                        is_array    = (m.group(5) != None), 
+                        description = m.group(6).strip("/*<"),
+                        local       = (m.group(1) == 'local')
                     )
                 )
                 continue

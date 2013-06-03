@@ -58,6 +58,7 @@ def prune_precedessor_map(metadata, queried_fields, map_vertex_pred):
     # A map that associates each table with the set of fields that it uniquely provides
     relevant_fields = dict()
 
+    missing_fields = queried_fields
     # XXX In debug comments, we need to explain for each table, why it has been
     # kept or discarded succintly
 
@@ -70,6 +71,8 @@ def prune_precedessor_map(metadata, queried_fields, map_vertex_pred):
         # and those that are not present in the parent (foreign keys)
         queried_fields_u = u.get_fields_with_name(queried_fields, metadata) if u else set()
         queried_fields_v_unique = queried_fields_v - queried_fields_u
+
+        # ??? missing_fields -= queried_fields_v
 
         # If v is not the root or does not provide relevant fields (= not found
         # in the parent), then we prune it by not including it in the
@@ -106,10 +109,15 @@ def prune_precedessor_map(metadata, queried_fields, map_vertex_pred):
             # eg. queried_fields has slice_hrn, but resource has slice
             # relevant fields, hence queried_field_v should have slice
             # XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX
+            print "queried_fields==", queried_fields
             queried_fields_v = v.get_fields_with_name(queried_fields, metadata)
+            missing_fields -= set(map(lambda x:x.get_name(), queried_fields_v))
+            print "we got", queried_fields_v
+            print "missing_fields becomes", missing_fields
             
             # resolve
             queried_fields_v = set(map(lambda x:x.get_name(), queried_fields_v))
+            
 
             update_map(relevant_fields, v, queried_fields_v)
 
@@ -146,7 +154,7 @@ def prune_precedessor_map(metadata, queried_fields, map_vertex_pred):
             u = map_vertex_pred[u]
 
 
-    return (predecessor, relevant_fields)
+    return (predecessor, relevant_fields, missing_fields)
 
 
 @returns(DiGraph)
@@ -207,7 +215,8 @@ def build_pruned_tree(metadata, needed_fields, map_vertex_pred):
     
     g = metadata.graph
 
-    (_, relevant_fields) = prune_precedessor_map(metadata, needed_fields, map_vertex_pred)
+    (_, relevant_fields, missing_fields) = prune_precedessor_map(metadata, needed_fields, map_vertex_pred)
+    # XXX we don't use predecessor graph for building subgraph, a sign we can simplify here
     tree = make_sub_graph(metadata, relevant_fields)
 
     # Print tree
@@ -218,4 +227,4 @@ def build_pruned_tree(metadata, needed_fields, map_vertex_pred):
         Log.debug("%s\n" % table)
     Log.debug("-" * 100)
 
-    return tree
+    return (tree, missing_fields)

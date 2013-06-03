@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 
 from manifold.core.announce       import Announces
+from manifold.operators           import LAST_RECORD
 #from manifold.util.misc           import find_local_modules
-from manifold.core.ast            import LAST_RECORD
 from manifold.util.plugin_factory import PluginFactory
 from manifold.util.log            import Log
 
@@ -71,7 +71,7 @@ class Gateway(object):
         """
         \brief calls the parent callback with the record passed in parameter
         """
-        #Log.record("[#%04d] [ %r ]" % (self.identifier, record))
+        Log.record("[#%04d] [ %r ]" % (self.identifier, record))
         self.callback(record)
 
     def set_identifier(self, identifier):

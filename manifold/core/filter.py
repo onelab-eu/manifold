@@ -145,6 +145,12 @@ class Filter(set):
                 output.append(x)
         return output
 
+    def get_field_names(self):
+        field_names = set()
+        for predicate in self:
+            field_names |= predicate.get_field_names()
+        return field_names
+
 #class OldFilter(Parameter, dict):
 #    """
 #    A type of parameter that represents a filter on one or more
