@@ -207,7 +207,7 @@ Example:
                 'filters':      [['platform', '=', platform]],
                 'params':       {'credential': c}
             }
-            MySlice.Update(auth, query)
+            MySlice.forward(auth, query)
             print "I: uploading credential"
     except Exception, e:
         print "E: Error uploading credential: %s" % e
