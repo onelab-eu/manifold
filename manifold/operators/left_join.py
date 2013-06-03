@@ -252,3 +252,41 @@ class LeftJoin(Node):
             selection.set_callback(old_self_callback)
             return selection
         return self
+
+    def optimize_projection(self, fields):
+        
+        print '-'*80
+        print "LEFT JOIN:: optimize_projection"
+        print '-'*80
+        # Ensure we have keys in left and right children
+        # After LEFTJOIN, we might keep the left key, but never keep the right key
+
+        key_left = self.predicate.get_field_names()
+        key_right = self.predicate.get_value_names()
+
+        # DIRTY HACK
+        fields |= self.get_query().get_select()
+
+        print "FIELDS", fields
+        print "LEFT Q", self.left.get_query().get_select()
+        print "RGHT Q", self.right.get_query().get_select()
+        left_fields    = fields & self.left.get_query().get_select()
+        right_fields   = fields & self.right.get_query().get_select()
+        print "left fields=", left_fields
+        print "right fields=", right_fields
+        left_fields   |= key_left
+        right_fields  |= key_right
+        print "left fields=", left_fields
+        print "right fields=", right_fields
+
+        self.left  = self.left.optimize_projection(left_fields)
+        self.right = self.right.optimize_projection(right_fields)
+
+        if not key_left <= fields:
+            old_self_callback = self.get_callback()
+            print "add select after join is done since the key is not requested"
+            projection = Projection(self, fields)
+            projection.set_callback(old_self_callback)
+            return projection
+        return self
+            
