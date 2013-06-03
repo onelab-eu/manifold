@@ -180,7 +180,6 @@ class From(Node):
                 # Create a new Projection node
                 old_self_callback = self.get_callback()
                 projection = Projection(self, fields)
-                print "FORM PROJECTION QUERY=", projection.get_query()
                 #projection.query = self.query.copy().filter_by(filter) # XXX
                 projection.set_callback(old_self_callback)
                 return projection

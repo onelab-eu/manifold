@@ -157,7 +157,8 @@ class QueryPlan(object):
             ast.optimize_selection(query.get_where())
             #ast.optimize_projection(query.get_select())
 
-        Log.warning("Missing fields: %r" % missing_fields)
+        if missing_fields:
+            Log.warning("Missing fields: %r" % missing_fields)
         self.ast = ast
         
 
