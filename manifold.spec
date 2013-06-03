@@ -52,6 +52,8 @@ rm -rf $RPM_BUILD_ROOT
 %clean
 rm -rf $RPM_BUILD_ROOT
 
+# this specfile being not really used for now we don't bother to define
+# fine-grained packages in here for now
 %files
 %defattr(-,root,root,-)
 %dir %{_datadir}/manifold
