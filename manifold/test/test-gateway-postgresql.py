@@ -14,6 +14,6 @@ def pg_cb(x):
 
 c = {'db_user':'postgres', 'db_password':None, 'db_name':'test'}
 q = Query(object='test', filters=[['b', ']', 2]], fields=['a', 'b'])
-gw = PostgreSQL(router=None, platform='pg', query=q, config=c, user_config=None, user=None)
+gw = PostgreSQLGateway(router=None, platform='pg', query=q, config=c, user_config=None, user=None)
 gw.set_callback(pg_cb)
 gw.start()
