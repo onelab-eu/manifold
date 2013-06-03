@@ -48,7 +48,7 @@ class XMLRPCAPI(xmlrpc.XMLRPC, object):
             user = Auth(auth).check()
         else:
             assert len(args) == 1, "Wrong arguments for XMLRPC forward call"
-            query = args[0]
+            query,  = args
             user = None
 
         query = Query(query)
@@ -70,13 +70,17 @@ class XMLRPCAPI(xmlrpc.XMLRPC, object):
 
     def _xmlrpc_action(self, action, *args):
         # The first argument is eventually an authentication token
-        pos = 0 if Options().disable_auth else 1
-        print "args=", args
-        print "pos=", pos
-        print "action", action
-        print "========"
-        args[pos]['action'] = action
-        return self.xmlrpc_forward(*args)
+        if Options().disable_auth:
+            query, = args
+        else:
+            auth, query = args
+
+        query['action'] = action
+
+        if Options().disable_auth:
+            return self.xmlrpc_forward(query)
+        else:
+            return self.xmlrpc_forward(auth, query)
             
     def xmlrpc_Get   (self, *args): return self._xmlrpc_action('get',    *args)
     def xmlrpc_Update(self, *args): return self._xmlrpc_action('update', *args)

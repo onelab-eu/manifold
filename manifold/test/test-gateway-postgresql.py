@@ -18,9 +18,9 @@
 
 from manifold.gateways.postgresql import PostgreSQLGateway
 from manifold.core.query          import Query
-from manifold.util.log            import Logger
+from manifold.util.log            import Log
 
-l = Logger('test_postgresql')
+l = Log('test_postgresql')
 
 def pg_cb(x):
     print "CALLBACK: %r" % x

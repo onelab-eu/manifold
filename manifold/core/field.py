@@ -7,11 +7,16 @@
 # Authors:
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
-from types                         import StringTypes
-from manifold.util.type              import returns, accepts 
+from types              import StringTypes
+from manifold.util.type import returns, accepts 
+from manifold.util.log  import Log
+from manifold.types     import type_by_name, BASE_TYPES
+
 
 class Field(object):
-    def __init__(self, qualifier, type, name, is_array = False, description = None):
+
+
+    def __init__(self, qualifier, type, name, is_array = False, description = None, local=False):
         """
         \brief Constructor
         \param qualifier A value among None and "const"
@@ -28,6 +33,7 @@ class Field(object):
         self.name        = name
         self._is_array   = is_array
         self.description = description 
+        self.local       = False
 
     @returns(StringTypes)
     def __repr__(self):
@@ -93,8 +99,19 @@ class Field(object):
 
     @returns(StringTypes)
     def get_name(self):
+        if not self.is_reference():
+            return self.name
+        # If the field is a reference to another table, we need to retrieve the key of this table
         return self.name
 
     @returns(bool)
     def is_array(self):
         return self._is_array
+
+    @returns(bool)
+    def is_reference(self):
+        return self.get_type() not in BASE_TYPES
+
+    @returns(bool)
+    def is_local(self):
+        return self.local

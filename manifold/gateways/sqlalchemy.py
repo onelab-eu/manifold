@@ -7,6 +7,11 @@ from manifold.models            import *
 
 import traceback
 import json
+import sys
+from hashlib import md5
+import time
+from random import Random
+import crypt
 
 def xgetattr(cls, list_attr):
     ret = []
@@ -106,7 +111,7 @@ class SQLAlchemyGateway(Gateway):
 
         # Do we need to limit to the user's own results
         try:
-            if cls.restrict_to_self:
+            if cls.restrict_to_self and self.user.email != 'admin':
                 res = res.filter(cls.user_id == self.user.user_id)
         except AttributeError: pass
 
@@ -168,12 +173,34 @@ class SQLAlchemyGateway(Gateway):
         cls = self.map_object[query.object]
 
         params = query.params
+        # We encrypt the password according to the encryption of adduser.py
+        # As a result from the frontend the new users' password will be inserted
+        # into the local DB as encrypted       
+        if 'password' in params:
+            params['password'] = self.encrypt_password(params['password'])
+        
         cls.process_params(query.params, None, self.user)
         new_obj = cls(**params) if params else cls()
         db.add(new_obj)
         db.commit()
         
         return [new_obj]
+
+    def encrypt_password(self, password):
+        #
+        # password encryption taken from adduser.py 
+        # 
+
+        magic = "$1$"
+        password = password
+        # Generate a somewhat unique 8 character salt string
+        salt = str(time.time()) + str(Random().random())
+        salt = md5(salt).hexdigest()[:8]
+
+        if len(password) <= len(magic) or password[0:len(magic)] != magic:
+            password = crypt.crypt(password.encode('latin1'), magic + salt + "$")
+    
+        return password 
 
     def start(self):
         assert self.query, "Cannot start gateway with no query associated"
@@ -190,4 +217,4 @@ class SQLAlchemyGateway(Gateway):
         self.callback(None)
 
     def get_metadata(self):
-        return []
+        return []	

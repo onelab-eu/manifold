@@ -34,7 +34,7 @@ from uuid                               import uuid4
 from types                              import StringTypes, NoneType
 from pprint                             import pformat
 from manifold.gateways                  import Gateway
-from manifold.util.log                  import *
+from manifold.util.log                  import Log
 from manifold.util.predicate            import and_, or_, inv, add, mul, sub, mod, truediv, lt, le, ne, gt, ge, eq, neg, contains
 from manifold.core.table                import Table
 from manifold.core.field                import Field
@@ -289,22 +289,22 @@ class PostgreSQLGateway(Gateway):
 
             if not params:
                 if self.debug:
-                    log_debug('execute0', query)
+                    Log.debug('execute0',query)
                 cursor.execute(query)
             elif isinstance(params, dict):
                 if self.debug:
-                    log_debug('execute-dict: params', params, 'query', query % params)
-                cursor.execute(query, params)
-            elif isinstance(params, tuple) and len(params) == 1:
+                    Log.debug('execute-dict: params',params,'query',query%params)
+                cursor.execute(query,params)
+            elif isinstance(params,tuple) and len(params)==1:
                 if self.debug:
-                    log_debug('execute-tuple', query % params[0])
-                cursor.execute(query, params[0])
+                    Log.debug('execute-tuple',query%params[0])
+                cursor.execute(query,params[0])
             else:
                 #param_seq=(params,)
                 param_seq = params
                 if self.debug:
                     for params in param_seq:
-                        log_debug('executemany', query % params)
+                        Log.debug('executemany',query%params)
                 cursor.executemany(query, param_seq)
             (self.rowcount, self.description, self.lastrowid) = \
                             (cursor.rowcount, cursor.description, cursor.lastrowid)
@@ -314,12 +314,12 @@ class PostgreSQLGateway(Gateway):
             except:
                 pass
             uuid = uuid4() #commands.getoutput("uuidgen")
-            log_debug("Database error %s:" % uuid)
-            log_debug(e)
-            log_debug("Query:")
-            log_debug(query)
-            log_debug("Params:")
-            log_debug(pformat(params))
+            Log.debug("Database error %s:" % uuid)
+            Log.debug(e)
+            Log.debug("Query:")
+            Log.debug(query)
+            Log.debug("Params:")
+            Log.debug(pformat(params))
             msg = str(e).rstrip() # jordan
             raise Exception(
                 "Please contact %(name)s Support <%(mail)s> and reference %(uuid)s - %(msg)s" % {
