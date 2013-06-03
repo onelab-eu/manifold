@@ -13,3 +13,6 @@ class hostname(str):
         if not VALID_HOSTNAME_RX.match(value):
             raise ValueError, "%s does not appear to be a valid hostname" % value
         super(hostname, self).__init__(value)
+
+    def __repr__(self):
+        return "<hostname: %s>" % self
