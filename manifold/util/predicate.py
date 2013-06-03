@@ -191,3 +191,6 @@ class Predicate:
 
     def get_field_names(self):
         return set([self.key])
+
+    def get_value_names(self):
+        return set([self.value])

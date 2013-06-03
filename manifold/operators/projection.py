@@ -138,4 +138,4 @@ class Projection(Node):
 
     def optimize_projection(self, fields):
         # We only need the intersection of both
-        return self.optimize_projection(self.fields & fields)
+        return self.child.optimize_projection(self.fields & fields)
