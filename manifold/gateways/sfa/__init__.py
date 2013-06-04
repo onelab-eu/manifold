@@ -323,20 +323,30 @@ class SFAGateway(Gateway):
     # init self-signed cert, user credentials and gid
     @defer.inlineCallbacks
     def bootstrap (self):
+        print "BOOTSTRAP"
         # Cache admin config
         Log.tmp("get admin config: ",ADMIN_USER)
         self.admin_config = yield self.get_user_config(ADMIN_USER)
         assert self.admin_config, "Could not retrieve admin config"
+        print "got admin config"
 
         Log.tmp("get user config: ",self.user.email) 
         # Overwrite user config (reference & managed acccounts)
         new_user_config = yield self.get_user_config(self.user.email)
         if new_user_config:
             self.user_config = new_user_config
+        print "got user config"
 
        # Initialize manager proxies using MySlice Admin account
         self.registry = self.make_user_proxy(self.config['registry'], self.admin_config)
         self.sliceapi = self.make_user_proxy(self.config['sm'],       self.admin_config)
+        print "BOOTSTRAP DONE"
+
+    def is_admin(self, user):
+        if isinstance(user, StringTypes):
+            return user == ADMIN_USER
+        else:
+            return user.email == ADMIN_USER
 
     @defer.inlineCallbacks
     def get_cached_server_version(self, server):
@@ -606,12 +616,17 @@ class SFAGateway(Gateway):
     # get a delegated credential of a given type to a specific target
     # default allows the use of MySlice's own credentials
     def _get_cred(self, type, target=None):
-        delegated='delegated_' if self.user.email!=ADMIN_USER else ''
+        delegated='delegated_' if not self.is_admin(self.user) else ''
             
         if type == 'user':
             if target:
                 raise Exception, "Cannot retrieve specific user credential for now"
             try:
+                for k, v in self.user_config.items():
+                    if not 'credential' in k:
+                        print k, v
+                    else:
+                        print k
                 return self.user_config['%suser_credential'%delegated]
             except TypeError, e:
                 raise Exception, "Missing user credential %s" %  str(e)
@@ -1292,10 +1307,13 @@ class SFAGateway(Gateway):
                 self.send(LAST_RECORD)
                 return
 
+            print "BEFORE BOOTSTRAP"
             yield self.bootstrap()
+            print "AFTER BOOTSTRAP"
             q = self.query
 
             fields = q.fields # Metadata.expand_output_fields(q.object, list(q.fields))
+            print "CALLING",  "%s_%s" % (q.action, q.object)
             result = yield getattr(self, "%s_%s" % (q.action, q.object))(q.filters, q.params, fields)
             key = self.interface.metadata_get_keys(q.object).one().get_names()
             filtered = project_select_and_rename_fields(result, key, self.query.filters, self.query.fields, self.map_slice_fields)
@@ -1401,6 +1419,7 @@ class SFAGateway(Gateway):
     # using defer to have an asynchronous results management in functions prefixed by yield
     @defer.inlineCallbacks
     def manage(self, user, platform, config):
+        Log.debug("Managing %r account on %r..." % (user, platform))
         # The gateway should be able to perform user config management taks on
         # behalf of MySlice
         #
@@ -1420,17 +1439,51 @@ class SFAGateway(Gateway):
         # Check fields that are present and credentials that are not expired
         # we will deduce the needed fields
 
-        need_delegated_slice_credentials = self.credentials_needed('delegated_slice_credentials', config)
-        need_delegated_authority_credentials = self.credentials_needed('delegated_authority_credentials', config)
+        # The administrator is used as a mediator at the moment and thus does
+        # not require any (delegated) credential. This could be modified in the
+        # future if we expect MySlice to perform some operations on the testbed
+        # under its name
+        # NOTE We might want to manage a user account for direct use without
+        # relying on delegated credentials. In this case we won't even have a
+        # admin_config, and won't need delegation.
+        is_admin = self.is_admin(user)
+
+        # SFA management dependencies:
+        #     U <- provided
+        #    KP <- provided/generate
+        #   SSC <- KP
+        # proxy <- KP + SSC
+        #    UC <- U + proxy (R:GetSelfCredential)          -- True if as_user
+        #   GID <- proxy (GetGid)
+        #    SL <- UC + proxy (R:List)
+        #    AL <- U + get_authority(U)                     -- TODO clarify the different authority credentials
+        #    SC <- UC + SL + proxy (R:GetCredential)        -- True if as_user
+        #    AC <- UC + AL + proxy (R:GetCredential)        -- True if as_user
+        #   DUC <- UC + K + GID + admin_U + admin_GID       -- True if !is_admin + !as_user and !OK
+        #   DSC <- SC + K + GID + admin_U + admin_GID       -- True if !is_admin + !as_user and !OK
+        #   DAC <- AC + K + GID + admin_U + admin_GID       -- True if !is_admin + !as_user and !OK
+        # 
+        # Legend:
+        #  OK : present + !expired
+        # X -> Y : X is used to get Y     proxy  : XMLRPC proxy
+        #  KP : keypair                      SSC : self-signed certificate        GID : GID
+        #   U : user hrn                      SL : slice list                      AL : authority list
+        #  UC : user credential               SC : slice credentials               AC : authority credentials
+        # DUC : delegated user credential    DSC : delegated slice credentials    DAC : delegated authority credentials
+        # 
+        # The order can be found using a reverse topological sort (tsort)
+        # 
+        need_delegated_slice_credentials = not is_admin and self.credentials_needed('delegated_slice_credentials', config)
+        need_delegated_authority_credentials = not is_admin and self.credentials_needed('delegated_authority_credentials', config)
         need_slice_credentials = need_delegated_slice_credentials
         need_slice_list = need_slice_credentials
         need_authority_credentials = need_delegated_authority_credentials
         need_authority_list = need_authority_credentials
-        need_delegated_user_credential = self.credentials_needed('delegated_user_credential', config)
+        need_delegated_user_credential = not is_admin and self.credentials_needed('delegated_user_credential', config)
         need_gid = True
         need_user_credential = need_authority_credentials or need_slice_list or need_slice_credentials or need_delegated_user_credential 
 
-        if self.user.email==ADMIN_USER:
+        if self.is_admin(self.user):
             need_delegated_user_credential=false
             need_delegated_slice_credential=false
             need_delegated_authority_credential=false
