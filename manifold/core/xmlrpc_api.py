@@ -1,4 +1,4 @@
-import traceback
+import traceback,copy
 
 from manifold.auth              import Auth
 from manifold.core.query        import Query
@@ -35,13 +35,20 @@ class XMLRPCAPI(xmlrpc.XMLRPC, object):
             raise Exception, "Wrong arguments"
         super(XMLRPCAPI, self).__init__(**kwargs)
 
+    def display_query(self, q):
+        # Don't show password in Server Logs
+        display_args = copy.deepcopy(q)
+        if 'AuthString' in display_args[0].keys():
+            display_args[0]['AuthString'] = "XXXXX"
+        return display_args
+
     # QUERIES
     # xmlrpc_forward function is called by the Query of the user using xmlrpc
     def xmlrpc_forward(self, *args):
         """
         """
         print "-------------------"
-        print "xmlrpc_api args = ",args
+        print "xmlrpc_api args = ",self.display_query(args)
         print "-------------------"
         if not Options().disable_auth:
             assert len(args) == 2, "Wrong arguments for XMLRPC forward call"
