@@ -4,6 +4,8 @@ from manifold.core.query        import Query
 from manifold.util.storage      import DBStorage as Storage
 from manifold.models            import *
 from manifold.core.result_value import ResultValue
+from manifold.util.log          import Log
+from twisted.internet           import defer
 import json
 
 class Interface(object):
@@ -161,7 +163,10 @@ class Interface(object):
     def metadata_get_keys(self, table_name):
         return self.g_3nf.find_node(table_name).get_keys()
 
-    def forward(self, query, deferred=False, execute=True, user=None):
+    def forward(self, query, is_deferred=False, execute=True, user=None):
+        # if 
+        d = defer.Deferred() if is_deferred else None
+
         # Implements common functionalities = local queries, etc.
         namespace = None
         # Handling internal queries
@@ -175,7 +180,14 @@ class Interface(object):
                 q = query.copy()
                 q.object = table
                 output =  Storage.execute(q, user=user)
-            return ResultValue.get_success(output)
+
+            output = ResultValue.get_success(output)
+            #Log.tmp("output=",output)
+            if not d:
+                return output
+            else:
+                d.callback(output)
+                return d
         elif namespace:
             raise Exception, "Unsupported namespace '%s'" % namespace
      

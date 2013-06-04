@@ -594,11 +594,6 @@ class SFAGateway(Gateway):
             if target:
                 raise Exception, "Cannot retrieve specific user credential for now"
             try:
-                for k, v in self.user_config.items():
-                    if not 'credential' in k:
-                        print k, v
-                    else:
-                        print k
                 return self.user_config['%suser_credential'%delegated]
             except TypeError, e:
                 raise Exception, "Missing user credential %s" %  str(e)
