@@ -22,6 +22,6 @@ class traceroute {
     timestamp   first;          /**< Birth date of this IP path */
     timestamp   last;           /**< Death date of this IP path */
 
-    CAPABILITY(retrieve, join, selection);
+    CAPABILITY(retrieve, join, selection, projection);
     KEY(src_ip, dst_ip, first);
 };
