@@ -122,10 +122,6 @@ class Router(Interface):
         print ""
         print ""
 
-        #d = defer.Deferred() if deferred else None
-        #cb = Callback(d, router=self, cache_id=h)
-        #qp.callback = cb
-
         self.instanciate_gateways(qp, user)
 
         if query.get_action() == "update":
@@ -138,5 +134,8 @@ class Router(Interface):
             if not query.filters.has_eq(key):
                 raise Exception, "The key field '%s' must be present in update request" % key
 
-        results = qp.execute()
-        return ResultValue.get_result_value(results, qp.get_result_value_array())
+        # Execute query plan
+        d = defer.Deferred() if deferred else None
+        # the deferred object is sent to execute function of the query_plan
+        return qp.execute(d)
+        #return ResultValue.get_result_value(results, qp.get_result_value_array())
