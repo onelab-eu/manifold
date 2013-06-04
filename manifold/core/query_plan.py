@@ -4,11 +4,14 @@
 # Convert a 3nf-tree into an AST (e.g. a query plan)
 # \sa manifold.core.pruned_tree.py
 # \sa manifold.core.ast.py
+# 
+# QueryPlan class builds, process and executes Queries
 #
 # Copyright (C) UPMC Paris Universitas
 # Authors:
 #   Jordan Augé       <jordan.auge@lip6.fr> 
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
+#   Loïc Baron        <loic.baron@lip6.fr>
 
 # NOTE: The fastest way to traverse all edges of a graph is via
 # adjacency_iter(), but the edges() method is often more convenient.
@@ -364,14 +367,24 @@ class QueryPlan(object):
         self.ast.dump()
 
     def execute(self, deferred=None):
+        # create a Callback object with deferred object as arg
+        # manifold/util/callback.py 
         cb = Callback(deferred)
+
+        # Start AST = Abstract Syntax Tree 
+        # An AST represents a query plan
+        # manifold/core/ast.py
         self.ast.set_callback(cb)
         self.ast.start()
+
+        # Not Async, wait for results
         if not deferred:
             results = cb.get_results()
             results = ResultValue.get_result_value(results, self.get_result_value_array())
             return results
-        # Formating results in a Callback for asynchronous execution
+
+        # Async, results sent to a deferred object 
+        # Formating results triggered when deferred get results
         deferred.addCallback(lambda results:ResultValue.get_result_value(results, self.get_result_value_array()))
         return deferred
 

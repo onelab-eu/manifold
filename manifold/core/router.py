@@ -33,6 +33,8 @@ CACHE_LIFETIME     = 1800
 # Class Router
 # Router configured only with static/local routes, and which
 # does not handle routing messages
+# Router class is an Interface: 
+# builds the query plan, instanciate the gateways and execute query plan using deferred if required
 #------------------------------------------------------------------
 
 class Router(Interface):
@@ -65,12 +67,12 @@ class Router(Interface):
 
     # This function is directly called for a Router
     # Decoupling occurs before for queries received through sockets
-    def forward(self, query, deferred=False, execute=True, user=None):
+    def forward(self, query, is_deferred=False, execute=True, user=None):
         """
         A query is forwarded. Eventually it affects the forwarding plane, and expects an answer.
         NOTE : a query is like a flow
         """
-        ret = super(Router, self).forward(query, deferred, execute, user)
+        ret = super(Router, self).forward(query, is_deferred, execute, user)
         if ret: return ret
 
         # We suppose we have no namespace from here
@@ -135,7 +137,7 @@ class Router(Interface):
                 raise Exception, "The key field '%s' must be present in update request" % key
 
         # Execute query plan
-        d = defer.Deferred() if deferred else None
+        d = defer.Deferred() if is_deferred else None
         # the deferred object is sent to execute function of the query_plan
         return qp.execute(d)
         #return ResultValue.get_result_value(results, qp.get_result_value_array())
