@@ -4,40 +4,34 @@
 # Convert a 3nf-tree into an AST (e.g. a query plan)
 # \sa manifold.core.pruned_tree.py
 # \sa manifold.core.ast.py
+# 
+# QueryPlan class builds, process and executes Queries
 #
 # Copyright (C) UPMC Paris Universitas
 # Authors:
 #   Jordan Augé       <jordan.auge@lip6.fr> 
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
+#   Loïc Baron        <loic.baron@lip6.fr>
 
 # NOTE: The fastest way to traverse all edges of a graph is via
 # adjacency_iter(), but the edges() method is often more convenient.
 
 import copy
-from networkx                                         import DiGraph
-#from networkx.algorithms.traversal.depth_first_search import dfs_preorder_nodes
+from networkx                      import DiGraph
 from manifold.core.table           import Table 
 from manifold.core.key             import Key
 from manifold.core.query           import Query, AnalyzedQuery 
 from manifold.core.dbgraph         import find_root
 from manifold.core.relation        import Relation
 from manifold.core.filter          import Filter
-#from manifold.core.pruned_tree     import build_pruned_tree
 from manifold.core.ast             import AST
-#from manifold.operators.From       import From
-#from manifold.operators.selection  import Selection
-#from manifold.operators.projection import Projection
-#from manifold.operators.union      import Union
-#from manifold.operators.subquery   import SubQuery
-#from manifold.operators.demux      import Demux
-#from manifold.operators.dup        import Dup
 from manifold.util.predicate       import Predicate, contains, eq
 from manifold.util.type            import returns, accepts
 from manifold.util.callback        import Callback
-#from manifold.util.dfs             import dfs
 from manifold.util.log             import Log
 from manifold.models.user          import User
 from manifold.util.misc            import make_list
+from manifold.core.result_value    import ResultValue
 
 class QueryPlan(object):
 
@@ -163,6 +157,8 @@ class QueryPlan(object):
         
 
     def process_query(self, root, query, missing_fields, metadata, allowed_capabilities, user, seen, depth):
+        Log.debug(' '*4*depth, root, query, missing_fields)
+
         missing_fields_begin = copy.deepcopy(missing_fields)
         # Explore throughout 1-1, and return needed ast beyond 1-N
 
@@ -238,6 +234,7 @@ class QueryPlan(object):
     def process_subqueries(self, root, predicate, query, missing_fields, metadata, allowed_capabilities, user, depth):
         if depth >= 3:
             return (None, missing_fields) # Nothing found
+        Log.debug(' '*4*depth, root, query, missing_fields)
 
         ast = None
         relations_1N = ()
@@ -369,14 +366,27 @@ class QueryPlan(object):
 
         self.ast.dump()
 
+    def execute(self, deferred=None):
+        # create a Callback object with deferred object as arg
+        # manifold/util/callback.py 
+        cb = Callback(deferred)
 
-    def execute(self, callback=None):
-        cb = callback if callback else Callback()
+        # Start AST = Abstract Syntax Tree 
+        # An AST represents a query plan
+        # manifold/core/ast.py
         self.ast.set_callback(cb)
         self.ast.start()
-        if not callback:
-            return cb.get_results()
-        return
+
+        # Not Async, wait for results
+        if not deferred:
+            results = cb.get_results()
+            results = ResultValue.get_result_value(results, self.get_result_value_array())
+            return results
+
+        # Async, results sent to a deferred object 
+        # Formating results triggered when deferred get results
+        deferred.addCallback(lambda results:ResultValue.get_result_value(results, self.get_result_value_array()))
+        return deferred
 
     def dump(self):
         self.ast.dump()
