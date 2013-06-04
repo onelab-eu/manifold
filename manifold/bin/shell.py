@@ -74,18 +74,17 @@ class Shell(object):
 
         if username != DEFAULT_USER and password == DEFAULT_PASSWORD:
             if interactive:
-                _password = getpass("Enter password for '%s' (or ENTER to keep default):" % username)
+                try:
+                    password = getpass("Enter password for '%s' (or ENTER to keep default):" % username)
+                except (EOFError, KeyboardInterrupt):
+                    print
+                    sys.exit(0)
                 if _password:
-                    password = password
+                    password = _password
             else:
                 Log.warning("No password specified, using default.")
 
         if Options().xmlrpc:
-            try:
-                Log.tmp("username", username, "- password", password)
-            except (EOFError, KeyboardInterrupt):
-                print
-                sys.exit(0)
 
             import xmlrpclib
             url = Options().xmlrpc_url
