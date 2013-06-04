@@ -92,8 +92,6 @@ class Shell(object):
             mode_str      = 'XMLRPC'
             interface_str = ' towards XMLRPC API %s' % self.interface
         else:
-            import atexit
-            atexit.register(self.terminate)
             self.interface = Router()
             self.interface.__enter__()
             self.auth = username
@@ -104,7 +102,6 @@ class Shell(object):
         self.auth = {'AuthMethod': 'password', 'Username': username, 'AuthString': password}
 
         Log.info("Shell using %s account %r%s" % (mode_str, username, interface_str))
-        Log.tmp('password=', password)
 
         if Options().xmlrpc:
             try:
@@ -117,8 +114,7 @@ class Shell(object):
                 
 
     def terminate(self):
-        if not Options().xmlrpc: return
-        self.interface.__exit__()
+        if not Options().xmlrpc: self.interface.__exit__()
 
     def evaluate(self, command):
         username, password = Options().user, Options().password
@@ -196,6 +192,7 @@ class Shell(object):
         # Enable tab completion
         readline.parse_and_bind("tab: complete")
 
+        print "Welcome to MANIFOLD shell. Press ^C to clean up commandline, and ^D to exit."
         try:
             while True:
                 command = ""
@@ -235,9 +232,7 @@ class Shell(object):
                     print_exc()
 
         except EOFError:
-            print
-            sys.exit(0)
-            pass
+            self.terminate()
 
 def main():
     Shell.init_options()
