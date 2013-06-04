@@ -75,7 +75,7 @@ class Shell(object):
         if username != DEFAULT_USER and password == DEFAULT_PASSWORD:
             if interactive:
                 try:
-                    password = getpass("Enter password for '%s' (or ENTER to keep default):" % username)
+                    _password = getpass("Enter password for '%s' (or ENTER to keep default):" % username)
                 except (EOFError, KeyboardInterrupt):
                     print
                     sys.exit(0)
