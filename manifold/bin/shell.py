@@ -117,7 +117,7 @@ class Shell(object):
         if not Options().xmlrpc: self.interface.__exit__()
 
     def evaluate(self, command):
-        username, password = Options().user, Options().password
+        username, password = Options().username, Options().password
         query, = SQLParser().parse(command)
         # XXX this line will differ between xmlrpc and local calls
         if Options().xmlrpc:
