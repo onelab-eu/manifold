@@ -169,7 +169,6 @@ class From(Node):
             return selection
 
     def optimize_projection(self, fields):
-        print "From::optimize_projection(%r)" % fields
         if self.capabilities.projection:
             # Push fields into the From node
             self.query.select(fields)
@@ -178,7 +177,6 @@ class From(Node):
             if fields - self.get_query().get_select():
                 print "W: Missing fields in From"
             if self.get_query().get_select() - fields:
-                print "%r\n - %r\n >> %r\n" % (self.get_query().get_select(), fields, self.get_query().get_select() - fields)
                 # Create a new Projection node
                 old_self_callback = self.get_callback()
                 projection = Projection(self, fields)
