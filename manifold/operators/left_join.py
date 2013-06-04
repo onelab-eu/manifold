@@ -162,24 +162,11 @@ class LeftJoin(Node):
             predicate = Predicate(self.predicate.value, included, self.left_map.keys())
             
             self.right = self.right.optimize_selection(Filter().filter_by(predicate))
-            self.right.set_callback(self.get_callback())
-
-#            where = Selection(self.right, Filter().filter_by(predicate))
-#            where.query = self.right.query.copy().filter_by(predicate)
-#            where.set_callback(self.right.get_callback())
-#            self.right = where
-#            self.right = self.right.optimize()
-#            self.right.set_callback(self.right_callback)
+            self.right.set_callback(self.right_callback)
 
             self.left_done = True
             self.right.start()
             return
-
-            ## Inject the keys from left records in the right child...
-            #query = Query().filter_by(self.left.get_query().filters).select(self.predicate.value) # XXX
-            #self.right.inject(self.left_map.keys(), self.predicate.value, query)
-            ## ... and start the right node
-            #return
 
         # Directly send records missing information necessary to join
         if self.predicate.key not in record or not record[self.predicate.key]:
@@ -213,11 +200,6 @@ class LeftJoin(Node):
         # We expect to receive information about keys we asked, and only these,
         # so we are confident the key exists in the map
         # XXX Dangers of duplicates ?
-        #print "in Join::right_callback()"
-        #self.dump()
-        #print "-" * 50
-        #print "self.left_map", self.left_map
-        #print "searching for key=", key
         left_record = self.left_map[key]
         left_record.update(record)
         self.send(left_record)
@@ -255,37 +237,27 @@ class LeftJoin(Node):
 
     def optimize_projection(self, fields):
         
-        print '-'*80
-        print "LEFT JOIN:: optimize_projection"
-        print '-'*80
         # Ensure we have keys in left and right children
         # After LEFTJOIN, we might keep the left key, but never keep the right key
 
         key_left = self.predicate.get_field_names()
         key_right = self.predicate.get_value_names()
 
-        # DIRTY HACK
-        fields |= self.get_query().get_select()
-
-        print "FIELDS", fields
-        print "LEFT Q", self.left.get_query().get_select()
-        print "RGHT Q", self.right.get_query().get_select()
         left_fields    = fields & self.left.get_query().get_select()
         right_fields   = fields & self.right.get_query().get_select()
-        print "left fields=", left_fields
-        print "right fields=", right_fields
         left_fields   |= key_left
         right_fields  |= key_right
-        print "left fields=", left_fields
-        print "right fields=", right_fields
 
         self.left  = self.left.optimize_projection(left_fields)
         self.right = self.right.optimize_projection(right_fields)
 
-        if not key_left <= fields:
+        self.query.fields = fields
+
+        if left_fields | right_fields > fields:
             old_self_callback = self.get_callback()
-            print "add select after join is done since the key is not requested"
             projection = Projection(self, fields)
+            projection.query = self.get_query().copy()
+            projection.query.fields = fields
             projection.set_callback(old_self_callback)
             return projection
         return self

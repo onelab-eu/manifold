@@ -17,7 +17,7 @@ class From(Node):
     From Node are responsible to query a gateway (!= FromTable).
     """
 
-    def __init__(self, platform, query, capabilities, key, all_fields):
+    def __init__(self, platform, query, capabilities, key):
     #def __init__(self, table, query):
         """
         \brief Constructor
@@ -31,7 +31,6 @@ class From(Node):
 
         #self.query, self.table = query, table
         self.platform, self.query, self.capabilities, self.key = platform, query, capabilities, key
-        self.all_fields = all_fields
         self.gateway = None
         super(From, self).__init__()
 
@@ -170,15 +169,16 @@ class From(Node):
             return selection
 
     def optimize_projection(self, fields):
+        print "From::optimize_projection(%r)" % fields
         if self.capabilities.projection:
             # Push fields into the From node
             self.query.select(fields)
             return self
         else:
-            if fields - self.all_fields:
+            if fields - self.get_query().get_select():
                 print "W: Missing fields in From"
-            self.query.select(None)
-            if self.all_fields - fields:
+            if self.get_query().get_select() - fields:
+                print "%r\n - %r\n >> %r\n" % (self.get_query().get_select(), fields, self.get_query().get_select() - fields)
                 # Create a new Projection node
                 old_self_callback = self.get_callback()
                 projection = Projection(self, fields)
