@@ -54,7 +54,6 @@ class Options(object):
             
         # Load/override options from configuration file and command-line 
         (options, args) = cfg.parse(self._opt)
-        print ">>>", options, args
         self.__dict__.update(vars(options))
 
     def add_option(self, *args, **kwargs):

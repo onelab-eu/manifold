@@ -154,8 +154,8 @@ def get_network_name(hostname):
             name = t[:t.rindex(' |')]
         else:
             name = t
-    except Exception, why:
-        print 'Exception in get_network_name', why
+    except Exception, e:
+        Log.warning("Exception in get_network_name: %s" % e)
         name = None
     signal.alarm(0)
     return name
@@ -323,24 +323,18 @@ class SFAGateway(Gateway):
     # init self-signed cert, user credentials and gid
     @defer.inlineCallbacks
     def bootstrap (self):
-        print "BOOTSTRAP"
         # Cache admin config
-        Log.tmp("get admin config: ",ADMIN_USER)
         self.admin_config = yield self.get_user_config(ADMIN_USER)
         assert self.admin_config, "Could not retrieve admin config"
-        print "got admin config"
 
-        Log.tmp("get user config: ",self.user.email) 
         # Overwrite user config (reference & managed acccounts)
         new_user_config = yield self.get_user_config(self.user.email)
         if new_user_config:
             self.user_config = new_user_config
-        print "got user config"
 
        # Initialize manager proxies using MySlice Admin account
         self.registry = self.make_user_proxy(self.config['registry'], self.admin_config)
         self.sliceapi = self.make_user_proxy(self.config['sm'],       self.admin_config)
-        print "BOOTSTRAP DONE"
 
     def is_admin(self, user):
         if isinstance(user, StringTypes):
@@ -429,28 +423,6 @@ class SFAGateway(Gateway):
     #
     ############################################################################ 
 
-#    def sfa_get_slices_hrn(self, cred):
-#        api_options = {}
-#        api_options['call_id']=unique_call_id()
-#        print "sfa_get_slices_hrn = ",self.user_config['user_hrn']
-#        #######################################################################
-#        # TODO: remove ListSlices call which is PlanetLab specific and use Resolve
-#        #results = self.sliceapi.Resolve(self.user_config['user_hrn'],cred)
-#        oCred = Credential(string=cred)
-#        print "oCred = ",oCred.get_summary_tostring()
-#        print "user_hrn = ",self.user_config['user_hrn']
-#        results = self.sfa_resolve_records(cred,self.user_config['user_hrn'],'user')
-#        #results = self.sliceapi.ListSlices(cred, *self.ois(self.sliceapi,api_options)) # user cred
-#        results=results[0]
-#        print "res = ",results
-#        if 'slices' in results:
-#            results = results['slices']
-#        else:
-#            results=[]
-#        #{'output': '', 'geni_api': 2, 'code': {'am_type': 'sfa', 'geni_code': 0, 'am_code': None}, 'value': [
-#        #return [urn_to_hrn(r)[0] for r in results]
-#        return results
-#
     def sfa_list_records(self, cred, hrns, record_type=None):
         if record_type not in [None, 'user', 'slice', 'authority', 'node']:
             raise Exception('Wrong filter in sfa_list')
@@ -1500,14 +1472,12 @@ class SFAGateway(Gateway):
         #need_user_hrn = need_user_private_key or need_auth_list or need_slice_list
         need_user_hrn = True
         
-        Log.tmp("Does user has a user_hrn?")
         if not 'user_hrn' in config:
             print "E: hrn needed to manage authentication"
             # return using asynchronous defer
             defer.returnValue({})
             #return {}
 
-        Log.tmp("Does user has a user_private_key?")
         if not 'user_private_key' in config:
             print "I: SFA::manage: Generating user private key for user", user
             k = Keypair(create=True)
@@ -1515,7 +1485,6 @@ class SFAGateway(Gateway):
             config['user_private_key'] = k.as_pem()
             new_key = True
 
-        Log.tmp("Does user has a sscert?")
         if not 'sscert' in config:
             print "I: Generating self-signed certificate for user", user
             x = config['user_private_key'].encode('latin1')
@@ -1526,13 +1495,10 @@ class SFAGateway(Gateway):
             self_signed.sign()
             config['sscert'] = self_signed.save_to_string()
 
-        Log.tmp("create a connexion to registry")
         # create an SFA connexion to Registry, using user config
         registry_proxy = self.make_user_proxy(self.config['registry'], config, 'sscert')
-        Log.tmp(registry_proxy)
-        Log.tmp("Does user needs a user_credential?")
         if need_user_credential and self.credentials_needed('user_credential', config):
-            print "I: SFA::manage: Requesting user credential for user", user
+            Log.debug("Requesting user credential for user %s" % user)
             try:
                 config['user_credential'] = yield registry_proxy.GetSelfCredential (config['sscert'], config['user_hrn'], 'user')
             except:
@@ -1543,13 +1509,10 @@ class SFAGateway(Gateway):
                 except Exception, e:
                     raise Exception, "SFA Gateway :: manage() could not retreive user from SFA Registry: %s"%e
 
-        Log.tmp("Does user has a GID?")
         # SFA call Reslove to get the GID and the slice_list
         if not 'gid' in config or need_slice_list:
-            print "I: Generating GID for user", user
+            Log.debug("Generating GID for user %s" % user)
             records = yield registry_proxy.Resolve(config['user_hrn'].encode('latin1'), config['user_credential'])
-            Log.tmp(records)
-            Log.tmp("Any result for GID?")
             if not records:
                 raise RecordNotFound, "hrn %s (%s) unknown to registry %s"%(config['user_hrn'],'user',registry_url)
             records = [record for record in records if record['type']=='user']
@@ -1558,12 +1521,11 @@ class SFAGateway(Gateway):
             try:
                 config['slice_list'] = record['reg-slices']
             except Exception, e:
-                print "W: user %s has no slices" % str(config['user_hrn'])
+                Log.warning("User %s has no slices" % str(config['user_hrn']))
 
         # delegate user_credential
         if need_delegated_user_credential:
-            print "I: SFA delegate user cred ", config['user_hrn']
-            Log.tmp(self.admin_config)
+            Log.debug("I: SFA delegate user cred %s" % config['user_hrn'])
             config['delegated_user_credential'] = self.delegate(config['user_credential'], config['user_private_key'], config['gid'], self.admin_config['user_credential'])
 
         if need_authority_list: #and not 'authority_list' in config:
@@ -1571,7 +1533,7 @@ class SFAGateway(Gateway):
  
         # Get Authority credential for each authority of the authority_list
         if need_authority_credentials: #and not 'authority_credentials' in config:
-            print "I: Generating authority credentials for each authority"
+            Log.debug("Generating authority credentials for each authority")
             config['authority_credentials'] = {}
             try:
                 for authority_name in config['authority_list']:
@@ -1582,7 +1544,7 @@ class SFAGateway(Gateway):
         # XXX TODO Factorization of slice and authority operations
         # Get Slice credential for each slice of the slice_list 
         if need_slice_credentials: 
-            print "I: Generating slice credentials for each slice of the user" 
+            Log.debug("Generating slice credentials for each slice of the user")
             config['slice_credentials'] = {}
             for slice_hrn in config['slice_list']:
                 # credential_string is temp, not delegated 
@@ -1590,7 +1552,7 @@ class SFAGateway(Gateway):
                 config['slice_credentials'][slice_hrn] = credential_string 
  
         if need_delegated_authority_credentials:
-            print "I: Delegating authority credentials"
+            Log.debug("Delegating authority credentials")
             Log.tmp(config['authority_credentials'])
             config['delegated_authority_credentials'] = {}           
             for auth_name,auth_cred in config['authority_credentials'].items():
@@ -1598,14 +1560,11 @@ class SFAGateway(Gateway):
                 config['delegated_authority_credentials'][auth_name] = delegated_auth_cred
 
         if need_delegated_slice_credentials:
-            print "I: Delegating slice credentials"
-            Log.tmp(config['slice_credentials'])
+            Log.debug("Delegating slice credentials")
             config['delegated_slice_credentials'] = {}
             for slice_hrn,slice_cred in config['slice_credentials'].items():
                 delegated_slice_cred = self.delegate(slice_cred, config['user_private_key'], config['gid'], self.admin_config['user_credential'])      
                 config['delegated_slice_credentials'][slice_hrn] = delegated_slice_cred
 
-        Log.tmp("SFA Gateway finished manage()")
         # return using asynchronous defer
         defer.returnValue(config)
-        #return config
