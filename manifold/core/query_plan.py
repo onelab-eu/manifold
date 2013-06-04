@@ -157,6 +157,8 @@ class QueryPlan(object):
         
 
     def process_query(self, root, query, missing_fields, metadata, allowed_capabilities, user, seen, depth):
+        Log.debug(' '*4*depth, root, query, missing_fields)
+
         missing_fields_begin = copy.deepcopy(missing_fields)
         # Explore throughout 1-1, and return needed ast beyond 1-N
 
@@ -232,6 +234,7 @@ class QueryPlan(object):
     def process_subqueries(self, root, predicate, query, missing_fields, metadata, allowed_capabilities, user, depth):
         if depth >= 3:
             return (None, missing_fields) # Nothing found
+        Log.debug(' '*4*depth, root, query, missing_fields)
 
         ast = None
         relations_1N = ()

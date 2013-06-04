@@ -1,5 +1,4 @@
 from manifold.operators      import LAST_RECORD
-from manifold.util.log       import Log
 import threading
 
 #------------------------------------------------------------------

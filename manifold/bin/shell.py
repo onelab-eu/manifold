@@ -1,124 +1,163 @@
-#!/usr/bin/python
-#
-# Interactive shell for testing PLCAPI
-#
-# Mark Huang <mlhuang@cs.princeton.edu>
-# Copyright (C) 2005 The Trustees of Princeton University
-#
+#!/usr/bin/env python
+# -*- coding:utf-8 -*-
 
 import os, sys, pprint
 from socket                import gethostname
 from optparse              import OptionParser
 from getpass               import getpass
 from traceback             import print_exc
+
+# XXX Those import may fail for xmlrpc calls
 from manifold.util.log     import Log
 from manifold.util.options import Options
 from manifold.input.sql    import SQLParser
-from manifold.test.config  import auth
 from manifold.core.router  import Router
 from manifold.auth         import Auth
 
-def print_err(err):
-    print '-'*80
-    print 'Exception', err['code'], 'raised by', err['origin'], ':', err['description']
-    for line in err['traceback'].split("\n"):
-        print "\t", line
-    print ''
+# This could be moved outside of the Shell
+DEFAULT_USER     = 'demo'
+DEFAULT_PASSWORD = 'demo'
 
-Log.init_options()
-Options().parse()
+class Shell(object):
 
-with Router() as router:
-    def evaluate(command):
+    PROMPT = 'manifold'
+
+    def print_err(self, err):
+        print '-'*80
+        print 'Exception', err['code'], 'raised by', err['origin'], ':', err['description']
+        for line in err['traceback'].split("\n"):
+            print "\t", line
+        print ''
+
+    @classmethod
+    def init_options(self):
+        # Processing
+        opt = Options()
+        opt.add_option(
+            "-C", "--cacert", dest = "xmlrpc_cacert",
+            help = "API SSL certificate", 
+            default = None
+        )
+        opt.add_option(
+            "-k", "--insecure", dest = "xmlrpc_insecure",
+            help = "Do not check SSL certificate", 
+            default = 7080
+        )
+        opt.add_option(
+            "-U", "--url", dest = "xmlrpc_url",
+            help = "API URL", 
+            default = 'http://localhost:7080'
+        )
+        opt.add_option(
+            "-u", "--user", dest = "username",
+            help = "API user name", 
+            default = DEFAULT_USER
+        )
+        opt.add_option(
+            "-p", "--password", dest = "password",
+            help = "API password", 
+            default = DEFAULT_PASSWORD
+        )
+        opt.add_option(
+            "-x", "--xmlrpc", action="store_true", dest = "xmlrpc",
+            help = "Use XML-RPC interface", 
+            default = False
+        )
+        #parser.add_option("-m", "--method", help = "API authentication method")
+        #parser.add_option("-s", "--session", help = "API session key")
+
+    def __init__(self, interactive=False):
+        # If user is specified but password is not
+        username = Options().username
+        password = Options().password
+
+        if username != DEFAULT_USER and password == DEFAULT_PASSWORD:
+            if interactive:
+                try:
+                    _password = getpass("Enter password for '%s' (or ENTER to keep default):" % username)
+                except (EOFError, KeyboardInterrupt):
+                    print
+                    sys.exit(0)
+                if _password:
+                    password = _password
+            else:
+                Log.warning("No password specified, using default.")
+
+        if Options().xmlrpc:
+
+            import xmlrpclib
+            url = Options().xmlrpc_url
+            self.interface = xmlrpclib.ServerProxy(url, allow_none=True)
+
+            mode_str      = 'XMLRPC'
+            interface_str = ' towards XMLRPC API %s' % self.interface
+        else:
+            self.interface = Router()
+            self.interface.__enter__()
+            self.auth = username
+
+            mode_str      = 'local'
+            interface_str = ''
+
+        self.auth = {'AuthMethod': 'password', 'Username': username, 'AuthString': password}
+
+        Log.info("Shell using %s account %r%s" % (mode_str, username, interface_str))
+
+        if Options().xmlrpc:
+            try:
+                self.interface.AuthCheck(self.auth)
+                Log.info('Authentication successful')
+            except:
+                Log.error('Authentication error')
+        else:
+            self.auth = Auth(self.auth).check()
+                
+
+    def terminate(self):
+        if not Options().xmlrpc: self.interface.__exit__()
+
+    def evaluate(self, command):
+        username, password = Options().user, Options().password
         query, = SQLParser().parse(command)
-        ret = router.forward(query, user=Auth(auth).check())
-
+        # XXX this line will differ between xmlrpc and local calls
+        if Options().xmlrpc:
+            # XXX The XMLRPC server might not require authentication
+            ret = self.interface.forward(self.auth, query.to_dict())
+        else:
+            ret = self.interface.forward(query, user=self.auth)
+            
+    
         if ret['code'] != 0:
             if isinstance(ret['description'], list):
                 # We have a list of errors
                 for err in ret['description']:
-                    print_err(err)
-
+                    self.print_err(err)
+    
         ret = ret['value']
-
+    
         print "===== RESULTS ====="
         pprint.pprint(ret)
+        
+        
+#    # If called by a script 
+#    if args:
+#        if not os.path.exists(args[0]):
+#            print 'File %s not found'%args[0]
+#            parser.print_help()
+#            sys.exit(1)
+#        else:
+#            # re-append --help if provided
+#            if options.help:
+#                args.append('--help')
+#            # use args as sys.argv for the next shell, so our own options get removed for the next script
+#            sys.argv = args
+#            script = sys.argv[0]
+#            # Add of script to sys.path 
+#            path = os.path.dirname(os.path.abspath(script))
+#            sys.path.append(path)
+#            execfile(script)
 
-    sys.path.append(os.path.dirname(os.path.realpath(sys.argv[0])))
-
-    usage="""Usage: %prog [options]
-       runs an interactive shell
-    Usage: %prog [options] script script-arguments
-    Usage: %prog script [plcsh-options --] script arguments
-       run a script"""
-
-    parser = OptionParser(usage=usage,add_help_option = False)
-    parser.add_option("-f", "--config", help = "PLC configuration file")
-    parser.add_option("-h", "--url", help = "API URL")
-    parser.add_option("-c", "--cacert", help = "API SSL certificate")
-    parser.add_option("-k", "--insecure", help = "Do not check SSL certificate")
-    parser.add_option("-m", "--method", help = "API authentication method")
-    parser.add_option("-s", "--session", help = "API session key")
-    parser.add_option("-u", "--user", help = "API user name")
-    parser.add_option("-p", "--password", help = "API password")
-    parser.add_option("-r", "--role", help = "API role")
-    parser.add_option("-x", "--xmlrpc", action = "store_true", default = False, help = "Use XML-RPC interface")
-    # pass this to the invoked shell if any
-    parser.add_option("--help", action = "store_true", dest="help", default=False,
-                      help = "show this help message and exit")
-    (options, args) = parser.parse_args()
-
-    if not args and options.help:
-        parser.print_help()
-        sys.exit(1)    
-
-    # If user is specified but password is not
-    if options.user is not None and options.password is None:
-        try:
-            options.password = getpass()
-        except (EOFError, KeyboardInterrupt):
-            print
-            sys.exit(0)
-
-    # Initialize a single global instance (scripts may re-initialize
-    # this instance and/or create additional instances).
-    #try:
-    #    shell = Shell(globals = globals(),
-    #                  config = options.config,
-    #                  url = options.url, xmlrpc = options.xmlrpc, cacert = options.cacert,
-    #                  method = options.method, role = options.role,
-    #                  user = options.user, password = options.password,
-    #                  session = options.session)
-    #    # Register a few more globals for backward compatibility
-    #    auth = shell.auth
-    #    api = shell.api
-    #    config = shell.config
-    #except Exception, err:
-    #    print "Error:", err
-    #    print
-    #    parser.print_help()
-    #    sys.exit(1)
-
-    # If called by a script 
-    if args:
-        if not os.path.exists(args[0]):
-            print 'File %s not found'%args[0]
-            parser.print_help()
-            sys.exit(1)
-        else:
-            # re-append --help if provided
-            if options.help:
-                args.append('--help')
-            # use args as sys.argv for the next shell, so our own options get removed for the next script
-            sys.argv = args
-            script = sys.argv[0]
-            # Add of script to sys.path 
-            path = os.path.dirname(os.path.abspath(script))
-            sys.path.append(path)
-            execfile(script)
-
-    # Otherwise, run an interactive shell environment
-    else:
+    def start(self):
         #if shell.server is None:
         #    print "PlanetLab Central Direct API Access"
         #    prompt = ""
@@ -134,7 +173,6 @@ with Router() as router:
         #    prompt = "[%s]" % shell.auth['Username']
         #    print "%s connected using %s authentication" % \
         #          (shell.auth['Username'], shell.auth['AuthMethod'])
-        prompt="manifold"
 
         # Readline and tab completion support
         import atexit
@@ -154,6 +192,7 @@ with Router() as router:
         # Enable tab completion
         readline.parse_and_bind("tab: complete")
 
+        print "Welcome to MANIFOLD shell. Press ^C to clean up commandline, and ^D to exit."
         try:
             while True:
                 command = ""
@@ -164,7 +203,7 @@ with Router() as router:
                             sep = ">>> "
                         else:
                             sep = "... "
-                        line = raw_input(prompt + sep)
+                        line = raw_input(self.PROMPT + sep)
                     # Ctrl-C
                     except KeyboardInterrupt:
                         command = ""
@@ -188,10 +227,19 @@ with Router() as router:
                     break
 
                 try:
-                    evaluate(command)
+                    self.evaluate(command)
                 except Exception, err:
                     print_exc()
 
         except EOFError:
-            print
-            pass
+            self.terminate()
+
+def main():
+    Shell.init_options()
+    Log.init_options()
+    Options().parse()
+
+    Shell(interactive=True).start()
+    
+if __name__ == '__main__':
+    main()

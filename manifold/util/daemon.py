@@ -234,7 +234,7 @@ class Daemon(object):
         \brief Remove the pid file (internal usage)
         """
         # The lock file is implicitely released while removing the pid file
-        log_debug("Removing %s" % Options().pid_filename)
+        Log.debug("Removing %s" % Options().pid_filename)
         if os.path.exists(Options().pid_filename) == True:
             os.remove(Options().pid_filename)
 
@@ -267,7 +267,7 @@ class Daemon(object):
             Initialize Options().lock_file
         """
         if Options().pid_filename and Options().no_daemon == False:
-            log_debug("Daemonizing using pid file '%s'" % Options().pid_filename)
+            Log.debug("Daemonizing using pid file '%s'" % Options().pid_filename)
             Options().lock_file = lockfile.FileLock(Options().pid_filename)
             if Options().lock_file.is_locked() == True:
                 log_error("'%s' is already running ('%s' is locked)." % (Options().get_name(), Options().pid_filename))
@@ -332,7 +332,7 @@ class Daemon(object):
         self.terminate()
 
     def stop(self):
-        log_debug("Stopping '%s'" % self.daemon_name)
+        Log.debug("Stopping '%s'" % self.daemon_name)
 
     def terminate(self):
         if self.terminate_callback:
