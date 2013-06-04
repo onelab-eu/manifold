@@ -2,12 +2,16 @@
 # -*- coding: utf-8 -*-
 #
 # xmlrpc: daemon in charge of offering a XMLRPC interface to a router or gateway
+# instanciate an interface of type Forwarder or Router depending on the arguments given
+# relies on the Class XMLRPCAPI in manifold/core/xmlrpc_api.py
+#
 # This file is part of the MANIFOLD project
 #
 # Copyright (C)2009-2013, UPMC Paris Universitas
 # Authors:
 #   Jordan Augé       <jordan.auge@lip6.fr>
 #   Mrc-Olivier Buob  <marc-olivier.buob@lip6.fr>
+#   Loïc Baron        <loic.baron@lip6.fr>
 
 import sys
 
