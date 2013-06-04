@@ -49,7 +49,7 @@ class Shell(object):
             default = 'http://localhost:7080'
         )
         opt.add_option(
-            "-u", "--user", dest = "user",
+            "-u", "--user", dest = "username",
             help = "API user name", 
             default = DEFAULT_USER
         )
@@ -68,7 +68,7 @@ class Shell(object):
 
     def __init__(self, interactive=False):
         # If user is specified but password is not
-        username = Options().user
+        username = Options().username
         password = Options().password
 
         if username != DEFAULT_USER and password == DEFAULT_PASSWORD:
@@ -104,6 +104,7 @@ class Shell(object):
         self.auth = {'AuthMethod': 'password', 'Username': username, 'AuthString': password}
 
         Log.info("Shell using %s account %r%s" % (mode_str, username, interface_str))
+        Log.tmp('password=', password)
 
         if Options().xmlrpc:
             try:
@@ -112,7 +113,7 @@ class Shell(object):
             except:
                 Log.error('Authentication error')
         else:
-            self.auth = Auth(auth).check()
+            self.auth = Auth(self.auth).check()
                 
 
     def terminate(self):
@@ -235,6 +236,7 @@ class Shell(object):
 
         except EOFError:
             print
+            sys.exit(0)
             pass
 
 def main():
