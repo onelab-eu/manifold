@@ -11,7 +11,6 @@ from traceback             import print_exc
 from manifold.util.log     import Log
 from manifold.util.options import Options
 from manifold.input.sql    import SQLParser
-from manifold.test.config  import auth
 from manifold.core.router  import Router
 from manifold.auth         import Auth
 
