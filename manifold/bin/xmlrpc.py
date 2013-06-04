@@ -44,11 +44,6 @@ class XMLRPCDaemon(Daemon):
         """
         \brief Constructor
         """
-        self.init_options()
-        Log.init_options()
-        Daemon.init_options()
-        Options().parse()
-        
         # XXX how to avoid option conflicts : have a list of reserved ones for consistency
         # XXX can we support option groups ?
         
@@ -145,6 +140,11 @@ class XMLRPCDaemon(Daemon):
         ReactorThread().stop_reactor()
 
 def main():
+    XMLRPCDaemon.init_options()
+    Log.init_options()
+    Daemon.init_options()
+    Options().parse()
+    
     XMLRPCDaemon().start()
 
 if __name__ == '__main__':
