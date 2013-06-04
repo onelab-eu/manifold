@@ -13,5 +13,6 @@ class Forwarder(Interface):
         qp = QueryPlan()
         qp.build_simple(query, self.metadata, self.allowed_capabilities)
         self.instanciate_gateways(qp, user)
-        results = qp.execute()
-        return ResultValue.get_result_value(results, qp.get_result_value_array())
+        d = defer.Deferred() if deferred else None
+        # the deferred object is sent to execute function of the query_plan
+        return qp.execute(d)

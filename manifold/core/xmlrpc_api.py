@@ -52,21 +52,25 @@ class XMLRPCAPI(xmlrpc.XMLRPC, object):
             user = None
 
         query = Query(query)
-        try:
-            rv = self.interface.forward(query, user=user)
-            # replace ResultValue by dict
+        # self.interface is either a Router or a Forwarder
+        deferred = self.interface.forward(query, user=user, deferred=True)
+        def process_results(rv):
             if 'description' in rv and isinstance(rv['description'], list):
                 rv['description'] = [dict(x) for x in rv['description']]
             return dict(rv)
-
-        except Exception, e:
+        def handle_exceptions(failure):
+            e = failure.trap(Exception)
             ret = dict(ResultValue(
-                origin      = (ResultValue.CORE, self.__class__.__name__),
-                type        = ResultValue.ERROR, 
-                code        = ResultValue.ERROR,
-                description = str(e),
-                traceback   = traceback.format_exc()))
+               origin      = (ResultValue.CORE, self.__class__.__name__),
+               type        = ResultValue.ERROR,
+               code        = ResultValue.ERROR,
+               description = str(e),
+               traceback   = traceback.format_exc()))
             return ret
+        # deferred receives results asynchronously
+        # Callbacks are triggered process_results if success and handle_exceptions if errors
+        deferred.addCallbacks(process_results, handle_exceptions)
+        return deferred
 
     def _xmlrpc_action(self, action, *args):
         # The first argument is eventually an authentication token

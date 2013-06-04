@@ -14,30 +14,21 @@
 # adjacency_iter(), but the edges() method is often more convenient.
 
 import copy
-from networkx                                         import DiGraph
-#from networkx.algorithms.traversal.depth_first_search import dfs_preorder_nodes
+from networkx                      import DiGraph
 from manifold.core.table           import Table 
 from manifold.core.key             import Key
 from manifold.core.query           import Query, AnalyzedQuery 
 from manifold.core.dbgraph         import find_root
 from manifold.core.relation        import Relation
 from manifold.core.filter          import Filter
-#from manifold.core.pruned_tree     import build_pruned_tree
 from manifold.core.ast             import AST
-#from manifold.operators.From       import From
-#from manifold.operators.selection  import Selection
-#from manifold.operators.projection import Projection
-#from manifold.operators.union      import Union
-#from manifold.operators.subquery   import SubQuery
-#from manifold.operators.demux      import Demux
-#from manifold.operators.dup        import Dup
 from manifold.util.predicate       import Predicate, contains, eq
 from manifold.util.type            import returns, accepts
 from manifold.util.callback        import Callback
-#from manifold.util.dfs             import dfs
 from manifold.util.log             import Log
 from manifold.models.user          import User
 from manifold.util.misc            import make_list
+from manifold.core.result_value    import ResultValue
 
 class QueryPlan(object):
 
@@ -372,14 +363,17 @@ class QueryPlan(object):
 
         self.ast.dump()
 
-
-    def execute(self, callback=None):
-        cb = callback if callback else Callback()
+    def execute(self, deferred=None):
+        cb = Callback(deferred)
         self.ast.set_callback(cb)
         self.ast.start()
-        if not callback:
-            return cb.get_results()
-        return
+        if not deferred:
+            results = cb.get_results()
+            results = ResultValue.get_result_value(results, self.get_result_value_array())
+            return results
+        # Formating results in a Callback for asynchronous execution
+        deferred.addCallback(lambda results:ResultValue.get_result_value(results, self.get_result_value_array()))
+        return deferred
 
     def dump(self):
         self.ast.dump()
