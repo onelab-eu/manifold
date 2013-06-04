@@ -313,13 +313,10 @@ class SubQuery(Node):
         # SUBQUERY
         parent_filter = Filter()
         for predicate in filter:
-            print "PARENT QUERY FIELDS", self.parent.get_query().fields
             if predicate.key in self.parent.get_query().fields:
                 parent_filter.add(predicate)
             else:
-                print "PREDICATE=", predicate
-#mando                raise Exception, "SubQuery::optimize_selection() is only partially implemented"
-                Log.warning("SubQuery::optimize_selection() is only partially implemented")
+                Log.warning("SubQuery::optimize_selection() is only partially implemented : %r" % predicate)
 
         if parent_filter:
             self.parent = self.parent.optimize_selection(parent_filter)
@@ -332,38 +329,20 @@ class SubQuery(Node):
         child_fields = []
         parent_fields = False
 
-        fields |= self.get_query().get_select()
-        
-        print '-'*80
-        print "SUBQUERY:: optimize_projection"
-        print '-'*80
-
         for i, child in enumerate(self.children):
-            print "CHILD=========="
             parent_keys   |= self.predicates[i].get_field_names()
             parent_fields &= not parent_keys <= fields
 
             child_key.append(self.predicates[i].get_value_names())
             child_fields  = fields & child.get_query().get_select()
-            print "FIELDS=", fields
-            print "Q select=", child.get_query().get_select()
             child_fields |= child_key[i]
 
-            print "SQ child_fields=", child_fields
-            print "CHILD OPTIMIZE PROJECTION"
             self.children[i] = child.optimize_projection(child_fields)
 
-            print "parent_keys", parent_keys
-            print "parent_fields", parent_fields
-
-        print "DONE WITH CHILDREN"
         if parent_fields:
-            print "parent ?"
             old_self_callback = self.get_callback()
             projection = Projection(self, fields)
             projection.set_callback(old_self_callback)
-            print "parent and sq done"
             return projection
-        print "sq done"
         return self
             

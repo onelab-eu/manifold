@@ -61,7 +61,7 @@ class resource {
 #    const text      services;
     const int       site_id;
 #    const text      resource_type;
-	slice			slice[];
+    slice    slice[];
     KEY(resource_hrn);
 	CAPABILITY(retrieve,join);
 };

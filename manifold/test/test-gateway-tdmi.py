@@ -57,7 +57,6 @@ def make_tdmi_router():
     # Our Forwarder does not need any capability since pgsql is
     return Router(platform)
 
-@returns(ResultValue)
 @accepts(Router, Query)
 def run_query(router, query):
     """
@@ -67,8 +66,12 @@ def run_query(router, query):
         query: The query instance send to the TDMI's router
     """
     print "=" * 80
-    return router.forward(query)
-
+    result_value = router.forward(query)
+    if result_value["code"] == ResultValue.SUCCESS:
+        for record in result_value["value"]:
+            print_record(record)
+    else:
+        Log.error("Failed to run query:\n\n%s" % query)
 
 # Print metadata stored in the router
 @accepts(Router)
@@ -81,7 +84,7 @@ def dump_routing_table(router):
 
 
 router = make_tdmi_router()
-#dump_routing_table(router)
+dump_routing_table(router)
 
 queries = [
     # Query traceroute
@@ -127,10 +130,8 @@ queries = [
     )
 ]
 
-for query in queries:
-    result_value = run_query(router, query)
-    if result_value["code"] == ResultValue.SUCCESS:
-        for record in result_value["value"]:
-            print_record(record)
-    else:
-        Log.error("Failed to run query:\n\n%s" % query)
+#for query in queries:
+#    run_query(router, query)
+print "queries[0] = %r" % queries[0]
+run_query(router, queries[0])
+
