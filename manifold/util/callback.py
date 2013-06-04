@@ -22,7 +22,7 @@ class Callback:
         self.cache_id = cache_id
 
     def __call__(self, value):
-        Log.tmp("call: ",value)
+        # End of the list of records sent by Gateway
         if value == LAST_RECORD:
             if self.cache_id:
                 # Add query results to cache (expires in 30min)
@@ -30,11 +30,14 @@ class Callback:
                 self.router.cache[self.cache_id] = (self.results, time.time() + CACHE_LIFETIME)
 
             if self._deferred:
+                # Send results back using deferred object
                 self._deferred.callback(self.results)
             else:
+                # Not using deferred, trigger the event to return results
                 self.event.set()
             return self.event
 
+        # Not LAST_RECORD add the value to the results
         self.results.append(value)
 
     def wait(self):

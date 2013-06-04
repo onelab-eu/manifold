@@ -36,6 +36,7 @@ class XMLRPCAPI(xmlrpc.XMLRPC, object):
         super(XMLRPCAPI, self).__init__(**kwargs)
 
     # QUERIES
+    # xmlrpc_forward function is called by the Query of the user using xmlrpc
     def xmlrpc_forward(self, *args):
         """
         """
@@ -53,7 +54,8 @@ class XMLRPCAPI(xmlrpc.XMLRPC, object):
 
         query = Query(query)
         # self.interface is either a Router or a Forwarder
-        deferred = self.interface.forward(query, user=user, deferred=True)
+        # forward function is called with is_deferred = True in args
+        deferred = self.interface.forward(query, user=user, is_deferred=True)
         def process_results(rv):
             if 'description' in rv and isinstance(rv['description'], list):
                 rv['description'] = [dict(x) for x in rv['description']]
