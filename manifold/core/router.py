@@ -60,7 +60,7 @@ class Router(Interface):
         ReactorThread().start_reactor()
         return self
 
-    def __exit__(self, type, value, traceback):
+    def __exit__(self, type=None, value=None, traceback=None):
         ReactorThread().stop_reactor()
 
     # This function is directly called for a Router
