@@ -33,7 +33,6 @@ def main():
         'platform': name,
         'platform_longname': longname,
         'gateway_type': gateway,
-        'gateway_conf':config,
         'auth_type':auth_type,
         'config': config,
         'disabled': disabled
