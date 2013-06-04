@@ -1,5 +1,4 @@
 from manifold.operators      import LAST_RECORD
-from manifold.util.log       import Log
 import threading
 
 #------------------------------------------------------------------
@@ -22,7 +21,6 @@ class Callback:
         self.cache_id = cache_id
 
     def __call__(self, value):
-        Log.tmp("call: ",value)
         if value == LAST_RECORD:
             if self.cache_id:
                 # Add query results to cache (expires in 30min)

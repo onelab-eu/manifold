@@ -70,16 +70,19 @@ class Shell(object):
     def __init__(self, interactive=False):
         # If user is specified but password is not
         username = Options().user
+        password = Options().password
+
+        if username != DEFAULT_USER and password == DEFAULT_PASSWORD:
+            if interactive:
+                _password = getpass("Enter password for '%s' (or ENTER to keep default):" % username)
+                if _password:
+                    password = password
+            else:
+                Log.warning("No password specified, using default.")
 
         if Options().xmlrpc:
-            password = Options().password
             try:
                 Log.tmp("username", username, "- password", password)
-                if username != DEFAULT_USER and password == DEFAULT_PASSWORD:
-                    if interactive:
-                        password = getpass('Enter XMLRPC API password:')
-                    else:
-                        Log.warning("No password specified, using default.")
             except (EOFError, KeyboardInterrupt):
                 print
                 sys.exit(0)
@@ -88,7 +91,7 @@ class Shell(object):
             url = Options().xmlrpc_url
             self.interface = xmlrpclib.ServerProxy(url, allow_none=True)
 
-            mode_str      = 'local'
+            mode_str      = 'XMLRPC'
             interface_str = ' towards XMLRPC API %s' % self.interface
         else:
             import atexit
@@ -97,7 +100,7 @@ class Shell(object):
             self.interface.__enter__()
             self.auth = username
 
-            mode_str      = 'XMLRPC'
+            mode_str      = 'local'
             interface_str = ''
 
         self.auth = {'AuthMethod': 'password', 'Username': username, 'AuthString': password}
@@ -124,7 +127,6 @@ class Shell(object):
         # XXX this line will differ between xmlrpc and local calls
         if Options().xmlrpc:
             # XXX The XMLRPC server might not require authentication
-            print query
             ret = self.interface.forward(self.auth, query.to_dict())
         else:
             ret = self.interface.forward(query, user=self.auth)
