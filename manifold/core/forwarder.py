@@ -17,7 +17,8 @@ from manifold.core.router       import Router
 class Forwarder(Interface):
 
     # XXX This could be made more generic with the router
-
+    # Forwarder class is an Interface 
+    # builds the query plan, instanciate the gateways and execute query plan using deferred if required
     def forward(self, query, deferred = False, execute = True, user = None):
         """
         Process a query.
@@ -36,5 +37,6 @@ class Forwarder(Interface):
         qp = QueryPlan()
         qp.build_simple(query, self.metadata, self.allowed_capabilities)
         self.instanciate_gateways(qp, user, query.get_timestamp())
-        results = qp.execute()
-        return ResultValue.get_result_value(results, qp.get_result_value_array())
+        d = defer.Deferred() if is_deferred else None
+        # the deferred object is sent to execute function of the query_plan
+        return qp.execute(d)
