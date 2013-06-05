@@ -133,7 +133,7 @@ class Projection(Node):
         self.send(record)
 
     def optimize_selection(self, filter):
-        print "W: Projection::optimize_selection() not implemented"
+        self.child = self.child.optimize_selection(filter)
         return self
 
     def optimize_projection(self, fields):

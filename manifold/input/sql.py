@@ -49,7 +49,7 @@ class SQLParser(object):
 
         field_list = pp.delimitedList(field).setParseAction(lambda tokens: set(tokens.asList()))
 
-        table = pp.Word(pp.alphanums + '_')
+        table = pp.Word(pp.alphanums + ':_')
         query = (kw_select + field_list + kw_from + table + kw_where + clause | kw_select + field_list + kw_from + table).setParseAction(self.handleGet)
 
         self.bnf = query
