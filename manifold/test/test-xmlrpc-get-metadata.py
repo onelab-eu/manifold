@@ -14,7 +14,8 @@ def print_err(err):
     print ''
 
 q = {
-    'object': 'local:object'
+    'object': 'local:object',
+    'filters': [['table', '==', 'asn']]
 }
 
 ret = srv.forward(auth, q)

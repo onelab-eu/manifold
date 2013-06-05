@@ -31,6 +31,19 @@ from manifold.util.options      import Options
 from manifold.util.daemon       import Daemon
 from manifold.util.callback     import Callback
 
+# Let's try to load this before twisted
+import xmlrpclib
+
+from manifold.types.string      import string
+from manifold.types.int         import int
+from manifold.types.inet        import inet
+from manifold.types.hostname    import hostname
+
+xmlrpclib.Marshaller.dispatch[string]   = xmlrpclib.Marshaller.dump_string
+xmlrpclib.Marshaller.dispatch[int]      = xmlrpclib.Marshaller.dump_int
+xmlrpclib.Marshaller.dispatch[inet]     = xmlrpclib.Marshaller.dump_string
+xmlrpclib.Marshaller.dispatch[hostname] = xmlrpclib.Marshaller.dump_string
+
 #-------------------------------------------------------------------------------
 # Class XMLRPCDaemon
 #-------------------------------------------------------------------------------
