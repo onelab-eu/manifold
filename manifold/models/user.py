@@ -7,5 +7,5 @@ class User(Base):
     user_id = Column(Integer, primary_key=True, doc="User identifier")
     email = Column(String, doc="User email")
     password = Column(String, doc="User password")
-    
+    config = Column(String, doc="User password")
 
