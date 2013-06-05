@@ -215,7 +215,14 @@ class Log(object):
         if logger:
             logger.debug("%s(): %s" % (inspect.stack()[2][3], msg))
         else:
-            cls.msg(' '.join(map(lambda x: "%r"%x, make_list(msg))), 'DEBUG', caller_name())
+            l = []
+            #msg = make_list(msg)
+            for m in msg:
+                m = make_list(m)
+                l.append(m)
+            msg = l
+            cls.msg(' '.join(map(lambda x: "%r"%x,msg)), 'DEBUG', caller_name())
+            #cls.msg(' '.join(map(lambda x: "%r"%x, make_list(msg))), 'DEBUG', caller_name())
 
     @classmethod
     def tmp(cls, *msg):
