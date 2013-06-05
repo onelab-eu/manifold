@@ -5,6 +5,7 @@ from manifold.core.query        import Query
 from manifold.util.options      import Options
 from twisted.web                import xmlrpc
 from manifold.core.result_value import ResultValue
+from manifold.util.log          import Log
 
 #-------------------------------------------------------------------------------
 # Class XMLRPCAPI
@@ -47,9 +48,9 @@ class XMLRPCAPI(xmlrpc.XMLRPC, object):
     def xmlrpc_forward(self, *args):
         """
         """
-        print "-------------------"
-        print "xmlrpc_api args = ",self.display_query(args)
-        print "-------------------"
+        Log.debug("-------------------")
+        Log.debug("xmlrpc_api args = ",self.display_query(args))
+        Log.debug("-------------------")
         if not Options().disable_auth:
             assert len(args) == 2, "Wrong arguments for XMLRPC forward call"
             auth, query = args
@@ -66,6 +67,8 @@ class XMLRPCAPI(xmlrpc.XMLRPC, object):
         def process_results(rv):
             if 'description' in rv and isinstance(rv['description'], list):
                 rv['description'] = [dict(x) for x in rv['description']]
+            # Print Results
+            Log.tmp(dict(rv))
             return dict(rv)
         def handle_exceptions(failure):
             e = failure.trap(Exception)

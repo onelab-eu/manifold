@@ -828,10 +828,11 @@ class SFAGateway(Gateway):
     # This function will return information about a given network using SFA GetVersion call
     # Depending on the object Queried, if object is network then get_network is triggered by
     # result = getattr(self, "%s_%s" % (q.action, q.object))(local_filters, q.params, fields)
+    @defer.inlineCallbacks
     def get_network(self, filters = None, params = None, fields = None):
         # Network (AM) 
         server = self.sliceapi
-        version = self.get_cached_server_version(server)
+        version = yield self.get_cached_server_version(server)
         # Hardcoding the get network call until caching is implemented
         #if q.action == 'get' and q.object == 'network':
         #platforms = db.query(Platform).filter(Platform.disabled == False).all()
@@ -843,18 +844,27 @@ class SFAGateway(Gateway):
         #    print r
 
         # forward what has been retrieved from the SFA GetVersion call
-        result=version
-        
-        if version is not None:
-            # add these fields to match MySlice needs
-            for k,v in version.items():
-                if k=='hrn':
-                    result['network_hrn']=v
-                if k=='testbed':
-                    result['network_name']=v
-            #result={'network_hrn': version['hrn'], 'network_name': version['testbed']}
-            #print "SfaGateway::get_network() =",result
-        return [result]
+        #result=version
+        output = {}
+        # add these fields to match MySlice needs
+        for k,v in version.items():
+            if k=='hrn':
+                output['network_hrn']=v
+            if k=='testbed':
+                output['network_name']=v
+        #result={'network_hrn': version['hrn'], 'network_name': version['testbed']}
+        defer.returnValue([output])
+
+        #if version is not None:
+        #    # add these fields to match MySlice needs
+        #    for k,v in version.items():
+        #        if k=='hrn':
+        #            result['network_hrn']=v
+        #        if k=='testbed':
+        #            result['network_name']=v
+        #    #result={'network_hrn': version['hrn'], 'network_name': version['testbed']}
+        #    #print "SfaGateway::get_network() =",result
+        #return [result]
 
     def get_slice_demo(self, filters, params, fields):
             print "W: Demo hook"
