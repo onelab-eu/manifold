@@ -20,8 +20,8 @@ def print_err(err):
         print "\t", line
     print ""
 
-query = Query.get("traceroute").select([
-select = [
+query = Query.get("traceroute").select(
+[
     "src_ip",
     "src_hostname",
     "dst_ip",
@@ -30,7 +30,7 @@ select = [
 #    "hops.ttl",
 #    "hops.hostname"
 ]).filter_by([
-    ("src_ip", "=", 141.22.213.34),
+    ("src_ip", "=", "141.22.213.34"),
     ("dst_ip", "=", "139.91.90.239") # or 195.116.60.211
 ]).at("2012-09-09 14:30:09")
 

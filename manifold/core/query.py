@@ -307,11 +307,11 @@ class Query(object):
             raise Exception, 'Invalid expression for filter'
         return self
             
-    def select(self, fields):
+    def select(self, fields=None):
         if not fields:
             # Delete all fields
             self.fields = set()
-            return
+            return self
         if not isinstance(fields, (set, list, tuple)):
             fields = [fields]
         for field in fields:

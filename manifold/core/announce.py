@@ -162,7 +162,7 @@ def import_file_h(filename):
                     print "I: Adding implicit key %s in %s" % (key_name, cur_class_name) 
                     dummy_key_field = Field("const", "unsigned", key_name, False, "Dummy key");
                     cur_class.insert_field(dummy_key_field)
-                    cur_class.keys.add(Key([dummy_key_field]))
+                    cur_class.insert_key(Key([dummy_key_field]))
                 cur_class_name = None
                 continue
 
