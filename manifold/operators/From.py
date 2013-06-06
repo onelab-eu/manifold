@@ -25,6 +25,7 @@ class From(Node):
             \sa manifold.core.table.py
         \param query A Query instance: the query passed to the gateway to fetch records 
         """
+        print "FROM", query
         assert isinstance(query, Query), "Invalid type: query = %r (%r)" % (query, type(query))
         # XXX replaced by platform name (string)
         #assert isinstance(table, Table), "Invalid type: table = %r (%r)" % (table, type(table))
@@ -170,6 +171,12 @@ class From(Node):
             selection = Selection(self, filter)
             #selection.query = self.query.copy().filter_by(filter)
             selection.set_callback(old_self_callback)
+
+            if self.capabilities.fullquery:
+                # We also push the filter down into the node
+                for p in filter:
+                    self.query.filters.add(p)
+
             return selection
 
     def optimize_projection(self, fields):
