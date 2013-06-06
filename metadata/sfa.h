@@ -4,7 +4,7 @@ class slice {
     lease       lease[];       /**< List of leases associated to the slice */
     user        user[];        /**< List of users associated to the slice */
     KEY(slice_hrn);
-	CAPABILITY(retrieve,join,selection);
+	CAPABILITY(retrieve,join,fullquery);
 };
 
 class lease {
@@ -63,7 +63,7 @@ class resource {
 #    const text      resource_type;
     slice    slice[];
     KEY(resource_hrn);
-	CAPABILITY(retrieve,join);
+	CAPABILITY(retrieve,join,fullquery);
 };
 
 #>>> prov - need
