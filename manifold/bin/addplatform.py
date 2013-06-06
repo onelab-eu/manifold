@@ -40,7 +40,7 @@ def main():
         sys.exit(1)
 
     # Check GATEWAY
-    supported_gateways = ["SFA", "Manifold", "OML", "TDMI"]
+    supported_gateways = ["sfa", "manifold", "csv", "oml", "tdmi"]
     if gateway not in supported_gateways:
         print >> sys.stderr, "%s: Invalid NAME parameter (is '%s', should be in '%s')" % (program_name, gateway, "', '".join(supported_gateways))
         usage()
