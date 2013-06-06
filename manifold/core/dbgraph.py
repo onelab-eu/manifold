@@ -126,7 +126,7 @@ class DBGraph(object):
         \param v The target node (Table instance)
         """
         relations = self.get_relations(u,v)
-        relation_str = ', '.join(['%s %s' % (r.get_str_type(), r.get_predicate()) for r in relations])
+        relation_str = ', '.join(map(lambda r: "%r" % r, relations))
         return "%r -> %r : %s" % (u, v, relation_str)
 
     def plot(self):
@@ -163,6 +163,16 @@ class DBGraph(object):
                 return table
         return None
 
+    def is_parent(self, table_or_table_name):
+        return bool(self.get_parent(table_or_table_name))
+
+    def get_parent(self, table_or_table_name):
+        if isinstance(table_or_table_name, Table):
+            table_or_table_name = table_or_table_name.get_name()
+        for parent, _ in self.graph.in_edges(table_or_table_name):
+            if parent.get_name() == table_or_table_name:
+                return parent
+        
     def get_announce_tables(self):
         tables = []
         for table in self.graph.nodes(False):

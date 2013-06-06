@@ -154,7 +154,11 @@ class From(Node):
             self.gateway.set_callback(callback)
 
     def optimize_selection(self, filter):
-        if self.capabilities.selection:
+        key = self.key.get_field_names()
+        print "key", self.query.object, ": ", key
+        is_join = self.capabilities.join and filter.get_field_names() < key | set([self.query.object]) == filter.get_field_names()
+        print "is_join)", is_join
+        if self.capabilities.selection or is_join:
             # Push filters into the From node
             self.query.filter_by(filter)
             #old for predicate in filter:

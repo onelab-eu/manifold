@@ -361,13 +361,19 @@ class AnalyzedQuery(Query):
         if not method in self._subqueries:
             analyzed_query = AnalyzedQuery(metadata=self.metadata)
             analyzed_query.action = self.action
-            type = self.metadata.get_field_type(self.object, method)
+            try:
+                type = self.metadata.get_field_type(self.object, method)
+            except ValueError ,e: # backwards 1..N
+                type = method
             analyzed_query.object = type
             self._subqueries[method] = analyzed_query
         return self._subqueries[method]
 
     def get_subquery(self, method):
         return self._subqueries.get(method, None)
+
+    def remove_subquery(self, method):
+        del self._subqueries[method]
 
     def get_subquery_names(self):
         return set(self._subqueries.keys())

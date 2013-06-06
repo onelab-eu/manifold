@@ -15,7 +15,7 @@ class SubQuery(Node):
     SUBQUERY operator (cf nested SELECT statements in SQL)
     """
 
-    def __init__(self, parent, children_ast_predicate_list, key): # KEY DEPRECATED
+    def __init__(self, parent, children_ast_relation_list, key): # KEY DEPRECATED
         """
         Constructor
         \param parent
@@ -29,10 +29,10 @@ class SubQuery(Node):
         # TODO  how do we guarantee an answer to a subquery ? we should branch
         # an empty FromList at query plane construction
         self.children = []
-        self.predicates = []
-        for ast, predicate in children_ast_predicate_list:
+        self.relations = []
+        for ast, relation in children_ast_relation_list:
             self.children.append(ast)
-            self.predicates.append(predicate)
+            self.relations.append(relation)
 
         # Member variables
         self.parent_output = []
@@ -129,7 +129,7 @@ class SubQuery(Node):
                 #intersection = parent_fields & child_fields
 
                 # The operation to be performed is understood only be looking at the predicate
-                predicate = self.predicates[i]
+                predicate = self.relations[i].get_predicate()
                 Log.debug("child %r, predicate=%r" % (child, predicate))
 
                 key, op, value = predicate.get_tuple()
@@ -143,6 +143,9 @@ class SubQuery(Node):
                     old_child_callback= child.get_callback()
                     self.children[i] = child.optimize_selection(Filter().filter_by(predicate))
                     self.children[i].set_callback(old_child_callback)
+
+                    print "INJECT"
+                    self.dump(indent=2)
 
                 elif op == contains:
                     # 1..N
@@ -229,7 +232,7 @@ class SubQuery(Node):
             # Dispatching child results
             for i, child in enumerate(self.children):
 
-                predicate = self.predicates[i]
+                predicate = self.relations[i].get_predicate()
                 Log.debug("child %r, predicate=%r" % (child, predicate))
 
                 key, op, value = predicate.get_tuple()
@@ -296,6 +299,7 @@ class SubQuery(Node):
         \brief Processes records received by a child node
         \param record dictionary representing the received record
         """
+        #Log.tmp(record)
         if record == LAST_RECORD:
             self.status.completed(child_id)
             return
@@ -313,6 +317,8 @@ class SubQuery(Node):
         # SUBQUERY
         parent_filter = Filter()
         for predicate in filter:
+            print "predicate.key", predicate.key
+            print "self.parent.get_query().fields", self.parent.get_query().fields
             if predicate.key in self.parent.get_query().fields:
                 parent_filter.add(predicate)
             else:
@@ -330,10 +336,11 @@ class SubQuery(Node):
         parent_fields = False
 
         for i, child in enumerate(self.children):
-            parent_keys   |= self.predicates[i].get_field_names()
+            predicate = self.relations[i].get_predicate()
+            parent_keys   |= predicate.get_field_names()
             parent_fields &= not parent_keys <= fields
 
-            child_key.append(self.predicates[i].get_value_names())
+            child_key.append(predicate.get_value_names())
             child_fields  = fields & child.get_query().get_select()
             child_fields |= child_key[i]
 
