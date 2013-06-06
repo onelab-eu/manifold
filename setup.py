@@ -36,6 +36,7 @@ setup(
     scripts=['scripts/myslice-reset-db.sh', 'scripts/myslice-init-db.sh'],
     entry_points={
         'console_scripts': [
+            'manifold-shell = manifold.bin.shell:main',
             'manifold-xmlrpc = manifold.bin.xmlrpc:main',
             'myslice-sfa-delegate = manifold.bin.delegate:main',
             'myslice-init-db = manifold.bin.initdb:main',
