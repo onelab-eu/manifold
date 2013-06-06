@@ -16,6 +16,11 @@ from manifold.core.router          import Router
 from manifold.util.storage         import DBStorage
 from manifold.util.type            import returns, accepts 
 from manifold.util.log             import Log
+from manifold.util.options         import Options
+
+Log.init_options()
+Options().parse()
+
 
 @accepts(dict)
 def print_record(record):
@@ -79,9 +84,8 @@ def dump_routing_table(router):
     for platform, announces in router.metadata.items():
         print "*** Platform %s:" % platform
         for announce in announces:
-            print ">> %r (cost %r)" % (announce.get_table(), announce.get_cost())
-            print "%s\n" % announce.get_table()
-
+            table = announce.get_table()
+            print ">> %r (cost %r)\n%s\n%s" % (table, announce.get_cost(), table, table.get_capabilities())
 
 router = make_tdmi_router()
 dump_routing_table(router)
@@ -132,6 +136,6 @@ queries = [
 
 #for query in queries:
 #    run_query(router, query)
-print "queries[0] = %r" % queries[0]
-run_query(router, queries[0])
+print "queries[1] = %r" % queries[1]
+run_query(router, queries[1])
 
