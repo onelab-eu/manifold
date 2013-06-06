@@ -596,7 +596,16 @@ class Table(object):
 
         relations = set()
 
+        u_key = u.keys.one()
         v_key = v.keys.one()
+
+        if u.get_name() == v.get_name():
+            p = Predicate(u_key.get_name(), eq, v_key.get_name())
+            if u.get_platforms() > v.get_platforms():
+                relations.add(Relation(Relation.types.PARENT, p))
+            #else:
+            #    relations.add(Relation(Relation.types.CHILD, p))
+            return relations
 
         for field in u.get_fields():
             # 1. A field in u is explicitly typed againt v name
@@ -609,7 +618,7 @@ class Table(object):
                     relations.add(Relation(Relation.types.LINK_1N, p)) # LINK_1N_FORWARD
                 else:
                     if False: # field == key
-                        relations.add(Relation(Relation.types.PARENT, p)) # in which direction ?????
+                        relations.add(Relation(Relation.types.PARENT, p, name=field.get_name())) # in which direction ?????
                     else:
                         if field.is_local():
                             relations.add(Relation(Relation.types.LINK_11, p))
@@ -642,7 +651,7 @@ class Table(object):
                 # How to consider inheritance ?
                 vfield = [f for f in v_key if f.get_type() == field.get_type()][0]
                 p = Predicate(field.get_name(), eq, vfield.get_name())
-                relations.add(Relation(Relation.types.LINK_1N, p)) # LINK_1N_FORWARD ?
+                relations.add(Relation(Relation.types.LINK_1N, p, name=field.get_name())) # LINK_1N_FORWARD ?
                 continue
         
 
@@ -656,8 +665,6 @@ class Table(object):
             return relations
 
         # --- REVERSE RELATIONS
-        u_key = u.keys.one()
-
         for field in v.get_fields():
             # (6) inv of (1) a field in v points to an existing type
             # we could say we only look at key types at this stage
@@ -667,7 +674,9 @@ class Table(object):
                     continue
                 p = Predicate(u_key.get_name(), eq, field.get_name())
                 if field.is_array():
-                    relations.add(Relation(Relation.types.COLLECTION, p)) # a u is many v ? approve this type
+                    relations.add(Relation(Relation.types.LINK_1N, p, name = v.get_name()))
+                    ### was: COLLECTION, p)) # a u is many v ? approve this type
+                    #relations.add(Relation(Relation.types.COLLECTION, p)) # a u is many v ? approve this type
                 else:
                     # if u parent
                     if v.is_child_of(u):
@@ -675,7 +684,7 @@ class Table(object):
                     elif u.is_child_of(v):
                          relations.add(Relation(Relation.types.PARENT, p))
                     else:
-                        relations.add(Relation(Relation.types.LINK_1N, p)) # LINK_1N_BACKWARD
+                        relations.add(Relation(Relation.types.LINK_1N, p, name=v.get_name())) # LINK_1N_BACKWARD
 
         return relations
 
@@ -732,14 +741,6 @@ class Table(object):
                 invalid_keys.append(key)
                 break
         return invalid_keys
-
-    def get_field_names(self):
-        """
-        \return The list of the fields in the MetadataClass
-        """
-        #return [field.get_name() for field in self.fields]
-        # XXX Shell we keep a dictionary for fields ?
-        return self.fields.keys()
 
     def get_invalid_types(self, valid_types):
         """

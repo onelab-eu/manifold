@@ -63,16 +63,14 @@ def main():
 
     disabled = str(sys.argv[6]) in ["False", "FALSE", "NO", "0"]
 
-    # @loic added gateway_conf
     # why 2 different fields for the same config ?
     platform_params = {
-        "platform"          : name,
-        "platform_longname" : longname,
-        "gateway_type"      : gateway,
-        "gateway_conf"      : config,
-        "auth_type"         : auth_type,
-        "config"            : config,
-        "disabled"          : disabled
+        'platform': name,
+        'platform_longname': longname,
+        'gateway_type': gateway,
+        'auth_type':auth_type,
+        'config': config,
+        'disabled': disabled
     }
 
     # Add in the Manifold's storage (local) in the 'platform' table the

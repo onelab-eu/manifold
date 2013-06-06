@@ -332,7 +332,7 @@ class SFAGateway(Gateway):
         if new_user_config:
             self.user_config = new_user_config
 
-       # Initialize manager proxies using MySlice Admin account
+        # Initialize manager proxies using MySlice Admin account
         self.registry = self.make_user_proxy(self.config['registry'], self.admin_config)
         self.sliceapi = self.make_user_proxy(self.config['sm'],       self.admin_config)
 
@@ -594,11 +594,6 @@ class SFAGateway(Gateway):
             if target:
                 raise Exception, "Cannot retrieve specific user credential for now"
             try:
-                for k, v in self.user_config.items():
-                    if not 'credential' in k:
-                        print k, v
-                    else:
-                        print k
                 return self.user_config['%suser_credential'%delegated]
             except TypeError, e:
                 raise Exception, "Missing user credential %s" %  str(e)
@@ -833,10 +828,11 @@ class SFAGateway(Gateway):
     # This function will return information about a given network using SFA GetVersion call
     # Depending on the object Queried, if object is network then get_network is triggered by
     # result = getattr(self, "%s_%s" % (q.action, q.object))(local_filters, q.params, fields)
+    @defer.inlineCallbacks
     def get_network(self, filters = None, params = None, fields = None):
         # Network (AM) 
         server = self.sliceapi
-        version = self.get_cached_server_version(server)
+        version = yield self.get_cached_server_version(server)
         # Hardcoding the get network call until caching is implemented
         #if q.action == 'get' and q.object == 'network':
         #platforms = db.query(Platform).filter(Platform.disabled == False).all()
@@ -848,18 +844,27 @@ class SFAGateway(Gateway):
         #    print r
 
         # forward what has been retrieved from the SFA GetVersion call
-        result=version
-        
-        if version is not None:
-            # add these fields to match MySlice needs
-            for k,v in version.items():
-                if k=='hrn':
-                    result['network_hrn']=v
-                if k=='testbed':
-                    result['network_name']=v
-            #result={'network_hrn': version['hrn'], 'network_name': version['testbed']}
-            #print "SfaGateway::get_network() =",result
-        return [result]
+        #result=version
+        output = {}
+        # add these fields to match MySlice needs
+        for k,v in version.items():
+            if k=='hrn':
+                output['network_hrn']=v
+            if k=='testbed':
+                output['network_name']=v
+        #result={'network_hrn': version['hrn'], 'network_name': version['testbed']}
+        defer.returnValue([output])
+
+        #if version is not None:
+        #    # add these fields to match MySlice needs
+        #    for k,v in version.items():
+        #        if k=='hrn':
+        #            result['network_hrn']=v
+        #        if k=='testbed':
+        #            result['network_name']=v
+        #    #result={'network_hrn': version['hrn'], 'network_name': version['testbed']}
+        #    #print "SfaGateway::get_network() =",result
+        #return [result]
 
     def get_slice_demo(self, filters, params, fields):
             print "W: Demo hook"
@@ -909,39 +914,63 @@ class SFAGateway(Gateway):
         # 
 
         # Let's find some additional information in filters in order to restrict our research
-        # 1) user's slices
-        
-        # 2) given authority
-        auth_hrn = filters.get_op('authority_hrn', [eq, lt, le])
-        recursive = True
+        slice_name = make_list(filters.get_op('slice_hrn', eq))
+        auth_hrn = make_list(filters.get_op('authority_hrn', [eq, lt, le]))
 
-        auth_hrn = make_list(auth_hrn)
-        if not auth_hrn:
-            stack = [self.interface_hrn]
-        else:
+        # recursive: Should be based on jokers, eg. ple.upmc.*
+        # resolve  : True: make resolve instead of list
+        if slice_name:
+            # 0) given slice name
+            # Check for jokers ?
+            stack     = slice_name
+            resolve   = True
+
+        elif auth_hrn:
+            # 2) given authority
+            resolve   = False
+            recursive = False
             stack = []
             for hrn in auth_hrn:
                 if not '*' in hrn: # jokers ?
                     stack.append(hrn)
+                else:
+                    stack = [self.interface_hrn]
+                    break
 
+        else: # Nothing given
+            resolve   = False
+            recursive = True
+            stack = [self.interface_hrn]
+        
+        # TODO: user's slices, use reg-researcher
+        
         cred = self._get_cred('user')
 
+        if resolve:
+            result = yield self.registry.Resolve(stack, cred)
+            defer.returnValue(result)
+        
         if len(stack) > 1:
             deferred_list = []
             while stack:
                 auth_xrn = stack.pop()
-                deferred_list.append(self.registry.List(auth_xrn, cred, {'recursive': recursive}))
+                Log.tmp("List(%r)" % auth_xrn)
+                d = self.registry.List(auth_xrn, cred, {'recursive': recursive})
+                deferred_list.append(d)
+                    
             result = yield defer.DeferredList(deferred_list)
 
             output = []
             for (success, records) in result:
                 if not success:
                     continue
+                pprint.pprint(records)
                 output.extend([r for r in records if r['type'] == 'slice'])
             defer.returnValue(output)
 
         else:
             auth_xrn = stack.pop()
+            Log.tmp("List(%r)" % auth_xrn)
             records = yield self.registry.List(auth_xrn, cred, {'recursive': recursive})
             defer.returnValue(records)
 
@@ -1176,6 +1205,8 @@ class SFAGateway(Gateway):
         # Note that we will have to inject the slice name into the resource object if not done by the parsing.
         # slice - resource is a NxN relationship, not well managed so far
 
+        Log.tmp("get_resource_lease", filters)
+
         slice_hrns = make_list(filters.get_eq('slice_hrn'))
         # XXX ONLY ONE AND WITHOUT JOKERS
         slice_hrn = slice_hrns[0] if slice_hrns else None
@@ -1215,6 +1246,13 @@ class SFAGateway(Gateway):
 
         rspec      = result['value']
         rsrc_slice = self.parse_sfa_rspec(rspec)
+
+        if slice_hrn:
+            for r in rsrc_slice['resource']:
+                r['slice'] = slice_hrn
+
+            print "SLICE_HRN", slice_hrn
+            print rsrc_slice['resource'][0]
 
         if self.debug:
             rsrc_slice['debug'] = {'rspec': rspec}
@@ -1279,13 +1317,10 @@ class SFAGateway(Gateway):
                 self.send(LAST_RECORD)
                 return
 
-            print "BEFORE BOOTSTRAP"
             yield self.bootstrap()
-            print "AFTER BOOTSTRAP"
             q = self.query
 
             fields = q.fields # Metadata.expand_output_fields(q.object, list(q.fields))
-            print "CALLING",  "%s_%s" % (q.action, q.object)
             result = yield getattr(self, "%s_%s" % (q.action, q.object))(q.filters, q.params, fields)
             key = self.interface.metadata_get_keys(q.object).one().get_names()
             filtered = project_select_and_rename_fields(result, key, self.query.filters, self.query.fields, self.map_slice_fields)
