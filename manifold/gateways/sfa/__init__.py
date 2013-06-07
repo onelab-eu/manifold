@@ -332,7 +332,7 @@ class SFAGateway(Gateway):
         if new_user_config:
             self.user_config = new_user_config
 
-       # Initialize manager proxies using MySlice Admin account
+        # Initialize manager proxies using MySlice Admin account
         self.registry = self.make_user_proxy(self.config['registry'], self.admin_config)
         self.sliceapi = self.make_user_proxy(self.config['sm'],       self.admin_config)
 
@@ -914,39 +914,63 @@ class SFAGateway(Gateway):
         # 
 
         # Let's find some additional information in filters in order to restrict our research
-        # 1) user's slices
-        
-        # 2) given authority
-        auth_hrn = filters.get_op('authority_hrn', [eq, lt, le])
-        recursive = True
+        slice_name = make_list(filters.get_op('slice_hrn', eq))
+        auth_hrn = make_list(filters.get_op('authority_hrn', [eq, lt, le]))
 
-        auth_hrn = make_list(auth_hrn)
-        if not auth_hrn:
-            stack = [self.interface_hrn]
-        else:
+        # recursive: Should be based on jokers, eg. ple.upmc.*
+        # resolve  : True: make resolve instead of list
+        if slice_name:
+            # 0) given slice name
+            # Check for jokers ?
+            stack     = slice_name
+            resolve   = True
+
+        elif auth_hrn:
+            # 2) given authority
+            resolve   = False
+            recursive = False
             stack = []
             for hrn in auth_hrn:
                 if not '*' in hrn: # jokers ?
                     stack.append(hrn)
+                else:
+                    stack = [self.interface_hrn]
+                    break
 
+        else: # Nothing given
+            resolve   = False
+            recursive = True
+            stack = [self.interface_hrn]
+        
+        # TODO: user's slices, use reg-researcher
+        
         cred = self._get_cred('user')
 
+        if resolve:
+            result = yield self.registry.Resolve(stack, cred)
+            defer.returnValue(result)
+        
         if len(stack) > 1:
             deferred_list = []
             while stack:
                 auth_xrn = stack.pop()
-                deferred_list.append(self.registry.List(auth_xrn, cred, {'recursive': recursive}))
+                Log.tmp("List(%r)" % auth_xrn)
+                d = self.registry.List(auth_xrn, cred, {'recursive': recursive})
+                deferred_list.append(d)
+                    
             result = yield defer.DeferredList(deferred_list)
 
             output = []
             for (success, records) in result:
                 if not success:
                     continue
+                pprint.pprint(records)
                 output.extend([r for r in records if r['type'] == 'slice'])
             defer.returnValue(output)
 
         else:
             auth_xrn = stack.pop()
+            Log.tmp("List(%r)" % auth_xrn)
             records = yield self.registry.List(auth_xrn, cred, {'recursive': recursive})
             defer.returnValue(records)
 
@@ -1181,6 +1205,8 @@ class SFAGateway(Gateway):
         # Note that we will have to inject the slice name into the resource object if not done by the parsing.
         # slice - resource is a NxN relationship, not well managed so far
 
+        Log.tmp("get_resource_lease", filters)
+
         slice_hrns = make_list(filters.get_eq('slice_hrn'))
         # XXX ONLY ONE AND WITHOUT JOKERS
         slice_hrn = slice_hrns[0] if slice_hrns else None
@@ -1220,6 +1246,13 @@ class SFAGateway(Gateway):
 
         rspec      = result['value']
         rsrc_slice = self.parse_sfa_rspec(rspec)
+
+        if slice_hrn:
+            for r in rsrc_slice['resource']:
+                r['slice'] = slice_hrn
+
+            print "SLICE_HRN", slice_hrn
+            print rsrc_slice['resource'][0]
 
         if self.debug:
             rsrc_slice['debug'] = {'rspec': rspec}
@@ -1284,13 +1317,10 @@ class SFAGateway(Gateway):
                 self.send(LAST_RECORD)
                 return
 
-            print "BEFORE BOOTSTRAP"
             yield self.bootstrap()
-            print "AFTER BOOTSTRAP"
             q = self.query
 
             fields = q.fields # Metadata.expand_output_fields(q.object, list(q.fields))
-            print "CALLING",  "%s_%s" % (q.action, q.object)
             result = yield getattr(self, "%s_%s" % (q.action, q.object))(q.filters, q.params, fields)
             key = self.interface.metadata_get_keys(q.object).one().get_names()
             filtered = project_select_and_rename_fields(result, key, self.query.filters, self.query.fields, self.map_slice_fields)

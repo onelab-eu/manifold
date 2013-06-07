@@ -97,8 +97,9 @@ class AST(object):
         \return The AST corresponding to the UNION
         """
         # We only need a key for UNION distinct, not supported yet
-        assert not key or isinstance(key, Key),           "Invalid key %r (type %r)"          % (key, type(key))
-        assert isinstance(children_ast, list), "Invalid children_ast %r (type %r)" % (children_ast, type(children_ast))
+        assert not key or isinstance(key, Key), "Invalid key %r (type %r)"          % (key, type(key))
+        assert isinstance(children_ast, list),  "Invalid children_ast %r (type %r)" % (children_ast, type(children_ast))
+        assert len(children_ast) != 0,          "Invalid UNION (no child)"
 
         # If the current AST has already a root node, this node become a child
         # of this Union node ...

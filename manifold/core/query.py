@@ -148,21 +148,22 @@ class Query(object):
         self.filters = Filter([])
         self.params  = {}
         self.fields  = set([])
-        self.timestamp      = "now" 
+        self.timestamp  = "now" 
         self.timestamp  = 'now' # ignored for now
 
     @returns(StringTypes)
     def __str__(self):
-        return "SELECT %s FROM %s WHERE %s" % (
-            ", ".join(self.get_select()) if self.get_select() else '*',
-            self.get_from(),
-            self.get_where()
-        )
+        return "SELECT %(select)s%(from)s%(where)s%(at)s" % {
+            "select": ", ".join(self.get_select())          if self.get_select()    else "*",
+            "from"  : "\n  FROM  %s" % self.get_from(),
+            "where" : "\n  WHERE %s" % self.get_where()     if self.get_where()     else "",
+            "at"    : "\n  AT    %s" % self.get_timestamp() if self.get_timestamp() else ""
+        }
 
     @returns(StringTypes)
     def __repr__(self):
         return "SELECT %s FROM %s WHERE %s" % (
-            ", ".join(self.get_select()),
+            ", ".join(self.get_select()) if self.get_select() else '*',
             self.get_from(),
             self.get_where()
         )
@@ -288,6 +289,10 @@ class Query(object):
     @classmethod
     def execute(self, object): return self.action('execute', object)
 
+    def at(self, timestamp):
+        self.timestamp = timestamp
+        return self
+
     def filter_by(self, *args):
         if len(args) == 1:
             filters = args[0]
@@ -302,11 +307,11 @@ class Query(object):
             raise Exception, 'Invalid expression for filter'
         return self
             
-    def select(self, fields):
+    def select(self, fields=None):
         if not fields:
             # Delete all fields
             self.fields = set()
-            return
+            return self
         if not isinstance(fields, (set, list, tuple)):
             fields = [fields]
         for field in fields:
@@ -356,13 +361,19 @@ class AnalyzedQuery(Query):
         if not method in self._subqueries:
             analyzed_query = AnalyzedQuery(metadata=self.metadata)
             analyzed_query.action = self.action
-            type = self.metadata.get_field_type(self.object, method)
+            try:
+                type = self.metadata.get_field_type(self.object, method)
+            except ValueError ,e: # backwards 1..N
+                type = method
             analyzed_query.object = type
             self._subqueries[method] = analyzed_query
         return self._subqueries[method]
 
     def get_subquery(self, method):
         return self._subqueries.get(method, None)
+
+    def remove_subquery(self, method):
+        del self._subqueries[method]
 
     def get_subquery_names(self):
         return set(self._subqueries.keys())
