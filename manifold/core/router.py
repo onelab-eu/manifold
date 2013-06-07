@@ -24,9 +24,6 @@ from manifold.core.announce         import Announces
 # XXX cannot use the thread with xmlrpc -n
 #from manifold.util.reactor_wrapper  import ReactorWrapper as ReactorThread
 
-# TO BE REMOVED
-from sfa.trust.credential           import Credential
-
 CACHE_LIFETIME     = 1800
 
 #------------------------------------------------------------------
@@ -124,7 +121,7 @@ class Router(Interface):
         print ""
         print ""
 
-        self.instanciate_gateways(qp, user)
+        self.instanciate_gateways(qp, user, query.get_timestamp())
 
         if query.get_action() == "update":
             # At the moment we can only update if the primary key is present
