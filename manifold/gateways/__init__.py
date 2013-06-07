@@ -15,6 +15,8 @@
 #
 # Copyright (C) 2013 UPMC 
 
+from types                              import StringTypes
+from manifold.core.result_value         import ResultValue
 from manifold.core.announce             import Announces
 from manifold.util.plugin_factory       import PluginFactory
 #from manifold.util.misc                 import find_local_modules
@@ -59,6 +61,10 @@ class Gateway(object):
         self.callback       = None
         self.result_value   = []
 
+    @returns(StringTypes)
+    def get_platform(self):
+        return self.platform
+
     def __str__(self):
         return "<%s %s>" % (self.__class__.__name__, self.query)
 
@@ -81,6 +87,7 @@ class Gateway(object):
             gateway_type = gateway_type[:-7]
         return gateway_type.lower()
 
+    @returns(StringTypes)
     def get_platform(self):
         """
         Returns:
@@ -97,7 +104,13 @@ class Gateway(object):
         """
         return Announces.from_dot_h(self.get_platform(), self.get_gateway_type())
 
+    @returns(list)
     def get_result_value(self):
+        """
+        Retrieve the fetched records
+        Returns:
+            A list of ResultValue instances corresponding to the fetched records
+        """
         return self.result_value
         
     def send(self, record):
@@ -109,6 +122,16 @@ class Gateway(object):
 
     def set_identifier(self, identifier):
         self.identifier = identifier
+
+    @returns(StringTypes)
+    def make_error_message(self, msg, uuid = None):
+        return "Please contact %(name)s Support <%(mail)s> and reference %(uuid)s - %(msg)s" % {
+            "name" : self.config["name"]                 if "name"                 in self.config else "?",
+            "mail" : self.config["mail_support_address"] if "mail_support_address" in self.config else "?",
+            "uuid" : uuid                                if uuid                                  else "?",
+            "msg"  : msg
+        }
+
 
 #-------------------------------------------------------------------------------
 # List of gateways

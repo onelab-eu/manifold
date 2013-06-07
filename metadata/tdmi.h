@@ -16,8 +16,7 @@ class traceroute {
     destination destination;
     inet        src_ip;         /**< The agent which has performed the measurement */
     inet        dst_ip;         /**< The destination of the traceroute measurement */
-    //   ip_hop      hops[];         /**< IP hops discovered on the measurement */
-    hop_id      hop[];         /**< IP hops discovered on the measurement */
+    hop_id      hops[];         /**< IP hops discovered on the measurement */
     unsigned    hop_count;      /**< Number of IP hops */
     timestamp   first;          /**< Birth date of this IP path */
     timestamp   last;           /**< Death date of this IP path */

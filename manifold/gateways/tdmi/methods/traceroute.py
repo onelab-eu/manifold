@@ -9,58 +9,7 @@
 #
 
 from types                        import StringTypes
-from manifold.gateways.postgresql import PostgreSQLGateway # get_where()
-
-def ts_to_sql(ts):
-    """
-    Convert a generic timestamp into a tuple a string SQL compliant 
-    Args:
-        ts: A StringType instance containing a timestamp.
-            You may also pass "latest" or None which means "now"
-    Returns:
-        The corresponding string
-    Raises:
-        ValueError: if parameter ts is not valid
-    """
-    try:
-        if isinstance(ts, StringTypes):
-            if ts == "latest" or ts == None:
-                ret = "NULL"
-            else:
-                ret = "'%s'" % ts
-        elif isinstance(ts, datetime.datetime):
-            ret = ts.strftime('%Y-%m-%d %H:%M:%S')
-        elif isinstance(ts, datetime.date):
-            ret = ts.strftime('%Y-%m-%d 00:00:00')
-    except:
-        raise ValueError("Invalid parameter: ts = %s" % ts)
-    return ret
-
-def ts_to_sql_bounds(ts):
-    """
-    Convert a generic timestamp or a pair of timestamp into the corresponding
-    SQL compliant value(s) 
-    Args:
-        ts: The input timestamp(s). Supported types:
-            ts
-            [ts_min, ts_max]
-            (ts_min, ts_max)
-        \sa ts_to_sql
-    Raises:
-        ValueError: if parameter ts is not valid
-    Returns:
-        The corresponding (ts_min, ts_max) tuple in SQL format
-    """
-    try:
-        if isinstance(ts, StringTypes):
-            ts_min = ts_max = ts
-        elif type(ts) is tuple:
-            (ts_min, ts_max) = ts
-        elif type(ts) is list:
-            [ts_min, ts_max] = ts
-    except:
-        raise ValueError("Invalid parameter: ts = %s" % ts)
-    return (ts_to_sql(ts_min), ts_to_sql(ts_max))
+from manifold.gateways.postgresql import PostgreSQLGateway # to_sql_where()
 
 def string_to_int(s):
     """
@@ -137,16 +86,15 @@ class Traceroute(list):
         Raises:
             ValueError: if parameter select is not valid
         """
-        # TODO Factorize with make_table_from_view
         # List available fields by querying the database
-        self.map_field_type = {}
+        self.map_field_type = dict() 
         for record in self.db.selectall("SELECT field_name, field_type FROM get_fields('view_traceroute')", None):
-            self.map_field_type[record['field_name']] = record['field_type']
+            self.map_field_type[record["field_name"]] = record["field_type"]
 
         # Parse SELECT
-        self.table_fields_sql = []
-        self.selected_fields = []
-        self.selected_sub_fields = {}
+        self.table_fields_sql = list()
+        self.selected_fields = list()
+        self.selected_sub_fields = dict() 
         if select == None:
             # By default, return every fields
             for (field_name, field_type) in self.map_field_type.items():
@@ -195,15 +143,19 @@ class Traceroute(list):
             predicates: A list of Predicates corresponding to the where clause
                 (predicates are connected thanks to a AND operator) 
         """
-        self.where = PostgreSQLGateway.get_where(predicates)
+        self.where = PostgreSQLGateway.to_sql_where(predicates)
 
     def init_ts(self, ts):
         """
         Internal usage. Initialize self.ts_min and self.ts_max
         Args:
-            ts: A timestamp (standard StringValue format) extracted from the user's query
+            ts: A StringType or a date or datetime instance containing a timestamp.
+                String instances containing a timestamp must respect the following
+                format:
+                    '%Y-%m-%d %H:%M:%S'
+                You may also pass "latest" or None which means "now"
         """
-        (self.ts_min, self.ts_max) = ts_to_sql_bounds(ts)
+        (self.ts_min, self.ts_max) = PostgreSQLGateway.get_ts_bounds(ts)
 
     def repack(self, query, traceroutes):
         """
@@ -215,12 +167,7 @@ class Traceroute(list):
             query: The Query instance handled by Manifold
             traceroutes: The fetched traceroute records (list of dictionnaries)
         """
-        # Convert SQL string array related to traceroute's hops into python dictionnaries
-#        for field_name in self.selected_sub_fields:
-#            if field_name == "hops":
-#                for traceroute in traceroutes:
-#                    hops = traceroute["hops"]
-#                    traceroute["hops"] = self.repack_hops(hops, self.selected_sub_fields["hops"]) 
+        # Craft 'hops' field if queried 
         if "hops" in query.get_select():
             for traceroute in traceroutes:
                 hops = traceroute["hops"]
@@ -275,7 +222,9 @@ class Traceroute(list):
         self.init_ts(query.get_timestamp())
 
     def get_sql(self):
-        # Craft the SQL query
+        """
+        Craft the SQL query to fetch queried traceroute records.
+        """
         sql = """
             SELECT * FROM get_view_traceroutes(
                 %(select_sql)s,
@@ -291,8 +240,7 @@ class Traceroute(list):
                 "where_sql"        : self.where if self.where != "" else "NULL", 
                 "ts_min_sql"       : self.ts_min,
                 "ts_max_sql"       : self.ts_max,
-                "table_fields_sql" : ', '.join(self.table_fields_sql)
+                "table_fields_sql" : ", ".join(self.table_fields_sql)
             }
 
-        print sql
         return sql
