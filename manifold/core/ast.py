@@ -100,6 +100,10 @@ class AST(object):
         assert not key or isinstance(key, Key),           "Invalid key %r (type %r)"          % (key, type(key))
         assert isinstance(children_ast, list), "Invalid children_ast %r (type %r)" % (children_ast, type(children_ast))
 
+        Log.debug("AST children")
+        Log.debug(children_ast)
+        Log.debug(key)
+
         # If the current AST has already a root node, this node become a child
         # of this Union node ...
         old_root = None
