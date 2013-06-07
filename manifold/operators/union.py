@@ -1,4 +1,4 @@
-from manifold.operators import Node, ChildCallback, LAST_RECORD
+from manifold.operators      import Node, ChildStatus, ChildCallback, LAST_RECORD
 
 DUMPSTR_UNION      = "UNION"
 

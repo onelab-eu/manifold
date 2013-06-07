@@ -282,7 +282,7 @@ class SFAGateway(Gateway):
             if ref_account.auth_type == 'managed':
                 # call manage function for this managed user account to update it 
                 # if the managed user account has only a private key, the credential will be retrieved 
-                res_manage = yield self.manage(u.email, ref_platform, json.loads(ref_account.config))
+                res_manage = yield self.manage(user.email, ref_platform, json.loads(ref_account.config))
                 new_user_config = json.dumps(res_manage)
                 # if the config retrieved is different from the config stored, we need to update it
                 if new_user_config != ref_account.config:

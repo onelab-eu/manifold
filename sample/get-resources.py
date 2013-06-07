@@ -21,7 +21,8 @@ def print_err(err):
 
 q = {
     'object':   'resource',
-    'fields':       ['resource_hrn']
+    'fields':   ['resource_hrn']
+    #'filter':   [[]]
 }
 
 ret = srv.forward(auth, q)
