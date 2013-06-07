@@ -4,6 +4,7 @@ from manifold.operators            import Node, LAST_RECORD
 from manifold.operators.selection  import Selection   # XXX
 from manifold.operators.projection import Projection  # XXX
 from manifold.util.type            import returns
+from manifold.util.log             import Log
 
 DUMPSTR_FROM       = "SELECT %s FROM %s::%s WHERE %s" 
 
@@ -182,7 +183,7 @@ class From(Node):
     def optimize_projection(self, fields):
         if self.capabilities.projection:
             # Push fields into the From node
-            self.query.select(fields)
+            self.query.select().select(fields)
             return self
         else:
             if fields - self.get_query().get_select():

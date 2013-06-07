@@ -49,7 +49,7 @@ class Shell(object):
             default = 'http://localhost:7080'
         )
         opt.add_option(
-            "-u", "--user", dest = "username",
+            "-u", "--username", dest = "username",
             help = "API user name", 
             default = DEFAULT_USER
         )
