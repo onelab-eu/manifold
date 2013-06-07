@@ -117,20 +117,22 @@ class Table(object):
 
     def __init__(self, partitions, map_field_methods, name, fields, keys):
         """
-        \brief Constructor
-        \param partitions It can be either:
-            - a dictionary {String => Predicate} where each key is the name of a platform
-            and each data is a Predicate or None. None means that the condition is always True.
-            - or either set/list of platform names
-        \param name The name of the table (for example: 'user', ...)
-        \param map_field_methods Pass None or a dictionnary which maps for each field
-            the corresponding methods to retrieve them: {Field => set(Method)}
-        \param fields A set/list of Fields involved in the table (for example 'name', 'email', ...)
-        \param keys The key of the table (for example 'email')
+        Table constructor
+        Args:
+            partitions: It can be either:
+                - a string (the name of the platform)
+                - a dictionary {String => Predicate} where each key is the name
+                of a platform and each data is a Predicate or "None". "None" means
+                that the condition is always True.
+                - a set/list of platform names
+            name: The name of the table
+            map_field_methods: Pass "None" or a dictionnary which maps for each field
+                the corresponding methods to retrieve them: {Field => set(Method)}
+            fields: A set/list of Fields involved in the table
+            keys: A set of Key instances
         """
         # Check parameters
         Table.check_init(partitions, map_field_methods, name, fields, keys)
-
         self.set_partitions(partitions)
 
         # Init self.fields
@@ -174,7 +176,7 @@ class Table(object):
         return "{%s}::%s {\n\t%s;\n\t%s;\n};" % (
             ', '.join([p          for p in sorted(self.get_platforms())]),
             self.get_name(),
-            ';\n\t'.join(["%s" % f for f in sorted(self.get_fields())]),
+            ';\n\t'.join(["%s%s" % (f, "[]" if f.is_array() else "") for f in sorted(self.get_fields())]),
 #            '\n\t'.join(["%s;\t// via %r" % (field, methods) for field, methods in self.map_field_methods.items()]),
             '\n\t;'.join(["%s" % k for k in self.get_keys()])
         )
@@ -248,6 +250,7 @@ class Table(object):
         """
         \brief Add a field in self.
         \param key Supported parameters
+            A Key
             A Field      (a Field instance belonging to this table)
             A StringType (a field name, related to a field of this table)
             A container  (list, set, frozenset, tuple) made of StringType (field names)
@@ -258,7 +261,7 @@ class Table(object):
             if isinstance(key, Field):
                 fields = frozenset([key])
             elif isinstance(key, StringTypes):
-                fields = frozenset(self.get_field(key))
+                fields = frozenset([self.get_field(key)])
             elif isinstance(key, (list, set, frozenset, tuple)):
                 fields = frozenset([self.get_field(key_elt) for key_elt in key])
             else:
@@ -593,7 +596,16 @@ class Table(object):
 
         relations = set()
 
+        u_key = u.keys.one()
         v_key = v.keys.one()
+
+        if u.get_name() == v.get_name():
+            p = Predicate(u_key.get_name(), eq, v_key.get_name())
+            if u.get_platforms() > v.get_platforms():
+                relations.add(Relation(Relation.types.PARENT, p))
+            #else:
+            #    relations.add(Relation(Relation.types.CHILD, p))
+            return relations
 
         for field in u.get_fields():
             # 1. A field in u is explicitly typed againt v name
@@ -606,7 +618,7 @@ class Table(object):
                     relations.add(Relation(Relation.types.LINK_1N, p)) # LINK_1N_FORWARD
                 else:
                     if False: # field == key
-                        relations.add(Relation(Relation.types.PARENT, p)) # in which direction ?????
+                        relations.add(Relation(Relation.types.PARENT, p, name=field.get_name())) # in which direction ?????
                     else:
                         if field.is_local():
                             relations.add(Relation(Relation.types.LINK_11, p))
@@ -639,7 +651,7 @@ class Table(object):
                 # How to consider inheritance ?
                 vfield = [f for f in v_key if f.get_type() == field.get_type()][0]
                 p = Predicate(field.get_name(), eq, vfield.get_name())
-                relations.add(Relation(Relation.types.LINK_1N, p)) # LINK_1N_FORWARD ?
+                relations.add(Relation(Relation.types.LINK_1N, p, name=field.get_name())) # LINK_1N_FORWARD ?
                 continue
         
 
@@ -653,8 +665,6 @@ class Table(object):
             return relations
 
         # --- REVERSE RELATIONS
-        u_key = u.keys.one()
-
         for field in v.get_fields():
             # (6) inv of (1) a field in v points to an existing type
             # we could say we only look at key types at this stage
@@ -664,7 +674,9 @@ class Table(object):
                     continue
                 p = Predicate(u_key.get_name(), eq, field.get_name())
                 if field.is_array():
-                    relations.add(Relation(Relation.types.COLLECTION, p)) # a u is many v ? approve this type
+                    relations.add(Relation(Relation.types.LINK_1N, p, name = v.get_name()))
+                    ### was: COLLECTION, p)) # a u is many v ? approve this type
+                    #relations.add(Relation(Relation.types.COLLECTION, p)) # a u is many v ? approve this type
                 else:
                     # if u parent
                     if v.is_child_of(u):
@@ -672,7 +684,7 @@ class Table(object):
                     elif u.is_child_of(v):
                          relations.add(Relation(Relation.types.PARENT, p))
                     else:
-                        relations.add(Relation(Relation.types.LINK_1N, p)) # LINK_1N_BACKWARD
+                        relations.add(Relation(Relation.types.LINK_1N, p, name=v.get_name())) # LINK_1N_BACKWARD
 
         return relations
 
@@ -729,14 +741,6 @@ class Table(object):
                 invalid_keys.append(key)
                 break
         return invalid_keys
-
-    def get_field_names(self):
-        """
-        \return The list of the fields in the MetadataClass
-        """
-        #return [field.get_name() for field in self.fields]
-        # XXX Shell we keep a dictionary for fields ?
-        return self.fields.keys()
 
     def get_invalid_types(self, valid_types):
         """

@@ -7,15 +7,16 @@ class Relation(object):
         'SPECIALIZATION',
         'PARENT',
         'CHILD',
-        'COLLECTION',
+#        'COLLECTION',
         'LINK_11', 
         'LINK_1N',
         'LINK'
     )
 
-    def __init__(self, type, predicate):
+    def __init__(self, type, predicate, name=None):
         self.type = type
         self.predicate = predicate
+        self.name = name
 
     def get_type(self):
         return self.type
@@ -27,4 +28,8 @@ class Relation(object):
         return self.predicate
 
     def __repr__(self):
-        return "<Relation %s: %s>" % (self.get_str_type(), self.get_predicate())
+        return "<Relation<%s> %s: %s>" % (self.name if self.name else '', self.get_str_type(), self.get_predicate())
+
+    def get_relation_name(self):
+        return self.name
+        

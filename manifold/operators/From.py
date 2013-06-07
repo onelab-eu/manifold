@@ -4,6 +4,7 @@ from manifold.operators            import Node, LAST_RECORD
 from manifold.operators.selection  import Selection   # XXX
 from manifold.operators.projection import Projection  # XXX
 from manifold.util.type            import returns
+from manifold.util.log             import Log
 
 DUMPSTR_FROM       = "SELECT %s FROM %s::%s WHERE %s" 
 
@@ -25,6 +26,7 @@ class From(Node):
             \sa manifold.core.table.py
         \param query A Query instance: the query passed to the gateway to fetch records 
         """
+        print "FROM", query
         assert isinstance(query, Query), "Invalid type: query = %r (%r)" % (query, type(query))
         # XXX replaced by platform name (string)
         #assert isinstance(table, Table), "Invalid type: table = %r (%r)" % (table, type(table))
@@ -154,7 +156,11 @@ class From(Node):
             self.gateway.set_callback(callback)
 
     def optimize_selection(self, filter):
-        if self.capabilities.selection:
+        key = self.key.get_field_names()
+        print "key", self.query.object, ": ", key
+        is_join = self.capabilities.join and filter.get_field_names() < key | set([self.query.object]) == filter.get_field_names()
+        print "is_join)", is_join
+        if self.capabilities.selection or is_join:
             # Push filters into the From node
             self.query.filter_by(filter)
             #old for predicate in filter:
@@ -166,12 +172,18 @@ class From(Node):
             selection = Selection(self, filter)
             #selection.query = self.query.copy().filter_by(filter)
             selection.set_callback(old_self_callback)
+
+            if self.capabilities.fullquery:
+                # We also push the filter down into the node
+                for p in filter:
+                    self.query.filters.add(p)
+
             return selection
 
     def optimize_projection(self, fields):
         if self.capabilities.projection:
             # Push fields into the From node
-            self.query.select(fields)
+            self.query.select().select(fields)
             return self
         else:
             if fields - self.get_query().get_select():

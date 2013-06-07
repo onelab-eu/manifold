@@ -21,14 +21,14 @@
 #
 
 import sys, copy
-from types                         import StringTypes
-
-from manifold.core.table             import Table
-from manifold.core.key               import Key, Keys 
-from manifold.core.field             import Field
-from manifold.core.method            import Method 
-from manifold.util.type              import returns, accepts
-from manifold.core.dbgraph           import DBGraph
+from types                 import StringTypes
+from manifold.core.table   import Table
+from manifold.core.key     import Key, Keys 
+from manifold.core.field   import Field
+from manifold.core.method  import Method 
+from manifold.core.dbgraph import DBGraph
+from manifold.util.type    import returns, accepts
+from manifold.util.log     import Log
 
 #------------------------------------------------------------------------------
 
@@ -856,7 +856,7 @@ def to_3nf(metadata):
             table.map_method_fields = map_method_fields
             tables_3nf.append(table)
             all_tables.append(table)
-            #print "TABLE 3nf:", table, table.keys
+            Log.debug("TABLE 3nf:", table, table.keys)
             #print "     method fields", map_method_fields
 
             cpt_platforms += 1
@@ -904,7 +904,7 @@ def to_3nf(metadata):
             table.map_method_keys   = dict() #map_common_method_keys
             table.map_method_fields = map_common_method_fields
             tables_3nf.append(table)
-            #print "TABLE 3nf:", table, table.keys
+            Log.debug("TABLE 3nf:", table, table.keys)
             #print "     method fields", map_common_method_fields
 
         # XXX we already know about the links between those two platforms
