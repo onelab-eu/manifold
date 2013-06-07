@@ -4,6 +4,7 @@ from sqlalchemy.ext.declarative import declarative_base, declared_attr
 from sqlalchemy.orm             import sessionmaker
 from manifold.gateways          import Gateway
 from manifold.models            import *
+from manifold.util.log          import Log
 
 import traceback
 import json
@@ -111,7 +112,7 @@ class SQLAlchemyGateway(Gateway):
 
         # Do we need to limit to the user's own results
         try:
-            if cls.restrict_to_self and self.user.email != 'admin':
+            if cls.restrict_to_self and self.user.email != 'demo':
                 res = res.filter(cls.user_id == self.user.user_id)
         except AttributeError: pass
 
@@ -128,9 +129,10 @@ class SQLAlchemyGateway(Gateway):
         # same for get, update, etc.
 
         # XXX What about filters on such fields
-
-        if not query.filters.has_eq('platform_id') and not query.filters.has_eq('platform'):
-            raise Exception, "Cannot update JSON fields on multiple platforms"
+        # filter works with account and platform table only
+        if query.object == 'account' or query.object == 'platform':
+            if not query.filters.has_eq('platform_id') and not query.filters.has_eq('platform'):
+                raise Exception, "Cannot update JSON fields on multiple platforms"
 
         cls = self.map_object[query.object]
 
@@ -152,10 +154,19 @@ class SQLAlchemyGateway(Gateway):
         # - convenience fields
         # We refer to the model for transforming the params structure into the
         # final one
+    
+        # Password update
+        #
+        # if there is password update in query.params
+        # We encrypt the password according to the encryption of adduser.py
+        # As a result from the frontend the edited password will be inserted
+        # into the local DB as encrypted      
+        if 'password' in query.params:
+            query.params['password'] = self.encrypt_password(query.params['password'])
         _params = cls.process_params(query.params, _filters, self.user)
         # only 2.7+ _params = { getattr(cls, k): v for k,v in query.params.items() }
         _params = dict([ (getattr(cls, k), v) for k,v in _params.items() ])
-
+       
         #db.query(cls).update(_params, synchronize_session=False)
         q = db.query(cls).filter(_filters)
         if cls.restrict_to_self:
@@ -175,7 +186,7 @@ class SQLAlchemyGateway(Gateway):
         params = query.params
         # We encrypt the password according to the encryption of adduser.py
         # As a result from the frontend the new users' password will be inserted
-        # into the local DB as encrypted       
+        # into the local DB as encrypted      
         if 'password' in params:
             params['password'] = self.encrypt_password(params['password'])
         
