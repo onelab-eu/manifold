@@ -72,7 +72,6 @@ class QueryPlan(object):
         # For each platform related to the current table, extract the
         # corresponding table and build the corresponding FROM node
         map_method_fields = table.get_annotations()
-        Log.tmp(map_method_fields)
         for method, fields in map_method_fields.items(): 
             if method.get_name() == table.get_name():
                 # The table announced by the platform fits with the 3nf schema
@@ -89,11 +88,9 @@ class QueryPlan(object):
                 capabilities = metadata.get_capabilities(platform, query.object)
 
                 # XXX Improve platform capabilities support
-                Log.tmp(capabilities)
                 if not capabilities.retrieve: continue
                 from_ast = AST(user = user).From(platform, query, capabilities, key)
 
-                Log.tmp("New from:", from_ast)
                 self.froms.append(from_ast.root)
 
                 if method in table.methods_demux:
@@ -151,7 +148,6 @@ class QueryPlan(object):
 
         if ast:
             Log.debug("optimize_selection: %r" % query.get_where())
-            print "optimize_selection: %r" % query.get_where()
             ast.optimize_selection(query.get_where())
             #ast.optimize_projection(query.get_select())
 
@@ -251,8 +247,8 @@ class QueryPlan(object):
         #    1) onjoin,
         #    1) parent 2) onjoin
         
-        for neighbour, relation in relations_11:
-            if neighbour in seen:
+        for _neighbour, _relation in relations_11:
+            if _neighbour in seen:
                 continue
 
             # Stop iterating when done
@@ -262,7 +258,9 @@ class QueryPlan(object):
             old_sq_names = query.get_subquery_names()
 
             # let's recursively determine if this neighbour is useful
-            _ast, _missing_fields, query, _relations_1N_sq, _relations_1N = self.process_query(neighbour, predicate, query, missing_fields, metadata, allowed_capabilities, user, seen, depth, level+1)
+            missing_fields_before = set() | missing_fields
+            _predicate= _relation.get_predicate()
+            _ast, missing_fields, query, _relations_1N_sq, _relations_1N = self.process_query(_neighbour, _predicate, query, missing_fields, metadata, allowed_capabilities, user, seen, depth, level+1)
             
             # First, save apart newly learned 1..N relationships
             relations_1N    += _relations_1N
@@ -272,16 +270,14 @@ class QueryPlan(object):
                 continue 
     
             # The neighbour is useful
-            neighbour_ast_predicate_list.append((_ast, predicate))
+            neighbour_ast_predicate_list.append((_ast, _predicate))
     
             # The list of missing fields should have reduced
             if not query.get_subquery_names() < old_sq_names:
-                assert _missing_fields < missing_fields, "The set of missing fields should have reduced"
+                assert missing_fields < missing_fields_before, "The set of missing fields should have reduced (1)"
             else:
-                assert _missing_fields <= missing_fields, "The set of missing fields should have reduced"
+                assert missing_fields <= missing_fields_before, "The set of missing fields should have reduced (2)"
             
-            missing_fields = _missing_fields
-
         # Either we have explored all queries, or we have explored all needed ones at this stage
 
         # For convenience of notations
@@ -305,9 +301,12 @@ class QueryPlan(object):
         for _ast, _predicate in neighbour_ast_predicate_list:
             queried_fields |= _predicate.get_field_names()
 
-        if metadata.is_parent(root):
+        # if we are a parent, and already need to retrieve children, then we can skip the parent
+        if metadata.is_parent(root) and neighbour_ast_predicate_list:
             ast, _ = neighbour_ast_predicate_list.pop()
-            ast.dump()
+            added_fields |= keep_root_a 
+            # we need to add fields from the parent (that we will find in the child also) to be sure the projection will work nicely
+            # XXX we might not have asked all fields to the children since they were in the parent
         else:
             ast = self.build_union(query, root, queried_fields, metadata, user)
             
@@ -316,7 +315,7 @@ class QueryPlan(object):
             Log.warning("Could not build AST because no table for '%r' was available in current platforms" % root)
             # XXX Maybe we should mark the fields as unreachable... otherwise we might find another path that is wrong
             # Anyways, we have already reduced missing_fields...
-            return (None, missing_fields, query, set(), set())
+            return (None, missing_fields, query, (), ())
         
         # Proceed to joins with (remaining) children
         for _ast, _predicate in neighbour_ast_predicate_list:
@@ -385,7 +384,8 @@ class QueryPlan(object):
         # This won't change missing_fields, and we can safely ignore 1..N relations of any kind
         for _ast, _relation in children_ast_relation_list:
             pass2_fields = pass1_fields | _relation.get_predicate().get_field_names()
-            ast, _missing_fields, _, _, _ = self.process_query(root, predicate, initial_query, pass2_fields, metadata, allowed_capabilities, user, None, depth, 0)
+            _predicate = _relation.get_predicate()
+            ast, _missing_fields, _, _, _ = self.process_query(root, _predicate, initial_query, pass2_fields, metadata, allowed_capabilities, user, None, depth, 0)
             assert not _missing_fields, "Missing fields are not expected in pass two (unless build fails)... How to handle ?"
             
         children_ast_relation_list = [ (a.get_root(), p) for a, p in children_ast_relation_list]
