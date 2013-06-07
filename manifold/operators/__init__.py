@@ -137,7 +137,8 @@ class Node(object):
         \param indent current indentation
         """
         self.tab(indent)
-        print "%r (%r)" % (self, self.query)
+        print "%r" % self
+        #print "%r (%r)" % (self, self.query)
 
     @returns(StringTypes)
     def __repr__(self):
