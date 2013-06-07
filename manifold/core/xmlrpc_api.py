@@ -1,11 +1,11 @@
 import traceback,copy
-
+from twisted.web                import xmlrpc
 from manifold.auth              import Auth
 from manifold.core.query        import Query
-from manifold.util.options      import Options
-from twisted.web                import xmlrpc
 from manifold.core.result_value import ResultValue
+from manifold.util.options      import Options
 from manifold.util.log          import Log
+from manifold.util.misc         import make_list
 
 #-------------------------------------------------------------------------------
 # Class XMLRPCAPI
@@ -36,9 +36,9 @@ class XMLRPCAPI(xmlrpc.XMLRPC, object):
             raise Exception, "Wrong arguments"
         super(XMLRPCAPI, self).__init__(**kwargs)
 
-    def display_query(self, q):
+    def display_query(self, *args):
         # Don't show password in Server Logs
-        display_args = copy.deepcopy(q)
+        display_args = make_list(copy.deepcopy(args))
         if 'AuthString' in display_args[0].keys():
             display_args[0]['AuthString'] = "XXXXX"
         return display_args
@@ -48,9 +48,7 @@ class XMLRPCAPI(xmlrpc.XMLRPC, object):
     def xmlrpc_forward(self, *args):
         """
         """
-        Log.debug("-------------------")
-        Log.debug("xmlrpc_api args = ",self.display_query(args))
-        Log.debug("-------------------")
+        Log.debug("xmlrpc_api args = %r" % self.display_query(*args))
         if not Options().disable_auth:
             assert len(args) == 2, "Wrong arguments for XMLRPC forward call"
             auth, query = args
