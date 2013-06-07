@@ -144,9 +144,6 @@ class SubQuery(Node):
                     self.children[i] = child.optimize_selection(Filter().filter_by(predicate))
                     self.children[i].set_callback(old_child_callback)
 
-                    print "INJECT"
-                    self.dump(indent=2)
-
                 elif op == contains:
                     # 1..N
                     # Example: parent 'slice' has a list of 'user' keys == user_hrn
@@ -230,12 +227,17 @@ class SubQuery(Node):
 
         for o in self.parent_output:
             # Dispatching child results
+            print "PARENT", o
+            print "-"*10
             for i, child in enumerate(self.children):
 
-                predicate = self.relations[i].get_predicate()
+                relation = self.relations[i]
+                predicate = relation.get_predicate()
+
                 Log.debug("child %r, predicate=%r" % (child, predicate))
 
                 key, op, value = predicate.get_tuple()
+                
                 if op == eq:
                     # 1..N
                     # Example: parent has slice_hrn, resource has a reference to slice
@@ -252,10 +254,12 @@ class SubQuery(Node):
                         for field in value:
                             filter = filter.filter_by(Predicate(field, eq, o[value][field])) # o[value] might be multiple
 
-                    o[predicate.get_key()] = []
+                    print "updating %s in parent" % relation.get_relation_name()
+                    print "filter", filter
+                    o[relation.get_relation_name()] = []
                     for child_record in self.child_results[i]:
                         if filter.match(child_record):
-                            o[predicate.get_key()].append(child_record)
+                            o[relation.get_relation_name()].append(child_record)
 
                 elif op == contains:
                     # 1..N

@@ -94,7 +94,7 @@ class Filter(set):
         #self = filter(lambda x: x.key != key, self)
 
     def get_op(self, key, op):
-        if isinstance(op, list):
+        if isinstance(op, (list, tuple, set)):
             for x in self:
                 if x.key == key and x.op in op:
                     return x.value

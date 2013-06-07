@@ -43,7 +43,7 @@ from manifold.models             import *
 from manifold.util.predicate     import contains
 from manifold.util.log           import Log
 from manifold.gateways.sfa.proxy import SFAProxy
-from manifold.util.predicate     import eq, lt, le
+from manifold.util.predicate     import eq, lt, le, included
 from manifold.util.misc          import make_list
 import json
 import signal
@@ -1207,9 +1207,10 @@ class SFAGateway(Gateway):
 
         Log.tmp("get_resource_lease", filters)
 
-        slice_hrns = make_list(filters.get_eq('slice_hrn'))
+        slice_hrns = make_list(filters.get_op('slice', (eq, included)))
         # XXX ONLY ONE AND WITHOUT JOKERS
         slice_hrn = slice_hrns[0] if slice_hrns else None
+        print "SLICE HRN=", slice_hrn
 
         # no need to check if server accepts the options argument since the options has
         # been a required argument since v1 API
@@ -1235,7 +1236,7 @@ class SFAGateway(Gateway):
             api_options['geni_rspec_version'] = {'type': first_common[0], 'version': first_common[1]}
 
         if slice_hrn:
-            cred = self._get_cred('slice', hrn)
+            cred = self._get_cred('slice', slice_hrn)
             api_options['geni_slice_urn'] = hrn_to_urn(slice_hrn, 'slice')
         else:
             cred = self._get_cred('user')
@@ -1250,9 +1251,6 @@ class SFAGateway(Gateway):
         if slice_hrn:
             for r in rsrc_slice['resource']:
                 r['slice'] = slice_hrn
-
-            print "SLICE_HRN", slice_hrn
-            print rsrc_slice['resource'][0]
 
         if self.debug:
             rsrc_slice['debug'] = {'rspec': rspec}
