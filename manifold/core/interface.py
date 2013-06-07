@@ -127,8 +127,19 @@ class Interface(object):
         output = []
         # XXX Not generic
         for table in self.g_3nf.graph.nodes():
-            fields = [f for f in table.get_fields()]
-            fields = list(set(fields))
+            # Ignore non parent tables
+            if not self.g_3nf.is_parent(table):
+                print "IGNORED", table.get_name()
+                continue
+
+            table_name = table.get_name()
+            print "CONSIDERING PARENT TABLE", table_name
+
+            fields = set() | table.get_fields()
+            for _, child in self.g_3nf.graph.out_edges(table):
+                if not child.get_name() == table_name:
+                    continue
+                fields |= child.get_fields()
 
             # Build columns from fields
             columns = []
@@ -158,7 +169,7 @@ class Interface(object):
 
             # Add table metadata
             output.append({
-                "table"  : table.get_name(),
+                "table"  : table_name,
                 "column" : columns
             })
         return output

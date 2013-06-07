@@ -148,7 +148,7 @@ class DBGraph(object):
 #OBSOLETE|    def get_tree_edges(self, root):
 #OBSOLETE|        return [e for e in dfs_edges(self.graph, root)]
 
-    def find_node(self, table_name):
+    def find_node(self, table_name, get_parent=True):
         """
         \brief Search a Table instance in the DbGraph for a given table name
         \param table_name A String value (the name of the table)
@@ -156,22 +156,24 @@ class DBGraph(object):
         """
         for table in self.graph.nodes(False):
             if table.get_name() == table_name:
-                # We need to check whether it has a parent with the same name
-                for parent, _ in self.graph.in_edges(table):
-                    if parent.get_name() == table_name:
-                        return parent
+                if get_parent:
+                    # We need to check whether it has a parent with the same name
+                    for parent, _ in self.graph.in_edges(table):
+                        if parent.get_name() == table_name:
+                            return parent
                 return table
         return None
 
     def is_parent(self, table_or_table_name):
-        return bool(self.get_parent(table_or_table_name))
+        return not bool(self.get_parent(table_or_table_name))
 
     def get_parent(self, table_or_table_name):
-        if isinstance(table_or_table_name, Table):
-            table_or_table_name = table_or_table_name.get_name()
-        for parent, _ in self.graph.in_edges(table_or_table_name):
-            if parent.get_name() == table_or_table_name:
+        if not isinstance(table_or_table_name, Table):
+            table_or_table_name = self.find_node(table_or_table_name, get_parent=False)
+        for parent, x in self.graph.in_edges(table_or_table_name):
+            if parent.get_name() == table_or_table_name.get_name():
                 return parent
+        return None
         
     def get_announce_tables(self):
         tables = []

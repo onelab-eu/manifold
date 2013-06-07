@@ -26,7 +26,6 @@ class From(Node):
             \sa manifold.core.table.py
         \param query A Query instance: the query passed to the gateway to fetch records 
         """
-        print "FROM", query
         assert isinstance(query, Query), "Invalid type: query = %r (%r)" % (query, type(query))
         # XXX replaced by platform name (string)
         #assert isinstance(table, Table), "Invalid type: table = %r (%r)" % (table, type(table))
