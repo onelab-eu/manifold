@@ -1209,16 +1209,15 @@ class SFAGateway(Gateway):
             defer.returnValue(self.parse_sfa_rspec(rspec))
             return 
 
+        Log.tmp("Would expect slice_hrn in filters: ", filters)
+
         # Do we have a way to find slices, for now we only support explicit slice names
         # Note that we will have to inject the slice name into the resource object if not done by the parsing.
         # slice - resource is a NxN relationship, not well managed so far
 
-        Log.tmp("get_resource_lease", filters)
-
         slice_hrns = make_list(filters.get_op('slice', (eq, included)))
         # XXX ONLY ONE AND WITHOUT JOKERS
         slice_hrn = slice_hrns[0] if slice_hrns else None
-        print "SLICE HRN=", slice_hrn
 
         # no need to check if server accepts the options argument since the options has
         # been a required argument since v1 API

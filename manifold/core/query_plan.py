@@ -147,9 +147,8 @@ class QueryPlan(object):
         ast, missing_fields, _ = self.process_subqueries(root, None, aq, missing_fields, metadata, allowed_capabilities, user, 0)
 
         if ast:
-            Log.debug("optimize_selection: %r" % query.get_where())
             ast.optimize_selection(query.get_where())
-            #ast.optimize_projection(query.get_select())
+            ast.optimize_projection(query.get_select())
 
         if missing_fields:
             Log.warning("Missing fields: %r" % missing_fields)
@@ -384,6 +383,8 @@ class QueryPlan(object):
         # This won't change missing_fields, and we can safely ignore 1..N relations of any kind
         for _ast, _relation in children_ast_relation_list:
             pass2_fields = pass1_fields | _relation.get_predicate().get_field_names()
+            for _ast, _relation  in children_ast_relation_list:
+                pass2_fields |= _relation.get_predicate().get_field_names()
             _predicate = _relation.get_predicate()
             ast, _missing_fields, _, _, _ = self.process_query(root, _predicate, initial_query, pass2_fields, metadata, allowed_capabilities, user, None, depth, 0)
             assert not _missing_fields, "Missing fields are not expected in pass two (unless build fails)... How to handle ?"

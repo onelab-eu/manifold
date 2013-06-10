@@ -35,6 +35,7 @@ class LeftJoin(Node):
         # Check parameters
         LeftJoin.check_init(left_child, right_child, predicate)#, callback)
 
+
         # Initialization
         self.left      = left_child
         self.right     = right_child 
@@ -49,8 +50,11 @@ class LeftJoin(Node):
                 else:
                     self.left_map[r] = {self.predicate.key: r}
         else:
+            old_cb = left_child.get_callback()
             self.left_done = False
             left_child.set_callback(self.left_callback)
+            self.set_callback(old_cb)
+
         right_child.set_callback(self.right_callback)
 
         if isinstance(left_child, list):

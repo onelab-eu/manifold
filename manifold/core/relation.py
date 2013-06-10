@@ -10,6 +10,7 @@ class Relation(object):
 #        'COLLECTION',
         'LINK_11', 
         'LINK_1N',
+        'LINK_1N_BACKWARDS',
         'LINK'
     )
 

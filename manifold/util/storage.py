@@ -6,6 +6,13 @@ class Storage(object):
     # We can read information from files, database, commandline, etc
     # Let's focus on the database
 
+    @classmethod
+    def register(self, object):
+        """
+        Registers a new object that will be stored locally by manifold.
+        This will live in the 
+        """ 
+        pass
 
 class DBStorage(Storage):
     @classmethod

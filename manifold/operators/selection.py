@@ -23,7 +23,10 @@ class Selection(Node):
         assert isinstance(filters, set),      "Invalid filters = %r (%r)" % (filters, type(filters))
 
         self.child, self.filters = child, filters
-        self.child.set_callback(self.get_callback())
+
+        old_cb = child.get_callback()
+        child.set_callback(self.child_callback)
+        self.set_callback(old_cb)
 
         self.query = self.child.get_query().copy()
         self.query.filters |= filters
@@ -71,7 +74,7 @@ class Selection(Node):
         self.child = self.child.inject(records, key, query) # XXX
         return self
 
-    def callback(self, record):
+    def child_callback(self, record):
         """
         \brief Processes records received by the child node 
         \param record dictionary representing the received record
