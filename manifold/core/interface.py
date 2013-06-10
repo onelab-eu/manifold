@@ -96,21 +96,23 @@ class Interface(object):
                 elif platform.auth_type == 'user':
                     # User account information
                     accounts = [a for a in user.accounts if a.platform.platform == platform.name]
-                    if not accounts:
-                        raise Exception, 'No such account'
-                    account = accounts[0]
+                    if accounts:
+                        #raise Exception, 'No such account'
+                        account = accounts[0]
 
-                    config = json.loads(account.config)
+                        config = json.loads(account.config)
 
-                    if account.auth_type == 'reference':
-                        ref_platform = config['reference_platform']
-                        ref_platform = db.query(Platform).filter(Platform.platform == ref_platform).one()
-                        ref_accounts = [a for a in user.accounts if a.platform == ref_platform]
-                        if not ref_accounts:
-                            raise Exception, "reference account does not exist"
-                        ref_account = ref_accounts[0]
+                        if account.auth_type == 'reference':
+                            ref_platform = config['reference_platform']
+                            ref_platform = db.query(Platform).filter(Platform.platform == ref_platform).one()
+                            ref_accounts = [a for a in user.accounts if a.platform == ref_platform]
+                            if not ref_accounts:
+                                raise Exception, "reference account does not exist"
+                            ref_account = ref_accounts[0]
 
-                        config = json.loads(ref_account.config)
+                            config = json.loads(ref_account.config)
+                    else:
+                        config = None
 
                 else:
                     raise Exception('auth type not implemented: %s' % platform.auth_type)
