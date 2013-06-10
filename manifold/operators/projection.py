@@ -35,7 +35,7 @@ def do_projection(record, fields):
         # filtered according to subfields
         arr = []
         for x in record[method]:
-            arr.append(local_projection(x, subfields))
+            arr.append(do_projection(x, subfields))
         ret[method] = arr
 
     return ret
@@ -62,7 +62,11 @@ class Projection(Node):
         if isinstance(fields, (list, tuple, frozenset)):
             fields = set(fields)
         self.child, self.fields = child, fields
-        self.child.set_callback(self.get_callback())
+
+        # Callbacks
+        old_cb = child.get_callback()
+        child.set_callback(self.child_callback)
+        self.set_callback(old_cb)
 
         self.query = self.child.get_query().copy()
         self.query.fields &= fields
@@ -123,7 +127,7 @@ class Projection(Node):
         self.child = self.child.inject(records, key, query) # XXX
         return self
 
-    def callback(self, record):
+    def child_callback(self, record):
         """
         \brief Processes records received by the child node
         \param record dictionary representing the received record
@@ -138,4 +142,5 @@ class Projection(Node):
 
     def optimize_projection(self, fields):
         # We only need the intersection of both
-        return self.child.optimize_projection(self.fields & fields)
+        self.child = self.child.optimize_projection(self.fields & fields)
+        return self.child

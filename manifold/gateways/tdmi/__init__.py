@@ -33,7 +33,7 @@ class TDMIGateway(PostgreSQLGateway):
             user: None or a User instance
         """
         # Every tables are private and not exposed to Manifold
-        re_ignored_tables = [re.compile(".*")]
+        re_ignored_tables = PostgreSQLGateway.ANY_TABLE 
 
         # ... excepted "agent" and "destination".
         # TODO we should use view_agent etc.
@@ -43,6 +43,7 @@ class TDMIGateway(PostgreSQLGateway):
         ]
 
         super(TDMIGateway, self).__init__(router, platform, query, config, user_config, user, re_ignored_tables, re_allowed_tables)
+
         from manifold.gateways.tdmi.methods   import Traceroute
         from manifold.gateways.tdmi.methods   import Agent 
 
@@ -102,10 +103,10 @@ class TDMIGateway(PostgreSQLGateway):
         """
         # Fetch metadata from pgsql views. We then remove the "view_" prefix, so
         # at least, the "foo" class is mapped to the "view_foo" pgsql view.
-        announces_pgsql = super(TDMIGateway, self).get_metadata_from_names(self.get_view_names())
+        announces_pgsql = super(TDMIGateway, self).make_metadata_from_names(self.get_view_names())
         re_view_name = re.compile("view_(.*)")
         for announce in announces_pgsql:
-            table = announce.table
+            table = announce.get_table()
             pgsql_name = table.get_name()
             m = re_view_name.match(pgsql_name)
             if m:
