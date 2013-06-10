@@ -82,9 +82,9 @@ class AST(object):
 #OBSOLETE|        platforms = table.get_platforms()
 #OBSOLETE|        platform = list(platforms)[0]
 
-        node = From(platform, query, capabilities, key)
-        self.root = node
+        self.root = From(platform, query, capabilities, key)
         self.root.set_callback(self.get_callback())
+
         return self
 
     #@returns(AST)
@@ -105,20 +105,20 @@ class AST(object):
         # of this Union node ...
         old_root = None
         if not self.is_empty():
-            old_root = self.get_root()
-            children = [self.get_root()]
+            # # old_root = self.get_root()
+            children = [self.root]
+            old_cb = self.root.get_callback()
         else:
             children = []
+            old_cb = None
 
         # ... as the other children
         children.extend([ast.get_root() for ast in children_ast])
 
-        if len(children) > 1:
-            self.root = Union(children, key)
-        else:
-            self.root = children[0]
-        if old_root:
-            self.root.set_callback(old_root.get_callback())
+        self.root = children[0] if len(children) == 1 else Union(children, key)
+        if old_cb:
+            self.root.set_callback(old_cb)
+
         return self
 
     #@returns(AST)
@@ -134,9 +134,7 @@ class AST(object):
         assert isinstance(predicate, Predicate), "Invalid predicate = %r (%r)" % (predicate, type(Predicate))
         assert not self.is_empty(),              "No left table"
 
-        old_root = self.get_root()
-        self.root = LeftJoin(old_root, right_child.get_root(), predicate)#, None)
-        self.root.set_callback(old_root.get_callback())
+        self.root = LeftJoin(self.get_root(), right_child.get_root(), predicate)#, None)
         return self
 
     #@returns(AST)
@@ -177,9 +175,7 @@ class AST(object):
         assert not self.is_empty(),      "AST not initialized"
         assert isinstance(fields, list), "Invalid fields = %r (%r)" % (fields, type(fields))
 
-        old_root = self.get_root()
-        self.root = Projection(old_root, fields)
-        self.root.set_callback(old_root.get_callback())
+        self.root = Projection(self.get_root(), fields)
         return self
 
     #@returns(AST)
@@ -194,9 +190,7 @@ class AST(object):
         assert isinstance(filters, set), "Invalid filters = %r (%r)" % (filters, type(filters))
         assert filters != set(),         "Empty set of filters"
 
-        old_root = self.get_root()
-        self.root = Selection(old_root, filters)
-        self.root.set_callback(old_root.get_callback())
+        self.root = Selection(self.get_root(), filters)
         return self
 
     #@returns(AST)
@@ -208,10 +202,9 @@ class AST(object):
         \return AST corresponding to the SUBQUERY
         """
         assert not self.is_empty(), "AST not initialized"
-        old_root = self.get_root()
 
-        self.root = SubQuery(old_root, children_ast_predicate_list, parent_key) # PARETN KEY DEPRECATED
-        self.root.set_callback(old_root.get_callback())
+        self.root = SubQuery(self.get_root(), children_ast_predicate_list, parent_key) # PARETN KEY DEPRECATED
+
         return self
 
     def dump(self, indent = 0):

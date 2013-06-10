@@ -35,17 +35,6 @@ class From(Node):
         self.gateway = None
         super(From, self).__init__()
 
-#    @returns(Query)
-#    def get_query(self):
-#        """
-#        \brief Returns the query representing the data produced by the nodes.
-#        \return query representing the data produced by the nodes.
-#        """
-#        print "From::get_query()"
-#        # The query returned by a FROM node is exactly the one that was
-#        # requested
-#        return self.query
-
     def add_fields_to_query(self, field_names):
         """
         \brief Add field names (list of String) to the SELECT clause of the embedded query
@@ -53,13 +42,6 @@ class From(Node):
         for field_name in field_names:
             assert isinstance(field_name, StringTypes), "Invalid field_name = %r in field_names = %r" % (field_name, field_names)
         self.query.fields = frozenset(set(self.query.fields) | set(field_names))
-
-#    #@returns(Table)
-#    def get_table(self):
-#        """
-#        \return The Table instance queried by this FROM node.
-#        """
-#        return self.table
 
     @returns(StringTypes)
     def get_platform(self):
@@ -185,9 +167,6 @@ class From(Node):
                 print "W: Missing fields in From"
             if self.get_query().get_select() - fields:
                 # Create a new Projection node
-                old_self_callback = self.get_callback()
-                projection = Projection(self, fields)
+                return Projection(self, fields)
                 #projection.query = self.query.copy().filter_by(filter) # XXX
-                projection.set_callback(old_self_callback)
-                return projection
             return self

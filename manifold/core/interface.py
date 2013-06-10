@@ -129,11 +129,9 @@ class Interface(object):
         for table in self.g_3nf.graph.nodes():
             # Ignore non parent tables
             if not self.g_3nf.is_parent(table):
-                print "IGNORED", table.get_name()
                 continue
 
             table_name = table.get_name()
-            print "CONSIDERING PARENT TABLE", table_name
 
             fields = set() | table.get_fields()
             for _, child in self.g_3nf.graph.out_edges(table):

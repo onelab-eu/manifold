@@ -615,7 +615,7 @@ class Table(object):
                     continue
                 p = Predicate(field.get_name(), eq, v_key.get_name())
                 if field.is_array():
-                    relations.add(Relation(Relation.types.LINK_1N, p)) # LINK_1N_FORWARD
+                    relations.add(Relation(Relation.types.LINK_1N, p, name=field.get_name())) # LINK_1N_FORWARD
                 else:
                     if False: # field == key
                         relations.add(Relation(Relation.types.PARENT, p, name=field.get_name())) # in which direction ?????
@@ -674,7 +674,7 @@ class Table(object):
                     continue
                 p = Predicate(u_key.get_name(), eq, field.get_name())
                 if field.is_array():
-                    relations.add(Relation(Relation.types.LINK_1N, p, name = v.get_name()))
+                    relations.add(Relation(Relation.types.LINK_1N_BACKWARDS, p, name = v.get_name()))
                     ### was: COLLECTION, p)) # a u is many v ? approve this type
                     #relations.add(Relation(Relation.types.COLLECTION, p)) # a u is many v ? approve this type
                 else:
@@ -684,7 +684,7 @@ class Table(object):
                     elif u.is_child_of(v):
                          relations.add(Relation(Relation.types.PARENT, p))
                     else:
-                        relations.add(Relation(Relation.types.LINK_1N, p, name=v.get_name())) # LINK_1N_BACKWARD
+                        relations.add(Relation(Relation.types.LINK_1N, p, name=v.get_name())) # LINK_1N_BACKWARDS
 
         return relations
 
@@ -698,8 +698,6 @@ class Table(object):
         # We temporarity changed the relation to return a single field...
         # 1) FK -> Table.PK
         if connecting_fields:
-            if u.get_name() == 'packet' and v.get_name() == 'ip':
-                print "connecting fields", connecting_fields
             # FK --> PK : simple join or view
             if connecting_fields.is_array():
                 return (Relation.types.LINK_1N, set([connecting_fields]))

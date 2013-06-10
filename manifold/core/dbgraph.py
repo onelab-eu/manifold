@@ -219,7 +219,7 @@ class DBGraph(object):
                 parent, child, data = next(children)
                 relation = data['relations']
                 if child not in visited:
-                    if relation.get_type() == Relation.types.LINK_1N:
+                    if relation.get_type() in [Relation.types.LINK_1N, Relation.types.LINK_1N_BACKWARDS]:
                         # Recursive call
                         #for f in self.get_fields(child, "%s%s." % (prefix, child.get_name())):
                         #    yield f
@@ -262,7 +262,7 @@ class DBGraph(object):
 
             for neighbour in self.graph.successors(v):
                 for relation in self.get_relations(v, neighbour):
-                    if relation.get_type() in [Relation.types.LINK_1N]:
+                    if relation.get_type() in [Relation.types.LINK_1N, Relation.types.LINK_1N_BACKWARDS]:
                         # 1..N will be explored later, push on stack
                         stack_1N += ((v, neighbour, relation),)
                         continue
