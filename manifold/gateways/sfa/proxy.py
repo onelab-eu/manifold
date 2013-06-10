@@ -123,12 +123,16 @@ class SFAProxy(object):
             
             def wrap(source, args):
                 args = (name,) + args
-                #Log.tmp(make_list(args))
+                Log.tmp(self)
+                Log.tmp(make_list(args))
                 return self.proxy.callRemote(*args).addCallbacks(success_cb, error_cb)
             
             ReactorThread().callInReactor(wrap, self, args)
             return d
         return _missing
+
+    def __str__(self):
+        return "<SfaProxy %s>"% self.interface       
 
     def __repr__(self):
         return "<SfaProxy %s>"% self.interface
@@ -138,13 +142,13 @@ if __name__ == '__main__':
     import os, pprint
 
     DEFAULT_INTERFACE = 'http://www.planet-lab.eu:12346'
-    DEFAULT_PKEY      = '/root/ple.upmc.slicebrowser.pkey'
-    DEFAULT_CERT      = '/root/ple.upmc.slicebrowser.user.gid'
+    DEFAULT_PKEY      = '/var/myslice/ple.upmc.slicebrowser.pkey'
+    DEFAULT_CERT      = '/var/myslice/ple.upmc.slicebrowser.user.gid'
 
     @defer.inlineCallbacks
     def main():
         l = len(sys.argv)
-        if l not in (1, 4):
+        if l not in range(1, 5):
             print "%s : Issues a GetVersion asynchronously towards a SFA interface" % sys.argv[0]
             print
             print "Usage: %s [INTERFACE PRIVATE_KEY CERTIFICATE]" % sys.argv[0]
@@ -154,9 +158,9 @@ if __name__ == '__main__':
             print "    CERTIFICATE: %s" % DEFAULT_CERT
             os._exit(1)
 
-        interface = DEFAULT_INTERFACE if l == 1 else sys.argv[1]
-        pkey      = DEFAULT_PKEY      if l == 1 else sys.argv[2]
-        cert      = DEFAULT_CERT      if l == 1 else sys.argv[3]
+        interface = DEFAULT_INTERFACE if l <= 1 else sys.argv[1]
+        pkey      = DEFAULT_PKEY      if l <= 2 else sys.argv[2]
+        cert      = DEFAULT_CERT      if l <= 3 else sys.argv[3]
 
         proxy = SFAProxy(interface, open(pkey).read(), open(cert).read())
         version = yield proxy.GetVersion()
