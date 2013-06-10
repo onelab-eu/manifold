@@ -83,7 +83,7 @@ class SFAProxy(object):
                 factory = xmlrpc._QueryFactory(
                     self.path, self.host, method, self.user,
                     self.password, self.allowNone, args)
-                if not self.secure: # XXX swapped
+                if self.secure: # XXX swapped
                     from twisted.internet import ssl
                     try:
                         self.SSLClientContext
