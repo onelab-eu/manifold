@@ -139,6 +139,7 @@ class Node(object):
         self.tab(indent)
         print "%r" % self
         #print "%r (%r)" % (self, self.query)
+        #print "%r (%r)" % (self, self.callback)
 
     @returns(StringTypes)
     def __repr__(self):

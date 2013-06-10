@@ -1,8 +1,10 @@
-from types                   import StringTypes
-from manifold.core.filter    import Filter
-from manifold.operators      import Node, ChildStatus, ChildCallback, LAST_RECORD
-from manifold.util.predicate import Predicate, eq, contains, included
-from manifold.util.log       import Log
+from types                         import StringTypes
+from manifold.core.filter          import Filter
+from manifold.core.relation        import Relation
+from manifold.operators            import Node, ChildStatus, ChildCallback, LAST_RECORD
+from manifold.operators.projection import Projection
+from manifold.util.predicate       import Predicate, eq, contains, included
+from manifold.util.log             import Log
 
 DUMPSTR_SUBQUERIES = "<subqueries>"
 
@@ -22,9 +24,9 @@ class SubQuery(Node):
         \param children
         \param key the key for elements returned from the node
         """
-        Log.warning("key argument is deprecated")
         # Parameters
         self.parent, self.key = parent, key # KEY DEPRECATED
+
         # Remove potentially None children
         # TODO  how do we guarantee an answer to a subquery ? we should branch
         # an empty FromList at query plane construction
@@ -38,7 +40,9 @@ class SubQuery(Node):
         self.parent_output = []
 
         # Set up callbacks
+        old_cb = parent.get_callback()
         parent.set_callback(self.parent_callback)
+        self.set_callback(old_cb)
 
         self.query = self.parent.get_query().copy()
         for i, child in enumerate(self.children):
@@ -129,23 +133,24 @@ class SubQuery(Node):
                 #intersection = parent_fields & child_fields
 
                 # The operation to be performed is understood only be looking at the predicate
-                predicate = self.relations[i].get_predicate()
-                Log.debug("child %r, predicate=%r" % (child, predicate))
+                relation = self.relations[i]
+                predicate = relation.get_predicate()
 
                 key, op, value = predicate.get_tuple()
                 if op == eq:
                     # 1..N
                     # Example: parent has slice_hrn, resource has a reference to slice
-                    parent_ids = [record[key] for record in self.parent_output]
-                    predicate = Predicate(value, included, parent_ids)
+                    if relation.get_type() == Relation.types.LINK_1N_BACKWARDS:
+                        parent_ids = [record[key] for record in self.parent_output]
+                        predicate = Predicate(value, included, parent_ids)
+                    else:
+                        parent_ids = [record[key] for record in self.parent_output]
+                        predicate = Predicate(value, included, parent_ids)
 
-                    # Injecting predicate: TODO use optimize_selection()
+                    # Injecting predicate
                     old_child_callback= child.get_callback()
                     self.children[i] = child.optimize_selection(Filter().filter_by(predicate))
                     self.children[i].set_callback(old_child_callback)
-
-                    print "INJECT"
-                    self.dump(indent=2)
 
                 elif op == contains:
                     # 1..N
@@ -209,13 +214,11 @@ class SubQuery(Node):
     #                self.children[i] = where.optimize()
     #                self.children[i].set_callback(old_child_callback)
     #
-
             # We make another loop since the children might have been modified in
             # the previous one.
             for i, child in enumerate(self.children):
                 self.status.started(i)
             for i, child in enumerate(self.children):
-                Log.debug("Starting child %r" % child)
                 child.start()
         except Exception, e:
             print "EEE:", e
@@ -232,10 +235,11 @@ class SubQuery(Node):
             # Dispatching child results
             for i, child in enumerate(self.children):
 
-                predicate = self.relations[i].get_predicate()
-                Log.debug("child %r, predicate=%r" % (child, predicate))
+                relation = self.relations[i]
+                predicate = relation.get_predicate()
 
                 key, op, value = predicate.get_tuple()
+                
                 if op == eq:
                     # 1..N
                     # Example: parent has slice_hrn, resource has a reference to slice
@@ -252,10 +256,10 @@ class SubQuery(Node):
                         for field in value:
                             filter = filter.filter_by(Predicate(field, eq, o[value][field])) # o[value] might be multiple
 
-                    o[predicate.get_key()] = []
+                    o[relation.get_relation_name()] = []
                     for child_record in self.child_results[i]:
                         if filter.match(child_record):
-                            o[predicate.get_key()].append(child_record)
+                            o[relation.get_relation_name()].append(child_record)
 
                 elif op == contains:
                     # 1..N
@@ -299,7 +303,6 @@ class SubQuery(Node):
         \brief Processes records received by a child node
         \param record dictionary representing the received record
         """
-        #Log.tmp(record)
         if record == LAST_RECORD:
             self.status.completed(child_id)
             return
@@ -317,8 +320,6 @@ class SubQuery(Node):
         # SUBQUERY
         parent_filter = Filter()
         for predicate in filter:
-            print "predicate.key", predicate.key
-            print "self.parent.get_query().fields", self.parent.get_query().fields
             if predicate.key in self.parent.get_query().fields:
                 parent_filter.add(predicate)
             else:
@@ -338,18 +339,16 @@ class SubQuery(Node):
         for i, child in enumerate(self.children):
             predicate = self.relations[i].get_predicate()
             parent_keys   |= predicate.get_field_names()
-            parent_fields &= not parent_keys <= fields
+            if not parent_keys <= fields:
+                parent_fields = True
 
-            child_key.append(predicate.get_value_names())
-            child_fields  = fields & child.get_query().get_select()
-            child_fields |= child_key[i]
-
-            self.children[i] = child.optimize_projection(child_fields)
+#            child_key.append(predicate.get_value_names())
+#            child_fields  = fields & child.get_query().get_select()
+#            child_fields |= child_key[i]
+#
+#            self.children[i] = child.optimize_projection(child_fields)
 
         if parent_fields:
-            old_self_callback = self.get_callback()
-            projection = Projection(self, fields)
-            projection.set_callback(old_self_callback)
-            return projection
+            return Projection(self, fields)
         return self
             

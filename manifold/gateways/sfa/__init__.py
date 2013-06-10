@@ -43,7 +43,7 @@ from manifold.models             import *
 from manifold.util.predicate     import contains
 from manifold.util.log           import Log
 from manifold.gateways.sfa.proxy import SFAProxy
-from manifold.util.predicate     import eq, lt, le
+from manifold.util.predicate     import eq, lt, le, included
 from manifold.util.misc          import make_list
 import json
 import signal
@@ -356,13 +356,21 @@ class SFAGateway(Gateway):
             
             result = yield server.GetVersion()
             code = result.get('code')
-            if code.get('geni_code') > 0:
-                raise Exception(result['output']) 
-            version = ReturnValue.get_value(result)
+            if code:
+                if code.get('geni_code') > 0:
+                    raise Exception(result['output']) 
+                version = ReturnValue.get_value(result)
+            else:
+                version = result
             # cache version for 20 minutes
             cache.add(cache_key, version, ttl= 60*20)
 
         defer.returnValue(version)
+
+    @defer.inlineCallbacks
+    def get_interface_hrn(self, server):
+        server_version = yield self.get_cached_server_version(server)    
+        defer.returnValue(server_version['hrn'])
         
     ### resurrect this temporarily so we can support V1 aggregates for a while
     @defer.inlineCallbacks
@@ -371,7 +379,7 @@ class SFAGateway(Gateway):
         Returns true if server support the optional call_id arg, false otherwise. 
         """
         Log.tmp(server)
-        server_version = yield self.get_cached_server_version(server, cb_version_received, cb_error)
+        server_version = yield self.get_cached_server_version(server)
         # xxx need to rewrite this 
         # XXX added not server version to handle cases where GetVersion fails (jordan)
         if not server_version or int(server_version.get('geni_api')) >= 2:
@@ -916,6 +924,7 @@ class SFAGateway(Gateway):
         # Let's find some additional information in filters in order to restrict our research
         slice_name = make_list(filters.get_op('slice_hrn', eq))
         auth_hrn = make_list(filters.get_op('authority_hrn', [eq, lt, le]))
+        interface_hrn = yield self.get_interface_hrn(self.registry)
 
         # recursive: Should be based on jokers, eg. ple.upmc.*
         # resolve  : True: make resolve instead of list
@@ -934,19 +943,20 @@ class SFAGateway(Gateway):
                 if not '*' in hrn: # jokers ?
                     stack.append(hrn)
                 else:
-                    stack = [self.interface_hrn]
+                    stack = [interface_hrn]
                     break
 
         else: # Nothing given
             resolve   = False
             recursive = True
-            stack = [self.interface_hrn]
+            stack = [interface_hrn]
         
         # TODO: user's slices, use reg-researcher
         
         cred = self._get_cred('user')
 
         if resolve:
+            stack = map(lambda x: hrn_to_urn(x, 'slice'), stack)
             result = yield self.registry.Resolve(stack, cred)
             defer.returnValue(result)
         
@@ -954,7 +964,6 @@ class SFAGateway(Gateway):
             deferred_list = []
             while stack:
                 auth_xrn = stack.pop()
-                Log.tmp("List(%r)" % auth_xrn)
                 d = self.registry.List(auth_xrn, cred, {'recursive': recursive})
                 deferred_list.append(d)
                     
@@ -964,14 +973,13 @@ class SFAGateway(Gateway):
             for (success, records) in result:
                 if not success:
                     continue
-                pprint.pprint(records)
                 output.extend([r for r in records if r['type'] == 'slice'])
             defer.returnValue(output)
 
         else:
             auth_xrn = stack.pop()
-            Log.tmp("List(%r)" % auth_xrn)
             records = yield self.registry.List(auth_xrn, cred, {'recursive': recursive})
+            records = [r for r in records if r['type'] == 'slice']
             defer.returnValue(records)
 
 # WORKING #        if len(stack) > 1:
@@ -1201,13 +1209,13 @@ class SFAGateway(Gateway):
             defer.returnValue(self.parse_sfa_rspec(rspec))
             return 
 
+        Log.tmp("Would expect slice_hrn in filters: ", filters)
+
         # Do we have a way to find slices, for now we only support explicit slice names
         # Note that we will have to inject the slice name into the resource object if not done by the parsing.
         # slice - resource is a NxN relationship, not well managed so far
 
-        Log.tmp("get_resource_lease", filters)
-
-        slice_hrns = make_list(filters.get_eq('slice_hrn'))
+        slice_hrns = make_list(filters.get_op('slice', (eq, included)))
         # XXX ONLY ONE AND WITHOUT JOKERS
         slice_hrn = slice_hrns[0] if slice_hrns else None
 
@@ -1235,7 +1243,7 @@ class SFAGateway(Gateway):
             api_options['geni_rspec_version'] = {'type': first_common[0], 'version': first_common[1]}
 
         if slice_hrn:
-            cred = self._get_cred('slice', hrn)
+            cred = self._get_cred('slice', slice_hrn)
             api_options['geni_slice_urn'] = hrn_to_urn(slice_hrn, 'slice')
         else:
             cred = self._get_cred('user')
@@ -1250,9 +1258,6 @@ class SFAGateway(Gateway):
         if slice_hrn:
             for r in rsrc_slice['resource']:
                 r['slice'] = slice_hrn
-
-            print "SLICE_HRN", slice_hrn
-            print rsrc_slice['resource'][0]
 
         if self.debug:
             rsrc_slice['debug'] = {'rspec': rspec}
@@ -1300,9 +1305,6 @@ class SFAGateway(Gateway):
         # @loic Added default 5sec timeout if parameter self.config['timeout'] is not set
         if not 'timeout' in self.config:
             self.config['timeout'] = DEFAULT_TIMEOUT
-        print "W: Hardcoded interface hrn = ple"
-        self.interface_hrn = 'ple'
-
 
     def __str__(self):
         return "<SFAGateway %r: %s>" % (self.config['sm'], self.query)
