@@ -73,7 +73,7 @@ class SubQuery(Node):
         \param indent current indentation
         """
         self.tab(indent)
-        print '<main>', self.get_callback()
+        print '<main>'
         self.parent.dump(indent+1)
         if not self.children: return
         self.tab(indent)
