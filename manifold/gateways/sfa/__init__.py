@@ -315,7 +315,7 @@ class SFAGateway(Gateway):
         cert    = user_config[cert_type]
         timeout = self.config['timeout']
 
-        if not interface.startswith('http://') or interface.startswith('https://'):
+        if not interface.startswith('http://') and not interface.startswith('https://'):
             interface = 'http://' + interface
 
         return SFAProxy(interface, pkey, cert, timeout)

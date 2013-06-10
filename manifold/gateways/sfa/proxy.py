@@ -83,7 +83,7 @@ class SFAProxy(object):
                 factory = xmlrpc._QueryFactory(
                     self.path, self.host, method, self.user,
                     self.password, self.allowNone, args)
-                if self.secure: # XXX swapped
+                if self.secure:
                     from twisted.internet import ssl
                     try:
                         self.SSLClientContext
@@ -141,7 +141,7 @@ if __name__ == '__main__':
     from twisted.internet import defer, reactor
     import os, pprint
 
-    DEFAULT_INTERFACE = 'http://www.planet-lab.eu:12346'
+    DEFAULT_INTERFACE = 'https://www.planet-lab.eu:12346'
     DEFAULT_PKEY      = '/var/myslice/ple.upmc.slicebrowser.pkey'
     DEFAULT_CERT      = '/var/myslice/ple.upmc.slicebrowser.user.gid'
 
