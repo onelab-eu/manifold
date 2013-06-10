@@ -355,6 +355,7 @@ class SFAGateway(Gateway):
         if not version: 
             
             result = yield server.GetVersion()
+            Log.debug(result)
             code = result.get('code')
             if code:
                 if code.get('geni_code') > 0:
@@ -1227,6 +1228,7 @@ class SFAGateway(Gateway):
         # ask for cached value if available
         api_options ['cached'] = True
         # Get server capabilities
+        Log.tmp(self.sliceapi)
         server_version = yield self.get_cached_server_version(self.sliceapi)
         type_version = set()
         # Versions matching to Gateway capabilities
