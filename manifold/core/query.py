@@ -268,28 +268,92 @@ class Query(object):
     #--------------------------------------------------------------------------- 
 
     @classmethod
+    #@returns(Query)
     def action(self, action, object):
+        """
+        (Internal usage). Craft a Query according to an action name 
+        See methods: get, update, delete, execute.
+        Args:
+            action: A String among {"get", "update", "delete", "execute"}
+            object: The name of the queried object (String)
+        Returns:
+            The corresponding Query instance
+        """
         query = Query()
         query.action = action
         query.object = object
         return query
 
     @classmethod
-    def get(self, object): return self.action('get', object)
+    #@returns(Query)
+    def get(self, object):
+        """
+        Craft the Query which fetches the records related to a given object
+        Args:
+            object: The name of the queried object (String)
+        Returns:
+            The corresponding Query instance
+        """
+        return self.action("get", object)
 
     @classmethod
-    def update(self, object): return self.action('update', object)
+    #@returns(Query)
+    def update(self, object):
+        """
+        Craft the Query which updates the records related to a given object
+        Args:
+            object: The name of the queried object (String)
+        Returns:
+            The corresponding Query instance
+        """
+        return self.action("update", object)
     
     @classmethod
-    def create(self, object): return self.action('create', object)
+    #@returns(Query)
+    def create(self, object):
+        """
+        Craft the Query which create the records related to a given object
+        Args:
+            object: The name of the queried object (String)
+        Returns:
+            The corresponding Query instance
+        """
+        return self.action("create", object)
     
     @classmethod
-    def delete(self, object): return self.action('delete', object)
+    #@returns(Query)
+    def delete(self, object):
+        """
+        Craft the Query which delete the records related to a given object
+        Args:
+            object: The name of the queried object (String)
+        Returns:
+            The corresponding Query instance
+        """
+        return self.action("delete", object)
     
     @classmethod
-    def execute(self, object): return self.action('execute', object)
+    #@returns(Query)
+    def execute(self, object):
+        """
+        Craft the Query which execute a processing related to a given object
+        Args:
+            object: The name of the queried object (String)
+        Returns:
+            The corresponding Query instance
+        """
+        return self.action("execute", object)
 
+    #@returns(Query)
     def at(self, timestamp):
+        """
+        Set the timestamp carried by the query
+        Args:
+            timestamp: The timestamp (it may be a python timestamp, a string
+                respecting the "%Y-%m-%d %H:%M:%S" python format, or "now")
+        Returns:
+            The self Query instance
+        """
         self.timestamp = timestamp
         return self
 

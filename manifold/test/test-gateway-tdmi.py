@@ -21,10 +21,10 @@ from manifold.util.storage         import DBStorage
 from manifold.util.type            import returns, accepts 
 from manifold.util.log             import Log
 from manifold.util.options         import Options
+from manifold.util.predicate       import Predicate, eq
 
 Log.init_options()
 Options().parse()
-
 
 @accepts(dict)
 def print_record(record):
@@ -48,13 +48,12 @@ def make_tdmi_router():
     Returns:
         The corresponding Router instance.
     """
-    # TODO select().where().one()
     # Fetch tdmi configuration from myslice storage
-    platforms = DBStorage.execute(Query().get("platform"), format = "object")
+    platforms = DBStorage.execute(Query().get("platform").filter_by(Predicate("platform", eq, "tdmi")), format = "object")
     try:
-        platform = [platform for platform in platforms if platform.name == "tdmi"][0]
+        platform = platforms[0] 
     except:
-        # TODO: we should use this acount
+        # TODO: we should use this account
         #'db_user'     : 'guest@top-hat.info'
         #'db_password' : 'guest'
         print """No information found about TDMI in the storage, you should run:
@@ -114,11 +113,11 @@ queries = [
         timestamp = "2012-09-09 14:30:09"
     ),
 
-    # Query destination 
+    # Query agent 
     Query(
         action  = "get",
         object  = "agent",
-        filters =  [["agent_id", "=", 1417]],
+        filters =  [["agent_id", "=", 11824]],
         fields  = ["agent_id", "ip"]
     ),
 
@@ -126,7 +125,7 @@ queries = [
     Query(
         action  = "get",
         object  = "destination",
-        filters =  [["destination_id", "=", 11824]],
+        filters =  [["destination_id", "=", 1417]],
         fields  = ["destination_id", "ip"]
     ),
 
@@ -151,7 +150,12 @@ queries = [
 #for query in queries:
 #    run_query(router, query)
 print "*" * 80
-print queries[2]
+print queries[0]
 print "*" * 80
-run_query(router, queries[2])
+run_query(router, queries[0])
+
+print "*" * 80
+print queries[3]
+print "*" * 80
+run_query(router, queries[3])
 
