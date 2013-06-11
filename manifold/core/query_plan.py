@@ -301,7 +301,7 @@ class QueryPlan(object):
             queried_fields |= _predicate.get_field_names()
 
         # if we are a parent, and already need to retrieve children, then we can skip the parent
-        if metadata.is_parent(root) and neighbour_ast_predicate_list:
+        if not metadata.is_parent(root) and neighbour_ast_predicate_list:
             ast, _ = neighbour_ast_predicate_list.pop()
             added_fields |= keep_root_a 
             # we need to add fields from the parent (that we will find in the child also) to be sure the projection will work nicely
