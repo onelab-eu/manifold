@@ -12,7 +12,7 @@ class SFAProxy(object):
     # Twisted HTTPS/XMLRPC inspired from
     # http://twistedmatrix.com/pipermail/twisted-python/2007-May/015357.html
 
-    def makeSSLContext(self, client_pem, trusted_ca_pem):
+    def makeSSLContext(self, client_pem, trusted_ca_pem_list):
         '''Returns an ssl Context Object
        @param myKey a pem formated key and certifcate with for my current host
               the other end of this connection must have the cert from the CA
@@ -29,9 +29,10 @@ class SFAProxy(object):
 
         client_cert =  ssl.PrivateCertificate.loadPEM(client_pem)
         # Why these functioins... Not sure...
-        if trusted_ca_pem:
-            trusted_ca = ssl.PrivateCertificate.loadPEM(trusted_ca_pem)
-            ctx = client_cert.options(trusted_ca)
+        if trusted_ca_pem_list:
+            ca = map(lambda x: ssl.PrivateCertificate.loadPEM(x), trusted_ca_pem_list)
+            ctx = client_cert.options(*ca)
+
         else:
             ctx = client_cert.options()
 
