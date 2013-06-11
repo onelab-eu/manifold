@@ -191,7 +191,10 @@ class QueryPlan(object):
         return the AST
         . /!\ parent tables for the hierarchy when assembling query plan
         """
-        Log.debug(' '*4*depth, root, query, missing_fields)
+        # TODO handle properly query related to an unknown object
+        assert root, "Invalid root object check whether Manifold has fetched metadata concerning '%s'" % query.get_from()
+
+        Log.debug(" " * 4 * depth, root, query, missing_fields)
         missing_fields_begin = set() | missing_fields
 
         # we initialize the variable only once, otherwise just look at neighbours

@@ -19,16 +19,16 @@ psycopg2.extensions.register_type(psycopg2._psycopg.UNICODEARRAY)
 import re, datetime
 import pgdb
 from uuid                               import uuid4
-from types                              import StringTypes, GeneratorType, NoneType
+from types                              import StringTypes, GeneratorType, NoneType, IntType, LongType, FloatType, ListType, TupleType
 from pprint                             import pformat
 from manifold.gateways                  import Gateway
-from manifold.util.log                  import Log
-from manifold.util.predicate            import and_, or_, inv, add, mul, sub, mod, truediv, lt, le, ne, gt, ge, eq, neg, contains
+from manifold.core.announce             import Announces
 from manifold.core.table                import Table
 from manifold.core.field                import Field
 from manifold.core.announce             import Announce
+from manifold.util.log                  import Log
+from manifold.util.predicate            import and_, or_, inv, add, mul, sub, mod, truediv, lt, le, ne, gt, ge, eq, neg, contains
 from manifold.util.type                 import accepts, returns
-from manifold.util.predicate            import Predicate 
 
 class PostgreSQLGateway(Gateway):
     DEFAULT_DB_NAME = "postgres" 
@@ -144,8 +144,72 @@ class PostgreSQLGateway(Gateway):
         super(PostgreSQLGateway, self).__init__(router, platform, query, config, user_config, user)
         self.connection = None
         self.cursor = None
+
+        # The table matching those regular expressions are ignored...
         self.re_ignored_tables = re_ignored_tables
+
+        # ... excepted the ones explicitly allowed
         self.re_allowed_tables = re_allowed_tables
+
+        # This { String : String } dictionnary maps each Manifold object
+        # name with its corresponding pgsql table/view name.
+        # If the both names match, you do not need to provide alias.
+        #
+        # Example:
+        #
+        #   self.table_aliases = {
+        #       "my_object_name" : "my_table_name",
+        #       "foo"            : "view_foo"
+        #   }
+        self.table_aliases = dict() 
+
+        # This {String : list(Field)} dictionnary is used to inject
+        # additional Fields in the Manifold object which correspond
+        # to columns not declared in the pgsql schema. The Gateway
+        # is supposed to inject the appropriate value in the returned
+        # records.
+        #
+        # Example:
+        #
+        #   self.custom_fields = {
+        #       "agent" : [
+        #           Field("const", "string", "platform", None, "Platform annotation, always equal to 'tdmi'")
+        #       ]
+        #   }
+        self.custom_fields = dict() 
+
+        # This {String : list(list(String))} dictionnary is used to inject
+        # additional Keys (list of field names) in the Manifold object not
+        # declared in the pgsql schema. These custom keys may involve custom
+        # fields.
+        #
+        # Example:
+        #
+        #   self.custom_keys = {
+        #       "agent" : [["ip", "platform"]]
+        #   }
+        self.custom_keys = dict()
+
+        self.metadata = self.make_metadata()
+
+    #---------------------------------------------------------------------------
+    # (Internal usage)
+    #---------------------------------------------------------------------------
+
+    @returns(StringTypes)
+    def get_pgsql_name(self, manifold_name):
+        """
+        (Internal usage)
+        Translate the name of Manifold object into the appropriate view/table name
+        Args:
+            manifold_name: the Manifold object name (for example "agent") (String instance)
+        Returns:
+            The corresponding pgsql name (for instance "view_agent") (String instance).
+            If not found, returns the value stored in the manifold_name parameter.
+        """
+        if manifold_name in self.table_aliases.keys():
+            return self.table_aliases[manifold_name]
+        return manifold_name
 
     #---------------------------------------------------------------------------
     # Accessors 
@@ -366,24 +430,58 @@ class PostgreSQLGateway(Gateway):
         """
         Fetch records stored in the postgresql database according to self.query
         """
-#OBSOLETE|        sql = self.get_sql()
         sql = PostgreSQLGateway.to_sql(self.query)
         rows = self.selectall(sql, None)
         rows.append(None)
         map(self.send, rows)
         return 
        
-    @returns(list)
-    def get_metadata(self):
-        """
-        Build metadata by querying postgresql's information schema
-        Returns:
-            The list of corresponding Announce instances
-        """
-        # By default, metadata are deduced from every tables
-        # declared (and not filtered) in the current database
-        return self.make_metadata_from_names(self.get_table_names())
+    @staticmethod
+    def get_colliding_announces(announces1, announces2):
+        return frozenset([announce.get_table().get_name() for announce in announces1]) \
+             & frozenset([announce.get_table().get_name() for announce in announces2])
 
+    @returns(list)
+    def merge_announces(self, announces_pgsql, announces_h):
+        # Merge metadata
+        s = PostgreSQLGateway.get_colliding_announces(announces_pgsql, announces_h)
+        if s:
+            Log.warning("merge_announces: colliding announces for table(s): {%s}" % ", ".join(s))
+        announces = announces_pgsql + announces_h
+        return announces
+
+    @returns(list)
+    def tweak_announces(self, announces_pgsql):
+        # Inject custom keys and fields
+        for announce in announces_pgsql:
+            table = announce.get_table()
+            table_name = table.get_name()
+
+            # Inject custom fields in their corresponding announce
+            if table_name in self.custom_fields.keys():
+                for field in self.custom_fields[table_name]:
+                    table.insert_field(field)
+
+            # Inject custom keys in their corresponding announce
+            if table_name in self.custom_keys.keys():
+                for key in self.custom_keys[table_name]:
+                    table.insert_key(key)
+
+        return announces_pgsql
+
+    def make_metadata(self):
+        # Fetch metadata deduced from pgsql schema.
+        # Here we only fetch tables and we ignore views.
+        announces_pgsql = self.make_metadata_from_names(self.get_table_names())
+
+        # Fetch metadata from .h files (if any)
+        announces_h = Announces.from_dot_h(self.get_platform(), self.get_gateway_type())
+
+        # Return the resulting announces
+        return self.merge_announces(announces_pgsql, announces_h) if announces_h else announces_pgsql
+
+    def get_metadata(self):
+        return self.metadata
 
     def do(self, query, params = None):
         cursor = self.execute(query, params)
@@ -525,7 +623,6 @@ class PostgreSQLGateway(Gateway):
     #---------------------------------------------------------------------------
 
     @staticmethod
-    @returns(StringTypes)
     def _to_sql_value(x):
         """
         (Internal usage)
@@ -536,7 +633,8 @@ class PostgreSQLGateway(Gateway):
         Raises:
             ValueError: if x cannot be translated
         Returns:
-            A String containing a quoted version of the specified value.
+            A String containing a quoted version of the specified value
+            or a numerical value.
         """
         if isinstance(x, datetime.datetime):# DateTimeType):
             x = str(x)
@@ -545,11 +643,11 @@ class PostgreSQLGateway(Gateway):
 
         if isinstance(x, StringTypes):
             x = "'%s'" % str(x).replace("\\", "\\\\").replace("'", "''")
-        elif isinstance(x, (types.IntType, types.LongType, types.FloatType)):
+        elif isinstance(x, (IntType, LongType, FloatType)):
             pass
         elif x is None:
             x = "NULL"
-        elif isinstance(x, (types.ListType, types.TupleType)):
+        elif isinstance(x, (ListType, TupleType)):
             x = "(%s)" % ",".join(map(lambda x: str(PostgreSQLGateway._to_sql_value(x)), x))
         elif hasattr(x, "__pg_repr__"):
             x = x.__pg_repr__()
@@ -558,7 +656,6 @@ class PostgreSQLGateway(Gateway):
         return x
 
     @staticmethod
-    @returns(StringTypes)
     def quote(value):
         """
         Translate a python value into a PostgreSQL value.
@@ -568,21 +665,15 @@ class PostgreSQLGateway(Gateway):
         Raises:
             ValueError: if x cannot be translated
         Returns:
-            A String containing a quoted version of the specified value.
+            A String containing a quoted version of the specified value
+            or a numerical value.
         """
         # The pgdb._quote function is good enough for general SQL
         # quoting, except for array types.
         if isinstance(value, (list, tuple, set, frozenset)):
-#OBSOLETE|  return "ARRAY[%s]" % ", ".join(map(PostgreSQLGateway.quote_string, value))
             return "ARRAY[%s]" % ", ".join(map(PostgreSQLGateway.quote, value))
         else:
             return PostgreSQLGateway._to_sql_value(value)
-
-#OBSOLETE|    @staticmethod
-#OBSOLETE|    @returns(StringTypes)
-#OBSOLETE|    def quote_string(value):
-#OBSOLETE|        # join insists on getting strings
-#OBSOLETE|        return str(PostgreSQLGateway.quote(value))
 
     @staticmethod
     #@accepts(Predicate)
@@ -602,12 +693,12 @@ class PostgreSQLGateway(Gateway):
         field, op_, value = predicate.get_tuple()
         op = None
 
-        if isinstance(value, (list, tuple, set)):
+        if isinstance(value, (list, tuple, set, frozenset)):
             # handling filters like '~slice_id':[]
             # this should return true, as it's the opposite of 'slice_id':[] which is false
             # prior to this fix, 'slice_id':[] would have returned ``slice_id IN (NULL) '' which is unknown 
             # so it worked by coincidence, but the negation '~slice_ids':[] would return false too
-            if not value:
+            if not value or len(list(value)) == 0:
                 if op_ in [and_, or_]:
                     operator = eq
                     value = "'{}'"
@@ -640,23 +731,31 @@ class PostgreSQLGateway(Gateway):
                 value = value.replace ("%", "***")
                 value = str(PostgreSQLGateway.quote(value))
             else:
-                op = "="
-                if op_ == lt:
+                if op_ == eq:
+                    op = "="
+                elif op_ == lt:
                     op = "<"
-                if op_ == gt:
+                elif op_ == gt:
                     op = ">"
-                if op_ == le:
+                elif op_ == le:
                     op = "<="
-                if op_ == ge:
+                elif op_ == ge:
                     op = ">="
-                if isinstance(value, StringTypes) and value[-2:] != "()": # XXX
+                else:
+                    Log.error("_to_sql_where_elt: invalid operator: op_ = %s" % op_)
+
+                if isinstance(value, StringTypes) and value[-2:] != "()":
+                    # This is a string value and we're not calling a pgsql function
+                    # having no parameter (for instance NOW())
                     value = str(PostgreSQLGateway.quote(value))
-                if isinstance(value, datetime.datetime):
+                elif isinstance(value, datetime.datetime):
                     value = str(PostgreSQLGateway.quote(str(value)))
-        if field:
-            clause = "\"%s\" %s %s" % (field, op, value)
-        else:
-            clause = "%s %s %s" % (field, op, value)
+
+        clause = "%s %s %s" % (
+            "\"%s\"" % field if field else "",
+            "%s"     % op    if op    else "",
+            value
+        )
 
         if op_ == neg:
             clause = " ( NOT %s ) " % (clause)
@@ -664,6 +763,7 @@ class PostgreSQLGateway(Gateway):
         return clause
 
     @staticmethod
+    @returns(StringTypes)
     def to_sql_where(predicates):
         """
         Translate a set of Predicate instances in the corresponding SQL string
@@ -717,7 +817,6 @@ class PostgreSQLGateway(Gateway):
                 ts
                 [ts_min, ts_max]
                 (ts_min, ts_max)
-            \sa ts_to_sql
         Raises:
             ValueError: if parameter ts is not valid
         Returns:
@@ -750,14 +849,6 @@ class PostgreSQLGateway(Gateway):
         }
         sql = PostgreSQLGateway.SQL_STR % params
         return sql
-
-#OBSOLETE|    def get_sql(self):
-#OBSOLETE|        """
-#OBSOLETE|        Translate self.query in the corresponding postgresql command
-#OBSOLETE|        Returns:
-#OBSOLETE|            A String containing a postgresql command 
-#OBSOLETE|        """
-#OBSOLETE|        return PostgreSQLGateway.to_sql(self.query)
 
     @staticmethod
     @returns(StringTypes)
@@ -915,13 +1006,13 @@ class PostgreSQLGateway(Gateway):
         Returns:
             The list of corresponding Announce instances
         """
-        announces = list() 
+        announces_pgsql = list() 
         
         for table_name in table_names:
             if self.is_ignored_table(table_name):
                 continue
-            announces.append(Announce(self.make_table(table_name)))
+            announces_pgsql.append(Announce(self.make_table(table_name)))
 
-        return announces
-
+        announces_pgsql = self.tweak_announces(announces_pgsql)
+        return announces_pgsql
 

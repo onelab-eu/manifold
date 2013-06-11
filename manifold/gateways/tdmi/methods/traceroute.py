@@ -8,8 +8,9 @@
 # Copyright (C) 2012-2013 UPMC 
 #
 
-from types                        import StringTypes
-from manifold.gateways.postgresql import PostgreSQLGateway # to_sql_where()
+from types                          import StringTypes
+from manifold.gateways.postgresql   import PostgreSQLGateway # to_sql_where()
+from manifold.util.type             import accepts, returns 
 
 def string_to_int(s):
     """
@@ -38,10 +39,9 @@ class Traceroute(list):
         Convert an SQL array (ip_hop_t[]) stored in a string into the corresponding
             python dictionnary.
         Args:
-            hops_sql The string corresponding to the SQL array.
-            selected_sub_fields A list of field names related to a hop ("ttl", "ip"...) or None.
-                None means that every fields of hops have been fetched.
-        Returns;
+            hops_sql: The string corresponding to the SQL array.
+            selected_sub_fields: The queried hop's fields
+        Returns:
             The correspoding python dictionnary.
         """
         hops = []
@@ -157,45 +157,41 @@ class Traceroute(list):
         """
         (self.ts_min, self.ts_max) = PostgreSQLGateway.get_ts_bounds(ts)
 
-    def repack(self, query, traceroutes):
+    @returns(bool)
+    def need_repack(self, query):
+        return (frozenset(["agent", "hops", "destination"]) & query.get_select()) != frozenset()
+
+    @returns(dict)
+    def repack(self, query, traceroute):
         """
-        Repack SQL tuples into dictionnaries.
-        Here we convert hops (which is a string containing a SQL array of tuples)
-        into an array of python dictionnary 
+        Repack a Traceroute record (dict) according to the issued Query
 
         Args:
             query: The Query instance handled by Manifold
-            traceroutes: The fetched traceroute records (list of dictionnaries)
+            traceroute: A dictionnary corresponding to a fetched Traceroute record 
         """
         # Craft 'hops' field if queried 
         if "hops" in query.get_select():
-            for traceroute in traceroutes:
-                hops = traceroute["hops"]
-                traceroute["hops"] = self.repack_hops(hops, None)
+            hops_sql = traceroute["hops"]
+            traceroute["hops"] = Traceroute.repack_hops(hops_sql, self.selected_sub_fields)
 
         # TODO Factorize agent and destination crafting by using a generic function
         # Craft 'agent' field if queried 
         if "agent" in query.get_select():
-            remove_src_ip = ("src_ip" not in query.get_select())
-            for traceroute in traceroutes:
-                traceroute["agent"] = {
-                    "ip"       : traceroute["src_ip"],
-                    "platform" : "tdmi"
-                }
-                if remove_src_ip:
-                    del traceroute["src_ip"]
+            traceroute["agent"] = {
+                "ip"       : traceroute["src_ip"],
+                "platform" : "tdmi"
+            }
+            if "src_ip" not in query.get_select():
+                del traceroute["src_ip"]
 
         # Craft 'destination' field if queried 
         if "destination" in query.get_select():
-            remove_dst_ip = ("dst_ip" not in query.get_select())
-            for traceroute in traceroutes:
-                traceroute["destination"] = {
-                    "ip" : traceroute["dst_ip"]
-                }
-                if remove_dst_ip:
-                    del traceroute["dst_ip"]
-            
-        return traceroutes
+            traceroute["destination"] = {
+                "ip" : traceroute["dst_ip"]
+            }
+            if "dst_ip" not in query.get_select():
+                del traceroute["dst_ip"]
 
     def __init__(self, query, db = None):
         """

@@ -71,6 +71,9 @@ class Gateway(object):
     def set_callback(self, cb):
         self.callback = cb
 
+    def get_query(self):
+        return self.query
+
     def set_query(self, query):
         self.query = query
 

@@ -10,8 +10,10 @@ class hop {
 };
 
 class traceroute {
-    agent       agent;
-    destination destination;
+    unsigned    agent_id;       /**< DUMMY FIELD Needed to optimize traceroute queries */
+    unsigned    destination_id; /**< DUMMY FIELD Needed to optimize traceroute queries */
+    agent       agent;          /**< The measurement agent */
+    destination destination;    /**< The target IP */
     inet        src_ip;         /**< The agent which has performed the measurement */
     inet        dst_ip;         /**< The destination of the traceroute measurement */
     hop         hops[];         /**< IP hops discovered on the measurement */

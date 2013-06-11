@@ -11,27 +11,28 @@
 from copy                           import copy
 from types                          import StringTypes
 from manifold.gateways.postgresql   import PostgreSQLGateway
+from manifold.util.type             import accepts, returns 
 
 #-----------------------------------------------------------------------
 # Type related to a set of view_agents records
 #-----------------------------------------------------------------------
 
 class Agent(list):
-    def repack(self, query, agents):
+    @returns(dict)
+    def repack(self, query, agent):
         """
-        Repack SQL tuples into dictionnaries.
+        Repack an Agent record (dict) according to the issued Query
 
         Args:
             query: The Query instance handled by Manifold
-            agents: The fetched view_agents records (list of dictionnaries)
+            agent: A dictionnary corresponding to a fetched Agent record 
         """
-        print "query.get_select() = %r" % query.get_select()
-        # Craft 'platform' field if queried 
         if "platform" in query.get_select():
-            for agent in agents:
-                agent["platform"] = "tdmi"
+            agent["platform"] = "tdmi"
 
-        return agents 
+    @returns(bool)
+    def need_repack(self, query):
+        return "platform" in query.get_select()
 
     def __init__(self, query, db = None):
         """
