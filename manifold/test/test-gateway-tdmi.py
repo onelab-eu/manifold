@@ -3,6 +3,10 @@
 #
 # Tests for TDMI Gateway
 #
+# Usage:
+#  ./test-gateway-tdmi.py
+#  ./test-gateway-tdmi.py -d manifold -L DEBUG
+#
 # Copyright (C) UPMC Paris Universitas
 # Authors:
 #   Marc-Olivier Buob   <marc-olivier.buob@lip6.fr>
@@ -70,6 +74,7 @@ def run_query(router, query):
         router: The router instance related to TDMI
         query: The query instance send to the TDMI's router
     """
+
     print "=" * 80
     result_value = router.forward(query)
     if result_value["code"] == ResultValue.SUCCESS:
@@ -88,7 +93,7 @@ def dump_routing_table(router):
             print ">> %r (cost %r)\n%s\n%s" % (table, announce.get_cost(), table, table.get_capabilities())
 
 router = make_tdmi_router()
-#dump_routing_table(router)
+dump_routing_table(router)
 
 queries = [
     # Query traceroute
@@ -109,12 +114,20 @@ queries = [
         timestamp = "2012-09-09 14:30:09"
     ),
 
-    # Query agent 
+    # Query destination 
     Query(
         action  = "get",
         object  = "agent",
-        filters =  [["agent_id", "=", 11824]],
-        fields  = ["agent_id", "ip", "hostname", "platform"]
+        filters =  [["agent_id", "=", 1417]],
+        fields  = ["agent_id", "ip"]
+    ),
+
+    # Query destination 
+    Query(
+        action  = "get",
+        object  = "destination",
+        filters =  [["destination_id", "=", 11824]],
+        fields  = ["destination_id", "ip"]
     ),
 
     # Query traceroute JOIN agent
@@ -127,13 +140,18 @@ queries = [
             #["destination_id", "=", [1416, 1417]]
         ],
         fields  = [
-            "agent", "agent.ip", "src_ip", "agent.hostname"
-            "destination", "destination.ip", "dst_ip", "destination.hostname"
+            "agent.ip",       "src_ip", "agent.hostname",
+            "destination.ip", "dst_ip", "destination.hostname",
+#            "hops.ip", "hops.ttl"
         ],
         timestamp = "2012-09-09 14:30:09"
     )
 ]
 
-for query in queries:
-    run_query(router, query)
+#for query in queries:
+#    run_query(router, query)
+print "*" * 80
+print queries[2]
+print "*" * 80
+run_query(router, queries[2])
 

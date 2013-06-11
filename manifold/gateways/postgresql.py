@@ -463,7 +463,7 @@ class PostgreSQLGateway(Gateway):
             Log.debug("Params:")
             Log.debug(pformat(params))
             msg = str(e).rstrip() # jordan
-            raise Exception(make_error_message(msg, uuid))
+            raise Exception(self.make_error_message(msg, uuid))
 
         return cursor
 
@@ -866,7 +866,7 @@ class PostgreSQLGateway(Gateway):
         for field in cursor.fetchall():
             # PostgreSQL types vs base types
             table.insert_field(Field(
-                qualifier   = "" if field.is_updatable == "YES" else "const",
+                qualifier   = None if field.is_updatable == "YES" else "const",
                 type        = foreign_keys[field.column_name] if field.column_name in foreign_keys else PostgreSQLGateway.to_manifold_type(field.data_type),
                 name        = field.column_name,
                 is_array    = (field.data_type == "ARRAY"),
