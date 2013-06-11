@@ -3,8 +3,6 @@
 
 import sys
 from manifold.util.reactor_thread import ReactorThread
-from manifold.util.log            import Log
-from manifold.util.misc           import make_list
 
 DEFAULT_TIMEOUT = 20
 
@@ -124,8 +122,6 @@ class SFAProxy(object):
             
             def wrap(source, args):
                 args = (name,) + args
-                Log.tmp(self)
-                Log.tmp(make_list(args))
                 return self.proxy.callRemote(*args).addCallbacks(success_cb, error_cb)
             
             ReactorThread().callInReactor(wrap, self, args)

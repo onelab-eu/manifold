@@ -17,7 +17,6 @@ from manifold.gateways.postgresql   import PostgreSQLGateway
 #-----------------------------------------------------------------------
 
 class Agent(list):
-
     def repack(self, query, agents):
         """
         Repack SQL tuples into dictionnaries.
@@ -58,9 +57,6 @@ class Agent(list):
         # Tweak SELECT 
         if "platform" in self.query.get_select():
             self.query.fields.remove("platform")
-
-        # Tweak FROM
-        self.query.object = "view_agent"
 
         # Craft the SQL query
         sql = PostgreSQLGateway.to_sql(self.query)
