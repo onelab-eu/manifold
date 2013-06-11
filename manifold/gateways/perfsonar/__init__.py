@@ -84,5 +84,4 @@ class PerfSONARGateway(Gateway):
         Returns:
             The list of corresponding Announce instances
         """
-
-       return [] 
+        return [] 
