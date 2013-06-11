@@ -1,6 +1,6 @@
-from sqlalchemy import Column, Integer, String
-
-from manifold.models import Base
+from sqlalchemy      import Column, Integer, String
+from manifold.models import Base, db
+import json
 
 class User(Base):
     restrict_to_self = True
@@ -22,17 +22,17 @@ class User(Base):
 
         # JSON ENCODED FIELDS are constructed into the json_fields variable
         given = set(params.keys())
-        accepted = set([c.name for c in Account.__table__.columns])
+        accepted = set([c.name for c in User.__table__.columns])
         given_json_fields = given - accepted
         
         if given_json_fields:
             if 'config' in given_json_fields:
                 raise Exception, "Cannot mix full JSON specification & JSON encoded fields"
 
-            r = db.query(Account.config).filter(filters)
+            r = db.query(User.config).filter(filters)
             if user:
-                r = r.filter(Account.user_id == user.user_id)
-            r = r.filter(filters) #Account.platform_id == platform_id)
+                r = r.filter(User.user_id == user.user_id)
+            r = r.filter(filters) #User.platform_id == platform_id)
             r = r.one()
             try:
                 json_fields = json.loads(r.config)
