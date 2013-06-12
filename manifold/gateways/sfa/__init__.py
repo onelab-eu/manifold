@@ -1317,12 +1317,13 @@ class SFAGateway(Gateway):
             assert self.query, "Cannot run gateway with not query associated"
 
             self.debug = 'debug' in self.query.params and self.query.params['debug']
-            if not self.user_config:
-                self.send(LAST_RECORD)
-                return
 
             yield self.bootstrap()
             q = self.query
+
+            if not self.user_config:
+                self.send(LAST_RECORD)
+                return
 
             fields = q.fields # Metadata.expand_output_fields(q.object, list(q.fields))
             result = yield getattr(self, "%s_%s" % (q.action, q.object))(q.filters, q.params, fields)
@@ -1334,6 +1335,7 @@ class SFAGateway(Gateway):
             self.send(LAST_RECORD)
 
         except Exception, e:
+            traceback.print_exc()
             rv = ResultValue(
                 origin      = (ResultValue.GATEWAY, self.__class__.__name__, self.platform, str(self.query)),
                 type        = ResultValue.ERROR, 
@@ -1383,8 +1385,8 @@ class SFAGateway(Gateway):
         cert_fn.write(user_gid) # We always use the GID 
         pkey_fn.close() 
         cert_fn.close() 
- 
-        print "user_credential.delegate()"
+        print "cert=",cert_fn.name
+        print "user_credential.delegate()",pkey_fn.name
         delegated_credential = user_credential.delegate(admin_gid, pkey_fn.name, cert_fn.name)
         print "delegated_cred to str"
         delegated_credential_str=delegated_credential.save_to_string(save_parents=True)
@@ -1607,3 +1609,40 @@ class SFAGateway(Gateway):
 
         # return using asynchronous defer
         defer.returnValue(config)
+
+def sfa_trust_credential_delegate(self, delegee_gidfile, caller_keyfile, caller_gidfile):
+    """
+    Return a delegated copy of this credential, delegated to the 
+    specified gid's user.    
+    """
+    # get the gid of the object we are delegating
+    object_gid = self.get_gid_object()
+    object_hrn = object_gid.get_hrn()
+
+    # the hrn of the user who will be delegated to
+    # @loic corrected
+    print "gid type = ",type(delegee_gidfile)
+    print delegee_gidfile.__class__
+    if not isinstance(delegee_gidfile,GID):
+        delegee_gid = GID(filename=delegee_gidfile)
+    else:
+        delegee_gid = delegee_gidfile
+    delegee_hrn = delegee_gid.get_hrn()
+
+    #user_key = Keypair(filename=keyfile)
+    #user_hrn = self.get_gid_caller().get_hrn()
+    subject_string = "%s delegated to %s" % (object_hrn, delegee_hrn)
+    dcred = Credential(subject=subject_string)
+    dcred.set_gid_caller(delegee_gid)
+    dcred.set_gid_object(object_gid)
+    dcred.set_parent(self)
+    dcred.set_expiration(self.get_expiration())
+    dcred.set_privileges(self.get_privileges())
+    dcred.get_privileges().delegate_all_privileges(True)
+    #dcred.set_issuer_keys(keyfile, delegee_gidfile)
+    dcred.set_issuer_keys(caller_keyfile, caller_gidfile)
+    dcred.encode()
+    dcred.sign()
+
+    return dcred
+Credential.delegate = sfa_trust_credential_delegate

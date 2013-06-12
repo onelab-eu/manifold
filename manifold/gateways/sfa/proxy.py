@@ -3,6 +3,7 @@
 
 import sys
 from manifold.util.reactor_thread import ReactorThread
+from manifold.util.log            import Log
 
 DEFAULT_TIMEOUT = 20
 
@@ -79,6 +80,7 @@ class SFAProxy(object):
             def setSSLClientContext(self,SSLClientContext):
                 self.SSLClientContext = SSLClientContext
             def callRemote(self, method, *args):
+                Log.tmp(method)
                 factory = xmlrpc._QueryFactory(
                     self.path, self.host, method, self.user,
                     self.password, self.allowNone, args)
