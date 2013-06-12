@@ -80,7 +80,6 @@ class Interface(object):
             if name == 'dummy':
                 args = [None, name, None, platform.gateway_config, None, user]
             else:
-
                 if not platform.auth_type:
                     print "W: should set account auth type"
                     continue
@@ -92,10 +91,9 @@ class Interface(object):
                     config = {}
 
                 # For default, take myslice account
-
                 elif platform.auth_type == 'user':
                     # User account information
-                    accounts = [a for a in user.accounts if a.platform.platform == platform.name]
+                    accounts = [a for a in user.accounts if a.platform == platform.name]
                     if accounts:
                         #raise Exception, 'No such account'
                         account = accounts[0]
