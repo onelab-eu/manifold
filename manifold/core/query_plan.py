@@ -394,6 +394,7 @@ class QueryPlan(object):
             
         children_ast_relation_list = [ (a.get_root(), p) for a, p in children_ast_relation_list]
 
+        ast.optimize_selection(initial_query.get_where())
         ast.subquery(children_ast_relation_list)
 
         return (ast, missing_fields, query)
