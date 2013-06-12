@@ -339,6 +339,7 @@ class PostgreSQLGateway(Gateway):
         psycopg2_cfg = self.make_psycopg2_config()
         self.connection = psycopg2.connect(**psycopg2_cfg)
         self.connection.set_client_encoding("UNICODE")
+        return True
 
     def connect(self, cursor_factory = None): #psycopg2.extras.NamedTupleCursor
         """
