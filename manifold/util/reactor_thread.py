@@ -99,7 +99,5 @@ class ReactorThread(threading.Thread):
     def __getattr__(self, name):
         # We transfer missing methods to the reactor
         def _missing(*args, **kwargs):
-            print "Intercepted missing method:", name
-            self.reactor.callFromThread(self.reactor.stop)
-            #self.reactor.callFromThread(getattr(self.reactor, name)(*args, **kwargs))
+            self.reactor.callFromThread(getattr(self.reactor, name), *args, **kwargs)
         return _missing

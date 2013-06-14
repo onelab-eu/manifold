@@ -190,7 +190,7 @@ class PostgreSQLGateway(Gateway):
         #   }
         self.custom_keys = dict()
 
-        self.metadata = self.make_metadata()
+        self.metadata = None
 
     #---------------------------------------------------------------------------
     # (Internal usage)
@@ -300,9 +300,9 @@ class PostgreSQLGateway(Gateway):
         return {
             "user"     : self.config["db_user"],
             "password" : self.config["db_password"],
-            "database" : self.config["db_name"] if "db_name" in self.config else DEFAULT_DB_NAME,
+            "database" : self.config["db_name"] if "db_name" in self.config else self.DEFAULT_DB_NAME,
             "host"     : self.config["db_host"],
-            "port"     : self.config["db_port"] if "db_port" in self.config else DEFAULT_PORT 
+            "port"     : self.config["db_port"] if "db_port" in self.config else self.DEFAULT_PORT 
         }
 
     @returns(bool)
@@ -476,12 +476,20 @@ class PostgreSQLGateway(Gateway):
         announces_pgsql = self.make_metadata_from_names(self.get_table_names())
 
         # Fetch metadata from .h files (if any)
-        announces_h = Announces.from_dot_h(self.get_platform(), self.get_gateway_type())
+        try:
+            announces_h = Announces.from_dot_h(self.get_platform(), self.get_gateway_type())
+        except Exception, e:
+            print "announces_pgsql=", announces_pgsql
+            if not announces_pgsql:
+                Log.warning("Cannot find metadata for platform %s: %s" % (self.platform, e))
+            announces_h = []
 
         # Return the resulting announces
         return self.merge_announces(announces_pgsql, announces_h) if announces_h else announces_pgsql
 
     def get_metadata(self):
+        if not self.metadata:
+            self.metadata = self.make_metadata()
         return self.metadata
 
     def do(self, query, params = None):
