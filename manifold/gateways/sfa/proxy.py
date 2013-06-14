@@ -1,77 +1,175 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import sys
+import os, sys, tempfile
 from manifold.util.reactor_thread import ReactorThread
 from manifold.util.log            import Log
+from twisted.internet             import ssl
+from OpenSSL.crypto               import TYPE_RSA, FILETYPE_PEM
+from OpenSSL.crypto               import load_certificate, load_privatekey
 
 DEFAULT_TIMEOUT = 20
+
+class CtxFactory(ssl.ClientContextFactory):
+
+    def __init__(self, pkey, cert):
+        self.pkey = pkey
+        self.cert = cert
+
+    def getContext(self):
+        def infoCallback(conn, where, ret):
+            # conn is a OpenSSL.SSL.Connection
+            # where is a set of flags telling where in the handshake we are
+            # See http://www.openssl.org/docs/ssl/SSL_CTX_set_info_callback.html
+
+            try:
+                #print "infoCallback %r %d %d" % (conn, where, ret)
+                if where & ssl.SSL.SSL_CB_HANDSHAKE_START:
+                    print "Handshake started"
+                if where & ssl.SSL.SSL_CB_HANDSHAKE_DONE:
+                    print "Handshake done"
+
+                w = where & ~ ssl.SSL.SSL_ST_MASK
+                if w & ssl.SSL.SSL_ST_CONNECT:
+                    str="SSL_connect"
+                elif w & ssl.SSL.SSL_ST_ACCEPT:
+                    str="SSL_accept"
+                else:
+                    str="undefined"
+
+                if where & ssl.SSL.SSL_CB_LOOP:
+                    print "%s:%s" % (str, conn.state_string())
+                elif where & ssl.SSL.SSL_CB_ALERT:
+                    str = 'read' if where & ssl.SSL.SSL_CB_READ else 'write'
+                    #print "SSL3 alert %s:%s:%s" % (str,
+                    #        ssl.SSL.SSL_alert_type_string_long(ret),
+                    #        ssl.SSL.SSL_alert_desc_string_long(ret))
+                    print "SSL3 alert %s:%s" % (str, conn.state_string())
+                elif where & ssl.SSL.SSL_CB_EXIT:
+                    if ret == 0:
+                        print "%s:failed in %s" % (str, conn.state_string())
+                    elif ret < 0:
+                        print "%s:error in %s" % (str, conn.state_string())
+            except Exception, e:
+                print "E:", e
+
+
+        #self.method = ssl.SSL.SSLv23_METHOD
+        self.method = ssl.SSL.TLSv1_METHOD
+        ctx = ssl.ClientContextFactory.getContext(self)
+
+        # We have no way of loading a chain from string buffer, let's do a temp file
+        cert_fn = tempfile.NamedTemporaryFile(delete=False)
+        cert_fn.write(self.cert) 
+        cert_fn.close()
+        ctx.use_certificate_chain_file(cert_fn.name)
+        os.unlink(cert_fn.name)
+        
+        #ctx.use_certificate(load_certificate(FILETYPE_PEM, self.cert))
+        ctx.use_privatekey(load_privatekey(FILETYPE_PEM, self.pkey))
+
+        verifyFlags = ssl.SSL.VERIFY_NONE
+        #verifyFlags = ssl.SSL.VERIFY_PEER #ssl.SSL.VERIFY_NONE
+        #verifyFlags |= ssl.SSL.VERIFY_FAIL_IF_NO_PEER_CERT 
+        #verifyFlags |= ssl.SSL.VERIFY_CLIENT_ONCE 
+        def _verifyCallback(conn, cert, errno, depth, preverify_ok): 
+            return preverify_ok 
+        ctx.set_verify(verifyFlags, _verifyCallback) 
+        #ctx.set_verify(ssl.SSL.VERIFY_PEER|ssl.SSL.VERIFY_FAIL_IF_NO_PEER_CERT|ssl.SSL.VERIFY_CLIENT_ONCE, _verifyCallback)
+
+        #ctx.set_options(ssl.SSL.OP_NO_TLSv1 ) #| ssl.SSL.OP_NO_SSLv2 | ssl.SSL.OP_SINGLE_DH_USE )#| ssl.SSL.OP_NO_SSLv3)# | ssl.SSL.OP_SINGLE_DH_USE )
+        #ctx.set_options(ssl.SSL.OP_ALL) 
+        #ctx.set_options(ssl.SSL.OP_NO_TICKET) 
+
+        #ctx.load_verify_locations(None, '/root/repos/tophat/test-ssl/crt/')
+        #ctx.load_verify_locations(None, '/etc/ssl/certs/')
+
+        #ctx.set_verify_depth(10)
+        
+        #server_store = ctx.get_cert_store()
+        #f1 = open('/root/repos/tophat/test-ssl/myca1.pem').read()
+        #f2 = open('/root/repos/tophat/test-ssl/myca2.pem').read()
+        #f3 = open('/root/repos/tophat/test-ssl/myca3.pem').read()
+        #f4 = open('/root/repos/tophat/test-ssl/crt/ple.pem').read()
+        #server_store.add_cert(load_certificate(FILETYPE_PEM, f1));
+        #server_store.add_cert(load_certificate(FILETYPE_PEM, f2));
+        #server_store.add_cert(load_certificate(FILETYPE_PEM, f3));
+        #server_store.add_cert(load_certificate(FILETYPE_PEM, f4));
+
+        #ca1 = ssl.Certificate.loadPEM(open('myca1.pem').read())
+        #ca2 = ssl.Certificate.loadPEM(open('myca2.pem').read())
+        #store.add_cert(ca1.original) 
+        #store.add_cert(ca2.original) 
+
+        #ctx.set_info_callback(infoCallback)
+
+        return ctx
 
 class SFAProxy(object):
     # Twisted HTTPS/XMLRPC inspired from
     # http://twistedmatrix.com/pipermail/twisted-python/2007-May/015357.html
 
-    def makeSSLContext(self, client_pem, trusted_ca_pem_list):
-        '''Returns an ssl Context Object
-       @param myKey a pem formated key and certifcate with for my current host
-              the other end of this connection must have the cert from the CA
-              that signed this key
-       @param trustedCA a pem formated certificat from a CA you trust
-              you will only allow connections from clients signed by this CA
-              and you will only allow connections to a server signed by this CA
-        '''
-
-        from twisted.internet import ssl
-
-        # our goal in here is to make a SSLContext object to pass to connectSSL
-        # or listenSSL
-
-        client_cert =  ssl.PrivateCertificate.loadPEM(client_pem)
-        # Why these functioins... Not sure...
-        if trusted_ca_pem_list:
-            ca = map(lambda x: ssl.PrivateCertificate.loadPEM(x), trusted_ca_pem_list)
-            ctx = client_cert.options(*ca)
-
-        else:
-            ctx = client_cert.options()
-
-        # Now the options you can set look like Standard OpenSSL Library options
-
-        # The SSL protocol to use, one of SSLv23_METHOD, SSLv2_METHOD,
-        # SSLv3_METHOD, TLSv1_METHOD. Defaults to TLSv1_METHOD.
-        ctx.method = ssl.SSL.TLSv1_METHOD
-
-        # If True, verify certificates received from the peer and fail
-        # the handshake if verification fails. Otherwise, allow anonymous
-        # sessions and sessions with certificates which fail validation.
-        ctx.verify = False #True
-
-        # Depth in certificate chain down to which to verify.
-        ctx.verifyDepth = 1
-
-        # If True, do not allow anonymous sessions.
-        ctx.requireCertification = True
-
-        # If True, do not re-verify the certificate on session resumption.
-        ctx.verifyOnce = True
-
-        # If True, generate a new key whenever ephemeral DH parameters are used
-        # to prevent small subgroup attacks.
-        ctx.enableSingleUseKeys = True
-
-        # If True, set a session ID on each context. This allows a shortened
-        # handshake to be used when a known client reconnects.
-        ctx.enableSessions = True
-
-        # If True, enable various non-spec protocol fixes for broken
-        # SSL implementations.
-        ctx.fixBrokenPeers = False
-
-        return ctx
+#DEPRECATED#    def makeSSLContext(self, client_pem, trusted_ca_pem_list):
+#DEPRECATED#        '''Returns an ssl Context Object
+#DEPRECATED#       @param myKey a pem formated key and certifcate with for my current host
+#DEPRECATED#              the other end of this connection must have the cert from the CA
+#DEPRECATED#              that signed this key
+#DEPRECATED#       @param trustedCA a pem formated certificat from a CA you trust
+#DEPRECATED#              you will only allow connections from clients signed by this CA
+#DEPRECATED#              and you will only allow connections to a server signed by this CA
+#DEPRECATED#        '''
+#DEPRECATED#
+#DEPRECATED#        from twisted.internet import ssl
+#DEPRECATED#
+#DEPRECATED#        # our goal in here is to make a SSLContext object to pass to connectSSL
+#DEPRECATED#        # or listenSSL
+#DEPRECATED#
+#DEPRECATED#        client_cert =  ssl.PrivateCertificate.loadPEM(client_pem)
+#DEPRECATED#        # Why these functioins... Not sure...
+#DEPRECATED#        if trusted_ca_pem_list:
+#DEPRECATED#            ca = map(lambda x: ssl.PrivateCertificate.loadPEM(x), trusted_ca_pem_list)
+#DEPRECATED#            ctx = client_cert.options(*ca)
+#DEPRECATED#
+#DEPRECATED#        else:
+#DEPRECATED#            ctx = client_cert.options()
+#DEPRECATED#
+#DEPRECATED#        # Now the options you can set look like Standard OpenSSL Library options
+#DEPRECATED#
+#DEPRECATED#        # The SSL protocol to use, one of SSLv23_METHOD, SSLv2_METHOD,
+#DEPRECATED#        # SSLv3_METHOD, TLSv1_METHOD. Defaults to TLSv1_METHOD.
+#DEPRECATED#        ctx.method = ssl.SSL.TLSv1_METHOD
+#DEPRECATED#
+#DEPRECATED#        # If True, verify certificates received from the peer and fail
+#DEPRECATED#        # the handshake if verification fails. Otherwise, allow anonymous
+#DEPRECATED#        # sessions and sessions with certificates which fail validation.
+#DEPRECATED#        ctx.verify = False #True
+#DEPRECATED#
+#DEPRECATED#        # Depth in certificate chain down to which to verify.
+#DEPRECATED#        ctx.verifyDepth = 1
+#DEPRECATED#
+#DEPRECATED#        # If True, do not allow anonymous sessions.
+#DEPRECATED#        ctx.requireCertification = True
+#DEPRECATED#
+#DEPRECATED#        # If True, do not re-verify the certificate on session resumption.
+#DEPRECATED#        ctx.verifyOnce = True
+#DEPRECATED#
+#DEPRECATED#        # If True, generate a new key whenever ephemeral DH parameters are used
+#DEPRECATED#        # to prevent small subgroup attacks.
+#DEPRECATED#        ctx.enableSingleUseKeys = True
+#DEPRECATED#
+#DEPRECATED#        # If True, set a session ID on each context. This allows a shortened
+#DEPRECATED#        # handshake to be used when a known client reconnects.
+#DEPRECATED#        ctx.enableSessions = True
+#DEPRECATED#
+#DEPRECATED#        # If True, enable various non-spec protocol fixes for broken
+#DEPRECATED#        # SSL implementations.
+#DEPRECATED#        ctx.fixBrokenPeers = False
+#DEPRECATED#
+#DEPRECATED#        return ctx
 
     def __init__(self, interface, pkey, cert, timeout=DEFAULT_TIMEOUT):
         from twisted.web      import xmlrpc
-        from twisted.internet import reactor
+        #from twisted.internet import reactor
         class Proxy(xmlrpc.Proxy):
             ''' See: http://twistedmatrix.com/projects/web/documentation/howto/xmlrpc.html
                 this is eacly like the xmlrpc.Proxy included in twisted but you can
@@ -80,12 +178,10 @@ class SFAProxy(object):
             def setSSLClientContext(self,SSLClientContext):
                 self.SSLClientContext = SSLClientContext
             def callRemote(self, method, *args):
-                Log.tmp(method)
                 factory = xmlrpc._QueryFactory(
                     self.path, self.host, method, self.user,
                     self.password, self.allowNone, args)
                 if self.secure:
-                    from twisted.internet import ssl
                     try:
                         self.SSLClientContext
                     except NameError:
@@ -95,16 +191,17 @@ class SFAProxy(object):
                         # verfication of who your talking to
                         # Using the default sslcontext without verification
                         # Can lead to man in the middle attacks
-                    reactor.connectSSL(self.host, self.port or 443,
+                    ReactorThread().connectSSL(self.host, self.port or 443,
                                        factory,self.SSLClientContext)
                 else:
-                    reactor.connectTCP(self.host, self.port or 80, factory)
+                   ReactorThread().connectTCP(self.host, self.port or 80, factory)
                 return factory.deferred
 
         # client_pem expects the concatenation of private key and certificate
         # We do not verify server certificates for now
-        client_pem = "%s\n%s" % (pkey, cert)
-        ctx = self.makeSSLContext(client_pem, None)
+        #client_pem = "%s\n%s" % (pkey, cert)
+        #ctx = self.makeSSLContext(client_pem, None)
+        ctx = CtxFactory(pkey, cert)
 
         self.proxy = Proxy(interface, allowNone=True)
         self.proxy.setSSLClientContext(ctx)
@@ -124,6 +221,7 @@ class SFAProxy(object):
             
             def wrap(source, args):
                 args = (name,) + args
+                print args
                 return self.proxy.callRemote(*args).addCallbacks(success_cb, error_cb)
             
             ReactorThread().callInReactor(wrap, self, args)
@@ -137,7 +235,7 @@ class SFAProxy(object):
         return "<SfaProxy %s>"% self.interface
         
 if __name__ == '__main__':
-    from twisted.internet import defer, reactor
+    from twisted.internet import defer #, reactor
     import os, pprint
 
     DEFAULT_INTERFACE = 'https://www.planet-lab.eu:12346'
@@ -165,8 +263,8 @@ if __name__ == '__main__':
         version = yield proxy.GetVersion()
 
         pprint.pprint(version)
+        ReactorThread().stop_reactor()
 
-        reactor.stop()
 
+    ReactorThread().start_reactor()
     main()
-    reactor.run()
