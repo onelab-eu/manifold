@@ -92,7 +92,7 @@ def dump_routing_table(router):
             print ">> %r (cost %r)\n%s\n%s" % (table, announce.get_cost(), table, table.get_capabilities())
 
 router = make_tdmi_router()
-dump_routing_table(router)
+#dump_routing_table(router)
 
 queries = [
     # Query traceroute
@@ -106,8 +106,8 @@ queries = [
             #["destination_id", "=", [1416, 1417]]
         ],
         fields  = [
-            "src_ip", "dst_ip",
-            "agent",   "destination",
+#            "src_ip", "dst_ip",
+#            "agent",   "destination",
             "hops.ip", "hops.ttl"#, "hops.hostname", "timestamp"
         ],
         timestamp = "2012-09-09 14:30:09"
