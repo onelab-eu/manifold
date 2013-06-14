@@ -158,6 +158,7 @@ class From(Node):
             return selection
 
     def optimize_projection(self, fields):
+        Log.tmp(fields)
         if self.capabilities.projection:
             # Push fields into the From node
             self.query.select().select(fields)

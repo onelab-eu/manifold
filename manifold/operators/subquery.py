@@ -2,6 +2,7 @@ from types                         import StringTypes
 from manifold.core.filter          import Filter
 from manifold.core.relation        import Relation
 from manifold.operators            import Node, ChildStatus, ChildCallback, LAST_RECORD
+from manifold.operators.selection  import Selection
 from manifold.operators.projection import Projection
 from manifold.util.predicate       import Predicate, eq, contains, included
 from manifold.util.log             import Log
@@ -90,6 +91,8 @@ class SubQuery(Node):
         """
         # Start the parent first
         self.parent.start()
+
+        
 
     def parent_callback(self, record):
         """
@@ -317,20 +320,28 @@ class SubQuery(Node):
         raise Exception, "Not implemented"
 
     def optimize_selection(self, filter):
+        Log.debug(filter)
         # SUBQUERY
-        parent_filter = Filter()
+        parent_filter, top_filter = Filter(), Filter()
         for predicate in filter:
+            Log.tmp(self.parent.get_query())
             if predicate.key in self.parent.get_query().fields:
                 parent_filter.add(predicate)
             else:
                 Log.warning("SubQuery::optimize_selection() is only partially implemented : %r" % predicate)
+                top_filter.add(predicate)
 
         if parent_filter:
             self.parent = self.parent.optimize_selection(parent_filter)
             self.parent.set_callback(self.parent_callback)
+
+        if top_filter:
+            return Selection(self, top_filter)
+
         return self
 
     def optimize_projection(self, fields):
+        Log.tmp(fields)
         parent_keys = set()
         child_key = []
         child_fields = []

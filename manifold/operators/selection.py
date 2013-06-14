@@ -94,6 +94,7 @@ class Selection(Node):
     def optimize_projection(self, fields):
         # Do we have to add fields for filtering, if so, we have to remove them after
         # otherwise we can just swap operators
+        Log.tmp(fields)
         keys = self.filters.keys()
         self.child = self.child.optimize_projection(fields | keys)
         self.query.fields = fields
