@@ -1,4 +1,5 @@
-from manifold.operators       import Node, LAST_RECORD
+from manifold.operators       import Node, LAST_RECORD, ChildCallback, ChildStatus
+from manifold.core.filter     import Filter
 from manifold.util.predicate  import Predicate, eq
 from manifold.util.type       import returns
 from manifold.util.log        import Log
@@ -15,7 +16,7 @@ class CrossProduct(Node):
     CROSS PRODUCT operator node
     """
 
-    def __init__(self, children_ast_relation_list, query):
+    def __init__(self, children_ast_relation_list, query=None):
         """
         \brief Constructor
         \param children A list of Node instances, the children of
@@ -26,7 +27,7 @@ class CrossProduct(Node):
         # fields = [relation.get_relation_name(r) for r in relation]
         # NTOE: such a query should not contain any action
         self.query = query
-        self.children, self.relation = [], []
+        self.children, self.relations = [], []
         for _ast, _relation in children_ast_relation_list:
             self.children.append(_ast)
             self.relations.append(_relation)
@@ -102,22 +103,25 @@ class CrossProduct(Node):
         self.send(LAST_RECORD)
         
     def optimize_selection(self, filter):
-        raise Exception, "Not implemented"
-        # UNION: apply selection to all children
-        #for i, child in enumerate(self.children):
-        #    old_child_callback= child.get_callback()
-        #    self.children[i] = child.optimize_selection(filter)
-        #    self.children[i].set_callback(old_child_callback)
-        #return self
+        Log.tmp("OPTIMIZE SELECTION %r" % filter)
+        for i, child in enumerate(self.children):
+            child_fields = child.query.get_select()
+            child_filter = Filter()
+            for predicate in filter:
+                if predicate.get_field_names() <= child_fields:
+                    child_filter.add(predicate)
+            if child_filter:
+               self.children[i] = child.optimize_selection(child_filter) 
+        return self
 
     def optimize_projection(self, fields):
-        raise Exception, "Not implemented"
-        # UNION: apply projection to all children
-        # XXX in case of UNION with duplicate elimination, we need the key
-        # until then, apply projection to all children
-        #self.query.fields = fields
-        #for i, child in enumerate(self.children):
-        #    old_child_callback= child.get_callback()
-        #    self.children[i] = child.optimize_projection(fields)
-        #    self.children[i].set_callback(old_child_callback)
-        #return self
+        Log.tmp("OPTIMIZE PROJECTION %r" % fields)
+        for i, child in enumerate(self.children):
+            #predicate = self.relations[i].get_predicate()
+            #print "PREDICATE=", predicate
+            child_fields = child.query.get_select()
+            print "CHILD_FIELDS", child_fields
+            if not child_fields <= fields:
+               print "APPLY PROJ", child_fields & fields
+               self.children[i] = child.optimize_projection(child_fields & fields)
+        return self

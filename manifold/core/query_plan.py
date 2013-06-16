@@ -73,8 +73,7 @@ class ExploreTask(Deferred):
         self.ast = None
         self.froms = []
         self.keep_root_a = set()
-        self.subqueries = []
-        self.filters = set()
+        self.subqueries = {}
 
         self.identifier = random.randint(0,9999)
 
@@ -89,23 +88,31 @@ class ExploreTask(Deferred):
     def cancel(self):
         self.callback(None)
 
-        
-    def get_missing_fields(self, query):
+    @staticmethod
+    def query_is_done(query):
+        if ExploreTask.get_missing_fields(query):
+            return False
+        for name, sq in query.get_subqueries().items():
+            if not ExploreTask.query_is_done(sq):
+                return False
+        return True
+
+    @staticmethod
+    def get_missing_fields(query):
         fields  = set()
         fields |= query.get_select()
         fields |= query.get_where().get_field_names()
         return fields
 
-    def prune_from_query(self, query, found_fields):
+    @staticmethod
+    def prune_from_query(query, found_fields):
         new_fields = query.get_select() - found_fields
         query.select(None).select(new_fields)
         
         old_filter = query.get_where()
         new_filter = Filter()
         for pred in old_filter:
-            if pred.get_key() in found_fields:
-                self.filters.add(pred)
-            else:
+            if pred.get_key() not in found_fields:
                 new_filter.add(pred)
         query.filter_by(None).filter_by(new_filter)
 
@@ -149,15 +156,17 @@ class ExploreTask(Deferred):
 
         if self.root.get_name() == 'traceroute': # not root.capabilities.retrieve:
             Log.warning("HARDCODED TRACEROUTE AS ONJOIN")
-            # Keys fields need to be provided by subqueries (and these will be executed before)
             root_provided_fields -= root_key_fields
-            # XXX Do we need to prevent these fields to be found in the 1..1 related tables ?
         
         for query, shortcut in missing_subqueries:
-            missing_fields = root_provided_fields & self.get_missing_fields(query)
-            self.prune_from_query(query, missing_fields)
+            missing_fields = root_provided_fields & ExploreTask.get_missing_fields(query)
+            ExploreTask.prune_from_query(query, missing_fields)
             self.keep_root_a |= missing_fields
             # We should remove what we find so it is not search for anymore
+
+        if self.root.get_name() == 'traceroute': # not root.capabilities.retrieve:
+            Log.warning("HARDCODED TRACEROUTE AS ONJOIN")
+            self.keep_root_a |= root_key_fields
             
         assert self.depth == 1 or root_key_fields not in missing_fields, "Requesting key fields in child table"
 
@@ -213,11 +222,46 @@ class ExploreTask(Deferred):
     def store_subquery(self, ast, relation):
         Log.debug(ast, relation)
         if not ast: return
-        self.subqueries.append((ast.get_root(), relation))
+        self.subqueries[relation.get_relation_name()] = (ast, relation)
 
     def perform_subquery(self):
-        Log.debug('!')
-        self.ast.subquery(self.subqueries)
+        Log.tmp("PERFORMING SUBQUERY")
+        # How do i know that i have an onjoin table
+        if self.root.get_name() == 'traceroute': # not root.capabilities.retrieve:
+            Log.tmp("CROSS PRODUCT")         
+            try:
+                # Let's identify tables involved in the key
+                root_key_fields = self.root.keys.one().get_field_names()
+                xp_ast_relation, sq_ast_relation = [], []
+                xp_key = ()
+                xp_value = ()
+                for name, ast_relation in self.subqueries.items():
+                    if name in root_key_fields:
+                        ast, relation = ast_relation
+                        key, _, value = relation.get_predicate().get_tuple()
+                        xp_key   += (value,)
+                        xp_value += (key,)
+                        xp_ast_relation.append(ast_relation)
+                    else:
+                        sq_ast_relation.append(ast_relation)
+
+                ast = self.ast
+
+                ast.subquery(sq_ast_relation)
+                q = Query.action('get', self.root.get_name()).select(set(xp_value))
+                self.ast = AST().cross_product(xp_ast_relation, q)
+                predicate = Predicate(xp_key, eq, xp_value)
+                print predicate
+
+                self.ast.left_join(ast, predicate)
+                    
+                self.ast.dump(indent=2)
+            except Exception, e:
+                print "ERR", e
+                import traceback
+                traceback.print_exc()
+        else:
+            self.ast.subquery(self.subqueries.values())
 
     def build_union(self, table, needed_fields, metadata, user):
         Log.debug(table, needed_fields)
@@ -335,10 +379,10 @@ class QueryPlan(object):
 
         missing = analyzed_query.copy()
 
-        while missing: # includes missing subqueries...
+        while not ExploreTask.query_is_done(missing): # includes missing subqueries...
             task = stack.pop()
             if not task:
-                Log.warning("MISSING FIELDS: %r" % missing)
+                Log.warning("MISSING: %r" % missing)
                 break
 
             froms = task.explore(stack, missing, metadata, allowed_capabilities, user)

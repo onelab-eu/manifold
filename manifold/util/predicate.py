@@ -190,7 +190,13 @@ class Predicate:
             return dic if self.match(dic) else None
 
     def get_field_names(self):
-        return set([self.key])
+        if isinstance(self.key, (list, tuple, set, frozenset)):
+            return set(self.key)
+        else:
+            return set([self.key])
 
     def get_value_names(self):
-        return set([self.value])
+        if isinstance(self.value, (list, tuple, set, frozenset)):
+            return set(self.value)
+        else:
+            return set([self.value])
