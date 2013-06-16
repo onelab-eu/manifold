@@ -16,7 +16,7 @@
 # NOTE: The fastest way to traverse all edges of a graph is via
 # adjacency_iter(), but the edges() method is often more convenient.
 
-import copy
+import copy, random
 from networkx                      import DiGraph
 from manifold.core.table           import Table 
 from manifold.core.key             import Key
@@ -32,26 +32,195 @@ from manifold.util.log             import Log
 from manifold.models.user          import User
 from manifold.util.misc            import make_list
 from manifold.core.result_value    import ResultValue
+from twisted.internet.defer        import Deferred, DeferredList
 
-class QueryPlan(object):
+TASK_11, TASK_1Nsq, TASK_1N = range(0,3)
+MAX_DEPTH=3
 
-    def __init__(self):
-        # TODO metadata, user should be a property of the query plan
-        self.ast = AST()
+class Stack(object):
+    def __init__(self, root_task):
+        self.tasks = {
+            TASK_11  : [root_task],
+            TASK_1Nsq: [],
+            TASK_1N  : [],
+        }
+
+    def push(self, task, priority):
+        self.tasks[priority].append(task)
+
+    def pop(self):
+        for priority in [TASK_11, TASK_1Nsq, TASK_1N]:
+            tasks = self.tasks[priority]
+            if tasks:
+                return tasks.pop(0)
+        return None
+
+    def is_empty(self):
+        return all(map(lambda x: not x, self.tasks.values()))
+
+class ExploreTask(Deferred):
+    """
+    A pending exploration of the metadata graph
+    """
+    def __init__(self, root, relation, path, parent, depth):
+        # Context
+        self.root      = root
+        self.relation = relation
+        self.path = path
+        self.parent    = parent
+        self.depth     = depth
+        # Result
+        self.ast = None
         self.froms = []
+        self.keep_root_a = set()
+        self.subqueries = []
+        self.filters = set()
 
-    def get_result_value_array(self):
-        # Iterate over gateways to get their result values
-        # XXX We might need tasks
-        result = []
-        for from_node in self.froms:
-            # If no Gateway 
-            if not from_node.gateway: continue
-            result.extend(from_node.gateway.get_result_value())
-        return result
+        self.identifier = random.randint(0,9999)
 
-    def build_union(self, user_query, table, needed_fields, metadata, user):
-        Log.debug(user_query, table, needed_fields)
+        Deferred.__init__(self)
+
+    def __repr__(self):
+        return "<ExploreTask %d -- %s -- %s [%d]>" % (self.identifier, self.root.get_name(), self.relation, self.depth)
+
+    def __str__(self):
+        return self.__repr__()
+
+    def cancel(self):
+        self.callback(None)
+
+        
+    def get_missing_fields(self, query):
+        fields  = set()
+        fields |= query.get_select()
+        fields |= query.get_where().get_field_names()
+        return fields
+
+    def prune_from_query(self, query, found_fields):
+        new_fields = query.get_select() - found_fields
+        query.select(None).select(new_fields)
+        
+        old_filter = query.get_where()
+        new_filter = Filter()
+        for pred in old_filter:
+            if pred.get_key() in found_fields:
+                self.filters.add(pred)
+            else:
+                new_filter.add(pred)
+        query.filter_by(None).filter_by(new_filter)
+
+    def explore(self, stack, missing, metadata, allowed_capabilities, user):
+        Log.debug("EXPLORING", self)
+        
+        #Log.debug("[%d]" % self.depth, self.root, self.relation, missing)
+
+        relations_11, relations_1N, relations_1Nsq = (), {}, {}
+        deferred_list = []
+
+        # self.path = X.Y.Z indicates the subqueries we have traversed
+        # We are thus able to answer to parts of the query at the root,
+        # after X, after X, Z, after X.Y after X.Y.Z, after X.Z, after Y.Z, and
+        # X.Y.Z
+
+        # This is to be improved
+        # missing points to unanswered parts of the query
+        missing_subqueries = []
+        def is_sublist(x, y, shortcut=None):
+            if not shortcut: shortcut = []
+            if x == []: return (True, shortcut)
+            if y == []: return (False, None)
+            if x[0] == y[0]:
+                return is_sublist(x[1:],y[1:], shortcut)
+            else:
+                return is_sublist(x, y[1:], shortcut + [y[0]])
+        def get_query_parts(local_path, query, shortcut=None):
+            missing_subqueries.append((query, shortcut))
+            for name, sq in query.get_subqueries().items():
+                new_path = local_path + [name]
+                flag, shortcut = is_sublist(self.path, new_path)
+                if flag:
+                    get_query_parts(new_path, sq, shortcut)
+        get_query_parts([], missing)
+        # XXX We could return the shortcut to subquery, to inform on how to
+        # process results
+
+        root_provided_fields = self.root.get_field_names()
+        root_key_fields = self.root.keys.one().get_field_names()
+
+        if self.root.get_name() == 'traceroute': # not root.capabilities.retrieve:
+            Log.warning("HARDCODED TRACEROUTE AS ONJOIN")
+            # Keys fields need to be provided by subqueries (and these will be executed before)
+            root_provided_fields -= root_key_fields
+            # XXX Do we need to prevent these fields to be found in the 1..1 related tables ?
+        
+        for query, shortcut in missing_subqueries:
+            missing_fields = root_provided_fields & self.get_missing_fields(query)
+            self.prune_from_query(query, missing_fields)
+            self.keep_root_a |= missing_fields
+            # We should remove what we find so it is not search for anymore
+            
+        assert self.depth == 1 or root_key_fields not in missing_fields, "Requesting key fields in child table"
+
+        if self.keep_root_a:
+            self.ast = self.build_union(self.root, self.keep_root_a, metadata, user)
+
+        if self.depth == MAX_DEPTH:
+            self.callback(self.ast)
+            return
+
+        # In all cases, we have to list neighbours for returning 1..N relationships. Let's do it now. 
+        for neighbour in metadata.graph.successors(self.root):
+            for relation in metadata.get_relations(self.root, neighbour):
+                if relation.requires_subquery():
+                    subpath = self.path[:]
+                    subpath.append(relation.get_relation_name())
+                    task = ExploreTask(neighbour, relation, subpath, self, self.depth+1)
+                    task.addCallback(self.store_subquery, relation)
+
+                    relation_name = relation.get_relation_name()
+                    priority = TASK_1Nsq if relation_name in missing_subqueries else TASK_1N
+                    
+                else:
+                    task = ExploreTask(neighbour, relation, self.path, self.parent, self.depth)
+                    task.addCallback(self.perform_left_join, relation)
+
+                    priority = TASK_11
+
+                deferred_list.append(task)
+                stack.push(task, priority)
+
+        DeferredList(deferred_list).addCallback(self.all_done)
+
+        Log.debug(['#', '=', '-', '.'][self.depth]*80)
+        return self.froms
+
+    def all_done(self, result):
+        #Log.debug("DONE", self, result)
+        #for (success, value) in result:
+        #    if not success:
+        #        raise value.trap(Exception)
+        #        continue
+        if self.subqueries:
+            self.perform_subquery()
+        self.callback(self.ast)
+
+    def perform_left_join(self, ast, relation):
+        Log.debug(ast, relation)
+        if not ast: return
+        if not self.ast: self.ast = AST()
+        self.ast.join(ast)
+
+    def store_subquery(self, ast, relation):
+        Log.debug(ast, relation)
+        if not ast: return
+        self.subqueries.append((ast.get_root(), relation))
+
+    def perform_subquery(self):
+        Log.debug('!')
+        self.ast.subquery(self.subqueries)
+
+    def build_union(self, table, needed_fields, metadata, user):
+        Log.debug(table, needed_fields)
         from_asts = list()
         key = table.get_keys().one()
 
@@ -79,16 +248,19 @@ class QueryPlan(object):
                 #sub_table = Table.make_table_from_platform(table, fields, method.get_platform())
 
                 # XXX We lack field pruning
-                query = Query.action(user_query.get_action(), method.get_name()) \
-                            .set(user_query.get_params()).select(fields)
+                query = Query.action('get', method.get_name()).select(fields)
+                # .set(user_query.get_params()).select(fields)
                 # user_query.get_timestamp() # timestamp
                 # where will be eventually optimized later
 
                 platform = method.get_platform()
                 capabilities = metadata.get_capabilities(platform, query.object)
 
+                # The platform might be ONJOIN (no retrieve capability), but we
+                # might be able to collect the keys, so we have disabled the following code
                 # XXX Improve platform capabilities support
-                if not capabilities.retrieve: continue
+                # XXX if not capabilities.retrieve: continue
+
                 from_ast = AST(user = user).From(platform, query, capabilities, key)
 
                 self.froms.append(from_ast.root)
@@ -115,7 +287,7 @@ class QueryPlan(object):
                 # Build a new AST (the branch we'll add) above an existing FROM node
                 from_ast = AST(user = user)
                 from_ast.root = demux_node
-                #TODO from_node.add_callback(from_ast.callback)
+                #TODO from_node.addCallback(from_ast.callback)
 
                 self.froms.append(from_ast.root)
 
@@ -129,275 +301,56 @@ class QueryPlan(object):
         if not from_asts:
             return None
         return AST().union(from_asts, key)
+        
+class QueryPlan(object):
 
-    # metadata == router.g_3nf
-    def build(self, query, metadata, allowed_capabilities, user = None,   qp = None):
+    def __init__(self):
+        # TODO metadata, user should be a property of the query plan
+        self.ast = AST()
+        self.froms = []
 
-        # XXX In the current recursive version, we might go far in the
-        # XXX recursion to find fields that in fact will be found closer in the
-        # XXX next iteration. We should in fact do a BFS. We expect the schema
-        # XXX to be finite and small enough so that it does not make a big
-        # XXX difference
-        aq = AnalyzedQuery(query, metadata)
-        root = metadata.find_node(aq.get_from())
+    def get_result_value_array(self):
+        # Iterate over gateways to get their result values
+        # XXX We might need tasks
+        result = []
+        for from_node in self.froms:
+            # If no Gateway 
+            if not from_node.gateway: continue
+            result.extend(from_node.gateway.get_result_value())
+        return result
 
-        # Local fields in root table
-        missing_fields  = set() | aq.get_select() | aq.get_where().get_field_names()
-
-        ast, missing_fields, _ = self.process_subqueries(root, None, aq, missing_fields, metadata, allowed_capabilities, user, 0)
-
-        if ast:
-            ast.optimize_selection(query.get_where())
-            ast.optimize_projection(query.get_select())
-
-        if missing_fields:
-            Log.warning("Missing fields: %r" % missing_fields)
+    def set_ast(self, ast, query):
+        ast.optimize(query)
         self.ast = ast
+
+    def build(self, query, metadata, allowed_capabilities, user = None, qp = None):
+        Log.debug("#" * 80)
+        analyzed_query = AnalyzedQuery(query, metadata)
+        root = metadata.find_node(analyzed_query.get_from())
         
+        root_task = ExploreTask(root, relation=None, path=[], parent=self, depth=1)
+        root_task.addCallback(self.set_ast, query)
 
-    def process_query(self, root, predicate, query, missing_fields, metadata, allowed_capabilities, user, seen, depth, level):
-        """
-        This is quite a tricky function so let's detail a bit what we do...
-        
-        root is interesting if:
-        (a) it provides missing_fields
-        (b) direct connectivity to subqueries
-        (c) it should be traversed to answer the query
-        
-        (a) and (b) can be verified with root.get_field_names()
+        stack = Stack(root_task)
 
-        If keep_root_b: we will have to dig into this subquery, but not before
-        finishing exploring 1..1 to have the correct missing_fields parameter
-        We add them to relations_1N_sq, that will be explored before relations_1N
+        missing = analyzed_query.copy()
 
-        Other functions will continue with a reduced set of missing_fields and
-        subqueries, otherwise we might search for the same things twice.
-
-        If not sufficient
-        1. establish neighbours, classify them as 1..1 or 1..N
-        2. go through 1..1 and recursively call the function until we have all fields
-        In interesting results, (c) implies we need root
-        
-        If not sufficient we don't look at 1..N, we first return in case
-        there are others 1..1 to explore, we pass 1..N to the parent
-        Note: since we still don't know whether we need to connect to any of
-        the 1..N relation, the AST we will return might be incomplete, and we
-        will have to make a second pass.
-        
-        if we don't need root: return (None, missing_fields, relations_1N)
-        . Build ast with the union of tables in root (remember to ask for
-        predicate values, both for parent and children)
-        . Complete the ast by joining the list of AST from recursive calls if necessary
-        return the AST
-        . /!\ parent tables for the hierarchy when assembling query plan
-        """
-        # TODO handle properly query related to an unknown object
-        assert root, "Invalid root object check whether Manifold has fetched metadata concerning '%s'" % query.get_from()
-
-        Log.debug(" " * 4 * depth, root, query, missing_fields)
-        missing_fields_begin = set() | missing_fields
-
-        # we initialize the variable only once, otherwise just look at neighbours
-        if not seen: seen = (root,) 
-
-        # Prepare return values (Note: query and missing_fields are being edited in place)
-        ast = None
-        relations_11, relations_1N, relations_1N_sq = (), (), ()
-        # query and missing_fields are being edited in place
-
-        # since we can get them in the parent (unless backwards reference?)
-        assert root.keys.one().get_field_names() not in missing_fields, "Requesting key fields in child table"
-
-        root_provided_fields = root.get_field_names()
-        keep_root_a = root_provided_fields & missing_fields
-        missing_fields -= keep_root_a
-
-        # The next statement is wrong since the relation might not have a field in the root table
-        # This is the case for backwards relationships.
-        # keep_root_b = root_provided_fields & sq_names
-        # sq_names -= keep_root_b
-        keep_root_b = set()
-
-        sq_names = query.get_subquery_names() 
-         
-        # In all cases, we have to list neighbours for returning 1..N relationships. Let's do it now. 
-        for neighbour in metadata.graph.successors(root):
-            for relation in metadata.get_relations(root, neighbour):
-                if relation.get_type() not in [Relation.types.LINK, Relation.types.CHILD, Relation.types.PARENT]:
-                    relation_name = relation.get_relation_name()
-                    if relation_name in sq_names:
-                        keep_root_b.add(relation_name)
-                        sq_names.remove(relation_name)
-                        relations_1N_sq += ((root, neighbour, relation, query.subquery(relation_name)),)
-                        query.remove_subquery(relation_name)
-                    else:
-                        relations_1N += ((root, neighbour, relation),)
-                else:
-                    # No need for root since it will be used immediately (or never)
-                    relations_11 += ((neighbour, relation),)
-
-
-        # We might need to continue exploring 1..1 relationships. As we can
-        # have cycles in the recursive exploration, we need to maintain a
-        # set of tables already explored, the seen variable passed into
-        # paramters
-        
-        # We are building this list to eventually establish the aggregated AST later
-        neighbour_ast_predicate_list = []
-
-        # XXX The base table for table cannot be an onjoin table. This occurs when 
-        #    1) onjoin,
-        #    1) parent 2) onjoin
-        
-        for _neighbour, _relation in relations_11:
-            if _neighbour in seen:
-                continue
-
-            # Stop iterating when done
-            if not missing_fields and not query.get_subquery_names():
+        while missing: # includes missing subqueries...
+            task = stack.pop()
+            if not task:
+                Log.warning("MISSING FIELDS: %r" % missing)
                 break
 
-            old_sq_names = query.get_subquery_names()
+            froms = task.explore(stack, missing, metadata, allowed_capabilities, user)
+            if froms:
+                self.froms.extend(froms)
 
-            # let's recursively determine if this neighbour is useful
-            missing_fields_before = set() | missing_fields
-            _predicate= _relation.get_predicate()
-            _ast, missing_fields, query, _relations_1N_sq, _relations_1N = self.process_query(_neighbour, _predicate, query, missing_fields, metadata, allowed_capabilities, user, seen, depth, level+1)
-            
-            # First, save apart newly learned 1..N relationships
-            relations_1N    += _relations_1N
-            relations_1N_sq += _relations_1N_sq
-
-            if not _ast:
-                continue 
-    
-            # The neighbour is useful
-            neighbour_ast_predicate_list.append((_ast, _predicate))
-    
-            # The list of missing fields should have reduced
-            if not query.get_subquery_names() < old_sq_names:
-                assert missing_fields < missing_fields_before, "The set of missing fields should have reduced (1)"
-            else:
-                assert missing_fields <= missing_fields_before, "The set of missing fields should have reduced (2)"
-            
-        # Either we have explored all queries, or we have explored all needed ones at this stage
-
-        # For convenience of notations
-        keep_root_c = bool(neighbour_ast_predicate_list)
-
-        keep_root = keep_root_a or keep_root_b or keep_root_c
-        if not keep_root:
-            # Of course:
-            #  - ast = None
-            #  - missing_fields is unchanged
-            #  - we have no relations_1N_sq
-            return (None, missing_fields, query, (), relations_1N)
-
-        # Let's build the AST (provided fields + PK for linking to parent ast + FK for children ast)
-
-        queried_fields = set() | keep_root_a
-        added_fields   = set()
-        if predicate:
-            added_fields |= predicate.get_value_names()
-        queried_fields |= added_fields
-        for _ast, _predicate in neighbour_ast_predicate_list:
-            queried_fields |= _predicate.get_field_names()
-
-        # if we are a parent, and already need to retrieve children, then we can skip the parent
-        if not metadata.is_parent(root) and neighbour_ast_predicate_list:
-            ast, _ = neighbour_ast_predicate_list.pop()
-            added_fields |= keep_root_a 
-            # we need to add fields from the parent (that we will find in the child also) to be sure the projection will work nicely
-            # XXX we might not have asked all fields to the children since they were in the parent
-        else:
-            ast = self.build_union(query, root, queried_fields, metadata, user)
-            
-        if not ast:
-            # Could not return an AST (lack of capabilities ? priviledges ?)
-            Log.warning("Could not build AST because no table for '%r' was available in current platforms" % root)
-            # XXX Maybe we should mark the fields as unreachable... otherwise we might find another path that is wrong
-            # Anyways, we have already reduced missing_fields...
-            return (None, missing_fields, query, (), ())
+        while not stack.is_empty():
+            task = stack.pop()
+            task.cancel()
         
-        # Proceed to joins with (remaining) children
-        for _ast, _predicate in neighbour_ast_predicate_list:
-            ast.left_join(_ast, _predicate)
+        # Do we need to wait for self.ast here ?
 
-        # XXX We need to do it from subquery to keep keys for 1..N relationships
-        if ast:
-            # Note: we need to keep track of added fields, since we don't have the optimization originating from Subquery
-            # This might be done now that we have relation.get_relation_name()
-            ast.optimize_projection((missing_fields_begin - missing_fields) | added_fields)
-
-        return (ast, missing_fields, query, relations_1N_sq, relations_1N)
-
-    def process_subqueries(self, root, predicate, query, missing_fields, metadata, allowed_capabilities, user, depth):
-        """
-        """
-        Log.debug(' '*4*depth, root, query, missing_fields)
-
-        if depth >= 3:
-            return (None, missing_fields, query) # Nothing found
-
-        # 1. Can we answer the query only looking at the current depth level
-        # We make a first pass, without considering 1..N relationships
-        # Eventually, if 1..N relationships prove to be necessary, we might
-        # have to make a second pass to connect them
-
-        # The query might be modified in place, let's make a backup
-        initial_query = query.copy()
-
-        ast, _missing_fields, query, relations_1N_sq, relations_1N = self.process_query(root, predicate, query, missing_fields, metadata, allowed_capabilities, user, None, depth, 0)
-        # We need to remember the fields provided by the 1..1 depth level for second pass
-        pass1_fields = missing_fields -_missing_fields
-        missing_fields = missing_fields
-            
-        # Elements of the subquery
-        children_ast_relation_list = []
-
-        # We don't expect any duplicate in the 1..N relationships, thanks to normalization
-
-
-        # Let's first consider 1..N_sq, aka those explicitely specified by the user
-        # = explicit subqueries
-        for _root, _neighbour, _relation, _sq in relations_1N_sq:
-            # We might not need _root, unless this allows more easily to connect the SQ
-
-            # No break since we want to explore _all_ explicit shortcuts
-            # Recursive call
-            missing_fields_rec = missing_fields | _sq.get_select() | _sq.get_where().get_field_names()
-            _ast, missing_fields, query = self.process_subqueries(_neighbour, _relation.get_predicate(), _sq, missing_fields_rec, metadata, allowed_capabilities, user, depth+1)
-            if _ast:
-                children_ast_relation_list.append((_ast, _relation))
-
-        # Implicit shortcuts for subqueries
-        for _root, _neighbour, _relation in relations_1N:
-            if not missing_fields and not query.get_subquery_names():
-                break
-
-            _ast, missing_fields, query = self.process_subqueries(_neighbour, _relation.get_predicate(), query, missing_fields, metadata, allowed_capabilities, user, depth+1)
-            if _ast:
-                children_ast_relation_list.append((_ast, _relation))
-
-        if not children_ast_relation_list:
-            return (ast, missing_fields, query)
-
-        # We might need a second pass (for sure if not ast), since we have more missing fields. They are the FK to connect subqueries
-        # This won't change missing_fields, and we can safely ignore 1..N relations of any kind
-        for _ast, _relation in children_ast_relation_list:
-            pass2_fields = pass1_fields | _relation.get_predicate().get_field_names()
-            for _ast, _relation  in children_ast_relation_list:
-                pass2_fields |= _relation.get_predicate().get_field_names()
-            _predicate = _relation.get_predicate()
-            ast, _missing_fields, _, _, _ = self.process_query(root, _predicate, initial_query, pass2_fields, metadata, allowed_capabilities, user, None, depth, 0)
-            assert not _missing_fields, "Missing fields are not expected in pass two (unless build fails)... How to handle ?"
-            
-        children_ast_relation_list = [ (a.get_root(), p) for a, p in children_ast_relation_list]
-
-        ast.optimize_selection(initial_query.get_where())
-        ast.subquery(children_ast_relation_list)
-
-        return (ast, missing_fields, query)
 
 # XXX Note for later: what about holes in the subquery chain. Is there a notion
 # of inject ? How do we collect subquery results two or more levels up to match

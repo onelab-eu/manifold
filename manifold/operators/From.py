@@ -30,10 +30,11 @@ class From(Node):
         # XXX replaced by platform name (string)
         #assert isinstance(table, Table), "Invalid type: table = %r (%r)" % (table, type(table))
 
+        super(From, self).__init__()
+
         #self.query, self.table = query, table
         self.platform, self.query, self.capabilities, self.key = platform, query, capabilities, key
         self.gateway = None
-        super(From, self).__init__()
 
     def add_fields_to_query(self, field_names):
         """
@@ -158,6 +159,7 @@ class From(Node):
             return selection
 
     def optimize_projection(self, fields):
+        Log.tmp(fields)
         if self.capabilities.projection:
             # Push fields into the From node
             self.query.select().select(fields)
@@ -167,6 +169,6 @@ class From(Node):
                 print "W: Missing fields in From"
             if self.get_query().get_select() - fields:
                 # Create a new Projection node
-                return Projection(self, fields)
+                return  Projection(self, fields)
                 #projection.query = self.query.copy().filter_by(filter) # XXX
             return self

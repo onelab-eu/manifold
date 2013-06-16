@@ -19,6 +19,7 @@ class Union(Node):
         \param key A Key instance, corresponding to the key for
             elements returned from the node
         """
+        super(Union, self).__init__()
         # Parameters
         self.children, self.key = children, key
         # Member variables
@@ -34,7 +35,6 @@ class Union(Node):
         # We suppose all children have the same format...
         self.query = self.children[0].get_query()
 
-        super(Union, self).__init__()
 
 #    @returns(Query)
 #    def get_query(self):

@@ -22,6 +22,8 @@ class Selection(Node):
         assert issubclass(type(child), Node), "Invalid child = %r (%r)"   % (child,   type(child))
         assert isinstance(filters, set),      "Invalid filters = %r (%r)" % (filters, type(filters))
 
+        super(Selection, self).__init__()
+
         self.child, self.filters = child, filters
 
         old_cb = child.get_callback()
@@ -31,7 +33,6 @@ class Selection(Node):
         self.query = self.child.get_query().copy()
         self.query.filters |= filters
 
-        super(Selection, self).__init__()
 
 #    @returns(Query)
 #    def get_query(self):
@@ -94,6 +95,7 @@ class Selection(Node):
     def optimize_projection(self, fields):
         # Do we have to add fields for filtering, if so, we have to remove them after
         # otherwise we can just swap operators
+        Log.tmp(fields)
         keys = self.filters.keys()
         self.child = self.child.optimize_projection(fields | keys)
         self.query.fields = fields

@@ -34,3 +34,8 @@ class Relation(object):
     def get_relation_name(self):
         return self.name
         
+    def requires_subquery(self):
+        return self.type not in [Relation.types.LINK, Relation.types.CHILD, Relation.types.PARENT]
+
+    def requires_join(self):
+        return not self.requires_subquery()

@@ -89,6 +89,6 @@ class user {
     const text password;
     const text site;
     KEY(user_hrn);
-	CAPABILITY(join);
+	CAPABILITY(retrieve,join,fullquery);
 };
 

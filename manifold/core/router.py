@@ -121,6 +121,7 @@ class Router(Interface):
         print ""
         print ""
 
+        # XXX Timestamp has been added here since it is not propagated by the query plan
         self.instanciate_gateways(qp, user, query.get_timestamp())
 
         if query.get_action() == "update":

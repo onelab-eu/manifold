@@ -14,8 +14,8 @@ class FromTable(From):
         assert isinstance(query,   Query), "Invalid query = %r (%r)"   % (query,   type(query))
         assert isinstance(records, list),  "Invalid records = %r (%r)" % (records, type(records))
 
-        self.records, self.key = records, key
         super(FromTable, self).__init__(None, query, Capabilities(), key)
+        self.records, self.key = records, key
 
     def __repr__(self, indent = 0):
         return DUMPSTR_FROMTABLE % (
