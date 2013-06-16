@@ -221,7 +221,6 @@ class SFAProxy(object):
             
             def wrap(source, args):
                 args = (name,) + args
-                print args
                 return self.proxy.callRemote(*args).addCallbacks(success_cb, error_cb)
             
             ReactorThread().callInReactor(wrap, self, args)
