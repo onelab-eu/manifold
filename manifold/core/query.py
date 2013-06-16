@@ -90,13 +90,13 @@ class Query(object):
                 self.filters = kwargs["filters"]
                 del kwargs["filters"]
             else:
-                self.filters = Filter([])
+                self.filters = Filter()
 
             if "fields" in kwargs:
                 self.fields = set(kwargs["fields"])
                 del kwargs["fields"]
             else:
-                self.fields = set([])
+                self.fields = set()
 
             # "update table set x = 3" => params == set
             if "params" in kwargs:
@@ -116,14 +116,14 @@ class Query(object):
         #else:
         #        raise ParameterError, "No valid constructor found for %s : args = %r" % (self.__class__.__name__, args)
 
-        if not self.filters: self.filters = Filter([])
+        if not self.filters: self.filters = Filter()
         if not self.params:  self.params  = {}
-        if not self.fields:  self.fields  = set([])
+        if not self.fields:  self.fields  = set()
         if not self.timestamp:      self.timestamp      = "now" 
 
         if isinstance(self.filters, list):
             f = self.filters
-            self.filters = Filter([])
+            self.filters = Filter()
             for x in f:
                 pred = Predicate(x)
                 self.filters.add(pred)
@@ -145,9 +145,9 @@ class Query(object):
     def clear(self):
         self.action = 'get'
         self.object = None
-        self.filters = Filter([])
+        self.filters = Filter()
         self.params  = {}
-        self.fields  = set([])
+        self.fields  = set()
         self.timestamp  = "now" 
         self.timestamp  = 'now' # ignored for now
 
@@ -360,6 +360,9 @@ class Query(object):
     def filter_by(self, *args):
         if len(args) == 1:
             filters = args[0]
+            if filters == None:
+                self.filters = Filter()
+                return self
             if not isinstance(filters, (set, list, tuple, Filter)):
                 filters = [filters]
             for predicate in filters:
@@ -376,7 +379,7 @@ class Query(object):
             # Delete all fields
             self.fields = set()
             return self
-        if not isinstance(fields, (set, list, tuple)):
+        if not isinstance(fields, (set, list, tuple, frozenset)):
             fields = [fields]
         for field in fields:
             self.fields.add(field)
@@ -442,16 +445,18 @@ class AnalyzedQuery(Query):
     def get_subquery_names(self):
         return set(self._subqueries.keys())
 
+    def get_subqueries(self):
+        return self._subqueries
+
     def subqueries(self):
         for method, subquery in self._subqueries.iteritems():
             yield (method, subquery)
 
     def filter_by(self, filters):
-        if not filters: return self
         if not isinstance(filters, (set, list, tuple, Filter)):
             filters = [filters]
         for predicate in filters:
-            if '.' in predicate.key:
+            if predicate and '.' in predicate.key:
                 method, subkey = pred.key.split('.', 1)
                 # Method contains the name of the subquery, we need the type
                 # XXX type = self.metadata.get_field_type(self.object, method)
@@ -462,10 +467,10 @@ class AnalyzedQuery(Query):
         return self
 
     def select(self, fields):
-        if not isinstance(fields, (set, list, tuple)):
+        if not isinstance(fields, (set, list, tuple, frozenset)):
             fields = [fields]
         for field in fields:
-            if '.' in field:
+            if field and '.' in field:
                 method, subfield = field.split('.', 1)
                 # Method contains the name of the subquery, we need the type
                 # XXX type = self.metadata.get_field_type(self.object, method)

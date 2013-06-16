@@ -14,10 +14,10 @@ class Demux(Node):
         \brief Constructor
         \param child A Node instance, child of this Dup Node
         """
+        super(Demux, self).__init__()
         self.child = child
         #TO FIX self.status = ChildStatus(self.all_done)
         self.child.set_callback(ChildCallback(self, 0))
-        super(Demux, self).__init__()
 
     def add_callback(self, callback):
         """

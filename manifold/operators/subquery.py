@@ -1,3 +1,4 @@
+import traceback
 from types                         import StringTypes
 from manifold.core.filter          import Filter
 from manifold.core.relation        import Relation
@@ -25,6 +26,7 @@ class SubQuery(Node):
         \param children
         \param key the key for elements returned from the node
         """
+        super(SubQuery, self).__init__()
         # Parameters
         self.parent, self.key = parent, key # KEY DEPRECATED
 
@@ -57,7 +59,6 @@ class SubQuery(Node):
             child.set_callback(ChildCallback(self, i))
             self.child_results.append([])
 
-        super(SubQuery, self).__init__()
 
 #    @returns(Query)
 #    def get_query(self):
@@ -129,12 +130,6 @@ class SubQuery(Node):
                 # /!\ Can we have a mix of (1) and (2) ? For now, let's suppose NO.
                 #  *  We could expect key information to be stored in the DBGraph
 
-                #parent_query = self.parent.get_query()
-                #child_query  = child.get_query()
-                #parent_fields = parent_query.fields
-                #child_fields = child_query.fields
-                #intersection = parent_fields & child_fields
-
                 # The operation to be performed is understood only be looking at the predicate
                 relation = self.relations[i]
                 predicate = relation.get_predicate()
@@ -145,14 +140,16 @@ class SubQuery(Node):
                     # Example: parent has slice_hrn, resource has a reference to slice
                     if relation.get_type() == Relation.types.LINK_1N_BACKWARDS:
                         parent_ids = [record[key] for record in self.parent_output]
-                        predicate = Predicate(value, included, parent_ids)
+                        filter_pred = Predicate(value, included, parent_ids)
                     else:
-                        parent_ids = [record[key] for record in self.parent_output]
-                        predicate = Predicate(value, included, parent_ids)
+                        parent_ids = [x for record in self.parent_output for x in record[key]]
+                        if isinstance(parent_ids[0], dict):
+                            parent_ids = map(lambda x: x[value], parent_ids)
+                        filter_pred = Predicate(value, included, parent_ids)
 
                     # Injecting predicate
                     old_child_callback= child.get_callback()
-                    self.children[i] = child.optimize_selection(Filter().filter_by(predicate))
+                    self.children[i] = child.optimize_selection(Filter().filter_by(filter_pred))
                     self.children[i].set_callback(old_child_callback)
 
                 elif op == contains:
@@ -176,47 +173,6 @@ class SubQuery(Node):
                 else:
                     raise Exception, "No link between parent and child queries"
 
-                #print "AST before run_children"
-                #self.dump()
-                
-    #            # (1) in the parent, we might have a field named after the child
-    #            # method containing either records or identifiers of the children
-    #            if child_query.object in parent_query.fields:
-    #                # WHAT DO WE NEED TO DO
-    #                # We have the parent: it has a list of records/record keys which are the ones to fetch
-    #                # (whether it is 1..1 or 1..N)
-    #                # . if it is only keys: add a where
-    #                # . otherwise we need to inject records (and reprogram injection in a complex query plane)
-    #                #   (based on a left join)
-    #                    
-    #            elif intersection: #parent_fields <= child_query.fields:
-    #                # Case (2) : the child has a backreference to the parent
-    #                # For each parent, we need the set of child that point to it...
-    #                # We can inject a where limiting the set of explored children to those found in parent
-    #                #
-    #                # Let's take into account the fact that the parent key can be composite
-    #                # (That's complicated to make the filter for composite keys) -- need OR
-    #
-    #                if len(intersection) == 1:
-    #                    # single field. let's collect parent values
-    #                    field = iter(intersection).next()
-    #                    parent_ids = [record[field] for record in self.parent_output]
-    #                else:
-    #                    # multiple filters: we use tuples
-    #                    field = tuple(intersection)
-    #                    parent_ids = [tuple([record[f] for f in field]) for record in self.parent_output]
-    #                    
-    #                # We still need to inject part of the records, LEFT JOIN tout ca...
-    #                predicate = Predicate(field, '==', parent_ids)
-    #                print "INJECTING PREDICATE", predicate
-    #                old_child_callback= child.get_callback()
-    #                where = Selection(child, Filter().filter_by(predicate))
-    #                where.query = child.query.copy().filter_by(predicate)
-    #                where.set_callback(child.get_callback())
-    #                #self.children[i] = where
-    #                self.children[i] = where.optimize()
-    #                self.children[i].set_callback(old_child_callback)
-    #
             # We make another loop since the children might have been modified in
             # the previous one.
             for i, child in enumerate(self.children):
@@ -224,8 +180,7 @@ class SubQuery(Node):
             for i, child in enumerate(self.children):
                 child.start()
         except Exception, e:
-            print "EEE:", e
-            import traceback
+            print "EEE!", e
             traceback.print_exc()
 
     def all_done(self):
@@ -233,73 +188,79 @@ class SubQuery(Node):
         \brief Called when all children of the current subquery are done: we
          process results stored in the parent.
         """
+        try:
+            for o in self.parent_output:
+                # Dispatching child results
+                for i, child in enumerate(self.children):
 
-        for o in self.parent_output:
-            # Dispatching child results
-            for i, child in enumerate(self.children):
+                    relation = self.relations[i]
+                    predicate = relation.get_predicate()
 
-                relation = self.relations[i]
-                predicate = relation.get_predicate()
-
-                key, op, value = predicate.get_tuple()
-                
-                if op == eq:
-                    # 1..N
-                    # Example: parent has slice_hrn, resource has a reference to slice
-                    #            PARENT       CHILD
-                    # Predicate: (slice_hrn,) == slice
-
-                    # Collect in parent all child such as they have a pointer to the parent
-                    if isinstance(key, StringTypes):
-                        # simple key
-                        filter = Filter().filter_by(Predicate(value, eq, o[key]))
-                    else:
-                        # Composite key, o[value] is a dictionary
-                        filter = Filter()
-                        for field in value:
-                            filter = filter.filter_by(Predicate(field, eq, o[value][field])) # o[value] might be multiple
-
-                    o[relation.get_relation_name()] = []
-                    for child_record in self.child_results[i]:
-                        if filter.match(child_record):
-                            o[relation.get_relation_name()].append(child_record)
-
-                elif op == contains:
-                    # 1..N
-                    # Example: parent 'slice' has a list of 'user' keys == user_hrn
-                    #            PARENT        CHILD
-                    # Predicate: user contains (user_hrn, )
-
-                    # first, replace records by dictionaries. This only works for non-composite keys
-                    if o[child.query.object]:
-                        record = o[child.query.object][0]
-                        if not isinstance(record, dict):
-                            o[child.query.object] = [{value: record} for record in o[child.query.object]]
-
-                    if isinstance(value, StringTypes):
-                        for record in o[child.query.object]:
-                            # Find the corresponding record in child_results and update the one in the parent with it
-                            for k, v in record.items():
-                                filter = Filter().filter_by(Predicate(value, eq, record[value]))
-                                for r in self.child_results[i]:
-                                    if filter.match(r):
-                                        record.update(r)
-                    else:
-                        for record in o[child.query.object]:
-                            # Find the corresponding record in child_results and update the one in the parent with it
-                            for k, v in record.items():
-                                filter = Filter()
-                                for field in value:
-                                    filter = filter.filter_by(Predicate(field, eq, record[field]))
-                                for r in self.child_results[i]:
-                                    if filter.match(r):
-                                        record.update(r)
+                    key, op, value = predicate.get_tuple()
                     
-                else:
-                    raise Exception, "No link between parent and child queries"
+                    if op == eq:
+                        # 1..N
+                        # Example: parent has slice_hrn, resource has a reference to slice
+                        #            PARENT       CHILD
+                        # Predicate: (slice_hrn,) == slice
 
-            self.send(o)
-        self.send(LAST_RECORD)
+                        # Collect in parent all child such as they have a pointer to the parent
+                        if isinstance(key, StringTypes):
+                            # simple key
+                            ids = o[key]
+                            if isinstance(ids[0], dict):
+                                ids = map(lambda x: x[value], ids)
+                            filter = Filter().filter_by(Predicate(value, included, ids))
+                        else:
+                            # Composite key, o[value] is a dictionary
+                            filter = Filter()
+                            for field in value:
+                                filter = filter.filter_by(Predicate(field, included, o[value][field])) # o[value] might be multiple
+
+                        o[relation.get_relation_name()] = []
+                        for child_record in self.child_results[i]:
+                            if filter.match(child_record):
+                                o[relation.get_relation_name()].append(child_record)
+
+                    elif op == contains:
+                        # 1..N
+                        # Example: parent 'slice' has a list of 'user' keys == user_hrn
+                        #            PARENT        CHILD
+                        # Predicate: user contains (user_hrn, )
+
+                        # first, replace records by dictionaries. This only works for non-composite keys
+                        if o[child.query.object]:
+                            record = o[child.query.object][0]
+                            if not isinstance(record, dict):
+                                o[child.query.object] = [{value: record} for record in o[child.query.object]]
+
+                        if isinstance(value, StringTypes):
+                            for record in o[child.query.object]:
+                                # Find the corresponding record in child_results and update the one in the parent with it
+                                for k, v in record.items():
+                                    filter = Filter().filter_by(Predicate(value, eq, record[value]))
+                                    for r in self.child_results[i]:
+                                        if filter.match(r):
+                                            record.update(r)
+                        else:
+                            for record in o[child.query.object]:
+                                # Find the corresponding record in child_results and update the one in the parent with it
+                                for k, v in record.items():
+                                    filter = Filter()
+                                    for field in value:
+                                        filter = filter.filter_by(Predicate(field, eq, record[field]))
+                                    for r in self.child_results[i]:
+                                        if filter.match(r):
+                                            record.update(r)
+                        
+                    else:
+                        raise Exception, "No link between parent and child queries"
+
+                self.send(o)
+            self.send(LAST_RECORD)
+        except Exception, e:
+            print "EEE", e
+            traceback.print_exc()
 
     def child_callback(self, child_id, record):
         """
@@ -343,21 +304,28 @@ class SubQuery(Node):
     def optimize_projection(self, fields):
         Log.tmp(fields)
         parent_keys = set()
-        child_key = []
-        child_fields = []
         parent_fields = False
 
-        for i, child in enumerate(self.children):
-            predicate = self.relations[i].get_predicate()
+        for i, child in enumerate(self.children[:]):
+            relation = self.relations[i]
+            name     = relation.get_relation_name()
+
+            my_fields = set()
+            for field in fields:
+                if not '.' in field: continue
+                m, f = field.split('.', 1)
+                if m == name:
+                    my_fields.add(f)
+
+            predicate = relation.get_predicate()
             parent_keys   |= predicate.get_field_names()
-            if not parent_keys <= fields:
+            if not parent_keys <= my_fields:
                 parent_fields = True
 
-#            child_key.append(predicate.get_value_names())
-#            child_fields  = fields & child.get_query().get_select()
-#            child_fields |= child_key[i]
-#
-#            self.children[i] = child.optimize_projection(child_fields)
+            child_fields  = my_fields & child.get_query().get_select()
+            child_fields |= predicate.get_value_names()
+
+            self.children[i] = child.optimize_projection(child_fields)
 
         if parent_fields:
             return Projection(self, fields)

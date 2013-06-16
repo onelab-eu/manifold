@@ -32,9 +32,10 @@ class LeftJoin(Node):
         """
         assert predicate.op == eq
 
+        super(LeftJoin, self).__init__()
+
         # Check parameters
         LeftJoin.check_init(left_child, right_child, predicate)#, callback)
-
 
         # Initialization
         self.left      = left_child
@@ -77,7 +78,6 @@ class LeftJoin(Node):
 #            q.filters |= child.filters
 #            q.fields  |= child.fields
 
-        super(LeftJoin, self).__init__()
 
     @returns(list)
     def get_children(self):
