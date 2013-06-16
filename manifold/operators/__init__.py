@@ -31,7 +31,12 @@ class ChildCallback:
         \brief Process records received by the callback
         """
         # Pass the record to the parent with the right child identifier
-        self.parent.child_callback(self.child_id, record)
+        try:
+            self.parent.child_callback(self.child_id, record)
+        except Exception, e:
+            print "EXCEPTION IN ChildCallback, calling", self.parent.child_callback
+            print e
+            traceback.print_exc()
 
 #------------------------------------------------------------------
 # ChildStatus
@@ -65,7 +70,12 @@ class ChildStatus:
         self.counter -= child_id + 1
         assert self.counter >= 0, "Child status error: %d" % self.counter
         if self.counter == 0:
-            self.all_done_cb()
+            try:
+                self.all_done_cb()
+            except Exception, e:
+                print "EXCEPTION IN ChildStatus, calling", self.all_done_cb
+                print e
+                traceback.print_exc()
 
 #------------------------------------------------------------------
 # Node (parent class)
@@ -137,9 +147,9 @@ class Node(object):
         \param indent current indentation
         """
         self.tab(indent)
-        print "%r" % self
+        #print "%r" % self
         #print "%r (%r)" % (self, self.query)
-        #print "%r (%r)" % (self, self.callback)
+        print "%r (%r)" % (self, self.callback)
 
     @returns(StringTypes)
     def __repr__(self):
@@ -150,6 +160,7 @@ class Node(object):
         return self.__repr__() 
 
     def optimize(self):
+        Log.warning("Calling optimize()")
         tree = self.optimize_selection(Filter())
         tree = tree.optimize_projection(set())
         return tree

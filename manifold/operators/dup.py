@@ -16,12 +16,12 @@ class Dup(Node):
         """
         #assert issubclass(Node, type(child)), "Invalid child %r (%r)" % (child, type(child))
         #assert isinstance(Key,  type(key)),   "Invalid key %r (%r)"   % (key,   type(key))
+        super(Dup, self).__init__()
 
         self.child = child
         #TO FIX self.status = ChildStatus(self.all_done)
         self.child.set_callback(ChildCallback(self, 0))
         self.child_results = set()
-        super(Dup, self).__init__()
 
     @returns(Query)
     def get_query(self):

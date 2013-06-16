@@ -244,8 +244,9 @@ class AST(object):
     def set_callback(self, callback):
         self.root.set_callback(callback)
 
-    def optimize(self):
-        self.root.optimize()
+    def optimize(self, query):
+        self.optimize_selection(query.get_where())
+        self.optimize_projection(query.get_select())
 
     def optimize_selection(self, filter):
         if not filter: return

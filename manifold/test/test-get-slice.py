@@ -48,8 +48,4 @@ ret = ret['value']
 
 print "===== RESULTS ====="
 for r in ret:
-    r['resource'] = r['resource'][0:min(2, len(r['resource']))]
-    if 'lease' in r:
-        r['lease'] = r['lease'][0:min(2, len(r['lease']))]
-    print "I: Limiting subquery results to 2 max..."
     pprint.pprint(r)
