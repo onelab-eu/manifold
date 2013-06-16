@@ -628,8 +628,8 @@ class Table(object):
                             elif u.is_child_of(v):
                                  relations.add(Relation(Relation.types.PARENT, p))
                             else:
-                                if field.get_name() in ['source', 'destination', 'dns_target']:
-                                    Log.warning("Hardcoded source, destination and dns_target as 1..1 relationships")
+                                if field.get_name() in ['source', 'destination', 'agent', 'dns_target']:
+                                    Log.warning("Hardcoded source, agent, destination and dns_target as 1..1 relationships")
                                     relations.add(Relation(Relation.types.LINK_11, p))
                                 else:
                                     relations.add(Relation(Relation.types.LINK, p))

@@ -57,6 +57,7 @@ class Projection(Node):
         \param fields A list of Field instances corresponding to
             the fields we're selecting.
         """
+        super(Projection, self).__init__()
         #for field in fields:
         #    assert isinstance(field, Field), "Invalid field %r (%r)" % (field, type(field))
         if isinstance(fields, (list, tuple, frozenset)):
@@ -71,7 +72,6 @@ class Projection(Node):
         self.query = self.child.get_query().copy()
         self.query.fields &= fields
 
-        super(Projection, self).__init__()
 
     @returns(set)
     def get_fields(self):

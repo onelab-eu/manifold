@@ -1,58 +1,36 @@
-import sys
-import os, os.path
-import tempfile
-from datetime import datetime
-from lxml import etree
-from StringIO import StringIO
-from types import StringTypes, ListType
-import re
-import itertools
-import urllib
-import BeautifulSoup
-import hashlib
-import zlib
-import copy # DIRTY HACK SENSLAB
+import sys, os, os.path, re, tempfile, itertools
+import zlib, hashlib, BeautifulSoup, urllib
+import json, signal, traceback
+from datetime                    import datetime
+from lxml                        import etree
+from StringIO                    import StringIO
+from types                       import StringTypes, ListType
+from twisted.internet            import defer
 
-from manifold.core.result_value         import ResultValue
-
-from manifold.core.filter               import Filter
-from manifold.gateways                  import Gateway
-from manifold.operators                 import LAST_RECORD
-
+from manifold.core.result_value  import ResultValue
+from manifold.core.filter        import Filter
+from manifold.operators          import LAST_RECORD
+from manifold.operators.rename   import Rename
+from manifold.gateways           import Gateway
 from manifold.gateways.sfa.rspecs.SFAv1 import SFAv1Parser # as Parser
+from manifold.gateways.sfa.proxy import SFAProxy
+from manifold.util.predicate     import contains, eq, lt, le, included
+from manifold.util.log           import Log
+from manifold.util.misc          import make_list
+from manifold.models             import *
 
-from sfa.trust.certificate import Keypair, Certificate, set_passphrase
-from sfa.trust.gid import GID
-from sfa.trust.credential import Credential
-# from sfa.trust.sfaticket import SfaTicket
-
-from sfa.util.xrn import Xrn, get_leaf, get_authority, hrn_to_urn, urn_to_hrn
-from sfa.util.config import Config
-from sfa.util.version import version_core
-from sfa.util.cache import Cache
-
-from sfa.storage.record import Record
-
-from sfa.rspecs.rspec import RSpec
-#from sfa.rspecs.rspec_converter import RSpecConverter
-from sfa.rspecs.version_manager import VersionManager
-
+from sfa.trust.certificate       import Keypair, Certificate, set_passphrase
+from sfa.trust.gid               import GID
+from sfa.trust.credential        import Credential
+from sfa.util.xrn                import Xrn, get_leaf, get_authority, hrn_to_urn, urn_to_hrn
+from sfa.util.config             import Config
+from sfa.util.version            import version_core
+from sfa.util.cache              import Cache
+from sfa.storage.record          import Record
+from sfa.rspecs.rspec            import RSpec
+from sfa.rspecs.version_manager  import VersionManager
 from sfa.client.client_helper    import pg_users_arg, sfa_users_arg
 from sfa.client.return_value     import ReturnValue
-from manifold.models             import *
-from manifold.util.predicate     import contains
-from manifold.util.log           import Log
-from manifold.gateways.sfa.proxy import SFAProxy
-from manifold.util.predicate     import eq, lt, le, included
-from manifold.util.misc          import make_list
-import json
-import signal
-import traceback
-
-from twisted.internet import defer
-
-# For debug
-import pprint
 
 DEFAULT_TIMEOUT = 20
 DEFAULT_TIMEOUT_GETVERSION = 5
@@ -778,61 +756,6 @@ class SFAGateway(Gateway):
             print "E: %s" % e
         return []
 
-    def _get_slices_hrn(self, filters, cb_success, cb_error):
-        slice_list = []
-
-        cred = None
-        if not filters or not filters.has_eq('slice_hrn') or filters.has_eq('authority_hrn'):
-        #if not input_filter or 'slice_hrn' not in input_filter or 'authority_hrn' in input_filter:
-            cred = self._get_cred('user')
-
-        def cb_list_slices_returned(results):
-            results = results['value']
-            # XXX parse geni code
-            #{'output': '', 'geni_api': 2, 'code': {'am_type': 'sfa', 'geni_code': 0, 'am_code': None}, 'value': [
-            cb_success([urn_to_hrn(r)[0] for r in results])
-
-        def cb_list_returned(records):
-            cb_success([r['hrn'] for r in records])                
-
-        def cb_ois_received(ois):
-            print "OIS=", ois
-            #self.sliceapi.ListSlices(cred, *ois, cb_success, cb_error)
-
-        if not filters or not (filters.has_eq('slice_hrn') or filters.has_eq('authority_hrn') or filters.has_op('users.person_hrn', contains)):
-        #if not input_filter or not ('slice_hrn' in input_filter or 'authority_hrn' in input_filter or '{users.person_hrn' in input_filter):
-            # no details specified, get the full list of slices
-            # Get slices HRN (this in fact gives us the active slices from the SM/AM)
-            api_options = {}
-            api_options['call_id']=unique_call_id()
-            self.ois(self.sliceapi,api_options, cb_ois_received, cb_error)
-            return 
-
-        # XXX We would need the subquery for this !!
-        if filters.has_op('users.person_hrn', contains):
-            hrn = filters.get_op('users.person_hrn', contains)
-            auth = hrn[:hrn.rindex('.')]
-            records = self.sfa_list_records(cred, auth, 'slice', cb_list_returned, cb_error)
-            return
-
-        # XXX Need recursive retrieval of multiple authorities to have this fully working
-        if filters.has_eq('authority_hrn'):
-            # Get the list of slices
-            # record fields: peer_authority, last_updated, type, authority, hrn, gid, record_id, date_created, pointer
-            hrn = filters.get_eq('authority_hrn')
-            if isinstance(auths, list):
-                cb_error('Retrieving slices from multiple authorities not supported yet.')
-            self.sfa_list_records(cred, hrn, 'slice', cb_list_returned, cb_error)
-                
-# TODO? #         if filters.has_eq('slice_hrn'):
-# TODO? #             hrns = filters.get_eq('slice_hrn')
-# TODO? #             if not isinstance(hrns, (tuple, list)):
-# TODO? #                 hrns = [hrns]
-# TODO? #             else:
-# TODO? #                 hrns = list(hrns)
-# TODO? #             slice_list.extend(hrns)
-# TODO? # 
-# TODO? #         return slice_list
  
     # This function will return information about a given network using SFA GetVersion call
     # Depending on the object Queried, if object is network then get_network is triggered by
@@ -909,30 +832,18 @@ class SFAGateway(Gateway):
             return [s]
 
     @defer.inlineCallbacks
-    def get_slice(self, filters, params, fields):
-
-        if self.user.email in DEMO_HOOKS:
-            defer.returnValue(self.get_slice_demo(filters, params, fields))
-            return
-
-        # Slice information is present in the registry only
-        # We can speed up lookup for slices belonging to one authority or for slices belonging to a given user
-        # Otherwise we have to do a recursive listing on the registry
-        # The strategy to list all active slices on the different AM is not good.
-        # (Note: can we optimize routing?)
-        # 
-
+    def get_object(self, object, object_hrn, filters, params, fields):
         # Let's find some additional information in filters in order to restrict our research
-        slice_name = make_list(filters.get_op('slice_hrn', eq))
+        object_name = make_list(filters.get_op(object_hrn, [eq, included]))
         auth_hrn = make_list(filters.get_op('authority_hrn', [eq, lt, le]))
         interface_hrn = yield self.get_interface_hrn(self.registry)
 
         # recursive: Should be based on jokers, eg. ple.upmc.*
         # resolve  : True: make resolve instead of list
-        if slice_name:
-            # 0) given slice name
+        if object_name:
+            # 0) given object name
             # Check for jokers ?
-            stack     = slice_name
+            stack     = object_name
             resolve   = True
 
         elif auth_hrn:
@@ -952,12 +863,13 @@ class SFAGateway(Gateway):
             recursive = True
             stack = [interface_hrn]
         
-        # TODO: user's slices, use reg-researcher
+        # TODO: user's objects, use reg-researcher
         
         cred = self._get_cred('user')
 
+
         if resolve:
-            stack = map(lambda x: hrn_to_urn(x, 'slice'), stack)
+            stack = map(lambda x: hrn_to_urn(x, object), stack)
             result = yield self.registry.Resolve(stack, cred)
             defer.returnValue(result)
         
@@ -974,14 +886,31 @@ class SFAGateway(Gateway):
             for (success, records) in result:
                 if not success:
                     continue
-                output.extend([r for r in records if r['type'] == 'slice'])
+                output.extend([r for r in records if r['type'] == object])
             defer.returnValue(output)
 
         else:
             auth_xrn = stack.pop()
             records = yield self.registry.List(auth_xrn, cred, {'recursive': recursive})
-            records = [r for r in records if r['type'] == 'slice']
+            records = [r for r in records if r['type'] == object]
             defer.returnValue(records)
+
+    def get_slice(self, filters, params, fields):
+
+        if self.user.email in DEMO_HOOKS:
+            defer.returnValue(self.get_slice_demo(filters, params, fields))
+            return
+
+        return self.get_object('slice', 'slice_hrn', filters, params, fields)
+
+    def get_user(self, filters, params, fields):
+
+        if self.user.email in DEMO_HOOKS:
+            defer.returnValue(self.get_user_demo(filters, params, fields))
+            return
+
+        return self.get_object('user', 'user_hrn', filters, params, fields)
+
 
 # WORKING #        if len(stack) > 1:
 # WORKING #            d = defer.Deferred()
@@ -1031,66 +960,66 @@ class SFAGateway(Gateway):
 # REFERENCE #                 traceback.print_exc()
 
 
-    def get_user(self, filters = None, params = None, fields = None):
-
-        cred = self._get_cred('user')
-
-        # A/ List users
-        if not filters or not (filters.has_eq('user_hrn') or filters.has_eq('authority_hrn')):
-            # no authority specified, we get all users *recursively*
-            raise Exception, "E: Recursive user listing not implemented yet."
-
-        elif filters.has_eq('authority_hrn'):
-            # Get the list of users
-            auths = filters.get_eq('authority_hrn')
-            if not isinstance(auths, list): auths = [auths]
-
-            # Get the list of user_hrn
-            user_list = []
-            for hrn in auths:
-                ul = self.registry.List(hrn, cred)
-                ul = filter_records('user', ul)
-                user_list.extend([r['hrn'] for r in ul])
-
-        else: # named users
-            user_list = filters.get_eq('user_hrn')
-            if not isinstance(user_list, list): user_list = [user_list]
-        
-        if not user_list: return user_list
-
-        # B/ Get user information
-        if filters == set(['user_hrn']): # urn ?
-            return [ {'user_hrn': hrn} for hrn in user_list ]
-
-        else:
-            # Here we could filter by authority if possible
-            if filters.has_eq('authority_hrn'):
-                predicates = filters.get_predicates('authority_hrn')
-                for p in predicates:
-                    user_list = [s for s in user_list if p.match({'authority_hrn': get_authority(s)})]
-
-            if not user_list: return user_list
-
-            users = self.registry.Resolve(user_list, cred)
-            users = filter_records('user', users)
-            filtered = []
-
-            for user in users:
-                # translate field names...
-                for k,v in self.map_user_fields.items():
-                    if k in user:
-                        user[v] = user[k]
-                        del user[k]
-                # apply input_filters XXX TODO sort limit offset
-                if filters.match(user):
-                    # apply output_fields
-                    c = {}
-                    for k,v in user.items():
-                        if k in fields:
-                            c[k] = v
-                    filtered.append(c)
-
-            return filtered
+#DEPRECATED#    def get_user(self, filters = None, params = None, fields = None):
+#DEPRECATED#
+#DEPRECATED#        cred = self._get_cred('user')
+#DEPRECATED#
+#DEPRECATED#        # A/ List users
+#DEPRECATED#        if not filters or not (filters.has_eq('user_hrn') or filters.has_eq('authority_hrn')):
+#DEPRECATED#            # no authority specified, we get all users *recursively*
+#DEPRECATED#            raise Exception, "E: Recursive user listing not implemented yet."
+#DEPRECATED#
+#DEPRECATED#        elif filters.has_eq('authority_hrn'):
+#DEPRECATED#            # Get the list of users
+#DEPRECATED#            auths = filters.get_eq('authority_hrn')
+#DEPRECATED#            if not isinstance(auths, list): auths = [auths]
+#DEPRECATED#
+#DEPRECATED#            # Get the list of user_hrn
+#DEPRECATED#            user_list = []
+#DEPRECATED#            for hrn in auths:
+#DEPRECATED#                ul = self.registry.List(hrn, cred)
+#DEPRECATED#                ul = filter_records('user', ul)
+#DEPRECATED#                user_list.extend([r['hrn'] for r in ul])
+#DEPRECATED#
+#DEPRECATED#        else: # named users
+#DEPRECATED#            user_list = filters.get_eq('user_hrn')
+#DEPRECATED#            if not isinstance(user_list, list): user_list = [user_list]
+#DEPRECATED#        
+#DEPRECATED#        if not user_list: return user_list
+#DEPRECATED#
+#DEPRECATED#        # B/ Get user information
+#DEPRECATED#        if filters == set(['user_hrn']): # urn ?
+#DEPRECATED#            return [ {'user_hrn': hrn} for hrn in user_list ]
+#DEPRECATED#
+#DEPRECATED#        else:
+#DEPRECATED#            # Here we could filter by authority if possible
+#DEPRECATED#            if filters.has_eq('authority_hrn'):
+#DEPRECATED#                predicates = filters.get_predicates('authority_hrn')
+#DEPRECATED#                for p in predicates:
+#DEPRECATED#                    user_list = [s for s in user_list if p.match({'authority_hrn': get_authority(s)})]
+#DEPRECATED#
+#DEPRECATED#            if not user_list: return user_list
+#DEPRECATED#
+#DEPRECATED#            users = self.registry.Resolve(user_list, cred)
+#DEPRECATED#            users = filter_records('user', users)
+#DEPRECATED#            filtered = []
+#DEPRECATED#
+#DEPRECATED#            for user in users:
+#DEPRECATED#                # translate field names...
+#DEPRECATED#                for k,v in self.map_user_fields.items():
+#DEPRECATED#                    if k in user:
+#DEPRECATED#                        user[v] = user[k]
+#DEPRECATED#                        del user[k]
+#DEPRECATED#                # apply input_filters XXX TODO sort limit offset
+#DEPRECATED#                if filters.match(user):
+#DEPRECATED#                    # apply output_fields
+#DEPRECATED#                    c = {}
+#DEPRECATED#                    for k,v in user.items():
+#DEPRECATED#                        if k in fields:
+#DEPRECATED#                            c[k] = v
+#DEPRECATED#                    filtered.append(c)
+#DEPRECATED#
+#DEPRECATED#            return filtered
 
 
     def sfa_table_networks(self):
@@ -1210,7 +1139,6 @@ class SFAGateway(Gateway):
             defer.returnValue(self.parse_sfa_rspec(rspec))
             return 
 
-        Log.tmp("Would expect slice_hrn in filters: ", filters)
 
         # Do we have a way to find slices, for now we only support explicit slice names
         # Note that we will have to inject the slice name into the resource object if not done by the parsing.
@@ -1228,7 +1156,6 @@ class SFAGateway(Gateway):
         # ask for cached value if available
         api_options ['cached'] = True
         # Get server capabilities
-        Log.tmp(self.sliceapi)
         server_version = yield self.get_cached_server_version(self.sliceapi)
         type_version = set()
         # Versions matching to Gateway capabilities
@@ -1327,11 +1254,12 @@ class SFAGateway(Gateway):
 
             fields = q.fields # Metadata.expand_output_fields(q.object, list(q.fields))
             result = yield getattr(self, "%s_%s" % (q.action, q.object))(q.filters, q.params, fields)
-            key = self.interface.metadata_get_keys(q.object).one().get_names()
-            filtered = project_select_and_rename_fields(result, key, self.query.filters, self.query.fields, self.map_slice_fields)
 
+            if q.object in ['slice', 'user']:
+                Rename(self, self.map_fields[q.object])
+            
             # Return result
-            map(self.send, filtered)
+            map(self.send, result)
             self.send(LAST_RECORD)
 
         except Exception, e:
