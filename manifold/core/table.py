@@ -621,7 +621,7 @@ class Table(object):
                         relations.add(Relation(Relation.types.PARENT, p, name=field.get_name())) # in which direction ?????
                     else:
                         if field.is_local():
-                            relations.add(Relation(Relation.types.LINK_11, p))
+                            relations.add(Relation(Relation.types.LINK_11, p, name=field.get_name()))
                         else:
                             if v.is_child_of(u):
                                 relations.add(Relation(Relation.types.CHILD, p))
@@ -630,7 +630,7 @@ class Table(object):
                             else:
                                 if field.get_name() in ['source', 'destination', 'agent', 'dns_target']:
                                     Log.warning("Hardcoded source, agent, destination and dns_target as 1..1 relationships")
-                                    relations.add(Relation(Relation.types.LINK_11, p))
+                                    relations.add(Relation(Relation.types.LINK_11, p, name=field.get_name()))
                                 else:
                                     relations.add(Relation(Relation.types.LINK, p))
 

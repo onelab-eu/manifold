@@ -12,25 +12,26 @@
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
 import sys, random
-from copy                          import copy, deepcopy
-from types                         import StringTypes
-from manifold.core.filter          import Filter
-from manifold.core.query           import Query, AnalyzedQuery
-from manifold.core.table           import Table 
-from manifold.core.field           import Field
-from manifold.core.key             import Key
-from manifold.core.capabilities    import Capabilities
-from manifold.operators.From       import From
-from manifold.operators.selection  import Selection
-from manifold.operators.projection import Projection
-from manifold.operators.left_join  import LeftJoin
-from manifold.operators.union      import Union
-from manifold.operators.subquery   import SubQuery
-from manifold.operators.demux      import Demux
-from manifold.operators.dup        import Dup
-from manifold.util.predicate       import Predicate, eq, contains, included
-from manifold.util.type            import returns, accepts
-from manifold.util.log             import Log
+from copy                             import copy, deepcopy
+from types                            import StringTypes
+from manifold.core.filter             import Filter
+from manifold.core.query              import Query, AnalyzedQuery
+from manifold.core.table              import Table 
+from manifold.core.field              import Field
+from manifold.core.key                import Key
+from manifold.core.capabilities       import Capabilities
+from manifold.operators.From          import From
+from manifold.operators.selection     import Selection
+from manifold.operators.projection    import Projection
+from manifold.operators.left_join     import LeftJoin
+from manifold.operators.union         import Union
+from manifold.operators.subquery      import SubQuery
+from manifold.operators.cross_product import CrossProduct
+from manifold.operators.demux         import Demux
+from manifold.operators.dup           import Dup
+from manifold.util.predicate          import Predicate, eq, contains, included
+from manifold.util.type               import returns, accepts
+from manifold.util.log                import Log
 
 #------------------------------------------------------------------
 # AST (Abstract Syntax Tree)
@@ -100,10 +101,6 @@ class AST(object):
         assert not key or isinstance(key, Key), "Invalid key %r (type %r)"          % (key, type(key))
         assert isinstance(children_ast, list),  "Invalid children_ast %r (type %r)" % (children_ast, type(children_ast))
         assert len(children_ast) != 0,          "Invalid UNION (no child)"
-
-        Log.debug("AST children")
-        Log.debug(children_ast)
-        Log.debug(key)
 
         # If the current AST has already a root node, this node become a child
         # of this Union node ...
@@ -198,7 +195,7 @@ class AST(object):
         return self
 
     #@returns(AST)
-    def subquery(self, children_ast_predicate_list, parent_key=None): # PARENT KEY DEPRECATED
+    def subquery(self, children_ast_relation_list, parent_key=None): # PARENT KEY DEPRECATED
         """
         \brief Append a SUBQUERY Node above the current AST
         \param children_ast the set of children AST to be added as subqueries to
@@ -207,7 +204,22 @@ class AST(object):
         """
         assert not self.is_empty(), "AST not initialized"
 
-        self.root = SubQuery(self.get_root(), children_ast_predicate_list, parent_key) # PARETN KEY DEPRECATED
+        children = map(lambda (ast, relation): (ast.get_root(), relation), children_ast_relation_list)
+        self.root = SubQuery(self.get_root(), children, parent_key) # PARETN KEY DEPRECATED
+
+        return self
+
+    #@returns(AST)
+    def cross_product(self, children_ast_relation_list, query):
+        assert self.is_empty(), "Cross-product should be done on an empty AST"
+
+
+        if len(children_ast_relation_list) == 1:
+            (ast, relation), _ = children_ast_relation_list
+            self.root = ast.get_root()
+        else:
+            children = map(lambda (ast, relation): (ast.get_root(), relation), children_ast_relation_list)
+            self.root = CrossProduct(children, query)
 
         return self
 
