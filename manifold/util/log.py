@@ -223,7 +223,7 @@ class Log(object):
 
     @classmethod
     def record(cls, *msg):
-        cls.msg(' '.join(map(lambda x: "%r"%x, make_list(msg))), 'RECORD', caller_name())
+        #cls.msg(' '.join(map(lambda x: "%r"%x, make_list(msg))), 'RECORD', caller_name())
         pass
 
     @classmethod

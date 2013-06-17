@@ -286,9 +286,6 @@ class SubQuery(Node):
     def optimize_selection(self, filter):
         parent_filter, top_filter = Filter(), Filter()
         for predicate in filter:
-            Log.tmp(self.parent.get_query())
-            print self.parent.get_query()
-            print self.parent.get_query().fields
             if predicate.get_field_names() <= self.parent.get_query().get_select():
                 parent_filter.add(predicate)
             else:
