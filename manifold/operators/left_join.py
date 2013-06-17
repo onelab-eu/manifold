@@ -165,8 +165,6 @@ class LeftJoin(Node):
         if record == LAST_RECORD:
             # left_done. Injection is not the right way to do this.
             # We need to insert a filter on the key in the right member
-            print "LEFT DONE, building predicate"
-            print "LEFT KEYS", self.left_map.keys()
             predicate = Predicate(self.predicate.get_value(), included, self.left_map.keys())
             
             self.right = self.right.optimize_selection(Filter().filter_by(predicate))
@@ -186,10 +184,6 @@ class LeftJoin(Node):
             self.send(record)
 
         # Store the result in a hash for joining later
-        print "RECORD", record
-        print "key", self.predicate.key
-         
-        print "RECORD CLASSMETHOD", Record.get_value(record, self.predicate.key)
         self.left_map[Record.get_value(record, self.predicate.key)] = record
 
     def right_callback(self, record):
