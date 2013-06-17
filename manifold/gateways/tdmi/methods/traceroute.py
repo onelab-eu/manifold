@@ -102,9 +102,11 @@ class Traceroute(list):
         else:
             for field_name in select:
                 if field_name == "agent":
-                    self.register_field("src_ip")
+                    self.register_field("agent_id")
+                    #self.register_field("src_ip")
                 elif field_name == "destination":
-                    self.register_field("dst_ip")
+                    self.register_field("destination_id")
+                    #self.register_field("dst_ip")
                 elif self.map_field_type.has_key(field_name):
                     # This field can be deduced from postgresql
                     self.register_field(field_name)
@@ -143,6 +145,14 @@ class Traceroute(list):
             predicates: A list of Predicates corresponding to the where clause
                 (predicates are connected thanks to a AND operator) 
         """
+        for predicate in predicates:
+            key = predicate.get_key()
+            if isinstance(key, StringTypes):
+                if key in ['agent', 'destination']:
+                    key = '%s_id' % key
+            else:
+                key = map(lambda x: '%s_id' % x if x in ['agent', 'destination'] else x, key)
+            predicate.set_key(key)
         self.where = PostgreSQLGateway.to_sql_where(predicates)
 
     def init_ts(self, ts):
@@ -170,6 +180,7 @@ class Traceroute(list):
             query: The Query instance handled by Manifold
             traceroute: A dictionnary corresponding to a fetched Traceroute record 
         """
+        print "REPACK, traceroute=", traceroute
         # Craft 'hops' field if queried 
         if "hops" in query.get_select():
             hops_sql = traceroute["hops"]

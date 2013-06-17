@@ -79,6 +79,9 @@ class Predicate:
 
     def get_key(self):
         return self.key
+    
+    def set_key(self, key):
+        self.key = key
 
     def get_op(self):
         return self.op

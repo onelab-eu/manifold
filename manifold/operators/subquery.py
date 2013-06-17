@@ -284,7 +284,9 @@ class SubQuery(Node):
         parent_filter, top_filter = Filter(), Filter()
         for predicate in filter:
             Log.tmp(self.parent.get_query())
-            if predicate.key in self.parent.get_query().fields:
+            print self.parent.get_query()
+            print self.parent.get_query().fields
+            if predicate.get_field_names() <= self.parent.get_query().get_select():
                 parent_filter.add(predicate)
             else:
                 Log.warning("SubQuery::optimize_selection() is only partially implemented : %r" % predicate)

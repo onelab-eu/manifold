@@ -16,19 +16,19 @@ psycopg2.extensions.register_type(psycopg2.extensions.UNICODE)
 # UNICODEARRAY not exported yet
 psycopg2.extensions.register_type(psycopg2._psycopg.UNICODEARRAY)
 
-import re, datetime
-import pgdb
-from uuid                               import uuid4
-from types                              import StringTypes, GeneratorType, NoneType, IntType, LongType, FloatType, ListType, TupleType
-from pprint                             import pformat
-from manifold.gateways                  import Gateway
-from manifold.core.announce             import Announces
-from manifold.core.table                import Table
-from manifold.core.field                import Field
-from manifold.core.announce             import Announce
-from manifold.util.log                  import Log
-from manifold.util.predicate            import and_, or_, inv, add, mul, sub, mod, truediv, lt, le, ne, gt, ge, eq, neg, contains
-from manifold.util.type                 import accepts, returns
+import re, datetime, pgdb
+from itertools                import izip
+from uuid                     import uuid4
+from types                    import StringTypes, GeneratorType, NoneType, IntType, LongType, FloatType, ListType, TupleType
+from pprint                   import pformat
+from manifold.gateways        import Gateway
+from manifold.core.announce   import Announces
+from manifold.core.table      import Table
+from manifold.core.field      import Field
+from manifold.core.announce   import Announce
+from manifold.util.log        import Log
+from manifold.util.predicate  import and_, or_, inv, add, mul, sub, mod, truediv, lt, le, ne, gt, ge, eq, neg, contains
+from manifold.util.type       import accepts, returns
 
 class PostgreSQLGateway(Gateway):
     DEFAULT_DB_NAME = "postgres" 
@@ -682,6 +682,7 @@ class PostgreSQLGateway(Gateway):
         # The pgdb._quote function is good enough for general SQL
         # quoting, except for array types.
         if isinstance(value, (list, tuple, set, frozenset)):
+            print "VALUE=", value
             return "ARRAY[%s]" % ", ".join(map(PostgreSQLGateway.quote, value))
         else:
             return PostgreSQLGateway._to_sql_value(value)
@@ -718,16 +719,22 @@ class PostgreSQLGateway(Gateway):
                     operator = ""
                     value = "FALSE"
             else:
-                value = map(str, map(PostgreSQLGateway.quote, value))
-                if op_ == and_:
-                    op = "@>"
-                    value = "ARRAY[%s]" % ", ".join(value)
-                elif op == or_:
-                    op = "&&"
-                    value = "ARRAY[%s]" % ", ".join(value)
+                value = map(PostgreSQLGateway._to_sql_value, value)
+                if isinstance(field, (list, tuple, set, frozenset)):
+                    conditions = ["%s IN %s" % (f, v) for f,v in izip(field, value)]
+                    field = ""
+                    op    = ""
+                    value = ' OR'.join(conditions)
                 else:
-                    op = "IN"
-                    value = "(%s)" % ", ".join(value)
+                    if op_ == and_:
+                        op = "@>"
+                        value = "ARRAY[%s]" % ", ".join(value)
+                    elif op == or_:
+                        op = "&&"
+                        value = "ARRAY[%s]" % ", ".join(value)
+                    else:
+                        op = "IN"
+                        value = "(%s)" % ", ".join(value)
         else:
             if value is None:
                 op = "IS"

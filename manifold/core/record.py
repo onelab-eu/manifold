@@ -14,9 +14,9 @@ class Record(object):
         \return single value, or a tuple of values
         """
         if isinstance(key, StringTypes):
-            return dic[key]
+            return record[key]
         else:
-            return tuple(map(lambda x: dic[x], key))
+            return tuple(map(lambda x: record[x], key))
 
     @classmethod
     def from_key_value(self, key, value):
