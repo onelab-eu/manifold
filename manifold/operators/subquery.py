@@ -142,10 +142,7 @@ class SubQuery(Node):
                         parent_ids = [record[key] for record in self.parent_output]
                         filter_pred = Predicate(value, included, parent_ids)
                     else:
-                        if key in record:
-                            parent_ids = [x for record in self.parent_output for x in record[key]]
-                        else:
-                            parent_ids = []
+                        parent_ids = [x for record in self.parent_output for x in record[key] if key in record]
                         if parent_ids and isinstance(parent_ids[0], dict):
                             parent_ids = map(lambda x: x[value], parent_ids)
                         filter_pred = Predicate(value, included, parent_ids)
