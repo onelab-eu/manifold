@@ -103,10 +103,8 @@ class Traceroute(list):
             for field_name in select:
                 if field_name == "agent":
                     self.register_field("agent_id")
-                    #self.register_field("src_ip")
                 elif field_name == "destination":
                     self.register_field("destination_id")
-                    #self.register_field("dst_ip")
                 elif self.map_field_type.has_key(field_name):
                     # This field can be deduced from postgresql
                     self.register_field(field_name)
@@ -121,7 +119,7 @@ class Traceroute(list):
                         if (self.map_field_type.has_key(field_name)) and (field_name not in self.selected_fields):
                             self.register_field(field_name)
 
-                        # Add the related sub-field 
+                        # Add the related sub-field (e.g. "ttl" or "ip") 
                         if not self.selected_sub_fields.has_key(field_name):
                             self.selected_sub_fields[field_name] = []
                         self.selected_sub_fields[field_name].append(sub_field_name)
@@ -169,7 +167,21 @@ class Traceroute(list):
 
     @returns(bool)
     def need_repack(self, query):
+        """
+        Test whether the fetched dictionnaries require additional treatments to
+        be Manifold compliant/constitent.
+        Arg:
+            query: The Query instance handled by the TDMIGateway 
+        """
         return (frozenset(["agent", "hops", "destination"]) & query.get_select()) != frozenset()
+
+    @staticmethod
+    def rename_field(query, traceroute, sql_field_name, manifold_field_name):
+        if sql_field_name in query.get_select():
+            traceroute[manifold_field_name] = {
+                sql_field_name : traceroute[sql_field_name]
+            }
+            del traceroute[sql_field_name]
 
     @returns(dict)
     def repack(self, query, traceroute):
@@ -177,7 +189,7 @@ class Traceroute(list):
         Repack a Traceroute record (dict) according to the issued Query
 
         Args:
-            query: The Query instance handled by Manifold
+            query: The Query instance handled by the TDMIGateway 
             traceroute: A dictionnary corresponding to a fetched Traceroute record 
         """
         print "REPACK, traceroute=", traceroute
@@ -186,23 +198,10 @@ class Traceroute(list):
             hops_sql = traceroute["hops"]
             traceroute["hops"] = Traceroute.repack_hops(hops_sql, self.selected_sub_fields)
 
-        # TODO Factorize agent and destination crafting by using a generic function
-        # Craft 'agent' field if queried 
-        if "agent" in query.get_select():
-            traceroute["agent"] = {
-                "ip"       : traceroute["src_ip"],
-                "platform" : "tdmi"
-            }
-            if "src_ip" not in query.get_select():
-                del traceroute["src_ip"]
-
-        # Craft 'destination' field if queried 
-        if "destination" in query.get_select():
-            traceroute["destination"] = {
-                "ip" : traceroute["dst_ip"]
-            }
-            if "dst_ip" not in query.get_select():
-                del traceroute["dst_ip"]
+        Traceroute.rename_field(query, traceroute, "agent_id",       "agent")
+        Traceroute.rename_field(query, traceroute, "destination_id", "destination")
+        print "==> traceroute = %r " % traceroute
+        return traceroute
 
     def __init__(self, query, db = None):
         """
@@ -219,7 +218,7 @@ class Traceroute(list):
                     In this case the function fetch records which were active at [t1, t2]
                     such that [t1, t2] n [ts_min, ts_max] != emptyset.
                     In this syntax, ts_min and ts_max might be equal to None if unbounded.
-            db: Pass a reference to a database instance
+            db: The TDMIGateway instance receiving the Traceroute related Query.
         """
         self.db = db
 
@@ -232,22 +231,44 @@ class Traceroute(list):
         """
         Craft the SQL query to fetch queried traceroute records.
         """
-        sql = """
-            SELECT * FROM get_view_traceroutes(
-                %(select_sql)s,
-                '%(where_sql)s',
-                %(ts_min_sql)s,
-                %(ts_max_sql)s
-            )
-            AS traceroute(
-                %(table_fields_sql)s 
-            );
-            """ % {
-                "select_sql"       : "ARRAY['%s']" % "', '".join(self.selected_fields),
-                "where_sql"        : self.where if self.where != "" else "NULL", 
-                "ts_min_sql"       : self.ts_min,
-                "ts_max_sql"       : self.ts_max,
-                "table_fields_sql" : ", ".join(self.table_fields_sql)
-            }
+#OBSOLETE|        sql = """
+#OBSOLETE|            SELECT * FROM get_view_traceroutes(
+#OBSOLETE|                %(select_sql)s,
+#OBSOLETE|                '%(where_sql)s',
+#OBSOLETE|                %(ts_min_sql)s,
+#OBSOLETE|                %(ts_max_sql)s
+#OBSOLETE|            )
+#OBSOLETE|            AS traceroute(
+#OBSOLETE|                %(table_fields_sql)s 
+#OBSOLETE|            );
+#OBSOLETE|            """ % {
+#OBSOLETE|                "select_sql"       : "ARRAY['%s']" % "', '".join(self.selected_fields),
+#OBSOLETE|                "where_sql"        : self.where if self.where != "" else "NULL", 
+#OBSOLETE|                "ts_min_sql"       : self.ts_min,
+#OBSOLETE|                "ts_max_sql"       : self.ts_max,
+#OBSOLETE|                "table_fields_sql" : ", ".join(self.table_fields_sql)
+#OBSOLETE|            }
 
+        # We call a stored procedure which craft the appropriate SQL query
+        sql = """
+        SELECT make_traceroute_query(
+            %(select_sql)s,
+            '%(where_sql)s',
+            %(ts_min_sql)s,
+            %(ts_max_sql)s
+        )
+        """ % {
+            "select_sql"       : "ARRAY['%s']" % "', '".join(self.selected_fields),
+            "where_sql"        : self.where if self.where != "" else "NULL", 
+            "ts_min_sql"       : self.ts_min,
+            "ts_max_sql"       : self.ts_max,
+            "table_fields_sql" : ", ".join(self.table_fields_sql)
+        }
+
+        for record in self.db.selectall(sql):
+            sql = record["make_traceroute_query"]
+            continue
+
+        # DEBUG
+        sql = "%s LIMIT 10" % sql
         return sql
