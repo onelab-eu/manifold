@@ -142,8 +142,11 @@ class SubQuery(Node):
                         parent_ids = [record[key] for record in self.parent_output]
                         filter_pred = Predicate(value, included, parent_ids)
                     else:
-                        parent_ids = [x for record in self.parent_output for x in record[key]]
-                        if isinstance(parent_ids[0], dict):
+                        if key in record:
+                            parent_ids = [x for record in self.parent_output for x in record[key]]
+                        else:
+                            parent_ids = []
+                        if parent_ids and isinstance(parent_ids[0], dict):
                             parent_ids = map(lambda x: x[value], parent_ids)
                         filter_pred = Predicate(value, included, parent_ids)
 
@@ -207,8 +210,8 @@ class SubQuery(Node):
                         # Collect in parent all child such as they have a pointer to the parent
                         if isinstance(key, StringTypes):
                             # simple key
-                            ids = o[key]
-                            if isinstance(ids[0], dict):
+                            ids = o[key] if key in o else []
+                            if ids and isinstance(ids[0], dict):
                                 ids = map(lambda x: x[value], ids)
                             filter = Filter().filter_by(Predicate(value, included, ids))
                         else:
