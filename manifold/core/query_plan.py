@@ -227,9 +227,10 @@ class ExploreTask(Deferred):
         self.subqueries[relation.get_relation_name()] = (ast, relation)
 
     def perform_subquery(self):
-        if not self.ast:
-            # We need to build an AST just to collect subqueries
-            self.ast = self.build_union(self.root, self.keep_root_a, metadata, user)
+        # We need to build an AST just to collect subqueries
+        # XXX metadata not defined
+        #if not self.ast:
+        #    self.ast = self.build_union(self.root, self.keep_root_a, metadata, user)
         
         # How do i know that i have an onjoin table
         if self.root.get_name() == 'traceroute': # not root.capabilities.retrieve:
