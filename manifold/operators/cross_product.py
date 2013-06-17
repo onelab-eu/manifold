@@ -32,13 +32,14 @@ class CrossProduct(Node):
             self.children.append(_ast)
             self.relations.append(_relation)
 
+        self.child_results = []
         self.status = ChildStatus(self.all_done)
 
-
-        # Set up callbacks
+        # Set up callbacks & prepare array for storing results from children:
+        # parent result can only be propagated once all children have replied
         for i, child in enumerate(self.children):
             child.set_callback(ChildCallback(self, i))
-
+            self.child_results.append([])
 
     def dump(self, indent = 0):
         """
@@ -79,31 +80,28 @@ class CrossProduct(Node):
     def all_done(self):
         """
         \brief Called when all children of the current cross product are done
+
+        Example:
+        SQ agents = [{'agent_id': X1, 'agent_dummy': Y1}, {'agent_id': X2, 'agent_dummy': Y2}]
+            p = ('agent', eq, 'agent_id')
+        SQ dests  = [{'dest_id' : X1, 'dest_dummy' : Y1}, {'dest_id' : X2, 'dest_dummy' : Y2}]
+            p = ('dest', eq, 'dest_id')
+        X = [{'agent': X1, 'dest' : X1}, {'agent': X1, {'dest' : X2}, ...]
         """
-        def extract_from_dict(dic, map_keys):
-           return dict((map_keys[k], v) for (k, v) in dic.iteritems() if k in map_keys)
 
-        # Example:
-        # SQ agents = [{'agent_id': X1, 'agent_dummy': Y1}, [{'agent_id': X2, 'agent_dummy': Y2}]
-        #     p = ('agent', eq, 'agent_id')
-        # SQ dests  = [{'dest_id' : X1, 'dest_dummy' : Y1}, [{'dest_id' : X2, 'dest_dummy' : Y2}]
-        #     p = ('dest', eq, 'dest_id')
-        # X = [{'agent': X1, 'dest' : X1}, {'agent': X1, {'dest' : X2}, ...]
+        keys = set()
+        for relation in self.relations:
+            keys |= relation.get_predicate().get_value_names()
 
-        it = []
-        for i, child in enumerate(self.children):
-            records = self.child_results[i]
-            p = self.relations[i].get_predicate()
-            #assert p.get_op() == eq
-            map_keys = dict(zip(p.get_key_names(), p.get_value_names()))
-            it.append(imap(lambda record: extract_from_dict(record, map_keys), records))
-            
-        for record in product(*it):
-            send.send(record)
+        def merge(dics):
+            return { k: v for dic in dics for k,v in dic.items() if k in keys }
+
+        records = imap(lambda x: merge(x), product(*self.child_results))
+        print "XP RECORDS", records
+        map(lambda x: self.send(x), records)
         self.send(LAST_RECORD)
         
     def optimize_selection(self, filter):
-        Log.tmp("OPTIMIZE SELECTION %r" % filter)
         for i, child in enumerate(self.children):
             child_fields = child.query.get_select()
             child_filter = Filter()
@@ -115,13 +113,8 @@ class CrossProduct(Node):
         return self
 
     def optimize_projection(self, fields):
-        Log.tmp("OPTIMIZE PROJECTION %r" % fields)
         for i, child in enumerate(self.children):
-            #predicate = self.relations[i].get_predicate()
-            #print "PREDICATE=", predicate
             child_fields = child.query.get_select()
-            print "CHILD_FIELDS", child_fields
             if not child_fields <= fields:
-               print "APPLY PROJ", child_fields & fields
                self.children[i] = child.optimize_projection(child_fields & fields)
         return self

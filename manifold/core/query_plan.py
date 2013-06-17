@@ -214,52 +214,42 @@ class ExploreTask(Deferred):
         self.callback(self.ast)
 
     def perform_left_join(self, ast, relation):
-        Log.debug(ast, relation)
+        #Log.debug(ast, relation)
         if not ast: return
         if not self.ast: self.ast = AST()
         self.ast.join(ast)
 
     def store_subquery(self, ast, relation):
-        Log.debug(ast, relation)
+        #Log.debug(ast, relation)
         if not ast: return
         self.subqueries[relation.get_relation_name()] = (ast, relation)
 
     def perform_subquery(self):
-        Log.tmp("PERFORMING SUBQUERY")
         # How do i know that i have an onjoin table
         if self.root.get_name() == 'traceroute': # not root.capabilities.retrieve:
-            Log.tmp("CROSS PRODUCT")         
-            try:
-                # Let's identify tables involved in the key
-                root_key_fields = self.root.keys.one().get_field_names()
-                xp_ast_relation, sq_ast_relation = [], []
-                xp_key = ()
-                xp_value = ()
-                for name, ast_relation in self.subqueries.items():
-                    if name in root_key_fields:
-                        ast, relation = ast_relation
-                        key, _, value = relation.get_predicate().get_tuple()
-                        xp_key   += (value,)
-                        xp_value += (key,)
-                        xp_ast_relation.append(ast_relation)
-                    else:
-                        sq_ast_relation.append(ast_relation)
+            # Let's identify tables involved in the key
+            root_key_fields = self.root.keys.one().get_field_names()
+            xp_ast_relation, sq_ast_relation = [], []
+            xp_key = ()
+            xp_value = ()
+            for name, ast_relation in self.subqueries.items():
+                if name in root_key_fields:
+                    ast, relation = ast_relation
+                    key, _, value = relation.get_predicate().get_tuple()
+                    xp_key   += (value,)
+                    xp_value += (key,)
+                    xp_ast_relation.append(ast_relation)
+                else:
+                    sq_ast_relation.append(ast_relation)
 
-                ast = self.ast
+            ast = self.ast
 
-                ast.subquery(sq_ast_relation)
-                q = Query.action('get', self.root.get_name()).select(set(xp_value))
-                self.ast = AST().cross_product(xp_ast_relation, q)
-                predicate = Predicate(xp_key, eq, xp_value)
-                print predicate
+            ast.subquery(sq_ast_relation)
+            q = Query.action('get', self.root.get_name()).select(set(xp_key))
+            self.ast = AST().cross_product(xp_ast_relation, q)
+            predicate = Predicate(xp_key, eq, xp_value)
 
-                self.ast.left_join(ast, predicate)
-                    
-                self.ast.dump(indent=2)
-            except Exception, e:
-                print "ERR", e
-                import traceback
-                traceback.print_exc()
+            self.ast.left_join(ast, predicate)
         else:
             self.ast.subquery(self.subqueries.values())
 

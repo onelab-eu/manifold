@@ -1,4 +1,5 @@
 from manifold.core.filter          import Filter
+from manifold.core.record          import Record
 from manifold.operators            import Node, LAST_RECORD
 from manifold.operators.selection  import Selection
 from manifold.operators.projection import Projection
@@ -47,9 +48,10 @@ class LeftJoin(Node):
             self.left_done = True
             for r in left_child:
                 if isinstance(r, dict):
-                    self.left_map[r[self.predicate.key]] = r
+                    self.left_map[Record.get_value(r, self.predicate.key)] = r
                 else:
-                    self.left_map[r] = {self.predicate.key: r}
+                    # r is generally a tuple
+                    self.left_map[r] = Record.from_key_value(self.predicate.key, r)
         else:
             old_cb = left_child.get_callback()
             self.left_done = False
@@ -152,7 +154,7 @@ class LeftJoin(Node):
         self.right.dump(indent + 1)
 
     def __repr__(self):
-        return "JOIN %s %s %s" % self.predicate.get_str_tuple()
+        return "LEFT JOIN %s %s %s" % self.predicate.get_str_tuple()
 
     def left_callback(self, record):
         """
@@ -163,23 +165,32 @@ class LeftJoin(Node):
         if record == LAST_RECORD:
             # left_done. Injection is not the right way to do this.
             # We need to insert a filter on the key in the right member
-            predicate = Predicate(self.predicate.value, included, self.left_map.keys())
+            print "LEFT DONE, building predicate"
+            print "LEFT KEYS", self.left_map.keys()
+            predicate = Predicate(self.predicate.get_value(), included, self.left_map.keys())
             
             self.right = self.right.optimize_selection(Filter().filter_by(predicate))
             self.right.set_callback(self.right_callback)
+
+            self.right.dump()
 
             self.left_done = True
             self.right.start()
             return
 
         # Directly send records missing information necessary to join
-        if self.predicate.key not in record or not record[self.predicate.key]:
+        # XXXX !!! XXX XXX XXX
+        if not Record.has_fields(record, self.predicate.get_field_names()):
             print "W: Missing LEFTJOIN predicate %s in left record %r : forwarding" % \
                     (self.predicate, record)
             self.send(record)
 
         # Store the result in a hash for joining later
-        self.left_map[record[self.predicate.key]] = record
+        print "RECORD", record
+        print "key", self.predicate.key
+         
+        print "RECORD CLASSMETHOD", Record.get_value(record, self.predicate.key)
+        self.left_map[Record.get_value(record, self.predicate.key)] = record
 
     def right_callback(self, record):
         """
@@ -200,10 +211,10 @@ class LeftJoin(Node):
                     (self.predicate, record)
             return
         
-        key = record[self.predicate.value]
         # We expect to receive information about keys we asked, and only these,
         # so we are confident the key exists in the map
         # XXX Dangers of duplicates ?
+        key = record[self.predicate.value]
         left_record = self.left_map[key]
         left_record.update(record)
         self.send(left_record)
@@ -218,7 +229,7 @@ class LeftJoin(Node):
         # - selection on filters on the key / common fields ??? TODO
         parent_filter, left_filter = Filter(), Filter()
         for predicate in filter:
-            if predicate.key in self.left.get_query().fields:
+            if predicate.get_field_names() < self.left.get_query().get_select():
                 left_filter.add(predicate)
             else:
                 parent_filter.add(predicate)
