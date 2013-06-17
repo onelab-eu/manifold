@@ -171,6 +171,8 @@ class ExploreTask(Deferred):
         assert self.depth == 1 or root_key_fields not in missing_fields, "Requesting key fields in child table"
 
         if self.keep_root_a:
+            # XXX NOTE that we have built an AST here without taking into account fields for the JOINs and SUBQUERIES
+            # It might not pose any problem though if they come from the optimization phase
             self.ast = self.build_union(self.root, self.keep_root_a, metadata, user)
 
         if self.depth == MAX_DEPTH:
@@ -225,6 +227,10 @@ class ExploreTask(Deferred):
         self.subqueries[relation.get_relation_name()] = (ast, relation)
 
     def perform_subquery(self):
+        if not self.ast:
+            # We need to build an AST just to collect subqueries
+            self.ast = self.build_union(self.root, self.keep_root_a, metadata, user)
+        
         # How do i know that i have an onjoin table
         if self.root.get_name() == 'traceroute': # not root.capabilities.retrieve:
             # Let's identify tables involved in the key
