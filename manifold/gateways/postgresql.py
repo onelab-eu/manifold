@@ -532,6 +532,8 @@ class PostgreSQLGateway(Gateway):
         # accepts either None, a single dict, a tuple of single dict - in which case it execute's
         # or a tuple of several dicts, in which case it executemany's
 
+        Log.debug(query)
+
         cursor = self.connect(cursor_factory)
         try:
             # psycopg2 requires %()s format for all parameters,

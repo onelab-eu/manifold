@@ -39,7 +39,7 @@ class Rename(Node):
         """
         return self.child
 
-    def dump(self, indent):
+    def dump(self, indent=0):
         """
         \brief Dump the current node
         \param indent current indentation

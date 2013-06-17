@@ -36,6 +36,7 @@ class ChildCallback:
         except Exception, e:
             print "EXCEPTION IN ChildCallback, calling", self.parent.child_callback
             print e
+            import traceback
             traceback.print_exc()
 
 #------------------------------------------------------------------
@@ -75,6 +76,7 @@ class ChildStatus:
             except Exception, e:
                 print "EXCEPTION IN ChildStatus, calling", self.all_done_cb
                 print e
+                import traceback
                 traceback.print_exc()
 
 #------------------------------------------------------------------
@@ -147,9 +149,9 @@ class Node(object):
         \param indent current indentation
         """
         self.tab(indent)
-        #print "%r" % self
+        print "%r" % self
         #print "%r (%r)" % (self, self.query)
-        print "%r (%r)" % (self, self.callback)
+        #print "%r (%r)" % (self, self.callback)
 
     @returns(StringTypes)
     def __repr__(self):

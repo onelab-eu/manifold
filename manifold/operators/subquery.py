@@ -281,8 +281,6 @@ class SubQuery(Node):
         raise Exception, "Not implemented"
 
     def optimize_selection(self, filter):
-        Log.debug(filter)
-        # SUBQUERY
         parent_filter, top_filter = Filter(), Filter()
         for predicate in filter:
             Log.tmp(self.parent.get_query())
@@ -302,7 +300,6 @@ class SubQuery(Node):
         return self
 
     def optimize_projection(self, fields):
-        Log.tmp(fields)
         parent_keys = set()
         parent_fields = False
 
