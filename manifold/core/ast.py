@@ -50,7 +50,7 @@ class AST(object):
         """
         self.user = user
         # The AST is initially empty
-        self.root = AST()
+        self.root = None
 
     def get_root(self):
         """
