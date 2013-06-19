@@ -56,6 +56,11 @@ class Predicate:
             key, op, value = args[0].get_tuple()
         else:
             raise Exception, "Bad initializer for Predicate (args=%r)" % args
+
+        assert not isinstance(value, (frozenset, dict, set)), "Invalid value type (the only valid containers are tuples and lists) (type = %r)" % type(value)
+        if isinstance(value, list):
+            value = tuple(value)
+
         self.key = key
         if op in self.operators.keys():
             self.op = self.operators[op]
@@ -63,10 +68,8 @@ class Predicate:
             self.op = self.operators_short[op]
         else:
             self.op = op
-        if isinstance(value, (list, set)):
-            self.value = tuple(value)
-        else:
-            self.value = value
+
+        self.value = value
 
     def __str__(self):
         return "Pred(%s, %s, %s)" % self.get_str_tuple()

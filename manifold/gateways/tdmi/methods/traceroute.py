@@ -231,24 +231,6 @@ class Traceroute(list):
         """
         Craft the SQL query to fetch queried traceroute records.
         """
-#OBSOLETE|        sql = """
-#OBSOLETE|            SELECT * FROM get_view_traceroutes(
-#OBSOLETE|                %(select_sql)s,
-#OBSOLETE|                '%(where_sql)s',
-#OBSOLETE|                %(ts_min_sql)s,
-#OBSOLETE|                %(ts_max_sql)s
-#OBSOLETE|            )
-#OBSOLETE|            AS traceroute(
-#OBSOLETE|                %(table_fields_sql)s 
-#OBSOLETE|            );
-#OBSOLETE|            """ % {
-#OBSOLETE|                "select_sql"       : "ARRAY['%s']" % "', '".join(self.selected_fields),
-#OBSOLETE|                "where_sql"        : self.where if self.where != "" else "NULL", 
-#OBSOLETE|                "ts_min_sql"       : self.ts_min,
-#OBSOLETE|                "ts_max_sql"       : self.ts_max,
-#OBSOLETE|                "table_fields_sql" : ", ".join(self.table_fields_sql)
-#OBSOLETE|            }
-
         # We call a stored procedure which craft the appropriate SQL query
         sql = """
         SELECT make_traceroute_query(
@@ -269,6 +251,4 @@ class Traceroute(list):
             sql = record["make_traceroute_query"]
             continue
 
-        # DEBUG
-        sql = "%s LIMIT 10" % sql
         return sql
