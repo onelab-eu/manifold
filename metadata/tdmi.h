@@ -1,21 +1,18 @@
 class hop {
-    unsigned  hop_id;           /**< Dummy field */
+#    unsigned  hop_id;           /**< Dummy field */
     inet      ip;               /**< IP discovered */
     unsigned  ttl;              /**< TTL value (0: source, 1: 1st hop ...) */
     unsigned  hop_probecount;   /**< Identifies the hop among different paths (LB) */
     unsigned  path;             /**< Probe ID */
 
     CAPABILITY(retrieve, join);
-    KEY(hop_id);
+#    KEY(hop_id);
+    KEY(ip, ttl, hop_probecount, path);
 };
 
 class traceroute {
-#    unsigned    agent_id;       /**< DUMMY FIELD Needed to optimize traceroute queries */
-#    unsigned    destination_id; /**< DUMMY FIELD Needed to optimize traceroute queries */
     agent       agent;          /**< The measurement agent */
     destination destination;    /**< The target IP */
-#    inet        src_ip;         /**< The agent which has performed the measurement */
-#    inet        dst_ip;         /**< The destination of the traceroute measurement */
     hop         hops[];         /**< IP hops discovered on the measurement */
     unsigned    hop_count;      /**< Number of IP hops */
     timestamp   first;          /**< Birth date of this IP path */
@@ -23,6 +20,5 @@ class traceroute {
 
     CAPABILITY(join, selection, projection);
 #CAPABILITY(retrieve, join, selection, projection);
-    KEY(agent, destination, first);
-#KEY(src_ip, dst_ip, first);
+    KEY(agent, destination);
 };
