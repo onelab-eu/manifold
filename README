@@ -1,0 +1,132 @@
+QUERIES A TESTER
+--------------------------------------------------------------------------------
+manifold>>> select source, destination, dns_target.alexa_rank from packet where dport == 53
+ * Infinite loop in 1..1 relationships (need seen)
+ * We should be able to detect the end of a query (missing is wrong)
+--------------------------------------------------------------------------------
+manifold>>> select slice_hrn, resource_hrn from slice where slice_hrn == "ple.upmc.myslicedemo"
+ * shortcuts are not handled at all to match with the query. It should fix this bug
+--------------------------------------------------------------------------------
+QUERY PLAN:
+-----------
+[5304]  SELECT slice_hrn (None)
+[3573]      SELECT slice_hrn, lease, user, slice_type FROM ple::slice WHERE <Filter: > (<bound method Projection.child_callback of SELECT slice_hrn>)
+
+
+EEE! 'slice'
+Traceback (most recent call last):
+  File "/usr/local/lib/python2.7/dist-packages/manifold/operators/subquery.py", line 145, in run_children
+    parent_ids = [x for record in self.parent_output for x in record[key]]
+KeyError: 'slice'
+--------------------------------------------------------------------------------
+manifold>>> select slice_hrn, resource.resource_hrn from slice where slice_hrn == "ple.upmc.myslice_demo"
+DEBUG [manifold.core.xmlrpc_api.XMLRPCAPI.xmlrpc_forward] ['xmlrpc_api args = '] [{'AuthMethod': 'session', 'session': 'y3kDctjqyTugELXBjPodabm0VGPWInVk+/aY6BmNX8g='}, {'action': 'get', 'fields': ['slice_hrn', 'lease.start_time', 'lease.duration', 'lease.urn', 'lease.granularity', 'lease.slice_id'], 'object': 'slice', 'params': [], 'filters': [['slice_hrn', '=', 'ple.upmc.myslicedemo']]}] 
+--------------------------------------------------------------------------------
+
+XMLRPC 
+- investigate lock
+- make sure everything is deferred for forward in xmlrpc
+
+GATEWAY
+- ability to ping a platform
+- ability to manager users
+
+TABLE
+- joins and subqueries requires that the tables have some capabilities to make the inject !!!!!!!!!!!!!!!!!!!!!!!!!!!
+- how to inject in sfa
+
+OPERATORS
+- affect self.query in all optimize_* functions
+- implement missing optimize_* functions
+- when we push a where down after a select, it should have a select before and after...
+
+QUERY PLAN
+- fix bug in query_plan for 1..N backwards subqueries :grep relation_name
+- confirm the need for second pass in query_plan
+- request for an unknown object
+- no table for oml::slice
+	> never mind
+	> ignore on join
+
+AST
+- shortcuts in subqueries do not appears in the AST where we have the full path
+
+OPTIONS
+- register new options
+- parse at first use of options
+- personalize usage()
+- apply to xmlrpc, shell
+- how to handle other arguments
+
+SHELL
+- autocomplete for queries + enhance with metadata
+
+INPUT/SQL
+- true sql syntax
+
+AUTH
+- raise standard error codes
+	  File "/usr/local/lib/python2.7/dist-packages/manifold/auth/__init__.py", line 71, in check
+		raise AuthenticationFailure, "Password verification failed %s" % crypt.crypt(plaintext, password[:12])
+
+GATEWAY/SFA
+- slice are not filtered by type
+- get slice shows authorities
+- separate R and AM
+- make SM feed the local:platform table
+
+GATEWAY/TDMI
+- error when no filter in provided, we always put a where
+DEBUG [manifold.gateways.postgresql.TDMIGateway.execute] u'\n    SELECT destination_id\n        FROM destination\n        WHERE \n    ' 
+DEBUG [manifold.gateways.postgresql.TDMIGateway.execute] 'Database error c29dd61e-b7c7-42ae-a73b-11095c3a1e54:' 
+DEBUG [manifold.gateways.postgresql.TDMIGateway.execute] ProgrammingError('syntax error at end of input\nLINE 5:     \n            ^\n',) 
+DEBUG [manifold.gateways.postgresql.TDMIGateway.execute] 'Query:' 
+DEBUG [manifold.gateways.postgresql.TDMIGateway.execute] u'\n    SELECT destination_id\n        FROM destination\n        WHERE \n    ' 
+DEBUG [manifold.gateways.postgresql.TDMIGateway.execute] 'Params:' 
+DEBUG [manifold.gateways.postgresql.TDMIGateway.execute] 'None' 
+
+
+STORAGE
+- make asynchronous
+
+GATEWAY/CSV
+ - issue with non utf_8 files (try with original version in /root/datsaets/as2attr.tgz)
+
+THEORY
+ - predicates in MANIFOLD for prolog like
+ - key in NODE ? table == predicate
+ - give an example of proof
+
+
+
+================================================================================
+Exception 2 raised by (1, 'SFAGateway', u'ple', 'SELECT slice_hrn, user, lease FROM slice WHERE <Filter: Pred(slice_hrn, ==, ple.upmc.myslice_demo)>') : 
+        Traceback (most recent call last):
+          File "/usr/local/lib/python2.7/dist-packages/manifold/gateways/sfa/__init__.py", line 1310, in start
+            result = yield getattr(self, "%s_%s" % (q.action, q.object))(q.filters, q.params, fields)
+          File "/usr/lib/python2.7/dist-packages/twisted/internet/defer.py", line 1187, in unwindGenerator
+            return _inlineCallbacks(None, gen, Deferred())
+          File "/usr/lib/python2.7/dist-packages/twisted/internet/defer.py", line 1088, in _inlineCallbacks
+            deferred.callback(e.value)
+          File "/usr/lib/python2.7/dist-packages/twisted/internet/defer.py", line 367, in callback
+            assert not isinstance(result, Deferred)
+        AssertionError
+
+
+===== RESULTS =====
+[]
+manifold>>> Unhandled error in Deferred:
+Unhandled Error
+Traceback (most recent call last):
+Failure: exceptions.ValueError: Error in SFA Proxy [Failure instance: Traceback: <class 'xmlrpclib.Fault'>: <Fault 2: ": Resolve: Record not found: ['ple.upmc.myslice_demo']">
+/usr/lib/python2.7/dist-packages/twisted/internet/tcp.py:277:connectionLost
+/usr/lib/python2.7/dist-packages/twisted/protocols/tls.py:460:connectionLost
+/usr/lib/python2.7/dist-packages/twisted/protocols/policies.py:123:connectionLost
+/usr/lib/python2.7/dist-packages/twisted/web/xmlrpc.py:373:connectionLost
+--- <exception caught here> ---
+/usr/lib/python2.7/dist-packages/twisted/web/xmlrpc.py:444:parseResponse
+/usr/lib/python2.7/xmlrpclib.py:1137:loads
+/usr/lib/python2.7/xmlrpclib.py:793:close
+]
+================================================================================
+
