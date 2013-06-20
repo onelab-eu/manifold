@@ -233,7 +233,7 @@ class SFAGateway(Gateway):
         try:
             user = db.query(User).filter(User.email == user_email).one()
         except Exception, e:
-            raise Exception, 'Missing admin user: %s' % str(e)
+            raise Exception, 'Missing user: %s' % str(e)
         # Get platform
         platform = db.query(Platform).filter(Platform.platform == self.platform).one()
         
@@ -256,7 +256,6 @@ class SFAGateway(Gateway):
             if not ref_accounts:
                 raise Exception, "reference account does not exist"
             ref_account = ref_accounts[0]
-
             if ref_account.auth_type == 'managed':
                 # call manage function for this managed user account to update it 
                 # if the managed user account has only a private key, the credential will be retrieved 
@@ -1325,24 +1324,32 @@ class SFAGateway(Gateway):
 
     # TEST = PRESENT and NOT EXPIRED
     def credentials_needed(self, cred_name, config):
+        # TODO: optimize this function in the case that the user has no authority_credential and no slice_credential, it's executed each time !!!
+        # For debugging
+        #need_credential = True
+
         # if cred_name is not defined in config, we need to get it from SFA Registry
         if not cred_name in config:
-            # need_credential = True
-            return True
+            need_credential = True
+            #return True
         else:
-            # if config[cred_name] is a dict of credentials or a single credential
-            if isinstance(config[cred_name], dict):
-                # check expiration of each credential
-                for cred in config[cred_name].values():
-                    # if one of the credentials is expired, we need to get a new one from SFA Registry
-                    if self.credential_expired(cred):
-                        # need_credential = True
-                        return True
-                    else:
-                        need_credential = False
+            # testing if credential is empty in the DB
+            if not config[cred_name]:
+                need_credential = True
             else:
-                # check expiration of the credential
-                need_credential = self.credential_expired(config[cred_name])
+                # if config[cred_name] is a dict of credentials or a single credential
+                if isinstance(config[cred_name], dict):
+                    # check expiration of each credential
+                    for cred in config[cred_name].values():
+                        # if one of the credentials is expired, we need to get a new one from SFA Registry
+                        if self.credential_expired(cred):
+                            need_credential = True
+                            #return True
+                        else:
+                            need_credential = False
+                else:
+                    # check expiration of the credential
+                    need_credential = self.credential_expired(config[cred_name])
             return need_credential
 
     def credential_expired(self, cred):
