@@ -719,13 +719,17 @@ class PostgreSQLGateway(Gateway):
                     operator = ""
                     value = "FALSE"
             else:
-                value = map(PostgreSQLGateway._to_sql_value, value)
                 if isinstance(field, (list, tuple, set, frozenset)):
-                    conditions = ["%s IN %s" % (f, v) for f,v in izip(field, value)]
+                    and_clauses = []
+                    for value_elt in value:
+                        value_elt = map(PostgreSQLGateway._to_sql_value, value_elt)
+                        predicate_list = ["%s = %s" % (f, ve) for f, ve in izip(field,value_elt)]
+                        and_clauses.append(" AND ".join(predicate_list))
                     field = ""
                     op    = ""
-                    value = ' OR'.join(conditions)
+                    value = " OR ".join(and_clauses)
                 else:
+                    value = map(PostgreSQLGateway.quote, value)
                     if op_ == and_:
                         op = "@>"
                         value = "ARRAY[%s]" % ", ".join(value)
