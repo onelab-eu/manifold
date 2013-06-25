@@ -1325,8 +1325,8 @@ class SFAGateway(Gateway):
     # TEST = PRESENT and NOT EXPIRED
     def credentials_needed(self, cred_name, config):
         # TODO: optimize this function in the case that the user has no authority_credential and no slice_credential, it's executed each time !!!
-        # For debugging
-        #need_credential = True
+        # Initialize
+        need_credential = None
 
         # if cred_name is not defined in config, we need to get it from SFA Registry
         if not cred_name in config:
@@ -1350,7 +1350,10 @@ class SFAGateway(Gateway):
                 else:
                     # check expiration of the credential
                     need_credential = self.credential_expired(config[cred_name])
-            return need_credential
+        # TODO: check all cases instead of tweaking like that
+        if need_credential is None:
+            need_credential = True
+        return need_credential
 
     def credential_expired(self, cred):
         # if the cred passed as argument is not an object
@@ -1428,8 +1431,8 @@ class SFAGateway(Gateway):
         need_authority_credentials = need_delegated_authority_credentials
         need_authority_list = need_authority_credentials
         need_delegated_user_credential = not is_admin and self.credentials_needed('delegated_user_credential', config)
-        need_gid = True
-        need_user_credential = need_authority_credentials or need_slice_list or need_slice_credentials or need_delegated_user_credential 
+        need_gid = not 'gid' in config
+        need_user_credential = need_authority_credentials or need_slice_list or need_slice_credentials or need_delegated_user_credential or need_gid
 
         if self.is_admin(self.user):
             need_delegated_user_credential=false
@@ -1473,6 +1476,9 @@ class SFAGateway(Gateway):
 
         # create an SFA connexion to Registry, using user config
         registry_proxy = self.make_user_proxy(self.config['registry'], config, 'sscert')
+        Log.tmp("need_user_credential",need_user_credential)
+        test = self.credentials_needed('user_credential', config)
+        Log.tmp("credentials_needed", test)
         if need_user_credential and self.credentials_needed('user_credential', config):
             Log.debug("Requesting user credential for user %s" % user)
             try:
@@ -1486,7 +1492,7 @@ class SFAGateway(Gateway):
                     raise Exception, "SFA Gateway :: manage() could not retreive user from SFA Registry: %s"%e
 
         # SFA call Reslove to get the GID and the slice_list
-        if not 'gid' in config or need_slice_list:
+        if need_gid or need_slice_list:
             Log.debug("Generating GID for user %s" % user)
             records = yield registry_proxy.Resolve(config['user_hrn'].encode('latin1'), config['user_credential'])
             if not records:
@@ -1509,7 +1515,7 @@ class SFAGateway(Gateway):
  
         # Get Authority credential for each authority of the authority_list
         if need_authority_credentials: #and not 'authority_credentials' in config:
-            Log.debug("Generating authority credentials for each authority")
+            Lo.debug("Generating authority credentials for each authority")
             config['authority_credentials'] = {}
             try:
                 for authority_name in config['authority_list']:
