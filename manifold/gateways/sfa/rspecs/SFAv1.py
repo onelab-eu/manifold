@@ -5,6 +5,7 @@ from manifold.gateways.sfa.rspecs import RSpecParser
 from manifold.core.filter import Filter
 from sfa.util.xml import XpathFilter
 # for debug
+from manifold.util.log import Log
 import pprint
 
 # Maps properties within an element of a RSpec to entries in the returned
@@ -34,7 +35,7 @@ def channel_urn_hrn_exclusive(value):
     output = {}
     # XXX HARDCODED FOR NITOS
     xrn = Xrn('%(network)s.nitos.channel.%(channel_num)s' % value, type='channel')
-    return {'resource_urn': xrn.urn, 'hrn': xrn.hrn, 'exclusive': True}
+    return {'resource_urn': xrn.urn, 'resource_hrn': xrn.hrn, 'exclusive': True}
 
 #   RSPEC_ELEMENT
 #       rspec_property -> dictionary that is merged when we encounter this
@@ -45,6 +46,9 @@ def channel_urn_hrn_exclusive(value):
 HOOKS = {
     'node': {
         'component_id': lambda value : {'resource_hrn': Xrn(value).get_hrn(), 'resource_urn': value}
+    },
+    'link': {
+        'component_id': lambda value : {'resource_hrn': Xrn(value).get_hrn(), 'resource_urn': value}       
     },
     'spectrum/channel': {
         '*': lambda value: channel_urn_hrn_exclusive(value)
@@ -59,6 +63,7 @@ HOOKS = {
 class SFAv1Parser(RSpecParser):
 
     def __init__(self, *args):
+        Log.tmp(len(args))
         if len(args) == 1:
             rspec = args[0]
             self.rspec = RSpec(rspec).version
@@ -70,6 +75,7 @@ class SFAv1Parser(RSpecParser):
                 val = r['resource_urn'] if isinstance(r, dict) else r
                 auth = Xrn(val).authority
                 if not auth: raise Exception, "No authority in specified URN %s" % val
+                Log.tmp(auth)
                 network = auth[0]
                 if not network in self.resources_by_network:
                     self.resources_by_network[network] = []
@@ -83,6 +89,7 @@ class SFAv1Parser(RSpecParser):
                 auth = Xrn(val).authority
                 if not auth: raise Exception, "No authority in specified URN"
                 network = auth[0]
+                Log.tmp(auth)
                 if not network in self.leases_by_network:
                     self.leases_by_network[network] = []
                 self.leases_by_network[network].append(l)
