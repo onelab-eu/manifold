@@ -778,7 +778,7 @@ class SFAGateway(Gateway):
         #    #self.send({'network_hrn': p.platform, 'network_name': p.platform_longname})
         #for r in version:
         #    print r
-
+        #Log.tmp(version)
         # forward what has been retrieved from the SFA GetVersion call
         #result=version
         output = {}
@@ -1481,9 +1481,6 @@ class SFAGateway(Gateway):
 
         # create an SFA connexion to Registry, using user config
         registry_proxy = self.make_user_proxy(self.config['registry'], config, 'sscert')
-        Log.tmp("need_user_credential",need_user_credential)
-        test = self.credentials_needed('user_credential', config)
-        Log.tmp("credentials_needed", test)
         if need_user_credential and self.credentials_needed('user_credential', config):
             Log.debug("Requesting user credential for user %s" % user)
             try:
@@ -1520,7 +1517,7 @@ class SFAGateway(Gateway):
  
         # Get Authority credential for each authority of the authority_list
         if need_authority_credentials: #and not 'authority_credentials' in config:
-            Lo.debug("Generating authority credentials for each authority")
+            Log.debug("Generating authority credentials for each authority")
             config['authority_credentials'] = {}
             try:
                 for authority_name in config['authority_list']:
@@ -1540,7 +1537,6 @@ class SFAGateway(Gateway):
  
         if need_delegated_authority_credentials:
             Log.debug("Delegating authority credentials")
-            Log.tmp(config['authority_credentials'])
             config['delegated_authority_credentials'] = {}           
             for auth_name,auth_cred in config['authority_credentials'].items():
                 delegated_auth_cred = self.delegate(auth_cred, config['user_private_key'], config['gid'], self.admin_config['user_credential'])                   
