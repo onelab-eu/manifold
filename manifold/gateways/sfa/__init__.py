@@ -233,7 +233,7 @@ class SFAGateway(Gateway):
         try:
             user = db.query(User).filter(User.email == user_email).one()
         except Exception, e:
-            raise Exception, 'Missing admin user: %s' % str(e)
+            raise Exception, 'Missing user: %s' % str(e)
         # Get platform
         platform = db.query(Platform).filter(Platform.platform == self.platform).one()
         
@@ -256,7 +256,6 @@ class SFAGateway(Gateway):
             if not ref_accounts:
                 raise Exception, "reference account does not exist"
             ref_account = ref_accounts[0]
-
             if ref_account.auth_type == 'managed':
                 # call manage function for this managed user account to update it 
                 # if the managed user account has only a private key, the credential will be retrieved 
@@ -779,7 +778,7 @@ class SFAGateway(Gateway):
         #    #self.send({'network_hrn': p.platform, 'network_name': p.platform_longname})
         #for r in version:
         #    print r
-
+        #Log.tmp(version)
         # forward what has been retrieved from the SFA GetVersion call
         #result=version
         output = {}
@@ -1330,25 +1329,36 @@ class SFAGateway(Gateway):
 
     # TEST = PRESENT and NOT EXPIRED
     def credentials_needed(self, cred_name, config):
+        # TODO: optimize this function in the case that the user has no authority_credential and no slice_credential, it's executed each time !!!
+        # Initialize
+        need_credential = None
+
         # if cred_name is not defined in config, we need to get it from SFA Registry
         if not cred_name in config:
-            # need_credential = True
-            return True
+            need_credential = True
+            #return True
         else:
-            # if config[cred_name] is a dict of credentials or a single credential
-            if isinstance(config[cred_name], dict):
-                # check expiration of each credential
-                for cred in config[cred_name].values():
-                    # if one of the credentials is expired, we need to get a new one from SFA Registry
-                    if self.credential_expired(cred):
-                        # need_credential = True
-                        return True
-                    else:
-                        need_credential = False
+            # testing if credential is empty in the DB
+            if not config[cred_name]:
+                need_credential = True
             else:
-                # check expiration of the credential
-                need_credential = self.credential_expired(config[cred_name])
-            return need_credential
+                # if config[cred_name] is a dict of credentials or a single credential
+                if isinstance(config[cred_name], dict):
+                    # check expiration of each credential
+                    for cred in config[cred_name].values():
+                        # if one of the credentials is expired, we need to get a new one from SFA Registry
+                        if self.credential_expired(cred):
+                            need_credential = True
+                            #return True
+                        else:
+                            need_credential = False
+                else:
+                    # check expiration of the credential
+                    need_credential = self.credential_expired(config[cred_name])
+        # TODO: check all cases instead of tweaking like that
+        if need_credential is None:
+            need_credential = True
+        return need_credential
 
     def credential_expired(self, cred):
         # if the cred passed as argument is not an object
@@ -1426,8 +1436,8 @@ class SFAGateway(Gateway):
         need_authority_credentials = need_delegated_authority_credentials
         need_authority_list = need_authority_credentials
         need_delegated_user_credential = not is_admin and self.credentials_needed('delegated_user_credential', config)
-        need_gid = True
-        need_user_credential = need_authority_credentials or need_slice_list or need_slice_credentials or need_delegated_user_credential 
+        need_gid = not 'gid' in config
+        need_user_credential = need_authority_credentials or need_slice_list or need_slice_credentials or need_delegated_user_credential or need_gid
 
         if self.is_admin(self.user):
             need_delegated_user_credential=false
@@ -1484,7 +1494,7 @@ class SFAGateway(Gateway):
                     raise Exception, "SFA Gateway :: manage() could not retreive user from SFA Registry: %s"%e
 
         # SFA call Reslove to get the GID and the slice_list
-        if not 'gid' in config or need_slice_list:
+        if need_gid or need_slice_list:
             Log.debug("Generating GID for user %s" % user)
             records = yield registry_proxy.Resolve(config['user_hrn'].encode('latin1'), config['user_credential'])
             if not records:
@@ -1527,7 +1537,6 @@ class SFAGateway(Gateway):
  
         if need_delegated_authority_credentials:
             Log.debug("Delegating authority credentials")
-            Log.tmp(config['authority_credentials'])
             config['delegated_authority_credentials'] = {}           
             for auth_name,auth_cred in config['authority_credentials'].items():
                 delegated_auth_cred = self.delegate(auth_cred, config['user_private_key'], config['gid'], self.admin_config['user_credential'])                   
