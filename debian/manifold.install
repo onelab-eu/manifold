@@ -6,3 +6,5 @@ usr/lib*/python*/site-packages/manifold/gateways
 usr/lib*/python*/site-packages/manifold/input
 usr/lib*/python*/site-packages/manifold/models
 usr/lib*/python*/site-packages/manifold/util
+usr/lib*/python*/site-packages/manifold/types
+usr/lib*/python*/site-packages/manifold/operators
