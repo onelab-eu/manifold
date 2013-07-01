@@ -348,6 +348,9 @@ class SFAGateway(Gateway):
             # cache version for 20 minutes
             cache.add(cache_key, version, ttl= 60*20)
 
+        # version as a property of the gateway instanciated, to be used in the parser
+        self.version = version
+
         defer.returnValue(version)
 
     @defer.inlineCallbacks
@@ -563,7 +566,7 @@ class SFAGateway(Gateway):
 
     def parse_sfa_rspec(self, rspec):
         parser = SFAv1Parser(rspec)
-        return parser.to_dict()
+        return parser.to_dict(self.version)
 
     def build_sfa_rspec(self, slice_id, resources, leases):
         parser = SFAv1Parser(resources, leases)
