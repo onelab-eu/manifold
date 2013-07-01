@@ -8,3 +8,13 @@ usr/lib*/python*/site-packages/manifold/models
 usr/lib*/python*/site-packages/manifold/util
 usr/lib*/python*/site-packages/manifold/types
 usr/lib*/python*/site-packages/manifold/operators
+usr/bin/manifold-add-account
+usr/bin/manifold-enable-platform
+usr/bin/manifold-upload-credential
+usr/bin/manifold-add-platform
+usr/bin/manifold-init-db
+usr/bin/manifold-xmlrpc
+usr/bin/manifold-add-user
+usr/bin/manifold-sfa-delegate
+usr/bin/manifold-disable-platform
+usr/bin/manifold-shell
