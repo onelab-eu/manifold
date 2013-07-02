@@ -41,7 +41,7 @@ setup(
 #        ( [ ('/etc/init.d/manifold', 'manifold/bin/etc_init.d_manifold-fedora') ] if distribution == 'fedora' else [] ) +
 #         [],
     data_files = [ ('/usr/share/manifold/metadata/', glob('metadata/*.h')), ('/etc/init.d', ['init.d/manifold']) ],
-    scripts= glob("clientbin/*") + ['scripts/myslice-reset-db.sh', 'scripts/myslice-init-db.sh'],
+    scripts= glob("clientbin/*") + ['scripts/manifold-reset-db.sh', 'scripts/manifold-populate-db.sh'],
 #    entry_points={
 #        'console_scripts': [
 #            'manifold-shell = manifold.bin.shell:main',
