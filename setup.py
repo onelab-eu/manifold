@@ -5,6 +5,9 @@ import os
 import manifold
 from glob import glob
 from setuptools import find_packages, setup
+import platform
+
+distribution, _, _ = platform.dist()                                       
 
 ROOT_PATH = os.path.abspath(os.path.dirname(__file__))
 long_description = open(os.path.join(ROOT_PATH, 'README.rst')).read()
@@ -32,7 +35,10 @@ setup(
     ],
     license     = "GPLv3",
     packages = find_packages(),
-    data_files = [ ('/usr/share/manifold/metadata/', glob('metadata/*.h')) ],
+    data_files = [ ('/usr/share/manifold/metadata/', glob('metadata/*.h')) ] +
+#        ( [ ('/etc/init.d/manifold', 'manifold/bin/etc_init.d_manifold-debian') ] if distribution == 'debian' else [] ) +
+#        ( [ ('/etc/init.d/manifold', 'manifold/bin/etc_init.d_manifold-fedora') ] if distribution == 'fedora' else [] ) +
+         [],
     scripts=['scripts/myslice-reset-db.sh', 'scripts/myslice-init-db.sh'],
     entry_points={
         'console_scripts': [

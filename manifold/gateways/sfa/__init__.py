@@ -1169,6 +1169,11 @@ class SFAGateway(Gateway):
             type_version.add(x)
         local_version  = set([('SFA', '1'), ('GENI', '3')])
         common_version = type_version & local_version
+
+        # TODO: Handle unkown verison of RSpec 
+        if not common_version:
+            common_version.add(('SFA','1'))
+
         if ('SFA', '1') in common_version:
             api_options['geni_rspec_version'] = {'type': 'SFA', 'version': '1'}
         else:
