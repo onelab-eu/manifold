@@ -4,7 +4,7 @@
 rm -f /var/myslice/db.sqlite
 
 # Initialize the DB...
-manifold-init-db
+myslice-init-db
 
 # ...and insert dummy records
 sqlite3 /var/myslice/db.sqlite < $1
