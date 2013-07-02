@@ -38,14 +38,14 @@ setup(
         'console_scripts': [
             'manifold-shell = manifold.bin.shell:main',
             'manifold-xmlrpc = manifold.bin.xmlrpc:main',
-            'myslice-sfa-delegate = manifold.bin.delegate:main',
-            'myslice-init-db = manifold.bin.initdb:main',
+            'manifold-sfa-delegate = manifold.bin.delegate:main',
+            'manifold-init-db = manifold.bin.initdb:main',
             'manifold-add-user = manifold.bin.adduser:main',
             'manifold-add-account = manifold.bin.addaccount:main',
             'manifold-add-platform = manifold.bin.addplatform:main',
             'manifold-disable-platform = manifold.bin.disableplatform:main',
             'manifold-enable-platform = manifold.bin.enableplatform:main',
-            'myslice-upload-credential = manifold.bin.uploadcredential:main',
+            'manifold-upload-credential = manifold.bin.uploadcredential:main',
         ],
     },
 
