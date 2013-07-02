@@ -18,4 +18,6 @@ usr/bin/manifold-add-user
 usr/bin/manifold-sfa-delegate
 usr/bin/manifold-disable-platform
 usr/bin/manifold-shell
+usr/bin/manifold-populate-db.sh
+usr/bin/manifold-reset-db.sh
 etc/init.d/manifold
