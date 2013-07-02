@@ -35,24 +35,26 @@ setup(
     ],
     license     = "GPLv3",
     packages = find_packages(),
-    data_files = [ ('/usr/share/manifold/metadata/', glob('metadata/*.h')) ] +
+# Redundant with other contributions ?
+#    data_files = [ ('/usr/share/manifold/metadata/', glob('metadata/*.h')) ] +
 #        ( [ ('/etc/init.d/manifold', 'manifold/bin/etc_init.d_manifold-debian') ] if distribution == 'debian' else [] ) +
 #        ( [ ('/etc/init.d/manifold', 'manifold/bin/etc_init.d_manifold-fedora') ] if distribution == 'fedora' else [] ) +
-         [],
-    scripts=['scripts/myslice-reset-db.sh', 'scripts/myslice-init-db.sh'],
-    entry_points={
-        'console_scripts': [
-            'manifold-shell = manifold.bin.shell:main',
-            'manifold-xmlrpc = manifold.bin.xmlrpc:main',
-            'myslice-sfa-delegate = manifold.bin.delegate:main',
-            'myslice-init-db = manifold.bin.initdb:main',
-            'manifold-add-user = manifold.bin.adduser:main',
-            'manifold-add-account = manifold.bin.addaccount:main',
-            'manifold-add-platform = manifold.bin.addplatform:main',
-            'manifold-disable-platform = manifold.bin.disableplatform:main',
-            'manifold-enable-platform = manifold.bin.enableplatform:main',
-            'myslice-upload-credential = manifold.bin.uploadcredential:main',
-        ],
-    },
+#         [],
+    data_files = [ ('/usr/share/manifold/metadata/', glob('metadata/*.h')), ('/etc/init.d', ['init.d/manifold']) ],
+    scripts= glob("clientbin/*") + ['scripts/myslice-reset-db.sh', 'scripts/myslice-init-db.sh'],
+#    entry_points={
+#        'console_scripts': [
+#            'manifold-shell = manifold.bin.shell:main',
+#            'manifold-xmlrpc = manifold.bin.xmlrpc:main',
+#            'manifold-sfa-delegate = manifold.bin.delegate:main',
+#            'manifold-init-db = manifold.bin.initdb:main',
+#            'manifold-add-user = manifold.bin.adduser:main',
+#            'manifold-add-account = manifold.bin.addaccount:main',
+#            'manifold-add-platform = manifold.bin.addplatform:main',
+#            'manifold-disable-platform = manifold.bin.disableplatform:main',
+#            'manifold-enable-platform = manifold.bin.enableplatform:main',
+#            'manifold-upload-credential = manifold.bin.uploadcredential:main',
+#        ],
+#    },
 
 )
