@@ -33,20 +33,20 @@ setup(
     license     = "GPLv3",
     packages = find_packages(),
     data_files = [ ('/usr/share/manifold/metadata/', glob('metadata/*.h')) ],
-    scripts=['scripts/myslice-reset-db.sh', 'scripts/myslice-init-db.sh'],
-    entry_points={
-        'console_scripts': [
-            'manifold-shell = manifold.bin.shell:main',
-            'manifold-xmlrpc = manifold.bin.xmlrpc:main',
-            'manifold-sfa-delegate = manifold.bin.delegate:main',
-            'manifold-init-db = manifold.bin.initdb:main',
-            'manifold-add-user = manifold.bin.adduser:main',
-            'manifold-add-account = manifold.bin.addaccount:main',
-            'manifold-add-platform = manifold.bin.addplatform:main',
-            'manifold-disable-platform = manifold.bin.disableplatform:main',
-            'manifold-enable-platform = manifold.bin.enableplatform:main',
-            'manifold-upload-credential = manifold.bin.uploadcredential:main',
-        ],
-    },
+    scripts= glob("clientbin/*") + ['scripts/myslice-reset-db.sh', 'scripts/myslice-init-db.sh'],
+#    entry_points={
+#        'console_scripts': [
+#            'manifold-shell = manifold.bin.shell:main',
+#            'manifold-xmlrpc = manifold.bin.xmlrpc:main',
+#            'manifold-sfa-delegate = manifold.bin.delegate:main',
+#            'manifold-init-db = manifold.bin.initdb:main',
+#            'manifold-add-user = manifold.bin.adduser:main',
+#            'manifold-add-account = manifold.bin.addaccount:main',
+#            'manifold-add-platform = manifold.bin.addplatform:main',
+#            'manifold-disable-platform = manifold.bin.disableplatform:main',
+#            'manifold-enable-platform = manifold.bin.enableplatform:main',
+#            'manifold-upload-credential = manifold.bin.uploadcredential:main',
+#        ],
+#    },
 
 )
