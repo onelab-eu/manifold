@@ -63,7 +63,6 @@ HOOKS = {
 class SFAv1Parser(RSpecParser):
 
     def __init__(self, *args):
-        Log.tmp(len(args))
         if len(args) == 1:
             rspec = args[0]
             self.rspec = RSpec(rspec).version
@@ -161,6 +160,8 @@ class SFAv1Parser(RSpecParser):
             # self.rspec.version.get_nodes()
             # self.rspec.version.get_links()
             elements = self.rspec.xml.xpath("//default:%s | //%s" %(name,name))
+            if self.network is not None:
+                elements = [self.dict_from_elt(self.network, n.element) for n in elements]
         else:
             elements = self.rspec.xml.xpath("/RSpec/network[@name='%s']/%s" % (network, name))
             elements = [self.dict_from_elt(network, n.element) for n in elements]
@@ -168,15 +169,17 @@ class SFAv1Parser(RSpecParser):
             elements = [self.dict_rename(n, name) for n in elements]
         return elements
 
-    def to_dict(self):
-
+    def to_dict(self, version):
         networks = self.rspec.xml.xpath('/RSpec/network/@name')
         networks = [str(n.element) for n in networks]
-        
         # @loic Added for GENIv3 with no networks
         if not networks:
             networks = []
-            networks.append("")
+            # specify the network from GetVersion if not explicit in the Rspec
+            if 'hrn' in version:
+                self.network = version['hrn']
+            else:
+                self.network = None
             resources=self.dict_resources()
             leases=self.dict_leases(resources)
             #print "RESOURCES RESULTS FOR GENI v3 = "
