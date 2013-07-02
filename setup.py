@@ -32,8 +32,8 @@ setup(
     ],
     license     = "GPLv3",
     packages = find_packages(),
-    data_files = [ ('/usr/share/manifold/metadata/', glob('metadata/*.h')) ],
-    scripts= glob("clientbin/*") + ['scripts/myslice-reset-db.sh', 'scripts/myslice-init-db.sh', 'init.d/manifold'],
+    data_files = [ ('/usr/share/manifold/metadata/', glob('metadata/*.h')), ('/etc/init.d', ['init.d/manifold']) ],
+    scripts= glob("clientbin/*") + ['scripts/myslice-reset-db.sh', 'scripts/myslice-init-db.sh'],
 #    entry_points={
 #        'console_scripts': [
 #            'manifold-shell = manifold.bin.shell:main',
