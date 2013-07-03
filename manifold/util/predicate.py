@@ -69,7 +69,10 @@ class Predicate:
         else:
             self.op = op
 
-        self.value = value
+        if isinstance(value, list):
+            self.value = tuple(value)
+        else:
+            self.value = value
 
     def __str__(self):
         return "Pred(%s, %s, %s)" % self.get_str_tuple()
@@ -78,6 +81,7 @@ class Predicate:
         return self.__str__() 
 
     def __hash__(self):
+        print self.get_tuple()
         return hash(self.get_tuple())
 
     def get_key(self):
