@@ -1,5 +1,6 @@
-from manifold.operators      import Node, ChildStatus, ChildCallback, LAST_RECORD
-from manifold.core.record    import Record
+from manifold.operators     import Node, ChildStatus, ChildCallback, LAST_RECORD
+from manifold.core.record   import Record
+from manifold.util.log      import Log
 
 DUMPSTR_UNION      = "UNION"
 
@@ -106,14 +107,14 @@ class Union(Node):
 
         # Ignore records that have no key
         if not Record.has_fields(record, key):
-            print "W: UNION ignored record without key '%s': %r" % (key, record)
+            Log.info("UNION ignored record without key '%(key)s': %(record)r", **locals())
             return
 
         # Ignore duplicate records
         if self.distinct:
             key_value = Record.get_value(record, key)
             if key_value in self.key_list:
-                print "W: UNION ignored duplicate record"
+                Log.info("UNION ignored duplicate record")
                 return
             self.key_list.append(key_value)
 
