@@ -457,10 +457,10 @@ class AnalyzedQuery(Query):
             filters = [filters]
         for predicate in filters:
             if predicate and '.' in predicate.key:
-                method, subkey = pred.key.split('.', 1)
+                method, subkey = predicate.key.split('.', 1)
                 # Method contains the name of the subquery, we need the type
                 # XXX type = self.metadata.get_field_type(self.object, method)
-                sub_pred = Predicate(subkey, pred.op, pred.value)
+                sub_pred = Predicate(subkey, predicate.op, predicate.value)
                 self.subquery(method).filter_by(sub_pred)
             else:
                 super(AnalyzedQuery, self).filter_by(predicate)
