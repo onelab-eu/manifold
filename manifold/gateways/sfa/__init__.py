@@ -849,12 +849,27 @@ class SFAGateway(Gateway):
         # resolve  : True: make resolve instead of list
         if object_name:
             # 0) given object name
+
+            # If the objects are not part of the hierarchy, let's return [] to
+            # prevent the registry to forward results to another registry
+            # XXX This should be ensured by partitions
+            object_name = [ on for on in object_name if on.startswith(interface_hrn)]
+            if not object_name:
+                defer.returnValue([])
+
             # Check for jokers ?
             stack     = object_name
             resolve   = True
 
         elif auth_hrn:
             # 2) given authority
+
+            # If the authority is not part of the hierarchy, let's return [] to
+            # prevent the registry to forward results to another registry
+            # XXX This should be ensured by partitions
+            if not auth_hrn.startswith(interface_hrn):
+                defer.returnValue([])
+
             resolve   = False
             recursive = False
             stack = []
