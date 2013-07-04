@@ -81,7 +81,6 @@ class Predicate:
         return self.__str__() 
 
     def __hash__(self):
-        print self.get_tuple()
         return hash(self.get_tuple())
 
     def get_key(self):
