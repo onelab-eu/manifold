@@ -106,7 +106,7 @@ class Union(Node):
 
         # Ignore records that have no key
         if not Record.has_fields(record, key):
-            print "W: UNION ignored record without key ",record
+            print "W: UNION ignored record without key '%s': %r" % (key, record)
             return
 
         # Ignore duplicate records
