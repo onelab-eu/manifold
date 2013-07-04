@@ -208,7 +208,7 @@ class SFAGateway(Gateway):
         'last_name': 'user_last_name',              # last_name
         'phone': 'user_phone',                      # phone
         'keys': 'user_keys',                        # OBJ keys !!!
-        'slices': 'user_slices'                     # OBJ slices
+        'reg-slices': 'slice.slice_hrn'             # OBJ slices
     }
 
     map_fields = {
@@ -853,7 +853,9 @@ class SFAGateway(Gateway):
             # If the objects are not part of the hierarchy, let's return [] to
             # prevent the registry to forward results to another registry
             # XXX This should be ensured by partitions
+            print "BEFORE ON=", object_name
             object_name = [ on for on in object_name if on.startswith(interface_hrn)]
+            print "AFTER ON=", object_name
             if not object_name:
                 defer.returnValue([])
 
@@ -892,7 +894,9 @@ class SFAGateway(Gateway):
 
         if resolve:
             stack = map(lambda x: hrn_to_urn(x, object), stack)
+            print "RESOLVING", stack
             result = yield self.registry.Resolve(stack, cred)
+            print "RESULT", result
             defer.returnValue(result)
         
         if len(stack) > 1:
