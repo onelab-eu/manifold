@@ -1,4 +1,5 @@
 from types import StringTypes 
+from xml.etree import ElementTree
 from sfa.rspecs.rspec import RSpec
 from sfa.util.xrn import Xrn, get_leaf
 from manifold.gateways.sfa.rspecs import RSpecParser
@@ -35,7 +36,7 @@ def channel_urn_hrn_exclusive(value):
     output = {}
     # XXX HARDCODED FOR NITOS
     xrn = Xrn('%(network)s.nitos.channel.%(channel_num)s' % value, type='channel')
-    return {'resource_urn': xrn.urn, 'resource_hrn': xrn.hrn, 'exclusive': True}
+    return {'urn': xrn.urn, 'resource_hrn': xrn.hrn, 'exclusive': True}
 
 #   RSPEC_ELEMENT
 #       rspec_property -> dictionary that is merged when we encounter this
@@ -45,10 +46,10 @@ def channel_urn_hrn_exclusive(value):
 #              passed as an argument)
 HOOKS = {
     'node': {
-        'component_id': lambda value : {'resource_hrn': Xrn(value).get_hrn(), 'resource_urn': value}
+        'component_id': lambda value : {'resource_hrn': Xrn(value).get_hrn(), 'urn': value}
     },
     'link': {
-        'component_id': lambda value : {'resource_hrn': Xrn(value).get_hrn(), 'resource_urn': value}       
+        'component_id': lambda value : {'resource_hrn': Xrn(value).get_hrn(), 'urn': value}       
     },
     'spectrum/channel': {
         '*': lambda value: channel_urn_hrn_exclusive(value)
@@ -71,7 +72,7 @@ class SFAv1Parser(RSpecParser):
             leases = args[1]
             self.resources_by_network = {}
             for r in resources:
-                val = r['resource_urn'] if isinstance(r, dict) else r
+                val = r['urn'] if isinstance(r, dict) else r
                 auth = Xrn(val).authority
                 if not auth: raise Exception, "No authority in specified URN %s" % val
                 Log.tmp(auth)
@@ -83,7 +84,7 @@ class SFAv1Parser(RSpecParser):
             self.leases_by_network = {}
             for l in leases:
                 # @loic Corrected bug
-                val = l['resource_urn'] if isinstance(l, dict) else l[0]
+                val = l['urn'] if isinstance(l, dict) else l[0]
                 #val = l['resource_urn'] if isinstance(l, dict) else r
                 auth = Xrn(val).authority
                 if not auth: raise Exception, "No authority in specified URN"
@@ -127,6 +128,7 @@ class SFAv1Parser(RSpecParser):
         """
         ret = {}
         ret['type'] = element.tag
+        #ret['type'] = element.text
         ret['network'] = network
         for k, v in element.attrib.items():
             #print "%s = %s" % (k,v)
@@ -199,7 +201,7 @@ class SFAv1Parser(RSpecParser):
             result.extend(self.parse_element(type,network))
         return result
 
-    # @loic Added function dict_resources
+    # @loic Added function dict_leases
     def dict_leases(self,resources,network=""):
         result=[]
         # LEASES
@@ -231,13 +233,13 @@ class SFAv1Parser(RSpecParser):
                     pass
                 else:
                     rsrc_lease['granularity'] = match['granularity']
-                if not 'resource_urn' in match:
+                if not 'urn' in match:
                     #print "E: Ignored lease with missing 'resource_urn' key:", filt
                     continue
-                rsrc_lease['resource_urn'] = match['resource_urn']
-                rsrc_lease['network'] = Xrn(match['resource_urn']).authority[0]
-                rsrc_lease['hrn'] = Xrn(match['resource_urn']).hrn
-                rsrc_lease['type'] = Xrn(match['resource_urn']).type
+                rsrc_lease['urn'] = match['urn']
+                rsrc_lease['network'] = Xrn(match['urn']).authority[0]
+                rsrc_lease['hrn'] = Xrn(match['urn']).hrn
+                rsrc_lease['type'] = Xrn(match['urn']).type
                 result.append(rsrc_lease)
         return result
         #print ""
@@ -276,7 +278,7 @@ class SFAv1Parser(RSpecParser):
             for l in self.leases_by_network[network]: # Do we need to group ?
                 if isinstance(l, list):
                     print "W: list to dict for lease"
-                    l = {'resource_urn': l[0], 'slice_id': slice_id, 'start_time': l[1], 'duration': l[2]}
+                    l = {'urn': l[0], 'slice_id': slice_id, 'start_time': l[1], 'duration': l[2]}
                 lease_tuple = (l['start_time'], l['duration'])
                 if lease_tuple in lease_groups:
                     lease_groups[lease_tuple].append(l)
@@ -287,11 +289,11 @@ class SFAv1Parser(RSpecParser):
             for lease_tuple, leases in lease_groups.items():
                 rspec.append('    <lease slice_id="%s" start_time="%s" duration="%s">' % (slice_id, lease_tuple[0], lease_tuple[1]))
                 for l in leases:
-                    type = Xrn(l['resource_urn']).type
+                    type = Xrn(l['urn']).type
                     if type == 'node':
-                        rspec.append('    <node component_id="%s"/>' % l['resource_urn'])
+                        rspec.append('    <node component_id="%s"/>' % l['urn'])
                     elif type == 'channel':
-                        rspec.append('    <channel channel_num="%s"/>' % get_leaf(l['resource_urn']))
+                        rspec.append('    <channel channel_num="%s"/>' % get_leaf(l['urn']))
                     else:
                         print "W: Ignore element while building rspec"
                         continue 
