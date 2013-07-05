@@ -103,6 +103,15 @@ class SFAv1Parser(RSpecParser):
                     self.leases_by_network[network] = []
                 self.leases_by_network[network].append(l)
 
+    def get_element_tag(self, element):
+        tag = element.tag
+        if element.prefix in element.nsmap:
+            # NOTE: None is a prefix that can be in the map (default ns)
+            start = len(element.nsmap[element.prefix]) + 2 # {ns}tag
+            tag = tag[start:]
+        
+        return tag
+
     def prop_from_elt(self, element, prefix = ''):
         """
         Returns a property or a set of properties
@@ -110,7 +119,7 @@ class SFAv1Parser(RSpecParser):
         """
         ret = {}
         if prefix: prefix = "%s." % prefix
-        tag = element.tag
+        tag = self.get_element_tag(element)
 
         # Analysing attributes
         for k, v in element.attrib.items():
@@ -136,7 +145,7 @@ class SFAv1Parser(RSpecParser):
         Returns an object
         """
         ret            = {}
-        ret['type']    = element.tag
+        ret['type']    = self.get_element_tag(element)
         ret['network'] = network
 
         for k, v in element.attrib.items():
