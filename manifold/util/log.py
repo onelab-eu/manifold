@@ -19,7 +19,7 @@ class Log(object):
         "log_file"            : "/var/log/tophat/dispatcher.log",
         "log_level"           : "DEBUG",
         "debug"               : "default",
-        "duplicates"          : False
+        "log_duplicates"      : False
     }
 
     # COLORS
@@ -84,9 +84,9 @@ class Log(object):
             default = self.DEFAULTS["debug"]
         )
         opt.add_option(
-            "", "--duplicates", action = "store_true", dest = "duplicates",
+            "", "--duplicates", action = "store_true", dest = "log_duplicates",
             help = "Remove duplicate messages in logs",
-            default = self.DEFAULTS["duplicates"]
+            default = self.DEFAULTS["log_duplicates"]
         )
 
     def init_log(self, options=object()):
@@ -198,7 +198,7 @@ class Log(object):
 
         caller = None
 
-        if not Options().duplicates:
+        if not Options().log_duplicates:
             try:
                 count = cls.seen.get(msg, 0)
                 cls.seen[msg] = count + 1
