@@ -1,4 +1,6 @@
-from manifold.operators      import Node, ChildStatus, ChildCallback, LAST_RECORD
+from manifold.operators     import Node, ChildStatus, ChildCallback, LAST_RECORD
+from manifold.core.record   import Record
+from manifold.util.log      import Log
 
 DUMPSTR_UNION      = "UNION"
 
@@ -11,7 +13,7 @@ class Union(Node):
     UNION operator node
     """
 
-    def __init__(self, children, key):
+    def __init__(self, children, key, distinct=True):
         """
         \brief Constructor
         \param children A list of Node instances, the children of
@@ -26,6 +28,7 @@ class Union(Node):
         #self.child_status = 0
         #self.child_results = {}
         # Stores the list of keys already received to implement DISTINCT
+        self.distinct = distinct
         self.key_list = []
         self.status = ChildStatus(self.all_done)
         # Set up callbacks
@@ -94,20 +97,27 @@ class Union(Node):
             self.status.completed(child_id)
             return
         
-        key = self.key.get_name()
+        key = self.key.get_field_names()
 
         # DISTINCT not implemented, just forward the record
         if not key:
+            Log.critical("No key associated to UNION operator")
             self.send(record)
             return
+
         # Ignore records that have no key
-        if key not in record:
-            print "W: UNION ignored record without key ",record
+        if not Record.has_fields(record, key):
+            Log.info("UNION ignored record without key '%(key)s': %(record)r", **locals())
             return
+
         # Ignore duplicate records
-        #if record[key] in key_list:
-        #    print "W: UNION ignored duplicate record"
-        #    return
+        if self.distinct:
+            key_value = Record.get_value(record, key)
+            if key_value in self.key_list:
+                Log.info("UNION ignored duplicate record")
+                return
+            self.key_list.append(key_value)
+
         self.send(record)
 
         # XXX This code was necessary at some point to merge records... let's

@@ -28,8 +28,11 @@ class SQLParser(object):
         field = pp.Word(pp.alphanums + '_' + '.')
         operator = pp.Regex(OPERATOR_RX).setName("operator")
         value = pp.QuotedString('"') | integer ##| pp.Combine( pp.Word( "+-"+ pp.nums, pp.nums) + pp.Optional( point + pp.Optional( pp.Word( pp.nums ) ) ) + pp.Optional( e + pp.Word( "+-"+pp.nums, pp.nums ) ) )
+        #value_list = pp.delimitedList(value).setParseAction(lambda tokens: tuple(tokens.asList()))
+        value_list = value | pp.Literal("[").suppress() + pp.delimitedList(value).setParseAction(lambda tokens: tuple(tokens.asList())) + pp.Literal("]").suppress()
+        
 
-        predicate = (field + operator + value).setParseAction(self.handlePredicate)
+        predicate = (field + operator + value_list).setParseAction(self.handlePredicate)
 
         # clause of predicates
         and_op = pp.CaselessLiteral("and") | pp.Keyword("&&")
@@ -55,6 +58,7 @@ class SQLParser(object):
         self.bnf = query
 
     def handlePredicate(self, args):
+        print "args=", args
         return Predicate(*args)
 
     def handleClause(self, args):

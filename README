@@ -1,5 +1,7 @@
 QUERIES A TESTER
 --------------------------------------------------------------------------------
+SELECT resource_hrn FROM resource WHERE slice.slice_hrn=="ple.upmc.myslicedemo"
+--------------------------------------------------------------------------------
 manifold>>> select source, destination, dns_target.alexa_rank from packet where dport == 53
  * Infinite loop in 1..1 relationships (need seen)
  * We should be able to detect the end of a query (missing is wrong)
