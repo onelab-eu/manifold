@@ -28,8 +28,10 @@ MAP = {
     }
 }
 
+RESOURCE_TYPES = ['node', 'spectrum/channel', 'link']
+
 # The key for resources, used for leases
-RESOURCE_KEY = 'hrn'
+RESOURCE_KEY = 'urn' # 'resource_hrn'
 
 # HOOKS TO RUN OPERATIONS ON GIVEN FIELDS
 def channel_urn_hrn_exclusive(value):
@@ -64,18 +66,29 @@ HOOKS = {
 class SFAv1Parser(RSpecParser):
 
     def __init__(self, *args):
+        """
+        SFAv1Parser(rspec)
+        or
+        SFAv1Parser(resources, leases)
+        """
+
+        # SFAv1Parser(rspec)
+        # 
         if len(args) == 1:
             rspec = args[0]
             self.rspec = RSpec(rspec).version
+
+        # SFAv1Parser(resources, leases)
+        # 
         elif len(args) == 2:
             resources = args[0]
-            leases = args[1]
+            leases    = args[1]
+
             self.resources_by_network = {}
             for r in resources:
                 val = r['urn'] if isinstance(r, dict) else r
                 auth = Xrn(val).authority
                 if not auth: raise Exception, "No authority in specified URN %s" % val
-                Log.tmp(auth)
                 network = auth[0]
                 if not network in self.resources_by_network:
                     self.resources_by_network[network] = []
@@ -83,16 +96,22 @@ class SFAv1Parser(RSpecParser):
 
             self.leases_by_network = {}
             for l in leases:
-                # @loic Corrected bug
                 val = l['urn'] if isinstance(l, dict) else l[0]
-                #val = l['resource_urn'] if isinstance(l, dict) else r
                 auth = Xrn(val).authority
                 if not auth: raise Exception, "No authority in specified URN"
                 network = auth[0]
-                Log.tmp(auth)
                 if not network in self.leases_by_network:
                     self.leases_by_network[network] = []
                 self.leases_by_network[network].append(l)
+
+    def get_element_tag(self, element):
+        tag = element.tag
+        if element.prefix in element.nsmap:
+            # NOTE: None is a prefix that can be in the map (default ns)
+            start = len(element.nsmap[element.prefix]) + 2 # {ns}tag
+            tag = tag[start:]
+        
+        return tag
 
     def prop_from_elt(self, element, prefix = ''):
         """
@@ -101,7 +120,7 @@ class SFAv1Parser(RSpecParser):
         """
         ret = {}
         if prefix: prefix = "%s." % prefix
-        tag = element.tag
+        tag = self.get_element_tag(element)
 
         # Analysing attributes
         for k, v in element.attrib.items():
@@ -126,15 +145,16 @@ class SFAv1Parser(RSpecParser):
         """
         Returns an object
         """
-        ret = {}
-        ret['type'] = element.tag
-        #ret['type'] = element.text
+        ret            = {}
+        ret['type']    = self.get_element_tag(element)
         ret['network'] = network
+
         for k, v in element.attrib.items():
-            #print "%s = %s" % (k,v)
             ret[k] = v
+
         for c in element.getchildren():
             ret.update(self.prop_from_elt(c))
+
         return ret
 
     def dict_rename(self, dic, name):
@@ -156,56 +176,48 @@ class SFAv1Parser(RSpecParser):
             ret.update(HOOKS[name]['*'](ret))
         return ret
 
-    def parse_element(self, name,network=None):
+    def parse_element(self, resource_type, network=None):
         if network is None:
             # TODO: use SFA Wrapper library
             # self.rspec.version.get_nodes()
             # self.rspec.version.get_links()
-            elements = self.rspec.xml.xpath("//default:%s | //%s" %(name,name))
+            XPATH_RESOURCE = "//default:%(resource_type)s | //%(resource_type)s"
+            elements = self.rspec.xml.xpath(XPATH_RESOURCE % locals()) 
             if self.network is not None:
                 elements = [self.dict_from_elt(self.network, n.element) for n in elements]
         else:
-            elements = self.rspec.xml.xpath("/RSpec/network[@name='%s']/%s" % (network, name))
+            XPATH_RESOURCE = "/RSpec/network[@name='%(network)s']/%(resource_type)s"
+            elements = self.rspec.xml.xpath(XPATH_RESOURCE % locals())
             elements = [self.dict_from_elt(network, n.element) for n in elements]
-        if name in MAP:
-            elements = [self.dict_rename(n, name) for n in elements]
+
+        # XXX if network == self.network == None, we might not have a dict here !!!
+        if resource_type in MAP:
+            elements = [self.dict_rename(n, resource_type) for n in elements]
+
         return elements
 
-    def to_dict(self, version):
-        networks = self.rspec.xml.xpath('/RSpec/network/@name')
-        networks = [str(n.element) for n in networks]
-        # @loic Added for GENIv3 with no networks
-        if not networks:
-            networks = []
-            # specify the network from GetVersion if not explicit in the Rspec
-            if 'hrn' in version:
-                self.network = version['hrn']
-            else:
-                self.network = None
-            resources=self.dict_resources()
-            leases=self.dict_leases(resources)
-            #print "RESOURCES RESULTS FOR GENI v3 = "
-            #pprint.pprint(resources)
-        else:
-            # @loic Functions for resources and leases created
-            for network in networks:
-                resources=self.dict_resources(network)
-                leases=self.dict_leases(resources,network)
-        return {'resource': resources, 'lease': leases}
-
-    # @loic Added function dict_resources
-    def dict_resources(self,network=None):
+    def dict_resources(self, network=None):
+        """
+        \brief Returns a list of resources from the specified network (eventually None)
+        """
         result=[]
+
         # NODES / CHANNELS / LINKS
-        for type in ['node', 'spectrum/channel', 'link']:
-            result.extend(self.parse_element(type,network))
+        for type in RESOURCE_TYPES:
+            result.extend(self.parse_element(type, network))
+
         return result
 
-    # @loic Added function dict_leases
-    def dict_leases(self,resources,network=""):
+    def dict_leases(self, resources, network=""):
+        """
+        \brief Returns a list of leases from the specified network (eventually None)
+        """
         result=[]
-        # LEASES
-        lease_elems = self.rspec.xml.xpath("/RSpec/network[@name='%s']/lease" % network)
+
+        # XXX All testbeds that have leases have networks XXX
+        XPATH_LEASE = "/RSpec/network[@name='%(network)s']/lease"
+        lease_elems = self.rspec.xml.xpath(XPATH_LEASE % locals())
+
         for l in lease_elems:
            lease = dict(l.element.attrib)
            for resource_elem in l.element.getchildren():
@@ -228,6 +240,7 @@ class SFAv1Parser(RSpecParser):
                 else:
                     if not match['exclusive']:
                        print "W: lease on a non-reservable node:", filt
+
                 if not 'granularity' in match:
                     #print "W: Granularity not present in node:", filt
                     pass
@@ -236,19 +249,54 @@ class SFAv1Parser(RSpecParser):
                 if not 'urn' in match:
                     #print "E: Ignored lease with missing 'resource_urn' key:", filt
                     continue
-                rsrc_lease['urn'] = match['urn']
-                rsrc_lease['network'] = Xrn(match['urn']).authority[0]
-                rsrc_lease['hrn'] = Xrn(match['urn']).hrn
-                rsrc_lease['type'] = Xrn(match['urn']).type
+
+                rsrc_lease['resource_urn'] = match['resource_urn']
+                rsrc_lease['network']      = Xrn(match['resource_urn']).authority[0]
+                rsrc_lease['hrn']          = Xrn(match['resource_urn']).hrn
+                rsrc_lease['type']         = Xrn(match['resource_urn']).type
+
                 result.append(rsrc_lease)
         return result
-        #print ""
-        #print "========================================"
-        #print "PARSING RSPECS leases:"
-        #print "-----------------------"
-        #for l in leases:
-        #    print l
-        #print "======="
+
+    def to_dict(self, version):
+        """
+        \brief Converts a RSpec to two lists of resources and leases.
+        \param version Output of the GetVersion() call holding the hrn of the
+        authority. This will be used for testbeds not adding this hrn inside
+        the RSpecs.
+
+        This function is the entry point for resource parsing. 
+        """
+        networks = self.rspec.xml.xpath('/RSpec/network/@name')
+        networks = [str(n.element) for n in networks]
+
+        if not networks:
+            # NOTE: GENI aggregate for example do not add the network alongside
+            # the resources
+            networks = []
+            # We might retrieve the network from GetVersion() if it is not
+            # explicit in the RSpec
+
+            # XXX Jordan: do we really need to store it in self ? I would pass it as a parameter
+            # I found the answer: it's because the XPATH expression is different if the RSpec has
+            # the network or not
+            self.network = version.get('hrn')
+
+            resources = self.dict_resources()
+            leases    = self.dict_leases(resources)
+
+        else:
+            # NOTE: A resource might have several networks (eg. from a SM)
+            for network in networks:
+                resources = self.dict_resources(network)
+                leases    = self.dict_leases(resources,network)
+
+        return {'resource': resources, 'lease': leases}
+
+
+    #---------------------------------------------------------------------------
+    # RSpec construction helpers
+    #---------------------------------------------------------------------------
 
     def rspec_add_header(self, rspec):
         rspec.append('<?xml version="1.0"?>')
@@ -302,6 +350,12 @@ class SFAv1Parser(RSpecParser):
         rspec.append('  </network>')
 
     def to_rspec(self, slice_id):
+        """
+        \brief Builds a RSpec from the current class
+        \param slice_id ???
+
+        This function uses 'self.resources_by_network' and 'self.leases_by_network'
+        """
             
         rspec = []
         self.rspec_add_header(rspec)

@@ -208,7 +208,7 @@ class SFAGateway(Gateway):
         'last_name': 'user_last_name',              # last_name
         'phone': 'user_phone',                      # phone
         'keys': 'user_keys',                        # OBJ keys !!!
-        'slices': 'user_slices'                     # OBJ slices
+        'reg-slices': 'slice.slice_hrn'             # OBJ slices
     }
 
     map_fields = {

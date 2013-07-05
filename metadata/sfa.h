@@ -89,6 +89,7 @@ class user {
     const text user_hrn;
     const text password;
     const text site;
+    slice slice[];
     KEY(user_hrn);
 	CAPABILITY(retrieve,join,fullquery);
 };

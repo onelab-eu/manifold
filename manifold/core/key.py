@@ -158,3 +158,6 @@ class Keys(set):
 #        keys exist, a unique one is returned, having a minimal size.
 #        """
 #        return min(self, key=len)
+
+    def __hash__(self):
+        return hash(frozenset(self))

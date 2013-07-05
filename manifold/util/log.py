@@ -4,6 +4,10 @@ from manifold.util.singleton import Singleton
 from manifold.util.options   import Options
 from manifold.util.misc      import caller_name, make_list
 
+# TODO Log should take separately message strings and arguments to be able to
+# remember which messages are seen several times, and also to allow for
+# translation
+
 class Log(object):
     __metaclass__ = Singleton
 
@@ -14,7 +18,8 @@ class Log(object):
         "rsyslog_port"        : 28514,
         "log_file"            : "/var/log/tophat/dispatcher.log",
         "log_level"           : "DEBUG",
-        "debug"               : "default"
+        "debug"               : "default",
+        "log_duplicates"      : False
     }
 
     # COLORS
@@ -33,11 +38,15 @@ class Log(object):
     def color(cls, color):
         return cls.color_ansi[color] if color else ''
 
+    # To remove duplicate messages
+    seen = {}
+
     def __init__(self, name='(default)'):
         self.log = None #logging.getLog(name)
         self.files_to_keep = []
         self.init_log()
         self.color = True
+
 
     @classmethod
     def init_options(self):
@@ -73,6 +82,11 @@ class Log(object):
             "-d", "--debug", dest = "debug",
             help = "Debug paths (a list of coma-separated python path: path.to.module.function).",
             default = self.DEFAULTS["debug"]
+        )
+        opt.add_option(
+            "", "--duplicates", action = "store_true", dest = "log_duplicates",
+            help = "Remove duplicate messages in logs",
+            default = self.DEFAULTS["log_duplicates"]
         )
 
     def init_log(self, options=object()):
@@ -152,7 +166,7 @@ class Log(object):
         return self.log
 
     @classmethod
-    def msg(cls, msg, level=None, caller=None):
+    def print_msg(cls, msg, level=None, caller=None):
         sys.stdout.write(cls.color(level))
         if level:
             print "%s" % level,
@@ -166,67 +180,92 @@ class Log(object):
     #---------------------------------------------------------------------
 
     @classmethod
-    def critical(cls, msg):
+    def build_message_string(cls, msg, ctx):
+        if ctx:
+            msg = [m % ctx for m in msg]
+        if isinstance(msg, list):
+            msg = " ".join(msg)
+        return msg
+
+    @classmethod
+    def log_message(cls, level, msg, ctx):
+        """
+        \brief Logs an message
+        \param level (string) Log level
+        \param msg (string / list of strings) Message string, or List of message strings
+        \param ctx (dict) Context for the message strings
+        """
+
+        caller = None
+
+        if not Options().log_duplicates:
+            try:
+                count = cls.seen.get(msg, 0)
+                cls.seen[msg] = count + 1
+            except TypeError, e:
+                # Unhashable types in msg
+                count = 0
+            
+            if count == 1:
+                msg += (" -- REPEATED -- Future similar messages will be silently ignored. Please use the --duplicates option to allow for duplicates",)
+            elif count > 1:
+                return
+            
+        if level == 'DEBUG':
+            caller = caller_name(skip=3)
+            # Eventually remove "" added to the configuration file
+            try:
+                paths = tuple(Options().debug.split(','))
+            except:
+                paths = None
+            if not paths or not caller.startswith(paths):
+                return
+
         logger = Log().get_logger()
+        msg_str = cls.build_message_string(msg, ctx)
+            
         if logger:
-            logger.critical("%s(): %s" % (inspect.stack()[2][3], msg))
+            logger_fct = getattr(logger, level.lower())
+            logger_fct("%s(): %s" % (inspect.stack()[2][3], msg_str))
         else:
-            cls.msg(msg, 'CRITICAL')
+            cls.print_msg(msg_str, level, caller)
+        
+
+    @classmethod
+    def critical(cls, *msg, **ctx):
+        cls.log_message('CRITICAL', msg, ctx)
         sys.exit(0)
 
     @classmethod
-    def error(cls, msg):
+    def error(cls, *msg, **ctx): 
+        cls.log_message('ERROR', msg, ctx)
         logger = Log().get_logger()
-        if logger:
-            logger.error("%s(): %s" % (inspect.stack()[2][3], msg))
-        else:
-            cls.msg(msg, 'ERROR')
+        if not Log().get_logger():
             traceback.print_exc()
         sys.exit(0)
 
     @classmethod
-    def warning(cls, msg):
-        logger = Log().get_logger()
-        if logger:
-            logger.warning("%s(): %s" % (inspect.stack()[2][3], msg))
-        else:
-            cls.msg(msg, 'WARNING')
+    def warning(cls, *msg, **ctx): 
+        cls.log_message('WARNING', msg, ctx)
 
     @classmethod
-    def info(cls, msg):
-        logger = Log().get_logger()
-        if logger:
-            logger.info("%s(): %s" % (inspect.stack()[2][3], msg))
-        else:
-            cls.msg(msg, 'INFO')
+    def info(cls, *msg, **ctx):
+        cls.log_message('INFO', msg, ctx)
 
     @classmethod
-    def debug(cls, *msg):
-        logger = Log().get_logger()
-        caller = caller_name()
-        # Eventually remove "" added to the configuration file
-        try:
-            paths = tuple(Options().debug.split(','))
-        except:
-            paths = None
-        if not paths or not caller.startswith(paths):
-            return
-        
-        if logger:
-            logger.debug("%s(): %s" % (inspect.stack()[2][3], msg))
-        else:
-            cls.msg(' '.join(map(lambda x: "%r"%x, make_list(msg))), 'DEBUG', caller_name())
+    def debug(cls, *msg, **ctx):
+        cls.log_message('DEBUG', msg, ctx)
 
     @classmethod
     def tmp(cls, *msg):
-        cls.msg(' '.join(map(lambda x: "%r"%x, make_list(msg))), 'TMP', caller_name())
+        cls.print_msg(' '.join(map(lambda x: "%r"%x, make_list(msg))), 'TMP', caller_name())
 
     @classmethod
     def record(cls, *msg):
-        #cls.msg(' '.join(map(lambda x: "%r"%x, make_list(msg))), 'RECORD', caller_name())
+        #cls.print_msg(' '.join(map(lambda x: "%r"%x, make_list(msg))), 'RECORD', caller_name())
         pass
 
     @classmethod
     def deprecated(cls, new):
-        #cls.msg("Function %s is deprecated, please use %s" % (caller_name(skip=3), new))
+        #cls.print_msg("Function %s is deprecated, please use %s" % (caller_name(skip=3), new))
         pass
