@@ -61,6 +61,8 @@ class Filter(set):
     def keys(self):
         return set([x.key for x in self])
 
+    # XXX THESE FUNCTIONS SHOULD ACCEPT MULTIPLE FIELD NAMES
+
     def has(self, key):
         for x in self:
             if x.key == key:
