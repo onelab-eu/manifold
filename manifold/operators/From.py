@@ -56,7 +56,7 @@ class From(Node):
     def __repr__(self):
         fields = self.get_query().get_select()
         fields = ', '.join(fields) if fields else '*'
-        return repr(self.get_query())
+        return self.get_query().to_sql(platform=self.get_platform())
         #DUMPSTR_FROM % (
         #    fields,
         #    self.get_platform(),

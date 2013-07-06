@@ -31,8 +31,8 @@ class SQLParser(object):
         kw_where   = pp.CaselessKeyword('where')
         kw_at      = pp.CaselessKeyword('at')
         kw_set     = pp.CaselessKeyword('set')
-        kw_true    = pp.CaselessKeyword('true').setParseAction(lambda t: 1 if t[0] else 0)
-        kw_false   = pp.CaselessKeyword('false') .setParseAction(lambda t: 1 if t[0] else 0)
+        kw_true    = pp.CaselessKeyword('true').setParseAction(lambda t: 1)
+        kw_false   = pp.CaselessKeyword('false') .setParseAction(lambda t: 0)
 
         # Regex string representing the set of possible operators
         # Example : ">=|<=|!=|>|<|="
@@ -102,7 +102,7 @@ if __name__ == "__main__":
         'SELECT slice_hrn FROM slice',
         'SELECT slice_hrn, slice_description FROM slice WHERE slice_hrn == "ple.upmc.myslicedemo"',
         'UPDATE local:platform SET disabled = True, pouet = false WHERE platform == "ple"',
-        'UPDATE local:platform SET disabled = True WHERE platform == "omf"',
+        'UPDATE local:platform SET disabled = False WHERE platform == "omf"',
     ]
 
     for s in STR_QUERIES:
