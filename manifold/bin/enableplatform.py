@@ -24,7 +24,7 @@ def main():
 
     # Using a query object...
     #platform_filters = [['platform', '=', name]]
-    #platform_params = {'disabled': True}
+    #platform_params = {'disabled': False}
     #query = Query(action='update', object='local:platform', filters=platform_filters, params=platform_params)
     #shell.execute(query)
 
