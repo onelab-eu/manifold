@@ -152,7 +152,7 @@ class Query(object):
         self.timestamp  = 'now' # ignored for now
 
 
-    def to_sql(self, multiline=False):
+    def to_sql(self, platform='', multiline=False):
         get_params_str = lambda : ', '.join(['%s = %r' % (k, v) for k, v in self.get_params().items()])
         get_select_str = lambda : ', '.join(self.get_select()) 
 
@@ -163,12 +163,12 @@ class Query(object):
         params = 'SET %s'    % get_params_str()     if self.get_params()    else ''
 
         sep = ' ' if not multiline else '\n  '
-
+        if platform: platform = "%s:" % platform
         strmap = {
-            'get'   : '%(select)s%(sep)s%(at)sFROM %(table)s%(sep)s%(where)s%(sep)s',                                           
-            'update': 'UPDATE %(table)s%(sep)s%(params)s%(sep)s%(where)s%(sep)s%(select)s',       
-            'create': 'INSERT INTO %(table)s%(sep)s%(params)s%(sep)s%(select)s',
-            'delete': 'DELETE FROM %(table)s%(sep)s%(where)s'
+            'get'   : '%(select)s%(sep)s%(at)sFROM %(platform)s%(table)s%(sep)s%(where)s%(sep)s',                                           
+            'update': 'UPDATE %(platform)s%(table)s%(sep)s%(params)s%(sep)s%(where)s%(sep)s%(select)s',       
+            'create': 'INSERT INTO %(platform)s%(table)s%(sep)s%(params)s%(sep)s%(select)s',
+            'delete': 'DELETE FROM %(platform)s%(table)s%(sep)s%(where)s'
         }
 
         return strmap[self.action] % locals()
