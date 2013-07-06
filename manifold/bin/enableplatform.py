@@ -3,7 +3,6 @@
 
 import sys
 
-from manifold.core.query import Query
 from manifold.bin.shell  import Shell
 
 def usage():
@@ -16,21 +15,21 @@ def main():
     if argc != 2:
         usage()
         sys.exit(1)
-
     name = sys.argv[1]
     
-
     shell = Shell()
 
-    # Using a query object...
-    #platform_filters = [['platform', '=', name]]
-    #platform_params = {'disabled': False}
-    #query = Query(action='update', object='local:platform', filters=platform_filters, params=platform_params)
-    #shell.execute(query)
-
-    # ... or using SQL-like syntax.
     command = 'UPDATE local:platform SET disabled = False WHERE platform == "%(name)s"'
     shell.evaluate(command % locals())
+
+    # Equivalent using a query object...
+    # 
+    # from manifold.core.query import Query
+    # platform_filters = [['platform', '=', name]]
+    # platform_params = {'disabled': False}
+    # query = Query(action='update', object='local:platform', filters=platform_filters, params=platform_params)
+    # shell.execute(query)
+
 
     shell.terminate()
 
