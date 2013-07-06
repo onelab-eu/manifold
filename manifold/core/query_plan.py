@@ -289,10 +289,8 @@ class ExploreTask(Deferred):
                 #sub_table = Table.make_table_from_platform(table, fields, method.get_platform())
 
                 # XXX We lack field pruning
+                # We create 'get' queries by default, this will be overriden in set_ast
                 query = Query.action('get', method.get_name()).select(fields)
-                # .set(user_query.get_params()).select(fields)
-                # user_query.get_timestamp() # timestamp
-                # where will be eventually optimized later
 
                 platform = method.get_platform()
                 capabilities = metadata.get_capabilities(platform, query.object)
@@ -363,6 +361,14 @@ class QueryPlan(object):
     def set_ast(self, ast, query):
         ast.optimize(query)
         self.ast = ast
+    
+        # Update the main query to add applicative information such as action and params
+        # NOTE: I suppose params cannot have '.' inside
+        for from_node in self.froms:
+            q = from_node.get_query()
+            if q.get_from() == query.get_from():
+                q.action = query.get_action()
+                q.params = query.get_params()
 
     def build(self, query, metadata, allowed_capabilities, user = None, qp = None):
         analyzed_query = AnalyzedQuery(query, metadata)
