@@ -91,6 +91,9 @@ DEBUG [manifold.gateways.postgresql.TDMIGateway.execute] 'None'
 STORAGE
 - make asynchronous
 
+SHELL
+- pass command in commandline/constructor for a single command to be executed
+
 GATEWAY/CSV
  - issue with non utf_8 files (try with original version in /root/datsaets/as2attr.tgz)
 
