@@ -3,8 +3,10 @@
 
 import sys
 
-from manifold.core.router import Router
-from manifold.core.query import Query
+from manifold.core.router  import Router
+from manifold.core.query   import Query
+from manifold.util.log     import Log
+from manifold.util.options import Options
 
 def usage():
     print "Usage: %s NAME" % sys.argv[0]
@@ -12,6 +14,9 @@ def usage():
     print "Disable a platform"
 
 def main():
+    Log.init_options()
+    Options().parse()
+
     argc = len(sys.argv)
     if argc != 2:
         usage()

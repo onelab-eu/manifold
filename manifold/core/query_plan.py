@@ -117,7 +117,7 @@ class ExploreTask(Deferred):
         query.filter_by(None).filter_by(new_filter)
 
     def explore(self, stack, missing, metadata, allowed_capabilities, user):
-        Log.debug("EXPLORING", self)
+        #Log.debug("EXPLORING", self)
         
         #Log.debug("[%d]" % self.depth, self.root, self.relation, missing)
 
@@ -202,7 +202,7 @@ class ExploreTask(Deferred):
 
         DeferredList(deferred_list).addCallback(self.all_done)
 
-        Log.debug(['#', '=', '-', '.'][self.depth]*80)
+        #Log.debug(['#', '=', '-', '.'][self.depth]*80)
         return self.froms
 
     def all_done(self, result):
@@ -342,7 +342,7 @@ class ExploreTask(Deferred):
         if not from_asts:
             return None
         return AST().union(from_asts, key)
-        
+
 class QueryPlan(object):
 
     def __init__(self):
@@ -365,7 +365,6 @@ class QueryPlan(object):
         self.ast = ast
 
     def build(self, query, metadata, allowed_capabilities, user = None, qp = None):
-        Log.debug("#" * 80)
         analyzed_query = AnalyzedQuery(query, metadata)
         root = metadata.find_node(analyzed_query.get_from())
         
@@ -389,7 +388,7 @@ class QueryPlan(object):
         while not stack.is_empty():
             task = stack.pop()
             task.cancel()
-        
+    
         # Do we need to wait for self.ast here ?
 
 
