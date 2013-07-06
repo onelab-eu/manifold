@@ -184,7 +184,7 @@ class Log(object):
     def build_message_string(cls, msg, ctx):
         if ctx:
             msg = [m % ctx for m in msg]
-        if isinstance(msg, list):
+        if isinstance(msg, (tuple, list)):
             msg = " ".join(msg)
         return msg
 
