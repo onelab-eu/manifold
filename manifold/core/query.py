@@ -153,11 +153,17 @@ class Query(object):
 
     @returns(StringTypes)
     def __str__(self):
-        return "SELECT %(select)s%(from)s%(where)s%(at)s" % {
-            "select": ", ".join(self.get_select())          if self.get_select()    else "*",
-            "from"  : "\n  FROM  %s" % self.get_from(),
-            "where" : "\n  WHERE %s" % self.get_where()     if self.get_where()     else "",
-            "at"    : "\n  AT    %s" % self.get_timestamp() if self.get_timestamp() else ""
+
+        strmap = {
+            'get'   : 'SELECT  %(select)s\n  FROM  %(table)s%(where)s%(at)s',
+            'update': 'UPDATE  %(table)s%(params)s%(where)s',
+        }
+        return strmap[self.action] % {
+            'select': ", ".join(self.get_select())          if self.get_select()    else "*",
+            'table'  : self.get_from(),
+            'where' : "\n  WHERE %s" % self.get_where()     if self.get_where()     else "",
+            'at'    : "\n  AT    %s" % self.get_timestamp() if self.get_timestamp() else "",
+            'params': "\n  SET   %s" % ', '.join(map(lambda x: "%s = %s" % x , self.get_params().items())) if self.get_params()         else "",
         }
 
     @returns(StringTypes)

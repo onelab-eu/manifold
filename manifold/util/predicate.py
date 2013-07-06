@@ -75,10 +75,10 @@ class Predicate:
             self.value = value
 
     def __str__(self):
-        return "Pred(%s, %s, %s)" % self.get_str_tuple()
+        return "%s %s %s" % self.get_str_tuple()
 
     def __repr__(self):
-        return self.__str__() 
+        return "Predicate<%s %s %s>" % self.get_str_tuple()
 
     def __hash__(self):
         return hash(self.get_tuple())

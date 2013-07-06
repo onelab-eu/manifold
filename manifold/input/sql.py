@@ -7,7 +7,7 @@ from manifold.util.predicate import Predicate
 from manifold.util.log       import Log
 import pyparsing as pp
 import re
-
+ 
 class SQLParser(object):
 
     def __init__(self):
@@ -21,6 +21,19 @@ class SQLParser(object):
         point = pp.Literal( "." )
         e     = pp.CaselessLiteral( "E" )
 
+        kw_select = pp.CaselessKeyword('select')
+        kw_update = pp.CaselessKeyword('update')
+        kw_insert = pp.CaselessKeyword('insert')
+        kw_delete = pp.CaselessKeyword('delete')
+        
+        kw_from   = pp.CaselessKeyword('from')
+        kw_into   = pp.CaselessKeyword('into')
+        kw_where  = pp.CaselessKeyword('where')
+        kw_at     = pp.CaselessKeyword('at')
+        kw_set    = pp.CaselessKeyword('set')
+        kw_true   = pp.CaselessKeyword('true')
+        kw_false   = pp.CaselessKeyword('false')
+
         # Regex string representing the set of possible operators
         # Example : ">=|<=|!=|>|<|="
         OPERATOR_RX = '|'.join([re.sub('\|', '\|', o) for o in Predicate.operators.keys()])
@@ -28,10 +41,15 @@ class SQLParser(object):
         # predicate
         field = pp.Word(pp.alphanums + '_' + '.')
         operator = pp.Regex(OPERATOR_RX).setName("operator")
-        value = pp.QuotedString('"') | integer ##| pp.Combine( pp.Word( "+-"+ pp.nums, pp.nums) + pp.Optional( point + pp.Optional( pp.Word( pp.nums ) ) ) + pp.Optional( e + pp.Word( "+-"+pp.nums, pp.nums ) ) )
+        value = pp.QuotedString('"') | kw_true | kw_false | integer ##| pp.Combine( pp.Word( "+-"+ pp.nums, pp.nums) + pp.Optional( point + pp.Optional( pp.Word( pp.nums ) ) ) + pp.Optional( e + pp.Word( "+-"+pp.nums, pp.nums ) ) )
         #value_list = pp.delimitedList(value).setParseAction(lambda tokens: tuple(tokens.asList()))
         value_list = value | pp.Literal("[").suppress() + pp.delimitedList(value).setParseAction(lambda tokens: tuple(tokens.asList())) + pp.Literal("]").suppress()
         
+        table      = pp.Word(pp.alphanums + ':_').setResultsName('object')
+        field_list = pp.Literal("*") | pp.delimitedList(field).setParseAction(lambda tokens: set(tokens))
+        
+        param      = (field + pp.Literal("=").suppress() + value_list).setParseAction(lambda tokens: tuple(tokens.asList()))
+        params     = pp.delimitedList(param).setParseAction(lambda tokens: dict(tokens.asList()))
 
         predicate = (field + operator + value_list).setParseAction(self.handlePredicate)
 
@@ -47,23 +65,6 @@ class SQLParser(object):
         ]
         clause = pp.operatorPrecedence(predicate, predicate_precedence_list).setParseAction(lambda pred: Filter(pred))
 
-        kw_select = pp.CaselessKeyword('select')
-        kw_update = pp.CaselessKeyword('update')
-        kw_insert = pp.CaselessKeyword('insert')
-        kw_delete = pp.CaselessKeyword('delete')
-        
-        kw_from   = pp.CaselessKeyword('from')
-        kw_into   = pp.CaselessKeyword('into')
-        kw_where  = pp.CaselessKeyword('where')
-        kw_at     = pp.CaselessKeyword('at')
-        kw_set    = pp.CaselessKeyword('set')
-
-        field_list = pp.Literal("*") | pp.delimitedList(field).setParseAction(lambda tokens: set(tokens.asList()))
-
-        table = pp.Word(pp.alphanums + ':_').setResultsName('object')
-
-
-        params       = field_list
         timestamp    = pp.CaselessKeyword('now')
 
         select_elt   = (kw_select.suppress() + field_list.setResultsName('fields'))
@@ -72,17 +73,15 @@ class SQLParser(object):
         at_elt       = (kw_at.suppress()     + timestamp.setResultsName('timestamp'))
 
         # SELECT *|field_list [AT timestamp] FROM table [WHERE clause]
+        select_query = (select_elt + pp.Optional(at_elt) + kw_from.suppress() + table + pp.Optional(where_elt)).setParseAction(lambda args: self.action(args, 'get'))
         # UPDATE table SET params [WHERE clause] [SELECT *|field_list]
-        # INSERT INTO table SET params  [SELECT *|field_list]
-        # DELETE FROM table [WHERE clause]
-
-        select_query = (select_elt + pp.Optional(at_elt) + kw_from.suppress() + table + pp.Optional(where_elt)).setParseAction(lambda args: self.action(args, 'select'))
         update_query = (kw_update + table + set_elt + pp.Optional(where_elt) + pp.Optional(select_elt)).setParseAction(lambda args: self.action(args, 'update'))
+        # INSERT INTO table SET params  [SELECT *|field_list]
         insert_query = (kw_insert + kw_into + table + set_elt + pp.Optional(select_elt)).setParseAction(lambda args: self.action(args, 'insert'))
+        # DELETE FROM table [WHERE clause]
         delete_query = (kw_delete + kw_from + table + pp.Optional(where_elt)).setParseAction(lambda args: self.action(args, 'delete'))
-        # TODO execute_query  =
 
-        self.bnf     = select_query | update_query | insert_query | delete_query#).setParseAction(self.handleQuery)
+        self.bnf     = select_query | update_query | insert_query | delete_query
 
     def action(self, args, action):
         args['action'] = action
@@ -93,19 +92,6 @@ class SQLParser(object):
     def handleClause(self, args):
         return Clause(*args)
 
-    def handleQuery(self, args):
-        print "HANDLEQUERY", args
-        args['pouet'] = "pouet"
-
-    def handleGet(self, args):
-        if len(args) == 6:
-            _, fields, _, object, _, filter = args
-            query = Query.get(object).select(fields).filter_by(filter)
-        else:
-            _, fields, _, object = args
-            query = Query.get(object).select(fields)
-        return query
-
     def parse(self, string):
         return dict(self.bnf.parseString(string).items())#,parseAll=True)
 
@@ -114,8 +100,11 @@ if __name__ == "__main__":
     STR_QUERIES = [
         'SELECT slice_hrn FROM slice"',
         'SELECT slice_hrn FROM slice WHERE slice_hrn == "ple.upmc.myslicedemo"',
+        'UPDATE local:platform SET disabled = True, pouet = false WHERE platform == "ple"',
     ]
 
     for s in STR_QUERIES:
         print "===== %s =====" % s
+        print SQLParser().parse(s)
         query = Query(SQLParser().parse(s))
+        print query

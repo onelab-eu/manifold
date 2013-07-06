@@ -42,10 +42,10 @@ class Filter(set):
         return self
 
     def __str__(self):
-        return '<Filter: %s>' % ' AND '.join([str(pred) for pred in self])
+        return ' AND '.join([str(pred) for pred in self])
 
     def __repr__(self):
-        return self.__str__()
+        return '<Filter: %s>' % ' AND '.join([str(pred) for pred in self])
 
     def __key(self):
         return tuple([hash(pred) for pred in self])

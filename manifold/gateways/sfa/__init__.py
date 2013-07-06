@@ -244,7 +244,8 @@ class SFAGateway(Gateway):
         # Get account
         accounts = [a for a in user.accounts if a.platform == platform]
         if not accounts:
-            raise Exception, "Accounts should be created for user %s" % user_email
+            Log.info("No account for user %s. Ignoring platform %s" % (user_email, platform.platform))
+            defer.returnValue(None)
         else:
             account = accounts[0]
 
@@ -300,23 +301,18 @@ class SFAGateway(Gateway):
     # init self-signed cert, user credentials and gid
     @defer.inlineCallbacks
     def bootstrap (self):
-        try:
-            # Cache admin config
-            self.admin_config = yield self.get_user_config(ADMIN_USER)
-            assert self.admin_config, "Could not retrieve admin config"
+        # Cache admin config
+        self.admin_config = yield self.get_user_config(ADMIN_USER)
+        assert self.admin_config, "Could not retrieve admin config"
 
-            # Overwrite user config (reference & managed acccounts)
-            new_user_config = yield self.get_user_config(self.user.email)
-            if new_user_config:
-                self.user_config = new_user_config
+        # Overwrite user config (reference & managed acccounts)
+        new_user_config = yield self.get_user_config(self.user.email)
+        if new_user_config:
+            self.user_config = new_user_config
 
-            # Initialize manager proxies using MySlice Admin account
-            self.registry = self.make_user_proxy(self.config['registry'], self.admin_config)
-            self.sliceapi = self.make_user_proxy(self.config['sm'],       self.admin_config)
-        except Exception, e:
-            print "EEE bootstrap", e
-            import traceback
-            traceback.print_exc()
+        # Initialize manager proxies using MySlice Admin account
+        self.registry = self.make_user_proxy(self.config['registry'], self.admin_config)
+        self.sliceapi = self.make_user_proxy(self.config['sm'],       self.admin_config)
 
     def is_admin(self, user):
         if isinstance(user, StringTypes):
