@@ -3,10 +3,8 @@
 
 import sys
 
-from manifold.core.router  import Router
-from manifold.core.query   import Query
-from manifold.util.log     import Log
-from manifold.util.options import Options
+from manifold.core.query import Query
+from manifold.bin.shell  import Shell
 
 def usage():
     print "Usage: %s NAME" % sys.argv[0]
@@ -14,9 +12,6 @@ def usage():
     print "Disable a platform"
 
 def main():
-    Log.init_options()
-    Options().parse()
-
     argc = len(sys.argv)
     if argc != 2:
         usage()
@@ -24,13 +19,21 @@ def main():
 
     name = sys.argv[1]
     
-    platform_filters = [['platform', '=', name]]
-    platform_params = {'disabled': True}
-    query = Query(action='update', object='local:platform', filters=platform_filters, params=platform_params)
 
-    # Instantiate a TopHat router
-    with Router() as router:
-        router.forward(query)
+    shell = Shell()
+
+    # Using a query object...
+    #platform_filters = [['platform', '=', name]]
+    #platform_params = {'disabled': True}
+    #query = Query(action='update', object='local:platform', filters=platform_filters, params=platform_params)
+    #shell.execute(query)
+
+    # ... or using SQL-like syntax.
+    command = 'UPDATE local:platform SET disabled = True WHERE platform == "%(name)s"'
+    shell.evaluate(command % locals())
+
+    shell.terminate()
+
 
 if __name__ == '__main__':
     main()
