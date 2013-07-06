@@ -118,7 +118,4 @@ if __name__ == "__main__":
 
     for s in STR_QUERIES:
         print "===== %s =====" % s
-        d = SQLParser().parse(s)
-        print d
-        query = Query(d)
-        print query
+        query = Query(SQLParser().parse(s))
