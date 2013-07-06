@@ -37,6 +37,7 @@ enum pl_distro {
 };
 
 class resource {
+	const text  urn;
 ##    text            arch;                   /**< Platform architecture */
 #    int             authority_id;           /**< The authority of the global PlanetLab federation that the site of the node belongs to */
 #    boot_state      boot_state;             /**< The current status of the node */
