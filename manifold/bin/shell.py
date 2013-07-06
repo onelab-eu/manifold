@@ -8,10 +8,11 @@ from getpass               import getpass
 from traceback             import print_exc
 
 # XXX Those import may fail for xmlrpc calls
+from manifold.core.query   import Query
+from manifold.core.router  import Router
 from manifold.util.log     import Log
 from manifold.util.options import Options
 from manifold.input.sql    import SQLParser
-from manifold.core.router  import Router
 from manifold.auth         import Auth
 
 # This could be moved outside of the Shell
@@ -153,7 +154,7 @@ class Shell(object):
 
     def evaluate(self, command):
         #username, password = Options().username, Options().password
-        query, = SQLParser().parse(command)
+        query = Query(SQLParser().parse(command))
         ret = self.forward(query)
         self.display(ret)
 
