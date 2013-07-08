@@ -244,7 +244,8 @@ class SFAGateway(Gateway):
         # Get account
         accounts = [a for a in user.accounts if a.platform == platform]
         if not accounts:
-            raise Exception, "Accounts should be created for user %s" % user_email
+            Log.info("No account for user %s. Ignoring platform %s" % (user_email, platform.platform))
+            defer.returnValue(None)
         else:
             account = accounts[0]
 
@@ -300,23 +301,18 @@ class SFAGateway(Gateway):
     # init self-signed cert, user credentials and gid
     @defer.inlineCallbacks
     def bootstrap (self):
-        try:
-            # Cache admin config
-            self.admin_config = yield self.get_user_config(ADMIN_USER)
-            assert self.admin_config, "Could not retrieve admin config"
+        # Cache admin config
+        self.admin_config = yield self.get_user_config(ADMIN_USER)
+        assert self.admin_config, "Could not retrieve admin config"
 
-            # Overwrite user config (reference & managed acccounts)
-            new_user_config = yield self.get_user_config(self.user.email)
-            if new_user_config:
-                self.user_config = new_user_config
+        # Overwrite user config (reference & managed acccounts)
+        new_user_config = yield self.get_user_config(self.user.email)
+        if new_user_config:
+            self.user_config = new_user_config
 
-            # Initialize manager proxies using MySlice Admin account
-            self.registry = self.make_user_proxy(self.config['registry'], self.admin_config)
-            self.sliceapi = self.make_user_proxy(self.config['sm'],       self.admin_config)
-        except Exception, e:
-            print "EEE bootstrap", e
-            import traceback
-            traceback.print_exc()
+        # Initialize manager proxies using MySlice Admin account
+        self.registry = self.make_user_proxy(self.config['registry'], self.admin_config)
+        self.sliceapi = self.make_user_proxy(self.config['sm'],       self.admin_config)
 
     def is_admin(self, user):
         if isinstance(user, StringTypes):
@@ -364,7 +360,6 @@ class SFAGateway(Gateway):
         """
         Returns true if server support the optional call_id arg, false otherwise. 
         """
-        Log.tmp(server)
         server_version = yield self.get_cached_server_version(server)
         # xxx need to rewrite this 
         # XXX added not server version to handle cases where GetVersion fails (jordan)
@@ -615,6 +610,7 @@ class SFAGateway(Gateway):
         else:
             raise Exception, "Invalid credential type: %s" % type
 
+    @defer.inlineCallbacks
     def update_slice(self, filters, params, fields):
         if 'resource' not in params:
             raise Exception, "Update failed: nothing to update"
@@ -633,7 +629,7 @@ class SFAGateway(Gateway):
 
         # We suppose resource
         rspec = self.build_sfa_rspec(slice_urn, resources, leases)
-        print "BUILDING SFA RSPEC", rspec
+        #print "BUILDING SFA RSPEC", rspec
 
         # Sliver attributes (tags) are ignored at the moment
 
@@ -651,13 +647,12 @@ class SFAGateway(Gateway):
         # xxx Thierry 2012 sept. 21
         # contrary to what I was first thinking, calling Resolve with details=False does not yet work properly here
         # I am turning details=True on again on a - hopefully - temporary basis, just to get this whole thing to work again
-        slice_records = self.registry.Resolve(slice_urn, [user_cred])
-        
+        slice_records = yield self.registry.Resolve(slice_urn, [user_cred])
         # Due to a bug in the SFA implementation when Resolve requests are
         # forwarded, records are not filtered (Resolve received a list of xrns,
         # does not resolve its type, then issue queries to the local database
         # with the hrn only)
-        print "W: SFAWrap bug workaround"
+        #print "W: SFAWrap bug workaround"
         slice_records = Filter.from_dict({'type': 'slice'}).filter(slice_records)
 
         # slice_records = self.registry.Resolve(slice_urn, [self.my_credential_string], {'details':True})
@@ -665,8 +660,8 @@ class SFAGateway(Gateway):
             slice_record = slice_records[0]
             user_hrns = slice_record['reg-researchers']
             user_urns = [hrn_to_urn(hrn, 'user') for hrn in user_hrns]
-            user_records = self.registry.Resolve(user_urns, [user_cred])
-            server_version = self.get_cached_server_version(self.registry)
+            user_records = yield self.registry.Resolve(user_urns, [user_cred])
+            server_version = yield self.get_cached_server_version(self.registry)
             if 'sfa' not in server_version:
                 print "W: converting to pg rspec"
                 users = pg_users_arg(user_records)
@@ -683,20 +678,22 @@ class SFAGateway(Gateway):
         api_options = {}
         api_options ['append'] = False
         api_options ['call_id'] = unique_call_id()
-        result = self.sliceapi.CreateSliver(slice_urn, [slice_cred], rspec, users, *self.ois(self.sliceapi, api_options))
-        print "CreateSliver RSPEC"
+        ois = yield self.ois(self.sliceapi, api_options)
+        result = yield self.sliceapi.CreateSliver(slice_urn, [slice_cred], rspec, users, ois)
+        #print "CreateSliver RSPEC"
         manifest = ReturnValue.get_value(result)
-        print "MANIFEST: ", str(result)[:100]
+        #print "MANIFEST: ", str(result)[:100]
 
         if not manifest:
             print "NO MANIFEST"
-            return []
+            defer.returnValue([])
         rsrc_leases = self.parse_sfa_rspec(manifest)
 
         slice = {'slice_hrn': filters.get_eq('slice_hrn')}
         slice.update(rsrc_leases)
-        print "oK"
-        return [slice]
+        #print "oK"
+        #print "SLICE=", slice
+        defer.returnValue([slice])
 
     # minimally check a key argument
     def check_ssh_key(self, key):
@@ -1398,7 +1395,7 @@ class SFAGateway(Gateway):
     # using defer to have an asynchronous results management in functions prefixed by yield
     @defer.inlineCallbacks
     def manage(self, user, platform, config):
-        Log.debug("Managing %r account on %r..." % (user, platform))
+        Log.debug("Managing %r account on %s..." % (user, platform))
         # The gateway should be able to perform user config management taks on
         # behalf of MySlice
         #

@@ -8,10 +8,11 @@ from getpass               import getpass
 from traceback             import print_exc
 
 # XXX Those import may fail for xmlrpc calls
+from manifold.core.query   import Query
+from manifold.core.router  import Router
 from manifold.util.log     import Log
 from manifold.util.options import Options
 from manifold.input.sql    import SQLParser
-from manifold.core.router  import Router
 from manifold.auth         import Auth
 
 # This could be moved outside of the Shell
@@ -63,28 +64,40 @@ class Shell(object):
             help = "Use XML-RPC interface", 
             default = False
         )
+        opt.add_option(
+            "-a", "--auth", action="store_false", dest = "auth",
+            help = "Use authentication", 
+            default = True
+        )
         #parser.add_option("-m", "--method", help = "API authentication method")
         #parser.add_option("-s", "--session", help = "API session key")
 
     def __init__(self, interactive=False):
-        # If user is specified but password is not
-        username = Options().username
-        password = Options().password
+        if Options().auth:
+            # If user is specified but password is not
+            username = Options().username
+            password = Options().password
 
-        if username != DEFAULT_USER and password == DEFAULT_PASSWORD:
-            if interactive:
-                try:
-                    _password = getpass("Enter password for '%s' (or ENTER to keep default):" % username)
-                except (EOFError, KeyboardInterrupt):
-                    print
-                    sys.exit(0)
-                if _password:
-                    password = _password
-            else:
-                Log.warning("No password specified, using default.")
+            if username != DEFAULT_USER and password == DEFAULT_PASSWORD:
+                if interactive:
+                    try:
+                        _password = getpass("Enter password for '%s' (or ENTER to keep default):" % username)
+                    except (EOFError, KeyboardInterrupt):
+                        print
+                        sys.exit(0)
+                    if _password:
+                        password = _password
+                else:
+                    Log.warning("No password specified, using default.")
+
+            #if Options().xmlrpc:
+            self.auth = {'AuthMethod': 'password', 'Username': username, 'AuthString': password}
+            #else:
+            #    self.auth = username
+        else:
+            self.auth = None
 
         if Options().xmlrpc:
-
             import xmlrpclib
             url = Options().xmlrpc_url
             self.interface = xmlrpclib.ServerProxy(url, allow_none=True)
@@ -94,39 +107,40 @@ class Shell(object):
         else:
             self.interface = Router()
             self.interface.__enter__()
-            self.auth = username
-
             mode_str      = 'local'
             interface_str = ''
 
-        self.auth = {'AuthMethod': 'password', 'Username': username, 'AuthString': password}
+        msg = "Shell using %(mode_str)s"
+        if Options().auth:
+            msg += " account %(username)r"
+        msg += "%(interface_str)s"
+        Log.info(msg, **locals())
 
-        Log.info("Shell using %s account %r%s" % (mode_str, username, interface_str))
-
-        if Options().xmlrpc:
-            try:
-                self.interface.AuthCheck(self.auth)
-                Log.info('Authentication successful')
-            except:
-                Log.error('Authentication error')
-        else:
-            self.auth = Auth(self.auth).check()
-                
+        if Options().auth:
+            if Options().xmlrpc:
+                try:
+                    self.interface.AuthCheck(self.auth)
+                    Log.info('Authentication successful')
+                except:
+                    Log.error('Authentication error')
+            else:
+                self.auth = Auth(self.auth).check()
 
     def terminate(self):
         if not Options().xmlrpc: self.interface.__exit__()
 
-    def evaluate(self, command):
-        username, password = Options().username, Options().password
-        query, = SQLParser().parse(command)
+    def forward(self, query):
         # XXX this line will differ between xmlrpc and local calls
         if Options().xmlrpc:
             # XXX The XMLRPC server might not require authentication
-            ret = self.interface.forward(self.auth, query.to_dict())
+            if Options().auth:
+                return self.interface.forward(self.auth, query.to_dict())
+            else:
+                return self.interface.forward(query.to_dict())
         else:
-            ret = self.interface.forward(query, user=self.auth)
-            
-    
+            return self.interface.forward(query, user=self.auth)
+
+    def display(self, ret):
         if ret['code'] != 0:
             if isinstance(ret['description'], list):
                 # We have a list of errors
@@ -137,6 +151,16 @@ class Shell(object):
     
         print "===== RESULTS ====="
         pprint.pprint(ret)
+
+    def evaluate(self, command):
+        #username, password = Options().username, Options().password
+        query = Query(SQLParser().parse(command))
+        ret = self.forward(query)
+        self.display(ret)
+
+    def execute(self, query):
+        ret = self.forward(query)
+        self.display(ret)
         
         
 #    # If called by a script 
@@ -235,10 +259,9 @@ class Shell(object):
             self.terminate()
 
 def main():
+#    Log.init_options()
+#    Options().parse()
     Shell.init_options()
-    Log.init_options()
-    Options().parse()
-
     Shell(interactive=True).start()
     
 if __name__ == '__main__':

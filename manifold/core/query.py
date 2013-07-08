@@ -151,22 +151,35 @@ class Query(object):
         self.timestamp  = "now" 
         self.timestamp  = 'now' # ignored for now
 
+
+    def to_sql(self, platform='', multiline=False):
+        get_params_str = lambda : ', '.join(['%s = %r' % (k, v) for k, v in self.get_params().items()])
+        get_select_str = lambda : ', '.join(self.get_select()) 
+
+        table  = self.get_from()
+        select = 'SELECT %s' % (get_select_str()    if self.get_select()    else '*')
+        where  = 'WHERE %s'  % self.get_where()     if self.get_where()     else ''
+        at     = 'AT %s '    % self.get_timestamp() if self.get_timestamp() else ''
+        params = 'SET %s'    % get_params_str()     if self.get_params()    else ''
+
+        sep = ' ' if not multiline else '\n  '
+        if platform: platform = "%s:" % platform
+        strmap = {
+            'get'   : '%(select)s%(sep)s%(at)sFROM %(platform)s%(table)s%(sep)s%(where)s%(sep)s',                                           
+            'update': 'UPDATE %(platform)s%(table)s%(sep)s%(params)s%(sep)s%(where)s%(sep)s%(select)s',       
+            'create': 'INSERT INTO %(platform)s%(table)s%(sep)s%(params)s%(sep)s%(select)s',
+            'delete': 'DELETE FROM %(platform)s%(table)s%(sep)s%(where)s'
+        }
+
+        return strmap[self.action] % locals()
+
     @returns(StringTypes)
     def __str__(self):
-        return "SELECT %(select)s%(from)s%(where)s%(at)s" % {
-            "select": ", ".join(self.get_select())          if self.get_select()    else "*",
-            "from"  : "\n  FROM  %s" % self.get_from(),
-            "where" : "\n  WHERE %s" % self.get_where()     if self.get_where()     else "",
-            "at"    : "\n  AT    %s" % self.get_timestamp() if self.get_timestamp() else ""
-        }
+        return self.to_sql(multiline=True)
 
     @returns(StringTypes)
     def __repr__(self):
-        return "SELECT %s FROM %s WHERE %s" % (
-            ", ".join(self.get_select()) if self.get_select() else '*',
-            self.get_from(),
-            self.get_where()
-        )
+        return self.to_sql()
 
     def __key(self):
         return (self.action, self.object, self.filters, frozendict(self.params), frozenset(self.fields))

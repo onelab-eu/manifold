@@ -6,7 +6,7 @@ from manifold.operators.projection import Projection  # XXX
 from manifold.util.type            import returns
 from manifold.util.log             import Log
 
-DUMPSTR_FROM       = "SELECT %s FROM %s::%s WHERE %s" 
+#DUMPSTR_FROM       = "SELECT %s FROM %s::%s WHERE %s" 
 
 #------------------------------------------------------------------
 # FROM node
@@ -56,12 +56,13 @@ class From(Node):
     def __repr__(self):
         fields = self.get_query().get_select()
         fields = ', '.join(fields) if fields else '*'
-        return DUMPSTR_FROM % (
-            fields,
-            self.get_platform(),
-            self.get_query().get_from(),
-            self.get_query().get_where()
-        )
+        return self.get_query().to_sql(platform=self.get_platform())
+        #DUMPSTR_FROM % (
+        #    fields,
+        #    self.get_platform(),
+        #    self.get_query().get_from(),
+        #    self.get_query().get_where()
+        #)
 
     #@returns(From)
     def inject(self, records, key, query):

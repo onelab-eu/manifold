@@ -3,6 +3,7 @@ from logging                 import handlers
 from manifold.util.singleton import Singleton
 from manifold.util.options   import Options
 from manifold.util.misc      import caller_name, make_list
+from manifold.util           import colors
 
 # TODO Log should take separately message strings and arguments to be able to
 # remember which messages are seen several times, and also to allow for
@@ -24,14 +25,14 @@ class Log(object):
 
     # COLORS
     color_ansi = {
-        'DEBUG'  : '\033[92m', # green
-        'INFO'   : '\033[94m', # blue
-        'WARNING': '\033[93m',
-        'ERROR'  : '\033[91m',
-        'HEADER' : '\033[95m', # ?
-        'END'    : '\033[0m',
-        'RECORD' : '\033[94m', # temporary messages 
-        'TMP'    : '\033[91m', # temporary messages 
+        'DEBUG'  : colors.MYGREEN,
+        'INFO'   : colors.MYBLUE,
+        'WARNING': colors.MYWARNING,
+        'ERROR'  : colors.MYRED,
+        'HEADER' : colors.MYHEADER,
+        'END'    : colors.MYEND,
+        'RECORD' : colors.MYBLUE,
+        'TMP'    : colors.MYRED,
     }
 
     @classmethod
@@ -84,7 +85,7 @@ class Log(object):
             default = self.DEFAULTS["debug"]
         )
         opt.add_option(
-            "", "--duplicates", action = "store_true", dest = "log_duplicates",
+            "", "--log_duplicates", action = "store_true", dest = "log_duplicates",
             help = "Remove duplicate messages in logs",
             default = self.DEFAULTS["log_duplicates"]
         )
@@ -183,7 +184,7 @@ class Log(object):
     def build_message_string(cls, msg, ctx):
         if ctx:
             msg = [m % ctx for m in msg]
-        if isinstance(msg, list):
+        if isinstance(msg, (tuple, list)):
             msg = " ".join(msg)
         return msg
 
@@ -195,7 +196,6 @@ class Log(object):
         \param msg (string / list of strings) Message string, or List of message strings
         \param ctx (dict) Context for the message strings
         """
-
         caller = None
 
         if not Options().log_duplicates:
@@ -207,7 +207,7 @@ class Log(object):
                 count = 0
             
             if count == 1:
-                msg += (" -- REPEATED -- Future similar messages will be silently ignored. Please use the --duplicates option to allow for duplicates",)
+                msg += (" -- REPEATED -- Future similar messages will be silently ignored. Please use the --log_duplicates option to allow for duplicates",)
             elif count > 1:
                 return
             
@@ -269,3 +269,5 @@ class Log(object):
     def deprecated(cls, new):
         #cls.print_msg("Function %s is deprecated, please use %s" % (caller_name(skip=3), new))
         pass
+
+Log.init_options()
