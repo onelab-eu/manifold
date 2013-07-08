@@ -131,8 +131,8 @@ class Router(Interface):
                 raise Exception, "Missing metadata for table %s" % query.get_from()
             key = list(keys).pop()
             
-            if not query.filters.has_eq(key):
-                raise Exception, "The key field '%s' must be present in update request" % key
+            #if not query.filters.has_eq(key):
+            #    raise Exception, "The key field '%s' must be present in update request" % key
 
         # Execute query plan
         d = defer.Deferred() if is_deferred else None
