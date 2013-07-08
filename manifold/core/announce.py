@@ -18,6 +18,7 @@ from manifold.core.field              import Field
 from manifold.core.key                import Key, Keys
 from manifold.util.clause             import Clause
 from manifold.util.type               import returns, accepts 
+from manifold.util.log                import Log
 
 STATIC_ROUTES_FILE = "/usr/share/manifold/metadata/"
 
@@ -243,7 +244,7 @@ class Announces(object):
 
     @classmethod
     def from_dot_h(self, platform_name, gateway_type):
-        print "I: Loading headers (static routes)"
+        Log.debug("Loading headers (static routes)")
         return self.import_file_h(STATIC_ROUTES_FILE, platform_name, gateway_type)
 
     @classmethod
@@ -268,7 +269,7 @@ class Announces(object):
                 raise Exception, "Metadata file '%s' not found (platform = %r, gateway_type = %r)" % (filename, platform, gateway_type)
 
         # Read input file
-        print "I: Platform %s: Processing %s" % (platform, filename)
+        Log.debug("Platform %s: Processing %s" % (platform, filename))
         (classes, enums) = import_file_h(filename)
 
         # Check class consistency

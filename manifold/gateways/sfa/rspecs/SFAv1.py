@@ -9,6 +9,8 @@ from sfa.util.xml import XpathFilter
 from manifold.util.log import Log
 import pprint
 
+# TODO We could have namespace specific hooks and maps
+
 # Maps properties within an element of a RSpec to entries in the returned
 # dictionary
 #    RSPEC_ELEMENT

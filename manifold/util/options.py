@@ -17,12 +17,16 @@ class Options(object):
         self._opt = optparse.OptionParser()
         self._defaults = {}
         self._name = name
+        self.clear()
 
+    def clear(self):
+        self.options  = {}
         self.add_option(
             "-c", "--config", dest = "cfg_file",
             help = "Config file to use.",
             default = self.CONF_FILE
         )
+        self.uptodate = True
 
     def parse(self):
         """
@@ -54,7 +58,9 @@ class Options(object):
             
         # Load/override options from configuration file and command-line 
         (options, args) = cfg.parse(self._opt)
-        self.__dict__.update(vars(options))
+        self.options.update(vars(options))
+        self.uptodate = True
+
 
     def add_option(self, *args, **kwargs):
         default = kwargs.get('default', None)
@@ -64,9 +70,18 @@ class Options(object):
             del kwargs['default']
         kwargs['help'] += " Defaults to %r." % default
         self._opt.add_option(*args, **kwargs)
+        self.uptodate = False
         
     def get_name(self):
         return self._name if self._name else os.path.basename(sys.argv[0])
 
     def __repr__(self):
-        return "<Options: %r>" % self.__dict__
+        return "<Options: %r>" % self.options
+
+    def __getattr__(self, key):
+        if not self.uptodate:
+            self.parse()
+        return self.options.get(key, None)
+
+    def __setattr(self, key, value):
+        self.options[key] = value

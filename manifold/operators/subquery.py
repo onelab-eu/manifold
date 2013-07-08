@@ -162,8 +162,6 @@ class SubQuery(Node):
                     self.children[i] = child.optimize_selection(Filter().filter_by(filter_pred))
                     self.children[i].set_callback(old_child_callback)
 
-                    self.dump(indent=2)
-
                 elif op == contains:
                     Log.tmp("OP == CONTAINS")
                     # 1..N
