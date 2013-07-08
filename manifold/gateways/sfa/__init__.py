@@ -685,8 +685,10 @@ class SFAGateway(Gateway):
         #print "MANIFEST: ", str(result)[:100]
 
         if not manifest:
-            print "NO MANIFEST"
+            print "NO MANIFEST FROM", self.platform
             defer.returnValue([])
+        else:
+            print "GOT MANIFEST FROM", self.platform
         rsrc_leases = self.parse_sfa_rspec(manifest)
 
         slice = {'slice_hrn': filters.get_eq('slice_hrn')}
