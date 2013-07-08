@@ -185,7 +185,10 @@ class Log(object):
         if ctx:
             msg = [m % ctx for m in msg]
         if isinstance(msg, (tuple, list)):
+            msg = map(lambda s : "%s" % s, msg)
             msg = " ".join(msg)
+        else:
+            msg = "%s" % msg
         return msg
 
     @classmethod
