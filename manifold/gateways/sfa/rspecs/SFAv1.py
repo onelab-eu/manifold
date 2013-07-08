@@ -252,7 +252,7 @@ class SFAv1Parser(RSpecParser):
                     #print "E: Ignored lease with missing 'resource_urn' key:", filt
                     continue
 
-                rsrc_lease['resource_urn'] = match['urn']
+                rsrc_lease['urn']          = match['urn']
                 rsrc_lease['network']      = Xrn(match['urn']).authority[0]
                 rsrc_lease['hrn']          = Xrn(match['urn']).hrn
                 rsrc_lease['type']         = Xrn(match['urn']).type
