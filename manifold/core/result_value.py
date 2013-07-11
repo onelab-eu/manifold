@@ -47,12 +47,14 @@ class ResultValue(dict):
 
     def __init__(self, **kwargs):
         
+        print "KWARGS=", kwargs
         # Checks
         given = set(kwargs.keys())
+        print "given=", given
         cstr_success = set(['code', 'origin', 'value']) <= given
         cstr_error   = set(['code', 'type', 'origin', 'description']) <= given
-        assert given < self.ALLOWED_FIELDS, "Wrong fields in ResultValue constructor: %r" % (given - self.ALLOWED_FIELDS)
-        assert cstr_success or cstr_error, 'Incomplete set of fields in ResultValue constructor'
+        assert given <= self.ALLOWED_FIELDS, "Wrong fields in ResultValue constructor: %r" % (given - self.ALLOWED_FIELDS)
+        assert cstr_success or cstr_error, 'Incomplete set of fields in ResultValue constructor: %r' % given
         
         dict.__init__(self, **kwargs)
 
@@ -88,6 +90,9 @@ class ResultValue(dict):
     @classmethod
     def get_success(self, result):
         return ResultValue(code=self.SUCCESS, origin=[self.CORE, 0], value=result) 
+
+    def ok_value(self):
+        return self['value']
 
 # 67    <code>
 # 68      <value>9</value>

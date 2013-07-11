@@ -387,13 +387,18 @@ class Query(object):
             raise Exception, 'Invalid expression for filter'
         return self
             
-    def select(self, fields=None):
+    def select(self, *fields):
         if not fields:
             # Delete all fields
             self.fields = set()
             return self
-        if not isinstance(fields, (set, list, tuple, frozenset)):
-            fields = [fields]
+
+        # Accept passing iterables
+        if len(fields) == 1:
+            tmp, = fields
+            if isinstance(tmp, (list, tuple, set, frozenset)):
+                fields = tuple(tmp)
+
         for field in fields:
             self.fields.add(field)
         return self
@@ -401,6 +406,31 @@ class Query(object):
     def set(self, params):
         self.params.update(params)
         return self
+
+    def __or__(self, query):
+        assert self.action == query.action
+        assert self.object == query.object
+        assert self.timestamp == query.timestamp # XXX
+        filter = self.filters | query.filters
+        # fast dict union
+        # http://my.safaribooksonline.com/book/programming/python/0596007973/python-shortcuts/pythoncook2-chp-4-sect-17
+        params = dict(self.params, **query.params)
+        fields = self.fields | query.fields
+        return Query.action(self.action, self.object).filter_by(filter).select(fields)
+
+    def __and__(self, query):
+        assert self.action == query.action
+        assert self.object == query.object
+        assert self.timestamp == query.timestamp # XXX
+        filter = self.filters & query.filters
+        # fast dict intersection
+        # http://my.safaribooksonline.com/book/programming/python/0596007973/python-shortcuts/pythoncook2-chp-4-sect-17
+        params =  dict.fromkeys([x for x in self.params if x in query.params])
+        fields = self.fields & query.fields
+        return Query.action(self.action, self.object).filter_by(filter).select(fields)
+
+    def __le__(self, query):
+        return ( self == self & query ) or ( query == self | query )
 
 class AnalyzedQuery(Query):
 
@@ -479,9 +509,16 @@ class AnalyzedQuery(Query):
                 super(AnalyzedQuery, self).filter_by(predicate)
         return self
 
-    def select(self, fields):
-        if not isinstance(fields, (set, list, tuple, frozenset)):
-            fields = [fields]
+    def select(self, *fields):
+
+        # XXX passing None should reset fields in all subqueries
+
+        # Accept passing iterables
+        if len(fields) == 1:
+            tmp, = fields
+            if isinstance(tmp, (list, tuple, set, frozenset)):
+                fields = tuple(tmp)
+
         for field in fields:
             if field and '.' in field:
                 method, subfield = field.split('.', 1)
