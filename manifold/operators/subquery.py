@@ -163,7 +163,6 @@ class SubQuery(Node):
                     self.children[i].set_callback(old_child_callback)
 
                 elif op == contains:
-                    Log.tmp("OP == CONTAINS")
                     # 1..N
                     # Example: parent 'slice' has a list of 'user' keys == user_hrn
                     for slice in self.parent_output:
