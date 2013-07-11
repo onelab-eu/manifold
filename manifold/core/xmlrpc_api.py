@@ -19,9 +19,21 @@ class XMLRPCAPI(xmlrpc.XMLRPC, object):
             type.__init__(cls, name, bases, dic)
 
             # Dynamically add functions corresponding to methods from the # Auth class
+            # XXX Shall we handle exceptions here ?
             for k, v in vars(Auth).items():
                 if not k.startswith('_'):
-                    setattr(cls, "xmlrpc_%s" % k, v)
+                    def v_exc_handler(*args, **kwargs):
+                        try:
+                            v(*args, **kwargs)
+                        except:
+                            ret = dict(ResultValue(
+                               origin      = (ResultValue.CORE, self.__class__.__name__),
+                               type        = ResultValue.ERROR,
+                               code        = ResultValue.ERROR,
+                               description = str(e),
+                               traceback   = traceback.format_exc()))
+                            return ret
+                    setattr(cls, "xmlrpc_%s" % k, v_exc_handler)
 
             # We should do the same with the router/forwarder class == interface
 
@@ -48,11 +60,21 @@ class XMLRPCAPI(xmlrpc.XMLRPC, object):
     def xmlrpc_forward(self, *args):
         """
         """
-        Log.debug("xmlrpc_api args = %r" % self.display_query(*args))
+        Log.info("Incoming XMLRPC request, args = %r" % self.display_query(*args))
         if not Options().disable_auth:
             assert len(args) == 2, "Wrong arguments for XMLRPC forward call"
             auth, query = args
-            user = Auth(auth).check()
+            try:
+                user = Auth(auth).check()
+            except Exception, e:
+                ret = dict(ResultValue(
+                   origin      = (ResultValue.CORE, self.__class__.__name__),
+                   type        = ResultValue.ERROR,
+                   code        = ResultValue.ERROR,
+                   description = str(e),
+                   traceback   = traceback.format_exc()))
+                return ret
+                
         else:
             assert len(args) == 1, "Wrong arguments for XMLRPC forward call"
             query,  = args
@@ -63,12 +85,13 @@ class XMLRPCAPI(xmlrpc.XMLRPC, object):
         # forward function is called with is_deferred = True in args
         deferred = self.interface.forward(query, user=user, is_deferred=True)
         def process_results(rv):
+            print "XMLRPC PROCESS RESULTS"
             if 'description' in rv and isinstance(rv['description'], list):
                 rv['description'] = [dict(x) for x in rv['description']]
             # Print Results
-            Log.tmp(dict(rv))
             return dict(rv)
         def handle_exceptions(failure):
+            print "XMLRPC HANDLE EXCEPTIONS"
             e = failure.trap(Exception)
             ret = dict(ResultValue(
                origin      = (ResultValue.CORE, self.__class__.__name__),

@@ -83,6 +83,11 @@ class Predicate:
     def __hash__(self):
         return hash(self.get_tuple())
 
+    def __eq__(self, predicate):
+        if not predicate:
+            return False
+        return self.get_tuple() == predicate.get_tuple()
+
     def get_key(self):
         return self.key
     
