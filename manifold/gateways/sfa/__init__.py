@@ -1304,7 +1304,8 @@ class SFAGateway(Gateway):
 
     @staticmethod
     def generate_slice_credential(target, config):
-        raise Exception, "Not implemented. Run delegation script in the meantime"
+        Log.debug("Not implemented. Run delegation script in the meantime")
+        #raise Exception, "Not implemented. Run delegation script in the meantime"
     
     # @loic delegate function is used to delegate a user credential to the ADMIN_USER
     def delegate(self, user_credential, user_private_key, user_gid, admin_credential):
