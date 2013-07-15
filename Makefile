@@ -5,11 +5,12 @@ BUILDDIR    = $(CURDIR)/build
 DISTDIR     = $(CURDIR)/dist
 
 # overwritten by the specfile
-DESTDIR     = /
+#DESTDIR     = /
 # it's important to keep this ?= form here please
 # as PREFIX gets overridden when calling debuild through an env. variable
-PREFIX      ?= /usr/local
-
+#PREFIX      ?= /usr/local
+DESTDIR="/"
+PREFIX=/usr
 # stupid distutils, it's broken in so many ways
 SUBBUILDDIR = $(shell python -c 'import distutils.util, sys; \
 	      print "lib.%s-%s" % (distutils.util.get_platform(), \
