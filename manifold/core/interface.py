@@ -117,9 +117,6 @@ class Interface(object):
             
             args = [self, name, None, platform.gateway_config, config, user]
             gw = Gateway.get(platform.gateway_name)(*args)
-
-            gw.set_query(from_node.query)
-            gw.query.timestamp = timestamp
             gw.set_identifier(from_node.get_identifier())
             from_node.set_gateway(gw)
 

@@ -21,8 +21,8 @@ class Predicate:
         '>='       : ge,
         '&&'       : and_,
         '||'       : or_,
-        'contains' : contains,
-        'included' : included
+        'CONTAINS' : contains,
+        'INCLUDED' : included
     }
 
     operators_short = {
@@ -75,7 +75,11 @@ class Predicate:
             self.value = value
 
     def __str__(self):
-        return "%s %s %s" % self.get_str_tuple()
+        key, op, value = self.get_str_tuple()
+        if isinstance(value, (tuple, list, set, frozenset)):
+            value = ["%r" % v for v in value]
+            value = "[%s]" % ", ".join(value)
+        return "%s %s %s" % (key, op, value) 
 
     def __repr__(self):
         return "Predicate<%s %s %s>" % self.get_str_tuple()
