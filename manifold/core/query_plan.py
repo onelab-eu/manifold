@@ -193,7 +193,7 @@ class ExploreTask(Deferred):
                     
                 else:
                     task = ExploreTask(neighbour, relation, self.path, self.parent, self.depth)
-                    task.addCallback(self.perform_left_join, relation)
+                    task.addCallback(self.perform_left_join, relation, metadata, user)
 
                     priority = TASK_11
 
@@ -215,11 +215,19 @@ class ExploreTask(Deferred):
             self.perform_subquery()
         self.callback(self.ast)
 
-    def perform_left_join(self, ast, relation):
+    def perform_left_join(self, ast, relation, metadata, user):
+        """
+        Args:
+            ast: A child AST that must be connected to self.ast using LEFT JOIN 
+            relation: The Relation connecting the child Table and the parent Table involved in this LEFT jOIN.
+            metadata: The DBGraph instance related to the 3nf graph
+            user: The User issuing the query.
+        """
         #Log.debug(ast, relation)
         if not ast: return
-        if not self.ast: self.ast = AST()
-        self.ast.join(ast)
+        if not self.ast:
+            self.ast = self.build_union(self.root, self.root.keys.one().get_field_names(), metadata, user)
+        self.ast.left_join(ast, relation.get_predicate())
 
     def store_subquery(self, ast, relation):
         #Log.debug(ast, relation)

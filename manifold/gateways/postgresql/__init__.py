@@ -655,7 +655,7 @@ class PostgreSQLGateway(Gateway):
         if isinstance(x, StringTypes):
             x = "'%s'" % str(x).replace("\\", "\\\\").replace("'", "''")
         elif isinstance(x, (IntType, LongType, FloatType)):
-            pass
+            x = str(x)
         elif x is None:
             x = "NULL"
         elif isinstance(x, (ListType, TupleType)):
@@ -682,7 +682,6 @@ class PostgreSQLGateway(Gateway):
         # The pgdb._quote function is good enough for general SQL
         # quoting, except for array types.
         if isinstance(value, (list, tuple, set, frozenset)):
-            print "VALUE=", value
             return "ARRAY[%s]" % ", ".join(map(PostgreSQLGateway.quote, value))
         else:
             return PostgreSQLGateway._to_sql_value(value)
@@ -730,6 +729,7 @@ class PostgreSQLGateway(Gateway):
                     value = " OR ".join(and_clauses)
                 else:
                     value = map(PostgreSQLGateway.quote, value)
+                    print ">>>>>>>>>>>> value = %r" % value
                     if op_ == and_:
                         op = "@>"
                         value = "ARRAY[%s]" % ", ".join(value)

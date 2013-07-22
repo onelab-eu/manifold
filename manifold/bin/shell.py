@@ -65,15 +65,15 @@ class Shell(object):
             default = False
         )
         opt.add_option(
-            "-a", "--auth", action="store_false", dest = "auth",
-            help = "Use authentication", 
-            default = True
+            "-a", "--anonymous", action = "store_true", dest = "anonymous",
+            help = "Use anonymous authentication", 
+            default = False 
         )
         #parser.add_option("-m", "--method", help = "API authentication method")
         #parser.add_option("-s", "--session", help = "API session key")
 
     def __init__(self, interactive=False):
-        if Options().auth:
+        if not Options().anonymous:
             # If user is specified but password is not
             username = Options().username
             password = Options().password
@@ -111,12 +111,12 @@ class Shell(object):
             interface_str = ''
 
         msg = "Shell using %(mode_str)s"
-        if Options().auth:
+        if not Options().anonymous:
             msg += " account %(username)r"
         msg += "%(interface_str)s"
         Log.info(msg, **locals())
 
-        if Options().auth:
+        if not Options().anonymous:
             if Options().xmlrpc:
                 try:
                     self.interface.AuthCheck(self.auth)
@@ -133,7 +133,7 @@ class Shell(object):
         # XXX this line will differ between xmlrpc and local calls
         if Options().xmlrpc:
             # XXX The XMLRPC server might not require authentication
-            if Options().auth:
+            if not Options().anonymous:
                 return self.interface.forward(self.auth, query.to_dict())
             else:
                 return self.interface.forward(query.to_dict())
@@ -248,6 +248,7 @@ class Shell(object):
                     continue
                 # Quit
                 elif command in ["q", "quit", "exit"]:
+                    self.terminate()
                     break
 
                 try:
