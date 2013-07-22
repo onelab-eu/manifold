@@ -518,9 +518,9 @@ class PostgreSQLGateway(Gateway):
 
     def execute(self, query, params = None, cursor_factory = None):
         """
-        Translate a Manifold Query into a PostgreSQL query and run this query
+        Execute a SQL query on PostgreSQL 
         Args:
-            query: a Query instance
+            query: a String containing a SQL query 
             params: a dictionnary or None if unused 
             cursor_factory: see http://initd.org/psycopg/docs/extras.html
         Returns:

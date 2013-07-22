@@ -71,7 +71,6 @@ class ExploreTask(Deferred):
         self.depth     = depth
         # Result
         self.ast = None
-        self.froms = []
         self.keep_root_a = set()
         self.subqueries = {}
 
@@ -116,7 +115,7 @@ class ExploreTask(Deferred):
                 new_filter.add(pred)
         query.filter_by(None).filter_by(new_filter)
 
-    def explore(self, stack, missing, metadata, allowed_capabilities, user):
+    def explore(self, stack, missing, metadata, allowed_capabilities, user, query_plan):
         #Log.debug("EXPLORING", self)
         
         Log.debug("[%d]" % self.depth, self.root, self.relation, missing)
@@ -173,7 +172,7 @@ class ExploreTask(Deferred):
         if self.keep_root_a:
             # XXX NOTE that we have built an AST here without taking into account fields for the JOINs and SUBQUERIES
             # It might not pose any problem though if they come from the optimization phase
-            self.ast = self.build_union(self.root, self.keep_root_a, metadata, user)
+            self.ast = self.build_union(self.root, self.keep_root_a, metadata, user, query_plan)
 
         if self.depth == MAX_DEPTH:
             self.callback(self.ast)
@@ -193,7 +192,7 @@ class ExploreTask(Deferred):
                     
                 else:
                     task = ExploreTask(neighbour, relation, self.path, self.parent, self.depth)
-                    task.addCallback(self.perform_left_join, relation, metadata, user)
+                    task.addCallback(self.perform_left_join, relation, metadata, user, query_plan)
 
                     priority = TASK_11
 
@@ -201,9 +200,6 @@ class ExploreTask(Deferred):
                 stack.push(task, priority)
 
         DeferredList(deferred_list).addCallback(self.all_done)
-
-        #Log.debug(['#', '=', '-', '.'][self.depth]*80)
-        return self.froms
 
     def all_done(self, result):
         #Log.debug("DONE", self, result)
@@ -215,18 +211,19 @@ class ExploreTask(Deferred):
             self.perform_subquery()
         self.callback(self.ast)
 
-    def perform_left_join(self, ast, relation, metadata, user):
+    def perform_left_join(self, ast, relation, metadata, user, query_plan):
         """
         Args:
             ast: A child AST that must be connected to self.ast using LEFT JOIN 
             relation: The Relation connecting the child Table and the parent Table involved in this LEFT jOIN.
             metadata: The DBGraph instance related to the 3nf graph
             user: The User issuing the query.
+            query_plan: The QueryPlan instance related to this Query
         """
         #Log.debug(ast, relation)
         if not ast: return
         if not self.ast:
-            self.ast = self.build_union(self.root, self.root.keys.one().get_field_names(), metadata, user)
+            self.ast = self.build_union(self.root, self.root.keys.one().get_field_names(), metadata, user, query_plan)
         self.ast.left_join(ast, relation.get_predicate())
 
     def store_subquery(self, ast, relation):
@@ -268,7 +265,7 @@ class ExploreTask(Deferred):
         else:
             self.ast.subquery(self.subqueries.values())
 
-    def build_union(self, table, needed_fields, metadata, user):
+    def build_union(self, table, needed_fields, metadata, user, query_plan):
         Log.debug(table, needed_fields)
         from_asts = list()
         key = table.get_keys().one()
@@ -310,7 +307,7 @@ class ExploreTask(Deferred):
 
                 from_ast = AST(user = user).From(platform, query, capabilities, key)
 
-                self.froms.append(from_ast.root)
+                query_plan.froms.append(from_ast.root)
 
                 if method in table.methods_demux:
                     from_ast.demux().projection(list(fields))
@@ -336,7 +333,7 @@ class ExploreTask(Deferred):
                 from_ast.root = demux_node
                 #TODO from_node.addCallback(from_ast.callback)
 
-                self.froms.append(from_ast.root)
+                query_plan.froms.append(from_ast.root)
 
                 # Add DUP and SELECT to this AST
                 from_ast.dup(key_dup).projection(select_fields)
@@ -395,9 +392,7 @@ class QueryPlan(object):
                 Log.warning("MISSING: %r" % missing)
                 break
 
-            froms = task.explore(stack, missing, metadata, allowed_capabilities, user)
-            if froms:
-                self.froms.extend(froms)
+            task.explore(stack, missing, metadata, allowed_capabilities, user, query_plan = self)
 
         while not stack.is_empty():
             task = stack.pop()
