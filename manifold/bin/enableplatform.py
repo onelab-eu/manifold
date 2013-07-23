@@ -8,7 +8,7 @@ from manifold.bin.shell  import Shell
 def usage():
     print "Usage: %s NAME" % sys.argv[0]
     print ""
-    print "Disable a platform"
+    print "Enable a platform"
 
 def main():
     argc = len(sys.argv)

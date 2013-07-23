@@ -124,6 +124,7 @@ class Shell(object):
                 except:
                     Log.error('Authentication error')
             else:
+                print "self.auth", self.auth
                 self.auth = Auth(self.auth).check()
 
     def terminate(self):
@@ -262,8 +263,9 @@ class Shell(object):
 def main():
 #    Log.init_options()
 #    Options().parse()
-    Shell.init_options()
     Shell(interactive=True).start()
+
+Shell.init_options()
     
 if __name__ == '__main__':
     main()
