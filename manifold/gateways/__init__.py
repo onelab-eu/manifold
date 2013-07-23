@@ -61,6 +61,9 @@ class Gateway(object):
         self.callback       = None
         self.result_value   = []
 
+    def start(self):
+        print "Gateway: You must implement start() method in your Gateway"
+
     @returns(StringTypes)
     def get_platform(self):
         return self.platform
