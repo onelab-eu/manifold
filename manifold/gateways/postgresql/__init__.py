@@ -682,7 +682,6 @@ class PostgreSQLGateway(Gateway):
         # The pgdb._quote function is good enough for general SQL
         # quoting, except for array types.
         if isinstance(value, (list, tuple, set, frozenset)):
-            print "VALUE=", value
             return "ARRAY[%s]" % ", ".join(map(PostgreSQLGateway.quote, value))
         else:
             return PostgreSQLGateway._to_sql_value(value)

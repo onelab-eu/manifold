@@ -119,7 +119,7 @@ class ExploreTask(Deferred):
     def explore(self, stack, missing, metadata, allowed_capabilities, user):
         #Log.debug("EXPLORING", self)
         
-        Log.debug("[%d]" % self.depth, self.root, self.relation, missing)
+        #Log.debug("[%d]" % self.depth, self.root, self.relation, missing)
 
         relations_11, relations_1N, relations_1Nsq = (), {}, {}
         deferred_list = []
