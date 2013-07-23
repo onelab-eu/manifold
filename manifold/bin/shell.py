@@ -124,7 +124,6 @@ class Shell(object):
                 except:
                     Log.error('Authentication error')
             else:
-                print "self.auth", self.auth
                 self.auth = Auth(self.auth).check()
 
     def terminate(self):
