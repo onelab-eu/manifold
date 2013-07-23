@@ -5,6 +5,7 @@ from manifold.core.query     import Query
 from manifold.core.filter    import Filter
 from manifold.util.predicate import Predicate
 from manifold.util.log       import Log
+from manifold.util.clause    import Clause
 import pyparsing as pp
 import re
  
@@ -62,12 +63,18 @@ class SQLParser(object):
             (and_op, 2, pp.opAssoc.LEFT,  lambda x: self.handleClause(*x)),
             (or_op,  2, pp.opAssoc.LEFT,  lambda x: self.handleClause(*x))
         ]
-        clause     = pp.operatorPrecedence(predicate, predicate_precedence_list).setParseAction(lambda pred: Filter(pred))
+        clause     = pp.operatorPrecedence(predicate, predicate_precedence_list) #.setParseAction(lambda clause: Filter.from_clause(clause))
+        # END: clause of predicates
 
-        timestamp  = pp.CaselessKeyword('now')
+        # For the time being, we only support simple filters and not full clauses
+        filter     = pp.delimitedList(predicate, delim='&&').setParseAction(lambda tokens: Filter(tokens.asList()))
+
+        datetime   = pp.Regex(r'....-..-.. ..:..:..')
+
+        timestamp  = pp.CaselessKeyword('now') | datetime
 
         select_elt = (kw_select.suppress() + field_list.setResultsName('fields'))
-        where_elt  = (kw_where.suppress()  + clause.setResultsName('filters'))
+        where_elt  = (kw_where.suppress()  + filter.setResultsName('filters'))
         set_elt    = (kw_set.suppress()    + params.setResultsName('params'))
         at_elt     = (kw_at.suppress()     + timestamp.setResultsName('timestamp'))
 
@@ -99,6 +106,7 @@ class SQLParser(object):
 if __name__ == "__main__":
 
     STR_QUERIES = [
+        'SELECT hops.ip, hops.ttl AT 2012-09-09 14:30:09 FROM traceroute WHERE agent_id == 11824 && destination_id == 1417 && test_field == "test"',
         'SELECT slice_hrn FROM slice',
         'SELECT slice_hrn, slice_description FROM slice WHERE slice_hrn == "ple.upmc.myslicedemo"',
         'UPDATE local:platform SET disabled = True, pouet = false WHERE platform == "ple"',
