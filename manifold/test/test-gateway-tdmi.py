@@ -152,6 +152,6 @@ queries = [
 
 #for query in queries:
 #    run_query(router, query)
-run_query(router, queries[1])
+run_query(router, queries[0])
 
 

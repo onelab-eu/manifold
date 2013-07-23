@@ -46,6 +46,7 @@ class Stack(object):
         }
 
     def push(self, task, priority):
+        Log.debug("Adding to stack with priority %d : %r" % (priority, task))
         self.tasks[priority].append(task)
 
     def pop(self):
@@ -57,6 +58,10 @@ class Stack(object):
 
     def is_empty(self):
         return all(map(lambda x: not x, self.tasks.values()))
+
+    def dump(self):
+        for priority in [TASK_11, TASK_1Nsq, TASK_1N]:
+            Log.tmp("PRIO %d : %r" % (priority, self.tasks[priority]))
 
 class ExploreTask(Deferred):
     """
@@ -387,6 +392,7 @@ class QueryPlan(object):
         missing = analyzed_query.copy()
 
         while not ExploreTask.query_is_done(missing): # includes missing subqueries...
+            stack.dump()
             task = stack.pop()
             if not task:
                 Log.warning("MISSING: %r" % missing)
