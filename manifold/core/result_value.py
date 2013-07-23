@@ -47,10 +47,8 @@ class ResultValue(dict):
 
     def __init__(self, **kwargs):
         
-        print "KWARGS=", kwargs
         # Checks
         given = set(kwargs.keys())
-        print "given=", given
         cstr_success = set(['code', 'origin', 'value']) <= given
         cstr_error   = set(['code', 'type', 'origin', 'description']) <= given
         assert given <= self.ALLOWED_FIELDS, "Wrong fields in ResultValue constructor: %r" % (given - self.ALLOWED_FIELDS)

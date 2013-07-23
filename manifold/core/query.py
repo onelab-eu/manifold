@@ -10,9 +10,10 @@
 #   Thierry Parmentelat <thierry.parmentelat@inria.fr>
 
 from types                      import StringTypes
-from manifold.core.filter         import Filter, Predicate
-from manifold.util.frozendict     import frozendict
-from manifold.util.type           import returns, accepts
+from manifold.core.filter       import Filter, Predicate
+from manifold.util.frozendict   import frozendict
+from manifold.util.type         import returns, accepts
+from manifold.util.clause       import Clause
 import copy
 
 import json
@@ -127,6 +128,8 @@ class Query(object):
             for x in f:
                 pred = Predicate(x)
                 self.filters.add(pred)
+        elif isinstance(self.filters, Clause):
+            self.filters = Filter.from_clause(self.filters)
 
         if isinstance(self.fields, list):
             self.fields = set(self.fields)

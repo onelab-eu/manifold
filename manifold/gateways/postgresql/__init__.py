@@ -729,7 +729,6 @@ class PostgreSQLGateway(Gateway):
                     value = " OR ".join(and_clauses)
                 else:
                     value = map(PostgreSQLGateway.quote, value)
-                    print ">>>>>>>>>>>> value = %r" % value
                     if op_ == and_:
                         op = "@>"
                         value = "ARRAY[%s]" % ", ".join(value)
