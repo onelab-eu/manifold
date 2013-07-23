@@ -62,6 +62,8 @@ class Predicate:
             value = tuple(value)
 
         self.key = key
+        if isinstance(op, StringTypes):
+            op = op.upper()
         if op in self.operators.keys():
             self.op = self.operators[op]
         elif op in self.operators_short.keys():
