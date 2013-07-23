@@ -371,6 +371,14 @@ class Query(object):
         return self
 
     def filter_by(self, *args):
+        """
+        Args:
+            args: It may be:
+                - the parts of a Predicate (key, op, value)
+                - None
+                - a Filter instance
+                - a set/list/tuple of Predicate instances
+        """
         if len(args) == 1:
             filters = args[0]
             if filters == None:

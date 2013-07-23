@@ -1,5 +1,6 @@
 #!/bin/bash
 # if this requires a service to be running, add something like this
 # update-rc.d manifold defaults
-#easy_install python-daemon cfgparse
-#mkdir /var/myslice
+easy_install python-daemon cfgparse
+[ -d /var/myslice ] || mkdir /var/myslice
+

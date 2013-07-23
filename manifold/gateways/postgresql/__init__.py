@@ -518,9 +518,9 @@ class PostgreSQLGateway(Gateway):
 
     def execute(self, query, params = None, cursor_factory = None):
         """
-        Translate a Manifold Query into a PostgreSQL query and run this query
+        Execute a SQL query on PostgreSQL 
         Args:
-            query: a Query instance
+            query: a String containing a SQL query 
             params: a dictionnary or None if unused 
             cursor_factory: see http://initd.org/psycopg/docs/extras.html
         Returns:
@@ -655,7 +655,7 @@ class PostgreSQLGateway(Gateway):
         if isinstance(x, StringTypes):
             x = "'%s'" % str(x).replace("\\", "\\\\").replace("'", "''")
         elif isinstance(x, (IntType, LongType, FloatType)):
-            pass
+            x = str(x)
         elif x is None:
             x = "NULL"
         elif isinstance(x, (ListType, TupleType)):
@@ -729,6 +729,7 @@ class PostgreSQLGateway(Gateway):
                     value = " OR ".join(and_clauses)
                 else:
                     value = map(PostgreSQLGateway.quote, value)
+                    print ">>>>>>>>>>>> value = %r" % value
                     if op_ == and_:
                         op = "@>"
                         value = "ARRAY[%s]" % ", ".join(value)

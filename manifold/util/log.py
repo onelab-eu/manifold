@@ -218,7 +218,7 @@ class Log(object):
             caller = caller_name(skip=3)
             # Eventually remove "" added to the configuration file
             try:
-                paths = tuple(Options().debug.split(','))
+                paths = tuple(s.strip(' \t\n\r') for s in Options().debug.split(','))
             except:
                 paths = None
             if not paths or not caller.startswith(paths):
@@ -265,7 +265,7 @@ class Log(object):
 
     @classmethod
     def record(cls, *msg):
-        #cls.print_msg(' '.join(map(lambda x: "%r"%x, make_list(msg))), 'RECORD', caller_name())
+        cls.print_msg(' '.join(map(lambda x: "%r"%x, make_list(msg))), 'RECORD', caller_name())
         pass
 
     @classmethod
