@@ -37,7 +37,7 @@ class SQLParser(object):
 
         # Regex string representing the set of possible operators
         # Example : ">=|<=|!=|>|<|="
-        OPERATOR_RX = '|'.join([re.sub('\|', '\|', o) for o in Predicate.operators.keys()])
+        OPERATOR_RX = "(?i)%s" % '|'.join([re.sub('\|', '\|', o) for o in Predicate.operators.keys()])
 
         # predicate
         field      = pp.Word(pp.alphanums + '_' + '.')
@@ -106,6 +106,7 @@ class SQLParser(object):
 if __name__ == "__main__":
 
     STR_QUERIES = [
+        'SELECT ip_id, node_id AT now FROM node WHERE node_id included [8252]',
         'SELECT hops.ip, hops.ttl AT 2012-09-09 14:30:09 FROM traceroute WHERE agent_id == 11824 && destination_id == 1417 && test_field == "test"',
         'SELECT slice_hrn FROM slice',
         'SELECT slice_hrn, slice_description FROM slice WHERE slice_hrn == "ple.upmc.myslicedemo"',
