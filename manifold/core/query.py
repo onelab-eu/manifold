@@ -389,23 +389,19 @@ class Query(object):
             
     def select(self, *fields):
 
-        print "fields in get_select", fields
         # Accept passing iterables
         if len(fields) == 1:
             tmp, = fields
-            print "TMP get_select=", tmp
             if not tmp:
                 fields = None
             elif isinstance(tmp, (list, tuple, set, frozenset)):
                 fields = tuple(tmp)
-                print "modified fields to", fields
 
         if not fields:
             # Delete all fields
             self.fields = set()
             return self
 
-        print "FINALLY In get_select we iterate on", fields
         for field in fields:
             self.fields.add(field)
         return self
@@ -456,7 +452,6 @@ class AnalyzedQuery(Query):
     def __str__(self):
         out = []
         fields = self.get_select()
-        print "FIELDS=", fields
         fields = ", ".join(fields) if fields else '*'
         out.append("SELECT %s FROM %s WHERE %s" % (
             fields,
