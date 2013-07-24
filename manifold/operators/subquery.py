@@ -17,6 +17,8 @@ DUMPSTR_SUBQUERIES = "<subqueries>"
 class SubQuery(Node):
     """
     SUBQUERY operator (cf nested SELECT statements in SQL)
+        self.parent represents the main query involved in the SUBQUERY operation.
+        self.children represents each subqueries involved in the SUBQUERY operation.
     """
 
     def __init__(self, parent, children_ast_relation_list, key): # KEY DEPRECATED
@@ -309,9 +311,21 @@ class SubQuery(Node):
         return self
 
     def optimize_projection(self, fields):
+        """
+        Propagates projection (SELECT) through a SubQuery node.
+        A field is relevant if:
+            - it is explicitely queried (i.e. it is a field involved in the projection)
+            - it is needed to perform the SubQuery (i.e. it is involved in a Predicate)
+        Args:
+            fields: A frozenset of String containing the fields involved in the projection.
+        Returns:
+            The optimized AST once this projection has been propagated.
+        """
         parent_keys = set()
-        parent_fields = False
+        require_top_projection = False
+        parent_fields = set()
 
+        # Select a "bar" field in a "foo" children if "foo.bar" is explicitely SELECTed.
         for i, child in enumerate(self.children[:]):
             relation = self.relations[i]
             name     = relation.get_relation_name()
@@ -324,16 +338,30 @@ class SubQuery(Node):
                     my_fields.add(f)
 
             predicate = relation.get_predicate()
-            parent_keys   |= predicate.get_field_names()
+            parent_keys |= predicate.get_field_names()
             if not parent_keys <= my_fields:
-                parent_fields = True
+                require_top_projection = True
 
-            child_fields  = my_fields & child.get_query().get_select()
-            child_fields |= predicate.get_value_names()
+            child_fields   = my_fields & child.get_query().get_select()
+            child_fields  |= predicate.get_value_names()
+            parent_fields |= parent_keys 
 
             self.children[i] = child.optimize_projection(child_fields)
 
-        if parent_fields:
+        # Fetch in the main query only the queried fields (in SELECT or WHERE)
+        for field in fields:
+            if '.' in field:
+                table_name, field_name = field.split('.', 1)
+                if table_name == self.parent.get_query().get_from():
+                    parent_fields.add(field_name)
+            else:
+                parent_fields.add(field)
+
+        if parent_fields < self.parent.get_query().get_select():
+            self.parent = self.parent.optimize_projection(parent_fields)
+
+        # At least one children Node requires a Projection Node above this SubQuery Node
+        if require_top_projection:
             return Projection(self, fields)
         return self
             
