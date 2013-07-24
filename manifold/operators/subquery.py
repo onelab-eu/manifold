@@ -149,7 +149,7 @@ class SubQuery(Node):
                         if isinstance(key, tuple):
                             parent_ids = [x for record in self.parent_output if key in record for x in record[key]]
                         else:
-                            parent_ids = [elem for record in self.parent_output if key in record for elem in record[key]]
+                            parent_ids = [record[key] for record in self.parent_output if key in record]
                         Log.tmp("="*80)
                         Log.tmp(parent_ids)
                             
@@ -219,9 +219,11 @@ class SubQuery(Node):
                         # Collect in parent all child such as they have a pointer to the parent
                         if isinstance(key, StringTypes):
                             # simple key
-                            ids = o[key] if key in o else []
-                            if ids and isinstance(ids[0], dict):
-                                ids = map(lambda x: x[value], ids)
+                            ids = [o[key]] if key in o else []
+                            #print "IDS=", ids
+                            #if ids and isinstance(ids[0], dict):
+                            #    ids = map(lambda x: x[value], ids)
+                            # XXX we might have equality instead of IN in case of a single ID
                             filter = Filter().filter_by(Predicate(value, included, ids))
                         else:
                             # Composite key, o[value] is a dictionary
