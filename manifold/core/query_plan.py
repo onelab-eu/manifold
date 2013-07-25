@@ -30,7 +30,7 @@ from manifold.util.type            import returns, accepts
 from manifold.util.callback        import Callback
 from manifold.util.log             import Log
 from manifold.models.user          import User
-from manifold.util.misc            import make_list
+from manifold.util.misc            import make_list, is_sublist
 from manifold.core.result_value    import ResultValue
 from twisted.internet.defer        import Deferred, DeferredList
 
@@ -69,15 +69,15 @@ class ExploreTask(Deferred):
     """
     def __init__(self, root, relation, path, parent, depth):
         # Context
-        self.root      = root
-        self.relation = relation
-        self.path = path
-        self.parent    = parent
-        self.depth     = depth
+        self.root        = root
+        self.relation    = relation
+        self.path        = path
+        self.parent      = parent
+        self.depth       = depth
         # Result
         self.ast = None
         self.keep_root_a = set()
-        self.subqueries = {}
+        self.subqueries  = {}
 
         self.identifier = random.randint(0,9999)
 
@@ -93,22 +93,6 @@ class ExploreTask(Deferred):
         self.callback(None)
 
     @staticmethod
-    def query_is_done(query):
-        if ExploreTask.get_missing_fields(query):
-            return False
-        for name, sq in query.get_subqueries().items():
-            if not ExploreTask.query_is_done(sq):
-                return False
-        return True
-
-    @staticmethod
-    def get_missing_fields(query):
-        fields  = set()
-        fields |= query.get_select()
-        fields |= query.get_where().get_field_names()
-        return fields
-
-    @staticmethod
     def prune_from_query(query, found_fields):
         new_fields = query.get_select() - found_fields
         query.select(None).select(new_fields)
@@ -120,11 +104,9 @@ class ExploreTask(Deferred):
                 new_filter.add(pred)
         query.filter_by(None).filter_by(new_filter)
 
-    def explore(self, stack, missing, metadata, allowed_capabilities, user, query_plan):
-        Log.debug("EXPLORING", self)
+    def explore(self, stack, missing_fields, metadata, allowed_capabilities, user, query_plan):
         
-        Log.debug("[%d]" % self.depth, self.root, self.relation, missing)
-
+        Log.tmp("Search in ", self.root.get_name(), "for fields", missing_fields, 'path=', self.path)
         relations_11, relations_1N, relations_1Nsq = (), {}, {}
         deferred_list = []
 
@@ -133,47 +115,46 @@ class ExploreTask(Deferred):
         # after X, after X, Z, after X.Y after X.Y.Z, after X.Z, after Y.Z, and
         # X.Y.Z
 
-        # This is to be improved
-        # missing points to unanswered parts of the query
-        missing_subqueries = []
-        def is_sublist(x, y, shortcut=None):
-            if not shortcut: shortcut = []
-            if x == []: return (True, shortcut)
-            if y == []: return (False, None)
-            if x[0] == y[0]:
-                return is_sublist(x[1:],y[1:], shortcut)
-            else:
-                return is_sublist(x, y[1:], shortcut + [y[0]])
-        def get_query_parts(local_path, query, shortcut=None):
-            missing_subqueries.append((query, shortcut))
-            for name, sq in query.get_subqueries().items():
-                new_path = local_path + [name]
-                flag, shortcut = is_sublist(self.path, new_path)
-                if flag:
-                    get_query_parts(new_path, sq, shortcut)
-        get_query_parts([], missing)
-        # XXX We could return the shortcut to subquery, to inform on how to
-        # process results
+#DEPRECATED|         # This is to be improved
+#DEPRECATED|         # missing points to unanswered parts of the query
+#DEPRECATED|         missing_subqueries = []
+#DEPRECATED|         def get_query_parts(local_path, query, shortcut=None):
+#DEPRECATED|             missing_subqueries.append((query, shortcut))
+#DEPRECATED|             for name, sq in query.get_subqueries().items():
+#DEPRECATED|                 new_path = local_path + [name]
+#DEPRECATED|                 flag, shortcut = is_sublist(self.path, new_path)
+#DEPRECATED|                 if flag:
+#DEPRECATED|                     get_query_parts(new_path, sq, shortcut)
+#DEPRECATED|         get_query_parts([], missing)
+#DEPRECATED|         # XXX We could return the shortcut to subquery, to inform on how to
+#DEPRECATED|         # process results
 
         root_provided_fields = self.root.get_field_names()
         root_key_fields = self.root.keys.one().get_field_names()
 
-        if self.root.get_name() == 'traceroute': # not root.capabilities.retrieve:
-            Log.warning("HARDCODED TRACEROUTE AS ONJOIN")
-            root_provided_fields -= root_key_fields
-        
-        for query, shortcut in missing_subqueries:
-            missing_fields = root_provided_fields & ExploreTask.get_missing_fields(query)
-            ExploreTask.prune_from_query(query, missing_fields)
-            self.keep_root_a |= missing_fields
-            # We should remove what we find so it is not search for anymore
+        # Which fields we are keeping for the current table, and which we are removing from missing_fields
+        self.keep_root_a = set()
+        for field in root_provided_fields:
+            for missing in list(missing_fields):
+                # missing has dots inside
+                missing_list = missing.split('.')
+                missing_path, missing_field = missing_list[:-1], missing_list[-1:]
+                # Missing fields that the current table is providing
+                if is_sublist(self.path, missing_path) and missing_field == field:
+                    print 'current table provides missing field PATH=', self.path, 'field=', field, 'missing=', missing
+                    self.keep_root_a |= field
 
-        if self.root.get_name() == 'traceroute': # not root.capabilities.retrieve:
-            Log.warning("HARDCODED TRACEROUTE AS ONJOIN")
-            self.keep_root_a |= root_key_fields
-            
+                    # We won't search those fields in subsequent explorations,
+                    # unless the belong to the key of an ONJOIN table
+                    is_onjoin = (self.root.get_name() == 'traceroute') # not root.capabilities.retrieve:
+                    Log.warning("HARDCODED TRACEROUTE AS ONJOIN")
+                    
+                    if not is_onjoin or field not in root_key_fields:
+                        missing_fields.remove(missing)
+                    
         assert self.depth == 1 or root_key_fields not in missing_fields, "Requesting key fields in child table"
 
+        print "KEEP ROOT A", self.keep_root_a
         if self.keep_root_a:
             # XXX NOTE that we have built an AST here without taking into account fields for the JOINs and SUBQUERIES
             # It might not pose any problem though if they come from the optimization phase
@@ -189,11 +170,19 @@ class ExploreTask(Deferred):
                 if relation.requires_subquery():
                     subpath = self.path[:]
                     subpath.append(relation.get_relation_name())
+                    print "RELATION=", relation, "SUBPATH=", subpath
                     task = ExploreTask(neighbour, relation, subpath, self, self.depth+1)
                     task.addCallback(self.store_subquery, relation)
 
                     relation_name = relation.get_relation_name()
-                    priority = TASK_1Nsq if relation_name in missing_subqueries else TASK_1N
+
+                    # The relation has priority if at least one field is like PATH.relation.xxx
+                    priority = TASK_1N
+                    for missing in missing_fields:
+                        if missing.startswith("%s.%s." % (self.path, relation.get_relation_name())):
+                            priority = TASK_1Nsq
+                            break
+                    #priority = TASK_1Nsq if relation_name in missing_subqueries else TASK_1N
                     
                 else:
                     task = ExploreTask(neighbour, relation, self.path, self.parent, self.depth)
@@ -202,6 +191,7 @@ class ExploreTask(Deferred):
                     priority = TASK_11
 
                 deferred_list.append(task)
+                print "Pushing to stack with priority %d : %r" % (priority, task)
                 stack.push(task, priority)
 
         DeferredList(deferred_list).addCallback(self.all_done)
@@ -381,24 +371,27 @@ class QueryPlan(object):
                 q.params = query.get_params()
 
     def build(self, query, metadata, allowed_capabilities, user = None, qp = None):
-        analyzed_query = AnalyzedQuery(query, metadata)
-        root = metadata.find_node(analyzed_query.get_from())
+        root = metadata.find_node(query.get_from())
         
         root_task = ExploreTask(root, relation=None, path=[], parent=self, depth=1)
         root_task.addCallback(self.set_ast, query)
 
         stack = Stack(root_task)
 
-        missing = analyzed_query.copy()
+        missing_fields  = set()
+        missing_fields |= query.get_select()
+        missing_fields |= query.get_where().get_field_names()
 
-        while not ExploreTask.query_is_done(missing): # includes missing subqueries...
-            stack.dump()
+        while missing_fields:
+            print "BEGIN WHILE. missing_fields = ", missing_fields
             task = stack.pop()
             if not task:
-                Log.warning("MISSING: %r" % missing)
+                Log.warning("Exploration terminated without finding fields: %r" % missing_fields)
                 break
 
-            task.explore(stack, missing, metadata, allowed_capabilities, user, query_plan = self)
+            task.explore(stack, missing_fields, metadata, allowed_capabilities, user, query_plan = self)
+            import time
+            time.sleep(1)
 
         while not stack.is_empty():
             task = stack.pop()
