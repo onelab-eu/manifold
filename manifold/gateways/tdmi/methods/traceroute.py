@@ -177,10 +177,8 @@ class Traceroute(list):
 
     @staticmethod
     def rename_field(query, traceroute, sql_field_name, manifold_field_name):
-        if sql_field_name in query.get_select():
-            traceroute[manifold_field_name] = {
-                sql_field_name : traceroute[sql_field_name]
-            }
+        if manifold_field_name in query.get_select():
+            traceroute[manifold_field_name] = traceroute[sql_field_name]
             del traceroute[sql_field_name]
 
     @returns(dict)
@@ -192,15 +190,15 @@ class Traceroute(list):
             query: The Query instance handled by the TDMIGateway 
             traceroute: A dictionnary corresponding to a fetched Traceroute record 
         """
-        print "REPACK, traceroute=", traceroute
         # Craft 'hops' field if queried 
         if "hops" in query.get_select():
+            print "repacking hops with traceroute = %r" % traceroute
             hops_sql = traceroute["hops"]
+            print "hops_sql = %r" % hops_sql
             traceroute["hops"] = Traceroute.repack_hops(hops_sql, self.selected_sub_fields)
 
         Traceroute.rename_field(query, traceroute, "agent_id",       "agent")
         Traceroute.rename_field(query, traceroute, "destination_id", "destination")
-        print "==> traceroute = %r " % traceroute
         return traceroute
 
     def __init__(self, query, db = None):

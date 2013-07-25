@@ -79,7 +79,7 @@ class Predicate:
     def __str__(self):
         key, op, value = self.get_str_tuple()
         if isinstance(value, (tuple, list, set, frozenset)):
-            value = ["%r" % v for v in value]
+            value = [repr(v) for v in value]
             value = "[%s]" % ", ".join(value)
         return "%s %s %s" % (key, op, value) 
 

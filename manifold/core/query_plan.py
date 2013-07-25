@@ -368,8 +368,27 @@ class QueryPlan(object):
             result.extend(from_node.gateway.get_result_value())
         return result
 
+    def inject_at(self, query):
+        """
+        Update From Nodes of the QueryPlan in order to take into account AT
+        clause involved in a user Query.
+        Args:
+            query: The Query issued by the user.
+        """
+        Log.warning("HARDCODED: AT injection in FROM Nodes: %r" % self.froms)
+        for from_node in self.froms:
+            from_node.query.timestamp = query.get_timestamp()
+
     def set_ast(self, ast, query):
+        """
+        Complete an AST in order to take into account SELECT and WHERE clauses
+        involved in a user Query.
+        Args:
+            ast: An AST instance made of Union, LeftJoin, SubQuery and From Nodes.
+            query: The Query issued by the user.
+        """
         ast.optimize(query)
+        self.inject_at(query)
         self.ast = ast
     
         # Update the main query to add applicative information such as action and params
@@ -392,7 +411,7 @@ class QueryPlan(object):
         missing = analyzed_query.copy()
 
         while not ExploreTask.query_is_done(missing): # includes missing subqueries...
-            stack.dump()
+            #stack.dump()
             task = stack.pop()
             if not task:
                 Log.warning("MISSING: %r" % missing)
@@ -425,20 +444,18 @@ class QueryPlan(object):
         platform = metadata.keys()[0]
         announce = metadata[platform][query.object] # eg. table test
         
-
         # Set up an AST for missing capabilities (need configuration)
-        #
+
         # Selection ?
         if query.filters and not announce.capabilities.selection:
-            if not allowed_capabilities.projection:
-                raise Exception, 'Cannot answer query: PROJECTION'
+            if not allowed_capabilities.selection:
+                raise Exception, 'Cannot answer query: SELECTION'
             add_selection = query.filters
             query.filters = Filter()
         else:
             add_selection = None
-        #
+
         # Projection ?
-        #
         announce_fields = set([f.get_name() for f in announce.table.fields])
         if query.fields < announce_fields and not announce.capabilities.projection:
             if not allowed_capabilities.projection:
@@ -449,9 +466,9 @@ class QueryPlan(object):
             add_projection = None
 
         t = Table({platform:''}, {}, query.object, set(), set())
-        key = metadata.get_key(query.object)
-        cap = metadata.get_capabilities(platform, query.object)
-        self.ast = self.ast.From(t, query, metadata.get_capabilities(platform, query.object), key)
+        key = metadata.get_key(query.get_from())
+        cap = metadata.get_capabilities(platform, query.get_from())
+        self.ast = self.ast.From(t, query, metadata.get_capabilities(platform, query.get_from()), key)
 
         # XXX associate the From node to the Gateway
         fromnode = self.ast.root
@@ -465,6 +482,7 @@ class QueryPlan(object):
         if add_projection:
             self.ast.optimize_projection(add_projection)
 
+        self.inject_at(query)
         self.ast.dump()
 
     def execute(self, deferred=None):
