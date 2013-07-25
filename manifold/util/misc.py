@@ -63,3 +63,12 @@ class Enum(object):
     
     def get_str(self, value):
         return self.invmap[value]
+
+def is_sublist(x, y, shortcut=None):
+    if not shortcut: shortcut = []
+    if x == []: return (True, shortcut)
+    if y == []: return (False, None)
+    if x[0] == y[0]:
+        return is_sublist(x[1:],y[1:], shortcut)
+    else:
+        return is_sublist(x, y[1:], shortcut + [y[0]])

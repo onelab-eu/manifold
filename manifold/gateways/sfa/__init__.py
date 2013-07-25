@@ -287,16 +287,21 @@ class SFAGateway(Gateway):
             defer.returnValue(json.loads(account.config))
         #return json.loads(new_user_config) if new_user_config else None
 
-    def make_user_proxy(self, interface, user_config, cert_type='gid'):
+    def make_user_proxy(self, interface_url, user_config, cert_type='gid'):
+        """
+        interface (string): 'registry', 'sm' or URL
+        user_config (dict): user configuration
+        cert_type (string): 'gid', 'sscert'
+        """
         pkey    = user_config['user_private_key'].encode('latin1')
         # default is gid, if we don't have it (see manage function) we use self signed certificate
         cert    = user_config[cert_type]
         timeout = self.config['timeout']
 
-        if not interface.startswith('http://') and not interface.startswith('https://'):
-            interface = 'http://' + interface
+        if not interface_url.startswith('http://') and not interface_url.startswith('https://'):
+            interface_url = 'http://' + interface_url
 
-        return SFAProxy(interface, pkey, cert, timeout)
+        return SFAProxy(interface_url, pkey, cert, timeout)
     
     # init self-signed cert, user credentials and gid
     @defer.inlineCallbacks
@@ -313,6 +318,12 @@ class SFAGateway(Gateway):
         # Initialize manager proxies using MySlice Admin account
         self.registry = self.make_user_proxy(self.config['registry'], self.admin_config)
         self.sliceapi = self.make_user_proxy(self.config['sm'],       self.admin_config)
+        registry_hrn = yield self.get_interface_hrn(self.registry)
+        sm_hrn       = yield self.get_interface_hrn(self.sliceapi)
+        self.registry.set_network_hrn(registry_hrn)
+        self.sliceapi.set_network_hrn(sm_hrn)
+
+
 
     def is_admin(self, user):
         if isinstance(user, StringTypes):

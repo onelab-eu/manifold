@@ -8,6 +8,7 @@ from manifold.util           import colors
 # TODO Log should take separately message strings and arguments to be able to
 # remember which messages are seen several times, and also to allow for
 # translation
+# TODO How to log to stdout without putting None in self.log
 
 class Log(object):
     __metaclass__ = Singleton
@@ -43,7 +44,7 @@ class Log(object):
     seen = {}
 
     def __init__(self, name='(default)'):
-        self.log = logging.getLogger(name)
+        self.log = None # logging.getLogger(name)
         self.files_to_keep = []
         self.init_log()
         self.color = True
@@ -93,7 +94,6 @@ class Log(object):
     def init_log(self, options=object()):
         # Initialize self.log (require self.files_to_keep)
         if self.log: # for debugging by using stdout, log may be equal to None
-            print "OPTIONS() in initlog=", Options()
             if Options().rsyslog_host:
                 shandler = self.make_handler_rsyslog(
                     Options().rsyslog_host,
