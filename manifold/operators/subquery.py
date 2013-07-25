@@ -95,8 +95,6 @@ class SubQuery(Node):
         # Start the parent first
         self.parent.start()
 
-        
-
     def parent_callback(self, record):
         """
         \brief Processes records received by the parent node
@@ -105,6 +103,7 @@ class SubQuery(Node):
         if record == LAST_RECORD:
             # When we have received all parent records, we can run children
             if self.parent_output:
+                Log.tmp("parent_callback: starting children %r " % self.children) 
                 self.run_children()
             return
         # Store the record for later...
@@ -144,19 +143,14 @@ class SubQuery(Node):
                         parent_ids = [record[key] for record in self.parent_output]
                         filter_pred = Predicate(value, included, parent_ids)
                     else:
-                        print "self.parent_output=", self.parent_output
-                        print "KEY?", key
                         if isinstance(key, tuple):
                             parent_ids = [x for record in self.parent_output if key in record for x in record[key]]
                         else:
                             parent_ids = [record[key] for record in self.parent_output if key in record]
-                        Log.tmp("="*80)
-                        Log.tmp(parent_ids)
                             
                         if parent_ids and isinstance(parent_ids[0], dict):
                             parent_ids = map(lambda x: x[value], parent_ids)
-                        Log.tmp("="*80)
-                        Log.tmp(parent_ids)
+
                         filter_pred = Predicate(value, included, parent_ids)
 
                     # Injecting predicate
@@ -190,6 +184,7 @@ class SubQuery(Node):
             for i, child in enumerate(self.children):
                 self.status.started(i)
             for i, child in enumerate(self.children):
+                Log.tmp("starting child ", child)
                 child.start()
         except Exception, e:
             print "EEE!", e
@@ -271,10 +266,12 @@ class SubQuery(Node):
                         raise Exception, "No link between parent and child queries"
 
                 self.send(o)
+            Log.tmp("Sending LAST_RECORD in ", self.identifier, self)
             self.send(LAST_RECORD)
         except Exception, e:
             print "EEE", e
             traceback.print_exc()
+        Log.tmp("all_done OK", self)
 
     def child_callback(self, child_id, record):
         """
@@ -283,6 +280,7 @@ class SubQuery(Node):
         """
         if record == LAST_RECORD:
             self.status.completed(child_id)
+            Log.tmp("child %r completed in %r" % (self.children[child_id], self))
             return
         # Store the results for later...
         self.child_results[child_id].append(record)

@@ -55,9 +55,11 @@ class LeftJoin(Node):
         else:
             old_cb = left_child.get_callback()
             self.left_done = False
+            Log.tmp("Set left_callback on node ", left_child)
             left_child.set_callback(self.left_callback)
             self.set_callback(old_cb)
 
+        Log.tmp("Set right_callback on node ", right_child)
         right_child.set_callback(self.right_callback)
 
         if isinstance(left_child, list):
@@ -137,6 +139,9 @@ class LeftJoin(Node):
         """
         \brief Propagates a START message through the node
         """
+        # If the left child is a list of record, we can run the right child
+        # right now. Otherwise, we run the right child once every records
+        # from the left child have been fetched (see left_callback)
         node = self.right if self.left_done else self.left
         node.start()
 
@@ -161,18 +166,17 @@ class LeftJoin(Node):
         \brief Process records received by the left child
         \param record A dictionary representing the received record 
         """
-
+        Log.tmp("left_callback: record = %r" % record)
         if record == LAST_RECORD:
             # left_done. Injection is not the right way to do this.
             # We need to insert a filter on the key in the right member
             predicate = Predicate(self.predicate.get_value(), included, self.left_map.keys())
             
             self.right = self.right.optimize_selection(Filter().filter_by(predicate))
-            self.right.set_callback(self.right_callback)
-
-            self.right.dump()
+            self.right.set_callback(self.right_callback) # already done in __init__ ?
 
             self.left_done = True
+            Log.tmp("starting right child", self.right)
             self.right.start()
             return
 
@@ -191,11 +195,14 @@ class LeftJoin(Node):
         \brief Process records received by the right child
         \param record A dictionary representing the received record 
         """
+        Log.tmp("right_callback: record = %r" % record)
         if record == LAST_RECORD:
             # Send records in left_results that have not been joined...
-            for leftrecord in self.left_map.values():
-                self.send(leftrecord)
+            for left_record in self.left_map.values():
+                Log.tmp("right_callback: sending ", record)
+                self.send(left_record)
             # ... and terminates
+            Log.tmp("right_callback: sending LAST_RECORD")
             self.send(LAST_RECORD)
             return
 
