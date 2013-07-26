@@ -94,8 +94,7 @@ def dump_routing_table(router):
             print ">> %r (cost %r)\n%s\n%s" % (table, announce.get_cost(), table, table.get_capabilities())
 
 router = make_tdmi_router()
-print 80*">"
-dump_routing_table(router)
+#dump_routing_table(router)
 
 queries = [
     # Query traceroute
@@ -152,6 +151,7 @@ queries = [
 
 #for query in queries:
 #    run_query(router, query)
+#run_query(router, queries[1])
 run_query(router, queries[0])
 
 
