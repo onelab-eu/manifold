@@ -347,10 +347,8 @@ class SFAGateway(Gateway):
 
         if cache:
             version = cache.get(cache_key)
-            print "using cache, version=", version
 
         if not version: 
-            print "request instead of using cache"
             result = yield server.GetVersion()
             code = result.get('code')
             if code:
@@ -369,9 +367,7 @@ class SFAGateway(Gateway):
 
     @defer.inlineCallbacks
     def get_interface_hrn(self, server):
-        print "** get_interface_hrn"
         server_version = yield self.get_cached_server_version(server)    
-        print "** server_version = ", server_version
         defer.returnValue(server_version['hrn'])
         
     ### resurrect this temporarily so we can support V1 aggregates for a while

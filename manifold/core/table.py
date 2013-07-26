@@ -609,7 +609,12 @@ class Table(object):
 
         intersection = u.get_field_names() & v_key.get_field_names()
         if intersection and intersection < v_key.get_field_names():
-            p = Predicate(tuple(intersection), eq, tuple(intersection))
+
+            intersection = tuple(intersection)
+            if len(intersection) == 1:
+                intersection = intersection[0]
+            p = Predicate(intersection, eq, intersection)
+
             relations.add(Relation(Relation.types.LINK_1N, p, name=v.get_name())) # LINK_1N_FORWARD # Name ?
             # we don't continue otherwise we will find subsets of this set
             # note: this code might replace following code operating on a single field
