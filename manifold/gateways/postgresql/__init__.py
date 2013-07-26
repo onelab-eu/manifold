@@ -26,6 +26,7 @@ from manifold.core.announce   import Announces
 from manifold.core.table      import Table
 from manifold.core.field      import Field
 from manifold.core.announce   import Announce
+from manifold.operators       import LAST_RECORD
 from manifold.util.log        import Log
 from manifold.util.predicate  import and_, or_, inv, add, mul, sub, mod, truediv, lt, le, ne, gt, ge, eq, neg, contains
 from manifold.util.type       import accepts, returns
@@ -433,7 +434,7 @@ class PostgreSQLGateway(Gateway):
         """
         sql = PostgreSQLGateway.to_sql(self.query)
         rows = self.selectall(sql, None)
-        rows.append(None)
+        rows.append(LAST_RECORD)
         map(self.send, rows)
         return 
        
