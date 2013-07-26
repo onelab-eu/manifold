@@ -8,6 +8,7 @@ from manifold.util.singleton      import Singleton
 from twisted.internet             import ssl
 from OpenSSL.crypto               import TYPE_RSA, FILETYPE_PEM
 from OpenSSL.crypto               import load_certificate, load_privatekey
+from twisted.internet             import defer
 
 DEFAULT_TIMEOUT = 20
 
@@ -146,7 +147,7 @@ class SFATokenMgr(object):
         if not network:
             return
         self.busy[network] = False
-        if network in self.deferred:
+        if network in self.deferred and self.deferred[network]:
             print "SFATokenMgr::put_token() - Activating deferred query to %s" % network
             d = self.deferred[network].popleft()
             d.callback(True)
@@ -269,20 +270,21 @@ class SFAProxy(object):
             from twisted.internet import defer
             d = defer.Deferred()
 
-            def success_cb(result):
+            def proxy_success_cb(result):
                 SFATokenMgr().put_token(self.network_hrn)
                 d.callback(result)
-            def error_cb(error):
+            def proxy_error_cb(error):
                 SFATokenMgr().put_token(self.network_hrn)
                 d.errback(ValueError("Error in SFA Proxy %s" % error))
 
             #success_cb = lambda result: d.callback(result)
             #error_cb   = lambda error : d.errback(ValueError("Error in SFA Proxy %s" % error))
             
+            @defer.inlineCallbacks
             def wrap(source, args):
+                token = yield SFATokenMgr().get_token(self.network_hrn)
                 args = (name,) + args
-                SFATokenMgr().get_token(self.network_hrn)
-                return self.proxy.callRemote(*args).addCallbacks(success_cb, error_cb)
+                self.proxy.callRemote(*args).addCallbacks(proxy_success_cb, proxy_error_cb)
             
             ReactorThread().callInReactor(wrap, self, args)
             return d

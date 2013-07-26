@@ -316,12 +316,22 @@ class SFAGateway(Gateway):
             self.user_config = new_user_config
 
         # Initialize manager proxies using MySlice Admin account
-        self.registry = self.make_user_proxy(self.config['registry'], self.admin_config)
-        self.sliceapi = self.make_user_proxy(self.config['sm'],       self.admin_config)
-        registry_hrn = yield self.get_interface_hrn(self.registry)
-        sm_hrn       = yield self.get_interface_hrn(self.sliceapi)
-        self.registry.set_network_hrn(registry_hrn)
-        self.sliceapi.set_network_hrn(sm_hrn)
+        try:
+            self.registry = self.make_user_proxy(self.config['registry'], self.admin_config)
+            self.sliceapi = self.make_user_proxy(self.config['sm'],       self.admin_config)
+            print "CHECKPOINT A - self.registry=", self.registry
+            registry_hrn = yield self.get_interface_hrn(self.registry)
+            print "CHECKPOINT B"
+            sm_hrn       = yield self.get_interface_hrn(self.sliceapi)
+            print "CHECKPOINT C"
+            self.registry.set_network_hrn(registry_hrn)
+            self.sliceapi.set_network_hrn(sm_hrn)
+
+        except Exception, e:
+            print "EXC in boostrap", e
+            import traceback
+            traceback.print_exc()
+            
 
 
 
@@ -340,11 +350,11 @@ class SFAGateway(Gateway):
 
         if cache:
             version = cache.get(cache_key)
+            print "using cache, version=", version
 
         if not version: 
-            
+            print "request instead of using cache"
             result = yield server.GetVersion()
-            Log.debug(result)
             code = result.get('code')
             if code:
                 if code.get('geni_code') > 0:
@@ -362,7 +372,9 @@ class SFAGateway(Gateway):
 
     @defer.inlineCallbacks
     def get_interface_hrn(self, server):
+        print "** get_interface_hrn"
         server_version = yield self.get_cached_server_version(server)    
+        print "** server_version = ", server_version
         defer.returnValue(server_version['hrn'])
         
     ### resurrect this temporarily so we can support V1 aggregates for a while
