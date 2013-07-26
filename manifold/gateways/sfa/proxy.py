@@ -122,7 +122,7 @@ class SFATokenMgr(object):
         self.deferred = {} # network -> deferred corresponding to waiting queries
 
     def get_token(self, network):
-        print "SFATokenMgr::get_token(network=%r)" % network
+        #print "SFATokenMgr::get_token(network=%r)" % network
         # We police queries only on blacklisted networks
         if not network or network not in self.BLACKLIST:
             return True
@@ -135,20 +135,20 @@ class SFATokenMgr(object):
         # activated when the queries terminates and triggers a put
         d = defer.Deferred()
         if not network in self.deferred:
-            print "SFATokenMgr::get_token() - Deferring query to %s" % network
+            #print "SFATokenMgr::get_token() - Deferring query to %s" % network
             self.deferred[network] = deque()
         self.deferred[network].append(d)
         return d
 
     def put_token(self, network):
-        print "SFATokenMgr::put_token(network=%r)" % network
+        #print "SFATokenMgr::put_token(network=%r)" % network
         # are there items waiting on queue for the same network, if so, there are deferred that can be called
         # remember that the network is being used for the query == available
         if not network:
             return
         self.busy[network] = False
         if network in self.deferred and self.deferred[network]:
-            print "SFATokenMgr::put_token() - Activating deferred query to %s" % network
+            #print "SFATokenMgr::put_token() - Activating deferred query to %s" % network
             d = self.deferred[network].popleft()
             d.callback(True)
         pass
