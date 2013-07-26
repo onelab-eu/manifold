@@ -106,7 +106,7 @@ class ExploreTask(Deferred):
 
     def explore(self, stack, missing_fields, metadata, allowed_capabilities, user, seen_set, query_plan):
         
-        Log.tmp("Search in ", self.root.get_name(), "for fields", missing_fields, 'path=', self.path, "SEEN SET =", seen_set)
+        #Log.tmp("Search in ", self.root.get_name(), "for fields", missing_fields, 'path=', self.path, "SEEN SET =", seen_set)
         relations_11, relations_1N, relations_1Nsq = (), {}, {}
         deferred_list = []
 
@@ -142,7 +142,7 @@ class ExploreTask(Deferred):
                 # Missing fields that the current table is providing
                 flag, shortcut = is_sublist(missing_path, self.path) #self.path, missing_path)
                 if flag and missing_field == field:
-                    print 'current table provides missing field PATH=', self.path, 'field=', field, 'missing=', missing
+                    #print 'current table provides missing field PATH=', self.path, 'field=', field, 'missing=', missing
                     self.keep_root_a.add(field)
 
                     # We won't search those fields in subsequent explorations,
@@ -155,7 +155,6 @@ class ExploreTask(Deferred):
                     
         assert self.depth == 1 or root_key_fields not in missing_fields, "Requesting key fields in child table"
 
-        print "KEEP ROOT A", self.keep_root_a
         if self.keep_root_a:
             # XXX NOTE that we have built an AST here without taking into account fields for the JOINs and SUBQUERIES
             # It might not pose any problem though if they come from the optimization phase
@@ -172,14 +171,11 @@ class ExploreTask(Deferred):
 
                 name = relation.get_relation_name()
                 if name in seen_set:
-                    print "NAME =", name, "ALREADY SEEN... CONTINUEING"
                     continue
                 seen_set.add(name)
                 if relation.requires_subquery():
                     subpath = self.path[:]
                     subpath.append(name)
-                    print "======= NAME = ", name
-                    print "RELATION=", relation, "SUBPATH=", subpath
                     task = ExploreTask(neighbour, relation, subpath, self, self.depth+1)
                     task.addCallback(self.store_subquery, relation)
 
@@ -200,7 +196,6 @@ class ExploreTask(Deferred):
                     priority = TASK_11
 
                 deferred_list.append(task)
-                print "Pushing to stack with priority %d : %r" % (priority, task)
                 stack.push(task, priority)
 
         DeferredList(deferred_list).addCallback(self.all_done, metadata, user, query_plan)
@@ -418,7 +413,6 @@ class QueryPlan(object):
         missing_fields |= query.get_where().get_field_names()
 
         while missing_fields:
-            print "BEGIN WHILE. missing_fields = ", missing_fields
             task = stack.pop()
             if not task:
                 Log.warning("Exploration terminated without finding fields: %r" % missing_fields)
