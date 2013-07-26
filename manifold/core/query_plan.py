@@ -29,8 +29,8 @@ from manifold.util.predicate       import Predicate, contains, eq
 from manifold.util.type            import returns, accepts
 from manifold.util.callback        import Callback
 from manifold.util.log             import Log
-from manifold.models.user          import User
 from manifold.util.misc            import make_list, is_sublist
+from manifold.models.user          import User
 from manifold.core.result_value    import ResultValue
 from twisted.internet.defer        import Deferred, DeferredList
 
@@ -104,9 +104,9 @@ class ExploreTask(Deferred):
                 new_filter.add(pred)
         query.filter_by(None).filter_by(new_filter)
 
-    def explore(self, stack, missing_fields, metadata, allowed_capabilities, user, query_plan):
+    def explore(self, stack, missing_fields, metadata, allowed_capabilities, user, seen_set, query_plan):
         
-        Log.tmp("Search in ", self.root.get_name(), "for fields", missing_fields, 'path=', self.path)
+        Log.tmp("Search in ", self.root.get_name(), "for fields", missing_fields, 'path=', self.path, "SEEN SET =", seen_set)
         relations_11, relations_1N, relations_1Nsq = (), {}, {}
         deferred_list = []
 
@@ -138,11 +138,12 @@ class ExploreTask(Deferred):
             for missing in list(missing_fields):
                 # missing has dots inside
                 missing_list = missing.split('.')
-                missing_path, missing_field = missing_list[:-1], missing_list[-1:]
+                missing_path, (missing_field,) = missing_list[:-1], missing_list[-1:]
                 # Missing fields that the current table is providing
-                if is_sublist(self.path, missing_path) and missing_field == field:
+                flag, shortcut = is_sublist(missing_path, self.path) #self.path, missing_path)
+                if flag and missing_field == field:
                     print 'current table provides missing field PATH=', self.path, 'field=', field, 'missing=', missing
-                    self.keep_root_a |= field
+                    self.keep_root_a.add(field)
 
                     # We won't search those fields in subsequent explorations,
                     # unless the belong to the key of an ONJOIN table
@@ -167,9 +168,17 @@ class ExploreTask(Deferred):
         # In all cases, we have to list neighbours for returning 1..N relationships. Let's do it now. 
         for neighbour in metadata.graph.successors(self.root):
             for relation in metadata.get_relations(self.root, neighbour):
+
+
+                name = relation.get_relation_name()
+                if name in seen_set:
+                    print "NAME =", name, "ALREADY SEEN... CONTINUEING"
+                    continue
+                seen_set.add(name)
                 if relation.requires_subquery():
                     subpath = self.path[:]
-                    subpath.append(relation.get_relation_name())
+                    subpath.append(name)
+                    print "======= NAME = ", name
                     print "RELATION=", relation, "SUBPATH=", subpath
                     task = ExploreTask(neighbour, relation, subpath, self, self.depth+1)
                     task.addCallback(self.store_subquery, relation)
@@ -194,16 +203,16 @@ class ExploreTask(Deferred):
                 print "Pushing to stack with priority %d : %r" % (priority, task)
                 stack.push(task, priority)
 
-        DeferredList(deferred_list).addCallback(self.all_done)
+        DeferredList(deferred_list).addCallback(self.all_done, metadata, user, query_plan)
 
-    def all_done(self, result):
+    def all_done(self, result, metadata, user, query_plan):
         #Log.debug("DONE", self, result)
         #for (success, value) in result:
         #    if not success:
         #        raise value.trap(Exception)
         #        continue
         if self.subqueries:
-            self.perform_subquery()
+            self.perform_subquery(metadata, user, query_plan)
         self.callback(self.ast)
 
     def perform_left_join(self, ast, relation, metadata, user, query_plan):
@@ -218,6 +227,7 @@ class ExploreTask(Deferred):
         #Log.debug(ast, relation)
         if not ast: return
         if not self.ast:
+            # XXX not sure about fields
             self.ast = self.build_union(self.root, self.root.keys.one().get_field_names(), metadata, user, query_plan)
         self.ast.left_join(ast, relation.get_predicate())
 
@@ -226,11 +236,16 @@ class ExploreTask(Deferred):
         if not ast: return
         self.subqueries[relation.get_relation_name()] = (ast, relation)
 
-    def perform_subquery(self):
+    def perform_subquery(self, metadata, user, query_plan):
         # We need to build an AST just to collect subqueries
         # XXX metadata not defined
         #if not self.ast:
         #    self.ast = self.build_union(self.root, self.keep_root_a, metadata, user)
+        if not self.ast:
+            fields = set()
+            for _, (_, relation) in self.subqueries.items():
+                fields |= relation.get_predicate().get_field_names()
+            self.ast = self.build_union(self.root, fields, metadata, user, query_plan)
         
         # How do i know that i have an onjoin table
         if self.root.get_name() == 'traceroute': # not root.capabilities.retrieve:
@@ -396,6 +411,7 @@ class QueryPlan(object):
         root_task.addCallback(self.set_ast, query)
 
         stack = Stack(root_task)
+        seen = {} # path -> set()
 
         missing_fields  = set()
         missing_fields |= query.get_select()
@@ -408,9 +424,10 @@ class QueryPlan(object):
                 Log.warning("Exploration terminated without finding fields: %r" % missing_fields)
                 break
 
-            task.explore(stack, missing_fields, metadata, allowed_capabilities, user, query_plan = self)
-            import time
-            time.sleep(1)
+            pathstr = '.'.join(task.path)
+            if not pathstr in seen:
+                seen[pathstr] = set()
+            task.explore(stack, missing_fields, metadata, allowed_capabilities, user, seen[pathstr], query_plan = self)
 
         while not stack.is_empty():
             task = stack.pop()
