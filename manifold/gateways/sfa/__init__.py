@@ -319,11 +319,8 @@ class SFAGateway(Gateway):
         try:
             self.registry = self.make_user_proxy(self.config['registry'], self.admin_config)
             self.sliceapi = self.make_user_proxy(self.config['sm'],       self.admin_config)
-            print "CHECKPOINT A - self.registry=", self.registry
             registry_hrn = yield self.get_interface_hrn(self.registry)
-            print "CHECKPOINT B"
             sm_hrn       = yield self.get_interface_hrn(self.sliceapi)
-            print "CHECKPOINT C"
             self.registry.set_network_hrn(registry_hrn)
             self.sliceapi.set_network_hrn(sm_hrn)
 

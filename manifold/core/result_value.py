@@ -93,6 +93,9 @@ class ResultValue(dict):
     def ok_value(self):
         return self['value']
 
+    def error(self):
+        err = "%r" % self['description']
+
     @staticmethod
     def to_html (raw_dict):
         return pprint.pformat (raw_dict).replace("\\n","<br/>")

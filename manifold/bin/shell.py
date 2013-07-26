@@ -253,6 +253,9 @@ class Shell(object):
 
                 try:
                     self.evaluate(command)
+                except KeyboardInterrupt:
+                    command = ""
+                    print
                 except Exception, err:
                     print_exc()
 

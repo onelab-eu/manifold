@@ -102,6 +102,9 @@ THEORY
  - key in NODE ? table == predicate
  - give an example of proof
 
+ROUTER
+ - KeyboardInterrupt during QueryPlan construction hangs 
+
 
 
 ================================================================================
