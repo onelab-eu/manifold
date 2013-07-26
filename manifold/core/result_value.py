@@ -1,6 +1,7 @@
 # Inspired from GENI error codes
 
 import time
+import pprint
 
 class ResultValue(dict):
 
@@ -91,6 +92,10 @@ class ResultValue(dict):
 
     def ok_value(self):
         return self['value']
+
+    @staticmethod
+    def to_html (raw_dict):
+        return pprint.pformat (raw_dict).replace("\\n","<br/>")
 
 # 67    <code>
 # 68      <value>9</value>
