@@ -1283,7 +1283,7 @@ class SFAGateway(Gateway):
     @defer.inlineCallbacks
     def start(self):
         try:
-            assert self.query, "Cannot run gateway with not query associated"
+            assert self.query, "Cannot run gateway with not query associated: %s" % self.platform
 
             self.debug = 'debug' in self.query.params and self.query.params['debug']
 
