@@ -106,7 +106,7 @@ class ExploreTask(Deferred):
 
     def explore(self, stack, missing_fields, metadata, allowed_capabilities, user, seen_set, query_plan):
         
-        #Log.tmp("Search in ", self.root.get_name(), "for fields", missing_fields, 'path=', self.path, "SEEN SET =", seen_set)
+        Log.tmp("Search in ", self.root.get_name(), "for fields", missing_fields, 'path=', self.path, "SEEN SET =", seen_set)
         relations_11, relations_1N, relations_1Nsq = (), {}, {}
         deferred_list = []
 
@@ -312,6 +312,7 @@ class ExploreTask(Deferred):
 
                 from_ast = AST(user = user).From(platform, query, capabilities, key)
 
+                print "ADDING TO QUERY PLAN FROMS", from_ast.root
                 query_plan.froms.append(from_ast.root)
 
                 if method in table.methods_demux:

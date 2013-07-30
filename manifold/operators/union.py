@@ -1,6 +1,7 @@
-from manifold.operators     import Node, ChildStatus, ChildCallback, LAST_RECORD
-from manifold.core.record   import Record
-from manifold.util.log      import Log
+from manifold.operators            import Node, ChildStatus, ChildCallback, LAST_RECORD
+from manifold.operators.projection import Projection
+from manifold.core.record          import Record
+from manifold.util.log             import Log
 
 DUMPSTR_UNION      = "UNION"
 
@@ -115,7 +116,7 @@ class Union(Node):
         if self.distinct:
             key_value = Record.get_value(record, key)
             if key_value in self.key_list:
-                Log.info("UNION ignored duplicate record")
+                Log.info("UNION ignored duplicate record: %r" % record)
                 return
             self.key_list.append(key_value)
 
@@ -153,12 +154,29 @@ class Union(Node):
         return self
 
     def optimize_projection(self, fields):
+        print "UNION.optimize_projection()"
         # UNION: apply projection to all children
         # XXX in case of UNION with duplicate elimination, we need the key
         # until then, apply projection to all children
         #self.query.fields = fields
+        do_parent_projection = False
+        if self.distinct:
+            print "DISTINCT - fields were", fields
+            key = self.key.get_field_names()
+            print "key =", key
+            if key not in fields: # we are not keeping the key
+                do_parent_projection = True
+                child_fields  = set()
+                child_fields |= fields
+                child_fields |= key
         for i, child in enumerate(self.children):
             old_child_callback= child.get_callback()
-            self.children[i] = child.optimize_projection(fields)
+            self.children[i] = child.optimize_projection(child_fields)
             self.children[i].set_callback(old_child_callback)
+        if do_parent_projection:
+            print "inserting projection for parent_fields"
+            old_self_callback = self.get_callback()
+            projection = Projection(self, fields)
+            projection.set_callback(old_self_callback)
+            return projection
         return self

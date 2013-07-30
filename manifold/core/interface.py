@@ -173,6 +173,7 @@ class Interface(object):
         return self.g_3nf.find_node(table_name).get_keys()
 
     def forward(self, query, is_deferred=False, execute=True, user=None):
+        Log.info("Incoming query: %r" % query)
         # if Interface is_deferred  
         d = defer.Deferred() if is_deferred else None
 
