@@ -55,11 +55,11 @@ class LeftJoin(Node):
         else:
             old_cb = left_child.get_callback()
             self.left_done = False
-            Log.tmp("Set left_callback on node ", left_child)
+            #Log.tmp("Set left_callback on node ", left_child)
             left_child.set_callback(self.left_callback)
             self.set_callback(old_cb)
 
-        Log.tmp("Set right_callback on node ", right_child)
+        #Log.tmp("Set right_callback on node ", right_child)
         right_child.set_callback(self.right_callback)
 
         if isinstance(left_child, list):
@@ -166,7 +166,7 @@ class LeftJoin(Node):
         \brief Process records received by the left child
         \param record A dictionary representing the received record 
         """
-        Log.tmp("left_callback: record = %r" % record)
+        #Log.tmp("left_callback: record = %r" % record)
         if record == LAST_RECORD:
             # left_done. Injection is not the right way to do this.
             # We need to insert a filter on the key in the right member
@@ -176,7 +176,7 @@ class LeftJoin(Node):
             self.right.set_callback(self.right_callback) # already done in __init__ ?
 
             self.left_done = True
-            Log.tmp("starting right child", self.right)
+            #Log.tmp("starting right child", self.right)
             self.right.start()
             return
 
@@ -188,21 +188,25 @@ class LeftJoin(Node):
             self.send(record)
 
         # Store the result in a hash for joining later
-        self.left_map[Record.get_value(record, self.predicate.key)] = record
+        hash_key = Record.get_value(record, self.predicate.key)
+        if not hash_key in self.left_map:
+            self.left_map[hash_key] = []
+        self.left_map[hash_key].append(record)
 
     def right_callback(self, record):
         """
         \brief Process records received by the right child
         \param record A dictionary representing the received record 
         """
-        Log.tmp("right_callback: record = %r" % record)
+        #Log.tmp("right_callback: record = %r" % record)
         if record == LAST_RECORD:
             # Send records in left_results that have not been joined...
-            for left_record in self.left_map.values():
-                Log.tmp("right_callback: sending ", record)
-                self.send(left_record)
+            for left_record_list in self.left_map.values():
+                for left_record in left_record_list:
+                #Log.tmp("right_callback: sending ", record)
+                    self.send(left_record)
             # ... and terminates
-            Log.tmp("right_callback: sending LAST_RECORD")
+            #Log.tmp("right_callback: sending LAST_RECORD")
             self.send(LAST_RECORD)
             return
 
@@ -215,10 +219,10 @@ class LeftJoin(Node):
         # We expect to receive information about keys we asked, and only these,
         # so we are confident the key exists in the map
         # XXX Dangers of duplicates ?
-        key = record[self.predicate.value]
-        left_record = self.left_map[key]
-        left_record.update(record)
-        self.send(left_record)
+        key = Record.get_value(record, self.predicate.value)
+        for left_record in self.left_map[key]:
+            left_record.update(record)
+            self.send(left_record)
 
         del self.left_map[key]
 

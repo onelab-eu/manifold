@@ -154,16 +154,13 @@ class Union(Node):
         return self
 
     def optimize_projection(self, fields):
-        print "UNION.optimize_projection()"
         # UNION: apply projection to all children
         # XXX in case of UNION with duplicate elimination, we need the key
         # until then, apply projection to all children
         #self.query.fields = fields
         do_parent_projection = False
         if self.distinct:
-            print "DISTINCT - fields were", fields
             key = self.key.get_field_names()
-            print "key =", key
             if key not in fields: # we are not keeping the key
                 do_parent_projection = True
                 child_fields  = set()
@@ -174,7 +171,6 @@ class Union(Node):
             self.children[i] = child.optimize_projection(child_fields)
             self.children[i].set_callback(old_child_callback)
         if do_parent_projection:
-            print "inserting projection for parent_fields"
             old_self_callback = self.get_callback()
             projection = Projection(self, fields)
             projection.set_callback(old_self_callback)

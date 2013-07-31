@@ -133,6 +133,8 @@ class Shell(object):
         # XXX this line will differ between xmlrpc and local calls
         if Options().xmlrpc:
             # XXX The XMLRPC server might not require authentication
+            print "QUERY", query
+            print "QUERY.to_dict", query.to_dict()
             if not Options().anonymous:
                 return self.interface.forward(self.auth, query.to_dict())
             else:
