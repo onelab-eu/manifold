@@ -27,7 +27,7 @@ class XMLRPCAPI(xmlrpc.XMLRPC, object):
                             v(*args, **kwargs)
                         except:
                             ret = dict(ResultValue(
-                               origin      = (ResultValue.CORE, self.__class__.__name__),
+                               origin      = (ResultValue.CORE, cls.__class__.__name__),
                                type        = ResultValue.ERROR,
                                code        = ResultValue.ERROR,
                                description = str(e),
