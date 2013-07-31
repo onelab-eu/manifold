@@ -157,9 +157,6 @@ class SubQuery(Node):
                         else:
                             filter_pred = Predicate(value, included, parent_ids)
                     else:
-                        print "KEY", key
-                        print "self.parent_output=", self.parent_output
-                        print "RELATION", relation
                         parent_ids = []
                         for parent_record in self.parent_output:
                             record = Record.get_value(parent_record, key)
