@@ -233,7 +233,7 @@ class SFAGateway(Gateway):
         try:
             user = db.query(User).filter(User.email == user_email).one()
         except Exception, e:
-            raise Exception, 'Missing user: %s' % str(e)
+            raise Exception, 'Missing user %s: %s' % (user_email, str(e))
         # Get platform
         platform = db.query(Platform).filter(Platform.platform == self.platform).one()
         
