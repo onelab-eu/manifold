@@ -15,6 +15,8 @@ from manifold.util.options import Options
 from manifold.input.sql    import SQLParser
 from manifold.auth         import Auth
 
+import json
+
 # This could be moved outside of the Shell
 DEFAULT_USER     = 'demo'
 DEFAULT_PASSWORD = 'demo'
@@ -69,10 +71,17 @@ class Shell(object):
             help = "Use anonymous authentication", 
             default = False 
         )
+        opt.add_option(
+            "-e", "--execute", dest = "execute",
+            help = "Execute a shell command", 
+            default = None
+        )
         #parser.add_option("-m", "--method", help = "API authentication method")
         #parser.add_option("-s", "--session", help = "API session key")
 
     def __init__(self, interactive=False):
+        self.interactive = interactive
+
         if not Options().anonymous:
             # If user is specified but password is not
             username = Options().username
@@ -110,21 +119,22 @@ class Shell(object):
             mode_str      = 'local'
             interface_str = ''
 
-        msg = "Shell using %(mode_str)s"
-        if not Options().anonymous:
-            msg += " account %(username)r"
-        msg += "%(interface_str)s"
-        Log.info(msg, **locals())
+        if self.interactive:
+            msg = "Shell using %(mode_str)s"
+            if not Options().anonymous:
+                msg += " account %(username)r"
+            msg += "%(interface_str)s"
+            Log.info(msg, **locals())
 
-        if not Options().anonymous:
-            if Options().xmlrpc:
-                try:
-                    self.interface.AuthCheck(self.auth)
-                    Log.info('Authentication successful')
-                except:
-                    Log.error('Authentication error')
-            else:
-                self.auth = Auth(self.auth).check()
+            if not Options().anonymous:
+                if Options().xmlrpc:
+                    try:
+                        self.interface.AuthCheck(self.auth)
+                        Log.info('Authentication successful')
+                    except:
+                        Log.error('Authentication error')
+                else:
+                    self.auth = Auth(self.auth).check()
 
     def terminate(self):
         if not Options().xmlrpc: self.interface.__exit__()
@@ -133,8 +143,6 @@ class Shell(object):
         # XXX this line will differ between xmlrpc and local calls
         if Options().xmlrpc:
             # XXX The XMLRPC server might not require authentication
-            print "QUERY", query
-            print "QUERY.to_dict", query.to_dict()
             if not Options().anonymous:
                 return self.interface.forward(self.auth, query.to_dict())
             else:
@@ -151,8 +159,11 @@ class Shell(object):
     
         ret = ret['value']
     
-        print "===== RESULTS ====="
-        pprint.pprint(ret)
+        if self.interactive:
+            print "===== RESULTS ====="
+            pprint.pprint(ret)
+        else:
+            print json.dumps(ret)
 
     def evaluate(self, command):
         #username, password = Options().username, Options().password
@@ -267,7 +278,13 @@ class Shell(object):
 def main():
 #    Log.init_options()
 #    Options().parse()
-    Shell(interactive=True).start()
+    command = Options().execute
+    if command:
+        s = Shell(interactive=False)
+        s.evaluate(command)
+        s.terminate()
+    else:
+        Shell(interactive=True).start()
 
 Shell.init_options()
     
