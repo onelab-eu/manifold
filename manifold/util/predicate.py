@@ -81,10 +81,10 @@ class Predicate:
         if isinstance(value, (tuple, list, set, frozenset)):
             value = [repr(v) for v in value]
             value = "[%s]" % ", ".join(value)
-        return "%s %s %s" % (key, op, value) 
+        return "%s %s %r" % (key, op, value) 
 
     def __repr__(self):
-        return "Predicate<%s %s %s>" % self.get_str_tuple()
+        return "Predicate<%s %s %r>" % self.get_str_tuple()
 
     def __hash__(self):
         return hash(self.get_tuple())
