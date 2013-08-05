@@ -322,11 +322,15 @@ if __name__ == '__main__':
         pkey      = DEFAULT_PKEY      if l <= 2 else sys.argv[2]
         cert      = DEFAULT_CERT      if l <= 3 else sys.argv[3]
 
-        proxy = SFAProxy(interface, open(pkey).read(), open(cert).read())
-        version = yield proxy.GetVersion()
-
-        pprint.pprint(version)
-        ReactorThread().stop_reactor()
+        try:
+            proxy = SFAProxy(interface, open(pkey).read(), open(cert).read())
+            version = yield proxy.GetVersion()
+            
+            pprint.pprint(version)
+        except Exception, e:
+            print "Exception:", e
+        finally:
+            ReactorThread().stop_reactor()
 
 
     ReactorThread().start_reactor()
