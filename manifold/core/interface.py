@@ -250,6 +250,10 @@ class Interface(object):
                 else:
                     d.callback(output)
                     return d
+                
+                # In fact we would need a simple query plan here instead
+                # Source = list of dict
+                # Result = a list or a deferred
      
         # None is returned to inform child classes they are in charge of the answer
         return None
