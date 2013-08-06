@@ -213,6 +213,43 @@ class Interface(object):
             platform_names = self.metadata.keys()
             if namespace not in platform_names:
                 raise Exception, "Unsupported namespace '%s'" % namespace
+            if table == 'object':
+                output = []
+
+                # XXX Merge this code with get_metadata_objects
+                # XXX support selection and projection...
+                announces = self.metadata[namespace]
+                for announce in announces:
+                    # ANNOUNCE TO DICT ???
+                    table = announce.table
+                    # Build columns from fields
+                    columns = []
+                    for field in table.fields.values():
+                        column = {
+                            'name'       : field.get_name(),
+                            'qualifier'  : field.get_qualifier(),
+                            'type'       : field.type,
+                            'is_array'   : field.is_array(),
+                            'description': field.get_description()
+                        }
+                        columns.append(column)
+
+                    # Add table metadata
+                    output.append({
+                        "table"  : table.get_name(),
+                        "column" : columns
+                        # key
+                        # default
+                        # capabilities
+                    })
+
+                # XXX Factor this code
+                output = ResultValue.get_success(output)
+                if not d:
+                    return output
+                else:
+                    d.callback(output)
+                    return d
      
         # None is returned to inform child classes they are in charge of the answer
         return None

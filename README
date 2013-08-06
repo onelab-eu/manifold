@@ -40,6 +40,7 @@ DEBUG [manifold.core.xmlrpc_api.XMLRPCAPI.xmlrpc_forward] ['xmlrpc_api args = ']
 
 VARIABLES
 - variables are replaced by the same in each query, it seems all platforms from build_union share the same query
+- variables are displayed with quotes in Query
 
 XMLRPC 
 - investigate lock
