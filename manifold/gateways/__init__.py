@@ -36,7 +36,7 @@ class Gateway(object):
     # XXX most of these parameters should not be required to construct a gateway
     # see manifold.core.forwarder for example
     # XXX remove query
-    def __init__(self, interface, platform, query, config, user_config, user):
+    def __init__(self, interface=None, platform=None, query=None, config=None, user_config=None, user=None):
         """
         Constructor
         \param router (THRouter) reference to the router on which the gateways

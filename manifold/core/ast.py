@@ -21,6 +21,7 @@ from manifold.core.field              import Field
 from manifold.core.key                import Key
 from manifold.core.capabilities       import Capabilities
 from manifold.operators.From          import From
+from manifold.operators.from_table    import FromTable
 from manifold.operators.selection     import Selection
 from manifold.operators.projection    import Projection
 from manifold.operators.left_join     import LeftJoin
@@ -87,6 +88,12 @@ class AST(object):
         self.root.set_callback(self.get_callback())
 
         return self
+
+    def from_table(self, query, records, key):
+        self.root = FromTable(query, records, key)
+        self.root.set_callback(self.get_callback())
+        return self
+        
 
     #@returns(AST)
     def union(self, children_ast, key):
@@ -174,8 +181,9 @@ class AST(object):
         \return The AST corresponding to the SELECT 
         """
         assert not self.is_empty(),      "AST not initialized"
-        assert isinstance(fields, list), "Invalid fields = %r (%r)" % (fields, type(fields))
-
+        #assert isinstance(fields, list), "Invalid fields = %r (%r)" % (fields, type(fields))
+        if not fields:
+            return self
         self.root = Projection(self.get_root(), fields)
         return self
 
@@ -189,8 +197,9 @@ class AST(object):
         """
         assert not self.is_empty(),      "AST not initialized"
         assert isinstance(filters, set), "Invalid filters = %r (%r)" % (filters, type(filters))
-        assert filters != set(),         "Empty set of filters"
-
+        #assert filters != set(),         "Empty set of filters"
+        if not filters:
+            return self
         self.root = Selection(self.get_root(), filters)
         return self
 

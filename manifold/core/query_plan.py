@@ -27,9 +27,9 @@ from manifold.core.filter          import Filter
 from manifold.core.ast             import AST
 from manifold.util.predicate       import Predicate, contains, eq
 from manifold.util.type            import returns, accepts
-from manifold.util.callback        import Callback
 from manifold.util.log             import Log
 from manifold.util.misc            import make_list, is_sublist
+from manifold.util.callback        import Callback
 from manifold.models.user          import User
 from manifold.core.result_value    import ResultValue
 from twisted.internet.defer        import Deferred, DeferredList
@@ -355,6 +355,9 @@ class ExploreTask(Deferred):
         return AST().union(from_asts, key)
 
 class QueryPlan(object):
+    """
+    Building a query plan consists in setting the AST and the list of Froms
+    """
 
     def __init__(self):
         # TODO metadata, user should be a property of the query plan
@@ -490,7 +493,6 @@ class QueryPlan(object):
             self.ast.optimize_projection(add_projection)
 
         self.inject_at(query)
-        self.ast.dump()
 
     def execute(self, deferred=None):
         # create a Callback object with deferred object as arg
@@ -513,6 +515,7 @@ class QueryPlan(object):
         # Formating results triggered when deferred get results
         deferred.addCallback(lambda results:ResultValue.get_result_value(results, self.get_result_value_array()))
         return deferred
+
 
     def dump(self):
         self.ast.dump()
