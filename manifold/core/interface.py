@@ -197,19 +197,21 @@ class Interface(object):
         if namespace == self.LOCAL_NAMESPACE:
             if table == 'object':
                 output = self.get_metadata_objects()
+                qp = QueryPlan()
+                qp.ast.from_table(query, output, key=None).selection(query.get_where()).projection(query.get_select())
+                return qp.execute(d)
             else:
                 q = query.copy()
                 q.object = table
                 output =  Storage.execute(q, user=user)
-
-            output = ResultValue.get_success(output)
-            #Log.tmp("output=",output)
-            # if Interface is_deferred
-            if not d:
-                return output
-            else:
-                d.callback(output)
-                return d
+                output = ResultValue.get_success(output)
+                #Log.tmp("output=",output)
+                # if Interface is_deferred
+                if not d:
+                    return output
+                else:
+                    d.callback(output)
+                    return d
         elif namespace:
             platform_names = self.metadata.keys()
             if namespace not in platform_names:
