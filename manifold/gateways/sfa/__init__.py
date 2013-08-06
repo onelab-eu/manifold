@@ -1289,7 +1289,6 @@ class SFAGateway(Gateway):
 
     @defer.inlineCallbacks
     def start(self):
-        print "SFA GW START"
         super(SFAGateway, self).start()
         try:
             assert self.query, "Cannot run gateway with not query associated: %s" % self.platform
