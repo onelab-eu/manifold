@@ -1,6 +1,7 @@
 from manifold.gateways          import Gateway
 from manifold.core.platform     import Platform
 from manifold.core.query        import Query
+from manifold.core.query_plan   import QueryPlan
 from manifold.util.storage      import DBStorage as Storage
 from manifold.models            import *
 from manifold.core.result_value import ResultValue
@@ -243,13 +244,16 @@ class Interface(object):
                         # capabilities
                     })
 
-                # XXX Factor this code
-                output = ResultValue.get_success(output)
-                if not d:
-                    return output
-                else:
-                    d.callback(output)
-                    return d
+                qp = QueryPlan()
+                qp.ast.from_table(query, output, key=None).selection(query.get_where()).projection(query.get_select())
+                return qp.execute(d)
+
+                #output = ResultValue.get_success(output)
+                #if not d:
+                #    return output
+                #else:
+                #    d.callback(output)
+                #    return d
                 
                 # In fact we would need a simple query plan here instead
                 # Source = list of dict

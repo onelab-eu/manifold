@@ -38,6 +38,10 @@ manifold>>> select slice_hrn, resource.resource_hrn from slice where slice_hrn =
 DEBUG [manifold.core.xmlrpc_api.XMLRPCAPI.xmlrpc_forward] ['xmlrpc_api args = '] [{'AuthMethod': 'session', 'session': 'y3kDctjqyTugELXBjPodabm0VGPWInVk+/aY6BmNX8g='}, {'action': 'get', 'fields': ['slice_hrn', 'lease.start_time', 'lease.duration', 'lease.urn', 'lease.granularity', 'lease.slice_id'], 'object': 'slice', 'params': [], 'filters': [['slice_hrn', '=', 'ple.upmc.myslicedemo']]}] 
 --------------------------------------------------------------------------------
 
+METADATA
+- platform name in announces should not be set by the platform
+- be careful in make_announces,we need the platform to set weird fields...
+
 VARIABLES
 - variables are replaced by the same in each query, it seems all platforms from build_union share the same query
 - variables are displayed with quotes in Query

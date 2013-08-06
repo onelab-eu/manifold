@@ -1,4 +1,7 @@
-from manifold.operators.From import From
+from manifold.operators         import LAST_RECORD
+from manifold.operators.From    import From
+from manifold.core.query        import Query
+from manifold.core.capabilities import Capabilities
 
 DUMPSTR_FROMTABLE  = "SELECT %s FROM [%r, ...]" 
 

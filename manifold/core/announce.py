@@ -10,7 +10,7 @@
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 #   Jordan Augé <jordan.auge@lip6.fr>
 
-import os, re
+import os, re, functools
 #from manifold.metadata.MetadataClass    import MetadataClass
 from manifold.core.table              import Table
 from manifold.core.capabilities       import Capabilities
@@ -250,6 +250,14 @@ def import_string_h(string, platform):
     (classes, enum) = parse_dot_h(iter(string))
     check_class_consistency(classes)
     return make_announces(classes, platform)
+
+def announces_from_docstring(platform):
+    def decorator(fn):
+        @functools.wraps(fn) # We might need to write our own wrapper to properly document the function
+        def new(*args, **kwargs):
+            return import_string_h(fn.__doc__, platform)
+        return new
+    return decorator
 
 #------------------------------------------------------------------
 # Announce
