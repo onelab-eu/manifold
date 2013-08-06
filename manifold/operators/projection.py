@@ -34,6 +34,8 @@ def do_projection(record, fields):
         # record[method] is an array whose all elements must be
         # filtered according to subfields
         arr = []
+        if not method in record:
+            continue
         for x in record[method]:
             arr.append(do_projection(x, subfields))
         ret[method] = arr
