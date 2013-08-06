@@ -1195,7 +1195,13 @@ class SFAGateway(Gateway):
         # Get server capabilities
         server_version = yield self.get_cached_server_version(self.sliceapi)
         type_version = set()
+
         # Versions matching to Gateway capabilities
+        # We are implementing a negociation here:
+        #  - remotely supported RSpec versions: geni_ad_rspec_versions
+        #  - locally supported (SFAv1, GENIv3)
+        # We build a list of supported tuples (type, version), and search a RSpec model in the intersection
+        print "SERVER VERSION", server_version
         v = server_version['geni_ad_rspec_versions']
         for w in v:
             x = (w['type'], w['version'])
@@ -1203,7 +1209,8 @@ class SFAGateway(Gateway):
         local_version  = set([('SFA', '1'), ('GENI', '3')])
         common_version = type_version & local_version
 
-        # TODO: Handle unkown verison of RSpec 
+        # TODO: Handle unkown verison of RSpec
+        # We are using SFAv1 by default otherwise
         if not common_version:
             common_version.add(('SFA','1'))
 
@@ -1282,6 +1289,8 @@ class SFAGateway(Gateway):
 
     @defer.inlineCallbacks
     def start(self):
+        print "SFA GW START"
+        super(SFAGateway, self).start()
         try:
             assert self.query, "Cannot run gateway with not query associated: %s" % self.platform
 

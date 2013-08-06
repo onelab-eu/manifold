@@ -35,6 +35,7 @@ class Gateway(object):
 
     # XXX most of these parameters should not be required to construct a gateway
     # see manifold.core.forwarder for example
+    # XXX remove query
     def __init__(self, interface, platform, query, config, user_config, user):
         """
         Constructor
@@ -61,8 +62,37 @@ class Gateway(object):
         self.callback       = None
         self.result_value   = []
 
+    def get_variables(self):
+        variables = {}
+        # Authenticated user
+        variables['user_email'] = self.user.email
+        for k, v in self.user.get_config().items():
+            if isinstance(v, StringTypes) and not 'credential' in v:
+                variables[k] = v
+        # Account information of the authenticated user
+        for k, v in self.user_config.items():
+            if isinstance(v, StringTypes) and not 'credential' in v:
+                variables[k] = v
+        Log.tmp(variables)
+        return variables
+
     def start(self):
-        print "Gateway: You must implement start() method in your Gateway"
+        # Replaces variables in the Query (predicate in filters and parameters)
+        filter = self.query.get_where()
+        params = self.query.get_params()
+        variables = self.get_variables()
+        for predicate in filter:
+            value = predicate.get_value()
+            if value[0] == '$':
+                var = value[1:]
+                if var in variables:
+                    Log.tmp("SETTING VARIABLE $%s as %s" % (var, variables[var]))
+                    predicate.set_value(variables[var])
+        for key, value in params.items():
+            if value[0] == '$':
+                var = value[1:]
+                if var in variables and isinstance(variables[var], StringTypes):
+                    params[k] = variables[var]
 
     @returns(StringTypes)
     def get_platform(self):

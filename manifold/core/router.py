@@ -9,7 +9,6 @@ from manifold.core.table            import Table
 from manifold.gateways              import Gateway
 from manifold.models                import *
 from manifold.core.dbnorm           import to_3nf 
-from manifold.core.dbgraph          import DBGraph
 from manifold.core.query_plan       import QueryPlan
 from manifold.util.type             import returns, accepts
 from manifold.gateways.sfa          import ADMIN_USER

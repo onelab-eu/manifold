@@ -93,7 +93,7 @@ class Interface(object):
                 # For default, take myslice account
                 elif platform.auth_type == 'user':
                     # User account information
-                    accounts = [a for a in user.accounts if a.platform == platform.name]
+                    accounts = [a for a in user.accounts if a.platform.platform == platform.name]
                     if accounts:
                         #raise Exception, 'No such account'
                         account = accounts[0]

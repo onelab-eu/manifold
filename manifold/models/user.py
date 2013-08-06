@@ -10,11 +10,21 @@ class User(Base):
     config = Column(String, doc="User config (serialized in JSON)")
 
     def config_set(self, value):
+        #Log.deprecated()
+        return self.set_config(value)
+        
+    def set_config(self, value):
         self.config = json.dumps(value)
         db.add(self)
         db.commit()
         
     def config_get(self):
+        #Log.deprecated()
+        return self.get_config()
+
+    def get_config(self):
+        if not self.config:
+            return {}
         return json.loads(self.config)
 
     @staticmethod
