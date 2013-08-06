@@ -77,7 +77,7 @@ class MetadataEnum:
 # .h file parsing
 #------------------------------------------------------------------
 
-def import_file_h(filename):
+def parse_dot_h(iterable):
     """
     \brief Import a .h file (see manifold.metadata/*.h)
     \param filename The path of the .h file
@@ -92,18 +92,13 @@ def import_file_h(filename):
     \sa MetadataClass.py
     \sa Field.py
     """
-    # Load file
-    fp = open(filename, "r")
-    lines  = fp.readlines()
-    fp.close()
-
     # Parse file
     cur_class_name = None
     cur_enum_name = None
     classes = {}
     enums   = {}
     no_line = -1
-    for line in lines:
+    for line in iterable:
         line = line.rstrip("\r\n")
         is_valid = True
         no_line += 1
@@ -218,6 +213,44 @@ def import_file_h(filename):
 
     return (classes, enums)
 
+
+def make_announces(classes, platform):
+    announces = []
+    for t in classes.values():
+        t.set_partitions(platform) # XXX This is weird
+        announces.append(Announce(t))
+    return announces
+
+def check_class_consistency(classes):
+    # Check class consistency
+    for cur_class_name, cur_class in classes.items():
+        invalid_keys = cur_class.get_invalid_keys()
+        if invalid_keys:
+            raise ValueError("In %s: in class %r: key(s) not found: %r" % (filename, cur_class_name, invalid_keys))
+
+    # Rq: We cannot check type consistency while a table might refer to types provided by another file.
+    # Thus we can't use get_invalid_types yet
+
+def import_file_h(filename, platform):
+    f = open(filename, 'r')
+    (classes, enum) = parse_dot_h(f)
+    f.close()
+    check_class_consistency(classes)
+    return make_announces(classes, platform)
+        
+def import_string_h(string, platform):
+    # We build an iterator on the lines in the string
+    def iter(string):
+        prevnl = -1
+        while True:
+          nextnl = string.find('\n', prevnl + 1)
+          if nextnl < 0: break
+          yield string[prevnl + 1:nextnl]
+          prevnl = nextnl
+    (classes, enum) = parse_dot_h(iter(string))
+    check_class_consistency(classes)
+    return make_announces(classes, platform)
+
 #------------------------------------------------------------------
 # Announce
 #------------------------------------------------------------------
@@ -247,6 +280,7 @@ class Announces(object):
         Log.debug("Loading headers (static routes)")
         return self.import_file_h(STATIC_ROUTES_FILE, platform_name, gateway_type)
 
+
     @classmethod
     def import_file_h(self, directory, platform, gateway_type):
         """
@@ -270,25 +304,28 @@ class Announces(object):
 
         # Read input file
         Log.debug("Platform %s: Processing %s" % (platform, filename))
-        (classes, enums) = import_file_h(filename)
-
-        # Check class consistency
-        for cur_class_name, cur_class in classes.items():
-            invalid_keys = cur_class.get_invalid_keys()
-            if invalid_keys:
-                raise ValueError("In %s: in class %r: key(s) not found: %r" % (filename, cur_class_name, invalid_keys))
-
-        # Rq: We cannot check type consistency while a table might refer to types provided by another file.
-        # Thus we can't use get_invalid_types yet
-
-        announces = []
-        for t in classes.values():
-            t.set_partitions(platform) # XXX This is weird
-            announces.append(Announce(t))
-        return announces
+        return import_file_h(filename, platform)
 
     @classmethod
     def get_announces(self, metadata):
         return [Announce(t) for t in metadata.get_announce_tables()]
         
-        
+if __name__ == '__main__':
+    string = """
+class traceroute {
+    agent       agent;          /**< The measurement agent */
+    destination destination;    /**< The target IP */
+    hop         hops[];         /**< IP hops discovered on the measurement */
+    unsigned    hop_count;      /**< Number of IP hops */
+    timestamp   first;          /**< Birth date of this IP path */
+    timestamp   last;           /**< Death date of this IP path */
+
+    CAPABILITY(join, selection, projection);
+#CAPABILITY(retrieve, join, selection, projection);
+    KEY(agent, destination);
+}; 
+    """
+    import pprint
+    announces = import_string_h(string, 'local')
+    pprint.pprint(announces)
+    
