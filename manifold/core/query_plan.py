@@ -104,7 +104,7 @@ class ExploreTask(Deferred):
                 new_filter.add(pred)
         query.filter_by(None).filter_by(new_filter)
 
-    def explore(self, stack, missing_fields, metadata, allowed_capabilities, user, seen_set, query_plan):
+    def explore(self, stack, missing_fields, metadata, allowed_platforms, allowed_capabilities, user, seen_set, query_plan):
         
         #Log.tmp("Search in ", self.root.get_name(), "for fields", missing_fields, 'path=', self.path, "SEEN SET =", seen_set)
         relations_11, relations_1N, relations_1Nsq = (), {}, {}
@@ -158,7 +158,7 @@ class ExploreTask(Deferred):
         if self.keep_root_a:
             # XXX NOTE that we have built an AST here without taking into account fields for the JOINs and SUBQUERIES
             # It might not pose any problem though if they come from the optimization phase
-            self.ast = self.build_union(self.root, self.keep_root_a, metadata, user, query_plan)
+            self.ast = self.build_union(self.root, self.keep_root_a, allowed_platforms, metadata, user, query_plan)
 
         if self.depth == MAX_DEPTH:
             self.callback(self.ast)
@@ -191,26 +191,26 @@ class ExploreTask(Deferred):
                     
                 else:
                     task = ExploreTask(neighbour, relation, self.path, self.parent, self.depth)
-                    task.addCallback(self.perform_left_join, relation, metadata, user, query_plan)
+                    task.addCallback(self.perform_left_join, relation, allowed_platforms, metadata, user, query_plan)
 
                     priority = TASK_11
 
                 deferred_list.append(task)
                 stack.push(task, priority)
 
-        DeferredList(deferred_list).addCallback(self.all_done, metadata, user, query_plan)
+        DeferredList(deferred_list).addCallback(self.all_done, allowed_platforms, metadata, user, query_plan)
 
-    def all_done(self, result, metadata, user, query_plan):
+    def all_done(self, result, allowed_platforms, metadata, user, query_plan):
         #Log.debug("DONE", self, result)
         #for (success, value) in result:
         #    if not success:
         #        raise value.trap(Exception)
         #        continue
         if self.subqueries:
-            self.perform_subquery(metadata, user, query_plan)
+            self.perform_subquery(allowed_platforms, metadata, user, query_plan)
         self.callback(self.ast)
 
-    def perform_left_join(self, ast, relation, metadata, user, query_plan):
+    def perform_left_join(self, ast, relation, allowed_platforms, metadata, user, query_plan):
         """
         Args:
             ast: A child AST that must be connected to self.ast using LEFT JOIN 
@@ -223,7 +223,7 @@ class ExploreTask(Deferred):
         if not ast: return
         if not self.ast:
             # XXX not sure about fields
-            self.ast = self.build_union(self.root, self.root.keys.one().get_field_names(), metadata, user, query_plan)
+            self.ast = self.build_union(self.root, self.root.keys.one().get_field_names(), allowed_platforms, metadata, user, query_plan)
         self.ast.left_join(ast, relation.get_predicate())
 
     def store_subquery(self, ast, relation):
@@ -231,7 +231,7 @@ class ExploreTask(Deferred):
         if not ast: return
         self.subqueries[relation.get_relation_name()] = (ast, relation)
 
-    def perform_subquery(self, metadata, user, query_plan):
+    def perform_subquery(self, allowed_platforms, metadata, user, query_plan):
         # We need to build an AST just to collect subqueries
         # XXX metadata not defined
         #if not self.ast:
@@ -240,7 +240,7 @@ class ExploreTask(Deferred):
             fields = set()
             for _, (_, relation) in self.subqueries.items():
                 fields |= relation.get_predicate().get_field_names()
-            self.ast = self.build_union(self.root, fields, metadata, user, query_plan)
+            self.ast = self.build_union(self.root, fields, allowed_platforms, metadata, user, query_plan)
         
         # How do i know that i have an onjoin table
         if self.root.get_name() == 'traceroute': # not root.capabilities.retrieve:
@@ -270,7 +270,7 @@ class ExploreTask(Deferred):
         else:
             self.ast.subquery(self.subqueries.values())
 
-    def build_union(self, table, needed_fields, metadata, user, query_plan):
+    def build_union(self, table, needed_fields, allowed_platforms, metadata, user, query_plan):
         Log.debug(table, needed_fields)
         from_asts = list()
         key = table.get_keys().one()
@@ -304,6 +304,9 @@ class ExploreTask(Deferred):
 
                 platform = method.get_platform()
                 capabilities = metadata.get_capabilities(platform, query.object)
+
+                if not platform in allowed_platforms:
+                    continue
 
                 # The platform might be ONJOIN (no retrieve capability), but we
                 # might be able to collect the keys, so we have disabled the following code
@@ -399,7 +402,7 @@ class QueryPlan(object):
                 q.action = query.get_action()
                 q.params = query.get_params()
 
-    def build(self, query, metadata, allowed_capabilities, user = None, qp = None):
+    def build(self, query, metadata, allowed_platforms, allowed_capabilities, user = None, qp = None):
         root = metadata.find_node(query.get_from())
         
         root_task = ExploreTask(root, relation=None, path=[], parent=self, depth=1)
@@ -421,7 +424,7 @@ class QueryPlan(object):
             pathstr = '.'.join(task.path)
             if not pathstr in seen:
                 seen[pathstr] = set()
-            task.explore(stack, missing_fields, metadata, allowed_capabilities, user, seen[pathstr], query_plan = self)
+            task.explore(stack, missing_fields, metadata, allowed_platforms, allowed_capabilities, user, seen[pathstr], query_plan = self)
 
         while not stack.is_empty():
             task = stack.pop()

@@ -37,7 +37,6 @@ class Interface(object):
             self.platforms = [self.platforms]
         #self.tables = []
         for platform in self.platforms:
-            print "platform", platform
             platform_config = platform.get('config', None)
             if platform_config:
                 platform_config = json.loads(platform_config)
@@ -212,9 +211,7 @@ class Interface(object):
                 return d
         elif namespace:
             platform_names = self.metadata.keys()
-            if namespace in platform_names:
-                return [{'ok': 'ok'}]
-            else:
+            if namespace not in platform_names:
                 raise Exception, "Unsupported namespace '%s'" % namespace
      
         # None is returned to inform child classes they are in charge of the answer
