@@ -73,7 +73,6 @@ class Gateway(object):
         for k, v in self.user_config.items():
             if isinstance(v, StringTypes) and not 'credential' in v:
                 variables[k] = v
-        Log.tmp(variables)
         return variables
 
     def start(self):
@@ -86,7 +85,6 @@ class Gateway(object):
             if value[0] == '$':
                 var = value[1:]
                 if var in variables:
-                    Log.tmp("SETTING VARIABLE $%s as %s" % (var, variables[var]))
                     predicate.set_value(variables[var])
         for key, value in params.items():
             if value[0] == '$':
