@@ -33,7 +33,7 @@ class SQLParser(object):
         kw_at      = pp.CaselessKeyword('at')
         kw_set     = pp.CaselessKeyword('set')
         kw_true    = pp.CaselessKeyword('true').setParseAction(lambda t: 1)
-        kw_false   = pp.CaselessKeyword('false') .setParseAction(lambda t: 0)
+        kw_false   = pp.CaselessKeyword('false').setParseAction(lambda t: 0)
 
         # Regex string representing the set of possible operators
         # Example : ">=|<=|!=|>|<|="
@@ -42,7 +42,8 @@ class SQLParser(object):
         # predicate
         field      = pp.Word(pp.alphanums + '_' + '.')
         operator   = pp.Regex(OPERATOR_RX).setName("operator")
-        value      = pp.QuotedString('"') | kw_true | kw_false | integer 
+        variable   = pp.Literal('$').suppress() + pp.Word(pp.alphanums + '_' + '.').setParseAction(lambda t: "$%s" % t[0])
+        value      = pp.QuotedString('"') | kw_true | kw_false | integer | variable
         value_list = value | pp.Literal("[").suppress() + pp.delimitedList(value).setParseAction(lambda tokens: tuple(tokens.asList())) + pp.Literal("]").suppress()
         
         table      = pp.Word(pp.alphanums + ':_').setResultsName('object')
