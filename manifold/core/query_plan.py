@@ -129,6 +129,12 @@ class ExploreTask(Deferred):
 #DEPRECATED|         # XXX We could return the shortcut to subquery, to inform on how to
 #DEPRECATED|         # process results
 
+        table_name = self.root.get_name() # DEBUG
+        if table_name == "traceroute":
+            Log.tmp("----------------------------------------------------")
+            Log.tmp("self.root.get_name() = %s" % self.root.get_name())
+            Log.tmp("missing_fields       = %s" % missing_fields)
+
         root_provided_fields = self.root.get_field_names()
         root_key_fields = self.root.keys.one().get_field_names()
 
@@ -137,18 +143,18 @@ class ExploreTask(Deferred):
         for field in root_provided_fields:
             for missing in list(missing_fields):
                 # missing has dots inside
+                # hops.ttl --> missing_path == ["hops"] missing_field == ["ttl"]
                 missing_list = missing.split('.')
                 missing_path, (missing_field,) = missing_list[:-1], missing_list[-1:]
-                # Missing fields that the current table is providing
                 flag, shortcut = is_sublist(missing_path, self.path) #self.path, missing_path)
+
                 if flag and missing_field == field:
                     #print 'current table provides missing field PATH=', self.path, 'field=', field, 'missing=', missing
                     self.keep_root_a.add(field)
 
                     # We won't search those fields in subsequent explorations,
                     # unless the belong to the key of an ONJOIN table
-                    is_onjoin = (self.root.get_name() == 'traceroute') # not root.capabilities.retrieve:
-                    Log.warning("HARDCODED TRACEROUTE AS ONJOIN")
+                    is_onjoin = self.root.capabilities.is_onjoin()
                     
                     if not is_onjoin or field not in root_key_fields:
                         missing_fields.remove(missing)
@@ -162,17 +168,20 @@ class ExploreTask(Deferred):
 
         if self.depth == MAX_DEPTH:
             self.callback(self.ast)
+            if table_name == "traceroute": Log.tmp("leaving")
             return
 
         # In all cases, we have to list neighbours for returning 1..N relationships. Let's do it now. 
+        if table_name == "traceroute": Log.tmp("1..N")
         for neighbour in metadata.graph.successors(self.root):
             for relation in metadata.get_relations(self.root, neighbour):
-
-
                 name = relation.get_relation_name()
+
                 if name in seen_set:
                     continue
+
                 seen_set.add(name)
+
                 if relation.requires_subquery():
                     subpath = self.path[:]
                     subpath.append(name)
@@ -192,7 +201,6 @@ class ExploreTask(Deferred):
                 else:
                     task = ExploreTask(neighbour, relation, self.path, self.parent, self.depth)
                     task.addCallback(self.perform_left_join, relation, allowed_platforms, metadata, user, query_plan)
-
                     priority = TASK_11
 
                 deferred_list.append(task)
@@ -243,7 +251,9 @@ class ExploreTask(Deferred):
             self.ast = self.build_union(self.root, fields, allowed_platforms, metadata, user, query_plan)
         
         # How do i know that i have an onjoin table
-        if self.root.get_name() == 'traceroute': # not root.capabilities.retrieve:
+        Log.warning("HARDCODED test onjoin")
+        if self.root.get_name() == 'traceroute':
+        #if self.root.capabilities.is_onjoin(): # in g_3nf, Table instances do not have Capabilities
             # Let's identify tables involved in the key
             root_key_fields = self.root.keys.one().get_field_names()
             xp_ast_relation, sq_ast_relation = [], []
@@ -261,7 +271,8 @@ class ExploreTask(Deferred):
 
             ast = self.ast
 
-            ast.subquery(sq_ast_relation)
+            if sq_ast_relation:
+                ast.subquery(sq_ast_relation)
             q = Query.action('get', self.root.get_name()).select(set(xp_key))
             self.ast = AST().cross_product(xp_ast_relation, q)
             predicate = Predicate(xp_key, eq, xp_value)
