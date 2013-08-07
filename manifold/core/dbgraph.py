@@ -244,33 +244,33 @@ class DBGraph(object):
     def get_field_type(self, table, field_name):
         return self.find_node(table).get_field_type(field_name)
 
-    # FORGET ABOUT THIS METHOD, NOT USED ANYMORE
-    def iter_tables(self, root):
-        seen = []
-        stack = [(None, root, None)]
-
-        stack_11 = ()
-        stack_1N = ()
-
-        def iter_tables_rec(u, v, relation):
-            # u = pred, v = current, relation(u->v)
-
-            if v in seen: return
-            seen.append(v)
-
-            stack_11 += ((u, v, relation),)
-
-            for neighbour in self.graph.successors(v):
-                for relation in self.get_relations(v, neighbour):
-                    if relation.get_type() in [Relation.types.LINK_1N, Relation.types.LINK_1N_BACKWARDS]:
-                        # 1..N will be explored later, push on stack
-                        stack_1N += ((v, neighbour, relation),)
-                        continue
-                    iter_tables_rec(v, neighbour, relation)
-
-        iter_tables_rec(None, root, None)
-
-        return (stack_11, stack_1N)
+#DEPRECATED|     # FORGET ABOUT THIS METHOD, NOT USED ANYMORE
+#DEPRECATED|     def iter_tables(self, root):
+#DEPRECATED|         seen = []
+#DEPRECATED|         stack = [(None, root, None)]
+#DEPRECATED| 
+#DEPRECATED|         stack_11 = ()
+#DEPRECATED|         stack_1N = ()
+#DEPRECATED| 
+#DEPRECATED|         def iter_tables_rec(u, v, relation):
+#DEPRECATED|             # u = pred, v = current, relation(u->v)
+#DEPRECATED| 
+#DEPRECATED|             if v in seen: return
+#DEPRECATED|             seen.append(v)
+#DEPRECATED| 
+#DEPRECATED|             stack_11 += ((u, v, relation),)
+#DEPRECATED| 
+#DEPRECATED|             for neighbour in self.graph.successors(v):
+#DEPRECATED|                 for relation in self.get_relations(v, neighbour):
+#DEPRECATED|                     if relation.get_type() in [Relation.types.LINK_1N, Relation.types.LINK_1N_BACKWARDS]:
+#DEPRECATED|                         # 1..N will be explored later, push on stack
+#DEPRECATED|                         stack_1N += ((v, neighbour, relation),)
+#DEPRECATED|                         continue
+#DEPRECATED|                     iter_tables_rec(v, neighbour, relation)
+#DEPRECATED| 
+#DEPRECATED|         iter_tables_rec(None, root, None)
+#DEPRECATED| 
+#DEPRECATED|         return (stack_11, stack_1N)
 
 # TODO This should be a method of DBGraph and DBGraph should inherits DiGraph
 @accepts(DiGraph)

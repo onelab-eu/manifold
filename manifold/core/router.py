@@ -9,7 +9,6 @@ from manifold.core.table            import Table
 from manifold.gateways              import Gateway
 from manifold.models                import *
 from manifold.core.dbnorm           import to_3nf 
-from manifold.core.dbgraph          import DBGraph
 from manifold.core.query_plan       import QueryPlan
 from manifold.util.type             import returns, accepts
 from manifold.gateways.sfa          import ADMIN_USER
@@ -72,10 +71,18 @@ class Router(Interface):
         ret = super(Router, self).forward(query, is_deferred, execute, user)
         if ret: return ret
 
+        # Code duplication with Interface() class
+        if ':' in query.object:
+            namespace, table = query.object.rsplit(':', 2)
+            query.object = table
+            allowed_platforms = [p['platform'] for p in self.platforms if p['platform'] == namespace]
+        else:
+            allowed_platforms = [p['platform'] for p in self.platforms]
+
         # We suppose we have no namespace from here
         if not execute: 
             qp = QueryPlan()
-            qp.build(query, self.g_3nf, self.allowed_capabilities, user)
+            qp.build(query, self.g_3nf, allowed_platforms, self.allowed_capabilities, user)
 
             print ""
             print "QUERY PLAN:"
@@ -112,7 +119,7 @@ class Router(Interface):
 
         # Building query plan
         qp = QueryPlan()
-        qp.build(query, self.g_3nf, self.allowed_capabilities, user)
+        qp.build(query, self.g_3nf, allowed_platforms, self.allowed_capabilities, user)
 
         print ""
         print "QUERY PLAN:"

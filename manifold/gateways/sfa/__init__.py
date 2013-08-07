@@ -233,7 +233,7 @@ class SFAGateway(Gateway):
         try:
             user = db.query(User).filter(User.email == user_email).one()
         except Exception, e:
-            raise Exception, 'Missing user: %s' % str(e)
+            raise Exception, 'Missing user %s: %s' % (user_email, str(e))
         # Get platform
         platform = db.query(Platform).filter(Platform.platform == self.platform).one()
         
@@ -287,16 +287,21 @@ class SFAGateway(Gateway):
             defer.returnValue(json.loads(account.config))
         #return json.loads(new_user_config) if new_user_config else None
 
-    def make_user_proxy(self, interface, user_config, cert_type='gid'):
+    def make_user_proxy(self, interface_url, user_config, cert_type='gid'):
+        """
+        interface (string): 'registry', 'sm' or URL
+        user_config (dict): user configuration
+        cert_type (string): 'gid', 'sscert'
+        """
         pkey    = user_config['user_private_key'].encode('latin1')
         # default is gid, if we don't have it (see manage function) we use self signed certificate
         cert    = user_config[cert_type]
         timeout = self.config['timeout']
 
-        if not interface.startswith('http://') and not interface.startswith('https://'):
-            interface = 'http://' + interface
+        if not interface_url.startswith('http://') and not interface_url.startswith('https://'):
+            interface_url = 'http://' + interface_url
 
-        return SFAProxy(interface, pkey, cert, timeout)
+        return SFAProxy(interface_url, pkey, cert, timeout)
     
     # init self-signed cert, user credentials and gid
     @defer.inlineCallbacks
@@ -311,8 +316,21 @@ class SFAGateway(Gateway):
             self.user_config = new_user_config
 
         # Initialize manager proxies using MySlice Admin account
-        self.registry = self.make_user_proxy(self.config['registry'], self.admin_config)
-        self.sliceapi = self.make_user_proxy(self.config['sm'],       self.admin_config)
+        try:
+            self.registry = self.make_user_proxy(self.config['registry'], self.admin_config)
+            self.sliceapi = self.make_user_proxy(self.config['sm'],       self.admin_config)
+            registry_hrn = yield self.get_interface_hrn(self.registry)
+            sm_hrn       = yield self.get_interface_hrn(self.sliceapi)
+            self.registry.set_network_hrn(registry_hrn)
+            self.sliceapi.set_network_hrn(sm_hrn)
+
+        except Exception, e:
+            print "EXC in boostrap", e
+            import traceback
+            traceback.print_exc()
+            
+
+
 
     def is_admin(self, user):
         if isinstance(user, StringTypes):
@@ -331,9 +349,7 @@ class SFAGateway(Gateway):
             version = cache.get(cache_key)
 
         if not version: 
-            
             result = yield server.GetVersion()
-            Log.debug(result)
             code = result.get('code')
             if code:
                 if code.get('geni_code') > 0:
@@ -1179,7 +1195,13 @@ class SFAGateway(Gateway):
         # Get server capabilities
         server_version = yield self.get_cached_server_version(self.sliceapi)
         type_version = set()
+
         # Versions matching to Gateway capabilities
+        # We are implementing a negociation here:
+        #  - remotely supported RSpec versions: geni_ad_rspec_versions
+        #  - locally supported (SFAv1, GENIv3)
+        # We build a list of supported tuples (type, version), and search a RSpec model in the intersection
+        print "SERVER VERSION", server_version
         v = server_version['geni_ad_rspec_versions']
         for w in v:
             x = (w['type'], w['version'])
@@ -1187,7 +1209,8 @@ class SFAGateway(Gateway):
         local_version  = set([('SFA', '1'), ('GENI', '3')])
         common_version = type_version & local_version
 
-        # TODO: Handle unkown verison of RSpec 
+        # TODO: Handle unkown verison of RSpec
+        # We are using SFAv1 by default otherwise
         if not common_version:
             common_version.add(('SFA','1'))
 
@@ -1266,8 +1289,9 @@ class SFAGateway(Gateway):
 
     @defer.inlineCallbacks
     def start(self):
+        super(SFAGateway, self).start()
         try:
-            assert self.query, "Cannot run gateway with not query associated"
+            assert self.query, "Cannot run gateway with not query associated: %s" % self.platform
 
             self.debug = 'debug' in self.query.params and self.query.params['debug']
 

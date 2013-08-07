@@ -1,4 +1,17 @@
 QUERIES A TESTER
+
+search user and fail...
+SELECT user.hrn,slice.slice_hrn AT now FROM user WHERE user_hrn == "ple.upmc.jordan_auge"
+
+26/07/2013
+OK NOW: unhashable type : list
+select user_hrn, slice.slice_hrn from user where user_hrn == "ple.upmc.jordan_auge"
+
+endless loop
+TODO : missing key in UNION
+SELECT slice.slice_hrn AT now FROM user WHERE user_hrn == "ple.upmc.jordan_auge" 
+
+
 --------------------------------------------------------------------------------
 SELECT resource_hrn FROM resource WHERE slice.slice_hrn=="ple.upmc.myslicedemo"
 --------------------------------------------------------------------------------
@@ -24,6 +37,18 @@ KeyError: 'slice'
 manifold>>> select slice_hrn, resource.resource_hrn from slice where slice_hrn == "ple.upmc.myslice_demo"
 DEBUG [manifold.core.xmlrpc_api.XMLRPCAPI.xmlrpc_forward] ['xmlrpc_api args = '] [{'AuthMethod': 'session', 'session': 'y3kDctjqyTugELXBjPodabm0VGPWInVk+/aY6BmNX8g='}, {'action': 'get', 'fields': ['slice_hrn', 'lease.start_time', 'lease.duration', 'lease.urn', 'lease.granularity', 'lease.slice_id'], 'object': 'slice', 'params': [], 'filters': [['slice_hrn', '=', 'ple.upmc.myslicedemo']]}] 
 --------------------------------------------------------------------------------
+
+QUERY PLAN:
+- better handling of missing fields, to be sure they are not requested later on by the query plan for example
+- how to filter on missing fields ? do we have to consider a N/A value
+
+METADATA
+- platform name in announces should not be set by the platform
+- be careful in make_announces,we need the platform to set weird fields...
+
+VARIABLES
+- variables are replaced by the same in each query, it seems all platforms from build_union share the same query
+- variables are displayed with quotes in Query
 
 XMLRPC 
 - investigate lock
@@ -101,6 +126,9 @@ THEORY
  - predicates in MANIFOLD for prolog like
  - key in NODE ? table == predicate
  - give an example of proof
+
+ROUTER
+ - KeyboardInterrupt during QueryPlan construction hangs 
 
 
 

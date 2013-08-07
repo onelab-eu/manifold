@@ -2,6 +2,7 @@ import traceback
 from types                         import StringTypes
 from manifold.core.filter          import Filter
 from manifold.core.relation        import Relation
+from manifold.core.record          import Record
 from manifold.operators            import Node, ChildStatus, ChildCallback, LAST_RECORD
 from manifold.operators.selection  import Selection
 from manifold.operators.projection import Projection
@@ -17,6 +18,8 @@ DUMPSTR_SUBQUERIES = "<subqueries>"
 class SubQuery(Node):
     """
     SUBQUERY operator (cf nested SELECT statements in SQL)
+        self.parent represents the main query involved in the SUBQUERY operation.
+        self.children represents each subqueries involved in the SUBQUERY operation.
     """
 
     def __init__(self, parent, children_ast_relation_list, key): # KEY DEPRECATED
@@ -93,8 +96,6 @@ class SubQuery(Node):
         # Start the parent first
         self.parent.start()
 
-        
-
     def parent_callback(self, record):
         """
         \brief Processes records received by the parent node
@@ -103,10 +104,20 @@ class SubQuery(Node):
         if record == LAST_RECORD:
             # When we have received all parent records, we can run children
             if self.parent_output:
+                #Log.tmp("parent_callback: starting children %r " % self.children) 
                 self.run_children()
             return
         # Store the record for later...
         self.parent_output.append(record)
+
+    def get_element_key(self, element, key):
+        if isinstance(element, dict):
+            # record
+            return Record.get_value(element, key)
+        else:
+            # id or tuple(id1, id2, ...)
+            return element
+
 
     def run_children(self):
         """
@@ -140,22 +151,39 @@ class SubQuery(Node):
                     # Example: parent has slice_hrn, resource has a reference to slice
                     if relation.get_type() == Relation.types.LINK_1N_BACKWARDS:
                         parent_ids = [record[key] for record in self.parent_output]
-                        filter_pred = Predicate(value, included, parent_ids)
-                    else:
-                        print "self.parent_output=", self.parent_output
-                        print "KEY?", key
-                        if isinstance(key, tuple):
-                            parent_ids = [x for record in self.parent_output if key in record for x in record[key]]
+                        if len(parent_ids) == 1:
+                            parent_id, = parent_ids
+                            filter_pred = Predicate(value, eq, parent_id)
                         else:
-                            parent_ids = [elem for record in self.parent_output if key in record for elem in record[key]]
-                        Log.tmp("="*80)
-                        Log.tmp(parent_ids)
+                            filter_pred = Predicate(value, included, parent_ids)
+                    else:
+                        parent_ids = []
+                        for parent_record in self.parent_output:
+                            record = Record.get_value(parent_record, key)
+                            if not record:
+                                record = []
+                            if relation.get_type() in [Relation.types.LINK_1N, Relation.types.LINK_1N_BACKWARDS]:
+                                # we have a list of elements 
+                                # element = id or dict    : clé simple
+                                #         = tuple or dict : clé multiple
+                                parent_ids.extend([self.get_element_key(r, value) for r in record])
+                            else:
+                                parent_ids.append(self.get_element_key(record, value))
                             
-                        if parent_ids and isinstance(parent_ids[0], dict):
-                            parent_ids = map(lambda x: x[value], parent_ids)
-                        Log.tmp("="*80)
-                        Log.tmp(parent_ids)
-                        filter_pred = Predicate(value, included, parent_ids)
+                        #if isinstance(key, tuple):
+                        #    parent_ids = [x for record in self.parent_output if key in record for x in record[key]]
+                        #else:
+                        #    ##### record[key] = text, dict, or list of (text, dict) 
+                        #    parent_ids = [record[key] for record in self.parent_output if key in record]
+                        #    
+                        #if parent_ids and isinstance(parent_ids[0], dict):
+                        #    parent_ids = map(lambda x: x[value], parent_ids)
+
+                        if len(parent_ids) == 1:
+                            parent_id, = parent_ids
+                            filter_pred = Predicate(value, eq, parent_id)
+                        else:
+                            filter_pred = Predicate(value, included, parent_ids)
 
                     # Injecting predicate
                     old_child_callback= child.get_callback()
@@ -188,6 +216,7 @@ class SubQuery(Node):
             for i, child in enumerate(self.children):
                 self.status.started(i)
             for i, child in enumerate(self.children):
+                #Log.tmp("starting child ", child)
                 child.start()
         except Exception, e:
             print "EEE!", e
@@ -199,7 +228,7 @@ class SubQuery(Node):
          process results stored in the parent.
         """
         try:
-            for o in self.parent_output:
+            for parent_record in self.parent_output:
                 # Dispatching child results
                 for i, child in enumerate(self.children):
 
@@ -215,22 +244,42 @@ class SubQuery(Node):
                         # Predicate: (slice_hrn,) == slice
 
                         # Collect in parent all child such as they have a pointer to the parent
-                        if isinstance(key, StringTypes):
-                            # simple key
-                            ids = o[key] if key in o else []
-                            if ids and isinstance(ids[0], dict):
-                                ids = map(lambda x: x[value], ids)
-                            filter = Filter().filter_by(Predicate(value, included, ids))
+                        record = Record.get_value(parent_record, key)
+                        if not record:
+                            record = []
+                        if not isinstance(record, (list, tuple, set, frozenset)):
+                            record = [record]
+                        if relation.get_type() in [Relation.types.LINK_1N, Relation.types.LINK_1N_BACKWARDS]:
+                            # we have a list of elements 
+                            # element = id or dict    : clé simple
+                            #         = tuple or dict : clé multiple
+                            ids = [self.get_element_key(r, value) for r in record]
                         else:
-                            # Composite key, o[value] is a dictionary
-                            filter = Filter()
-                            for field in value:
-                                filter = filter.filter_by(Predicate(field, included, o[value][field])) # o[value] might be multiple
+                            ids = [self.get_element_key(record, value)]
+                        if len(ids) == 1:
+                            id, = ids
+                            filter = Filter().filter_by(Predicate(value, eq, id))
+                        else:
+                            filter = Filter().filter_by(Predicate(value, included, ids))
 
-                        o[relation.get_relation_name()] = []
+                        #if isinstance(key, StringTypes):
+                        #    # simple key
+                        #    ids = [o[key]] if key in o else []
+                        #    #print "IDS=", ids
+                        #    #if ids and isinstance(ids[0], dict):
+                        #    #    ids = map(lambda x: x[value], ids)
+                        #    # XXX we might have equality instead of IN in case of a single ID
+                        #    print "VALUE", value, "INCLUDED ids=", ids
+                        #    filter = Filter().filter_by(Predicate(value, included, ids))
+                        #else:
+                        #    # Composite key, o[value] is a dictionary
+                        #    for field in value:
+                        #        filter = filter.filter_by(Predicate(field, included, o[value][field])) # o[value] might be multiple
+
+                        parent_record[relation.get_relation_name()] = []
                         for child_record in self.child_results[i]:
                             if filter.match(child_record):
-                                o[relation.get_relation_name()].append(child_record)
+                                parent_record[relation.get_relation_name()].append(child_record)
 
                     elif op == contains:
                         # 1..N
@@ -239,13 +288,13 @@ class SubQuery(Node):
                         # Predicate: user contains (user_hrn, )
 
                         # first, replace records by dictionaries. This only works for non-composite keys
-                        if o[child.query.object]:
-                            record = o[child.query.object][0]
+                        if parent_record[child.query.object]:
+                            record = parent_record[child.query.object][0]
                             if not isinstance(record, dict):
-                                o[child.query.object] = [{value: record} for record in o[child.query.object]]
+                                parent_record[child.query.object] = [{value: record} for record in parent_record[child.query.object]]
 
                         if isinstance(value, StringTypes):
-                            for record in o[child.query.object]:
+                            for record in parent_record[child.query.object]:
                                 # Find the corresponding record in child_results and update the one in the parent with it
                                 for k, v in record.items():
                                     filter = Filter().filter_by(Predicate(value, eq, record[value]))
@@ -253,7 +302,7 @@ class SubQuery(Node):
                                         if filter.match(r):
                                             record.update(r)
                         else:
-                            for record in o[child.query.object]:
+                            for record in parent_record[child.query.object]:
                                 # Find the corresponding record in child_results and update the one in the parent with it
                                 for k, v in record.items():
                                     filter = Filter()
@@ -266,11 +315,13 @@ class SubQuery(Node):
                     else:
                         raise Exception, "No link between parent and child queries"
 
-                self.send(o)
+                self.send(parent_record)
+            #Log.tmp("Sending LAST_RECORD in ", self.identifier, self)
             self.send(LAST_RECORD)
         except Exception, e:
             print "EEE", e
             traceback.print_exc()
+        #Log.tmp("all_done OK", self)
 
     def child_callback(self, child_id, record):
         """
@@ -279,6 +330,7 @@ class SubQuery(Node):
         """
         if record == LAST_RECORD:
             self.status.completed(child_id)
+            #Log.tmp("child %r completed in %r" % (self.children[child_id], self))
             return
         # Store the results for later...
         self.child_results[child_id].append(record)
@@ -309,9 +361,21 @@ class SubQuery(Node):
         return self
 
     def optimize_projection(self, fields):
+        """
+        Propagates projection (SELECT) through a SubQuery node.
+        A field is relevant if:
+            - it is explicitely queried (i.e. it is a field involved in the projection)
+            - it is needed to perform the SubQuery (i.e. it is involved in a Predicate)
+        Args:
+            fields: A frozenset of String containing the fields involved in the projection.
+        Returns:
+            The optimized AST once this projection has been propagated.
+        """
         parent_keys = set()
-        parent_fields = False
+        require_top_projection = False
+        parent_fields = set()
 
+        # Select a "bar" field in a "foo" children if "foo.bar" is explicitely SELECTed.
         for i, child in enumerate(self.children[:]):
             relation = self.relations[i]
             name     = relation.get_relation_name()
@@ -324,16 +388,30 @@ class SubQuery(Node):
                     my_fields.add(f)
 
             predicate = relation.get_predicate()
-            parent_keys   |= predicate.get_field_names()
+            parent_keys |= predicate.get_field_names()
             if not parent_keys <= my_fields:
-                parent_fields = True
+                require_top_projection = True
 
-            child_fields  = my_fields & child.get_query().get_select()
-            child_fields |= predicate.get_value_names()
+            child_fields   = my_fields & child.get_query().get_select()
+            child_fields  |= predicate.get_value_names()
+            parent_fields |= parent_keys 
 
             self.children[i] = child.optimize_projection(child_fields)
 
-        if parent_fields:
+        # Fetch in the main query only the queried fields (in SELECT or WHERE)
+        for field in fields:
+            if '.' in field:
+                table_name, field_name = field.split('.', 1)
+                if table_name == self.parent.get_query().get_from():
+                    parent_fields.add(field_name)
+            else:
+                parent_fields.add(field)
+
+        if parent_fields < self.parent.get_query().get_select():
+            self.parent = self.parent.optimize_projection(parent_fields)
+
+        # At least one children Node requires a Projection Node above this SubQuery Node
+        if require_top_projection:
             return Projection(self, fields)
         return self
             

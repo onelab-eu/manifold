@@ -26,6 +26,7 @@ from manifold.core.announce   import Announces
 from manifold.core.table      import Table
 from manifold.core.field      import Field
 from manifold.core.announce   import Announce
+from manifold.operators       import LAST_RECORD
 from manifold.util.log        import Log
 from manifold.util.predicate  import and_, or_, inv, add, mul, sub, mod, truediv, lt, le, ne, gt, ge, eq, neg, contains
 from manifold.util.type       import accepts, returns
@@ -433,7 +434,7 @@ class PostgreSQLGateway(Gateway):
         """
         sql = PostgreSQLGateway.to_sql(self.query)
         rows = self.selectall(sql, None)
-        rows.append(None)
+        rows.append(LAST_RECORD)
         map(self.send, rows)
         return 
        
@@ -518,9 +519,9 @@ class PostgreSQLGateway(Gateway):
 
     def execute(self, query, params = None, cursor_factory = None):
         """
-        Translate a Manifold Query into a PostgreSQL query and run this query
+        Execute a SQL query on PostgreSQL 
         Args:
-            query: a Query instance
+            query: a String containing a SQL query 
             params: a dictionnary or None if unused 
             cursor_factory: see http://initd.org/psycopg/docs/extras.html
         Returns:
@@ -655,7 +656,7 @@ class PostgreSQLGateway(Gateway):
         if isinstance(x, StringTypes):
             x = "'%s'" % str(x).replace("\\", "\\\\").replace("'", "''")
         elif isinstance(x, (IntType, LongType, FloatType)):
-            pass
+            x = str(x)
         elif x is None:
             x = "NULL"
         elif isinstance(x, (ListType, TupleType)):
@@ -682,7 +683,6 @@ class PostgreSQLGateway(Gateway):
         # The pgdb._quote function is good enough for general SQL
         # quoting, except for array types.
         if isinstance(value, (list, tuple, set, frozenset)):
-            print "VALUE=", value
             return "ARRAY[%s]" % ", ".join(map(PostgreSQLGateway.quote, value))
         else:
             return PostgreSQLGateway._to_sql_value(value)

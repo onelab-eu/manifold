@@ -16,6 +16,9 @@ class Filter(set):
     A filter is a set of predicates
     """
 
+    #def __init__(self, s=()):
+    #    super(Filter, self).__init__(s)
+
     @staticmethod
     def from_list(l):
         f = Filter()
@@ -36,6 +39,13 @@ class Filter(set):
             else:
                 f.add(Predicate(key, '=', value))
         return f
+
+    @staticmethod
+    def from_clause(clause):
+        """
+        NOTE: We can only handle simple clauses formed of AND fields.
+        """
+        raise Exception, "Not implemented"
 
     def filter_by(self, predicate):
         self.add(predicate)

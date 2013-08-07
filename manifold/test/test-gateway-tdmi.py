@@ -23,7 +23,6 @@ from manifold.util.log             import Log
 from manifold.util.options         import Options
 from manifold.util.predicate       import Predicate, eq
 
-Log.init_options()
 Options().parse()
 
 @accepts(dict)
@@ -74,6 +73,9 @@ def run_query(router, query):
         query: The query instance send to the TDMI's router
     """
 
+    print "*" * 80
+    print query
+    print "*" * 80
     print "=" * 80
     result_value = router.forward(query)
     if result_value["code"] == ResultValue.SUCCESS:
@@ -149,13 +151,7 @@ queries = [
 
 #for query in queries:
 #    run_query(router, query)
-print "*" * 80
-print queries[0]
-print "*" * 80
+#run_query(router, queries[1])
 run_query(router, queries[0])
 
-print "*" * 80
-print queries[3]
-print "*" * 80
-run_query(router, queries[3])
 

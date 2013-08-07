@@ -25,9 +25,9 @@ class XMLRPCAPI(xmlrpc.XMLRPC, object):
                     def v_exc_handler(*args, **kwargs):
                         try:
                             v(*args, **kwargs)
-                        except:
+                        except Exception, e:
                             ret = dict(ResultValue(
-                               origin      = (ResultValue.CORE, self.__class__.__name__),
+                               origin      = (ResultValue.CORE, cls.__class__.__name__),
                                type        = ResultValue.ERROR,
                                code        = ResultValue.ERROR,
                                description = str(e),
