@@ -1,6 +1,7 @@
 # Inspired from GENI error codes
 
 import time
+import pprint
 
 class ResultValue(dict):
 
@@ -47,10 +48,8 @@ class ResultValue(dict):
 
     def __init__(self, **kwargs):
         
-        print "KWARGS=", kwargs
         # Checks
         given = set(kwargs.keys())
-        print "given=", given
         cstr_success = set(['code', 'origin', 'value']) <= given
         cstr_error   = set(['code', 'type', 'origin', 'description']) <= given
         assert given <= self.ALLOWED_FIELDS, "Wrong fields in ResultValue constructor: %r" % (given - self.ALLOWED_FIELDS)
@@ -93,6 +92,13 @@ class ResultValue(dict):
 
     def ok_value(self):
         return self['value']
+
+    def error(self):
+        err = "%r" % self['description']
+
+    @staticmethod
+    def to_html (raw_dict):
+        return pprint.pformat (raw_dict).replace("\\n","<br/>")
 
 # 67    <code>
 # 68      <value>9</value>

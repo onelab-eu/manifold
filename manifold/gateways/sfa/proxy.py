@@ -4,9 +4,11 @@
 import os, sys, tempfile
 from manifold.util.reactor_thread import ReactorThread
 from manifold.util.log            import Log
+from manifold.util.singleton      import Singleton
 from twisted.internet             import ssl
 from OpenSSL.crypto               import TYPE_RSA, FILETYPE_PEM
 from OpenSSL.crypto               import load_certificate, load_privatekey
+from twisted.internet             import defer
 
 DEFAULT_TIMEOUT = 20
 
@@ -104,6 +106,53 @@ class CtxFactory(ssl.ClientContextFactory):
         #ctx.set_info_callback(infoCallback)
 
         return ctx
+
+class SFATokenMgr(object):
+    """
+    This singleton class is meant to regulate accesses to the different SFA API
+    since some implementations of SFA such as SFAWrap are suspected to be
+    broken with some configuration of concurrent connections.
+    """
+    __metaclass__ = Singleton
+
+    BLACKLIST = ['ple', 'omf']
+
+    def __init__(self):
+        self.busy     = {} # network -> Bool
+        self.deferred = {} # network -> deferred corresponding to waiting queries
+
+    def get_token(self, network):
+        #print "SFATokenMgr::get_token(network=%r)" % network
+        # We police queries only on blacklisted networks
+        if not network or network not in self.BLACKLIST:
+            return True
+
+        # If the network is not busy, the request can be done immediately
+        if not (network in self.busy and self.busy[network]):
+            return True
+
+        # Otherwise we queue the request and return a Deferred that will get
+        # activated when the queries terminates and triggers a put
+        d = defer.Deferred()
+        if not network in self.deferred:
+            #print "SFATokenMgr::get_token() - Deferring query to %s" % network
+            self.deferred[network] = deque()
+        self.deferred[network].append(d)
+        return d
+
+    def put_token(self, network):
+        #print "SFATokenMgr::put_token(network=%r)" % network
+        # are there items waiting on queue for the same network, if so, there are deferred that can be called
+        # remember that the network is being used for the query == available
+        if not network:
+            return
+        self.busy[network] = False
+        if network in self.deferred and self.deferred[network]:
+            #print "SFATokenMgr::put_token() - Activating deferred query to %s" % network
+            d = self.deferred[network].popleft()
+            d.callback(True)
+        pass
+    
 
 class SFAProxy(object):
     # Twisted HTTPS/XMLRPC inspired from
@@ -205,23 +254,38 @@ class SFAProxy(object):
 
         self.proxy = Proxy(interface, allowNone=True)
         self.proxy.setSSLClientContext(ctx)
-        self.interface = interface
-        self.timeout = timeout
+        self.network_hrn = None
+        self.interface   = interface
+        self.timeout     = timeout
 
     def get_interface(self):
         return self.interface
+
+    def set_network_hrn(self, network_hrn):
+        self.network_hrn = network_hrn
 
     def __getattr__(self, name):
         # We transfer missing methods to the remote server
         def _missing(*args):
             from twisted.internet import defer
             d = defer.Deferred()
-            success_cb = lambda result: d.callback(result)
-            error_cb   = lambda error : d.errback(ValueError("Error in SFA Proxy %s" % error))
+
+            def proxy_success_cb(result):
+                SFATokenMgr().put_token(self.network_hrn)
+                d.callback(result)
+            def proxy_error_cb(error):
+                SFATokenMgr().put_token(self.network_hrn)
+                d.errback(ValueError("Error in SFA Proxy %s" % error))
+
+            #success_cb = lambda result: d.callback(result)
+            #error_cb   = lambda error : d.errback(ValueError("Error in SFA Proxy %s" % error))
             
+            @defer.inlineCallbacks
             def wrap(source, args):
+                token = yield SFATokenMgr().get_token(self.network_hrn)
                 args = (name,) + args
-                return self.proxy.callRemote(*args).addCallbacks(success_cb, error_cb)
+                #print "SFA CALL", args
+                self.proxy.callRemote(*args).addCallbacks(proxy_success_cb, proxy_error_cb)
             
             ReactorThread().callInReactor(wrap, self, args)
             return d
@@ -258,11 +322,15 @@ if __name__ == '__main__':
         pkey      = DEFAULT_PKEY      if l <= 2 else sys.argv[2]
         cert      = DEFAULT_CERT      if l <= 3 else sys.argv[3]
 
-        proxy = SFAProxy(interface, open(pkey).read(), open(cert).read())
-        version = yield proxy.GetVersion()
-
-        pprint.pprint(version)
-        ReactorThread().stop_reactor()
+        try:
+            proxy = SFAProxy(interface, open(pkey).read(), open(cert).read())
+            version = yield proxy.GetVersion()
+            
+            pprint.pprint(version)
+        except Exception, e:
+            print "Exception:", e
+        finally:
+            ReactorThread().stop_reactor()
 
 
     ReactorThread().start_reactor()

@@ -21,8 +21,8 @@ class Predicate:
         '>='       : ge,
         '&&'       : and_,
         '||'       : or_,
-        'contains' : contains,
-        'included' : included
+        'CONTAINS' : contains,
+        'INCLUDED' : included
     }
 
     operators_short = {
@@ -62,6 +62,8 @@ class Predicate:
             value = tuple(value)
 
         self.key = key
+        if isinstance(op, StringTypes):
+            op = op.upper()
         if op in self.operators.keys():
             self.op = self.operators[op]
         elif op in self.operators_short.keys():
@@ -75,10 +77,14 @@ class Predicate:
             self.value = value
 
     def __str__(self):
-        return "%s %s %s" % self.get_str_tuple()
+        key, op, value = self.get_str_tuple()
+        if isinstance(value, (tuple, list, set, frozenset)):
+            value = [repr(v) for v in value]
+            value = "[%s]" % ", ".join(value)
+        return "%s %s %r" % (key, op, value) 
 
     def __repr__(self):
-        return "Predicate<%s %s %s>" % self.get_str_tuple()
+        return "Predicate<%s %s %r>" % self.get_str_tuple()
 
     def __hash__(self):
         return hash(self.get_tuple())
@@ -99,6 +105,9 @@ class Predicate:
 
     def get_value(self):
         return self.value
+
+    def set_value(self, value):
+        self.value = value
 
     def get_tuple(self):
         return (self.key, self.op, self.value)

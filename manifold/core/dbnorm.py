@@ -749,7 +749,7 @@ def to_3nf(metadata):
     for platform, announces in metadata.items():
         for announce in announces:
             tables.append(announce.table)
-            map_method_capabilities[(platform.name, announce.table.get_name())] = announce.table.get_capabilities()
+            map_method_capabilities[(platform, announce.table.get_name())] = announce.table.get_capabilities()
     fds = make_fd_set(tables)
     #print "%r" % fds
 

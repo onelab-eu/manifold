@@ -1,6 +1,7 @@
 from manifold.gateways          import Gateway
 from manifold.core.platform     import Platform
 from manifold.core.query        import Query
+from manifold.core.query_plan   import QueryPlan
 from manifold.util.storage      import DBStorage as Storage
 from manifold.models            import *
 from manifold.core.result_value import ResultValue
@@ -22,12 +23,12 @@ class Interface(object):
     def __init__(self, platforms=None, allowed_capabilities=None):
         """
         \brief
-        \param platforms A list of platforms and their configuration
+        \param platforms A list of platforms dicts (including their configuration)
         """
         if platforms:
             self.platforms = platforms
         else:
-            self.platforms = Storage.execute(Query().get('platform').filter_by('disabled', '=', False), format='object')
+            self.platforms = Storage.execute(Query().get('platform').filter_by('disabled', '=', False), format='dict')
         self.allowed_capabilities = allowed_capabilities
         self.metadata = {}
         self.boot()
@@ -37,14 +38,17 @@ class Interface(object):
             self.platforms = [self.platforms]
         #self.tables = []
         for platform in self.platforms:
-            args = [None, platform.name, None, platform.gateway_config, {}, None]
-            gw = Gateway.get(platform.gateway_name)(*args)
+            platform_config = platform.get('config', None)
+            if platform_config:
+                platform_config = json.loads(platform_config)
+            args = [None, platform['platform'], None, platform_config, {}, None]
+            gw = Gateway.get(platform['gateway_type'])(*args)
             metadata = gw.get_metadata()
             #self.metadata[platform.name] = {m.table.name:m for m in metadata}
             #self.metadata[platform.name] = {m.table.class_name:m for m in metadata}
-            self.metadata[platform] = []
+            self.metadata[platform['platform']] = []
             for m in metadata:
-                self.metadata[platform].append(m)
+                self.metadata[platform['platform']].append(m)
                 #self.tables.append(m.table)
 
     def get_gateway_config(self, gateway_name):
@@ -72,7 +76,7 @@ class Interface(object):
         for from_node in query_plan.froms:
             name = from_node.get_platform()
 
-            platform = [p for p in self.platforms if p.name == name]
+            platform = [p for p in self.platforms if p['platform'] == name]
             if not platform:
                 raise Exception, "Cannot find platform data for '%s'" % name
             platform = platform[0]
@@ -80,20 +84,20 @@ class Interface(object):
             if name == 'dummy':
                 args = [None, name, None, platform.gateway_config, None, user]
             else:
-                if not platform.auth_type:
+                if not platform['auth_type']:
                     print "W: should set account auth type"
                     continue
 
                 # XXX platforms might have multiple auth types (like pam)
                 # XXX we should refer to storage
 
-                if platform.auth_type in ['none', 'default']:
+                if platform['auth_type'] in ['none', 'default']:
                     config = {}
 
                 # For default, take myslice account
-                elif platform.auth_type == 'user':
+                elif platform['auth_type'] == 'user':
                     # User account information
-                    accounts = [a for a in user.accounts if a.platform == platform.name]
+                    accounts = [a for a in user.accounts if a.platform.platform == platform['platform']]
                     if accounts:
                         #raise Exception, 'No such account'
                         account = accounts[0]
@@ -101,9 +105,13 @@ class Interface(object):
                         config = json.loads(account.config)
 
                         if account.auth_type == 'reference':
-                            ref_platform = config['reference_platform']
-                            ref_platform = db.query(Platform).filter(Platform.platform == ref_platform).one()
-                            ref_accounts = [a for a in user.accounts if a.platform == ref_platform]
+                            ref_platform_name = config['reference_platform']
+                            #ref_platform = db.query(Platform).filter(Platform.platform == ref_platform).one()
+                            ref_platform  = Storage.execute(Query().get('platform').filter_by('platform', '==', ref_platform_name))
+                            if not ref_platform:
+                                raise Exception, "Reference platform not found: %s" % ref_platform_name
+                            ref_platform, = ref_platform
+                            ref_accounts = [a for a in user.accounts if a.platform.platform == ref_platform['platform']]
                             if not ref_accounts:
                                 raise Exception, "reference account does not exist"
                             ref_account = ref_accounts[0]
@@ -115,11 +123,11 @@ class Interface(object):
                 else:
                     raise Exception('auth type not implemented: %s' % platform.auth_type)
             
-            args = [self, name, None, platform.gateway_config, config, user]
-            gw = Gateway.get(platform.gateway_name)(*args)
-
-            gw.set_query(from_node.query)
-            gw.query.timestamp = timestamp
+            platform_config = platform.get('config', None)
+            if platform_config:
+                platform_config = json.loads(platform_config)
+            args = [self, name, None, platform_config, config, user]
+            gw = Gateway.get(platform['gateway_type'])(*args)
             gw.set_identifier(from_node.get_identifier())
             from_node.set_gateway(gw)
 
@@ -176,6 +184,7 @@ class Interface(object):
         return self.g_3nf.find_node(table_name).get_keys()
 
     def forward(self, query, is_deferred=False, execute=True, user=None):
+        Log.info("Incoming query: %r" % query)
         # if Interface is_deferred  
         d = defer.Deferred() if is_deferred else None
 
@@ -188,21 +197,69 @@ class Interface(object):
         if namespace == self.LOCAL_NAMESPACE:
             if table == 'object':
                 output = self.get_metadata_objects()
+                qp = QueryPlan()
+                qp.ast.from_table(query, output, key=None).selection(query.get_where()).projection(query.get_select())
+                return qp.execute(d)
             else:
                 q = query.copy()
                 q.object = table
                 output =  Storage.execute(q, user=user)
-
-            output = ResultValue.get_success(output)
-            #Log.tmp("output=",output)
-            # if Interface is_deferred
-            if not d:
-                return output
-            else:
-                d.callback(output)
-                return d
+                output = ResultValue.get_success(output)
+                #Log.tmp("output=",output)
+                # if Interface is_deferred
+                if not d:
+                    return output
+                else:
+                    d.callback(output)
+                    return d
         elif namespace:
-            raise Exception, "Unsupported namespace '%s'" % namespace
+            platform_names = self.metadata.keys()
+            if namespace not in platform_names:
+                raise Exception, "Unsupported namespace '%s'" % namespace
+            if table == 'object':
+                output = []
+
+                # XXX Merge this code with get_metadata_objects
+                # XXX support selection and projection...
+                announces = self.metadata[namespace]
+                for announce in announces:
+                    # ANNOUNCE TO DICT ???
+                    table = announce.table
+                    # Build columns from fields
+                    columns = []
+                    for field in table.fields.values():
+                        column = {
+                            'name'       : field.get_name(),
+                            'qualifier'  : field.get_qualifier(),
+                            'type'       : field.type,
+                            'is_array'   : field.is_array(),
+                            'description': field.get_description()
+                        }
+                        columns.append(column)
+
+                    # Add table metadata
+                    output.append({
+                        "table"  : table.get_name(),
+                        "column" : columns
+                        # key
+                        # default
+                        # capabilities
+                    })
+
+                qp = QueryPlan()
+                qp.ast.from_table(query, output, key=None).selection(query.get_where()).projection(query.get_select())
+                return qp.execute(d)
+
+                #output = ResultValue.get_success(output)
+                #if not d:
+                #    return output
+                #else:
+                #    d.callback(output)
+                #    return d
+                
+                # In fact we would need a simple query plan here instead
+                # Source = list of dict
+                # Result = a list or a deferred
      
         # None is returned to inform child classes they are in charge of the answer
         return None

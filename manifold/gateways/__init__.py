@@ -35,7 +35,8 @@ class Gateway(object):
 
     # XXX most of these parameters should not be required to construct a gateway
     # see manifold.core.forwarder for example
-    def __init__(self, interface, platform, query, config, user_config, user):
+    # XXX remove query
+    def __init__(self, interface=None, platform=None, query=None, config=None, user_config=None, user=None):
         """
         Constructor
         \param router (THRouter) reference to the router on which the gateways
@@ -60,6 +61,36 @@ class Gateway(object):
         self.identifier     = None # The gateway will receive the identifier from the ast FROM node
         self.callback       = None
         self.result_value   = []
+
+    def get_variables(self):
+        variables = {}
+        # Authenticated user
+        variables['user_email'] = self.user.email
+        for k, v in self.user.get_config().items():
+            if isinstance(v, StringTypes) and not 'credential' in v:
+                variables[k] = v
+        # Account information of the authenticated user
+        for k, v in self.user_config.items():
+            if isinstance(v, StringTypes) and not 'credential' in v:
+                variables[k] = v
+        return variables
+
+    def start(self):
+        # Replaces variables in the Query (predicate in filters and parameters)
+        filter = self.query.get_where()
+        params = self.query.get_params()
+        variables = self.get_variables()
+        for predicate in filter:
+            value = predicate.get_value()
+            if value[0] == '$':
+                var = value[1:]
+                if var in variables:
+                    predicate.set_value(variables[var])
+        for key, value in params.items():
+            if value[0] == '$':
+                var = value[1:]
+                if var in variables and isinstance(variables[var], StringTypes):
+                    params[k] = variables[var]
 
     @returns(StringTypes)
     def get_platform(self):

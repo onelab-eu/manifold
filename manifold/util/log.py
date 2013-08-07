@@ -1,4 +1,4 @@
-import sys, logging, traceback, inspect
+import sys, logging, traceback, inspect, os.path
 from logging                 import handlers
 from manifold.util.singleton import Singleton
 from manifold.util.options   import Options
@@ -8,6 +8,7 @@ from manifold.util           import colors
 # TODO Log should take separately message strings and arguments to be able to
 # remember which messages are seen several times, and also to allow for
 # translation
+# TODO How to log to stdout without putting None in self.log
 
 class Log(object):
     __metaclass__ = Singleton
@@ -15,9 +16,9 @@ class Log(object):
     DEFAULTS = {
         # Logging
         "rsyslog_enable"      : False,
-        "rsyslog_host"        : "log.top-hat.info",
-        "rsyslog_port"        : 28514,
-        "log_file"            : "/var/log/tophat/dispatcher.log",
+        "rsyslog_host"        : None, #"log.top-hat.info",
+        "rsyslog_port"        : None, #28514,
+        "log_file"            : "/var/log/manifold.log",
         "log_level"           : "DEBUG",
         "debug"               : "default",
         "log_duplicates"      : False
@@ -43,7 +44,7 @@ class Log(object):
     seen = {}
 
     def __init__(self, name='(default)'):
-        self.log = None #logging.getLog(name)
+        self.log = None # logging.getLogger(name)
         self.files_to_keep = []
         self.init_log()
         self.color = True
@@ -93,16 +94,16 @@ class Log(object):
     def init_log(self, options=object()):
         # Initialize self.log (require self.files_to_keep)
         if self.log: # for debugging by using stdout, log may be equal to None
-            if options.rsyslog_host:
+            if Options().rsyslog_host:
                 shandler = self.make_handler_rsyslog(
-                    options.rsyslog_host,
-                    options.rsyslog_port,
-                    options.log_level
+                    Options().rsyslog_host,
+                    Options().rsyslog_port,
+                    Options().log_level
                 )
-            elif options.log_file:
+            elif Options().log_file:
                 shandler = self.make_handler_locallog(
-                    options.log_file,
-                    options.log_level
+                    Options().log_file,
+                    Options().log_level
                 )
 
     #------------------------------------------------------------------------
@@ -134,11 +135,12 @@ class Log(object):
         """
         # Create directory in which we store the log file
         log_dir = os.path.dirname(log_filename)
-        if not os.path.exists(log_dir):
+        if log_dir and not os.path.exists(log_dir):
             try:
                 os.makedirs(log_dir)
             except OSError, why:
-                log_error(self.log, "OS error: %s" % why)
+                # XXX here we don't log since log is not initialized yet
+                print "OS error: %s" % why
 
         # Prepare the handler
         shandler = logging.handlers.RotatingFileHandler(
@@ -218,7 +220,7 @@ class Log(object):
             caller = caller_name(skip=3)
             # Eventually remove "" added to the configuration file
             try:
-                paths = tuple(Options().debug.split(','))
+                paths = tuple(s.strip(' \t\n\r') for s in Options().debug.split(','))
             except:
                 paths = None
             if not paths or not caller.startswith(paths):

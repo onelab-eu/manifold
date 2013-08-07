@@ -127,6 +127,8 @@ class From(Node):
             self.send(LAST_RECORD)
             #raise Exception, "Cannot call start on a From class, expecting Gateway"
         else:
+            # Initialize the query embeded by the Gateway using the one deduced from the QueryPlan
+            self.gateway.set_query(self.get_query())
             self.gateway.start()
 
     def set_gateway(self, gateway):

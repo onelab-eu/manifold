@@ -37,6 +37,7 @@ def row2dict(row):
     try:
         return {c.name: getattr(row, c.name) for c in row.__table__.columns}
     except:
+        Log.tmp("Inconsistency in ROW2DICT")
         return {c: getattr(row, c) for c in row.keys()}
 
 class SQLAlchemyGateway(Gateway):
@@ -51,6 +52,8 @@ class SQLAlchemyGateway(Gateway):
     def __init__(self, router=None, platform=None, query=None, config=None, user_config=None, user=None, format='dict'):
 
         assert format in ['dict', 'object'], 'Unknown return format for gateway SQLAlchemy'
+        if format == 'object':
+            Log.tmp("Objects should not be used")
         self.format = format
 
         super(SQLAlchemyGateway, self).__init__(router, platform, query, config, user_config, user)
