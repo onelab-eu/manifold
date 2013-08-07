@@ -48,21 +48,21 @@ def make_tdmi_router():
         The corresponding Router instance.
     """
     # Fetch tdmi configuration from myslice storage
-    platforms = DBStorage.execute(Query().get("platform").filter_by(Predicate("platform", eq, "tdmi")), format = "object")
-    try:
+    platforms = DBStorage.execute(Query().get("platform").filter_by(Predicate("platform", eq, "tdmi")), format = "dict")
+    if len(platforms) == 1:
         platform = platforms[0] 
-    except:
+    else:
         # TODO: we should use this account
         #'db_user'     : 'guest@top-hat.info'
         #'db_password' : 'guest'
         print """No information found about TDMI in the storage, you should run:
 
-        myslice-add-platform "tdmi" "Tophat Dedicated Measurement Infrastructure" "TDMI" "none" '{"db_host": "132.227.62.103", "db_port": 5432, "db_user": "postgres", "db_password": null, "db_name": "tophat", "name" : "TopHat team", "mail_support_address" : "xxx@xxx" }' 1
+        manifold-add-platform "tdmi" "Tophat Dedicated Measurement Infrastructure" "TDMI" "none" '{"db_host": "132.227.62.103", "db_port": 5432, "db_user": "postgres", "db_password": null, "db_name": "tophat", "name" : "TopHat team", "mail_support_address" : "xxx@xxx" }' 1
         """
         sys.exit(-1)
 
     # Our Forwarder does not need any capability since pgsql is
-    return Router(platform)
+    return Router(platforms)
 
 @accepts(Router, Query)
 def run_query(router, query):

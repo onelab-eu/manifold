@@ -3,6 +3,7 @@ from manifold.core.platform     import Platform
 from manifold.core.query        import Query
 from manifold.core.query_plan   import QueryPlan
 from manifold.util.storage      import DBStorage as Storage
+from manifold.util.type         import accepts, returns 
 from manifold.models            import *
 from manifold.core.result_value import ResultValue
 from manifold.util.log          import Log
@@ -20,11 +21,32 @@ class Interface(object):
 
     LOCAL_NAMESPACE = "local"
 
+    @staticmethod
+    @returns(bool)
+    def check_platforms(platforms):
+        """
+        Check whether the platforms passed to __init__ is well-formed.
+        Returns:
+            True iif platforms is wel-formed.
+        """
+        if not platforms:
+            return True
+        if not isinstance(platforms, (list, set, frozenset)):
+            return False
+        for platform in platforms:
+            if not isinstance(platform, dict):
+                return False
+        return True
+
     def __init__(self, platforms=None, allowed_capabilities=None):
         """
-        \brief
-        \param platforms A list of platforms dicts (including their configuration)
+        Create an Interface instance.
+        Args:
+            platforms: A list of platforms dicts (including their configuration)
+            allowed_capabilities: A Capabilities instance or None
         """
+        assert Interface.check_platforms(platforms), "Interface::__init__: invalid platforms %r (%r)" % (platforms, type(platforms))
+
         if platforms:
             self.platforms = platforms
         else:
@@ -38,6 +60,7 @@ class Interface(object):
             self.platforms = [self.platforms]
         #self.tables = []
         for platform in self.platforms:
+            # self.platforms is a list of dict
             platform_config = platform.get('config', None)
             if platform_config:
                 platform_config = json.loads(platform_config)
