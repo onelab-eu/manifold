@@ -471,7 +471,6 @@ class Table(object):
 
         # We need to update map_method_fields
         for method, fields in copy_u.map_method_fields.items():
-            Log.tmp("update map_method", fields, relevant_fields)
             fields &= relevant_fields
 
         return copy_u

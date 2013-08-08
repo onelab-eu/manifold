@@ -25,6 +25,7 @@ from manifold.core.dbgraph         import find_root
 from manifold.core.relation        import Relation
 from manifold.core.filter          import Filter
 from manifold.core.ast             import AST
+from manifold.operators.demux      import Demux
 from manifold.util.predicate       import Predicate, contains, eq
 from manifold.util.type            import returns, accepts
 from manifold.util.log             import Log
@@ -68,6 +69,7 @@ class ExploreTask(Deferred):
     A pending exploration of the metadata graph
     """
     def __init__(self, root, relation, path, parent, depth):
+        assert root != None, "ExploreTask::__init__(): invalid root = %s" % root
         # Context
         self.root        = root
         self.relation    = relation
@@ -129,12 +131,6 @@ class ExploreTask(Deferred):
 #DEPRECATED|         # XXX We could return the shortcut to subquery, to inform on how to
 #DEPRECATED|         # process results
 
-        table_name = self.root.get_name() # DEBUG
-        if table_name == "traceroute":
-            Log.tmp("----------------------------------------------------")
-            Log.tmp("self.root.get_name() = %s" % self.root.get_name())
-            Log.tmp("missing_fields       = %s" % missing_fields)
-
         root_provided_fields = self.root.get_field_names()
         root_key_fields = self.root.keys.one().get_field_names()
 
@@ -168,11 +164,9 @@ class ExploreTask(Deferred):
 
         if self.depth == MAX_DEPTH:
             self.callback(self.ast)
-            if table_name == "traceroute": Log.tmp("leaving")
             return
 
         # In all cases, we have to list neighbours for returning 1..N relationships. Let's do it now. 
-        if table_name == "traceroute": Log.tmp("1..N")
         for neighbour in metadata.graph.successors(self.root):
             for relation in metadata.get_relations(self.root, neighbour):
                 name = relation.get_relation_name()
@@ -416,8 +410,19 @@ class QueryPlan(object):
                 q.action = query.get_action()
                 q.params = query.get_params()
 
-    def build(self, query, metadata, allowed_platforms, allowed_capabilities, user = None, qp = None):
+    def build(self, query, metadata, allowed_platforms, allowed_capabilities, user = None):
+        """
+        Build the QueryPlan according to a 3nf graph and a user Query
+        Args:
+            query: The Query issued by the user.
+            metadata: The 3nf graph (DBGraph instance).
+            allowed_platforms: A list of platform names (list of String).
+            allowed_capabilities: A Capabilities instance or None.
+            user: A User instance or None.
+        """
         root = metadata.find_node(query.get_from())
+        if not root:
+            Log.error("query_plan::build(): Cannot find %s in metadata, known tables are %s" % (query.get_from(), metadata.get_table_names()))
         
         root_task = ExploreTask(root, relation=None, path=[], parent=self, depth=1)
         root_task.addCallback(self.set_ast, query)

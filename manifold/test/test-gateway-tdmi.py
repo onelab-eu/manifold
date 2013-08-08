@@ -65,24 +65,26 @@ def make_tdmi_router():
     return Router(platforms)
 
 @accepts(Router, Query)
-def run_query(router, query):
+def run_query(router, query, execute = True):
     """
     Forward a query to the router and dump the result to the standard outpur
     Params:
         router: The router instance related to TDMI
         query: The query instance send to the TDMI's router
+        execute: Execute the Query on the TDMIGateway
     """
 
     print "*" * 80
     print query
     print "*" * 80
     print "=" * 80
-    result_value = router.forward(query)
-    if result_value["code"] == ResultValue.SUCCESS:
-        for record in result_value["value"]:
-            print_record(record)
-    else:
-        Log.error("Failed to run query:\n\n%s" % query)
+    result_value = router.forward(query, execute = execute)
+    if execute:
+        if result_value["code"] == ResultValue.SUCCESS:
+            for record in result_value["value"]:
+                print_record(record)
+        else:
+            Log.error("Failed to run query:\n\n%s" % query)
 
 # Print metadata stored in the router
 @accepts(Router)
@@ -110,7 +112,7 @@ queries = [
         fields  = [
 #            "src_ip", "dst_ip",
 #            "agent",   "destination",
-            "hop.ip", "hop.ttl"#, "hops.hostname", "timestamp"
+            "hops.ip", "hops.ttl"#, "hops.hostname", "timestamp"
         ],
         timestamp = "2012-09-09 14:30:09"
     ),
