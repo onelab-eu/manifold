@@ -132,12 +132,36 @@ class SubQuery(Node):
         # Inspect the first parent record to deduce which fields have already
         # been fetched 
         parent_fields = set(self.parent_output[0].keys())
-        Log.tmp("subquery::run_children: parent_fields = ", parent_fields)
-        useless_children = set()
         
+        # Optimize children
+        useless_children = set()
+        for i, child in enumerate(self.children[:]):
+            # Test whether the current child provides relevant fields (e.g.
+            # fields not yet fetched in the parent record). If so, reduce
+            # the set of queried field in order to only retrieve relevant fields.
+            child_fields = child.get_query().get_select()
+            relevant_fields = child_fields - parent_fields 
+            if not relevant_fields:
+                useless_children.add(i)
+                continue
+            elif child_fields != relevant_fields:
+                Log.tmp(
+                    "SubQuery::run_children: optimizing child ",
+                    child.identifier,
+                    "(I hope we do not remove a field needed to merge the parent and the child records :s)"
+                )
+                self.children[i] = child.optimize_projection(relevant_fields)
+
+        # Is there at least one remaining child ?
+        if len(self.children) == len(useless_children):
+            self.send(LAST_RECORD)
+            return
+
         try:
             # Loop through children and inject the appropriate parent results
             for i, child in enumerate(self.children):
+                if i in useless_children: continue
+
                 # We have two cases:
                 # (1) either the parent query has subquery fields (a list of child
                 #     ids + eventually some additional information)
@@ -152,14 +176,6 @@ class SubQuery(Node):
                 #
                 # /!\ Can we have a mix of (1) and (2) ? For now, let's suppose NO.
                 #  *  We could expect key information to be stored in the DBGraph
-
-                # Test whether the current child provides relevant fields (e.g.
-                # fields not yet fetched in the parent record)
-                child_fields = child.get_query().get_select()
-                relevant_fields = child_fields - parent_fields 
-                if not relevant_fields:
-                    useless_children.add(i)
-                    continue
 
                 # The operation to be performed is understood only be looking at the predicate
                 relation = self.relations[i]
@@ -230,11 +246,6 @@ class SubQuery(Node):
                     
                 else:
                     raise Exception, "No link between parent and child queries"
-
-            # Is there at least one relevant child ?
-            if len(self.children) == len(useless_children):
-                self.send(LAST_RECORD)
-                return
 
             # We make another loop since the children might have been modified in
             # the previous one.
