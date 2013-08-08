@@ -128,6 +128,13 @@ class SubQuery(Node):
             Log.warning("SubQuery::run_children: no child node. The query plan could be improved")
             self.send(LAST_RECORD)
             return
+
+        # Inspect the first parent record to deduce which fields have already
+        # been fetched 
+        parent_fields = set(self.parent_output[0].keys())
+        Log.tmp("subquery::run_children: parent_fields = ", parent_fields)
+        useless_children = set()
+        
         try:
             # Loop through children and inject the appropriate parent results
             for i, child in enumerate(self.children):
@@ -145,6 +152,14 @@ class SubQuery(Node):
                 #
                 # /!\ Can we have a mix of (1) and (2) ? For now, let's suppose NO.
                 #  *  We could expect key information to be stored in the DBGraph
+
+                # Test whether the current child provides relevant fields (e.g.
+                # fields not yet fetched in the parent record)
+                child_fields = child.get_query().get_select()
+                relevant_fields = child_fields - parent_fields 
+                if not relevant_fields:
+                    useless_children.add(i)
+                    continue
 
                 # The operation to be performed is understood only be looking at the predicate
                 relation = self.relations[i]
@@ -216,11 +231,18 @@ class SubQuery(Node):
                 else:
                     raise Exception, "No link between parent and child queries"
 
+            # Is there at least one relevant child ?
+            if len(self.children) == len(useless_children):
+                self.send(LAST_RECORD)
+                return
+
             # We make another loop since the children might have been modified in
             # the previous one.
             for i, child in enumerate(self.children):
+                if i in useless_children: continue
                 self.status.started(i)
             for i, child in enumerate(self.children):
+                if i in useless_children: continue
                 child.start()
         except Exception, e:
             print "EEE!", e
