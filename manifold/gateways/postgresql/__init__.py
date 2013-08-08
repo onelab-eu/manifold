@@ -22,10 +22,9 @@ from uuid                     import uuid4
 from types                    import StringTypes, GeneratorType, NoneType, IntType, LongType, FloatType, ListType, TupleType
 from pprint                   import pformat
 from manifold.gateways        import Gateway
-from manifold.core.announce   import Announces
+from manifold.core.announce   import Announce, Announces
 from manifold.core.table      import Table
 from manifold.core.field      import Field
-from manifold.core.announce   import Announce
 from manifold.operators       import LAST_RECORD
 from manifold.util.log        import Log
 from manifold.util.predicate  import and_, or_, inv, add, mul, sub, mod, truediv, lt, le, ne, gt, ge, eq, neg, contains
@@ -79,11 +78,19 @@ class PostgreSQLGateway(Gateway):
         WHERE table_name = %(table_name)s ORDER BY ordinal_position
     """
 
+#    SQL_TABLE_KEYS = """
+#    SELECT       tc.table_name, kcu.column_name  
+#        FROM     information_schema.table_constraints AS tc   
+#            JOIN information_schema.key_column_usage  AS kcu ON tc.constraint_name = kcu.constraint_name
+#        WHERE    constraint_type = 'PRIMARY KEY' AND tc.table_name = %(table_name)s;
+#    """
     SQL_TABLE_KEYS = """
-    SELECT       tc.table_name, kcu.column_name  
+    SELECT       tc.table_name                        AS table_name,
+                 array_accum(kcu.column_name::text)   AS column_names
         FROM     information_schema.table_constraints AS tc   
             JOIN information_schema.key_column_usage  AS kcu ON tc.constraint_name = kcu.constraint_name
-        WHERE    constraint_type = 'PRIMARY KEY' AND tc.table_name = %(table_name)s;
+        WHERE    constraint_type = 'PRIMARY KEY' AND tc.table_name = %(table_name)s
+        GROUP BY tc.table_name;
     """
 
     # Full request:
@@ -991,14 +998,13 @@ class PostgreSQLGateway(Gateway):
         cursor.execute(PostgreSQLGateway.SQL_TABLE_KEYS, param_execute)
         fks = cursor.fetchall()
 
-#            primary_keys = {fk.table_name: fk.column_name for fk in fks}
         primary_keys = dict()
         for fk in fks:
-            foreign_key = fk.column_name
+            foreign_key = tuple(fk.column_names)
             if table_name not in primary_keys.keys():
                 primary_keys[table_name] = set()
             primary_keys[table_name].add(foreign_key)
-
+        
         if table_name in primary_keys.keys():
             for k in primary_keys[table_name]:
                 table.insert_key(k)

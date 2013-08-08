@@ -95,7 +95,7 @@ class Traceroute(list):
         self.table_fields_sql = list()
         self.selected_fields = list()
         self.selected_sub_fields = dict() 
-        if select == None:
+        if select == None or select == frozenset():
             # By default, return every fields
             for (field_name, field_type) in self.map_field_type.items():
                 self.register_field(field_name)

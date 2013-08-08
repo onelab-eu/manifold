@@ -42,6 +42,7 @@ class TDMIGateway(PostgreSQLGateway):
 
         # ... excepted the following ones: 
         re_allowed_tables = [
+            re.compile("^traceroute$"),
             re.compile("^agent$"),
             re.compile("^destination$"),
             re.compile("^ip$"),
