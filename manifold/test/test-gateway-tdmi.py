@@ -110,7 +110,7 @@ queries = [
         fields  = [
 #            "src_ip", "dst_ip",
 #            "agent",   "destination",
-            "hops.ip", "hops.ttl"#, "hops.hostname", "timestamp"
+            "hop.ip", "hop.ttl"#, "hops.hostname", "timestamp"
         ],
         timestamp = "2012-09-09 14:30:09"
     ),
