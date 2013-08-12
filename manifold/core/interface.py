@@ -175,7 +175,8 @@ class Interface(object):
             for field in fields:
                 column = {
                     'name'       : field.get_name(),
-                    'qualifier'  : field.get_qualifier(),
+                    'is_const'   : field.is_const(),
+                    'is_local'   : field.is_local(),
                     'type'       : field.type,
                     'is_array'   : field.is_array(),
                     'description': field.get_description(),
@@ -258,7 +259,8 @@ class Interface(object):
                     for field in table.fields.values():
                         column = {
                             'name'       : field.get_name(),
-                            'qualifier'  : field.get_qualifier(),
+                            'is_const'   : field.is_const(),
+                            'is_local'   : field.is_local(),
                             'type'       : field.type,
                             'is_array'   : field.is_array(),
                             'description': field.get_description(),

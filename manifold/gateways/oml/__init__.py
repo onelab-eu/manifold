@@ -136,7 +136,7 @@ class OMLGateway(PostgreSQLGateway):
         t = Table('oml', None, 'slice', None, None)
 
         slice_hrn = Field(
-            qualifier   = 'const',
+            qualifiers  = ['const'],
             type        = 'text',
             name        = 'slice_hrn',
             is_array    = False,
@@ -144,7 +144,7 @@ class OMLGateway(PostgreSQLGateway):
         )
         t.insert_field(slice_hrn)
         t.insert_field(Field(
-            qualifier   = 'const',
+            qualifiers  = ['const'],
             type        = 'int',
             name        = 'lease_id',
             is_array    = False,
@@ -169,14 +169,14 @@ class OMLGateway(PostgreSQLGateway):
         t = Table('oml', None, 'application', None, None)
 
         lease_id = Field(
-            qualifier   = 'const',
+            qualifiers  = ['const'],
             type        = 'int',
             name        = 'lease_id',
             is_array    = False,
             description = 'Lease identifier'
         )
         application = Field(
-            qualifier   = 'const',
+            qualifiers  = ['const'],
             type        = 'string',
             name        = 'application',
             is_array    = True,
@@ -208,21 +208,21 @@ class OMLGateway(PostgreSQLGateway):
         t = Table('oml', None, 'measurement_point', None, None)
 
         lease_id = Field(
-            qualifier   = 'const',
+            qualifiers  = ['const'],
             type        = 'int',
             name        = 'lease_id',
             is_array    = False,
             description = 'Lease identifier'
         )
         application = Field(
-            qualifier   = 'const',
+            qualifiers  = ['const'],
             type        = 'string',
             name        = 'application',
             is_array    = False,
             description = '(null)'
         )
         measurement_point = Field(
-            qualifier   = 'const',
+            qualifiers  = ['const'],
             type        = 'string',
             name        = 'measurement_point',
             is_array    = False,
