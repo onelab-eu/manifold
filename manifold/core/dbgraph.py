@@ -164,6 +164,14 @@ class DBGraph(object):
                 return table
         return None
 
+    def get_table_names(self):
+        """
+        Retrieve the list of Table names belonging to this DBGraph.
+        Returns:
+            A list of String instances.
+        """
+        return [table.get_name() for table in self.graph.nodes(False)]
+
     def is_parent(self, table_or_table_name):
         return not bool(self.get_parent(table_or_table_name))
 

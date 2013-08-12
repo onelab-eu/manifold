@@ -42,6 +42,7 @@ class TDMIGateway(PostgreSQLGateway):
 
         # ... excepted the following ones: 
         re_allowed_tables = [
+            re.compile("^traceroute$"),
             re.compile("^agent$"),
             re.compile("^destination$"),
             re.compile("^ip$"),
@@ -106,7 +107,6 @@ class TDMIGateway(PostgreSQLGateway):
                 params = None
                 instance = self.METHOD_MAP[table_name](query, db = self)
                 sql = instance.get_sql()
-                print "Running SQL:\n%s" % sql
                 rows = self.selectall(sql, params)
 
                 # Does this object tweak the python dictionnary returned by selectall?

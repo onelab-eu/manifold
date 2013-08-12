@@ -104,7 +104,6 @@ class SubQuery(Node):
         if record == LAST_RECORD:
             # When we have received all parent records, we can run children
             if self.parent_output:
-                #Log.tmp("parent_callback: starting children %r " % self.children) 
                 self.run_children()
             return
         # Store the record for later...
@@ -123,9 +122,46 @@ class SubQuery(Node):
         """
         \brief Modify children queries to take the keys returned by the parent into account
         """
+        if not self.children:
+            # The top operator has build a SubQuery node without child node,
+            # so this SubQuery operator is useless!
+            Log.warning("SubQuery::run_children: no child node. The query plan could be improved")
+            self.send(LAST_RECORD)
+            return
+
+        # Inspect the first parent record to deduce which fields have already
+        # been fetched 
+        parent_fields = set(self.parent_output[0].keys())
+        
+        # Optimize children
+        useless_children = set()
+        for i, child in enumerate(self.children[:]):
+            # Test whether the current child provides relevant fields (e.g.
+            # fields not yet fetched in the parent record). If so, reduce
+            # the set of queried field in order to only retrieve relevant fields.
+            child_fields = child.get_query().get_select()
+            relevant_fields = child_fields - parent_fields 
+            if not relevant_fields:
+                useless_children.add(i)
+                continue
+            elif child_fields != relevant_fields:
+                Log.tmp(
+                    "SubQuery::run_children: optimizing child ",
+                    child.identifier,
+                    "(I hope we do not remove a field needed to merge the parent and the child records :s)"
+                )
+                self.children[i] = child.optimize_projection(relevant_fields)
+
+        # Is there at least one remaining child ?
+        if len(self.children) == len(useless_children):
+            self.send(LAST_RECORD)
+            return
+
         try:
             # Loop through children and inject the appropriate parent results
             for i, child in enumerate(self.children):
+                if i in useless_children: continue
+
                 # We have two cases:
                 # (1) either the parent query has subquery fields (a list of child
                 #     ids + eventually some additional information)
@@ -214,9 +250,10 @@ class SubQuery(Node):
             # We make another loop since the children might have been modified in
             # the previous one.
             for i, child in enumerate(self.children):
+                if i in useless_children: continue
                 self.status.started(i)
             for i, child in enumerate(self.children):
-                #Log.tmp("starting child ", child)
+                if i in useless_children: continue
                 child.start()
         except Exception, e:
             print "EEE!", e
@@ -316,12 +353,10 @@ class SubQuery(Node):
                         raise Exception, "No link between parent and child queries"
 
                 self.send(parent_record)
-            #Log.tmp("Sending LAST_RECORD in ", self.identifier, self)
             self.send(LAST_RECORD)
         except Exception, e:
             print "EEE", e
             traceback.print_exc()
-        #Log.tmp("all_done OK", self)
 
     def child_callback(self, child_id, record):
         """
@@ -330,7 +365,6 @@ class SubQuery(Node):
         """
         if record == LAST_RECORD:
             self.status.completed(child_id)
-            #Log.tmp("child %r completed in %r" % (self.children[child_id], self))
             return
         # Store the results for later...
         self.child_results[child_id].append(record)
