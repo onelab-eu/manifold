@@ -183,8 +183,8 @@ class LeftJoin(Node):
         # Directly send records missing information necessary to join
         # XXXX !!! XXX XXX XXX
         if not Record.has_fields(record, self.predicate.get_field_names()):
-            print "W: Missing LEFTJOIN predicate %s in left record %r : forwarding" % \
-                    (self.predicate, record)
+            Log.warning("Missing LEFTJOIN predicate %s in left record %r : forwarding" % \
+                    (self.predicate, record))
             self.send(record)
 
         # Store the result in a hash for joining later
@@ -195,25 +195,25 @@ class LeftJoin(Node):
 
     def right_callback(self, record):
         """
-        \brief Process records received by the right child
+        \brief Process records received from the right child
         \param record A dictionary representing the received record 
         """
-        #Log.tmp("right_callback: record = %r" % record)
         if record == LAST_RECORD:
             # Send records in left_results that have not been joined...
             for left_record_list in self.left_map.values():
                 for left_record in left_record_list:
-                #Log.tmp("right_callback: sending ", record)
                     self.send(left_record)
+
             # ... and terminates
-            #Log.tmp("right_callback: sending LAST_RECORD")
             self.send(LAST_RECORD)
             return
 
         # Skip records missing information necessary to join
-        if self.predicate.value not in record or not record[self.predicate.value]:
-            print "W: Missing LEFTJOIN predicate %s in right record %r: ignored" % \
-                    (self.predicate, record)
+#DEPRECATED|        if self.predicate.value not in record or not record[self.predicate.value]:
+        if not set(self.predicate.get_value()) <= set(record.keys()) \
+        or Record.is_empty_record(record, self.predicate.get_value()):
+            Log.warning("Missing LEFTJOIN predicate %s in right record %r: ignored" % \
+                    (self.predicate, record))
             return
         
         # We expect to receive information about keys we asked, and only these,

@@ -97,7 +97,6 @@ class CrossProduct(Node):
             return { k: v for dic in dics for k,v in dic.items() if k in keys }
 
         records = imap(lambda x: merge(x), product(*self.child_results))
-        print "XP RECORDS", records
         map(lambda x: self.send(x), records)
         self.send(LAST_RECORD)
         
