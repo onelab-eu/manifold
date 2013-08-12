@@ -479,18 +479,22 @@ class PostgreSQLGateway(Gateway):
         return announces_pgsql
 
     def make_metadata(self):
-        # Fetch metadata deduced from pgsql schema.
-        # Here we only fetch tables and we ignore views.
+        """
+        Prepare metadata (e.g. Tables encapsulated in Announces instances) related
+        to this Gateway. Metadata are in the generic case retrieved both by
+        inspecting the pgsql schema and the .h file related to this Gateway.
+        """
+        # Import metadata from pgsql schema.
+        # By default, we only fetch tables and we ignore views.
         announces_pgsql = self.make_metadata_from_names(self.get_table_names())
+        if not announces_pgsql:
+            Log.warning("Cannot find metadata for platform %s: %s" % (self.platform, e))
+        else:
+            Log.info("Tables imported from pgsql schema: %s" % [announce.get_table() for announce in announces_pgsql])
 
         # Fetch metadata from .h files (if any)
-        try:
-            announces_h = Announces.from_dot_h(self.get_platform(), self.get_gateway_type())
-        except Exception, e:
-            print "announces_pgsql=", announces_pgsql
-            if not announces_pgsql:
-                Log.warning("Cannot find metadata for platform %s: %s" % (self.platform, e))
-            announces_h = []
+        announces_h = Announces.from_dot_h(self.get_platform(), self.get_gateway_type())
+        Log.info("Tables imported from .h schema: %s" % [announce.get_table() for announce in announces_h])
 
         # Return the resulting announces
         return self.merge_announces(announces_pgsql, announces_h) if announces_h else announces_pgsql
@@ -986,12 +990,13 @@ class PostgreSQLGateway(Gateway):
         for field in cursor.fetchall():
             # PostgreSQL types vs base types
             table.insert_field(Field(
-                qualifier   = None if field.is_updatable == "YES" else "const",
+                qualifiers  = [] if field.is_updatable == "YES" else ["const"],
                 type        = foreign_keys[field.column_name] if field.column_name in foreign_keys else PostgreSQLGateway.to_manifold_type(field.data_type),
                 name        = field.column_name,
                 is_array    = (field.data_type == "ARRAY"),
                 description = comments[field.column_name] if field.column_name in comments else "(null)"
             ))
+        Log.debug('Adding table: %s' % table)
     
         # PRIMARY KEYS: XXX simple key ?
         # We build a key dictionary associating each table with its primary key

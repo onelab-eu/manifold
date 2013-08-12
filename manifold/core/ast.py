@@ -288,9 +288,9 @@ class AST(object):
 def main():
     q = Query("get", "x", [], {}, ["x", "z"], None)
 
-    x = Field(None, "int", "x")
-    y = Field(None, "int", "y")
-    z = Field(None, "int", "z")
+    x = Field([], "int", "x")
+    y = Field([], "int", "y")
+    z = Field([], "int", "z")
 
     a = Table(["p"], None, "A", [x, y], [Key([x])])
     b = Table(["p"], None, "B", [y, z], [Key([y])])
