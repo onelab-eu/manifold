@@ -155,7 +155,8 @@ class Interface(object):
                     'qualifier'  : field.get_qualifier(),
                     'type'       : field.type,
                     'is_array'   : field.is_array(),
-                    'description': field.get_description()
+                    'description': field.get_description(),
+                    'default'    : '',
                     #"column"         : field.get_name(),        # field(_name)
                     #"description"    : field.get_description(), # description
                     #"header"         : field,
@@ -173,10 +174,14 @@ class Interface(object):
                 }
                 columns.append(column)
 
+            keys = table.get_keys().one().get_field_names()
+
             # Add table metadata
             output.append({
-                "table"  : table_name,
-                "column" : columns
+                'table'  : table_name,
+                'column' : columns,
+                'key'    : keys,
+                'capability': [],
             })
         return output
 
@@ -233,14 +238,19 @@ class Interface(object):
                             'qualifier'  : field.get_qualifier(),
                             'type'       : field.type,
                             'is_array'   : field.is_array(),
-                            'description': field.get_description()
+                            'description': field.get_description(),
+                            'default'    : '',
                         }
                         columns.append(column)
+            
+                    keys = table.get_keys().one().get_field_names()
 
                     # Add table metadata
                     output.append({
-                        "table"  : table.get_name(),
-                        "column" : columns
+                        'table'  :      table.get_name(),
+                        'column' :      columns,
+                        'key'   :       keys,
+                        'capability':   []
                         # key
                         # default
                         # capabilities

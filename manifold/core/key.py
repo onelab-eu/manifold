@@ -68,7 +68,7 @@ class Key(frozenset):
 
     @returns(set)
     def get_field_names(self):
-        return set([x.get_name() for x in self])
+        return tuple([x.get_name() for x in self])
 
     @returns(set)
     def get_names(self):
