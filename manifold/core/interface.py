@@ -197,7 +197,7 @@ class Interface(object):
                 }
                 columns.append(column)
 
-            keys = table.get_keys().one().get_field_names()
+            keys = tuple(table.get_keys().one().get_field_names())
 
             # Add table metadata
             output.append({
@@ -266,7 +266,7 @@ class Interface(object):
                         }
                         columns.append(column)
             
-                    keys = table.get_keys().one().get_field_names()
+                    keys = tuple(table.get_keys().one().get_field_names())
 
                     # Add table metadata
                     output.append({
