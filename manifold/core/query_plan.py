@@ -244,10 +244,7 @@ class ExploreTask(Deferred):
                 fields |= relation.get_predicate().get_field_names()
             self.ast = self.build_union(self.root, fields, allowed_platforms, metadata, user, query_plan)
         
-        # How do i know that i have an onjoin table
-        Log.warning("HARDCODED test onjoin")
-        if self.root.get_name() == 'traceroute':
-        #if self.root.capabilities.is_onjoin(): # in g_3nf, Table instances do not have Capabilities
+        if self.root.capabilities.is_onjoin():
             # Let's identify tables involved in the key
             root_key_fields = self.root.keys.one().get_field_names()
             xp_ast_relation, sq_ast_relation = [], []
