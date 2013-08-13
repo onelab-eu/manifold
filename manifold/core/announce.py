@@ -20,7 +20,7 @@ from manifold.util.clause             import Clause
 from manifold.util.type               import returns, accepts 
 from manifold.util.log                import Log
 
-STATIC_ROUTES_FILE = "/usr/share/manifold/metadata/"
+STATIC_ROUTES_DIR = "/usr/share/manifold/metadata/"
 
 #------------------------------------------------------------------
 # Constants needed for .h parsing, see import_file_h(...)
@@ -33,12 +33,11 @@ PATTERN_BEGIN        = ''.join(["^", PATTERN_OPT_SPACE])
 PATTERN_END          = PATTERN_OPT_SPACE.join(['', PATTERN_COMMENT, "$"])
 PATTERN_SYMBOL       = "([0-9a-zA-Z_]+)"
 PATTERN_CLAUSE       = "([0-9a-zA-Z_&\|\"()!=<> ]+)"
-PATTERN_LOCAL        = "(local)?"
-PATTERN_CONST        = "(const)?"
-PATTERN_CLASS        = "(onjoin|class)"
+PATTERN_QUALIFIERS   = "((local|const) )?(local|const)?"
+PATTERN_CLASS        = "(class)"
 PATTERN_ARRAY        = "(\[\])?"
 PATTERN_CLASS_BEGIN  = PATTERN_SPACE.join([PATTERN_CLASS, PATTERN_SYMBOL, "{"])
-PATTERN_CLASS_FIELD  = PATTERN_SPACE.join([PATTERN_LOCAL, PATTERN_CONST, PATTERN_SYMBOL, PATTERN_OPT_SPACE.join([PATTERN_SYMBOL, PATTERN_ARRAY, ";"])])
+PATTERN_CLASS_FIELD  = PATTERN_SPACE.join([PATTERN_QUALIFIERS, PATTERN_SYMBOL, PATTERN_OPT_SPACE.join([PATTERN_SYMBOL, PATTERN_ARRAY, ";"])])
 PATTERN_CLASS_KEY    = PATTERN_OPT_SPACE.join(["KEY\((", PATTERN_SYMBOL, "(,", PATTERN_SYMBOL, ")*)\)", ";"])
 PATTERN_CLASS_CAP    = PATTERN_OPT_SPACE.join(["CAPABILITY\((", PATTERN_SYMBOL, "(,", PATTERN_SYMBOL, ")*)\)", ";"])
 PATTERN_CLASS_CLAUSE = PATTERN_OPT_SPACE.join(["PARTITIONBY\((", PATTERN_CLAUSE, ")\)", ";"])
@@ -61,63 +60,80 @@ REGEXP_ENUM_END      = re.compile(''.join([PATTERN_BEGIN, PATTERN_ENUM_END,     
 class MetadataEnum:
     def __init__(self, enum_name):
         """
-        \brief Constructor
-        \param enum_name The name of the enum 
+        Constructor
+        Args:
+            enum_name: The name of the enum 
         """
         self.enum_name = enum_name
         self.values = []
 
     def __repr__(self):
         """
-        \return the string (%r) corresponding to this MetadataEnum
+        Returns:
+            The String (%r) corresponding to this MetadataEnum
         """
         return "Enum(n = %r, v = %r)\n" % (self.enum_name, self.values)
+
+    def __str__(self):
+        """
+        Returns:
+            The String (%s) corresponding to this MetadataEnum
+        """
+        return self.__repr__()
 
 #------------------------------------------------------------------
 # .h file parsing
 #------------------------------------------------------------------
 
-def parse_dot_h(iterable):
+def parse_dot_h(iterable, filename = None):
     """
-    \brief Import a .h file (see manifold.metadata/*.h)
-    \param filename The path of the .h file
-    \return A tuple made of two dictionnaries (classes, enums)
-        classes:
+    Import information stored in a .h file (see manifold/metadata/*.h)
+    Args:
+        iterable: The file descriptor of a successfully opened file.
+            You may also pass iter(string) if the content of the .h
+            is stored in "string" 
+        filename: The corresponding filename. It is only used to print
+            user friendly message, so you may pass None.
+    Returns: A tuple made of two dictionnaries (tables, enums)
+        tables:
             - key: String (the name of the class)
-            - data: the corresponding MetadataClass instance
+            - data: the corresponding Table instance
         enums:
             - key: String (the name of the enum)
             - data: the corresponding MetadataEnum instance
-    \sa MetadataEnum.py
-    \sa MetadataClass.py
-    \sa Field.py
+    Raises:
+        ValueError: if the input data is not well-formed.
     """
     # Parse file
-    cur_class_name = None
+    table_name = None
     cur_enum_name = None
-    classes = {}
+    tables = {}
     enums   = {}
     no_line = -1
     for line in iterable:
         line = line.rstrip("\r\n")
         is_valid = True
+        error_message = None
         no_line += 1
         if REGEXP_EMPTY_LINE.match(line):
             continue
         if line[0] == '#':
             continue
-        if cur_class_name: # current scope = class
+        if table_name: # current scope = class
             #    local const MyType my_field[]; /**< Comment */
             m = REGEXP_CLASS_FIELD.match(line)
             if m:
-                classes[cur_class_name].insert_field(
+                qualifiers = list() 
+                if m.group(2): qualifiers.append("local")
+                if m.group(3): qualifiers.append("const")
+
+                tables[table_name].insert_field(
                     Field(
-                        qualifier   = m.group(2),
-                        type        = m.group(3),
-                        name        = m.group(4),
-                        is_array    = (m.group(5) != None), 
-                        description = m.group(6).strip("/*<"),
-                        local       = (m.group(1) == 'local')
+                        qualifiers  =  qualifiers,
+                        type        =  m.group(4),
+                        name        =  m.group(5),
+                        is_array    = (m.group(6) != None), 
+                        description =  m.group(7).lstrip("/*< ").rstrip("*/ ")
                     )
                 )
                 continue
@@ -127,17 +143,17 @@ def parse_dot_h(iterable):
             if m:
                 key = m.group(1).split(',')
                 key = [key_elt.strip() for key_elt in key]
-                classes[cur_class_name].insert_key(key)
+                tables[table_name].insert_key(key)
                 # XXX
-                #if key not in classes[cur_class_name].keys:
-                #     classes[cur_class_name].keys.append(key)
+                #if key not in tables[table_name].keys:
+                #     tables[table_name].keys.append(key)
                 continue
 
             #    CAPABILITY(my_field1, my_field2);
             m = REGEXP_CLASS_CAP.match(line)
             if m:
                 capability = map(lambda x: x.strip(),  m.group(1).split(','))
-                classes[cur_class_name].set_capability(capability)
+                tables[table_name].set_capability(capability)
                 continue
 
             #    PARTITIONBY(clause_string);
@@ -145,26 +161,26 @@ def parse_dot_h(iterable):
             if m:
                 clause_string = m.group(1)
                 clause = Clause(clause_string)
-                classes[cur_class_name].partitions.append(clause)
+                tables[table_name].partitions.append(clause)
                 continue
 
             # };
             if REGEXP_CLASS_END.match(line):
-                cur_class = classes[cur_class_name]
+                cur_class = tables[table_name]
                 if not cur_class.keys: # we must add a implicit key
-                    key_name = "%s_id" % cur_class_name
+                    key_name = "%s_id" % table_name
                     if key_name in cur_class.get_field_names():
-                        raise ValueError("Trying to add implicit key %s which is already in use" % key_name)
-                    print "I: Adding implicit key %s in %s" % (key_name, cur_class_name) 
-                    dummy_key_field = Field("const", "unsigned", key_name, False, "Dummy key");
+                        Log.error("Trying to add implicit key %s which is already in use" % key_name)
+                    Log.info("Adding implicit key %s in %s" % (key_name, table_name))
+                    dummy_key_field = Field(["const"], "unsigned", key_name, False, "Dummy key");
                     cur_class.insert_field(dummy_key_field)
                     cur_class.insert_key(Key([dummy_key_field]))
-                cur_class_name = None
+                table_name = None
                 continue
 
             # Invalid line
             is_valid = False
-            print "In '%s', line %r: in class '%s': invalid line: [%r]" % (filename, no_line, cur_class_name, line)
+            error_message = "In '%s', line %r: in table '%s': invalid line: [%r] %s" % (filename, no_line, table_name, line, ''.join([PATTERN_BEGIN, PATTERN_CLASS_FIELD,  PATTERN_END]))
 
         elif cur_enum_name: # current scope = enum
             #    "my string value",
@@ -180,15 +196,15 @@ def parse_dot_h(iterable):
 
             # Invalid line
             is_valid = False
-            print "In '%s', line %r: in enum '%s': invalid line: [%r]" % (filename, no_line, cur_enum_name, line)
+            error_message = "In '%s', line %r: in enum '%s': invalid line: [%r]" % (filename, no_line, cur_enum_name, line)
 
         else: # no current scope
             # class MyClass {
             m = REGEXP_CLASS_BEGIN.match(line)
             if m:
-                qualifier      = m.group(1)
-                cur_class_name = m.group(2)
-                classes[cur_class_name] = Table(None, None, cur_class_name, None, Keys()) # qualifier ??
+                qualifier  = m.group(1)
+                table_name = m.group(2)
+                tables[table_name] = Table(None, None, table_name, None, Keys()) # qualifier ??
                 continue
 
             # enum MyEnum {
@@ -200,42 +216,55 @@ def parse_dot_h(iterable):
 
             # Invalid line
             is_valid = False
-            print "In '%s', line %r: class declaration expected: [%r]"
+            error_message = "In '%s', line %r: class declaration expected: [%r]"
 
         if is_valid == False:
-            raise ValueError("Invalid input file %s, line %r: [%r]" % (filename, no_line, line))
+            if not error_message:
+                error_message = "Invalid input file %s, line %r: [%r]" % (filename, no_line, line)
+            Log.error(error_message)
+            raise ValueError(error_message)
 
-    # Check consistency
-#    for cur_class_name, cur_class in classes.items():
-#        invalid_keys = cur_class.get_invalid_keys()
-#        if invalid_keys:
-#            raise ValueError("In %s: in class %r: key(s) not found: %r" % (filename, cur_class_name, invalid_keys))
+    return (tables, enums)
 
-    return (classes, enums)
-
-
-def make_announces(classes, platform):
+def make_announces(tables, platform):
+    """
+    Build a list of Announces instances based on a platform name
+    an its corresponding set of Tables.
+    Args:
+        tables: A container carrying a set of Table instances.
+        platform: A String containing the platform name.
+    Returns:
+        The corresponding list of Announces.
+    """
     announces = []
-    for t in classes.values():
-        t.set_partitions(platform) # XXX This is weird
-        announces.append(Announce(t))
+    for table in tables.values():
+        table.set_partitions(platform) # XXX This is weird
+        announces.append(Announce(table))
     return announces
 
-def check_class_consistency(classes):
-    # Check class consistency
-    for cur_class_name, cur_class in classes.items():
-        invalid_keys = cur_class.get_invalid_keys()
+def check_table_consistency(tables):
+    """
+    Check whether a set of Tables are consistent or not.
+    Param:
+        tables: A container storing a set of Table instances.     
+    Raises:
+        ValueError: if a Table is not well-formed
+    """
+    for table_name, table in tables.items():
+        invalid_keys = table.get_invalid_keys()
         if invalid_keys:
-            raise ValueError("In %s: in class %r: key(s) not found: %r" % (filename, cur_class_name, invalid_keys))
+            error_message = "In %s: in class %r: key(s) not found: %r" % (filename, table_name, invalid_keys)
+            Log.error(error_message)
+            raise ValueError(error_message)
 
     # Rq: We cannot check type consistency while a table might refer to types provided by another file.
     # Thus we can't use get_invalid_types yet
 
 def import_file_h(filename, platform):
     f = open(filename, 'r')
-    (classes, enum) = parse_dot_h(f)
+    (classes, enum) = parse_dot_h(f, filename)
     f.close()
-    check_class_consistency(classes)
+    check_table_consistency(classes)
     return make_announces(classes, platform)
         
 def import_string_h(string, platform):
@@ -247,11 +276,29 @@ def import_string_h(string, platform):
           if nextnl < 0: break
           yield string[prevnl + 1:nextnl]
           prevnl = nextnl
-    (classes, enum) = parse_dot_h(iter(string))
-    check_class_consistency(classes)
+    (classes, enum) = parse_dot_h(iter(string), None)
+    check_table_consistency(classes)
     return make_announces(classes, platform)
 
 def announces_from_docstring(platform):
+    """
+    Prepare a decorator which allows to define .h contents in a docstring.
+    This could typically be used in a get_metadata() function.
+    Args:
+        platform: A String instance containing the platform name.
+    Example:
+        @announces_from_docstring('my_platform')
+        def get_metadata(self):
+            '''
+            class my_table {
+                string foo;
+                int    bar;
+                CAPABILITY(retrieve);
+                KEY(foo);
+            }; 
+            '''
+            ...
+    """
     def decorator(fn):
         @functools.wraps(fn) # We might need to write our own wrapper to properly document the function
         def new(*args, **kwargs):
@@ -285,30 +332,33 @@ class Announces(object):
 
     @classmethod
     def from_dot_h(self, platform_name, gateway_type):
-        Log.debug("Loading headers (static routes)")
-        return self.import_file_h(STATIC_ROUTES_FILE, platform_name, gateway_type)
-
+        return self.import_file_h(STATIC_ROUTES_DIR, platform_name, gateway_type)
 
     @classmethod
     def import_file_h(self, directory, platform, gateway_type):
         """
-        \brief Import a .h file (see manifold.metadata/*.h)
-        \param directory The directory storing the .h files
-            Example: router.conf.STATIC_ROUTES_FILE = "/usr/share/manifold/metadata/"
-        \param platform The name of the platform we are configuring
-            Examples: "ple", "senslab", "tophat", "omf", ...
-        \param gateway_types The type of the gateway
-            Examples: "SFA", "XMLRPC", "MaxMind"
-            See:
-                sqlite3 /var/myslice/db.sqlite
-                > select gateway_type from platform;
+        Import a .h file (see manifold.metadata/*.h)
+        Args:
+            directory: A String instance containing directory storing the .h files
+                Example: STATIC_ROUTES_DIR = "/usr/share/manifold/metadata/"
+            platform: A String instance containing the name of the platform
+                Examples: "ple", "senslab", "tdmi", "omf", ...
+            gateway_types: A String instnace containing the type of the Gateway
+                Examples: "SFA", "XMLRPC", "MaxMind", "tdmi"
+                See:
+                    sqlite3 /var/myslice/db.sqlite
+                    > select gateway_type from platform;
+        Returns:
+            A list of Announce instances, each Announce embeds a Table instance.
+            This list may be empty.
         """
         # Check path
         filename = os.path.join(directory, "%s.h" % gateway_type)
         if not os.path.exists(filename):
             filename = os.path.join(directory, "%s-%s.h" % (gateway_type, platform))
             if not os.path.exists(filename):
-                raise Exception, "Metadata file '%s' not found (platform = %r, gateway_type = %r)" % (filename, platform, gateway_type)
+                Log.debug("Metadata file '%s' not found (platform = %r, gateway_type = %r)" % (filename, platform, gateway_type))
+                return []
 
         # Read input file
         Log.debug("Platform %s: Processing %s" % (platform, filename))
