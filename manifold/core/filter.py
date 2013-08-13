@@ -144,9 +144,9 @@ class Filter(set):
 #            dic = predicate.filter(dic)
 #        return dic
 
-    def match(self, dic):
+    def match(self, dic, ignore_missing=True):
         for predicate in self:
-            if not predicate.match(dic, ignore_missing=True):
+            if not predicate.match(dic, ignore_missing):
                 return False
         return True
 

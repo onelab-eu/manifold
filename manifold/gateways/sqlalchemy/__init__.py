@@ -58,8 +58,7 @@ class SQLAlchemyGateway(Gateway):
 
         super(SQLAlchemyGateway, self).__init__(router, platform, query, config, user_config, user)
 
-        #engine = create_engine('sqlite:///:memory:?check_same_thread=False', echo=False)
-        engine = create_engine('sqlite:////var/myslice/db.sqlite?check_same_thread=False', echo=False)
+        engine = create_engine(config['url'], echo=False)
         
         class Base(object):
             @declared_attr
