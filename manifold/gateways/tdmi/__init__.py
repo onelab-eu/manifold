@@ -42,7 +42,6 @@ class TDMIGateway(PostgreSQLGateway):
 
         # ... excepted the following ones: 
         re_allowed_tables = [
-            re.compile("^traceroute$"),
             re.compile("^agent$"),
             re.compile("^destination$"),
             re.compile("^ip$"),
@@ -75,7 +74,7 @@ class TDMIGateway(PostgreSQLGateway):
         # in order to get a class consistent with the underlying ontology.
         self.custom_fields = {
             "agent" : [
-                Field("const", "string", "platform", None, "Platform annotation, always equal to 'tdmi'")
+                Field(["const"], "string", "platform", None, "Platform annotation, always equal to 'tdmi'")
             ]
         }
 
