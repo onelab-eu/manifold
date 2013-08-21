@@ -22,16 +22,17 @@ class SubQuery(Node):
         self.children represents each subqueries involved in the SUBQUERY operation.
     """
 
-    def __init__(self, parent, children_ast_relation_list, key): # KEY DEPRECATED
+    def __init__(self, parent, children_ast_relation_list):
         """
         Constructor
-        \param parent
-        \param children
-        \param key the key for elements returned from the node
+        Args:
+            parent: The main query (AST instance ?)
+            children_ast_relation_list: A list of (AST , Relation) tuples
         """
         super(SubQuery, self).__init__()
+
         # Parameters
-        self.parent, self.key = parent, key # KEY DEPRECATED
+        self.parent = parent
 
         # Remove potentially None children
         # TODO  how do we guarantee an answer to a subquery ? we should branch
@@ -52,7 +53,14 @@ class SubQuery(Node):
 
         self.query = self.parent.get_query().copy()
         for i, child in enumerate(self.children):
-            self.query.fields.add(child.get_query().object)
+            self.query.fields.add(child.get_query().get_from())
+            # Adding dotted fields like "hops.ttl"
+            self.query.fields |= set([
+                ".".join([
+                    self.relations[i].get_predicate().get_key(),
+                    field_name
+                ]) for field_name in child.get_query().get_select()
+            ])
 
         # Prepare array for storing results from children: parent result can
         # only be propagated once all children have replied
@@ -405,47 +413,87 @@ class SubQuery(Node):
         Returns:
             The optimized AST once this projection has been propagated.
         """
-        parent_keys = set()
-        require_top_projection = False
-        parent_fields = set()
+        # 1) Determine for the parent and each child which fields are explicitely
+        #    queried by the user.
+        # 2) Determine for the parent and each child which additionnal fields are
+        #    required to join the parent records and the child records.
+        # 3) Optimize the parent AST and the child ASTs conseuqently.
+        # 4) Filter additionnal fields (see (2)) which have not been queried by
+        #    adding a Projection node above the resulting optimized AST.
 
-        # Select a "bar" field in a "foo" children if "foo.bar" is explicitely SELECTed.
+        # 0) Initialization
+        parent_fields = set() # fields returned by the parent query
+        child_fields = dict() # fields returned by each child query
+
         for i, child in enumerate(self.children[:]):
-            relation = self.relations[i]
-            name     = relation.get_relation_name()
+            child_name = self.relations[i].get_relation_name()
+            child_fields[child_name] = set()
 
-            my_fields = set()
-            for field in fields:
-                if not '.' in field: continue
-                m, f = field.split('.', 1)
-                if m == name:
-                    my_fields.add(f)
-
-            predicate = relation.get_predicate()
-            parent_keys |= predicate.get_field_names()
-            if not parent_keys <= my_fields:
-                require_top_projection = True
-
-            child_fields   = my_fields & child.get_query().get_select()
-            child_fields  |= predicate.get_value_names()
-            parent_fields |= parent_keys 
-
-            self.children[i] = child.optimize_projection(child_fields)
-
-        # Fetch in the main query only the queried fields (in SELECT or WHERE)
+        # 1) Dispatch queried field to the parent or to the appropriate child.
+        # If we cannot decide, dispatch this field to the parent and to every children.
+        # Due to unique naming, if we can decide to propagate a field either to the
+        # parent or either to a given child, we can skip all the other candidate branches.
         for field in fields:
+            dispatched = False
             if '.' in field:
                 table_name, field_name = field.split('.', 1)
-                if table_name == self.parent.get_query().get_from():
-                    parent_fields.add(field_name)
             else:
-                parent_fields.add(field)
+                table_name, field_name = None, field
+
+            # Try to dispatch the current field to the parent query
+            parent_name = self.parent.get_query().get_from()
+            if not table_name or table_name == parent_name: 
+                if field_name in self.parent.get_query().get_select():
+                    parent_fields.add(field_name)
+                    dispatched = True
+                else:
+                    Log.warning("Cannot dispatch %s in parent query" % field_name)
+
+            # Try to dispatch the current field to a child query
+            if not dispatched: # unique naming
+                for i, child in enumerate(self.children[:]):
+                    child_name = self.relations[i].get_relation_name()
+                    if table_name == child_name:
+                        if field_name in child.get_query().get_select():
+                            child_fields[child_name].add(field_name)
+                        else:
+                            Log.warning("Cannot dispatch %s in %s child query" % (field_name, child_name))
+                        dispatched = True
+                        break # unique naming
+
+            # We can't decide where the current field must be dispatched.
+            # So we dispatch it to the parent query and to every child queries.
+            if not dispatched:
+                parent_fields.add(field_name)
+                for child_name in child_fields.keys():
+                    child_fields[child_name].add(field_name)
+
+        # 2) Add to child_fields and parent_fields the field names needed to
+        # connect the parent to its children. If such fields are added, we will
+        # filter them in step (4). Once we have deduced for each child its
+        # queried fields (see (1)) and the fields needed to connect it to the
+        # parent query (2), we can start the to optimize the projection (3).
+        require_top_projection = False
+        for i, child in enumerate(self.children[:]):
+            relation = self.relations[i]
+            predicate = relation.get_predicate()
+            child_name = relation.get_relation_name()
+            if not predicate.get_field_names() <= parent_fields:
+                parent_fields |= predicate.get_field_names()
+                require_top_projection = True 
+            child_fields[child_name] |= predicate.get_value_names()
+
+        # 3) Optimize the main query (parent) and its subqueries (children)
+        for i, child in enumerate(self.children[:]):
+            self.children[i] = child.optimize_projection(child_fields[child_name])
 
         if parent_fields < self.parent.get_query().get_select():
             self.parent = self.parent.optimize_projection(parent_fields)
 
-        # At least one children Node requires a Projection Node above this SubQuery Node
+        # 4) Some fields (used to connect the parent node to its child node) may be not
+        # queried by the user. In this case, we ve to add a Projection
+        # node which will filter those fields.
         if require_top_projection:
-            return Projection(self, fields)
+            return Projection(self, [field.split('.')[-1] for field in fields])
         return self
-            
+
