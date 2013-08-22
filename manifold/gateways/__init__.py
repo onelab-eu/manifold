@@ -76,21 +76,40 @@ class Gateway(object):
         return variables
 
     def start(self):
-        # Replaces variables in the Query (predicate in filters and parameters)
-        filter = self.query.get_where()
-        params = self.query.get_params()
-        variables = self.get_variables()
-        for predicate in filter:
-            value = predicate.get_value()
-            if value[0] == '$':
-                var = value[1:]
-                if var in variables:
-                    predicate.set_value(variables[var])
-        for key, value in params.items():
-            if value[0] == '$':
-                var = value[1:]
-                if var in variables and isinstance(variables[var], StringTypes):
-                    params[k] = variables[var]
+        try:
+            Log.tmp(self.identifier)
+            Log.tmp(self.query)
+            # Replaces variables in the Query (predicate in filters and parameters)
+            filter = self.query.get_where()
+            params = self.query.get_params()
+            variables = self.get_variables()
+
+            for predicate in filter:
+                value = predicate.get_value()
+
+                # XXX variable support not implemented for lists and tuples
+                if isinstance(value, (tuple, list)):
+                    continue
+
+                if value[0] == '$':
+                    var = value[1:]
+                    if var in variables:
+                        predicate.set_value(variables[var])
+
+            for key, value in params.items():
+
+                # XXX variable support not implemented for lists and tuples
+                if isinstance(value, (tuple, list)):
+                    continue
+                
+                if value[0] == '$':
+                    var = value[1:]
+                    if var in variables and isinstance(variables[var], StringTypes):
+                        params[k] = variables[var]
+        except Exception, e:
+            print "Exception in start", e
+            import traceback
+            traceback.print_exc()
 
     @returns(StringTypes)
     def get_platform(self):
@@ -183,14 +202,30 @@ class Gateway(object):
 #[ os.path.basename(f)[:-3] for f in glob.glob(os.path.dirname(__file__)+"/*.py")]
 
 def register():
-    from manifold.gateways.postgresql       import PostgreSQLGateway
-    from manifold.gateways.tdmi             import TDMIGateway
-    from manifold.gateways.sfa              import SFAGateway
-    from manifold.gateways.maxmind          import MaxMindGateway
-    from manifold.gateways.csv              import CSVGateway
-    from manifold.gateways.manifold_xmlrpc  import ManifoldGateway
-    from manifold.gateways.sqlalchemy       import SQLAlchemyGateway
-    from manifold.gateways.oml              import OMLGateway
+    try:
+        from manifold.gateways.postgresql       import PostgreSQLGateway
+    except: pass
+    try:
+        from manifold.gateways.tdmi             import TDMIGateway
+    except: pass
+    try:
+        from manifold.gateways.sfa              import SFAGateway
+    except: pass
+    try:
+        from manifold.gateways.maxmind          import MaxMindGateway
+    except: pass
+    try:
+        from manifold.gateways.csv              import CSVGateway
+    except: pass
+    try:
+        from manifold.gateways.manifold_xmlrpc  import ManifoldGateway
+    except: pass
+    try:
+        from manifold.gateways.sqlalchemy       import SQLAlchemyGateway
+    except: pass
+    try:
+        from manifold.gateways.oml              import OMLGateway
+    except: pass
 
 register()
 
