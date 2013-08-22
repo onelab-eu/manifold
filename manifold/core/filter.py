@@ -40,7 +40,7 @@ class Filter(set):
                 f.add(Predicate(key, '=', value))
         return f
 
-    def to_list():
+    def to_list(self):
         ret = []
         for predicate in self:
             ret.append(p.to_list())
