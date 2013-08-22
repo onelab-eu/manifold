@@ -15,8 +15,6 @@ from manifold.util.log              import Log
 
 class TDMIGateway(PostgreSQLGateway):
 
-    RE_ID = re.compile("^(.*)_id$")
-
     def __init__(self, router, platform, query, config, user_config, user):
         """
         Constructor of TDMIGateway

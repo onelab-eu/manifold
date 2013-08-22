@@ -322,21 +322,21 @@ class Fds(set):
         for fd in fds:
             self.add(fd)
 
-    @returns(dict)
-    def group_by_method(self):
-        """
-        \brief Group a set of Fd stored in this Fds by method
-        \returns A dictionnary {method_name : Fds}
-        """
-        map_method_fds = dict() 
-        for fd in self:
-            _field, _platforms = fd.map_field_methods.items()[0]
-            method = fd.get_determinant().get_method_name()
-            dict_key = (method, frozenset(_platforms))
-            if dict_key not in map_method_fds.keys():
-                map_method_fds[dict_key] = Fds()
-            map_method_fds[dict_key].add(fd)
-        return map_method_fds
+#OBSOLETE|    @returns(dict)
+#OBSOLETE|    def group_by_method(self):
+#OBSOLETE|        """
+#OBSOLETE|        \brief Group a set of Fd stored in this Fds by method
+#OBSOLETE|        \returns A dictionnary {method_name : Fds}
+#OBSOLETE|        """
+#OBSOLETE|        map_method_fds = dict() 
+#OBSOLETE|        for fd in self:
+#OBSOLETE|            _field, _platforms = fd.map_field_methods.items()[0]
+#OBSOLETE|            method = fd.get_determinant().get_method_name()
+#OBSOLETE|            dict_key = (method, frozenset(_platforms))
+#OBSOLETE|            if dict_key not in map_method_fds.keys():
+#OBSOLETE|                map_method_fds[dict_key] = Fds()
+#OBSOLETE|            map_method_fds[dict_key].add(fd)
+#OBSOLETE|        return map_method_fds
 
     # Replaces the previous function
     @returns(dict)
@@ -730,20 +730,19 @@ def reinject_fds_mando(fds_min_cover, fds_removed):
                 fd.add_methods(m)
 
 #@returns(DBGraph)
+#TODO to_3nf should not consider a list of Announces!
 @accepts(dict)
 def to_3nf(metadata):
     """
-    \brief Compute a 3nf schema
-        \sa http://elm.eeng.dcu.ie/~ee221/EE221-DB-7.pdf p14
-    \param A list of Table instances (the schema we want to normalize)
-    \return A pair made of
-        - the 3nf graph (DbGraph instance)
-        - a Cache instance (storing the shortcuts removed from the 3nf graph)
+    Compute a 3nf schema
+    See also http://elm.eeng.dcu.ie/~ee221/EE221-DB-7.pdf p14
+    Args:
+        metadata: A dictionnary {String => list(Announces)} which maps
+            platform name a list containing its corresponding Announces.
+    Returns:
+        The corresponding 3nf graph (DbGraph instance)
     """
-    # Compute functional dependancies
-    #print "-" * 100
-    #print "1) Computing functional dependancies"
-    #print "-" * 100
+    # 1) Compute functional dependancies
     tables = []
     map_method_capabilities = {}
     for platform, announces in metadata.items():
@@ -751,59 +750,31 @@ def to_3nf(metadata):
             tables.append(announce.table)
             map_method_capabilities[(platform, announce.table.get_name())] = announce.table.get_capabilities()
     fds = make_fd_set(tables)
-    #print "%r" % fds
 
-#OBSOLETE|        # Compute the map which refer for each key the platforms
-#OBSOLETE|        # which support this key 
-#OBSOLETE|        map_key_platforms = dict()
-#OBSOLETE|        for fd in fds:
-#OBSOLETE|            key = fd.get_determinant().get_key()
-#OBSOLETE|            if key not in map_key_platforms.keys():
-#OBSOLETE|                map_key_platforms[key] = set()
-#OBSOLETE|            for table in tables:
-#OBSOLETE|                if table.has_key(key):
-#OBSOLETE|                    map_key_platforms[key] |= table.get_platforms()
-
-    # Find a minimal cover
-    #print "-" * 100
-    #print "2) Computing minimal cover"
-    #print "-" * 100
+    # 2) Find a minimal cover
     (fds_min_cover, fds_removed) = fd_minimal_cover(fds)
 
-    #print "-" * 100
-    #print "3) Reinjecting fds removed during normalization"
-    #print "-" * 100
-    #for fd_removed in fds_removed:
-    #    print "(0) %r" % fd_removed
-
+    # 3) Reinjecting fds removed during normalization
     reinject_fds(fds_min_cover, fds_removed)
 
-    #print "-" * 100
-    #print "4) Grouping fds by method"
-    #print "-" * 100
-    #fdss = fds_min_cover.group_by_method() # Mando
+    # 4) Grouping fds by method
+#OBOSOLETE|    fdss = fds_min_cover.group_by_method() # Mando
     fdss = fds_min_cover.group_by_tablename_method() # Jordan
-    #for table_name, fds in fdss.items():
-    #    print "### \t%s:\n%s" % (table_name, fds)
 
-    #print "-" * 100
-    #print "5) Making 3-nf tables" 
-    #print "-" * 100
+    # 5) Making 3-nf tables
     tables_3nf = list()
     map_tablename_methods = dict() # map table_name with methods to demux
 
-    # for table_name_platforms, fds in fdss.items():
     for table_name, map_platform_fds in fdss.items():
-
         # For the potential parent table
-        #
-
         # Stores the number of distinct platforms set
         cpt_platforms = 0
+
         # Stores the set of platforms
         all_platforms = set()
         common_fields = None
         common_keys = None
+
         # Annotations needed for the query plane
         all_tables = []
 
@@ -917,11 +888,20 @@ def to_3nf(metadata):
         else:
             table.methods_demux = set()
 
-    #print "-" * 100
-    #print "6) Building DBgraph"
-    #print "-" * 100
+    # 6) Inject capabilities
     # TODO: capabilities are now in tables, shall they be present in tables_3nf
     # instead of relying on map_method_capabilities ?
+    for table in tables_3nf:
+        for announces in metadata.values():
+            for announce in announces:
+                if announce.get_table().get_name() == table.get_name():
+                    capabilities = table.get_capabilities()
+                    if capabilities.is_empty():
+                        table.set_capability(announce.get_table().get_capabilities()) 
+                    elif capabilities != announce.get_table().get_capabilities():
+                        Log.warning("Conflicting capabilities for tables %r and %r" % (table, announce.get_table()))
+                
+    # 7) Building DBgraph
     graph_3nf = DBGraph(tables_3nf, map_method_capabilities)
 
     return graph_3nf

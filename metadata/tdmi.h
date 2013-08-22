@@ -7,7 +7,7 @@ class hop {
     const local int   hop_id;
     KEY(hop_id);
 
-    CAPABILITY(retrieve, join);
+    CAPABILITY(virtual, retrieve, join);
 };
 
 //class hop {
