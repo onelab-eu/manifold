@@ -12,7 +12,7 @@ from manifold.core.dbnorm           import to_3nf
 from manifold.core.query_plan       import QueryPlan
 from manifold.util.type             import returns, accepts
 try:
-from manifold.gateways.sfa          import ADMIN_USER
+    from manifold.gateways.sfa          import ADMIN_USER
 except:
     ADMIN_USER = 'admin'  # XXX
 from manifold.util.callback         import Callback
