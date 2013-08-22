@@ -197,7 +197,7 @@ class Query(object):
             'action': self.action,
             'object': self.object,
             'timestamp': self.timestamp,
-            'filters': self.filters,
+            'filters': self.filters.to_list(),
             'params': self.params,
             'fields': list(self.fields)
         }
