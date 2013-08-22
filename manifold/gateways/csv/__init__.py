@@ -156,7 +156,7 @@ class CSVGateway(Gateway):
             key_fields = set()
             for name, type in zip(field_names, field_types):
                 f = Field(
-                    qualifier   = 'const', # unless we want to update the CSV file
+                    qualifiers  = ['const'], # unless we want to update the CSV file
                     type        = type,
                     name        = name,
                     is_array    = False,

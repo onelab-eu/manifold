@@ -40,14 +40,15 @@ from manifold.util.log                import Log
 
 class AST(object):
     """
-    Abstract Syntax Tree used to represent a Query Plane.
-    Acts as a factory.
+    An AST (Abstract Syntax Tree) is used to represent a Query Plan.
+    It acts as a factory (see example at the end of this file).
     """
 
     def __init__(self, user = None):
         """
-        \brief Constructor
-        \param user A User instance
+        Constructor
+        Args:
+            user: A User instance
         """
         self.user = user
         # The AST is initially empty
@@ -55,14 +56,16 @@ class AST(object):
 
     def get_root(self):
         """
-        \return The root Node of this AST (if any), None otherwise
+        Returns:
+            The root Node of this AST (if any), None otherwise
         """
         return self.root
 
     @returns(bool)
     def is_empty(self):
         """
-        \return True iif the AST has no Node.
+        Returns:
+            True iif the AST has no Node.
         """
         return self.get_root() == None
 
@@ -70,10 +73,12 @@ class AST(object):
     #@returns(AST)
     def From(self, platform, query, capabilities, key):
         """
-        \brief Append a FROM Node to this AST
-        \param table The Table wrapped by the FROM operator
-        \param query The Query sent to the platform
-        \return The updated AST
+        Append a From Node to this AST.
+        Args:
+            table: The Table wrapped by the FROM operator.
+            query: The Query sent to the platform.
+        Returns:
+            The updated AST
         """
         assert self.is_empty(),                 "Should be instantiated on an empty AST"
         #assert isinstance(table, Table),        "Invalid table = %r (%r)" % (table, type(table))
@@ -90,18 +95,26 @@ class AST(object):
         return self
 
     def from_table(self, query, records, key):
+        """
+        Append a FromTable Node to this AST.
+        Args:
+            query:
+            records:
+            key: A Key instance which can be used to identify each Records.
+        Returns:
+            The resulting AST.
+        """
         self.root = FromTable(query, records, key)
         self.root.set_callback(self.get_callback())
         return self
-        
 
     #@returns(AST)
     def union(self, children_ast, key):
         """
-        \brief Make an AST which is the UNION of self (left operand) and children_ast (right operand)
-        \param children_ast A list of AST gathered by this UNION operator
-        \param key A Key instance
-            \sa manifold.core.key.py 
+        Make an AST which is the UNION of self (left operand) and children_ast (right operand)
+        Args:
+            children_ast: A list of AST gathered by this Union operator.
+            key: A Key instance which can be used to identify each Records.
         \return The AST corresponding to the UNION
         """
         # We only need a key for UNION distinct, not supported yet
@@ -132,11 +145,14 @@ class AST(object):
     #@returns(AST)
     def left_join(self, right_child, predicate):
         """
-        \brief Make an AST which is the LEFT JOIN of self (left operand) and children_ast (right operand) 
+        Make an AST which is the LEFT JOIN of self (left operand)
+        and children_ast (right operand) 
             self ⋈ right_child
-        \param right_child An AST instance (right operand of the LEFT JOIN )
-        \param predicate A Predicate instance used to perform the join 
-        \return The resulting AST
+        Args:
+            right_child: An AST instance (right operand of the LEFT JOIN).
+            predicate: A Predicate instance used to perform the LEFT JOIN.
+        Returns:
+            The resulting AST.
         """
         assert isinstance(right_child, AST),     "Invalid right_child = %r (%r)" % (right_child, type(right_child))
         assert isinstance(predicate, Predicate), "Invalid predicate = %r (%r)" % (predicate, type(Predicate))
@@ -148,10 +164,11 @@ class AST(object):
     #@returns(AST)
     def demux(self):
         """
-        \brief Append a DEMUX Node above this AST
-        \return The updated AST 
+        Append a DEMUX Node above this AST.
+        Returns:
+            The updated AST. 
         """
-        assert not self.is_empty(),      "AST not initialized"
+        assert not self.is_empty(), "AST not initialized"
 
         old_root = self.get_root()
         self.root = Demux(old_root)
@@ -161,11 +178,13 @@ class AST(object):
     #@returns(AST)
     def dup(self, key):
         """
-        \brief Append a DUP Node above this AST
-        \param key A Key instance, allowing to detecting duplicates
-        \return The updated AST 
+        Append a Dup Node above this AST
+        Args:
+            key: A Key instance, allowing to detecting duplicates
+        Returns:
+            The updated AST 
         """
-        assert not self.is_empty(),      "AST not initialized"
+        assert not self.is_empty(), "AST not initialized"
 
         old_root = self.get_root()
         self.root = Dup(old_root, key)
@@ -175,10 +194,12 @@ class AST(object):
     #@returns(AST)
     def projection(self, fields):
         """
-        \brief Append a SELECT Node (Projection) above this AST
+        Append a Projection Node (SELECT) above this AST
             ast <- π_fields(ast)
-        \param fields the list of fields on which to project
-        \return The AST corresponding to the SELECT 
+        Args:
+            fields: the list of fields on which to project
+        Returns:
+            The resulting AST.
         """
         assert not self.is_empty(),      "AST not initialized"
         #assert isinstance(fields, list), "Invalid fields = %r (%r)" % (fields, type(fields))
@@ -190,10 +211,12 @@ class AST(object):
     #@returns(AST)
     def selection(self, filters):
         """
-        \brief Append a WHERE Node (Selection) above this AST
+        Append a Selection Node (WHERE) above this AST
             ast <- σ_filters(ast)
-        \param filters A set of Predicate to apply
-        \return The AST corresponding to the WHERE 
+        Args:
+            filters: A set of Predicate to apply
+        Returns:
+            The resulting AST.
         """
         assert not self.is_empty(),      "AST not initialized"
         assert isinstance(filters, set), "Invalid filters = %r (%r)" % (filters, type(filters))
@@ -204,24 +227,34 @@ class AST(object):
         return self
 
     #@returns(AST)
-    def subquery(self, children_ast_relation_list, parent_key=None): # PARENT KEY DEPRECATED
+    def subquery(self, children_ast_relation_list):
         """
-        \brief Append a SUBQUERY Node above the current AST
-        \param children_ast the set of children AST to be added as subqueries to
-            the current AST
-        \return AST corresponding to the SUBQUERY
+        Append a SubQuery Node above the current AST, which will be used as the
+        main query of this SubQuery.
+        Args:
+            children_ast_relation_list: A list of (AST, Relation) tuples
+            corresponding to each subquery (children) involved in this
+            SubQuery Node)
+        Returns:
+            The resulting AST.
         """
         assert not self.is_empty(), "AST not initialized"
 
         children = map(lambda (ast, relation): (ast.get_root(), relation), children_ast_relation_list)
-        self.root = SubQuery(self.get_root(), children, parent_key) # PARETN KEY DEPRECATED
-
+        self.root = SubQuery(self.get_root(), children)
         return self
 
     #@returns(AST)
     def cross_product(self, children_ast_relation_list, query):
+        """
+        Append a CrossProduct Node above the current AST
+        Args:
+            children_ast_relation_list:
+            query:
+        Returns:
+            The resulting AST.
+        """
         assert self.is_empty(), "Cross-product should be done on an empty AST"
-
 
         if len(children_ast_relation_list) == 1:
             (ast, relation), _ = children_ast_relation_list
@@ -234,8 +267,10 @@ class AST(object):
 
     def dump(self, indent = 0):
         """
-        \brief Dump the current AST
-        \param indent current indentation
+        Dump the current AST.
+        Params:
+            indent: An integer corresponding to the current indentation
+                (number of space characters).
         """
         if self.is_empty():
             print "Empty AST (no root)"
@@ -244,20 +279,21 @@ class AST(object):
 
     def start(self):
         """
-        \brief Propagates a START message through the AST
+        Propagates a START message through the AST which is used to wake
+        up each Node in order to execute the Query.
         """
         assert not self.is_empty(), "Empty AST, cannot send START message"
         self.get_root().start()
 
-    @property
-    def callback(self):
-        Log.info("I: callback property is deprecated")
-        return self.root.callback
-
-    @callback.setter
-    def callback(self, callback):
-        Log.info("I: callback property is deprecated")
-        self.root.callback = callback
+#DEPRECATED|    @property
+#DEPRECATED|    def callback(self):
+#DEPRECATED|        Log.info("I: callback property is deprecated")
+#DEPRECATED|        return self.root.callback
+#DEPRECATED|
+#DEPRECATED|    @callback.setter
+#DEPRECATED|    def callback(self, callback):
+#DEPRECATED|        Log.info("I: callback property is deprecated")
+#DEPRECATED|        self.root.callback = callback
 
     def get_callback(self):
         return self.root.get_callback()
@@ -266,16 +302,39 @@ class AST(object):
         self.root.set_callback(callback)
 
     def optimize(self, query):
+        """
+        Optimize this AST according to the Query issued by the user.
+        For instance, SELECT and WHERE clause allows to fetch less
+        information from the data sources involved in the query plan.
+        Args:
+            query: The Query issued by the user.
+        """
         self.optimize_selection(query.get_where())
         self.optimize_projection(query.get_select())
 
     def optimize_selection(self, filter):
+        """
+        Apply a WHERE operation to an AST and spread this operation
+        along the AST branches by adding appropriate Selection Nodes
+        in the current tree.
+        Args:
+            filter: a set of String corresponding to the field names
+                involved in the WHERE clause.
+        """
         if not filter: return
         old_cb = self.get_callback()
         self.root = self.root.optimize_selection(filter)
         self.set_callback(old_cb)
 
     def optimize_projection(self, fields):
+        """
+        Apply a SELECT operation to an AST and spread this operation
+        along the AST branches by adding appropriate Projection Nodes
+        in the current tree.
+        Args:
+            filter: a set of String corresponding to the field names
+                involved in the SELECT clause.
+        """
         if not fields: return
         old_cb = self.get_callback()
         self.root = self.root.optimize_projection(fields)
@@ -288,9 +347,9 @@ class AST(object):
 def main():
     q = Query("get", "x", [], {}, ["x", "z"], None)
 
-    x = Field(None, "int", "x")
-    y = Field(None, "int", "y")
-    z = Field(None, "int", "z")
+    x = Field([], "int", "x")
+    y = Field([], "int", "y")
+    z = Field([], "int", "z")
 
     a = Table(["p"], None, "A", [x, y], [Key([x])])
     b = Table(["p"], None, "B", [y, z], [Key([y])])

@@ -15,8 +15,6 @@ from manifold.util.log              import Log
 
 class TDMIGateway(PostgreSQLGateway):
 
-    RE_ID = re.compile("^(.*)_id$")
-
     def __init__(self, router, platform, query, config, user_config, user):
         """
         Constructor of TDMIGateway
@@ -74,7 +72,7 @@ class TDMIGateway(PostgreSQLGateway):
         # in order to get a class consistent with the underlying ontology.
         self.custom_fields = {
             "agent" : [
-                Field("const", "string", "platform", None, "Platform annotation, always equal to 'tdmi'")
+                Field(["const"], "string", "platform", None, "Platform annotation, always equal to 'tdmi'")
             ]
         }
 
@@ -106,7 +104,6 @@ class TDMIGateway(PostgreSQLGateway):
                 params = None
                 instance = self.METHOD_MAP[table_name](query, db = self)
                 sql = instance.get_sql()
-                print "Running SQL:\n%s" % sql
                 rows = self.selectall(sql, params)
 
                 # Does this object tweak the python dictionnary returned by selectall?

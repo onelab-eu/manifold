@@ -31,4 +31,11 @@ class Record(object):
             return fields in record
         else:
             return fields <= set(record.keys())
+   
+    @classmethod
+    def is_empty_record(self, record, keys):
+        for key in keys:
+            if record[key]: return False
+        return True
+
 
