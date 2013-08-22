@@ -1,4 +1,5 @@
 from types               import StringTypes
+from manifold.operators  import Node, ChildStatus, ChildCallback
 from manifold.core.query import Query
 from manifold.operators  import Node, LAST_RECORD
 from manifold.util.type  import returns
@@ -18,6 +19,7 @@ class Demux(Node):
         self.child = child
         #TO FIX self.status = ChildStatus(self.all_done)
         self.child.set_callback(ChildCallback(self, 0))
+        self.query = self.child.get_query().copy()
 
     def add_callback(self, callback):
         """
@@ -66,3 +68,11 @@ class Demux(Node):
         assert issubclass(Node, type(parent)), "Invalid parent %r (%r)" % (parent, type(parent))
         print "not yet implemented"
 
+    def optimize_selection(self, filter):
+        self.child = self.child.optimize_selection(filter)
+        return self
+
+    def optimize_projection(self, fields):
+        # We only need the intersection of both
+        self.child = self.child.optimize_projection(fields)
+        return self.child

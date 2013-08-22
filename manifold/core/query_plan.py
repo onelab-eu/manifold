@@ -25,6 +25,7 @@ from manifold.core.dbgraph         import find_root
 from manifold.core.relation        import Relation
 from manifold.core.filter          import Filter
 from manifold.core.ast             import AST
+from manifold.operators.demux      import Demux
 from manifold.util.predicate       import Predicate, contains, eq
 from manifold.util.type            import returns, accepts
 from manifold.util.log             import Log
@@ -68,6 +69,7 @@ class ExploreTask(Deferred):
     A pending exploration of the metadata graph
     """
     def __init__(self, root, relation, path, parent, depth):
+        assert root != None, "ExploreTask::__init__(): invalid root = %s" % root
         # Context
         self.root        = root
         self.relation    = relation
@@ -137,18 +139,18 @@ class ExploreTask(Deferred):
         for field in root_provided_fields:
             for missing in list(missing_fields):
                 # missing has dots inside
+                # hops.ttl --> missing_path == ["hops"] missing_field == ["ttl"]
                 missing_list = missing.split('.')
                 missing_path, (missing_field,) = missing_list[:-1], missing_list[-1:]
-                # Missing fields that the current table is providing
                 flag, shortcut = is_sublist(missing_path, self.path) #self.path, missing_path)
+
                 if flag and missing_field == field:
                     #print 'current table provides missing field PATH=', self.path, 'field=', field, 'missing=', missing
                     self.keep_root_a.add(field)
 
                     # We won't search those fields in subsequent explorations,
                     # unless the belong to the key of an ONJOIN table
-                    is_onjoin = (self.root.get_name() == 'traceroute') # not root.capabilities.retrieve:
-                    Log.warning("HARDCODED TRACEROUTE AS ONJOIN")
+                    is_onjoin = self.root.capabilities.is_onjoin()
                     
                     if not is_onjoin or field not in root_key_fields:
                         missing_fields.remove(missing)
@@ -167,12 +169,13 @@ class ExploreTask(Deferred):
         # In all cases, we have to list neighbours for returning 1..N relationships. Let's do it now. 
         for neighbour in metadata.graph.successors(self.root):
             for relation in metadata.get_relations(self.root, neighbour):
-
-
                 name = relation.get_relation_name()
+
                 if name in seen_set:
                     continue
+
                 seen_set.add(name)
+
                 if relation.requires_subquery():
                     subpath = self.path[:]
                     subpath.append(name)
@@ -192,7 +195,6 @@ class ExploreTask(Deferred):
                 else:
                     task = ExploreTask(neighbour, relation, self.path, self.parent, self.depth)
                     task.addCallback(self.perform_left_join, relation, allowed_platforms, metadata, user, query_plan)
-
                     priority = TASK_11
 
                 deferred_list.append(task)
@@ -242,8 +244,7 @@ class ExploreTask(Deferred):
                 fields |= relation.get_predicate().get_field_names()
             self.ast = self.build_union(self.root, fields, allowed_platforms, metadata, user, query_plan)
         
-        # How do i know that i have an onjoin table
-        if self.root.get_name() == 'traceroute': # not root.capabilities.retrieve:
+        if self.root.capabilities.is_onjoin():
             # Let's identify tables involved in the key
             root_key_fields = self.root.keys.one().get_field_names()
             xp_ast_relation, sq_ast_relation = [], []
@@ -261,7 +262,8 @@ class ExploreTask(Deferred):
 
             ast = self.ast
 
-            ast.subquery(sq_ast_relation)
+            if sq_ast_relation:
+                ast.subquery(sq_ast_relation)
             q = Query.action('get', self.root.get_name()).select(set(xp_key))
             self.ast = AST().cross_product(xp_ast_relation, q)
             predicate = Predicate(xp_key, eq, xp_value)
@@ -405,8 +407,19 @@ class QueryPlan(object):
                 q.action = query.get_action()
                 q.params = query.get_params()
 
-    def build(self, query, metadata, allowed_platforms, allowed_capabilities, user = None, qp = None):
+    def build(self, query, metadata, allowed_platforms, allowed_capabilities, user = None):
+        """
+        Build the QueryPlan according to a 3nf graph and a user Query
+        Args:
+            query: The Query issued by the user.
+            metadata: The 3nf graph (DBGraph instance).
+            allowed_platforms: A list of platform names (list of String).
+            allowed_capabilities: A Capabilities instance or None.
+            user: A User instance or None.
+        """
         root = metadata.find_node(query.get_from())
+        if not root:
+            Log.error("query_plan::build(): Cannot find %s in metadata, known tables are %s" % (query.get_from(), metadata.get_table_names()))
         
         root_task = ExploreTask(root, relation=None, path=[], parent=self, depth=1)
         root_task.addCallback(self.set_ast, query)

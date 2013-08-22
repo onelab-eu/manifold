@@ -41,6 +41,7 @@ DEBUG [manifold.core.xmlrpc_api.XMLRPCAPI.xmlrpc_forward] ['xmlrpc_api args = ']
 QUERY PLAN:
 - better handling of missing fields, to be sure they are not requested later on by the query plan for example
 - how to filter on missing fields ? do we have to consider a N/A value
+- key fields in queries: eg. network, network_hrn
 
 METADATA
 - platform name in announces should not be set by the platform

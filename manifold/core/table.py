@@ -173,12 +173,13 @@ class Table(object):
         \brief Convert a Table instance into a string ('%s')
         \return The corresponding string
         """
-        return "{%s}::%s {\n\t%s;\n\t%s;\n};" % (
+        return "{%s}::%s {\n\t%s;\n\t%s;\n\t%s\n};" % (
             ', '.join([p          for p in sorted(self.get_platforms())]),
             self.get_name(),
             ';\n\t'.join(["%s%s" % (f, "[]" if f.is_array() else "") for f in sorted(self.get_fields())]),
 #            '\n\t'.join(["%s;\t// via %r" % (field, methods) for field, methods in self.map_field_methods.items()]),
-            '\n\t;'.join(["%s" % k for k in self.get_keys()])
+            '\n\t;'.join(["%s" % k for k in self.get_keys()]),
+            self.get_capabilities()
         )
 
     @returns(StringTypes)
@@ -269,6 +270,9 @@ class Table(object):
             self.keys.add(Key(fields))
 
     def set_capability(self, capability):
+        if isinstance(capability, Capabilities):
+            self.capabilities = capability
+            return
         if isinstance(capability, StringTypes):
             capability = [capability]
         elif isinstance(capability, (list, tuple, set, frozenset)):
@@ -471,7 +475,6 @@ class Table(object):
 
         # We need to update map_method_fields
         for method, fields in copy_u.map_method_fields.items():
-            Log.tmp("update map_method", fields, relevant_fields)
             fields &= relevant_fields
 
         return copy_u

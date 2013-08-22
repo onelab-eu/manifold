@@ -95,7 +95,7 @@ class Traceroute(list):
         self.table_fields_sql = list()
         self.selected_fields = list()
         self.selected_sub_fields = dict() 
-        if select == None:
+        if select == None or select == frozenset():
             # By default, return every fields
             for (field_name, field_type) in self.map_field_type.items():
                 self.register_field(field_name)
@@ -192,9 +192,7 @@ class Traceroute(list):
         """
         # Craft 'hops' field if queried 
         if "hops" in query.get_select():
-            print "repacking hops with traceroute = %r" % traceroute
             hops_sql = traceroute["hops"]
-            print "hops_sql = %r" % hops_sql
             traceroute["hops"] = Traceroute.repack_hops(hops_sql, self.selected_sub_fields)
 
         Traceroute.rename_field(query, traceroute, "agent_id",       "agent")
