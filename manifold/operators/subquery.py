@@ -165,107 +165,106 @@ class SubQuery(Node):
             self.send(LAST_RECORD)
             return
 
-        try:
-            # Loop through children and inject the appropriate parent results
-            for i, child in enumerate(self.children):
-                if i in useless_children: continue
+        # Loop through children and inject the appropriate parent results
+        for i, child in enumerate(self.children):
+            if i in useless_children: continue
 
-                # We have two cases:
-                # (1) either the parent query has subquery fields (a list of child
-                #     ids + eventually some additional information)
-                # (2) either the child has a backreference to the parent
-                #     ... eventually a partial reference in case of a 1..N relationship
-                #
-                # In all cases, we will collect all identifiers to proceed to a
-                # single child query for efficiency purposes, unless it's not
-                # possible (?).
-                #
-                # We have several parent records stored in self.parent_output
-                #
-                # /!\ Can we have a mix of (1) and (2) ? For now, let's suppose NO.
-                #  *  We could expect key information to be stored in the DBGraph
+            # We have two cases:
+            # (1) either the parent query has subquery fields (a list of child
+            #     ids + eventually some additional information)
+            # (2) either the child has a backreference to the parent
+            #     ... eventually a partial reference in case of a 1..N relationship
+            #
+            # In all cases, we will collect all identifiers to proceed to a
+            # single child query for efficiency purposes, unless it's not
+            # possible (?).
+            #
+            # We have several parent records stored in self.parent_output
+            #
+            # /!\ Can we have a mix of (1) and (2) ? For now, let's suppose NO.
+            #  *  We could expect key information to be stored in the DBGraph
 
-                # The operation to be performed is understood only be looking at the predicate
-                relation = self.relations[i]
-                predicate = relation.get_predicate()
+            # The operation to be performed is understood only be looking at the predicate
+            relation = self.relations[i]
+            predicate = relation.get_predicate()
 
-                key, op, value = predicate.get_tuple()
-                if op == eq:
-                    # 1..N
-                    # Example: parent has slice_hrn, resource has a reference to slice
-                    if relation.get_type() == Relation.types.LINK_1N_BACKWARDS:
-                        parent_ids = [record[key] for record in self.parent_output]
-                        if len(parent_ids) == 1:
-                            parent_id, = parent_ids
-                            filter_pred = Predicate(value, eq, parent_id)
-                        else:
-                            filter_pred = Predicate(value, included, parent_ids)
+            key, op, value = predicate.get_tuple()
+            if op == eq:
+                # 1..N
+                # Example: parent has slice_hrn, resource has a reference to slice
+                if relation.get_type() == Relation.types.LINK_1N_BACKWARDS:
+                    parent_ids = [record[key] for record in self.parent_output]
+                    if len(parent_ids) == 1:
+                        parent_id, = parent_ids
+                        filter_pred = Predicate(value, eq, parent_id)
                     else:
-                        parent_ids = []
-                        for parent_record in self.parent_output:
-                            record = Record.get_value(parent_record, key)
-                            if not record:
-                                record = []
-                            if relation.get_type() in [Relation.types.LINK_1N, Relation.types.LINK_1N_BACKWARDS]:
-                                # we have a list of elements 
-                                # element = id or dict    : clé simple
-                                #         = tuple or dict : clé multiple
-                                parent_ids.extend([self.get_element_key(r, value) for r in record])
-                            else:
-                                parent_ids.append(self.get_element_key(record, value))
-                            
-                        #if isinstance(key, tuple):
-                        #    parent_ids = [x for record in self.parent_output if key in record for x in record[key]]
-                        #else:
-                        #    ##### record[key] = text, dict, or list of (text, dict) 
-                        #    parent_ids = [record[key] for record in self.parent_output if key in record]
-                        #    
-                        #if parent_ids and isinstance(parent_ids[0], dict):
-                        #    parent_ids = map(lambda x: x[value], parent_ids)
-
-                        if len(parent_ids) == 1:
-                            parent_id, = parent_ids
-                            filter_pred = Predicate(value, eq, parent_id)
-                        else:
-                            filter_pred = Predicate(value, included, parent_ids)
-
-                    # Injecting predicate
-                    old_child_callback= child.get_callback()
-                    self.children[i] = child.optimize_selection(Filter().filter_by(filter_pred))
-                    self.children[i].set_callback(old_child_callback)
-
-                elif op == contains:
-                    # 1..N
-                    # Example: parent 'slice' has a list of 'user' keys == user_hrn
-                    for slice in self.parent_output:
-                        if not child.get_query().object in slice: continue
-                        users = slice[key]
-                        # users est soit une liste d'id, soit une liste de records
-                        user_data = []
-                        for user in users:
-                            if isinstance(user, dict):
-                                user_data.append(user)
-                            else:
-                                # have have a key
-                                # XXX Take multiple keys into account
-                                user_data.append({value: user}) 
-                        # Let's inject user_data in the right child
-                        child.inject(user_data, value, None) 
-                    
+                        filter_pred = Predicate(value, included, parent_ids)
                 else:
-                    raise Exception, "No link between parent and child queries"
+                    parent_ids = []
+                    for parent_record in self.parent_output:
+                        record = Record.get_value(parent_record, key)
+                        if not record:
+                            record = []
+                        if relation.get_type() in [Relation.types.LINK_1N, Relation.types.LINK_1N_BACKWARDS]:
+                            # we have a list of elements 
+                            # element = id or dict    : clé simple
+                            #         = tuple or dict : clé multiple
+                            parent_ids.extend([self.get_element_key(r, value) for r in record])
+                        else:
+                            parent_ids.append(self.get_element_key(record, value))
+                        
+                    #if isinstance(key, tuple):
+                    #    parent_ids = [x for record in self.parent_output if key in record for x in record[key]]
+                    #else:
+                    #    ##### record[key] = text, dict, or list of (text, dict) 
+                    #    parent_ids = [record[key] for record in self.parent_output if key in record]
+                    #    
+                    #if parent_ids and isinstance(parent_ids[0], dict):
+                    #    parent_ids = map(lambda x: x[value], parent_ids)
 
-            # We make another loop since the children might have been modified in
-            # the previous one.
-            for i, child in enumerate(self.children):
-                if i in useless_children: continue
-                self.status.started(i)
-            for i, child in enumerate(self.children):
-                if i in useless_children: continue
-                child.start()
-        except Exception, e:
-            print "EEE!", e
-            traceback.print_exc()
+                    if len(parent_ids) == 1:
+                        parent_id, = parent_ids
+                        filter_pred = Predicate(value, eq, parent_id)
+                    else:
+                        filter_pred = Predicate(value, included, parent_ids)
+
+                # Injecting predicate
+                old_child_callback= child.get_callback()
+                self.children[i] = child.optimize_selection(Filter().filter_by(filter_pred))
+                self.children[i].set_callback(old_child_callback)
+
+            elif op == contains:
+                # 1..N
+                # Example: parent 'slice' has a list of 'user' keys == user_hrn
+                for slice in self.parent_output:
+                    if not child.get_query().object in slice: continue
+                    users = slice[key]
+                    # users est soit une liste d'id, soit une liste de records
+                    user_data = []
+                    for user in users:
+                        if isinstance(user, dict):
+                            user_data.append(user)
+                        else:
+                            # have have a key
+                            # XXX Take multiple keys into account
+                            user_data.append({value: user}) 
+                    # Let's inject user_data in the right child
+                    child.inject(user_data, value, None) 
+
+            else:
+                raise Exception, "No link between parent and child queries"
+
+        print "*** before run children ***"
+        self.dump()
+
+        # We make another loop since the children might have been modified in
+        # the previous one.
+        for i, child in enumerate(self.children):
+            if i in useless_children: continue
+            self.status.started(i)
+        for i, child in enumerate(self.children):
+            if i in useless_children: continue
+            child.start()
 
     def all_done(self):
         """

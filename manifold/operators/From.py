@@ -3,6 +3,7 @@ from manifold.core.query           import Query
 from manifold.operators            import Node, LAST_RECORD
 from manifold.operators.selection  import Selection   # XXX
 from manifold.operators.projection import Projection  # XXX
+from manifold.operators.from_table import FromTable
 from manifold.util.type            import returns
 from manifold.util.log             import Log
 
@@ -141,6 +142,17 @@ class From(Node):
             self.gateway.set_callback(callback)
 
     def optimize_selection(self, filter):
+        # XXX Simplifications
+        for predicate in filter:
+            if predicate.get_field_names() == self.key.get_field_names() and predicate.has_empty_value():
+                # The result of the request is empty, no need to instanciate any gateway
+                # Replace current node by an empty node
+                old_self_callback = self.get_callback()
+                from_table = FromTable(self.query, [], self.key)
+                from_table.set_callback(old_self_callback)
+                return from_table
+            # XXX Note that such issues could be detected beforehand
+
         if self.capabilities.selection:
             # Push filters into the From node
             self.query.filter_by(filter)

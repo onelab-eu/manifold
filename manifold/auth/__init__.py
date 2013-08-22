@@ -4,7 +4,10 @@ import time
 import crypt, base64, random
 from hashlib import md5
 
-from manifold.gateways.sfa import ADMIN_USER
+try:
+    from manifold.gateways.sfa import ADMIN_USER
+except:
+    ADMIN_USER = 'admin' # XXX
 
 #-------------------------------------------------------------------------------
 # Helper functions

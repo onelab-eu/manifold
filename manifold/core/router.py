@@ -11,7 +11,10 @@ from manifold.models                import *
 from manifold.core.dbnorm           import to_3nf 
 from manifold.core.query_plan       import QueryPlan
 from manifold.util.type             import returns, accepts
-from manifold.gateways.sfa          import ADMIN_USER
+try:
+    from manifold.gateways.sfa          import ADMIN_USER
+except:
+    ADMIN_USER = 'admin'  # XXX
 from manifold.util.callback         import Callback
 from manifold.core.interface        import Interface
 from manifold.util.reactor_thread   import ReactorThread

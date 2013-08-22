@@ -208,7 +208,8 @@ class SFAGateway(Gateway):
         'last_name': 'user_last_name',              # last_name
         'phone': 'user_phone',                      # phone
         'keys': 'user_keys',                        # OBJ keys !!!
-        'reg-slices': 'slice.slice_hrn'             # OBJ slices
+        'reg-slices': 'slice.slice_hrn',            # OBJ slices
+        'reg-pi-authorities': 'pi_authorities',
     }
 
     map_fields = {
@@ -1201,7 +1202,6 @@ class SFAGateway(Gateway):
         #  - remotely supported RSpec versions: geni_ad_rspec_versions
         #  - locally supported (SFAv1, GENIv3)
         # We build a list of supported tuples (type, version), and search a RSpec model in the intersection
-        print "SERVER VERSION", server_version
         v = server_version['geni_ad_rspec_versions']
         for w in v:
             x = (w['type'], w['version'])
