@@ -223,3 +223,9 @@ class Predicate:
             return set(self.value)
         else:
             return set([self.value])
+
+    def has_empty_value(self):
+        if isinstance(self.value, (list, tuple, set, frozenset)):
+            return not any(self.value)
+        else:
+            return not self.value
