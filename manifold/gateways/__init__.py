@@ -183,14 +183,30 @@ class Gateway(object):
 #[ os.path.basename(f)[:-3] for f in glob.glob(os.path.dirname(__file__)+"/*.py")]
 
 def register():
-    from manifold.gateways.postgresql       import PostgreSQLGateway
+    try:
+        from manifold.gateways.postgresql       import PostgreSQLGateway
+    except: pass
+    try:
     from manifold.gateways.tdmi             import TDMIGateway
+    except: pass
+    try:
     from manifold.gateways.sfa              import SFAGateway
+    except: pass
+    try:
     from manifold.gateways.maxmind          import MaxMindGateway
+    except: pass
+    try:
     from manifold.gateways.csv              import CSVGateway
+    except: pass
+    try:
     from manifold.gateways.manifold_xmlrpc  import ManifoldGateway
+    except: pass
+    try:
     from manifold.gateways.sqlalchemy       import SQLAlchemyGateway
+    except: pass
+    try:
     from manifold.gateways.oml              import OMLGateway
+    except: pass
 
 register()
 
