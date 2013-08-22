@@ -11,7 +11,7 @@
 from manifold.gateways                  import Gateway, LAST_RECORD
 from manifold.core.table                import Table
 from manifold.core.field                import Field
-from manifold.core.announce             import Announce
+from manifold.core.announce import Announce, announces_from_docstring
 from manifold.util.log                  import Log
 
 class PerfSONARGateway(Gateway):
@@ -76,10 +76,19 @@ class PerfSONARGateway(Gateway):
     # Metadata 
     #---------------------------------------------------------------------------
 
+    @announces_from_docstring('local')
     def get_metadata(self):
         """
-        Build metadata by querying postgresql's information schema
-        Returns:
-            The list of corresponding Announce instances
+        class object {
+            string table;
+            column column;
+            CAPABILITY(retrieve);
+            KEY(table);
+        }; 
+
+        class column {
+            
+        }
         """
-        return [] 
+
+
