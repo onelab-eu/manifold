@@ -43,7 +43,7 @@ class Filter(set):
     def to_list(self):
         ret = []
         for predicate in self:
-            ret.append(p.to_list())
+            ret.append(predicate.to_list())
         return ret
         
 
