@@ -24,11 +24,9 @@ class PerfSONARGateway(Gateway):
         """
         Construct a PerfSONARGateway instance
         """
-        super(PostgreSQLGateway, self).__init__(router, platform, query, config, user_config, user)
-        self.connection = None
-        self.cursor = None
-        self.re_ignored_tables = re_ignored_tables
-        self.re_allowed_tables = re_allowed_tables
+        super(PerfSONARGateway, self).__init__(router, platform, query, config, user_config, user)
+
+        # Other initialization here
 
     #---------------------------------------------------------------------------
     # Accessors 
