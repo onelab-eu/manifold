@@ -1,11 +1,10 @@
-from manifold.operators         import LAST_RECORD
-from manifold.operators.From    import From
+from manifold.operators         import Node, LAST_RECORD
 from manifold.core.query        import Query
 from manifold.core.capabilities import Capabilities
 
 DUMPSTR_FROMTABLE  = "SELECT %s FROM [%r, ...]" 
 
-class FromTable(From):
+class FromTable(Node):
     """
     \brief FROM node querying a list of records
     """
@@ -19,14 +18,17 @@ class FromTable(From):
         assert isinstance(query,   Query), "Invalid query = %r (%r)"   % (query,   type(query))
         assert isinstance(records, list),  "Invalid records = %r (%r)" % (records, type(records))
 
-        super(FromTable, self).__init__(None, query, Capabilities(), key)
-        self.records, self.key = records, key
+        super(FromTable, self).__init__()
+        self.query, self.records, self.key = query, records, key
 
     def __repr__(self, indent = 0):
-        return DUMPSTR_FROMTABLE % (
-            ', '.join(self.get_query().get_select()),
-            self.records[0]
-        )
+        if self.records:
+            return DUMPSTR_FROMTABLE % (
+                ', '.join(self.get_query().get_select()),
+                self.records[0]
+            )
+        else:
+            return 'EMPTY'
 
     def start(self):
         """
