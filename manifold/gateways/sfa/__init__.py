@@ -208,12 +208,19 @@ class SFAGateway(Gateway):
         'last_name': 'user_last_name',              # last_name
         'phone': 'user_phone',                      # phone
         'keys': 'user_keys',                        # OBJ keys !!!
-        'reg-slices': 'slice.slice_hrn'             # OBJ slices
+        'reg-slices': 'slice.slice_hrn',            # OBJ slices
+        'reg-pi-authorities': 'pi_authorities',
+    }
+
+    map_authority_fields = {
+        'hrn'               : 'authority_hrn',                  # hrn
+        'PI'                : 'pi_users',
     }
 
     map_fields = {
         'slice': map_slice_fields,
-        'user' : map_user_fields 
+        'user' : map_user_fields,
+        'authority': map_authority_fields
     }
 
     #
@@ -386,7 +393,6 @@ class SFAGateway(Gateway):
         
     @defer.inlineCallbacks
     def server_supports_call_id_arg(self, server):
-        Log.tmp(server)
         server_version = yield self.get_cached_server_version(server)
         if 'sfa' in server_version and 'code_tag' in server_version:
             code_tag = server_version['code_tag']
@@ -907,7 +913,7 @@ class SFAGateway(Gateway):
 
         if resolve:
             stack = map(lambda x: hrn_to_urn(x, object), stack)
-            result = yield self.registry.Resolve(stack, cred)
+            result = yield self.registry.Resolve(stack, cred, {'details': True})
             defer.returnValue(result)
         
         if len(stack) > 1:
@@ -947,6 +953,14 @@ class SFAGateway(Gateway):
             return
 
         return self.get_object('user', 'user_hrn', filters, params, fields)
+
+    def get_authority(self, filters, params, fields):
+
+        #if self.user.email in DEMO_HOOKS:
+        #    defer.returnValue(self.get_authority_demo(filters, params, fields))
+        #    return
+
+        return self.get_object('authority', 'authority_hrn', filters, params, fields)
 
 
 # WORKING #        if len(stack) > 1:
@@ -1201,7 +1215,6 @@ class SFAGateway(Gateway):
         #  - remotely supported RSpec versions: geni_ad_rspec_versions
         #  - locally supported (SFAv1, GENIv3)
         # We build a list of supported tuples (type, version), and search a RSpec model in the intersection
-        print "SERVER VERSION", server_version
         v = server_version['geni_ad_rspec_versions']
         for w in v:
             x = (w['type'], w['version'])
@@ -1305,7 +1318,7 @@ class SFAGateway(Gateway):
             fields = q.fields # Metadata.expand_output_fields(q.object, list(q.fields))
             result = yield getattr(self, "%s_%s" % (q.action, q.object))(q.filters, q.params, fields)
 
-            if q.object in ['slice', 'user']:
+            if q.object in self.map_fields:
                 Rename(self, self.map_fields[q.object])
             
             # Return result

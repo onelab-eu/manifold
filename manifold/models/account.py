@@ -1,6 +1,8 @@
 from sqlalchemy                 import Column, ForeignKey, Integer, String, Enum
 from sqlalchemy.orm             import relationship, backref
-from sfa.trust.credential       import Credential
+try:
+    from sfa.trust.credential       import Credential
+except: pass
 from manifold.util.predicate    import Predicate
 from manifold.util.predicate    import and_, or_, inv, add, mul, sub, mod, truediv, lt, le, ne, gt, ge, eq, neg, contains
 from manifold.models            import Base, User, Platform, db

@@ -40,6 +40,13 @@ class Filter(set):
                 f.add(Predicate(key, '=', value))
         return f
 
+    def to_list(self):
+        ret = []
+        for predicate in self:
+            ret.append(predicate.to_list())
+        return ret
+        
+
     @staticmethod
     def from_clause(clause):
         """

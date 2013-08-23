@@ -10,7 +10,7 @@
 # Copyright (C)2009-2013, UPMC Paris Universitas
 # Authors:
 #   Jordan Augé       <jordan.auge@lip6.fr>
-#   Mrc-Olivier Buob  <marc-olivier.buob@lip6.fr>
+#   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 #   Loïc Baron        <loic.baron@lip6.fr>
 
 import sys

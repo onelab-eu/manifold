@@ -5,6 +5,7 @@ from sqlalchemy.orm             import sessionmaker
 from manifold.gateways          import Gateway
 from manifold.models            import *
 from manifold.util.log          import Log
+from manifold.util.predicate    import included
 
 import traceback
 import json
@@ -22,13 +23,13 @@ def xgetattr(cls, list_attr):
 
 def get_sqla_filters(cls, filters):
     if filters:
-        _filters = None
+        _filters = []
         for p in filters:
-            f = p.op(getattr(cls, p.key), p.value)
-            if _filters:
-                _filters = _filters and f
+            if p.op == included:
+                f = getattr(cls, p.key).in_(p.value)
             else:
-                _filters = f
+                f = p.op(getattr(cls, p.key), p.value)
+            _filters.append(f)
         return _filters
     else:
         return None
@@ -110,7 +111,8 @@ class SQLAlchemyGateway(Gateway):
 
         res = db.query( *_fields ) if _fields else db.query( cls )
         if query.filters:
-            res = res.filter(_filters)
+            for _filter in _filters:
+                res = res.filter(_filter)
 
         # Do we need to limit to the user's own results
         try:
@@ -170,7 +172,9 @@ class SQLAlchemyGateway(Gateway):
         _params = dict([ (getattr(cls, k), v) for k,v in _params.items() ])
        
         #db.query(cls).update(_params, synchronize_session=False)
-        q = db.query(cls).filter(_filters)
+        q = db.query(cls)
+        for _filter in _filters:
+            q = q.filter(_filter)
         if cls.restrict_to_self:
             q = q.filter(getattr(cls, 'user_id') == self.user.user_id)
         q = q.update(_params, synchronize_session=False)
