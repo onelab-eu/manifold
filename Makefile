@@ -28,10 +28,14 @@ COVERAGE = $(or $(shell which coverage), $(shell which python-coverage), \
 	   coverage)
 
 # Added for convenience during development
-debug: clean all install
+debug: mrpropre clean all install
 
 all:
 	./setup.py build
+
+mrpropre:
+	rm /usr/lib/python*/site-packages/manifold* -Rf
+	rm /usr/local/lib/python*/dist-packages/manifold* -Rf
 
 install: all
 	./setup.py install --prefix=$(PREFIX) --root=$(DESTDIR)

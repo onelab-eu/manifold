@@ -94,3 +94,12 @@ class user {
 	CAPABILITY(retrieve,join,fullquery);
 };
 
+class authority {
+	const text name;
+	const text abbreviated_name;
+	const text authority_hrn;
+	slice slice[];
+	user user[];
+	KEY(authority_hrn);
+	CAPABILITY(retrieve,join,fullquery);
+};

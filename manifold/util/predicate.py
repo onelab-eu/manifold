@@ -112,12 +112,16 @@ class Predicate:
     def get_tuple(self):
         return (self.key, self.op, self.value)
 
+
     def get_str_op(self):
         op_str = [s for s, op in self.operators.iteritems() if op == self.op]
         return op_str[0]
 
     def get_str_tuple(self):
         return (self.key, self.get_str_op(), self.value,)
+
+    def to_list(self):
+        return list(self.get_str_tuple())
 
     def match(self, dic, ignore_missing=False):
         if isinstance(self.key, tuple):
@@ -223,3 +227,9 @@ class Predicate:
             return set(self.value)
         else:
             return set([self.value])
+
+    def has_empty_value(self):
+        if isinstance(self.value, (list, tuple, set, frozenset)):
+            return not any(self.value)
+        else:
+            return not self.value
