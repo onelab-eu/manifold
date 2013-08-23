@@ -117,7 +117,8 @@ class SubQuery(Node):
         # Store the record for later...
         self.parent_output.append(record)
 
-    def get_element_key(self, element, key):
+    @staticmethod
+    def get_element_key(element, key):
         if isinstance(element, dict):
             # record
             return Record.get_value(element, key)
@@ -128,11 +129,18 @@ class SubQuery(Node):
 
     def run_children(self):
         """
-        \brief Modify children queries to take the keys returned by the parent into account
+        Run children queries (subqueries) assuming the parent query (main query)
+        has successfully ended.
         """
+        if not self.parent_output:
+            # No parent record, this is useless to run children queries.
+            self.send(LAST_RECORD)
+            return
+
         if not self.children:
-            # The top operator has build a SubQuery node without child node,
-            # so this SubQuery operator is useless!
+            # The top operator has build a SubQuery node without child queries,
+            # so this SubQuery operator is useless and should be replaced by
+            # its main query.
             Log.warning("SubQuery::run_children: no child node. The query plan could be improved")
             self.send(LAST_RECORD)
             return
@@ -141,7 +149,8 @@ class SubQuery(Node):
         # been fetched 
         parent_fields = set(self.parent_output[0].keys())
         
-        # Optimize children
+        # Optimize child queries according to the fields already retrieved thanks
+        # to the parent query.
         useless_children = set()
         for i, child in enumerate(self.children[:]):
             # Test whether the current child provides relevant fields (e.g.
@@ -160,11 +169,12 @@ class SubQuery(Node):
                 )
                 self.children[i] = child.optimize_projection(relevant_fields)
 
-        # Is there at least one remaining child ?
+        # Is there at least one useful child ?
         if len(self.children) == len(useless_children):
             self.send(LAST_RECORD)
             return
 
+        Log.tmp("I've commented some deprecated code, if it freezes check <operator>::optimize_selection")
         try:
             # Loop through children and inject the appropriate parent results
             for i, child in enumerate(self.children):
@@ -191,8 +201,18 @@ class SubQuery(Node):
 
                 key, op, value = predicate.get_tuple()
                 if op == eq:
+                    # If the child Query corresponds to a virtual Table, we already have
+                    # the child Fields in the parent Record. We assume that a child is
+                    # virtual if the parent do not transport the child key. We only
+                    # look the first parent record to deduce this.
+                    is_virtual_child = Record.has_fields(self.parent_output[0], key)
+                    if is_virtual_child:
+                        Log.tmp("virtual")
+                        continue
+
                     # 1..N
                     # Example: parent has slice_hrn, resource has a reference to slice
+                    # Compute filter_pred
                     if relation.get_type() == Relation.types.LINK_1N_BACKWARDS:
                         parent_ids = [record[key] for record in self.parent_output]
                         if len(parent_ids) == 1:
@@ -210,9 +230,20 @@ class SubQuery(Node):
                                 # we have a list of elements 
                                 # element = id or dict    : clé simple
                                 #         = tuple or dict : clé multiple
-                                parent_ids.extend([self.get_element_key(r, value) for r in record])
+                                Log.tmp("parent_ids = %r" % parent_ids)
+                                Log.tmp("record     = %r" % record)
+                                Log.tmp("value      = %r" % value)
+                                try:
+                                    parent_ids.extend([SubQuery.get_element_key(r, value) for r in record])
+                                except KeyError:
+                                    ignore_parent_ids = True
+                                    break
                             else:
-                                parent_ids.append(self.get_element_key(record, value))
+                                try:
+                                    parent_ids.append(SubQuery.get_element_key(record, value))
+                                except KeyError:
+                                    ignore_parent_ids = True
+                                    break
                             
                         #if isinstance(key, tuple):
                         #    parent_ids = [x for record in self.parent_output if key in record for x in record[key]]
@@ -230,9 +261,9 @@ class SubQuery(Node):
                             filter_pred = Predicate(value, included, parent_ids)
 
                     # Injecting predicate
-                    old_child_callback= child.get_callback()
+#DEPRECATED                    old_child_callback= child.get_callback()
                     self.children[i] = child.optimize_selection(Filter().filter_by(filter_pred))
-                    self.children[i].set_callback(old_child_callback)
+#DEPRECATED                    self.children[i].set_callback(old_child_callback)
 
                 elif op == contains:
                     # 1..N
@@ -298,9 +329,9 @@ class SubQuery(Node):
                             # we have a list of elements 
                             # element = id or dict    : clé simple
                             #         = tuple or dict : clé multiple
-                            ids = [self.get_element_key(r, value) for r in record]
+                            ids = [SubQuery.get_element_key(r, value) for r in record]
                         else:
-                            ids = [self.get_element_key(record, value)]
+                            ids = [SubQuery.get_element_key(record, value)]
                         if len(ids) == 1:
                             id, = ids
                             filter = Filter().filter_by(Predicate(value, eq, id))
