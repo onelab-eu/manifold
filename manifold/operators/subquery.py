@@ -432,48 +432,13 @@ class SubQuery(Node):
         parent_fields = set() # fields returned by the parent query
         child_fields = dict() # fields returned by each child query
 
+        # 1) If the SELECT clause refers to "a.b", this is a Query related to the
+        # child subquery related to "a". If the SELECT clause refers to "b" this
+        # is always related to the parent query.
+        parent_fields = set([field for field in fields if not "." in field])
         for i, child in enumerate(self.children[:]):
             child_name = self.relations[i].get_relation_name()
-            child_fields[child_name] = set()
-
-        # 1) Dispatch queried field to the parent or to the appropriate child.
-        # If we cannot decide, dispatch this field to the parent and to every children.
-        # Due to unique naming, if we can decide to propagate a field either to the
-        # parent or either to a given child, we can skip all the other candidate branches.
-        for field in fields:
-            dispatched = False
-            if '.' in field:
-                table_name, field_name = field.split('.', 1)
-            else:
-                table_name, field_name = None, field
-
-            # Try to dispatch the current field to the parent query
-            parent_name = self.parent.get_query().get_from()
-            if not table_name or table_name == parent_name: 
-                if field_name in self.parent.get_query().get_select():
-                    parent_fields.add(field_name) # XXX: are we sure it should not be field -- jordan
-                    dispatched = True
-                else:
-                    Log.warning("Cannot dispatch %s in parent query" % field_name)
-
-            # Try to dispatch the current field to a child query
-            if not dispatched: # unique naming
-                for i, child in enumerate(self.children[:]):
-                    child_name = self.relations[i].get_relation_name()
-                    if table_name == child_name:
-                        if field_name in child.get_query().get_select():
-                            child_fields[child_name].add(field_name)
-                        else:
-                            Log.warning("Cannot dispatch %s in %s child query" % (field_name, child_name))
-                        dispatched = True
-                        break # unique naming
-
-            # We can't decide where the current field must be dispatched.
-            # So we dispatch it to the parent query and to every child queries.
-            if not dispatched:
-                parent_fields.add(field_name) # XXX: are we sure it should not be field -- jordan
-                for child_name in child_fields.keys():
-                    child_fields[child_name].add(field_name)
+            child_fields[child_name] = set([field.split('.', 1)[1] for field in fields if field.startswith("%s." % child_name)])
 
         # 2) Add to child_fields and parent_fields the field names needed to
         # connect the parent to its children. If such fields are added, we will
@@ -501,6 +466,6 @@ class SubQuery(Node):
         # queried by the user. In this case, we ve to add a Projection
         # node which will filter those fields.
         if require_top_projection:
-            return Projection(self, fields) # jordan
+            return Projection(self, fields)
         return self
 
