@@ -17,29 +17,50 @@
 # adjacency_iter(), but the edges() method is often more convenient.
 
 import copy, random
-from networkx                      import DiGraph
-from manifold.core.table           import Table 
-from manifold.core.key             import Key
-from manifold.core.query           import Query, AnalyzedQuery 
-from manifold.core.dbgraph         import find_root
-from manifold.core.relation        import Relation
-from manifold.core.filter          import Filter
-from manifold.core.ast             import AST
-from manifold.operators.demux      import Demux
-from manifold.util.predicate       import Predicate, contains, eq
-from manifold.util.type            import returns, accepts
-from manifold.util.log             import Log
-from manifold.util.misc            import make_list, is_sublist
-from manifold.util.callback        import Callback
-from manifold.models.user          import User
-from manifold.core.result_value    import ResultValue
+from types                         import StringTypes
 from twisted.internet.defer        import Deferred, DeferredList
 
-TASK_11, TASK_1Nsq, TASK_1N = range(0,3)
-MAX_DEPTH=3
+from manifold.core.ast             import AST
+from manifold.core.filter          import Filter
+from manifold.core.query           import Query
+from manifold.core.result_value    import ResultValue
+from manifold.core.table           import Table 
+from manifold.operators.demux      import Demux
+from manifold.util.callback        import Callback
+from manifold.util.log             import Log
+from manifold.util.misc            import is_sublist
+from manifold.util.predicate       import Predicate, eq
+from manifold.util.type            import returns, accepts
+
+TASK_11, TASK_1Nsq, TASK_1N = range(0, 3)
+MAX_DEPTH = 3
 
 class Stack(object):
+    """
+    Stack is use to prior some tasks while exploring the 3nf
+    graph in order to build the QueryPlan. We first visit the
+    tables reachables from the root Table by only traversing
+    1..1 arcs. If this is not sufficient to serve the user
+    Query, we extend this 3nf-subgraph by adding a part of
+    the 3nf graph requiring to traverse 1..N link. This Stack
+    allows to order this exploration.
+
+    Stack maintains a set of stacks (one per priority), each
+    of these storing a set of ExploreTask. Thus, building
+    a QueryPlan only requires one Stack instance.
+    - Pushing an ExploreTask in the Stack dispatches it to
+    the appropriate nested stack.
+    - Poping an ExploreTask extracts the ExploreTask having
+    the higher priority.
+    """
+
     def __init__(self, root_task):
+        """
+        Constructor.
+        Args:
+            root_task: an ExploreTask, corresponding to the
+            3nf graph exploration starting from the root Table.
+        """
         self.tasks = {
             TASK_11  : [root_task],
             TASK_1Nsq: [],
@@ -47,20 +68,42 @@ class Stack(object):
         }
 
     def push(self, task, priority):
+        """
+        Push an ExploreTask in this Stack.
+        Args:
+            task: An ExploreTask instance.
+            priority: The corresponding priority, which is a
+                value among {TASK_11, TASK_1Nsq, TASK_1N}.
+        """
         #Log.debug("Adding to stack with priority %d : %r" % (priority, task))
         self.tasks[priority].append(task)
 
     def pop(self):
+        """
+        Pop an ExploreTask from this Stack.
+        Returns:
+            The ExploreTask having the higher priority (if this Stack
+            contains at least one ExploreTask), None otherwise.
+        """
         for priority in [TASK_11, TASK_1Nsq, TASK_1N]:
             tasks = self.tasks[priority]
             if tasks:
                 return tasks.pop(0)
         return None
 
+    @returns(bool)
     def is_empty(self):
+        """
+        Returns:
+            True iif the Stack does not contains any ExploreTask instance.
+        """
         return all(map(lambda x: not x, self.tasks.values()))
 
     def dump(self):
+        """
+        (Debug function). Dump the ExploreTask embeded in this Stack
+        using the logger.
+        """
         for priority in [TASK_11, TASK_1Nsq, TASK_1N]:
             Log.tmp("PRIO %d : %r" % (priority, self.tasks[priority]))
 
@@ -68,7 +111,18 @@ class ExploreTask(Deferred):
     """
     A pending exploration of the metadata graph
     """
+
     def __init__(self, root, relation, path, parent, depth):
+        """
+        Constructor.
+        Args:
+            root:
+            relation:
+            path:
+            parent:
+            depth: An positive integer value, corresponding to the number of
+                none 1..1 args traversed from the root Table to the current
+        """
         assert root != None, "ExploreTask::__init__(): invalid root = %s" % root
         # Context
         self.root        = root
@@ -85,10 +139,20 @@ class ExploreTask(Deferred):
 
         Deferred.__init__(self)
 
+    @returns(StringTypes)
     def __repr__(self):
+        """
+        Returns:
+            The '%r' representation of this ExploreTask instance.
+        """
         return "<ExploreTask %d -- %s -- %s [%d]>" % (self.identifier, self.root.get_name(), self.relation, self.depth)
 
+    @returns(StringTypes)
     def __str__(self):
+        """
+        Returns:
+            The '%s' representation of this ExploreTask instance.
+        """
         return self.__repr__()
 
     def cancel(self):
@@ -105,6 +169,11 @@ class ExploreTask(Deferred):
             if pred.get_key() not in found_fields:
                 new_filter.add(pred)
         query.filter_by(None).filter_by(new_filter)
+
+    def store_subquery(self, ast, relation):
+        #Log.debug(ast, relation)
+        if not ast: return
+        self.subqueries[relation.get_relation_name()] = (ast, relation)
 
     def explore(self, stack, missing_fields, metadata, allowed_platforms, allowed_capabilities, user, seen_set, query_plan):
         
@@ -214,11 +283,12 @@ class ExploreTask(Deferred):
 
     def perform_left_join(self, ast, relation, allowed_platforms, metadata, user, query_plan):
         """
+        Connect a new AST to the current AST using a LeftJoin Node.
         Args:
             ast: A child AST that must be connected to self.ast using LEFT JOIN 
             relation: The Relation connecting the child Table and the parent Table involved in this LEFT jOIN.
             metadata: The DBGraph instance related to the 3nf graph
-            user: The User issuing the query.
+            user: The User issuing the Query.
             query_plan: The QueryPlan instance related to this Query
         """
         #Log.debug(ast, relation)
@@ -227,11 +297,6 @@ class ExploreTask(Deferred):
             # XXX not sure about fields
             self.ast = self.build_union(self.root, self.root.keys.one().get_field_names(), allowed_platforms, metadata, user, query_plan)
         self.ast.left_join(ast, relation.get_predicate())
-
-    def store_subquery(self, ast, relation):
-        #Log.debug(ast, relation)
-        if not ast: return
-        self.subqueries[relation.get_relation_name()] = (ast, relation)
 
     def perform_subquery(self, allowed_platforms, metadata, user, query_plan):
         # We need to build an AST just to collect subqueries
@@ -358,13 +423,24 @@ class ExploreTask(Deferred):
 
 class QueryPlan(object):
     """
-    Building a query plan consists in setting the AST and the list of Froms
+    Building a query plan consists in setting the AST and the list of Froms.
     """
 
     def __init__(self):
+        """
+        Constructor.
+        """
         # TODO metadata, user should be a property of the query plan
         self.ast = AST()
         self.froms = []
+
+    def add_from(from_node):
+        """
+        Add a From node to the query plan. FromTable Node are not stored
+        in self.froms.
+        """
+        if isinstance(fromnode, From):
+            self.froms.append(fromnode)
 
     def get_result_value_array(self):
         # Iterate over gateways to get their result values
@@ -409,7 +485,9 @@ class QueryPlan(object):
 
     def build(self, query, metadata, allowed_platforms, allowed_capabilities, user = None):
         """
-        Build the QueryPlan according to a 3nf graph and a user Query
+        Build the QueryPlan involving several Gateways according to a 3nf
+        graph and a user Query. If only one Gateway is involved, you should
+        use QueryPlan::build_simple.
         Args:
             query: The Query issued by the user.
             metadata: The 3nf graph (DBGraph instance).
@@ -448,15 +526,18 @@ class QueryPlan(object):
     
         # Do we need to wait for self.ast here ?
 
+    # XXX Note for later: what about holes in the subquery chain. Is there a notion
+    # of inject ? How do we collect subquery results two or more levels up to match
+    # the structure (with shortcuts) as requested by the user.
 
-# XXX Note for later: what about holes in the subquery chain. Is there a notion
-# of inject ? How do we collect subquery results two or more levels up to match
-# the structure (with shortcuts) as requested by the user.
-
-            
     def build_simple(self, query, metadata, allowed_capabilities):
         """
-        \brief Builds a query plan to a single gateway
+        Builds a QueryPlan (self) related to a single Gateway.
+        If several Gateways are involved, you must use QueryPlan::build.
+        Args:
+            query: The Query issued by the user.
+            metadata:
+            allowed_capabilities: The Capabilities related to this Gateway.
         """
         # XXX allowed_capabilities should be a property of the query plan !
 
@@ -465,7 +546,7 @@ class QueryPlan(object):
 
         # Here we assume we have a single platform
         platform = metadata.keys()[0]
-        announce = metadata[platform][query.object] # eg. table test
+        announce = metadata[platform][query.get_from()] # eg. table test
         
         # Set up an AST for missing capabilities (need configuration)
 
@@ -479,7 +560,7 @@ class QueryPlan(object):
             add_selection = None
 
         # Projection ?
-        announce_fields = set([f.get_name() for f in announce.table.fields])
+        announce_fields = announce.get_table().get_fields()
         if query.fields < announce_fields and not announce.capabilities.projection:
             if not allowed_capabilities.projection:
                 raise Exception, 'Cannot answer query: PROJECTION'
@@ -488,18 +569,19 @@ class QueryPlan(object):
         else:
             add_projection = None
 
-        t = Table({platform:''}, {}, query.object, set(), set())
+        table = Table({platform:''}, {}, query.get_from(), set(), set())
         key = metadata.get_key(query.get_from())
-        cap = metadata.get_capabilities(platform, query.get_from())
-        self.ast = self.ast.From(t, query, metadata.get_capabilities(platform, query.get_from()), key)
+        capabilities = metadata.get_capabilities(platform, query.get_from())
+        self.ast = self.ast.From(table, query, capabilities, key)
 
         # XXX associate the From node to the Gateway
-        fromnode = self.ast.root
-        self.froms.append(fromnode)
-        #fromnode.set_gateway(gw_or_router)
+        from_node = self.ast.root
+        self.add_from(from_node)
+        #from_node.set_gateway(gw_or_router)
         #gw_or_router.query = query
 
-        if not self.root: return
+        if not self.root:
+            return
         if add_selection:
             self.ast.optimize_selection(add_selection)
         if add_projection:
@@ -507,7 +589,16 @@ class QueryPlan(object):
 
         self.inject_at(query)
 
-    def execute(self, deferred=None):
+    def execute(self, deferred = None):
+        """
+        Execute the QueryPlan in order to query the appropriate
+        sources of data, collect, combine and returns the records
+        requested by the user.
+        Args:
+            deferred: may be set to None.
+        Returns:
+            
+        """
         # create a Callback object with deferred object as arg
         # manifold/util/callback.py 
         cb = Callback(deferred)
@@ -527,10 +618,13 @@ class QueryPlan(object):
         # Async, results sent to a deferred object 
         # Formating results triggered when deferred get results
         deferred.addCallback(lambda results:ResultValue.get_result_value(results, self.get_result_value_array()))
+        Log.tmp(deferred)
         return deferred
 
-
     def dump(self):
+        """
+        Dump this AST to the standard output.
+        """
         self.ast.dump()
 
     # Pour chaque table

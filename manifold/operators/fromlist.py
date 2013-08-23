@@ -17,12 +17,6 @@ class FromTable(From):
         super(FromTable, self).__init__(None, query, Capabilities(), key)
         self.records, self.key = records, key
 
-    def __repr__(self, indent = 0):
-        return DUMPSTR_FROMTABLE % (
-            ', '.join(self.get_query().get_select()),
-            self.records[0]
-        )
-
     def start(self):
         """
         \brief Propagates a START message through the node

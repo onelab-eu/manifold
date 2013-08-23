@@ -75,8 +75,10 @@ class AST(object):
         """
         Append a From Node to this AST.
         Args:
-            table: The Table wrapped by the FROM operator.
+            platform: The Platform related to this From Node. 
             query: The Query sent to the platform.
+            capabilities: The Capabilities related to this Table of this Platform.
+            key: The Key related to this Table.
         Returns:
             The updated AST
         """
