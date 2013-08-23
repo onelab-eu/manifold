@@ -117,11 +117,11 @@ class Predicate:
         op_str = [s for s, op in self.operators.iteritems() if op == self.op]
         return op_str[0]
 
-    def to_list(self):
-        return list(self.get_str_op())
-
     def get_str_tuple(self):
         return (self.key, self.get_str_op(), self.value,)
+
+    def to_list(self):
+        return list(self.get_str_tuple())
 
     def match(self, dic, ignore_missing=False):
         if isinstance(self.key, tuple):
