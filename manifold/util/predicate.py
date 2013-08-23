@@ -118,7 +118,7 @@ class Predicate:
         return op_str[0]
 
     def to_list(self):
-        return list(self.get_str_op)
+        return list(self.get_str_op())
 
     def get_str_tuple(self):
         return (self.key, self.get_str_op(), self.value,)
