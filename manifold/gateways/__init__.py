@@ -78,7 +78,6 @@ class Gateway(object):
     def start(self):
         try:
             # Replaces variables in the Query (predicate in filters and parameters)
-            Log.tmp(self.query)
             filter = self.query.get_where()
             params = self.query.get_params()
             variables = self.get_variables()
