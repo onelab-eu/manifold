@@ -254,8 +254,8 @@ class SubQuery(Node):
             else:
                 raise Exception, "No link between parent and child queries"
 
-        print "*** before run children ***"
-        self.dump()
+        #print "*** before run children ***"
+        #self.dump()
 
         # We make another loop since the children might have been modified in
         # the previous one.
@@ -443,7 +443,7 @@ class SubQuery(Node):
             parent_name = self.parent.get_query().get_from()
             if not table_name or table_name == parent_name: 
                 if field_name in self.parent.get_query().get_select():
-                    parent_fields.add(field_name)
+                    parent_fields.add(field_name) # XXX: are we sure it should not be field -- jordan
                     dispatched = True
                 else:
                     Log.warning("Cannot dispatch %s in parent query" % field_name)
@@ -463,7 +463,7 @@ class SubQuery(Node):
             # We can't decide where the current field must be dispatched.
             # So we dispatch it to the parent query and to every child queries.
             if not dispatched:
-                parent_fields.add(field_name)
+                parent_fields.add(field_name) # XXX: are we sure it should not be field -- jordan
                 for child_name in child_fields.keys():
                     child_fields[child_name].add(field_name)
 
@@ -493,6 +493,6 @@ class SubQuery(Node):
         # queried by the user. In this case, we ve to add a Projection
         # node which will filter those fields.
         if require_top_projection:
-            return Projection(self, [field.split('.')[-1] for field in fields])
+            return Projection(self, fields) # jordan
         return self
 

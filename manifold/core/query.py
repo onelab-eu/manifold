@@ -117,6 +117,9 @@ class Query(object):
         #else:
         #        raise ParameterError, "No valid constructor found for %s : args = %r" % (self.__class__.__name__, args)
 
+        self.sanitize()
+
+    def sanitize(self):
         if not self.filters:   self.filters   = Filter()
         if not self.params:    self.params    = {}
         if not self.fields:    self.fields    = set()
@@ -238,6 +241,7 @@ class Query(object):
             if (debug):
                 import traceback
                 traceback.print_exc()
+        self.sanitize()
 
     #--------------------------------------------------------------------------- 
     # Accessors

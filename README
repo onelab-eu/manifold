@@ -3,6 +3,9 @@ QUERIES A TESTER
 search user and fail...
 SELECT user.hrn,slice.slice_hrn AT now FROM user WHERE user_hrn == "ple.upmc.jordan_auge"
 
+manifold>>> SELECT slice_hrn, slice_type, user, lease AT now FROM slice WHERE slice_hrn INCLUDED ["ple.upmc.agent", "ple.upmc.nice"]
+problemes avec projection
+
 26/07/2013
 OK NOW: unhashable type : list
 select user_hrn, slice.slice_hrn from user where user_hrn == "ple.upmc.jordan_auge"
