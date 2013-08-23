@@ -484,6 +484,8 @@ class SubQuery(Node):
 
         # 3) Optimize the main query (parent) and its subqueries (children)
         for i, child in enumerate(self.children[:]):
+            relation = self.relations[i]
+            child_name = relation.get_relation_name()
             self.children[i] = child.optimize_projection(child_fields[child_name])
 
         if parent_fields < self.parent.get_query().get_select():
