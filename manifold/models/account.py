@@ -102,10 +102,12 @@ class Account(Base):
             if 'config' in given_json_fields:
                 raise Exception, "Cannot mix full JSON specification & JSON encoded fields"
 
-            r = db.query(Account.config).filter(filters)
+            r = db.query(Account.config)
+            for filter in filters:
+                r = r.filter(filter)
             if user:
                 r = r.filter(Account.user_id == user.user_id)
-            r = r.filter(filters) #Account.platform_id == platform_id)
+            #r = r.filter(filters) #Account.platform_id == platform_id)
             r = r.one()
             try:
                 json_fields = json.loads(r.config)
