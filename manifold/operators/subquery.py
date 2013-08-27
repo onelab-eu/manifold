@@ -468,6 +468,6 @@ class SubQuery(Node):
         # queried by the user. In this case, we ve to add a Projection
         # node which will filter those fields.
         if require_top_projection:
-            return Projection(self, fields)
+            return Projection(self, fields) #jordan
         return self
 
