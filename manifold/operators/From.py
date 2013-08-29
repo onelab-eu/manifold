@@ -174,15 +174,31 @@ class From(Node):
             return selection
 
     def optimize_projection(self, fields):
+        """
+        Propagate a SELECT clause through a FROM Node.
+        Args:
+            fields: A set of String instances (queried fields).
+        """
         if self.capabilities.projection:
             # Push fields into the From node
             self.query.select().select(fields)
             return self
         else:
-            if fields - self.get_query().get_select():
-                print "W: Missing fields in From"
-            if self.get_query().get_select() - fields:
-                # Create a new Projection node
+            provided_fields = self.get_query().get_select()
+
+            # Test whether this From node can return every queried Fields.
+            if fields - provided_fields:
+                Log.warning("From::optimize_projection: some requested fields (%s) are not provided by {%s} From node. Available fields are: {%s}" % (
+                    ', '.join(list(fields - provided_fields)),
+                    self.get_query().get_from(),
+                    ', '.join(list(provided_fields))
+                )) 
+
+            # If this From node returns more Fields than those explicitely queried
+            # (because the projection capability is not enabled), create an additional
+            # Projection Node above this From Node in order to guarantee that
+            # we only return queried fields
+            if provided_fields - fields:
                 return  Projection(self, fields)
                 #projection.query = self.query.copy().filter_by(filter) # XXX
             return self

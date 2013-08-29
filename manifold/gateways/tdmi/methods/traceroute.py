@@ -34,7 +34,7 @@ def string_to_int(s):
 class Traceroute(list):
 
     @staticmethod
-    def repack_hops(hops_sql, selected_sub_fields):
+    def repack_hops(hops_sql, selected_sub_fields, agent_id, destination_id):
         """
         Convert an SQL array (ip_hop_t[]) stored in a string into the corresponding
             python dictionnary.
@@ -51,12 +51,18 @@ class Traceroute(list):
             new_ip_hop = {}
             if not selected_sub_fields or "ip" in selected_sub_fields:
                 new_ip_hop["ip"] = ip_hop[0]
-            if not selected_sub_fields or "ttl" in selected_sub_fields: 
-                new_ip_hop["ttl"] = string_to_int(ip_hop[1])
+#            if not selected_sub_fields or "ttl" in selected_sub_fields: 
+#                new_ip_hop["ttl"] = string_to_int(ip_hop[1])
             if not selected_sub_fields or "hop_probecount" in selected_sub_fields: 
                 new_ip_hop["hop_probecount"] = string_to_int(ip_hop[2])
             if not selected_sub_fields or "path" in selected_sub_fields: 
                 new_ip_hop["path"] = string_to_int(ip_hop[3])
+
+            # Add hop key
+            new_ip_hop["ttl"] = string_to_int(ip_hop[1])
+            new_ip_hop["agent"] = agent_id 
+            new_ip_hop["destination"] = destination_id 
+            
             hops.append(new_ip_hop)
         return hops
 
@@ -193,7 +199,7 @@ class Traceroute(list):
         # Craft 'hops' field if queried 
         if "hops" in query.get_select():
             hops_sql = traceroute["hops"]
-            traceroute["hops"] = Traceroute.repack_hops(hops_sql, self.selected_sub_fields)
+            traceroute["hops"] = Traceroute.repack_hops(hops_sql, self.selected_sub_fields, traceroute["agent_id"], traceroute["destination_id"])
 
         Traceroute.rename_field(query, traceroute, "agent_id",       "agent")
         Traceroute.rename_field(query, traceroute, "destination_id", "destination")

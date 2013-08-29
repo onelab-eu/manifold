@@ -37,7 +37,7 @@ class PostgreSQLGateway(Gateway):
     SQL_STR = """
     SELECT %(fields)s
         FROM %(table_name)s
-        WHERE %(where)s
+        %(where)s
     """;
 
     SQL_OPERATORS = {
@@ -875,10 +875,11 @@ class PostgreSQLGateway(Gateway):
         Returns:
             A String containing a postgresql command 
         """
+        where = PostgreSQLGateway.to_sql_where(query.get_where())
         params = {
             "fields"     : ", ".join(query.get_select()),
             "table_name" : query.get_from(),
-            "where"      : PostgreSQLGateway.to_sql_where(query.get_where())
+            "where"      : "WHERE %s" % where if where else ""
         }
         sql = PostgreSQLGateway.SQL_STR % params
         return sql
@@ -996,7 +997,6 @@ class PostgreSQLGateway(Gateway):
                 is_array    = (field.data_type == "ARRAY"),
                 description = comments[field.column_name] if field.column_name in comments else "(null)"
             ))
-        Log.debug('Adding table: %s' % table)
     
         # PRIMARY KEYS: XXX simple key ?
         # We build a key dictionary associating each table with its primary key
@@ -1025,6 +1025,7 @@ class PostgreSQLGateway(Gateway):
         table.capabilities.join       = True
         table.capabilities.selection  = True
         table.capabilities.projection = True
+        Log.debug('Adding table: %s' % table)
         return table
 
     @returns(list)
