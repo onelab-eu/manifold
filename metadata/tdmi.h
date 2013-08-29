@@ -4,27 +4,12 @@ class hop {
     const unsigned    hop_probecount; /**< Identifies the hop among different paths (LB) */
     const unsigned    path;           /**< Probe ID */
 
-    const local int   hop_id;
-    KEY(hop_id);
+    const agent       agent; 
+    const destination destination; 
+    KEY(agent, destination, ttl);
 
-    CAPABILITY(virtual, retrieve, join);
+    CAPABILITY(retrieve, join);
 };
-
-//class hop {
-//#    unsigned    hop_id;         /**< Dummy field */
-//    agent       agent;
-//    destination destination;
-//#    timestamp   first;
-//    inet        ip;             /**< IP discovered */
-//    unsigned    ttl;            /**< TTL value (0: source, 1: 1st hop ...) */
-//    unsigned    hop_probecount; /**< Identifies the hop among different paths (LB) */
-//    unsigned    path;           /**< Probe ID */
-//
-//    CAPABILITY(retrieve, join);
-//#    KEY(hop_id);
-//    KEY(agent, destination, ttl);
-//# first, path/hop_probecount
-//};
 
 class traceroute {
     agent       agent;          /**< The measurement agent */
@@ -35,6 +20,5 @@ class traceroute {
     timestamp   last;           /**< Death date of this IP path */
 
     CAPABILITY(join, selection, projection);
-#CAPABILITY(retrieve, join, selection, projection);
     KEY(agent, destination);
 };
