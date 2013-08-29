@@ -1,13 +1,26 @@
-from types import StringTypes
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+# Class Predicate: 
+# Define a condition to join for example to Table instances.
+# If this condition involves several fields, you may define a
+# single Predicate using tuple of fields. 
+#
+# Copyright (C) UPMC Paris Universitas
+# Authors:
+#   Jordan Augé       <jordan.auge@lip6.fr>
+#   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
+
+from types                      import StringTypes
+from manifold.util.type         import returns, accepts 
 
 from operator import (
     and_, or_, inv, add, mul, sub, mod, truediv, lt, le, ne, gt, ge, eq, neg
-    )
+)
 
 # Define the inclusion operators
 class contains(type): pass
 class included(type): pass
-
 
 # New modifier: { contains 
 class Predicate:
@@ -40,13 +53,17 @@ class Predicate:
 
     def __init__(self, *args, **kwargs):
         """
-        \brief Build a predicate (left, operator, right)
-        \param You can pass:
-            - three args (left, operator, right)
-            - one argument (list or tuple) containing three elements (variable, operator, value)
-            "operator" is a String defined in operators or in operators_short and refers
-                tMao a binary operation.
-            "left" and "right" refers to a variable/constant involved in the Predicate.
+        Build a Predicate instance.
+        Args: 
+            kwargs: You can pass:
+                - 3 args (left, operator, right)
+                    left: The left operand (it may be a String instance or a tuple)
+                    operator: See Predicate.operators, this is the binary operator
+                        involved in this Predicate. 
+                    right: The right value (it may be a String instance
+                        or a literal (String, numerical value, tuple...))
+                - 1 argument (list or tuple), containing three arguments
+                  (variable, operator, value)
         """
         if len(args) == 3:
             key, op, value = args
@@ -55,9 +72,9 @@ class Predicate:
         elif len(args) == 1 and isinstance(args[0], Predicate):
             key, op, value = args[0].get_tuple()
         else:
-            raise Exception, "Bad initializer for Predicate (args=%r)" % args
+            raise Exception, "Bad initializer for Predicate (args = %r)" % args
 
-        assert not isinstance(value, (frozenset, dict, set)), "Invalid value type (the only valid containers are tuples and lists) (type = %r)" % type(value)
+        assert not isinstance(value, (frozenset, dict, set)), "Invalid value type (type = %r)" % type(value)
         if isinstance(value, list):
             value = tuple(value)
 
@@ -76,28 +93,58 @@ class Predicate:
         else:
             self.value = value
 
+    @returns(StringTypes)
     def __str__(self):
+        """
+        Returns:
+            The '%s' representation of this Predicate.
+        """
         key, op, value = self.get_str_tuple()
         if isinstance(value, (tuple, list, set, frozenset)):
             value = [repr(v) for v in value]
             value = "[%s]" % ", ".join(value)
         return "%s %s %r" % (key, op, value) 
 
+    @returns(StringTypes)
     def __repr__(self):
+        """
+        Returns:
+            The '%r' representation of this Predicate.
+        """
         return "Predicate<%s %s %r>" % self.get_str_tuple()
 
     def __hash__(self):
+        """
+        Returns:
+            The hash of this Predicate (this allows to define set of
+            Predicate instances).
+        """
         return hash(self.get_tuple())
 
+    @returns(bool)
     def __eq__(self, predicate):
+        """
+        Returns:
+            True iif self == predicate.
+        """
         if not predicate:
             return False
         return self.get_tuple() == predicate.get_tuple()
 
     def get_key(self):
+        """
+        Returns:
+            The left operand of this Predicate. It may be a String
+            or a tuple of Strings.
+        """
         return self.key
     
     def set_key(self, key):
+        """
+        Set the left operand of this Predicate.
+        Params:
+            key: The new left operand.
+        """
         self.key = key
 
     def get_op(self):
@@ -111,7 +158,6 @@ class Predicate:
 
     def get_tuple(self):
         return (self.key, self.op, self.value)
-
 
     def get_str_op(self):
         op_str = [s for s, op in self.operators.iteritems() if op == self.op]

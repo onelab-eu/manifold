@@ -69,7 +69,6 @@ class AST(object):
         """
         return self.get_root() == None
 
-
     #@returns(AST)
     def From(self, platform, query, capabilities, key):
         """
@@ -80,22 +79,18 @@ class AST(object):
             capabilities: The Capabilities related to this Table of this Platform.
             key: The Key related to this Table.
         Returns:
-            The updated AST
+            The updated AST.
         """
-        assert self.is_empty(),                 "Should be instantiated on an empty AST"
-        #assert isinstance(table, Table),        "Invalid table = %r (%r)" % (table, type(table))
-        assert isinstance(query, Query),        "Invalid query = %r (%r)" % (query, type(query))
-        #assert len(table.get_platforms()) == 1, "Table = %r should be related to only one platform" % table
-
-        # USELESS ? # self.query = query
-#OBSOLETE|        platforms = table.get_platforms()
-#OBSOLETE|        platform = list(platforms)[0]
+        assert self.is_empty(),          "Should be instantiated on an empty AST"
+        assert isinstance(query, Query), "Invalid query = %r (%r)" % (query, type(query))
+#        assert capabilities.virtual,     "Cannot build a From Node with a virtual Table, you should use AST::from_table()"
 
         self.root = From(platform, query, capabilities, key)
         self.root.set_callback(self.get_callback())
 
         return self
 
+    #@returns(AST)
     def from_table(self, query, records, key):
         """
         Append a FromTable Node to this AST.
@@ -251,14 +246,15 @@ class AST(object):
         """
         Append a CrossProduct Node above the current AST
         Args:
-            children_ast_relation_list:
-            query:
+            children_ast_relation_list: A list of (AST, Relation) tuples.
+            query: A Query instance
         Returns:
             The resulting AST.
         """
         assert self.is_empty(), "Cross-product should be done on an empty AST"
 
         if len(children_ast_relation_list) == 1:
+            #(ast, relation) = children_ast_relation_list[0]
             (ast, relation), _ = children_ast_relation_list
             self.root = ast.get_root()
         else:

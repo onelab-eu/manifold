@@ -35,7 +35,7 @@ class Table(object):
     @staticmethod
     def check_fields(fields):
         """
-        \brief Check whether fields parameter is well-formed in __init__
+        Check whether fields parameter is well-formed in __init__
         """
         if fields == None:
             return False
@@ -53,7 +53,7 @@ class Table(object):
     @staticmethod
     def check_keys(keys):
         """
-        \brief Check whether keys parameter is well-formed in __init__
+        Check whether keys parameter is well-formed in __init__
         """
         if not keys: return
         if not isinstance(keys, (tuple, list, set, frozenset)):
@@ -68,8 +68,7 @@ class Table(object):
     @staticmethod
     def check_partitions(partitions):
         """
-        \brief Check whether keys partitions is well-formed in __init__
-        \return True iif keys is well-formed
+        Check whether keys parameter is well-formed in __init__
         """
         if isinstance(partitions, StringTypes):
             return
@@ -87,6 +86,9 @@ class Table(object):
 
     @staticmethod
     def check_map_field_methods(map_field_methods):
+        """
+        Check whether map_field_methods parameter is well-formed in __init__
+        """
         if map_field_methods == None:
             return
         if not isinstance(map_field_methods, dict):
@@ -101,7 +103,7 @@ class Table(object):
     @staticmethod
     def check_init(partitions, map_field_methods, name, fields, keys):
         """
-        \brief Check whether parameters passed to __init__ are well formed
+        Check whether parameters passed to __init__ are well formed
         """
         Table.check_fields(fields)
         Table.check_keys(keys)
@@ -170,8 +172,8 @@ class Table(object):
     @returns(StringTypes)
     def __str__(self):
         """
-        \brief Convert a Table instance into a string ('%s')
-        \return The corresponding string
+        Returns:
+            The '%s' representation of this Table.
         """
         return "{%s}::%s {\n\t%s;\n\t%s;\n\t%s\n};" % (
             ', '.join([p          for p in sorted(self.get_platforms())]),
@@ -185,8 +187,8 @@ class Table(object):
     @returns(StringTypes)
     def __repr__(self):
         """
-        \brief Convert a Table instance into a string ('%r')
-        \return The corresponding string
+        Returns:
+            The '%r' representation of this Table.
         """
         platforms = self.get_platforms()
         if platforms:
@@ -201,16 +203,19 @@ class Table(object):
     @returns(StringTypes)
     def get_name(self):
         """
-        \return the table name of self
+        Returns:
+            A String storing the table name of this Table.
         """
         return self.name
 
     @returns(bool)
     def has_key(self, key):
         """
-        \brief Test whether a field is a key of this table
-        \param key A Key instance 
-        \return True iif only this is a key
+        Test whether a field is a key of this Table.
+        Args:
+            key: A Key instance.
+        Returns:
+            True iif only this is a key.
         """
         if not isinstance(key, Key):
             raise TypeError("Invalid key = %r (%r)", (key, type(key)))
@@ -218,19 +223,28 @@ class Table(object):
 
     def insert_field(self, field):
         """
-        \brief Add a field in self.
-        \param field A Field instance 
+        Add a field in self.
+        Args:
+            field: A Field instance 
         """
         self.fields[field.get_name()] = field
  
     @returns(set)
     def get_fields(self):
         """
-        \return the Field instances related to this table 
+        Returns:
+            The set of Field instances related to this Table. 
         """
         return set(self.fields.values())
 
+    @returns(Field)
     def get_field(self, field_name):
+        """
+        Args:
+            field_name: A String instance storing a field name of this Table.
+        Returns:
+            The Field instance corresponding to this field name. 
+        """
         return self.fields[field_name]
 
     def get_field_type(self, field_name):
@@ -530,46 +544,46 @@ class Table(object):
     #-----------------------------------------------------------------------
 
 
-    #@returns(set)
-    def get_connecting_fields(self, table):
-        """
-        \brief Find fields verifying: 
-            exists f | u.f.t == v.n (P1)
-            u = self
-            v = table
-        \param table The target candidate table
-        \return The set of Field f verifying (P1) 
-        """
-        # For now we will suppose a single connecting field
-        #connecting_fields = set()
-        for field in self.get_fields():
-            if field.get_type() == table.get_name():
-                return field
-        return None
-                #connecting_fields.add(field)
-        #return connecting_fields 
-
-    @returns(bool)
-    def inherits(self, table):
-        """
-        \brief (Internal use, since this function is called in a specific context)
-            Test whether self inherits table
-            Example: tophat::destination ==> {tophat, sonoma}::ip
-        \param table The target candidate table
-        \return True iif u --> v
-        """
-        name = set()
-        name.add(table.get_name())
-        return frozenset(name) in table.get_names_from_keys()
-
-    def get_connecting_fields_jordan(self, table):
-        # Does u has a field or a set of fields that are keys in v
-        # XXX wrong content and wront name
-        u, v = self, table
-        for v_key in v.keys(): # MAYBE A SINGLE KEY ?
-            if v_key <= u.fields:
-                return (u.fields.intersection(v_key), v_key)
-        return None
+#DEPRECATED|    #@returns(set)
+#DEPRECATED|    def get_connecting_fields(self, table):
+#DEPRECATED|        """
+#DEPRECATED|        \brief Find fields verifying: 
+#DEPRECATED|            exists f | u.f.t == v.n (P1)
+#DEPRECATED|            u = self
+#DEPRECATED|            v = table
+#DEPRECATED|        \param table The target candidate table
+#DEPRECATED|        \return The set of Field f verifying (P1) 
+#DEPRECATED|        """
+#DEPRECATED|        # For now we will suppose a single connecting field
+#DEPRECATED|        #connecting_fields = set()
+#DEPRECATED|        for field in self.get_fields():
+#DEPRECATED|            if field.get_type() == table.get_name():
+#DEPRECATED|                return field
+#DEPRECATED|        return None
+#DEPRECATED|                #connecting_fields.add(field)
+#DEPRECATED|        #return connecting_fields 
+#DEPRECATED|
+#DEPRECATED|    @returns(bool)
+#DEPRECATED|    def inherits(self, table):
+#DEPRECATED|        """
+#DEPRECATED|        \brief (Internal use, since this function is called in a specific context)
+#DEPRECATED|            Test whether self inherits table
+#DEPRECATED|            Example: tophat::destination ==> {tophat, sonoma}::ip
+#DEPRECATED|        \param table The target candidate table
+#DEPRECATED|        \return True iif u --> v
+#DEPRECATED|        """
+#DEPRECATED|        name = set()
+#DEPRECATED|        name.add(table.get_name())
+#DEPRECATED|        return frozenset(name) in table.get_names_from_keys()
+#DEPRECATED|
+#DEPRECATED|    def get_connecting_fields_jordan(self, table):
+#DEPRECATED|        # Does u has a field or a set of fields that are keys in v
+#DEPRECATED|        # XXX wrong content and wront name
+#DEPRECATED|        u, v = self, table
+#DEPRECATED|        for v_key in v.keys(): # MAYBE A SINGLE KEY ?
+#DEPRECATED|            if v_key <= u.fields:
+#DEPRECATED|                return (u.fields.intersection(v_key), v_key)
+#DEPRECATED|        return None
 
     def is_child_of(self, table):
         u = self
@@ -579,19 +593,17 @@ class Table(object):
         except:
             return False
 
+    @returns(set)
     def get_relations(self, table):
         """
-        \brief Compute which kind of relation connects
-            the "self" Table (source node) to the "table"
-            Table (target node). We assume that the graph
-            of table is at least 2nf.
-            \sa manifold.core.dbgraph.py
-        \param table The target table
-        \return
-            - None if the both tables are unrelated
-            - Otherwise, a tuple made of
-                - a string: "==>", "-->", "~~>"
-                - a set of Field that will be stored in the arc 
+        Compute which Relations connect the "self" Table (source node) to the
+        "table" Table (target node). We assume that the graph of table is
+        at least 2nf.
+        Args:
+            table: The target table
+        Returns:
+            A set of Relation instances connecting "self" and "table".
+            This set is empty iif the both Tables are unrelated.
         """
         # We only test relations u --> v
         u = self
@@ -610,26 +622,18 @@ class Table(object):
             #    relations.add(Relation(Relation.types.CHILD, p))
             return relations
 
-        intersection = u.get_field_names() & v_key.get_field_names()
-        if intersection and intersection < v_key.get_field_names():
-
-            intersection = tuple(intersection)
-            if len(intersection) == 1:
-                intersection = intersection[0]
-            p = Predicate(intersection, eq, intersection)
-
-            relations.add(Relation(Relation.types.LINK_1N, p, name=v.get_name())) # LINK_1N_FORWARD # Name ?
-            # we don't continue otherwise we will find subsets of this set
-            # note: this code might replace following code operating on a single field
-            return relations
-
+        # Detect explicit Relation from u to v
         for field in u.get_fields():
             # 1. A field in u is explicitly typed againt v name
             if field.get_type() == v.get_name():
                 if v_key.is_composite():
-                    Log.warning("Link (1) unsupported between u=%s and v=%s: v has a composite key" % (u.get_name(), v.get_name()))
-                    continue
-                p = Predicate(field.get_name(), eq, v_key.get_name())
+                    # We assume that u (for ex: traceroute) provides in the current field (ex: hops)
+                    # a record containing at least the v's key (for ex: (agent, destination, first, ttl))
+                    intersecting_fields = tuple(u.get_field_names() & v_key.get_field_names())
+                    p = Predicate(intersecting_fields, eq, intersecting_fields)
+                else:
+                    p = Predicate(field.get_name(), eq, v_key.get_name())
+
                 if field.is_array():
                     relations.add(Relation(Relation.types.LINK_1N, p, name=field.get_name())) # LINK_1N_FORWARD
                 else:
@@ -649,7 +653,6 @@ class Table(object):
                                     relations.add(Relation(Relation.types.LINK_11, p, name=field.get_name()))
                                 else:
                                     relations.add(Relation(Relation.types.LINK, p))
-
             # BAD
             #if v_key.is_composite():
             #    Log.warning("Link (2) unsupported between u=%s and v=%s: v has a composite key" % (u.get_name(), v.get_name()))
@@ -680,6 +683,21 @@ class Table(object):
         if relations:
             return relations
 
+        # Detect implicit Relation from u to v
+        intersection = u.get_field_names() & v_key.get_field_names()
+        if intersection and intersection < v_key.get_field_names():
+
+            intersection = tuple(intersection)
+            if len(intersection) == 1:
+                intersection = intersection[0]
+            p = Predicate(intersection, eq, intersection)
+
+            relations.add(Relation(Relation.types.LINK_1N, p, name=v.get_name())) # LINK_1N_FORWARD # Name ?
+            # we don't continue otherwise we will find subsets of this set
+            # note: this code might replace following code operating on a single field
+            return relations
+
+
         # --- REVERSE RELATIONS
         for field in v.get_fields():
             # (6) inv of (1) a field in v points to an existing type
@@ -704,40 +722,42 @@ class Table(object):
 
         return relations
 
-        # OLD CODE FOLLOWS
+#DEPRECATED|        # OLD CODE FOLLOWS
+#DEPRECATED|
+#DEPRECATED|        # XXX This is broken
+#DEPRECATED|        #if not u.get_platforms() >= v.get_platforms():
+#DEPRECATED|        #    return None
+#DEPRECATED|
+#DEPRECATED|        connecting_fields = u.get_connecting_fields(v)
+#DEPRECATED|        # We temporarity changed the relation to return a single field...
+#DEPRECATED|        # 1) FK -> Table.PK
+#DEPRECATED|        if connecting_fields:
+#DEPRECATED|            # FK --> PK : simple join or view
+#DEPRECATED|            if connecting_fields.is_array():
+#DEPRECATED|                return (Relation.types.LINK_1N, set([connecting_fields]))
+#DEPRECATED|            else:
+#DEPRECATED|                return (Relation.types.LINK, set([connecting_fields]))
+#DEPRECATED|
+#DEPRECATED|        # 2) 
+#DEPRECATED|        connecting_keys = u.keys.intersection(v.keys)
+#DEPRECATED|        if connecting_keys:
+#DEPRECATED|            connecting_keys = iter(connecting_keys).next() # pick one
+#DEPRECATED|            # u.PK --> v.PK
+#DEPRECATED|            if u.get_name() != v.get_name():
+#DEPRECATED|                # Different name = inheritance
+#DEPRECATED|                # XXX direction ????
+#DEPRECATED|                return (Relation.types.INHERITANCE, connecting_keys)
+#DEPRECATED|            else:
+#DEPRECATED|                if u.get_platforms() >= v.get_platforms():
+#DEPRECATED|                    # Specialization = parent tables created during dbnorm
+#DEPRECATED|                    # (same name, and full set of platforms)
+#DEPRECATED|                    return (Relation.types.SPECIALIZATION, connecting_keys)
 
-        # XXX This is broken
-        #if not u.get_platforms() >= v.get_platforms():
-        #    return None
-
-        connecting_fields = u.get_connecting_fields(v)
-        # We temporarity changed the relation to return a single field...
-        # 1) FK -> Table.PK
-        if connecting_fields:
-            # FK --> PK : simple join or view
-            if connecting_fields.is_array():
-                return (Relation.types.LINK_1N, set([connecting_fields]))
-            else:
-                return (Relation.types.LINK, set([connecting_fields]))
-
-        # 2) 
-        connecting_keys = u.keys.intersection(v.keys)
-        if connecting_keys:
-            connecting_keys = iter(connecting_keys).next() # pick one
-            # u.PK --> v.PK
-            if u.get_name() != v.get_name():
-                # Different name = inheritance
-                # XXX direction ????
-                return (Relation.types.INHERITANCE, connecting_keys)
-            else:
-                if u.get_platforms() >= v.get_platforms():
-                    # Specialization = parent tables created during dbnorm
-                    # (same name, and full set of platforms)
-                    return (Relation.types.SPECIALIZATION, connecting_keys)
-                    
+    @returns(list)
     def get_invalid_keys(self):
         """
-        \return The keys that involving one or more field not present in the table
+        Returns:
+            The list Keys involving at least one field not present in this Table.
         """
         invalid_keys = []
         for key in self.keys:
@@ -756,14 +776,14 @@ class Table(object):
                 break
         return invalid_keys
 
-    def get_invalid_types(self, valid_types):
-        """
-        \return Types not present in the table
-        """
-        invalid_types = []
-        for field in self.fields:
-            cur_type = field.type
-            if cur_type not in valid_types and cur_type not in BASE_TYPES: 
-                print ">> %r: adding invalid type %r (valid_types = %r)" % (self.class_name, cur_type, valid_types)
-                invalid_types.append(cur_type)
-        return invalid_types
+#UNUSED|    def get_invalid_types(self, valid_types):
+#UNUSED|        """
+#UNUSED|        \return Types not present in the table
+#UNUSED|        """
+#UNUSED|        invalid_types = []
+#UNUSED|        for field in self.fields:
+#UNUSED|            cur_type = field.type
+#UNUSED|            if cur_type not in valid_types and cur_type not in BASE_TYPES: 
+#UNUSED|                print ">> %r: adding invalid type %r (valid_types = %r)" % (self.class_name, cur_type, valid_types)
+#UNUSED|                invalid_types.append(cur_type)
+#UNUSED|        return invalid_types

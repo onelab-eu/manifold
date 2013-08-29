@@ -57,7 +57,7 @@ class SubQuery(Node):
             # Adding dotted fields like "hops.ttl"
             self.query.fields |= set([
                 ".".join([
-                    self.relations[i].get_predicate().get_key(),
+                    self.relations[i].get_relation_name(),
                     field_name
                 ]) for field_name in child.get_query().get_select()
             ])
@@ -106,8 +106,9 @@ class SubQuery(Node):
 
     def parent_callback(self, record):
         """
-        \brief Processes records received by the parent node
-        \param record dictionary representing the received record
+        Processes records received by the parent node
+        Args:
+            record: A dictionary representing the received record
         """
         if record == LAST_RECORD:
             # When we have received all parent records, we can run children
@@ -146,30 +147,36 @@ class SubQuery(Node):
 
         # Inspect the first parent record to deduce which fields have already
         # been fetched 
-        parent_fields = set(self.parent_output[0].keys())
+        first_record = self.parent_output[0]
+        parent_fields = set(first_record.keys())
         
         # Optimize child queries according to the fields already retrieved thanks
         # to the parent query.
         useless_children = set()
         for i, child in enumerate(self.children[:]):
             # Test whether the current child provides relevant fields (e.g.
-            # fields not yet fetched in the parent record). If so, reduce
+            # fields not already fetched in the parent record). If so, reduce
             # the set of queried field in order to only retrieve relevant fields.
             child_fields = child.get_query().get_select()
-            relevant_fields = child_fields - parent_fields 
+            relation = self.relations[i]
+            relation_name = relation.get_relation_name()
+            already_fetched_fields = set()
+            if relation_name in parent_fields:
+                if relation.get_type() in [Relation.types.LINK_1N, Relation.types.LINK_1N_BACKWARDS]:
+                    already_fetched_fields = set(first_record[relation_name][0].keys())
+                else:
+                    already_fetched_fields = set(first_record[relation_name].keys())
+            relevant_fields = child_fields - already_fetched_fields
             if not relevant_fields:
                 useless_children.add(i)
                 continue
             elif child_fields != relevant_fields:
-                Log.tmp(
-                    "SubQuery::run_children: optimizing child ",
-                    child.identifier,
-                    "(I hope we do not remove a field needed to merge the parent and the child records :s)"
-                )
                 self.children[i] = child.optimize_projection(relevant_fields)
 
-        # Is there at least one useful child ?
+        # If every children are useless, this means that we already have full records
+        # thanks to the parent query, so we simply forward those records.
         if len(self.children) == len(useless_children):
+            map(self.send, self.parent_output)
             self.send(LAST_RECORD)
             return
 
@@ -435,7 +442,8 @@ class SubQuery(Node):
         # 1) If the SELECT clause refers to "a.b", this is a Query related to the
         # child subquery related to "a". If the SELECT clause refers to "b" this
         # is always related to the parent query.
-        parent_fields = set([field for field in fields if not "." in field])
+        parent_fields = set([field for field in fields if not "." in field]) \
+            | set([field.split('.')[0] for field in fields if "." in field])
         for i, child in enumerate(self.children[:]):
             child_name = self.relations[i].get_relation_name()
             child_fields[child_name] = set([field.split('.', 1)[1] for field in fields if field.startswith("%s." % child_name)])
