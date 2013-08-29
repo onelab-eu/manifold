@@ -26,6 +26,7 @@ from manifold.core.query           import Query
 from manifold.core.result_value    import ResultValue
 from manifold.core.table           import Table 
 from manifold.operators.demux      import Demux
+from manifold.operators.From       import From
 from manifold.util.callback        import Callback
 from manifold.util.log             import Log
 from manifold.util.misc            import is_sublist
@@ -375,14 +376,13 @@ class ExploreTask(Deferred):
                 if not platform in allowed_platforms:
                     continue
 
-                # The platform might be ONJOIN (no retrieve capability), but we
+                # The current platform::table might be ONJOIN (no retrieve capability), but we
                 # might be able to collect the keys, so we have disabled the following code
                 # XXX Improve platform capabilities support
                 # XXX if not capabilities.retrieve: continue
 
                 from_ast = AST(user = user).From(platform, query, capabilities, key)
-
-                query_plan.froms.append(from_ast.root)
+                query_plan.add_from(from_ast.get_root())
 
                 if method in table.methods_demux:
                     from_ast.demux().projection(list(fields))
@@ -408,7 +408,7 @@ class ExploreTask(Deferred):
                 from_ast.root = demux_node
                 #TODO from_node.addCallback(from_ast.callback)
 
-                query_plan.froms.append(from_ast.root)
+                query_plan.add_from(from_ast.get_root())
 
                 # Add DUP and SELECT to this AST
                 from_ast.dup(key_dup).projection(select_fields)
@@ -434,13 +434,13 @@ class QueryPlan(object):
         self.ast = AST()
         self.froms = []
 
-    def add_from(from_node):
+    def add_from(self, from_node):
         """
         Add a From node to the query plan. FromTable Node are not stored
         in self.froms.
         """
-        if isinstance(fromnode, From):
-            self.froms.append(fromnode)
+        if isinstance(from_node, From):
+            self.froms.append(from_node)
 
     def get_result_value_array(self):
         # Iterate over gateways to get their result values
@@ -471,6 +471,8 @@ class QueryPlan(object):
             ast: An AST instance made of Union, LeftJoin, SubQuery and From Nodes.
             query: The Query issued by the user.
         """
+        print "QUERY PLAN (before optimization):"
+        ast.dump()
         ast.optimize(query)
         self.inject_at(query)
         self.ast = ast
@@ -575,7 +577,7 @@ class QueryPlan(object):
         self.ast = self.ast.From(table, query, capabilities, key)
 
         # XXX associate the From node to the Gateway
-        from_node = self.ast.root
+        from_node = self.ast.get_root()
         self.add_from(from_node)
         #from_node.set_gateway(gw_or_router)
         #gw_or_router.query = query
