@@ -1,5 +1,8 @@
 QUERIES A TESTER
 
+manifold>>> select slice_last_updated from slice where slice_hrn == "ple.upmc.jordan_auge"
+not a slice !!!!!!!
+
 search user and fail...
 SELECT user.hrn,slice.slice_hrn AT now FROM user WHERE user_hrn == "ple.upmc.jordan_auge"
 
