@@ -38,11 +38,13 @@ from manifold.types.string      import string
 from manifold.types.int         import int
 from manifold.types.inet        import inet
 from manifold.types.hostname    import hostname
+from manifold.types.date    import date
 
 xmlrpclib.Marshaller.dispatch[string]   = xmlrpclib.Marshaller.dump_string
 xmlrpclib.Marshaller.dispatch[int]      = xmlrpclib.Marshaller.dump_int
 xmlrpclib.Marshaller.dispatch[inet]     = xmlrpclib.Marshaller.dump_string
 xmlrpclib.Marshaller.dispatch[hostname] = xmlrpclib.Marshaller.dump_string
+xmlrpclib.Marshaller.dispatch[date]     = lambda s: xmlrpclib.Marshaller.dump_string(str(s))
 
 #-------------------------------------------------------------------------------
 # Class XMLRPCDaemon
