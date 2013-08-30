@@ -41,7 +41,7 @@ from manifold.types.hostname    import hostname
 from manifold.types.date        import date
 import datetime
 
-xmlrpclib.Marshaller.dispatch[string]   = xmlrpclib.Marshaller.dump_string(s)
+xmlrpclib.Marshaller.dispatch[string]   = xmlrpclib.Marshaller.dump_string
 xmlrpclib.Marshaller.dispatch[int]      = xmlrpclib.Marshaller.dump_int
 xmlrpclib.Marshaller.dispatch[inet]     = xmlrpclib.Marshaller.dump_string
 xmlrpclib.Marshaller.dispatch[hostname] = xmlrpclib.Marshaller.dump_string
