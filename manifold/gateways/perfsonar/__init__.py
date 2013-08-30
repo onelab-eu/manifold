@@ -8,7 +8,8 @@
 #
 # Copyright (C) 2013 UFPE/UPMC 
 
-from manifold.gateways                  import Gateway, LAST_RECORD
+from manifold.gateways                  import Gateway
+from manifold.operators                 import LAST_RECORD
 from manifold.core.table                import Table
 from manifold.core.field                import Field
 from manifold.core.announce import Announce, announces_from_docstring
@@ -60,6 +61,8 @@ class PerfSONARGateway(Gateway):
         Fetch records stored in the postgresql database according to self.query
         """
 
+        Log.tmp("Received: %s" % self.query)
+
         # Results of the query (TODO)
         rows = []
 
@@ -76,19 +79,15 @@ class PerfSONARGateway(Gateway):
     # Metadata 
     #---------------------------------------------------------------------------
 
-    @announces_from_docstring('local')
+    @announces_from_docstring('perfsonar')
     def get_metadata(self):
         """
-        class object {
-            string table;
-            column column;
-            CAPABILITY(retrieve);
-            KEY(table);
+        class dummy {
+            int key;
+            string key_value;
+            CAPABILITY(selection,projection,retrieve,join);
+            KEY(key);
         }; 
-
-        class column {
-            
-        }
         """
 
 
