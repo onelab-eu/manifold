@@ -210,6 +210,7 @@ class LeftJoin(Node):
 
         # Skip records missing information necessary to join
 #DEPRECATED|        if self.predicate.value not in record or not record[self.predicate.value]:
+        #Log.tmp("%s <= %s" %(set(self.predicate.get_value()) , set(record.keys()))) 
         if not set(self.predicate.get_value()) <= set(record.keys()) \
         or Record.is_empty_record(record, self.predicate.get_value()):
             Log.warning("Missing LEFTJOIN predicate %s in right record %r: ignored" % \

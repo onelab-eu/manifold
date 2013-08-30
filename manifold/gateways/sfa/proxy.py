@@ -1,6 +1,21 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+# Fix bugs in httpclient and twisted/web/xmlrpc.py
+#from twisted.protocols.tls import TLSMemoryBIOProtocol
+import twisted.protocols.tls
+class _TLSMemoryBIOProtocol(twisted.protocols.tls.TLSMemoryBIOProtocol):
+    def writeSequence(self, iovec):
+        """
+        Write a sequence of application bytes by joining them into one string
+        and passing them to L{write}.
+        """
+        iovec = [x.encode('latin-1') for x in iovec]
+        print iovec
+        self.write(b"".join(iovec))
+twisted.protocols.tls.TLSMemoryBIOProtocol = _TLSMemoryBIOProtocol
+#/bugfix
+
 import os, sys, tempfile
 from manifold.util.reactor_thread import ReactorThread
 from manifold.util.log            import Log
@@ -9,6 +24,7 @@ from twisted.internet             import ssl
 from OpenSSL.crypto               import TYPE_RSA, FILETYPE_PEM
 from OpenSSL.crypto               import load_certificate, load_privatekey
 from twisted.internet             import defer
+
 
 DEFAULT_TIMEOUT = 20
 
@@ -284,6 +300,7 @@ class SFAProxy(object):
             def wrap(source, args):
                 token = yield SFATokenMgr().get_token(self.network_hrn)
                 args = (name,) + args
+                
                 #print "SFA CALL", args
                 self.proxy.callRemote(*args).addCallbacks(proxy_success_cb, proxy_error_cb)
             

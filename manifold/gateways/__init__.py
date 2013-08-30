@@ -224,6 +224,11 @@ def register():
     try:
         from manifold.gateways.oml              import OMLGateway
     except: pass
+    try:
+        from manifold.gateways.perfsonar        import PerfSONARGateway
+    except Exception, e: 
+        Log.tmp("Could not load perfsonar gateway: %s" % e)
+        pass
 
 register()
 
