@@ -243,9 +243,16 @@ class SFAProxy(object):
             def setSSLClientContext(self,SSLClientContext):
                 self.SSLClientContext = SSLClientContext
             def callRemote(self, method, *args):
-                factory = xmlrpc._QueryFactory(
+                def cancel(d):
+                    factory.deferred = None
+                    connector.disconnect()
+                factory = self.queryFactory(
                     self.path, self.host, method, self.user,
-                    self.password, self.allowNone, args)
+                    self.password, self.allowNone, args, cancel, self.useDateTime)
+                #factory = xmlrpc._QueryFactory(
+                #    self.path, self.host, method, self.user,
+                #    self.password, self.allowNone, args)
+
                 if self.secure:
                     try:
                         self.SSLClientContext
@@ -257,9 +264,11 @@ class SFAProxy(object):
                         # Using the default sslcontext without verification
                         # Can lead to man in the middle attacks
                     ReactorThread().connectSSL(self.host, self.port or 443,
-                                       factory,self.SSLClientContext)
+                                       factory, self.SSLClientContext,
+                                       timeout=self.connectTimeout)
+
                 else:
-                   ReactorThread().connectTCP(self.host, self.port or 80, factory)
+                   ReactorThread().connectTCP(self.host, self.port or 80, factory, timeout=self.connectTimeout)
                 return factory.deferred
 
         # client_pem expects the concatenation of private key and certificate
@@ -268,7 +277,7 @@ class SFAProxy(object):
         #ctx = self.makeSSLContext(client_pem, None)
         ctx = CtxFactory(pkey, cert)
 
-        self.proxy = Proxy(interface, allowNone=True)
+        self.proxy = Proxy(interface, allowNone=True, useDateTime=False)
         self.proxy.setSSLClientContext(ctx)
         self.network_hrn = None
         self.interface   = interface

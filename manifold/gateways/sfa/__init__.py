@@ -31,6 +31,7 @@ from sfa.rspecs.rspec            import RSpec
 from sfa.rspecs.version_manager  import VersionManager
 from sfa.client.client_helper    import pg_users_arg, sfa_users_arg
 from sfa.client.return_value     import ReturnValue
+from xmlrpclib import DateTime
 
 DEFAULT_TIMEOUT = 20
 DEFAULT_TIMEOUT_GETVERSION = 5
@@ -913,8 +914,18 @@ class SFAGateway(Gateway):
 
         if resolve:
             stack = map(lambda x: hrn_to_urn(x, object), stack)
-            result = yield self.registry.Resolve(stack, cred, {'details': True})
-            defer.returnValue(result)
+            _result,  = yield self.registry.Resolve(stack, cred, {'details': True})
+
+            # XXX How to better handle DateTime XMLRPC types into the answer ?
+            # XXX Shall we type the results like we do in CSV ?
+            result = {}
+            for k, v in _result.items():
+                if isinstance(v, DateTime):
+                    result[k] = str(v) # datetime.strptime(str(v), "%Y%m%dT%H:%M:%S") 
+                else:
+                    result[k] = v
+
+            defer.returnValue([result])
         
         if len(stack) > 1:
             deferred_list = []
