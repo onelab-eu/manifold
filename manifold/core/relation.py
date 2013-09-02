@@ -11,7 +11,7 @@
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
 from types                      import StringTypes
-from manifold.util.misc         import Enum
+from manifold.util.enum         import Enum
 from manifold.util.predicate    import Predicate
 from manifold.util.type         import returns, accepts 
 

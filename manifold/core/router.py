@@ -1,27 +1,26 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+# A Manifold router handles Query, compute the corresponding QueryPlan,
+# and deduce which Queries must be sent the appropriate Gateways.
+#
+# Copyright (C) UPMC Paris Universitas
+# Authors:
+#   Jordan Augé       <jordan.auge@lip6.fr>
+#   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
+
 import os, sys, json, copy, time, traceback #, threading
-from types                          import StringTypes
 from twisted.internet               import defer
-from manifold.core.filter           import Predicate
-from manifold.core.ast              import AST
-from manifold.core.key              import Key, Keys
-from manifold.core.query            import Query, AnalyzedQuery
-from manifold.core.table            import Table
-from manifold.gateways              import Gateway
+
 from manifold.models                import *
 from manifold.core.dbnorm           import to_3nf 
-from manifold.core.query_plan       import QueryPlan
-from manifold.util.type             import returns, accepts
-try:
-    from manifold.gateways.sfa          import ADMIN_USER
-except:
-    ADMIN_USER = 'admin'  # XXX
-from manifold.util.callback         import Callback
 from manifold.core.interface        import Interface
-from manifold.util.reactor_thread   import ReactorThread
-from manifold.util.storage          import DBStorage as Storage
+from manifold.core.query_plan       import QueryPlan
 from manifold.core.result_value     import ResultValue
+from manifold.util.log              import Log
+from manifold.util.type             import returns, accepts
+from manifold.util.reactor_thread   import ReactorThread
 
-from manifold.core.announce         import Announces
 # XXX cannot use the wrapper with sample script
 # XXX cannot use the thread with xmlrpc -n
 #from manifold.util.reactor_wrapper  import ReactorWrapper as ReactorThread
@@ -38,12 +37,14 @@ CACHE_LIFETIME     = 1800
 
 class Router(Interface):
     """
-    Implements a TopHat router.
-
+    Implements a Manifold Router.
     Specialized to handle Announces/Routes, ...
     """
 
     def boot(self):
+        """
+        Boot the Interface (prepare metadata, etc.).
+        """
         #print "I: Booting router"
         # Install static routes in the RIB and FIB (TODO)
         #print "D: Reading static routes in: '%s'" % self.conf.STATIC_ROUTES_FILE
@@ -52,35 +53,50 @@ class Router(Interface):
         # initialize dummy list of credentials to be uploaded during the
         # current session
         self.cache = {}
-        
         super(Router, self).boot()
-        
         self.g_3nf = to_3nf(self.metadata)
 
     def __enter__(self):
+        """
+        Function called back while entering a "with" statement.
+        See http://effbot.org/zone/python-with-statement.htm
+        """
         ReactorThread().start_reactor()
         return self
 
     def __exit__(self, type=None, value=None, traceback=None):
+        """
+        Function called back while leaving a "with" statement.
+        See http://effbot.org/zone/python-with-statement.htm
+        """
         ReactorThread().stop_reactor()
 
     # This function is directly called for a Router
     # Decoupling occurs before for queries received through sockets
+#    @returns(ResultValue)
     def forward(self, query, is_deferred=False, execute=True, user=None):
         """
-        A query is forwarded. Eventually it affects the forwarding plane, and expects an answer.
-        NOTE : a query is like a flow
+        Forwards an incoming Query to the appropriate Gateways managed by this Router.
+        Args:
+            query: The user's Query.
+            is_deferred: (bool)
+            execute: Set to true if the QueryPlan must be executed.
+            user: The user issuing the Query.
+        Returns:
+            A ResultValue in case of success.
+            None in case of failure.
         """
+
         ret = super(Router, self).forward(query, is_deferred, execute, user)
         if ret: return ret
 
         # Code duplication with Interface() class
-        if ':' in query.object:
-            namespace, table = query.object.rsplit(':', 2)
+        if ':' in query.get_from():
+            namespace, table = query.get_from().rsplit(':', 2)
             query.object = table
-            allowed_platforms = [p['platform'] for p in self.platforms if p['platform'] == namespace]
+            allowed_platforms = [p.platform for p in self.platforms if p.platform == namespace]
         else:
-            allowed_platforms = [p['platform'] for p in self.platforms]
+            allowed_platforms = [p.platform for p in self.platforms]
 
         # We suppose we have no namespace from here
         if not execute: 
@@ -105,7 +121,7 @@ class Router(Interface):
 
         # Caching ?
         try:
-            h = hash((user,query))
+            h = hash((user, query))
             #print "ID", h, ": looking into cache..."
         except:
             h = 0
@@ -131,8 +147,7 @@ class Router(Interface):
         print ""
         print ""
 
-        # XXX Timestamp has been added here since it is not propagated by the query plan
-        self.instanciate_gateways(qp, user, query.get_timestamp())
+        self.instanciate_gateways(qp, user)
 
         if query.get_action() == "update":
             # At the moment we can only update if the primary key is present

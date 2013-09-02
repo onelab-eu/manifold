@@ -11,7 +11,6 @@
 #   Jordan Augé <jordan.auge@lip6.fr>
 
 import os, re, functools
-#from manifold.metadata.MetadataClass    import MetadataClass
 from manifold.core.table              import Table
 from manifold.core.capabilities       import Capabilities
 from manifold.core.field              import Field 
@@ -57,6 +56,7 @@ REGEXP_ENUM_BEGIN    = re.compile(''.join([PATTERN_BEGIN, PATTERN_ENUM_BEGIN,   
 REGEXP_ENUM_FIELD    = re.compile(''.join([PATTERN_BEGIN, PATTERN_ENUM_FIELD,   PATTERN_END]))
 REGEXP_ENUM_END      = re.compile(''.join([PATTERN_BEGIN, PATTERN_ENUM_END,     PATTERN_END]))
 
+# TODO replace this class by manifold.misc.enum::Enum
 class MetadataEnum:
     def __init__(self, enum_name):
         """

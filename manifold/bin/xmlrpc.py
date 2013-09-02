@@ -13,26 +13,20 @@
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 #   Loïc Baron        <loic.baron@lip6.fr>
 
-import sys
+import sys, xmlrpclib, datetime
 
-from manifold.gateways          import Gateway
-from manifold.core.query        import Query
-from manifold.core.ast          import AST
-from manifold.core.table        import Table
-from manifold.core.platform     import Platform
-from manifold.core.forwarder    import Forwarder
-from manifold.core.router       import Router
-from manifold.core.capabilities import Capabilities
-#from manifold.util.reactor_thread   import ReactorThread
+from manifold.core.query            import Query
+from manifold.core.forwarder        import Forwarder
+from manifold.core.router           import Router
+from manifold.core.capabilities     import Capabilities
+from manifold.models.platform       import Platform
+from manifold.util.log              import Log
+from manifold.util.options          import Options
+from manifold.util.daemon           import Daemon
+from manifold.util.type             import returns, accepts
 from manifold.util.reactor_wrapper  import ReactorWrapper as ReactorThread
-from manifold.util.storage      import DBStorage as Storage
-from manifold.util.log          import Log
-from manifold.util.options      import Options
-from manifold.util.daemon       import Daemon
-from manifold.util.callback     import Callback
 
 # Let's try to load this before twisted
-import xmlrpclib
 
 from manifold.types.string      import string
 from manifold.types.int         import int
@@ -53,16 +47,13 @@ xmlrpclib.Marshaller.dispatch[date]     = lambda s: xmlrpclib.Marshaller.dump_st
 
 class XMLRPCDaemon(Daemon):
     DEFAULTS = {
-       # XMLRPC server
-        'xmlrpc_port'   :   7080,
-
-        # Gateway
-        'gateway'       :   None
+        'xmlrpc_port' : 7080, # XMLRPC server port
+        'gateway'     : None  # Gateway
     }
 
     def __init__(self):
         """
-        \brief Constructor
+        Constructor.
         """
         # XXX how to avoid option conflicts : have a list of reserved ones for consistency
         # XXX can we support option groups ?
@@ -74,6 +65,9 @@ class XMLRPCDaemon(Daemon):
 
     @classmethod
     def init_options(self):
+        """
+        Prepare options supported by XMLRPCDaemon.
+        """
         # Processing
         opt = Options()
         opt.add_option(
@@ -98,14 +92,19 @@ class XMLRPCDaemon(Daemon):
             default = False
         )
 
-    # DUPLICATED IN INTERFACE
     # XXX should be removed
     def get_gateway_config(self, gateway_name):
+        """
+        Load a default hardcoded configuration.
+        """
         Log.info("Hardcoded CSV|PostgreSQL configuration")
-        if gateway_name == 'postgresql':
-            config = {'db_user':'postgres', 'db_password':None, 'db_name':'test'}
-        elif gateway_name == 'csv':
-            config = {'filename': '/tmp/test.csv'}
+        if gateway_name == "postgresql":
+            config = {
+                "db_user"     : "postgres",
+                "db_password" : None,
+                "db_name"     : "test"}
+        elif gateway_name == "csv":
+            config = {"filename" : "/tmp/test.csv"}
         else:
             config = {}
         return config
@@ -123,7 +122,7 @@ class XMLRPCDaemon(Daemon):
         # This also imports manifold.util.reactor_thread that uses reactor
         from manifold.core.router       import Router
 
-        assert not ( Options().platform and Options().gateway), "Both gateway and platform cannot be specified at commandline" 
+        assert not (Options().platform and Options().gateway), "Both gateway and platform cannot be specified at commandline" 
 
         # This imports twisted code so we need to import it locally
         from manifold.core.xmlrpc_api import XMLRPCAPI
@@ -143,7 +142,13 @@ class XMLRPCDaemon(Daemon):
         elif Options().gateway:
             # XXX user
             # XXX Change Forwarded initializer
-            platform = Platform(u'dummy', Options().gateway, self.get_gateway_config(Options().gateway), 'user')
+#DEPRECATED|            platform = Platform(u'dummy', Options().gateway, self.get_gateway_config(Options().gateway), 'user')
+            platform = Platform(
+                platform     = u'dummy',
+                gateway_type = Options().gateway,
+                config       = self.get_gateway_config(Options().gateway),
+                auth_type    = 'user'
+            )
             self.interface = Forwarder(platform, allowed_capabilities)
 
         else:

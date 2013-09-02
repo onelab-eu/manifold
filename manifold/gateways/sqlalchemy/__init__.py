@@ -229,7 +229,8 @@ class SQLAlchemyGateway(Gateway):
         table = _map_action[self.query.action](self.query)
         # XXX For local namespace queries, we need to keep a dict
         for t in table:
-            row = row2dict(t) if self.format == 'dict' else t.get_object()
+#MANDO|            row = row2dict(t) if self.format == 'dict' else t.get_object()
+            row = row2dict(t) if self.format == 'dict' else t
             self.callback(row)
         self.callback(None)
 

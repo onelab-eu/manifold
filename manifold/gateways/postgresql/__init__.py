@@ -61,13 +61,16 @@ class PostgreSQLGateway(Gateway):
     SQL_DB_TABLE_NAMES = """
     SELECT    table_name 
         FROM  information_schema.tables 
-        WHERE table_schema='public' AND table_type='BASE TABLE'
+        WHERE table_schema  = 'public'
+          AND table_type    = 'BASE TABLE'
+          AND table_catalog = '%(db_name)s'
     """
 
     SQL_DB_VIEW_NAMES = """
     SELECT    table_name
         FROM  information_schema.views
-        WHERE table_schema = ANY(current_schemas(false))
+        WHERE table_schema  = ANY(current_schemas(false))
+          AND table_catalog = '%(db_name)s'
     """
 
     # Table / view
@@ -78,12 +81,6 @@ class PostgreSQLGateway(Gateway):
         WHERE table_name = %(table_name)s ORDER BY ordinal_position
     """
 
-#    SQL_TABLE_KEYS = """
-#    SELECT       tc.table_name, kcu.column_name  
-#        FROM     information_schema.table_constraints AS tc   
-#            JOIN information_schema.key_column_usage  AS kcu ON tc.constraint_name = kcu.constraint_name
-#        WHERE    constraint_type = 'PRIMARY KEY' AND tc.table_name = %(table_name)s;
-#    """
     SQL_TABLE_KEYS = """
     SELECT       tc.table_name                        AS table_name,
                  array_accum(kcu.column_name::text)   AS column_names
@@ -107,7 +104,8 @@ class PostgreSQLGateway(Gateway):
         FROM     information_schema.table_constraints       AS tc 
             JOIN information_schema.key_column_usage        AS kcu ON tc.constraint_name  = kcu.constraint_name
             JOIN information_schema.constraint_column_usage AS ccu ON ccu.constraint_name = tc.constraint_name
-        WHERE    constraint_type = 'FOREIGN KEY' AND tc.table_name = %(table_name)s;
+        WHERE    constraint_type = 'FOREIGN KEY'
+          AND    tc.table_name = %(table_name)s;
     """
 
     SQL_TABLE_COMMENT = """
@@ -228,7 +226,7 @@ class PostgreSQLGateway(Gateway):
         """
         Retrieve the database names stored in postgresql
         Returns:
-            A list of StringTypes containing the database names
+            A list of StringTypes containing the database names (excepted postgres).
         """
         return [x["datname"] for x in self.selectall(PostgreSQLGateway.SQL_SGBD_DBNAMES) if x["datname"] != "postgres"]
 
@@ -239,7 +237,7 @@ class PostgreSQLGateway(Gateway):
         Build a generator allowing to iterate on the first
         field of a set of queried records
         Args:
-            sql_query: A query passed to PostgreSQL (String instance)
+            sql_query: A SQL query passed to PostgreSQL (String instance)
         Returns:
             The correspnding generator instance
         """
@@ -254,7 +252,7 @@ class PostgreSQLGateway(Gateway):
         Returns:
             A generator allowing to iterate on each view names (String instance)
         """
-        return self._get_generator(PostgreSQLGateway.SQL_DB_VIEW_NAMES)
+        return self._get_generator(PostgreSQLGateway.SQL_DB_VIEW_NAMES % self.config)
 
     @returns(GeneratorType)
     def get_table_names(self):
@@ -263,7 +261,7 @@ class PostgreSQLGateway(Gateway):
         Returns:
             A generator allowing to iterate on each table names (String instance)
         """
-        return self._get_generator(PostgreSQLGateway.SQL_DB_TABLE_NAMES)
+        return self._get_generator(PostgreSQLGateway.SQL_DB_TABLE_NAMES % self.config)
 
     # TODO this could be moved into Gateway to implement "Access List"
     @returns(bool)
@@ -486,11 +484,43 @@ class PostgreSQLGateway(Gateway):
         """
         # Import metadata from pgsql schema.
         # By default, we only fetch tables and we ignore views.
+        ########
         announces_pgsql = self.make_metadata_from_names(self.get_table_names())
         if not announces_pgsql:
             Log.warning("Cannot find metadata for platform %s: %s" % (self.platform, e))
         else:
             Log.info("Tables imported from pgsql schema: %s" % [announce.get_table() for announce in announces_pgsql])
+        ###
+        """
+        class table {
+            string comment;
+            field  fields[];
+            key    keys[];
+        };
+
+        class field {
+            string comment;
+            bool   is_const;
+            bool   is_array;
+            string type;
+        };
+
+        class key {
+            table table;    /**< BACKWARD_1N */
+            field fields[];
+        };
+        """
+        # 1) router::boot:
+        #      for each gateway:
+        #        if gateway.type == postgresql:
+        #        router.instantiate_gateway(gateway)
+        #    PostgreSQLGateway::__init__():
+        #      self.router.instantiate_gateway(platform = postgresql_metadata, config = config)
+        # 2) d = self.router.forward(Query.get('object').select([name, field.name, field.type, field.comment, key])
+        #   see core/interface.py:180
+        # 3) announces_pgsql = Announce.from_dict(d)
+        # In this gateway inject field info in table info
+        #########
 
         # Fetch metadata from .h files (if any)
         announces_h = Announces.from_dot_h(self.get_platform(), self.get_gateway_type())
@@ -1025,7 +1055,7 @@ class PostgreSQLGateway(Gateway):
         table.capabilities.join       = True
         table.capabilities.selection  = True
         table.capabilities.projection = True
-        Log.debug('Adding table: %s' % table)
+        Log.debug("Adding table: %s" % table)
         return table
 
     @returns(list)

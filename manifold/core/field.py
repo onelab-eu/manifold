@@ -146,3 +146,32 @@ class Field(object):
             True iif this field has the "local" qualifier.
         """
         return self._is_local
+
+    @returns(dict)
+    def to_dict(self):
+        """
+        Returns:
+            The dictionnary describing this Field for metadata.
+        """
+        field = self
+        column = {
+            "name"       : field.get_name(),
+            "is_const"   : field.is_const(),
+            "is_local"   : field.is_local(),
+            "type"       : field.type,
+            "is_array"   : field.is_array(),
+            "description": field.get_description(),
+            "default"    : "",
+            #"column"         : field.get_name(),        # field(_name)
+            #"description"    : field.get_description(), # description
+            #"header"         : field,
+            #"title"          : field,
+            #"unit"           : "N/A",                   # !
+            #"info_type"      : "N/A",
+            #"resource_type"  : "N/A",
+            #"value_type"     : "N/A",
+            #"allowed_values" : "N/A",
+            # ? category == dimension
+        }
+        return column
+
