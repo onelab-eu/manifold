@@ -2,7 +2,18 @@
 #! -*- coding: utf-8 -*-
 import pprint
 import xmlrpclib
-from config import auth
+import sys
+
+try:
+    from config import auth
+except ImportError:
+    print """
+    Please create manifold/sample/config.py and write in this file:
+
+       auth = {'AuthMethod': 'password', 'Username': 'my_email_address', 'AuthString': 'my_password'}"
+
+    """
+    sys.exit(-1)
 
 err_str = {
     0: "OK",

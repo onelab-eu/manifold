@@ -36,9 +36,7 @@ class Forwarder(Interface):
         # We suppose we have no namespace from here
         qp = QueryPlan()
         qp.build_simple(query, self.metadata, self.allowed_capabilities)
-
-        # XXX Timestamp has been added here since it is not propagated by the query plan
-        self.instanciate_gateways(qp, user, query.get_timestamp())
+        self.instanciate_gateways(qp, user)
 
         d = defer.Deferred() if is_deferred else None
         # the deferred object is sent to execute function of the query_plan

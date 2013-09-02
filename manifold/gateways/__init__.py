@@ -39,7 +39,7 @@ class Gateway(object):
     def __init__(self, interface=None, platform=None, query=None, config=None, user_config=None, user=None):
         """
         Constructor
-        \param router (THRouter) reference to the router on which the gateways
+        \param router (Interface) reference to the router on which the gateways
         are running
         \param platform (string) name of the platform
         \param query (Query) query to be sent to the platform

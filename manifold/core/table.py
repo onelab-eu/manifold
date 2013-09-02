@@ -122,7 +122,7 @@ class Table(object):
         Table constructor
         Args:
             partitions: It can be either:
-                - a string (the name of the platform)
+                - a String (the name of the platform)
                 - a dictionary {String => Predicate} where each key is the name
                 of a platform and each data is a Predicate or "None". "None" means
                 that the condition is always True.
@@ -253,9 +253,12 @@ class Table(object):
     @returns(bool)
     def erase_field(self, field_name):
         """
-        \brief Remove a field from the table
-        \param field_name The name of the field we remove
-        \return True iif the field has been successfully removed
+        Remove a Field from the table
+        Args:
+            field_name: A String containing the name of the
+                field we want to remove.
+        Returns:
+            True iif the field has been successfully removed
         """
         ret = field_name in self.fields
         del(self.fields[field_name])
@@ -263,12 +266,13 @@ class Table(object):
 
     def insert_key(self, key):
         """
-        \brief Add a field in self.
-        \param key Supported parameters
-            A Key
-            A Field      (a Field instance belonging to this table)
-            A StringType (a field name, related to a field of this table)
-            A container  (list, set, frozenset, tuple) made of StringType (field names)
+        Add a Key in this Table.
+        Args:
+            key: The new key. Supported types are 
+                Key
+                Field      (a Field instance belonging to this Table)
+                StringType (a field name, related to a field of this Table)
+                container  (list, set, frozenset, tuple) made of StringType (field names)
         """
         if isinstance(key, Key):
             self.keys.add(key)
@@ -299,10 +303,12 @@ class Table(object):
     @returns(bool)
     def erase_key(self, key):
         """
-        \brief Remove a Key for this table 
-        \param key A Key instance.
-            \warning This Key must refer Field instance(s) of this table. 
-        \return True iif the Key has been found and successfully removed 
+        Remove a Key for this Table. 
+        Args:
+            key: A Key instance.
+                This Key must refer Field instance(s) of this Table. 
+        Returns:
+            True iif the Key has been found and successfully removed.
         """
         l = len(list(self.keys))
         keys = Keys()
@@ -314,31 +320,34 @@ class Table(object):
 
     def erase_keys(self):
         """
-        \brief Remove every Key for this table
+        Remove every Key for this table
         """
         self.keys = Keys()
 
-    def insert_methods(self, methods):
-        """
-        \brief Add a pseudo method for every field of the table
-        \param method A Method instance
-        """
-        # update self.map_field_methods
-        for field in self.map_field_methods.keys():
-            key = Key([field])
-            if not self.has_key(key):
-                self.map_field_methods[field] |= methods
-
-        # update self.platforms
-        for method in methods:
-            self.platforms.add(method.get_platform())
+#DEPRECATED|    def insert_methods(self, methods):
+#DEPRECATED|        """
+#DEPRECATED|        Add a pseudo method for every field of the table
+#DEPRECATED|        Args:
+#DEPRECATED|            method A Method instance
+#DEPRECATED|        """
+#DEPRECATED|        # update self.map_field_methods
+#DEPRECATED|        for field in self.map_field_methods.keys():
+#DEPRECATED|            key = Key([field])
+#DEPRECATED|            if not self.has_key(key):
+#DEPRECATED|                self.map_field_methods[field] |= methods
+#DEPRECATED|
+#DEPRECATED|        # update self.platforms
+#DEPRECATED|        for method in methods:
+#DEPRECATED|            self.platforms.add(method.get_platform())
 
     def get_field(self, field_name):
         """
-        \brief Retrieve a Field instance stored in self according to
+        Retrieve a Field instance stored in self according to
             its field name.
-        \param field_name The name of the requested field (String or Field instance).
-        \return The Field instance identified by 'field_name'
+        Args:
+            field_name: The requested field (String or Field instance).
+        Returns:
+            The Field instance identified by 'field_name'
         """
         # Retrieve the field name
         if isinstance(field_name, Field):
@@ -355,24 +364,25 @@ class Table(object):
     @returns(set)
     def get_field_names(self):
         """
-        \brief Retrieve the field names of the fields stored in self.
-        \return A set of strings (one string per field name) if several fields
+        Retrieve the field names of the fields stored in self.
+        Returns:
+            A set of Strings (one String per field name).
         """
         return set(self.fields.keys())
 
     @returns(Keys)
     def get_keys(self):
         """
-        \return A set of tuple of Field.
-            Each sub-array correspond to a key of 'self'.
-            Each element of these subarray is a Field.
+        Returns:
+            The Keys instance related to this Table.
         """
         return self.keys
 
     @returns(Capabilities)
     def get_capabilities(self):
         """
-        \return A Capabilities object
+        Returns:
+            The Capabilities instance related to this Table.
         """
         return self.capabilities
 
@@ -787,3 +797,25 @@ class Table(object):
 #UNUSED|                print ">> %r: adding invalid type %r (valid_types = %r)" % (self.class_name, cur_type, valid_types)
 #UNUSED|                invalid_types.append(cur_type)
 #UNUSED|        return invalid_types
+
+    def to_dict(self):
+        """
+        Returns:
+            The dictionnary describing this Table for metadata.
+        """
+        # Build columns from fields
+        columns = list() 
+        for field in table.fields.values():
+            columns.append(field.to_dict())
+        
+        keys = tuple(table.get_keys().one().get_field_names())
+
+        return {
+            "table"      : table.get_name(),
+            "column"     : columns,
+            "key"        : keys,
+            "capability" : []
+            # key
+            # default
+            # capabilities
+        }

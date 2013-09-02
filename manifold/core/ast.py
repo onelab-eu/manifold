@@ -255,7 +255,11 @@ class AST(object):
 
         if len(children_ast_relation_list) == 1:
             #(ast, relation) = children_ast_relation_list[0]
-            (ast, relation), _ = children_ast_relation_list
+            try:
+                (ast, relation), _ = children_ast_relation_list
+            except ValueError, e:
+                Log.tmp("children_ast_relation_list = %s")
+                raise ValueError(e)
             self.root = ast.get_root()
         else:
             children = map(lambda (ast, relation): (ast.get_root(), relation), children_ast_relation_list)
