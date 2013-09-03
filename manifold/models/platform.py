@@ -14,7 +14,10 @@
 
 import json
 from sqlalchemy                 import Column, Integer, String, Boolean, Enum
+
+from manifold.core.query        import Query
 from manifold.models            import Base
+from manifold.util.storage      import DBStorage
 from manifold.util.type         import accepts, returns 
 
 class Platform(Base):
@@ -89,7 +92,7 @@ class Platform(Base):
                     ref_platform_name = user_config["reference_platform"]
 
                     #ref_platform = db.query(Platform).filter(Platform.platform == ref_platform).one()
-                    ref_platform  = Storage.execute(Query().get("platform").filter_by("platform", "==", ref_platform_name), format = "object")
+                    ref_platform  = DBStorage.execute(Query().get("platform").filter_by("platform", "==", ref_platform_name), format = "object")
                     if not ref_platform:
                         raise Exception, "Reference platform not found: %s" % ref_platform_name
                     ref_platform, = ref_platform
