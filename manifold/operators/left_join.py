@@ -183,7 +183,8 @@ class LeftJoin(Node):
         # Directly send records missing information necessary to join
         # XXXX !!! XXX XXX XXX
         if not Record.has_fields(record, self.predicate.get_field_names()):
-            Log.warning("Missing LEFTJOIN predicate %s in left record %r : forwarding" % \
+            Log.tmp("toto %s" % self.predicate.get_field_names())
+            Log.warning("toto Missing LEFTJOIN predicate %s in left record %r : forwarding" % \
                     (self.predicate, record))
             self.send(record)
 

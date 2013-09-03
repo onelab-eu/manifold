@@ -171,7 +171,7 @@ class Query(object):
         strmap = {
             'get'   : '%(select)s%(sep)s%(at)s%(sep)sFROM %(platform)s%(table)s%(sep)s%(where)s%(sep)s',                                           
             'update': 'UPDATE %(platform)s%(table)s%(sep)s%(params)s%(sep)s%(where)s%(sep)s%(select)s',       
-            'create': 'INSERT INTO %(platform)s%(table)s%(sep)s%(params)s%(sep)s%(select)s',
+            'create': 'INSERT INTO %(platform)s%(table)s%(sep)s%(params)s',
             'delete': 'DELETE FROM %(platform)s%(table)s%(sep)s%(where)s'
         }
 

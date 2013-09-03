@@ -22,6 +22,7 @@ from manifold.util.plugin_factory       import PluginFactory
 #from manifold.util.misc                 import find_local_modules
 from manifold.util.type                 import accepts, returns
 from manifold.util.log                  import Log
+import traceback
 
 #-------------------------------------------------------------------------------
 # Generic Gateway class

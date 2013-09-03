@@ -1,37 +1,39 @@
 import sys, os, os.path, re, tempfile, itertools
 import zlib, hashlib, BeautifulSoup, urllib
 import json, signal, traceback
-from datetime                    import datetime
-from lxml                        import etree
-from StringIO                    import StringIO
-from types                       import StringTypes, ListType
-from twisted.internet            import defer
+from datetime                           import datetime
+from lxml                               import etree
+from StringIO                           import StringIO
+from types                              import StringTypes, ListType
+from twisted.internet                   import defer
 
-from manifold.core.result_value  import ResultValue
-from manifold.core.filter        import Filter
-from manifold.operators          import LAST_RECORD
-from manifold.operators.rename   import Rename
-from manifold.gateways           import Gateway
+from manifold.core.result_value         import ResultValue
+from manifold.core.filter               import Filter
+from manifold.operators                 import LAST_RECORD
+from manifold.operators.rename          import Rename
+from manifold.gateways                  import Gateway
 from manifold.gateways.sfa.rspecs.SFAv1 import SFAv1Parser # as Parser
-from manifold.gateways.sfa.proxy import SFAProxy
-from manifold.util.predicate     import contains, eq, lt, le, included
-from manifold.util.log           import Log
-from manifold.util.misc          import make_list
-from manifold.models             import *
+from manifold.gateways.sfa.proxy        import SFAProxy
+from manifold.util.predicate            import contains, eq, lt, le, included
+from manifold.util.log                  import Log
+from manifold.util.misc                 import make_list
+from manifold.models                    import db
+from manifold.models.platform           import Platform 
+from manifold.models.user               import User
 
-from sfa.trust.certificate       import Keypair, Certificate, set_passphrase
-from sfa.trust.gid               import GID
-from sfa.trust.credential        import Credential
-from sfa.util.xrn                import Xrn, get_leaf, get_authority, hrn_to_urn, urn_to_hrn
-from sfa.util.config             import Config
-from sfa.util.version            import version_core
-from sfa.util.cache              import Cache
-from sfa.storage.record          import Record
-from sfa.rspecs.rspec            import RSpec
-from sfa.rspecs.version_manager  import VersionManager
-from sfa.client.client_helper    import pg_users_arg, sfa_users_arg
-from sfa.client.return_value     import ReturnValue
-from xmlrpclib import DateTime
+from sfa.trust.certificate              import Keypair, Certificate, set_passphrase
+from sfa.trust.gid                      import GID
+from sfa.trust.credential               import Credential
+from sfa.util.xrn                       import Xrn, get_leaf, get_authority, hrn_to_urn, urn_to_hrn
+from sfa.util.config                    import Config
+from sfa.util.version                   import version_core
+from sfa.util.cache                     import Cache
+from sfa.storage.record                 import Record
+from sfa.rspecs.rspec                   import RSpec
+from sfa.rspecs.version_manager         import VersionManager
+from sfa.client.client_helper           import pg_users_arg, sfa_users_arg
+from sfa.client.return_value            import ReturnValue
+from xmlrpclib                          import DateTime
 
 DEFAULT_TIMEOUT = 20
 DEFAULT_TIMEOUT_GETVERSION = 5
