@@ -1,13 +1,14 @@
-from manifold.models import *
-import time
-
-import crypt, base64, random
-from hashlib import md5
+import time, crypt, base64, random
+from hashlib                    import md5
 
 try:
-    from manifold.gateways.sfa import ADMIN_USER
+    from manifold.gateways.sfa  import ADMIN_USER
 except:
     ADMIN_USER = 'admin' # XXX
+
+from manifold.models            import db
+from manifold.models.user       import User
+from manifold.models.session    import Session 
 
 #-------------------------------------------------------------------------------
 # Helper functions

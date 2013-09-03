@@ -3,7 +3,11 @@ from sqlalchemy                 import create_engine
 from sqlalchemy.ext.declarative import declarative_base, declared_attr
 from sqlalchemy.orm             import sessionmaker
 from manifold.gateways          import Gateway
-from manifold.models            import *
+from manifold.models            import db
+from manifold.models.account    import Account
+from manifold.models.platform   import Platform
+from manifold.models.session    import Session 
+from manifold.models.user       import User
 from manifold.util.log          import Log
 from manifold.util.predicate    import included
 
@@ -184,19 +188,19 @@ class SQLAlchemyGateway(Gateway):
 
     def local_query_create(self, query):
 
-        assert not query.filters, "Filters should be empty for a create request"
-        #assert not query.fields, "Fields should be empty for a create request"
+        assert not query.get_where(), "Filters should be empty for a create request"
+        #assert not query.get_select(), "Fields should be empty for a create request"
 
-        cls = self.map_object[query.object]
+        cls = self.map_object[query.get_from()]
 
-        params = query.params
+        params = query.get_params()
         # We encrypt the password according to the encryption of adduser.py
         # As a result from the frontend the new users' password will be inserted
         # into the local DB as encrypted      
         if 'password' in params:
             params['password'] = self.encrypt_password(params['password'])
         
-        cls.process_params(query.params, None, self.user)
+        cls.process_params(query.get_params(), None, self.user)
         new_obj = cls(**params) if params else cls()
         db.add(new_obj)
         db.commit()

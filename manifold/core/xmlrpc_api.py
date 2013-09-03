@@ -67,6 +67,7 @@ class XMLRPCAPI(xmlrpc.XMLRPC, object):
             try:
                 user = Auth(auth).check()
             except Exception, e:
+                Log.warning("XMLRPCAPI::xmlrpc_forward: Authentication failed: %s" % traceback.format_exc())
                 ret = dict(ResultValue(
                    origin      = (ResultValue.CORE, self.__class__.__name__),
                    type        = ResultValue.ERROR,

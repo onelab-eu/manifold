@@ -1,10 +1,10 @@
-from sqlalchemy import Column, ForeignKey, Integer, String
-from sqlalchemy.orm import relationship, backref
-
-from manifold.models import Base
-
 import time, crypt, base64, random
-from hashlib import md5
+from hashlib              import md5
+from sqlalchemy           import Column, ForeignKey, Integer, String
+from sqlalchemy.orm       import relationship, backref
+
+from manifold.models.base import Base
+from manifold.models.user import User 
 
 class Session(Base):
 
@@ -27,4 +27,4 @@ class Session(Base):
         if not 'expires' in params:
             params['expires'] = int(time.time()) + (24 * 60 * 60)
 
-        Session.params_ensure_user(params, user)
+        User.params_ensure_user(params, user)

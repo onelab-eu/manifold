@@ -1,8 +1,4 @@
-#-------------------------------------------------------------------------
-# Class Singleton
-#
-# Classes that inherit from Singleton can be instanciated only once 
-#-------------------------------------------------------------------------
+from manifold.util.log             import Log
 
 class PluginFactory(type):
     def __init__(cls, name, bases, dic):

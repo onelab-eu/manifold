@@ -12,7 +12,6 @@
 import os, sys, json, copy, time, traceback #, threading
 from twisted.internet               import defer
 
-from manifold.models                import *
 from manifold.core.dbnorm           import to_3nf 
 from manifold.core.interface        import Interface
 from manifold.core.query_plan       import QueryPlan
@@ -86,7 +85,7 @@ class Router(Interface):
             A ResultValue in case of success.
             None in case of failure.
         """
-
+        Log.info("Router::forward: %s" % query)
         ret = super(Router, self).forward(query, is_deferred, execute, user)
         if ret: return ret
 
