@@ -5,11 +5,14 @@ except NameError:
     from sets import Set
     set = Set
 
-import time
-import datetime # Jordan
-#from manifold.util.parameter import Parameter, Mixed, python_type
-from manifold.util.predicate import Predicate, eq
-from itertools                  import ifilter
+from manifold.util.log          import Log
+from manifold.util.predicate    import Predicate, eq
+from manifold.util.type         import returns, accepts
+
+#OBSOLETE|import time
+#OBSOLETE|import datetime # Jordan
+#OBSOLETE|from manifold.util.parameter import Parameter, Mixed, python_type
+#OBSOLETE|from itertools                  import ifilter
 
 class Filter(set):
     """
@@ -21,6 +24,11 @@ class Filter(set):
 
     @staticmethod
     def from_list(l):
+        """
+        Create a Predicate instance from a list instance.
+        Args:
+            l: A list made of a left operand, and operator, and a right operand.
+        """
         f = Filter()
         try:
             for element in l:
@@ -32,6 +40,11 @@ class Filter(set):
         
     @staticmethod
     def from_dict(d):
+        """
+        Create a Predicate instance from a dict instance.
+        Args:
+            d: A dictionnary instance. 
+        """
         f = Filter()
         for key, value in d.items():
             if key[0] in Predicate.operators.keys():
@@ -40,12 +53,17 @@ class Filter(set):
                 f.add(Predicate(key, '=', value))
         return f
 
+    @returns(list)
     def to_list(self):
-        ret = []
+        """
+        Returns:
+            A list containing the list representation of each
+            Predicate involved in this Filter.
+        """
+        ret = list() 
         for predicate in self:
             ret.append(predicate.to_list())
         return ret
-        
 
     @staticmethod
     def from_clause(clause):
@@ -55,15 +73,31 @@ class Filter(set):
         raise Exception, "Not implemented"
 
     def filter_by(self, predicate):
+        """
+        Add a new Predicate instance in this Filter.
+        Args:
+            predicate: A predicate instance.
+        """
         self.add(predicate)
         return self
 
+    @returns(StringTypes)
     def __str__(self):
+        """
+        Returns:
+            The '%s' representation of this Filter.
+        """
         return ' AND '.join([str(pred) for pred in self])
 
+    @returns(StringTypes)
     def __repr__(self):
+        """
+        Returns:
+            The '%r' representation of this Filter.
+        """
         return '<Filter: %s>' % ' AND '.join([str(pred) for pred in self])
 
+    @returns(tuple)
     def __key(self):
         return tuple([hash(pred) for pred in self])
 
@@ -75,61 +109,82 @@ class Filter(set):
             raise TypeError("Element of class Predicate expected, received %s" % value.__class__.__name__)
         set.__additem__(self, value)
 
+    @returns(set)
     def keys(self):
-        return set([x.key for x in self])
+#        return set([predicate.get_key() for predicate in self])
+        ret = set()
+        for predicate in self:
+            key = predicate.get_key()
+            if isinstance(key, StringTypes):
+                ret.add(key)
+            elif isinstance(key, tuple):
+                for key in predicate.get_key():
+                    ret.add(key)
+            else:
+                raise TypeError("Invalid predicate key %s" % predicate)
+        return ret
 
     # XXX THESE FUNCTIONS SHOULD ACCEPT MULTIPLE FIELD NAMES
 
+    @returns(bool)
     def has(self, key):
-        for x in self:
-            if x.key == key:
+        if not isinstance(key, tuple): key = (key,)
+        for predicate in self:
+            if predicate.get_key() == key:
                 return True
         return False
 
+    @returns(bool)
     def has_op(self, key, op):
-        for x in self:
-            if x.key == key and x.op == op:
+        if not isinstance(key, tuple): key = (key,)
+        for predicate in self:
+            if predicate.get_key() == key and predicate.op == op:
                 return True
         return False
 
+    @returns(bool)
     def has_eq(self, key):
         return self.has_op(key, eq)
 
     def get(self, key):
-        ret = []
-        for x in self:
-            if x.key == key:
-                ret.append(x)
+        if not isinstance(key, tuple): key = (key,)
+        ret = list() 
+        for predicate in self:
+            if predicate.get_key() == key:
+                ret.append(predicate)
         return ret
 
     def delete(self, key):
-        to_del = []
-        for x in self:
-            if x.key == key:
-                to_del.append(x)
-        for x in to_del:
-            self.remove(x)
+        if not isinstance(key, tuple): key = (key,)
+        to_del = list() 
+        for predicate in self:
+            if predicate.get_key() == key:
+                to_del.append(predicate)
+        for predicate in to_del:
+            self.remove(predicate)
             
-        #self = filter(lambda x: x.key != key, self)
+        #self = filter(lambda predicate: predicate.key != key, self)
 
     def get_op(self, key, op):
+        if not isinstance(key, tuple): key = (key,)
         if isinstance(op, (list, tuple, set)):
-            for x in self:
-                if x.key == key and x.op in op:
-                    return x.value
+            for predicate in self:
+                if predicate.get_key() == key and predicate.get_op() in op:
+                    return predicate.get_value()
         else:
-            for x in self:
-                if x.key == key and x.op == op:
-                    return x.value
+            for predicate in self:
+                if predicate.get_key() == key and predicate.get_op() == op:
+                    return predicate.get_value()
         return None
 
     def get_eq(self, key):
         return self.get_op(key, eq)
 
     def set_op(self, key, op, value):
-        for x in self:
-            if x.key == key and x.op == op:
-                x.value = value
+        if not isinstance(key, tuple): key = (key,)
+        for predicate in self:
+            if predicate.get_key() == key and predicate.get_op() == op:
+                predicate.set_value(value)
                 return
         raise KeyError, key
 
@@ -138,10 +193,11 @@ class Filter(set):
 
     def get_predicates(self, key):
         # XXX Would deserve returning a filter (cf usage in SFA gateway)
+        if not isinstance(key, tuple): key = (key,)
         ret = []
-        for x in self:
-            if x.key == key:
-                ret.append(x)
+        for predicate in self:
+            if predicate.get_key() == key:
+                ret.append(predicate)
         return ret
 
 #    def filter(self, dic):

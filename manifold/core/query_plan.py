@@ -124,6 +124,9 @@ class QueryPlan(object):
             Log.error("query_plan::build(): Cannot find %s in metadata, known tables are %s" % (query.get_from(), metadata.get_table_names()))
         
         root_task = ExploreTask(root, relation=None, path=[], parent=self, depth=1)
+        if not root_task:
+            Log.error("query_plan::build(): unable to find a suitable query plan.") 
+
         root_task.addCallback(self.set_ast, query)
 
         stack = Stack(root_task)
@@ -134,7 +137,11 @@ class QueryPlan(object):
         missing_fields |= query.get_where().get_field_names()
 
         while missing_fields:
+            # Explore the next urgent ExploreTask
             task = stack.pop()
+
+            # The stack is empty, we explored the whole DBGraph but there are
+            # still at least one queried field which has not been found.
             if not task:
                 Log.warning("Exploration terminated without finding fields: %r" % missing_fields)
                 break
@@ -144,6 +151,7 @@ class QueryPlan(object):
                 seen[pathstr] = set()
             task.explore(stack, missing_fields, metadata, allowed_platforms, allowed_capabilities, user, seen[pathstr], query_plan = self)
 
+        # Cancel every remaining ExploreTask since we've found all the queried fields.
         while not stack.is_empty():
             task = stack.pop()
             task.cancel()
@@ -232,6 +240,7 @@ class QueryPlan(object):
         # Start AST = Abstract Syntax Tree 
         # An AST represents a query plan
         # manifold/core/ast.py
+        assert self.ast, "QueryPlan::execute(): Empty AST"
         self.ast.set_callback(cb)
         self.ast.start()
 

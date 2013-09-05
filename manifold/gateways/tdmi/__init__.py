@@ -97,6 +97,7 @@ class TDMIGateway(PostgreSQLGateway):
         """
         query = self.get_query()
         table_name = query.get_from()
+        Log.info("Running query %s" % query)
 
         if table_name in self.METHOD_MAP.keys():
             if self.METHOD_MAP[table_name]:
@@ -104,6 +105,7 @@ class TDMIGateway(PostgreSQLGateway):
                 params = None
                 instance = self.METHOD_MAP[table_name](query, db = self)
                 sql = instance.get_sql()
+                Log.info("Running sql %s" % sql)
                 rows = self.selectall(sql, params)
 
                 # Does this object tweak the python dictionnary returned by selectall?

@@ -1448,7 +1448,7 @@ class SFAGateway(Gateway):
     # using defer to have an asynchronous results management in functions prefixed by yield
     @defer.inlineCallbacks
     def manage(self, user, platform, config):
-        Log.debug("Managing %r account on %s..." % (user, platform))
+        Log.debug("Managing '%s' account on '%r'..." % (user, platform))
         # The gateway should be able to perform user config management taks on
         # behalf of MySlice
         #
