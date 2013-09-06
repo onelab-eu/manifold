@@ -1,5 +1,6 @@
 from sqlalchemy                 import create_engine
 from sqlalchemy.orm             import sessionmaker
+from sqlalchemy.ext.declarative import declarative_base, declared_attr
 
 # exceptions.Exception: Error during local request: (ProgrammingError) SQLite objects created in a thread can only be used in that same thread.The object was created in thread id 139885302400768 and this is thread id 139885208180480 'SELECT platform.platform AS platform_platform \nFROM platform' [immutabledict({})]
 #engine = create_engine('sqlite:///:memory:?check_same_thread=False', echo=False)
@@ -12,7 +13,7 @@ engine = create_engine('sqlite:////var/myslice/db.sqlite?check_same_thread=False
 
 from manifold.models.base       import Base
 
-#Base    = declarative_base(cls = Base)
+Base    = declarative_base(cls = Base)
 SQLAlchemySession = sessionmaker(bind = engine)
 db = SQLAlchemySession()
 
@@ -22,7 +23,7 @@ db = SQLAlchemySession()
 #from manifold.models.account    import Account
 #from manifold.models.session    import Session
 
-Base.metadata.create_all(engine)
+#Base.metadata.create_all(engine)
 
 #from manifold.models.field import Field
 
