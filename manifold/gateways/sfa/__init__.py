@@ -704,10 +704,16 @@ class SFAGateway(Gateway):
         api_options ['append'] = False
         api_options ['call_id'] = unique_call_id()
         ois = yield self.ois(self.sliceapi, api_options)
-        result = yield self.sliceapi.CreateSliver(slice_urn, [slice_cred], rspec, users, ois)
-        #print "CreateSliver RSPEC"
+
+        if self.version['geni_api'] == 2:
+            # AM API v2
+            result = yield self.sliceapi.CreateSliver(slice_urn, [slice_cred], rspec, users, ois)
+        else:
+            # AM API v3
+            result = yield self.sliceapi.Allocate(slice_urn, [slice_cred], rspec, ois)
+            result = yield self.sliceapi.Provision([slice_urn], [slice_cred], ois)
+
         manifest = ReturnValue.get_value(result)
-        #print "MANIFEST: ", str(result)[:100]
 
         if not manifest:
             print "NO MANIFEST FROM", self.platform
@@ -1252,7 +1258,19 @@ class SFAGateway(Gateway):
         else:
             cred = self._get_cred('user')
 
-        result = yield self.sliceapi.ListResources([cred], api_options)
+        if self.version['geni_api'] == 2:
+            # AM API v2 
+            result = yield self.sliceapi.ListResources([cred], api_options)
+        else:
+            # AM API v3
+            if slice_hrn:
+               slice_urn = api_options['geni_slice_urn']
+               result = yield self.sliceapi.Describe([slice_urn], [cred], api_options)
+               # dirty work around
+               result['value'] = result['value']['geni_rspec']
+            else:
+               result = yield self.sliceapi.ListResources([cred], api_options)
+
         if not 'value' in result or not result['value']:
             raise Exception, result['output']
 
