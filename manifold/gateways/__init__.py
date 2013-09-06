@@ -16,8 +16,8 @@
 # Copyright (C) 2013 UPMC 
 
 from types                              import StringTypes
-from manifold.core.announce             import Announces
 from manifold.core.result_value         import ResultValue
+from manifold.core.announce             import Announces
 from manifold.util.plugin_factory       import PluginFactory
 #from manifold.util.misc                 import find_local_modules
 from manifold.util.type                 import accepts, returns
@@ -40,12 +40,15 @@ class Gateway(object):
     def __init__(self, interface=None, platform=None, query=None, config=None, user_config=None, user=None):
         """
         Constructor
-            interface: The Manifold Interface on which this Gateway is running.
-            platform: A String storing name of the platform related to this Gateway.
-            query: (Query) query to be sent to the platform (TODO: TO MOVE INTO forward)
-            config: A dictionnary containing the platform configuration
-            userconfig: (dict) user configuration (TODO: TO MOVE INTO forward)
-            user: A User instance (TODO: TO MOVE INTO forward). 
+        \param router (Interface) reference to the router on which the gateways
+        are running
+        \param platform (string) name of the platform
+        \param query (Query) query to be sent to the platform
+        \param config (dict) platform gateway configuration
+        \param userconfig (dict) user configuration (account)
+        \param user (dict) user information
+        \sa manifold.core.router
+        \sa manifold.core.query
         """
         # XXX explain why router is needed
         # XXX document better config, user_config & user parameters
@@ -56,22 +59,20 @@ class Gateway(object):
         self.user_config    = user_config
         self.user           = user
 
-        # TODO remove self.identifier
-        self.identifier     = None # The Gateway will receive the identifier from the ast FROM node
+        self.identifier     = None # The gateway will receive the identifier from the ast FROM node
         self.callback       = None
-        self.result_value   = list() 
+        self.result_value   = []
 
-    @returns(dict)
     def get_variables(self):
-        variables = dict() 
+        variables = {}
         # Authenticated user
-        variables["user_email"] = self.user.email
+        variables['user_email'] = self.user.email
         for k, v in self.user.get_config().items():
-            if isinstance(v, StringTypes) and not "credential" in v:
+            if isinstance(v, StringTypes) and not 'credential' in v:
                 variables[k] = v
         # Account information of the authenticated user
         for k, v in self.user_config.items():
-            if isinstance(v, StringTypes) and not "credential" in v:
+            if isinstance(v, StringTypes) and not 'credential' in v:
                 variables[k] = v
         return variables
 
@@ -85,30 +86,25 @@ class Gateway(object):
             for predicate in filter:
                 value = predicate.get_value()
 
-                # XXX variable support not implemented for Predicates involving several values
-                if not isinstance(value, StringTypes):
-                    Log.warning("Gateway::start(): value type not supported %s" % value)
+                # XXX variable support not implemented for lists and tuples
+                if isinstance(value, (tuple, list)):
                     continue
-                value = (value,)
 
-                if value[0] == "$":
+                if value[0] == '$':
                     var = value[1:]
                     if var in variables:
                         predicate.set_value(variables[var])
 
             for key, value in params.items():
 
-                # XXX variable support not implemented for Predicates involving several values
-                if not isinstance(value, StringTypes):
-                    Log.warning("Gateway::start(): value type not supported %s" % value)
+                # XXX variable support not implemented for lists and tuples
+                if isinstance(value, (tuple, list)):
                     continue
-                value = (value,)
                 
-                if value[0] == "$":
+                if value[0] == '$':
                     var = value[1:]
                     if var in variables and isinstance(variables[var], StringTypes):
                         params[k] = variables[var]
-
         except Exception, e:
             print "Exception in start", e
             import traceback
@@ -116,28 +112,10 @@ class Gateway(object):
 
     @returns(StringTypes)
     def get_platform(self):
-        """
-        Returns:
-            The String containing the name of the platform related
-            to this Gateway.
-        """
         return self.platform
 
-    @returns(StringTypes)
     def __str__(self):
-        """
-        Returns:
-            The '%s' representation of this Gateway.
-        """
         return "<%s %s>" % (self.__class__.__name__, self.query)
-
-    @returns(StringTypes)
-    def __repr__(self):
-        """
-        Returns:
-            The '%r' representation of this Gateway.
-        """
-        return self.__str__()
 
     def set_callback(self, cb):
         self.callback = cb
@@ -154,7 +132,6 @@ class Gateway(object):
     def set_user_config(self, user_config):
         self.user_config = user_config
 
-    @returns(StringTypes)
     def get_gateway_type(self):
         """
         Returns:
@@ -193,8 +170,7 @@ class Gateway(object):
         
     def send(self, record):
         """
-        Calls the parent callback with the Record passed in parameter.
-        In other word, this From Node send Record to its parent Node in the QueryPlan.
+        \brief calls the parent callback with the record passed in parameter
         """
         Log.record("[#%04d] [ %r ]" % (self.identifier, record))
         self.callback(record)
@@ -227,48 +203,32 @@ class Gateway(object):
 def register():
     try:
         from manifold.gateways.postgresql       import PostgreSQLGateway
-    except:
-        Log.warning(traceback.format_exc())
-        pass
+    except: pass
     try:
         from manifold.gateways.tdmi             import TDMIGateway
-    except:
-        Log.warning(traceback.format_exc())
-        pass
+    except: pass
     try:
         from manifold.gateways.sfa              import SFAGateway
-    except:
-        Log.warning(traceback.format_exc())
-        pass
+    except: pass
     try:
         from manifold.gateways.maxmind          import MaxMindGateway
-    except:
-        Log.warning(traceback.format_exc())
-        pass
+    except: pass
     try:
         from manifold.gateways.csv              import CSVGateway
-    except:
-        Log.warning(traceback.format_exc())
-        pass
+    except: pass
     try:
         from manifold.gateways.manifold_xmlrpc  import ManifoldGateway
-    except:
-        Log.warning(traceback.format_exc())
-        pass
+    except: pass
     try:
         from manifold.gateways.sqlalchemy       import SQLAlchemyGateway
-    except:
-        Log.warning(traceback.format_exc())
-        pass
+    except: pass
     try:
         from manifold.gateways.oml              import OMLGateway
-    except:
-        Log.warning(traceback.format_exc())
-        pass
+    except: pass
     try:
         from manifold.gateways.perfsonar        import PerfSONARGateway
-    except:
-        Log.warning(traceback.format_exc())
+    except Exception, e: 
+        Log.tmp("Could not load perfsonar gateway: %s" % e)
         pass
 
 register()

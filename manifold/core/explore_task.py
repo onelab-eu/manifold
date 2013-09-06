@@ -38,7 +38,7 @@ class ExploreTask(Deferred):
         Constructor.
         Args:
             root:
-            relation: A Relation instance, related to the arc we're exploring.
+            relation:
             path:
             parent:
             depth: An positive integer value, corresponding to the number of
@@ -68,7 +68,7 @@ class ExploreTask(Deferred):
         Returns:
             The '%r' representation of this ExploreTask instance.
         """
-        return "(%s --> %s)" % (self.root.get_name(), self.relation)
+        return "<ExploreTask %d -- %s -- %s [%d]>" % (self.identifier, self.root.get_name(), self.relation, self.depth)
 
     @returns(StringTypes)
     def __str__(self):
@@ -76,27 +76,22 @@ class ExploreTask(Deferred):
         Returns:
             The '%s' representation of this ExploreTask instance.
         """
-        return "<ExploreTask %d -- %s -- %s [%d]>" % (self.identifier, self.root.get_name(), self.relation, self.depth)
+        return self.__repr__()
 
     def cancel(self):
         self.callback(None)
 
-#OBSOLETE|    @staticmethod
-#OBSOLETE|    def prune_from_query(query, found_fields):
-#OBSOLETE|        """
-#OBSOLETE|        Args:
-#OBSOLETE|            query: A Query instance.
-#OBSOLETE|            fields: A list of String (field names of each found field)
-#OBSOLETE|        """
-#OBSOLETE|        new_fields = query.get_select() - found_fields
-#OBSOLETE|        query.select(None).select(new_fields)
-#OBSOLETE|        
-#OBSOLETE|        old_filter = query.get_where()
-#OBSOLETE|        new_filter = Filter()
-#OBSOLETE|        for pred in old_filter:
-#OBSOLETE|            if pred.get_key() not in found_fields:
-#OBSOLETE|                new_filter.add(pred)
-#OBSOLETE|        query.filter_by(None).filter_by(new_filter)
+    @staticmethod
+    def prune_from_query(query, found_fields):
+        new_fields = query.get_select() - found_fields
+        query.select(None).select(new_fields)
+        
+        old_filter = query.get_where()
+        new_filter = Filter()
+        for pred in old_filter:
+            if pred.get_key() not in found_fields:
+                new_filter.add(pred)
+        query.filter_by(None).filter_by(new_filter)
 
     def store_subquery(self, ast, relation):
         #Log.debug(ast, relation)
@@ -124,7 +119,7 @@ class ExploreTask(Deferred):
             query_plan: The QueryPlan instance we're recursively building and
                 related to the User Query.
         """
-        Log.debug("Search in", self.root.get_name(), "for fields", missing_fields, "path =", self.path, "SEEN SET =", seen_set)
+        Log.debug("Search in ", self.root.get_name(), "for fields", missing_fields, 'path=', self.path, "SEEN SET =", seen_set)
         relations_11, relations_1N, relations_1Nsq = (), {}, {}
         deferred_list = []
 
@@ -196,7 +191,7 @@ class ExploreTask(Deferred):
                 if relation.requires_subquery():
                     subpath = self.path[:]
                     subpath.append(name)
-                    task = ExploreTask(neighbour, relation, subpath, self, self.depth + 1)
+                    task = ExploreTask(neighbour, relation, subpath, self, self.depth+1)
                     task.addCallback(self.store_subquery, relation)
 
                     relation_name = relation.get_relation_name()
@@ -235,14 +230,9 @@ class ExploreTask(Deferred):
         #    if not success:
         #        raise value.trap(Exception)
         #        continue
-        try:
-            if self.subqueries:
-                self.perform_subquery(allowed_platforms, metadata, user, query_plan)
-            self.callback(self.ast)
-        except Exception, e:
-            Log.error("Exception caught in ExploreTask::all_done: %s" % e) 
-            self.cancel()
-            raise e
+        if self.subqueries:
+            self.perform_subquery(allowed_platforms, metadata, user, query_plan)
+        self.callback(self.ast)
 
     def perform_left_join(self, ast, relation, allowed_platforms, metadata, user, query_plan):
         """
@@ -294,10 +284,8 @@ class ExploreTask(Deferred):
                 if name in root_key_fields:
                     ast, relation = ast_relation
                     key, _, value = relation.get_predicate().get_tuple()
-                    assert isinstance(key, StringTypes), "Invalid key"
-                    assert not isinstance(value, tuple), "Invalid value"
-                    xp_key   += (key,)
-                    xp_value += (value,)
+                    xp_key   += (value,)
+                    xp_value += (key,)
                     xp_ast_relation.append(ast_relation)
                 else:
                     sq_ast_relation.append(ast_relation)

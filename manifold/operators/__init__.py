@@ -1,4 +1,4 @@
-import random, traceback
+import random
 from types                import StringTypes
 from manifold.core.query  import Query
 from manifold.core.filter import Filter
@@ -34,8 +34,10 @@ class ChildCallback:
         try:
             self.parent.child_callback(self.child_id, record)
         except Exception, e:
-            Log.error("EXCEPTION IN ChildCallback, calling %s. %s" % (self.parent.child_callback, traceback.format_exc()))
-            raise e
+            print "EXCEPTION IN ChildCallback, calling", self.parent.child_callback
+            print e
+            import traceback
+            traceback.print_exc()
 
 #------------------------------------------------------------------
 # ChildStatus
@@ -166,11 +168,12 @@ class Node(object):
         return tree
     
     def optimize_selection(self, filter):
-        Log.error("%s::optimize_selection() not implemented" % self.__class__.__name__)
+        raise Exception, "%s::optimize_selection() not implemented" % self.__class__.__name__
 
     def optimize_projection(self, fields):
         #raise Exception, "%s::optimize_projection() not implemented" % self.__class__.__name__
-        Log.error("%s::optimize_projection() not implemented" % self.__class__.__name__)
+        print "W: %s::optimize_projection() not implemented" % self.__class__.__name__
+        return self
 
     def get_identifier(self):
         return self.identifier

@@ -183,7 +183,8 @@ class LeftJoin(Node):
         # Directly send records missing information necessary to join
         # XXXX !!! XXX XXX XXX
         if not Record.has_fields(record, self.predicate.get_field_names()):
-            Log.warning("Missing LEFTJOIN predicate %s in left record %r : forwarding" % \
+            Log.tmp("toto %s" % self.predicate.get_field_names())
+            Log.warning("toto Missing LEFTJOIN predicate %s in left record %r : forwarding" % \
                     (self.predicate, record))
             self.send(record)
 
@@ -209,13 +210,10 @@ class LeftJoin(Node):
             return
 
         # Skip records missing information necessary to join
-#DEPRECATED|        if self.predicate.get_value() not in record or not record[self.predicate.get_value()]:
+#DEPRECATED|        if self.predicate.value not in record or not record[self.predicate.value]:
         #Log.tmp("%s <= %s" %(set(self.predicate.get_value()) , set(record.keys()))) 
         if not set(self.predicate.get_value()) <= set(record.keys()) \
         or Record.is_empty_record(record, self.predicate.get_value()):
-            Log.tmp("s1 = %s" % set(self.predicate.get_value()))
-            Log.tmp("s2 = %s" % set(record.keys()))
-            Log.tmp("empty ? %s" % Record.is_empty_record(record, self.predicate.get_value()))
             Log.warning("Missing LEFTJOIN predicate %s in right record %r: ignored" % \
                     (self.predicate, record))
             return
@@ -223,7 +221,7 @@ class LeftJoin(Node):
         # We expect to receive information about keys we asked, and only these,
         # so we are confident the key exists in the map
         # XXX Dangers of duplicates ?
-        key = Record.get_value(record, self.predicate.get_value())
+        key = Record.get_value(record, self.predicate.value)
         for left_record in self.left_map[key]:
             left_record.update(record)
             self.send(left_record)

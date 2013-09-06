@@ -1266,6 +1266,8 @@ class SFAGateway(Gateway):
             if slice_hrn:
                slice_urn = api_options['geni_slice_urn']
                result = yield self.sliceapi.Describe([slice_urn], [cred], api_options)
+               # dirty work around
+               result['value'] = result['value']['geni_rspec']
             else:
                result = yield self.sliceapi.ListResources([cred], api_options)
 
@@ -1464,7 +1466,7 @@ class SFAGateway(Gateway):
     # using defer to have an asynchronous results management in functions prefixed by yield
     @defer.inlineCallbacks
     def manage(self, user, platform, config):
-        Log.debug("Managing '%s' account on '%r'..." % (user, platform))
+        Log.debug("Managing %r account on %s..." % (user, platform))
         # The gateway should be able to perform user config management taks on
         # behalf of MySlice
         #
