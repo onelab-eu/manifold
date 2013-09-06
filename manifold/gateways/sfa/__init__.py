@@ -1265,7 +1265,7 @@ class SFAGateway(Gateway):
             # AM API v3
             if slice_hrn:
                slice_urn = api_options['geni_slice_urn']
-               result = yield self.sliceapi.Describe(slice_urn, [cred], api_options)
+               result = yield self.sliceapi.Describe([slice_urn], [cred], api_options)
             else:
                result = yield self.sliceapi.ListResources([cred], api_options)
 
