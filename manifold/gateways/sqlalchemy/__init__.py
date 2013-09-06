@@ -1,11 +1,7 @@
-import crypt, traceback, time
-from types                      import StringTypes
-from hashlib                    import md5
-from random                     import Random
+from __future__                 import absolute_import
 from sqlalchemy                 import create_engine
 from sqlalchemy.ext.declarative import declarative_base, declared_attr
 from sqlalchemy.orm             import sessionmaker
-
 from manifold.gateways          import Gateway
 from manifold.models            import db
 from manifold.models.account    import Account
@@ -14,6 +10,14 @@ from manifold.models.session    import Session
 from manifold.models.user       import User
 from manifold.util.log          import Log
 from manifold.util.predicate    import included
+
+import traceback
+import json
+import sys
+from hashlib import md5
+import time
+from random import Random
+import crypt
 
 def xgetattr(cls, list_attr):
     ret = []
@@ -24,15 +28,11 @@ def xgetattr(cls, list_attr):
 def get_sqla_filters(cls, filters):
     if filters:
         _filters = []
-        for predicate in filters:
-            key = predicate.get_key()
-            # We only support non-composite key
-            assert isinstance(key, StringTypes), "This is not a non-composite key: %s" % key
-            value = predicate.get_value()
-            if predicate.get_op() == included:
-                f = getattr(cls, key).in_(value)
+        for p in filters:
+            if p.op == included:
+                f = getattr(cls, p.key).in_(p.value)
             else:
-                f = predicate.op(getattr(cls, key), value)
+                f = p.op(getattr(cls, p.key), p.value)
             _filters.append(f)
         return _filters
     else:
@@ -42,7 +42,7 @@ def row2dict(row):
     try:
         return {c.name: getattr(row, c.name) for c in row.__table__.columns}
     except:
-        Log.tmp("Inconsistency in ROW2DICT (row.__table__.columns = %s): %s" % (row.__table__.columns,traceback.format_exc(e)))
+        Log.tmp("Inconsistency in ROW2DICT")
         return {c: getattr(row, c) for c in row.keys()}
 
 class SQLAlchemyGateway(Gateway):
@@ -57,15 +57,14 @@ class SQLAlchemyGateway(Gateway):
     def __init__(self, router=None, platform=None, query=None, config=None, user_config=None, user=None, format='dict'):
 
         assert format in ['dict', 'object'], 'Unknown return format for gateway SQLAlchemy'
-        #if format == 'object':
-            #Log.tmp("Objects should not be used")
+        if format == 'object':
+            Log.tmp("Objects should not be used")
         self.format = format
 
         super(SQLAlchemyGateway, self).__init__(router, platform, query, config, user_config, user)
 
         engine = create_engine(config['url'], echo=False)
         
-        # TODO The following should use models/base.py ?"
         class Base(object):
             @declared_attr
             def __tablename__(cls):

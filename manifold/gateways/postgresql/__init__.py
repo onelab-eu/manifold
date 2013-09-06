@@ -905,16 +905,12 @@ class PostgreSQLGateway(Gateway):
         Returns:
             A String containing a postgresql command 
         """
-        if not query.get_from(): Log.error("Invalid query: %s" % query)
-
-        select = query.get_select()
-        where  = PostgreSQLGateway.to_sql_where(query.get_where())
+        where = PostgreSQLGateway.to_sql_where(query.get_where())
         params = {
-            "fields"     : ", ".join(select) if select else "*",
+            "fields"     : ", ".join(query.get_select()),
             "table_name" : query.get_from(),
             "where"      : "WHERE %s" % where if where else ""
         }
-
         sql = PostgreSQLGateway.SQL_STR % params
         return sql
 

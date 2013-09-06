@@ -38,9 +38,6 @@ class Relation(object):
                 Example: Relation.types.LINK_11, Relation.types.PARENT...
             predicate: A Predicate instance
         """
-        assert isinstance(predicate, Predicate),   "Invalid predicate = %s (%s)" % (predicate, type(predicate))
-        if name:
-            assert isinstance(name, StringTypes), "Invalid name = %s (%s)" % (name, type(name))
         self.type      = type
         self.predicate = predicate
         self.name      = name
@@ -69,10 +66,10 @@ class Relation(object):
         return self.predicate
 
     @returns(StringTypes)
-    def __str__(self):
+    def __repr__(self):
         """
         Returns:
-            The "%s" representation of this Relation. 
+            The "%r" representation of this Relation. 
         """
         return "<Relation<%s> %s: %s>" % (
             self.name if self.name else '',
@@ -80,18 +77,7 @@ class Relation(object):
             self.get_predicate()
         )
 
-    @returns(StringTypes)
-    def __repr__(self):
-        """
-        Returns:
-            The "%r" representation of this Relation. 
-        """
-        return "<%s, %r>" % (
-            self.get_str_type(),
-            self.name if self.name else ''
-        )
-
-    @returns(StringTypes)
+    #@returns(StringTypes)
     def get_relation_name(self):
         """
         Returns:

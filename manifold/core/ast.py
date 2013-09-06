@@ -15,8 +15,7 @@ import sys, random
 from copy                             import copy, deepcopy
 from types                            import StringTypes
 from manifold.core.filter             import Filter
-from manifold.core.query              import Query
-from manifold.core.analyzed_query     import AnalyzedQuery
+from manifold.core.query              import Query, AnalyzedQuery
 from manifold.core.table              import Table 
 from manifold.core.field              import Field
 from manifold.core.key                import Key
@@ -259,7 +258,7 @@ class AST(object):
             try:
                 (ast, relation), _ = children_ast_relation_list
             except ValueError, e:
-                Log.tmp("children_ast_relation_list = %s" % children_ast_relation_list)
+                Log.tmp("children_ast_relation_list = %s")
                 raise ValueError(e)
             self.root = ast.get_root()
         else:
@@ -327,7 +326,6 @@ class AST(object):
         if not filter: return
         old_cb = self.get_callback()
         self.root = self.root.optimize_selection(filter)
-        assert not self.is_empty(), "ast::optimize_selection() has failed: filter = %s" % filter
         self.set_callback(old_cb)
 
     def optimize_projection(self, fields):
@@ -342,7 +340,6 @@ class AST(object):
         if not fields: return
         old_cb = self.get_callback()
         self.root = self.root.optimize_projection(fields)
-        assert not self.is_empty(), "ast::optimize_projection() has failed: fields = %s" % fields
         self.set_callback(old_cb)
 
 #------------------------------------------------------------------

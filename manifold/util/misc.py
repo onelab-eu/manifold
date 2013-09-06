@@ -15,7 +15,8 @@ def make_list(elt):
     if isinstance(elt, StringTypes):
         return [elt]
     if isinstance(elt, (tuple, set, frozenset)):
-        return list(['%s' % e for e in elt])
+        return list(elt)
+
 
 # FROM: https://gist.github.com/techtonik/2151727
 # Public Domain, i.e. feel free to copy/paste
