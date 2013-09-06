@@ -55,7 +55,7 @@ class Account(Base):
         filters.delete('user')
         if user_filters:
             for uf in user_filters:
-                assert uf.op == eq, "Only == is supported for convenience filter 'user'" 
+                assert uf.op.__name__ == 'eq', "Only == is supported for convenience filter 'user'" 
                 ret = db.query(User.user_id)
                 ret = ret.filter(User.email == uf.value)
                 ret = ret.one()
@@ -65,7 +65,7 @@ class Account(Base):
         filters.delete('platform')
         if platform_filters:
             for pf in platform_filters:
-                assert pf.op == eq, "Only == is supported for convenience filter 'platform'"
+                assert pf.op.__name__ == 'eq', "Only == is supported for convenience filter 'platform'"
                 ret = db.query(Platform.platform_id)
                 ret = ret.filter(Platform.platform == pf.value)
                 ret = ret.one()
