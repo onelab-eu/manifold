@@ -1,5 +1,6 @@
 from sqlalchemy      import Column, Integer, String
 from manifold.models import Base, db
+
 import json
 
 class User(Base):

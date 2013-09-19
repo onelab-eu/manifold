@@ -3,13 +3,14 @@ from sqlalchemy                 import create_engine
 from sqlalchemy.ext.declarative import declarative_base, declared_attr
 from sqlalchemy.orm             import sessionmaker
 from manifold.gateways          import Gateway
+from manifold.util.log          import Log
+from manifold.util.predicate    import included
+
 from manifold.models            import db
 from manifold.models.account    import Account
 from manifold.models.platform   import Platform
-from manifold.models.session    import Session 
 from manifold.models.user       import User
-from manifold.util.log          import Log
-from manifold.util.predicate    import included
+from manifold.models.session    import Session as DBSession 
 
 import traceback
 import json
@@ -51,10 +52,11 @@ class SQLAlchemyGateway(Gateway):
         'platform' : Platform,
         'user'     : User,
         'account'  : Account,
-        'session'  : Session
+        'session'  : DBSession
     }
 
     def __init__(self, router=None, platform=None, query=None, config=None, user_config=None, user=None, format='dict'):
+        print "SQLAl init"
 
         assert format in ['dict', 'object'], 'Unknown return format for gateway SQLAlchemy'
         if format == 'object':
@@ -63,36 +65,21 @@ class SQLAlchemyGateway(Gateway):
 
         super(SQLAlchemyGateway, self).__init__(router, platform, query, config, user_config, user)
 
-        engine = create_engine(config['url'], echo=False)
-        
-        class Base(object):
-            @declared_attr
-            def __tablename__(cls):
-                return cls.__name__.lower()
-        
-            __mapper_args__= {'always_refresh': True}
-        
-            #id =  Column(Integer, primary_key=True)
-        
-            #def to_dict(self):
-            #    return {c.name: getattr(self, c.name) for c in self.__table__.columns}
-        
-            #@staticmethod
-            #def process_params(params):
-            #    return params
-        
+        from manifold.models.base import Base
         Base = declarative_base(cls=Base)
-        
-        Session = sessionmaker(bind=engine)
-        self.db = Session()
         
         # Models
         from manifold.models.platform   import Platform as DBPlatform 
         from manifold.models.user       import User     as DBUser
         from manifold.models.account    import Account  as DBAccount
         from manifold.models.session    import Session  as DBSession
+
+        engine = create_engine(config['url'], echo=False)
         
         Base.metadata.create_all(engine)
+        
+        Session = sessionmaker(bind=engine)
+        self.db = Session()
         
         # Create a session
         #Session = sessionmaker()
@@ -200,10 +187,22 @@ class SQLAlchemyGateway(Gateway):
         if 'password' in params:
             params['password'] = self.encrypt_password(params['password'])
         
-        cls.process_params(query.get_params(), None, self.user)
-        new_obj = cls(**params) if params else cls()
-        db.add(new_obj)
-        db.commit()
+        _params = cls.process_params(query.get_params(), None, self.user)
+        print "CLS=", cls
+        print "BASES", cls.__bases__
+        print "PARAMS=", params
+        new_obj = cls()
+        #from sqlalchemy.orm.attributes import manager_of_class
+        #mgr = manager_of_class(cls)
+        #instance = mgr.new_instance()
+        print "new obj=", new_obj
+
+        if params:
+            for k, v in params.items():
+                print "%s = %s" % (k,v)
+                setattr(new_obj, k, v)
+        self.db.add(new_obj)
+        self.db.commit()
         
         return [new_obj]
 

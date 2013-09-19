@@ -23,6 +23,7 @@ class Base(object):
     def process_filters(cls, filters):
         return filters
 
+    @classmethod
     def process_params(cls, params, filters, user):
         return params
 

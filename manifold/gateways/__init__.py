@@ -206,10 +206,12 @@ def register():
     except: pass
     try:
         from manifold.gateways.tdmi             import TDMIGateway
-    except: pass
+    except Exception, e:
+        Log.tmp("Could not load TDMI gateway: %s" % e)
     try:
         from manifold.gateways.sfa              import SFAGateway
-    except: pass
+    except Exception, e:
+        Log.tmp("Could not load SFA gateway: %s" % e)
     try:
         from manifold.gateways.maxmind          import MaxMindGateway
     except: pass
