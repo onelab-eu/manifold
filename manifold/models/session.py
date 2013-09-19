@@ -3,7 +3,7 @@ from hashlib              import md5
 from sqlalchemy           import Column, ForeignKey, Integer, String
 from sqlalchemy.orm       import relationship, backref
 
-from manifold.models.base import Base
+from manifold.models import Base 
 from manifold.models.user import User 
 
 class Session(Base):

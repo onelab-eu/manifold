@@ -16,9 +16,9 @@ import json
 from sqlalchemy                 import Column, Integer, String, Boolean, Enum
 
 from manifold.core.query        import Query
-from manifold.models            import Base
 from manifold.util.storage      import DBStorage
 from manifold.util.type         import accepts, returns 
+from manifold.models import Base
 
 class Platform(Base):
     platform_id          = Column(Integer, doc = "Platform identifier", primary_key = True)
