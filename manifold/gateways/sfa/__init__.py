@@ -603,7 +603,7 @@ class SFAGateway(Gateway):
              node['hrn'] = urn_to_hrn(node['component_id'])[0]
              node['urn'] = node['component_id']
              node['hostname'] = node['component_name']
-             node['initscripts'] = node.pop('pl_initscript')
+             node['initscripts'] = node.pop('pl_initscripts')
         
         return {'resource': nodes,'lease': leases } 
 #               'channel': channels \
