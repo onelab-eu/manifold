@@ -584,9 +584,31 @@ class SFAGateway(Gateway):
     #
     ############################################################################ 
 
-    def parse_sfa_rspec(self, rspec):
-        parser = SFAv1Parser(rspec)
-        return parser.to_dict(self.version)
+    def parse_sfa_rspec(self, rspec_string):
+        # rspec_type and rspec_version should be set in the config of the platform,
+        # we use GENIv3 as default one if not
+        if 'rspec_type' and 'rspec_version' in self.config:
+            rspec_version = self.config['rspec_type'] + ' ' + self.config['rspec_version']
+        else:
+            rspec_version = 'GENI 3'
+
+        rspec = RSpec(rspec_string, version=rspec_version)
+        
+        nodes = rspec.version.get_nodes()
+        leases = rspec.version.get_leases()
+        #channels = rspec.version.get_channels()
+ 
+        # Extend object and Format object field's name
+        for node in nodes:
+             node['hrn'] = urn_to_hrn(node['component_id'])[0]
+             node['urn'] = node['component_id']
+             node['hostname'] = node['component_name']
+             node['initscripts'] = node.pop('pl_initscript')
+        
+        return {'resource': nodes,'lease': leases } 
+#               'channel': channels \
+#               }
+
 
     def build_sfa_rspec(self, slice_id, resources, leases):
         parser = SFAv1Parser(resources, leases)
@@ -1229,29 +1251,13 @@ class SFAGateway(Gateway):
         server_version = yield self.get_cached_server_version(self.sliceapi)
         type_version = set()
 
-        # Versions matching to Gateway capabilities
-        # We are implementing a negociation here:
-        #  - remotely supported RSpec versions: geni_ad_rspec_versions
-        #  - locally supported (SFAv1, GENIv3)
-        # We build a list of supported tuples (type, version), and search a RSpec model in the intersection
-        v = server_version['geni_ad_rspec_versions']
-        for w in v:
-            x = (w['type'], w['version'])
-            type_version.add(x)
-        local_version  = set([('SFA', '1'), ('GENI', '3')])
-        common_version = type_version & local_version
-
-        # TODO: Handle unkown verison of RSpec
-        # We are using SFAv1 by default otherwise
-        if not common_version:
-            common_version.add(('SFA','1'))
-
-        if ('SFA', '1') in common_version:
-            api_options['geni_rspec_version'] = {'type': 'SFA', 'version': '1'}
+        # Manage Rspec versions
+        if 'rspec_type' and 'rspec_version' in self.config:
+            api_options['geni_rspec_version'] = {'type': self.config['rspec_type'], 'version': self.config['rspec_version']}
         else:
-            first_common = list(common_version)[0]
-            api_options['geni_rspec_version'] = {'type': first_common[0], 'version': first_common[1]}
-
+            # For now, lets use SFAv1 as default
+            api_options['geni_rspec_version'] = {'type': 'SFA', 'version': '1'}  
+ 
         if slice_hrn:
             cred = self._get_cred('slice', slice_hrn)
             api_options['geni_slice_urn'] = hrn_to_urn(slice_hrn, 'slice')
@@ -1266,16 +1272,16 @@ class SFAGateway(Gateway):
             if slice_hrn:
                slice_urn = api_options['geni_slice_urn']
                result = yield self.sliceapi.Describe([slice_urn], [cred], api_options)
-               # dirty work around
                result['value'] = result['value']['geni_rspec']
             else:
                result = yield self.sliceapi.ListResources([cred], api_options)
-
+                
         if not 'value' in result or not result['value']:
             raise Exception, result['output']
 
-        rspec      = result['value']
-        rsrc_slice = self.parse_sfa_rspec(rspec)
+        rspec_string = result['value']
+        rsrc_slice = self.parse_sfa_rspec(rspec_string)
+  
 
         if slice_hrn:
             for r in rsrc_slice['resource']:
@@ -1284,6 +1290,7 @@ class SFAGateway(Gateway):
         if self.debug:
             rsrc_slice['debug'] = {'rspec': rspec}
         defer.returnValue(rsrc_slice)
+
 
     def add_rspec_to_cache(self, slice_hrn, rspec):
         print "W: RSpec caching disabled"
