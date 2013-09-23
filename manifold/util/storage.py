@@ -10,7 +10,7 @@
 #
 # Copyright (C) 2013 UPMC 
 
-from manifold.gateways              import Gateway
+from manifold.gateways.gateway      import Gateway
 from manifold.util.callback         import Callback
 
 URL = 'sqlite:////var/myslice/db.sqlite?check_same_thread=False'

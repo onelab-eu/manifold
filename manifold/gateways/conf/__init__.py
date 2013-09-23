@@ -1,11 +1,12 @@
 import os
 import pyparsing as pp
-from manifold.gateways      import Gateway
-from manifold.operators     import LAST_RECORD
-from manifold.core.table    import Table
-from manifold.core.key      import Key, Keys
-from manifold.core.field    import Field 
-from manifold.core.announce import Announce, announces_from_docstring
+
+from manifold.core.table            import Table
+from manifold.core.key              import Key, Keys
+from manifold.core.field            import Field 
+from manifold.core.announce         import Announce, announces_from_docstring
+from manifold.gateways.gateway      import Gateway
+from manifold.operators             import LAST_RECORD
 
 BASEDIR = '/tmp/test'
 

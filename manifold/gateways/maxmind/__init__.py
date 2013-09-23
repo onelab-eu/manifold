@@ -11,7 +11,7 @@
 
 #import GeoIP
 
-from manifold.gateways                  import Gateway
+from manifold.gateways.gateway          import Gateway
 from manifold.operators                 import LAST_RECORD
 from manifold.util.log                  import Log
 from manifold.util.type                 import returns, accepts 

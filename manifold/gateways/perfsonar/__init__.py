@@ -10,12 +10,12 @@
 #
 # Copyright (C) 2013 UFPE/UPMC 
 
-from manifold.gateways                  import Gateway
-from manifold.operators                 import LAST_RECORD
 from manifold.core.field                import Field
 from manifold.core.table                import Table
 from manifold.core.result_value         import ResultValue
 from manifold.core.announce             import Announce, announces_from_docstring
+from manifold.operators                 import LAST_RECORD
+from manifold.gateways.gateway          import Gateway
 from manifold.util.log                  import Log
 
 class PerfSONARGateway(Gateway):

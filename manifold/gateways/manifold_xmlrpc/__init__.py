@@ -10,7 +10,7 @@
 
 # Inspired from http://twistedmatrix.com/documents/10.1.0/web/howto/xmlrpc.html
 
-from manifold.gateways                  import Gateway
+from manifold.gateways.gateway          import Gateway
 from manifold.operators                 import LAST_RECORD
 from manifold.util.log                  import Log
 

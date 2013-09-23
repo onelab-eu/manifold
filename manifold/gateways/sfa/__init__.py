@@ -24,6 +24,7 @@
 import sys, os, os.path, re, tempfile, itertools
 import zlib, hashlib, BeautifulSoup, urllib
 import json, signal, traceback
+
 from datetime                           import datetime
 from lxml                               import etree
 from StringIO                           import StringIO
@@ -32,7 +33,7 @@ from twisted.internet                   import defer
 
 from manifold.core.result_value         import ResultValue
 from manifold.core.filter               import Filter
-from manifold.gateways                  import Gateway
+from manifold.gateways.gateway          import Gateway
 from manifold.gateways.sfa.rspecs.SFAv1 import SFAv1Parser # as Parser
 from manifold.gateways.sfa.proxy        import SFAProxy, make_sfa_proxy
 from manifold.models                    import db
@@ -542,10 +543,30 @@ class SFAGateway(Gateway):
     #
     ############################################################################ 
 
-    @staticmethod
-    def parse_sfa_rspec(rspec):
-        parser = SFAv1Parser(rspec)
-        return parser.to_dict(self.version)
+    def parse_sfa_rspec(self, rspec_string):
+        # rspec_type and rspec_version should be set in the config of the platform,
+        # we use GENIv3 as default one if not
+        if 'rspec_type' and 'rspec_version' in self.config:
+            rspec_version = self.config['rspec_type'] + ' ' + self.config['rspec_version']
+        else:
+            rspec_version = 'SFA 1'
+
+        rspec = RSpec(rspec_string, version=rspec_version)
+        
+        nodes = rspec.version.get_nodes()
+        leases = rspec.version.get_leases()
+        #channels = rspec.version.get_channels()
+ 
+        # Extend object and Format object field's name
+        for node in nodes:
+             node['hrn'] = urn_to_hrn(node['component_id'])[0]
+             node['urn'] = node['component_id']
+             node['hostname'] = node['component_name']
+             node['initscripts'] = node.pop('pl_initscripts')
+        
+        return {'resource': nodes,'lease': leases } 
+#               'channel': channels \
+#               }
 
     @staticmethod
     def build_sfa_rspec(slice_id, resources, leases):
@@ -684,7 +705,7 @@ class SFAGateway(Gateway):
             defer.returnValue([])
         else:
             print "GOT MANIFEST FROM", self.platform
-        rsrc_leases = SFAGateway.parse_sfa_rspec(manifest)
+        rsrc_leases = self.parse_sfa_rspec(manifest)
 
         slice = {'slice_hrn': filters.get_eq('slice_hrn')}
         slice.update(rsrc_leases)
@@ -1195,7 +1216,7 @@ class SFAGateway(Gateway):
     def get_resource_lease(self, user, user_config, filters, params, fields):
         if self.user.email in DEMO_HOOKS:
             rspec = open('/usr/share/manifold/scripts/nitos.rspec', 'r')
-            defer.returnValue(SFAGateway.parse_sfa_rspec(rspec))
+            defer.returnValue(self.parse_sfa_rspec(rspec))
             return 
 
 
@@ -1218,29 +1239,13 @@ class SFAGateway(Gateway):
         server_version = yield self.get_cached_server_version(self.sliceapi)
         type_version = set()
 
-        # Versions matching to Gateway capabilities
-        # We are implementing a negociation here:
-        #  - remotely supported RSpec versions: geni_ad_rspec_versions
-        #  - locally supported (SFAv1, GENIv3)
-        # We build a list of supported tuples (type, version), and search a RSpec model in the intersection
-        v = server_version['geni_ad_rspec_versions']
-        for w in v:
-            x = (w['type'], w['version'])
-            type_version.add(x)
-        local_version  = set([('SFA', '1'), ('GENI', '3')])
-        common_version = type_version & local_version
-
-        # TODO: Handle unkown verison of RSpec
-        # We are using SFAv1 by default otherwise
-        if not common_version:
-            common_version.add(('SFA','1'))
-
-        if ('SFA', '1') in common_version:
-            api_options['geni_rspec_version'] = {'type': 'SFA', 'version': '1'}
+        # Manage Rspec versions
+        if 'rspec_type' and 'rspec_version' in self.config:
+            api_options['geni_rspec_version'] = {'type': self.config['rspec_type'], 'version': self.config['rspec_version']}
         else:
-            first_common = list(common_version)[0]
-            api_options['geni_rspec_version'] = {'type': first_common[0], 'version': first_common[1]}
-
+            # For now, lets use SFAv1 as default
+            api_options['geni_rspec_version'] = {'type': 'SFA', 'version': '1'}  
+ 
         if slice_hrn:
             cred = self._get_cred(user, user_config, 'slice', slice_hrn)
             api_options['geni_slice_urn'] = hrn_to_urn(slice_hrn, 'slice')
@@ -1255,16 +1260,15 @@ class SFAGateway(Gateway):
             if slice_hrn:
                slice_urn = api_options['geni_slice_urn']
                result = yield self.sliceapi.Describe([slice_urn], [cred], api_options)
-               # dirty work around
                result['value'] = result['value']['geni_rspec']
             else:
                result = yield self.sliceapi.ListResources([cred], api_options)
-
+                
         if not 'value' in result or not result['value']:
             raise Exception, result['output']
 
-        rspec      = result['value']
-        rsrc_slice = SFAGateway.parse_sfa_rspec(rspec)
+        rspec_string = result['value']
+        rsrc_slice = self.parse_sfa_rspec(rspec_string)
 
         if slice_hrn:
             for r in rsrc_slice['resource']:
@@ -1273,6 +1277,7 @@ class SFAGateway(Gateway):
         if self.debug:
             rsrc_slice['debug'] = {'rspec': rspec}
         defer.returnValue(rsrc_slice)
+
 
     def add_rspec_to_cache(self, slice_hrn, rspec):
         print "W: RSpec caching disabled"
@@ -1641,10 +1646,6 @@ class SFAGateway(Gateway):
         need_gid = not 'gid' in config
         need_user_credential = need_authority_credentials or need_slice_list or need_slice_credentials or need_delegated_user_credential or need_gid
 
-#MANDO|        if SFAGateway.is_admin(self.user):
-#MANDO|            need_delegated_user_credential      = false
-#MANDO|            need_delegated_slice_credential     = false
-#MANDO|            need_delegated_authority_credential = false
         if SFAGateway.is_admin(user):
             need_delegated_user_credential      = False
             need_delegated_slice_credential     = False
@@ -1663,20 +1664,20 @@ class SFAGateway(Gateway):
         need_user_hrn = True
         
         if not 'user_hrn' in config:
-            print "E: hrn needed to manage authentication"
+            Log.error("SFAGateway::manage(): hrn needed to manage authentication")
             # return using asynchronous defer
             defer.returnValue({})
             #return {}
 
         if not 'user_private_key' in config:
-            print "I: SFA::manage: Generating user private key for user", user
+            Log.info("Generating user private key for user '%s'" % user)
             k = Keypair(create=True)
             config['user_public_key'] = k.get_pubkey_string()
             config['user_private_key'] = k.as_pem()
             new_key = True
 
         if not 'sscert' in config:
-            print "I: Generating self-signed certificate for user", user
+            Log.info("Generating self-signed certificate for user '%s'" % user)
             x = config['user_private_key'].encode('latin1')
             keypair = Keypair(string=x)
             self_signed = Certificate(subject = config['user_hrn'])
@@ -1716,8 +1717,13 @@ class SFAGateway(Gateway):
 
         # delegate user_credential
         if need_delegated_user_credential:
-            Log.debug("I: SFA delegate user cred %s" % config['user_hrn'])
-            config['delegated_user_credential'] = self.delegate(config['user_credential'], config['user_private_key'], config['gid'], self.admin_config['user_credential'])
+            Log.debug("SFA delegate user cred %s" % config['user_hrn'])
+            config['delegated_user_credential'] = self.delegate(
+                config['user_credential'],
+                config['user_private_key'],
+                config['gid'],
+                self.admin_config['user_credential']
+            )
 
         if need_authority_list: #and not 'authority_list' in config:
             config['authority_list'] = [get_authority(config['user_hrn'])]

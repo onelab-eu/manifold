@@ -13,7 +13,7 @@ import json, traceback
 from types                          import GeneratorType
 from twisted.internet.defer         import Deferred
 
-from manifold.gateways              import Gateway
+from manifold.gateways.gateway      import Gateway
 from manifold.core.query            import Query
 from manifold.core.query_plan       import QueryPlan
 from manifold.core.result_value     import ResultValue
@@ -154,7 +154,11 @@ class Interface(object):
         for platform in platforms_del:
             # Unreference this platform which not more used
             Log.info("Disabling platform '%r'" % platform) 
-            del self.gateways[platform] 
+            platform_name = platform.platform
+            try:
+                del self.gateways[platform_name] 
+            except:
+                Log.error("Cannot remove %s from %s" % (platform_name, self.gateways))
 
         for platform in platforms_add: 
             # Create Gateway corresponding to the current Platform
@@ -172,7 +176,7 @@ class Interface(object):
             )
             self.announces[platform_name] = announces 
 
-        self.platforms = platforms_enabled
+        self.platforms = list(platforms_enabled)
 
     def boot(self):
         """

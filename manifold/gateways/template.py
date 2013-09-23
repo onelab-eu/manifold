@@ -9,11 +9,12 @@
 
 # Add here standard required python modules (TODO)
 
-# Add here required Manifold modules (TODO)
-from manifold.gateways                  import Gateway, LAST_RECORD
-from manifold.core.table                import Table
-from manifold.core.field                import Field
+# Add required Manifold modules in the following list (TODO)
 from manifold.core.announce             import Announce
+from manifold.core.field                import Field
+from manifold.core.table                import Table
+from manifold.gateways.gateway          import Gateway
+from manifold.operators                 import LAST_RECORD
 from manifold.util.log                  import Log
 from manifold.util.type                 import accepts, returns
 
