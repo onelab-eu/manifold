@@ -9,7 +9,8 @@
 #
 # Copyright (C) 2013 UPMC 
 
-import re, datetime#, pgdb
+from __future__                         import absolute_import
+import re, datetime
 from itertools                          import izip
 from uuid                               import uuid4
 from types                              import StringTypes, GeneratorType, NoneType, IntType, LongType, FloatType, ListType, TupleType
@@ -22,7 +23,7 @@ psycopg2.extensions.register_type(psycopg2.extensions.UNICODE)
 # UNICODEARRAY not exported yet
 psycopg2.extensions.register_type(psycopg2._psycopg.UNICODEARRAY)
 
-from manifold.gateways                  import Gateway
+from manifold.gateways.gateway          import Gateway
 from manifold.core.announce             import Announce, Announces
 from manifold.core.table                import Table
 from manifold.core.field                import Field

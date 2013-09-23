@@ -10,8 +10,6 @@
 
 
 # To avoid naming conflicts when importing 
-from __future__                         import absolute_import
-
 import csv, os.path
 from types                              import StringTypes
 from itertools                          import izip
@@ -21,7 +19,7 @@ from manifold.core.announce             import Announce
 from manifold.core.field                import Field 
 from manifold.core.key                  import Key
 from manifold.core.table                import Table
-from manifold.gateways                  import Gateway
+from manifold.gateways.gateway          import Gateway
 from manifold.operators                 import LAST_RECORD
 from manifold.types.inet                import inet
 from manifold.types.hostname            import hostname

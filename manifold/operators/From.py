@@ -19,7 +19,7 @@ from types                         import StringTypes
 
 from manifold.core.query           import Query
 from manifold.core.result_value    import ResultValue 
-from manifold.gateways             import Gateway
+from manifold.gateways.gateway     import Gateway
 from manifold.operators            import Node, LAST_RECORD
 from manifold.operators.from_table import FromTable
 from manifold.operators.projection import Projection

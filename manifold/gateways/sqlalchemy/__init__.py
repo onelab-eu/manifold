@@ -9,26 +9,28 @@
 #
 # Copyright (C) 2013 UPMC 
 
-import json, time, crypt
-from hashlib                    		import md5
-from random                     		import Random
-from types                      		import StringTypes
+from __future__                 import absolute_import
 
-from sqlalchemy                 		import create_engine
-from sqlalchemy.ext.declarative 		import declarative_base, declared_attr
-from sqlalchemy.orm                     import sessionmaker
+import crypt, json, sys, time, traceback
 
-from manifold.core.query                import Query
-from manifold.gateways          		import Gateway
-from manifold.models            		import db
-from manifold.models.account    		import Account
-from manifold.models.platform   		import Platform
-from manifold.models.session    		import Session 
-from manifold.models.user       		import User
-from manifold.operators         		import LAST_RECORD
-from manifold.util.log          		import Log
-from manifold.util.predicate    		import included
-from manifold.util.type         		import accepts, returns 
+from hashlib                    import md5
+from random                     import Random
+from types                      import StringTypes
+
+from sqlalchemy                 import create_engine
+from sqlalchemy.ext.declarative import declarative_base, declared_attr
+from sqlalchemy.orm             import sessionmaker
+from manifold.core.query        import Query
+from manifold.gateways.gateway  import Gateway
+from manifold.models            import db
+from manifold.models.account    import Account
+from manifold.models.platform   import Platform
+from manifold.models.user       import User
+from manifold.models.session    import Session as DBSession 
+from manifold.operators         import LAST_RECORD
+from manifold.util.log          import Log
+from manifold.util.predicate    import included
+from manifold.util.type         import accepts, returns 
 
 @returns(tuple)
 def xgetattr(cls, list_attr):
@@ -91,17 +93,8 @@ class SQLAlchemyGateway(Gateway):
         'platform' : Platform,
         'user'     : User,
         'account'  : Account,
-        'session'  : Session
+        'session'  : DBSession
     }
-
-#MANDO|    def __init__(self, router=None, platform=None, query=None, config=None, user_config=None, user=None, format='dict'):
-#MANDO|
-#MANDO|        assert format in ['dict', 'object'], 'Unknown return format for gateway SQLAlchemy'
-#MANDO|        if format == 'object':
-#MANDO|            Log.tmp("Objects should not be used")
-#MANDO|        self.format = format
-#MANDO|
-#MANDO|        super(SQLAlchemyGateway, self).__init__(router, platform, query, config, user_config, user)
 
     def __init__(self, interface, platform, config = None):
         """
@@ -115,41 +108,21 @@ class SQLAlchemyGateway(Gateway):
                 "mail" : email address of the maintainer.
         """
         super(SQLAlchemyGateway, self).__init__(interface, platform, config)
-        engine = create_engine(config['url'], echo = False)
-        
-        class Base(object):
-            @declared_attr
-            def __tablename__(cls):
-                return cls.__name__.lower()
-        
-            __mapper_args__= {'always_refresh': True}
-        
-            #id =  Column(Integer, primary_key=True)
-        
-            #def to_dict(self):
-            #    return {c.name: getattr(self, c.name) for c in self.__table__.columns}
-        
-            #@staticmethod
-            #def process_params(params):
-            #    return params
-        
+
+        from manifold.models.base import Base
         Base = declarative_base(cls=Base)
-        
-        Session = sessionmaker(bind=engine)
-        self.db = Session()
         
         # Models
         from manifold.models.platform   import Platform as DBPlatform 
         from manifold.models.user       import User     as DBUser
         from manifold.models.account    import Account  as DBAccount
         from manifold.models.session    import Session  as DBSession
-        
-        Base.metadata.create_all(engine)
-        
-        # Create a session
-        #Session = sessionmaker()
-        #Session.configure(bind=engine)
 
+        engine = create_engine(config['url'], echo = False)
+        Base.metadata.create_all(engine)
+        Session = sessionmaker(bind = engine)
+        self.db = Session()
+        
     @returns(list)
     def local_query_get(self, query, user):
         #
@@ -241,9 +214,7 @@ class SQLAlchemyGateway(Gateway):
 
     @returns(list)
     def local_query_create(self, query, user):
-
         assert not query.get_where(), "Filters should be empty for a create request"
-        #assert not query.get_select(), "Fields should be empty for a create request"
 
         cls = self.map_object[query.get_from()]
 
@@ -254,10 +225,18 @@ class SQLAlchemyGateway(Gateway):
         if 'password' in params:
             params['password'] = SQLAlchemyGateway.encrypt_password(params['password'])
         
-        cls.process_params(query.get_params(), None, user)
-        new_obj = cls(**params) if params else cls()
-        db.add(new_obj)
-        db.commit()
+        _params = cls.process_params(query.get_params(), None, self.user)
+        new_obj = cls()
+        #from sqlalchemy.orm.attributes import manager_of_class
+        #mgr = manager_of_class(cls)
+        #instance = mgr.new_instance()
+
+        if params:
+            for k, v in params.items():
+                print "%s = %s" % (k,v)
+                setattr(new_obj, k, v)
+        self.db.add(new_obj)
+        self.db.commit()
         
         return [new_obj]
 
