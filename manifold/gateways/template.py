@@ -1,20 +1,28 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Functions for interacting with perfSONAR
+# Short description  
 #
-# Adriano Spinola   <adriano.spinola@gmail.com>
-# Jordan Auge       <jordan.auge@lip6.fr>
+# Firstname Lastname        <firstname.lastname@organisation>
 #
-# Copyright (C) 2013 UFPE/UPMC 
+# Copyright (C) 2013
 
+# Add here standard required python modules (TODO)
+
+# Add here required Manifold modules (TODO)
 from manifold.gateways                  import Gateway, LAST_RECORD
 from manifold.core.table                import Table
 from manifold.core.field                import Field
 from manifold.core.announce             import Announce
 from manifold.util.log                  import Log
+from manifold.util.type                 import accepts, returns
 
-class PerfSONARGateway(Gateway):
+class FooGateway(Gateway):
+    # You may inherits another Gateway, for instance a PostgreSQLGateway.
+    # If so, import the appropriate Manifold module.
+    #
+    # See also:
+    #    manifold/gateways/*
 
     #---------------------------------------------------------------------------
     # Constructor
@@ -22,66 +30,97 @@ class PerfSONARGateway(Gateway):
 
     def __init__(self, router, platform, query, config, user_config, user):
         """
-        Construct a PerfSONARGateway instance
+        Constructor
+        Args:
+            interface: The Manifold Interface on which this Gateway is running.
+            platform: A String storing name of the platform related to this Gateway or None.
+            config: A dictionnary containing the configuration related to this Gateway.
+                It may contains the following keys:
+                "name" : name of the platform's maintainer. 
+                "mail" : email address of the maintainer.
         """
-        super(PostgreSQLGateway, self).__init__(router, platform, query, config, user_config, user)
-        self.connection = None
-        self.cursor = None
-        self.re_ignored_tables = re_ignored_tables
-        self.re_allowed_tables = re_allowed_tables
+        super(FooGateway, self).__init__(router, platform, config)
 
     #---------------------------------------------------------------------------
     # Accessors 
     #---------------------------------------------------------------------------
 
-    # TODO
+    # (TODO)
 
     #---------------------------------------------------------------------------
     # Connection 
     #---------------------------------------------------------------------------
 
-    # TODO
+    # (TODO)
 
     #---------------------------------------------------------------------------
     # Overloaded methods 
     #---------------------------------------------------------------------------
 
-    def forward(self, query, deferred = False, execute = True, user = None):
+    def forward(self, query, callback, is_deferred = False, execute = True, user = None, format = "dict", receiver = None):
         """
-        Args
-            query: A Query instance that must be processed by this PostgreSQLGateway
-            deferred: A boolean
-            execute: A boolean which must be set to True if the query must be run.
-            user: A User instance or None
+        Query handler.
+        Args:
+            query: A Query instance, reaching this Gateway.
+            callback: The function called to send this record. This callback is provided
+                most of time by a From Node.
+                Prototype : def callback(record)
+            is_deferred: A boolean.
+            execute: A boolean set to True if the treatement requested in query
+                must be run or simply ignored.
+            user: The User issuing the Query.
+            format: A String specifying in which format the Records must be returned.
+            receiver : The From Node running the Query or None. Its ResultValue will
+                be updated once the query has terminated.
+        Returns:
+            forward must NOT return value otherwise we cannot use @defer.inlineCallbacks
+            decorator. 
         """
-        self.query = query
-        self.start()
+        super(FooGateway, self).forward(query, callback, is_deferred, execute, user, format, receiver)
+        identifier = receiver.get_identifier() if receiver else None
 
-    def start(self):
-        """
-        Fetch records stored in the postgresql database according to self.query
-        """
+        # Handle the query and feed rows with dictionary having the key corresponding
+        # to query.get_select() and containing value satisfying query.get_where().
+        #
+        # See also:
+        #   manifold/core/query.py
 
         # Results of the query (TODO)
-        rows = []
+        rows = list() 
 
         # Adding a flag indicating this is the last record
         rows.append(LAST_RECORD)
 
         # Sending rows to parent processing node in the AST
-        map(self.send, rows)
+        for row in rows:
+            self.send(row, callback, identifier)
 
-        return 
-       
+        self.success(receiver, query)
+
+        ## In case of failure, you would return something like this:
+        # self.error(receiver, query, message)
 
     #---------------------------------------------------------------------------
     # Metadata 
     #---------------------------------------------------------------------------
 
+    @returns(list)
     def get_metadata(self):
         """
         Build metadata by querying postgresql's information schema
         Returns:
             The list of corresponding Announce instances
         """
-        return [] 
+        announces = list()
+        
+        # Feed announces by adding Announce instances representing the Table
+        # provided by this Gateway (TODO). An Announce embeds a Table instance
+        # which stores a set of Fields and Keys.
+        #
+        # See also:
+        #    manifold/core/announce.py
+        #    manifold/core/field.py
+        #    manifold/core/key.py
+        #    manifold/core/table.py
+
+        return announces 

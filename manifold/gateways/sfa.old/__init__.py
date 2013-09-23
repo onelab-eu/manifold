@@ -1,63 +1,37 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-#
-# This Gateway allows to access to SFA (Slice Federated
-# Architecture) 
-# http://groups.geni.net/geni/wiki/GeniApi
-#
-# Jordan Auge       <jordan.auge@lip6.fr>
-# Loic Baron        <loic.baron@lip6.fr>
-# Amine Larabi      <mohamed.larabi@inria.fr>
-# Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
-#
-# Copyright (C) 2013 UPMC-INRIA
-
-#Aujourd'hui
-#1 instance = 1 platform (R+AM)
-#Demain
-#1 instance = R,platform ou AM, platform
-
-#slice a du sens pour les 2
-#user, authority pour Registry
-#resources pour AM
-
 import sys, os, os.path, re, tempfile, itertools
 import zlib, hashlib, BeautifulSoup, urllib
 import json, signal, traceback
-from datetime                           import datetime
-from lxml                               import etree
-from StringIO                           import StringIO
-from types                              import StringTypes, ListType
-from twisted.internet                   import defer
+from datetime                    import datetime
+from lxml                        import etree
+from StringIO                    import StringIO
+from types                       import StringTypes, ListType
+from twisted.internet            import defer
 
-from manifold.core.result_value         import ResultValue
-from manifold.core.filter               import Filter
-from manifold.gateways                  import Gateway
+from manifold.core.result_value  import ResultValue
+from manifold.core.filter        import Filter
+from manifold.operators          import LAST_RECORD
+from manifold.operators.rename   import Rename
+from manifold.gateways           import Gateway
 from manifold.gateways.sfa.rspecs.SFAv1 import SFAv1Parser # as Parser
-from manifold.gateways.sfa.proxy        import SFAProxy, make_sfa_proxy
-from manifold.models                    import db
-from manifold.models.platform           import Platform 
-from manifold.models.user               import User
-from manifold.operators                 import LAST_RECORD
-from manifold.operators.rename          import Rename
-from manifold.util.log                  import Log
-from manifold.util.misc                 import make_list
-from manifold.util.predicate            import contains, eq, lt, le, included
-from manifold.util.type                 import accepts, returns 
+from manifold.gateways.sfa.proxy import SFAProxy
+from manifold.util.predicate     import contains, eq, lt, le, included
+from manifold.util.log           import Log
+from manifold.util.misc          import make_list
+from manifold.models             import *
 
-from sfa.trust.certificate              import Keypair, Certificate, set_passphrase
-from sfa.trust.gid                      import GID
-from sfa.trust.credential               import Credential
-from sfa.util.xrn                       import Xrn, get_leaf, get_authority, hrn_to_urn, urn_to_hrn
-from sfa.util.config                    import Config
-from sfa.util.version                   import version_core
-from sfa.util.cache                     import Cache
-from sfa.storage.record                 import Record
-from sfa.rspecs.rspec                   import RSpec
-from sfa.rspecs.version_manager         import VersionManager
-from sfa.client.client_helper           import pg_users_arg, sfa_users_arg
-from sfa.client.return_value            import ReturnValue
-from xmlrpclib                          import DateTime
+from sfa.trust.certificate       import Keypair, Certificate, set_passphrase
+from sfa.trust.gid               import GID
+from sfa.trust.credential        import Credential
+from sfa.util.xrn                import Xrn, get_leaf, get_authority, hrn_to_urn, urn_to_hrn
+from sfa.util.config             import Config
+from sfa.util.version            import version_core
+from sfa.util.cache              import Cache
+from sfa.storage.record          import Record
+from sfa.rspecs.rspec            import RSpec
+from sfa.rspecs.version_manager  import VersionManager
+from sfa.client.client_helper    import pg_users_arg, sfa_users_arg
+from sfa.client.return_value     import ReturnValue
+from xmlrpclib import DateTime
 
 DEFAULT_TIMEOUT = 20
 DEFAULT_TIMEOUT_GETVERSION = 5
@@ -104,6 +78,50 @@ xslt='''<xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Tran
 
 xslt_doc=etree.parse(StringIO(xslt))
 transform=etree.XSLT(xslt_doc)
+
+################################################################################
+# Helper functions
+################################################################################
+
+def filter_records(type, records):
+    filtered_records = []
+    for record in records:
+        if (record['type'] == type) or (type == "all"):
+            filtered_records.append(record)
+    return filtered_records
+
+# XXX This function should disappear since we have AST
+def project_select_and_rename_fields(table, pkey, filters, fields, map_fields=None):
+    filtered = []
+    for row in table:
+        # translate field names
+        if map_fields:
+            for k, v in map_fields.items():
+                if k in row:
+                    if '.' in v: # users.hrn
+                        method, key = v.split('.')
+                        if not method in row:
+                            row[method] = []
+                        for x in row[k]:
+                            row[method].append({key: x})        
+                    else:
+                        row[v] = row[k]
+                    del row[k]
+        # apply input filters # XXX TODO sort limit offset
+        if filters.match(row):
+            # apply output_fields
+            c = {}
+            for k,v in row.items():
+                # if no fields = keep everything
+                if not fields or k in fields: #  or k == pkey:
+                    c[k] = v
+            if 'slice_urn' in row and ('slice_hrn' in fields or not fields):
+                c['slice_hrn'] = urn_to_hrn(row['slice_urn'])[0]
+            filtered.append(c)
+
+    return filtered
+
+################################################################################
 
 def get_network_name(hostname):
     signal.signal(signal.SIGALRM, timeout_callback)
@@ -220,12 +238,6 @@ class SFAGateway(Gateway):
     #
     @defer.inlineCallbacks
     def get_user_config(self, user_email):
-        """
-        Retrieve the user configuration on the platform managed by this
-        SFAGateway using its email.
-        Args:
-            user_email: A String containing the User's email.
-        """
         try:
             user = db.query(User).filter(User.email == user_email).one()
         except Exception, e:
@@ -276,7 +288,6 @@ class SFAGateway(Gateway):
                 account.config = new_user_config
                 db.add(account)
                 db.commit()
-
         # return using defer async
         if new_user_config:
             defer.returnValue(json.loads(new_user_config))
@@ -284,23 +295,59 @@ class SFAGateway(Gateway):
             defer.returnValue(json.loads(account.config))
         #return json.loads(new_user_config) if new_user_config else None
 
+    def make_user_proxy(self, interface_url, user_config, cert_type='gid'):
+        """
+        interface (string): 'registry', 'sm' or URL
+        user_config (dict): user configuration
+        cert_type (string): 'gid', 'sscert'
+        """
+        pkey    = user_config['user_private_key'].encode('latin1')
+        # default is gid, if we don't have it (see manage function) we use self signed certificate
+        cert    = user_config[cert_type]
+        timeout = self.config['timeout']
+
+        if not interface_url.startswith('http://') and not interface_url.startswith('https://'):
+            interface_url = 'http://' + interface_url
+
+        return SFAProxy(interface_url, pkey, cert, timeout)
     
-    @staticmethod
-    @returns(bool)
-    def is_admin(user):
-        assert isinstance(user, (StringTypes, dict)), "Invalid user: %s (%s)" % (user, type(user))
+    # init self-signed cert, user credentials and gid
+    @defer.inlineCallbacks
+    def bootstrap (self):
+        # Cache admin config
+        self.admin_config = yield self.get_user_config(ADMIN_USER)
+        assert self.admin_config, "Could not retrieve admin config"
+
+        # Overwrite user config (reference & managed acccounts)
+        new_user_config = yield self.get_user_config(self.user.email)
+        if new_user_config:
+            self.user_config = new_user_config
+
+        # Initialize manager proxies using MySlice Admin account
+        try:
+            self.registry = self.make_user_proxy(self.config['registry'], self.admin_config)
+            self.sliceapi = self.make_user_proxy(self.config['sm'],       self.admin_config)
+            registry_hrn = yield self.get_interface_hrn(self.registry)
+            sm_hrn       = yield self.get_interface_hrn(self.sliceapi)
+            self.registry.set_network_hrn(registry_hrn)
+            self.sliceapi.set_network_hrn(sm_hrn)
+
+        except Exception, e:
+            print "EXC in boostrap", e
+            import traceback
+            traceback.print_exc()
+            
+
+
+
+    def is_admin(self, user):
         if isinstance(user, StringTypes):
             return user == ADMIN_USER
         else:
-            return user["email"] == ADMIN_USER
+            return user.email == ADMIN_USER
 
     @defer.inlineCallbacks
     def get_cached_server_version(self, server):
-        """
-        Args:
-            server: A SFAProxy instance  
-        """
-        assert isinstance(server, SFAProxy), "(1) Invalid proxy: %s (%s)" % (server, type(server))
         # check local cache first
         version = None 
         cache_key = server.get_interface() + "-version"
@@ -328,12 +375,6 @@ class SFAGateway(Gateway):
 
     @defer.inlineCallbacks
     def get_interface_hrn(self, server):
-        """
-        Args:
-            server: A Proxy instance  
-        """
-        assert isinstance(server, SFAProxy), "(2) Invalid proxy: %s (%s)" % (server, type(server))
-
         server_version = yield self.get_cached_server_version(server)    
         defer.returnValue(server_version['hrn'])
         
@@ -341,7 +382,7 @@ class SFAGateway(Gateway):
     @defer.inlineCallbacks
     def server_supports_options_arg(self, server):
         """
-        Returns true if server support the optional call_id arg, False otherwise. 
+        Returns true if server support the optional call_id arg, false otherwise. 
         """
         server_version = yield self.get_cached_server_version(server)
         # xxx need to rewrite this 
@@ -368,7 +409,7 @@ class SFAGateway(Gateway):
     ### ois = options if supported
     # to be used in something like serverproxy.Method (arg1, arg2, *self.ois(api_options))
     @defer.inlineCallbacks
-    def ois(self, server, option_dict):
+    def ois (self, server, option_dict):
         flag = yield self.server_supports_options_arg(server)
         if flag:
             defer.returnValue(option_dict)
@@ -379,91 +420,90 @@ class SFAGateway(Gateway):
             else:
                 defer.returnValue([])
 
-#MANDO|UNUSED|    ### cis = call_id if supported - like ois
-#MANDO|UNUSED|    @defer.inlineCallbacks
-#MANDO|UNUSED|    def cis(self, server):
-#MANDO|UNUSED|        flag = yield self.server_supports_call_id_arg(server)
-#MANDO|UNUSED|        if flag:
-#MANDO|UNUSED|            defer.returnValue([unique_call_id()])
-#MANDO|UNUSED|        else:
-#MANDO|UNUSED|            defer.returnValue([])
-#MANDO|UNUSED|
-#MANDO|UNUSED|    ############################################################################ 
-#MANDO|UNUSED|    #
-#MANDO|UNUSED|    # SFA Method wrappers
-#MANDO|UNUSED|    #
-#MANDO|UNUSED|    ############################################################################ 
-#MANDO|UNUSED|
-#MANDO|UNUSED|    def sfa_list_records(self, cred, hrns, record_type=None):
-#MANDO|UNUSED|        if record_type not in [None, 'user', 'slice', 'authority', 'node']:
-#MANDO|UNUSED|            raise Exception('Wrong filter in sfa_list')
-#MANDO|UNUSED|        records = self.registry.List(hrns, cred)
-#MANDO|UNUSED|        if record_type:
-#MANDO|UNUSED|            records = filter_records(record_type, records)
-#MANDO|UNUSED|        return records
-#MANDO|UNUSED|
-#MANDO|UNUSED|    ########################################################################### 
-#MANDO|UNUSED|    #
-#MANDO|UNUSED|    # GETVERSION & RECURSIVE SCAN
-#MANDO|UNUSED|    #
-#MANDO|UNUSED|    ############################################################################ 
-#MANDO|UNUSED|
-#MANDO|UNUSED|    # All commands should take a registry/sliceapi as a parameter to allow for
-#MANDO|UNUSED|    # more than one
-#MANDO|UNUSED|
-#MANDO|UNUSED|    # type IN (aggregate, registry, local)
-#MANDO|UNUSED|    def sfa_get_version(self, type='aggregate', url=None):
-#MANDO|UNUSED|        if url:
-#MANDO|UNUSED|            return {}
-#MANDO|UNUSED|
-#MANDO|UNUSED|        if type == 'local':
-#MANDO|UNUSED|            version=version_core()
-#MANDO|UNUSED|        else:
-#MANDO|UNUSED|            if type == 'registry':
-#MANDO|UNUSED|                server = self.registry
-#MANDO|UNUSED|            else:
-#MANDO|UNUSED|                server = self.sliceapi
-#MANDO|UNUSED|            result = server.GetVersion(timeout=DEFAULT_TIMEOUT_GETVERSION)
-#MANDO|UNUSED|            version = ReturnValue.get_value(result)
-#MANDO|UNUSED|        return version
-#MANDO|UNUSED|
-#MANDO|UNUSED|
-#MANDO|UNUSED|    # scan from the given interfacs as entry points
-#MANDO|UNUSED|    # XXX we should be able to run this in parallel
-#MANDO|UNUSED|    # which ones are seen but do not reply
-#MANDO|UNUSED|    # how to group emulab
-#MANDO|UNUSED|    def sfa_get_version_rec(self, user_config, interfaces):
-#MANDO|UNUSED|        output = []
-#MANDO|UNUSED|        if not isinstance(interfaces,list):
-#MANDO|UNUSED|            interfaces=[interfaces]
-#MANDO|UNUSED|
-#MANDO|UNUSED|        # add entry points right away using the interface uid's as a key
-#MANDO|UNUSED|        to_scan=interfaces
-#MANDO|UNUSED|        scanned=[]
-#MANDO|UNUSED|        # keep on looping until we reach a fixed point
-#MANDO|UNUSED|        while to_scan:
-#MANDO|UNUSED|            for interface in to_scan:
-#MANDO|UNUSED|
-#MANDO|UNUSED|                # performing xmlrpc call
-#MANDO|UNUSED|                print "D: Connecting to interface", interface
-#MANDO|UNUSED|                server = make_sfa_proxy(interface, user_config, self.config['timeout'])
-#MANDO|UNUSED|                try:
-#MANDO|UNUSED|                    version = ReturnValue.get_value(server.GetVersion(timeout=DEFAULT_TIMEOUT_GETVERSION))
-#MANDO|UNUSED|                except Exception, why:
-#MANDO|UNUSED|                    import traceback
-#MANDO|UNUSED|                    print "E: ", why
-#MANDO|UNUSED|                    version = None
-#MANDO|UNUSED|                    print traceback.print_exc()
-#MANDO|UNUSED|
-#MANDO|UNUSED|                if version:
-#MANDO|UNUSED|                    output.append(version)
-#MANDO|UNUSED|                    if 'peers' in version: 
-#MANDO|UNUSED|                        for (next_name,next_url) in version['peers'].iteritems():
-#MANDO|UNUSED|                            if not next_url in scanned:
-#MANDO|UNUSED|                                to_scan.append(next_url)
-#MANDO|UNUSED|                scanned.append(interface)
-#MANDO|UNUSED|                to_scan.remove(interface)
-#MANDO|UNUSED|        return output
+    ### cis = call_id if supported - like ois
+    @defer.inlineCallbacks
+    def cis (self, server):
+        flag = yield self.server_supports_call_id_arg(server)
+        if flag:
+            defer.returnValue([unique_call_id()])
+        else:
+            defer.returnValue([])
+
+    ############################################################################ 
+    #
+    # SFA Method wrappers
+    #
+    ############################################################################ 
+
+    def sfa_list_records(self, cred, hrns, record_type=None):
+        if record_type not in [None, 'user', 'slice', 'authority', 'node']:
+            raise Exception('Wrong filter in sfa_list')
+        records = self.registry.List(hrns, cred)
+        if record_type:
+            records = filter_records(record_type, records)
+        return records
+
+    ########################################################################### 
+    #
+    # GETVERSION & RECURSIVE SCAN
+    #
+    ############################################################################ 
+
+    # All commands should take a registry/sliceapi as a parameter to allow for
+    # more than one
+
+    # type IN (aggregate, registry, local)
+    def sfa_get_version(self, type='aggregate', url=None):
+        if url:
+            return {}
+
+        if type == 'local':
+            version=version_core()
+        else:
+            if type == 'registry':
+                server = self.registry
+            else:
+                server = self.sliceapi
+            result = server.GetVersion(timeout=DEFAULT_TIMEOUT_GETVERSION)
+            version = ReturnValue.get_value(result)
+        return version
+
+
+    # scan from the given interfacs as entry points
+    # XXX we should be able to run this in parallel
+    # which ones are seen but do not reply
+    # how to group emulab
+    def sfa_get_version_rec(self,interfaces):
+        output = []
+        if not isinstance(interfaces,list):
+            interfaces=[interfaces]
+
+        # add entry points right away using the interface uid's as a key
+        to_scan=interfaces
+        scanned=[]
+        # keep on looping until we reach a fixed point
+        while to_scan:
+            for interface in to_scan:
+
+                # performing xmlrpc call
+                print "D: Connecting to interface", interface
+                server = self.make_user_proxy(interface, self.user_config)
+                try:
+                    version = ReturnValue.get_value(server.GetVersion(timeout=DEFAULT_TIMEOUT_GETVERSION))
+                except Exception, why:
+                    print "E: ", why
+                    version = None
+                    print traceback.print_exc()
+
+                if version:
+                    output.append(version)
+                    if 'peers' in version: 
+                        for (next_name,next_url) in version['peers'].iteritems():
+                            if not next_url in scanned:
+                                to_scan.append(next_url)
+                scanned.append(interface)
+                to_scan.remove(interface)
+        return output
 
 # TODO Analyze version output
 # {   'code_tag': '2.0-9',
@@ -542,13 +582,11 @@ class SFAGateway(Gateway):
     #
     ############################################################################ 
 
-    @staticmethod
-    def parse_sfa_rspec(rspec):
+    def parse_sfa_rspec(self, rspec):
         parser = SFAv1Parser(rspec)
         return parser.to_dict(self.version)
 
-    @staticmethod
-    def build_sfa_rspec(slice_id, resources, leases):
+    def build_sfa_rspec(self, slice_id, resources, leases):
         parser = SFAv1Parser(resources, leases)
         return parser.to_rspec(slice_id)
 
@@ -561,37 +599,33 @@ class SFAGateway(Gateway):
 
     # get a delegated credential of a given type to a specific target
     # default allows the use of MySlice's own credentials
-#MANDO|    def _get_cred(self, type, target=None):
-#MANDO|        user = self.user
-#MANDO|        user_config = self.user_config
-
-    def _get_cred(self, user, user_config, type, target = None):
-        delegated  ='delegated_' if not SFAGateway.is_admin(user) else ''
+    def _get_cred(self, type, target=None):
+        delegated='delegated_' if not self.is_admin(self.user) else ''
             
         if type == 'user':
             if target:
                 raise Exception, "Cannot retrieve specific user credential for now"
             try:
-                return user_config['%suser_credential' % delegated]
+                return self.user_config['%suser_credential'%delegated]
             except TypeError, e:
-                raise Exception, "Missing user credential %s" % str(e)
+                raise Exception, "Missing user credential %s" %  str(e)
         elif type == 'authority':
             if target:
                 raise Exception, "Cannot retrieve specific authority credential for now"
-            return user_config['%sauthority_credential'%delegated]
+            return self.user_config['%sauthority_credential'%delegated]
         elif type == 'slice':
-            if not 'delegated_slice_credentials' in user_config:
-                user_config['%sslice_credentials'%delegated] = {}
+            if not 'delegated_slice_credentials' in self.user_config:
+                self.user_config['%sslice_credentials'%delegated] = {}
 
-            creds = user_config['%sslice_credentials'%delegated]
+            creds = self.user_config['%sslice_credentials'%delegated]
             if target in creds:
                 cred = creds[target]
             else:
                 # Can we generate them : only if we have the user private key
                 # Currently it is not possible to request for a slice credential
                 # with a delegated user credential...
-                if 'user_private_key' in user_config and user_config['user_private_key']:
-                    cred = SFAGateway.generate_slice_credential(target, user_config)
+                if 'user_private_key' in self.user_config and self.user_config['user_private_key']:
+                    cred = SFAGateway.generate_slice_credential(target, self.user_config)
                     creds[target] = cred
                 else:
                     raise Exception , "no cred found of type %s towards %s " % (type, target)
@@ -600,7 +634,7 @@ class SFAGateway(Gateway):
             raise Exception, "Invalid credential type: %s" % type
 
     @defer.inlineCallbacks
-    def update_slice(self, user, user_config, filters, params, fields):
+    def update_slice(self, filters, params, fields):
         if 'resource' not in params:
             raise Exception, "Update failed: nothing to update"
 
@@ -613,11 +647,11 @@ class SFAGateway(Gateway):
         leases = params['lease'] if 'lease' in params else []
 
         # Credentials
-        user_cred = self._get_cred(user, user_config, 'user')
-        slice_cred = self._get_cred(user, user_config, 'slice', slice_hrn)
+        user_cred = self._get_cred('user')
+        slice_cred = self._get_cred('slice', slice_hrn)
 
         # We suppose resource
-        rspec = SFAGateway.build_sfa_rspec(slice_urn, resources, leases)
+        rspec = self.build_sfa_rspec(slice_urn, resources, leases)
         #print "BUILDING SFA RSPEC", rspec
 
         # Sliver attributes (tags) are ignored at the moment
@@ -668,23 +702,17 @@ class SFAGateway(Gateway):
         api_options ['append'] = False
         api_options ['call_id'] = unique_call_id()
         ois = yield self.ois(self.sliceapi, api_options)
-
-        if self.version['geni_api'] == 2:
-            # AM API v2
-            result = yield self.sliceapi.CreateSliver(slice_urn, [slice_cred], rspec, users, ois)
-        else:
-            # AM API v3
-            result = yield self.sliceapi.Allocate(slice_urn, [slice_cred], rspec, ois)
-            result = yield self.sliceapi.Provision([slice_urn], [slice_cred], ois)
-
+        result = yield self.sliceapi.CreateSliver(slice_urn, [slice_cred], rspec, users, ois)
+        #print "CreateSliver RSPEC"
         manifest = ReturnValue.get_value(result)
+        #print "MANIFEST: ", str(result)[:100]
 
         if not manifest:
             print "NO MANIFEST FROM", self.platform
             defer.returnValue([])
         else:
             print "GOT MANIFEST FROM", self.platform
-        rsrc_leases = SFAGateway.parse_sfa_rspec(manifest)
+        rsrc_leases = self.parse_sfa_rspec(manifest)
 
         slice = {'slice_hrn': filters.get_eq('slice_hrn')}
         slice.update(rsrc_leases)
@@ -693,13 +721,11 @@ class SFAGateway(Gateway):
         defer.returnValue([slice])
 
     # minimally check a key argument
-    @staticmethod
     def check_ssh_key(self, key):
         good_ssh_key = r'^.*(?:ssh-dss|ssh-rsa)[ ]+[A-Za-z0-9+/=]+(?: .*)?$'
         return re.match(good_ssh_key, key, re.IGNORECASE)
 
-    @staticmethod
-    def create_record_from_params(type, params):
+    def create_record_from_params(self, type, params):
         record_dict = {}
         if type == 'slice':
             # This should be handled beforehand
@@ -714,7 +740,7 @@ class SFAGateway(Gateway):
             #    pubkey = open(params['key'], 'r').read()
             #except IOError:
             pubkey = params['key']
-            if not SFAGateway.check_ssh_key(pubkey):
+            if not self.check_ssh_key(pubkey):
                 raise SfaInvalidArgument(name='key',msg="Wrong key format")
                 #raise SfaInvalidArgument(name='key',msg="Could not find file, or wrong key format")
             record_dict['keys'] = [pubkey]
@@ -735,7 +761,7 @@ class SFAGateway(Gateway):
 
         return Record(dict=record_dict)
  
-    def create_slice(self, user, user_config, filters, params, fields):
+    def create_slice(self, filters, params, fields):
 
         # Get the slice name
         if not 'slice_hrn' in params:
@@ -751,8 +777,8 @@ class SFAGateway(Gateway):
             return []
         print "I: Requesting slice creation on %s for %s" % (server_auth, slice_hrn)
         print "W: need to check slice is created under user authority"
-        cred = self._get_cred(user, user_config, 'authority')
-        record_dict = SFAGateway.create_record_from_params('slice', params)
+        cred = self._get_cred('authority')
+        record_dict = self.create_record_from_params('slice', params)
         try:
             slice_gid = self.registry.Register(record_dict, cred)
         except Exception, e:
@@ -764,7 +790,7 @@ class SFAGateway(Gateway):
     # Depending on the object Queried, if object is network then get_network is triggered by
     # result = getattr(self, "%s_%s" % (q.action, q.object))(local_filters, q.params, fields)
     @defer.inlineCallbacks
-    def get_network(self, user, user_config, filters = None, params = None, fields = None):
+    def get_network(self, filters = None, params = None, fields = None):
         # Network (AM) 
         server = self.sliceapi
         version = yield self.get_cached_server_version(server)
@@ -801,7 +827,7 @@ class SFAGateway(Gateway):
         #    #print "SfaGateway::get_network() =",result
         #return [result]
 
-    def get_slice_demo(self, user, user_config, filters, params, fields):
+    def get_slice_demo(self, filters, params, fields):
             print "W: Demo hook"
             s= {}
             s['slice_hrn'] = "ple.upmc.agent"
@@ -822,7 +848,7 @@ class SFAGateway(Gateway):
                 if of == 'user' or of.startswith('user.'):
                     has_users = True
             if has_resources:
-                rsrc_leases = self.get_resource_lease(user, user_config, {'slice_hrn': 'ple.upmc.agent'}, subfields)
+                rsrc_leases = self.get_resource_lease({'slice_hrn': 'ple.upmc.agent'}, subfields)
                 if not rsrc_leases:
                     raise Exception, 'get_resources failed!'
                 s['resource'] = rsrc_leases['resource']
@@ -835,32 +861,10 @@ class SFAGateway(Gateway):
             return [s]
 
     @defer.inlineCallbacks
-    def get_object(self, user, user_config, object, object_hrn, filters, params, fields):
-        """
-        Args:
-            user: A dictionnary containing a SFA user, which may contains
-                _sa_instance_state : sqlalchemy.orm.state.InstanceState
-                user_id  : An Integer identifying this User in the SQLAlchemy Storage 
-                accounts : A list of Account (see manifold.models.account)
-                password : A String containing the crypted password
-                config   : A String containing the user's config. Example:
-                    u\'{"firstname":"Jordan","lastname":"Auge","affiliation":"LIP6"}\'
-                email    : A String containing the email address
-            user_config: A dictionnary containing user's credentials:
-                delegated_user_credential: A String containing its credentials
-                user_hrn: A String containing the user's user_hr, (example: 'ple.upmc.jordan_auge')
-            object: A String containing the name of the queried table (examples: 'user', 'slice', ...)
-            object_hrn: A String (example: 'user_hrn')
-            filters: WHERE clause related to the handled Manifold Query
-            params: params related to the  handled Manifold Query 
-            fields: SELECT clause related to the handled Manifold Query
-        """
-
+    def get_object(self, object, object_hrn, filters, params, fields):
         # Let's find some additional information in filters in order to restrict our research
         object_name = make_list(filters.get_op(object_hrn, [eq, included]))
         auth_hrn = make_list(filters.get_op('authority_hrn', [eq, lt, le]))
-
-        assert isinstance(self.registry, SFAProxy), "(3) Invalid proxy: %s (%s)" % (self.registry, type(self.registry))
         interface_hrn = yield self.get_interface_hrn(self.registry)
 
         # recursive: Should be based on jokers, eg. ple.upmc.*
@@ -905,7 +909,8 @@ class SFAGateway(Gateway):
         
         # TODO: user's objects, use reg-researcher
         
-        cred = self._get_cred(user, user_config, 'user')
+        cred = self._get_cred('user')
+
 
         if resolve:
             stack = map(lambda x: hrn_to_urn(x, object), stack)
@@ -943,32 +948,30 @@ class SFAGateway(Gateway):
             records = yield self.registry.List(auth_xrn, cred, {'recursive': recursive})
             records = [r for r in records if r['type'] == object]
             defer.returnValue(records)
-        Log.tmp("ok")
 
-    def get_slice(self, user, user_config, filters, params, fields):
-#MANDO|        user = self.user
-        if user["email"] in DEMO_HOOKS:
-            defer.returnValue(self.get_slice_demo(user, user_config, filters, params, fields))
+    def get_slice(self, filters, params, fields):
+
+        if self.user.email in DEMO_HOOKS:
+            defer.returnValue(self.get_slice_demo(filters, params, fields))
             return
 
-        return self.get_object(user, user_config, 'slice', 'slice_hrn', filters, params, fields)
+        return self.get_object('slice', 'slice_hrn', filters, params, fields)
 
-    def get_user(self, user, user_config, filters, params, fields):
-#MANDO|        user = self.user
-        if user["email"] in DEMO_HOOKS:
-            defer.returnValue(self.get_user_demo(user, user_config, filters, params, fields))
+    def get_user(self, filters, params, fields):
+
+        if self.user.email in DEMO_HOOKS:
+            defer.returnValue(self.get_user_demo(filters, params, fields))
             return
 
-        Log.tmp("calling get_object")
-        return self.get_object(user, user_config, 'user', 'user_hrn', filters, params, fields)
+        return self.get_object('user', 'user_hrn', filters, params, fields)
 
-    def get_authority(self, user, user_config, filters, params, fields):
-#MANDO|        user = self.user
-        #if user["email"] in DEMO_HOOKS:
+    def get_authority(self, filters, params, fields):
+
+        #if self.user.email in DEMO_HOOKS:
         #    defer.returnValue(self.get_authority_demo(filters, params, fields))
         #    return
 
-        return self.get_object(user, user_config, 'authority', 'authority_hrn', filters, params, fields)
+        return self.get_object('authority', 'authority_hrn', filters, params, fields)
 
 
 # WORKING #        if len(stack) > 1:
@@ -1021,7 +1024,7 @@ class SFAGateway(Gateway):
 
 #DEPRECATED#    def get_user(self, filters = None, params = None, fields = None):
 #DEPRECATED#
-#DEPRECATED#        cred = self._get_cred(user, user_config, 'user')
+#DEPRECATED#        cred = self._get_cred('user')
 #DEPRECATED#
 #DEPRECATED#        # A/ List users
 #DEPRECATED#        if not filters or not (filters.has_eq('user_hrn') or filters.has_eq('authority_hrn')):
@@ -1081,64 +1084,64 @@ class SFAGateway(Gateway):
 #DEPRECATED#            return filtered
 
 
-#MANDO|UNUSED|    def sfa_table_networks(self):
-#MANDO|UNUSED|        versions = self.sfa_get_version_rec(self.sm_url)
-#MANDO|UNUSED|
-#MANDO|UNUSED|        output = []
-#MANDO|UNUSED|        for v in versions:
-#MANDO|UNUSED|            hrn = v['hrn']
-#MANDO|UNUSED|            networks = [x for x in output if x['network_hrn'] == hrn]
-#MANDO|UNUSED|            if networks:
-#MANDO|UNUSED|                print "I: %s exists!" % hrn
-#MANDO|UNUSED|                continue
-#MANDO|UNUSED|
-#MANDO|UNUSED|            # XXX we might make temporary patches for ppk for example
-#MANDO|UNUSED|            if 'hostname' in v and v['hostname'] == 'ppkplc.kaist.ac.kr':
-#MANDO|UNUSED|                print "[FIXME] Hardcoded hrn value for PPK"
-#MANDO|UNUSED|                v['hrn'] = 'ppk'
-#MANDO|UNUSED|
-#MANDO|UNUSED|            # We skip networks that do not advertise their hrn
-#MANDO|UNUSED|            # XXX TODO issue warning
-#MANDO|UNUSED|            if 'hrn' not in v:
-#MANDO|UNUSED|                continue
-#MANDO|UNUSED|
-#MANDO|UNUSED|            # Case when hostnames differ
-#MANDO|UNUSED|
-#MANDO|UNUSED|            network = {'network_hrn': v['hrn']}
-#MANDO|UNUSED|            # Network name
-#MANDO|UNUSED|            #name = None
-#MANDO|UNUSED|            #if 'hostname' in version:
-#MANDO|UNUSED|            #    name = get_network_name(version['hostname'])
-#MANDO|UNUSED|            #if not name:
-#MANDO|UNUSED|            #    name = get_network_name(i.hostname)
-#MANDO|UNUSED|            #if name:
-#MANDO|UNUSED|            #    network['network_name'] = name
-#MANDO|UNUSED|            output.append(network)
-#MANDO|UNUSED|
-#MANDO|UNUSED|        # same with registries
-#MANDO|UNUSED|        return output
-#MANDO|UNUSED|
-#MANDO|UNUSED|    def get_networks(self, input_filter = None, output_fields = None):
-#MANDO|UNUSED|        networks = self.sfa_table_networks()
-#MANDO|UNUSED|        return project_select_and_rename_fields(networks, 'network_hrn', input_filter, output_fields)
-#MANDO|UNUSED|
-#MANDO|UNUSED|    def get_recauth(self, input_filter = None, output_fields = None):
-#MANDO|UNUSED|        user_cred = self.get_user_cred().save_to_string(save_parents=True)
-#MANDO|UNUSED|        records = self.get_networks()
-#MANDO|UNUSED|        todo = [r['network_hrn'] for r in records]
-#MANDO|UNUSED|        while todo:
-#MANDO|UNUSED|            newtodo = []
-#MANDO|UNUSED|            for hrn in todo:
-#MANDO|UNUSED|                try:
-#MANDO|UNUSED|                    records = self.registry.List(hrn, user_cred)
-#MANDO|UNUSED|                except Exception, why:
-#MANDO|UNUSED|                    print "Exception during %s: %s" % (hrn, str(why))
-#MANDO|UNUSED|                    continue
-#MANDO|UNUSED|                records = filter_records('authority', records)
-#MANDO|UNUSED|                newtodo.extend([r['hrn'] for r in records])
-#MANDO|UNUSED|            todo = newtodo
-#MANDO|UNUSED|        
-#MANDO|UNUSED|        records = filter_records('authority', list)
+    def sfa_table_networks(self):
+        versions = self.sfa_get_version_rec(self.sm_url)
+
+        output = []
+        for v in versions:
+            hrn = v['hrn']
+            networks = [x for x in output if x['network_hrn'] == hrn]
+            if networks:
+                print "I: %s exists!" % hrn
+                continue
+
+            # XXX we might make temporary patches for ppk for example
+            if 'hostname' in v and v['hostname'] == 'ppkplc.kaist.ac.kr':
+                print "[FIXME] Hardcoded hrn value for PPK"
+                v['hrn'] = 'ppk'
+
+            # We skip networks that do not advertise their hrn
+            # XXX TODO issue warning
+            if 'hrn' not in v:
+                continue
+
+            # Case when hostnames differ
+
+            network = {'network_hrn': v['hrn']}
+            # Network name
+            #name = None
+            #if 'hostname' in version:
+            #    name = get_network_name(version['hostname'])
+            #if not name:
+            #    name = get_network_name(i.hostname)
+            #if name:
+            #    network['network_name'] = name
+            output.append(network)
+
+        # same with registries
+        return output
+
+    def get_networks(self, input_filter = None, output_fields = None):
+        networks = self.sfa_table_networks()
+        return project_select_and_rename_fields(networks, 'network_hrn', input_filter, output_fields)
+
+    def get_recauth(self, input_filter = None, output_fields = None):
+        user_cred = self.get_user_cred().save_to_string(save_parents=True)
+        records = self.get_networks()
+        todo = [r['network_hrn'] for r in records]
+        while todo:
+            newtodo = []
+            for hrn in todo:
+                try:
+                    records = self.registry.List(hrn, user_cred)
+                except Exception, why:
+                    print "Exception during %s: %s" % (hrn, str(why))
+                    continue
+                records = filter_records('authority', records)
+                newtodo.extend([r['hrn'] for r in records])
+            todo = newtodo
+        
+        records = filter_records('authority', list)
 
 #    def get_status(self, input_filter, output_fields):
 #
@@ -1182,20 +1185,20 @@ class SFAGateway(Gateway):
 #        return self.sliceapi.SliverStatus(slice_urn, creds)
 
     @defer.inlineCallbacks
-    def get_lease(self, user, user_config, filters, params, fields):
-        result = yield self.get_resource_lease(user, user_config, filters,fields,params)
+    def get_lease(self,filters,params,fields):
+        result = yield self.get_resource_lease(filters,fields,params)
         defer.returnValue(result['lease'])
 
     @defer.inlineCallbacks
-    def get_resource(self, user, user_config, filters, params, fields):
-        result = yield self.get_resource_lease(user, user_config, filters, fields, params)
+    def get_resource(self, filters, params, fields):
+        result = yield self.get_resource_lease(filters, fields, params)
         defer.returnValue(result['resource'])
 
     @defer.inlineCallbacks
-    def get_resource_lease(self, user, user_config, filters, params, fields):
+    def get_resource_lease(self, filters, params, fields):
         if self.user.email in DEMO_HOOKS:
             rspec = open('/usr/share/manifold/scripts/nitos.rspec', 'r')
-            defer.returnValue(SFAGateway.parse_sfa_rspec(rspec))
+            defer.returnValue(self.parse_sfa_rspec(rspec))
             return 
 
 
@@ -1242,29 +1245,17 @@ class SFAGateway(Gateway):
             api_options['geni_rspec_version'] = {'type': first_common[0], 'version': first_common[1]}
 
         if slice_hrn:
-            cred = self._get_cred(user, user_config, 'slice', slice_hrn)
+            cred = self._get_cred('slice', slice_hrn)
             api_options['geni_slice_urn'] = hrn_to_urn(slice_hrn, 'slice')
         else:
-            cred = self._get_cred(user, user_config, 'user')
+            cred = self._get_cred('user')
 
-        if self.version['geni_api'] == 2:
-            # AM API v2 
-            result = yield self.sliceapi.ListResources([cred], api_options)
-        else:
-            # AM API v3
-            if slice_hrn:
-               slice_urn = api_options['geni_slice_urn']
-               result = yield self.sliceapi.Describe([slice_urn], [cred], api_options)
-               # dirty work around
-               result['value'] = result['value']['geni_rspec']
-            else:
-               result = yield self.sliceapi.ListResources([cred], api_options)
-
+        result = yield self.sliceapi.ListResources([cred], api_options)
         if not 'value' in result or not result['value']:
             raise Exception, result['output']
 
         rspec      = result['value']
-        rsrc_slice = SFAGateway.parse_sfa_rspec(rspec)
+        rsrc_slice = self.parse_sfa_rspec(rspec)
 
         if slice_hrn:
             for r in rsrc_slice['resource']:
@@ -1296,23 +1287,9 @@ class SFAGateway(Gateway):
 # END SFA CODE
 ################################################################################
 
-    def __init__(self, interface, platform, config = None):
-        """
-        Constructor
-        Args:
-            interface: The Manifold Interface on which this Gateway is running.
-            platform: A String storing name of the platform related to this Gateway or None.
-            config: A dictionnary containing the configuration related to this Gateway.
-                It may contains the following keys:
-                "name" : name of the platform's maintainer. 
-                "mail" : email address of the maintainer.
-        """
-        super(SFAGateway, self).__init__(interface, platform, config)
-#MANDO|
-#MANDO|    def __init__(self, router, platform, query, config, user_config, user):
-#MANDO|#        FromNode.__init__(self, platform, query, config)
-#MANDO|        super(SFAGateway, self).__init__(router, platform, query, config, user_config, user)
-        
+    def __init__(self, router, platform, query, config, user_config, user):
+#        FromNode.__init__(self, platform, query, config)
+        super(SFAGateway, self).__init__(router, platform, query, config, user_config, user)
         # self.config has always ['caller']
         # Check the presence of mandatory fields, default others
         #if not 'hashrequest' in self.config:    
@@ -1332,154 +1309,46 @@ class SFAGateway(Gateway):
             self.config['timeout'] = DEFAULT_TIMEOUT
 
     def __str__(self):
-        return "<SFAGateway %r>" % (self.config['sm'])
-
-    # MANDO: Adapted From Gateway
-    @staticmethod
-    def get_variables(user, user_config):
-        assert isinstance(user, User), "Invalid user : %s (%s)" % (user, type(user))
-        variables = {}
-        # Authenticated user
-        variables['user_email'] = user.email
-        for k, v in user.get_config().items():
-            if isinstance(v, StringTypes) and not 'credential' in v:
-                variables[k] = v
-        # Account information of the authenticated user
-        for k, v in user_config.items():
-            if isinstance(v, StringTypes) and not 'credential' in v:
-                variables[k] = v
-        return variables
-
-    # MANDO: Adapted From Gateway
-    @staticmethod
-    def start(user, user_config, query):
-        assert isinstance(user, User), "Invalid user : %s (%s)" % (user, type(user))
-        try:
-            # Replaces variables in the Query (predicate in filters and parameters)
-            filter = query.get_where()
-            params = query.get_params()
-            variables = SFAGateway.get_variables(user, user_config)
-
-            for predicate in filter:
-                value = predicate.get_value()
-
-                # XXX variable support not implemented for lists and tuples
-                if isinstance(value, (tuple, list)):
-                    continue
-
-                if value[0] == '$':
-                    var = value[1:]
-                    if var in variables:
-                        predicate.set_value(variables[var])
-
-            for key, value in params.items():
-
-                # XXX variable support not implemented for lists and tuples
-                if isinstance(value, (tuple, list)):
-                    continue
-
-                if value[0] == '$':
-                    var = value[1:]
-                    if var in variables and isinstance(variables[var], StringTypes):
-                        params[k] = variables[var]
-        except Exception, e:
-            import traceback
-            Log.warning("Exception in start", e)
-            traceback.print_exc()
-
-    def init_registry(self, admin_config):
-        timeout = self.config['timeout']
-        self.registry = make_sfa_proxy(self.config['registry'], admin_config, "gid", timeout)
-        registry_hrn  = self.get_interface_hrn(self.registry)
-        self.registry.set_network_hrn(registry_hrn)
-
-    def init_agregate_manager(self, admin_config):
-        timeout = self.config['timeout']
-        self.sliceapi = make_sfa_proxy(self.config['sm'], admin_config, "gid", timeout)
-        sm_hrn = self.get_interface_hrn(self.sliceapi)
-        self.sliceapi.set_network_hrn(sm_hrn)
+        return "<SFAGateway %r: %s>" % (self.config['sm'], self.query)
 
     @defer.inlineCallbacks
-    def forward(self, query, callback, is_deferred = False, execute = True, user = None, format = "dict", receiver = None):
-        """
-        Query handler.
-        Args:
-            query: A Query instance, reaching this Gateway.
-            callback: The function called to send this record. This callback is provided
-                most of time by a From Node.
-                Prototype : def callback(record)
-            is_deferred: A boolean set to True if this Query is async.
-            execute: A boolean set to True if the treatement requested in query
-                must be run or simply ignored.
-            user: The User issuing the Query.
-            receiver : The From Node running the Query or None. Its ResultValue will
-                be updated once the query has terminated.
-        Returns:
-            forward must NOT return value otherwise we cannot use @defer.inlineCallbacks
-            decorator. 
-        """
-        super(SFAGateway, self).forward(query, callback, is_deferred, execute, user, format, receiver)
-        import traceback
-        identifier = receiver.get_identifier() if receiver else None
-
-        user_config = json.loads(user.config)
-        SFAGateway.start(user, user_config, query)
-        user = user.__dict__
-
+    def start(self):
+        super(SFAGateway, self).start()
         try:
-            assert query, "Cannot run gateway with not query associated: %s" % self.platform
-            self.debug = 'debug' in query.params and query.params['debug']
+            assert self.query, "Cannot run gateway with not query associated: %s" % self.platform
 
-            # << bootstrap
-            # Cache admin config
-            admin_config = yield self.get_user_config(ADMIN_USER)
-            assert admin_config, "Could not retrieve admin config"
+            self.debug = 'debug' in self.query.params and self.query.params['debug']
 
-            # Overwrite user config (reference & managed acccounts)
-            new_user_config = yield self.get_user_config(user["email"])
-            if new_user_config:
-                user_config = new_user_config
+            yield self.bootstrap()
+            q = self.query
 
-            # Initialize manager proxies using MySlice Admin account
-            try:
-                self.init_registry(admin_config)
-                self.init_agregate_manager(admin_config)
-            except Exception, e:
-                print "EXC in boostrap", e
-                traceback.print_exc()
-                self.error(receiver, query, str(e))
+            if not self.user_config:
+                self.send(LAST_RECORD)
                 return
-            # >> bootstrap
- 
-            if not user_config:
-                self.send(LAST_RECORD, callback, identifier)
-                self.error(receiver, query, str(e))
-                return
-# <<
-#MANDO|            fields = query.fields # Metadata.expand_output_fields(query.object, list(query.fields))
-#MANDO|            result = yield getattr(self, "%s_%s" % (query.action, query.object))(query.filters, query.params, fields)
-            Log.tmp("calling %s_%s" % (query.get_action(), query.get_from()))
-            result = yield getattr(self, "%s_%s" % (query.get_action(), query.get_from()))(
-                user,
-                user_config,
-                query.get_where(),
-                query.get_params(),
-                query.get_select()
-            )
-# >> 
 
-            if query.get_from() in self.map_fields:
-                Rename(receiver, self.map_fields[query.get_from()])
+            fields = q.fields # Metadata.expand_output_fields(q.object, list(q.fields))
+            result = yield getattr(self, "%s_%s" % (q.action, q.object))(q.filters, q.params, fields)
+
+            if q.object in self.map_fields:
+                Rename(self, self.map_fields[q.object])
             
-            for row in result:
-                self.send(row, callback, identifier)
-            self.success(receiver, query)
+            # Return result
+            map(self.send, result)
+            self.send(LAST_RECORD)
 
         except Exception, e:
             traceback.print_exc()
-            self.error(receiver, query, str(e))
+            rv = ResultValue(
+                origin      = (ResultValue.GATEWAY, self.__class__.__name__, self.platform, str(self.query)),
+                type        = ResultValue.ERROR, 
+                code        = ResultValue.ERROR, 
+                description = str(e), 
+                traceback   = traceback.format_exc())
+            self.result_value.append(rv)
 
-        self.send(LAST_RECORD, callback, identifier)
+            # return None to inform that everything has been transmitted
+            self.send(LAST_RECORD)
+
 
     @staticmethod
     def generate_slice_credential(target, config):
@@ -1604,7 +1473,7 @@ class SFAGateway(Gateway):
         # NOTE We might want to manage a user account for direct use without
         # relying on delegated credentials. In this case we won't even have a
         # admin_config, and won't need delegation.
-        is_admin = SFAGateway.is_admin(user)
+        is_admin = self.is_admin(user)
 
         # SFA management dependencies:
         #     U <- provided
@@ -1641,14 +1510,10 @@ class SFAGateway(Gateway):
         need_gid = not 'gid' in config
         need_user_credential = need_authority_credentials or need_slice_list or need_slice_credentials or need_delegated_user_credential or need_gid
 
-#MANDO|        if SFAGateway.is_admin(self.user):
-#MANDO|            need_delegated_user_credential      = false
-#MANDO|            need_delegated_slice_credential     = false
-#MANDO|            need_delegated_authority_credential = false
-        if SFAGateway.is_admin(user):
-            need_delegated_user_credential      = False
-            need_delegated_slice_credential     = False
-            need_delegated_authority_credential = False
+        if self.is_admin(self.user):
+            need_delegated_user_credential=false
+            need_delegated_slice_credential=false
+            need_delegated_authority_credential=false
 
          # As need_gid is always True, need_sscert will be True
         #need_sscert = need_gid or need_user_credential
@@ -1686,8 +1551,7 @@ class SFAGateway(Gateway):
             config['sscert'] = self_signed.save_to_string()
 
         # create an SFA connexion to Registry, using user config
-        timeout = self.config['timeout']
-        registry_proxy = make_sfa_proxy(self.config['registry'], config, 'sscert', timeout)
+        registry_proxy = self.make_user_proxy(self.config['registry'], config, 'sscert')
         if need_user_credential and self.credentials_needed('user_credential', config):
             Log.debug("Requesting user credential for user %s" % user)
             try:

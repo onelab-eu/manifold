@@ -1,15 +1,42 @@
-from manifold.gateways.postgresql       import PostgreSQLGateway
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+# Gateway managing OML repositories.
+# http://mytestbed.net/projects/oml
+#
+# Jordan Auge       <jordan.auge@lip6.fr>
+# Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
+#
+# Copyright (C) 2013 UPMC 
+
+import traceback
 from manifold.core.table                import Table
+from manifold.gateways.postgresql       import PostgreSQLGateway
+from manifold.operators                 import LAST_RECORD
+from manifold.core.announce             import Announce
 from manifold.core.key                  import Key, Keys
 from manifold.core.field                import Field 
-from manifold.core.announce             import Announce
-import traceback
+from manifold.util.log                  import Log 
+from manifold.util.type                 import accepts, returns 
 
 class OMLGateway(PostgreSQLGateway):
 
-    # The OML gateway provides additional functions compared to Postgresql
+    # The OML gateway provides additional functions compared to PostgreSQL
+    def __init__(self, interface, platform, config = None):
+        """
+        Constructor
+        Args:
+            interface: The Manifold Interface on which this Gateway is running.
+            platform: A String storing name of the platform related to this Gateway or None.
+            config: A dictionnary containing the configuration related to this Gateway.
+                It may contains the following keys:
+                "name" : name of the platform's maintainer. 
+                "mail" : email address of the maintainer.
+        """
+        super(OMLGateway, self).__init__(interface, platform, config)
 
-    def get_slice(self):
+    @returns(list)
+    def get_slice(self, query):
         return [{
             'slice_hrn': 'ple.upmc.myslicedemo',
             'lease_id':  100
@@ -18,7 +45,14 @@ class OMLGateway(PostgreSQLGateway):
             'lease_id':  101
         }]
 
-    def get_application(self, filter=None, params = None, fields = None):
+# TODO move into oml/methods/application.py
+#    def get_application(self, filter=None, params = None, fields = None):
+    @returns(list)
+    def get_application(self, query):
+        fields = query.get_select()
+        filter = query.get_where()
+        params = query.get_params()
+
         #print "GET_MEASUREMENT", filter, params, fields
         #print "FORCED LEASE ID TO 100"
         lease_id = 100
@@ -26,7 +60,8 @@ class OMLGateway(PostgreSQLGateway):
         # List databases
         db = self.get_databases()
         if not lease_id_str in db:
-            self.callback(None)
+            #self.callback(None)
+            Log.error("Invalid lease ID")
 
         # Connect to slice database
         self.close()
@@ -57,7 +92,10 @@ class OMLGateway(PostgreSQLGateway):
         #print "APPLICATION ret=", ret
         return ret
 
-    def get_measurement_point(self, filter=None, params = None, fields = None):
+# TODO move into oml/methods/measurement_point.py
+    @returns(list)
+#    def get_measurement_point(self, filter=None, params = None, fields = None):
+    def get_measurement_point(self, query): 
         # Maybe this cannot be called directly ? maybe we rely on get_measurement
         #print "GET_MEASUREMENT_POINT", filter, params, fields
 
@@ -66,7 +104,10 @@ class OMLGateway(PostgreSQLGateway):
         # List measurement points from _experiment_metadata
         return [{'measurement_point': 'counter'}]
 
-    def get_measurement_table(measure, filter=None, params=None, fields=None):
+# TODO move into oml/methods/measurement_table.py
+    @returns(list)
+#    def get_measurement_table(measure, filter=None, params=None, fields=None):
+    def get_measurement_table(measure, query): 
         # We should be connected to the right database
         #print "OMLGateway::application"#, application
         #print "OMLGateway::measure", measure
@@ -81,18 +122,41 @@ class OMLGateway(PostgreSQLGateway):
         sql = 'SELECT * FROM "%s_%s";' % (application, measure)
         out = self.selectall(sql)
         
+    def forward(self, query, callback, is_deferred = False, execute = True, user = None, format = "dict", from_node = None):
+        """
+        Query handler.
+        Args:
+            query: A Query instance, reaching this Gateway.
+            callback: The function called to send this record. This callback is provided
+                most of time by a From Node.
+                Prototype : def callback(record)
+            is_deferred: A boolean.
+            execute: A boolean set to True if the treatement requested in query
+                must be run or simply ignored.
+            user: The User issuing the Query.
+            format: A String specifying in which format the Records must be returned.
+            from_node : The From Node running the Query or None. Its ResultValue will
+                be updated once the query has terminated.
+        Returns:
+            forward must NOT return value otherwise we cannot use @defer.inlineCallbacks
+            decorator. 
+        """
+        identifier = from_node.get_identifier() if from_node else None
 
-    def start(self):
+        results = list()
         try:
-            #print "QUERY", self.query.object, " -- FILTER=", self.query.filters
-            results = getattr(self, "get_%s" % self.query.object)()
+            #print "QUERY", query.object, " -- FILTER=", query.filters
+            results = getattr(self, "get_%s" % query.get_from())(query)
         except Exception, e:
             # Missing function = we are querying a measure. eg. get_counter
-            results = self.get_measurement_table(self.query.object)()
+            results = self.get_measurement_table(query.get_from())()
+
+        results.append(LAST_RECORD)
         for row in results:
-            self.callback(row)
-        self.callback(None)
+            self.send(row, query, identifier)
         
+        self.success(from_node, query)
+
         # Hook queries for OML specificities
 
         # slice_hrn - job_id will be hardcoded for now
@@ -113,13 +177,16 @@ class OMLGateway(PostgreSQLGateway):
         #super(OMLGateway, self).start()
         #print "DATABASES", self.get_databases()
 
-
-    # We will forge metadata manually
+    @returns(list)
     def get_metadata(self):
+        """
+        Build metadata by loading header files
+        Returns:
+            The list of corresponding Announce instances
+        """
+        announces = list() 
 
-
-        announces = []
-
+        # We will forge metadata manually
         # ANNOUNCE - HARDCODED 
         #
         # TABLE slice (

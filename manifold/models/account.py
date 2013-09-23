@@ -46,8 +46,8 @@ class Account(Base):
         db.add(self)
         db.commit()
         
-    def config_get(self):
-        return json.loads(self.config)
+#UNUSED|    def config_get(self):
+#UNUSED|        return json.loads(self.config)
 
     @staticmethod
     def process_filters(filters):

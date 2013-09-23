@@ -32,8 +32,8 @@ class Predicate:
         '<='       : le,
         '>'        : gt,
         '>='       : ge,
-        '&&'       : and_,
-        '||'       : or_,
+#        '&&'       : and_, # This operator should be in Clause
+#        '||'       : or_,  # This operator should be in Clause
         'CONTAINS' : contains,
         'INCLUDED' : included
     }
@@ -45,8 +45,8 @@ class Predicate:
         '[' : le,
         '>' : gt,
         ']' : ge,
-        '&' : and_,
-        '|' : or_,
+#        '&' : and_, # This operator should be in Clause
+#        '|' : or_,  # This operator should be in Clause
         '}' : contains,
         '{' : included
     }
@@ -99,11 +99,7 @@ class Predicate:
         Returns:
             The '%s' representation of this Predicate.
         """
-        key, op, value = self.get_str_tuple()
-        if isinstance(value, (tuple, list, set, frozenset)):
-            value = [repr(v) for v in value]
-            value = "[%s]" % ", ".join(value)
-        return "%s %s %r" % (key, op, value) 
+        return "Predicate(%r)" % self 
 
     @returns(StringTypes)
     def __repr__(self):
@@ -111,7 +107,11 @@ class Predicate:
         Returns:
             The '%r' representation of this Predicate.
         """
-        return "Predicate<%s %s %r>" % self.get_str_tuple()
+        key, op, value = self.get_str_tuple()
+        if isinstance(value, (tuple, list, set, frozenset)):
+            value = [repr(v) for v in value]
+            value = "[%s]" % ", ".join(value)
+        return "%s %s %r" % (key, op, value) 
 
     def __hash__(self):
         """

@@ -1,6 +1,19 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+# Class to manage Manifold's gateways
+#
+# Jordan Auge       <jordan.auge@lip6.fr>
+# Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
+#
+# Copyright (C) 2013 UPMC 
+
 # Inspired from http://twistedmatrix.com/documents/10.1.0/web/howto/xmlrpc.html
 
-from manifold.gateways import Gateway
+from manifold.gateways                  import Gateway
+from manifold.operators                 import LAST_RECORD
+from manifold.util.log                  import Log
+
 #from twisted.internet import reactor
 
 # DEBUG
@@ -9,17 +22,25 @@ import sys
 class ManifoldGateway(Gateway):
 
     def __str__(self):
-        return "<ManifoldGateway %s %s>" % (self.config['url'], self.query)
+        """
+        Returns:
+            The '%s' representation of this ManifoldGateway.
+        """
+        return "<ManifoldGateway %s %s>" % (self.config["url"], self.query)
 
-    def success_cb(self, table):
-        print "Manifold SUCCESS", len(table)
-        for record in table:
+    def success_cb(self, records):
+        """
+        Args:
+            records: The list containing the fetched Records.
+        """
+        Log.info("Manifold SUCCESS", len(records))
+        for record in records:
             self.callback(record)
-        self.callback(None)
+        self.callback(LAST_RECORD)
 
     def exception_cb(self, error):
-        print 'Error during Manifold call: ', error
-        self.callback(None)
+        Log.warning("Error during Manifold call: %s" % error)
+        self.callback(LAST_RECORD)
 
     def start(self):
         from twisted.web.xmlrpc import Proxy
@@ -31,7 +52,7 @@ class ManifoldGateway(Gateway):
 
                 # DEBUG
                 if self.config['url'] == "https://api2.top-hat.info/API/":
-                    print "W: Hardcoding XML RPC call"
+                    Log.warning("Hardcoding XML RPC call")
 
                     # Where conversion
                     filters = {}
@@ -45,27 +66,19 @@ class ManifoldGateway(Gateway):
                             filters[field] = value[0]
                     query.filters = filters
 
-                print "I: Issuing xmlrpc call to %s: %s" % (self.config['url'], query)
-
-                print "=" * 100
-                print "auth    =", auth
-                print "method  =", query.object
-                print "filters =", query.filters
-                print "fields  =", query.fields
-                print "ts      =", query.ts
-                print "=" * 100
+                Log.info("Issuing xmlrpc call to %s: %s" % (self.config['url'], query))
 
                 proxy.callRemote(
                     'Get',
                     auth,
-                    query.object,
-                    query.ts,
-                    query.filters,
-                    list(query.fields)
+                    query.get_from(),
+                    query.get_timestamp(),
+                    query.get_where(),
+                    list(query.get_select())
                 ).addCallbacks(source.success_cb, source.exception_cb)
 
             #reactor.callFromThread(wrap, self) # run wrap(self) in the event loop
             wrap(self)
             
         except Exception, e:
-            print "Exception in Manifold::start", e
+            Log.warning("Exception in ManifoldGateway::start()", e)

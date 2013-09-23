@@ -175,6 +175,7 @@ class ConfGateway(Gateway):
     # account : %(account)t/%(user)f/%(platform)f/%f
     # key must be encoded in the filesystem
     
+    # TODO thos shoud respect the forward prototype defined in Gateway class.
     # XXX to be moved to the gateway class, instead of start()
     # XXX should accept deferred or not...
     def forward(self, query):

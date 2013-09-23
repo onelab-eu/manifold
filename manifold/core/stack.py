@@ -58,7 +58,7 @@ class Stack(object):
             priority: The corresponding priority, which is a
                 value among {TASK_11, TASK_1Nsq, TASK_1N}.
         """
-        Log.debug("Pushing ExploreTask with priority %d : %r" % (priority, task))
+        Log.debug("Push (priority %d): %r" % (priority, task))
         self.tasks[priority].append(task)
 
     def pop(self):
@@ -72,7 +72,7 @@ class Stack(object):
             tasks = self.tasks[priority]
             if tasks:
                 task = tasks.pop(0)
-                Log.debug("Poping ExploreTask with priority %d : %r" % (priority, task))
+                Log.debug("Pop  (priority %d): %r" % (priority, task))
                 return task
         return None
 

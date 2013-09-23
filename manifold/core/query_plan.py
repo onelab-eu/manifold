@@ -47,21 +47,32 @@ class QueryPlan(object):
 
     def add_from(self, from_node):
         """
-        Add a From node to the query plan. FromTable Node are not stored
-        in self.froms.
+        Register a From Node in this QueryPlan.
+        FromTable Nodes are not registered and are ignored.
+        Args:
+            from_node: A From instance. 
         """
         if isinstance(from_node, From):
             self.froms.append(from_node)
 
+    @returns(list)
     def get_result_value_array(self):
-        # Iterate over gateways to get their result values
-        # XXX We might need tasks
-        result = []
+        """
+        Returns:
+            A list of ResultValue instance corresponding to each From Node
+            involved in this QueryPlan.
+        """
+        # Iterate over gateways to get their ResultValue 
+        result_values = list() 
         for from_node in self.froms:
-            # If no Gateway 
-            if not from_node.gateway: continue
-            result.extend(from_node.gateway.get_result_value())
-        return result
+            assert from_node.gateway, "Invalid FROM node: %s" % from_node
+            result_value = from_node.get_result_value()
+            if not result_value:
+                Log.debug("%s didn't returned a ResultValue, may be it is related to a pruned child" % from_node)
+                continue
+            if result_value["code"] != ResultValue.SUCCESS:
+                result_values.append(result_value)
+        return result_values
 
     def inject_at(self, query):
         """
@@ -70,7 +81,11 @@ class QueryPlan(object):
         Args:
             query: The Query issued by the user.
         """
-        Log.warning("HARDCODED: AT injection in FROM Nodes: %r" % self.froms)
+        # OPTIMIZATION: We should not built From Node involving a Table
+        # unable to serve the Query due to its timestamp
+        # (see query.get_timestamp())
+        # Or their corresponding Gateway should return an empty result
+        # by only sending LAST_RECORD.
         for from_node in self.froms:
             from_node.query.timestamp = query.get_timestamp()
 
@@ -101,6 +116,9 @@ class QueryPlan(object):
         Build the QueryPlan involving several Gateways according to a 3nf
         graph and a user Query. If only one Gateway is involved, you should
         use QueryPlan::build_simple.
+        Raises:
+            ValueError if the query is not coherent (invalid table name...).
+            Exception if the QueryPlan cannot be built.
         Args:
             query: The Query issued by the user.
             metadata: The 3nf graph (DBGraph instance).
@@ -121,9 +139,14 @@ class QueryPlan(object):
         """
         root = metadata.find_node(query.get_from())
         if not root:
-            Log.error("query_plan::build(): Cannot find %s in metadata, known tables are %s" % (query.get_from(), metadata.get_table_names()))
+            raise ValueError("Cannot find %s in metadata, known tables are {%s}" % (
+                query.get_from(),
+                ', '.join(metadata.get_table_names()))
+            )
         
         root_task = ExploreTask(root, relation=None, path=[], parent=self, depth=1)
+        if not root_task:
+            raise Exception("Unable to build a suitable QueryPlan")
         root_task.addCallback(self.set_ast, query)
 
         stack = Stack(root_task)
@@ -134,7 +157,11 @@ class QueryPlan(object):
         missing_fields |= query.get_where().get_field_names()
 
         while missing_fields:
+            # Explore the next prior ExploreTask
             task = stack.pop()
+
+            # The Stack is empty, so we have explored the DBGraph
+            # without finding the every queried fields.
             if not task:
                 Log.warning("Exploration terminated without finding fields: %r" % missing_fields)
                 break
@@ -144,6 +171,8 @@ class QueryPlan(object):
                 seen[pathstr] = set()
             task.explore(stack, missing_fields, metadata, allowed_platforms, allowed_capabilities, user, seen[pathstr], query_plan = self)
 
+        # Cancel every remaining ExploreTasks, we cannot found anymore
+        # queried fields.
         while not stack.is_empty():
             task = stack.pop()
             task.cancel()
@@ -214,41 +243,50 @@ class QueryPlan(object):
 
         self.inject_at(query)
 
-    #@returns(ResultValue)
-    def execute(self, deferred = None):
+    #@returns(Deferred)
+    def execute(self, deferred, receiver):
         """
         Execute the QueryPlan in order to query the appropriate
         sources of data, collect, combine and returns the records
         requested by the user.
         Args:
-            deferred: may be set to None.
+            deferred: A twisted.internet.defer.Deferred instance (async query)
+                or None (sync query)
+            receiver: An instance supporting the method set_result_value or None.
+                receiver.set_result_value() will be called once the Query has terminated.
         Returns:
-            The corresponding ResultValue instance.    
+            The updated Deferred instance (if any) 
         """
-        # create a Callback object with deferred object as arg
-        # manifold/util/callback.py 
-        cb = Callback(deferred)
+        # Check whether the AST (Abstract Syntax Tree), which describes the QueryPlan.
+        assert self.ast, "Uninitialized AST"
+        assert not deferred or isinstance(deferred, Deferred), "Invalid deferred = %s (%s)" % (deferred, type(deferred))
 
-        # Start AST = Abstract Syntax Tree 
-        # An AST represents a query plan
-        # manifold/core/ast.py
-        self.ast.set_callback(cb)
+        # Run the QueryPlan
+        callback = Callback(deferred)
+        self.ast.set_callback(callback)
         self.ast.start()
 
-        # Not Async, wait for results
-        if not deferred:
-            results = cb.get_results()
-            results = ResultValue.get_result_value(results, self.get_result_value_array())
-            return results
+        # Retrieve the exit value of each From Nodes involved in the QueryPlan
+        result_value_array = self.get_result_value_array()
 
-        # Async, results sent to a deferred object 
-        # Formating results triggered when deferred get results
-        deferred.addCallback(lambda results:ResultValue.get_result_value(results, self.get_result_value_array()))
+        if not deferred:
+            # This Query is not Async, wait for results
+            result_value = ResultValue.get_result_value(callback.get_results(), result_value_array)
+            if receiver: receiver.set_result_value(result_value)
+        else:
+            # This Query is Async, results are sent to a Deferred instance. 
+            # Formating results triggered when deferred get results
+            deferred.addCallback(lambda results:ResultValue.get_result_value(results, result_value_array))
         return deferred
 
     def dump(self):
         """
-        Dump this AST to the standard output.
+        Dump this QueryPlan to the standard output.
         """
+        print ""
+        print "QUERY PLAN:"
+        print "-----------"
         self.ast.dump()
+        print ""
+        print ""
 

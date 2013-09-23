@@ -23,9 +23,11 @@ class Base(object):
     def process_filters(cls, filters):
         return filters
 
+    @classmethod
     def process_params(cls, params, filters, user):
         return params
 
+    # This should be implemented in manifold.models.user
     @classmethod
     def params_ensure_user(cls, params, user):
         # A user can only create its own objects

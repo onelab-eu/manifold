@@ -2,13 +2,19 @@
 # -*- coding: utf-8 -*-
 #
 # Functions for interacting with a PostgreSQL server 
+# http://www.postgresql.org/
 #
 # Jordan Auge       <jordan.auge@lip6.fr>
 # Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 #
 # Copyright (C) 2013 UPMC 
 
-# Some code borrowed from MyPLC PostgreSQL code
+import re, datetime#, pgdb
+from itertools                          import izip
+from uuid                               import uuid4
+from types                              import StringTypes, GeneratorType, NoneType, IntType, LongType, FloatType, ListType, TupleType
+from pprint                             import pformat
+
 import psycopg2
 import psycopg2.extensions
 import psycopg2.extras
@@ -16,19 +22,14 @@ psycopg2.extensions.register_type(psycopg2.extensions.UNICODE)
 # UNICODEARRAY not exported yet
 psycopg2.extensions.register_type(psycopg2._psycopg.UNICODEARRAY)
 
-import re, datetime, pgdb
-from itertools                import izip
-from uuid                     import uuid4
-from types                    import StringTypes, GeneratorType, NoneType, IntType, LongType, FloatType, ListType, TupleType
-from pprint                   import pformat
-from manifold.gateways        import Gateway
-from manifold.core.announce   import Announce, Announces
-from manifold.core.table      import Table
-from manifold.core.field      import Field
-from manifold.operators       import LAST_RECORD
-from manifold.util.log        import Log
-from manifold.util.predicate  import and_, or_, inv, add, mul, sub, mod, truediv, lt, le, ne, gt, ge, eq, neg, contains
-from manifold.util.type       import accepts, returns
+from manifold.gateways                  import Gateway
+from manifold.core.announce             import Announce, Announces
+from manifold.core.table                import Table
+from manifold.core.field                import Field
+from manifold.operators                 import LAST_RECORD
+from manifold.util.log                  import Log
+from manifold.util.predicate            import and_, or_, inv, add, mul, sub, mod, truediv, lt, le, ne, gt, ge, eq, neg, contains
+from manifold.util.type                 import accepts, returns
 
 class PostgreSQLGateway(Gateway):
     DEFAULT_DB_NAME = "postgres" 
@@ -134,7 +135,7 @@ class PostgreSQLGateway(Gateway):
     # Constructor
     #---------------------------------------------------------------------------
 
-    def __init__(self, router, platform, query, config, user_config, user, re_ignored_tables = NONE_TABLE, re_allowed_tables = ANY_TABLE):
+    def __init__(self, router, platform, config, re_ignored_tables = NONE_TABLE, re_allowed_tables = ANY_TABLE):
         """
         Construct a PostgreSQLGateway instance
         Args:
@@ -147,7 +148,7 @@ class PostgreSQLGateway(Gateway):
                 table filtered by re_ignored_tables regular expressions. You may
                 also pass
         """
-        super(PostgreSQLGateway, self).__init__(router, platform, query, config, user_config, user)
+        super(PostgreSQLGateway, self).__init__(router, platform, config)
         self.connection = None
         self.cursor = None
 
@@ -252,7 +253,7 @@ class PostgreSQLGateway(Gateway):
         Returns:
             A generator allowing to iterate on each view names (String instance)
         """
-        return self._get_generator(PostgreSQLGateway.SQL_DB_VIEW_NAMES % self.config)
+        return self._get_generator(PostgreSQLGateway.SQL_DB_VIEW_NAMES % self.get_config())
 
     @returns(GeneratorType)
     def get_table_names(self):
@@ -261,7 +262,7 @@ class PostgreSQLGateway(Gateway):
         Returns:
             A generator allowing to iterate on each table names (String instance)
         """
-        return self._get_generator(PostgreSQLGateway.SQL_DB_TABLE_NAMES % self.config)
+        return self._get_generator(PostgreSQLGateway.SQL_DB_TABLE_NAMES % self.get_config())
 
     # TODO this could be moved into Gateway to implement "Access List"
     @returns(bool)
@@ -299,16 +300,17 @@ class PostgreSQLGateway(Gateway):
     def make_psycopg2_config(self):
         """
         Prepare the dictionnary needed to prepare a PostgreSQL connection by
-        using psycopg2 based on the self.config dictionnary
+        using psycopg2 based on the self.get_config() result. 
         Returns:
             The corresponding psycopg2-compliant dictionnary
         """
+        config = self.get_config()
         return {
-            "user"     : self.config["db_user"],
-            "password" : self.config["db_password"],
-            "database" : self.config["db_name"] if "db_name" in self.config else self.DEFAULT_DB_NAME,
-            "host"     : self.config["db_host"],
-            "port"     : self.config["db_port"] if "db_port" in self.config else self.DEFAULT_PORT 
+            "user"     : config["db_user"],
+            "password" : config["db_password"],
+            "database" : config["db_name"] if "db_name" in config else self.DEFAULT_DB_NAME,
+            "host"     : config["db_host"],
+            "port"     : config["db_port"] if "db_port" in config else self.DEFAULT_PORT 
         }
 
     @returns(bool)
@@ -422,26 +424,34 @@ class PostgreSQLGateway(Gateway):
     # Overloaded methods 
     #---------------------------------------------------------------------------
 
-    def forward(self, query, deferred = False, execute = True, user = None):
+    def forward(self, query, callback, is_deferred = False, execute = True, user = None, format = "dict", receiver = None):
         """
-        Args
-            query: A Query instance that must be processed by this PostgreSQLGateway
-            deferred: A boolean
-            execute: A boolean which must be set to True if the query must be run.
-            user: A User instance or None
+        Query handler.
+        Args:
+            query: A Query instance, reaching this Gateway.
+            callback: The function called to send this record. This callback is provided
+                most of time by a From Node.
+                Prototype : def callback(record)
+            is_deferred: A boolean set to True if this Query is async.
+            execute: A boolean set to True if the treatement requested in query
+                must be run or simply ignored.
+            user: The User issuing the Query.
+            format: A String specifying in which format the Records must be returned.
+            receiver : The From Node running the Query or None. Its ResultValue will
+                be updated once the query has terminated.
+        Returns:
+            forward must NOT return value otherwise we cannot use @defer.inlineCallbacks
+            decorator. 
         """
-        self.query = query
-        self.start()
-
-    def start(self):
-        """
-        Fetch records stored in the postgresql database according to self.query
-        """
-        sql = PostgreSQLGateway.to_sql(self.query)
+        Gateway.forward(self, query, callback, is_deferred, execute, user, format, receiver)
+        identifier = receiver.get_identifier() if receiver else None
+        sql = PostgreSQLGateway.to_sql(query)
         rows = self.selectall(sql, None)
         rows.append(LAST_RECORD)
-        map(self.send, rows)
-        return 
+        for row in rows:
+            self.send(row, callback, identifier)
+
+        self.success(receiver, query)
        
     @staticmethod
     def get_colliding_announces(announces1, announces2):
@@ -529,16 +539,22 @@ class PostgreSQLGateway(Gateway):
         # Return the resulting announces
         return self.merge_announces(announces_pgsql, announces_h) if announces_h else announces_pgsql
 
+    @returns(list)
     def get_metadata(self):
+        """
+        Build metadata by loading header files
+        Returns:
+            The list of corresponding Announce instances
+        """
         if not self.metadata:
             self.metadata = self.make_metadata()
         return self.metadata
 
-    def do(self, query, params = None):
-        cursor = self.execute(query, params)
-        cursor.close()
-        return self.rowcount
-
+#OBSOLETE|    def do(self, query, params = None):
+#OBSOLETE|        cursor = self.execute(query, params)
+#OBSOLETE|        cursor.close()
+#OBSOLETE|        return self.rowcount
+#OBSOLETE|
 #OBSOLETE|    def next_id(self, table_name, primary_key):
 #OBSOLETE|        sequence = "%(table_name)s_%(primary_key)s_seq" % locals()  
 #OBSOLETE|        sql = "SELECT nextval('%(sequence)s')" % locals()
@@ -905,12 +921,16 @@ class PostgreSQLGateway(Gateway):
         Returns:
             A String containing a postgresql command 
         """
-        where = PostgreSQLGateway.to_sql_where(query.get_where())
+        if not query.get_from(): Log.error("PostgreSQLGateway::to_sql(): Invalid query: %s" % query) 
+
+        select = query.get_select()
+        where  = PostgreSQLGateway.to_sql_where(query.get_where())
         params = {
-            "fields"     : ", ".join(query.get_select()),
+            "fields"     : ", ".join(select) if select else "*",
             "table_name" : query.get_from(),
             "where"      : "WHERE %s" % where if where else ""
         }
+
         sql = PostgreSQLGateway.SQL_STR % params
         return sql
 

@@ -9,27 +9,23 @@
 #   Marc-Olivier Buob   <marc-olivier.buob@lip6.fr>
 #   Thierry Parmentelat <thierry.parmentelat@inria.fr>
 
-from types                      import StringTypes
-from manifold.core.filter       import Filter, Predicate
-from manifold.util.frozendict   import frozendict
-from manifold.util.type         import returns, accepts
-from manifold.util.clause       import Clause
-import copy
+import copy, json, uuid, traceback
 
-import json
-import uuid
+from types                          import StringTypes
+from manifold.core.filter           import Filter, Predicate
+from manifold.util.clause           import Clause
+from manifold.util.frozendict       import frozendict
+from manifold.util.log              import Log
+from manifold.util.type             import returns, accepts
 
 def uniqid (): 
     return uuid.uuid4().hex
-
-debug=False
-debug=True
 
 class ParameterError(StandardError): pass
 
 class Query(object):
     """
-    Implements a TopHat query.
+    Implements a Manifold Query.
 
     We assume this is a correct DAG specification.
 
@@ -179,14 +175,22 @@ class Query(object):
 
     @returns(StringTypes)
     def __str__(self):
-        return self.to_sql(multiline=True)
+        """
+        Returns:
+            The '%s' representation of this Query.
+        """
+        return self.to_sql(multiline = True)
 
     @returns(StringTypes)
     def __repr__(self):
+        """
+        Returns:
+            The '%r' representation of this Query.
+        """
         return self.to_sql()
 
     def __key(self):
-        return (self.action, self.object, self.filters, frozendict(self.params), frozenset(self.fields))
+        return (self.get_action(), self.get_from(), self.get_where(), frozendict(self.get_params()), frozenset(self.get_select()))
 
     def __hash__(self):
         return hash(self.__key())
@@ -197,12 +201,12 @@ class Query(object):
 
     def to_dict(self):
         return {
-            'action': self.action,
-            'object': self.object,
-            'timestamp': self.timestamp,
-            'filters': self.filters.to_list(),
-            'params': self.params,
-            'fields': list(self.fields)
+            "action"    : self.get_action(),
+            "object"    : self.get_from(),
+            "timestamp" : self.get_timestamp(),
+            "filters"   : self.get_where().to_list(),
+            "params"    : self.get_params(),
+            "fields"    : list(self.get_select())
         }
 
     def to_json (self, analyzed_query=None):
@@ -237,10 +241,8 @@ class Query(object):
             for (k,v) in dict.iteritems(): 
                 setattr(self,k,v)
         except:
-            print "Could not decode incoming ajax request as a Query, POST=",POST_dict
-            if (debug):
-                import traceback
-                traceback.print_exc()
+            Log.warning("Could not decode incoming ajax request as a Query, POST= %s" % POST_dict)
+            Log.debug(traceback.print_exc())
         self.sanitize()
 
     #--------------------------------------------------------------------------- 
@@ -253,7 +255,7 @@ class Query(object):
 
     @returns(frozenset)
     def get_select(self):
-        return frozenset(self.fields)
+        return frozenset(self.fields) if self.fields else frozenset()
 
     @returns(StringTypes)
     def get_from(self):
@@ -448,138 +450,3 @@ class Query(object):
     def __le__(self, query):
         return ( self == self & query ) or ( query == self | query )
 
-class AnalyzedQuery(Query):
-
-    # XXX we might need to propagate special parameters sur as DEBUG, etc.
-
-    def __init__(self, query=None, metadata=None):
-        self.clear()
-        self.metadata = metadata
-        if query:
-            self.query_uuid = query.query_uuid
-            self.analyze(query)
-        else:
-            self.query_uuid = uniqid()
-
-    @returns(StringTypes)
-    def __str__(self):
-        out = []
-        fields = self.get_select()
-        fields = ", ".join(fields) if fields else '*'
-        out.append("SELECT %s FROM %s WHERE %s" % (
-            fields,
-            self.get_from(),
-            self.get_where()
-        ))
-        cpt = 1
-        for method, subquery in self.subqueries():
-            out.append('  [SQ #%d : %s] %s' % (cpt, method, str(subquery)))
-            cpt += 1
-
-        return "\n".join(out)
-
-    def clear(self):
-        super(AnalyzedQuery, self).clear()
-        self._subqueries = {}
-
-    def subquery(self, method):
-        # Allows for the construction of a subquery
-        if not method in self._subqueries:
-            analyzed_query = AnalyzedQuery(metadata=self.metadata)
-            analyzed_query.action = self.action
-            try:
-                type = self.metadata.get_field_type(self.object, method)
-            except ValueError ,e: # backwards 1..N
-                type = method
-            analyzed_query.object = type
-            self._subqueries[method] = analyzed_query
-        return self._subqueries[method]
-
-    def get_subquery(self, method):
-        return self._subqueries.get(method, None)
-
-    def remove_subquery(self, method):
-        del self._subqueries[method]
-
-    def get_subquery_names(self):
-        return set(self._subqueries.keys())
-
-    def get_subqueries(self):
-        return self._subqueries
-
-    def subqueries(self):
-        for method, subquery in self._subqueries.iteritems():
-            yield (method, subquery)
-
-    def filter_by(self, filters):
-        if not isinstance(filters, (set, list, tuple, Filter)):
-            filters = [filters]
-        for predicate in filters:
-            if predicate and '.' in predicate.key:
-                method, subkey = predicate.key.split('.', 1)
-                # Method contains the name of the subquery, we need the type
-                # XXX type = self.metadata.get_field_type(self.object, method)
-                sub_pred = Predicate(subkey, predicate.op, predicate.value)
-                self.subquery(method).filter_by(sub_pred)
-            else:
-                super(AnalyzedQuery, self).filter_by(predicate)
-        return self
-
-    def select(self, *fields):
-
-        # XXX passing None should reset fields in all subqueries
-
-        # Accept passing iterables
-        if len(fields) == 1:
-            tmp, = fields
-            if isinstance(tmp, (list, tuple, set, frozenset)):
-                fields = tuple(tmp)
-
-        for field in fields:
-            if field and '.' in field:
-                method, subfield = field.split('.', 1)
-                # Method contains the name of the subquery, we need the type
-                # XXX type = self.metadata.get_field_type(self.object, method)
-                self.subquery(method).select(subfield)
-            else:
-                super(AnalyzedQuery, self).select(field)
-        return self
-
-    def set(self, params):
-        for param, value in self.params.items():
-            if '.' in param:
-                method, subparam = param.split('.', 1)
-                # Method contains the name of the subquery, we need the type
-                # XXX type = self.metadata.get_field_type(self.object, method)
-                self.subquery(method).set({subparam: value})
-            else:
-                super(AnalyzedQuery, self).set({param: value})
-        return self
-        
-    def analyze(self, query):
-        self.clear()
-        self.action = query.action
-        self.object = query.object
-        self.filter_by(query.filters)
-        self.set(query.params)
-        self.select(query.fields)
-
-    def to_json (self):
-        query_uuid=self.query_uuid
-        a=self.action
-        o=self.object
-        t=self.timestamp
-        f=json.dumps (self.filters.to_list())
-        p=json.dumps (self.params)
-        c=json.dumps (list(self.fields))
-        # xxx unique can be removed, but for now we pad the js structure
-        unique=0
-
-        aq = 'null'
-        sq=", ".join ( [ "'%s':%s" % (object, subquery.to_json())
-                  for (object, subquery) in self._subqueries.iteritems()])
-        sq="{%s}"%sq
-        
-        result= """ new ManifoldQuery('%(a)s', '%(o)s', '%(t)s', %(f)s, %(p)s, %(c)s, %(unique)s, '%(query_uuid)s', %(aq)s, %(sq)s)"""%locals()
-        if debug: print 'ManifoldQuery.to_json:',result
-        return result
