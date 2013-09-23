@@ -7,6 +7,13 @@ import threading
 
 class Callback:
     def __init__(self, deferred=None, router=None, cache_id=None):
+        """
+        Args:
+            deferred: A Deferred instance.
+                https://twistedmatrix.com/documents/8.2.0/api/twisted.internet.defer.Deferred.html
+            router: A Router instance.
+            cache_id:
+        """
     #def __init__(self, deferred=None, event=None, router=None, cache_id=None):
         self.results = []
         self._deferred = deferred

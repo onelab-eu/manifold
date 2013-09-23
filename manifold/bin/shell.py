@@ -1,21 +1,29 @@
 #!/usr/bin/env python
-# -*- coding:utf-8 -*-
+# -*- coding: utf-8 -*-
+#
+# A Shell allows to read Query from the standard input and
+# forwards it to a Manifold Interface.
+#
+# Copyright (C) UPMC Paris Universitas
+# Authors:
+#   Jordan Augé       <jordan.auge@lip6.fr>
+#   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
-import os, sys, pprint
-from socket                import gethostname
-from optparse              import OptionParser
-from getpass               import getpass
-from traceback             import print_exc
+import os, sys, pprint, json
+from socket                         import gethostname
+from optparse                       import OptionParser
+from getpass                        import getpass
+from traceback                      import format_exc
 
-# XXX Those import may fail for xmlrpc calls
-from manifold.core.query   import Query
-from manifold.core.router  import Router
-from manifold.util.log     import Log
-from manifold.util.options import Options
-from manifold.input.sql    import SQLParser
-from manifold.auth         import Auth
-
-import json
+# XXX Those imports may fail for xmlrpc calls
+from manifold.auth                  import Auth
+from manifold.core.query            import Query
+from manifold.core.router           import Router
+from manifold.core.result_value     import ResultValue
+from manifold.input.sql             import SQLParser
+from manifold.util.log              import Log
+from manifold.util.options          import Options
+from manifold.util.type             import accepts, returns
 
 # This could be moved outside of the Shell
 DEFAULT_USER     = 'demo'
@@ -25,12 +33,25 @@ class Shell(object):
 
     PROMPT = 'manifold'
 
-    def print_err(self, err):
-        print '-'*80
-        print 'Exception', err['code'], 'raised by', err['origin'], ':', err['description']
-        for line in err['traceback'].split("\n"):
-            print "\t", line
-        print ''
+    @classmethod
+    def print_error(self, result_value):
+        """
+        Print a ResultValue to the standard output.
+        Args:
+            result_value: A ResultValue instance.
+        """
+        print "-" * 80
+        print "Exception %(code)s raised by %(origin)s %(description)s" % {
+            "code"        : result_value["code"],
+            "origin"      : result_value["origin"],
+            "description" : ": %s" % result_value["description"] if result_value["description"] else ""
+        }
+        if result_value["traceback"]:
+            for line in result_value["traceback"].split("\n"):
+                Log.debug("\t", line)
+        else:
+            Log.debug("(Traceback not set)")
+        print ""
 
     @classmethod
     def init_options(self):
@@ -79,7 +100,13 @@ class Shell(object):
         #parser.add_option("-m", "--method", help = "API authentication method")
         #parser.add_option("-s", "--session", help = "API session key")
 
-    def __init__(self, interactive=False):
+    def __init__(self, interactive = False):
+        """
+        Constructor.
+        Args:
+            interactive: A boolean.
+        """
+        self.result_value = None # Result of the last Query
         self.interactive = interactive
 
         if not Options().anonymous:
@@ -133,47 +160,101 @@ class Shell(object):
                         Log.info('Authentication successful')
                     except:
                         Log.error('Authentication error')
-                else:
-                    self.auth = Auth(self.auth).check()
 
     def terminate(self):
+        """
+        Stops gracefully the Manifold interface managed by this Shell.
+        """
         if not Options().xmlrpc: self.interface.__exit__()
 
-    def forward(self, query):
-        # XXX this line will differ between xmlrpc and local calls
-        if Options().xmlrpc:
-            # XXX The XMLRPC server might not require authentication
-            if not Options().anonymous:
-                return self.interface.forward(self.auth, query.to_dict())
-            else:
-                return self.interface.forward(query.to_dict())
-        else:
-            return self.interface.forward(query, user=self.auth)
+    def set_result_value(self, result_value):
+        """
+        Function called back by self.interface.forward() once the Query
+        has been executed.
+        Args:
+            result_value: A ResultValue built once the Query has terminated.
+        """
+        self.result_value = result_value
 
-    def display(self, ret):
-        if ret['code'] != 0:
-            if isinstance(ret['description'], list):
+    @returns(ResultValue)
+    def get_result_value(self):
+        """
+        Returns:
+            The ResultValue corresponding to the last issued Query.
+        """
+        return self.result_value
+
+    @returns(ResultValue)
+    def forward(self, query):
+        """
+        Forward a Query to the interface configured for this Shell.
+        Args:
+            query: A Query instance representing the command typed
+                by the User.
+        """
+        # XMLRPC-API
+        if Options().xmlrpc:
+            if Options().anonymous:
+                self.interface.forward(query.to_dict())
+            else:
+                self.interface.forward(self.auth, query.to_dict())
+            Log.warning("self.result_value must be initialized")
+        # Local API
+        else:
+            if Options().anonymous:
+                self.interface.forward(query, user = None, receiver = self)
+            else:
+                self.interface.forward(query, user = Auth(self.auth).check(), receiver = self)
+        return self.result_value
+
+    def display(self, result_value):
+        """
+        Print the ResultValue of a Query in the standard output.
+        If this ResultValue carries error(s), those error(s) are recursively
+        unested and printed to the standard output.
+        Args:
+            result_value: The ResultValue instance corresponding to this Query.
+        """
+        assert isinstance(result_value, ResultValue), "Invalid ResultValue: %s (%s)" % (result_value, type(result_value))
+
+        if result_value["code"] != ResultValue.SUCCESS:
+            if isinstance(result_value["description"], list):
                 # We have a list of errors
-                for err in ret['description']:
-                    self.print_err(err)
+                for nested_result_value in result_value["description"]:
+                    Shell.print_error(nested_result_value)
+                    return
     
-        ret = ret['value']
+        results = result_value["value"]
     
         if self.interactive:
+            # Command-line
             print "===== RESULTS ====="
-            pprint.pprint(ret)
-        else:
-            print json.dumps(ret)
+            pprint.pprint(results)
+        elif Options().execute:
+            # Used by script to it may be piped.
+            print json.dumps(results)
 
     def evaluate(self, command):
+        """
+        Parse a command type to the user,  and run the corresponding Query.
+        Args:
+            command: A String instance containing the command typed by the user.
+        """
         #username, password = Options().username, Options().password
-        query = Query(SQLParser().parse(command))
-        ret = self.forward(query)
-        self.display(ret)
+        d = SQLParser().parse(command)
+        if d:
+            query = Query(d)
+            if "*" in query.get_select(): query.fields = None
+            self.display(self.forward(query))
 
     def execute(self, query):
-        ret = self.forward(query)
-        self.display(ret)
+        """
+        Execute a Query.
+        Args:
+            query: The Query typed by the user.
+        """
+        result_value = self.forward(query)
+        self.display(self.get_result_value())
         
         
 #    # If called by a script 
@@ -270,7 +351,7 @@ class Shell(object):
                     command = ""
                     print
                 except Exception, err:
-                    print_exc()
+                    Log.debug(format_exc())
 
         except EOFError:
             self.terminate()
@@ -280,11 +361,11 @@ def main():
 #    Options().parse()
     command = Options().execute
     if command:
-        s = Shell(interactive=False)
+        s = Shell(interactive = False)
         s.evaluate(command)
         s.terminate()
     else:
-        Shell(interactive=True).start()
+        Shell(interactive = True).start()
 
 Shell.init_options()
     

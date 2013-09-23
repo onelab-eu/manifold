@@ -48,10 +48,10 @@ class LeftJoin(Node):
             self.left_done = True
             for r in left_child:
                 if isinstance(r, dict):
-                    self.left_map[Record.get_value(r, self.predicate.key)] = r
+                    self.left_map[Record.get_value(r, self.predicate.get_key())] = r
                 else:
                     # r is generally a tuple
-                    self.left_map[r] = Record.from_key_value(self.predicate.key, r)
+                    self.left_map[r] = Record.from_key_value(self.predicate.get_key(), r)
         else:
             old_cb = left_child.get_callback()
             self.left_done = False
@@ -183,13 +183,12 @@ class LeftJoin(Node):
         # Directly send records missing information necessary to join
         # XXXX !!! XXX XXX XXX
         if not Record.has_fields(record, self.predicate.get_field_names()):
-            Log.tmp("toto %s" % self.predicate.get_field_names())
-            Log.warning("toto Missing LEFTJOIN predicate %s in left record %r : forwarding" % \
+            Log.warning("Missing LEFTJOIN predicate %s in left record %r : forwarding" % \
                     (self.predicate, record))
             self.send(record)
 
         # Store the result in a hash for joining later
-        hash_key = Record.get_value(record, self.predicate.key)
+        hash_key = Record.get_value(record, self.predicate.get_key())
         if not hash_key in self.left_map:
             self.left_map[hash_key] = []
         self.left_map[hash_key].append(record)
@@ -210,7 +209,7 @@ class LeftJoin(Node):
             return
 
         # Skip records missing information necessary to join
-#DEPRECATED|        if self.predicate.value not in record or not record[self.predicate.value]:
+#DEPRECATED|        if self.predicate.get_value() not in record or not record[self.predicate.get_value()]:
         #Log.tmp("%s <= %s" %(set(self.predicate.get_value()) , set(record.keys()))) 
         if not set(self.predicate.get_value()) <= set(record.keys()) \
         or Record.is_empty_record(record, self.predicate.get_value()):
@@ -221,7 +220,7 @@ class LeftJoin(Node):
         # We expect to receive information about keys we asked, and only these,
         # so we are confident the key exists in the map
         # XXX Dangers of duplicates ?
-        key = Record.get_value(record, self.predicate.value)
+        key = Record.get_value(record, self.predicate.get_value())
         for left_record in self.left_map[key]:
             left_record.update(record)
             self.send(left_record)

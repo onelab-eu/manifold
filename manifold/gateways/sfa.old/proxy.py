@@ -4,8 +4,6 @@
 # Fix bugs in httpclient and twisted/web/xmlrpc.py
 #from twisted.protocols.tls import TLSMemoryBIOProtocol
 import twisted.protocols.tls
-from manifold.util.type                 import accepts, returns 
-
 class _TLSMemoryBIOProtocol(twisted.protocols.tls.TLSMemoryBIOProtocol):
     def writeSequence(self, iovec):
         """
@@ -325,25 +323,6 @@ class SFAProxy(object):
     def __repr__(self):
         return "<SfaProxy %s>"% self.interface
         
-@returns(SFAProxy)
-def make_sfa_proxy(interface_url, user_config, cert_type = 'gid', timeout = DEFAULT_TIMEOUT):
-    """
-    interface (string): 'registry', 'sm' or URL
-    user_config (dict): user configuration
-    cert_type (string): 'gid', 'sscert'
-    """
-    assert cert_type in ["gid", "sscert"], "Invalid cert_type = %s (%s)" % (cert_type, type(cert_type))
-
-    pkey    = user_config['user_private_key'].encode('latin1')
-    # default is gid, if we don't have it (see manage function) we use self signed certificate
-    Log.tmp("cert_type = %s (%s)" % (cert_type, type(cert_type)))
-    cert    = user_config[cert_type]
-
-    if not interface_url.startswith('http://') and not interface_url.startswith('https://'):
-        interface_url = 'http://' + interface_url
-
-    return SFAProxy(interface_url, pkey, cert, timeout)
-
 if __name__ == '__main__':
     from twisted.internet import defer #, reactor
     import os, pprint

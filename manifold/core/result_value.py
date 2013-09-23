@@ -1,7 +1,21 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+# ResultValue transports Records, code error, and eventual 
+# during a QueryPlan execution.
+#
+# Copyright (C) UPMC Paris Universitas
+# Authors:
+#   Jordan Augé       <jordan.auge@lip6.fr>
+#   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
+
 # Inspired from GENI error codes
 
 import time
 import pprint
+
+from manifold.util.log          import Log
+from manifold.util.type         import accepts, returns
 
 class ResultValue(dict):
 
@@ -47,6 +61,23 @@ class ResultValue(dict):
     ALLOWED_FIELDS = set(['origin', 'type', 'code', 'value', 'description', 'traceback', 'ts'])
 
     def __init__(self, **kwargs):
+        """
+        Constructor.
+        Args:
+            origin: A value among:
+                ResultValue.CORE    : iif the error is raised by manifold/core/*
+                ResultValue.GATEWAY : iif the error is raised by manifold/gateways/*
+            type: An integer describing the status of the query. 
+                ResultValue.SUCCESS : the Query has succeeded.
+                ResultValue.WARNING : the Query results are not complete.
+                ResultValue.ERROR   : the Query has failed.
+            code: An integer value.
+            value: A list of ResultValue in case of failure or A list of Records in case of success.
+            description:
+            traceback: A String containing the traceback.
+            ts: A String containing the date when this Query has been issued. By default, this
+                value is set to the current date.
+        """ 
         
         # Checks
         given = set(kwargs.keys())
@@ -71,24 +102,49 @@ class ResultValue(dict):
     # all Gateways errors       : return ERROR
     
     @classmethod
-    def get_result_value(self, results, result_value_array):
+    #@returns(ResultValue)
+    def get_result_value(self, results, result_values):
+        """
+        Craft a ResultValue instance according to a list of Records and
+        an optionnal list of ResultValues retrieved during the QueryPlan
+        execution.
+        Args:
+            results: A list of Records 
+            result_values: A list of ResultValue instances.
+        """
         # let's analyze the results of the query plan
         # XXX we should inspect all errors to determine whether to return a
         # result or not
-        if not result_value_array:
+        
+        if not result_values:
             # No error
-            return ResultValue(code=self.SUCCESS, origin=[self.CORE, 0], value=results)
+            return ResultValue(code = self.SUCCESS, origin = [self.CORE, 0], value = results)
         else:
             # Handle errors
-            return ResultValue(code=self.WARNING, origin=[self.CORE, 0], description=result_value_array, value=results)
+            return ResultValue(code = self.WARNING, origin = [self.CORE, 0], value = results, description = result_values)
 
     @classmethod
-    def get_error(self, error):
-        return ResultValue(code=error, origin=[self.CORE, 0], value=self.ERRSTR[error])
+    #@returns(ResultValue)
+    def get_error(self, error, traceback = None):
+        return ResultValue(
+            code      = error,
+            origin    = [self.CORE, 0],
+            value     = self.ERRSTR[error],
+            traceback = traceback
+        )
+
+    @returns(bool)
+    def is_success(self):
+        return self["code"] == self.SUCCESS
 
     @classmethod
+    #@returns(ResultValue)
     def get_success(self, result):
-        return ResultValue(code=self.SUCCESS, origin=[self.CORE, 0], value=result) 
+        return ResultValue(
+            code      = self.SUCCESS,
+            origin    = [self.CORE, 0],
+            value     = result
+        )
 
     def ok_value(self):
         return self['value']

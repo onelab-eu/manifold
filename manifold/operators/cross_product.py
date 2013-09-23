@@ -16,13 +16,32 @@ class CrossProduct(Node):
     CROSS PRODUCT operator node
     """
 
-    def __init__(self, children_ast_relation_list, query=None):
+    def __init__(self, children_ast_relation_list, query = None):
         """
         \brief Constructor
-        \param children A list of Node instances, the children of
-            this Union Node.
+        Args:
+            children_ast_relation_list: A list of pair made
+                of a Query and a Relation instance
+            query: A Query instance
         """
+        # children_ast_relation_list example: [
+        #     (
+        #         SELECT * AT now FROM tdmi:destination,
+        #         <LINK_11, destination>
+        #     ),
+        #     (
+        #         SELECT * AT now FROM tdmi:agent,
+        #         <LINK_11, agent>
+        #     )
+        # ]
+
         super(CrossProduct, self).__init__()
+
+        assert len(children_ast_relation_list) >= 2, \
+            "Cannot create a CrossProduct from %d table (2 or more required): %s" % (
+                len(children_ast_relation_list), children_ast_relation_list
+            )
+
         # Note we cannot guess the query object, so pass it
         # fields = [relation.get_relation_name(r) for r in relation]
         # NTOE: such a query should not contain any action

@@ -1,13 +1,15 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from manifold.core.query     import Query
-from manifold.core.filter    import Filter
-from manifold.util.predicate import Predicate
-from manifold.util.log       import Log
-from manifold.util.clause    import Clause
-import pyparsing as pp
 import re
+import pyparsing as pp
+
+from manifold.core.query        import Query
+from manifold.core.filter       import Filter
+from manifold.util.predicate    import Predicate
+from manifold.util.log          import Log
+from manifold.util.clause       import Clause
+from pyparsing                  import ParseException
  
 class SQLParser(object):
 
@@ -54,20 +56,23 @@ class SQLParser(object):
 
         predicate  = (field + operator + value_list).setParseAction(self.handlePredicate)
 
-        # clause of predicates
-        and_op     = pp.CaselessLiteral("and") | pp.Keyword("&&")
-        or_op      = pp.CaselessLiteral("or")  | pp.Keyword("||")
-        not_op     = pp.Keyword("!")
-
-        predicate_precedence_list = [
-            (not_op, 1, pp.opAssoc.RIGHT, lambda x: self.handleClause(*x)),
-            (and_op, 2, pp.opAssoc.LEFT,  lambda x: self.handleClause(*x)),
-            (or_op,  2, pp.opAssoc.LEFT,  lambda x: self.handleClause(*x))
-        ]
-        clause     = pp.operatorPrecedence(predicate, predicate_precedence_list) #.setParseAction(lambda clause: Filter.from_clause(clause))
+        # Our Query object does not yet support complex Clauses, we can only pass to
+        # Query a list of Predicates [p1, p2, ...] which will be interpreted as follows:
+        # p1 AND p2 AND ...
+#NOT_YET_SUPPORTED|        # clause of predicates
+#NOT_YET_SUPPORTED|        and_op     = pp.CaselessLiteral("and") | pp.Keyword("&&")
+#NOT_YET_SUPPORTED|        or_op      = pp.CaselessLiteral("or")  | pp.Keyword("||")
+#NOT_YET_SUPPORTED|        not_op     = pp.Keyword("!")
+#NOT_YET_SUPPORTED|
+#NOT_YET_SUPPORTED|        predicate_precedence_list = [
+#NOT_YET_SUPPORTED|            (not_op, 1, pp.opAssoc.RIGHT, lambda x: self.handleClause(*x)),
+#NOT_YET_SUPPORTED|            (and_op, 2, pp.opAssoc.LEFT,  lambda x: self.handleClause(*x)),
+#NOT_YET_SUPPORTED|            (or_op,  2, pp.opAssoc.LEFT,  lambda x: self.handleClause(*x))
+#NOT_YET_SUPPORTED|        ]
+#NOT_YET_SUPPORTED|        clause     = pp.operatorPrecedence(predicate, predicate_precedence_list) #.setParseAction(lambda clause: Filter.from_clause(clause))
         # END: clause of predicates
 
-        # For the time being, we only support simple filters and not full clauses
+        # TODO For the time being, we only support simple filters and not full clauses
         filter     = pp.delimitedList(predicate, delim='&&').setParseAction(lambda tokens: Filter(tokens.asList()))
 
         datetime   = pp.Regex(r'....-..-.. ..:..:..')
@@ -75,7 +80,7 @@ class SQLParser(object):
         timestamp  = pp.CaselessKeyword('now') | datetime
 
         select_elt = (kw_select.suppress() + field_list.setResultsName('fields'))
-        where_elt  = (kw_where.suppress()  + filter.setResultsName('filters'))
+        where_elt  = (kw_where.suppress()  + filter.setResultsName('filters')) # TODO use clause instead once supported in Query
         set_elt    = (kw_set.suppress()    + params.setResultsName('params'))
         at_elt     = (kw_at.suppress()     + timestamp.setResultsName('timestamp'))
 
@@ -100,9 +105,14 @@ class SQLParser(object):
         return Clause(*args)
 
     def parse(self, string):
-        result = self.bnf.parseString(string, parseAll=True)
-        #print result.dump()
-        return dict(result.items())
+        try:
+            result = self.bnf.parseString(string, parseAll=True)
+            return dict(result.items())
+        except ParseException, e:
+            Log.warning("Error line %s, column %s:" % (e.lineno, e.col))
+            Log.warning(e.line)
+            Log.warning(" " * e.col, "^--- syntax error")
+        return None
 
 if __name__ == "__main__":
 

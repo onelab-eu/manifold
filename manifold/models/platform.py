@@ -13,12 +13,13 @@
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
 import json
-from sqlalchemy                 import Column, Integer, String, Boolean, Enum
+from sqlalchemy                     import Column, Integer, String, Boolean, Enum
+from types                          import StringTypes
 
-from manifold.core.query        import Query
-from manifold.models            import Base
-from manifold.util.storage      import DBStorage
-from manifold.util.type         import accepts, returns 
+from manifold.core.query            import Query
+from manifold.models                import Base
+from manifold.util.storage          import DBStorage
+from manifold.util.type             import accepts, returns 
 
 class Platform(Base):
     platform_id          = Column(Integer, doc = "Platform identifier", primary_key = True)
@@ -55,6 +56,22 @@ class Platform(Base):
             platform_config_json = self.config
             platform_config = json.loads(platform_config_json) if platform_config_json else dict()
         return platform_config
+
+    @returns(StringTypes)
+    def __repr__(self):
+        """
+        Returns:
+            The '%r' representation of this Platform.
+        """
+        return self.platform
+
+    @returns(StringTypes)
+    def __str__(self):
+        """
+        Returns:
+            The '%s' representation of this Platform.
+        """
+        return "Platform<%s (%s)>" % (self.platform, self.get_config())
 
     @returns(dict)
     def get_user_config(self, user):

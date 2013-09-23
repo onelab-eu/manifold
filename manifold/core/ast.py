@@ -15,7 +15,7 @@ import sys, random
 from copy                             import copy, deepcopy
 from types                            import StringTypes
 from manifold.core.filter             import Filter
-from manifold.core.query              import Query, AnalyzedQuery
+from manifold.core.query              import Query
 from manifold.core.table              import Table 
 from manifold.core.field              import Field
 from manifold.core.key                import Key
@@ -83,7 +83,6 @@ class AST(object):
         """
         assert self.is_empty(),          "Should be instantiated on an empty AST"
         assert isinstance(query, Query), "Invalid query = %r (%r)" % (query, type(query))
-#        assert capabilities.virtual,     "Cannot build a From Node with a virtual Table, you should use AST::from_table()"
 
         self.root = From(platform, query, capabilities, key)
         self.root.set_callback(self.get_callback())
@@ -258,7 +257,7 @@ class AST(object):
             try:
                 (ast, relation), _ = children_ast_relation_list
             except ValueError, e:
-                Log.tmp("children_ast_relation_list = %s")
+                Log.tmp("children_ast_relation_list = %s" % children_ast_relation_list)
                 raise ValueError(e)
             self.root = ast.get_root()
         else:
@@ -326,6 +325,7 @@ class AST(object):
         if not filter: return
         old_cb = self.get_callback()
         self.root = self.root.optimize_selection(filter)
+        assert not self.is_empty(), "ast::optimize_selection() has failed: filter = %s" % filter
         self.set_callback(old_cb)
 
     def optimize_projection(self, fields):
@@ -340,29 +340,6 @@ class AST(object):
         if not fields: return
         old_cb = self.get_callback()
         self.root = self.root.optimize_projection(fields)
+        assert not self.is_empty(), "ast::optimize_projection() has failed: fields = %s" % fields 
         self.set_callback(old_cb)
-
-#------------------------------------------------------------------
-# Example
-#------------------------------------------------------------------
-
-def main():
-    q = Query("get", "x", [], {}, ["x", "z"], None)
-
-    x = Field([], "int", "x")
-    y = Field([], "int", "y")
-    z = Field([], "int", "z")
-
-    a = Table(["p"], None, "A", [x, y], [Key([x])])
-    b = Table(["p"], None, "B", [y, z], [Key([y])])
-    
-    ast = AST().From(a, q).left_join(
-        AST().From(b, q),
-        Predicate(a.get_field("y"), "=", b.get_field("y"))
-    ).projection(["x"]).selection(set([Predicate("z", "=", 1)]))
-
-    ast.dump()
-
-if __name__ == "__main__":
-    main()
 

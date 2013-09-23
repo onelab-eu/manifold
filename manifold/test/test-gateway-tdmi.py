@@ -48,10 +48,9 @@ def make_tdmi_router():
         The corresponding Router instance.
     """
     # Fetch tdmi configuration from myslice storage
-    platforms = DBStorage.execute(Query().get("platform").filter_by(Predicate("platform", eq, "tdmi")), format = "dict")
-    if len(platforms) == 1:
-        platform = platforms[0] 
-    else:
+    db_storage = DBStorage()
+    platforms = db_storage.execute(Query().get("platform").filter_by(Predicate("platform", eq, "tdmi")), format = "dict")
+    if len(platforms) != 1:
         # TODO: we should use this account
         #'db_user'     : 'guest@top-hat.info'
         #'db_password' : 'guest'
@@ -63,6 +62,16 @@ def make_tdmi_router():
 
     # Our Forwarder does not need any capability since pgsql is
     return Router(platforms)
+
+class Receiver:
+    def __init__(self):
+        self.received_value = None
+
+    def set_result_value(self, received_value):
+        self.received_value = received_value
+
+    def get_result_value(self):
+        return self.received_value
 
 @accepts(Router, Query)
 def run_query(router, query, execute = True):
@@ -77,8 +86,9 @@ def run_query(router, query, execute = True):
     print "*" * 80
     print query
     print "*" * 80
-    print "=" * 80
-    result_value = router.forward(query, execute = execute)
+    receiver = Receiver()
+    router.forward(query, execute = execute, receiver = receiver)
+    result_value = receiver.get_result_value()
     if execute:
         if result_value["code"] == ResultValue.SUCCESS:
             for record in result_value["value"]:
@@ -153,7 +163,7 @@ queries = [
 
 #for query in queries:
 #    run_query(router, query)
-#run_query(router, queries[1])
-run_query(router, queries[0])
+run_query(router, queries[1])
+#run_query(router, queries[0])
 
 

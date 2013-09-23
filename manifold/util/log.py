@@ -239,15 +239,14 @@ class Log(object):
     @classmethod
     def critical(cls, *msg, **ctx):
         cls.log_message('CRITICAL', msg, ctx)
+        logger = Log().get_logger()
+        if not Log().get_logger():
+            traceback.print_exc()
         sys.exit(0)
 
     @classmethod
     def error(cls, *msg, **ctx): 
         cls.log_message('ERROR', msg, ctx)
-        logger = Log().get_logger()
-        if not Log().get_logger():
-            traceback.print_exc()
-        sys.exit(0)
 
     @classmethod
     def warning(cls, *msg, **ctx): 
@@ -263,11 +262,11 @@ class Log(object):
 
     @classmethod
     def tmp(cls, *msg):
-        cls.print_msg(' '.join(map(lambda x: "%r"%x, make_list(msg))), 'TMP', caller_name())
+        cls.print_msg(' '.join(map(lambda x: "%r" % x, make_list(msg))), 'TMP', caller_name())
 
     @classmethod
     def record(cls, *msg):
-        #cls.print_msg(' '.join(map(lambda x: "%r"%x, make_list(msg))), 'RECORD', caller_name())
+        #cls.print_msg(' '.join(map(lambda x: "%r" % x, make_list(msg))), 'RECORD', caller_name())
         pass
 
     @classmethod

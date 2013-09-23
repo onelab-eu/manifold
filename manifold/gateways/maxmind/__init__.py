@@ -1,27 +1,81 @@
-from manifold.gateways import Gateway
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+# Gateway managing MaxMind platforms
+# http://www.maxmind.com/
+#
+# Jordan Auge       <jordan.auge@lip6.fr>
+# Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
+#
+# Copyright (C) 2013 UPMC 
+
 #import GeoIP
 
+from manifold.gateways                  import Gateway
+from manifold.operators                 import LAST_RECORD
+from manifold.util.log                  import Log
+from manifold.util.type                 import returns, accepts 
+
 geo_fields = {
-    'city': 'city',
-    'country_code': 'country_code',
-    'country': 'country_name',
-    'region_code': 'region',
-    'region': 'region_name',
-    'latitude': 'latitude',
-    'longitude': 'longitude'
+    "city"         : "city",
+    "country_code" : "country_code",
+    "country"      : "country_name",
+    "region_code"  : "region",
+    "region"       : "region_name",
+    "latitude"     : "latitude",
+    "longitude"    : "longitude"
 }
 # 'country_code3' 'postal_code' 'area_code' 'time_zone' 'metro_code'
 
 allowed_fields = ['ip', 'hostname']
 allowed_fields.extend(geo_fields.keys())
 
-
 class MaxMindGateway(Gateway):
 
-    def __str__(self):
-        return "<MaxMindGateway %s>" % self.query
+    @returns(bool)
+    def check_init(self):
+        """
+        Check whether MaxMindGateway can be constructed.
+        """
+        try:
+            import GeoIP
+        except ImportError, e:
+            Log.error(e)
 
-    def start(self):
+    def __init__(self, interface, platform, config = None):
+        """
+        Constructor
+        Args:
+            interface: The Manifold Interface on which this Gateway is running.
+            platform: A String storing name of the platform related to this Gateway or None.
+            config: A dictionnary containing the configuration related to this Gateway.
+                It may contains the following keys:
+                "name" : name of the platform's maintainer. 
+                "mail" : email address of the maintainer.
+        """
+        super(MaxMindGateway, self).__init__(interface, platform, config)
+
+    def forward(self, query, callback, is_deferred = False, execute = True, user = None, format = "dict", from_node = None):
+        """
+        Query handler.
+        Args:
+            query: A Query instance, reaching this Gateway.
+            callback: The function called to send this record. This callback is provided
+                most of time by a From Node.
+                Prototype : def callback(record)
+            is_deferred: A boolean.
+            execute: A boolean set to True if the treatement requested in query
+                must be run or simply ignored.
+            user: The User issuing the Query.
+            format: A String specifying in which format the Records must be returned.
+            from_node : The From Node running the Query or None. Its ResultValue will
+                be updated once the query has terminated.
+        Returns:
+            forward must NOT return value otherwise we cannot use @defer.inlineCallbacks
+            decorator. 
+        """
+        identifier = from_node.get_identifier() if from_node else None
+
         #assert timestamp == 'latest'
         #assert set(input_filter.keys()).issubset(['ip', 'hostname'])
         #assert set(output_fields).issubset(allowed_fields)
@@ -29,14 +83,24 @@ class MaxMindGateway(Gateway):
         self.started = True
         # XXX We never stop gateways even when finished. Investigate ?
 
-        if not 'ip' in self.query.filters and not 'hostname' in self.query.filters:
+        if not 'ip' in query.filters and not 'hostname' in query.filters:
             raise Exception, "MaxMind is an ONJOIN platform only"
-        for i in self.query.filters['ip']:
-            self.callback({'ip': i, 'city': 'TEMP'})
-        for h in self.query.filters['hostname']:
-            self.callback({'hostname': h, 'city': 'TEMP'})
-        self.callback(None)
-        return 
+
+        rows = list()
+
+        # HARDCODED dummy cities
+        for i in query.filters['ip']:
+            rows.append({'ip': i, 'city': 'TEMP'})
+
+        # HARDCODED dummy hostnames
+        for h in query.filters['hostname']:
+            rows.append({'hostname': h, 'city': 'TEMP'})
+
+        for row in rows:
+            self.send(row, callback, identifier)
+        self.send(LAST_RECORD, callback, identifier)
+
+        self.success(from_node, query)
 
 #        gi = GeoIP.open("/usr/local/share/GeoIP/GeoLiteCity.dat",GeoIP.GEOIP_STANDARD)
 #

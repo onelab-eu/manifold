@@ -21,21 +21,22 @@ class ChildCallback:
     def __init__(self, parent, child_id):
         """
         Constructor
-        \param parent Reference to the parent class
-        \param child_id Identifier of the children
+        Args:
+            parent: Reference to the parent class
+            child_id: Identifier of the children (integer)
         """
         self.parent, self.child_id = parent, child_id
 
     def __call__(self, record):
         """
-        \brief Process records received by the callback
+        Process records received by the callback
         """
         # Pass the record to the parent with the right child identifier
         try:
             self.parent.child_callback(self.child_id, record)
         except Exception, e:
-            print "EXCEPTION IN ChildCallback, calling", self.parent.child_callback
-            print e
+            Log.warning("EXCEPTION IN ChildCallback, calling %s" % self.parent.child_callback)
+            Log.warning(e)
             import traceback
             traceback.print_exc()
 
@@ -162,17 +163,17 @@ class Node(object):
         return self.__repr__() 
 
     def optimize(self):
-        Log.warning("Calling optimize()")
+        Log.info("Calling optimize()")
         tree = self.optimize_selection(Filter())
         tree = tree.optimize_projection(set())
         return tree
     
     def optimize_selection(self, filter):
-        raise Exception, "%s::optimize_selection() not implemented" % self.__class__.__name__
+        Log.warning("optimize_selection() not implemented in" % self.__class__.__name__)
+        return self
 
     def optimize_projection(self, fields):
-        #raise Exception, "%s::optimize_projection() not implemented" % self.__class__.__name__
-        print "W: %s::optimize_projection() not implemented" % self.__class__.__name__
+        Log.warning("optimize_projection() not implemented in" % self.__class__.__name__)
         return self
 
     def get_identifier(self):

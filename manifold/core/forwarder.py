@@ -18,26 +18,28 @@ class Forwarder(Interface):
 
     # XXX This could be made more generic with the router
     # Forwarder class is an Interface 
-    # builds the query plan, instanciate the gateways and execute query plan using deferred if required
-    def forward(self, query, deferred = False, execute = True, user = None):
+    # builds the query plan, and execute query plan using deferred if required
+    def forward(self, query, is_deferred = False, execute = True, user = None, receiver = None):
         """
-        Process a query.
+        Forwards an incoming Query to the appropriate Gateways managed by this Router.
         Args:
-            query: A Query instance
-            deferred: A boolean
-            execute: A boolean set to True if the query must be processed
-            user:
+            query: The user's Query.
+            is_deferred: A boolean set to True if this Query is async
+            execute: A boolean set to True if the QueryPlan must be executed.
+            user: The user issuing the Query.
+            receiver: An instance or None supporting the method set_result_value,
+                receiver.set_result_value() will be called once the Query has terminated.
         Returns:
-            A ResultValue instance containing the requested records (if any)
-            the error message (if any) and so on.
+            A Deferred instance if the Query is async, None otherwise
         """
+
         super(Forwarder, self).forward(query, deferred, execute, user)
 
         # We suppose we have no namespace from here
         qp = QueryPlan()
         qp.build_simple(query, self.metadata, self.allowed_capabilities)
-        self.instanciate_gateways(qp, user)
+        self.init_from_nodes(qp, user)
 
         d = defer.Deferred() if is_deferred else None
         # the deferred object is sent to execute function of the query_plan
-        return qp.execute(d)
+        return qp.execute(d, receiver)

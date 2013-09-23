@@ -92,7 +92,7 @@ def compare_types(expected, actual):
         else:
             return actual == type(None) or actual in expected
     else:
-        return actual == type(None) or actual == expected or isinstance(actual, expected) # issubclass(actual, expected)
+        return actual == type(None) or actual == expected or issubclass(actual, expected) #isinstance(actual, expected)
 
 def returns(ret_type, **kw):
     '''Function decorator. Checks decorated function's return value
