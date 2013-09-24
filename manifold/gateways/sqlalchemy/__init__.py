@@ -56,7 +56,6 @@ class SQLAlchemyGateway(Gateway):
     }
 
     def __init__(self, router=None, platform=None, query=None, config=None, user_config=None, user=None, format='dict'):
-        print "SQLAl init"
 
         assert format in ['dict', 'object'], 'Unknown return format for gateway SQLAlchemy'
         if format == 'object':
