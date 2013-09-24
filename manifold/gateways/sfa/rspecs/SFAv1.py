@@ -66,6 +66,9 @@ HOOKS = {
 # END HOOKS
 
 class SFAv1Parser(RSpecParser):
+    # This should be a generic RSpec parser to be used in case of an unknown
+    # RSpec. What about metadata ? Can't we have unspecified RSpecs, that has *
+    # = we forward all unknown fields == underspecified metadata
 
     def __init__(self, *args):
         """
@@ -106,194 +109,197 @@ class SFAv1Parser(RSpecParser):
                     self.leases_by_network[network] = []
                 self.leases_by_network[network].append(l)
 
-    def get_element_tag(self, element):
-        tag = element.tag
-        if element.prefix in element.nsmap:
-            # NOTE: None is a prefix that can be in the map (default ns)
-            start = len(element.nsmap[element.prefix]) + 2 # {ns}tag
-            tag = tag[start:]
-        
-        return tag
-
-    def prop_from_elt(self, element, prefix = ''):
-        """
-        Returns a property or a set of properties
-        {key: value} or {key: (value, unit)}
-        """
-        ret = {}
-        if prefix: prefix = "%s." % prefix
-        tag = self.get_element_tag(element)
-
-        # Analysing attributes
-        for k, v in element.attrib.items():
-            ret["%s%s.%s" % (prefix, tag, k)] = v
-
-        # Analysing the tag itself
-        if element.text:
-            ret["%s%s" % (prefix, tag)] = element.text
-
-        # Analysing subtags
-        for c in element.getchildren():
-            ret.update(self.prop_from_elt(c, prefix=tag))
-
-        # XXX special cases:
-        # - tags
-        # - units
-        # - lists
-
-        return ret
-
-    def dict_from_elt(self, network, element):
-        """
-        Returns an object
-        """
-        ret            = {}
-        ret['type']    = self.get_element_tag(element)
-        ret['network'] = network
-
-        for k, v in element.attrib.items():
-            ret[k] = v
-
-        for c in element.getchildren():
-            ret.update(self.prop_from_elt(c))
-
-        return ret
-
-    def dict_rename(self, dic, name):
-        """
-        Apply map and hooks
-        """
-        # XXX We might create substructures if the map has '.'
-        ret = {}
-        for k, v in dic.items():
-            if name in MAP and k in MAP[name]:
-                ret[MAP[name][k]] = v
-            else:
-                ret[k] = v
-            if name in HOOKS and k in HOOKS[name]:
-                ret.update(HOOKS[name][k](v))
-            if '*' in HOOKS and k in HOOKS['*']:
-                ret.update(HOOKS['*'][k](v))
-        if name in HOOKS and '*' in HOOKS[name]:
-            ret.update(HOOKS[name]['*'](ret))
-        return ret
-
-    def parse_element(self, resource_type, network=None):
-        if network is None:
-            # TODO: use SFA Wrapper library
-            # self.rspec.version.get_nodes()
-            # self.rspec.version.get_links()
-            XPATH_RESOURCE = "//default:%(resource_type)s | //%(resource_type)s"
-            elements = self.rspec.xml.xpath(XPATH_RESOURCE % locals()) 
-            if self.network is not None:
-                elements = [self.dict_from_elt(self.network, n.element) for n in elements]
-        else:
-            XPATH_RESOURCE = "/RSpec/network[@name='%(network)s']/%(resource_type)s"
-            elements = self.rspec.xml.xpath(XPATH_RESOURCE % locals())
-            elements = [self.dict_from_elt(network, n.element) for n in elements]
-
-        # XXX if network == self.network == None, we might not have a dict here !!!
-        if resource_type in MAP:
-            elements = [self.dict_rename(n, resource_type) for n in elements]
-
-        return elements
-
-    def dict_resources(self, network=None):
-        """
-        \brief Returns a list of resources from the specified network (eventually None)
-        """
-        result=[]
-
-        # NODES / CHANNELS / LINKS
-        for type in RESOURCE_TYPES:
-            result.extend(self.parse_element(type, network))
-
-        return result
-
-    def dict_leases(self, resources, network=""):
-        """
-        \brief Returns a list of leases from the specified network (eventually None)
-        """
-        result=[]
-
-        # XXX All testbeds that have leases have networks XXX
-        XPATH_LEASE = "/RSpec/network[@name='%(network)s']/lease"
-        lease_elems = self.rspec.xml.xpath(XPATH_LEASE % locals())
-
-        for l in lease_elems:
-           lease = dict(l.element.attrib)
-           for resource_elem in l.element.getchildren():
-                rsrc_lease = lease.copy()
-                filt = self.dict_from_elt(network, resource_elem)
-                match = Filter.from_dict(filt).filter(resources)
-                if len(match) == 0:
-                   #print "E: Ignored lease with no match:", filt
-                   continue
-                if len(match) > 1:
-                   #print "E: Ignored lease with multiple matches:", filt
-                   continue
-                match = match[0]
-
-                # Check whether the node is reservable
-                # Check whether the node has some granularity
-                if not 'exclusive' in match:
-                    #print "W: No information about reservation capabilities of the node:", filt
-                    pass
-                else:
-                    if not match['exclusive']:
-                       print "W: lease on a non-reservable node:", filt
-
-                if not 'granularity' in match:
-                    #print "W: Granularity not present in node:", filt
-                    pass
-                else:
-                    rsrc_lease['granularity'] = match['granularity']
-                if not 'urn' in match:
-                    #print "E: Ignored lease with missing 'resource_urn' key:", filt
-                    continue
-
-                rsrc_lease['urn']          = match['urn']
-                rsrc_lease['network']      = Xrn(match['urn']).authority[0]
-                rsrc_lease['hrn']          = Xrn(match['urn']).hrn
-                rsrc_lease['type']         = Xrn(match['urn']).type
-
-                result.append(rsrc_lease)
-        return result
-
-    def to_dict(self, version):
-        """
-        \brief Converts a RSpec to two lists of resources and leases.
-        \param version Output of the GetVersion() call holding the hrn of the
-        authority. This will be used for testbeds not adding this hrn inside
-        the RSpecs.
-
-        This function is the entry point for resource parsing. 
-        """
-        networks = self.rspec.xml.xpath('/RSpec/network/@name')
-        networks = [str(n.element) for n in networks]
-
-        if not networks:
-            # NOTE: GENI aggregate for example do not add the network alongside
-            # the resources
-            networks = []
-            # We might retrieve the network from GetVersion() if it is not
-            # explicit in the RSpec
-
-            # XXX Jordan: do we really need to store it in self ? I would pass it as a parameter
-            # I found the answer: it's because the XPATH expression is different if the RSpec has
-            # the network or not
-            self.network = version.get('hrn')
-
-            resources = self.dict_resources()
-            leases    = self.dict_leases(resources)
-
-        else:
-            # NOTE: A resource might have several networks (eg. from a SM)
-            for network in networks:
-                resources = self.dict_resources(network)
-                leases    = self.dict_leases(resources,network)
-
-        return {'resource': resources, 'lease': leases}
+# MAKE A GENERIC PARSER #     def get_element_tag(self, element):
+# MAKE A GENERIC PARSER #         tag = element.tag
+# MAKE A GENERIC PARSER #         if element.prefix in element.nsmap:
+# MAKE A GENERIC PARSER #             # NOTE: None is a prefix that can be in the map (default ns)
+# MAKE A GENERIC PARSER #             start = len(element.nsmap[element.prefix]) + 2 # {ns}tag
+# MAKE A GENERIC PARSER #             tag = tag[start:]
+# MAKE A GENERIC PARSER #         
+# MAKE A GENERIC PARSER #         return tag
+# MAKE A GENERIC PARSER # 
+# MAKE A GENERIC PARSER #     def prop_from_elt(self, element, prefix = ''):
+# MAKE A GENERIC PARSER #         """
+# MAKE A GENERIC PARSER #         Returns a property or a set of properties
+# MAKE A GENERIC PARSER #         {key: value} or {key: (value, unit)}
+# MAKE A GENERIC PARSER #         """
+# MAKE A GENERIC PARSER #         ret = {}
+# MAKE A GENERIC PARSER #         if prefix: prefix = "%s." % prefix
+# MAKE A GENERIC PARSER #         tag = self.get_element_tag(element)
+# MAKE A GENERIC PARSER # 
+# MAKE A GENERIC PARSER #         # Analysing attributes
+# MAKE A GENERIC PARSER #         for k, v in element.attrib.items():
+# MAKE A GENERIC PARSER #             ret["%s%s.%s" % (prefix, tag, k)] = v
+# MAKE A GENERIC PARSER # 
+# MAKE A GENERIC PARSER #         # Analysing the tag itself
+# MAKE A GENERIC PARSER #         if element.text:
+# MAKE A GENERIC PARSER #             ret["%s%s" % (prefix, tag)] = element.text
+# MAKE A GENERIC PARSER # 
+# MAKE A GENERIC PARSER #         # Analysing subtags
+# MAKE A GENERIC PARSER #         for c in element.getchildren():
+# MAKE A GENERIC PARSER #             ret.update(self.prop_from_elt(c, prefix=tag))
+# MAKE A GENERIC PARSER # 
+# MAKE A GENERIC PARSER #         # XXX special cases:
+# MAKE A GENERIC PARSER #         # - tags
+# MAKE A GENERIC PARSER #         # - units
+# MAKE A GENERIC PARSER #         # - lists
+# MAKE A GENERIC PARSER # 
+# MAKE A GENERIC PARSER #         return ret
+# MAKE A GENERIC PARSER # 
+# MAKE A GENERIC PARSER #     def dict_from_elt(self, network, element):
+# MAKE A GENERIC PARSER #         """
+# MAKE A GENERIC PARSER #         Returns an object
+# MAKE A GENERIC PARSER #         """
+# MAKE A GENERIC PARSER #         ret            = {}
+# MAKE A GENERIC PARSER #         ret['type']    = self.get_element_tag(element)
+# MAKE A GENERIC PARSER #         ret['network'] = network
+# MAKE A GENERIC PARSER # 
+# MAKE A GENERIC PARSER #         for k, v in element.attrib.items():
+# MAKE A GENERIC PARSER #             ret[k] = v
+# MAKE A GENERIC PARSER # 
+# MAKE A GENERIC PARSER #         for c in element.getchildren():
+# MAKE A GENERIC PARSER #             ret.update(self.prop_from_elt(c))
+# MAKE A GENERIC PARSER # 
+# MAKE A GENERIC PARSER #         return ret
+# MAKE A GENERIC PARSER # 
+# MAKE A GENERIC PARSER #     def dict_rename(self, dic, name):
+# MAKE A GENERIC PARSER #         """
+# MAKE A GENERIC PARSER #         Apply map and hooks
+# MAKE A GENERIC PARSER #         """
+# MAKE A GENERIC PARSER #         # XXX We might create substructures if the map has '.'
+# MAKE A GENERIC PARSER #         ret = {}
+# MAKE A GENERIC PARSER #         for k, v in dic.items():
+# MAKE A GENERIC PARSER #             if name in MAP and k in MAP[name]:
+# MAKE A GENERIC PARSER #                 ret[MAP[name][k]] = v
+# MAKE A GENERIC PARSER #             else:
+# MAKE A GENERIC PARSER #                 ret[k] = v
+# MAKE A GENERIC PARSER #             if name in HOOKS and k in HOOKS[name]:
+# MAKE A GENERIC PARSER #                 ret.update(HOOKS[name][k](v))
+# MAKE A GENERIC PARSER #             if '*' in HOOKS and k in HOOKS['*']:
+# MAKE A GENERIC PARSER #                 ret.update(HOOKS['*'][k](v))
+# MAKE A GENERIC PARSER #         if name in HOOKS and '*' in HOOKS[name]:
+# MAKE A GENERIC PARSER #             ret.update(HOOKS[name]['*'](ret))
+# MAKE A GENERIC PARSER #         return ret
+# MAKE A GENERIC PARSER # 
+# MAKE A GENERIC PARSER #     def parse_element(self, resource_type, network=None):
+# MAKE A GENERIC PARSER #         print "NETWORK", network
+# MAKE A GENERIC PARSER #         if network is None:
+# MAKE A GENERIC PARSER #             # TODO: use SFA Wrapper library
+# MAKE A GENERIC PARSER #             # self.rspec.version.get_nodes()
+# MAKE A GENERIC PARSER #             # self.rspec.version.get_links()
+# MAKE A GENERIC PARSER #             XPATH_RESOURCE = "//default:%(resource_type)s | //%(resource_type)s"
+# MAKE A GENERIC PARSER #             elements = self.rspec.xml.xpath(XPATH_RESOURCE % locals()) 
+# MAKE A GENERIC PARSER #             if self.network is not None:
+# MAKE A GENERIC PARSER #                 elements = [self.dict_from_elt(self.network, n.element) for n in elements]
+# MAKE A GENERIC PARSER #         else:
+# MAKE A GENERIC PARSER #             XPATH_RESOURCE = "/RSpec/network[@name='%(network)s']/%(resource_type)s"
+# MAKE A GENERIC PARSER #             elements = self.rspec.xml.xpath(XPATH_RESOURCE % locals())
+# MAKE A GENERIC PARSER #             elements = [self.dict_from_elt(network, n.element) for n in elements]
+# MAKE A GENERIC PARSER #         print "elements", elements
+# MAKE A GENERIC PARSER # 
+# MAKE A GENERIC PARSER #         # XXX if network == self.network == None, we might not have a dict here !!!
+# MAKE A GENERIC PARSER #         if resource_type in MAP:
+# MAKE A GENERIC PARSER #             elements = [self.dict_rename(n, resource_type) for n in elements]
+# MAKE A GENERIC PARSER # 
+# MAKE A GENERIC PARSER #         return elements
+# MAKE A GENERIC PARSER # 
+# MAKE A GENERIC PARSER #     def dict_resources(self, network=None):
+# MAKE A GENERIC PARSER #         """
+# MAKE A GENERIC PARSER #         \brief Returns a list of resources from the specified network (eventually None)
+# MAKE A GENERIC PARSER #         """
+# MAKE A GENERIC PARSER #         result=[]
+# MAKE A GENERIC PARSER # 
+# MAKE A GENERIC PARSER #         # NODES / CHANNELS / LINKS
+# MAKE A GENERIC PARSER #         for type in RESOURCE_TYPES:
+# MAKE A GENERIC PARSER #             result.extend(self.parse_element(type, network))
+# MAKE A GENERIC PARSER # 
+# MAKE A GENERIC PARSER #         return result
+# MAKE A GENERIC PARSER # 
+# MAKE A GENERIC PARSER #     def dict_leases(self, resources, network=""):
+# MAKE A GENERIC PARSER #         """
+# MAKE A GENERIC PARSER #         \brief Returns a list of leases from the specified network (eventually None)
+# MAKE A GENERIC PARSER #         """
+# MAKE A GENERIC PARSER #         result=[]
+# MAKE A GENERIC PARSER # 
+# MAKE A GENERIC PARSER #         # XXX All testbeds that have leases have networks XXX
+# MAKE A GENERIC PARSER #         XPATH_LEASE = "/RSpec/network[@name='%(network)s']/lease"
+# MAKE A GENERIC PARSER #         lease_elems = self.rspec.xml.xpath(XPATH_LEASE % locals())
+# MAKE A GENERIC PARSER # 
+# MAKE A GENERIC PARSER #         for l in lease_elems:
+# MAKE A GENERIC PARSER #            lease = dict(l.element.attrib)
+# MAKE A GENERIC PARSER #            for resource_elem in l.element.getchildren():
+# MAKE A GENERIC PARSER #                 rsrc_lease = lease.copy()
+# MAKE A GENERIC PARSER #                 filt = self.dict_from_elt(network, resource_elem)
+# MAKE A GENERIC PARSER #                 match = Filter.from_dict(filt).filter(resources)
+# MAKE A GENERIC PARSER #                 if len(match) == 0:
+# MAKE A GENERIC PARSER #                    #print "E: Ignored lease with no match:", filt
+# MAKE A GENERIC PARSER #                    continue
+# MAKE A GENERIC PARSER #                 if len(match) > 1:
+# MAKE A GENERIC PARSER #                    #print "E: Ignored lease with multiple matches:", filt
+# MAKE A GENERIC PARSER #                    continue
+# MAKE A GENERIC PARSER #                 match = match[0]
+# MAKE A GENERIC PARSER # 
+# MAKE A GENERIC PARSER #                 # Check whether the node is reservable
+# MAKE A GENERIC PARSER #                 # Check whether the node has some granularity
+# MAKE A GENERIC PARSER #                 if not 'exclusive' in match:
+# MAKE A GENERIC PARSER #                     #print "W: No information about reservation capabilities of the node:", filt
+# MAKE A GENERIC PARSER #                     pass
+# MAKE A GENERIC PARSER #                 else:
+# MAKE A GENERIC PARSER #                     if not match['exclusive']:
+# MAKE A GENERIC PARSER #                        print "W: lease on a non-reservable node:", filt
+# MAKE A GENERIC PARSER # 
+# MAKE A GENERIC PARSER #                 if not 'granularity' in match:
+# MAKE A GENERIC PARSER #                     #print "W: Granularity not present in node:", filt
+# MAKE A GENERIC PARSER #                     pass
+# MAKE A GENERIC PARSER #                 else:
+# MAKE A GENERIC PARSER #                     rsrc_lease['granularity'] = match['granularity']
+# MAKE A GENERIC PARSER #                 if not 'urn' in match:
+# MAKE A GENERIC PARSER #                     #print "E: Ignored lease with missing 'resource_urn' key:", filt
+# MAKE A GENERIC PARSER #                     continue
+# MAKE A GENERIC PARSER # 
+# MAKE A GENERIC PARSER #                 rsrc_lease['urn']          = match['urn']
+# MAKE A GENERIC PARSER #                 rsrc_lease['network']      = Xrn(match['urn']).authority[0]
+# MAKE A GENERIC PARSER #                 rsrc_lease['hrn']          = Xrn(match['urn']).hrn
+# MAKE A GENERIC PARSER #                 rsrc_lease['type']         = Xrn(match['urn']).type
+# MAKE A GENERIC PARSER # 
+# MAKE A GENERIC PARSER #                 result.append(rsrc_lease)
+# MAKE A GENERIC PARSER #         return result
+# MAKE A GENERIC PARSER # 
+# MAKE A GENERIC PARSER #     def to_dict(self, version):
+# MAKE A GENERIC PARSER #         """
+# MAKE A GENERIC PARSER #         \brief Converts a RSpec to two lists of resources and leases.
+# MAKE A GENERIC PARSER #         \param version Output of the GetVersion() call holding the hrn of the
+# MAKE A GENERIC PARSER #         authority. This will be used for testbeds not adding this hrn inside
+# MAKE A GENERIC PARSER #         the RSpecs.
+# MAKE A GENERIC PARSER # 
+# MAKE A GENERIC PARSER #         This function is the entry point for resource parsing. 
+# MAKE A GENERIC PARSER #         """
+# MAKE A GENERIC PARSER #         Log.tmp("TO DICT")
+# MAKE A GENERIC PARSER #         networks = self.rspec.xml.xpath('/RSpec/network/@name')
+# MAKE A GENERIC PARSER #         networks = [str(n.element) for n in networks]
+# MAKE A GENERIC PARSER # 
+# MAKE A GENERIC PARSER #         if not networks:
+# MAKE A GENERIC PARSER #             # NOTE: GENI aggregate for example do not add the network alongside
+# MAKE A GENERIC PARSER #             # the resources
+# MAKE A GENERIC PARSER #             networks = []
+# MAKE A GENERIC PARSER #             # We might retrieve the network from GetVersion() if it is not
+# MAKE A GENERIC PARSER #             # explicit in the RSpec
+# MAKE A GENERIC PARSER # 
+# MAKE A GENERIC PARSER #             # XXX Jordan: do we really need to store it in self ? I would pass it as a parameter
+# MAKE A GENERIC PARSER #             # I found the answer: it's because the XPATH expression is different if the RSpec has
+# MAKE A GENERIC PARSER #             # the network or not
+# MAKE A GENERIC PARSER #             self.network = version.get('hrn')
+# MAKE A GENERIC PARSER # 
+# MAKE A GENERIC PARSER #             resources = self.dict_resources()
+# MAKE A GENERIC PARSER #             leases    = self.dict_leases(resources)
+# MAKE A GENERIC PARSER # 
+# MAKE A GENERIC PARSER #         else:
+# MAKE A GENERIC PARSER #             # NOTE: A resource might have several networks (eg. from a SM)
+# MAKE A GENERIC PARSER #             for network in networks:
+# MAKE A GENERIC PARSER #                 resources = self.dict_resources(network)
+# MAKE A GENERIC PARSER #                 leases    = self.dict_leases(resources,network)
+# MAKE A GENERIC PARSER # 
+# MAKE A GENERIC PARSER #         return {'resource': resources, 'lease': leases}
 
 
     #---------------------------------------------------------------------------
