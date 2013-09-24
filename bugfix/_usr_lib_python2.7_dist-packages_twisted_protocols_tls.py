@@ -536,6 +536,7 @@ class TLSMemoryBIOProtocol(ProtocolWrapper):
         Write a sequence of application bytes by joining them into one string
         and passing them to L{write}.
         """
+        iovec = [x.encode('latin-1') for x in iovec]
         self.write(b"".join(iovec))
 
 
