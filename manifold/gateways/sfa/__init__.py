@@ -591,21 +591,39 @@ class SFAGateway(Gateway):
             rspec_version = self.config['rspec_type'] + ' ' + self.config['rspec_version']
         else:
             rspec_version = 'SFA 1'
-
+        
         rspec = RSpec(rspec_string, version=rspec_version)
         
         nodes = rspec.version.get_nodes()
         leases = rspec.version.get_leases()
-        #channels = rspec.version.get_channels()
+        channels = [] # rspec.version.get_channels()
  
         # Extend object and Format object field's name
         for node in nodes:
-             node['hrn'] = urn_to_hrn(node['component_id'])[0]
-             node['urn'] = node['component_id']
-             node['hostname'] = node['component_name']
-             node['initscripts'] = node.pop('pl_initscripts')
+            node['hrn'] = urn_to_hrn(node['component_id'])[0]
+            node['urn'] = node['component_id']
+            node['hostname'] = node['component_name']
+            node['initscripts'] = node.pop('pl_initscripts')
+
+            # XXX This should use a MAP as before
+            if 'position' in node: # iotlab
+                node['x'] = node['position']['posx']
+                node['y'] = node['position']['posy']
+                node['z'] = node['position']['posz']
+                del node['position']
         
-        return {'resource': nodes,'lease': leases } 
+        # NOTE a channel is a resource and should not be treated independently
+        #     resource
+        #        |
+        #   +----+------+-------+
+        #   |    |      |       |
+        # node  link  channel  etc.
+        # 
+        resources = []
+        resources.extend(nodes)
+        resources.extend(channels)
+
+        return {'resource': resources, 'lease': leases } 
 #               'channel': channels \
 #               }
 
