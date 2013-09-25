@@ -46,7 +46,7 @@ class SQLParser(object):
         value      = pp.QuotedString('"') | kw_true | kw_false | integer | variable
         value_list = value | pp.Literal("[").suppress() + pp.delimitedList(value).setParseAction(lambda tokens: tuple(tokens.asList())) + pp.Literal("]").suppress()
         
-        table      = pp.Word(pp.alphanums + ':_').setResultsName('object')
+        table      = pp.Word(pp.alphanums + ':_-').setResultsName('object')
         field_list = pp.Literal("*") | pp.delimitedList(field).setParseAction(lambda tokens: set(tokens))
         
         param      = (field + pp.Literal("=").suppress() + value_list).setParseAction(lambda tokens: tuple(tokens.asList()))
