@@ -597,7 +597,7 @@ class SFAGateway(Gateway):
         nodes = rspec.version.get_nodes()
         leases = rspec.version.get_leases()
         channels = [] # rspec.version.get_channels()
- 
+        resources = [] 
         # Extend object and Format object field's name
         for node in nodes:
             node['hrn'] = urn_to_hrn(node['component_id'])[0]
@@ -611,16 +611,14 @@ class SFAGateway(Gateway):
                 node['y'] = node['position']['posy']
                 node['z'] = node['position']['posz']
                 del node['position']
-        
+
+            resources.append(dict(node))       
         # NOTE a channel is a resource and should not be treated independently
         #     resource
         #        |
         #   +----+------+-------+
         #   |    |      |       |
         # node  link  channel  etc.
-        # 
-        resources = []
-        resources.extend(nodes)
         resources.extend(channels)
 
         return {'resource': resources, 'lease': leases } 
