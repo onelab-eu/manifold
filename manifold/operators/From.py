@@ -199,6 +199,6 @@ class From(Node):
             # Projection Node above this From Node in order to guarantee that
             # we only return queried fields
             if provided_fields - fields:
-                return  Projection(self, fields)
+                return Projection(self, fields)
                 #projection.query = self.query.copy().filter_by(filter) # XXX
             return self

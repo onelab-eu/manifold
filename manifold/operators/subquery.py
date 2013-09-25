@@ -163,9 +163,15 @@ class SubQuery(Node):
             already_fetched_fields = set()
             if relation_name in parent_fields:
                 if relation.get_type() in [Relation.types.LINK_1N, Relation.types.LINK_1N_BACKWARDS]:
-                    already_fetched_fields = set(first_record[relation_name][0].keys())
+                    if relation_name in first_record and first_record[relation_name] and len(first_record[relation_name]) > 0:
+                        already_fetched_fields = set(first_record[relation_name][0].keys())
+                    else:
+                        already_fetched_fields = set()
                 else:
-                    already_fetched_fields = set(first_record[relation_name].keys())
+                    if relation_name in first_record and first_record[relation_name] and len(first_record[relation_name]) > 0:
+                        already_fetched_fields = set(first_record[relation_name].keys())
+                    else:
+                        already_fetched_fields = set()
             relevant_fields = child_fields - already_fetched_fields
             if not relevant_fields:
                 useless_children.add(i)
@@ -458,8 +464,13 @@ class SubQuery(Node):
             relation = self.relations[i]
             predicate = relation.get_predicate()
             child_name = relation.get_relation_name()
+            print "Do we need top projection in subquery ?"
+            print "predicate.get_field_names()", predicate.get_field_names()
+            print "parent_fields", parent_fields
             if not predicate.get_field_names() <= parent_fields:
-                parent_fields |= predicate.get_field_names()
+                parent_fields |= predicate.get_field_names() # XXX jordan i don't understand this 
+                require_top_projection = True 
+            if not predicate.get_value_names() <= parent_fields:
                 require_top_projection = True 
             child_fields[child_name] |= predicate.get_value_names()
 
@@ -469,13 +480,20 @@ class SubQuery(Node):
             child_name = relation.get_relation_name()
             self.children[i] = child.optimize_projection(child_fields[child_name])
 
-        if parent_fields < self.parent.get_query().get_select():
-            self.parent = self.parent.optimize_projection(parent_fields)
+        # Note:
+        # if parent_fields < self.parent.get_query().get_select():
+        # This is not working if the parent has fields not in the subquery:
+        # eg. requested = slice_hrn, resource && parent = slice_hrn users
+
+        if self.parent.get_query().get_select() - parent_fields: 
+            #self.parent = self.parent.optimize_projection(parent_fields)
+            self.parent = self.parent.optimize_projection(parent_fields.intersection(self.parent.get_query().get_select()))
 
         # 4) Some fields (used to connect the parent node to its child node) may be not
         # queried by the user. In this case, we ve to add a Projection
         # node which will filter those fields.
         if require_top_projection:
+            print "fields", fields
             return Projection(self, fields) #jordan
         return self
 
