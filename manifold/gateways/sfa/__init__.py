@@ -1303,6 +1303,7 @@ class SFAGateway(Gateway):
 
         if slice_hrn:
             for r in rsrc_slice['resource']:
+                # XXX We might consider making this a list...
                 r['slice'] = slice_hrn
 
         if self.debug:
