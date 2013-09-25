@@ -94,9 +94,10 @@ class resource {
 	const text y;
 	const text z;
     tag			tags[];  
-    slice		slices[];
+#    slice		slice[];
+	slice	slice[];
     KEY(hrn);
-        CAPABILITY(retrieve,join,fullquery);
+    CAPABILITY(retrieve,join,fullquery);
 };
 
 
