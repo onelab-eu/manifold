@@ -44,6 +44,14 @@ class location {
         CAPABILITY(retrieve,join);
 };
 
+#class position {
+#	const text x;
+#	const text y;
+#	const text z;
+#	KEY(x,y,z);
+#	CAPABILITY(retrieve,join);
+#};
+
 class hardware_type {
     const text name;
         CAPABILITY(retrieve,join);
@@ -81,6 +89,10 @@ class resource {
 #    sliver		slivers[];
 #    service		services[];
     location		location;
+#	position		position;
+	const text x;
+	const text y;
+	const text z;
     tag			tags[];  
     slice		slices[];
     KEY(hrn);
