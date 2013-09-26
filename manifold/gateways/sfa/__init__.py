@@ -945,6 +945,7 @@ class SFAGateway(Gateway):
     def get_object(self, object, object_hrn, filters, params, fields):
         # Let's find some additional information in filters in order to restrict our research
         object_name = make_list(filters.get_op(object_hrn, [eq, included]))
+        print "object name", object_name
         auth_hrn = make_list(filters.get_op('authority_hrn', [eq, lt, le]))
         interface_hrn = yield self.get_interface_hrn(self.registry)
 
@@ -994,20 +995,26 @@ class SFAGateway(Gateway):
 
 
         if resolve:
+            print "RESOLVE stack", stack
             stack = map(lambda x: hrn_to_urn(x, object), stack)
             _results  = yield self.registry.Resolve(stack, cred, {'details': True})
-            _result = _results[0]
+            #_result = _results[0]
 
-            # XXX How to better handle DateTime XMLRPC types into the answer ?
-            # XXX Shall we type the results like we do in CSV ?
-            result = {}
-            for k, v in _result.items():
-                if isinstance(v, DateTime):
-                    result[k] = str(v) # datetime.strptime(str(v), "%Y%m%dT%H:%M:%S") 
-                else:
-                    result[k] = v
+            output = []
+            for _result in _results:
 
-            defer.returnValue([result])
+                # XXX How to better handle DateTime XMLRPC types into the answer ?
+                # XXX Shall we type the results like we do in CSV ?
+                result = {}
+                for k, v in _result.items():
+                    if isinstance(v, DateTime):
+                        result[k] = str(v) # datetime.strptime(str(v), "%Y%m%dT%H:%M:%S") 
+                    else:
+                        result[k] = v
+
+                output.append(result)
+ 
+            defer.returnValue(output)
         
         if len(stack) > 1:
             deferred_list = []
