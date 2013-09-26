@@ -131,7 +131,7 @@ class SFATokenMgr(object):
     """
     __metaclass__ = Singleton
 
-    BLACKLIST = ['ple', 'omf']
+    BLACKLIST = ['ple', 'nitos', 'iotlab']
 
     def __init__(self):
         self.busy     = {} # network -> Bool
