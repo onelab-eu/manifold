@@ -206,7 +206,7 @@ class SFAGateway(Gateway):
         'type': 'user_type',                        # type ???
         'last_updated': 'user_last_updated',        # last_updated
         'date_created': 'user_date_created',        # first
-        'email': 'user_email',                      # email
+        #'email': 'user_email',                      # email
         'first_name': 'user_first_name',            # first_name
         'last_name': 'user_last_name',              # last_name
         'phone': 'user_phone',                      # phone
@@ -756,10 +756,11 @@ class SFAGateway(Gateway):
         manifest = ReturnValue.get_value(result)
 
         if not manifest:
-            print "NO MANIFEST FROM", self.platform
+            print "NO MANIFEST FROM", self.platform, result
             defer.returnValue([])
         else:
             print "GOT MANIFEST FROM", self.platform
+            print "MANIFEST=", manifest
         rsrc_leases = self.parse_sfa_rspec(manifest)
 
         slice = {'slice_hrn': filters.get_eq('slice_hrn')}
