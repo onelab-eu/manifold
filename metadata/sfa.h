@@ -37,12 +37,12 @@ enum pl_distro {
 };
 
 
-class location {
-    const text country;
-    const text longitude;
-    const text latitude;
-        CAPABILITY(retrieve,join);
-};
+#class location {
+#    const text country;
+#    const text longitude;
+#    const text latitude;
+#        CAPABILITY(retrieve,join);
+#};
 
 #class position {
 #	const text x;
@@ -88,8 +88,11 @@ class resource {
     initscript		initscripts[]; 		
 #    sliver		slivers[];
 #    service		services[];
-    location		location;
+#    location		location;
 #	position		position;
+    const text country;
+    const text longitude;
+    const text latitude;
 	const text x;
 	const text y;
 	const text z;

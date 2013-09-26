@@ -584,6 +584,20 @@ class SFAGateway(Gateway):
     #
     ############################################################################ 
 
+    def make_dict_rec(self, obj):
+        if not obj or isinstance(obj, StringTypes):
+            return obj
+        if isinstance(obj, list):
+            objcopy = []
+            for x in obj:
+                objcopy.append(self.make_dict_rec(x))
+            return objcopy
+        # We thus suppose we have a child of dict
+        objcopy = {}
+        for k, v in obj.items():
+            objcopy[k] = self.make_dict_rec(v)
+        return objcopy
+
     def parse_sfa_rspec(self, rspec_string):
         # rspec_type and rspec_version should be set in the config of the platform,
         # we use GENIv3 as default one if not
@@ -600,6 +614,8 @@ class SFAGateway(Gateway):
         resources = [] 
         # Extend object and Format object field's name
         for node in nodes:
+            node['type'] = 'node'
+            node['network_hrn'] = Xrn(node['component_id']).authority[0] # network ? XXX
             node['hrn'] = urn_to_hrn(node['component_id'])[0]
             node['urn'] = node['component_id']
             node['hostname'] = node['component_name']
@@ -612,13 +628,31 @@ class SFAGateway(Gateway):
                 node['z'] = node['position']['posz']
                 del node['position']
 
-            resources.append(dict(node))       
+            if 'location' in node:
+                if node['location']:
+                    node['latitude'] = node['location']['latitude']
+                    node['longitude'] = node['location']['longitude']
+                del node['location']
+
+            # Flatten tags
+            if 'tags' in node:
+                if node['tags']:
+                    for tag in node['tags']:
+                        node[tag['tagname']] = tag['value']
+                del node['tags']
+
+            
+            # We suppose we have children of dict that cannot be serialized
+            # with xmlrpc, let's make dict
+            resources.append(self.make_dict_rec(node))
+
         # NOTE a channel is a resource and should not be treated independently
         #     resource
         #        |
         #   +----+------+-------+
         #   |    |      |       |
         # node  link  channel  etc.
+        #resources.extend(nodes)
         resources.extend(channels)
 
         return {'resource': resources, 'lease': leases } 
@@ -961,7 +995,8 @@ class SFAGateway(Gateway):
 
         if resolve:
             stack = map(lambda x: hrn_to_urn(x, object), stack)
-            _result,  = yield self.registry.Resolve(stack, cred, {'details': True})
+            _results  = yield self.registry.Resolve(stack, cred, {'details': True})
+            _result = _results[0]
 
             # XXX How to better handle DateTime XMLRPC types into the answer ?
             # XXX Shall we type the results like we do in CSV ?
