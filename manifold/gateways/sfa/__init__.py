@@ -604,13 +604,16 @@ class SFAGateway(Gateway):
         if 'rspec_type' and 'rspec_version' in self.config:
             rspec_version = self.config['rspec_type'] + ' ' + self.config['rspec_version']
         else:
-            rspec_version = 'SFA 1'
-        
+            rspec_version = 'GENI 3'
+
         rspec = RSpec(rspec_string, version=rspec_version)
         
         nodes = rspec.version.get_nodes()
         leases = rspec.version.get_leases()
-        channels = [] # rspec.version.get_channels()
+
+        if rspec_version == "NITOS 1":
+            channels = [] # rspec.version.get_channels()
+
         resources = [] 
         # Extend object and Format object field's name
         for node in nodes:
@@ -653,7 +656,7 @@ class SFAGateway(Gateway):
         #   |    |      |       |
         # node  link  channel  etc.
         #resources.extend(nodes)
-        resources.extend(channels)
+        #resources.extend(channels)
 
         return {'resource': resources, 'lease': leases } 
 #               'channel': channels \
@@ -661,9 +664,40 @@ class SFAGateway(Gateway):
 
 
     def build_sfa_rspec(self, slice_id, resources, leases):
-        parser = SFAv1Parser(resources, leases)
-        return parser.to_rspec(slice_id)
+        # rspec_type and rspec_version should be set in the config of the platform,
+        # we use GENIv3 as default one if not
+        if 'rspec_type' and 'rspec_version' in self.config:
+            rspec_version = self.config['rspec_type'] + ' ' + self.config['rspec_version']
+        else:
+            rspec_version = 'GENI 3'
 
+        # extend rspec version with "content_type"
+        rspec_version += ' request'
+        
+        rspec = RSpec(version=rspec_version)
+
+        nodes = []
+        channels = []
+        links = []
+        for resource in resources:
+           resource['component_id'] = resource.pop('urn')
+           resource_hrn, resource_type = urn_to_hrn(resource['component_id'])
+           if resource_type == 'node':
+               nodes.append(resource)
+           elif resource_type == 'link':
+               links.append(resource)
+           elif resource_type == 'channel':
+               channels.append(resource)
+           else:
+               raise Exception, "Not supported type of resource" 
+        
+
+        rspec.version.add_nodes(nodes, rspec_content_type="request")
+        #rspec.version.add_leases(leases)
+        #rspec.version.add_links(links)
+        #rspec.version.add_channels(channels)
+    
+        return rspec.toxml()
 
     ############################################################################ 
     #
