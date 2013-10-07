@@ -76,6 +76,8 @@ class tag {
 class resource {
     const text  	urn;
     const text  	hrn;
+    const text  	type;
+    const text  	network_hrn;
     const text  	hostname;
     const text		component_manager_id;
     const text		component_id;
