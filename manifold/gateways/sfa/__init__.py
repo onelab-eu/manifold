@@ -1623,13 +1623,13 @@ class SFAGateway(Gateway):
         # 
         need_delegated_slice_credentials = not is_admin and self.credentials_needed('delegated_slice_credentials', config)
         need_delegated_authority_credentials = not is_admin and self.credentials_needed('delegated_authority_credentials', config)
-        need_slice_credentials = need_delegated_slice_credentials
+        need_slice_credentials = is_admin or need_delegated_slice_credentials
         need_slice_list = need_slice_credentials
-        need_authority_credentials = need_delegated_authority_credentials
+        need_authority_credentials = is_admin or need_delegated_authority_credentials
         need_authority_list = need_authority_credentials
         need_delegated_user_credential = not is_admin and self.credentials_needed('delegated_user_credential', config)
         need_gid = not 'gid' in config
-        need_user_credential = need_authority_credentials or need_slice_list or need_slice_credentials or need_delegated_user_credential or need_gid
+        need_user_credential = is_admin or need_authority_credentials or need_slice_list or need_slice_credentials or need_delegated_user_credential or need_gid
 
         if self.is_admin(self.user):
             need_delegated_user_credential=false
