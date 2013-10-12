@@ -611,9 +611,8 @@ class SFAGateway(Gateway):
         
         nodes = rspec.version.get_nodes()
         leases = rspec.version.get_leases()
-
-        if rspec_version == "NITOS 1":
-            channels = [] # rspec.version.get_channels()
+        links = rspec.version.get_links()
+        channels = rspec.version.get_channels()
 
         resources = [] 
         # Extend object and Format object field's name
@@ -798,14 +797,18 @@ class SFAGateway(Gateway):
             user_urns = [hrn_to_urn(hrn, 'user') for hrn in user_hrns]
             user_records = yield self.registry.Resolve(user_urns, [user_cred])
             server_version = yield self.get_cached_server_version(self.registry)
+
+            geni_users = pg_users_arg(user_records)
+            sfa_users = sfa_users_arg(user_records, slice_record)
             if 'sfa' not in server_version:
-                print "W: converting to pg rspec"
-                users = pg_users_arg(user_records)
-                rspec = RSpec(rspec)
-                rspec.filter({'component_manager_id': server_version['urn']})
-                rspec = RSpecConverter.to_pg_rspec(rspec.toxml(), content_type='request')
+                #print "W: converting to pg rspec"
+                users = geni_users
+                #rspec = RSpec(rspec)
+                #rspec.filter({'component_manager_id': server_version['urn']})
+                #rspec = RSpecConverter.to_pg_rspec(rspec.toxml(), content_type='request')
             else:
-                users = sfa_users_arg(user_records, slice_record)
+                users = sfa_users
+                
         # do not append users, keys, or slice tags. Anything
         # not contained in this request will be removed from the slice
 
@@ -814,15 +817,18 @@ class SFAGateway(Gateway):
         api_options = {}
         api_options ['append'] = False
         api_options ['call_id'] = unique_call_id()
-        ois = yield self.ois(self.sliceapi, api_options)
 
         if self.version['geni_api'] == 2:
             # AM API v2
+            ois = yield self.ois(self.sliceapi, api_options)
             result = yield self.sliceapi.CreateSliver(slice_urn, [slice_cred], rspec, users, ois)
         else:
             # AM API v3
-            result = yield self.sliceapi.Allocate(slice_urn, [slice_cred], rspec, ois)
-            result = yield self.sliceapi.Provision([slice_urn], [slice_cred], ois)
+            api_options['sfa_users'] = sfa_users
+            api_options['geni_users'] = geni_users
+
+            result = yield self.sliceapi.Allocate(slice_urn, [slice_cred], rspec, api_options)
+            result = yield self.sliceapi.Provision([slice_urn], [slice_cred], api_options)
 
         manifest = ReturnValue.get_value(result)
 
@@ -1629,13 +1635,13 @@ class SFAGateway(Gateway):
         # 
         need_delegated_slice_credentials = not is_admin and self.credentials_needed('delegated_slice_credentials', config)
         need_delegated_authority_credentials = not is_admin and self.credentials_needed('delegated_authority_credentials', config)
-        need_slice_credentials = need_delegated_slice_credentials
+        need_slice_credentials = is_admin or need_delegated_slice_credentials
         need_slice_list = need_slice_credentials
-        need_authority_credentials = need_delegated_authority_credentials
+        need_authority_credentials = is_admin or need_delegated_authority_credentials
         need_authority_list = need_authority_credentials
         need_delegated_user_credential = not is_admin and self.credentials_needed('delegated_user_credential', config)
         need_gid = not 'gid' in config
-        need_user_credential = need_authority_credentials or need_slice_list or need_slice_credentials or need_delegated_user_credential or need_gid
+        need_user_credential = is_admin or need_authority_credentials or need_slice_list or need_slice_credentials or need_delegated_user_credential or need_gid
 
         if self.is_admin(self.user):
             need_delegated_user_credential=false
