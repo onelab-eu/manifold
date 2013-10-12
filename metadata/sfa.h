@@ -109,6 +109,7 @@ class resource {
 class network {
     const text network_hrn;
     const text network_name;
+	const text platform;
     KEY(network_hrn);
 	CAPABILITY(retrieve,join);
 };
