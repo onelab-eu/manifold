@@ -201,7 +201,7 @@ class Gateway(object):
 #__all__ = find_local_modules(__file__)
 #[ os.path.basename(f)[:-3] for f in glob.glob(os.path.dirname(__file__)+"/*.py")]
 
-def register():
+def register_gateways():
     try:
         from manifold.gateways.postgresql       import PostgreSQLGateway
     except: pass
@@ -224,7 +224,8 @@ def register():
     except: pass
     try:
         from manifold.gateways.sqlalchemy       import SQLAlchemyGateway
-    except: pass
+    except Exception, e:
+        Log.tmp("Could not load SQLAlchemy gateway: %s" % e)
     try:
         from manifold.gateways.oml              import OMLGateway
     except: pass
@@ -233,7 +234,5 @@ def register():
     except Exception, e: 
         Log.tmp("Could not load perfsonar gateway: %s" % e)
         pass
-
-register()
 
 __all__ = ['Gateway']

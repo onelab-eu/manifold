@@ -19,7 +19,6 @@ from manifold.core.result_value     import ResultValue
 from manifold.util.log              import Log
 from manifold.util.type             import returns, accepts
 from manifold.util.reactor_thread   import ReactorThread
-
 # XXX cannot use the wrapper with sample script
 # XXX cannot use the thread with xmlrpc -n
 #from manifold.util.reactor_wrapper  import ReactorWrapper as ReactorThread

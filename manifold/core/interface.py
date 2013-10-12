@@ -21,6 +21,7 @@ from manifold.models.platform   import Platform
 from manifold.util.storage      import DBStorage as Storage
 from manifold.util.type         import accepts, returns 
 from manifold.util.log          import Log
+from manifold.gateways          import register_gateways
 
 class Interface(object):
     """
@@ -40,6 +41,10 @@ class Interface(object):
             platforms: A list of Platforms.
             allowed_capabilities: A Capabilities instance or None
         """
+        # Register the list of Gateways
+        Log.info("Registering gateways")
+        register_gateways()
+
         # self.platforms is list(dict) where each dict describes a platform.
         # See platform table in the Storage.
         self.platforms = Storage.execute(Query().get("platform").filter_by("disabled", "=", False), format = "object")
@@ -54,6 +59,7 @@ class Interface(object):
         # self.gateways is a {String : Gateway} which maps a platform name to
         # the appropriate Gateway instance.
         self.gateways = dict()
+
 
         self.boot()
 
