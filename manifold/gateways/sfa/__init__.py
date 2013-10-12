@@ -604,7 +604,8 @@ class SFAGateway(Gateway):
         if 'rspec_type' and 'rspec_version' in self.config:
             rspec_version = self.config['rspec_type'] + ' ' + self.config['rspec_version']
         else:
-            rspec_version = 'GENI 3'
+            #rspec_version = 'GENI 3'
+            rspec_version = 'SFA 1'
 
         rspec = RSpec(rspec_string, version=rspec_version)
         
@@ -664,6 +665,8 @@ class SFAGateway(Gateway):
 
 
     def build_sfa_rspec(self, slice_id, resources, leases):
+        Log.tmp(resources)
+        Log.tmp(slice_id)
         # rspec_type and rspec_version should be set in the config of the platform,
         # we use GENIv3 as default one if not
         if 'rspec_type' and 'rspec_version' in self.config:
@@ -680,6 +683,7 @@ class SFAGateway(Gateway):
         channels = []
         links = []
         for resource in resources:
+           # TODO: take into account the case where we send a dict of URNs without keys
            resource['component_id'] = resource.pop('urn')
            resource_hrn, resource_type = urn_to_hrn(resource['component_id'])
            if resource_type == 'node':
@@ -751,6 +755,7 @@ class SFAGateway(Gateway):
             raise Exception, 'Missing parameter: slice_hrn'
         slice_hrn = filters.get_eq('slice_hrn')
         slice_urn = hrn_to_urn(slice_hrn, 'slice')
+        Log.tmp(params)
         resources = params['resource'] if 'resource' in params else []
         leases = params['lease'] if 'lease' in params else []
 
@@ -928,6 +933,7 @@ class SFAGateway(Gateway):
                 output['network_hrn']=v
             if k=='testbed':
                 output['network_name']=v
+            output['platform']=self.platform
         #result={'network_hrn': version['hrn'], 'network_name': version['testbed']}
         defer.returnValue([output])
 
