@@ -664,8 +664,8 @@ class SFAGateway(Gateway):
 
 
     def build_sfa_rspec(self, slice_id, resources, leases):
-        Log.tmp(resources)
-        Log.tmp(slice_id)
+        if isinstance(resources, str):
+            resources = eval(resources)
         # rspec_type and rspec_version should be set in the config of the platform,
         # we use GENIv3 as default one if not
         if 'rspec_type' and 'rspec_version' in self.config:
@@ -681,18 +681,19 @@ class SFAGateway(Gateway):
         nodes = []
         channels = []
         links = []
+ 
         for resource in resources:
-           # TODO: take into account the case where we send a dict of URNs without keys
-           resource['component_id'] = resource.pop('urn')
-           resource_hrn, resource_type = urn_to_hrn(resource['component_id'])
-           if resource_type == 'node':
-               nodes.append(resource)
-           elif resource_type == 'link':
-               links.append(resource)
-           elif resource_type == 'channel':
-               channels.append(resource)
-           else:
-               raise Exception, "Not supported type of resource" 
+            # TODO: take into account the case where we send a dict of URNs without keys
+            resource['component_id'] = resource.pop('urn')
+            resource_hrn, resource_type = urn_to_hrn(resource['component_id'])
+            if resource_type == 'node':
+                nodes.append(resource)
+            elif resource_type == 'link':
+                links.append(resource)
+            elif resource_type == 'channel':
+                channels.append(resource)
+            else:
+                raise Exception, "Not supported type of resource" 
         
 
         rspec.version.add_nodes(nodes, rspec_content_type="request")
@@ -754,7 +755,7 @@ class SFAGateway(Gateway):
             raise Exception, 'Missing parameter: slice_hrn'
         slice_hrn = filters.get_eq('slice_hrn')
         slice_urn = hrn_to_urn(slice_hrn, 'slice')
-        Log.tmp(params)
+
         resources = params['resource'] if 'resource' in params else []
         leases = params['lease'] if 'lease' in params else []
 
