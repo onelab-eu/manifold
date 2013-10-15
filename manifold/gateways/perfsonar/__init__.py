@@ -24,18 +24,20 @@ class PerfSONARGateway(Gateway):
     # Constructor
     #---------------------------------------------------------------------------
 
-    def __init__(self, interface, platform, config = None):
+    def __init__(self, interface, platform_name, platform_config = None):
         """
-        Construct a PerfSONARGateway instance.
+        Constructor
         Args:
             interface: The Manifold Interface on which this Gateway is running.
-            platform: A String storing name of the platform related to this Gateway or None.
-            config: A dictionnary containing the configuration related to this Gateway.
-                It may contains the following keys:
-                "name" : name of the platform's maintainer. 
-                "mail" : email address of the maintainer.
+            platform_name: A String storing name of the Platform related to this
+                Gateway or None.
+            platform_config: A dictionnary containing the configuration related
+                to the Platform managed by this Gateway. In practice, it should
+                correspond to the following value stored in the Storage verifying
+                
+                    SELECT config FROM local:platform WHERE platform == "platform_name"
         """
-        super(PerfSONARGateway, self).__init__(interface, platform, config)
+        super(PerfSONARGateway, self).__init__(interface, platform_name, platform_config)
 
         # Other initialization here
 
@@ -55,7 +57,7 @@ class PerfSONARGateway(Gateway):
     # Overloaded methods 
     #---------------------------------------------------------------------------
 
-    def forward(self, query, callback, is_deferred = False, execute = True, user = None, format = "dict", receiver = None):
+    def forward(self, query, callback, is_deferred = False, execute = True, user = None, account_config = None, format = "dict", receiver = None):
         """
         Query handler.
         Args:
@@ -67,6 +69,9 @@ class PerfSONARGateway(Gateway):
             execute: A boolean set to True if the treatement requested in query
                 must be run or simply ignored.
             user: The User issuing the Query.
+            account_config: A dictionnary containing the user's account config.
+                In pratice, this is the result of the following query (run on the Storage)
+                SELECT config FROM local:account WHERE user_id == user.user_id
             format: A String specifying in which format the Records must be returned.
             receiver : The From Node running the Query or None. Its ResultValue will
                 be updated once the query has terminated.
@@ -74,7 +79,7 @@ class PerfSONARGateway(Gateway):
             forward must NOT return value otherwise we cannot use @defer.inlineCallbacks
             decorator. 
         """
-        super(FooGateway, self).forward(query, callback, is_deferred, execute, user, format, receiver)
+        super(FooGateway, self).forward(query, callback, is_deferred, execute, user, account_config, format, receiver)
         identifier = receiver.get_identifier() if receiver else None
         Log.tmp("Received: %s" % query)
 

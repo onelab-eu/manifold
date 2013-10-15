@@ -10,6 +10,7 @@
 #
 # Copyright (C) 2013 UPMC 
 
+
 from manifold.gateways.gateway      import Gateway
 from manifold.util.callback         import Callback
 
@@ -55,5 +56,6 @@ class DBStorage(Storage):
         # XXX Need to pass local parameters
 #MANDO|        gw = Gateway.get('sqlalchemy')(config={'url': URL}, user=user, format=format)
         callback = Callback()
-        self.gateway.forward(query, callback, False, True, user, format)
+        account_config = None
+        self.gateway.forward(query, callback, False, True, user, account_config, format, None)
         return callback.get_results()

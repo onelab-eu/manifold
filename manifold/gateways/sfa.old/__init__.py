@@ -1541,7 +1541,7 @@ class SFAGateway(Gateway):
             new_key = True
 
         if not 'sscert' in config:
-            print "I: Generating self-signed certificate for user", user
+            Log.info("Generating self-signed certificate for user %s" % user)
             x = config['user_private_key'].encode('latin1')
             keypair = Keypair(string=x)
             self_signed = Certificate(subject = config['user_hrn'])

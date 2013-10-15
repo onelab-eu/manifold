@@ -2,6 +2,7 @@ import traceback,copy
 from twisted.web                import xmlrpc
 from manifold.auth              import Auth
 from manifold.core.query        import Query
+from manifold.core.receiver     import Receiver 
 from manifold.core.result_value import ResultValue
 from manifold.util.options      import Options
 from manifold.util.log          import Log
@@ -60,12 +61,14 @@ class XMLRPCAPI(xmlrpc.XMLRPC, object):
     def xmlrpc_forward(self, *args):
         """
         """
-        Log.info("Incoming XMLRPC request, args = %r" % self.display_query(*args))
+        #Log.info("Incoming XMLRPC request, args = %r" % self.display_query(*args))
         if not Options().disable_auth:
             assert len(args) == 2, "Wrong arguments for XMLRPC forward call"
             auth, query = args
             try:
+                Log.tmp("auth = %s" % auth)
                 user = Auth(auth).check()
+                Log.tmp("user = %s" % user)
             except Exception, e:
                 Log.warning("XMLRPCAPI::xmlrpc_forward: Authentication failed: %s" % traceback.format_exc())
                 ret = dict(ResultValue(
@@ -84,14 +87,16 @@ class XMLRPCAPI(xmlrpc.XMLRPC, object):
         query = Query(query)
         # self.interface is either a Router or a Forwarder
         # forward function is called with is_deferred = True in args
-        Log.tmp(">>>>>>> user = %s " % user)
-        deferred = self.interface.forward(query, user=user, is_deferred=True)
+        receiver = Receiver()
+        deferred = self.interface.forward(query, user = user, is_deferred = True, receiver = receiver)
+
         def process_results(rv):
             print "XMLRPC PROCESS RESULTS"
             if 'description' in rv and isinstance(rv['description'], list):
                 rv['description'] = [dict(x) for x in rv['description']]
             # Print Results
             return dict(rv)
+
         def handle_exceptions(failure):
             print "XMLRPC HANDLE EXCEPTIONS"
             e = failure.trap(Exception)

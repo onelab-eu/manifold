@@ -202,15 +202,17 @@ Example:
         for c in creds:
             #MySlice.AddCredential(auth, c, platform)
             query = {
-                'action':       'update',
-                'object':   'local:account',
-                'filters':      [['platform', '=', platform]],
-                'params':       {'credential': c}
+                'action'  : 'update',
+                'object'  : 'local:account',
+                'filters' : [['platform', '=', platform]],
+                'params'  : {'credential': c}
             }
-            MySlice.forward(auth, query)
-            print "I: uploading credential"
+            result_value = MySlice.forward(auth, query)
+            if result_value["code"] != 0:
+                raise Exception("%s" % result_value)
+            print "Uploading credential"
     except Exception, e:
-        print "E: Error uploading credential: %s" % e
+        print "Error while uploading credential: %s" % e
 
 if __name__ == '__main__':
     main()

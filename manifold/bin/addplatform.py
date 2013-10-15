@@ -3,8 +3,9 @@
 
 import sys
 
-from manifold.core.router import Router
-from manifold.core.query import Query
+from manifold.core.query    import Query
+from manifold.core.receiver import Receiver 
+from manifold.core.router   import Router
 
 def usage():
     print "Usage: %s NAME LONGNAME GATEWAY AUTH_TYPE CONFIG [DISABLED]" % sys.argv[0]
@@ -78,8 +79,9 @@ def main():
     query = Query(action="create", object="local:platform", params=platform_params)
 
     # Instantiate a TopHat router
+    receiver = Receiver()
     with Router() as router:
-        router.forward(query)
+        router.forward(query, receiver = receiver)
 
 if __name__ == "__main__":
     main()

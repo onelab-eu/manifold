@@ -20,7 +20,6 @@ from manifold.core.result_value     import ResultValue
 from manifold.util.log              import Log
 from manifold.util.type             import returns, accepts
 from manifold.util.reactor_thread   import ReactorThread
-
 # XXX cannot use the wrapper with sample script
 # XXX cannot use the thread with xmlrpc -n
 #from manifold.util.reactor_wrapper  import ReactorWrapper as ReactorThread
@@ -118,6 +117,8 @@ class Router(Interface):
         Returns:
             A Deferred instance if the Query is async, None otherwise
         """
+        assert receiver, "Invalid receiver"
+
         # Try to forward the Query according to the parent class.
         # In practice, Interface::forwards() succeeds iif this is a local Query,
         # otherwise, an Exception is raised.

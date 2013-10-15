@@ -425,7 +425,7 @@ class PostgreSQLGateway(Gateway):
     # Overloaded methods 
     #---------------------------------------------------------------------------
 
-    def forward(self, query, callback, is_deferred = False, execute = True, user = None, format = "dict", receiver = None):
+    def forward(self, query, callback, is_deferred = False, execute = True, user = None, account_config = None, format = "dict", receiver = None):
         """
         Query handler.
         Args:
@@ -437,6 +437,9 @@ class PostgreSQLGateway(Gateway):
             execute: A boolean set to True if the treatement requested in query
                 must be run or simply ignored.
             user: The User issuing the Query.
+            account_config: A dictionnary containing the user's account config.
+                In pratice, this is the result of the following query (run on the Storage)
+                SELECT config FROM local:account WHERE user_id == user.user_id
             format: A String specifying in which format the Records must be returned.
             receiver : The From Node running the Query or None. Its ResultValue will
                 be updated once the query has terminated.
@@ -444,8 +447,9 @@ class PostgreSQLGateway(Gateway):
             forward must NOT return value otherwise we cannot use @defer.inlineCallbacks
             decorator. 
         """
-        Gateway.forward(self, query, callback, is_deferred, execute, user, format, receiver)
+        Gateway.forward(self, query, callback, is_deferred, execute, user, account_config, format, receiver)
         identifier = receiver.get_identifier() if receiver else None
+
         sql = PostgreSQLGateway.to_sql(query)
         rows = self.selectall(sql, None)
         rows.append(LAST_RECORD)
@@ -534,7 +538,7 @@ class PostgreSQLGateway(Gateway):
         #########
 
         # Fetch metadata from .h files (if any)
-        announces_h = Announces.from_dot_h(self.get_platform(), self.get_gateway_type())
+        announces_h = Announces.from_dot_h(self.get_platform_name(), self.get_gateway_type())
         Log.info("Tables imported from .h schema: %s" % [announce.get_table() for announce in announces_h])
 
         # Return the resulting announces
@@ -630,8 +634,7 @@ class PostgreSQLGateway(Gateway):
             Log.debug(query)
             Log.debug("Params:")
             Log.debug(pformat(params))
-            msg = str(e).rstrip() # jordan
-            raise Exception(self.make_error_message(msg, uuid))
+            raise Exception(str(e).rstrip())
 
         return cursor
 
@@ -1021,7 +1024,7 @@ class PostgreSQLGateway(Gateway):
             to the queried view/relation
         """
         cursor = self.get_cursor()
-        table = Table(self.get_platform(), None, table_name, None, None)
+        table = Table(self.get_platform_name(), None, table_name, None, None)
         param_execute = {"table_name": table_name}
 
         # FOREIGN KEYS:

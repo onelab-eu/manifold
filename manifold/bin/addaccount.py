@@ -4,8 +4,9 @@
 import sys
 import getpass
 
-from manifold.core.router import Router
-from manifold.core.query import Query
+from manifold.core.receiver import Receiver
+from manifold.core.router   import Router
+from manifold.core.query    import Query
 
 def usage():
     print "Usage: %s USER PLATFORM TYPE CONFIG" % sys.argv[0]
@@ -32,9 +33,9 @@ def main():
     print "P---------------",platform
     query = Query(action='create', object='local:account', params=account_params)
     print "Q---------------",query
-    # Instantiate a TopHat router
+    receiver = Receiver()
     with Router() as router:
-        router.forward(query)
+        router.forward(query, receiver = receiver)
 
 if __name__ == '__main__':
     main()

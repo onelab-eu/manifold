@@ -19,6 +19,7 @@ from traceback                      import format_exc
 from manifold.auth                  import Auth
 from manifold.core.query            import Query
 from manifold.core.router           import Router
+from manifold.core.receiver         import Receiver 
 from manifold.core.result_value     import ResultValue
 from manifold.input.sql             import SQLParser
 from manifold.util.log              import Log
@@ -29,7 +30,7 @@ from manifold.util.type             import accepts, returns
 DEFAULT_USER     = 'demo'
 DEFAULT_PASSWORD = 'demo'
 
-class Shell(object):
+class Shell(Receiver):
 
     PROMPT = 'manifold'
 
@@ -55,7 +56,9 @@ class Shell(object):
 
     @classmethod
     def init_options(self):
-        # Processing
+        """
+        Prepare options supported by a Shell.
+        """
         opt = Options()
         opt.add_option(
             "-C", "--cacert", dest = "xmlrpc_cacert",
@@ -106,7 +109,7 @@ class Shell(object):
         Args:
             interactive: A boolean.
         """
-        self.result_value = None # Result of the last Query
+        super(Shell, self).__init__()
         self.interactive = interactive
 
         if not Options().anonymous:
@@ -136,7 +139,7 @@ class Shell(object):
         if Options().xmlrpc:
             import xmlrpclib
             url = Options().xmlrpc_url
-            self.interface = xmlrpclib.ServerProxy(url, allow_none=True)
+            self.interface = xmlrpclib.ServerProxy(url, allow_none = True)
 
             mode_str      = 'XMLRPC'
             interface_str = ' towards XMLRPC API %s' % self.interface
@@ -167,23 +170,6 @@ class Shell(object):
         """
         if not Options().xmlrpc: self.interface.__exit__()
 
-    def set_result_value(self, result_value):
-        """
-        Function called back by self.interface.forward() once the Query
-        has been executed.
-        Args:
-            result_value: A ResultValue built once the Query has terminated.
-        """
-        self.result_value = result_value
-
-    @returns(ResultValue)
-    def get_result_value(self):
-        """
-        Returns:
-            The ResultValue corresponding to the last issued Query.
-        """
-        return self.result_value
-
     @returns(ResultValue)
     def forward(self, query):
         """
@@ -205,7 +191,7 @@ class Shell(object):
                 self.interface.forward(query, user = None, receiver = self)
             else:
                 self.interface.forward(query, user = Auth(self.auth).check(), receiver = self)
-        return self.result_value
+        return self.get_result_value()
 
     def display(self, result_value):
         """
@@ -224,37 +210,37 @@ class Shell(object):
                     Shell.print_error(nested_result_value)
                     return
     
-        results = result_value["value"]
+        records = result_value["value"]
     
         if self.interactive:
             # Command-line
             print "===== RESULTS ====="
-            pprint.pprint(results)
+            pprint.pprint(records)
         elif Options().execute:
             # Used by script to it may be piped.
-            print json.dumps(results)
+            print json.dumps(records)
 
     def evaluate(self, command):
         """
-        Parse a command type to the user,  and run the corresponding Query.
+        Parse a command type by the User, and run the corresponding Query.
         Args:
             command: A String instance containing the command typed by the user.
         """
         #username, password = Options().username, Options().password
-        d = SQLParser().parse(command)
-        if d:
-            query = Query(d)
+        dic = SQLParser().parse(command)
+        if dic:
+            query = Query(dic)
             if "*" in query.get_select(): query.fields = None
+            
             self.display(self.forward(query))
 
     def execute(self, query):
         """
-        Execute a Query.
+        Execute a Query (used if the Shell is run with option "-e").
         Args:
             query: The Query typed by the user.
         """
-        result_value = self.forward(query)
-        self.display(self.get_result_value())
+        self.display(self.forward(query))
         
         
 #    # If called by a script 

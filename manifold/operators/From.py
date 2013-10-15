@@ -52,12 +52,22 @@ class From(Node):
 
         super(From, self).__init__()
 
-        self.platform     = platform
-        self.query        = query
-        self.capabilities = capabilities
-        self.key          = key
-        self.gateway      = None # A Gateway instance
-        self.result_value = None # A ResultValue instance
+        self.platform       = platform
+        self.account_config = None # This dictionnary will be initalized by init_from_node
+        self.query          = query
+        self.capabilities   = capabilities
+        self.key            = key
+        self.gateway        = None # This Gateway will be initalized by init_from_node
+        self.result_value   = None # A ResultValue (TODO: From should inherits Receiver)
+
+    def set_account_config(self, account_config):
+        """
+        Args:
+            account_config: A dictionnary instance
+        """
+        assert not account_config or isinstance(account_config, dict), \
+            "Invalid account_config: %s (%s)" % (account_config, type(account_config))
+        self.account_config = account_config
 
     def add_fields_to_query(self, field_names):
         """
@@ -81,6 +91,7 @@ class From(Node):
     @returns(ResultValue)
     def get_result_value(self):
         """
+        (TODO) remove this method and make From inherits Receiver
         Returns:
             The ResultValue related to the query embeded in this From Node.
             It could be None if the query has not been run (see From::forward())
@@ -89,6 +100,7 @@ class From(Node):
 
     def set_result_value(self, result_value):
         """
+        (TODO) remove this method and make From inherits Receiver
         Args:
             result_value: The ResultValue related to the query embeded in this From Node.
         """
@@ -107,10 +119,12 @@ class From(Node):
     #@returns(From)
     def inject(self, records, key, query):
         """
-        \brief Inject record / record keys into the node
-        \param records list of dictionaries representing records,
-                       or list of record keys
-        \return This node
+        Inject record / record keys into the node
+        Args:
+            records: A list of dictionaries representing records,
+                     or list of record keys
+        Returns:
+            ???
         """
         if not records:
             return
@@ -179,12 +193,22 @@ class From(Node):
         """
         self.user = user
 
+    #@returns(User)
     def get_user(self):
         """
         Returns:
             The User querying the nested platform of this From Node (None if anonymous).
         """
         return self.user
+
+    @returns(dict)
+    def get_account_config(self):
+        """
+        Returns:
+            A dictionnary containing the account configuration of the User instanciating
+            this From Node or None.
+        """
+        return self.account_config
 
     def start(self):
         """
@@ -195,21 +219,22 @@ class From(Node):
             self.send(LAST_RECORD)
         else:
             self.gateway.forward(
-                self.get_query(),     # Forward the nested Query to the nested Gateway.
-                self.get_callback(),  # Records are returned through this Callback.
-                False,                # is_deferred
-                True,                 # execute
-                self.get_user(),      # The Query is performed using this User.
-                "dict",               # Node only consider Records in the "dict" format
-                self                  # self is passed to allows forward to update self.result_value 
+                self.get_query(),          # Forward the nested Query to the nested Gateway.
+                self.get_callback(),       # Records are returned through this Callback.
+                False,                     # is_deferred
+                True,                      # execute
+                self.get_user(),           # The Query is performed using this User.
+                self.get_account_config(), # Account configuration of this User on this Platform
+                "dict",                    # Node only consider Records in the "dict" format
+                self                       # From Node mimics a Receiver. 
             )
-        Log.tmp("reenable this assert")
-#            assert self.get_result_value() and isinstance(self.get_result_value(), ResultValue), \
-#                "%s::forward() does not set instance: %s (%s)" % (
-#                    self.gateway.__class__.__name__,
-#                    self.get_result_value(),
-#                    type(self.get_result_value())
-#                )
+        #Log.tmp("uncomment this assert")
+        #assert self.get_result_value() and isinstance(self.get_result_value(), ResultValue), \
+        #    "%s::forward() does not set instance: %s (%s)" % (
+        #        self.gateway.__class__.__name__,
+        #        self.get_result_value(),
+        #        type(self.get_result_value())
+        #    )
 
     def set_gateway(self, gateway):
         """
@@ -285,6 +310,6 @@ class From(Node):
             # Projection Node above this From Node in order to guarantee that
             # we only return queried fields
             if provided_fields - fields:
-                return  Projection(self, fields)
+                return Projection(self, fields)
                 #projection.query = self.query.copy().filter_by(filter) # XXX
             return self

@@ -13,11 +13,8 @@
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 #   Loïc Baron        <loic.baron@lip6.fr>
 
-# NOTE: The fastest way to traverse all edges of a graph is via
-# adjacency_iter(), but the edges() method is often more convenient.
-
 import copy, random
-from types                         import StringTypes
+from types                         import StringTypes, GeneratorType
 from twisted.internet.defer        import Deferred, DeferredList
 
 from manifold.core.stack           import Stack
@@ -55,6 +52,16 @@ class QueryPlan(object):
         if isinstance(from_node, From):
             self.froms.append(from_node)
 
+    @returns(GeneratorType)
+    def get_froms(self):
+        """
+        Returns:
+            A Generator allowing to iterate on From nodes involved
+            in this QueryPlan.
+        """
+        for from_node in self.froms:
+            yield from_node
+
     @returns(list)
     def get_result_value_array(self):
         """
@@ -64,7 +71,7 @@ class QueryPlan(object):
         """
         # Iterate over gateways to get their ResultValue 
         result_values = list() 
-        for from_node in self.froms:
+        for from_node in self.get_froms():
             assert from_node.gateway, "Invalid FROM node: %s" % from_node
             result_value = from_node.get_result_value()
             if not result_value:
@@ -86,7 +93,7 @@ class QueryPlan(object):
         # (see query.get_timestamp())
         # Or their corresponding Gateway should return an empty result
         # by only sending LAST_RECORD.
-        for from_node in self.froms:
+        for from_node in self.get_froms():
             from_node.query.timestamp = query.get_timestamp()
 
     def set_ast(self, ast, query):
@@ -97,15 +104,15 @@ class QueryPlan(object):
             ast: An AST instance made of Union, LeftJoin, SubQuery and From Nodes.
             query: The Query issued by the user.
         """
-        print "QUERY PLAN (before optimization):"
-        ast.dump()
+        #print "QUERY PLAN (before optimization):"
+        #ast.dump()
         ast.optimize(query)
         self.inject_at(query)
         self.ast = ast
     
         # Update the main query to add applicative information such as action and params
         # NOTE: I suppose params cannot have '.' inside
-        for from_node in self.froms:
+        for from_node in self.get_froms():
             q = from_node.get_query()
             if q.get_from() == query.get_from():
                 q.action = query.get_action()
