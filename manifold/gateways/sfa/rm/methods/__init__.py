@@ -12,6 +12,7 @@
 
 from types                                  import StringTypes, GeneratorType
 from twisted.internet                       import defer
+from sfa.util.xrn                           import hrn_to_urn 
 
 from manifold.util.log                  	import Log
 from manifold.util.predicate                import eq, lt, le, included
@@ -77,54 +78,76 @@ class Object:
         (Internal use)
         """
         Log.tmp(">>>>>>> welcome in Object::get() :)")
-        object      = query.get_from()
-        object_hrn  = "%s_hrn" % object
-        filters     = query.get_where()
-        params      = query.get_params()
-        fields      = query.get_select()
-        gateway     = self.get_gateway()
+        Log.tmp(query)
+        Log.tmp("-" * 80)
+        object     = query.get_from()
+        object_hrn = "%s_hrn" % object
+        filters    = query.get_where()
+        params     = query.get_params()
+        fields     = query.get_select()
+        gateway    = self.get_gateway()
 
         # Let's find some additional information in filters in order to restrict our research
-        object_name = make_list(filters.get_op(object_hrn,      [eq, included]))
-        auth_hrn    = make_list(filters.get_op('authority_hrn', [eq, lt, le]))
+        authority_hrns = make_list(filters.get_op("authority_hrn", [eq, lt, le])) # TODO this should be specific to Authority object ?
+        object_hrns    = make_list(filters.get_op(object_hrn,      [eq, included]))
+        if not object_hrns:
+            raise Exception("The WHERE clause of the following Query does not allow to retrieve an HRN: %s" % query)
 
-        Log.tmp("0)c)")
+        # Retrieve interface HRN (ex: "ple")
         interface_hrn = yield gateway.get_hrn()
 
-        # recursive: Should be based on jokers, eg. ple.upmc.*
-        # resolve  : True: make resolve instead of list
-        Log.tmp("1) object_name = %s auth_hrn = %s" % (object_name, auth_hrn))
-        if object_name:
+        # Recursive: Should be based on jokers, eg. ple.upmc.*
+        # Resolve  : True: make resolve instead of list
+        if object_hrns:
             # 0) given object name
 
             # If the objects are not part of the hierarchy, let's return [] to
             # prevent the registry to forward results to another registry
             # XXX This should be ensured by partitions
-            object_name = [ on for on in object_name if on.startswith(interface_hrn)]
-            if not object_name:
-                Log.tmp("<<<< returning []")
+            object_hrns = [object_hrn for object_hrn in object_hrns if object_hrn.startswith(interface_hrn)]
+            if not object_hrns:
                 defer.returnValue(list())
 
             # Check for jokers ?
-            stack     = object_name
+            # 'recursive' won't be evaluated in the rest of the function
+            stack     = object_hrns
             resolve   = True
 
-        elif auth_hrn:
+        elif authority_hrns:
             # 2) given authority
 
             # If the authority is not part of the hierarchy, let's return [] to
             # prevent the registry to forward results to another registry
             # XXX This should be ensured by partitions
-            if not auth_hrn.startswith(interface_hrn):
-                Log.tmp("<<<< returning []")
+            Log.warning("calling startswith on a list ??")
+            if not authority_hrns.startswith(interface_hrn):
                 defer.returnValue(list())
 
             resolve   = False
             recursive = False
-            stack = []
-            for hrn in auth_hrn:
-                if not '*' in hrn: # jokers ?
-                    stack.append(hrn)
+            stack     = list() 
+
+            ####################
+            # TODO
+            # This is a check since the next loop is crappy and has a non-deterministic result
+            # for instance if:
+            #   authority_hrns = ["ple.upmc.foo", "ple.*"]
+            #   authority_hrns = ["ple.*", "ple.upmc.foo"]
+            # Moreover it does not handle properly list like:
+            #   authority_hrns = ["ple.a.*", ple.b.*"] since the result will be ["ple"]
+            if len(authority_hrns) > 1:
+                num_stars = 0
+                no_star = False
+                for authority_hrn in authority_hrns:
+                    if '*' in authority_hrn: num_stars += 1 
+                    else:                    no_star    = True
+                if num_stars > 1 or (num_stars > 0 and no_star):
+                    Log.warning("get_object: the next loop may have a non-deterministic result")
+            ####################
+
+            for authority_hrn in authority_hrns:
+                if not '*' in authority_hrn: # jokers ?
+                    stack.append(authority_hrn)
                 else:
                     stack = [interface_hrn]
                     break
@@ -132,17 +155,21 @@ class Object:
         else: # Nothing given
             resolve   = False
             recursive = True
-            stack = [interface_hrn]
+            stack     = [interface_hrn]
         
-        Log.tmp("2) object_name = %s auth_hrn = %s" % (object_name, auth_hrn))
         # TODO: user's objects, use reg-researcher
         
-        cred = gateway._get_cred(user, account_config, 'user')
+        cred = gateway._get_cred(user, account_config, "user", None)
+        Log.tmp("3) cred = %s" % (True if cred else False))
 
         registry = yield gateway.get_server()
+        Log.tmp("registry = %s resolve = %s" % (registry, resolve))
         if resolve:
+            # stack = ['ple.upmc.loic_baron'] --> ['urn:publicid:IDN+ple:upmc+user+loic_baron']
             stack = map(lambda x: hrn_to_urn(x, object), stack)
+            Log.tmp("3)b) stack = %s, running resolve" % stack)
             _result,  = yield registry.Resolve(stack, cred, {'details': True})
+            Log.tmp("3)c) resolve succeeded, _result = %s" % _result)
 
             # XXX How to better handle DateTime XMLRPC types into the answer ?
             # XXX Shall we type the results like we do in CSV ?
@@ -158,15 +185,15 @@ class Object:
         
         Log.tmp("3) len(stack) = %s" % len(stack)) 
         if len(stack) > 1:
-            deferred_list = list() 
+            deferreds = list() 
             while stack:
                 auth_xrn = stack.pop()
-                d = registry.List(auth_xrn, cred, {'recursive': recursive})
-                deferred_list.append(d)
+                deferred = registry.List(auth_xrn, cred, {'recursive': recursive})
+                deferreds.append(deferred)
                     
-            result = yield defer.DeferredList(deferred_list)
+            result = yield defer.DeferredList(deferreds)
 
-            output = []
+            output = list() 
             for (success, records) in result:
                 if not success:
                     continue
