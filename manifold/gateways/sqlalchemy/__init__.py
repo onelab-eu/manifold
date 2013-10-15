@@ -9,28 +9,30 @@
 #
 # Copyright (C) 2013 UPMC 
 
-from __future__                 import absolute_import
+from __future__                     import absolute_import
 
 import crypt, json, sys, time, traceback
 
-from hashlib                    import md5
-from random                     import Random
-from types                      import StringTypes
+from hashlib                        import md5
+from random                         import Random
+from types                          import StringTypes
 
-from sqlalchemy                 import create_engine
-from sqlalchemy.ext.declarative import declarative_base, declared_attr
-from sqlalchemy.orm             import sessionmaker
-from manifold.core.query        import Query
-from manifold.gateways.gateway  import Gateway
-from manifold.models            import db
-from manifold.models.account    import Account
-from manifold.models.platform   import Platform
-from manifold.models.user       import User
-from manifold.models.session    import Session as DBSession 
-from manifold.operators         import LAST_RECORD
-from manifold.util.log          import Log
-from manifold.util.predicate    import included
-from manifold.util.type         import accepts, returns 
+from sqlalchemy                     import create_engine
+from sqlalchemy.ext.declarative     import declarative_base, declared_attr
+from sqlalchemy.orm                 import sessionmaker
+from sqlalchemy.util._collections   import NamedTuple
+
+from manifold.core.query            import Query
+from manifold.gateways.gateway      import Gateway
+from manifold.models                import db
+from manifold.models.account        import Account
+from manifold.models.platform       import Platform
+from manifold.models.user           import User
+from manifold.models.session        import Session as DBSession 
+from manifold.operators             import LAST_RECORD
+from manifold.util.log              import Log
+from manifold.util.predicate        import included
+from manifold.util.type             import accepts, returns 
 
 @returns(tuple)
 def xgetattr(cls, list_attr):
@@ -67,25 +69,35 @@ def row2dict(row):
     Convert a python object into the corresponding dictionnary, based
     on its attributes.
     Args:
-        row:
+        row: A instance based on a type which is
+            either in manifold/models
+            or either sqlalchemy.util._collections.NamedTuple
     Returns:
         The corresponding dictionnary.
     """
     try:
         return {c.name: getattr(row, c.name) for c in row.__table__.columns}
     except:
-        for field in row.__table__.columns:
-            try:
-                _ =  getattr(row, field.name)
-            except:
-                break
-        Log.tmp("Inconsistency in ROW2DICT: expected columns: %s ; this one (%s) is not in %s" %
-            (
-                row.__table__.columns,
-                field
-            )
-        )
-        return {c: getattr(row, c) for c in row.keys()}
+        pass
+
+    if isinstance(row, NamedTuple):
+        return dict(zip(row.keys(), row))
+        
+ # This "else" block seems to be useless
+#OBSOLETE|    else:
+#OBSOLETE|        for field in row.__table__.columns:
+#OBSOLETE|            try:
+#OBSOLETE|                _ =  getattr(row, field.name)
+#OBSOLETE|            except:
+#OBSOLETE|                break
+#OBSOLETE|        Log.tmp("Inconsistency in ROW2DICT: expected columns: %s ; this one (%s) is not in %s" %
+#OBSOLETE|            (
+#OBSOLETE|                row.__table__.columns,
+#OBSOLETE|                field
+#OBSOLETE|            )
+#OBSOLETE|        )
+#OBSOLETE|        return {c: getattr(row, c) for c in row.keys()}
+    raise Exception("sqlalchemy::row2dict: Mmmmh no this section is not obsolete :)")
 
 class SQLAlchemyGateway(Gateway):
 
@@ -225,7 +237,7 @@ class SQLAlchemyGateway(Gateway):
         if 'password' in params:
             params['password'] = SQLAlchemyGateway.encrypt_password(params['password'])
         
-        _params = cls.process_params(query.get_params(), None, self.user)
+        _params = cls.process_params(query.get_params(), None, user)
         new_obj = cls()
         #from sqlalchemy.orm.attributes import manager_of_class
         #mgr = manager_of_class(cls)
@@ -242,7 +254,7 @@ class SQLAlchemyGateway(Gateway):
 
     @staticmethod
     @returns(StringTypes)
-    def encrypt_password(self, password):
+    def encrypt_password(password):
         #
         # password encryption taken from adduser.py 
         # 
@@ -273,7 +285,7 @@ class SQLAlchemyGateway(Gateway):
 #MANDO|            self.callback(row)
 #MANDO|        self.callback(None)
 
-    def forward(self, query, callback, is_deferred = False, execute = True, user = None, format = "dict", from_node = None):
+    def forward(self, query, callback, is_deferred = False, execute = True, user = None, account_config = None, format = "dict", receiver = None):
         """
         Query handler.
         Args:
@@ -285,15 +297,18 @@ class SQLAlchemyGateway(Gateway):
             execute: A boolean set to True if the treatement requested in query
                 must be run or simply ignored.
             user: The User issuing the Query.
+            account_config: A dictionnary containing the user's account config.
+                In pratice, this is the result of the following query (run on the Storage)
+                SELECT config FROM local:account WHERE user_id == user.user_id
             format: A String specifying in which format the Records must be returned.
-            from_node : The From Node running the Query or None. Its ResultValue will
+            receiver : The From Node running the Query or None. Its ResultValue will
                 be updated once the query has terminated.
         Returns:
             forward must NOT return value otherwise we cannot use @defer.inlineCallbacks
             decorator. 
         """
-        self.check_forward(query, is_deferred, execute, user, from_node)
-        identifier = from_node.get_identifier() if from_node else None
+        super(SQLAlchemyGateway, self).forward(query, callback, is_deferred, execute, user, account_config, format, receiver)
+        identifier = receiver.get_identifier() if receiver else None
 
         assert isinstance(query, Query), "Invalid query"
         _map_action = {
@@ -307,10 +322,10 @@ class SQLAlchemyGateway(Gateway):
             for row in rows:
                 self.send(row2dict(row) if format == "dict" else row, callback, identifier)
             self.send(LAST_RECORD, callback, identifier)
-            self.success(from_node, query)
+            self.success(receiver, query)
         except AttributeError, e:
             self.send(LAST_RECORD, callback, identifier)
-            self.error(from_node, query, e)
+            self.error(receiver, query, e)
 
     @returns(list)
     def get_metadata(self):

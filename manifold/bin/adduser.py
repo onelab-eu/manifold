@@ -1,16 +1,13 @@
 #!/usr/bin/env python
 #! -*- coding: utf-8 -*-
 
-import sys
-import getpass
-from hashlib import md5
-import time
-from random import Random
-import crypt
+import getpass, sys, time, crypt
+from hashlib                    import md5
+from random                     import Random
 
-from manifold.core.router import Router
-from manifold.core.query import Query
-
+from manifold.core.router       import Router
+from manifold.core.query        import Query
+from manifold.core.receiver     import Receiver 
 
 def usage():
     print "Usage: %s EMAIL" % sys.argv[0]
@@ -38,15 +35,15 @@ def main():
         password = crypt.crypt(password.encode('latin1'), magic + salt + "$")
 
     user_params = {
-        'email': email,
-        'password': password
+        'email'    : email,
+        'password' : password
     }
     query = Query(action='create', object='local:user', params=user_params)
 
-
+    receiver = Receiver()
     # Instantiate a TopHat router
     with Router() as router:
-        router.forward(query)
+        router.forward(query, receiver = receiver)
 
 if __name__ == '__main__':
     main()

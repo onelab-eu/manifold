@@ -238,6 +238,8 @@ class Log(object):
 
     @classmethod
     def critical(cls, *msg, **ctx):
+        if not Options().log_level in ['CRITICAL']:
+            return
         cls.log_message('CRITICAL', msg, ctx)
         logger = Log().get_logger()
         if not Log().get_logger():
@@ -246,18 +248,26 @@ class Log(object):
 
     @classmethod
     def error(cls, *msg, **ctx): 
+        if not Options().log_level in ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']:
+            return
         cls.log_message('ERROR', msg, ctx)
 
     @classmethod
     def warning(cls, *msg, **ctx): 
+        if not Options().log_level in ['DEBUG', 'INFO', 'WARNING']:
+            return
         cls.log_message('WARNING', msg, ctx)
 
     @classmethod
     def info(cls, *msg, **ctx):
+        if not Options().log_level in ['DEBUG', 'INFO']:
+            return
         cls.log_message('INFO', msg, ctx)
 
     @classmethod
     def debug(cls, *msg, **ctx):
+        if not Options().log_level in ['DEBUG']:
+            return
         cls.log_message('DEBUG', msg, ctx)
 
     @classmethod

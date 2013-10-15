@@ -55,7 +55,7 @@ class MaxMindGateway(Gateway):
         """
         super(MaxMindGateway, self).__init__(interface, platform, config)
 
-    def forward(self, query, callback, is_deferred = False, execute = True, user = None, format = "dict", from_node = None):
+    def forward(self, query, callback, is_deferred = False, execute = True, user = None, account_config = None, format = "dict", from_node = None):
         """
         Query handler.
         Args:
@@ -67,6 +67,9 @@ class MaxMindGateway(Gateway):
             execute: A boolean set to True if the treatement requested in query
                 must be run or simply ignored.
             user: The User issuing the Query.
+            account_config: A dictionnary containing the user's account config.
+                In pratice, this is the result of the following query (run on the Storage)
+                SELECT config FROM local:account WHERE user_id == user.user_id
             format: A String specifying in which format the Records must be returned.
             from_node : The From Node running the Query or None. Its ResultValue will
                 be updated once the query has terminated.
@@ -74,6 +77,7 @@ class MaxMindGateway(Gateway):
             forward must NOT return value otherwise we cannot use @defer.inlineCallbacks
             decorator. 
         """
+        Gateway.forward(self, query, callback, is_deferred, execute, user, account_config, format, receiver)
         identifier = from_node.get_identifier() if from_node else None
 
         #assert timestamp == 'latest'

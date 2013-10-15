@@ -10,6 +10,9 @@
 #   Jordan Augé       <jordan.auge@lip6.fr> 
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
+# NOTE: The fastest way to traverse all edges of a graph is via
+# adjacency_iter(), but the edges() method is often more convenient.
+
 from copy                 import deepcopy
 from networkx             import draw_graphviz, DiGraph
 from types                import StringTypes

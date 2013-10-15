@@ -22,6 +22,7 @@ from manifold.models.user           import User
 from manifold.util.storage          import DBStorage as Storage
 from manifold.util.type             import accepts, returns 
 from manifold.util.log              import Log
+from manifold.gateways              import register_gateways
 
 class Interface(object):
     """
@@ -45,6 +46,10 @@ class Interface(object):
                 if the Storage can be accessed anonymously.
             allowed_capabilities: A Capabilities instance or None
         """
+        # Register the list of Gateways
+        Log.info("Registering gateways")
+        register_gateways()
+
         # self.platforms is list(dict) where each dict describes a platform.
         # See platform table in the Storage.
         self.storage = Storage(self) 
@@ -165,6 +170,7 @@ class Interface(object):
             Log.info("Enabling platform '%r'" % platform) 
             platform_name = platform.platform
             gateway = self.make_gateway(platform_name)
+            assert gateway, "Invalid Gateway create for platform '%s': %s" % (platform_name, gateway)
             self.gateways[platform_name] = gateway 
 
             # Load Announces related to this Platform
@@ -184,6 +190,23 @@ class Interface(object):
         """
         self.make_gateways()
 
+    @returns(dict)
+    def get_account_config(self, platform_name, user):
+        """
+        Retrieve the account of a give User on a given Platform.
+        Args:
+            platform_name: A String containing the name of the Platform.
+            user: The User who executes the QueryPlan (None if anonymous).
+        Returns:
+            The corresponding dictionnary, None if no account found for
+            this User and this Platform.
+        """
+        platforms = self.storage.execute(Query().get("platform").filter_by("platform",   "=", platform_name), self.storage_user, "object")
+        platform_id = platforms[0].platform_id
+        account_configs = self.storage.execute(Query().get("account").filter_by("platform_id", "=", platform_id),   self.storage_user, "dict")
+        account_config = account_configs[0] if len(account_configs) > 0 else None
+        return account_config
+
     def init_from_nodes(self, query_plan, user):
         """
         Initialize the From Nodes involved in a QueryPlan by:
@@ -196,12 +219,24 @@ class Interface(object):
         # XXX Platforms only serve for metadata
         # in fact we should initialize filters from the instance, then rely on
         # Storage including those filters...
-        for from_node in query_plan.froms:
+
+        # Retrieve for each Platform involved in the QueryPlan the account(s)
+        # corresponding to this User.
+        platform_names = set()
+        for from_node in query_plan.get_froms():
+            platform_names.add(from_node.get_platform_name())
+        
+        account_configs = dict()
+        for platform_name in platform_names:
+            account_configs[platform_name] = self.get_account_config(platform_name, user)
+
+        for from_node in query_plan.get_froms():
             platform_name = from_node.get_platform_name()
             gateway = self.get_gateway(platform_name)
             if gateway:
                 from_node.set_gateway(gateway)
                 from_node.set_user(user)
+                from_node.set_account_config(account_configs[platform_name])
             else:
                 raise Exception("Cannot instanciate all required Gateways")
 
@@ -263,9 +298,7 @@ class Interface(object):
         """
         assert isinstance(query, Query), "Invalid Query: %s (%s)" % (query, type(query))
         if receiver:
-            receiver.set_result_value(
-                ResultValue.get_success(result_value)
-            )
+            receiver.set_result_value(result_value)
 
     @staticmethod
     def error(receiver, query, description = ""):
@@ -303,7 +336,7 @@ class Interface(object):
             A Deferred instance if the Query is async,
             None otherwise (see QueryPlan::execute())
         """
-        receiver.set_result_value(None)
+        if receiver: receiver.set_result_value(None)
         self.check_forward(query, is_deferred, execute, user, receiver)
 
         # if Interface is_deferred  

@@ -8,7 +8,8 @@ class hop {
     const destination destination; 
     KEY(agent, destination, ttl);
 
-    CAPABILITY(retrieve, join);
+    // - join is an crappy way to allows to connect traceroute -> hop in the db_graph
+    CAPABILITY(join);
 };
 
 class traceroute {
