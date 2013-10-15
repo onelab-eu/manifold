@@ -11,7 +11,7 @@
 #
 # Copyright (C) 2013 UPMC-INRIA
 
-import traceback, tempfile
+import json, os, traceback, tempfile
 from types                                  import GeneratorType, StringTypes, ListType
 from datetime                               import datetime
 
@@ -20,7 +20,7 @@ from twisted.python.failure                 import Failure
 
 from sfa.storage.record                     import Record
 from sfa.trust.certificate                  import Keypair, Certificate
-from sfa.util.xrn                           import Xrn, get_authority, hrn_to_urn
+from sfa.util.xrn                           import Xrn, get_authority
 
 from manifold.gateways.gateway              import Gateway 
 from manifold.gateways.sfa                  import SFAGatewayCommon, DEMO_HOOKS
@@ -115,7 +115,8 @@ class SFA_RMGateway(SFAGatewayCommon):
 
         # Dynamically import the appropriate package.
         # http://stackoverflow.com/questions/211100/pythons-import-doesnt-work-as-expected
-        __import__("%s%s" % ("manifold.gateways.sfa.", object))
+        module_name = "%s%s" % ("manifold.gateways.sfa.rm.methods.", object)
+        __import__(module_name)
 
         if action not in VALID_ACTIONS: 
             failure = Failure("Invalid action (%s), not in {%s}" % (action, ", ".join(VALID_ACTIONS)))
@@ -127,8 +128,7 @@ class SFA_RMGateway(SFAGatewayCommon):
         try:
             method = getattr(instance, action)
         except Exception, e:
-            print "EXC > ", e
-        Log.tmp("method = %s" % method)
+            Log.error("Error in perform_query while instanciating %s: %s" % (method, e))
         ret = yield method(user, user_account_config, query)
         Log.tmp("<<<< perform_query: ret = %s" % ret)
         defer.returnValue(ret)
@@ -192,22 +192,25 @@ class SFA_RMGateway(SFAGatewayCommon):
                 self.error(receiver, query, "Account related to %s for platform %s not found" % (user["email"], self.get_platform_name()))
                 return
 
-            # Call the appropriate method (TODO pass Query object)
-            # TODO create method should not return an empty list
-
+            # Call the appropriate method (for instance User.get(...)) in a first
+            # time without managing the user account. If it fails and if this
+            # account is managed, then run managed and try to rerun the Query.
             result = list()
             try:
-                Log.tmp("1" * 80)
-                print "call pq"
                 result = yield self.perform_query(user, user_account_config, query)
-                print " ============== perform query returned", result
             except Exception, e:
-                Log.tmp("2" * 80)
-                Log.tmp("auth_type = %s" % user_account["auth_type"])
                 if user_account["auth_type"] == "managed":
-                    Log.info("Need to manage")
-                    self.manage(user, user_account_config, admin_account_config) 
-                    Log.info("Account managed, we now rerun the query")
+                    Log.info("Running manage()")
+                    user_account_config = yield self.manage(user, user_account_config, admin_account_config)
+                    Log.info("OK")
+                    # Update the Storage consequently
+                    print "1)============================================================"
+                    print user_account["config"][30:]
+                    print "2)============================================================"
+                    print user_account_config[30:]
+                    db.add(user_account)
+                    db.commit()
+                    Log.info("Account successfully managed, we now rerun the query")
                     result = yield self.perform_query(user, user_account_config, query)
                 else:
                     failure = Failure("Account not managed: user_account_config = %s / auth_type = %s" % (account_config, user_account["auth_type"]))
@@ -226,10 +229,9 @@ class SFA_RMGateway(SFAGatewayCommon):
             self.success(receiver, query)
 
         except Exception, e:
-            traceback.print_exc()
+            Log.error(traceback.format_exc())
             self.send(LAST_RECORD, callback, identifier)
             self.error(receiver, query, str(e))
-
 
     def check_cred(self):
         """
@@ -239,7 +241,7 @@ class SFA_RMGateway(SFAGatewayCommon):
         """
         Log.info("Checking credentials (not yet implemented)")
 
-    @returns(Credential)
+    @returns(StringTypes)
     def _get_cred(self, user, user_account_config, type, target_hrn = None):
         """
         Args:
@@ -250,49 +252,54 @@ class SFA_RMGateway(SFAGatewayCommon):
             target_hrn: A String identifying the requested object. 
         """
         self.check_cred()
-        self.get_cred(user, user_account_config, type, target_hrn)
+        return self.get_cred(user, user_account_config, type, target_hrn)
 
-    @returns(unicode)
+    @returns(StringTypes)
     def get_cred(self, user, user_account_config, type, target_hrn = None):
         """
+        Retrieve from an user's account config the appropriate credentials.
         Args:
             user: A dictionnary carrying a description of the User issuing the Query.
             user_account_config: A dictionnary storing the account configuration related to
                 the User and to the nested Platform managed by this Gateway.
             type: A String instance among {"user", "authority", "slice"}
-            target_hrn: A String identifying the requested object. 
+            target_hrn: If type == "slice", this String contains the slice HRN.
+                Otherwise pass None.
         Returns:
-            The corresponding Credential instance.
+            The corresponding Credential String.
         """
-        delegated  ='delegated_' if not is_user_admin(user) else ''
-            
-        if type == 'user':
-            if target_hrn:
-                raise Exception, "Cannot retrieve specific user credential for now"
-            try:
-                return user_account_config['%suser_credential' % delegated]
-            except TypeError, e:
-                raise Exception, "Missing user credential %s" % str(e)
-        elif type == 'authority':
-            if target_hrn:
-                raise Exception, "Cannot retrieve specific authority credential for now"
-            return user_account_config['%sauthority_credential'%delegated]
-        elif type == 'slice':
-            if not 'delegated_slice_credentials' in user_account_config:
-                user_account_config['%sslice_credentials' % delegated] = {}
+        assert target_hrn == None or type == "slice", "Invalid parameters" # NOTE: Once this function will be generalized, update this assert
 
-            creds = user_account_config['%sslice_credentials' % delegated]
-            if target_hrn in creds:
+        delegated = "delegated_" if not is_user_admin(user) else ""
+        key = "%s%s_credential%s" % (
+            delegated,
+            type,
+            "s" if type == "slice" else ""
+        )
+
+        if type in ["authority", "user"]:
+            if target_hrn:
+                raise Exception, "Cannot retrieve specific %s credential for now" % type
+            try:
+                return user_account_config[key]
+            except KeyError, e:
+                raise Exception, "Missing %s credential %s" % (type, str(e))
+        elif type == "slice":
+            if not is_user_admin(user) and not key in user_account_config:
+                user_account_config[key] = dict() 
+
+            creds = user_account_config[key]
+            try:
                 cred = creds[target_hrn]
-            else:
+            except KeyError, e:
                 # Can we generate them : only if we have the user private key
                 # Currently it is not possible to request for a slice credential
                 # with a delegated user credential...
-                if 'user_private_key' in user_account_config and account_config['user_private_key']:
+                if "user_private_key" in user_account_config and account_config["user_private_key"]:
                     cred = SFA_RMGateway.generate_slice_credential(target_hrn, user_account_config)
                     creds[target_hrn] = cred
                 else:
-                    raise Exception , "no cred found of type %s towards %s " % (type, target_hrn)
+                    raise Exception , "No credential found of type %s towards %s " % (type, target_hrn)
             return cred
         else:
             raise Exception, "Invalid credential type: %s" % type
@@ -332,6 +339,10 @@ class SFA_RMGateway(SFAGatewayCommon):
         cert_fn.write(user_gid) # We always use the GID 
         pkey_fn.close() 
         cert_fn.close() 
+        print "admin_gid    = %s" % admin_gid
+        print "pkey_fn.name = %s" % pkey_fn.name
+        print "cert_fn.name = %s" % cert_fn.name 
+
         delegated_credential = user_credential.delegate(admin_gid, pkey_fn.name, cert_fn.name)
         delegated_credential_str = delegated_credential.save_to_string(save_parents=True)
 
@@ -395,16 +406,24 @@ class SFA_RMGateway(SFAGatewayCommon):
 
         return credential.get_expiration() < datetime.now()
    
-
-    # LOIC: sfa_rm
     @defer.inlineCallbacks
+    @returns(GeneratorType)
     def manage(self, user, user_account_config, admin_account_config):
         """
-        This function is called for "managed" accounts. See in the Storage account.auth_type.
+        This function is called for "managed" accounts.
+        See in the Storage account.auth_type.
         Args:
             user: A dictionnary corresponding to the User.
-            user_account_config: A dictionnary corresponding to account.config for this User and this Platform.
-            admin_account_config: A dictionnary corresponding to account.config for the ADMIN_USER
+                See user table in the Manifold's Storage.
+            user_account_config: A dictionnary corresponding to account.config
+                for 'user' and the Platform on which this Gateway is running.
+                This function manages this Account.
+                See account table in the Manifold's Storage.
+            admin_account_config: A dictionnary corresponding to account.config
+                for the ADMIN_USER user.
+                See account table in the Manifold's Storage.
+        Returns:
+            A dict containing the managed Account.
         """
         # The gateway should be able to perform user user_account_config management taks on
         # behalf of MySlice
@@ -613,7 +632,61 @@ class SFA_RMGateway(SFAGatewayCommon):
                     admin_account_config["user_credential"]
                 )
 
+        Log.info("json --> dict")
+        user_account_config = json.dumps(user_account_config)
+        Log.info("json --> dict: OK")
+
         # return using asynchronous defer
         defer.returnValue(user_account_config)
 
+#---------------------------------------------------------------------------
+# Patch SFA
+#---------------------------------------------------------------------------
 
+def sfa_trust_credential_delegate(self, delegee_gidfile, caller_keyfile, caller_gidfile):
+    """
+    Patch over SFA.
+    Args:
+        admin_gid       : A GID instance
+        delegee_gidfile : A String containing the path of the private key.
+        caller_keyfile  : A String containing the path of certificate key.
+    Returns:
+        A delegated copy of this credential, delegated to the 
+        specified gid's user.    
+    """
+    from sfa.trust.gid               import GID
+
+    Log.warning("Calling an overriden delegate() method, update this once fixed in SFA")
+
+    # get the gid of the object we are delegating
+    object_gid = self.get_gid_object()
+    object_hrn = object_gid.get_hrn()
+
+    # the hrn of the user who will be delegated to
+    # @loic corrected
+    print "gid type = ",type(delegee_gidfile)
+    print delegee_gidfile.__class__
+    if not isinstance(delegee_gidfile, GID):
+        delegee_gid = GID(filename = delegee_gidfile)
+    else:
+        delegee_gid = delegee_gidfile
+    delegee_hrn = delegee_gid.get_hrn()
+
+    #user_key = Keypair(filename=keyfile)
+    #user_hrn = self.get_gid_caller().get_hrn()
+    subject_string = "%s delegated to %s" % (object_hrn, delegee_hrn)
+    dcred = Credential(subject=subject_string)
+    dcred.set_gid_caller(delegee_gid)
+    dcred.set_gid_object(object_gid)
+    dcred.set_parent(self)
+    dcred.set_expiration(self.get_expiration())
+    dcred.set_privileges(self.get_privileges())
+    dcred.get_privileges().delegate_all_privileges(True)
+    #dcred.set_issuer_keys(keyfile, delegee_gidfile)
+    dcred.set_issuer_keys(caller_keyfile, caller_gidfile)
+    dcred.encode()
+    dcred.sign()
+
+    return dcred
+
+Credential.delegate = sfa_trust_credential_delegate

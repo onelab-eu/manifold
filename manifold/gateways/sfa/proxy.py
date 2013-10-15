@@ -314,7 +314,7 @@ class SFAProxy(object):
                 token = yield SFATokenMgr().get_token(self.interface)
                 args = (name,) + args
                 
-                print "SFA CALL", list(args)[0], list(args)[2:]
+                #print "SFA CALL", list(args)[0], list(args)[2:]
                 self.proxy.callRemote(*args).addCallbacks(proxy_success_cb, proxy_error_cb)
             
             ReactorThread().callInReactor(wrap, self, args)
