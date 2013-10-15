@@ -609,10 +609,22 @@ class SFAGateway(Gateway):
 
         rspec = RSpec(rspec_string, version=rspec_version)
         
-        nodes = rspec.version.get_nodes()
-        leases = rspec.version.get_leases()
-        links = rspec.version.get_links()
-        channels = rspec.version.get_channels()
+        try:
+            nodes = rspec.version.get_nodes()
+        except Exception, e:
+            Log.warning("Could not retrieve channels in RSpec: %s" % e)
+        try:
+            leases = rspec.version.get_leases()
+        except Exception, e:
+            Log.warning("Could not retrieve channels in RSpec: %s" % e)
+        try:
+            links = rspec.version.get_links()
+        except Exception, e:
+            Log.warning("Could not retrieve channels in RSpec: %s" % e)
+        try:
+            channels = rspec.version.get_channels()
+        except Exception, e:
+            Log.warning("Could not retrieve channels in RSpec: %s" % e)
 
         resources = [] 
         # Extend object and Format object field's name

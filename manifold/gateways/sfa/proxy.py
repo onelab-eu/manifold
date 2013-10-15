@@ -17,6 +17,7 @@
 ##/bugfix
 
 import os, sys, tempfile
+from types                        import StringTypes
 from manifold.util.reactor_thread import ReactorThread
 from manifold.util.log            import Log
 from manifold.util.singleton      import Singleton
@@ -137,7 +138,7 @@ class SFATokenMgr(object):
         self.deferred = {} # network -> deferred corresponding to waiting queries
 
     def get_token(self, interface):
-        Log.debug("SFATokenMgr::get_token(interface=%r)" % interface)
+        #Log.debug("SFATokenMgr::get_token(interface=%r)" % interface)
         # We police queries only on blacklisted interfaces
         if not interface or interface not in self.BLACKLIST:
             return True
@@ -156,7 +157,7 @@ class SFATokenMgr(object):
         return d
 
     def put_token(self, interface):
-        Log.debug("SFATokenMgr::put_token(interface=%r)" % interface)
+        #Log.debug("SFATokenMgr::put_token(interface=%r)" % interface)
         # are there items waiting on queue for the same interface, if so, there are deferred that can be called
         # remember that the interface is being used for the query == available
         if not interface:
@@ -309,7 +310,16 @@ class SFAProxy(object):
                 token = yield SFATokenMgr().get_token(self.interface)
                 args = (name,) + args
                 
-                print "SFA CALL", list(args)[0], list(args)[2:]
+                printable_args = []
+                for arg in args:
+                    if arg and isinstance(arg, list) and arg[0][:6] == '<?xml ':
+                        printable_args.append('<credentials>')
+                    elif isinstance(arg, StringTypes) and arg[:6] == '<?xml ':
+                        printable_args.append('<credential>')
+                    else:
+                        printable_args.append(str(arg))
+
+                Log.debug("SFA CALL %s(%s)" % (printable_args[0], printable_args[1:]))
                 self.proxy.callRemote(*args).addCallbacks(proxy_success_cb, proxy_error_cb)
             
             ReactorThread().callInReactor(wrap, self, args)
