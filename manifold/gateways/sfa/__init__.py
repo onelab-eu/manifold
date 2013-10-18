@@ -699,6 +699,14 @@ class SFAGateway(Gateway):
             # TODO: take into account the case where we send a dict of URNs without keys
             resource['component_id'] = resource.pop('urn')
             resource_hrn, resource_type = urn_to_hrn(resource['component_id'])
+             
+            # dirty hack
+            if 'wilab2' in self.config['sm']:
+                resource['client_id'] = "PC"
+                resource['sliver_type'] = "raw-pc"
+                #resource['component_manager_id'] = Xrn(get_authority(resource_hrn.replace('\\.','.')), type='authority+cm').get_urn()
+                resource['component_manager_id'] = "urn:publicid:IDN+wilab2.ilabt.iminds.be+authority+cm"
+
             if resource_type == 'node':
                 nodes.append(resource)
             elif resource_type == 'link':
@@ -714,6 +722,7 @@ class SFAGateway(Gateway):
         #rspec.version.add_links(links)
         #rspec.version.add_channels(channels)
     
+        Log.warning("request rspec: %s"%rspec.toxml())
         return rspec.toxml()
 
     ############################################################################ 
@@ -836,6 +845,7 @@ class SFAGateway(Gateway):
             # AM API v2
             ois = yield self.ois(self.sliceapi, api_options)
             result = yield self.sliceapi.CreateSliver(slice_urn, [slice_cred], rspec, users, ois)
+            Log.warning("CreateSliver Result: %s" %result)
         else:
             # AM API v3
             api_options['sfa_users'] = sfa_users
