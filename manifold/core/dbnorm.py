@@ -200,21 +200,24 @@ class Fd(object):
     @returns(Determinant)
     def get_determinant(self):
         """
-        \return The Determinant instance related to this Fd
+        Returns:
+            The Determinant instance related to this Fd
         """
         return self.determinant
 
     @returns(set)
     def get_fields(self):
         """
-        \return The set of output Field instances related to this Fd
+        Returns:
+            The set of output Field instances related to this Fd
         """
         return set(self.map_field_methods.keys())
 
     @returns(Field)
     def get_field(self):
         """
-        \return The Field instance related to this Fd
+        Returns:
+            The Field instance related to this Fd
             (assuming this Fd has exactly one output Field)
         """
         assert len(self.map_field_methods) == 1, "This fd has not exactly one field: %r" % self
@@ -224,9 +227,10 @@ class Fd(object):
     @returns(set)
     def split(self):
         """
-        \brief Split a fd
+        Split a fd
             Example: [k -> {f1, f2...}] is split into {[k -> f1], [k -> f2], ...}
-        \returns A set of Fd instances
+        Returns:
+            A set of Fd instances
         """
         fds = set()
         determinant = self.get_determinant()
@@ -273,18 +277,22 @@ class Fd(object):
 
     def add_methods(self, methods):
         """
-        \brief Add for each output Field of this Fd a new Method
-        \param method A set of Method instances
+        Add for each output Field of this Fd a new Method
+        Args:
+            method: A set of Method instances
         """
         assert isinstance(methods, set), "Invalid methods = %r (%r)" % (methods, type(methods))
+
         for field in self.map_field_methods.keys():
             self.map_field_methods[field] |= methods
 
     def __ior__(self, fd):
         """
-        \brief |= overloading
-        \param fd A Fd instance that we merge with self
-        \return self
+        |= overloading
+        Args:
+             fd: A Fd instance that we merge with self
+        Returns:
+            self
         """
         if (self.get_determinant().get_key() == fd.get_determinant().get_key()) == False:
             raise ValueError("Cannot call |= with parameters (invalid determinants)\n\tself = %r\n\tfd   = %r" % (self, fd))
@@ -472,9 +480,11 @@ def closure_ext(x, fds):
 @accepts(list)
 def make_fd_set(tables):
     """
-    \brief Compute the set of functionnal dependancies
-    \param A list of input Table instances
-    \returns A Fds instance
+    Compute the set of functionnal dependancies.
+    Args:
+        tables: A list of input Table instances.
+    Returns:
+        A Fds instance.
     """
     fds = Fds() 
     for table in tables:
@@ -493,10 +503,12 @@ def make_fd_set(tables):
 @returns(tuple)
 def fd_minimal_cover(fds):
     """
-    \brief Compute the functionnal dependancy minimal cover
-    \sa http://elm.eeng.dcu.ie/~ee221/EE221-DB-7.pdf p11
-    \param fds A Fds instance 
-    \return A couple made of
+    Compute the functionnal dependancy minimal cover
+        See http://elm.eeng.dcu.ie/~ee221/EE221-DB-7.pdf p11
+    Args:
+        fds: A Fds instance 
+    Returns:
+        A couple made of:
         - a Fds instance (fd kept, e.g. min cover)
         - a Fds instance (fd removed)
     """
@@ -532,27 +544,28 @@ def fd_minimal_cover(fds):
     return (g, fds_removed) 
 
 @accepts(Fds, Fds)
-@accepts(Fds, Fds)
 def reinject_fds(fds_min_cover, fds_removed):
     """
-    \brief Reinject Fds removed by fd_minimal_cover in the remaining fds.
-    \param fds_min_cover A Fds instance gatehring the Fd involved in the 3nf graph
-    \param fds_removed A Fds instance gathering the Fd instances removed during the normalization.
-        An Fd in this set is:
-        (1) either a Fd [x --> x]
-            or a Fd [x --> x_i] with x = (x_0, ..., x_N)
-            (We ignore such Fds and will take care of keys when building final tables)
-        (2) either a Fd [x --> y] which is redundant with an existing Fd
-            (We reinject the information in the corresponding Fd)
-        (3) either a Fd [x --> z] which is a transitive Fds such as x --> ... --> z
-            (We reinject the information along the whole path)
+    Reinject Fds removed by fd_minimal_cover in the remaining fds.
+    Args:
+        fds_min_cover: A Fds instance gatehring the Fd involved in the 3nf graph. This
+            parameter will be enriched with some previously removed Fd instances.
+        fds_removed: A Fds instance gathering the Fd instances removed during the normalization.
+            An Fd in this set is:
+            (1) either a Fd [x --> x]
+                or a Fd [x --> x_i] with x = (x_0, ..., x_N)
+                (We ignore such Fds and will take care of keys when building final tables)
+            (2) either a Fd [x --> y] which is redundant with an existing Fd
+                (We reinject the information in the corresponding Fd)
+            (3) either a Fd [x --> z] which is a transitive Fds such as x --> ... --> z
+                (We reinject the information along the whole path)
 
-        Both last cases can be treated in the same way
+            Both last cases can be treated in the same way
     """
 
-    map_key_closure = {}
-    key_fd_by_method = {}
-    methods_with_fds = []
+    map_key_closure  = dict() # Cache (it maps each table and its corresponding closure, e.g. { x : x+ })
+    key_fd_by_method = dict() # Maps for each method (i.e. (table, key) pair) which Fds must be reinjected: { method : {fds_removed} }
+    methods_with_fds = list() # Stores which methods are altered during the (2) and (3) reinjection phases
 
     for fd_removed in fds_removed:
         x = fd_removed.get_determinant().get_key()
@@ -563,22 +576,24 @@ def reinject_fds(fds_min_cover, fds_removed):
 
         # (1)
         if y in x: 
-            # We cannot simply readd them since it will cause new relations in the 3nf.
+            # We cannot simply re-add them since it will cause new relations in the 3nf.
             # fds_min_cover.add(fd_removed)
             
             # We have a single method in each fd
             if not method in key_fd_by_method:
-                key_fd_by_method[method] = []
+                key_fd_by_method[method] = list()
             key_fd_by_method[method].append(fd_removed)
 
             continue
 
+        # (2)+(3)
         methods_with_fds.append(method)
 
         # Compute (if not cached) the underlying 3nf fds allowing to retrieve y from x 
         if x not in map_key_closure.keys():
             map_key_closure[x] = closure_ext(set(x), fds_min_cover) 
 
+        # (2)
         for fd in map_key_closure[x][y]:
             #if (fd.get_determinant().get_key() == x and fd.get_field() in set(x)) or fd.get_field() == y:
             fd.add_methods(m)
@@ -588,146 +603,145 @@ def reinject_fds(fds_min_cover, fds_removed):
             for fd in fds:
                 fds_min_cover.add(fd)
 
-
-def reinject_fds_mando(fds_min_cover, fds_removed):
-    """
-    \brief "Reinject" Fds removed by fd_minimal_cover in the remaining fds.
-    \param fds_min_cover A Fds instance gatehring the Fd involved in the 3nf graph
-    \param fds_removed A Fds instance gathering the Fd instances removed during the normalization.
-        An Fd in this set is
-        - either a Fd [key --> field] such as field in a field involved in Key:
-            in this case, we need this Fd to build the appropriate table and
-            thus we reinject this Fd in fds_min_cover
-        - either a Fd [x --> y] (p::m) since in the min cover it exists a path from x
-        to y (for instance x --> a --> b --> y):
-            in this case, we add "p::m" to each fd involved in this path, e.g x --> a, a --> b, b --> y
-        Example:
-            Suppose that p1 announces:
-                x { x y }     with KEY(x)
-                y { y z }     with KEY(y)
-                z { z t }     with KEY(z)
-            Suppose that p2 announces:
-                x { x y z t } with KEY(x)
-
-            This leads to the following functionnal dependancies:
-
-                x --> x (p1::x)
-                x --> y (p1::x)
-                y --> z (p1::y)
-                z --> t (p1::z)
-
-                x --> x (p2::x)
-                x --> y (p2::x)
-                x --> z (p2::x)
-                x --> t (p2::x)
-
-            => The min_cover is
-
-                x --> y (p1::x and p2::x)
-                y --> z (p1::x)
-                z --> t (p1::x)
-
-            and removed fd are:
-
-                x --> x (p1::x and p2::x) removed because a key produces always its fields <= WE REINJECT THIS FD IN THIS FUNCTION: see (1)
-                x --> z (p2::x)           removed because it exits a "transitive" path (x --> y --> z)
-                x --> t (p2::x)           removed because it exits a "transitive" path (x --> y --> z --> t)
-
-            To build our 3nf graph we reinject x --> x in the min_cover because this fd is relevant in our 3nf graph.
-
-            => the 3nf graph will be (see util/DBGraph.py) : (where "*::*" denotes a reinjection)
-
-                x { x y } (via p1::x and p2::x)   with KEY(x)
-                y { y z } (via p1::y and "p2::x") with KEY(y)
-                z { z t } (via p1::b and "p2::x") with KEY(z)
-
-                with arcs (x --> y) and (y --> z) (feasible joins)
-
-            In other words, the transitive fds x --> z and x --> t provided
-            by p2::x are reinjected along the underlying 3nf fds path (resp. x --> y --> z
-            and x --> y --> z --> t) <= WE PROVIDE ANNOTATIONS ON THE FIRST AND LAST OF FD OF THESE PATHS (2)
-
-            Note that since this reinjection is made along an 3nf path
-            querying p2::x ALWAYS allows to retrieve both the y and z 3nf-tables;
-            Indeed we simply have to SELECT the appropriate fields and
-            remove the duplicate records according to any key of the 3nf table.
-
-                p2::y <=> DUP_y(SELECT y, z FROM p2::x)
-                p2::z <=> DUP_z(SELECT z, t FROM p2::x)
-            
-            Now, suppose the user queries SELECT y, z FROM y
-            The pruned 3nd tree (see util/pruned_tree.py) is rooted on "y" (see FROM y):
-
-                y { y z } (via p1::y and "p2::x")
-
-            => We'll get the query plan (see util/query_plan.py):
-                SELECT y, z FROM p1::y
-                UNION
-                DUP_y(SELECT y, z FROM p2::x)
-
-    \return The remaining removed Fd instances
-    """
-    fds_remaining = Fds()
-
-    # (1) 
-    # Reinject x --> x or x --> x_elt where x_elt is in x
-    # (removed during fd_min_cover but required to build the tables)
-    # This should be done only if not "onjoin"
-    map_key_fdreinjected = dict()
-    fd_not_reinjected = Fds()
-    for fd_removed in fds_removed:
-        x = fd_removed.get_determinant().get_key()
-        y = fd_removed.get_field()
-        m = fd_removed.get_methods()
-
-        # Is x --> y of type "x --> x" or "x --> x_elt"
-        if y in x: 
-            # Reinject Fd [key --> field \subseteq key]
-            fds_min_cover.add(fd_removed)
-
-##### OBSOLETE <<<
-            # Memorize this reinjected Fd in map_key_fdreinjected
-            # This will be need in (2)
-            if x not in map_key_fdreinjected.keys():
-                map_key_fdreinjected[x] = set()
-            map_key_fdreinjected[x].add(fd_removed)
-##### OBSOLETE >>>
-            # Memorize this reinjected Fd in map_key_fdreinjected
-            #print "(1) %r" % fd_removed
-        else:
-            # This fd will be reinjected during (2)
-            fd_not_reinjected.add(fd_removed)
-
-    # (2) Reinject shortcut since they may be relevant during the query plane computation
-    map_key_closure = dict()
-    for fd_removed in fd_not_reinjected:
-        x = fd_removed.get_determinant().get_key()
-        y = fd_removed.get_field()
-        m = fd_removed.get_methods()
-        #print "(2) %r" % fd_removed
-
-        # Compute (if not cached) the underlying 3nf fds allowing to retrieve y from x 
-        if x not in map_key_closure.keys():
-            map_key_closure[x] = closure_ext(set(x), fds_min_cover) 
-
-##### OBSOLETE <<<
-        # Reinject removed_fd [x --> y] on its key eg on each [x --> x_elt] fd (share key)
-        # These Fds have already been reinjected in (1) and stored in map_key_fdreinjected
-        for fd in map_key_fdreinjected[x]:
-            #print " >1> ADD METHOD ", m, "TO FD", fd
-            if fd.get_determinant().get_method_name() == list(m)[0].get_name():
-                # XXX this is not sufficient if the naming is the same
-                fd.add_methods(m)
-##### OBSOLETE >>>
-
-        # Reinject removed_fd [x --> y] on the first and the last fd of the 3nf path from x to y (share field)
-        # A closure stores a set of Fd 
-        # - The first fd of this path verifies: fd.get_determinant().get_key() == x and fd.get_field() in set(x)
-        # - The last  fd of this path verifies: fd.get_field() == y
-        for fd in map_key_closure[x][y]:
-            if (fd.get_determinant().get_key() == x and fd.get_field() in set(x)) or fd.get_field() == y:
-                #print " >2> ADD METHOD ", m, "TO FD", fd
-                fd.add_methods(m)
+#UNUSED|def reinject_fds_mando(fds_min_cover, fds_removed):
+#UNUSED|    """
+#UNUSED|    \brief "Reinject" Fds removed by fd_minimal_cover in the remaining fds.
+#UNUSED|    \param fds_min_cover A Fds instance gatehring the Fd involved in the 3nf graph
+#UNUSED|    \param fds_removed A Fds instance gathering the Fd instances removed during the normalization.
+#UNUSED|        An Fd in this set is
+#UNUSED|        - either a Fd [key --> field] such as field in a field involved in Key:
+#UNUSED|            in this case, we need this Fd to build the appropriate table and
+#UNUSED|            thus we reinject this Fd in fds_min_cover
+#UNUSED|        - either a Fd [x --> y] (p::m) since in the min cover it exists a path from x
+#UNUSED|        to y (for instance x --> a --> b --> y):
+#UNUSED|            in this case, we add "p::m" to each fd involved in this path, e.g x --> a, a --> b, b --> y
+#UNUSED|        Example:
+#UNUSED|            Suppose that p1 announces:
+#UNUSED|                x { x y }     with KEY(x)
+#UNUSED|                y { y z }     with KEY(y)
+#UNUSED|                z { z t }     with KEY(z)
+#UNUSED|            Suppose that p2 announces:
+#UNUSED|                x { x y z t } with KEY(x)
+#UNUSED|
+#UNUSED|            This leads to the following functionnal dependancies:
+#UNUSED|
+#UNUSED|                x --> x (p1::x)
+#UNUSED|                x --> y (p1::x)
+#UNUSED|                y --> z (p1::y)
+#UNUSED|                z --> t (p1::z)
+#UNUSED|
+#UNUSED|                x --> x (p2::x)
+#UNUSED|                x --> y (p2::x)
+#UNUSED|                x --> z (p2::x)
+#UNUSED|                x --> t (p2::x)
+#UNUSED|
+#UNUSED|            => The min_cover is
+#UNUSED|
+#UNUSED|                x --> y (p1::x and p2::x)
+#UNUSED|                y --> z (p1::x)
+#UNUSED|                z --> t (p1::x)
+#UNUSED|
+#UNUSED|            and removed fd are:
+#UNUSED|
+#UNUSED|                x --> x (p1::x and p2::x) removed because a key produces always its fields <= WE REINJECT THIS FD IN THIS FUNCTION: see (1)
+#UNUSED|                x --> z (p2::x)           removed because it exits a "transitive" path (x --> y --> z)
+#UNUSED|                x --> t (p2::x)           removed because it exits a "transitive" path (x --> y --> z --> t)
+#UNUSED|
+#UNUSED|            To build our 3nf graph we reinject x --> x in the min_cover because this fd is relevant in our 3nf graph.
+#UNUSED|
+#UNUSED|            => the 3nf graph will be (see util/DBGraph.py) : (where "*::*" denotes a reinjection)
+#UNUSED|
+#UNUSED|                x { x y } (via p1::x and p2::x)   with KEY(x)
+#UNUSED|                y { y z } (via p1::y and "p2::x") with KEY(y)
+#UNUSED|                z { z t } (via p1::b and "p2::x") with KEY(z)
+#UNUSED|
+#UNUSED|                with arcs (x --> y) and (y --> z) (feasible joins)
+#UNUSED|
+#UNUSED|            In other words, the transitive fds x --> z and x --> t provided
+#UNUSED|            by p2::x are reinjected along the underlying 3nf fds path (resp. x --> y --> z
+#UNUSED|            and x --> y --> z --> t) <= WE PROVIDE ANNOTATIONS ON THE FIRST AND LAST OF FD OF THESE PATHS (2)
+#UNUSED|
+#UNUSED|            Note that since this reinjection is made along an 3nf path
+#UNUSED|            querying p2::x ALWAYS allows to retrieve both the y and z 3nf-tables;
+#UNUSED|            Indeed we simply have to SELECT the appropriate fields and
+#UNUSED|            remove the duplicate records according to any key of the 3nf table.
+#UNUSED|
+#UNUSED|                p2::y <=> DUP_y(SELECT y, z FROM p2::x)
+#UNUSED|                p2::z <=> DUP_z(SELECT z, t FROM p2::x)
+#UNUSED|            
+#UNUSED|            Now, suppose the user queries SELECT y, z FROM y
+#UNUSED|            The pruned 3nd tree (see util/pruned_tree.py) is rooted on "y" (see FROM y):
+#UNUSED|
+#UNUSED|                y { y z } (via p1::y and "p2::x")
+#UNUSED|
+#UNUSED|            => We'll get the query plan (see util/query_plan.py):
+#UNUSED|                SELECT y, z FROM p1::y
+#UNUSED|                UNION
+#UNUSED|                DUP_y(SELECT y, z FROM p2::x)
+#UNUSED|
+#UNUSED|    \return The remaining removed Fd instances
+#UNUSED|    """
+#UNUSED|    fds_remaining = Fds()
+#UNUSED|
+#UNUSED|    # (1) 
+#UNUSED|    # Reinject x --> x or x --> x_elt where x_elt is in x
+#UNUSED|    # (removed during fd_min_cover but required to build the tables)
+#UNUSED|    # This should be done only if not "onjoin"
+#UNUSED|    map_key_fdreinjected = dict()
+#UNUSED|    fd_not_reinjected = Fds()
+#UNUSED|    for fd_removed in fds_removed:
+#UNUSED|        x = fd_removed.get_determinant().get_key()
+#UNUSED|        y = fd_removed.get_field()
+#UNUSED|        m = fd_removed.get_methods()
+#UNUSED|
+#UNUSED|        # Is x --> y of type "x --> x" or "x --> x_elt"
+#UNUSED|        if y in x: 
+#UNUSED|            # Reinject Fd [key --> field \subseteq key]
+#UNUSED|            fds_min_cover.add(fd_removed)
+#UNUSED|
+#UNUSED|##### OBSOLETE <<<
+#UNUSED|            # Memorize this reinjected Fd in map_key_fdreinjected
+#UNUSED|            # This will be need in (2)
+#UNUSED|            if x not in map_key_fdreinjected.keys():
+#UNUSED|                map_key_fdreinjected[x] = set()
+#UNUSED|            map_key_fdreinjected[x].add(fd_removed)
+#UNUSED|##### OBSOLETE >>>
+#UNUSED|            # Memorize this reinjected Fd in map_key_fdreinjected
+#UNUSED|            #print "(1) %r" % fd_removed
+#UNUSED|        else:
+#UNUSED|            # This fd will be reinjected during (2)
+#UNUSED|            fd_not_reinjected.add(fd_removed)
+#UNUSED|
+#UNUSED|    # (2) Reinject shortcut since they may be relevant during the query plane computation
+#UNUSED|    map_key_closure = dict()
+#UNUSED|    for fd_removed in fd_not_reinjected:
+#UNUSED|        x = fd_removed.get_determinant().get_key()
+#UNUSED|        y = fd_removed.get_field()
+#UNUSED|        m = fd_removed.get_methods()
+#UNUSED|        #print "(2) %r" % fd_removed
+#UNUSED|
+#UNUSED|        # Compute (if not cached) the underlying 3nf fds allowing to retrieve y from x 
+#UNUSED|        if x not in map_key_closure.keys():
+#UNUSED|            map_key_closure[x] = closure_ext(set(x), fds_min_cover) 
+#UNUSED|
+#UNUSED|##### OBSOLETE <<<
+#UNUSED|        # Reinject removed_fd [x --> y] on its key eg on each [x --> x_elt] fd (share key)
+#UNUSED|        # These Fds have already been reinjected in (1) and stored in map_key_fdreinjected
+#UNUSED|        for fd in map_key_fdreinjected[x]:
+#UNUSED|            #print " >1> ADD METHOD ", m, "TO FD", fd
+#UNUSED|            if fd.get_determinant().get_method_name() == list(m)[0].get_name():
+#UNUSED|                # XXX this is not sufficient if the naming is the same
+#UNUSED|                fd.add_methods(m)
+#UNUSED|##### OBSOLETE >>>
+#UNUSED|
+#UNUSED|        # Reinject removed_fd [x --> y] on the first and the last fd of the 3nf path from x to y (share field)
+#UNUSED|        # A closure stores a set of Fd 
+#UNUSED|        # - The first fd of this path verifies: fd.get_determinant().get_key() == x and fd.get_field() in set(x)
+#UNUSED|        # - The last  fd of this path verifies: fd.get_field() == y
+#UNUSED|        for fd in map_key_closure[x][y]:
+#UNUSED|            if (fd.get_determinant().get_key() == x and fd.get_field() in set(x)) or fd.get_field() == y:
+#UNUSED|                #print " >2> ADD METHOD ", m, "TO FD", fd
+#UNUSED|                fd.add_methods(m)
 
 #@returns(DBGraph)
 #TODO to_3nf should not consider a list of Announces!
