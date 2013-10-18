@@ -695,6 +695,7 @@ class SFAGateway(Gateway):
         links = []
  
         for resource in resources:
+            Log.tmp(resources)
             # TODO: take into account the case where we send a dict of URNs without keys
             resource['component_id'] = resource.pop('urn')
             resource_hrn, resource_type = urn_to_hrn(resource['component_id'])
