@@ -1657,9 +1657,9 @@ class SFAGateway(Gateway):
         need_user_credential = is_admin or need_authority_credentials or need_slice_list or need_slice_credentials or need_delegated_user_credential or need_gid
 
         if self.is_admin(self.user):
-            need_delegated_user_credential=false
-            need_delegated_slice_credential=false
-            need_delegated_authority_credential=false
+            need_delegated_user_credential      = False
+            need_delegated_slice_credential     = False
+            need_delegated_authority_credential = False
 
          # As need_gid is always True, need_sscert will be True
         #need_sscert = need_gid or need_user_credential
