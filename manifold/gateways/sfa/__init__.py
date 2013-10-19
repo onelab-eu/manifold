@@ -676,8 +676,8 @@ class SFAGateway(Gateway):
 
 
     def build_sfa_rspec(self, slice_id, resources, leases):
-        if isinstance(resources, str):
-            resources = eval(resources)
+        #if isinstance(resources, str):
+        #    resources = eval(resources)
         # rspec_type and rspec_version should be set in the config of the platform,
         # we use GENIv3 as default one if not
         if 'rspec_type' and 'rspec_version' in self.config:
@@ -693,13 +693,24 @@ class SFAGateway(Gateway):
         nodes = []
         channels = []
         links = []
- 
-        for resource in resources:
-            Log.tmp(resources)
+        Log.tmp(resources)
+        for urn in resources:
+            # XXX TO BE CORRECTED, this handles None values
+            if not urn:
+                continue
+            Log.tmp(urn)
+            resource = dict()
             # TODO: take into account the case where we send a dict of URNs without keys
-            resource['component_id'] = resource.pop('urn')
+            #resource['component_id'] = resource.pop('urn')
+            resource['component_id'] = urn
             resource_hrn, resource_type = urn_to_hrn(resource['component_id'])
             if resource_type == 'node':
+                # XXX dirty hack WiLab !!!
+                if 'wilab2' in self.config['sm']:
+                    resource['client_id'] = "PC"
+                    resource['sliver_type'] = "raw-pc"
+                    cm = urn.split("+")
+                    resource['component_manager_id'] = "%s%s+authority+cm" % (cm[0],cm[1])
                 nodes.append(resource)
             elif resource_type == 'link':
                 links.append(resource)
@@ -713,7 +724,7 @@ class SFAGateway(Gateway):
         #rspec.version.add_leases(leases)
         #rspec.version.add_links(links)
         #rspec.version.add_channels(channels)
-    
+        Log.tmp(rspec.toxml())   
         return rspec.toxml()
 
     ############################################################################ 

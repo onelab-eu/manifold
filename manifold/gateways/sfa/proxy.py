@@ -310,16 +310,16 @@ class SFAProxy(object):
                 token = yield SFATokenMgr().get_token(self.interface)
                 args = (name,) + args
                 
-                printable_args = []
-                for arg in args:
-                    if arg and isinstance(arg, list) and arg[0][:6] == '<?xml ':
-                        printable_args.append('<credentials>')
-                    elif isinstance(arg, StringTypes) and arg[:6] == '<?xml ':
-                        printable_args.append('<credential>')
-                    else:
-                        printable_args.append(str(arg))
-
-                Log.debug("SFA CALL %s(%s)" % (printable_args[0], printable_args[1:]))
+#                printable_args = []
+#                for arg in args:
+#                    if arg and isinstance(arg, list) and arg[0][:6] == '<?xml ':
+#                        printable_args.append('<credentials>')
+#                    elif isinstance(arg, StringTypes) and arg[:6] == '<?xml ':
+#                        printable_args.append('<credential>')
+#                    else:
+#                        printable_args.append(str(arg))
+#
+#                Log.debug("SFA CALL %s(%s)" % (printable_args[0], printable_args[1:]))
                 self.proxy.callRemote(*args).addCallbacks(proxy_success_cb, proxy_error_cb)
             
             ReactorThread().callInReactor(wrap, self, args)
