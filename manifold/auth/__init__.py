@@ -72,7 +72,7 @@ class PasswordAuth(AuthMethod):
         # Protect against blank passwords in the DB
         if password is None or password[:12] == "" or \
             crypt.crypt(plaintext, password[:12]) != password:
-            raise AuthenticationFailure, "Password verification failed"
+            raise AuthenticationFailure, "Password verification failed %s" % crypt.crypt(plaintext, password[:12])
 
         return user
 
