@@ -704,6 +704,7 @@ class SFAGateway(Gateway):
             #resource['component_id'] = resource.pop('urn')
             resource['component_id'] = urn
             resource_hrn, resource_type = urn_to_hrn(resource['component_id'])
+
             if resource_type == 'node':
                 # XXX dirty hack WiLab !!!
                 if 'wilab2' in self.config['sm']:
@@ -711,7 +712,7 @@ class SFAGateway(Gateway):
                     resource['sliver_type'] = "raw-pc"
                     cm = urn.split("+")
                     resource['component_manager_id'] = "%s%s+authority+cm" % (cm[0],cm[1])
-                nodes.append(resource)
+               nodes.append(resource)
             elif resource_type == 'link':
                 links.append(resource)
             elif resource_type == 'channel':
@@ -724,7 +725,8 @@ class SFAGateway(Gateway):
         #rspec.version.add_leases(leases)
         #rspec.version.add_links(links)
         #rspec.version.add_channels(channels)
-        Log.tmp(rspec.toxml())   
+   
+        Log.warning("request rspec: %s"%rspec.toxml())
         return rspec.toxml()
 
     ############################################################################ 
@@ -847,6 +849,7 @@ class SFAGateway(Gateway):
             # AM API v2
             ois = yield self.ois(self.sliceapi, api_options)
             result = yield self.sliceapi.CreateSliver(slice_urn, [slice_cred], rspec, users, ois)
+            Log.warning("CreateSliver Result: %s" %result)
         else:
             # AM API v3
             api_options['sfa_users'] = sfa_users
