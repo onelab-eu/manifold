@@ -712,7 +712,7 @@ class SFAGateway(Gateway):
                     resource['sliver_type'] = "raw-pc"
                     cm = urn.split("+")
                     resource['component_manager_id'] = "%s%s+authority+cm" % (cm[0],cm[1])
-               nodes.append(resource)
+                nodes.append(resource)
             elif resource_type == 'link':
                 links.append(resource)
             elif resource_type == 'channel':
