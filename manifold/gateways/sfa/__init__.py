@@ -711,7 +711,7 @@ class SFAGateway(Gateway):
                     resource['client_id'] = "PC"
                     resource['sliver_type'] = "raw-pc"
                     cm = urn.split("+")
-                    resource['component_manager_id'] = "%s%s+authority+cm" % (cm[0],cm[1])
+                    resource['component_manager_id'] = "%s+%s+authority+cm" % (cm[0],cm[1])
                 nodes.append(resource)
             elif resource_type == 'link':
                 links.append(resource)
