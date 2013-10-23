@@ -704,14 +704,16 @@ class SFAGateway(Gateway):
             #resource['component_id'] = resource.pop('urn')
             resource['component_id'] = urn
             resource_hrn, resource_type = urn_to_hrn(resource['component_id'])
+            # build component_manager_id
+            top_auth = resource_hrn.split('.')[0]
+            cm = urn.split("+")
+            resource['component_manager_id'] = "%s+%s+authority+cm" % (cm[0],top_auth)
 
             if resource_type == 'node':
                 # XXX dirty hack WiLab !!!
                 if 'wilab2' in self.config['sm']:
                     resource['client_id'] = "PC"
                     resource['sliver_type'] = "raw-pc"
-                    cm = urn.split("+")
-                    resource['component_manager_id'] = "%s+%s+authority+cm" % (cm[0],cm[1])
                 nodes.append(resource)
             elif resource_type == 'link':
                 links.append(resource)
