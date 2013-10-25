@@ -749,22 +749,18 @@ class SFAGateway(Gateway):
                 return self.user_config['%suser_credential'%delegated]
             except TypeError, e:
                 raise Exception, "Missing user credential %s" %  str(e)
-        elif type == 'authority':
-            if target:
-                raise Exception, "Cannot retrieve specific authority credential for now"
-            return self.user_config['%sauthority_credential'%delegated]
-        elif type == 'slice':
-            if not 'delegated_slice_credentials' in self.user_config:
-                self.user_config['%sslice_credentials'%delegated] = {}
+        elif type in ['authority', 'slice']:
+            if not 'delegated_%s_credentials' % type in self.user_config:
+                self.user_config['%s%s_credentials' % (delegated, type)] = {}
 
-            creds = self.user_config['%sslice_credentials'%delegated]
+            creds = self.user_config['%s%s_credentials' % (delegated, type)]
             if target in creds:
                 cred = creds[target]
             else:
                 # Can we generate them : only if we have the user private key
-                # Currently it is not possible to request for a slice credential
+                # Currently it is not possible to request for a slice/authority credential
                 # with a delegated user credential...
-                if 'user_private_key' in self.user_config and self.user_config['user_private_key']:
+                if 'user_private_key' in self.user_config and self.user_config['user_private_key'] and type == 'slice':
                     cred = SFAGateway.generate_slice_credential(target, self.user_config)
                     creds[target] = cred
                 else:
@@ -876,72 +872,6 @@ class SFAGateway(Gateway):
         #print "SLICE=", slice
         defer.returnValue([slice])
 
-    # minimally check a key argument
-    def check_ssh_key(self, key):
-        good_ssh_key = r'^.*(?:ssh-dss|ssh-rsa)[ ]+[A-Za-z0-9+/=]+(?: .*)?$'
-        return re.match(good_ssh_key, key, re.IGNORECASE)
-
-    def create_record_from_params(self, type, params):
-        record_dict = {}
-        if type == 'slice':
-            # This should be handled beforehand
-            if 'slice_hrn' not in params or not params['slice_hrn']:
-                raise Exception, "Must specify slice_hrn to create a slice"
-            xrn = Xrn(params['slice_hrn'], type)
-            record_dict['urn'] = xrn.get_urn()
-            record_dict['hrn'] = xrn.get_hrn()
-            record_dict['type'] = xrn.get_type()
-        if 'key' in params and params['key']:
-            #try:
-            #    pubkey = open(params['key'], 'r').read()
-            #except IOError:
-            pubkey = params['key']
-            if not self.check_ssh_key(pubkey):
-                raise SfaInvalidArgument(name='key',msg="Wrong key format")
-                #raise SfaInvalidArgument(name='key',msg="Could not find file, or wrong key format")
-            record_dict['keys'] = [pubkey]
-        if 'slices' in params and params['slices']:
-            record_dict['slices'] = params['slices']
-        if 'researchers' in params and params['researchers']:
-            # for slice: expecting a list of hrn
-            record_dict['researcher'] = params['researchers']
-        if 'email' in params and params['email']:
-            record_dict['email'] = params['email']
-        if 'pis' in params and params['pis']:
-            record_dict['pi'] = params['pis']
-
-        #slice: description
-
-        # handle extra settings
-        #record_dict.update(options.extras)
-
-        return Record(dict=record_dict)
- 
-    def create_slice(self, filters, params, fields):
-
-        # Get the slice name
-        if not 'slice_hrn' in params:
-            raise Exception, "Create slice requires a slice name"
-        slice_hrn = params['slice_hrn']
-
-        # Are we creating the slice on the right authority
-        slice_auth = get_authority(slice_hrn)
-        server_version = self.get_cached_server_version(self.registry)
-        server_auth = server_version['hrn']
-        if not slice_auth.startswith('%s.' % server_auth):
-            print "I: Not requesting slice creation on %s for %s" % (server_auth, slice_hrn)
-            return []
-        print "I: Requesting slice creation on %s for %s" % (server_auth, slice_hrn)
-        print "W: need to check slice is created under user authority"
-        cred = self._get_cred('authority')
-        record_dict = self.create_record_from_params('slice', params)
-        try:
-            slice_gid = self.registry.Register(record_dict, cred)
-        except Exception, e:
-            print "E: %s" % e
-        return []
-
- 
     # This function will return information about a given network using SFA GetVersion call
     # Depending on the object Queried, if object is network then get_network is triggered by
     # result = getattr(self, "%s_%s" % (q.action, q.object))(local_filters, q.params, fields)
@@ -1035,6 +965,7 @@ class SFAGateway(Gateway):
             # XXX This should be ensured by partitions
             object_name = [ on for on in object_name if on.startswith(interface_hrn)]
             if not object_name:
+                print "not object name", interface_hrn
                 defer.returnValue([])
 
             # Check for jokers ?
@@ -1093,6 +1024,7 @@ class SFAGateway(Gateway):
             defer.returnValue(output)
         
         if len(stack) > 1:
+            print "list stack > 1"
             deferred_list = []
             while stack:
                 auth_xrn = stack.pop()
@@ -1109,6 +1041,7 @@ class SFAGateway(Gateway):
             defer.returnValue(output)
 
         else:
+            print "ELSE LIST"
             auth_xrn = stack.pop()
             records = yield self.registry.List(auth_xrn, cred, {'recursive': recursive})
             records = [r for r in records if r['type'] == object]
@@ -1248,6 +1181,103 @@ class SFAGateway(Gateway):
 #DEPRECATED#
 #DEPRECATED#            return filtered
 
+    # minimally check a key argument
+    def check_ssh_key(self, key):
+        good_ssh_key = r'^.*(?:ssh-dss|ssh-rsa)[ ]+[A-Za-z0-9+/=]+(?: .*)?$'
+        return re.match(good_ssh_key, key, re.IGNORECASE)
+
+    def create_record_from_params(self, type, params):
+        record_dict = {}
+        if type == 'slice':
+            # This should be handled beforehand
+            if 'slice_hrn' not in params or not params['slice_hrn']:
+                raise Exception, "Must specify slice_hrn to create a slice"
+            xrn = Xrn(params['slice_hrn'], type)
+            record_dict['urn'] = xrn.get_urn()
+            record_dict['hrn'] = xrn.get_hrn()
+            record_dict['type'] = xrn.get_type()
+        if 'key' in params and params['key']:
+            #try:
+            #    pubkey = open(params['key'], 'r').read()
+            #except IOError:
+            pubkey = params['key']
+            if not self.check_ssh_key(pubkey):
+                raise SfaInvalidArgument(name='key',msg="Wrong key format")
+                #raise SfaInvalidArgument(name='key',msg="Could not find file, or wrong key format")
+            record_dict['keys'] = [pubkey]
+        if 'slices' in params and params['slices']:
+            record_dict['slices'] = params['slices']
+        if 'researchers' in params and params['researchers']:
+            # for slice: expecting a list of hrn
+            record_dict['researcher'] = params['researchers']
+        if 'email' in params and params['email']:
+            record_dict['email'] = params['email']
+        if 'pis' in params and params['pis']:
+            record_dict['pi'] = params['pis']
+
+        #slice: description
+
+        # handle extra settings
+        #record_dict.update(options.extras)
+
+        return Record(dict=record_dict)
+
+    @defer.inlineCallbacks
+    def create_object(self, filters, params, fields):
+        # XXX should call create_record_from_params which would rely on mappings
+
+        object_auth_hrn = get_authority(params['hrn'])
+
+        server_version = yield self.get_cached_server_version(self.registry)    
+        server_auth_hrn = server_version['hrn']
+        if not object_auth_hrn.startswith('%s.' % server_auth_hrn):
+            # XXX not a success, neither a warning !!
+            print "I: Not requesting object creation on %s for %s" % (server_auth_hrn, object_auth_hrn)
+            defer.returnValue([])
+
+        auth_cred = self._get_cred('authority', object_auth_hrn)
+
+        if 'type' not in params:
+            raise Exception, "Missing type in params"
+        try:
+            object_gid = yield self.registry.Register(params, auth_cred)
+        except Exception, e:
+            raise Exception, 'Failed to create object: record possibly already exists: %s' % e
+        defer.returnValue([{'hrn': params['hrn'], 'gid': object_gid}])
+
+    def create_user(self, filters, params, fields):
+        return self.create_object(filters, params, fields)
+ 
+    def create_slice(self, filters, params, fields):
+        return self.create_object(filters, params, fields)
+
+    def create_resource(self, filters, params, fields):
+        return self.create_object(filters, params, fields)
+
+    def create_authority(self, filters, params, fields):
+        return self.create_object(filters, params, fields)
+
+        ## Get the slice name
+        #if not 'hrn' in params:
+        #    raise Exception, "Create slice requires a slice name"
+        #hrn = params['hrn']
+        #
+        ## Are we creating the slice on the right authority
+        #slice_auth = get_authority(slice_hrn)
+        #server_version = self.get_cached_server_version(self.registry)
+        #server_auth = server_version['hrn']
+        #if not slice_auth.startswith('%s.' % server_auth):
+        #    print "I: Not requesting slice creation on %s for %s" % (server_auth, slice_hrn)
+        #    return []
+        #print "I: Requesting slice creation on %s for %s" % (server_auth, slice_hrn)
+        #print "W: need to check slice is created under user authority"
+        #cred = self._get_cred('authority')
+        #record_dict = self.create_record_from_params('slice', params)
+        #try:
+        #    slice_gid = self.registry.Register(record_dict, cred)
+        #except Exception, e:
+        #    print "E: %s" % e
+        #return []
 
     def sfa_table_networks(self):
         versions = self.sfa_get_version_rec(self.sm_url)
@@ -1490,6 +1520,7 @@ class SFAGateway(Gateway):
                 return
 
             fields = q.fields # Metadata.expand_output_fields(q.object, list(q.fields))
+            #print "SFA CALL START %s_%s" % (q.action, q.object), q.filters, q.params, fields
             result = yield getattr(self, "%s_%s" % (q.action, q.object))(q.filters, q.params, fields)
 
             if q.object in self.map_fields:
