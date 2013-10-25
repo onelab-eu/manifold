@@ -1225,14 +1225,21 @@ class SFAGateway(Gateway):
     @defer.inlineCallbacks
     def create_object(self, filters, params, fields):
         # XXX should call create_record_from_params which would rely on mappings
+
         try:
-            auth_hrn = get_authority(params['hrn'])
-            auth_cred = self._get_cred('authority', auth_hrn)
+            object_auth_hrn = get_authority(params['hrn'])
+
+            server_version = yield self.get_cached_server_version(self.registry)    
+            server_auth_hrn = server_version['hrn']
+            if not object_auth_hrn.startswith('%s.' % server_auth_hrn):
+                print "I: Not requesting object creation on %s for %s" % (server_auth_hrn, object_auth_hrn)
+                defer.returnValue([])
+
+            auth_cred = self._get_cred('authority', object_auth_hrn)
 
             if 'type' not in params:
                 raise Exception, "Missing type in params"
             object_gid = yield self.registry.Register(params, auth_cred)
-            print "GID", object_gid
             defer.returnValue([{'hrn': params['hrn'], 'gid': object_gid}])
         except Exception, e:
             print "ERR IN CREATE OBJECT"
@@ -1243,28 +1250,35 @@ class SFAGateway(Gateway):
         return self.create_object(filters, params, fields)
  
     def create_slice(self, filters, params, fields):
+        return self.create_object(filters, params, fields)
 
-        # Get the slice name
-        if not 'slice_hrn' in params:
-            raise Exception, "Create slice requires a slice name"
-        slice_hrn = params['slice_hrn']
+    def create_resource(self, filters, params, fields):
+        return self.create_object(filters, params, fields)
 
-        # Are we creating the slice on the right authority
-        slice_auth = get_authority(slice_hrn)
-        server_version = self.get_cached_server_version(self.registry)
-        server_auth = server_version['hrn']
-        if not slice_auth.startswith('%s.' % server_auth):
-            print "I: Not requesting slice creation on %s for %s" % (server_auth, slice_hrn)
-            return []
-        print "I: Requesting slice creation on %s for %s" % (server_auth, slice_hrn)
-        print "W: need to check slice is created under user authority"
-        cred = self._get_cred('authority')
-        record_dict = self.create_record_from_params('slice', params)
-        try:
-            slice_gid = self.registry.Register(record_dict, cred)
-        except Exception, e:
-            print "E: %s" % e
-        return []
+    def create_authority(self, filters, params, fields):
+        return self.create_object(filters, params, fields)
+
+        ## Get the slice name
+        #if not 'hrn' in params:
+        #    raise Exception, "Create slice requires a slice name"
+        #hrn = params['hrn']
+        #
+        ## Are we creating the slice on the right authority
+        #slice_auth = get_authority(slice_hrn)
+        #server_version = self.get_cached_server_version(self.registry)
+        #server_auth = server_version['hrn']
+        #if not slice_auth.startswith('%s.' % server_auth):
+        #    print "I: Not requesting slice creation on %s for %s" % (server_auth, slice_hrn)
+        #    return []
+        #print "I: Requesting slice creation on %s for %s" % (server_auth, slice_hrn)
+        #print "W: need to check slice is created under user authority"
+        #cred = self._get_cred('authority')
+        #record_dict = self.create_record_from_params('slice', params)
+        #try:
+        #    slice_gid = self.registry.Register(record_dict, cred)
+        #except Exception, e:
+        #    print "E: %s" % e
+        #return []
 
     def sfa_table_networks(self):
         versions = self.sfa_get_version_rec(self.sm_url)
