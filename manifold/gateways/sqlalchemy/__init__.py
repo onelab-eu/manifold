@@ -168,7 +168,11 @@ class SQLAlchemyGateway(Gateway):
         if cls.restrict_to_self:
             q = q.filter(getattr(cls, 'user_id') == self.user.user_id)
         q = q.update(_params, synchronize_session=False)
-        db.commit()
+        try:
+            db.commit()
+        except:
+            db.rollback()
+
 
         return []
 
@@ -200,8 +204,11 @@ class SQLAlchemyGateway(Gateway):
             for k, v in params.items():
                 print "%s = %s" % (k,v)
                 setattr(new_obj, k, v)
-        self.db.add(new_obj)
-        self.db.commit()
+        db.add(new_obj)
+        try:
+            db.commit()
+        except:
+            db.rollback()
         
         return [new_obj]
 
