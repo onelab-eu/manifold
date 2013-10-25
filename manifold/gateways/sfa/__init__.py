@@ -1226,25 +1226,24 @@ class SFAGateway(Gateway):
     def create_object(self, filters, params, fields):
         # XXX should call create_record_from_params which would rely on mappings
 
+        object_auth_hrn = get_authority(params['hrn'])
+
+        server_version = yield self.get_cached_server_version(self.registry)    
+        server_auth_hrn = server_version['hrn']
+        if not object_auth_hrn.startswith('%s.' % server_auth_hrn):
+            # XXX not a success, neither a warning !!
+            print "I: Not requesting object creation on %s for %s" % (server_auth_hrn, object_auth_hrn)
+            defer.returnValue([])
+
+        auth_cred = self._get_cred('authority', object_auth_hrn)
+
+        if 'type' not in params:
+            raise Exception, "Missing type in params"
         try:
-            object_auth_hrn = get_authority(params['hrn'])
-
-            server_version = yield self.get_cached_server_version(self.registry)    
-            server_auth_hrn = server_version['hrn']
-            if not object_auth_hrn.startswith('%s.' % server_auth_hrn):
-                print "I: Not requesting object creation on %s for %s" % (server_auth_hrn, object_auth_hrn)
-                defer.returnValue([])
-
-            auth_cred = self._get_cred('authority', object_auth_hrn)
-
-            if 'type' not in params:
-                raise Exception, "Missing type in params"
             object_gid = yield self.registry.Register(params, auth_cred)
-            defer.returnValue([{'hrn': params['hrn'], 'gid': object_gid}])
         except Exception, e:
-            print "ERR IN CREATE OBJECT"
-            import traceback
-            traceback.print_exc()
+            raise Exception, 'Failed to create object: record possibly already exists: %s' % e
+        defer.returnValue([{'hrn': params['hrn'], 'gid': object_gid}])
 
     def create_user(self, filters, params, fields):
         return self.create_object(filters, params, fields)
@@ -1521,7 +1520,7 @@ class SFAGateway(Gateway):
                 return
 
             fields = q.fields # Metadata.expand_output_fields(q.object, list(q.fields))
-            print "SFA CALL START %s_%s" % (q.action, q.object), q.filters, q.params, fields
+            #print "SFA CALL START %s_%s" % (q.action, q.object), q.filters, q.params, fields
             result = yield getattr(self, "%s_%s" % (q.action, q.object))(q.filters, q.params, fields)
 
             if q.object in self.map_fields:
