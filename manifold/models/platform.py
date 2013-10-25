@@ -18,6 +18,7 @@ from sqlalchemy                 import Column, Integer, String, Boolean, Enum
 from manifold.core.query        import Query
 from manifold.util.storage      import DBStorage
 from manifold.util.type         import accepts, returns 
+from manifold.util.log          import Log 
 from manifold.models import Base
 
 class Platform(Base):

@@ -420,7 +420,7 @@ if __name__ == '__main__':
         else:
             command    = args.options[0]
             parameters = args.options[1:]
-
+        
         register_gateways()
 
         try:
