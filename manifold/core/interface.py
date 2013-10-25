@@ -145,38 +145,38 @@ class Interface(object):
         Returns:
             A list of dictionnaries describing each 3nf Tables.
         """
-        Log.tmp("get_metadata_objects")
-        output = list() 
-        # XXX Not generic
+        table_dicts = dict() 
+
+        # XXX not generic
         for table in self.g_3nf.graph.nodes():
             # Ignore non parent tables
             if not self.g_3nf.is_parent(table):
                 continue
 
             table_name = table.get_name()
-
             fields = set() | table.get_fields()
             for _, child in self.g_3nf.graph.out_edges(table):
                 if not child.get_name() == table_name:
                     continue
-                Log.tmp("adding child fields = %s" % child.get_fields())
                 fields |= child.get_fields()
 
             # Build columns from fields
-            columns = list() 
+            columns = table_dicts[table_name]["column"] if table_name in table_dicts.keys() else list()
             for field in fields:
-                columns.append(field.to_dict())
+                column = field.to_dict()
+                assert "name" in column.keys(), "Invalid field dict" # DEBUG
+                if column not in columns:
+                    columns.append(column)
 
             keys = tuple(table.get_keys().one().get_field_names())
 
-            # Add table metadata
-            output.append({
+            table_dicts[table_name] = {
                 "table"      : table_name,
                 "column"     : columns,
                 "key"        : keys,
-                "capability" : [],
-            })
-        return output
+                "capability" : list(),
+            }
+        return table_dicts.values()
 
     @returns(Keys)
     def metadata_get_keys(self, table_name):
