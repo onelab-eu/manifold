@@ -9,7 +9,7 @@
 #
 # Copyright (C) UPMC Paris Universitas
 # Authors:
-#   Jordan Augé       <jordan.auge@lip6.fr>
+#   Jordan Augé       <jordan.auge@lip6.fr
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
 import json
@@ -56,6 +56,22 @@ class Platform(Base):
             platform_config_json = self.config
             platform_config = json.loads(platform_config_json) if platform_config_json else dict()
         return platform_config
+
+    @staticmethod
+    @returns(int)
+    def get_platform_id(platform_name):
+        """
+        (Internal use)
+        This crappy method is used since we do not exploit Manifold
+        to perform queries on the Manifold storage, so we manually
+        retrieve platform_id.
+        Args:
+            platform_name: a String instance. 
+        Returns:
+            The platform ID related to a Platform.
+        """
+        ret = db.query(User.user_id).filter(Platform.platform == platform_name).one()
+        return ret[0]
 
     @returns(StringTypes)
     def __repr__(self):

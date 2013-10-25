@@ -1,28 +1,73 @@
-from sqlalchemy      import Column, Integer, String
-from manifold.models import Base, db
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+# User class used in the Manifold Storage.
+#
+# For the moment, this is an python object used by
+# SQLAlchemy, which is used to interact with the
+# sqlite database /var/myslice/db.sqlite.
+#
+# Jordan Auge       <jordan.auge@lip6.fr>
+# Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
+#
+# Copyright (C) 2013 UPMC
 
 import json
+from sqlalchemy                 import Column, Integer, String
+
+from manifold.models            import Base, db
+from manifold.util.type         import accepts, returns 
+
 
 class User(Base):
     restrict_to_self = True
-    user_id = Column(Integer, primary_key=True, doc="User identifier")
-    email = Column(String, doc="User email")
-    password = Column(String, doc="User password")
-    config = Column(String, doc="User config (serialized in JSON)")
+    user_id  = Column(Integer, primary_key = True, doc = "User identifier")
+    email    = Column(String,                      doc = "User email")
+    password = Column(String,                      doc = "User password")
+    config   = Column(String,                      doc = "User config (serialized in JSON)")
 
-    def config_set(self, value):
-        #Log.deprecated()
-        return self.set_config(value)
+#UNUSED|    def config_set(self, value):
+#UNUSED|        #Log.deprecated()
+#UNUSED|        return self.set_config(value)
         
     def set_config(self, value):
+        """
+        Update the "config" field of this User in the
+        Manifold Storage.
+        Args:
+            value: A String encoded in JSON containing
+                the new "config" related to this User.
+        """
         self.config = json.dumps(value)
         db.add(self)
         db.commit()
         
+    @returns(dict)
     def get_config(self):
+        """
+        Returns:
+            The dictionnary corresponding to the JSON content
+            related to the "config" field of this User.
+        """
         if not self.config:
-            return {}
+            return dict() 
         return json.loads(self.config)
+
+    @staticmethod
+    @returns(int)
+    def get_user_id(user_email):
+        """
+        (CRAPPY)
+        This crappy method is used since we do not exploit Manifold
+        to perform queries on the Manifold storage, so we manually
+        retrieve user_id.
+        Args:
+            user_email: a String instance. 
+        Returns:
+            The user ID related to an User.
+        """
+        ret = db.query(User.user_id).filter(User.email == user_params).one()
+        return ret[0]
 
     @staticmethod
     def process_params(params, filters, user):
@@ -44,7 +89,7 @@ class User(Base):
             try:
                 json_fields = json.loads(r.config)
             except Exception, e:
-                json_fields = {}
+                json_fields = dict() 
 
             # We First look at convenience fields
             for field in given_json_fields:
@@ -69,7 +114,7 @@ class User(Base):
             ret = db.query(User.user_id)
             ret = ret.filter(User.email == user_params)
             ret = ret.one()
-            params['user_id']=ret[0]
+            params['user_id'] = ret[0]
             return
         raise Exception, 'User should be specified'
  

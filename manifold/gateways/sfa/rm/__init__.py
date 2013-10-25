@@ -22,6 +22,7 @@ from sfa.storage.record                     import Record
 from sfa.trust.certificate                  import Keypair, Certificate
 from sfa.util.xrn                           import Xrn, get_authority
 
+from manifold.core.query                    import Query
 from manifold.gateways.gateway              import Gateway 
 from manifold.gateways.sfa                  import SFAGatewayCommon, DEMO_HOOKS
 from manifold.gateways.sfa.user             import ADMIN_USER, is_user_admin 
@@ -169,7 +170,8 @@ class SFA_RMGateway(SFAGatewayCommon):
             self.error(receiver, query, "No user specified, aborting")
             return
 
-        user = user.__dict__
+        user_email = user.email
+        user_dict = user.__dict__
 
         try:
             assert query, "Cannot run gateway with not query associated: %s" % self.get_platform_name()
@@ -182,14 +184,14 @@ class SFA_RMGateway(SFAGatewayCommon):
             if admin_account: admin_account_config = admin_account["config"]
 
             # Overwrite user config (reference & managed acccounts)
-            user_account = self.get_account(user["email"])
+            user_account = self.get_account(user_email)
             if user_account: user_account_config = user_account["config"]
             # >> bootstrap
  
             # If no user_account_config: failure
             if not user_account_config:
                 self.send(LAST_RECORD, callback, identifier)
-                self.error(receiver, query, "Account related to %s for platform %s not found" % (user["email"], self.get_platform_name()))
+                self.error(receiver, query, "Account related to %s for platform %s not found" % (user_email, self.get_platform_name()))
                 return
 
             # Call the appropriate method (for instance User.get(...)) in a first
@@ -197,21 +199,22 @@ class SFA_RMGateway(SFAGatewayCommon):
             # account is managed, then run managed and try to rerun the Query.
             result = list()
             try:
-                result = yield self.perform_query(user, user_account_config, query)
+                result = yield self.perform_query(user_dict, user_account_config, query)
             except Exception, e:
                 if user_account["auth_type"] == "managed":
                     Log.info("Running manage()")
-                    user_account_config = yield self.manage(user, user_account_config, admin_account_config)
-                    Log.info("OK")
+                    user_account_config = yield self.manage(user_dict, user_account_config, admin_account_config)
+
                     # Update the Storage consequently
-                    print "1)============================================================"
-                    print user_account["config"][30:]
-                    print "2)============================================================"
-                    print user_account_config[30:]
-                    db.add(user_account)
-                    db.commit()
+                    query = Query.update("local:account")\
+                        .set({"config": user_account_config})\
+                        .filter_by("user_id",     "=", user_account["user_id"])\
+                        .filter_by("platform_id", "=", user_account["platform_id"])
+                    router = self.get_interface()
+                    router.forward(query, False, True, user, receiver)
+
                     Log.info("Account successfully managed, we now rerun the query")
-                    result = yield self.perform_query(user, user_account_config, query)
+                    result = yield self.perform_query(user_dict, user_account_config, query)
                 else:
                     failure = Failure("Account not managed: user_account_config = %s / auth_type = %s" % (account_config, user_account["auth_type"]))
                     failure.raiseException()

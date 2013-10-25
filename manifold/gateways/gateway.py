@@ -32,8 +32,6 @@ from manifold.util.log                  import Log
 
 class Gateway(object):
     
-    registry = {}
-
     __metaclass__ = PluginFactory
 
     def __init__(self, interface, platform_name, platform_config = None):
@@ -58,10 +56,19 @@ class Gateway(object):
         self.platform_name   = platform_name
         self.platform_config = platform_config
 
+    #@returns(Interface)
+    def get_interface(self):
+        """
+        Returns:
+            The Interface instance using this Gateway. Most of time
+            this is a Router instance.
+        """
+        return self.interface
+
     @returns(dict)
     def get_config(self):
         """
-        Returns 
+        Returns:
             A dictionnary containing the configuration related to
                 the Platform managed by this Gateway. 
         """
