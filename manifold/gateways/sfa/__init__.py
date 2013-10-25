@@ -1500,6 +1500,7 @@ class SFAGateway(Gateway):
             self.send(LAST_RECORD)
 
         except Exception, e:
+            Log.error(" contacting %s Query (action = %s , object = %s, filters = %s, fields = %s, params = %s)" % (self.platform,q.action,q.object,q.filters,q.fields,q.params))
             traceback.print_exc()
             rv = ResultValue(
                 origin      = (ResultValue.GATEWAY, self.__class__.__name__, self.platform, str(self.query)),
