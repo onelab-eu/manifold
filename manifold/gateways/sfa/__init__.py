@@ -52,7 +52,6 @@ from sfa.util.xrn                       	import Xrn, get_authority
 from sfa.util.cache                     	import Cache
 from sfa.client.client_helper           	import pg_users_arg, sfa_users_arg
 from sfa.client.return_value            	import ReturnValue
-from xmlrpclib                          	import DateTime
 
 DEFAULT_TIMEOUT = 20
 DEMO_HOOKS = ['demo']

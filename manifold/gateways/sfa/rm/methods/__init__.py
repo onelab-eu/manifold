@@ -12,9 +12,10 @@
 
 from types                                  import StringTypes, GeneratorType
 from twisted.internet                       import defer
+from xmlrpclib                              import DateTime
 from sfa.util.xrn                           import hrn_to_urn 
 
-from manifold.util.log                  	import Log
+from manifold.util.log                      import Log
 from manifold.util.predicate                import eq, lt, le, included
 from manifold.util.type                     import accepts, returns
 from manifold.util.misc                     import make_list
@@ -40,10 +41,11 @@ class Object:
 #NOT_YET_IMPLEMENTED|        return Object.aliases[field_name]
 #NOT_YET_IMPLEMENTED|
 
+    #@returns(SFAGatewayCommon)
     def get_gateway(self):
         """
         Returns:
-            The SFAGateway related to this Object
+            The SFAGatewayCommon instance related to this Object.
         """
         return self.gateway
 
@@ -52,6 +54,13 @@ class Object:
     def create(self, user, account_config, query):
         """
         This method must be overloaded if supported in the children class.
+        Args:
+            user: a dictionnary describing the User performing the Query.
+            account_config: a dictionnary containing the User's Account
+                (see "config" field of the Account table defined in the Manifold Storage)
+            query: The Query issued by the User.
+        Returns:
+            The list of updated Objects.
         """
         raise Exception, "Not implemented"
 
@@ -60,6 +69,13 @@ class Object:
     def delete(self, user, account_config, query):
         """
         This method must be overloaded if supported in the children class.
+        Args:
+            user: a dictionnary describing the User performing the Query.
+            account_config: a dictionnary containing the User's Account
+                (see "config" field of the Account table defined in the Manifold Storage)
+            query: The Query issued by the User.
+        Returns:
+            The list of updated Objects.
         """
         raise Exception, "Not implemented"
 
@@ -68,6 +84,13 @@ class Object:
     def update(self, user, account_config, query):
         """
         This method must be overloaded if supported in the children class.
+        Args:
+            user: a dictionnary describing the User performing the Query.
+            account_config: a dictionnary containing the User's Account
+                (see "config" field of the Account table defined in the Manifold Storage)
+            query: The Query issued by the User.
+        Returns:
+            The list of updated Objects.
         """
         raise Exception, "Not implemented"
 
@@ -76,10 +99,29 @@ class Object:
     def get(self, user, account_config, query): 
         """
         (Internal use)
+        Args:
+            user: a dictionnary describing the User performing the Query.
+            account_config: a dictionnary containing the User's Account
+                (see "config" field of the Account table defined in the Manifold Storage)
+            query: The Query issued by the User.
+        Returns:
+            A dictionnary containing the requested SFA object.
+            Ex: for an User, the dictionnary contains:
+                role_ids: list of integer
+                last_updated: an integer (timestamp)
+                slices: list of String (slice names)
+                authority: a String (authority name)
+                reg-urn: a String containing the object URN (ex: "urn:publicid:IDN+ple:upmc+user+john_doe")
+                [...]
+                enabled: a boolean
+                geni_urn: a String containing the GENI URN (ex: "urn:publicid:IDN+ple:upmc+user+john_doe")
+                date_created: an integer (timestamp)
         """
-        Log.tmp(">>>>>>> welcome in Object::get() :)")
+        Log.tmp("-" * 80)
+        Log.tmp("user = %s" % user)
         Log.tmp(query)
         Log.tmp("-" * 80)
+
         object     = query.get_from()
         object_hrn = "%s_hrn" % object
         filters    = query.get_where()
@@ -160,16 +202,12 @@ class Object:
         # TODO: user's objects, use reg-researcher
         
         cred = gateway._get_cred(user, account_config, "user", None)
-        Log.tmp("3) cred = %s" % (True if cred else False))
 
         registry = yield gateway.get_server()
-        Log.tmp("registry = %s resolve = %s" % (registry, resolve))
         if resolve:
             # stack = ['ple.upmc.loic_baron'] --> ['urn:publicid:IDN+ple:upmc+user+loic_baron']
             stack = map(lambda x: hrn_to_urn(x, object), stack)
-            Log.tmp("3)b) stack = %s, running resolve" % stack)
             _result,  = yield registry.Resolve(stack, cred, {'details': True})
-            Log.tmp("3)c) resolve succeeded, _result = %s" % _result)
 
             # XXX How to better handle DateTime XMLRPC types into the answer ?
             # XXX Shall we type the results like we do in CSV ?
@@ -180,10 +218,8 @@ class Object:
                 else:
                     result[k] = v
 
-            Log.tmp("<<<< returning %s" % [result])
             defer.returnValue([result])
         
-        Log.tmp("3) len(stack) = %s" % len(stack)) 
         if len(stack) > 1:
             deferreds = list() 
             while stack:
@@ -204,7 +240,6 @@ class Object:
             auth_xrn = stack.pop()
             records = yield registry.List(auth_xrn, cred, {'recursive': recursive})
             records = [r for r in records if r['type'] == object]
-            Log.tmp("<<<< returning %s" % records)
             defer.returnValue(records)
 
 
