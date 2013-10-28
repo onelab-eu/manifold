@@ -109,6 +109,8 @@ class SFA_RMGateway(SFAGatewayCommon):
         Returns:
             The list of corresponding Records if any.
         """
+        Log.debug(query)
+        Log.tmp("perform_query: user = %s" % user)
         VALID_ACTIONS = ["get", "create", "update", "delete", "execute"]
         action = query.get_action()
         object = query.get_from()
@@ -125,8 +127,8 @@ class SFA_RMGateway(SFAGatewayCommon):
 
         # Instanciate the appropriate method.
         # http://stackoverflow.com/questions/3061/calling-a-function-from-a-string-with-the-functions-name-in-python
-        Log.tmp("Calling %s::%s" % (instance, action))
         try:
+            Log.info("Calling %s::%s" % (instance, action))
             method = getattr(instance, action)
         except Exception, e:
             Log.error("Error in perform_query while instanciating %s: %s" % (method, e))
@@ -171,7 +173,13 @@ class SFA_RMGateway(SFAGatewayCommon):
             return
 
         user_email = user.email
-        user_dict = user.__dict__
+
+        # We duplicate user_dict as follow otherwise sqlalchemy alter user.__dict__ in a bad way
+        # TODO Ideally we should use dict instead of manifold.models.user in forward() methods
+        user_dict = dict()
+        for k, v in user.__dict__.items():
+            if k != "_sa_instance_state":
+                user_dict[k] = v 
 
         try:
             assert query, "Cannot run gateway with not query associated: %s" % self.get_platform_name()
@@ -186,6 +194,8 @@ class SFA_RMGateway(SFAGatewayCommon):
             # Overwrite user config (reference & managed acccounts)
             user_account = self.get_account(user_email)
             if user_account: user_account_config = user_account["config"]
+            assert isinstance(user_account_config,  dict), "Invalid user_account_config"
+            assert isinstance(admin_account_config, dict), "Invalid admin_account_config"
             # >> bootstrap
  
             # If no user_account_config: failure
@@ -206,12 +216,12 @@ class SFA_RMGateway(SFAGatewayCommon):
                     user_account_config = yield self.manage(user_dict, user_account_config, admin_account_config)
 
                     # Update the Storage consequently
-                    query = Query.update("local:account")\
-                        .set({"config": user_account_config})\
+                    query_storage = Query.update("local:account")\
+                        .set({"config": json.dumps(user_account_config)})\
                         .filter_by("user_id",     "=", user_account["user_id"])\
                         .filter_by("platform_id", "=", user_account["platform_id"])
                     router = self.get_interface()
-                    router.forward(query, False, True, user, receiver)
+                    router.forward(query_storage, False, True, user, receiver)
 
                     Log.info("Account successfully managed, we now rerun the query")
                     result = yield self.perform_query(user_dict, user_account_config, query)
@@ -254,8 +264,13 @@ class SFA_RMGateway(SFAGatewayCommon):
             type: A String instance among {"user", "authority", "slice"}
             target_hrn: A String identifying the requested object. 
         """
-        self.check_cred()
-        return self.get_cred(user, user_account_config, type, target_hrn)
+        assert isinstance(user_account_config, dict), "Invalid user_account_config"
+        try:
+            self.check_cred()
+            return self.get_cred(user, user_account_config, type, target_hrn)
+        except Exception, why:
+            Log.error(traceback.format_exc(why))
+            raise why
 
     @returns(StringTypes)
     def get_cred(self, user, user_account_config, type, target_hrn = None):
@@ -272,6 +287,7 @@ class SFA_RMGateway(SFAGatewayCommon):
             The corresponding Credential String.
         """
         assert target_hrn == None or type == "slice", "Invalid parameters" # NOTE: Once this function will be generalized, update this assert
+#        assert isinstance(user_account_config, dict), "Invalid user_account_config (type %s)" % type(user_account_config)
 
         delegated = "delegated_" if not is_user_admin(user) else ""
         key = "%s%s_credential%s" % (
@@ -284,6 +300,8 @@ class SFA_RMGateway(SFAGatewayCommon):
             if target_hrn:
                 raise Exception, "Cannot retrieve specific %s credential for now" % type
             try:
+                Log.tmp("user_account_config.keys() = %s" % user_account_config.keys())
+                Log.tmp("key = %s" % key)
                 return user_account_config[key]
             except KeyError, e:
                 raise Exception, "Missing %s credential %s" % (type, str(e))
@@ -634,10 +652,6 @@ class SFA_RMGateway(SFAGatewayCommon):
                     user_account_config["gid"],
                     admin_account_config["user_credential"]
                 )
-
-        Log.info("json --> dict")
-        user_account_config = json.dumps(user_account_config)
-        Log.info("json --> dict: OK")
 
         # return using asynchronous defer
         defer.returnValue(user_account_config)

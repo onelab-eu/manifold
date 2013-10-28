@@ -33,7 +33,7 @@ class Log(object):
         'HEADER' : colors.MYHEADER,
         'END'    : colors.MYEND,
         'RECORD' : colors.MYBLUE,
-        'TMP'    : colors.MYRED,
+        'TMP'    : colors.MYCYAN,
     }
 
     @classmethod

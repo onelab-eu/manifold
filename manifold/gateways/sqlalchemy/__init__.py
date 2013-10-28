@@ -50,9 +50,10 @@ def xgetattr(cls, list_attr):
         ret.append(getattr(cls, a))
     return tuple(ret)
 
+@returns(list)
 def get_sqla_filters(cls, filters):
     if filters:
-        _filters = []
+        _filters = list() 
         for p in filters:
             if p.op == included:
                 f = getattr(cls, p.key).in_(p.value)
@@ -102,10 +103,10 @@ def row2dict(row):
 class SQLAlchemyGateway(Gateway):
 
     map_object = {
-        'platform' : Platform,
-        'user'     : User,
-        'account'  : Account,
-        'session'  : DBSession
+        "platform" : Platform,
+        "user"     : User,
+        "account"  : Account,
+        "session"  : DBSession
     }
 
     def __init__(self, interface, platform, config = None):
@@ -207,7 +208,7 @@ class SQLAlchemyGateway(Gateway):
         # We encrypt the password according to the encryption of adduser.py
         # As a result from the frontend the edited password will be inserted
         # into the local DB as encrypted      
-        if 'password' in query.params:
+        if 'password' in query.get_params():
             query.params['password'] = SQLAlchemyGateway.encrypt_password(query.params['password'])
         _params = cls.process_params(query.params, _filters, user)
         # only 2.7+ _params = { getattr(cls, k): v for k,v in query.params.items() }
@@ -222,7 +223,7 @@ class SQLAlchemyGateway(Gateway):
         q = q.update(_params, synchronize_session=False)
         db.commit()
 
-        return []
+        return list() 
 
     @returns(list)
     def local_query_create(self, query, user):
@@ -334,4 +335,5 @@ class SQLAlchemyGateway(Gateway):
         Returns:
             The list of corresponding Announce instances
         """
+        Log.warning("SQLAlchemyGateway::get_metadata: Not yet implemented")
         return list()

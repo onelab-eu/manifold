@@ -21,6 +21,7 @@ BOLDPURPLE = "\033[1;35m"
 BOLDYELLOW = "\033[1;33m"
 WHITE      = "\033[1;37m"
 
+MYCYAN     = "\033[96m"
 MYGREEN    = '\033[92m'
 MYBLUE     = '\033[94m'
 MYWARNING  = '\033[93m'

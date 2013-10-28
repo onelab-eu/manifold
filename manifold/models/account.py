@@ -25,6 +25,7 @@ except: pass
 from manifold.models            import Base, db
 from manifold.models.user       import User
 from manifold.models.platform   import Platform
+from manifold.util.log          import Log 
 from manifold.util.predicate    import Predicate
 from manifold.util.type         import accepts, returns 
 
@@ -82,15 +83,15 @@ class Account(Base):
 #UNUSED|            db.commit()
 
     @staticmethod
-    @returns(list)
+    #@returns(Filter)
     def process_filters(filters):
         """
         Process "WHERE" clause carried by a Query related to the
         local:account object.
         Args:
-            filters: A list of "==" Predicate instances.
+            filters: A Filter instance made of "==" Predicate instances.
         Returns:
-            The updated list of Predicate.
+            The updated Filter instance. 
         """
         # Update predicates involving "user"
         user_filters = filters.get("user")
@@ -140,6 +141,7 @@ class Account(Base):
         given = set(params.keys())
         accepted = set([c.name for c in Account.__table__.columns])
         given_json_fields = given - accepted
+        Log.tmp("given_json_fields = %s given = %s accepted = %s" % (given_json_fields, given, accepted))
         
         if given_json_fields:
             if 'config' in given_json_fields:
