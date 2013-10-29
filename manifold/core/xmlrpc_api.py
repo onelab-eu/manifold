@@ -1,5 +1,6 @@
 import traceback,copy
 from twisted.web                import xmlrpc
+from twisted.web.xmlrpc         import withRequest
 from manifold.auth              import Auth
 from manifold.core.query        import Query
 from manifold.core.result_value import ResultValue
@@ -57,28 +58,68 @@ class XMLRPCAPI(xmlrpc.XMLRPC, object):
 
     # QUERIES
     # xmlrpc_forward function is called by the Query of the user using xmlrpc
-    def xmlrpc_forward(self, *args):
+    @withRequest
+    def xmlrpc_forward(self, request, query, annotations = None):
         """
         """
-        Log.info("Incoming XMLRPC request, args = %r" % self.display_query(*args))
+
+        Log.info("Incoming XMLRPC request, query = %r, annotations = %r" % (self.display_query(query), annotations))
         if not Options().disable_auth:
-            assert len(args) == 2, "Wrong arguments for XMLRPC forward call"
-            auth, query = args
-            try:
-                user = Auth(auth).check()
-            except Exception, e:
-                Log.warning("XMLRPCAPI::xmlrpc_forward: Authentication failed: %s" % traceback.format_exc())
-                ret = dict(ResultValue(
-                   origin      = (ResultValue.CORE, self.__class__.__name__),
-                   type        = ResultValue.ERROR,
-                   code        = ResultValue.ERROR,
-                   description = str(e),
-                   traceback   = traceback.format_exc()))
-                return ret
+       
+            # Have we been authenticated by the ssl layer ?
+            peer_certificate = request.channel.transport.getPeerCertificate()
+            user_hrn = peer_certificate.get_subject().commonName if peer_certificate else None
+
+            if user_hrn:
+
+                # We need to map the SFA user to the Manifold user... let's search into his accounts
+
+                query_user_id = Query.get('local:linked_account').filter_by('identifier', '==', user_hrn).select('user_id')
+                ret_user_ids = self.interface.forward(query_user_id)
+                if ret_user_ids['code'] != 0:
+                    raise Exception, "Failure requesting linked accounts for identifier '%s'" % user_hrn
+                user_ids = ret_user_ids['value']
+                if not user_ids:
+                    raise Exception, "No linked account found with identifier '%s'" % user_hrn
+                print "user_ids", user_ids
+                user_id = user_ids[0]['user_id']
+
+                query_user = Query.get('local:user').filter_by('user_id', '==', user_id)
+                ret_users = self.interface.forward(query_user)
+                if ret_users['code'] != 0:
+                    raise Exception, "Failure requesting linked accounts for identifier '%s'" % user_hrn
+                users = ret_users['value']
+                if not users:
+                    raise Exception, "Internal error: no user found with user_id = '%d'" % user_id
+                user, = users
+
+                print "Linked SFA account '%s' for user: %r" % (user_hrn, user)
+            else:
+                if not annotations or not 'authentication' in annotations:
+                    return dict(ResultValue(
+                       origin      = (ResultValue.CORE, self.__class__.__name__),
+                       type        = ResultValue.ERROR,
+                       code        = ResultValue.ERROR,
+                       description = "You need to specify an authentication token in annotations",
+                       traceback   = traceback.format_exc()))
+                    
+                # We expect to find an authentication token in the annotations
+                auth = annotations['authentication']
+
+                # Check login password
+                try:
+                    user = Auth(auth).check()
+                except Exception, e:
+                    Log.warning("XMLRPCAPI::xmlrpc_forward: Authentication failed: %s" % traceback.format_exc())
+                    ret = dict(ResultValue(
+                       origin      = (ResultValue.CORE, self.__class__.__name__),
+                       type        = ResultValue.ERROR,
+                       code        = ResultValue.ERROR,
+                       description = str(e),
+                       traceback   = traceback.format_exc()))
+                    return ret
                 
         else:
-            assert len(args) == 1, "Wrong arguments for XMLRPC forward call"
-            query,  = args
             user = None
 
         query = Query(query)
