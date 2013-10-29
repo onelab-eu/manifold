@@ -67,6 +67,7 @@ class XMLRPCAPI(xmlrpc.XMLRPC, object):
         if not Options().disable_auth:
        
             # Have we been authenticated by the ssl layer ?
+            print "REQUEST", request
             peer_certificate = request.channel.transport.getPeerCertificate()
             user_hrn = peer_certificate.get_subject().commonName if peer_certificate else None
 

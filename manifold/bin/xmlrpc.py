@@ -13,7 +13,7 @@
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 #   Loïc Baron        <loic.baron@lip6.fr>
 
-import sys, xmlrpclib, datetime
+import sys, xmlrpclib, datetime, os.path
 
 from manifold.core.query            import Query
 from manifold.core.forwarder        import Forwarder
@@ -90,6 +90,16 @@ class XMLRPCDaemon(Daemon):
             "-a", "--disable-auth", action="store_true", dest = "disable_auth",
             help = "Disable authentication",
             default = False
+        )
+        opt.add_option(
+            "-t", "--trusted-roots-path", dest = "trusted_roots_path",
+            help = "Select the directory holding trusted root certificates",
+            default = '/etc/manifold/trusted_roots/'
+        )
+        opt.add_option(
+            "-s", "--server-ssl-path", action="store_true", dest = "ssl_path",
+            help = "Select the directory holding the server private key and certificate for SSL",
+            default = '/etc/manifold/keys/'
         )
 
     # XXX should be removed
@@ -172,9 +182,22 @@ class XMLRPCDaemon(Daemon):
                     print "Certs are fine", x509, x509.get_subject()
                 return True
             
-            myContextFactory = ssl.DefaultOpenSSLContextFactory(
-                '/etc/manifold/keys/server.key', '/etc/manifold/keys/server.crt'
-                )
+            ssl_path = Options().ssl_path
+            if not ssl_path or not os.path.exists(ssl_path):
+                print ""
+                print "You need to generate SSL keys and certificate in '%s' to be able to run manifold" % ssl_path
+                print ""
+                print "mkdir -p /etc/manifold/keys"
+                print "openssl genrsa 1024 > /etc/manifold/keys/server.key"
+                print "chmod 400 /etc/manifold/keys/server.key"
+                print "openssl req -new -x509 -nodes -sha1 -days 365 -key /etc/manifold/keys/server.key > /etc/manifold/keys/server.cert"
+                print ""
+                sys.exit(0)
+
+            server_key_file = "%s/server.key" % ssl_path
+            server_crt_file = "%s/server.crt" % ssl_path
+            Log.tmp("key, cert=", server_key_file, server_crt_file)
+            myContextFactory = ssl.DefaultOpenSSLContextFactory(server_key_file, server_crt_file)
             
             ctx = myContextFactory.getContext()
             
@@ -186,7 +209,12 @@ class XMLRPCDaemon(Daemon):
             # Since we have self-signed certs we have to explicitly
             # tell the server to trust them.
             #ctx.load_verify_locations("keys/ca.pem")
-            ctx.load_verify_locations(None, "/etc/manifold/trusted_roots/")
+
+            trusted_roots_path = Options().trusted_roots_path
+            if not trusted_roots_path or not os.path.exists(trusted_roots_path):
+                Log.warning("No trusted root found in %s. You won't be able to login using SSL client certificates" % trusted_roots_path)
+                
+            ctx.load_verify_locations(None, ssl_path)
 
 
             #ReactorThread().listenTCP(Options().xmlrpc_port, server.Site(XMLRPCAPI(self.interface, allowNone=True)))
