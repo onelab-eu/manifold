@@ -118,9 +118,17 @@ class XMLRPCDaemon(Daemon):
         # NOTE it is important to import those files only after daemonization,
         # since they open files we cannot easily preserve
         from twisted.web        import xmlrpc, server
+
+        # SSL support
+        from OpenSSL import SSL
+        from twisted.internet import ssl #, reactor
+        #from twisted.internet.protocol import Factory, Protocol
+
         #from twisted.internet   import reactor
         # This also imports manifold.util.reactor_thread that uses reactor
         from manifold.core.router       import Router
+            
+
 
         assert not (Options().platform and Options().gateway), "Both gateway and platform cannot be specified at commandline" 
 
@@ -155,7 +163,34 @@ class XMLRPCDaemon(Daemon):
             self.interface = Router()
 
         try:
-            ReactorThread().listenTCP(Options().xmlrpc_port, server.Site(XMLRPCAPI(self.interface, allowNone=True)))
+            def verifyCallback(connection, x509, errnum, errdepth, ok):
+                if not ok:
+                    print 'invalid cert from subject:', x509.get_subject()
+                    print errnum, errdepth
+                    return False
+                else:
+                    print "Certs are fine", x509, x509.get_subject()
+                return True
+            
+            myContextFactory = ssl.DefaultOpenSSLContextFactory(
+                '/etc/manifold/keys/server.key', '/etc/manifold/keys/server.crt'
+                )
+            
+            ctx = myContextFactory.getContext()
+            
+            ctx.set_verify(
+                SSL.VERIFY_PEER, # | SSL.VERIFY_FAIL_IF_NO_PEER_CERT,
+                verifyCallback
+                )
+            
+            # Since we have self-signed certs we have to explicitly
+            # tell the server to trust them.
+            #ctx.load_verify_locations("keys/ca.pem")
+            ctx.load_verify_locations(None, "/etc/manifold/trusted_roots/")
+
+
+            #ReactorThread().listenTCP(Options().xmlrpc_port, server.Site(XMLRPCAPI(self.interface, allowNone=True)))
+            ReactorThread().listenSSL(Options().xmlrpc_port, server.Site(XMLRPCAPI(self.interface, allowNone=True)), myContextFactory)
             ReactorThread().start_reactor()
         except Exception, e:
             # TODO If database gets disconnected, we can sleep/attempt reconnection
