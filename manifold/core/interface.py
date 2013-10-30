@@ -17,6 +17,7 @@ from manifold.core.key          import Keys
 from manifold.core.query        import Query
 from manifold.core.query_plan   import QueryPlan
 from manifold.core.result_value import ResultValue
+from manifold.policy            import Policy
 from manifold.models.platform   import Platform 
 from manifold.util.storage      import DBStorage as Storage
 from manifold.util.type         import accepts, returns 
@@ -60,6 +61,7 @@ class Interface(object):
         # the appropriate Gateway instance.
         self.gateways = dict()
 
+        self.policy = Policy(self)
 
         self.boot()
 
@@ -82,6 +84,8 @@ class Interface(object):
             self.metadata[platform_name] = list() 
             for announce in announces:
                 self.metadata[platform_name].append(announce)
+
+        self.policy.load()
 
     @returns(Platform)
     def get_platform(self, platform_name):
@@ -202,6 +206,14 @@ class Interface(object):
             None in case of failure.
         """
         Log.info("Incoming query: %r" % query)
+
+
+        # Enforcing policy
+        annotation = None
+        accept = self.policy.filter(query, annotation)
+        if not accept:
+            return ResultValue.get_error(ResultValue.FORBIDDEN)
+
         # if Interface is_deferred  
         d = defer.Deferred() if is_deferred else None
 

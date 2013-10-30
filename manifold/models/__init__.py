@@ -23,6 +23,7 @@ from manifold.models.user           import User
 from manifold.models.account        import Account
 from manifold.models.session        import Session
 from manifold.models.linked_account import LinkedAccount
+from manifold.models.policy         import Policy
 
 # This is required to create tables
 Base.metadata.create_all(engine)

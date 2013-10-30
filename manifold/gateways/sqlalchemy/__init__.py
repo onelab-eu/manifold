@@ -9,6 +9,7 @@ from manifold.util.predicate    import included
 from manifold.models            import db
 from manifold.models.account    import Account
 from manifold.models.linked_account    import LinkedAccount
+from manifold.models.policy     import Policy
 from manifold.models.platform   import Platform
 from manifold.models.user       import User
 from manifold.models.session    import Session as DBSession 
@@ -54,7 +55,8 @@ class SQLAlchemyGateway(Gateway):
         'user'     : User,
         'account'  : Account,
         'session'  : DBSession,
-        'linked_account': LinkedAccount
+        'linked_account': LinkedAccount,
+        'policy'   : Policy
     }
 
     def __init__(self, router=None, platform=None, query=None, config=None, user_config=None, user=None, format='dict'):
