@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+USE_CLIENT_CERT = True # False = use password
+
 from OpenSSL import SSL
 from twisted.internet import ssl, reactor
 from twisted.internet.protocol import ClientFactory, Protocol
@@ -65,13 +67,19 @@ class Proxy(xmlrpc.Proxy):
 if __name__ == '__main__':
 
     query = Query.get('local:platform').select('platform')
-    annotations = {
-        'authentication': {'AuthMethod': 'password', 'Username': 'demo', 'AuthString': 'demo'}
-    }
 
     proxy = Proxy('https://localhost:7080/', allowNone=True, useDateTime=False)
-#    proxy.setSSLClientContext(CtxFactory()) 
-    proxy.setSSLClientContext(ssl.ClientContextFactory())
+
+    if USE_CLIENT_CERT:
+        annotations = {}
+        # We need this to define the private key and certificate (GID) to use
+        proxy.setSSLClientContext(CtxFactory()) 
+    else:
+        annotations = {
+            'authentication': {'AuthMethod': 'password', 'Username': 'demo', 'AuthString': 'demo'}
+        }
+        proxy.setSSLClientContext(ssl.ClientContextFactory())
+
     proxy.callRemote('forward', query.to_dict(), annotations).addCallbacks(proxy_success_cb, proxy_error_cb)
 
     reactor.run()
