@@ -1,4 +1,5 @@
 from manifold.policy.target import Target, TargetValue
+from manifold.util.log      import Log
 
 class LogTarget(Target):
     
