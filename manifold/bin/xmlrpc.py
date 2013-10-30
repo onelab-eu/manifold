@@ -99,7 +99,7 @@ class XMLRPCDaemon(Daemon):
         opt.add_option(
             "-s", "--server-ssl-path", action="store_true", dest = "ssl_path",
             help = "Select the directory holding the server private key and certificate for SSL",
-            default = '/etc/manifold/keys/'
+            default = '/etc/manifold/keys'
         )
 
     # XXX should be removed
@@ -195,7 +195,7 @@ class XMLRPCDaemon(Daemon):
                 sys.exit(0)
 
             server_key_file = "%s/server.key" % ssl_path
-            server_crt_file = "%s/server.crt" % ssl_path
+            server_crt_file = "%s/server.cert" % ssl_path
             Log.tmp("key, cert=", server_key_file, server_crt_file)
             myContextFactory = ssl.DefaultOpenSSLContextFactory(server_key_file, server_crt_file)
             
