@@ -225,11 +225,15 @@ class Interface(object):
             namespace, table_name = query.get_from().rsplit(":", 2)
 
         if namespace == self.LOCAL_NAMESPACE:
-            if table_name == "object":
-                output = self.get_metadata_objects()
+            if table_name in ['object', 'gateway']:
+                if table_name == 'object':
+                    output = self.get_metadata_objects()
+                elif table_name == "gateway":
+                    output = [{'name': name} for name in Gateway.list().keys()]
                 qp = QueryPlan()
                 qp.ast.from_table(query, output, key=None).selection(query.get_where()).projection(query.get_select())
                 return qp.execute(d)
+                
             else:
                 q = query.copy()
                 q.object = table_name

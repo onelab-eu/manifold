@@ -16,6 +16,7 @@ from manifold.core.announce import Announce, announces_from_docstring
 from manifold.util.log                  import Log
 
 class PerfSONARGateway(Gateway):
+    __gateway_name__ = 'perfsonar'
 
     #---------------------------------------------------------------------------
     # Constructor

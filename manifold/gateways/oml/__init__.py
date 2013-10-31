@@ -6,6 +6,7 @@ from manifold.core.announce             import Announce
 import traceback
 
 class OMLGateway(PostgreSQLGateway):
+    __gateway_name__ = 'oml'
 
     # The OML gateway provides additional functions compared to Postgresql
 

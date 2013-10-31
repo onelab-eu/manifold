@@ -31,6 +31,8 @@ from manifold.util.predicate  import and_, or_, inv, add, mul, sub, mod, truediv
 from manifold.util.type       import accepts, returns
 
 class PostgreSQLGateway(Gateway):
+    __gateway_name__ = 'postgresql'
+
     DEFAULT_DB_NAME = "postgres" 
     DEFAULT_PORT    = 5432
 
