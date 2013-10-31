@@ -9,12 +9,12 @@
 # Copyright (C) 2013 UPMC-INRIA
 
 import re
-from twisted.internet                       import defer
-from sfa.storage.record                     import Record
+from twisted.internet                           import defer
+from sfa.storage.record                         import Record
 
-from manifold.gateways.sfa.rm.methods       import Object
-from manifold.util.log                      import Log
-from manifold.util.type                     import accepts, returns 
+from manifold.gateways.sfa.object               import Object
+from manifold.util.log                          import Log
+from manifold.util.type                         import accepts, returns 
 
 @returns(bool)
 def check_ssh_key(key):
@@ -115,16 +115,20 @@ class Slice(Object):
         registry = yield gateway.get_server()
         server_version = gateway.get_cached_server_version(registry)
         server_auth = server_version["hrn"]
+
         if not slice_auth.startswith("%s." % server_auth):
             Log.info("Not requesting slice creation on %s for %s" % (server_auth, slice_hrn))
             defer.returnValue(list())
+
         Log.info("Requesting slice creation on %s for %s" % (server_auth, slice_hrn))
         Log.warning("Need to check slice is created under user authority")
         cred = gateway._get_cred(user, account_config, "authority")
         record_dict = create_record_from_params("slice", params)
+
         try:
             slice_gid = registry.Register(record_dict, cred)
         except Exception, e:
             Log.error("%s" % e)
+
         defer.returnValue(list())
 

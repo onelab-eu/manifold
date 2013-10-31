@@ -8,7 +8,7 @@
 #
 # Copyright (C) 2013 UPMC-INRIA
 
-from manifold.gateways.sfa.rm.methods       import Object
+from manifold.gateways.sfa.object    import Object
 
 class Authority(Object):
     aliases = {

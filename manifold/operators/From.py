@@ -53,6 +53,7 @@ class From(Node):
         super(From, self).__init__()
 
         self.platform       = platform
+        self.user           = None # This dictionnary will be initalized by init_from_node
         self.account_config = None # This dictionnary will be initalized by init_from_node
         self.query          = query
         self.capabilities   = capabilities
@@ -171,20 +172,6 @@ class From(Node):
 
         return join
 
-#MANDO|    def start(self):
-#MANDO|        """
-#MANDO|        \brief Propagates a START message through the node
-#MANDO|        """
-#MANDO|        # @loic Added self.send(LAST_RECORD) if no Gateway is selected, then send no result
-#MANDO|        # That might mean that the user has no account for the platform
-#MANDO|        if not self.gateway:
-#MANDO|            self.send(LAST_RECORD)
-#MANDO|            #raise Exception, "Cannot call start on a From class, expecting Gateway"
-#MANDO|        else:
-#MANDO|            # Initialize the query embeded by the Gateway using the one deduced from the QueryPlan
-#MANDO|            self.gateway.set_query(self.get_query())
-#MANDO|            self.gateway.start()
-
     def set_user(self, user):
         """
         Set the User querying the nested platform of this From Node.
@@ -252,7 +239,15 @@ class From(Node):
         """
         super(From, self).set_callback(callback)
 
+    @returns(Node)
     def optimize_selection(self, filter):
+        """
+        Propagate a WHERE clause through a FROM Node.
+        Args:
+            filter: A Filter instance. 
+        Returns:
+            The updated root Node of the sub-AST.
+        """
         # XXX Simplifications
         for predicate in filter:
             if predicate.get_field_names() == self.key.get_field_names() and predicate.has_empty_value():
@@ -284,11 +279,14 @@ class From(Node):
 
             return selection
 
+    @returns(Node)
     def optimize_projection(self, fields):
         """
         Propagate a SELECT clause through a FROM Node.
         Args:
             fields: A set of String instances (queried fields).
+        Returns:
+            The updated root Node of the sub-AST.
         """
         if self.capabilities.projection:
             # Push fields into the From node

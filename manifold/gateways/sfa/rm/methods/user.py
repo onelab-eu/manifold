@@ -9,7 +9,7 @@
 # Copyright (C) 2013 UPMC-INRIA
 
 
-from manifold.gateways.sfa.rm.methods       import Object
+from manifold.gateways.sfa.object  import Object
 
 class User(Object):
     aliases = {
@@ -28,4 +28,3 @@ class User(Object):
         "reg-slices"         : "slice.slice_hrn",        # OBJ slices
         "reg-pi-authorities" : "pi_authorities",
     }
-

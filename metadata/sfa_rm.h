@@ -3,8 +3,10 @@
 //
 // Copyright (C) UPMC Paris Universitas
 // Authors:
+//   Jordan Auge       <jordan.auge@lip6.fr>
 //   Loic Baron        <loic.baron@lip6.fr> 
 //   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
+//   Amine Larabi      <mohamed.larabi@inria.fr>
 
 enum rm_type {
     "user",
@@ -72,6 +74,7 @@ class user {
 
 class slice {
     const text     slice_hrn;  /**< Slice Human Readable name (ex: ple.upmc.myslice_demo). */
+    const text     slice_type; /**< Slice type (ex: "slice"). */
     user           user[];     /**< List of users associated to the slice (see SFA::resolve). */
 
     KEY(slice_hrn);

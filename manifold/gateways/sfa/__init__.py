@@ -33,6 +33,13 @@ from datetime                               import datetime
 from types                                  import StringTypes, GeneratorType
 from twisted.internet                       import defer
 
+from sfa.trust.credential               	import Credential
+from sfa.trust.gid                      	import GID
+from sfa.util.xrn                       	import Xrn, get_authority
+from sfa.util.cache                     	import Cache
+from sfa.client.client_helper           	import pg_users_arg, sfa_users_arg
+from sfa.client.return_value            	import ReturnValue
+
 from manifold.gateways.gateway              import Gateway
 from manifold.gateways.sfa.proxy            import SFAProxy
 from manifold.gateways.sfa.proxy_pool       import SFAProxyPool
@@ -45,13 +52,6 @@ from manifold.operators                 	import LAST_RECORD
 from manifold.operators.rename          	import Rename # move into sfa_rm
 from manifold.util.log                  	import Log
 from manifold.util.type                 	import accepts, returns 
-
-from sfa.trust.credential               	import Credential
-from sfa.trust.gid                      	import GID
-from sfa.util.xrn                       	import Xrn, get_authority
-from sfa.util.cache                     	import Cache
-from sfa.client.client_helper           	import pg_users_arg, sfa_users_arg
-from sfa.client.return_value            	import ReturnValue
 
 DEFAULT_TIMEOUT = 20
 DEMO_HOOKS = ['demo']
@@ -265,106 +265,95 @@ class SFAGatewayCommon(Gateway):
         except KeyError:
             return DEFAULT_TIMEOUT
 
-#    @defer.inlineCallbacks
-#    # TODO config must be added and refers to account::config where user = and platform = 
-#    def forward(self, query, callback, is_deferred = False, execute = True, user = None, account_config = None, format = "dict", receiver = None):
-#        """
-#        Query handler.
-#        Args:
-#            query: A Query instance, reaching this Gateway.
-#            callback: The function called to send this record. This callback is provided
-#                most of time by a From Node.
-#                Prototype : def callback(record)
-#            is_deferred: A boolean set to True if this Query is async.
-#            execute: A boolean set to True if the treatement requested in query
-#                must be run or simply ignored.
-#            user: The User issuing the Query.
-#            account_config: A dictionnary containing the user's account config.
-#                In pratice, this is the result of the following query (run on the Storage)
-#                SELECT config FROM local:account WHERE user_id == user.user_id
-#            receiver : The From Node running the Query or None. Its ResultValue will
-#                be updated once the query has terminated.
-#        Returns:
-#            forward must NOT return value otherwise we cannot use @defer.inlineCallbacks
-#            decorator. 
-#        """
-#        super(SFAGatewayCommon, self).forward(query, callback, is_deferred, execute, user, account_config, format, receiver)
-#        identifier = receiver.get_identifier() if receiver else None
-#        Log.tmp("starting sfa: query = %s" % query)
-#        try:
-#            Gateway.start(user, account_config, query)
-#        except Exception, e:
-#            Log.error(str(e))
-#
-#        # Now, in the rest of the SFAGatewayCommon, user is a dictionnary
-#        user = user.__dict__
-#        Log.tmp("entering try" % query)
-#
-#        try:
-#            assert query, "Cannot run gateway with not query associated: %s" % self.get_platform_name()
-#            self.debug = 'debug' in query.params and query.params['debug']
-#
-#            # << bootstrap
-#            # Cache admin config
-#            # TODO this seems to be useless
-#            Log.tmp("get account config %s" % ADMIN_USER)
-#            admin_account_config = self.get_account(ADMIN_USER)["config"]
-#            assert admin_account_config, "Could not retrieve admin config"
-#            Log.info("forward: admin's config successfully fetched")
-#
-#            # Overwrite user config (reference & managed acccounts)
-#            Log.tmp("get account config %s" % user["email"]) 
-#            user_account_config = self.get_account(user)["config"]
-#            if user_account_config:
-#                account_config = user_account_config
-#            Log.info("forward: user's config successfully fetched")
-#            # >> bootstrap
-# 
-#            # If no account_config: failure
-#            if not account_config:
-#                self.send(LAST_RECORD, callback, identifier)
-#                self.error(receiver, query, str(e))
-#                return
-#
-#            # Call the appropriate method (TODO pass Query object)
-#            Log.tmp("calling %s_%s" % (query.get_action(), query.get_from()))
-#            # TODO create method should not return an empty list
-#            try:
-#                result = []
-#                Log.tmp("%s_%s" % (query.get_action(), query.get_from()))
-#                yield result
-##                result = yield getattr(self, "%s_%s" % (query.get_action(), query.get_from()))(
-##                    user,
-##                    account_config,
-##                    query.get_where(),
-##                    query.get_params(),
-##                    query.get_select()
-##                )
-#            except Exception:
-#                self.manage(user, account_config)
-##                Log.tmp("end manage, have to rerun the query")
-##                result = yield getattr(self, "%s_%s" % (query.get_action(), query.get_from()))(
-##                    user,
-##                    account_config,
-##                    query.get_where(),
-##                    query.get_params(),
-##                    query.get_select()
-##                )
-#
-#            # Rename fetched fields if necessary
-##            if self.map_fields and query.get_from() in self.map_fields:
-##                Rename(receiver, self.map_fields[query.get_from()])
-##            
-#            # Send Records to the From Node.
-#            for row in result:
-#                self.send(row, callback, identifier)
-#            self.send(LAST_RECORD, callback, identifier)
-#            self.success(receiver, query)
-#
-#        except Exception, e:
-#            traceback.print_exc()
-#            self.send(LAST_RECORD, callback, identifier)
-#            self.error(receiver, query, str(e))
-#
-#
+    @defer.inlineCallbacks
+    def forward(self, query, callback, is_deferred = False, execute = True, user = None, user_account_config = None, format = "dict", receiver = None):
+        """
+        Query handler.
+        Args:
+            query: A Query instance, reaching this Gateway.
+            callback: The function called to send this record. This callback is provided
+                most of time by a From Node.
+                Prototype : def callback(record)
+            is_deferred: A boolean set to True if this Query is async.
+            execute: A boolean set to True if the treatement requested in query
+                must be run or simply ignored.
+            user: The User issuing the Query.
+            user_account_config: A dictionnary containing the user's account config.
+                In pratice, this is the result of the following query (run on the Storage)
+                SELECT config FROM local:account WHERE user_id == user.user_id
+            receiver: The From Node running the Query or None. Its ResultValue will
+                be updated once the query has terminated.
+        Returns:
+            forward must NOT return value otherwise we cannot use @defer.inlineCallbacks
+            decorator. 
+        """
+        identifier = receiver.get_identifier() if receiver else None
+        super(SFAGatewayCommon, self).forward(query, callback, is_deferred, execute, user, user_account_config, format, receiver)
+
+        try:
+            Gateway.start(user, user_account_config, query)
+        except Exception, e:
+            Log.error("Error while starting SFA_RMGateway")
+            traceback.print_exc()
+            Log.error(str(e))
+
+        if not user:
+            self.error(receiver, query, "No user specified, aborting")
+            return
+
+        user_email = user.email
+
+        # We duplicate user_dict as follow otherwise sqlalchemy alter user.__dict__ in a bad way
+        # TODO Ideally we should use dict instead of manifold.models.user in forward() methods
+        user_dict = dict()
+        for k, v in user.__dict__.items():
+            if k != "_sa_instance_state":
+                user_dict[k] = v 
+
+        try:
+            assert query, "Cannot run gateway with not query associated: %s" % self.get_platform_name()
+            self.debug = "debug" in query.params and query.params["debug"]
+
+            # Retrieve user's config (managed acccounts)
+            user_account = self.get_account(user_email)
+            if user_account: user_account_config = user_account["config"]
+            assert isinstance(user_account_config,  dict), "Invalid user_account_config"
+ 
+            # If no user_account_config: failure
+            if not user_account_config:
+                self.send(LAST_RECORD, callback, identifier)
+                self.error(receiver, query, "Account related to %s for platform %s not found" % (user_email, self.get_platform_name()))
+                return
+
+            # Call the appropriate method (for instance User.get(...)) in a first
+            # time without managing the user account. If it fails and if this
+            # account is managed, then run managed and try to rerun the Query.
+            result = list()
+            try:
+                result = yield self.perform_query(user_dict, user_account_config, query)
+            except Exception, e:
+                if self.handle_error(user_account):
+                    result = yield self.perform_query(user_dict, user_account_config, query)
+                else:
+                    failure = Failure("Account not managed: user_account_config = %s / auth_type = %s" % (account_config, user_account["auth_type"]))
+                    failure.raiseException()
+           
+            # Insert a RENAME above this FROM Node if necessary.
+            instance = self.get_object(query.get_from())
+            aliases  = instance.get_aliases()
+            if aliases:
+                Rename(receiver, aliases)
+                callback = receiver.get_callback()
+
+            # Send Records to the From Node.
+            result.append(LAST_RECORD)
+            for row in result:
+                self.send(row, callback, identifier)
+            self.success(receiver, query)
+
+        except Exception, e:
+            Log.error(traceback.format_exc())
+            self.send(LAST_RECORD, callback, identifier)
+            self.error(receiver, query, str(e))
+
 
