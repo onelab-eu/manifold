@@ -14,6 +14,7 @@ from manifold.util.log              import Log
 # http://initd.org/psycopg/docs/advanced.html
 
 class TDMIGateway(PostgreSQLGateway):
+    __gateway_name__ = 'tdmi'
 
     def __init__(self, router, platform, query, config, user_config, user):
         """

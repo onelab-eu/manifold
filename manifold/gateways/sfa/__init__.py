@@ -146,6 +146,7 @@ def unique_call_id(): return uuid.uuid4().urn
 
 
 class SFAGateway(Gateway):
+    __gateway_name__ = 'sfa'
 
     config_fields = [
         'user_credential',      # string representing a user_credential

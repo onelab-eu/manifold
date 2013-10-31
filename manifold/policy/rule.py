@@ -19,11 +19,12 @@ class Rule(object):
 
     @staticmethod
     def from_dict(rule_dict):
+        # XXX missing input/output interfaces, match module, etc.
         rule = Rule()
-        rule.object  = rule_dict['object']  if 'object'  in rule_dict else None
+        rule.object  = rule_dict['object']     if 'object'  in rule_dict else None
         rule.fields = set(rule_dict['fields']) if 'fields' in rule_dict else None 
-        rule.access = rule_dict['access'] if 'access' in rule_dict else None 
-        rule.target = rule_dict['target'] if 'target' in rule_dict else None
+        rule.access = rule_dict['access']      if 'access' in rule_dict else None 
+        rule.target = rule_dict['target']      if 'target' in rule_dict else None
         return rule
 
     def __init__(self):

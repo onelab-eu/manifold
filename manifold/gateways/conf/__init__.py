@@ -160,6 +160,7 @@ class ConfGateway(Gateway):
     """
     Configuration elements stored in the filesystem.
     """
+    __gateway_name__ = 'conf'
 
     MAP_PATTERN = {
         'account' : '%(account)t/%(email)f/%(platform)f/%(accounts)F',

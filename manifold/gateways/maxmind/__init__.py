@@ -1,5 +1,5 @@
 from manifold.gateways import Gateway
-#import GeoIP
+import GeoIP
 
 geo_fields = {
     'city': 'city',
@@ -17,6 +17,7 @@ allowed_fields.extend(geo_fields.keys())
 
 
 class MaxMindGateway(Gateway):
+    __gateway_name__ = 'maxmind'
 
     def __str__(self):
         return "<MaxMindGateway %s>" % self.query

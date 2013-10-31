@@ -234,7 +234,10 @@ class SFAProxy(object):
 
     def __init__(self, interface, pkey, cert, timeout=DEFAULT_TIMEOUT):
         from twisted.web      import xmlrpc
-        #from twisted.internet import reactor
+
+        if not interface.startswith('http://') and not interface.startswith('https://'):
+            interface = 'http://' + interface
+
         class Proxy(xmlrpc.Proxy):
             ''' See: http://twistedmatrix.com/projects/web/documentation/howto/xmlrpc.html
                 this is eacly like the xmlrpc.Proxy included in twisted but you can

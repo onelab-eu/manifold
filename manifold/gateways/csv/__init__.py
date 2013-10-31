@@ -25,6 +25,7 @@ heuristics = (
 
 
 class CSVGateway(Gateway):
+    __gateway_name__ = 'csv'
 
     def __init__(self, router, platform, query, config, user_config, user):
         super(CSVGateway, self).__init__(router, platform, query, config, user_config, user)

@@ -1,24 +1,54 @@
-from manifold.util.log             import Log
+import pkgutil
+from manifold.util.log import Log
+
+PROPERTY_NAME = '__plugin_factory_registry__'
+METAPROPERTY  = '__plugin__name__attribute__'
 
 class PluginFactory(type):
-    def __init__(cls, name, bases, dic):
-        #super(PluginFactory, cls).__init__(name, bases, dic)
-        type.__init__(cls, name, bases, dic)
+    def __init__(cls, class_name, parents, attrs):
+        """
+        upperattr_metaclass
+        future_class_name, 
+        future_class_parents
+        future_class_attr
+        """
+        type.__init__(cls, class_name, parents, attrs)
 
+        # Be sure the property storing the mapping exists
         try:
-            registry = getattr(cls, 'registry')
+            registry = getattr(cls, PROPERTY_NAME)
         except AttributeError:
-            setattr(cls, 'registry', {})
-            registry = getattr(cls, 'registry')
-        # XXX
-        if name != "Gateway":
-            if name.endswith('Gateway'):
-                name = name[:-7]
-            name = name.lower()
-            registry[name] = cls
+            setattr(cls, PROPERTY_NAME, {})
+            registry = getattr(cls, PROPERTY_NAME)
 
-        def get(self, name):
-            return registry[name.lower()]
+        if not METAPROPERTY in attrs:
+            # We are not in the base class: register plugin
+            plugin_name_attribute = cls.get_plugin_name_attribute()
+            plugin_names = attrs.get(plugin_name_attribute, [])
 
-        # Adding a class method get to retrieve plugins by name
-        setattr(cls, 'get', classmethod(get))
+            if not isinstance(plugin_names, list):
+                plugin_names = [plugin_names]
+                
+            for plugin_name in plugin_names:
+                registry[plugin_name] = cls #class_name
+
+        else:
+            # We are in the base class
+            cls.plugin_name_attribute = attrs[METAPROPERTY]
+
+            # Adding a class method get to retrieve plugins by name
+            setattr(cls, 'get', classmethod(lambda self, name: registry[name]))
+
+            setattr(cls, 'list', classmethod(lambda self: registry))
+            setattr(cls, 'get_plugin_name_attribute', classmethod(lambda self: self.plugin_name_attribute))
+        
+        #return super(PluginFactory, cls).__new__(cls, class_name, parents, attrs)
+
+    @staticmethod
+    def register(package):
+        prefix = package.__name__ + "."
+        for importer, modname, ispkg in pkgutil.iter_modules(package.__path__, prefix):
+            try:
+                module = __import__(modname, fromlist="dummy")
+            except Exception, e:
+                Log.info("Could not load %s : %s" % (modname, e))

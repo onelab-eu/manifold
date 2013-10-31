@@ -15,14 +15,14 @@
 #
 # Copyright (C) 2013 UPMC 
 
-from types                              import StringTypes
-from manifold.core.result_value         import ResultValue
-from manifold.core.announce             import Announces
-from manifold.util.plugin_factory       import PluginFactory
-#from manifold.util.misc                 import find_local_modules
-from manifold.util.type                 import accepts, returns
-from manifold.util.log                  import Log
-import traceback
+import os, sys, traceback
+from types                        import StringTypes
+from manifold.core.result_value   import ResultValue
+from manifold.core.announce       import Announces
+from manifold.util.plugin_factory import PluginFactory
+#from manifold.util.misc           import find_local_modules
+from manifold.util.type           import accepts, returns
+from manifold.util.log            import Log
 
 #-------------------------------------------------------------------------------
 # Generic Gateway class
@@ -33,6 +33,7 @@ class Gateway(object):
     registry = {}
 
     __metaclass__ = PluginFactory
+    __plugin__name__attribute__ = '__gateway_name__'
 
     # XXX most of these parameters should not be required to construct a gateway
     # see manifold.core.forwarder for example
@@ -110,7 +111,6 @@ class Gateway(object):
                         params[k] = variables[var]
         except Exception, e:
             print "Exception in start", e
-            import traceback
             traceback.print_exc()
 
     @returns(StringTypes)
@@ -190,51 +190,8 @@ class Gateway(object):
             "msg"  : msg
         }
 
-
-#-------------------------------------------------------------------------------
-# List of gateways
-#-------------------------------------------------------------------------------
-
-#import os, glob
-#from manifold.util.misc import find_local_modules
-
-# XXX Remove __init__
-# XXX Missing recursion for sfa
-#__all__ = find_local_modules(__file__)
-#[ os.path.basename(f)[:-3] for f in glob.glob(os.path.dirname(__file__)+"/*.py")]
-
 def register_gateways():
-    try:
-        from manifold.gateways.postgresql       import PostgreSQLGateway
-    except: pass
-    try:
-        from manifold.gateways.tdmi             import TDMIGateway
-    except Exception, e:
-        Log.tmp("Could not load TDMI gateway: %s" % e)
-    try:
-        from manifold.gateways.sfa              import SFAGateway
-    except Exception, e:
-        Log.tmp("Could not load SFA gateway: %s" % e)
-    try:
-        from manifold.gateways.maxmind          import MaxMindGateway
-    except: pass
-    try:
-        from manifold.gateways.csv              import CSVGateway
-    except: pass
-    try:
-        from manifold.gateways.manifold_xmlrpc  import ManifoldGateway
-    except: pass
-    try:
-        from manifold.gateways.sqlalchemy       import SQLAlchemyGateway
-    except Exception, e:
-        Log.tmp("Could not load SQLAlchemy gateway: %s" % e)
-    try:
-        from manifold.gateways.oml              import OMLGateway
-    except: pass
-    try:
-        from manifold.gateways.perfsonar        import PerfSONARGateway
-    except Exception, e: 
-        Log.tmp("Could not load perfsonar gateway: %s" % e)
-        pass
+    current_module = sys.modules[__name__]
+    PluginFactory.register(current_module)
 
 __all__ = ['Gateway']

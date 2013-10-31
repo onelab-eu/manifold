@@ -49,6 +49,7 @@ def row2dict(row):
         return {c: getattr(row, c) for c in row.keys()}
 
 class SQLAlchemyGateway(Gateway):
+    __gateway_name__ = 'sqlalchemy'
 
     map_object = {
         'platform' : Platform,

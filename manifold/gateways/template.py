@@ -8,13 +8,15 @@
 #
 # Copyright (C) 2013 UFPE/UPMC 
 
-from manifold.gateways                  import Gateway, LAST_RECORD
-from manifold.core.table                import Table
-from manifold.core.field                import Field
-from manifold.core.announce             import Announce
-from manifold.util.log                  import Log
+from manifold.gateways      import Gateway
+from manifold.operators     import LAST_RECORD
+from manifold.core.table    import Table
+from manifold.core.field    import Field
+from manifold.core.announce import Announce
+from manifold.util.log      import Log
 
 class PerfSONARGateway(Gateway):
+    __gateway_name__ = 'template'
 
     #---------------------------------------------------------------------------
     # Constructor
