@@ -97,6 +97,23 @@ class SFA_RMGateway(SFAGatewayCommon):
         """
         Log.debug("Not yet implemented. Run delegation script in the meantime")
     
+    #@returns(Object)
+    def get_object(self, table_name):
+        """
+        Retrieve the Object corresponding to a table_name.
+        See manifold.gateways.sfa.rm.methods
+        Args:
+            table_name: A String among {"user", "slice", "authority"}.
+        Returns:
+            The corresponding Object. 
+        """
+        assert table_name in SFA_RMGateway.METHOD_MAP.keys(), \
+            "Invalid table_name (%s). It should be in {%s}" % (
+                table_name,
+                ", ".join(SFA_RMGateway.METHOD_MAP.keys())
+            )
+        return SFA_RMGateway.METHOD_MAP[table_name](self) 
+
     @defer.inlineCallbacks
     def perform_query(self, user, user_account_config, query):
         """
@@ -111,140 +128,61 @@ class SFA_RMGateway(SFAGatewayCommon):
         """
         Log.debug(query)
         Log.tmp("perform_query: user = %s" % user)
+
+        # Check whether action is set to a valid value.
         VALID_ACTIONS = ["get", "create", "update", "delete", "execute"]
         action = query.get_action()
-        object = query.get_from()
-        instance = SFA_RMGateway.METHOD_MAP[object](self) 
-
-        # Dynamically import the appropriate package.
-        # http://stackoverflow.com/questions/211100/pythons-import-doesnt-work-as-expected
-        module_name = "%s%s" % ("manifold.gateways.sfa.rm.methods.", object)
-        __import__(module_name)
-
         if action not in VALID_ACTIONS: 
             failure = Failure("Invalid action (%s), not in {%s}" % (action, ", ".join(VALID_ACTIONS)))
             failure.raiseException()
 
-        # Instanciate the appropriate method.
+        # Dynamically import the appropriate package.
+        # http://stackoverflow.com/questions/211100/pythons-import-doesnt-work-as-expected
+        table_name  = query.get_from()
+        module_name = "%s%s" % ("manifold.gateways.sfa.rm.methods.", table_name)
+        __import__(module_name)
+
+        # Call the appropriate method.
         # http://stackoverflow.com/questions/3061/calling-a-function-from-a-string-with-the-functions-name-in-python
+        instance = self.get_object(table_name)
         try:
-            Log.info("Calling %s::%s" % (instance, action))
             method = getattr(instance, action)
         except Exception, e:
-            Log.error("Error in perform_query while instanciating %s: %s" % (method, e))
-        ret = yield method(user, user_account_config, query)
-        Log.tmp("<<<< perform_query: ret = %s" % ret)
-        defer.returnValue(ret)
+            failure = Failure("Invalid method (%s): %s" % (method, e))
+            failure.raiseException()
+
+        records = yield method(user, user_account_config, query)
+        defer.returnValue(records)
 
     @defer.inlineCallbacks
-    def forward(self, query, callback, is_deferred = False, execute = True, user = None, user_account_config = None, format = "dict", receiver = None):
+    @returns(GeneratorType)
+    def handle_error(self, user_account):
         """
-        Query handler.
-        Args:
-            query: A Query instance, reaching this Gateway.
-            callback: The function called to send this record. This callback is provided
-                most of time by a From Node.
-                Prototype : def callback(record)
-            is_deferred: A boolean set to True if this Query is async.
-            execute: A boolean set to True if the treatement requested in query
-                must be run or simply ignored.
-            user: The User issuing the Query.
-            user_account_config: A dictionnary containing the user's account config.
-                In pratice, this is the result of the following query (run on the Storage)
-                SELECT config FROM local:account WHERE user_id == user.user_id
-            receiver: The From Node running the Query or None. Its ResultValue will
-                be updated once the query has terminated.
+        This function when a Query has failed in its first attemp.
         Returns:
-            forward must NOT return value otherwise we cannot use @defer.inlineCallbacks
-            decorator. 
+            True if we could try to re-run the Query, false otherwise
         """
-        super(SFAGatewayCommon, self).forward(query, callback, is_deferred, execute, user, user_account_config, format, receiver)
-        identifier = receiver.get_identifier() if receiver else None
+        if user_account["auth_type"] == "managed":
 
-        try:
-            Gateway.start(user, user_account_config, query)
-        except Exception, e:
-            Log.error("Error while starting SFA_RMGateway")
-            traceback.print_exc()
-            Log.error(str(e))
-
-        if not user:
-            self.error(receiver, query, "No user specified, aborting")
-            return
-
-        user_email = user.email
-
-        # We duplicate user_dict as follow otherwise sqlalchemy alter user.__dict__ in a bad way
-        # TODO Ideally we should use dict instead of manifold.models.user in forward() methods
-        user_dict = dict()
-        for k, v in user.__dict__.items():
-            if k != "_sa_instance_state":
-                user_dict[k] = v 
-
-        try:
-            assert query, "Cannot run gateway with not query associated: %s" % self.get_platform_name()
-            self.debug = "debug" in query.params and query.params["debug"]
-
-            # << bootstrap
-            # Cache admin config
-            # TODO this seems to be useless
+            # Retrieve admin's config
             admin_account = self.get_account(ADMIN_USER["email"])
             if admin_account: admin_account_config = admin_account["config"]
-
-            # Overwrite user config (reference & managed acccounts)
-            user_account = self.get_account(user_email)
-            if user_account: user_account_config = user_account["config"]
-            assert isinstance(user_account_config,  dict), "Invalid user_account_config"
             assert isinstance(admin_account_config, dict), "Invalid admin_account_config"
-            # >> bootstrap
- 
-            # If no user_account_config: failure
-            if not user_account_config:
-                self.send(LAST_RECORD, callback, identifier)
-                self.error(receiver, query, "Account related to %s for platform %s not found" % (user_email, self.get_platform_name()))
-                return
 
-            # Call the appropriate method (for instance User.get(...)) in a first
-            # time without managing the user account. If it fails and if this
-            # account is managed, then run managed and try to rerun the Query.
-            result = list()
-            try:
-                result = yield self.perform_query(user_dict, user_account_config, query)
-            except Exception, e:
-                if user_account["auth_type"] == "managed":
-                    Log.info("Running manage()")
-                    user_account_config = yield self.manage(user_dict, user_account_config, admin_account_config)
+            # Managing account
+            user_account_config = yield self.manage(user_dict, user_account_config, admin_account_config)
 
-                    # Update the Storage consequently
-                    query_storage = Query.update("local:account")\
-                        .set({"config": json.dumps(user_account_config)})\
-                        .filter_by("user_id",     "=", user_account["user_id"])\
-                        .filter_by("platform_id", "=", user_account["platform_id"])
-                    router = self.get_interface()
-                    router.forward(query_storage, False, True, user, receiver)
+            # Update the Storage consequently
+            query_storage = Query.update("local:account")\
+                .set({"config": json.dumps(user_account_config)})\
+                .filter_by("user_id",     "=", user_account["user_id"])\
+                .filter_by("platform_id", "=", user_account["platform_id"])
 
-                    Log.info("Account successfully managed, we now rerun the query")
-                    result = yield self.perform_query(user_dict, user_account_config, query)
-                else:
-                    failure = Failure("Account not managed: user_account_config = %s / auth_type = %s" % (account_config, user_account["auth_type"]))
-                    failure.raiseException()
+            router = self.get_interface()
+            router.forward(query_storage, False, True, user, receiver)
+            defer.returnValue(True)
 
-            Log.tmp("3" * 80)
-            # Rename fetched fields if necessary
-#            if self.map_fields and query.get_from() in self.map_fields:
-#                Rename(receiver, self.map_fields[query.get_from()])
-            
-            # Send Records to the From Node.
-            Log.tmp("result = %s" % result)
-            for row in result:
-                self.send(row, callback, identifier)
-            self.send(LAST_RECORD, callback, identifier)
-            self.success(receiver, query)
-
-        except Exception, e:
-            Log.error(traceback.format_exc())
-            self.send(LAST_RECORD, callback, identifier)
-            self.error(receiver, query, str(e))
+        defer.returnValue(False)
 
     def check_cred(self):
         """
@@ -411,8 +349,9 @@ class SFA_RMGateway(SFAGatewayCommon):
             need_credential = True
         return need_credential
 
+    # TODO staticmethod ?
     @returns(bool)
-    def credential_expired(self, credential):
+    def credential_expired(credential):
         """
         Tests whether a Credential has expired or not.
         Args:
@@ -420,9 +359,9 @@ class SFA_RMGateway(SFAGatewayCommon):
         Returns;
             True iif this Credential has expired.
         """
-        #assert isinstance(credential, (str, Credential)), "Invalid Credential: %s (%s)" % (credential, type(credential))
+        assert isinstance(credential, (str, Credential)), "Invalid Credential: %s (%s)" % (credential, type(credential))
 
-        if not isinstance (credential, Credential):
+        if not isinstance(credential, Credential):
             credential = Credential(string = credential)
 
         return credential.get_expiration() < datetime.now()

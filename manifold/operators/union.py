@@ -11,16 +11,17 @@ DUMPSTR_UNION      = "UNION"
             
 class Union(Node):
     """
-    UNION operator node
+    UNION operator node.
     """
 
     def __init__(self, children, key, distinct=True):
         """
-        \brief Constructor
-        \param children A list of Node instances, the children of
-            this Union Node.
-        \param key A Key instance, corresponding to the key for
-            elements returned from the node
+        Constructor.
+        Args:
+            children: A list of Node instances, the children of
+                this Union Node.
+            key: A Key instance, corresponding to the key for
+                elements returned from the node.
         """
         super(Union, self).__init__()
         # Parameters
@@ -54,8 +55,10 @@ class Union(Node):
         
     def dump(self, indent = 0):
         """
-        \brief Dump the current node
-        \param indent current indentation
+        Dump the current node
+        Args:
+            indent: An integer corresponding to the number of space
+                to write (current indentation).
         """
         Node.dump(self, indent)
         for child in self.children:
@@ -66,7 +69,7 @@ class Union(Node):
 
     def start(self):
         """
-        \brief Propagates a START message through the node
+        Propagates a START message through the Node.
         """
         # Start all children
         for i, child in enumerate(self.children):
@@ -76,9 +79,10 @@ class Union(Node):
 
     def inject(self, records, key, query):
         """
-        \brief Inject record / record keys into the node
-        \param records list of dictionaries representing records, or list of
-        record keys
+        Inject Record / record keys into the Node
+        Args:
+            records: A list of dictionaries representing Records,
+                or list of Record keys
         """
         for i, child in enumerate(self.children):
             self.children[i] = child.inject(records, key, query)
@@ -91,9 +95,10 @@ class Union(Node):
 
     def child_callback(self, child_id, record):
         """
-        \brief Processes records received by the child node
-        \param child_id identifier of the child that received the record
-        \param record dictionary representing the received record
+        Processes records received by the child Node.
+        Args:
+            child_id: identifier of the child that received the Record.
+            record: dictionary representing the received Record.
         """
         if record == LAST_RECORD:
             self.status.completed(child_id)
@@ -109,14 +114,14 @@ class Union(Node):
 
         # Ignore records that have no key
         if not Record.has_fields(record, key):
-            Log.info("UNION ignored record without key '%(key)s': %(record)r", **locals())
+            Log.warning("UNION ignored record without key '%(key)s': %(record)r", **locals())
             return
 
         # Ignore duplicate records
         if self.distinct:
             key_value = Record.get_value(record, key)
             if key_value in self.key_list:
-                Log.info("UNION ignored duplicate record: %r" % record)
+                Log.warning("UNION ignored duplicate record: %r" % record)
                 return
             self.key_list.append(key_value)
 

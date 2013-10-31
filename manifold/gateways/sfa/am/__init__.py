@@ -74,16 +74,14 @@ class SFA_AMGateway(SFAGatewayCommon):
         Returns:
             The '%s' representation of this Gateway.
         """
-        return "<%s %r>" % (self.__class__.__name__, self.get_config()['sm'])
+        return "<%s %r>" % (self.__class__.__name__, self.get_url())
 
     @staticmethod
     @returns(StringTypes)
-    def build_sfa_rspec(slice_id, resources, leases):
+    def build_sfa_rspec(slice_urn, resources, leases):
         parser = SFAv1Parser(resources, leases)
-        return parser.to_rspec(slice_id)
+        return parser.to_rspec(slice_urn)
 
-    # MANDO: sfa_rm
-    # MANDO: sfa_am <<<<<
     @defer.inlineCallbacks
     def update_slice(self, user, user_config, filters, params, fields):
         if 'resource' not in params:
@@ -92,10 +90,11 @@ class SFA_AMGateway(SFAGatewayCommon):
         # Keys
         if not filters.has_eq('slice_hrn'):
             raise Exception, 'Missing parameter: slice_hrn'
+
         slice_hrn = filters.get_eq('slice_hrn')
         slice_urn = hrn_to_urn(slice_hrn, 'slice')
-        resources = params['resource'] if 'resource' in params else []
-        leases = params['lease'] if 'lease' in params else []
+        resources = params['resource'] if 'resource' in params else list()
+        leases    = params['lease']    if 'lease'    in params else list()
 
         # Credentials
         user_cred  = self._get_cred(user, user_config, 'user')
@@ -185,8 +184,6 @@ class SFA_AMGateway(SFAGatewayCommon):
         #print "SLICE=", slice
         defer.returnValue([slice])
 
-
-    # MANDO: sfa_am (get_resource_lease)
     def get_slice_demo(self, user, user_config, filters, params, fields):
             Log.warning("Demo hook")
             s= {}
@@ -220,21 +217,16 @@ class SFA_AMGateway(SFAGatewayCommon):
 
             return [s]
 
-
-    # MANDO: sfa_am (get_resource_lease)
     @defer.inlineCallbacks
     def get_lease(self, user, user_config, filters, params, fields):
         result = yield self.get_resource_lease(user, user_config, filters,fields,params)
         defer.returnValue(result['lease'])
 
-    # MANDO: sfa_am (get_resource_lease)
     @defer.inlineCallbacks
     def get_resource(self, user, user_config, filters, params, fields):
         result = yield self.get_resource_lease(user, user_config, filters, fields, params)
         defer.returnValue(result['resource'])
 
-    # MANDO: sfa_rm
-    # MANDO: sfa_am <<<
     @defer.inlineCallbacks
     def get_resource_lease(self, user, user_config, filters, params, fields):
         if self.user.email in DEMO_HOOKS:

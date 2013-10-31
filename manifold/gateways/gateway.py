@@ -252,6 +252,8 @@ class Gateway(object):
             forward must NOT return value otherwise we cannot use @defer.inlineCallbacks
             decorator. 
         """
+        Log.warning("Remove 'callback' parameter which is receiver.get_callback()")
+        Log.warning("Remove 'format' parameter which is receiver.get_callback()")
         if receiver: receiver.set_result_value(None)
         self.check_forward(query, callback, is_deferred, execute, user, account_config, format, receiver)
 
