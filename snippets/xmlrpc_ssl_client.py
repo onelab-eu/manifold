@@ -64,6 +64,25 @@ class Proxy(xmlrpc.Proxy):
            reactor.connectTCP(self.host, self.port or 80, factory, timeout=self.connectTimeout)
         return factory.deferred
 
+    def __getattr__(self, name):
+        def _missing(*args):
+            from twisted.internet import defer
+            d = defer.Deferred()
+
+            success_cb = lambda result: d.callback(result)
+            error_cb   = lambda error : d.errback(ValueError("Proxy %s" % error))
+            
+            @defer.inlineCallbacks
+            def wrap(source, args):
+                token = yield SFATokenMgr().get_token(self.interface)
+                args = (name,) + args
+                
+                self.callRemote(*args).addCallbacks(proxy_success_cb, proxy_error_cb)
+            
+            ReactorThread().callInReactor(wrap, self, args)
+            return d
+        return _missing
+
 if __name__ == '__main__':
 
     query = Query.get('local:platform').select('platform')

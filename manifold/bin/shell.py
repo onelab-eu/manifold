@@ -15,11 +15,176 @@ from manifold.util.options import Options
 from manifold.input.sql    import SQLParser
 from manifold.auth         import Auth
 
+from twisted.internet      import defer
+
 import json
 
 # This could be moved outside of the Shell
 DEFAULT_USER     = 'demo'
 DEFAULT_PASSWORD = 'demo'
+
+class ManifoldClient(object):
+    def log_info(self): pass
+    def auth_check(self): pass
+
+class ManifoldLocalClient(ManifoldClient):
+    def __init__(self):
+        self.interface = Router()
+        self.interface.__enter__()
+        self.auth = None
+        self.user = None
+
+    def __del__(self):
+        if self.interface:
+            self.interface.__exit__()
+        self.interface = None
+
+    def forward(self, query, annotations=None):
+        if not annotations:
+            annotations = {}
+        annotations['user'] = self.user
+        return self.interface.forward(query, annotations)
+
+    def auth_check(self):
+        pass
+
+    def log_info(self):
+        Log.info("Shell using local account '%r'" % self.user)
+
+class ManifoldXMLRPCClientXMLRPCLIB(ManifoldClient):
+    # on ne sait pas si c'est secure ou non
+
+    def __init__(self):
+        import xmlrpclib
+        url = Options().xmlrpc_url
+        self.interface = xmlrpclib.ServerProxy(url, allow_none=True)
+        self.auth = None
+
+    def forward(self, query, annotations=None):
+        if not annotations:
+            annotations = {}
+        annotations['authentication'] = self.auth
+        return self.interface.forward(query.to_dict(), annotations)
+
+    # mode_str      = 'XMLRPC'
+    # interface_str = ' towards XMLRPC API %s' % self.interface
+
+class Proxy(object):
+    def setSSLClientContext(self,SSLClientContext):
+        self.SSLClientContext = SSLClientContext
+    def callRemote(self, method, *args):
+        def cancel(d):
+            factory.deferred = None
+            connector.disconnect()
+        factory = self.queryFactory(
+            self.path, self.host, method, self.user,
+            self.password, self.allowNone, args, cancel, self.useDateTime)
+        #factory = xmlrpc._QueryFactory(
+        #    self.path, self.host, method, self.user,
+        #    self.password, self.allowNone, args)
+
+        if self.secure:
+            try:
+                self.SSLClientContext
+            except NameError:
+                print "Must Set a SSL Context"
+                print "use self.setSSLClientContext() first"
+                # Its very bad to connect to ssl without some kind of
+                # verfication of who your talking to
+                # Using the default sslcontext without verification
+                # Can lead to man in the middle attacks
+            reactor.connectSSL(self.host, self.port or 443,
+                               factory, self.SSLClientContext,
+                               timeout=self.connectTimeout)
+
+        else:
+           reactor.connectTCP(self.host, self.port or 80, factory, timeout=self.connectTimeout)
+        return factory.deferred
+
+    def __getattr__(self, name):                                                                                
+        def _missing(*args):
+            from twisted.internet import defer
+            d = defer.Deferred()
+            
+            success_cb = lambda result: d.callback(result)                                                      
+            error_cb   = lambda error : d.errback(ValueError("Proxy %s" % error))                               
+                                                                                                                
+            @defer.inlineCallbacks
+            def wrap(source, args):
+                token = yield SFATokenMgr().get_token(self.interface)                                           
+                args = (name,) + args                                                                           
+                
+                # XXX Should add annotations
+
+                self.callRemote(*args).addCallbacks(proxy_success_cb, proxy_error_cb)                           
+                
+            ReactorThread().callInReactor(wrap, self, args)                                                     
+            return d
+        return _missing
+
+class ManifoldXMLRPCClient(ManifoldClient):
+
+    def auth_check(self):
+        self.interface.AuthCheck(self.auth)
+
+    @defer.inlineCallbacks
+    def forward(self, query, annotations=None):
+        if not annotations:
+            annotations = {}
+        annotations.update(self.annotations)
+        ret = yield self.interface.forward(query.to_dict(), annotations)
+        print "RETURN", ret
+        defer.resultValue(ret)
+
+class ManifoldXMLRPCClientSSLPassword(ManifoldXMLRPCClient):
+    
+    from OpenSSL import SSL
+    from twisted.internet import ssl, reactor
+    from twisted.internet.protocol import ClientFactory, Protocol
+
+    def __init__(self, url, username=None, password=None):
+        self.url = url
+        self.username = username
+
+        if username:
+            self.annotations = { 'authentication': {'AuthMethod': 'password', 'Username': username, 'AuthString': password} }
+        else:
+            self.annotations = { 'authentication': {'AuthMethod': 'anonymous'} } 
+
+        self.interface = Proxy('https://localhost:7080/', allowNone=True, useDateTime=False)
+        self.interface.setSSLClientContext(ssl.ClientContextFactory())
+
+    def log_info(self):
+        Log.info("Shell using XMLRPC account '%r' (password) on %s" % (self.username, self.url))
+
+class ManifoldXMLRPCClientSSLGID(ManifoldXMLRPCClient):
+    
+    from OpenSSL import SSL
+    from twisted.internet import ssl, reactor
+    from twisted.internet.protocol import ClientFactory, Protocol
+
+    ## We need this to define the private key and certificate (GID) to use
+    #class CtxFactory(ssl.ClientContextFactory):
+    #    def getContext(self):
+    #        self.method = SSL.SSLv23_METHOD
+    #        ctx = ssl.ClientContextFactory.getContext(self)
+    #        ctx.use_certificate_chain_file(self.cert_file)
+    #        ctx.use_privatekey_file(self.pkey_file)
+    #        return ctx
+
+    def __init__(self, url, pkey_file, cert_file):
+        self.url = url
+        self.gid_subject = 'NULL'
+        self.interface = Proxy('https://localhost:7080/', allowNone=True, useDateTime=False)
+        #self.interface.setSSLClientContext(CtxFactory(pkey_file, cert_file))
+
+        self.annotations = { 'authentication': {'AuthMethod': 'gid'} } 
+
+        # This has to be tested to get rid of the previously defined CtxFactory class
+        self.interface.setSSLClientContext(ssl.DefaultOpenSSLContextFactory(self.pkey_file, self.cert_file))
+
+    def log_info(self):
+        Log.info("Shell using XMLRPC account '%r' (GID) on %s" % (self.gid_subject, self.url))
 
 class Shell(object):
 
@@ -67,9 +232,9 @@ class Shell(object):
             default = False
         )
         opt.add_option(
-            "-a", "--anonymous", action = "store_true", dest = "anonymous",
-            help = "Use anonymous authentication", 
-            default = False 
+            "-a", "--auth-method", dest = "auth_method",
+            help    = 'Choice of the authentication method: auto, anonymous, password, gid',
+            default = 'auto'
         )
         opt.add_option(
             "-e", "--execute", dest = "execute",
@@ -79,76 +244,69 @@ class Shell(object):
         #parser.add_option("-m", "--method", help = "API authentication method")
         #parser.add_option("-s", "--session", help = "API session key")
 
+    def select_auth_method(self, auth_method):
+        if auth_method == 'auto':
+            for method in ['local', 'gid', 'password']:
+                try:
+                    Log.debug("Trying client authentication '%s'" % method)
+                    self.select_auth_method(method)
+                    return
+                except Exception, e:
+                    Log.debug("Failed client authentication '%s': %s" % (method, e))
+            raise Exception, "Could not authentication automatically (tried: local, gid, password)"
+
+        elif auth_method == 'local':
+            self.client = ManifoldLocalClient() # XXX choice of the user ?
+
+        else: # XMLRPC 
+            url = Options().xmlrpc_url
+
+            if auth_method == 'gid':
+                pkey_file = Options().pkey_file
+                cert_file = Options().cert_file
+
+                self.client = ManifoldXMLRPCClientSSLGID(url, pkey_file, cert_file)
+
+            elif auth_method == 'password':
+                # If user is specified but password is not
+                username = Options().username
+                password = Options().password
+
+                if username != DEFAULT_USER and password == DEFAULT_PASSWORD:
+                    if interactive:
+                        try:
+                            _password = getpass("Enter password for '%s' (or ENTER to keep default):" % username)
+                        except (EOFError, KeyboardInterrupt):
+                            print
+                            sys.exit(0)
+                        if _password:
+                            password = _password
+                    else:
+                        Log.warning("No password specified, using default.")
+
+                self.client = ManifoldXMLRPCClientSSLPassword(url, username, password)
+
+            elif auth_method == 'anonymous':
+
+                self.client = ManifoldXMLRPCClientSSLPassword(url)
+
+            else:
+                raise Exception, "Authentication method not supported: '%s'" % auth_method
+
+
     def __init__(self, interactive=False):
         self.interactive = interactive
-
-        if not Options().anonymous:
-            # If user is specified but password is not
-            username = Options().username
-            password = Options().password
-
-            if username != DEFAULT_USER and password == DEFAULT_PASSWORD:
-                if interactive:
-                    try:
-                        _password = getpass("Enter password for '%s' (or ENTER to keep default):" % username)
-                    except (EOFError, KeyboardInterrupt):
-                        print
-                        sys.exit(0)
-                    if _password:
-                        password = _password
-                else:
-                    Log.warning("No password specified, using default.")
-
-            #if Options().xmlrpc:
-            self.auth = {'AuthMethod': 'password', 'Username': username, 'AuthString': password}
-            #else:
-            #    self.auth = username
-        else:
-            self.auth = None
-
-        if Options().xmlrpc:
-            import xmlrpclib
-            url = Options().xmlrpc_url
-            self.interface = xmlrpclib.ServerProxy(url, allow_none=True)
-
-            mode_str      = 'XMLRPC'
-            interface_str = ' towards XMLRPC API %s' % self.interface
-        else:
-            self.interface = Router()
-            self.interface.__enter__()
-            mode_str      = 'local'
-            interface_str = ''
-
+        
+        self.select_auth_method(Options().auth_method)
         if self.interactive:
-            msg = "Shell using %(mode_str)s"
-            if not Options().anonymous:
-                msg += " account %(username)r"
-            msg += "%(interface_str)s"
-            Log.info(msg, **locals())
-
-            if not Options().anonymous:
-                if Options().xmlrpc:
-                    try:
-                        self.interface.AuthCheck(self.auth)
-                        Log.info('Authentication successful')
-                    except:
-                        Log.error('Authentication error')
-                else:
-                    self.auth = Auth(self.auth).check()
+            self.client.log_info()
+        self.auth_check()
 
     def terminate(self):
-        if not Options().xmlrpc: self.interface.__exit__()
-
-    def forward(self, query):
-        # XXX this line will differ between xmlrpc and local calls
-        if Options().xmlrpc:
-            # XXX The XMLRPC server might not require authentication
-            if not Options().anonymous:
-                return self.interface.forward(self.auth, query.to_dict())
-            else:
-                return self.interface.forward(query.to_dict())
-        else:
-            return self.interface.forward(query, user=self.auth)
+        # XXX Issues with the reference counter
+        #del self.client
+        #self.client = None
+        self.client.__del__()
 
     def display(self, ret):
         if ret['code'] != 0:
@@ -165,15 +323,28 @@ class Shell(object):
         else:
             print json.dumps(ret)
 
-    def evaluate(self, command):
+    def evaluate(self, command, value=False):
         #username, password = Options().username, Options().password
         query = Query(SQLParser().parse(command))
-        ret = self.forward(query)
-        self.display(ret)
+        ret = self.client.forward(query)
+        if not value:
+            return ret 
+        else:
+            if ret['code'] != 2:
+                return ret['value']
+            else:
+                raise Exception, "Error evaluating command: %s (%s)" % (command, ret['description'])
 
     def execute(self, query):
-        ret = self.forward(query)
-        self.display(ret)
+        return self.client.forward(query)
+
+    def auth_check(self):
+        return self.client.auth_check()
+
+    def whoami(self):
+        # Who is authenticating ?
+        # authentication
+        return None
         
         
 #    # If called by a script 
@@ -261,11 +432,11 @@ class Shell(object):
                     continue
                 # Quit
                 elif command in ["q", "quit", "exit"]:
-                    self.terminate()
                     break
 
                 try:
-                    self.evaluate(command)
+                    ret = self.evaluate(command)
+                    self.display(ret)
                 except KeyboardInterrupt:
                     command = ""
                     print
@@ -281,8 +452,7 @@ def main():
     command = Options().execute
     if command:
         s = Shell(interactive=False)
-        s.evaluate(command)
-        s.terminate()
+        s.display(s.evaluate(command))
     else:
         Shell(interactive=True).start()
 

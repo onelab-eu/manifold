@@ -14,7 +14,6 @@ from copy                 import deepcopy
 from networkx             import draw_graphviz, DiGraph
 from types                import StringTypes
 #OBSOLETE|from networkx.algorithms.traversal.depth_first_search import dfs_edges
-import matplotlib.pyplot  as plt
 
 #OBSOLETE|from manifold.core.query          import Query 
 from manifold.core.table          import Table 
@@ -142,6 +141,7 @@ class DBGraph(object):
         \brief Produce de graphviz file related to a DBGraph and show the graph
         \param graph A DBGraph instance
         """
+        import matplotlib.pyplot  as plt
         draw_graphviz(graph)
         plt.show()
 
