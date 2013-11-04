@@ -8,9 +8,9 @@
 #
 # Copyright (C) 2013 UPMC-INRIA
 
-from manifold.gateways.sfa.object    import Object
+from manifold.gateways.sfa.rm.methods.rm_object import RM_Object
 
-class Authority(Object):
+class Authority(RM_Object):
     aliases = {
         "hrn"       : "authority_hrn",
         "PI"        : "pi_users",

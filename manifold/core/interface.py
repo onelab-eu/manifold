@@ -275,18 +275,22 @@ class Interface(object):
                 "table"      : table_name,
                 "column"     : columns,
                 "key"        : keys,
-                "capability" : [],
+                "capability" : list(),
             })
         return output
 
     def check_forward(self, query, is_deferred = False, execute = True, user = None, receiver = None):
         """
         Checks whether parameters passed to Interface::forward() are well-formed.
+        Args:
+            See Interface::forward.
         """
         assert isinstance(query, Query),                  "Invalid Query: %s (%s)"             % (query,       type(query))
         assert isinstance(is_deferred, bool),             "Invalid is_deferred value: %s (%s)" % (execute,     type(execute))
         assert isinstance(execute, bool),                 "Invalid execute value: %s (%s)"     % (is_deferred, type(is_deferred))
-        assert not user or isinstance(user, User),        "Invalid User: %s (%s)"              % (user,        type(user))
+        #TODO This should be a dictionnary (update core + documentation in manifold/core before replacing User by dict)
+        Log.warning("check_forward: TODO: update user type to dict")
+        #assert not user or isinstance(user, User),        "Invalid User: %s (%s)"              % (user,        type(user))
         assert not receiver or receiver.set_result_value, "Invalid receiver: %s (%s)"          % (receiver,    type(receiver))
 
     @staticmethod

@@ -12,62 +12,49 @@
 #
 # Copyright (C) 2013 UPMC-INRIA
 
-#Aujourd'hui
-#1 instance = 1 platform (R+AM)
-#Demain
-#1 instance = R,platform ou AM, platform
+import json, traceback
 
-#slice a du sens pour les 2
-#user, authority pour Registry
-#resources pour AM
-
-# Call manage() iif account.auth_type == "managed"
-#   a relancer : a chaque fois qu'une slice est creee pour que myslice ait la procuration sur ce nouveau slice ou en cas d'expiration
-# The user must delegate manually using sfi.py iif account.auth_type == "user" which update the storage and then allow to get account.config["delegated_user_credential"]
-
-import sys, os, os.path, re, tempfile, itertools
-import zlib, hashlib, BeautifulSoup, urllib
-import json, signal, traceback
-
-from datetime                               import datetime
 from types                                  import StringTypes, GeneratorType
 from twisted.internet                       import defer
 
 from sfa.trust.credential               	import Credential
 from sfa.trust.gid                      	import GID
-from sfa.util.xrn                       	import Xrn, get_authority
 from sfa.util.cache                     	import Cache
-from sfa.client.client_helper           	import pg_users_arg, sfa_users_arg
 from sfa.client.return_value            	import ReturnValue
 
+from manifold.core.query                    import Query 
 from manifold.gateways.gateway              import Gateway
 from manifold.gateways.sfa.proxy            import SFAProxy
 from manifold.gateways.sfa.proxy_pool       import SFAProxyPool
-from manifold.gateways.sfa.user             import ADMIN_USER, check_user 
-from manifold.models                    	import db
-from manifold.models.account                import Account
-from manifold.models.platform           	import Platform 
-from manifold.models.user               	import User
+from manifold.gateways.sfa.user             import ADMIN_USER
 from manifold.operators                 	import LAST_RECORD
-from manifold.operators.rename          	import Rename # move into sfa_rm
+from manifold.operators.rename          	import Rename
 from manifold.util.log                  	import Log
 from manifold.util.type                 	import accepts, returns 
 
 DEFAULT_TIMEOUT = 20
-DEMO_HOOKS = ['demo']
-
-import uuid
-def unique_call_id():
-    return uuid.uuid4().urn
+DEMO_HOOKS = ["demo"]
 
 # The following class is not suffixed using "Gateway" to avoid that Manifold
-# consider it as a valid Gateway
+# consider it as a valid Gateway. This a "virtual" class used to factorize
+# code written in am/__init__.py and rm/__init__.py
 
 class SFAGatewayCommon(Gateway):
 
     #--------------------------------------------------------------------------
     # User config
     #--------------------------------------------------------------------------
+
+    @returns(GeneratorType)
+    def get_rms(self, user):
+        """
+        Retrieve RMs related to this SFA Gateway.
+        Args:
+            user: A dictionnary describing the User issuing the Query.
+        Returns:
+            Allow to iterate on the Platform corresponding this RM.
+        """
+        raise Exception, "This method must be overloaded"
 
     @returns(list)
     def get_accounts(self, user_email):
@@ -85,31 +72,50 @@ class SFAGatewayCommon(Gateway):
         assert isinstance(user_email, StringTypes),\
             "Invalid user_email = %s (%s)" % (user_email, type(user_email))
         platform_name = self.get_platform_name()
+        user_storage  = None # XXX: we access anonymously to the Manifold Storage.
 
         # Get User
         try:
-            user = db.query(User).filter(User.email == user_email).one()
-            user = user.__dict__
+            user = self.query_storage(
+                Query.get("local:user").filter_by("email", "=", user_email),
+                user_storage
+            )[0]
         except Exception, e:
-            raise ValueError("No Account found for User %s, Platform %s ignored" % (user_email, platform_name))
+            raise ValueError("No Account found for User %s, Platform %s ignored: %s" % (user_email, platform_name, traceback.format_exc()))
 
         # Get Platform related to this RM/AM
         try:
-            platform = db.query(Platform).filter(Platform.platform == platform_name).one()
+            platform = self.query_storage(
+                Query.get("local:platform").filter_by("platform", "=", platform_name),
+                user_storage
+            )[0]
         except Exception, e:
-            raise Exception("Platform %s not found" % platform_name)
-        
+            raise Exception("Platform %s not found: %s" % (platform_name, traceback.format_exc()))
+
+        # Retrieve RMs (list of dict) related to this Gateway.
+        # - if this is a SFA_RMGateway, this is the RM itself.
+        # - if this is a SFA_AMGateway, this retrieve each RM related to this AM.
+        rm_platforms = self.get_rms(user)
+
         # Get Accounts for this user on each related RM
-        accounts = db.query(Account)\
-            .filter(Account.user_id == user["user_id"])\
-            .filter(Account.platform_id.in_(tuple([platform.platform_id for platform in self.get_rms()])))\
-            .all()
+        try:
+            platform_ids = list([platform["platform_id"] for platform in rm_platforms])
+            accounts = self.query_storage(
+                Query.get("local:account")\
+                    .filter_by("user_id",     "=", user["user_id"])\
+                    .filter_by("platform_id", "{", platform_ids),
+                user_storage
+            )
+        except Exception, e:
+            raise Exception("Account(s) not found for user %s and platform %s: %s" % (user, platform, traceback.format_exc()))
 
         if len(accounts) == 0:
-            raise ValueError("No account found for User %s on those RMs: %s" % (user_email, [platform.platform for platform in self.get_rms()]))
+            raise ValueError("No account found for User %s on those RMs: %s" % (
+                user_email,
+                [platform["platform"] for platform in rm_platforms])
+            )
 
         # Translate the accounts in a convenient format
-        accounts = [account.__dict__ for account in accounts]
         for account in accounts:
             account["config"] = json.loads(account["config"])
 
@@ -145,14 +151,14 @@ class SFAGatewayCommon(Gateway):
     #--------------------------------------------------------------------------
 
     @returns(SFAProxy)
-    def get_server(self):
+    def get_sfa_proxy(self):
         """
         Returns:
             The SFAProxy using MySlice Admin account.
         """
         admin_config = self.get_account(ADMIN_USER["email"])["config"]
 
-        sfa_proxy = self.get_sfa_proxy(
+        sfa_proxy = self.get_sfa_proxy_impl(
             self.get_url(),
             ADMIN_USER,
             admin_config,
@@ -170,40 +176,41 @@ class SFAGatewayCommon(Gateway):
             A String instance containing the HRN (Human Readable Name)
             corresponding to the AM or RM managed by this Gateway.
         """
-        server = self.get_server()
-        assert server and isinstance(server, SFAProxy), "Invalid proxy: %s (%s)" % (server, type(server))
-        server_version = yield self.get_cached_server_version(server)    
-        defer.returnValue(server_version["hrn"])
+        sfa_proxy = self.get_sfa_proxy()
+        assert sfa_proxy and isinstance(sfa_proxy, SFAProxy), "Invalid proxy: %s (%s)" % (sfa_proxy, type(sfa_proxy))
+        sfa_proxy_version = yield self.get_cached_sfa_proxy_version(sfa_proxy)    
+        defer.returnValue(sfa_proxy_version["hrn"])
 
     # TODO move in SFAProxy
     @defer.inlineCallbacks
-    def get_cached_server_version(self, server):
+    def get_cached_sfa_proxy_version(self, sfa_proxy):
         """
         Args:
-            server: A SFAProxy instance.
+            sfa_proxy: A SFAProxy instance.
         Returns:
-            The version of the SFA server wrapped in this Gateway.
+            The version of the SFA sfa_proxy wrapped in this Gateway.
         """
-        assert isinstance(server, SFAProxy), "(1) Invalid proxy: %s (%s)" % (server, type(server))
+        assert isinstance(sfa_proxy, SFAProxy), "Invalid proxy: %s (%s)" % (sfa_proxy, type(sfa_proxy))
         version = None 
 
         # Check local cache first
-        cache_key = server.get_interface() + "-version"
+        cache_key = sfa_proxy.get_interface() + "-version"
         cache = Cache()
         if cache:
             version = cache.get(cache_key)
 
         if not version: 
-            result = yield server.GetVersion()
-            code = result.get('code')
+            result = yield sfa_proxy.GetVersion()
+            code = result.get("code")
             if code:
-                if code.get('geni_code') > 0:
-                    raise Exception(result['output']) 
+                if code.get("geni_code") > 0:
+                    raise Exception(result["output"]) 
                 version = ReturnValue.get_value(result)
             else:
                 version = result
-            # cache version for 20 minutes
-            cache.add(cache_key, version, ttl = 60 * 20)
+
+            # Cache version for 20 minutes
+            cache.add(cache_key, version, ttl = 60 * self.get_timeout())
 
         defer.returnValue(version)
 
@@ -237,8 +244,7 @@ class SFAGatewayCommon(Gateway):
             platform_config["timeout"] = DEFAULT_TIMEOUT
 
     @returns(SFAProxy)
-#    def get_sfa_proxy(self, interface_url, user, account_config, cert_type, timeout = DEFAULT_TIMEOUT, store_in_cached = True):
-    def get_sfa_proxy(self, interface_url, user, account_config, cert_type, timeout, store_in_cached = True):
+    def get_sfa_proxy_impl(self, interface_url, user, account_config, cert_type, timeout, store_in_cached = True):
         """
         Retrieve a SFAProxy toward a given SFA interface (RM or AM).
         Args:

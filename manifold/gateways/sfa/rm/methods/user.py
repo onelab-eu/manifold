@@ -8,10 +8,9 @@
 #
 # Copyright (C) 2013 UPMC-INRIA
 
+from manifold.gateways.sfa.rm.methods.rm_object    import RM_Object
 
-from manifold.gateways.sfa.object  import Object
-
-class User(Object):
+class User(RM_Object):
     aliases = {
         "authority"          : "authority_hrn",          # authority it belongs to
         "peer_authority"     : "user_peer_authority",    # ?

@@ -21,6 +21,7 @@ from types                              import StringTypes
 
 from manifold.core.announce             import Announces
 from manifold.core.query                import Query 
+from manifold.core.receiver             import Receiver 
 from manifold.core.result_value         import ResultValue
 from manifold.util.plugin_factory       import PluginFactory
 from manifold.util.type                 import accepts, returns
@@ -257,6 +258,30 @@ class Gateway(object):
         if receiver: receiver.set_result_value(None)
         self.check_forward(query, callback, is_deferred, execute, user, account_config, format, receiver)
 
+    @returns(list)
+    def query_storage(self, query, user):
+        """
+        Run a Query on the Manifold's Storage.
+        Args:
+            query: A Query instance.
+            user: A dictionnary describing the User issuing this Query.
+        Returns:
+            A list of dictionnaries corresponding to each fetched Records.
+        """
+        assert isinstance(query, Query) 
+        assert query.get_from().startswith("local:"), "Invalid Query, it must query local:* (%s)"
+
+        receiver = Receiver()
+        router = self.get_interface()
+        router.forward(query, False, True, user, receiver)
+        result_value = receiver.get_result_value()
+
+        if result_value["code"] != ResultValue.SUCCESS:
+            raise Exception("Invalid query:\n %s: %r" % (query, result_value))
+
+        records = result_value["value"]
+        return records
+
     def success(self, receiver, query):
         """
         Shorthand method that must be called by a Gateway if its forward method succeeds.
@@ -288,7 +313,6 @@ class Gateway(object):
             "traceback"   : traceback.format_exc()
         })
         if receiver:
-        #    import traceback
             assert isinstance(query, Query), "Invalid Query: %s (%s)" % (query, type(query))
             receiver.set_result_value(
                 ResultValue(

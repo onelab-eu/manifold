@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 #
 # This class implements callback handled while querying a
-# Slice object exposed by a RM. 
+# Slice object exposed by a RM or an AM SFA Gateway. 
 #
 # Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 #
@@ -12,7 +12,7 @@ import re
 from twisted.internet                           import defer
 from sfa.storage.record                         import Record
 
-from manifold.gateways.sfa.object               import Object
+from manifold.gateways.sfa.rm.methods.rm_object import RM_Object
 from manifold.util.log                          import Log
 from manifold.util.type                         import accepts, returns 
 
@@ -61,7 +61,7 @@ def create_record_from_params(type, params):
     return Record(dict = record_dict)
 
 
-class Slice(Object):
+class Slice(RM_Object):
     aliases = {
         "last_updated"       : "slice_last_updated",         # last_updated != last == checked,
         "geni_creator"       : "slice_geni_creator",
@@ -112,7 +112,7 @@ class Slice(Object):
 
         # Are we creating the slice on the right authority
         slice_auth = get_authority(slice_hrn)
-        registry = yield gateway.get_server()
+        registry = yield gateway.get_sfa_proxy()
         server_version = gateway.get_cached_server_version(registry)
         server_auth = server_version["hrn"]
 
@@ -122,7 +122,7 @@ class Slice(Object):
 
         Log.info("Requesting slice creation on %s for %s" % (server_auth, slice_hrn))
         Log.warning("Need to check slice is created under user authority")
-        cred = gateway._get_cred(user, account_config, "authority")
+        cred = gateway.get_credential(user, account_config, "authority")
         record_dict = create_record_from_params("slice", params)
 
         try:
