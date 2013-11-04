@@ -21,7 +21,7 @@ enum rm_type {
 // TODO We could also expose slice_credential, user_credential, authority_credential
 
 class credential {
-    const credential user_credential; /**< User credentials. */
+    const text       user_credential; /**< User credentials. */
     const rm_type    type;            /**< A value among "slice", "user", "authority". */
     const text       hrn;             /**< Human Readable Name of the object related to this gid (ex: ple.upmc.john_doe). */
     const text       certificate;     /**< XML containing X509 certificate + grants that the user has on an object. */

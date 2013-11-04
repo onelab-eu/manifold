@@ -67,7 +67,7 @@ class Predicate:
         """
         if len(args) == 3:
             key, op, value = args
-        elif len(args) == 1 and isinstance(args[0], (tuple,list)) and len(args[0]) == 3:
+        elif len(args) == 1 and isinstance(args[0], (tuple, list)) and len(args[0]) == 3:
             key, op, value = args[0]
         elif len(args) == 1 and isinstance(args[0], Predicate):
             key, op, value = args[0].get_tuple()

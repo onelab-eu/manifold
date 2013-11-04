@@ -28,8 +28,6 @@ from manifold.gateways.sfa                  import SFAGatewayCommon, DEMO_HOOKS
 from manifold.gateways.sfa.user             import ADMIN_USER, is_user_admin 
 from manifold.gateways.sfa.proxy            import SFAProxy
 from manifold.gateways.sfa.rm.credential    import Credential 
-from manifold.models                        import db
-from manifold.models.platform               import Platform 
 from manifold.operators                 	import LAST_RECORD
 from manifold.util.log                      import Log
 from manifold.util.type                     import accepts, returns 
@@ -65,15 +63,24 @@ class SFA_RMGateway(SFAGatewayCommon):
             raise KeyError("'registry' is missing in platform_configuration: %s (%s)" % (platform_config, type(platform_config)))
 
     @returns(GeneratorType)
-    def get_rms(self):
+    def get_rms(self, user):
         """
+        Retrieve RMs related to this SFA Gateway.
+        Args:
+            user: A dictionnary describing the User issuing the Query.
         Returns:
             Allow to iterate on the Platform corresponding this RM.
         """
-        platforms = db.query(Platform).filter(Platform.gateway_type == "sfa_rm").filter(Platform.platform == self.get_platform_name()).all()
+        platforms = self.query_storage(
+            Query.get("local:platform")\
+                .filter_by("gateway_type", "=", "sfa_rm")\
+                .filter_by("platform",     "=", self.get_platform_name()),
+            user
+        )
+
         assert len(platforms) == 1
         for platform in platforms: 
-            assert isinstance(platform, Platform), "Invalid platform = %s (%s)" % (platform, type(platform))
+            assert isinstance(platform, dict), "Invalid platform = %s (%s)" % (platform, type(platform))
             yield platform
 
     @returns(StringTypes)
@@ -97,7 +104,6 @@ class SFA_RMGateway(SFAGatewayCommon):
         """
         Log.debug("Not yet implemented. Run delegation script in the meantime")
     
-    #@returns(Object)
     def get_object(self, table_name):
         """
         Retrieve the Object corresponding to a table_name.
@@ -105,7 +111,7 @@ class SFA_RMGateway(SFAGatewayCommon):
         Args:
             table_name: A String among {"user", "slice", "authority"}.
         Returns:
-            The corresponding Object. 
+            The corresponding RM_Object class. 
         """
         assert table_name in SFA_RMGateway.METHOD_MAP.keys(), \
             "Invalid table_name (%s). It should be in {%s}" % (
@@ -115,6 +121,7 @@ class SFA_RMGateway(SFAGatewayCommon):
         return SFA_RMGateway.METHOD_MAP[table_name](self) 
 
     @defer.inlineCallbacks
+    @returns(GeneratorType)
     def perform_query(self, user, user_account_config, query):
         """
         Perform a Query on this Gateway.
@@ -126,9 +133,6 @@ class SFA_RMGateway(SFAGatewayCommon):
         Returns:
             The list of corresponding Records if any.
         """
-        Log.debug(query)
-        Log.tmp("perform_query: user = %s" % user)
-
         # Check whether action is set to a valid value.
         VALID_ACTIONS = ["get", "create", "update", "delete", "execute"]
         action = query.get_action()
@@ -173,6 +177,7 @@ class SFA_RMGateway(SFAGatewayCommon):
             user_account_config = yield self.manage(user_dict, user_account_config, admin_account_config)
 
             # Update the Storage consequently
+            # TODO use Gateway.query_storage()
             query_storage = Query.update("local:account")\
                 .set({"config": json.dumps(user_account_config)})\
                 .filter_by("user_id",     "=", user_account["user_id"])\
@@ -184,16 +189,9 @@ class SFA_RMGateway(SFAGatewayCommon):
 
         defer.returnValue(False)
 
-    def check_cred(self):
-        """
-        Raises:
-            A CredentialException if the User's Credential are not sufficient
-            to run its SFA Query.
-        """
-        Log.info("Checking credentials (not yet implemented)")
-
+    @staticmethod
     @returns(StringTypes)
-    def _get_cred(self, user, user_account_config, type, target_hrn = None):
+    def get_credential(user, user_account_config, type, target_hrn = None):
         """
         Args:
             user: A dictionnary carrying a description of the User issuing the Query.
@@ -204,14 +202,14 @@ class SFA_RMGateway(SFAGatewayCommon):
         """
         assert isinstance(user_account_config, dict), "Invalid user_account_config"
         try:
-            self.check_cred()
-            return self.get_cred(user, user_account_config, type, target_hrn)
+            return SFA_RMGateway.get_credential_impl(user, user_account_config, type, target_hrn)
         except Exception, why:
             Log.error(traceback.format_exc(why))
             raise why
 
+    @staticmethod
     @returns(StringTypes)
-    def get_cred(self, user, user_account_config, type, target_hrn = None):
+    def get_credential_impl(user, user_account_config, type, target_hrn = None):
         """
         Retrieve from an user's account config the appropriate credentials.
         Args:
@@ -238,8 +236,6 @@ class SFA_RMGateway(SFAGatewayCommon):
             if target_hrn:
                 raise Exception, "Cannot retrieve specific %s credential for now" % type
             try:
-                Log.tmp("user_account_config.keys() = %s" % user_account_config.keys())
-                Log.tmp("key = %s" % key)
                 return user_account_config[key]
             except KeyError, e:
                 raise Exception, "Missing %s credential %s" % (type, str(e))
@@ -263,31 +259,34 @@ class SFA_RMGateway(SFAGatewayCommon):
         else:
             raise Exception, "Invalid credential type: %s" % type
 
-    # LOIC: sfa_rm
+    @returns(StringTypes)
     def delegate(self, user_credential, user_private_key, user_gid, admin_credential):
         """
         This function is used to delegate a user credential to the ADMIN_USER.
         Args:
-            user_credential:
-            user_private_key:
+            user_credential: A String or a Credential instance containing the user's credential.
+            user_private_key: A String containing the user's private key.
             user_gid:
-            admin_credential:
+            admin_credential: A String or a Credential instance containing the admin's credential.
         """
 
-       # if nessecary converting string to Credential object
-        if not isinstance (user_credential, Credential):
-            user_credential = Credential(string=user_credential)
-        # How to set_passphrase of the PEM key if we don't have the  user password?
+        # If necessary, convert String credential into a Credential object
+        if not isinstance(user_credential, Credential):
+            user_credential = Credential(string = user_credential)
+
+        # XXX 
+        # How to set_passphrase of the PEM key if we don't have the user password?
         # For the moment we will use PEM keys without passphrase
 
-        # does the user has the right to delegate all its privileges?
+        # Does the user has the right to delegate all its privileges?
         if not user_credential.get_privileges().get_all_delegate():
             raise Exception, "SFA Gateway the user has no right to delegate"
 
-        # if nessecary converting string to Credential object
-        if not isinstance (admin_credential, Credential):
-            admin_credential = Credential (string=admin_credential)
-        # get the admin_gid and admin_hrn from the credential
+        # If nessecary converting string to Credential object
+        if not isinstance(admin_credential, Credential):
+            admin_credential = Credential(string=admin_credential)
+
+        # Get the admin_gid and admin_hrn from the credential
         admin_gid = admin_credential.get_gid_object()
         admin_hrn = admin_gid.get_hrn()
 
@@ -309,57 +308,71 @@ class SFA_RMGateway(SFAGatewayCommon):
         os.unlink(cert_fn.name)
         return delegated_credential_str
 
-
     ############################################################################ 
     # ACCOUNT MANAGEMENT
     ############################################################################ 
-    # using defer to have an asynchronous results management in functions prefixed by yield
 
-    # TEST = PRESENT and NOT EXPIRED
+    @staticmethod
     @returns(bool)
-    def credentials_needed(self, cred_name, config):
+    def credentials_needed(self, cred_name, user_account_config):
+        """
+        Tests whether credential are present and not expired.
+        Args:
+            cred_name: A String among {
+                "delegated_slice_credentials",
+                "delegated_authority_credentials",
+                "delegated_user_credential",
+                "user_account_config"
+            }
+            user_account_config: A dictionnary corresponding to account.config
+                for 'user' and the Platform on which this Gateway is running.
+                This function manages this Account.
+                See account table in the Manifold's Storage.
+        Returns:
+            True iif credentials are needed.
+        """
         # TODO: optimize this function in the case that the user has no authority_credential and no slice_credential, it's executed each time !!!
         # Initialize
         need_credential = None
 
-        # if cred_name is not defined in config, we need to get it from SFA Registry
-        if not cred_name in config:
+        # if cred_name is not defined in user_account_config, we need to get it from SFA Registry
+        if not cred_name in user_account_config:
             need_credential = True
-            #return True
         else:
-            # testing if credential is empty in the DB
-            if not config[cred_name]:
+            # Testing if credential is empty in the DB
+            if not user_account_config[cred_name]:
                 need_credential = True
             else:
-                # if config[cred_name] is a dict of credentials or a single credential
-                if isinstance(config[cred_name], dict):
-                    # check expiration of each credential
-                    for cred in config[cred_name].values():
-                        # if one of the credentials is expired, we need to get a new one from SFA Registry
-                        if self.credential_expired(cred):
+                # If user_account_config[cred_name] is a dict of credentials or a single credential
+                if isinstance(user_account_config[cred_name], dict):
+                    # Check expiration of each credential
+                    for cred in user_account_config[cred_name].values():
+                        # If one of the credentials is expired, we need to get a new one from SFA Registry
+                        if SFA_RMGateway.credential_expired(cred):
                             need_credential = True
                             #return True
                         else:
                             need_credential = False
                 else:
-                    # check expiration of the credential
-                    need_credential = self.credential_expired(config[cred_name])
-        # TODO: check all cases instead of tweaking like that
+                    # Check expiration of the credential
+                    need_credential = SFA_RMGateway.credential_expired(user_account_config[cred_name])
+
+        # TODO: Check all cases instead of tweaking like that
         if need_credential is None:
             need_credential = True
         return need_credential
 
-    # TODO staticmethod ?
+    @staticmethod
     @returns(bool)
     def credential_expired(credential):
         """
         Tests whether a Credential has expired or not.
         Args:
             credential: A Credential or a String instance.
-        Returns;
+        Returns:
             True iif this Credential has expired.
         """
-        assert isinstance(credential, (str, Credential)), "Invalid Credential: %s (%s)" % (credential, type(credential))
+        assert isinstance(credential, (StringTypes, Credential)), "Invalid Credential: %s (%s)" % (credential, type(credential))
 
         if not isinstance(credential, Credential):
             credential = Credential(string = credential)
@@ -371,7 +384,12 @@ class SFA_RMGateway(SFAGatewayCommon):
     def manage(self, user, user_account_config, admin_account_config):
         """
         This function is called for "managed" accounts.
+        It must be called whenever a slice is created to allow MySlice to get
+        the credentials related to this new slice, and if the needed credential
+        has expired.
+
         See in the Storage account.auth_type.
+
         Args:
             user: A dictionnary corresponding to the User.
                 See user table in the Manifold's Storage.
@@ -434,13 +452,13 @@ class SFA_RMGateway(SFAGatewayCommon):
         # 
         # The order can be found using a reverse topological sort (tsort)
         # 
-        need_delegated_slice_credentials = not is_admin and self.credentials_needed("delegated_slice_credentials", user_account_config)
-        need_delegated_authority_credentials = not is_admin and self.credentials_needed("delegated_authority_credentials", user_account_config)
+        need_delegated_slice_credentials = not is_admin and SFA_RMGateway.credentials_needed("delegated_slice_credentials", user_account_config)
+        need_delegated_authority_credentials = not is_admin and SFA_RMGateway.credentials_needed("delegated_authority_credentials", user_account_config)
         need_slice_credentials = need_delegated_slice_credentials
         need_slice_list = need_slice_credentials
         need_authority_credentials = need_delegated_authority_credentials
         need_authority_list = need_authority_credentials
-        need_delegated_user_credential = not is_admin and self.credentials_needed("delegated_user_credential", user_account_config)
+        need_delegated_user_credential = not is_admin and SFA_RMGateway.credentials_needed("delegated_user_credential", user_account_config)
         need_gid = not "gid" in user_account_config
         need_user_credential = need_authority_credentials or need_slice_list or need_slice_credentials or need_delegated_user_credential or need_gid
 
@@ -488,8 +506,8 @@ class SFA_RMGateway(SFAGatewayCommon):
         
         timeout = self.get_timeout()
         registry_url = self.get_config()["registry"]
-        registry_proxy = self.get_sfa_proxy(registry_url, user, user_account_config, "sscert", timeout)
-        if need_user_credential and self.credentials_needed("user_credential", user_account_config):
+        registry_proxy = self.get_sfa_proxy_impl(registry_url, user, user_account_config, "sscert", timeout)
+        if need_user_credential and SFA_RMGateway.credentials_needed("user_credential", user_account_config):
             Log.debug("Requesting user credential for user %s" % user)
             try:
                 user_account_config["user_credential"] = yield registry_proxy.GetSelfCredential(
@@ -602,6 +620,7 @@ class SFA_RMGateway(SFAGatewayCommon):
 def sfa_trust_credential_delegate(self, delegee_gidfile, caller_keyfile, caller_gidfile):
     """
     Patch over SFA.
+    This overwrite the Credential.delegate method.
     Args:
         admin_gid       : A GID instance
         delegee_gidfile : A String containing the path of the private key.
@@ -614,11 +633,11 @@ def sfa_trust_credential_delegate(self, delegee_gidfile, caller_keyfile, caller_
 
     Log.warning("Calling an overriden delegate() method, update this once fixed in SFA")
 
-    # get the gid of the object we are delegating
+    # Get the gid of the object we are delegating
     object_gid = self.get_gid_object()
     object_hrn = object_gid.get_hrn()
 
-    # the hrn of the user who will be delegated to
+    # The HRN of the User who will be delegated to
     # @loic corrected
     print "gid type = ",type(delegee_gidfile)
     print delegee_gidfile.__class__
