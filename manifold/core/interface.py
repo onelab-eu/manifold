@@ -193,7 +193,7 @@ class Interface(object):
         """
         return self.g_3nf.find_node(table_name).get_keys()
 
-    def forward(self, query, is_deferred = False, execute = True, user = None):
+    def forward(self, query, annotations = None, is_deferred = False, execute = True, user = None):
         """
         Forwards an incoming Query to the appropriate Gateways managed by this Router.
         Args:
@@ -206,7 +206,6 @@ class Interface(object):
             None in case of failure.
         """
         Log.info("Incoming query: %r" % query)
-
 
         # Enforcing policy
         annotation = None
