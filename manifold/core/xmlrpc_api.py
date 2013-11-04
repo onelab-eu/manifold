@@ -64,85 +64,44 @@ class XMLRPCAPI(xmlrpc.XMLRPC, object):
         """
 
         Log.info("Incoming XMLRPC request, query = %r, annotations = %r" % (self.display_query(query), annotations))
-        if not Options().disable_auth:
-       
-            # Have we been authenticated by the ssl layer ?
-            print "REQUEST", request
-            peer_certificate = request.channel.transport.getPeerCertificate()
-            user_hrn = peer_certificate.get_subject().commonName if peer_certificate else None
-
-            if user_hrn:
-
-                # We need to map the SFA user to the Manifold user... let's search into his accounts
-
-                query_user_id = Query.get('local:linked_account').filter_by('identifier', '==', user_hrn).select('user_id')
-                ret_user_ids = self.interface.forward(query_user_id)
-                if ret_user_ids['code'] != 0:
-                    raise Exception, "Failure requesting linked accounts for identifier '%s'" % user_hrn
-                user_ids = ret_user_ids['value']
-                if not user_ids:
-                    raise Exception, "No linked account found with identifier '%s'" % user_hrn
-                print "user_ids", user_ids
-                user_id = user_ids[0]['user_id']
-
-                query_user = Query.get('local:user').filter_by('user_id', '==', user_id)
-                ret_users = self.interface.forward(query_user)
-                if ret_users['code'] != 0:
-                    raise Exception, "Failure requesting linked accounts for identifier '%s'" % user_hrn
-                users = ret_users['value']
-                if not users:
-                    raise Exception, "Internal error: no user found with user_id = '%d'" % user_id
-                user, = users
-
-                print "Linked SFA account '%s' for user: %r" % (user_hrn, user)
-            else:
-                if not annotations or not 'authentication' in annotations:
-                    return dict(ResultValue(
-                       origin      = (ResultValue.CORE, self.__class__.__name__),
-                       type        = ResultValue.ERROR,
-                       code        = ResultValue.ERROR,
-                       description = "You need to specify an authentication token in annotations",
-                       traceback   = traceback.format_exc()))
-                    
-                # We expect to find an authentication token in the annotations
-                auth = annotations['authentication']
-
-                # Check login password
-                try:
-                    user = Auth(auth).check()
-                except Exception, e:
-                    Log.warning("XMLRPCAPI::xmlrpc_forward: Authentication failed: %s" % traceback.format_exc())
-                    ret = dict(ResultValue(
-                       origin      = (ResultValue.CORE, self.__class__.__name__),
-                       type        = ResultValue.ERROR,
-                       code        = ResultValue.ERROR,
-                       description = str(e),
-                       traceback   = traceback.format_exc()))
-                    return ret
-                
+        if Options().disable_auth:
+            Log.info("Authentication disabled by configuration")
         else:
-            user = None
+            if not annotations or not 'authentication' in annotations:
+                msg ="You need to specify an authentication token in annotations"
+                return dict(ResultValue.get_error(ResultValue.FORBIDDEN, msg))
+                
+            # We expect to find an authentication token in the annotations
+            auth = annotations['authentication']
+            auth['request'] = request
+            
+            # Check login password
+            try:
+                user = Auth(auth).check()
+            except Exception, e:
+                Log.warning("XMLRPCAPI::xmlrpc_forward: Authentication failed: %s" % traceback.format_exc())
+                msg = "Authentication failed: %s" % e
+                return dict(ResultValue.get_error(ResultValue.FORBIDDEN, msg))
 
         query = Query(query)
         # self.interface is either a Router or a Forwarder
         # forward function is called with is_deferred = True in args
         deferred = self.interface.forward(query, user=user, is_deferred=True)
+
         def process_results(rv):
-            print "XMLRPC PROCESS RESULTS"
             if 'description' in rv and isinstance(rv['description'], list):
                 rv['description'] = [dict(x) for x in rv['description']]
             # Print Results
             return dict(rv)
+
         def handle_exceptions(failure):
-            print "XMLRPC HANDLE EXCEPTIONS"
             e = failure.trap(Exception)
-            ret = dict(ResultValue(
-               origin      = (ResultValue.CORE, self.__class__.__name__),
-               type        = ResultValue.ERROR,
-               code        = ResultValue.ERROR,
-               description = str(e),
-               traceback   = traceback.format_exc()))
-            return ret
+
+            Log.warning("XMLRPCAPI::xmlrpc_forward: Authentication failed: %s" % traceback.format_exc())
+
+            msg ="XMLRPC error : %s" % e
+            return dict(ResultValue.get_error(ResultValue.FORBIDDEN, msg))
+
         # deferred receives results asynchronously
         # Callbacks are triggered process_results if success and handle_exceptions if errors
         deferred.addCallbacks(process_results, handle_exceptions)

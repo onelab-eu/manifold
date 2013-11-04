@@ -80,6 +80,40 @@ class AnonymousAuth(AuthMethod):
     def check(self):
         return None
 
+class GIDAuth(AuthMethod):
+    def check(self):
+        request = self.auth.request
+        # Have we been authenticated by the ssl layer ?
+        peer_certificate = request.channel.transport.getPeerCertificate()
+        user_hrn = peer_certificate.get_subject().commonName if peer_certificate else None
+
+        if not user_hrn:
+            raise AuthenticationFailure, "GID verification failed"
+
+        # We need to map the SFA user to the Manifold user... let's search into his accounts
+
+        query_user_id = Query.get('local:linked_account').filter_by('identifier', '==', user_hrn).select('user_id')
+        ret_user_ids = self.interface.forward(query_user_id)
+        if ret_user_ids['code'] != 0:
+            raise Exception, "Failure requesting linked accounts for identifier '%s'" % user_hrn
+        user_ids = ret_user_ids['value']
+        if not user_ids:
+            raise Exception, "No linked account found with identifier '%s'" % user_hrn
+        print "user_ids", user_ids
+        user_id = user_ids[0]['user_id']
+
+        query_user = Query.get('local:user').filter_by('user_id', '==', user_id)
+        ret_users = self.interface.forward(query_user)
+        if ret_users['code'] != 0:
+            raise Exception, "Failure requesting linked accounts for identifier '%s'" % user_hrn
+        users = ret_users['value']
+        if not users:
+            raise Exception, "Internal error: no user found with user_id = '%d'" % user_id
+        user, = users
+
+        print "Linked SFA account '%s' for user: %r" % (user_hrn, user)
+
+
 class SessionAuth(AuthMethod):
     """
     Secondary authentication method. After authenticating with a
@@ -230,7 +264,8 @@ class Auth(object):
         'session': SessionAuth,
         'ple': PLEAuth,
         'plc': PLCAuth,
-        'managed': ManagedAuth
+        'managed': ManagedAuth,
+        'gid': GIDAuth
     }
 
     def __init__(self, auth):

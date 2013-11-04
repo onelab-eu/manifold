@@ -27,10 +27,10 @@ DEFAULT_CERT_FILE = '/etc/manifold/keys/client.cert'
 
 class ManifoldClient(object):
     def log_info(self): pass
-    def auth_check(self): pass
+    def whoami(self): return None
 
 class ManifoldLocalClient(ManifoldClient):
-    def __init__(self):
+    def __init__(self, user = None):
         self.interface = Router()
         self.interface.__enter__()
         self.auth = None
@@ -47,11 +47,11 @@ class ManifoldLocalClient(ManifoldClient):
         annotations['user'] = self.user
         return self.interface.forward(query, annotations)
 
-    def auth_check(self):
-        pass
-
     def log_info(self):
         Log.info("Shell using local account '%r'" % self.user)
+
+    def whoami(self):
+        return self.user
 
 class ManifoldXMLRPCClientXMLRPCLIB(ManifoldClient):
     # on ne sait pas si c'est secure ou non
@@ -126,16 +126,20 @@ class Proxy(object):
 
 class ManifoldXMLRPCClient(ManifoldClient):
 
-    def auth_check(self):
-        self.interface.AuthCheck(self.auth)
-
     @defer.inlineCallbacks
     def forward(self, query, annotations=None):
         if not annotations:
             annotations = {}
         annotations.update(self.annotations)
         ret = yield self.interface.forward(query.to_dict(), annotations)
-        print "RETURN", ret
+        defer.resultValue(ret)
+
+    @defer.inlineCallbacks
+    def whoami(self, query, annotations=None):
+        if not annotations:
+            annotations = {}
+        annotations.update(self.annotations)
+        ret = yield self.interface.AuthCheck(annotations)
         defer.resultValue(ret)
 
 class ManifoldXMLRPCClientSSLPassword(ManifoldXMLRPCClient):
@@ -312,7 +316,7 @@ class Shell(object):
         self.select_auth_method(Options().auth_method)
         if self.interactive:
             self.client.log_info()
-        self.auth_check()
+        self.whoami()
 
     def terminate(self):
         # XXX Issues with the reference counter
@@ -322,10 +326,18 @@ class Shell(object):
 
     def display(self, ret):
         if ret['code'] != 0:
+            print ''
+            print 'ERROR:'
             if isinstance(ret['description'], list):
                 # We have a list of errors
                 for err in ret['description']:
                     self.print_err(err)
+            else:
+                print ret['description']
+
+        if ret['code'] == 2:
+            print ''
+            return
     
         ret = ret['value']
     
@@ -350,13 +362,10 @@ class Shell(object):
     def execute(self, query):
         return self.client.forward(query)
 
-    def auth_check(self):
-        return self.client.auth_check()
-
     def whoami(self):
         # Who is authenticating ?
         # authentication
-        return None
+        return self.client.whoami
         
         
 #    # If called by a script 
@@ -447,8 +456,7 @@ class Shell(object):
                     break
 
                 try:
-                    ret = self.evaluate(command)
-                    self.display(ret)
+                    self.display(self.evaluate(command))
                 except KeyboardInterrupt:
                     command = ""
                     print
