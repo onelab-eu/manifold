@@ -20,8 +20,10 @@ from twisted.internet      import defer
 import json
 
 # This could be moved outside of the Shell
-DEFAULT_USER     = 'demo'
-DEFAULT_PASSWORD = 'demo'
+DEFAULT_USER      = 'demo'
+DEFAULT_PASSWORD  = 'demo'
+DEFAULT_PKEY_FILE = '/etc/manifold/keys/client.pkey' 
+DEFAULT_CERT_FILE = '/etc/manifold/keys/client.cert'
 
 class ManifoldClient(object):
     def log_info(self): pass
@@ -207,7 +209,7 @@ class Shell(object):
             default = None
         )
         opt.add_option(
-            "-k", "--insecure", dest = "xmlrpc_insecure",
+            "-K", "--insecure", dest = "xmlrpc_insecure",
             help = "Do not check SSL certificate", 
             default = 7080
         )
@@ -225,6 +227,16 @@ class Shell(object):
             "-p", "--password", dest = "password",
             help = "API password", 
             default = DEFAULT_PASSWORD
+        )
+        opt.add_option(
+            "-k", "--private-key", dest = "pkey_file",
+            help = "Private key file to use for the SSL connection",
+            default = DEFAULT_PKEY_FILE
+        )
+        opt.add_option(
+            "-g", "--cert-file", dest = "cert_file",
+            help = "Certificate (chain) file to use for the SSL connection (= SFA GID)",
+            default = DEFAULT_CERT_FILE
         )
         opt.add_option(
             "-x", "--xmlrpc", action="store_true", dest = "xmlrpc",
