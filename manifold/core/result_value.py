@@ -83,8 +83,10 @@ class ResultValue(dict):
             return ResultValue(code=self.WARNING, origin=[self.CORE, 0], description=result_value_array, value=results)
 
     @classmethod
-    def get_error(self, error):
-        return ResultValue(code=error, origin=[self.CORE, 0], value=self.ERRSTR[error])
+    def get_error(self, error, description=None):
+        if not description:
+            description = self.ERRSTR[error]
+        return ResultValue(code=self.ERROR, type=error, origin=[self.CORE, 0], description=description)
 
     @classmethod
     def get_success(self, result):
