@@ -70,13 +70,11 @@ class Gateway(object):
         variables['user_email'] = self.user.email
         for k, v in self.user.get_config().items():
             if isinstance(v, StringTypes) and not 'credential' in v:
-                print "VARIABLES: %s => %s" % (k, v)
                 variables[k] = v
         # Account information of the authenticated user
         if self.user_config:
             for k, v in self.user_config.items():
                 if isinstance(v, StringTypes) and not 'credential' in v:
-                    print "VARIABLES: %s => %s" % (k, v)
                     variables[k] = v
         return variables
 
