@@ -12,10 +12,12 @@ from manifold.core.query   import Query
 from manifold.core.router  import Router
 from manifold.util.log     import Log
 from manifold.util.options import Options
+from manifold.util.reactor_thread import ReactorThread
 from manifold.input.sql    import SQLParser
 from manifold.auth         import Auth
 
-from twisted.internet      import defer
+from twisted.internet      import defer, ssl
+from twisted.web           import xmlrpc
 
 import json
 
@@ -30,18 +32,33 @@ class ManifoldClient(object):
     def whoami(self): return None
 
 class ManifoldLocalClient(ManifoldClient):
-    def __init__(self, user = None):
+    def __init__(self, username = None):
         self.interface = Router()
         self.interface.__enter__()
-        self.auth = None
-        self.user = None
+
+        #ret_users = self.interface.forward(Query.get('local:user').filter_by('email', '==', username))
+        #if ret_users['code'] != 0:
+        #    Log.warning('Could not retrieve current user... going anonymous')
+        #    self.user = None
+        #else:
+        #    users = ret_users['value']
+        #    if not users:
+        #        Log.warning('Could not retrieve current user... going anonymous')
+        #        self.user = None
+        #    else:
+        #        self.user = users[0]
+        from manifold.models import db
+        from manifold.models.user import User
+        self.user = db.query(User).filter(User.email == username).one()
 
     def __del__(self):
-        if self.interface:
-            self.interface.__exit__()
-        self.interface = None
+        try:
+            if self.interface:
+                self.interface.__exit__()
+            self.interface = None
+        except: pass
 
-    def forward(self, query, annotations=None):
+    def forward(self, query, annotations = None):
         if not annotations:
             annotations = {}
         annotations['user'] = self.user
@@ -62,7 +79,7 @@ class ManifoldXMLRPCClientXMLRPCLIB(ManifoldClient):
         self.interface = xmlrpclib.ServerProxy(url, allow_none=True)
         self.auth = None
 
-    def forward(self, query, annotations=None):
+    def forward(self, query, annotations = None):
         if not annotations:
             annotations = {}
         annotations['authentication'] = self.auth
@@ -71,9 +88,21 @@ class ManifoldXMLRPCClientXMLRPCLIB(ManifoldClient):
     # mode_str      = 'XMLRPC'
     # interface_str = ' towards XMLRPC API %s' % self.interface
 
-class Proxy(object):
+class Proxy(xmlrpc.Proxy):
+    def __str__(self):
+        return "<XMLRPC client to %s>" % self.url
+
+    def __init__(self, url, user=None, password=None, allowNone=False, useDateTime=False, connectTimeout=30.0, reactor=None): # XXX
+        import threading
+        xmlrpc.Proxy.__init__(self, url, user, password, allowNone, useDateTime, connectTimeout, reactor)
+        self.url = url
+        self.event = threading.Event() 
+        self.result = None
+        self.error = None
+
     def setSSLClientContext(self,SSLClientContext):
         self.SSLClientContext = SSLClientContext
+
     def callRemote(self, method, *args):
         def cancel(d):
             factory.deferred = None
@@ -95,61 +124,73 @@ class Proxy(object):
                 # verfication of who your talking to
                 # Using the default sslcontext without verification
                 # Can lead to man in the middle attacks
-            reactor.connectSSL(self.host, self.port or 443,
+            ReactorThread().connectSSL(self.host, self.port or 443,
                                factory, self.SSLClientContext,
                                timeout=self.connectTimeout)
 
         else:
-           reactor.connectTCP(self.host, self.port or 80, factory, timeout=self.connectTimeout)
+           ReactorThread().connectTCP(self.host, self.port or 80, factory, timeout=self.connectTimeout)
         return factory.deferred
 
-    def __getattr__(self, name):                                                                                
+    def __getattr__(self, name):
+        # We transfer missing methods to the remote server
         def _missing(*args):
             from twisted.internet import defer
             d = defer.Deferred()
             
-            success_cb = lambda result: d.callback(result)                                                      
-            error_cb   = lambda error : d.errback(ValueError("Proxy %s" % error))                               
-                                                                                                                
-            @defer.inlineCallbacks
+            def proxy_success_cb(result):
+                self.result = result
+                self.event.set()
+            def proxy_error_cb(error):
+                self.error = error
+                self.event.set()
+            
+            #@defer.inlineCallbacks
             def wrap(source, args):
-                token = yield SFATokenMgr().get_token(self.interface)                                           
-                args = (name,) + args                                                                           
-                
-                # XXX Should add annotations
-
-                self.callRemote(*args).addCallbacks(proxy_success_cb, proxy_error_cb)                           
-                
-            ReactorThread().callInReactor(wrap, self, args)                                                     
-            return d
+                args = (name,) + args
+                self.callRemote(*args).addCallbacks(proxy_success_cb, proxy_error_cb)
+            
+            ReactorThread().callInReactor(wrap, self, args)
+            self.event.wait()
+            self.event.clear()
+            if self.error:
+                Log.error("ERROR IN PROXY: %s" % self.error)
+                self.error = None
+                return None
+            else:
+                result = self.result
+                self.result = None
+                return result
         return _missing
 
 class ManifoldXMLRPCClient(ManifoldClient):
+    def __init__(self, url):
+        self.url = url
+        ReactorThread().start_reactor()
 
-    @defer.inlineCallbacks
-    def forward(self, query, annotations=None):
+    def __del__(self):
+        ReactorThread().stop_reactor()
+
+    def forward(self, query, annotations = None):
         if not annotations:
             annotations = {}
         annotations.update(self.annotations)
-        ret = yield self.interface.forward(query.to_dict(), annotations)
-        defer.resultValue(ret)
+        return self.interface.forward(query.to_dict(), annotations)
+        
 
     @defer.inlineCallbacks
-    def whoami(self, query, annotations=None):
-        if not annotations:
-            annotations = {}
-        annotations.update(self.annotations)
-        ret = yield self.interface.AuthCheck(annotations)
-        defer.resultValue(ret)
+    def whoami(self, query, annotations = None):
+        Log.tmp("TBD")
+        #if not annotations:
+        #    annotations = {}
+        #annotations.update(self.annotations)
+        #ret = yield self.interface.AuthCheck(annotations)
+        #defer.returnValue(ret)
 
 class ManifoldXMLRPCClientSSLPassword(ManifoldXMLRPCClient):
     
-    from OpenSSL import SSL
-    from twisted.internet import ssl, reactor
-    from twisted.internet.protocol import ClientFactory, Protocol
-
     def __init__(self, url, username=None, password=None):
-        self.url = url
+        ManifoldXMLRPCClient.__init__(self, url)
         self.username = username
 
         if username:
@@ -157,7 +198,7 @@ class ManifoldXMLRPCClientSSLPassword(ManifoldXMLRPCClient):
         else:
             self.annotations = { 'authentication': {'AuthMethod': 'anonymous'} } 
 
-        self.interface = Proxy('https://localhost:7080/', allowNone=True, useDateTime=False)
+        self.interface = Proxy(self.url, allowNone=True, useDateTime=False)
         self.interface.setSSLClientContext(ssl.ClientContextFactory())
 
     def log_info(self):
@@ -165,10 +206,6 @@ class ManifoldXMLRPCClientSSLPassword(ManifoldXMLRPCClient):
 
 class ManifoldXMLRPCClientSSLGID(ManifoldXMLRPCClient):
     
-    from OpenSSL import SSL
-    from twisted.internet import ssl, reactor
-    from twisted.internet.protocol import ClientFactory, Protocol
-
     ## We need this to define the private key and certificate (GID) to use
     #class CtxFactory(ssl.ClientContextFactory):
     #    def getContext(self):
@@ -181,7 +218,7 @@ class ManifoldXMLRPCClientSSLGID(ManifoldXMLRPCClient):
     def __init__(self, url, pkey_file, cert_file):
         self.url = url
         self.gid_subject = 'NULL'
-        self.interface = Proxy('https://localhost:7080/', allowNone=True, useDateTime=False)
+        self.interface = Proxy(self.url, allowNone=True, useDateTime=False)
         #self.interface.setSSLClientContext(CtxFactory(pkey_file, cert_file))
 
         self.annotations = { 'authentication': {'AuthMethod': 'gid'} } 
@@ -220,7 +257,7 @@ class Shell(object):
         opt.add_option(
             "-U", "--url", dest = "xmlrpc_url",
             help = "API URL", 
-            default = 'http://localhost:7080'
+            default = 'https://localhost:7080'
         )
         opt.add_option(
             "-u", "--username", dest = "username",
@@ -272,7 +309,9 @@ class Shell(object):
             raise Exception, "Could not authentication automatically (tried: local, gid, password)"
 
         elif auth_method == 'local':
-            self.client = ManifoldLocalClient() # XXX choice of the user ?
+            username = Options().username
+            
+            self.client = ManifoldLocalClient(username)
 
         else: # XMLRPC 
             url = Options().xmlrpc_url
@@ -322,7 +361,9 @@ class Shell(object):
         # XXX Issues with the reference counter
         #del self.client
         #self.client = None
-        self.client.__del__()
+        try:
+            self.client.__del__()
+        except: pass
 
     def display(self, ret):
         if ret['code'] != 0:
