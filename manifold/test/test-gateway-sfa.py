@@ -8,6 +8,7 @@ import cfgparse, pprint, sys, traceback
 import random, string
 from manifold.bin.shell  import Shell
 
+from sfa.util.xrn                   import Xrn
 
 from manifold.core.query            import Query
 from manifold.core.receiver         import Receiver 
@@ -35,18 +36,17 @@ def main():
     # Need to check if Metadata match with the Queries (ex: slice_hrn vs hrn / slice_urn vs urn)
     # DELETE Query will delete the newly created slice, Let's hope it will not match a previously existing slice...
     # Please delete it manually from the SFA Registry if DELETE Query fails !
-    slice_hrn    =  "ple.upmc.%s" % (random_char(10))
-    from sfa.util.xrn import Xrn
-    slice_urn    = Xrn(hrn, object_type).get_urn()
+    slice_hrn = "ple.upmc.%s" % (random_char(10))
+    slice_urn = Xrn(slice_hrn, "slice").get_urn()
 
     queries = [
         # RM::get
         'SELECT * FROM user      WHERE user_hrn      == "ple.upmc.loic_baron"',
         'SELECT * FROM slice     WHERE slice_hrn     == "ple.upmc.myslicedemo"',
-        'SELECT * FROM authority WHERE authority_hrn == "ple.upmc"',
-        'UPDATE slice SET resource = ["%s"] WHERE slice_hrn == "ple.upmc.myslicedemo"' % (resource_urn), # sent to SFA AM
-        'INSERT INTO slice SET slice_hrn = "%s", slice_urn = "%s", enabled = True' % (slice_hrn,slice_urn), # sent to SFA Registry
-        'DELETE FROM slice WHERE slice_hrn = %s' % (slice_hrn)
+        'SELECT * FROM authority WHERE authority_hrn == "ple.upmc"'#,
+#        'UPDATE slice SET resource = ["%s"] WHERE slice_hrn == "ple.upmc.myslicedemo"' % (resource_urn), # sent to SFA AM
+#        'INSERT INTO slice SET slice_hrn = "%s", slice_urn = "%s", enabled = True' % (slice_hrn,slice_urn), # sent to SFA Registry
+#        'DELETE FROM slice WHERE slice_hrn = %s' % (slice_hrn)
     ]
 
     shell = Shell(interactive = True)
