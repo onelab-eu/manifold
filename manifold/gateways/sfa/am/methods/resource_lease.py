@@ -44,7 +44,7 @@ class ResourceLease(Object):
         # XXX ONLY ONE AND WITHOUT JOKERS
         slice_hrn = slice_hrns[0] if slice_hrns else None
 
-        slice_api = self.get_sfa_proxy()
+        slice_api = self.get_sfa_proxy_admin()
         # no need to check if server accepts the options argument since the options has
         # been a required argument since v1 API
         api_options = dict() 

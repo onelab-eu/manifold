@@ -32,9 +32,6 @@ from manifold.operators                 	import LAST_RECORD
 from manifold.util.log                      import Log
 from manifold.util.type                     import accepts, returns 
 
-class CredentialException:
-    pass
-
 class SFA_RMGateway(SFAGatewayCommon):
 
     from manifold.gateways.sfa.rm.methods.authority import Authority
@@ -167,6 +164,7 @@ class SFA_RMGateway(SFAGatewayCommon):
             True if we could try to re-run the Query, false otherwise
         """
         if user_account["auth_type"] == "managed":
+            Log.warning("Using anonymous to access Manifold's Storage")
 
             # Retrieve admin's config
             admin_account = self.get_account(ADMIN_USER["email"])
@@ -177,14 +175,14 @@ class SFA_RMGateway(SFAGatewayCommon):
             user_account_config = yield self.manage(user_dict, user_account_config, admin_account_config)
 
             # Update the Storage consequently
-            # TODO use Gateway.query_storage()
-            query_storage = Query.update("local:account")\
-                .set({"config": json.dumps(user_account_config)})\
-                .filter_by("user_id",     "=", user_account["user_id"])\
-                .filter_by("platform_id", "=", user_account["platform_id"])
+            self.query_storage(
+                Query.update("local:account")\
+                    .set({"config": json.dumps(user_account_config)})\
+                    .filter_by("user_id",     "=", user_account["user_id"])\
+                    .filter_by("platform_id", "=", user_account["platform_id"]),
+                self.get_user_storage()
+            )
 
-            router = self.get_interface()
-            router.forward(query_storage, False, True, user, receiver)
             defer.returnValue(True)
 
         defer.returnValue(False)
@@ -198,9 +196,13 @@ class SFA_RMGateway(SFAGatewayCommon):
             user_account_config: A dictionnary storing the account configuration related to
                 the User and to the nested Platform managed by this Gateway.
             type: A String instance among {"user", "authority", "slice"}
-            target_hrn: A String identifying the requested object. 
+            target_hrn: If type == "slice", this String contains the slice HRN.
+                Otherwise pass None.
         """
-        assert isinstance(user_account_config, dict), "Invalid user_account_config"
+        assert isinstance(user_account_config, dict),  "Invalid user_account_config"
+        assert type in ["authority", "user", "slice"], "Invalid credential type: %s" % type
+        assert target_hrn == None or type == "slice",  "Invalid parameters" # NOTE: Once this function will be generalized, update this assert
+
         try:
             return SFA_RMGateway.get_credential_impl(user, user_account_config, type, target_hrn)
         except Exception, why:
@@ -222,9 +224,6 @@ class SFA_RMGateway(SFAGatewayCommon):
         Returns:
             The corresponding Credential String.
         """
-        assert target_hrn == None or type == "slice", "Invalid parameters" # NOTE: Once this function will be generalized, update this assert
-#        assert isinstance(user_account_config, dict), "Invalid user_account_config (type %s)" % type(user_account_config)
-
         delegated = "delegated_" if not is_user_admin(user) else ""
         key = "%s%s_credential%s" % (
             delegated,
@@ -234,11 +233,11 @@ class SFA_RMGateway(SFAGatewayCommon):
 
         if type in ["authority", "user"]:
             if target_hrn:
-                raise Exception, "Cannot retrieve specific %s credential for now" % type
+                raise Exception("Cannot retrieve specific %s credential for now" % type)
             try:
                 return user_account_config[key]
             except KeyError, e:
-                raise Exception, "Missing %s credential %s" % (type, str(e))
+                raise Exception("Missing %s credential %s" % (type, str(e)))
         elif type == "slice":
             if not is_user_admin(user) and not key in user_account_config:
                 user_account_config[key] = dict() 
@@ -254,10 +253,10 @@ class SFA_RMGateway(SFAGatewayCommon):
                     cred = SFA_RMGateway.generate_slice_credential(target_hrn, user_account_config)
                     creds[target_hrn] = cred
                 else:
-                    raise Exception , "No credential found of type %s towards %s " % (type, target_hrn)
+                    raise Exception("No credential found of type %s towards %s " % (type, target_hrn))
             return cred
         else:
-            raise Exception, "Invalid credential type: %s" % type
+            raise Exception("Invalid credential type: %s" % type)
 
     @returns(StringTypes)
     def delegate(self, user_credential, user_private_key, user_gid, admin_credential):
@@ -280,7 +279,7 @@ class SFA_RMGateway(SFAGatewayCommon):
 
         # Does the user has the right to delegate all its privileges?
         if not user_credential.get_privileges().get_all_delegate():
-            raise Exception, "SFA Gateway the user has no right to delegate"
+            raise Exception("SFA Gateway the user has no right to delegate")
 
         # If nessecary converting string to Credential object
         if not isinstance(admin_credential, Credential):
@@ -297,9 +296,6 @@ class SFA_RMGateway(SFAGatewayCommon):
         cert_fn.write(user_gid) # We always use the GID 
         pkey_fn.close() 
         cert_fn.close() 
-        print "admin_gid    = %s" % admin_gid
-        print "pkey_fn.name = %s" % pkey_fn.name
-        print "cert_fn.name = %s" % cert_fn.name 
 
         delegated_credential = user_credential.delegate(admin_gid, pkey_fn.name, cert_fn.name)
         delegated_credential_str = delegated_credential.save_to_string(save_parents=True)
@@ -505,7 +501,7 @@ class SFA_RMGateway(SFAGatewayCommon):
         # create an SFA connexion to Registry, using user_account_config
         
         timeout = self.get_timeout()
-        registry_url = self.get_config()["registry"]
+        registry_url = self.get_url()
         registry_proxy = self.get_sfa_proxy_impl(registry_url, user, user_account_config, "sscert", timeout)
         if need_user_credential and SFA_RMGateway.credentials_needed("user_credential", user_account_config):
             Log.debug("Requesting user credential for user %s" % user)
@@ -613,55 +609,56 @@ class SFA_RMGateway(SFAGatewayCommon):
         # return using asynchronous defer
         defer.returnValue(user_account_config)
 
-#---------------------------------------------------------------------------
-# Patch SFA
-#---------------------------------------------------------------------------
-
-def sfa_trust_credential_delegate(self, delegee_gidfile, caller_keyfile, caller_gidfile):
-    """
-    Patch over SFA.
-    This overwrite the Credential.delegate method.
-    Args:
-        admin_gid       : A GID instance
-        delegee_gidfile : A String containing the path of the private key.
-        caller_keyfile  : A String containing the path of certificate key.
-    Returns:
-        A delegated copy of this credential, delegated to the 
-        specified gid's user.    
-    """
-    from sfa.trust.gid               import GID
-
-    Log.warning("Calling an overriden delegate() method, update this once fixed in SFA")
-
-    # Get the gid of the object we are delegating
-    object_gid = self.get_gid_object()
-    object_hrn = object_gid.get_hrn()
-
-    # The HRN of the User who will be delegated to
-    # @loic corrected
-    print "gid type = ",type(delegee_gidfile)
-    print delegee_gidfile.__class__
-    if not isinstance(delegee_gidfile, GID):
-        delegee_gid = GID(filename = delegee_gidfile)
-    else:
-        delegee_gid = delegee_gidfile
-    delegee_hrn = delegee_gid.get_hrn()
-
-    #user_key = Keypair(filename=keyfile)
-    #user_hrn = self.get_gid_caller().get_hrn()
-    subject_string = "%s delegated to %s" % (object_hrn, delegee_hrn)
-    dcred = Credential(subject=subject_string)
-    dcred.set_gid_caller(delegee_gid)
-    dcred.set_gid_object(object_gid)
-    dcred.set_parent(self)
-    dcred.set_expiration(self.get_expiration())
-    dcred.set_privileges(self.get_privileges())
-    dcred.get_privileges().delegate_all_privileges(True)
-    #dcred.set_issuer_keys(keyfile, delegee_gidfile)
-    dcred.set_issuer_keys(caller_keyfile, caller_gidfile)
-    dcred.encode()
-    dcred.sign()
-
-    return dcred
-
-Credential.delegate = sfa_trust_credential_delegate
+# See rm/credential.py
+#OBSOLETE|#---------------------------------------------------------------------------
+#OBSOLETE|# Patch SFA
+#OBSOLETE|#---------------------------------------------------------------------------
+#OBSOLETE|
+#OBSOLETE|def sfa_trust_credential_delegate(self, delegee_gidfile, caller_keyfile, caller_gidfile):
+#OBSOLETE|    """
+#OBSOLETE|    Patch over SFA.
+#OBSOLETE|    This overwrite the Credential.delegate method.
+#OBSOLETE|    Args:
+#OBSOLETE|        admin_gid       : A GID instance
+#OBSOLETE|        delegee_gidfile : A String containing the path of the private key.
+#OBSOLETE|        caller_keyfile  : A String containing the path of certificate key.
+#OBSOLETE|    Returns:
+#OBSOLETE|        A delegated copy of this credential, delegated to the 
+#OBSOLETE|        specified gid's user.    
+#OBSOLETE|    """
+#OBSOLETE|    from sfa.trust.gid               import GID
+#OBSOLETE|
+#OBSOLETE|    Log.warning("Calling an overriden delegate() method, update this once fixed in SFA")
+#OBSOLETE|
+#OBSOLETE|    # Get the gid of the object we are delegating
+#OBSOLETE|    object_gid = self.get_gid_object()
+#OBSOLETE|    object_hrn = object_gid.get_hrn()
+#OBSOLETE|
+#OBSOLETE|    # The HRN of the User who will be delegated to
+#OBSOLETE|    # @loic corrected
+#OBSOLETE|    print "gid type = ",type(delegee_gidfile)
+#OBSOLETE|    print delegee_gidfile.__class__
+#OBSOLETE|    if not isinstance(delegee_gidfile, GID):
+#OBSOLETE|        delegee_gid = GID(filename = delegee_gidfile)
+#OBSOLETE|    else:
+#OBSOLETE|        delegee_gid = delegee_gidfile
+#OBSOLETE|    delegee_hrn = delegee_gid.get_hrn()
+#OBSOLETE|
+#OBSOLETE|    #user_key = Keypair(filename=keyfile)
+#OBSOLETE|    #user_hrn = self.get_gid_caller().get_hrn()
+#OBSOLETE|    subject_string = "%s delegated to %s" % (object_hrn, delegee_hrn)
+#OBSOLETE|    dcred = Credential(subject=subject_string)
+#OBSOLETE|    dcred.set_gid_caller(delegee_gid)
+#OBSOLETE|    dcred.set_gid_object(object_gid)
+#OBSOLETE|    dcred.set_parent(self)
+#OBSOLETE|    dcred.set_expiration(self.get_expiration())
+#OBSOLETE|    dcred.set_privileges(self.get_privileges())
+#OBSOLETE|    dcred.get_privileges().delegate_all_privileges(True)
+#OBSOLETE|    #dcred.set_issuer_keys(keyfile, delegee_gidfile)
+#OBSOLETE|    dcred.set_issuer_keys(caller_keyfile, caller_gidfile)
+#OBSOLETE|    dcred.encode()
+#OBSOLETE|    dcred.sign()
+#OBSOLETE|
+#OBSOLETE|    return dcred
+#OBSOLETE|
+#OBSOLETE|Credential.delegate = sfa_trust_credential_delegate

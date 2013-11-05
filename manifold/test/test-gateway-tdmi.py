@@ -16,7 +16,8 @@ import sys
 from manifold.gateways.tdmi        import TDMIGateway
 from manifold.core.query           import Query
 from manifold.core.result_value    import ResultValue
-from manifold.core.router          import Router 
+from manifold.core.receiver        import Receiver
+from manifold.core.router          import Router
 from manifold.util.storage         import DBStorage
 from manifold.util.type            import returns, accepts 
 from manifold.util.log             import Log
@@ -63,16 +64,6 @@ def make_tdmi_router():
     # Our Forwarder does not need any capability since pgsql is
     return Router(platforms)
 
-class Receiver:
-    def __init__(self):
-        self.received_value = None
-
-    def set_result_value(self, received_value):
-        self.received_value = received_value
-
-    def get_result_value(self):
-        return self.received_value
-
 @accepts(Router, Query)
 def run_query(router, query, execute = True):
     """
@@ -82,7 +73,6 @@ def run_query(router, query, execute = True):
         query: The query instance send to the TDMI's router
         execute: Execute the Query on the TDMIGateway
     """
-
     print "*" * 80
     print query
     print "*" * 80

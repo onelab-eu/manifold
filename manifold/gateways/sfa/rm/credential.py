@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 #
 # This class overrides Credential class provided by SFA
-# in order to fit our needs.
+# in order to fix a bug in the current SFA implementation.
 #
 # Loic Baron        <loic.baron@lip6.fr>
 # Marc-Olivier Buob <marc-olivier.buob@lip6.fr>

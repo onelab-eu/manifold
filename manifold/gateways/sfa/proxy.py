@@ -1,5 +1,15 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+#
+# SFA Proxy ensures communications between Manifold and SFA server.
+#
+# Jordan Auge       <jordan.auge@lip6.fr>
+# Loic Baron        <loic.baron@lip6.fr>
+# Amine Larabi      <mohamed.larabi@inria.fr>
+# Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
+#
+# Copyright (C) 2013 UPMC-INRIA
+
 
 ## Fix bugs in httpclient and twisted/web/xmlrpc.py
 ##from twisted.protocols.tls import TLSMemoryBIOProtocol
@@ -17,9 +27,12 @@
 ##/bugfix
 
 import os, sys, tempfile
-from types                                  import StringTypes
+from types                                  import GeneratorType, StringTypes
 from OpenSSL.crypto                         import TYPE_RSA, FILETYPE_PEM, load_certificate, load_privatekey
 from twisted.internet                       import ssl, defer
+
+from sfa.util.cache                     	import Cache
+from sfa.client.return_value            	import ReturnValue
 
 from manifold.util.reactor_thread           import ReactorThread
 from manifold.util.log                      import Log
@@ -49,11 +62,11 @@ class CtxFactory(ssl.ClientContextFactory):
 
                 w = where & ~ ssl.SSL.SSL_ST_MASK
                 if w & ssl.SSL.SSL_ST_CONNECT:
-                    str="SSL_connect"
+                    str = "SSL_connect"
                 elif w & ssl.SSL.SSL_ST_ACCEPT:
-                    str="SSL_accept"
+                    str = "SSL_accept"
                 else:
-                    str="undefined"
+                    str = "undefined"
 
                 if where & ssl.SSL.SSL_CB_LOOP:
                     print "%s:%s" % (str, conn.state_string())
@@ -131,14 +144,13 @@ class SFATokenMgr(object):
     """
     __metaclass__ = Singleton
 
-    BLACKLIST = ['ple', 'nitos', 'iotlab']
+    BLACKLIST = ["ple", "nitos", "iotlab"]
 
     def __init__(self):
-        self.busy     = {} # network -> Bool
-        self.deferred = {} # network -> deferred corresponding to waiting queries
+        self.busy     = dict() # network -> Bool
+        self.deferred = dict() # network -> deferred corresponding to waiting queries
 
     def get_token(self, interface):
-        Log.debug("SFATokenMgr::get_token(interface=%r)" % interface)
         # We police queries only on blacklisted interfaces
         if not interface or interface not in self.BLACKLIST:
             return True
@@ -257,8 +269,8 @@ class SFAProxy(object):
                     try:
                         self.SSLClientContext
                     except NameError:
-                        print "Must Set a SSL Context"
-                        print "use self.setSSLClientContext() first"
+                        Log.error("Must Set a SSL Context")
+                        Log.error("use self.setSSLClientContext() first")
                         # Its very bad to connect to ssl without some kind of
                         # verfication of who your talking to
                         # Using the default sslcontext without verification
@@ -323,12 +335,51 @@ class SFAProxy(object):
 
     @returns(StringTypes)
     def __str__(self):
+        """
+        Returns:
+            The '%s' representation of this SFAProxy.
+        """
         return "<SfaProxy %s>" % self.interface
 
     @returns(StringTypes)
     def __repr__(self):
+        """
+        Returns:
+            The '%r' representation of this SFAProxy.
+        """
         return "<SfaProxy %s>" % self.interface
         
+    @defer.inlineCallbacks
+    @returns(GeneratorType)
+    def get_cached_version(self):
+        """
+        Returns:
+            The version of the this SFAProxy.
+        """
+        version = None 
+
+        # Check local cache first
+        cache_key = self.get_interface() + "-version"
+        cache = Cache()
+        if cache:
+            version = cache.get(cache_key)
+
+        if not version: 
+            result = yield self.GetVersion()
+            code = result.get("code")
+            if code:
+                if code.get("geni_code") > 0:
+                    raise Exception(result["output"]) 
+                version = ReturnValue.get_value(result)
+            else:
+                version = result
+
+            # Cache version for 20 minutes
+            cache.add(cache_key, version, ttl = 60 * 20)
+
+        defer.returnValue(version)
+
+
 @returns(SFAProxy)
 def make_sfa_proxy(interface_url, account_config, cert_type = "gid", timeout = DEFAULT_TIMEOUT):
     """
@@ -378,7 +429,7 @@ if __name__ == '__main__':
                 sys.exit(1)
 
             # Find user credentials
-            creds = []
+            creds = list() 
 
             if not 'user_credential' in account_config:
                 raise Exception, "Missing user credential in account config for user '%s' on platform '%s'" % (args.user, args.platform)
@@ -392,7 +443,7 @@ if __name__ == '__main__':
         return getattr(proxy, command)(*sfa_parameters)
 
     def init_options():
-        usage="""%prog [options] [METHOD] [PARAMETERS]
+        usage = """%prog [options] [METHOD] [PARAMETERS]
   Issue an SFA call, using credentials from the manifold database."""
 
         #parser = OptionParser(usage=usage)
@@ -494,7 +545,7 @@ if __name__ == '__main__':
             
             # XXX interface or platform
             proxy = SFAProxy(interface, open(args.private_key).read(), open(args.certificate).read())
-            print "Issueing SFA call twice: %s(%r)" % (command, parameters)
+            print "Issuing SFA call twice: %s(%r)" % (command, parameters)
             
             import time
             def cb(result):
