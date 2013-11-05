@@ -170,6 +170,24 @@ class Filter(set):
             field_names |= predicate.get_field_names()
         return field_names
 
+    # __eq__ : similar to set.__eq__   
+    # __le__: For now, we are using set equality, but this is wrong per se.
+        
+    # # Defined with respect of previous functions                                                                
+    # 
+    # def __ne__(self, other):                                                                                    
+    #     return not self == other                                                                                
+    #     
+    # def __lt__(self, other):
+    #     return self <= other and self != other
+    #         
+    # def __ge__(self, other):
+    #     return other <= self                                                                                    
+    #                                                                                                             
+    # def __gt__(self, other):                                                                                    
+    #     return other < self        
+False # XXX
+
 #class OldFilter(Parameter, dict):
 #    """
 #    A type of parameter that represents a filter on one or more
