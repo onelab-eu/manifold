@@ -72,7 +72,7 @@ class Router(Interface):
     # This function is directly called for a Router
     # Decoupling occurs before for queries received through sockets
 #    @returns(ResultValue)
-    def forward(self, query, annotations = None, is_deferred=False, execute=True, user=None):
+    def forward(self, query, annotations = None, is_deferred=False, execute=True):
         """
         Forwards an incoming Query to the appropriate Gateways managed by this Router.
         Args:
@@ -85,7 +85,10 @@ class Router(Interface):
             None in case of failure.
         """
         Log.info("Router::forward: %s" % query)
-        ret = super(Router, self).forward(query, annotations, is_deferred, execute, user)
+
+        user = annotations['user'] if annotations and 'user' in annotations else None
+
+        ret = super(Router, self).forward(query, annotations, is_deferred, execute)
         if ret: 
             return ret
 
@@ -162,6 +165,5 @@ class Router(Interface):
         # Execute query plan
         d = defer.Deferred() if is_deferred else None
         # the deferred object is sent to execute function of the query_plan
-        print "EXECUTE"
         return qp.execute(d)
         #return ResultValue.get_result_value(results, qp.get_result_value_array())

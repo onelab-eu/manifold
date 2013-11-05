@@ -86,7 +86,10 @@ class XMLRPCAPI(xmlrpc.XMLRPC, object):
         query = Query(query)
         # self.interface is either a Router or a Forwarder
         # forward function is called with is_deferred = True in args
-        deferred = self.interface.forward(query, user=user, is_deferred=True)
+        if not annotations:
+            annotations = {}
+        annotations['user'] = user
+        deferred = self.interface.forward(query, annotations, is_deferred=True)
 
         def process_results(rv):
             if 'description' in rv and isinstance(rv['description'], list):

@@ -79,7 +79,9 @@ class ReactorThread(threading.Thread):
         placed in the threads join method. This will require further investigation. 
         """
         if not self._reactorRunning:
-            raise ReactorException("Reactor Not Running")
+            return#raise ReactorException("Reactor Not Running")
+        # done here instead of event until shell.client.__del__ issue is solved
+        self._reactorRunning = False
         self.reactor.callFromThread(self.reactor.stop)
         #self.reactor.join()
 
