@@ -376,7 +376,6 @@ if __name__ == '__main__':
         usage="""%prog [options] [METHOD] [PARAMETERS]
   Issue an SFA call, using credentials from the manifold database."""
 
-        #parser = OptionParser(usage=usage)
         parser = ArgumentParser()
 
         group = parser.add_mutually_exclusive_group()
