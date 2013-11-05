@@ -379,6 +379,43 @@ class SFAProxy(object):
 
         defer.returnValue(version)
 
+    #--------------------------------------------------------------------------
+    # Resurrect this temporarily so we can support V1 aggregates for a while
+    #--------------------------------------------------------------------------
+
+    @defer.inlineCallbacks
+    @returns(bool)
+    def supports_options_arg(self):
+        """
+        Returns:
+            True iif this SFAProxy supports ??? 
+        """
+        server_version = yield server.get_cached_version()
+        # XXX need to rewrite this 
+        # XXX added not server version to handle cases where GetVersion fails (jordan)
+        if not server_version or int(server_version.get("geni_api")) >= 2:
+            defer.returnValue(True)
+            return 
+        defer.returnValue(False)
+        
+    @defer.inlineCallbacks
+    @returns(bool)
+    def supports_call_id_arg(server):
+        """
+        Returns:
+            True iif this SFAProxy supports the optional "call_id" arg.
+        """
+        server_version = yield server.get_cached_version()
+        if "sfa" in server_version and "code_tag" in server_version:
+            code_tag = server_version["code_tag"]
+            code_tag_parts = code_tag.split("-")
+            version_parts = code_tag_parts[0].split(".")
+            major, minor = version_parts[0], version_parts[1]
+            rev = code_tag_parts[1]
+            if int(major) == 1 and minor == 0 and build >= 22:
+                defer.returnValue(True)
+                return
+            defer.returnValue(False)
 
 @returns(SFAProxy)
 def make_sfa_proxy(interface_url, account_config, cert_type = "gid", timeout = DEFAULT_TIMEOUT):

@@ -58,8 +58,12 @@ class SFA_AMGateway(SFAGatewayCommon):
             related to this AM.
         """
         platform_names = self.get_config()["rm_platforms"].all()
-        assert len(platform_names) >= 1, "This AM does not refer to a RM!"
 
+        # Check whether this AM refers to at least one RM.
+        if len(platform_names) == 0:
+            raise ValueError("This AM %s must refer to at least one RM!" % self.get_platform_name())
+
+        # Retrieve RM related to this AM by querying the Manifold Storage.
         platforms = self.query_storage(
             Query.get("local:platform")\
                 .filter_by("gateway_type", "=", "sfa_rm")\
@@ -67,6 +71,7 @@ class SFA_AMGateway(SFAGatewayCommon):
             self.get_user_storage()
         )
 
+        # Check whether every RM referenced by this AM have been found. 
         found_platform_names = [platform["platform"] for platform in platforms]
         if set(found_platform_names) != set(platform_names):
             Log.warning("%s refers to the following RM {%s}, but only the following ones have been found in the Manifold Storage {%s}" %
@@ -75,6 +80,7 @@ class SFA_AMGateway(SFAGatewayCommon):
                 ", ".join(found_platform_names)
             )
 
+        # Return fetched RMs
         for platform in platforms: 
             assert isinstance(platform, dict), "Invalid platform = %s (%s)" % (platform, type(platform))
             yield platform
@@ -96,11 +102,29 @@ class SFA_AMGateway(SFAGatewayCommon):
         """
         return "<%s %r>" % (self.__class__.__name__, self.get_url())
 
-    @staticmethod
-    @returns(StringTypes)
-    def build_sfa_rspec(slice_urn, resources, leases):
-        parser = SFAv1Parser(resources, leases)
-        return parser.to_rspec(slice_urn)
+    @defer.inlineCallbacks
+    @returns(dict)
+    def ois(self, server, option_dict):
+        """
+        ois = options if supported
+        Args:
+            server: A SFAProxy instance.
+            option_dict: A dictionnary instance.
+        Returns:
+            
+        """
+        # TODO This function can return either a dict or a list ????
+        flag = yield server.supports_options_arg(server)
+        if flag:
+            defer.returnValue(option_dict)
+        else:
+            flag = yield server.supports_call_id_arg(server)
+            if flag:
+                #MANDO|defer.returnValue([unique_call_id()])
+                defer.returnValue({"call_id" : unique_call_id()})
+            else:
+                #MANDO|defer.returnValue(list())
+                defer.returnValue(dict())
 
     @defer.inlineCallbacks
     def update_slice(self, user, user_config, filters, params, fields):
@@ -156,7 +180,7 @@ class SFA_AMGateway(SFAGatewayCommon):
             user_urns = [hrn_to_urn(hrn, "user") for hrn in user_hrns]
             user_records = yield self.registry.Resolve(user_urns, [user_cred])
             # TODO strange <<<
-            server_version = yield self.get_cached_server_version(self.registry)
+            server_version = yield self.registry.get_cached_version()
             if "sfa" not in server_version:
                 Log.warning("Converting to pg rspec")
                 users = pg_users_arg(user_records)
@@ -175,16 +199,17 @@ class SFA_AMGateway(SFAGatewayCommon):
         api_options = dict() 
         api_options["append"]  = False
         api_options["call_id"] = unique_call_id()
-        ois = yield self.ois(slice_api, api_options)
+        options = yield self.ois(slice_api, api_options)
 
-        version = self.get_cached_server_version(slice_api)
+        version = slice_api.get_cached_version()
         if version["geni_api"] == 2:
             # AM API v2
-            result = yield slice_api.CreateSliver(slice_urn, [slice_cred], rspec, users, ois)
+            result = yield slice_api.CreateSliver(slice_urn, [slice_cred], rspec, users, options)
         else:
             # AM API v3
-            result = yield slice_api.Allocate(slice_urn, [slice_cred], rspec, ois) # TODO we do not pass users ?
-            result = yield slice_api.Provision([slice_urn], [slice_cred], ois)     # TODO we do not pass users ?
+            # http://groups.geni.net/geni/wiki/GAPI_AM_API_V3#Allocate
+            result = yield slice_api.Allocate(slice_urn, [slice_cred], rspec, options)
+            result = yield slice_api.Provision(slice_urn, slice_cred, options)
 
         # Manifest is a rspec file summarizing what we got.
         manifest = ReturnValue.get_value(result)
@@ -195,7 +220,9 @@ class SFA_AMGateway(SFAGatewayCommon):
             # TODO self.error(...)
         else:
             Log.info("Got manifest from %s" % self.get_platform_name())
-        rsrc_leases = SFA_AMGateway.parse_sfa_rspec(self.get_rspec_version(), manifest)
+        platform_config = self.get_config()
+        rspec_version = SFA_AMGateway.get_rspec_version(platform_config) 
+        rsrc_leases = SFA_AMGateway.parse_sfa_rspec(rspec_version, manifest)
 
         slice = {"slice_hrn": filters.get_eq("slice_hrn")}
         slice.update(rsrc_leases)
@@ -234,18 +261,25 @@ class SFA_AMGateway(SFAGatewayCommon):
     # RSPEC PARSING
     ############################################################################ 
 
+    @staticmethod
     @returns(StringTypes)
-    def get_rspec_version(self):
+    def build_sfa_rspec(slice_urn, resources, leases):
+        parser = SFAv1Parser(resources, leases)
+        return parser.to_rspec(slice_urn)
+
+    @staticmethod
+    @returns(StringTypes)
+    def get_rspec_version(platform_config):
         """
         Retrieve rspec version based on the Plaform config of this Gateway
         (see Manifold's Storage). If the keys 'rspec_type' or 'rspec_version'
         are not set in the Storage, we use "SFA 1" by default.
-        Note:
-            - rspec_type and rspec_version should be set in the config of the platform
+        Args:
+            platform_config: A dictionnary storing the platform config of
+                an SFA_AMGateway (See Manifold Storage, table Platform).
         Returns:
             A String containing the rspec version.
         """
-        platform_config = self.get_config()
         if "rspec_type" and "rspec_version" in platform_config:
             rspec_version = "%s %s" % (
                 platform_config["rspec_type"],
@@ -286,70 +320,5 @@ class SFA_AMGateway(SFAGatewayCommon):
             "lease"    : leases#,
 #           "channel"  : channels
         } 
-
-    @defer.inlineCallbacks
-    @returns(list)
-    def ois(self, server, option_dict):
-        """
-        ois = options if supported
-        to be used in something like serverproxy.Method (arg1, arg2, *self.ois(api_options))
-        Args:
-            server:
-            option_dict
-        """
-        flag = yield self.server_supports_options_arg(server)
-        if flag:
-            defer.returnValue(option_dict)
-        else:
-            flag = yield self.server_supports_call_id_arg(server)
-            if flag:
-                defer.returnValue([unique_call_id()])
-            else:
-                defer.returnValue(list())
-
-    #--------------------------------------------------------------------------
-    # Server 
-    #--------------------------------------------------------------------------
-
-    ### resurrect this temporarily so we can support V1 aggregates for a while
-    # MANDO move in SFAProxy
-    @defer.inlineCallbacks
-    @returns(bool)
-    def server_supports_options_arg(self, server):
-        """
-        Args:
-            server: A SFAProxy instance.
-        Returns:
-            True iif servers supports ??? 
-        """
-        server_version = yield self.get_cached_server_version(server)
-        # XXX need to rewrite this 
-        # XXX added not server version to handle cases where GetVersion fails (jordan)
-        if not server_version or int(server_version.get('geni_api')) >= 2:
-            defer.returnValue(True)
-            return 
-        defer.returnValue(False)
-        
-    # MANDO move in SFAProxy
-    @defer.inlineCallbacks
-    @returns(bool)
-    def server_supports_call_id_arg(self, server):
-        """
-        Args:
-            server: A Proxy instance  
-        Returns:
-            True iif the server supports the optional "call_id" arg.
-        """
-        server_version = yield self.get_cached_server_version(server)
-        if 'sfa' in server_version and 'code_tag' in server_version:
-            code_tag = server_version['code_tag']
-            code_tag_parts = code_tag.split("-")
-            version_parts = code_tag_parts[0].split(".")
-            major, minor = version_parts[0], version_parts[1]
-            rev = code_tag_parts[1]
-            if int(major) == 1 and minor == 0 and build >= 22:
-                defer.returnValue(True)
-                return
-            defer.returnValue(False)
 
 
