@@ -17,11 +17,6 @@ import json, traceback
 from types                                  import StringTypes, GeneratorType
 from twisted.internet                       import defer
 
-from sfa.trust.credential               	import Credential
-from sfa.trust.gid                      	import GID
-from sfa.util.cache                     	import Cache
-from sfa.client.return_value            	import ReturnValue
-
 from manifold.core.query                    import Query 
 from manifold.gateways.gateway              import Gateway
 from manifold.gateways.sfa.proxy            import SFAProxy
@@ -40,6 +35,20 @@ DEMO_HOOKS = ["demo"]
 # code written in am/__init__.py and rm/__init__.py
 
 class SFAGatewayCommon(Gateway):
+
+    #--------------------------------------------------------------------------
+    # Storage config
+    #--------------------------------------------------------------------------
+
+    @returns(dict)
+    def get_user_storage(self):
+        """
+        Returns:
+            A dictionnary the Manifold User used by SFAGateways to query the
+            Manifold Storage (or None if using anonymous access)
+        """
+        Log.warning("Using anonymous to access Manifold's Storage")
+        user_storage = None
 
     #--------------------------------------------------------------------------
     # User config
@@ -72,7 +81,9 @@ class SFAGatewayCommon(Gateway):
         assert isinstance(user_email, StringTypes),\
             "Invalid user_email = %s (%s)" % (user_email, type(user_email))
         platform_name = self.get_platform_name()
-        user_storage  = None # XXX: we access anonymously to the Manifold Storage.
+
+        Log.warning("Using anonymous to access Manifold's Storage")
+        user_storage = self.get_user_storage() 
 
         # Get User
         try:
@@ -150,8 +161,16 @@ class SFAGatewayCommon(Gateway):
     # Server 
     #--------------------------------------------------------------------------
 
+    @returns(StringTypes)
+    def get_url(self):
+        """
+        Returns:
+            The URL of the SFA server related to this SFA Gateway.
+        """
+        raise Exception("This method must be overloaded")
+
     @returns(SFAProxy)
-    def get_sfa_proxy(self):
+    def get_sfa_proxy_admin(self):
         """
         Returns:
             The SFAProxy using MySlice Admin account.
@@ -176,43 +195,10 @@ class SFAGatewayCommon(Gateway):
             A String instance containing the HRN (Human Readable Name)
             corresponding to the AM or RM managed by this Gateway.
         """
-        sfa_proxy = self.get_sfa_proxy()
+        sfa_proxy = self.get_sfa_proxy_admin()
         assert sfa_proxy and isinstance(sfa_proxy, SFAProxy), "Invalid proxy: %s (%s)" % (sfa_proxy, type(sfa_proxy))
-        sfa_proxy_version = yield self.get_cached_sfa_proxy_version(sfa_proxy)    
+        sfa_proxy_version = yield sfa_proxy.get_cached_version()    
         defer.returnValue(sfa_proxy_version["hrn"])
-
-    # TODO move in SFAProxy
-    @defer.inlineCallbacks
-    def get_cached_sfa_proxy_version(self, sfa_proxy):
-        """
-        Args:
-            sfa_proxy: A SFAProxy instance.
-        Returns:
-            The version of the SFA sfa_proxy wrapped in this Gateway.
-        """
-        assert isinstance(sfa_proxy, SFAProxy), "Invalid proxy: %s (%s)" % (sfa_proxy, type(sfa_proxy))
-        version = None 
-
-        # Check local cache first
-        cache_key = sfa_proxy.get_interface() + "-version"
-        cache = Cache()
-        if cache:
-            version = cache.get(cache_key)
-
-        if not version: 
-            result = yield sfa_proxy.GetVersion()
-            code = result.get("code")
-            if code:
-                if code.get("geni_code") > 0:
-                    raise Exception(result["output"]) 
-                version = ReturnValue.get_value(result)
-            else:
-                version = result
-
-            # Cache version for 20 minutes
-            cache.add(cache_key, version, ttl = 60 * self.get_timeout())
-
-        defer.returnValue(version)
 
     #--------------------------------------------------------------------------
     # Gateway 

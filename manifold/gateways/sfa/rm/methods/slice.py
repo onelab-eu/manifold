@@ -4,13 +4,18 @@
 # This class implements callback handled while querying a
 # Slice object exposed by a RM or an AM SFA Gateway. 
 #
+# Jordan Auge       <jordan.auge@lip6.fr>
+# Loic Baron        <loic.baron@lip6.fr>
+# Amine Larabi      <mohamed.larabi@inria.fr>
 # Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 #
 # Copyright (C) 2013 UPMC-INRIA
 
 import re
 from twisted.internet                           import defer
+
 from sfa.storage.record                         import Record
+from sfa.util.xrn                               import Xrn, get_authority
 
 from manifold.gateways.sfa.rm.methods.rm_object import RM_Object
 from manifold.util.log                          import Log
@@ -21,37 +26,51 @@ def check_ssh_key(key):
     """
     Minimally check a key argument
     """
-    good_ssh_key = r'^.*(?:ssh-dss|ssh-rsa)[ ]+[A-Za-z0-9+/=]+(?: .*)?$'
+    good_ssh_key = r"^.*(?:ssh-dss|ssh-rsa)[ ]+[A-Za-z0-9+/=]+(?: .*)?$"
     return re.match(good_ssh_key, key, re.IGNORECASE)
 
 @returns(Record)
 def create_record_from_params(type, params):
+    """
+    Args:
+        type: A String instance.
+        params: A dictionnary storing the Query parameters
+            (see Query::get_params())
+    Returns:
+        A Record.
+    """
     record_dict = dict() 
-    if type == 'slice':
+
+    if type == "slice":
         # This should be handled beforehand
-        if 'slice_hrn' not in params or not params['slice_hrn']:
+        if "slice_hrn" not in params or not params["slice_hrn"]:
             raise Exception, "Must specify slice_hrn to create a slice"
-        xrn = Xrn(params['slice_hrn'], type)
-        record_dict['urn'] = xrn.get_urn()
-        record_dict['hrn'] = xrn.get_hrn()
-        record_dict['type'] = xrn.get_type()
-    if 'key' in params and params['key']:
+        xrn = Xrn(params["slice_hrn"], type)
+        record_dict["urn"]  = xrn.get_urn()
+        record_dict["hrn"]  = xrn.get_hrn()
+        record_dict["type"] = xrn.get_type()
+
+    if "key" in params and params["key"]:
         #try:
-        #    pubkey = open(params['key'], 'r').read()
+        #    pubkey = open(params["key"], "r").read()
         #except IOError:
-        pubkey = params['key']
+        pubkey = params["key"]
         if not check_ssh_key(pubkey):
             raise ValueError("Wrong key format")
-        record_dict['keys'] = [pubkey]
-    if 'slices' in params and params['slices']:
-        record_dict['slices'] = params['slices']
-    if 'researchers' in params and params['researchers']:
+        record_dict["keys"] = [pubkey]
+
+    if "slices" in params and params["slices"]:
+        record_dict["slices"] = params["slices"]
+
+    if "researchers" in params and params["researchers"]:
         # for slice: expecting a list of hrn
-        record_dict['researcher'] = params['researchers']
-    if 'email' in params and params['email']:
-        record_dict['email'] = params['email']
-    if 'pis' in params and params['pis']:
-        record_dict['pi'] = params['pis']
+        record_dict["researcher"] = params["researchers"]
+
+    if "email" in params and params["email"]:
+        record_dict["email"] = params["email"]
+
+    if "pis" in params and params["pis"]:
+        record_dict["pi"] = params["pis"]
 
     #slice: description
 
@@ -100,6 +119,16 @@ class Slice(RM_Object):
     @defer.inlineCallbacks
     @returns(list)
     def create(self, user, account_config, query):
+        """
+        This method must be overloaded if supported in the children class.
+        Args:
+            user: a dictionnary describing the User performing the Query.
+            account_config: a dictionnary containing the User's Account
+                (see "config" field of the Account table defined in the Manifold Storage)
+            query: The Query issued by the User.
+        Returns:
+            The list of updated Objects.
+        """
         gateway = self.get_gateway()
         filters = query.get_where()
         params  = query.get_params()
@@ -107,13 +136,13 @@ class Slice(RM_Object):
 
         # Get the slice name
         if not "slice_hrn" in params:
-            raise Exception, "Create slice requires a slice name"
+            raise Exception("Create slice requires a slice name")
         slice_hrn = params["slice_hrn"]
 
         # Are we creating the slice on the right authority
         slice_auth = get_authority(slice_hrn)
-        registry = yield gateway.get_sfa_proxy()
-        server_version = gateway.get_cached_server_version(registry)
+        sfa_proxy = yield gateway.get_sfa_proxy_admin()
+        server_version = sfa_proxy.get_cached_version()
         server_auth = server_version["hrn"]
 
         if not slice_auth.startswith("%s." % server_auth):
@@ -122,11 +151,11 @@ class Slice(RM_Object):
 
         Log.info("Requesting slice creation on %s for %s" % (server_auth, slice_hrn))
         Log.warning("Need to check slice is created under user authority")
-        cred = gateway.get_credential(user, account_config, "authority")
+        credential = gateway.get_credential(user, account_config, "authority")
         record_dict = create_record_from_params("slice", params)
 
         try:
-            slice_gid = registry.Register(record_dict, cred)
+            slice_gid = sfa_proxy.Register(record_dict, credential)
         except Exception, e:
             Log.error("%s" % e)
 

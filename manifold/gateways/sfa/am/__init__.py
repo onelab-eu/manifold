@@ -20,6 +20,7 @@ from sfa.util.xrn                       import hrn_to_urn, urn_to_hrn
 
 from manifold.core.filter               import Filter
 from manifold.gateways.sfa              import SFAGatewayCommon, DEMO_HOOKS
+
 from manifold.gateways.sfa.user         import ADMIN_USER, check_user  
 from manifold.gateways.sfa.proxy        import SFAProxy
 from manifold.gateways.sfa.rspecs.SFAv1 import SFAv1Parser # as Parser
@@ -53,13 +54,29 @@ class SFA_AMGateway(SFAGatewayCommon):
     def get_rms(self):
         """
         Returns:
-            Allow to iterate on each Platform corresponding to each RM of this AM.
+            Allow to iterate on a list of dictionnary representing each RM
+            related to this AM.
         """
         platform_names = self.get_config()["rm_platforms"].all()
-        assert len(platform_names) > 1, "This AM does not refer to a RM!"
-        for platform_name in platform_names:
-            platform = db.query(Platform).filter(Platform.gateway_type == "sfa_rm").filter(Platform.platform == platform_name)
-            assert isinstance(platform, Platform), "Invalid platform = %s (%s)" % (platform, type(platform))
+        assert len(platform_names) >= 1, "This AM does not refer to a RM!"
+
+        platforms = self.query_storage(
+            Query.get("local:platform")\
+                .filter_by("gateway_type", "=", "sfa_rm")\
+                .filter_by("platform",     "{", platform_names),
+            self.get_user_storage()
+        )
+
+        found_platform_names = [platform["platform"] for platform in platforms]
+        if set(found_platform_names) != set(platform_names):
+            Log.warning("%s refers to the following RM {%s}, but only the following ones have been found in the Manifold Storage {%s}" %
+                self.get_platform_name(),
+                ", ".join(platform_names),
+                ", ".join(found_platform_names)
+            )
+
+        for platform in platforms: 
+            assert isinstance(platform, dict), "Invalid platform = %s (%s)" % (platform, type(platform))
             yield platform
 
     @returns(StringTypes)
@@ -87,21 +104,21 @@ class SFA_AMGateway(SFAGatewayCommon):
 
     @defer.inlineCallbacks
     def update_slice(self, user, user_config, filters, params, fields):
-        if 'resource' not in params:
+        if "resource" not in params:
             raise Exception, "Update failed: nothing to update"
 
         # Keys
-        if not filters.has_eq('slice_hrn'):
-            raise Exception, 'Missing parameter: slice_hrn'
+        if not filters.has_eq("slice_hrn"):
+            raise Exception, "Missing parameter: slice_hrn"
 
-        slice_hrn = filters.get_eq('slice_hrn')
-        slice_urn = hrn_to_urn(slice_hrn, 'slice')
-        resources = params['resource'] if 'resource' in params else list()
-        leases    = params['lease']    if 'lease'    in params else list()
+        slice_hrn = filters.get_eq("slice_hrn")
+        slice_urn = hrn_to_urn(slice_hrn, "slice")
+        resources = params["resource"] if "resource" in params else list()
+        leases    = params["lease"]    if "lease"    in params else list()
 
         # Credentials
-        user_cred  = self.get_credential(user, user_config, 'user')
-        slice_cred = self.get_credential(user, user_config, 'slice', slice_hrn)
+        user_cred  = self.get_credential(user, user_config, "user")
+        slice_cred = self.get_credential(user, user_config, "slice", slice_hrn)
 
         # Build a rspec "request" gathering requested resources (ideally we should send
         # to each testbed a rspec containing only its own resources) 
@@ -132,20 +149,20 @@ class SFA_AMGateway(SFAGatewayCommon):
         #print "W: SFAWrap bug workaround"
         slice_records = Filter.from_dict({'type': 'slice'}).filter(slice_records)
 
-        # slice_records = self.registry.Resolve(slice_urn, [self.my_credential_string], {'details':True})
-        if slice_records and 'reg-researchers' in slice_records[0] and slice_records[0]['reg-researchers']:
+        # slice_records = self.registry.Resolve(slice_urn, [self.my_credential_string], {"details":True})
+        if slice_records and "reg-researchers" in slice_records[0] and slice_records[0]["reg-researchers"]:
             slice_record = slice_records[0]
-            user_hrns = slice_record['reg-researchers']
-            user_urns = [hrn_to_urn(hrn, 'user') for hrn in user_hrns]
+            user_hrns = slice_record["reg-researchers"]
+            user_urns = [hrn_to_urn(hrn, "user") for hrn in user_hrns]
             user_records = yield self.registry.Resolve(user_urns, [user_cred])
             # TODO strange <<<
             server_version = yield self.get_cached_server_version(self.registry)
-            if 'sfa' not in server_version:
+            if "sfa" not in server_version:
                 Log.warning("Converting to pg rspec")
                 users = pg_users_arg(user_records)
                 rspec = RSpec(rspec)
-                rspec.filter({'component_manager_id': server_version['urn']})
-                rspec = RSpecConverter.to_pg_rspec(rspec.toxml(), content_type='request')
+                rspec.filter({"component_manager_id": server_version["urn"]})
+                rspec = RSpecConverter.to_pg_rspec(rspec.toxml(), content_type="request")
             else:
                 users = sfa_users_arg(user_records, slice_record)
             # >>> strange
@@ -154,10 +171,10 @@ class SFA_AMGateway(SFAGatewayCommon):
 
         # CreateSliver has supported the options argument for a while now so it should
         # be safe to assume this server support it
-        slice_api = self.get_sfa_proxy()
+        slice_api = self.get_sfa_proxy_admin()
         api_options = dict() 
-        api_options['append']  = False
-        api_options['call_id'] = unique_call_id()
+        api_options["append"]  = False
+        api_options["call_id"] = unique_call_id()
         ois = yield self.ois(slice_api, api_options)
 
         version = self.get_cached_server_version(slice_api)
@@ -178,70 +195,97 @@ class SFA_AMGateway(SFAGatewayCommon):
             # TODO self.error(...)
         else:
             Log.info("Got manifest from %s" % self.get_platform_name())
-        rsrc_leases = self.parse_sfa_rspec(manifest)
+        rsrc_leases = SFA_AMGateway.parse_sfa_rspec(self.get_rspec_version(), manifest)
 
-        slice = {'slice_hrn': filters.get_eq('slice_hrn')}
+        slice = {"slice_hrn": filters.get_eq("slice_hrn")}
         slice.update(rsrc_leases)
         defer.returnValue([slice])
 
     @defer.inlineCallbacks
     def get_lease(self, user, user_config, filters, params, fields):
         result = yield self.get_resource_lease(user, user_config, filters,fields,params)
-        defer.returnValue(result['lease'])
+        defer.returnValue(result["lease"])
 
     @defer.inlineCallbacks
     def get_resource(self, user, user_config, filters, params, fields):
         result = yield self.get_resource_lease(user, user_config, filters, fields, params)
-        defer.returnValue(result['resource'])
+        defer.returnValue(result["resource"])
 
-    # JORDAN am
-    def add_rspec_to_cache(self, slice_hrn, rspec):
-        Log.warning("RSpec caching disabled")
-        return
-        # Cache result (XXX bug CreateSliver / need to invalidate former cache entries ?)
-        # We might need to update a cached entry when modified instead of creating a new one
-        rspec_add = {
-            "rspec_person_id"  : self.get_config()["caller"]["person_id"],
-            "rspec_target"     : slice_hrn,
-            "rspec_hash"       : hashlib.md5(rspec).hexdigest(),
-            #"rspec_expiration" : XXX
-            "rspec"            : rspec
-        }
-        new = MySliceRSpec(self.api, rspec_add)
-        new.sync()
-        if not new['rspec_id'] > 0:
-            # WARNING: caching failed
-            pass
+#NOT YET USED|    # JORDAN am
+#NOT YET USED|    def add_rspec_to_cache(self, slice_hrn, rspec):
+#NOT YET USED|        Log.warning("RSpec caching disabled")
+#NOT YET USED|        return
+#NOT YET USED|        # Cache result (XXX bug CreateSliver / need to invalidate former cache entries ?)
+#NOT YET USED|        # We might need to update a cached entry when modified instead of creating a new one
+#NOT YET USED|        rspec_add = {
+#NOT YET USED|            "rspec_person_id"  : self.get_config()["caller"]["person_id"],
+#NOT YET USED|            "rspec_target"     : slice_hrn,
+#NOT YET USED|            "rspec_hash"       : hashlib.md5(rspec).hexdigest(),
+#NOT YET USED|            #"rspec_expiration" : XXX
+#NOT YET USED|            "rspec"            : rspec
+#NOT YET USED|        }
+#NOT YET USED|        new = MySliceRSpec(self.api, rspec_add)
+#NOT YET USED|        new.sync()
+#NOT YET USED|        if not new['rspec_id'] > 0:
+#NOT YET USED|            # WARNING: caching failed
+#NOT YET USED|            pass
 
     ############################################################################ 
     # RSPEC PARSING
     ############################################################################ 
 
-    @returns(dict)
-    def parse_sfa_rspec(self, rspec_string):
-        # rspec_type and rspec_version should be set in the config of the platform,
-        # we use GENIv3 as default one if not
-        if 'rspec_type' and 'rspec_version' in self.config:
-            rspec_version = self.config['rspec_type'] + ' ' + self.config['rspec_version']
+    @returns(StringTypes)
+    def get_rspec_version(self):
+        """
+        Retrieve rspec version based on the Plaform config of this Gateway
+        (see Manifold's Storage). If the keys 'rspec_type' or 'rspec_version'
+        are not set in the Storage, we use "SFA 1" by default.
+        Note:
+            - rspec_type and rspec_version should be set in the config of the platform
+        Returns:
+            A String containing the rspec version.
+        """
+        platform_config = self.get_config()
+        if "rspec_type" and "rspec_version" in platform_config:
+            rspec_version = "%s %s" % (
+                platform_config["rspec_type"],
+                platform_config["rspec_version"]
+            )
         else:
-            rspec_version = 'SFA 1'
-
-        rspec = RSpec(rspec_string, version=rspec_version)
+            Log.warning("'rspec_type' and 'rspec_version' should be set in Manifold Storage for platform %s" % self.get_platform_name())
+            rspec_version = "SFA 1"
+        return rspec_version
+       
+    @staticmethod
+    @returns(dict)
+    def parse_sfa_rspec(rspec_version, rspec_string):
+        """
+        Parse an SFA rspec.
+        Args:
+            rspec_version: A String containing the rspec version.
+                See SFA_AMGateway::get_rspec_version().
+            rspect_string: A String containing the rspec.
+        Returns:
+            The dictionnary deduced from this rspec.
+        """
+        rspec = RSpec(rspec_string, version = rspec_version)
         
         nodes = rspec.version.get_nodes()
         leases = rspec.version.get_leases()
         #channels = rspec.version.get_channels()
  
-        # Extend object and Format object field's name
+        # Extend object and Format object field names
         for node in nodes:
-             node['hrn'] = urn_to_hrn(node['component_id'])[0]
-             node['urn'] = node['component_id']
-             node['hostname'] = node['component_name']
-             node['initscripts'] = node.pop('pl_initscripts')
+             node["hrn"] = urn_to_hrn(node["component_id"])[0]
+             node["urn"] = node["component_id"]
+             node["hostname"] = node["component_name"]
+             node["initscripts"] = node.pop("pl_initscripts")
         
-        return {'resource': nodes,'lease': leases } 
-#               'channel': channels \
-#               }
+        return {
+            "resource" : nodes,
+            "lease"    : leases#,
+#           "channel"  : channels
+        } 
 
     @defer.inlineCallbacks
     @returns(list)
@@ -261,7 +305,7 @@ class SFA_AMGateway(SFAGatewayCommon):
             if flag:
                 defer.returnValue([unique_call_id()])
             else:
-                defer.returnValue([])
+                defer.returnValue(list())
 
     #--------------------------------------------------------------------------
     # Server 

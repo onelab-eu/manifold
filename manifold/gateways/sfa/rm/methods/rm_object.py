@@ -130,7 +130,7 @@ class RM_Object(Object):
         credential = gateway.get_credential(user, account_config, "user", None)
 
         # Retrieve the registry (= SFA proxy)
-        sfa_proxy = yield gateway.get_sfa_proxy()
+        sfa_proxy = yield gateway.get_sfa_proxy_admin()
         output = list() 
 
         if resolve:
