@@ -196,18 +196,13 @@ class SQLAlchemyGateway(Gateway):
             params['password'] = self.encrypt_password(params['password'])
         
         _params = cls.process_params(query.get_params(), None, self.user)
-        print "CLS=", cls
-        print "BASES", cls.__bases__
-        print "PARAMS=", params
         new_obj = cls()
         #from sqlalchemy.orm.attributes import manager_of_class
         #mgr = manager_of_class(cls)
         #instance = mgr.new_instance()
-        print "new obj=", new_obj
 
         if params:
             for k, v in params.items():
-                print "%s = %s" % (k,v)
                 setattr(new_obj, k, v)
         db.add(new_obj)
         try:
@@ -216,6 +211,31 @@ class SQLAlchemyGateway(Gateway):
             db.rollback()
         
         return [new_obj]
+
+    def local_query_delete(self, query):
+        #session.query(User).filter(User.id==7).delete()
+
+        fields = query.fields
+
+        cls = self.map_object[query.object]
+
+        # Transform a Filter into a sqlalchemy expression
+        _filters = get_sqla_filters(cls, query.filters)
+        _fields = xgetattr(cls, query.fields) if query.fields else None
+
+
+        res = db.query( *_fields ) if _fields else db.query( cls )
+        if query.filters:
+            for _filter in _filters:
+                res = res.filter(_filter)
+
+        # Do we need to limit to the user's own results
+        try:
+            if cls.restrict_to_self and self.user.email != 'demo':
+                res = res.filter(cls.user_id == self.user.user_id)
+        except AttributeError: pass
+
+        res.delete()
 
     def encrypt_password(self, password):
         #
@@ -236,16 +256,18 @@ class SQLAlchemyGateway(Gateway):
     def start(self):
         assert self.query, "Cannot start gateway with no query associated"
         _map_action = {
-            "get"    : self.local_query_get,
-            "update" : self.local_query_update,
-            "create" : self.local_query_create
+            'get'    : self.local_query_get,
+            'update' : self.local_query_update,
+            'create' : self.local_query_create,
+            'delete' : self.local_query_delete
         }
         table = _map_action[self.query.action](self.query)
         # XXX For local namespace queries, we need to keep a dict
-        for t in table:
-#MANDO|            row = row2dict(t) if self.format == 'dict' else t.get_object()
-            row = row2dict(t) if self.format == 'dict' else t
-            self.callback(row)
+        if table:
+            for t in table:
+    #MANDO|            row = row2dict(t) if self.format == 'dict' else t.get_object()
+                row = row2dict(t) if self.format == 'dict' else t
+                self.callback(row)
         self.callback(None)
 
     def get_metadata(self):
