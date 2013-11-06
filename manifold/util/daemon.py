@@ -339,5 +339,3 @@ class Daemon(object):
             self.terminate_callback()
         else:
             sys.exit(0)
-
-Daemon.init_options()

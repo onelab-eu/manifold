@@ -244,58 +244,58 @@ class Shell(object):
     def init_options(self):
         # Processing
         opt = Options()
-        opt.add_option(
+        opt.add_argument(
             "-C", "--cacert", dest = "xmlrpc_cacert",
             help = "API SSL certificate", 
             default = None
         )
-        opt.add_option(
+        opt.add_argument(
             "-K", "--insecure", dest = "xmlrpc_insecure",
             help = "Do not check SSL certificate", 
             default = 7080
         )
-        opt.add_option(
+        opt.add_argument(
             "-U", "--url", dest = "xmlrpc_url",
             help = "API URL", 
             default = 'https://localhost:7080'
         )
-        opt.add_option(
+        opt.add_argument(
             "-u", "--username", dest = "username",
             help = "API user name", 
             default = DEFAULT_USER
         )
-        opt.add_option(
+        opt.add_argument(
             "-p", "--password", dest = "password",
             help = "API password", 
             default = DEFAULT_PASSWORD
         )
-        opt.add_option(
+        opt.add_argument(
             "-k", "--private-key", dest = "pkey_file",
             help = "Private key file to use for the SSL connection",
             default = DEFAULT_PKEY_FILE
         )
-        opt.add_option(
+        opt.add_argument(
             "-g", "--cert-file", dest = "cert_file",
             help = "Certificate (chain) file to use for the SSL connection (= SFA GID)",
             default = DEFAULT_CERT_FILE
         )
-        opt.add_option(
+        opt.add_argument(
             "-x", "--xmlrpc", action="store_true", dest = "xmlrpc",
             help = "Use XML-RPC interface", 
             default = False
         )
-        opt.add_option(
-            "-a", "--auth-method", dest = "auth_method",
+        opt.add_argument(
+            "-z", "--auth-method", dest = "auth_method",
             help    = 'Choice of the authentication method: auto, anonymous, password, gid',
             default = 'auto'
         )
-        opt.add_option(
+        opt.add_argument(
             "-e", "--execute", dest = "execute",
             help = "Execute a shell command", 
             default = None
         )
-        #parser.add_option("-m", "--method", help = "API authentication method")
-        #parser.add_option("-s", "--session", help = "API session key")
+        #parser.add_argument("-m", "--method", help = "API authentication method")
+        #parser.add_argument("-s", "--session", help = "API session key")
 
     def select_auth_method(self, auth_method):
         if auth_method == 'auto':
@@ -517,7 +517,6 @@ def main():
     else:
         Shell(interactive=True).start()
 
-Shell.init_options()
-    
 if __name__ == '__main__':
+    Shell.init_options()
     main()
