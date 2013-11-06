@@ -18,7 +18,19 @@ DEFAULT_FIELDS = '*'
 DEFAULT_ACTION = 'RW'
 
 def init_options():
+    import argparse
+
     opt = Options()
+
+    class InsertAction(argparse.Action):
+        def __call__(self, parser, namespace, values, option_string=None):
+            setattr(namespace, 'method', METHOD_INSERT)
+            setattr(namespace, 'index', values[0])
+
+    class DeleteAction(argparse.Action):
+        def __call__(self, parser, namespace, values, option_string=None):
+            setattr(namespace, 'method', METHOD_DELETE)
+            setattr(namespace, 'index', values[0])
 
     # Method
     group = opt.add_mutually_exclusive_group(required=True)
@@ -28,14 +40,12 @@ def init_options():
     group.add_argument("-F", "--flush", action='store_const', 
             const=METHOD_FLUSH, dest='method',
             help = "TODO")
-    group.add_argument("-I", "--insert", action='store_const', 
-            const=METHOD_INSERT, dest='method',
+    group.add_argument("-I", "--insert", action=InsertAction, 
+            dest='method',
             help = "TODO")
-    group.add_argument("-D", "--delete", action='store_const', 
-            const=METHOD_DELETE, dest='method',
+    group.add_argument("-D", "--delete", action=DeleteAction,
+            dest='method',
             help = "todo")
-
-    # XXX positional argument for -I and -D ?
 
     # Destination
     opt.add_argument("-o", "--object", dest='object',
