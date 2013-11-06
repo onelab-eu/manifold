@@ -58,30 +58,36 @@ def init_options():
             default = DEFAULT_ACTION,
             help = "TODO. Default is %s" % DEFAULT_ACTION)
 
-    # Target
-    opt.add_argument("-j", "--jump", dest='target', required = True,
+    # Target (only required for append or insert
+    opt.add_argument("-j", "--jump", dest='target',
             help = "TODO")
 
 def main():
     init_options()
-    shell = Shell()
+    Shell.init_options()
 
-    args = Options()
+    # This should be taken care of by argparse...
 
-    if args.method in [METHOD_APPEND, METHOD_INSERT]:
+    if Options().method in [METHOD_APPEND, METHOD_INSERT]:
+        if not Options().target:
+            print "manifold-tables: error: argument -j/--jump is required"
+            sys.exit(0)
+
         # Build rule dictionary
         rule = Rule()
-        rule.object = args.object
-        fields = [x.strip() for x in args.fields.split(',')]
+        rule.object = Options().object
+        fields = [x.strip() for x in Options().fields.split(',')]
         rule.fields = set(fields)
-        rule.access = args.access
-        rule.target = args.target
+        rule.access = Options().access
+        rule.target = Options().target
         rule_dict = rule.to_dict()
 
-    if args.method == METHOD_APPEND:
+    shell = Shell()
+
+    if Options().method == METHOD_APPEND:
         shell.evaluate( "insert into local:policy SET policy_json = '%s'" % json.dumps(rule_dict))
 
-    elif args.method == METHOD_FLUSH:
+    elif Options().method == METHOD_FLUSH:
         shell.evaluate( "delete from local:policy")
         
     else:
