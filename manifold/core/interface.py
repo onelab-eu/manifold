@@ -208,14 +208,21 @@ class Interface(object):
         Log.info("Incoming query: %r" % query)
 
         user = annotations['user'] if annotations and 'user' in annotations else None
+
+        # if Interface is_deferred  
+        d = defer.Deferred() if is_deferred else None
+
         # Enforcing policy
         annotation = None
         accept = self.policy.filter(query, annotation)
         if not accept:
-            return ResultValue.get_error(ResultValue.FORBIDDEN)
-
-        # if Interface is_deferred  
-        d = defer.Deferred() if is_deferred else None
+            output = ResultValue.get_error(ResultValue.FORBIDDEN)
+            if not d:
+                return output
+            else:
+                d.callback(output)
+                return d
+            
 
         # Implements common functionalities = local queries, etc.
         namespace = None

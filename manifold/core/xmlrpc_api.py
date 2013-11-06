@@ -89,6 +89,7 @@ class XMLRPCAPI(xmlrpc.XMLRPC, object):
         if not annotations:
             annotations = {}
         annotations['user'] = user
+        print "*** interface====", self.interface
         deferred = self.interface.forward(query, annotations, is_deferred=True)
 
         def process_results(rv):
