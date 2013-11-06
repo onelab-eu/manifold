@@ -64,11 +64,11 @@ def init_options():
 
 def main():
     init_options()
-    Shell.init_options()
+    shell = Shell()
 
     args = Options()
 
-    if args.method == METHOD_APPEND:
+    if args.method in [METHOD_APPEND, METHOD_INSERT]:
         # Build rule dictionary
         rule = Rule()
         rule.object = args.object
@@ -77,17 +77,17 @@ def main():
         rule.access = args.access
         rule.target = args.target
         rule_dict = rule.to_dict()
-        
-        # Add rule
-        # XXX We might need a support for transactions
-        shell = Shell()
-        command = "insert into local:policy SET policy_json = '%s'" % json.dumps(rule_dict)
-        print "command", command
-        shell.evaluate(command)
-        shell.terminate()
+
+    if args.method == METHOD_APPEND:
+        shell.evaluate( "insert into local:policy SET policy_json = '%s'" % json.dumps(rule_dict))
+
+    elif args.method == METHOD_FLUSH:
+        shell.evaluate( "delete from local:policy")
         
     else:
         raise Exception, "Not implemented"
+
+    shell.terminate()
 
 
 if __name__ == '__main__':
