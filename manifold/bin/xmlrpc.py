@@ -70,33 +70,33 @@ class XMLRPCDaemon(Daemon):
         """
         # Processing
         opt = Options()
-        opt.add_option(
+        opt.add_argument(
             "-P", "--port", dest = "xmlrpc_port",
             help = "Port on which the XMLRPC server will listen.", 
             default = 7080
         )
         # XXX router could be an additional argument
-        opt.add_option(
+        opt.add_argument(
             "-g", "--gateway", dest = "gateway",
             help = "Gateway exposed by the server, None for acting as a router.",
             default = None
         )
-        opt.add_option(
+        opt.add_argument(
             "-p", "--platform", dest = "platform",
             help = "Platform exposed by the server, None for acting as a router.",
             default = None
         )
-        opt.add_option(
+        opt.add_argument(
             "-a", "--disable-auth", action="store_true", dest = "disable_auth",
             help = "Disable authentication",
             default = False
         )
-        opt.add_option(
+        opt.add_argument(
             "-t", "--trusted-roots-path", dest = "trusted_roots_path",
             help = "Select the directory holding trusted root certificates",
             default = '/etc/manifold/trusted_roots/'
         )
-        opt.add_option(
+        opt.add_argument(
             "-s", "--server-ssl-path", action="store_true", dest = "ssl_path",
             help = "Select the directory holding the server private key and certificate for SSL",
             default = '/etc/manifold/keys'

@@ -192,32 +192,32 @@ class Daemon(object):
     def init_options(self):
         opt = Options()
 
-        opt.add_option(
+        opt.add_argument(
             "--uid", dest = "uid",
             help = "UID used to run the dispatcher.",
             default = self.DEFAULTS['uid']
         )
-        opt.add_option(
+        opt.add_argument(
             "--gid", dest = "gid",
             help = "GID used to run the dispatcher.",
             default = self.DEFAULTS['gid']
         )
-        opt.add_option(
+        opt.add_argument(
             "-w", "--working-directory", dest = "working_directory",
             help = "Working directory.",
             default = self.DEFAULTS['working_directory']
         )
-        opt.add_option(
+        opt.add_argument(
             "-D", "--debugmode", action = "store_false", dest = "debugmode",
             help = "Daemon debug mode (useful for developers).",
             default = self.DEFAULTS['debugmode']
         )
-        opt.add_option(
+        opt.add_argument(
             "-n", "--no-daemon", action = "store_true", dest = "no_daemon",
             help = "Run as daemon (detach from terminal).",
             default = self.DEFAULTS["no_daemon"]
         )
-        opt.add_option(
+        opt.add_argument(
             "-i", "--pid-file", dest = "pid_filename",
             help = "Absolute path to the pid-file to use when running as daemon.",
             default = self.DEFAULTS['pid_filename']
