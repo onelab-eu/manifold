@@ -229,8 +229,8 @@ class XMLRPCDaemon(Daemon):
 
 def main():
     XMLRPCDaemon.init_options()
-    #Log.init_options()
-    #Daemon.init_options()
+    Log.init_options()
+    Daemon.init_options()
     Options().parse()
     
     XMLRPCDaemon().start()
