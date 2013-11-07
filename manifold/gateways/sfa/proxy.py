@@ -28,6 +28,9 @@ from twisted.internet             import defer
 
 DEFAULT_TIMEOUT = 20
 
+AGGREGATE_CALLS = ['GetVersion', 'ListResources']
+REGISTRY_CALLS = ['GetVersion', 'Resolve', 'Update', 'Delete', 'Register']
+
 class CtxFactory(ssl.ClientContextFactory):
 
     def __init__(self, pkey, cert):
@@ -351,25 +354,17 @@ if __name__ == '__main__':
     DEFAULT_OPTIONS   = '{}'
 
     def execute(proxy, command, parameters, sfa_options, account_config):
-        # Intercept SFA requests for adding credentials and options
-        if command == 'Resolve':
-            # urn, user_creds, options
-            if not len(parameters) >= 1:
-                parser.print_help()
-                sys.exit(1)
 
-            # Find user credentials
-            creds = []
+        # Find user credentials
+        creds = []
 
-            if not 'user_credential' in account_config:
-                raise Exception, "Missing user credential in account config for user '%s' on platform '%s'" % (args.user, args.platform)
-            user_credential = account_config['user_credential']
+        if not 'user_credential' in account_config:
+            raise Exception, "Missing user credential in account config for user '%s' on platform '%s'" % (args.user, args.platform)
+        user_credential = account_config['user_credential']
 
-            creds.append(user_credential)
+        creds.append(user_credential)
 
-            sfa_parameters = [parameters, creds, sfa_options]
-        else:
-            raise Exception, "Command not (yet) supported '%s'" % command
+        sfa_parameters = [parameters, creds, sfa_options]
         return getattr(proxy, command)(*sfa_parameters)
 
     def init_options():
@@ -384,10 +379,10 @@ if __name__ == '__main__':
         # user has made a choice in case his choice is a default value
         # The default value is attributed later in the code
         group.add_argument("-i", "--interface", dest='interface',
-                # default = DEFAULT_INTERFACE,
+                default = DEFAULT_INTERFACE,
                 help = "Specify SFA interface. Default is %s" % DEFAULT_INTERFACE)
         group.add_argument("-p", "--platform", dest='platform',
-                #default = DEFAULT_PLATFORM,
+                default = DEFAULT_PLATFORM,
                 help = "Specify Manifold SFA platform. Default is %s" % DEFAULT_PLATFORM)
 
         parser.add_argument("-k", "--private_key", dest='private_key',
@@ -405,11 +400,15 @@ if __name__ == '__main__':
 
         # Positional arguments
         parser.add_argument('options', nargs='*')
-        return parser.parse_args()
+        return parser
+
+    def terminate():
+        ReactorThread().stop_reactor()
 
     def main():
 
-        args = init_options()
+        parser = init_options()
+        args = parser.parse_args()
 
         # XXX Cannot both specify platform and interface
         interface_specified = not not args.interface
@@ -423,12 +422,19 @@ if __name__ == '__main__':
             command    = args.options[0]
             parameters = args.options[1:]
 
+        # Intercept SFA requests for adding credentials and options
+        if not command in AGGREGATE_CALLS and not command in REGISTRY_CALLS:
+            raise Exception, "Command not (yet) supported '%s'" % command
+
+        # urn, user_creds, options
+        if command != 'GetVersion' and not len(parameters) >= 1:
+            parser.print_help()
+            sys.exit(1)
+
         register_gateways()
 
         try:
             if platform_specified:
-                registry_calls = ['Resolve', 'Update', 'Delete', 'Register']
-                aggregate_calls = ['ListResources']
                 
                 platforms = Storage.execute(Query().get('platform').filter_by('platform', '==', args.platform).select('platform_id', 'config'))
                 if not platforms:
@@ -436,14 +442,14 @@ if __name__ == '__main__':
                 platform = platforms[0]
                 platform_id, platform_config = platform['platform_id'], platform['config']
                 platform_config = json.loads(platforms[0]['config'])
-                if command in registry_calls:
-                    if not 'registry' in platform_config:
-                        raise Exception, "AM interface not found into platform '%s' configuration" % args.platform
-                    interface = platform_config['registry']
-                elif command in aggregate_calls:
+                if command in AGGREGATE_CALLS:
                     if not 'sm' in platform_config:
                         raise Exception, "AM interface not found into platform '%s' configuration" % args.platform
                     interface = platform_config['sm']
+                elif command in REGISTRY_CALLS:
+                    if not 'registry' in platform_config:
+                        raise Exception, "AM interface not found into platform '%s' configuration" % args.platform
+                    interface = platform_config['registry']
                 else:
                     raise Exception, "Unknown interface"
             #elif interface_specified:
@@ -471,27 +477,48 @@ if __name__ == '__main__':
             # SFA options
             sfa_options_json =  args.sfa_options
             sfa_options = json.loads(sfa_options_json)
-            
+
             # XXX interface or platform
             proxy = SFAProxy(interface, open(args.private_key).read(), open(args.certificate).read())
             print "Issueing SFA call twice: %s(%r)" % (command, parameters)
+            # NOTE same error would occur with two proxies
             
+            count = 0
+
             import time
-            def cb(result):
-                print len(result), "results"
+            class Callback(object):
+                def __init__(self, callback=None):
+                    self._count = 0
+                    self._callback = callback
+                def inc(self):
+                    self._count += 1
+                def dec(self):
+                    self._count -= 1
+                    if count ==0:
+                        self._callback()
+                def __call__(self, result):
+                    print len(result), "results"
+                    self.dec()
+
+            cb = Callback(terminate)
+
+            cb.inc()
+            cb.inc()
+
             d1 = execute(proxy, command, parameters, sfa_options, account_config)
+            d1.callback = cb
+
             # XXX It seems different errors are triggered depending on the timing
             # time.sleep(0.1)
             d2 = execute(proxy, command, parameters, sfa_options, account_config)
-            # NOTE same error would occur with two proxies
-            d1.callback = cb
             d2.callback = cb
+
         except Exception, e:
             print "Exception:", e
             import traceback
             traceback.print_exc()
         finally:
-            pass#ReactorThread().stop_reactor()
+            pass
 
 
     ReactorThread().start_reactor()
