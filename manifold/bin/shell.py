@@ -508,8 +508,9 @@ class Shell(object):
             self.terminate()
 
 def main():
-#    Log.init_options()
-#    Options().parse()
+    Shell.init_options()
+    Log.init_options()
+    Options().parse()
     command = Options().execute
     if command:
         s = Shell(interactive=False)
@@ -518,5 +519,4 @@ def main():
         Shell(interactive=True).start()
 
 if __name__ == '__main__':
-    Shell.init_options()
     main()
