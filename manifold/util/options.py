@@ -50,6 +50,7 @@ class Options(object):
             except IOError:
                 cfg_filename = None
 
+        cfg_options = None
         if cfg_filename:
             config = StringIO.StringIO()
             config.write('[%s]\n' % FAKE_SECTION)
@@ -57,11 +58,19 @@ class Options(object):
             config.seek(0, os.SEEK_SET)
 
             cfg.readfp(config)
-            self.options = dict(cfg.items(FAKE_SECTION))
+            cfg_options = dict(cfg.items(FAKE_SECTION))
 
         # Load/override options from configuration file and command-line 
         args = self._parser.parse_args()
-        self.options.update(vars(args))
+        self.options = {}
+        # Default values
+        self.options.update(self._defaults)
+        # Configuration file
+        if cfg_options:
+            self.options.update(cfg_options)
+        # Command line
+        arg_options = {k: v for k, v in vars(args).items() if v}
+        self.options.update(arg_options)
         self.uptodate = True
         
     def add_option(self, *args, **kwargs):
@@ -81,8 +90,19 @@ class Options(object):
     def __repr__(self):
         return "<Options: %r>" % self.options
 
+    def add_argument(self, *args, **kwargs):
+        default = kwargs.pop('default')
+        dest = kwargs.get('dest', None)
+        if not dest:
+            return
+        if default:
+            self._defaults[dest] = default
+        self._parser.add_argument(*args, **kwargs)
+
     def __getattr__(self, key):
         try:
+
+            # Handling default values
             parser_method = getattr(self._parser, key)
             self.uptodate = False
             return parser_method

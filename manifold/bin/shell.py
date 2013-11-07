@@ -65,7 +65,7 @@ class ManifoldLocalClient(ManifoldClient):
         return self.interface.forward(query, annotations)
 
     def log_info(self):
-        Log.info("Shell using local account '%r'" % self.user)
+        Log.info("Shell using local account %r" % self.user)
 
     def whoami(self):
         return self.user
@@ -328,7 +328,7 @@ class Shell(object):
                 password = Options().password
 
                 if username != DEFAULT_USER and password == DEFAULT_PASSWORD:
-                    if interactive:
+                    if Options().interactive:
                         try:
                             _password = getpass("Enter password for '%s' (or ENTER to keep default):" % username)
                         except (EOFError, KeyboardInterrupt):
