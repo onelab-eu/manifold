@@ -31,7 +31,7 @@ class Options(object):
             help = "Config file to use.", metavar = 'FILE',
             default = self.CONF_FILE
         )
-        self.uptodate = True
+        self.uptodate = False #True
 
     def parse(self):
         cfg = SafeConfigParser()
@@ -62,7 +62,6 @@ class Options(object):
         # Load/override options from configuration file and command-line 
         args = self._parser.parse_args()
         self.options.update(vars(args))
-        print "self.optins=", self.options
         self.uptodate = True
         
     def add_option(self, *args, **kwargs):
@@ -83,10 +82,6 @@ class Options(object):
         return "<Options: %r>" % self.options
 
     def __getattr__(self, key):
-        # Support for cfgparse being coded for optparse and not argparse
-        if key == 'option_list':
-            return self._parser.option_list
-
         try:
             parser_method = getattr(self._parser, key)
             self.uptodate = False
