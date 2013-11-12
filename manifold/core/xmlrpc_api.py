@@ -96,7 +96,7 @@ class XMLRPCAPI(xmlrpc.XMLRPC, object):
             try:
                 user = Auth(auth, self.interface).check()
             except Exception, e:
-                Log.warning("XMLRPCAPI::xmlrpc_forward: Authentication failed: %s" % traceback.format_exc())
+                Log.warning("XMLRPCAPI::xmlrpc_forward: Authentication failed...: %s" % str(e))
                 msg = "Authentication failed: %s" % e
                 return dict(ResultValue.get_error(ResultValue.FORBIDDEN, msg))
 
@@ -110,6 +110,7 @@ class XMLRPCAPI(xmlrpc.XMLRPC, object):
         deferred = self.interface.forward(query, annotations, is_deferred=True)
 
         def process_results(rv):
+            print "PROCESS RESULTS, RV=", rv
             if 'description' in rv and isinstance(rv['description'], list):
                 rv['description'] = [dict(x) for x in rv['description']]
             # Print Results
@@ -118,7 +119,7 @@ class XMLRPCAPI(xmlrpc.XMLRPC, object):
         def handle_exceptions(failure):
             e = failure.trap(Exception)
 
-            Log.warning("XMLRPCAPI::xmlrpc_forward: Authentication failed: %s" % traceback.format_exc())
+            Log.warning("XMLRPCAPI::xmlrpc_forward: Authentication failed: %s" % failure)
 
             msg ="XMLRPC error : %s" % e
             return dict(ResultValue.get_error(ResultValue.FORBIDDEN, msg))
