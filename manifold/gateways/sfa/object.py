@@ -52,7 +52,7 @@ class Object:
         Returns:
             The list of updated Objects.
         """
-        raise Exception, "Not implemented"
+        raise Exception, "%s::create method is not implemented" % self.__class__.__name__
 
     @defer.inlineCallbacks
     @returns(GeneratorType)
@@ -67,7 +67,7 @@ class Object:
         Returns:
             The list of updated Objects.
         """
-        raise Exception, "Not implemented"
+        raise Exception, "%s::delete method is not implemented" % self.__class__.__name__
 
     @defer.inlineCallbacks
     @returns(GeneratorType)
@@ -82,7 +82,7 @@ class Object:
         Returns:
             The list of updated Objects.
         """
-        raise Exception, "Not implemented"
+        raise Exception, "%s::update method is not implemented" % self.__class__.__name__
 
     @defer.inlineCallbacks
     @returns(GeneratorType)

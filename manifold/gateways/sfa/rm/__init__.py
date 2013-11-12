@@ -60,7 +60,7 @@ class SFA_RMGateway(SFAGatewayCommon):
             raise KeyError("'registry' is missing in platform_configuration: %s (%s)" % (platform_config, type(platform_config)))
 
     @returns(GeneratorType)
-    def get_rms(self, user):
+    def get_rms(self):
         """
         Retrieve RMs related to this SFA Gateway.
         Args:
@@ -72,7 +72,7 @@ class SFA_RMGateway(SFAGatewayCommon):
             Query.get("local:platform")\
                 .filter_by("gateway_type", "=", "sfa_rm")\
                 .filter_by("platform",     "=", self.get_platform_name()),
-            user
+            self.get_user_storage()
         )
 
         assert len(platforms) == 1
