@@ -106,7 +106,7 @@ class SFAGatewayCommon(Gateway):
         # Retrieve RMs (list of dict) related to this Gateway.
         # - if this is a SFA_RMGateway, this is the RM itself.
         # - if this is a SFA_AMGateway, this retrieve each RM related to this AM.
-        rm_platforms = self.get_rms(user)
+        rm_platforms = self.get_rms()
 
         # Get Accounts for this user on each related RM
         try:

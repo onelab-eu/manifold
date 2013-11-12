@@ -41,12 +41,12 @@ def main():
 
     queries = [
         # RM::get
-        'SELECT * FROM user      WHERE user_hrn      == "ple.upmc.loic_baron"',
-        'SELECT * FROM slice     WHERE slice_hrn     == "ple.upmc.myslicedemo"',
-        'SELECT * FROM authority WHERE authority_hrn == "ple.upmc"'#,
-#        'UPDATE slice SET resource = ["%s"] WHERE slice_hrn == "ple.upmc.myslicedemo"' % (resource_urn), # sent to SFA AM
-#        'INSERT INTO slice SET slice_hrn = "%s", slice_urn = "%s", enabled = True' % (slice_hrn,slice_urn), # sent to SFA Registry
-#        'DELETE FROM slice WHERE slice_hrn = %s' % (slice_hrn)
+#        'SELECT * FROM user      WHERE user_hrn      == "ple.upmc.loic_baron"',
+#        'SELECT * FROM slice     WHERE slice_hrn     == "ple.upmc.myslicedemo"',
+#        'SELECT * FROM authority WHERE authority_hrn == "ple.upmc"'#,
+#        'UPDATE slice SET resource = ["%s"] WHERE slice_hrn == "ple.upmc.myslicedemo"' % (resource_urn)#, # sent to SFA AM
+        'INSERT INTO slice SET slice_hrn = "%s", slice_urn = "%s", enabled = True' % (slice_hrn,slice_urn), # sent to SFA Registry
+        'DELETE FROM slice WHERE slice_hrn = %s' % (slice_hrn)
     ]
 
     shell = Shell(interactive = True)
