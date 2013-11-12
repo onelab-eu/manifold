@@ -6,9 +6,10 @@ class Entry(object):
     """
 
     def __init__(self, records=None):
-        self._created = time.time()
-        self._updated = self._created
-        self._records = records if records else []
+        self._created  = time.time()
+        self._updated  = self._created
+        self._accessed = None
+        self._records  = records if records else []
         self._pending_records = []
 
     def set_records(self, records):
@@ -29,4 +30,5 @@ class Entry(object):
         self._updated = time.time()
 
     def get_records(self):
+        self._accessed = time.time()
         return self._records
