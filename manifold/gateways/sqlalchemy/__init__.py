@@ -5,6 +5,7 @@ from sqlalchemy.orm             import sessionmaker
 from manifold.gateways          import Gateway
 from manifold.util.log          import Log
 from manifold.util.predicate    import included
+from manifold.core.record       import Record, LastRecord
 
 from manifold.models            import db
 from manifold.models.account    import Account
@@ -41,12 +42,12 @@ def get_sqla_filters(cls, filters):
     else:
         return None
 
-def row2dict(row):
+def row2record(row):
     try:
-        return {c.name: getattr(row, c.name) for c in row.__table__.columns}
+        return Record({c.name: getattr(row, c.name) for c in row.__table__.columns})
     except:
-        Log.tmp("Inconsistency in ROW2DICT")
-        return {c: getattr(row, c) for c in row.keys()}
+        Log.tmp("Inconsistency in ROW2RECORD", row)
+        return Record({c: getattr(row, c) for c in row.keys()})
 
 class SQLAlchemyGateway(Gateway):
     __gateway_name__ = 'sqlalchemy'
@@ -60,9 +61,9 @@ class SQLAlchemyGateway(Gateway):
         'policy'   : Policy
     }
 
-    def __init__(self, router=None, platform=None, query=None, config=None, user_config=None, user=None, format='dict'):
+    def __init__(self, router=None, platform=None, query=None, config=None, user_config=None, user=None, format='record'):
 
-        assert format in ['dict', 'object'], 'Unknown return format for gateway SQLAlchemy'
+        assert format in ['record', 'object'], 'Unknown return format for gateway SQLAlchemy'
         if format == 'object':
             Log.tmp("Objects should not be used")
         self.format = format
@@ -111,8 +112,8 @@ class SQLAlchemyGateway(Gateway):
 
         # Do we need to limit to the user's own results
         try:
-            if cls.restrict_to_self and self.user.email != 'demo':
-                res = res.filter(cls.user_id == self.user.user_id)
+            if self.user and cls.restrict_to_self and self.user['email'] != 'demo':
+                res = res.filter(cls.user_id == self.user['user_id'])
         except AttributeError: pass
 
         tuplelist = res.all()
@@ -170,14 +171,13 @@ class SQLAlchemyGateway(Gateway):
         q = db.query(cls)
         for _filter in _filters:
             q = q.filter(_filter)
-        if cls.restrict_to_self:
-            q = q.filter(getattr(cls, 'user_id') == self.user.user_id)
+        if self.user and cls.restrict_to_self:
+            q = q.filter(getattr(cls, 'user_id') == self.user['user_id'])
         q = q.update(_params, synchronize_session=False)
         try:
             db.commit()
         except:
             db.rollback()
-
 
         return []
 
@@ -231,8 +231,8 @@ class SQLAlchemyGateway(Gateway):
 
         # Do we need to limit to the user's own results
         try:
-            if cls.restrict_to_self and self.user.email != 'demo':
-                res = res.filter(cls.user_id == self.user.user_id)
+            if self.user and cls.restrict_to_self and self.user['email'] != 'demo':
+                res = res.filter(cls.user_id == self.user['user_id'])
         except AttributeError: pass
 
         res.delete()
@@ -266,9 +266,9 @@ class SQLAlchemyGateway(Gateway):
         if table:
             for t in table:
     #MANDO|            row = row2dict(t) if self.format == 'dict' else t.get_object()
-                row = row2dict(t) if self.format == 'dict' else t
-                self.callback(row)
-        self.callback(None)
+                row = row2record(t) if self.format == 'record' else t
+                self.send(row)
+        self.send(LastRecord())
 
     def get_metadata(self):
         return []	

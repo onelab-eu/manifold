@@ -9,7 +9,8 @@
 # Copyright (C) 2013 UFPE/UPMC 
 
 from manifold.gateways      import Gateway
-from manifold.operators     import LAST_RECORD
+from manifold.core.record   import Record, Records, LastRecord
+from manifold.core.record   import Rec
 from manifold.core.table    import Table
 from manifold.core.field    import Field
 from manifold.core.announce import Announce
@@ -67,14 +68,10 @@ class PerfSONARGateway(Gateway):
         # Results of the query (TODO)
         rows = []
 
-        # Adding a flag indicating this is the last record
-        rows.append(LAST_RECORD)
-
         # Sending rows to parent processing node in the AST
-        map(self.send, rows)
+        map(self.send, Records(rows))
+        self.send(LastRecord())
 
-        return 
-       
 
     #---------------------------------------------------------------------------
     # Metadata 

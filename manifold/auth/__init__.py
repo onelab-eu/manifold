@@ -6,9 +6,7 @@ try:
 except:
     ADMIN_USER = 'admin' # XXX
 
-from manifold.models            import db
-from manifold.models.user       import User
-from manifold.models.session    import Session 
+from manifold.core.query        import Query
 
 #-------------------------------------------------------------------------------
 # Helper functions
@@ -48,7 +46,8 @@ class AuthenticationFailure(Exception): pass
 class AuthMethod(object):
     """
     """
-    def __init__(self, auth):
+    def __init__(self, auth, interface):
+        self.interface = interface
         self.auth = auth
 
 class PasswordAuth(AuthMethod):
@@ -61,13 +60,14 @@ class PasswordAuth(AuthMethod):
         
         # Get record (must be enabled)
         try:
-            user = db.query(User).filter(User.email == self.auth['Username'].lower()).one()
+            query_users = Query.get('local:user').filter_by('email', '==', self.auth['Username'].lower())
+            user, = self.interface.execute_local_query(query_users)
         except Exception, e:
             raise AuthenticationFailure, "No such account (PW): %s" % e
 
         # Compare encrypted plaintext against encrypted password stored in the DB
         plaintext = self.auth['AuthString'].encode('latin1') # XXX method.api.encoding)
-        password = user.password
+        password = user['password']
 
         # Protect against blank passwords in the DB
         if password is None or password[:12] == "" or \
@@ -268,23 +268,17 @@ class Auth(object):
         'gid': GIDAuth
     }
 
-    def __init__(self, auth):
+    def __init__(self, auth, interface):
         if not 'AuthMethod' in auth:
             raise AuthenticationFailure, "AuthMethod should be specified"
 
         try:
-            self.auth_method = self.auth_map[auth['AuthMethod']](auth)
+            self.auth_method = self.auth_map[auth['AuthMethod']](auth, interface)
         except Exception, e:
-            raise AuthenticationFailure, "Unsupported authentication method: %s" % auth['AuthMethod']
+            raise AuthenticationFailure, "Unsupported authentication method: %s, %s" % (auth['AuthMethod'], e)
 
     def check(self):
         return self.auth_method.check()
-    
-    @classmethod
-    def AuthCheck(self, auth):
-        #print "AuthCheck auth=",auth
-        Auth(auth).check()
-        return 1
 
 # deprecated #     # These are temporary functions...
 # deprecated # 

@@ -48,8 +48,9 @@ class Rule(object):
         """
         # XXX Note that we are not inspecting 'action' 
 
-        if not query.object == self.object:
+        if self.object != '*' and not query.object == self.object:
             return False
+
 
         query_fields_R   = set()
         query_fields_R  |= query.get_select()
@@ -63,16 +64,8 @@ class Rule(object):
         query_fields_RW |= query_fields_W
 
         if self.access == 'R':
-            if not query_fields_R.intersection(self.fields):
-                return False
+            return ('*' in self.fields and query_fields_R) or query_fields_R.intersection(self.fields)
         elif self.access == 'W':
-            if not query_fields_W.intersection(self.fields):
-                return False
+            return ('*' in self.fields and query_fields_W) or query_fields_W.intersection(self.fields)
         elif self.access == 'RW':
-            if not query_fields_R.intersection(self.fields):
-                return False
-        elif self.access == 'W':
-            if not query_fields_RW.intersection(self.fields):
-                return False
-
-        return True
+            return ('*' in self.fields and query_fields_RW) or query_fields_RW.intersection(self.fields)

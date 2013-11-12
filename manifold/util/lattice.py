@@ -3,15 +3,35 @@
 
 # inclusion lattice... like a binary tree but for partial order
 
+SEARCH_EQUAL            = 0
+SEARCH_EQUAL_OR_GREATER = 1
+
 class LatticeElement(object):
     def __init__(self, element=None, data = None):
         self.element  = element
-        self.data     = None
+        self.data     = data
         self.parents  = set()
         self.children = set()
 
+
+    def __eq__(self, other):
+        return self.element == other.element
+
+    def __ne__(self, other):
+        return not self == other
+
     def __le__(self, other):
         return self.element <= other.element
+
+    def __lt__(self, other):
+        return self <= other and self != other
+
+    def __ge__(self, other):
+        return self.element >= other.element
+
+    def __gt__(self, other):
+        return self.element > other.element
+
 
     def __str__(self):
         return str(self.element)
@@ -20,6 +40,9 @@ class LatticeElement(object):
         return "<LatticeElement %r>" % self.element
 
 class Top(LatticeElement):
+    def __eq__(self, other):
+        return isinstance(other.element, Top)
+
     def __le__(self, other):
         return False
 
@@ -33,6 +56,9 @@ class Top(LatticeElement):
         return '<LatticeElement TOP>'
 
 class Bottom(LatticeElement):
+    def __eq__(self, other):
+        return isinstance(other.element, Bottom)
+
     def __le__(self, other):
         return True
 
@@ -81,7 +107,10 @@ class Lattice(object):
             for x in min_max_set_old:
                 discard_x = False
                 for y in x.children:
-                    if y <= le:
+                    if y == le:
+                        # Found element
+                        return (set([y]), set([y]))
+                    elif y <= le:
                         # y is a candidate for the max_min_set
                         max_min_set_old = max_min_set
                         max_min_set = set()
@@ -110,6 +139,41 @@ class Lattice(object):
             max_min_set = set([self.bottom])
         return (min_max_set, max_min_set)
 
+    def _get(self, element, search_type = SEARCH_EQUAL):
+        """
+        \return set of lattice_element
+        """
+        min_max_set, max_min_set = self.search(element)
+        if min_max_set == max_min_set:
+            assert len(min_max_set) == 1, "min_max_set == max_min_set and length != 1"
+            return min_max_set
+        else:
+            if search_type == SEARCH_EQUAL:
+                return None
+            if self.top in min_max_set:
+                return None
+            return min_max_set
+
+    def _get_best(self, element):
+        lattice_elements = self._get(element, SEARCH_EQUAL_OR_GREATER)
+        if not lattice_elements:
+            return None
+        if len(lattice_elements) == 1:
+            return iter(lattice_elements).next()
+        if len(lattice_elements) > 1:
+            # XXX Need to elect the best, eg. based on timestamps
+            return iter(lattice_elements).next()
+
+    def get_best(self, element):
+        le = self._get_best(element)
+        if not le:
+            return None
+        return (le.element, le.data)
+
+    def get_data(self, element):
+        le = self._get(element, SEARCH_EQUAL)
+        return le.data if le else None
+
     def _update(self, lattice_element, data, recursive, update_data_callback):
         lattice_element.data = data
 
@@ -137,7 +201,7 @@ class Lattice(object):
             # Element found in lattice
             if not replace:
                 raise Exception, "Element already in lattice"
-            le = min_max_set.iter().next()
+            le = iter(min_max_set).next()
 
             self._update(le, data, update, update_data_callback)
             return
@@ -160,7 +224,7 @@ class Lattice(object):
         min_max_set, max_min_set = self.search(element)
         if min_max_set != max_min_set:
             raise Exception, "Element not found in lattice"
-        le = min_max_set.iter().next()
+        le = iter(min_max_set).next()
         return self._update(le, data, recursive, update_data_callback)
 
     def _get_greater(self, lattice_element):
@@ -223,7 +287,7 @@ class Lattice(object):
         min_max_set, max_min_set = self.search(element)
         if min_max_set != max_min_set:
             raise Exception, "Element not found in lattice"
-        le = min_max_set.iter().next()
+        le = iter(min_max_set).next()
 
         return self._delete(le, recursive)
 
@@ -231,7 +295,7 @@ class Lattice(object):
         # Unlike delete, invalidate can be called even if the element is not found in the lattice
         min_max_set, max_min_set = self.search(element)
         if min_max_set == max_min_set:
-            le = min_max_set.iter().next()
+            le = iter(min_max_set).next()
             self._delete(le, recursive)
             return
 

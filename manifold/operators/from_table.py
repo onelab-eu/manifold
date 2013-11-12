@@ -14,8 +14,9 @@
 from types                         import StringTypes
 from manifold.core.capabilities    import Capabilities
 from manifold.core.query           import Query
-from manifold.operators            import Node, LAST_RECORD
+from manifold.operators            import Node
 from manifold.util.type            import returns, accepts
+from manifold.core.record          import LastRecord
 
 DUMPSTR_FROMTABLE  = "SELECT %s FROM [%r, ...]" 
 
@@ -64,4 +65,4 @@ class FromTable(Node):
             if not isinstance(record, dict):
                 record = {self.key: record}
             self.send(record)
-        self.send(LAST_RECORD)
+        self.send(LastRecord())

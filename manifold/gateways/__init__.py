@@ -15,7 +15,7 @@
 #
 # Copyright (C) 2013 UPMC 
 
-import os, sys, traceback
+import os, sys, json, traceback
 from types                        import StringTypes
 from manifold.core.result_value   import ResultValue
 from manifold.core.announce       import Announces
@@ -60,15 +60,20 @@ class Gateway(object):
         self.user_config    = user_config
         self.user           = user
 
-        self.identifier     = None # The gateway will receive the identifier from the ast FROM node
+        self.identifier     = 0 # The gateway will receive the identifier from the ast FROM node
         self.callback       = None
         self.result_value   = []
 
     def get_variables(self):
         variables = {}
         # Authenticated user
-        variables['user_email'] = self.user.email
-        for k, v in self.user.get_config().items():
+        variables['user_email'] = self.user['email']
+
+        user_config = self.user['config']
+        if user_config:
+            user_config = json.loads(user_config)
+
+        for k, v in user_config.items():
             if isinstance(v, StringTypes) and not 'credential' in v:
                 variables[k] = v
         # Account information of the authenticated user
@@ -173,7 +178,8 @@ class Gateway(object):
         """
         \brief calls the parent callback with the record passed in parameter
         """
-        Log.record("[#%04d] [ %r ]" % (self.identifier, record))
+        if self.identifier:
+            Log.record("[#%04d] [ %r ]" % (self.identifier, record))
         self.callback(record)
 
     def set_identifier(self, identifier):

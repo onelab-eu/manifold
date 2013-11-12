@@ -6,7 +6,7 @@ from manifold.core.announce         import Announces
 from manifold.core.field            import Field 
 from manifold.gateways              import Gateway
 from manifold.gateways.postgresql   import PostgreSQLGateway
-from manifold.operators             import LAST_RECORD
+from manifold.core.record           import Record, Records, LastRecord
 from manifold.util.type             import accepts, returns 
 from manifold.util.log              import Log
 
@@ -116,8 +116,8 @@ class TDMIGateway(PostgreSQLGateway):
                 # do not corresponds to any 
                 rows = list()
 
-            rows.append(LAST_RECORD)
-            map(self.send, rows)
+            map(self.send, Records(rows))
+            self.send(LastRecord())
         else:
             # Update FROM clause according to postgresql aliases
             self.query.object = self.get_pgsql_name(table_name)

@@ -2,8 +2,8 @@ import traceback
 from types                         import StringTypes
 from manifold.core.filter          import Filter
 from manifold.core.relation        import Relation
-from manifold.core.record          import Record
-from manifold.operators            import Node, ChildStatus, ChildCallback, LAST_RECORD
+from manifold.core.record          import Record, LastRecord
+from manifold.operators            import Node, ChildStatus, ChildCallback
 from manifold.operators.selection  import Selection
 from manifold.operators.projection import Projection
 from manifold.util.predicate       import Predicate, eq, contains, included
@@ -110,7 +110,7 @@ class SubQuery(Node):
         Args:
             record: A dictionary representing the received record
         """
-        if record == LAST_RECORD:
+        if record.is_last():
             # When we have received all parent records, we can run children
             if self.parent_output:
                 self.run_children()
@@ -134,7 +134,7 @@ class SubQuery(Node):
         """
         if not self.parent_output:
             # No parent record, this is useless to run children queries.
-            self.send(LAST_RECORD)
+            self.send(LastRecord())
             return
 
         if not self.children:
@@ -142,7 +142,7 @@ class SubQuery(Node):
             # so this SubQuery operator is useless and should be replaced by
             # its main query.
             Log.warning("SubQuery::run_children: no child node. The query plan could be improved")
-            self.send(LAST_RECORD)
+            self.send(LastRecord())
             return
 
         # Inspect the first parent record to deduce which fields have already
@@ -183,7 +183,7 @@ class SubQuery(Node):
         # thanks to the parent query, so we simply forward those records.
         if len(self.children) == len(useless_children):
             map(self.send, self.parent_output)
-            self.send(LAST_RECORD)
+            self.send(LastRecord())
             return
 
         # Loop through children and inject the appropriate parent results
@@ -381,7 +381,7 @@ class SubQuery(Node):
                         raise Exception, "No link between parent and child queries"
 
                 self.send(parent_record)
-            self.send(LAST_RECORD)
+            self.send(LastRecord())
         except Exception, e:
             print "EEE", e
             traceback.print_exc()
@@ -391,7 +391,7 @@ class SubQuery(Node):
         \brief Processes records received by a child node
         \param record dictionary representing the received record
         """
-        if record == LAST_RECORD:
+        if record.is_last():
             self.status.completed(child_id)
             return
         # Store the results for later...

@@ -13,19 +13,12 @@ class TargetValue(object):
     # This is inspired from Netfilter
 
     # Continue evaluating rules
-    CONTINUE = 0
-
-    # Drop the query and stop evaluating rules
-    DROP = 1
-
-    # The query is stolen from the normal path
-    STOLEN = 2
-
-    # The query is queued for further processing
-    QUEUE = 3
-
-    # Restart rule processing
-    REPEAT = 4
+    ACCEPT   = 0
+    REWRITE  = 1
+    RECORDS  = 2
+    DENIED   = 3
+    ERROR    = 4
+    CONTINUE = 5
 
 class Target(object):
     """
@@ -40,11 +33,13 @@ class Target(object):
 
     @staticmethod
     def get(name):
-        return Target.map_targets[name]
+        return Target.map_targets.get(name, None)
 
     @staticmethod
     def register_plugins():
-        from manifold.policy.target.drop import DropTarget
-        from manifold.policy.target.log  import LogTarget
+        from manifold.policy.target.drop  import DropTarget
+        from manifold.policy.target.log   import LogTarget
+        from manifold.policy.target.cache import CacheTarget
         Target.register('DROP', DropTarget)
         Target.register('LOG',  LogTarget)
+        Target.register('CACHE',  CacheTarget)

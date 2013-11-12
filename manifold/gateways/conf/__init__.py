@@ -1,7 +1,7 @@
 import os
 import pyparsing as pp
 from manifold.gateways      import Gateway
-from manifold.operators     import LAST_RECORD
+from manifold.core.record   import Record, Records, LastRecord
 from manifold.core.table    import Table
 from manifold.core.key      import Key, Keys
 from manifold.core.field    import Field 
@@ -169,8 +169,8 @@ class ConfGateway(Gateway):
 
     def start(self):
         results = getattr(self, "get_%s" % self.query.object)()
-        map(self.send, results)
-        self.send(LAST_RECORD)
+        map(self.send, Records(results))
+        self.send(LastRecord())
 
     # user:
     # account : %(account)t/%(user)f/%(platform)f/%f

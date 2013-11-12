@@ -16,8 +16,9 @@ def main():
         usage()
         sys.exit(1)
     name = sys.argv[1]
-    
-    shell = Shell()
+
+    Shell.init_options()
+    shell = Shell(interactive=False)
 
     command = 'UPDATE local:platform SET disabled = True WHERE platform == "%(name)s"'
     shell.evaluate(command % locals())
