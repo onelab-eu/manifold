@@ -16,7 +16,7 @@ from manifold.core.capabilities    import Capabilities
 from manifold.core.query           import Query
 from manifold.operators            import Node
 from manifold.util.type            import returns, accepts
-from manifold.core.record          import LastRecord
+from manifold.core.record          import Record, LastRecord
 
 DUMPSTR_FROMTABLE  = "SELECT %s FROM [%r, ...]" 
 
@@ -62,7 +62,7 @@ class FromTable(Node):
         Propagates a START message through the FromTable Node.
         """
         for record in self.records:
-            if not isinstance(record, dict):
-                record = {self.key: record}
+            if not isinstance(record, Record):
+                record = Record({self.key: record})
             self.send(record)
         self.send(LastRecord())

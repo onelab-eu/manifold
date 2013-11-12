@@ -78,7 +78,7 @@ class PasswordAuth(AuthMethod):
 
 class AnonymousAuth(AuthMethod):
     def check(self):
-        return None
+        return {}
 
 class GIDAuth(AuthMethod):
     def check(self):
@@ -125,32 +125,51 @@ class SessionAuth(AuthMethod):
         assert self.auth.has_key('session')
 
         try:
-            sess = db.query(Session).filter(Session.session == self.auth['session']).one()
+            query_sessions = Query.get('local:session').filter_by('session', '==', self.auth['session'])
+            session, = self.interface.execute_local_query(query_sessions)
         except Exception, e:
             raise AuthenticationFailure, "No such session: %s" % e
 
-        user = sess.user
-        if user and sess.expires > time.time():
+        user_id = session['user_id']
+        try:
+            query_users = Query.get('local:user').filter_by('user_id', '==', user_id)
+            user, = self.interface.execute_local_query(query_users)
+        except Exception, e:
+            raise AuthenticationFailure, "No such user_id: %s" % e
+        
+        if user and session['expires'] > time.time():
             return user
         else:
-            db.delete(sess)
+            query_sessions = Query.delete('local:session').filter_by('session', '==', session['session'])
+            try:
+                self.interface.execute_local_query(query_sessions)
+            except: pass
             raise AuthenticationFailure, "Invalid session"
 
     def get_session(self, user):
         assert user, "A user associated to a session should not be NULL"
         # Before a new session is added, delete expired sessions
-        db.query(Session).filter(Session.expires < int(time.time())).delete()
+        query_sessions = Query.delete('local:session').filter_by('expires', '<', int(time.time()))
+        try:
+            self.interface.execute_local_query(query_sessions)
+        except: pass
 
-        s = Session()
         # Generate 32 random bytes
         bytes = random.sample(xrange(0, 256), 32)
         # Base64 encode their string representation
-        s.session = base64.b64encode("".join(map(chr, bytes)))
-        s.user = user #self.authenticate(self.auth)
-        s.expires = int(time.time()) + (24 * 60 * 60)
-        db.add(s)
-        db.commit()
-        return s.session
+
+        session_params = {
+            'session': base64.b64encode("".join(map(chr, bytes))),
+            'user_id': user['user_id'],
+            'expires': int(time.time()) + (24 * 60 * 60)
+        }
+
+        query_session = Query.create('local:session').set(session_params).select('session')
+        try:
+            session, = self.interface.execute_local_query(query_sessions)
+        except: pass
+
+        return session['session']
 
 
 class PLEAuth(AuthMethod):
@@ -274,6 +293,7 @@ class Auth(object):
 
         try:
             self.auth_method = self.auth_map[auth['AuthMethod']](auth, interface)
+            print 'auth method', self.auth_method
         except Exception, e:
             raise AuthenticationFailure, "Unsupported authentication method: %s, %s" % (auth['AuthMethod'], e)
 

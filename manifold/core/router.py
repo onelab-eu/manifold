@@ -142,6 +142,15 @@ class Router(Interface):
         description = query_plan.get_result_value_array()
         return ResultValue.get_result_value(records, description)
 
+    def execute_query_plan(self, query, annotations, query_plan, is_deferred = False):
+        records = query_plan.execute(is_deferred)
+        if is_deferred:
+            # results is a deferred
+            records.addCallback(lambda records: self.process_qp_results(query, records, annotations, query_plan))
+            return records # will be a result_value after the callback
+        else:
+            return self.process_qp_results(query, records, annotations, query_plan)
+
     def execute_query(self, query, annotations, is_deferred=False):
         if annotations:
             user = annotations.get('user', None)
@@ -161,13 +170,7 @@ class Router(Interface):
         self.instanciate_gateways(qp, user)
         qp.dump()
 
-        records = qp.execute(is_deferred)
-        if is_deferred:
-            # results is a deferred
-            records.addCallback(lambda records: self.process_qp_results(query, records, annotations, qp))
-            return records # will be a result_value after the callback
-        else:
-            return self.process_qp_results(query, records, annotations, qp)
+        return self.execute_query_plan(query, annotations, qp, is_deferred)
 
             
 
