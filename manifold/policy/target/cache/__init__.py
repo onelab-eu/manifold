@@ -15,6 +15,9 @@ class CacheTarget(Target):
         #print "==== DUMPING CACHE ====="
         #print self._cache.dump()
         #print "="*40
+        if query.object.startswith('local:'):
+            return (TargetValue.CONTINUE, None)
+
         records = self._cache.get_best_records(query, allow_processing=True)
         if not records is None:
             return (TargetValue.RECORDS, records)

@@ -46,7 +46,7 @@ def row2record(row):
     try:
         return Record({c.name: getattr(row, c.name) for c in row.__table__.columns})
     except:
-        Log.tmp("Inconsistency in ROW2RECORD", row)
+        #Log.tmp("Inconsistency in ROW2RECORD", row)
         return Record({c: getattr(row, c) for c in row.keys()})
 
 class SQLAlchemyGateway(Gateway):

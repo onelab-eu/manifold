@@ -16,7 +16,7 @@ from manifold.core.capabilities    import Capabilities
 from manifold.core.query           import Query
 from manifold.operators            import Node
 from manifold.util.type            import returns, accepts
-from manifold.core.record          import Record, LastRecord
+from manifold.core.record          import Record, Records, LastRecord
 
 DUMPSTR_FROMTABLE  = "SELECT %s FROM [%r, ...]" 
 
@@ -41,7 +41,7 @@ class FromTable(Node):
         assert isinstance(records, list),  "Invalid records = %r (%r)" % (records, type(records))
 
         super(FromTable, self).__init__()
-        self.query, self.records, self.key = query, records, key
+        self.query, self.records, self.key = query, Records(records), key
 
     @returns(StringTypes)
     def __repr__(self, indent = 0):
@@ -63,6 +63,6 @@ class FromTable(Node):
         """
         for record in self.records:
             if not isinstance(record, Record):
-                record = Record({self.key: record})
+                record = {self.key: record}
             self.send(record)
         self.send(LastRecord())
