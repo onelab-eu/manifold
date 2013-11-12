@@ -13,11 +13,19 @@ import json
 from manifold.core.query    import Query
 from manifold.policy.target import Target, TargetValue
 from manifold.policy.rule   import Rule
+from manifold.util.log      import Log
 
 class Policy(object):
     """
     The policy is defined by the set of local rules.
     """
+
+    # Decisions
+    ACCEPT  = 0
+    REWRITE = 1
+    RECORDS = 2
+    DENIED  = 3
+    ERROR   = 4
 
     def __init__(self, interface):
         self.interface = interface
@@ -27,41 +35,33 @@ class Policy(object):
         Target.register_plugins()
 
         query_rules = Query.get('local:policy').select('policy_json')
-        ret_rules = self.interface.forward(query_rules)
-        if not ret_rules['code'] == 0:
-            raise Exception, "Could not load policy rules"
-        rules = ret_rules['value']
+        rules = self.interface.execute_local_query(query_rules)
         
         for rule in rules:
             self.rules.append(Rule.from_dict(json.loads(rule['policy_json'])))
-        
-    def filter(self, query, annotation):
-        count = 0
-        loop = True
 
-        while loop:
-            loop = False
-            for rule in self.rules:
-                if not rule.match(query, annotation):
-                    continue
-
-                targetvalue = Target.get(rule.target)().process(query, annotation)
-
-                if targetvalue == TargetValue.CONTINUE:
-                    continue
-                elif targetvalue == TargetValue.DROP:
-                    return False
-                elif targetvalue == TargetValue.STOLEN:
-                    return False
-                elif targetvalue == TargetValue.ACCEPT:
-                    return True
-                elif targetvalue == TargetValue.REPEAT:
-                    count += 1
-                    if count > 5:
-                        raise Exception, "Possible infinite loop detected in rules: made 5 iterations so far..."
-                    loop = True
+    def filter(self, query, record, annotations):
+        for rule in self.rules:
+            if not rule.match(query, annotations):
+                continue
+            target = Target.get(rule.target)
+            if not target:
+                Log.warning("Unknown target %s" % rule.target)
+                continue
+            decision, data = target().process(query, record, annotations)
+            if decision == TargetValue.ACCEPT:
+                return (self.ACCEPT, None)
+            elif decision == TargetValue.REWRITE:
+                return (self.REWRITE, data)
+            elif decision == TargetValue.RECORDS:
+                return (self.RECORDS, data)
+            elif decision == TargetValue.DENIED:
+                return (self.DENIED, None)
+            elif decision == TargetValue.ERROR:
+                return (self.ERROR, data)
+            elif decision == TargetValue.CONTINUE:
+                continue
 
         # Default decision : ACCEPT
-        return True
-
+        return (self.ACCEPT, None)
             

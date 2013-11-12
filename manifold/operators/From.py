@@ -1,6 +1,6 @@
 from types                         import StringTypes
 from manifold.core.query           import Query
-from manifold.operators            import Node, LAST_RECORD
+from manifold.operators            import Node
 from manifold.operators.selection  import Selection   # XXX
 from manifold.operators.projection import Projection  # XXX
 from manifold.operators.from_table import FromTable
@@ -122,10 +122,10 @@ class From(Node):
         """
         \brief Propagates a START message through the node
         """
-        # @loic Added self.send(LAST_RECORD) if no Gateway is selected, then send no result
+        # @loic Added self.send(LastRecord()) if no Gateway is selected, then send no result
         # That might mean that the user has no account for the platform
         if not self.gateway:
-            self.send(LAST_RECORD)
+            self.send(LastRecord())
             #raise Exception, "Cannot call start on a From class, expecting Gateway"
         else:
             # Initialize the query embeded by the Gateway using the one deduced from the QueryPlan

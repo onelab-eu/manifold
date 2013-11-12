@@ -25,7 +25,7 @@ from manifold.gateways        import Gateway
 from manifold.core.announce   import Announce, Announces
 from manifold.core.table      import Table
 from manifold.core.field      import Field
-from manifold.operators       import LAST_RECORD
+from manifold.core.record     import Record, Records, LastRecord
 from manifold.util.log        import Log
 from manifold.util.predicate  import and_, or_, inv, add, mul, sub, mod, truediv, lt, le, ne, gt, ge, eq, neg, contains
 from manifold.util.type       import accepts, returns
@@ -441,9 +441,9 @@ class PostgreSQLGateway(Gateway):
         """
         sql = PostgreSQLGateway.to_sql(self.query)
         rows = self.selectall(sql, None)
-        rows.append(LAST_RECORD)
-        map(self.send, rows)
-        return 
+
+        map(self.send, Records(rows))
+        self.send(LastRecord())
        
     @staticmethod
     def get_colliding_announces(announces1, announces2):

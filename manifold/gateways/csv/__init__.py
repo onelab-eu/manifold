@@ -5,7 +5,7 @@ import csv, os.path
 from itertools               import izip
 from datetime                import datetime
 from manifold.gateways       import Gateway
-from manifold.operators      import LAST_RECORD
+from manifold.core.record    import Record, LastRecord
 from manifold.core.table     import Table
 from manifold.core.announce  import Announce
 from manifold.core.field     import Field 
@@ -42,7 +42,7 @@ class CSVGateway(Gateway):
     def convert(self, row, field_names, field_types):
         #return dict([ (name, type_by_name(type)(value)) for value, name, type in izip(row, field_names, field_types)])
         for value, name, type in izip(row, field_names, field_types):
-            return dict([ (name, type_by_name(type)(value)) for value, name, type in izip(row, field_names, field_types)])
+            return Record([ (name, type_by_name(type)(value)) for value, name, type in izip(row, field_names, field_types)])
 
     def start(self):
         assert self.query, "Query should have been associated before start"
@@ -63,7 +63,7 @@ class CSVGateway(Gateway):
                     row = self.convert(row, field_names, field_types)
                     if not row: continue
                     self.send(row)
-                self.send(LAST_RECORD)
+                self.send(LastRecord())
             except csv.Error as e:
                 sys.exit('file %s, line %d: %s' % (filename, reader.line_num, e))
 

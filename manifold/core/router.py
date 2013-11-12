@@ -19,6 +19,7 @@ from manifold.core.result_value     import ResultValue
 from manifold.util.log              import Log
 from manifold.util.type             import returns, accepts
 from manifold.util.reactor_thread   import ReactorThread
+from manifold.policy                import Policy
 # XXX cannot use the wrapper with sample script
 # XXX cannot use the thread with xmlrpc -n
 #from manifold.util.reactor_wrapper  import ReactorWrapper as ReactorThread
@@ -90,15 +91,8 @@ class Router(Interface):
 
         ret = super(Router, self).forward(query, annotations, is_deferred, execute)
         if ret: 
+            # Note: we do not run hooks at the moment for local queries
             return ret
-
-        # Code duplication with Interface() class
-        if ':' in query.get_from():
-            namespace, table = query.get_from().rsplit(':', 2)
-            query.object = table
-            allowed_platforms = [p.platform for p in self.platforms if p.platform == namespace]
-        else:
-            allowed_platforms = [p.platform for p in self.platforms]
 
         # We suppose we have no namespace from here
         if not execute: 
@@ -112,6 +106,7 @@ class Router(Interface):
             print ""
             print ""
 
+            # Note: no hook either for queries that are not executed
             return ResultValue.get_success(None)
 
         # The query plan will be the same whatever the action: it represents
@@ -120,36 +115,6 @@ class Router(Interface):
         # destination, which is a subpart of the query = (fact, filters, fields)
         # action = what to do on this QP
         # ts = how it behaves
-
-        # Caching ?
-        try:
-            h = hash((user, query))
-            #print "ID", h, ": looking into cache..."
-        except:
-            h = 0
-
-        if query.get_action() == "get":
-            if h != 0 and h in self.cache:
-                res, ts = self.cache[h]
-                print "Cache hit!"
-                if ts > time.time():
-                    return res
-                else:
-                    print "Expired entry!"
-                    del self.cache[h]
-
-        # Building query plan
-        qp = QueryPlan()
-        qp.build(query, self.g_3nf, allowed_platforms, self.allowed_capabilities, user)
-
-        print ""
-        print "QUERY PLAN:"
-        print "-----------"
-        qp.dump()
-        print ""
-        print ""
-
-        self.instanciate_gateways(qp, user)
 
         if query.get_action() == "update":
             # At the moment we can only update if the primary key is present
@@ -163,7 +128,48 @@ class Router(Interface):
             #    raise Exception, "The key field(s) '%r' must be present in update request" % key
 
         # Execute query plan
-        d = defer.Deferred() if is_deferred else None
         # the deferred object is sent to execute function of the query_plan
-        return qp.execute(d)
-        #return ResultValue.get_result_value(results, qp.get_result_value_array())
+        # This might be a deferred, we cannot put any hook here...
+        return self.execute_query(query, annotations, is_deferred)
+
+    def process_qp_results(self, query, records, annotations, query_plan):
+
+        # Enforcing policy
+        (decision, data) = self.policy.filter(query, records, annotations)
+        if decision != Policy.ACCEPT:
+            raise Exception, "Unknown decision from policy engine"
+
+        description = query_plan.get_result_value_array()
+        return ResultValue.get_result_value(records, description)
+
+    def execute_query(self, query, annotations, is_deferred=False):
+        if annotations:
+            user = annotations.get('user', None)
+        else:
+            user = None
+
+        # Code duplication with Interface() class
+        if ':' in query.get_from():
+            namespace, table = query.get_from().rsplit(':', 2)
+            query.object = table
+            allowed_platforms = [p['platform'] for p in self.platforms if p['platform'] == namespace]
+        else:
+            allowed_platforms = [p['platform'] for p in self.platforms]
+
+        qp = QueryPlan()
+        qp.build(query, self.g_3nf, allowed_platforms, self.allowed_capabilities, user)
+        self.instanciate_gateways(qp, user)
+        qp.dump()
+
+        records = qp.execute(is_deferred)
+        if is_deferred:
+            # results is a deferred
+            records.addCallback(lambda records: self.process_qp_results(query, records, annotations, qp))
+            return records # will be a result_value after the callback
+        else:
+            return self.process_qp_results(query, records, annotations, qp)
+
+            
+
+            
+            

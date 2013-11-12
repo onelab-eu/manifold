@@ -1,4 +1,4 @@
-from manifold.operators       import Node, LAST_RECORD, ChildCallback, ChildStatus
+from manifold.operators       import Node, ChildCallback, ChildStatus
 from manifold.core.filter     import Filter
 from manifold.util.predicate  import Predicate, eq
 from manifold.util.type       import returns
@@ -69,7 +69,7 @@ class CrossProduct(Node):
         \param child_id identifier of the child that received the record
         \param record dictionary representing the received record
         """
-        if record == LAST_RECORD:
+        if record.is_last():
             self.status.completed(child_id)
             return
         # We could only add the information of interest here, instead of doing
@@ -98,7 +98,7 @@ class CrossProduct(Node):
 
         records = imap(lambda x: merge(x), product(*self.child_results))
         map(lambda x: self.send(x), records)
-        self.send(LAST_RECORD)
+        self.send(LastRecord())
         
     def optimize_selection(self, filter):
         for i, child in enumerate(self.children):

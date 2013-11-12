@@ -9,7 +9,7 @@ from twisted.internet                   import defer
 
 from manifold.core.result_value         import ResultValue
 from manifold.core.filter               import Filter
-from manifold.operators                 import LAST_RECORD
+from manifold.core.record               import Record, Records, LastRecord
 from manifold.operators.rename          import Rename
 from manifold.gateways                  import Gateway
 from manifold.gateways.sfa.rspecs.SFAv1 import SFAv1Parser # as Parser
@@ -322,7 +322,7 @@ class SFAGateway(Gateway):
         assert self.admin_config, "Could not retrieve admin config"
 
         # Overwrite user config (reference & managed acccounts)
-        new_user_config = yield self.get_user_config(self.user.email)
+        new_user_config = yield self.get_user_config(self.user['email'])
         if new_user_config:
             self.user_config = new_user_config
 
@@ -347,7 +347,7 @@ class SFAGateway(Gateway):
         if isinstance(user, StringTypes):
             return user == ADMIN_USER
         else:
-            return user.email == ADMIN_USER
+            return user['email'] == ADMIN_USER
 
     @defer.inlineCallbacks
     def get_cached_server_version(self, server):
@@ -952,7 +952,6 @@ class SFAGateway(Gateway):
     def get_object(self, object, object_hrn, filters, params, fields):
         # Let's find some additional information in filters in order to restrict our research
         object_name = make_list(filters.get_op(object_hrn, [eq, included]))
-        print "object name", object_name
         auth_hrn = make_list(filters.get_op('authority_hrn', [eq, lt, le]))
         interface_hrn = yield self.get_interface_hrn(self.registry)
 
@@ -966,7 +965,6 @@ class SFAGateway(Gateway):
             # XXX This should be ensured by partitions
             object_name = [ on for on in object_name if on.startswith(interface_hrn)]
             if not object_name:
-                print "not object name", interface_hrn
                 defer.returnValue([])
 
             # Check for jokers ?
@@ -1003,7 +1001,6 @@ class SFAGateway(Gateway):
 
 
         if resolve:
-            print "RESOLVE stack", stack
             stack = map(lambda x: hrn_to_urn(x, object), stack)
             _results  = yield self.registry.Resolve(stack, cred, {'details': True})
             #_result = _results[0]
@@ -1025,7 +1022,6 @@ class SFAGateway(Gateway):
             defer.returnValue(output)
         
         if len(stack) > 1:
-            print "list stack > 1"
             deferred_list = []
             while stack:
                 auth_xrn = stack.pop()
@@ -1042,7 +1038,6 @@ class SFAGateway(Gateway):
             defer.returnValue(output)
 
         else:
-            print "ELSE LIST"
             auth_xrn = stack.pop()
             records = yield self.registry.List(auth_xrn, cred, {'recursive': recursive})
             records = [r for r in records if r['type'] == object]
@@ -1050,7 +1045,7 @@ class SFAGateway(Gateway):
 
     def get_slice(self, filters, params, fields):
 
-        if self.user.email in DEMO_HOOKS:
+        if self.user['email'] in DEMO_HOOKS:
             defer.returnValue(self.get_slice_demo(filters, params, fields))
             return
 
@@ -1058,7 +1053,7 @@ class SFAGateway(Gateway):
 
     def get_user(self, filters, params, fields):
 
-        if self.user.email in DEMO_HOOKS:
+        if self.user['email'] in DEMO_HOOKS:
             defer.returnValue(self.get_user_demo(filters, params, fields))
             return
 
@@ -1066,7 +1061,7 @@ class SFAGateway(Gateway):
 
     def get_authority(self, filters, params, fields):
 
-        #if self.user.email in DEMO_HOOKS:
+        #if self.user['email'] in DEMO_HOOKS:
         #    defer.returnValue(self.get_authority_demo(filters, params, fields))
         #    return
 
@@ -1392,7 +1387,7 @@ class SFAGateway(Gateway):
 
     @defer.inlineCallbacks
     def get_resource_lease(self, filters, params, fields):
-        if self.user.email in DEMO_HOOKS:
+        if self.user['email'] in DEMO_HOOKS:
             rspec = open('/usr/share/manifold/scripts/nitos.rspec', 'r')
             defer.returnValue(self.parse_sfa_rspec(rspec))
             return 
@@ -1517,19 +1512,19 @@ class SFAGateway(Gateway):
             q = self.query
 
             if not self.user_config:
-                self.send(LAST_RECORD)
+                self.send(LastRecord())
                 return
 
             fields = q.fields # Metadata.expand_output_fields(q.object, list(q.fields))
             #print "SFA CALL START %s_%s" % (q.action, q.object), q.filters, q.params, fields
-            result = yield getattr(self, "%s_%s" % (q.action, q.object))(q.filters, q.params, fields)
+            records = yield getattr(self, "%s_%s" % (q.action, q.object))(q.filters, q.params, fields)
 
             if q.object in self.map_fields:
                 Rename(self, self.map_fields[q.object])
             
             # Return result
-            map(self.send, result)
-            self.send(LAST_RECORD)
+            map(self.send, Records(records))
+            self.send(LastRecord())
 
         except Exception, e:
             traceback.print_exc()
@@ -1542,7 +1537,7 @@ class SFAGateway(Gateway):
             self.result_value.append(rv)
 
             # return None to inform that everything has been transmitted
-            self.send(LAST_RECORD)
+            self.send(LastRecord())
 
 
     @staticmethod

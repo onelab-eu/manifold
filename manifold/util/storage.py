@@ -19,7 +19,7 @@ class Storage(object):
 
 class DBStorage(Storage):
     @classmethod
-    def execute(self, query, user=None, format='dict'):
+    def execute(self, query, user=None, format='record'):
         # XXX Need to pass local parameters
         gw = Gateway.get('sqlalchemy')(config={'url': URL}, user=user, format=format)
         gw.set_query(query)

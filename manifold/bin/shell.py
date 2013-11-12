@@ -36,20 +36,17 @@ class ManifoldLocalClient(ManifoldClient):
         self.interface = Router()
         self.interface.__enter__()
 
-        #ret_users = self.interface.forward(Query.get('local:user').filter_by('email', '==', username))
-        #if ret_users['code'] != 0:
-        #    Log.warning('Could not retrieve current user... going anonymous')
-        #    self.user = None
-        #else:
-        #    users = ret_users['value']
-        #    if not users:
-        #        Log.warning('Could not retrieve current user... going anonymous')
-        #        self.user = None
-        #    else:
-        #        self.user = users[0]
-        from manifold.models import db
-        from manifold.models.user import User
-        self.user = db.query(User).filter(User.email == username).one()
+        ret_users = self.interface.forward(Query.get('local:user').filter_by('email', '==', username))
+        if ret_users['code'] != 0:
+            Log.warning('Could not retrieve current user... going anonymous')
+            self.user = None
+        else:
+            users = ret_users['value']
+            if not users:
+                Log.warning('Could not retrieve current user... going anonymous')
+                self.user = None
+            else:
+                self.user = users[0]
 
     def __del__(self):
         try:

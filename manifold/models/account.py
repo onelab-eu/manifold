@@ -108,7 +108,7 @@ class Account(Base):
             for filter in filters:
                 r = r.filter(filter)
             if user:
-                r = r.filter(Account.user_id == user.user_id)
+                r = r.filter(Account.user_id == user['user_id'])
             #r = r.filter(filters) #Account.platform_id == platform_id)
             r = r.one()
             try:

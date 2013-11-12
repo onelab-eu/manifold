@@ -31,6 +31,9 @@ class Options(object):
             help = "Config file to use.", metavar = 'FILE',
             default = self.CONF_FILE
         )
+
+        self.add_argument('positional', nargs='*')
+        
         self.uptodate = False #True
 
     def parse(self):
@@ -65,12 +68,17 @@ class Options(object):
         self.options = {}
         # Default values
         self.options.update(self._defaults)
+        #print "defaults", self._defaults
         # Configuration file
         if cfg_options:
             self.options.update(cfg_options)
+        #print "cfg", cfg_options
+        #print "=>", self.options
         # Command line
         arg_options = {k: v for k, v in vars(args).items() if v}
         self.options.update(arg_options)
+        #print "arg", arg_options
+        #print "=>", self.options
         self.uptodate = True
         
     def add_option(self, *args, **kwargs):
@@ -91,11 +99,9 @@ class Options(object):
         return "<Options: %r>" % self.options
 
     def add_argument(self, *args, **kwargs):
-        default = kwargs.pop('default')
+        default = kwargs.pop('default', None)
         dest = kwargs.get('dest', None)
-        if not dest:
-            return
-        if default:
+        if dest and default:
             self._defaults[dest] = default
         self._parser.add_argument(*args, **kwargs)
 

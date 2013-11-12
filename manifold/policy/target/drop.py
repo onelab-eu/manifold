@@ -2,5 +2,5 @@ from manifold.policy.target import Target, TargetValue
 
 class DropTarget(Target):
 
-    def process(self, query, annotation):
-        return TargetValue.DROP
+    def process(self, query, record, annotation):
+        return (TargetValue.DENIED, None)

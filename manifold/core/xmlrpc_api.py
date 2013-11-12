@@ -56,6 +56,19 @@ class XMLRPCAPI(xmlrpc.XMLRPC, object):
             display_args[0]['AuthString'] = "XXXXX"
         return display_args
 
+    
+    @withRequest
+    def xmlrpc_AuthCheck(self, request, annotations = None):
+        # We expect to find an authentication token in the annotations
+        if annotations:
+            auth = annotations.get('authentication', None)
+        else:
+            auth = {}
+           
+        auth['request'] = request
+
+        return Auth(auth, self.interface).check()
+
     # QUERIES
     # xmlrpc_forward function is called by the Query of the user using xmlrpc
     @withRequest
@@ -72,12 +85,16 @@ class XMLRPCAPI(xmlrpc.XMLRPC, object):
                 return dict(ResultValue.get_error(ResultValue.FORBIDDEN, msg))
                 
             # We expect to find an authentication token in the annotations
-            auth = annotations['authentication']
+            if annotations:
+                auth = annotations.get('authentication', None)
+            else:
+                auth = {}
+               
             auth['request'] = request
             
             # Check login password
             try:
-                user = Auth(auth).check()
+                user = Auth(auth, self.interface).check()
             except Exception, e:
                 Log.warning("XMLRPCAPI::xmlrpc_forward: Authentication failed: %s" % traceback.format_exc())
                 msg = "Authentication failed: %s" % e
