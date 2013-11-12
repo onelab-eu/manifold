@@ -106,11 +106,9 @@ class XMLRPCAPI(xmlrpc.XMLRPC, object):
         if not annotations:
             annotations = {}
         annotations['user'] = user
-        print "*** interface====", self.interface
         deferred = self.interface.forward(query, annotations, is_deferred=True)
 
         def process_results(rv):
-            print "PROCESS RESULTS, RV=", rv
             if 'description' in rv and isinstance(rv['description'], list):
                 rv['description'] = [dict(x) for x in rv['description']]
             # Print Results

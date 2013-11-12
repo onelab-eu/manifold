@@ -293,7 +293,6 @@ class Auth(object):
 
         try:
             self.auth_method = self.auth_map[auth['AuthMethod']](auth, interface)
-            print 'auth method', self.auth_method
         except Exception, e:
             raise AuthenticationFailure, "Unsupported authentication method: %s, %s" % (auth['AuthMethod'], e)
 

@@ -172,7 +172,10 @@ class Lattice(object):
 
     def get_data(self, element):
         le = self._get(element, SEARCH_EQUAL)
-        return le.data if le else None
+        if not le:
+            return None
+        le = iter(le).next()
+        return le.data
 
     def _update(self, lattice_element, data, recursive, update_data_callback):
         lattice_element.data = data
