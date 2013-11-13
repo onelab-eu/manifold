@@ -314,7 +314,7 @@ class Interface(object):
         elif decision in [Policy.DENIED, Policy.ERROR]:
             if decision == Policy.DENIED:
                 data = ResultValue.get_error(ResultValue.FORBIDDEN)
-            return self.send_result_value(query, data)
+            return self.send_result_value(query, data, annotations, is_deferred)
 
         else:
             raise Exception, "Unknown decision from policy engine"
