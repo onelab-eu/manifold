@@ -69,6 +69,7 @@ class PluginFactory(type):
                 Returns:
                     The corresponding Gateway.
                 """
+                Log.tmp("PluginFactory: get: name = %s registry.keys() = %s" % (name, registry.keys()))
                 try:
                     Log.tmp("name = %s registry = %s" % (name, registry))
                     return registry[name]
