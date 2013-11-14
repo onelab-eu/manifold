@@ -11,18 +11,20 @@
 # Copyright (C) 2013 UPMC 
 
 import re
-from manifold.core.announce             import Announces
-from manifold.core.field                import Field 
-from manifold.gateways.gateway          import Gateway
-from manifold.gateways.postgresql       import PostgreSQLGateway
-from manifold.operators                 import LAST_RECORD
-from manifold.util.type                 import accepts, returns 
-from manifold.util.log                  import Log
+
+from manifold.core.announce         import Announces
+from manifold.core.field            import Field 
+from manifold.gateways              import Gateway
+from manifold.gateways.postgresql   import PostgreSQLGateway
+from manifold.core.record           import Record, Records, LastRecord
+from manifold.util.type             import accepts, returns 
+from manifold.util.log              import Log
 
 # Asynchronous support
 # http://initd.org/psycopg/docs/advanced.html
 
 class TDMIGateway(PostgreSQLGateway):
+    __gateway_name__ = 'tdmi'
 
     def __init__(self, router, platform, config):
         """
@@ -138,11 +140,12 @@ class TDMIGateway(PostgreSQLGateway):
                 Log.warning("TDMI::forward(): Querying a dummy object (%s)" % table_name)
                 rows = list()
 
-            rows.append(LAST_RECORD)
+            rows = Records(rows)
 
             for row in rows:
                 self.send(row, callback, identifier)
 
+            self.send(LastRecord(), callback, identifier)
             self.success(receiver, query)
             
         else:

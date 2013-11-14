@@ -10,13 +10,14 @@
 # Add here standard required python modules (TODO)
 
 # Add required Manifold modules in the following list (TODO)
-from manifold.core.announce             import Announce
-from manifold.core.field                import Field
-from manifold.core.table                import Table
-from manifold.gateways.gateway          import Gateway
-from manifold.operators                 import LAST_RECORD
-from manifold.util.log                  import Log
-from manifold.util.type                 import accepts, returns
+
+from manifold.core.announce import Announce
+from manifold.core.field    import Field
+from manifold.core.record   import Record, Records, LastRecord
+from manifold.core.table    import Table
+from manifold.gateways      import Gateway
+from manifold.util.log      import Log
+from manifold.util.type     import accepts, returns
 
 class FooGateway(Gateway):
     # You may inherits another Gateway, for instance a PostgreSQLGateway.
@@ -24,6 +25,8 @@ class FooGateway(Gateway):
     #
     # See also:
     #    manifold/gateways/*
+
+    __gateway_name__ = 'template'
 
     #---------------------------------------------------------------------------
     # Constructor
@@ -92,15 +95,13 @@ class FooGateway(Gateway):
         #   manifold/core/query.py
 
         # Results of the query (TODO)
-        rows = list() 
-
-        # Adding a flag indicating this is the last record
-        rows.append(LAST_RECORD)
+        rows = Records() 
 
         # Sending rows to parent processing node in the AST
         for row in rows:
             self.send(row, callback, identifier)
 
+        self.send(LastRecord())
         self.success(receiver, query)
 
         ## In case of failure, you would return something like this:

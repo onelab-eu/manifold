@@ -17,6 +17,7 @@ from manifold.core.interface        import Interface
 from manifold.core.key              import Keys
 from manifold.core.query_plan       import QueryPlan
 from manifold.core.result_value     import ResultValue
+from manifold.policy                import Policy
 from manifold.util.log              import Log
 from manifold.util.type             import returns, accepts
 from manifold.util.reactor_thread   import ReactorThread
@@ -63,35 +64,6 @@ class Router(Interface):
         """
         ReactorThread().stop_reactor()
 
-    def query_cache(self, query, user):
-        """
-        Try to server a Query issued by a User by querying the cache
-        of this Router.
-        Args:
-            query: A Query instance.
-            user: A User instance.
-        Returns:
-            The list of corresponding Records if found.
-            None if not found.
-        """
-        # Caching ?
-        try:
-            h = hash((user, query))
-            #print "ID", h, ": looking into cache..."
-        except:
-            h = 0
-
-        if query.get_action() == "get":
-            if h != 0 and h in self.cache:
-                res, ts = self.cache[h]
-                Log.debug("Cache hit! (query: %s)" % query)
-                if ts > time.time():
-                    return res
-                else:
-                    Log.debug("Expired entry! (query: %s)" % query)
-                    del self.cache[h]
-        return None
-
     @returns(Keys)
     def metadata_get_keys(self, table_name):
         """
@@ -103,59 +75,57 @@ class Router(Interface):
         """
         return self.g_3nf.find_node(table_name).get_keys()
 
+
+    # This function is directly called for a Router
+    # Decoupling occurs before for queries received through sockets
+    #@returns(ResultValue)
     #@returns(Deferred)
-    def forward(self, query, is_deferred = False, execute = True, user = None, receiver = None):
+    def forward(self, query, annotations = None, is_deferred = False, receiver = None, execute = True):
         """
         Forwards an incoming Query to the appropriate Gateways managed by this Router.
         Args:
             query: The user's Query.
+            annotations: Query annotations
             is_deferred: A boolean set to True if this Query is async
-            execute: A boolean set to True if the QueryPlan must be executed.
-            user: The user issuing the Query.
             receiver: An instance supporting the method set_result_value or None.
                 receiver.set_result_value() will be called once the Query has terminated.
-        Returns:
-            A Deferred instance if the Query is async, None otherwise
+            execute: A boolean set to True if the QueryPlan must be executed.
         """
         assert receiver, "Invalid receiver"
 
         # Try to forward the Query according to the parent class.
         # In practice, Interface::forwards() succeeds iif this is a local Query,
         # otherwise, an Exception is raised.
-        deferred = super(Router, self).forward(query, is_deferred, execute, user, receiver)
-        if receiver.get_result_value():
-            return deferred
+        ret = super(Router, self).forward(query, annotations, is_deferred, receiver, execute)
+        if ret: 
+            # Note: we do not run hooks at the moment for local queries
+            return ret
 
-        # Code duplication with Interface() class
-        if ':' in query.get_from():
-            namespace, table_name = query.get_from().rsplit(':', 2)
-            query.object = table_name
-            allowed_platforms = [p.platform for p in self.get_platforms() if p.platform == namespace]
-        else:
-            allowed_platforms = [p.platform for p in self.get_platforms()]
+        #XXX#deferred = super(Router, self).forward(query, is_deferred, execute, user, receiver)
+        #XXX#if receiver.get_result_value():
+        #XXX#    return deferred
+
+        user = annotations['user'] if annotations and 'user' in annotations else None
+
         # We suppose we have no namespace from here
-
-        # Search whether the result corresponding to this Query is already stored
-        # in the Router's cache
-        if execute:
-            res = self.query_cache(query, user)
-            if res != None: return res
-
-        # Building QueryPlan 
-        query_plan = QueryPlan()
-        try:
-            query_plan.build(query, self.g_3nf, allowed_platforms, self.allowed_capabilities, user)
-        except Exception, e:
-            Router.error(receiver, query, e)
-            return None
-        query_plan.dump()
-
-        # If this Query must not be executed, we can leave right now 
         if not execute: 
+            query_plan = QueryPlan()
+            # Duplicated code
+            if ':' in query.get_from():
+                namespace, table = query.get_from().rsplit(':', 2)
+                query.object = table
+                allowed_platforms = [p['platform'] for p in self.platforms if p['platform'] == namespace]
+            else:
+                allowed_platforms = [p['platform'] for p in self.platforms]
+            try:
+                query_plan.build(query, self.g_3nf, allowed_platforms, self.allowed_capabilities, user)
+            except Exception, e:
+                Router.error(receiver, query, e)
+                return None
+            #query_plan.dump()
+
             Router.success(receiver, query)
             return None
-
-        self.init_from_nodes(query_plan, user)
 
         if query.get_action() == "update":
             # At the moment we can only update if the primary key is present
@@ -169,6 +139,49 @@ class Router(Interface):
             #    self.error(receiver, query, "The key field(s) '%r' must be present in update request" % key)
 
         # Execute query plan
-        # The deferred object is sent to execute function of the query_plan
-        deferred = Deferred() if is_deferred else None
-        return query_plan.execute(deferred, receiver)
+        # the deferred object is sent to execute function of the query_plan
+        # This might be a deferred, we cannot put any hook here...
+        return self.execute_query(query, annotations, is_deferred, receiver)
+
+    def process_qp_results(self, query, records, annotations, query_plan):
+
+        # Enforcing policy
+        (decision, data) = self.policy.filter(query, records, annotations)
+        if decision != Policy.ACCEPT:
+            raise Exception, "Unknown decision from policy engine"
+
+        description = query_plan.get_result_value_array()
+        return ResultValue.get_result_value(records, description)
+
+    def execute_query_plan(self, query, annotations, query_plan, is_deferred = False):
+        records = query_plan.execute(is_deferred)
+        if is_deferred:
+            # results is a deferred
+            records.addCallback(lambda records: self.process_qp_results(query, records, annotations, query_plan))
+            return records # will be a result_value after the callback
+        else:
+            return self.process_qp_results(query, records, annotations, query_plan)
+
+    def execute_query(self, query, annotations, is_deferred=False):
+        if annotations:
+            user = annotations.get('user', None)
+        else:
+            user = None
+
+        # Code duplication with Interface() class
+        if ':' in query.get_from():
+            namespace, table = query.get_from().rsplit(':', 2)
+            query.object = table
+            allowed_platforms = [p['platform'] for p in self.platforms if p['platform'] == namespace]
+        else:
+            allowed_platforms = [p['platform'] for p in self.platforms]
+
+        query_plan = QueryPlan()
+        query_plan.build(query, self.g_3nf, allowed_platforms, self.allowed_capabilities, user)
+
+        self.init_from_nodes(query_plan, user)
+        #XXX#self.instanciate_gateways(query_plan, user) # removed by marco ????
+
+        #query_plan.dump()
+
+        return self.execute_query_plan(query, annotations, query_plan, is_deferred)

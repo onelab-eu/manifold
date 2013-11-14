@@ -54,39 +54,39 @@ class Log(object):
     def init_options(self):
         opt = Options()
 
-        opt.add_option(
+        opt.add_argument(
             "--rsyslog-enable", action = "store_false", dest = "rsyslog_enable",
             help = "Specify if log have to be written to a rsyslog server.",
             default = self.DEFAULTS["rsyslog_enable"]
         )
-        opt.add_option(
+        opt.add_argument(
             "--rsyslog-host", dest = "rsyslog_host",
             help = "Rsyslog hostname.",
             default = self.DEFAULTS["rsyslog_host"]
         )
-        opt.add_option(
-            "--rsyslog-port", type = "int", dest = "rsyslog_port",
+        opt.add_argument(
+            "--rsyslog-port", type = int, dest = "rsyslog_port",
             help = "Rsyslog port.",
             default = self.DEFAULTS["rsyslog_port"]
         )
-        opt.add_option(
+        opt.add_argument(
             "-o", "--log-file", dest = "log_file",
             help = "Log filename.",
             default = self.DEFAULTS["log_file"]
         )
-        opt.add_option(
+        opt.add_argument(
             "-L", "--log-level", dest = "log_level",
             choices = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
             help = "Log level",
             default = self.DEFAULTS["log_level"]
         )
-        opt.add_option(
+        opt.add_argument(
             "-d", "--debug", dest = "debug",
             help = "Debug paths (a list of coma-separated python path: path.to.module.function).",
             default = self.DEFAULTS["debug"]
         )
-        opt.add_option(
-            "", "--log_duplicates", action = "store_true", dest = "log_duplicates",
+        opt.add_argument(
+            "--log_duplicates", action = "store_true", dest = "log_duplicates",
             help = "Remove duplicate messages in logs",
             default = self.DEFAULTS["log_duplicates"]
         )
@@ -283,5 +283,3 @@ class Log(object):
     def deprecated(cls, new):
         #cls.print_msg("Function %s is deprecated, please use %s" % (caller_name(skip=3), new))
         pass
-
-Log.init_options()

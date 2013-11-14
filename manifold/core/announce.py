@@ -180,7 +180,13 @@ def parse_dot_h(iterable, filename = None):
 
             # Invalid line
             is_valid = False
-            error_message = "In '%s', line %r: in table '%s': invalid line: [%r] %s" % (filename, no_line, table_name, line, ''.join([PATTERN_BEGIN, PATTERN_CLASS_FIELD,  PATTERN_END]))
+            error_message = "In '%s', line %r: in table '%s': invalid line: [%r] %s" % (
+                filename,
+                no_line,
+                table_name,
+                line,
+                ''.join([PATTERN_BEGIN, PATTERN_CLASS_FIELD,  PATTERN_END])
+            )
 
         elif cur_enum_name: # current scope = enum
             #    "my string value",

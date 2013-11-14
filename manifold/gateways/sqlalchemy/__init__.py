@@ -11,26 +11,28 @@
 
 from __future__                     import absolute_import
 
-import crypt, json, sys, time, traceback
+import json, sys, time, traceback
 
 from hashlib                        import md5
 from random                         import Random
-from types                          import StringTypes
 
 from sqlalchemy                     import create_engine
 from sqlalchemy.ext.declarative     import declarative_base, declared_attr
 from sqlalchemy.orm                 import sessionmaker
-from sqlalchemy.util._collections   import NamedTuple
+from sqlalchemy.util._collections   import NamedTuple ##
 
-from manifold.core.query            import Query
-from manifold.gateways.gateway      import Gateway
+from manifold.core.query            import Query ##
+from manifold.core.record           import Record, LastRecord 
+from manifold.gateways              import Gateway
 from manifold.models                import db
 from manifold.models.account        import Account
+from manifold.models.linked_account import LinkedAccount
 from manifold.models.platform       import Platform
-from manifold.models.user           import User
+from manifold.models.policy         import Policy
 from manifold.models.session        import Session as DBSession 
-from manifold.operators             import LAST_RECORD
+from manifold.models.user           import User
 from manifold.util.log              import Log
+from manifold.util.password         import hash_password 
 from manifold.util.predicate        import included
 from manifold.util.type             import accepts, returns 
 
@@ -64,8 +66,8 @@ def get_sqla_filters(cls, filters):
     else:
         return None
 
-@returns(dict)
-def row2dict(row):
+@returns(Record)
+def row2record(row):
     """
     Convert a python object into the corresponding dictionnary, based
     on its attributes.
@@ -74,39 +76,27 @@ def row2dict(row):
             either in manifold/models
             or either sqlalchemy.util._collections.NamedTuple
     Returns:
-        The corresponding dictionnary.
+        The corresponding Record.
     """
     try:
-        return {c.name: getattr(row, c.name) for c in row.__table__.columns}
+        return Record({c.name: getattr(row, c.name) for c in row.__table__.columns})
     except:
+        Log.warning("row2record: this is strange: row = %s (%s)" % (row, type(row)))
         pass
 
     if isinstance(row, NamedTuple):
-        return dict(zip(row.keys(), row))
-        
- # This "else" block seems to be useless
-#OBSOLETE|    else:
-#OBSOLETE|        for field in row.__table__.columns:
-#OBSOLETE|            try:
-#OBSOLETE|                _ =  getattr(row, field.name)
-#OBSOLETE|            except:
-#OBSOLETE|                break
-#OBSOLETE|        Log.tmp("Inconsistency in ROW2DICT: expected columns: %s ; this one (%s) is not in %s" %
-#OBSOLETE|            (
-#OBSOLETE|                row.__table__.columns,
-#OBSOLETE|                field
-#OBSOLETE|            )
-#OBSOLETE|        )
-#OBSOLETE|        return {c: getattr(row, c) for c in row.keys()}
-    raise Exception("sqlalchemy::row2dict: Mmmmh no this section is not obsolete :)")
+        return Record(zip(row.keys(), row))
 
 class SQLAlchemyGateway(Gateway):
+    __gateway_name__ = 'sqlalchemy'
 
     map_object = {
-        "platform" : Platform,
-        "user"     : User,
-        "account"  : Account,
-        "session"  : DBSession
+        "platform"       : Platform,
+        "user"           : User,
+        "account"        : Account,
+        "session"        : DBSession
+        "linked_account" : LinkedAccount,
+        "policy"         : Policy
     }
 
     def __init__(self, interface, platform, config = None):
@@ -123,13 +113,15 @@ class SQLAlchemyGateway(Gateway):
         super(SQLAlchemyGateway, self).__init__(interface, platform, config)
 
         from manifold.models.base import Base
-        Base = declarative_base(cls=Base)
+        Base = declarative_base(cls = Base)
         
         # Models
-        from manifold.models.platform   import Platform as DBPlatform 
-        from manifold.models.user       import User     as DBUser
-        from manifold.models.account    import Account  as DBAccount
-        from manifold.models.session    import Session  as DBSession
+        from manifold.models.account        import Account       as DBAccount
+        from manifold.models.linked_account import LinkedAccount as DBLinkedAccount
+        from manifold.models.platform       import Platform      as DBPlatform
+        from manifold.models.policy         import Policy        as DBPolicy
+        from manifold.models.session        import Session       as DBSession
+        from manifold.models.user           import User          as DBUser
 
         engine = create_engine(config['url'], echo = False)
         Base.metadata.create_all(engine)
@@ -158,8 +150,8 @@ class SQLAlchemyGateway(Gateway):
 
         # Do we need to limit to the user's own results
         try:
-            if cls.restrict_to_self and user.email != 'demo':
-                res = res.filter(cls.user_id == user.user_id)
+            if user and cls.restrict_to_self and user['email'] != 'demo':
+                res = res.filter(cls.user_id == user['user_id'])
         except AttributeError: pass
 
         tuplelist = res.all()
@@ -188,7 +180,6 @@ class SQLAlchemyGateway(Gateway):
         # FIELDS: exclude them
         _fields = xgetattr(cls, query.get_select())
 
-
         # FILTERS: Note we cannot filter on json fields
         _filters = cls.process_filters(query.get_where())
         _filters = get_sqla_filters(cls, _filters)
@@ -205,11 +196,11 @@ class SQLAlchemyGateway(Gateway):
         # Password update
         #
         # if there is password update in query.params
-        # We encrypt the password according to the encryption of adduser.py
+        # We hash the password
         # As a result from the frontend the edited password will be inserted
-        # into the local DB as encrypted      
+        # into the local DB as hash 
         if 'password' in query.get_params():
-            query.params['password'] = SQLAlchemyGateway.encrypt_password(query.params['password'])
+            query.params['password'] = hash_password(query.params['password'])
         _params = cls.process_params(query.params, _filters, user)
         # only 2.7+ _params = { getattr(cls, k): v for k,v in query.params.items() }
         _params = dict([ (getattr(cls, k), v) for k,v in _params.items() ])
@@ -218,10 +209,15 @@ class SQLAlchemyGateway(Gateway):
         q = db.query(cls)
         for _filter in _filters:
             q = q.filter(_filter)
-        if cls.restrict_to_self:
-            q = q.filter(getattr(cls, 'user_id') == user.user_id)
+
+        if user and cls.restrict_to_self:
+            q = q.filter(getattr(cls, 'user_id') == user['user_id'])
+
         q = q.update(_params, synchronize_session=False)
-        db.commit()
+        try:
+            db.commit()
+        except:
+            db.rollback()
 
         return list() 
 
@@ -232,11 +228,8 @@ class SQLAlchemyGateway(Gateway):
         cls = self.map_object[query.get_from()]
 
         params = query.get_params()
-        # We encrypt the password according to the encryption of adduser.py
-        # As a result from the frontend the new users' password will be inserted
-        # into the local DB as encrypted      
         if 'password' in params:
-            params['password'] = SQLAlchemyGateway.encrypt_password(params['password'])
+            params['password'] = hash_password(params['password'])
         
         _params = cls.process_params(query.get_params(), None, user)
         new_obj = cls()
@@ -246,30 +239,39 @@ class SQLAlchemyGateway(Gateway):
 
         if params:
             for k, v in params.items():
-                print "%s = %s" % (k,v)
                 setattr(new_obj, k, v)
-        self.db.add(new_obj)
-        self.db.commit()
+        db.add(new_obj)
+        try:
+            db.commit()
+        except:
+            db.rollback()
         
         return [new_obj]
 
-    @staticmethod
-    @returns(StringTypes)
-    def encrypt_password(password):
-        #
-        # password encryption taken from adduser.py 
-        # 
+    def local_query_delete(self, query):
+        #session.query(User).filter(User.id==7).delete()
 
-        magic = "$1$"
-        password = password
-        # Generate a somewhat unique 8 character salt string
-        salt = str(time.time()) + str(Random().random())
-        salt = md5(salt).hexdigest()[:8]
+        fields = query.fields
 
-        if len(password) <= len(magic) or password[0:len(magic)] != magic:
-            password = crypt.crypt(password.encode('latin1'), magic + salt + "$")
-    
-        return password 
+        cls = self.map_object[query.object]
+
+        # Transform a Filter into a sqlalchemy expression
+        _filters = get_sqla_filters(cls, query.filters)
+        _fields = xgetattr(cls, query.fields) if query.fields else None
+
+
+        res = db.query( *_fields ) if _fields else db.query( cls )
+        if query.filters:
+            for _filter in _filters:
+                res = res.filter(_filter)
+
+        # Do we need to limit to the user's own results
+        try:
+            if self.user and cls.restrict_to_self and self.user['email'] != 'demo':
+                res = res.filter(cls.user_id == self.user['user_id'])
+        except AttributeError: pass
+
+        res.delete()
 
 #MANDO|    def start(self):
 #MANDO|        assert self.query, "Cannot start gateway with no query associated"
@@ -313,19 +315,20 @@ class SQLAlchemyGateway(Gateway):
 
         assert isinstance(query, Query), "Invalid query"
         _map_action = {
-            "get"    : self.local_query_get,
-            "update" : self.local_query_update,
-            "create" : self.local_query_create
+            'get'    : self.local_query_get,
+            'update' : self.local_query_update,
+            'create' : self.local_query_create,
+            'delete' : self.local_query_delete
         }
 
         try:
             rows = _map_action[query.get_action()](query, user)
             for row in rows:
-                self.send(row2dict(row) if format == "dict" else row, callback, identifier)
-            self.send(LAST_RECORD, callback, identifier)
+                self.send(row2record(row), callback, identifier)
+            self.send(LastRecord(), callback, identifier)
             self.success(receiver, query)
         except AttributeError, e:
-            self.send(LAST_RECORD, callback, identifier)
+            self.send(LastRecord(), callback, identifier)
             self.error(receiver, query, e)
 
     @returns(list)

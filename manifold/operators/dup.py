@@ -1,5 +1,5 @@
 from manifold.core.query import Query
-from manifold.operators  import Node, ChildCallback, LAST_RECORD
+from manifold.operators  import Node, ChildCallback
 from manifold.util.type  import returns
 
 #------------------------------------------------------------------
@@ -60,7 +60,7 @@ class Dup(Node):
         """
         assert child_id == 0
 
-        if record == LAST_RECORD:
+        if record.is_last():
             self.status.completed(child_id)
             return
 

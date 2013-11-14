@@ -1,6 +1,6 @@
 from manifold.core.filter          import Filter
 from manifold.core.record          import Record
-from manifold.operators            import Node, LAST_RECORD
+from manifold.operators            import Node
 from manifold.operators.selection  import Selection
 from manifold.operators.projection import Projection
 from manifold.util.predicate       import Predicate, eq, included
@@ -167,7 +167,7 @@ class LeftJoin(Node):
         \param record A dictionary representing the received record 
         """
         #Log.tmp("left_callback: record = %r" % record)
-        if record == LAST_RECORD:
+        if record.is_last():
             # left_done. Injection is not the right way to do this.
             # We need to insert a filter on the key in the right member
             predicate = Predicate(self.predicate.get_value(), included, self.left_map.keys())
@@ -198,14 +198,14 @@ class LeftJoin(Node):
         \brief Process records received from the right child
         \param record A dictionary representing the received record 
         """
-        if record == LAST_RECORD:
+        if record.is_last():
             # Send records in left_results that have not been joined...
             for left_record_list in self.left_map.values():
                 for left_record in left_record_list:
                     self.send(left_record)
 
             # ... and terminates
-            self.send(LAST_RECORD)
+            self.send(LastRecord())
             return
 
         # Skip records missing information necessary to join

@@ -9,10 +9,10 @@
 #
 # Copyright (C) 2013 UPMC 
 
-#import GeoIP
+import GeoIP
 
-from manifold.gateways.gateway          import Gateway
-from manifold.operators                 import LAST_RECORD
+from manifold.core.record               import Record, Records, LastRecord
+from manifold.gateways                  import Gateway
 from manifold.util.log                  import Log
 from manifold.util.type                 import returns, accepts 
 
@@ -31,16 +31,7 @@ allowed_fields = ['ip', 'hostname']
 allowed_fields.extend(geo_fields.keys())
 
 class MaxMindGateway(Gateway):
-
-    @returns(bool)
-    def check_init(self):
-        """
-        Check whether MaxMindGateway can be constructed.
-        """
-        try:
-            import GeoIP
-        except ImportError, e:
-            Log.error(e)
+    __gateway_name__ = 'maxmind'
 
     def __init__(self, interface, platform, config = None):
         """
@@ -101,8 +92,8 @@ class MaxMindGateway(Gateway):
             rows.append({'hostname': h, 'city': 'TEMP'})
 
         for row in rows:
-            self.send(row, callback, identifier)
-        self.send(LAST_RECORD, callback, identifier)
+            self.send(Record(row), callback, identifier)
+        self.send(LastRecord(), callback, identifier)
 
         self.success(from_node, query)
 

@@ -83,7 +83,7 @@ class User(Base):
 
             r = db.query(User.config).filter(filters)
             if user:
-                r = r.filter(User.user_id == user.user_id)
+                r = r.filter(User.user_id == user['user_id'])
             r = r.filter(filters) #User.platform_id == platform_id)
             r = r.one()
             try:
@@ -104,7 +104,7 @@ class User(Base):
     def params_ensure_user(cls, params, user):
         # A user can only create its own objects
         if cls.restrict_to_self:
-            params['user_id'] = user.user_id
+            params['user_id'] = user['user_id']
             return
 
         if 'user_id' in params: return

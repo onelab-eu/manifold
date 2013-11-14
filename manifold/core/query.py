@@ -179,7 +179,7 @@ class Query(object):
         Returns:
             The '%s' representation of this Query.
         """
-        return self.to_sql(multiline = True)
+        return self.to_sql() #multiline=True)
 
     @returns(StringTypes)
     def __repr__(self):
@@ -426,6 +426,7 @@ class Query(object):
         return self
 
     def __or__(self, query):
+        print "Query:__or__"
         assert self.action == query.action
         assert self.object == query.object
         assert self.timestamp == query.timestamp # XXX
@@ -433,10 +434,14 @@ class Query(object):
         # fast dict union
         # http://my.safaribooksonline.com/book/programming/python/0596007973/python-shortcuts/pythoncook2-chp-4-sect-17
         params = dict(self.params, **query.params)
-        fields = self.fields | query.fields
+        if self.fields == '*' or query.fields == '*':
+            fields = '*'
+        else:
+            fields = self.fields | query.fields
         return Query.action(self.action, self.object).filter_by(filter).select(fields)
 
     def __and__(self, query):
+        print "Query:__and__"
         assert self.action == query.action
         assert self.object == query.object
         assert self.timestamp == query.timestamp # XXX
@@ -444,9 +449,41 @@ class Query(object):
         # fast dict intersection
         # http://my.safaribooksonline.com/book/programming/python/0596007973/python-shortcuts/pythoncook2-chp-4-sect-17
         params =  dict.fromkeys([x for x in self.params if x in query.params])
-        fields = self.fields & query.fields
+        if self.fields == '*':
+            fields = query.fields
+        elif query.fields == '*':
+            fields = self.fields
+        else:
+            fields = self.fields & query.fields
         return Query.action(self.action, self.object).filter_by(filter).select(fields)
 
-    def __le__(self, query):
-        return ( self == self & query ) or ( query == self | query )
+    def __eq__(self, other):
+        return self.action == other.action and \
+                self.object == other.object and \
+                self.timestamp == other.timestamp and \
+                self.filters == other.filters and \
+                self.params == other.params and \
+                self.fields == other.fields
+
+    def __le__(self, other):
+        return self.action == other.action and \
+                self.timestamp == other.timestamp and \
+                self.filters <= other.filters and \
+                self.params == other.params and \
+                self.fields <= other.fields
+
+    # Defined with respect of previous functions
+
+    def __ne__(self, other):
+        return not self == other
+
+    def __lt__(self, other):
+        return self <= other and self != other
+
+    def __ge__(self, other):
+        return other <= self
+
+    def __gt__(self, other):
+        return other < self
+
 

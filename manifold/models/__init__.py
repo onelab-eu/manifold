@@ -18,12 +18,15 @@ SQLAlchemySession = sessionmaker(bind = engine)
 db = SQLAlchemySession()
 
 # Models
-from manifold.models.platform   import Platform
-from manifold.models.user       import User
-from manifold.models.account    import Account
-from manifold.models.session    import Session
+from manifold.models.platform       import Platform
+from manifold.models.user           import User
+from manifold.models.account        import Account
+from manifold.models.session        import Session
+from manifold.models.linked_account import LinkedAccount
+from manifold.models.policy         import Policy
 
-#Base.metadata.create_all(engine)
+# This is required to create tables
+Base.metadata.create_all(engine)
 
 #from manifold.models.field import Field
 

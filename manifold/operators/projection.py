@@ -1,4 +1,5 @@
-from manifold.operators import Node, LAST_RECORD
+from manifold.core.record import Record
+from manifold.operators import Node
 from manifold.util.type import returns
 
 DUMPSTR_PROJECTION = "SELECT %s" 
@@ -11,7 +12,7 @@ def do_projection(record, fields):
     """
     Take the necessary fields in dic
     """
-    ret = {}
+    ret = Record()
 
     # 1/ split subqueries
     local = []
@@ -134,7 +135,7 @@ class Projection(Node):
         \brief Processes records received by the child node
         \param record dictionary representing the received record
         """
-        if record != LAST_RECORD:
+        if not record.is_last():
             record = do_projection(record, self.fields)
         self.send(record)
 

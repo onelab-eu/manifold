@@ -18,11 +18,11 @@ from types                                  import StringTypes, GeneratorType
 from twisted.internet                       import defer
 
 from manifold.core.query                    import Query 
-from manifold.gateways.gateway              import Gateway
+from manifold.core.record                   import Record, Records, LastRecord
+from manifold.gateways                      import Gateway
 from manifold.gateways.sfa.proxy            import SFAProxy
 from manifold.gateways.sfa.proxy_pool       import SFAProxyPool
 from manifold.gateways.sfa.user             import ADMIN_USER
-from manifold.operators                 	import LAST_RECORD
 from manifold.operators.rename          	import Rename
 from manifold.util.log                  	import Log
 from manifold.util.type                 	import accepts, returns 
@@ -293,17 +293,10 @@ class SFAGatewayCommon(Gateway):
             self.error(receiver, query, "No user specified, aborting")
             return
 
-        user_email = user.email
-
-        # We duplicate user_dict as follow otherwise sqlalchemy alter user.__dict__ in a bad way
-        # TODO Ideally we should use dict instead of manifold.models.user in forward() methods
-        user_dict = dict()
-        for k, v in user.__dict__.items():
-            if k != "_sa_instance_state":
-                user_dict[k] = v 
+        user_email = user["email"]
 
         try:
-            assert query, "Cannot run gateway with not query associated: %s" % self.get_platform_name()
+            assert query, "Cannot run %s without query" % self.get_platform_name()
             self.debug = "debug" in query.params and query.params["debug"]
 
             # Retrieve user's config (managed acccounts)
@@ -313,7 +306,7 @@ class SFAGatewayCommon(Gateway):
  
             # If no user_account_config: failure
             if not user_account_config:
-                self.send(LAST_RECORD, callback, identifier)
+                self.send(LastRecord(), callback, identifier)
                 self.error(receiver, query, "Account related to %s for platform %s not found" % (user_email, self.get_platform_name()))
                 return
 
@@ -338,14 +331,14 @@ class SFAGatewayCommon(Gateway):
                 callback = receiver.get_callback()
 
             # Send Records to the From Node.
-            result.append(LAST_RECORD)
             for row in result:
-                self.send(row, callback, identifier)
+                self.send(Record(row), callback, identifier)
+            self.send(LastRecord(), callback, identifier)
             self.success(receiver, query)
 
         except Exception, e:
             Log.error(traceback.format_exc())
-            self.send(LAST_RECORD, callback, identifier)
+            self.send(LastRecord(), callback, identifier)
             self.error(receiver, query, str(e))
 
 

@@ -19,8 +19,9 @@ from types                         import StringTypes
 
 from manifold.core.query           import Query
 from manifold.core.result_value    import ResultValue 
-from manifold.gateways.gateway     import Gateway
-from manifold.operators            import Node, LAST_RECORD
+from manifold.operators            import Node
+from manifold.operators.selection  import Selection   # XXX
+from manifold.operators.projection import Projection  # XXX
 from manifold.operators.from_table import FromTable
 from manifold.operators.projection import Projection
 from manifold.operators.selection  import Selection
@@ -44,7 +45,7 @@ class From(Node):
             platform: A String instance storing the name of the platform queried by
                 this From Node.
             query: A Query instance querying a Table provided by this Platform.
-            capabilities: A Capabilities instance, set according to the metadate related
+            capabilities: A Capabilities instance, set according to the metadata related
                 to the Table queried by this From Node.
             key: A Key instance. 
         """
@@ -56,6 +57,7 @@ class From(Node):
         self.user           = None # This dictionnary will be initalized by init_from_node
         self.account_config = None # This dictionnary will be initalized by init_from_node
         self.query          = query
+        Log.warning("capabilities still useful in From ?")
         self.capabilities   = capabilities
         self.key            = key
         self.gateway        = None # This Gateway will be initalized by init_from_node
@@ -201,9 +203,11 @@ class From(Node):
         """
         Propagates a START message through the node
         """
+        # @loic Added self.send(LastRecord()) if no Gateway is selected, then send no result
+        # That might mean that the user has no account for the platform
         if not self.gateway:
             Log.error("No Gateway set for this From Node: %r" % self)
-            self.send(LAST_RECORD)
+            self.send(LastRecord())
         else:
             self.gateway.forward(
                 self.get_query(),          # Forward the nested Query to the nested Gateway.
@@ -212,7 +216,7 @@ class From(Node):
                 True,                      # execute
                 self.get_user(),           # The Query is performed using this User.
                 self.get_account_config(), # Account configuration of this User on this Platform
-                "dict",                    # Node only consider Records in the "dict" format
+                "record",                  # Node only consider Records in the "dict" format
                 self                       # From Node mimics a Receiver. 
             )
         #Log.tmp("uncomment this assert")
