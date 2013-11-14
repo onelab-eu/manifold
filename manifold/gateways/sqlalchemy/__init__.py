@@ -82,6 +82,7 @@ def row2record(row):
         return Record({c.name: getattr(row, c.name) for c in row.__table__.columns})
     except:
         Log.warning("row2record: this is strange: row = %s (%s)" % (row, type(row)))
+        Log.warning(traceback.format_exc())
         pass
 
     if isinstance(row, NamedTuple):
@@ -94,7 +95,7 @@ class SQLAlchemyGateway(Gateway):
         "platform"       : Platform,
         "user"           : User,
         "account"        : Account,
-        "session"        : DBSession
+        "session"        : DBSession,
         "linked_account" : LinkedAccount,
         "policy"         : Policy
     }
@@ -288,7 +289,7 @@ class SQLAlchemyGateway(Gateway):
 #MANDO|            self.callback(row)
 #MANDO|        self.callback(None)
 
-    def forward(self, query, callback, is_deferred = False, execute = True, user = None, account_config = None, format = "dict", receiver = None):
+    def forward(self, query, annotations, callback, is_deferred = False, execute = True, account_config = None, receiver = None):
         """
         Query handler.
         Args:
@@ -310,7 +311,7 @@ class SQLAlchemyGateway(Gateway):
             forward must NOT return value otherwise we cannot use @defer.inlineCallbacks
             decorator. 
         """
-        super(SQLAlchemyGateway, self).forward(query, callback, is_deferred, execute, user, account_config, format, receiver)
+        super(SQLAlchemyGateway, self).forward(query, annotations, callback, is_deferred, execute, account_config, receiver)
         identifier = receiver.get_identifier() if receiver else None
 
         assert isinstance(query, Query), "Invalid query"
@@ -322,6 +323,7 @@ class SQLAlchemyGateway(Gateway):
         }
 
         try:
+            user = annotations.get('user', None)
             rows = _map_action[query.get_action()](query, user)
             for row in rows:
                 self.send(row2record(row), callback, identifier)

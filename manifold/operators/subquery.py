@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 import traceback
 from types                         import StringTypes
 from manifold.core.filter          import Filter
