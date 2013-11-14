@@ -5,10 +5,6 @@ from manifold.core.filter import Filter
 from manifold.util.type   import returns
 from manifold.util.log    import Log
 
-# This constant is used by the gateways and the operators to signal the last
-# record returned for a query
-LAST_RECORD = None
-
 #------------------------------------------------------------------
 # Utility classes
 #------------------------------------------------------------------

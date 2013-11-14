@@ -1,12 +1,12 @@
 import os
 import pyparsing as pp
 
-from manifold.core.table            import Table
+from manifold.core.announce         import Announce, announces_from_docstring
 from manifold.core.key              import Key, Keys
 from manifold.core.field            import Field 
-from manifold.core.announce         import Announce, announces_from_docstring
-from manifold.gateways.gateway      import Gateway
-from manifold.operators             import LAST_RECORD
+from manifold.core.record           import Record, Records, LastRecord
+from manifold.core.table            import Table
+from manifold.gateways              import Gateway
 
 BASEDIR = '/tmp/test'
 
@@ -20,8 +20,8 @@ class PatternParser(object):
         """
         self.query = query
         self.basedir = basedir
-        self.records = []
-        self.found_fields = {}
+        self.records = list() 
+        self.found_fields = dict() 
 
         parameter = pp.Word(pp.alphas + '_' + '.')
         action    = pp.Word(pp.alphas, exact=1)
@@ -84,7 +84,7 @@ class PatternParser(object):
                 ctx = context.copy()
                 # XXX maybe only keep needed found_fields... in records ???
                 if not 'found_fields' in ctx:
-                    ctx['found_fields'] = {}
+                    ctx['found_fields'] = dict() 
                 ctx['found_fields'][parameter] = d
                 ctx['path'] = newpath
                 contexts.append(ctx)
@@ -161,6 +161,7 @@ class ConfGateway(Gateway):
     """
     Configuration elements stored in the filesystem.
     """
+    __gateway_name__ = 'conf'
 
     MAP_PATTERN = {
         'account' : '%(account)t/%(email)f/%(platform)f/%(accounts)F',
@@ -168,10 +169,14 @@ class ConfGateway(Gateway):
     }
 
     def start(self):
-        results = getattr(self, "get_%s" % self.query.object)()
-        map(self.send, results)
-        self.send(LAST_RECORD)
+        rows = Records(getattr(self, "get_%s" % self.query.get_from())())
 
+        for row in rows:
+            self.send(row, callback, identifier)
+
+        self.send(LastRecord(), callback, identifier)
+        self.success(receiver, query)
+ 
     # user:
     # account : %(account)t/%(user)f/%(platform)f/%f
     # key must be encoded in the filesystem

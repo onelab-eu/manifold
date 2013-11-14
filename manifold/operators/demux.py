@@ -1,7 +1,7 @@
 from types               import StringTypes
 from manifold.operators  import Node, ChildStatus, ChildCallback
 from manifold.core.query import Query
-from manifold.operators  import Node, LAST_RECORD
+from manifold.operators  import Node
 from manifold.util.type  import returns
 
 #------------------------------------------------------------------

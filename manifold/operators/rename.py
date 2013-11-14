@@ -11,7 +11,7 @@
 
 from types                  import StringTypes
 
-from manifold.operators     import Node, LAST_RECORD
+from manifold.operators     import Node
 from manifold.util.log      import Log 
 from manifold.util.type     import returns
 
@@ -86,7 +86,7 @@ class Rename(Node):
         Args:
             record: A dictionary representing the received Record
         """
-        if record != LAST_RECORD:
+        if not record.is_last():
             #record = { self.map_fields.get(k, k): v for k, v in record.items() }
             try:
                 for k, v in self.map_fields.items():
@@ -98,8 +98,8 @@ class Rename(Node):
                             for x in record[k]:
                                 record[method].append({key: x})        
                         else:
-                            record[v] = record[k]
-                        del record[k]
+                            record[v] = record.pop(k) #record[k]
+                        #del record[k]
             except Exception, e:
                 Log.error("Error in Rename::child_callback:", e)
                 import traceback

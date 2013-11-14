@@ -11,14 +11,14 @@
 # Copyright (C) 2013 UFPE/UPMC 
 
 from manifold.core.field                import Field
+from manifold.core.record               import Record, Records, LastRecord
 from manifold.core.table                import Table
-from manifold.core.result_value         import ResultValue
 from manifold.core.announce             import Announce, announces_from_docstring
-from manifold.operators                 import LAST_RECORD
-from manifold.gateways.gateway          import Gateway
+from manifold.gateways                  import Gateway
 from manifold.util.log                  import Log
 
 class PerfSONARGateway(Gateway):
+    __gateway_name__ = 'perfsonar'
 
     #---------------------------------------------------------------------------
     # Constructor
@@ -84,15 +84,13 @@ class PerfSONARGateway(Gateway):
         Log.tmp("Received: %s" % query)
 
         # Results of the query (TODO)
-        rows = list() 
-
-        # Adding a flag indicating this is the last record
-        rows.append(LAST_RECORD)
+        rows = Records() 
 
         # Sending rows to parent processing node in the AST
         for row in rows:
             self.send(row, callback, identifier)
 
+        self.send(LastRecord(), callback, identifier)
         self.success(receiver, query)
 
     #---------------------------------------------------------------------------

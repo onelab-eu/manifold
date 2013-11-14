@@ -12,14 +12,15 @@
 import traceback
 from manifold.core.table                import Table
 from manifold.gateways.postgresql       import PostgreSQLGateway
-from manifold.operators                 import LAST_RECORD
 from manifold.core.announce             import Announce
 from manifold.core.key                  import Key, Keys
 from manifold.core.field                import Field 
+from manifold.core.record               import Record, LastRecord
 from manifold.util.log                  import Log 
 from manifold.util.type                 import accepts, returns 
 
 class OMLGateway(PostgreSQLGateway):
+    __gateway_name__ = 'oml'
 
     # The OML gateway provides additional functions compared to PostgreSQL
     def __init__(self, interface, platform, config = None):
@@ -147,17 +148,16 @@ class OMLGateway(PostgreSQLGateway):
         Gateway.forward(self, query, callback, is_deferred, execute, user, account_config, format, receiver)
         identifier = from_node.get_identifier() if from_node else None
 
-        results = list()
         try:
             #print "QUERY", query.object, " -- FILTER=", query.filters
-            results = getattr(self, "get_%s" % query.get_from())(query)
+            records = getattr(self, "get_%s" % query.get_from())(query)
         except Exception, e:
             # Missing function = we are querying a measure. eg. get_counter
-            results = self.get_measurement_table(query.get_from())()
+            records = self.get_measurement_table(query.get_from())()
 
-        results.append(LAST_RECORD)
-        for row in results:
-            self.send(row, query, identifier)
+        for record in records:
+            self.send(Record(record), query, identifier)
+        send.send(LastRecord(), query, identifier)
         
         self.success(from_node, query)
 

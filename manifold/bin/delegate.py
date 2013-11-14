@@ -207,10 +207,10 @@ Example:
                 'filters' : [['platform', '=', platform]],
                 'params'  : {'credential': c}
             }
-            result_value = MySlice.forward(auth, query)
+            result_value = MySlice.forward(query, {'authentication': auth})
             if result_value["code"] != 0:
                 raise Exception("%s" % result_value)
-            print "Uploading credential"
+            print "I: uploading credential"
     except Exception, e:
         print "Error while uploading credential: %s" % e
 

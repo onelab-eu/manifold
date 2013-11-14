@@ -18,16 +18,16 @@ from datetime                           import datetime
 from manifold.core.announce             import Announce
 from manifold.core.field                import Field 
 from manifold.core.key                  import Key
+from manifold.core.record               import Record, LastRecord
 from manifold.core.table                import Table
-from manifold.gateways.gateway          import Gateway
-from manifold.operators                 import LAST_RECORD
+from manifold.gateways                  import Gateway
 from manifold.types.inet                import inet
 from manifold.types.hostname            import hostname
 from manifold.types                     import type_get_name, type_by_name, int, string, inet, date
 from manifold.util.log                  import Log
 from manifold.util.type                 import returns, accepts
-# Heuristics for type guessing
 
+# Heuristics for type guessing
 heuristics = (
     inet,
     hostname,
@@ -36,6 +36,7 @@ heuristics = (
 )
 
 class CSVGateway(Gateway):
+    __gateway_name__ = 'csv'
 
     def __init__(self, router, platform, config):
         """
@@ -64,7 +65,7 @@ class CSVGateway(Gateway):
     def convert(self, row, field_names, field_types):
         #return dict([ (name, type_by_name(type)(value)) for value, name, type in izip(row, field_names, field_types)])
         for value, name, type in izip(row, field_names, field_types):
-            return dict([ (name, type_by_name(type)(value)) for value, name, type in izip(row, field_names, field_types)])
+            return Record([ (name, type_by_name(type)(value)) for value, name, type in izip(row, field_names, field_types)])
 
     def forward(self, query, callback, is_deferred = False, execute = True, user = None, account_config = None, format = "dict", from_node = None):
         """
@@ -107,10 +108,9 @@ class CSVGateway(Gateway):
                 for row in reader:
                     row = self.convert(row, field_names, field_types)
                     if not row: continue
-                    self.send(row, callback, identifier)
-                self.send(LAST_RECORD, callback, identifier)
+                    self.send(Record(row), callback, identifier)
+                self.send(LastRecord(), callback, identifier)
                 self.success(from_node, query)
-
             except csv.Error as e:
                 message = "CSVGateway::forward(): Error in file %s, line %d: %s" % (filename, reader.line_num, e)
                 Log.warning(message)

@@ -1,6 +1,6 @@
-from manifold.operators            import Node, ChildStatus, ChildCallback, LAST_RECORD
+from manifold.operators            import Node, ChildStatus, ChildCallback
 from manifold.operators.projection import Projection
-from manifold.core.record          import Record
+from manifold.core.record          import Record, LastRecord
 from manifold.util.log             import Log
 
 DUMPSTR_UNION      = "UNION"
@@ -91,7 +91,7 @@ class Union(Node):
     def all_done(self):
         #for record in self.child_results.values():
         #    self.send(record)
-        self.send(LAST_RECORD)
+        self.send(LastRecord())
 
     def child_callback(self, child_id, record):
         """
@@ -100,7 +100,7 @@ class Union(Node):
             child_id: identifier of the child that received the Record.
             record: dictionary representing the received Record.
         """
-        if record == LAST_RECORD:
+        if record.is_last():
             self.status.completed(child_id)
             return
         

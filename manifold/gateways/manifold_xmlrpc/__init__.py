@@ -10,16 +10,14 @@
 
 # Inspired from http://twistedmatrix.com/documents/10.1.0/web/howto/xmlrpc.html
 
-from manifold.gateways.gateway          import Gateway
-from manifold.operators                 import LAST_RECORD
-from manifold.util.log                  import Log
-
-#from twisted.internet import reactor
-
-# DEBUG
 import sys
 
+from manifold.core.record               import Record, LastRecord
+from manifold.gateways                  import Gateway
+from manifold.util.log                  import Log
+
 class ManifoldGateway(Gateway):
+    __gateway_name__ = 'manifold'
 
     def __str__(self):
         """
@@ -28,21 +26,46 @@ class ManifoldGateway(Gateway):
         """
         return "<ManifoldGateway %s %s>" % (self.config["url"], self.query)
 
-    def success_cb(self, records):
+    def success_cb(self, records, callback, identifier):
         """
         Args:
             records: The list containing the fetched Records.
         """
-        Log.info("Manifold SUCCESS", len(records))
         for record in records:
-            self.callback(record)
-        self.callback(LAST_RECORD)
+            self.send(Record(record), callback, identifier)
+        self.send(LastRecord(), callback, identifier)
+        self.success(receiver, query)
 
-    def exception_cb(self, error):
+    def exception_cb(self, error, callback, identifier):
         Log.warning("Error during Manifold call: %s" % error)
-        self.callback(LAST_RECORD)
+        self.send(LastRecord(), callback, identifier)
+        # XXX self.error(receiver, query)
 
-    def start(self):
+    def forward(self, query, callback, is_deferred = False, execute = True, user = None, account_config = None, format = "dict", receiver = None):
+        """
+        Query handler.
+        Args:
+            query: A Query instance, reaching this Gateway.
+            callback: The function called to send this record. This callback is provided
+                most of time by a From Node.
+                Prototype : def callback(record)
+            is_deferred: A boolean set to True if this Query is async.
+            execute: A boolean set to True if the treatement requested in query
+                must be run or simply ignored.
+            user: The User issuing the Query.
+            account_config: A dictionnary containing the user's account config.
+                In pratice, this is the result of the following query (run on the Storage)
+                SELECT config FROM local:account WHERE user_id == user.user_id
+            format: A String specifying in which format the Records must be returned.
+            receiver : The From Node running the Query or None. Its ResultValue will
+                be updated once the query has terminated.
+        Returns:
+            forward must NOT return value otherwise we cannot use @defer.inlineCallbacks
+            decorator. 
+        """
+        Gateway.forward(self, query, callback, is_deferred, execute, user, account_config, format, receiver)
+        identifier = receiver.get_identifier() if receiver else None
+
         from twisted.web.xmlrpc import Proxy
         try:
             def wrap(source):
@@ -75,7 +98,7 @@ class ManifoldGateway(Gateway):
                     query.get_timestamp(),
                     query.get_where(),
                     list(query.get_select())
-                ).addCallbacks(source.success_cb, source.exception_cb)
+                ).addCallbacks(source.success_cb, source.exception_cb, callback, identifier)
 
             #reactor.callFromThread(wrap, self) # run wrap(self) in the event loop
             wrap(self)

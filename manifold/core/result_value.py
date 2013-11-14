@@ -125,13 +125,10 @@ class ResultValue(dict):
 
     @classmethod
     #@returns(ResultValue)
-    def get_error(self, error, traceback = None):
-        return ResultValue(
-            code      = error,
-            origin    = [self.CORE, 0],
-            value     = self.ERRSTR[error],
-            traceback = traceback
-        )
+    def get_error(self, error, description=None):
+        if not description:
+            description = self.ERRSTR[error]
+        return ResultValue(code=self.ERROR, type=error, origin=[self.CORE, 0], description=description)
 
     @returns(bool)
     def is_success(self):

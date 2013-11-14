@@ -23,16 +23,18 @@ psycopg2.extensions.register_type(psycopg2.extensions.UNICODE)
 # UNICODEARRAY not exported yet
 psycopg2.extensions.register_type(psycopg2._psycopg.UNICODEARRAY)
 
-from manifold.gateways.gateway          import Gateway
+from manifold.gateways                  import Gateway
 from manifold.core.announce             import Announce, Announces
-from manifold.core.table                import Table
 from manifold.core.field                import Field
-from manifold.operators                 import LAST_RECORD
+from manifold.core.record               import Record, Records, LastRecord
+from manifold.core.table                import Table
 from manifold.util.log                  import Log
 from manifold.util.predicate            import and_, or_, inv, add, mul, sub, mod, truediv, lt, le, ne, gt, ge, eq, neg, contains
 from manifold.util.type                 import accepts, returns
 
 class PostgreSQLGateway(Gateway):
+    __gateway_name__ = 'postgresql'
+
     DEFAULT_DB_NAME = "postgres" 
     DEFAULT_PORT    = 5432
 
@@ -451,11 +453,10 @@ class PostgreSQLGateway(Gateway):
         identifier = receiver.get_identifier() if receiver else None
 
         sql = PostgreSQLGateway.to_sql(query)
-        rows = self.selectall(sql, None)
-        rows.append(LAST_RECORD)
+        rows = Records(self.selectall(sql, None))
         for row in rows:
             self.send(row, callback, identifier)
-
+        self.send(LastRecord(), callback, identifier)
         self.success(receiver, query)
        
     @staticmethod

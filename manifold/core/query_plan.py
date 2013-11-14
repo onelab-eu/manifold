@@ -250,8 +250,8 @@ class QueryPlan(object):
 
         self.inject_at(query)
 
-    #@returns(Deferred)
-    def execute(self, deferred, receiver):
+    #@returns(ResultValue)
+    def execute(self, is_deferred = False, receiver = None):
         """
         Execute the QueryPlan in order to query the appropriate
         sources of data, collect, combine and returns the records
@@ -266,25 +266,17 @@ class QueryPlan(object):
         """
         # Check whether the AST (Abstract Syntax Tree), which describes the QueryPlan.
         assert self.ast, "Uninitialized AST"
-        assert not deferred or isinstance(deferred, Deferred), "Invalid deferred = %s (%s)" % (deferred, type(deferred))
+
+        # create a Callback object with deferred object as arg
+        # manifold/util/callback.py 
+        deferred = Deferred() if is_deferred else None
+        callback = Callback(deferred)
 
         # Run the QueryPlan
-        callback = Callback(deferred)
         self.ast.set_callback(callback)
         self.ast.start()
 
-        # Retrieve the exit value of each From Nodes involved in the QueryPlan
-        result_value_array = self.get_result_value_array()
-
-        if not deferred:
-            # This Query is not Async, wait for results
-            result_value = ResultValue.get_result_value(callback.get_results(), result_value_array)
-            if receiver: receiver.set_result_value(result_value)
-        else:
-            # This Query is Async, results are sent to a Deferred instance. 
-            # Formating results triggered when deferred get results
-            deferred.addCallback(lambda results:ResultValue.get_result_value(results, result_value_array))
-        return deferred
+        return d if is_deferred else cb.get_results()
 
     def dump(self):
         """

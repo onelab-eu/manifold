@@ -45,7 +45,7 @@ class DBStorage(Storage):
         storage_config = {"url" : URL}
         self.gateway = Gateway.get("sqlalchemy")(interface, None, storage_config)
 
-    def execute(self, query, user = None, format = 'dict'):
+    def execute(self, query, user = None, format = 'record'):
         """
         Executes a Query on the Manifold Storage and fetches the corresponding results.
         Args:

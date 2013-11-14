@@ -1,5 +1,6 @@
 import traceback,copy
 from twisted.web                import xmlrpc
+from twisted.web.xmlrpc         import withRequest
 from manifold.auth              import Auth
 from manifold.core.query        import Query
 from manifold.core.receiver     import Receiver 
@@ -56,57 +57,72 @@ class XMLRPCAPI(xmlrpc.XMLRPC, object):
             display_args[0]['AuthString'] = "XXXXX"
         return display_args
 
+    
+    @withRequest
+    def xmlrpc_AuthCheck(self, request, annotations = None):
+        # We expect to find an authentication token in the annotations
+        if annotations:
+            auth = annotations.get('authentication', None)
+        else:
+            auth = {}
+           
+        auth['request'] = request
+
+        return Auth(auth, self.interface).check()
+
     # QUERIES
     # xmlrpc_forward function is called by the Query of the user using xmlrpc
-    def xmlrpc_forward(self, *args):
+    @withRequest
+    def xmlrpc_forward(self, request, query, annotations = None):
         """
         """
-        #Log.info("Incoming XMLRPC request, args = %r" % self.display_query(*args))
-        if not Options().disable_auth:
-            assert len(args) == 2, "Wrong arguments for XMLRPC forward call"
-            auth, query = args
-            try:
-                Log.tmp("auth = %s" % auth)
-                user = Auth(auth).check()
-                Log.tmp("user = %s" % user)
-            except Exception, e:
-                Log.warning("XMLRPCAPI::xmlrpc_forward: Authentication failed: %s" % traceback.format_exc())
-                ret = dict(ResultValue(
-                   origin      = (ResultValue.CORE, self.__class__.__name__),
-                   type        = ResultValue.ERROR,
-                   code        = ResultValue.ERROR,
-                   description = str(e),
-                   traceback   = traceback.format_exc()))
-                return ret
-                
+
+        Log.info("Incoming XMLRPC request, query = %r, annotations = %r" % (self.display_query(query), annotations))
+        if Options().disable_auth:
+            Log.info("Authentication disabled by configuration")
         else:
-            assert len(args) == 1, "Wrong arguments for XMLRPC forward call"
-            query,  = args
-            user = None
+            if not annotations or not 'authentication' in annotations:
+                msg ="You need to specify an authentication token in annotations"
+                return dict(ResultValue.get_error(ResultValue.FORBIDDEN, msg))
+                
+            # We expect to find an authentication token in the annotations
+            if annotations:
+                auth = annotations.get('authentication', None)
+            else:
+                auth = {}
+               
+            auth['request'] = request
+            
+            # Check login password
+            try:
+                user = Auth(auth, self.interface).check()
+            except Exception, e:
+                Log.warning("XMLRPCAPI::xmlrpc_forward: Authentication failed...: %s" % str(e))
+                msg = "Authentication failed: %s" % e
+                return dict(ResultValue.get_error(ResultValue.FORBIDDEN, msg))
 
         query = Query(query)
         # self.interface is either a Router or a Forwarder
         # forward function is called with is_deferred = True in args
-        receiver = Receiver()
-        deferred = self.interface.forward(query, user = user, is_deferred = True, receiver = receiver)
+        if not annotations:
+            annotations = {}
+        annotations['user'] = user
+        deferred = self.interface.forward(query, annotations, is_deferred=True, receiver=Receiver())
 
         def process_results(rv):
-            print "XMLRPC PROCESS RESULTS"
             if 'description' in rv and isinstance(rv['description'], list):
                 rv['description'] = [dict(x) for x in rv['description']]
             # Print Results
             return dict(rv)
 
         def handle_exceptions(failure):
-            print "XMLRPC HANDLE EXCEPTIONS"
             e = failure.trap(Exception)
-            ret = dict(ResultValue(
-               origin      = (ResultValue.CORE, self.__class__.__name__),
-               type        = ResultValue.ERROR,
-               code        = ResultValue.ERROR,
-               description = str(e),
-               traceback   = traceback.format_exc()))
-            return ret
+
+            Log.warning("XMLRPCAPI::xmlrpc_forward: Authentication failed: %s" % failure)
+
+            msg ="XMLRPC error : %s" % e
+            return dict(ResultValue.get_error(ResultValue.FORBIDDEN, msg))
+
         # deferred receives results asynchronously
         # Callbacks are triggered process_results if success and handle_exceptions if errors
         deferred.addCallbacks(process_results, handle_exceptions)

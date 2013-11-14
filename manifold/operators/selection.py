@@ -1,4 +1,4 @@
-from manifold.operators             import Node, LAST_RECORD
+from manifold.operators             import Node
 from manifold.operators.projection  import Projection
 from manifold.util.log              import Log
 
@@ -80,11 +80,8 @@ class Selection(Node):
         \brief Processes records received by the child node 
         \param record dictionary representing the received record
         """
-        if record == LAST_RECORD or (self.filters and self.filters.match(record)):
+        if record.is_last() or (self.filters and self.filters.match(record)):
             self.send(record)
-        #if record != LAST_RECORD and self.filters:
-        #    record = self.filters.filter(record)
-        #self.send(record)
 
     def optimize_selection(self, filter):
         # Concatenate both selections...

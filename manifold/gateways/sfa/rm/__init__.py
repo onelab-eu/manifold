@@ -23,12 +23,11 @@ from sfa.trust.certificate                  import Keypair, Certificate
 from sfa.util.xrn                           import Xrn, get_authority
 
 from manifold.core.query                    import Query
-from manifold.gateways.gateway              import Gateway 
+from manifold.gateways                      import Gateway 
 from manifold.gateways.sfa                  import SFAGatewayCommon, DEMO_HOOKS
 from manifold.gateways.sfa.user             import ADMIN_USER, is_user_admin 
 from manifold.gateways.sfa.proxy            import SFAProxy
 from manifold.gateways.sfa.rm.credential    import Credential 
-from manifold.operators                 	import LAST_RECORD
 from manifold.util.log                      import Log
 from manifold.util.type                     import accepts, returns 
 

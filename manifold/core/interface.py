@@ -6,7 +6,7 @@
 #
 # Copyright (C) UPMC Paris Universitas
 # Authors:
-#   Jordan Augé       <jordan.auge@lip6.fr
+#   Jordan Augé       <jordan.auge@lip6.f>
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
 import json, traceback
@@ -16,9 +16,11 @@ from twisted.internet.defer         import Deferred
 from manifold.gateways.gateway      import Gateway
 from manifold.core.query            import Query
 from manifold.core.query_plan       import QueryPlan
+from manifold.core.record           import Record
 from manifold.core.result_value     import ResultValue
 from manifold.models.platform       import Platform
 from manifold.models.user           import User
+from manifold.policy                import Policy
 from manifold.util.storage          import DBStorage as Storage
 from manifold.util.type             import accepts, returns 
 from manifold.util.log              import Log
@@ -55,6 +57,7 @@ class Interface(object):
         self.storage = Storage(self) 
         self.platforms = list()
         self.storage_user = user
+#DEPRECATED#        self.platforms = Storage.execute(Query().get("platform").filter_by("disabled", "=", False)) #, format = "object")
 
         # self.allowed_capabilities is a Capabilities instance (or None)
         self.allowed_capabilities = allowed_capabilities
@@ -66,6 +69,9 @@ class Interface(object):
         # self.gateways is a {String : Gateway} which maps a platform name to
         # the appropriate Gateway instance.
         self.gateways = dict()
+
+        self.policy = Policy(self)
+
         self.boot()
 
     #---------------------------------------------------------------------
@@ -89,8 +95,22 @@ class Interface(object):
         """
         for platform in self.platforms:
             yield platform
+#UNASSIGNED#            # Get platform configuration
+#UNASSIGNED#            platform_config = platform['config']
+#UNASSIGNED#            if platform_config:
+#UNASSIGNED#                platform_config = json.loads(platform_config)
+#UNASSIGNED#
+#UNASSIGNED#            platform_name = platform['platform']
+#UNASSIGNED#            args = [None, platform_name, None, platform_config, {}, None]
+#UNASSIGNED#            gateway = Gateway.get(platform['gateway_type'])(*args)
+#UNASSIGNED#            announces = gateway.get_metadata()
+#UNASSIGNED#            self.metadata[platform_name] = list() 
+#UNASSIGNED#            for announce in announces:
+#UNASSIGNED#                self.metadata[platform_name].append(announce)
+#UNASSIGNED#
+#UNASSIGNED#        self.policy.load()
 
-    @returns(Platform)
+    @returns(Record)
     def get_platform(self, platform_name):
         """
         Retrieve the dictionnary representing a platform for a given
@@ -100,10 +120,81 @@ class Interface(object):
         Returns:
             The corresponding Platform if found, None otherwise.
         """
-        for platform in self.get_platforms():
-            if platform.platform == platform_name:
+        for platform in self.platforms:
+            if platform['platform'] == platform_name:
                 return platform
         return None 
+
+    def execute_local_query(self, query, error_message=None):
+        ret = self.forward(query)
+        if not ret['code'] == 0:
+            if not error_message:
+                error_message = 'Error executing local query: %s' % query
+            raise Exception, error_message
+        return ret['value']
+
+    def get_user_config(self, user, platform):
+        # all are dict
+
+        platform_name = platform['platform']
+        platform_id   = platform['platform_id']
+        user_id       = user['user_id']
+
+        auth_type = platform.get('auth_type', None)
+        if not auth_type:
+            Log.warning("'auth_type' is not set in platform = %s" % platform_name)
+            return None
+
+        # XXX platforms might have multiple auth types (like pam)
+        # XXX we should refer to storage
+
+        if auth_type in ["none", "default"]:
+            user_config = {}
+
+        # For default, take myslice account
+        elif auth_type == 'user':
+
+            
+            # User account information
+            query_accounts = Query.get('local:account').filter_by('user_id', '==', user_id).filter_by('platform_id', '==', platform_id)
+            accounts = self.execute_local_query(query_accounts)
+
+            if accounts:
+                account = accounts[0]
+                user_config = account.get('config', None)
+                if user_config:
+                    user_config = json.loads(user_config)
+
+                # XXX This should disappear with the merge with router-v2
+                if account['auth_type'] == 'reference':
+                    ref_platform_name = user_config['reference_platform']
+
+                    query_ref_platform = Query.get('local:platform').filter_by('platform', '==', ref_platform_name)
+                    ref_platforms = self.execute_local_query(query_ref_platform)
+                    if not ref_platforms:
+                        raise Exception, 'Cannot find reference platform %s for platform %s' % (platform_name, ref_platform_name)
+                    ref_platform = ref_platforms[0]
+
+                    query_ref_account = Query.get('local:account').filter_by('user_id', '==', user_id).filter_by('platform_id', '==', ref_platform['platform_id'])
+                    ref_accounts = self.execute_local_query(query_ref_account)
+                    if not ref_accounts:
+                        raise Exception, 'Cannot find account information for reference platform %s' % ref_platform_name
+                    ref_account = ref_accounts[0]
+
+                    user_config = ref_account.get('config', None)
+                    if user_config:
+                        user_config = json.loads(user_config)
+
+            else:
+                user_config = {}
+
+        else:
+            raise ValueError("This 'auth_type' not supported: %s" % auth_type)
+
+        return user_config
+
+    #@returns(Gateway)
+    def make_gateway(self, platform_name, user):
 
     @returns(Gateway)
     def get_gateway(self, platform_name):
@@ -144,6 +235,18 @@ class Interface(object):
         platform_config = platform.get_config() 
         args = [self, platform_name, platform_config]
         return Gateway.get(platform.gateway_type)(*args)
+#DEVEL#        if platform_name == "dummy":
+#DEVEL#            args = [None, platform_name, None, platform.gateway_config, None, user]
+#DEVEL#        else:
+#DEVEL#            platform_config = platform['config']
+#DEVEL#            if platform_config:
+#DEVEL#                platform_config = json.loads(platform_config)
+#DEVEL#            
+#DEVEL#            user_config = self.get_user_config(user, platform)
+#DEVEL#
+#DEVEL#            args = [self, platform_name, None, platform_config, user_config, user]
+#DEVEL#
+#DEVEL#        return Gateway.get(platform['gateway_type'])(*args)
 
     def make_gateways(self):
         """
@@ -240,13 +343,55 @@ class Interface(object):
             else:
                 raise Exception("Cannot instanciate all required Gateways")
 
+#DEPRECATED#    @returns(list)
+#DEPRECATED#    def get_metadata_objects(self):
+#DEPRECATED#        """
+#DEPRECATED#        Returns:
+#DEPRECATED#            A list of dictionnaries describing each 3nf Tables.
+#DEPRECATED#        """
+#DEPRECATED#        table_dicts = dict() 
+#DEPRECATED#
+#DEPRECATED#        # XXX not generic
+#DEPRECATED#        for table in self.g_3nf.graph.nodes():
+#DEPRECATED#            # Ignore non parent tables
+#DEPRECATED#            if not self.g_3nf.is_parent(table):
+#DEPRECATED#                continue
+#DEPRECATED#
+#DEPRECATED#            table_name = table.get_name()
+#DEPRECATED#
+#DEPRECATED#            # We may have several table having the same name but related
+#DEPRECATED#            # to two different platforms set.
+#DEPRECATED#            fields = set() | table.get_fields()
+#DEPRECATED#            for _, child in self.g_3nf.graph.out_edges(table):
+#DEPRECATED#                if not child.get_name() == table_name:
+#DEPRECATED#                    continue
+#DEPRECATED#                fields |= child.get_fields()
+#DEPRECATED#
+#DEPRECATED#            # Build columns from fields
+#DEPRECATED#            columns = table_dicts[table_name]["column"] if table_name in table_dicts.keys() else list()
+#DEPRECATED#            for field in fields:
+#DEPRECATED#                column = field.to_dict()
+#DEPRECATED#                assert "name" in column.keys(), "Invalid field dict" # DEBUG
+#DEPRECATED#                if column not in columns:
+#DEPRECATED#                    columns.append(column)
+#DEPRECATED#
+#DEPRECATED#            keys = tuple(table.get_keys().one().get_field_names())
+#DEPRECATED#
+#DEPRECATED#            table_dicts[table_name] = {
+#DEPRECATED#                "table"      : table_name,
+#DEPRECATED#                "column"     : columns,
+#DEPRECATED#                "key"        : keys,
+#DEPRECATED#                "capability" : list(),
+#DEPRECATED#            }
+#DEPRECATED#        return table_dicts.values()
+
     @returns(list)
     def get_metadata_objects(self):
         """
         Returns:
             A list of dictionnaries describing each 3nf Tables.
         """
-        output = list() 
+        output = list()
         # TODO try to factor using table::to_dict()
         for table in self.g_3nf.graph.nodes():
             # Ignore non parent tables
@@ -264,7 +409,7 @@ class Interface(object):
                 fields |= child.get_fields()
 
             # Build columns from fields
-            columns = list() 
+            columns = list()
             for field in fields:
                 columns.append(field.to_dict())
 
@@ -278,6 +423,7 @@ class Interface(object):
                 "capability" : list(),
             })
         return output
+
 
     def check_forward(self, query, is_deferred = False, execute = True, user = None, receiver = None):
         """
@@ -323,8 +469,21 @@ class Interface(object):
                 )
             )
 
-    #@returns(Deferred)
-    def forward(self, query, is_deferred = False, execute = True, user = None, receiver = None):
+    def send_result_value(self, query, result_value, annotations, is_deferred):
+        # if Interface is_deferred  
+        d = defer.Deferred() if is_deferred else None
+
+        if not d:
+            return result_value
+        else:
+            d.callback(result_value)
+            return d
+        
+    def send(self, query, records, annotations, is_deferred):
+        rv = ResultValue.get_success(records)
+        return self.send_result_value(query, rv, annotations, is_deferred)
+
+    def forward(self, query, annotations = None, is_deferred = False, execute = True, receiver = None):
         """
         Forwards an incoming Query to the appropriate Gateways managed by this Router.
         Basically we only handle local queries here. The other queries are in charge
@@ -343,9 +502,30 @@ class Interface(object):
         if receiver: receiver.set_result_value(None)
         self.check_forward(query, is_deferred, execute, user, receiver)
 
-        # if Interface is_deferred  
-        d = Deferred() if is_deferred else None
+        user = annotations['user'] if annotations and 'user' in annotations else None
 
+        # Enforcing policy
+        (decision, data) = self.policy.filter(query, None, annotations)
+        if decision == Policy.ACCEPT:
+            pass
+        elif decision == Policy.REWRITE:
+            _query, _annotations = data
+            if _query:
+                query = _query
+            if _annotations:
+                annotations = _annotations
+
+        elif decision == Policy.RECORDS:
+            return self.send(query, data, annotations, is_deferred)
+
+        elif decision in [Policy.DENIED, Policy.ERROR]:
+            if decision == Policy.DENIED:
+                data = ResultValue.get_error(ResultValue.FORBIDDEN)
+            return self.send_result_value(query, data)
+
+        else:
+            raise Exception, "Unknown decision from policy engine"
+        
         # Implements common functionalities = local queries, etc.
         namespace = None
 
@@ -354,30 +534,27 @@ class Interface(object):
             namespace, table_name = query.get_from().rsplit(":", 2)
 
         if namespace == self.LOCAL_NAMESPACE:
-            if table_name == "object":
-                list_objects = self.get_metadata_objects()
+            if table_name in ['object', 'gateway']:
+                if table_name == 'object':
+                    records = self.get_metadata_objects()
+                elif table_name == "gateway":
+                    records = [{'name': name} for name in Gateway.list().keys()]
                 qp = QueryPlan()
-                qp.ast.from_table(query, list_objects, key = None).selection(query.get_where()).projection(query.get_select())
-                Interface.success(receiver, query)
-                return qp.execute(d, receiver)
+                qp.ast.from_table(query, records, key = None).selection(query.get_where()).projection(query.get_select())
+                Interface.success(receiver, query, result_value)
+                return self.execute_query_plan(query, annotations, qp, is_deferred)
+                
             else:
                 query_storage = query.copy()
                 query_storage.object = table_name
-                output = self.storage.execute(query_storage, user = user)
-                result_value = ResultValue.get_success(output)
+                records = self.storage.execute(query_storage, user = user)
 
                 if query_storage.get_from() == "platform" and query_storage.get_action() != "get":
                     self.make_gateways()
 
-                if not d:
-                    # async
-                    Interface.success(receiver, query, result_value)
-                    return result_value
-                else:
-                    # sync
-                    d.callback(result_value)
-                    Interface.success(receiver, query, result_value)
-                    return d
+                Interface.success(receiver, query, result_value)
+                return self.send(query, records, annotations, is_deferred)
+
         elif namespace:
             platform_names = [platform.platform for platform in self.get_platforms()]
             if namespace not in platform_names:
@@ -402,7 +579,7 @@ class Interface(object):
                 qp = QueryPlan()
                 qp.ast.from_table(query, output, key = None).selection(query.get_where()).projection(query.get_select())
                 Interface.success(query, receiver)
-                return qp.execute(d, receiver)
+                return self.execute_query_plan(query, annotations, qp, is_deferred)
 
                 #output = ResultValue.get_success(output)
                 #if not d:
