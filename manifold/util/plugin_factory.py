@@ -1,3 +1,24 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+# PluginFactory is a metaclass used including Gateway
+# to implicitely registers python module according to
+# a key name without having to explicitly import them.
+#
+# Example: Manifold Gateway uses this mechanism:
+#
+# 1) In manifold/gateways/__init__.py: we define the
+# "__plugin__name__attribute__" used to register gateways.
+#
+# 2) In each manifold/gateways/*/__init__.py file: we
+# define a "__gateway_name__" class attribute to register
+# the Gateway.
+#
+# Copyright (C) UPMC Paris Universitas
+# Authors:
+#   Jordan Augé         <jordan.auge@lip6.fr>
+#   Marc-Olivier Buob   <marc-olivier.buob@lip6.fr>
+
 import pkgutil
 from manifold.util.log import Log
 
@@ -45,6 +66,7 @@ class PluginFactory(type):
                 Returns:
                     The corresponding Gateway.
                 """
+                Log.tmp("PluginFactory: get: name = %s registry.keys() = %s" % (name, registry.keys()))
                 try:
                     return registry[name]
                 except KeyError:
@@ -59,8 +81,13 @@ class PluginFactory(type):
     @staticmethod
     def register(package):
         prefix = package.__name__ + "."
-        for importer, modname, ispkg in pkgutil.iter_modules(package.__path__, prefix):
-            try:
-                module = __import__(modname, fromlist="dummy")
-            except Exception, e:
-                Log.info("Could not load %s : %s" % (modname, e))
+#OBSOLETE|        for importer, modname, ispkg in pkgutil.iter_modules(package.__path__, prefix):
+#OBSOLETE|            try:
+#OBSOLETE|                module = __import__(modname, fromlist="dummy")
+#OBSOLETE|            except Exception, e:
+#OBSOLETE|                Log.info("Could not load %s : %s" % (modname, e))
+        # Explored modules are automatically imported by walk_modules + it allows to explore
+        # recursively manifold/gateways/
+        # http://docs.python.org/2/library/pkgutil.html
+        for importer, modname, ispkg in pkgutil.walk_modules(package.__path__, prefix, onerror = None):
+            pass

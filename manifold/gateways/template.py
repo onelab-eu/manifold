@@ -19,14 +19,14 @@ from manifold.gateways      import Gateway
 from manifold.util.log      import Log
 from manifold.util.type     import accepts, returns
 
-class FooGateway(Gateway):
+class FooGateway(Gateway): # (TODO) Update this class name
     # You may inherits another Gateway, for instance a PostgreSQLGateway.
     # If so, import the appropriate Manifold module.
     #
     # See also:
     #    manifold/gateways/*
 
-    __gateway_name__ = 'template'
+    __gateway_name__ = 'foo' # (TODO) Update this String (See gateway.gateway_type in Manifold Storage)
 
     #---------------------------------------------------------------------------
     # Constructor

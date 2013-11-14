@@ -11,7 +11,7 @@
 # Copyright (C) 2013 UPMC 
 
 
-from manifold.gateways.gateway      import Gateway
+from manifold.gateways              import Gateway
 from manifold.util.callback         import Callback
 
 URL = 'sqlite:////var/myslice/db.sqlite?check_same_thread=False'
@@ -45,7 +45,7 @@ class DBStorage(Storage):
         storage_config = {"url" : URL}
         self.gateway = Gateway.get("sqlalchemy")(interface, None, storage_config)
 
-    def execute(self, query, user = None, format = 'record'):
+    def execute(self, query, annotations):
         """
         Executes a Query on the Manifold Storage and fetches the corresponding results.
         Args:
@@ -57,5 +57,5 @@ class DBStorage(Storage):
 #MANDO|        gw = Gateway.get('sqlalchemy')(config={'url': URL}, user=user, format=format)
         callback = Callback()
         account_config = None
-        self.gateway.forward(query, callback, False, True, user, account_config, format, None)
+        self.gateway.forward(query, annotations, callback, False, True, account_config, None)
         return callback.get_results()

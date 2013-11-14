@@ -15,8 +15,10 @@ from twisted.internet.defer         import Deferred
 from manifold.core.dbnorm           import to_3nf 
 from manifold.core.interface        import Interface
 from manifold.core.key              import Keys
+from manifold.core.operator_graph   import OperatorGraph
 from manifold.core.query_plan       import QueryPlan
 from manifold.core.result_value     import ResultValue
+from manifold.core.socket           import Socket
 from manifold.policy                import Policy
 from manifold.util.log              import Log
 from manifold.util.type             import returns, accepts
@@ -40,6 +42,15 @@ class Router(Interface):
     Implements a Manifold Router.
     Specialized to handle Announces/Routes, ...
     """
+
+    def __init__(self, user = None, allowed_capabilities = None):
+        # NOTE: We should avoid having code in the Interface class
+        # Interface should be a parent class for Router and Gateway, so that for example we can plug an XMLRPC interface on top of it
+        Interface.__init__(self, user, allowed_capabilities)
+
+        self._sockets = list()
+        # We already have gateways defined in Interface
+        self._operator_graph = OperatorGraph()
 
     def boot(self):
         """
@@ -185,3 +196,24 @@ class Router(Interface):
         #query_plan.dump()
 
         return self.execute_query_plan(query, annotations, query_plan, is_deferred)
+
+    # NEW ROUTER PACKET INTERFACE
+
+    def receive(self, packet):
+        """
+        This method replaces forward() at the packet level
+        """
+
+        # Create a Socket holding the connection information
+        socket = Socket(packet, router = self)
+
+        # We need to route the query (aka connect is to the OperatorGraph)
+        self._operator_graph.build_query_plan(packet.query, packet.annotations, receiver = socket)
+
+        # Execute the operators related to the socket, if needed
+
+        
+        
+    # Is it useful at all ?
+    def send(self, packet):
+        pass

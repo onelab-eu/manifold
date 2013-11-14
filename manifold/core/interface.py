@@ -13,7 +13,7 @@ import json, traceback
 from types                          import GeneratorType
 from twisted.internet.defer         import Deferred
 
-from manifold.gateways.gateway      import Gateway
+from manifold.gateways              import Gateway
 from manifold.core.query            import Query
 from manifold.core.query_plan       import QueryPlan
 from manifold.core.record           import Record
@@ -193,9 +193,6 @@ class Interface(object):
 
         return user_config
 
-    #@returns(Gateway)
-    def make_gateway(self, platform_name, user):
-
     @returns(Gateway)
     def get_gateway(self, platform_name):
         """
@@ -232,9 +229,11 @@ class Interface(object):
             The corresponding Gateway if found, None otherwise.
         """
         platform = self.get_platform(platform_name)
-        platform_config = platform.get_config() 
+        platform_config = json.loads(platform["config"])
         args = [self, platform_name, platform_config]
-        return Gateway.get(platform.gateway_type)(*args)
+
+        # Gateway is a plugin_factory
+        return Gateway.get(platform["gateway_type"])(*args)
 #DEVEL#        if platform_name == "dummy":
 #DEVEL#            args = [None, platform_name, None, platform.gateway_config, None, user]
 #DEVEL#        else:
@@ -253,25 +252,31 @@ class Interface(object):
         (Re)build Announces related to each enabled platforms
         Delete Announces related to disabled platforms
         """
-        platforms_loaded  = set([platform for platform in self.get_platforms()])
-        self.platforms    = self.storage.execute(Query().get("platform").filter_by("disabled", "=", False), self.storage_user, "object")
-        platforms_enabled = set(self.platforms)
-        platforms_del     = platforms_loaded - platforms_enabled 
-        platforms_add     = platforms_enabled - platforms_loaded
+        platform_names_loaded  = set([platform["platform"] for platform in self.get_platforms()])
+        Log.tmp("platform_names_loaded = %s" % platform_names_loaded)
+        annotations       = {'user': self.storage_user}
+        self.platforms    = self.storage.execute(
+            Query()\
+                .get("platform")\
+                .filter_by("disabled", "=", False),
+            annotations
+        )
+        platform_names_enabled = set([platform["platform"] for platform in self.platforms])
+        platform_names_del     = platform_names_loaded - platform_names_enabled 
+        platform_names_add     = platform_names_enabled - platform_names_loaded
 
-        for platform in platforms_del:
+        for platform_name in platform_names_del:
             # Unreference this platform which not more used
-            Log.info("Disabling platform '%r'" % platform) 
-            platform_name = platform.platform
+            Log.info("Disabling platform '%s'" % platform_name) 
             try:
                 del self.gateways[platform_name] 
             except:
                 Log.error("Cannot remove %s from %s" % (platform_name, self.gateways))
 
-        for platform in platforms_add: 
+        Log.tmp("platform_names_add = %s" % platform_names_add)
+        for platform_name in platform_names_add: 
             # Create Gateway corresponding to the current Platform
-            Log.info("Enabling platform '%r'" % platform) 
-            platform_name = platform.platform
+            Log.info("Enabling platform '%s'" % platform_name) 
             gateway = self.make_gateway(platform_name)
             assert gateway, "Invalid Gateway create for platform '%s': %s" % (platform_name, gateway)
             self.gateways[platform_name] = gateway 
@@ -279,13 +284,15 @@ class Interface(object):
             # Load Announces related to this Platform
             announces = gateway.get_metadata()
             assert isinstance(announces, list), "%s::get_metadata() should return a list : %s (%s)" % (
-                platform.gateway.__class__.__name__,
+                gateway.__class__.__name__,
                 announces,
                 type(announces)
             )
             self.announces[platform_name] = announces 
 
-        self.platforms = list(platforms_enabled)
+        #self.platforms = list(platforms_enabled)
+        for platform in self.platforms:
+            Log.tmp(self.platforms)
 
     def boot(self):
         """
