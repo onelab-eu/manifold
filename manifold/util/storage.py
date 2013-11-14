@@ -50,8 +50,7 @@ class DBStorage(Storage):
         Executes a Query on the Manifold Storage and fetches the corresponding results.
         Args:
             query: A Query instance.
-            user: The User issuing the Query (None if anonymous).
-            fomat: A String specifying the format of the return values ('dict', 'object').
+            annotations: A dictionnary or None containing Query's annotations.
         """
         # XXX Need to pass local parameters
 #MANDO|        gw = Gateway.get('sqlalchemy')(config={'url': URL}, user=user, format=format)

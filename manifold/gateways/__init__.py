@@ -269,14 +269,7 @@ class Gateway(object):
 
         receiver = Receiver()
         router = self.get_interface()
-        router.forward(query, False, True, user, receiver)
-        result_value = receiver.get_result_value()
-
-        if result_value["code"] != ResultValue.SUCCESS:
-            raise Exception("Invalid query:\n %s: %r" % (query, result_value))
-
-        records = result_value["value"]
-        return records
+        return router.execute_local_query(query)
 
     def success(self, receiver, query):
         """
