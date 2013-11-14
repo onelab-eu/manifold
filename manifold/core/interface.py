@@ -10,12 +10,13 @@
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
 import json, traceback
-from types                          import GeneratorType
+from types                          import GeneratorType, StringTypes
 from twisted.internet.defer         import Deferred
 
 from manifold.gateways              import Gateway
 from manifold.core.query            import Query
 from manifold.core.query_plan       import QueryPlan
+from manifold.core.receiver         import Receiver
 from manifold.core.record           import Record
 from manifold.core.result_value     import ResultValue
 from manifold.models.platform       import Platform
@@ -40,11 +41,11 @@ class Interface(object):
     # Constructor
     #---------------------------------------------------------------------
 
-    def __init__(self, user = None, allowed_capabilities = None):
+    def __init__(self, user_storage = None, allowed_capabilities = None):
         """
         Create an Interface instance.
         Args:
-            user: A User instance (used to access to the Manifold Storage) or None
+            user_storage: A User instance (used to access to the Manifold Storage) or None
                 if the Storage can be accessed anonymously.
             allowed_capabilities: A Capabilities instance or None
         """
@@ -56,7 +57,7 @@ class Interface(object):
         # See platform table in the Storage.
         self.storage = Storage(self) 
         self.platforms = list()
-        self.storage_user = user
+        self.user_storage = user_storage
 
         # self.allowed_capabilities is a Capabilities instance (or None)
         self.allowed_capabilities = allowed_capabilities
@@ -79,6 +80,14 @@ class Interface(object):
     #---------------------------------------------------------------------
     # Accessors 
     #---------------------------------------------------------------------
+
+    @returns(StringTypes)
+    def get_user_storage(self):
+        """
+        Returns:
+            The user name describing how to access the Manifold Storage.
+        """
+        return self.user_storage
 
     @returns(dict)
     def get_announces(self):
@@ -113,73 +122,89 @@ class Interface(object):
                 return platform
         return None 
 
-    def execute_local_query(self, query, error_message=None):
-        ret = self.forward(query)
-        if not ret['code'] == 0:
+    @returns(list)
+    def execute_local_query(self, query, error_message = None):
+        """
+        Execute a Query related to the Manifold Storage
+        (ie any "local:*" object).
+        Args:
+            query: A Query. query.get_from() should start with "local:".
+            error_message: A String containing the error_message that must
+                be written in case of failure.
+        Returns:
+            A list of Records.            
+        """
+        receiver = Receiver()
+        annotations = {"user" : self.get_user_storage()}  
+        self.forward(query, annotations, receiver)
+        result_value = receiver.get_result_value()
+
+        if not result_value.is_success():
             if not error_message:
-                error_message = 'Error executing local query: %s' % query
+                error_message = "Error executing local query: %s" % query
             raise Exception, error_message
-        return ret['value']
 
-    def get_user_config(self, user, platform):
-        # all are dict
+        return result_value["value"]
 
-        platform_name = platform['platform']
-        platform_id   = platform['platform_id']
-        user_id       = user['user_id']
-
-        auth_type = platform.get('auth_type', None)
-        if not auth_type:
-            Log.warning("'auth_type' is not set in platform = %s" % platform_name)
-            return None
-
-        # XXX platforms might have multiple auth types (like pam)
-        # XXX we should refer to storage
-
-        if auth_type in ["none", "default"]:
-            user_config = {}
-
-        # For default, take myslice account
-        elif auth_type == 'user':
-
-            
-            # User account information
-            query_accounts = Query.get('local:account').filter_by('user_id', '==', user_id).filter_by('platform_id', '==', platform_id)
-            accounts = self.execute_local_query(query_accounts)
-
-            if accounts:
-                account = accounts[0]
-                user_config = account.get('config', None)
-                if user_config:
-                    user_config = json.loads(user_config)
-
-                # XXX This should disappear with the merge with router-v2
-                if account['auth_type'] == 'reference':
-                    ref_platform_name = user_config['reference_platform']
-
-                    query_ref_platform = Query.get('local:platform').filter_by('platform', '==', ref_platform_name)
-                    ref_platforms = self.execute_local_query(query_ref_platform)
-                    if not ref_platforms:
-                        raise Exception, 'Cannot find reference platform %s for platform %s' % (platform_name, ref_platform_name)
-                    ref_platform = ref_platforms[0]
-
-                    query_ref_account = Query.get('local:account').filter_by('user_id', '==', user_id).filter_by('platform_id', '==', ref_platform['platform_id'])
-                    ref_accounts = self.execute_local_query(query_ref_account)
-                    if not ref_accounts:
-                        raise Exception, 'Cannot find account information for reference platform %s' % ref_platform_name
-                    ref_account = ref_accounts[0]
-
-                    user_config = ref_account.get('config', None)
-                    if user_config:
-                        user_config = json.loads(user_config)
-
-            else:
-                user_config = {}
-
-        else:
-            raise ValueError("This 'auth_type' not supported: %s" % auth_type)
-
-        return user_config
+#OBSOLETE|    def get_user_config(self, user, platform):
+#OBSOLETE|        # all are dict
+#OBSOLETE|
+#OBSOLETE|        platform_name = platform['platform']
+#OBSOLETE|        platform_id   = platform['platform_id']
+#OBSOLETE|        user_id       = user['user_id']
+#OBSOLETE|
+#OBSOLETE|        auth_type = platform.get('auth_type', None)
+#OBSOLETE|        if not auth_type:
+#OBSOLETE|            Log.warning("'auth_type' is not set in platform = %s" % platform_name)
+#OBSOLETE|            return None
+#OBSOLETE|
+#OBSOLETE|        # XXX platforms might have multiple auth types (like pam)
+#OBSOLETE|        # XXX we should refer to storage
+#OBSOLETE|
+#OBSOLETE|        if auth_type in ["none", "default"]:
+#OBSOLETE|            user_config = {}
+#OBSOLETE|
+#OBSOLETE|        # For default, take myslice account
+#OBSOLETE|        elif auth_type == 'user':
+#OBSOLETE|
+#OBSOLETE|            
+#OBSOLETE|            # User account information
+#OBSOLETE|            query_accounts = Query.get('local:account').filter_by('user_id', '==', user_id).filter_by('platform_id', '==', platform_id)
+#OBSOLETE|            accounts = self.execute_local_query(query_accounts)
+#OBSOLETE|
+#OBSOLETE|            if accounts:
+#OBSOLETE|                account = accounts[0]
+#OBSOLETE|                user_config = account.get('config', None)
+#OBSOLETE|                if user_config:
+#OBSOLETE|                    user_config = json.loads(user_config)
+#OBSOLETE|
+#OBSOLETE|                # XXX This should disappear with the merge with router-v2
+#OBSOLETE|                if account['auth_type'] == 'reference':
+#OBSOLETE|                    ref_platform_name = user_config['reference_platform']
+#OBSOLETE|
+#OBSOLETE|                    query_ref_platform = Query.get('local:platform').filter_by('platform', '==', ref_platform_name)
+#OBSOLETE|                    ref_platforms = self.execute_local_query(query_ref_platform)
+#OBSOLETE|                    if not ref_platforms:
+#OBSOLETE|                        raise Exception, 'Cannot find reference platform %s for platform %s' % (platform_name, ref_platform_name)
+#OBSOLETE|                    ref_platform = ref_platforms[0]
+#OBSOLETE|
+#OBSOLETE|                    query_ref_account = Query.get('local:account').filter_by('user_id', '==', user_id).filter_by('platform_id', '==', ref_platform['platform_id'])
+#OBSOLETE|                    ref_accounts = self.execute_local_query(query_ref_account)
+#OBSOLETE|                    if not ref_accounts:
+#OBSOLETE|                        raise Exception, 'Cannot find account information for reference platform %s' % ref_platform_name
+#OBSOLETE|                    ref_account = ref_accounts[0]
+#OBSOLETE|
+#OBSOLETE|                    user_config = ref_account.get('config', None)
+#OBSOLETE|                    if user_config:
+#OBSOLETE|                        user_config = json.loads(user_config)
+#OBSOLETE|
+#OBSOLETE|            else:
+#OBSOLETE|                user_config = {}
+#OBSOLETE|
+#OBSOLETE|        else:
+#OBSOLETE|            raise ValueError("This 'auth_type' not supported: %s" % auth_type)
+#OBSOLETE|
+#OBSOLETE|        return user_config
 
     @returns(Gateway)
     def get_gateway(self, platform_name):
@@ -228,14 +253,15 @@ class Interface(object):
         (Re)build Announces related to each enabled platforms
         Delete Announces related to disabled platforms
         """
-        platform_names_loaded  = set([platform["platform"] for platform in self.get_platforms()])
-        annotations       = {'user': self.storage_user}
-        self.platforms    = self.storage.execute(
+        platform_names_loaded = set([platform["platform"] for platform in self.get_platforms()])
+        annotations = {"user" : self.get_user_storage()}
+        self.platforms = self.storage.execute(
             Query()\
                 .get("platform")\
                 .filter_by("disabled", "=", False),
             annotations
         )
+
         platform_names_enabled = set([platform["platform"] for platform in self.platforms])
         platform_names_del     = platform_names_loaded - platform_names_enabled 
         platform_names_add     = platform_names_enabled - platform_names_loaded
@@ -281,10 +307,22 @@ class Interface(object):
             The corresponding dictionnary, None if no account found for
             this User and this Platform.
         """
-        platforms = self.storage.execute(Query().get("platform").filter_by("platform",   "=", platform_name), self.storage_user, "object")
-        platform_id = platforms[0].platform_id
-        account_configs = self.storage.execute(Query().get("account").filter_by("platform_id", "=", platform_id),   self.storage_user, "dict")
-        account_config = account_configs[0] if len(account_configs) > 0 else None
+        annotations = {"user" : self.get_user_storage()}
+
+        # Retrieve the Platform having the name "platform_name" in the Storage
+        platforms = self.storage.execute(
+            Query().get("platform").filter_by("platform", "=", platform_name),
+            annotations,
+        )
+        platform_id = platforms[0]["platform_id"]
+
+        # Retrieve the first Account having the name "platform_name" in the Storage
+        account_configs = self.storage.execute(
+            Query().get("account").filter_by("platform_id", "=", platform_id),
+            annotations
+        )
+        account_config = json.loads(account_configs[0]["config"]) if len(account_configs) > 0 else None
+
         return account_config
 
     def init_from_nodes(self, query_plan, user):
@@ -401,27 +439,27 @@ class Interface(object):
             })
         return output
 
-
-    def check_forward(self, query, is_deferred = False, execute = True, user = None, receiver = None):
+    def check_forward(self, query, annotations, receiver):
         """
         Checks whether parameters passed to Interface::forward() are well-formed.
         Args:
             See Interface::forward.
         """
-        assert isinstance(query, Query),                  "Invalid Query: %s (%s)"             % (query,       type(query))
-        assert isinstance(is_deferred, bool),             "Invalid is_deferred value: %s (%s)" % (execute,     type(execute))
-        assert isinstance(execute, bool),                 "Invalid execute value: %s (%s)"     % (is_deferred, type(is_deferred))
-        #TODO This should be a dictionnary (update core + documentation in manifold/core before replacing User by dict)
-        Log.warning("check_forward: TODO: update user type to dict")
-        #assert not user or isinstance(user, User),        "Invalid User: %s (%s)"              % (user,        type(user))
-        assert not receiver or receiver.set_result_value, "Invalid receiver: %s (%s)"          % (receiver,    type(receiver))
+        assert isinstance(query, Query), \
+            "Invalid Query: %s (%s)" % (query, type(query))
+        assert not annotations or isinstance(annotations, dict), \
+            "Invalid annotations  = %s (%s)" % (annotations, type(annotations))
+        assert not receiver or issubclass(type(receiver), Receiver) or not receiver.set_result_value,\
+            "Invalid receiver = %s (%s)" % (receiver, type(receiver))
 
     @staticmethod
     def success(receiver, query, result_value = None):
         """
         Shorthand method when Interface::forward is successful.
         Args:
-            See Interface::forward.
+            receiver: A Receiver instance.
+            query: A Query instance.
+            result_value: A ResultValue or None that will be assigned to receiver.
         """
         assert isinstance(query, Query), "Invalid Query: %s (%s)" % (query, type(query))
         if receiver:
@@ -432,7 +470,9 @@ class Interface(object):
         """
         Shorthand method when Interface::error is successful.
         Args:
-            See Interface::forward.
+            receiver: A Receiver instance.
+            query: A Query instance.
+            description: A String containing a customized error message.
         """
         assert isinstance(query, Query), "Invalid Query: %s (%s)" % (query, type(query))
         message = "Error in query %s: %s" % (query, description)
@@ -460,26 +500,41 @@ class Interface(object):
         rv = ResultValue.get_success(records)
         return self.send_result_value(query, rv, annotations, is_deferred)
 
-    def forward(self, query, annotations = None, is_deferred = False, execute = True, receiver = None):
+    def process_qp_results(self, query, records, annotations, query_plan):
+        # Enforcing policy
+        (decision, data) = self.policy.filter(query, records, annotations)
+        if decision != Policy.ACCEPT:
+            raise Exception, "Unknown decision from policy engine"
+
+        description = query_plan.get_result_value_array()
+        return ResultValue.get_result_value(records, description)
+
+    def execute_query_plan(self, query, annotations, query_plan, is_deferred = False):
+        records = query_plan.execute(is_deferred)
+        if is_deferred:
+            # results is a deferred
+            records.addCallback(lambda records: self.process_qp_results(query, records, annotations, query_plan))
+            return records # will be a result_value after the callback
+        else:
+            return self.process_qp_results(query, records, annotations, query_plan)
+
+    def forward(self, query, annotations = None, receiver = None):
         """
         Forwards an incoming Query to the appropriate Gateways managed by this Router.
         Basically we only handle local queries here. The other queries are in charge
         of the forward() method of the class inheriting Interface.
         Args:
             query: The user's Query.
-            is_deferred: A bool set to True if the Query is async.
-            execute: A boolean set to True if the QueryPlan must be executed.
-            user: The user issuing the Query.
+            annotations: A dictionnary or None containing Query's annotations.
             receiver: An instance supporting the method set_result_value or None.
                 receiver.set_result_value() will be called once the Query has terminated.
         Returns:
             A Deferred instance if the Query is async,
             None otherwise (see QueryPlan::execute())
         """
-        if receiver: receiver.set_result_value(None)
-        self.check_forward(query, is_deferred, execute, user, receiver)
-
-        user = annotations['user'] if annotations and 'user' in annotations else None
+        if receiver:
+            receiver.set_result_value(None)
+        self.check_forward(query, annotations, receiver)
 
         # Enforcing policy
         (decision, data) = self.policy.filter(query, None, annotations)
@@ -491,18 +546,20 @@ class Interface(object):
                 query = _query
             if _annotations:
                 annotations = _annotations
-
         elif decision == Policy.RECORDS:
             return self.send(query, data, annotations, is_deferred)
-
         elif decision in [Policy.DENIED, Policy.ERROR]:
             if decision == Policy.DENIED:
                 data = ResultValue.get_error(ResultValue.FORBIDDEN)
             return self.send_result_value(query, data)
-
         else:
             raise Exception, "Unknown decision from policy engine"
         
+        # if Interface is_deferred  
+        Log.warning("Interface::forward: TODO: manage defer properly")
+        d = None
+        #d = Deferred() if is_deferred else None
+
         # Implements common functionalities = local queries, etc.
         namespace = None
 
@@ -511,27 +568,53 @@ class Interface(object):
             namespace, table_name = query.get_from().rsplit(":", 2)
 
         if namespace == self.LOCAL_NAMESPACE:
-            if table_name in ['object', 'gateway']:
-                if table_name == 'object':
-                    records = self.get_metadata_objects()
-                elif table_name == "gateway":
-                    records = [{'name': name} for name in Gateway.list().keys()]
+# <<
+#OBSOLETE|            if table_name in ['object', 'gateway']:
+#OBSOLETE|                if table_name == 'object':
+#OBSOLETE|                    records = self.get_metadata_objects()
+#OBSOLETE|                elif table_name == "gateway":
+#OBSOLETE|                    records = [{'name': name} for name in Gateway.list().keys()]
+#OBSOLETE|                qp = QueryPlan()
+#OBSOLETE|                qp.ast.from_table(query, records, key = None).selection(query.get_where()).projection(query.get_select())
+#OBSOLETE|                Interface.success(receiver, query, result_value)
+#OBSOLETE|                return self.execute_query_plan(query, annotations, qp, is_deferred)
+#OBSOLETE|                
+#OBSOLETE|            else:
+#OBSOLETE|                query_storage = query.copy()
+#OBSOLETE|                query_storage.object = table_name
+#OBSOLETE|                records = self.storage.execute(query_storage, annotations)
+#OBSOLETE|
+#OBSOLETE|                if query_storage.get_from() == "platform" and query_storage.get_action() != "get":
+#OBSOLETE|                    self.make_gateways()
+#OBSOLETE|
+#OBSOLETE|                Interface.success(receiver, query, result_value)
+#OBSOLETE|                return self.send(query, records, annotations, is_deferred)
+# ==
+            if table_name == "object":
+                list_objects = self.get_metadata_objects()
                 qp = QueryPlan()
-                qp.ast.from_table(query, records, key = None).selection(query.get_where()).projection(query.get_select())
-                Interface.success(receiver, query, result_value)
-                return self.execute_query_plan(query, annotations, qp, is_deferred)
-                
+                qp.ast.from_table(query, list_objects, key = None).selection(query.get_where()).projection(query.get_select())
+                Interface.success(receiver, query)
+                return qp.execute(d, receiver)
             else:
                 query_storage = query.copy()
                 query_storage.object = table_name
-                records = self.storage.execute(query_storage, user = user)
+                output = self.storage.execute(query_storage, annotations)
+                result_value = ResultValue.get_success(output)
 
                 if query_storage.get_from() == "platform" and query_storage.get_action() != "get":
                     self.make_gateways()
 
-                Interface.success(receiver, query, result_value)
-                return self.send(query, records, annotations, is_deferred)
-
+                if not d:
+                    # async
+                    Interface.success(receiver, query, result_value)
+                    return result_value
+                else:
+                    # sync
+                    d.callback(result_value)
+                    Interface.success(receiver, query, result_value)
+                    return d
+# >>
         elif namespace:
             platform_names = [platform.platform for platform in self.get_platforms()]
             if namespace not in platform_names:
@@ -555,7 +638,7 @@ class Interface(object):
 
                 qp = QueryPlan()
                 qp.ast.from_table(query, output, key = None).selection(query.get_where()).projection(query.get_select())
-                Interface.success(query, receiver)
+                Interface.success(query, receiver, result_value)
                 return self.execute_query_plan(query, annotations, qp, is_deferred)
 
                 #output = ResultValue.get_success(output)

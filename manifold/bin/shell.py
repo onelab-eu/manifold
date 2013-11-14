@@ -36,7 +36,7 @@ DEFAULT_PASSWORD  = 'demo'
 DEFAULT_PKEY_FILE = '/etc/manifold/keys/client.pkey' 
 DEFAULT_CERT_FILE = '/etc/manifold/keys/client.cert'
 
-class ManifoldClient(object):
+class ManifoldClient(Receiver):
     def log_info(self): pass
     def whoami(self): return None
 
@@ -45,17 +45,18 @@ class ManifoldLocalClient(ManifoldClient):
         self.interface = Router()
         self.interface.__enter__()
 
-        ret_users = self.interface.forward(Query.get('local:user').filter_by('email', '==', username))
-        if ret_users['code'] != 0:
+        try:
+            users = self.interface.execute_local_query(
+                Query.get('local:user').filter_by('email', '==', username)
+            )
+        except:
+            users = list()
+
+        if not len(users) >= 1:
             Log.warning('Could not retrieve current user... going anonymous')
             self.user = None
         else:
-            users = ret_users['value']
-            if not users:
-                Log.warning('Could not retrieve current user... going anonymous')
-                self.user = None
-            else:
-                self.user = users[0]
+            self.user = users[0]
 
     def __del__(self):
         try:
@@ -66,9 +67,10 @@ class ManifoldLocalClient(ManifoldClient):
 
     def forward(self, query, annotations = None):
         if not annotations:
-            annotations = {}
-        annotations['user'] = self.user
-        return self.interface.forward(query, annotations)
+            annotations = dict() 
+        if not "user" in annotations.keys():
+            annotations["user"] = self.user
+        self.interface.forward(query, annotations, self)
 
     def log_info(self):
         Log.info("Shell using local account %r" % self.user)
@@ -89,7 +91,7 @@ class ManifoldXMLRPCClientXMLRPCLIB(ManifoldClient):
         if not annotations:
             annotations = {}
         annotations['authentication'] = self.auth
-        return self.interface.forward(query.to_dict(), annotations)
+        return self.interface.forward(query.to_dict(), annotations, self)
 
     # mode_str      = 'XMLRPC'
     # interface_str = ' towards XMLRPC API %s' % self.interface
@@ -181,7 +183,7 @@ class ManifoldXMLRPCClient(ManifoldClient):
         if not annotations:
             annotations = {}
         annotations.update(self.annotations)
-        return self.interface.forward(query.to_dict(), annotations)
+        return self.interface.forward(query.to_dict(), annotations, self)
         
 
     @defer.inlineCallbacks
@@ -235,7 +237,7 @@ class ManifoldXMLRPCClientSSLGID(ManifoldXMLRPCClient):
     def log_info(self):
         Log.info("Shell using XMLRPC account '%r' (GID) on %s" % (self.gid_subject, self.url))
 
-class Shell(Receiver):
+class Shell(object):
 
     PROMPT = 'manifold'
 

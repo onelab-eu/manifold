@@ -69,9 +69,7 @@ class PluginFactory(type):
                 Returns:
                     The corresponding Gateway.
                 """
-                Log.tmp("PluginFactory: get: name = %s registry.keys() = %s" % (name, registry.keys()))
                 try:
-                    Log.tmp("name = %s registry = %s" % (name, registry))
                     return registry[name]
                 except KeyError:
                     Log.error("Cannot find %s in {%s}" % (name, ', '.join(registry.keys())))
@@ -89,7 +87,6 @@ class PluginFactory(type):
         Args:
             package:
         """
-        Log.tmp("package = %s" % package)
         prefix = package.__name__ + "."
         # Explored modules are automatically imported by walk_modules + it allows to explore
         # recursively manifold/gateways/

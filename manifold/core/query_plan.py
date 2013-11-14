@@ -276,7 +276,7 @@ class QueryPlan(object):
         self.ast.set_callback(callback)
         self.ast.start()
 
-        return d if is_deferred else cb.get_results()
+        return deferred if is_deferred else callback.get_results()
 
     def dump(self):
         """

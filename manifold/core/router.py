@@ -86,28 +86,21 @@ class Router(Interface):
         """
         return self.g_3nf.find_node(table_name).get_keys()
 
-
-    # This function is directly called for a Router
-    # Decoupling occurs before for queries received through sockets
-    #@returns(ResultValue)
-    #@returns(Deferred)
-    def forward(self, query, annotations = None, is_deferred = False, receiver = None, execute = True):
+    def forward(self, query, annotations = None, receiver = None):
         """
         Forwards an incoming Query to the appropriate Gateways managed by this Router.
         Args:
             query: The user's Query.
-            annotations: Query annotations
-            is_deferred: A boolean set to True if this Query is async
+            annotations: Query annotations.
             receiver: An instance supporting the method set_result_value or None.
                 receiver.set_result_value() will be called once the Query has terminated.
-            execute: A boolean set to True if the QueryPlan must be executed.
         """
         assert receiver, "Invalid receiver"
 
         # Try to forward the Query according to the parent class.
         # In practice, Interface::forwards() succeeds iif this is a local Query,
         # otherwise, an Exception is raised.
-        ret = super(Router, self).forward(query, annotations, is_deferred, receiver, execute)
+        ret = super(Router, self).forward(query, annotations, receiver)
         if ret: 
             # Note: we do not run hooks at the moment for local queries
             return ret
@@ -117,6 +110,11 @@ class Router(Interface):
         #XXX#    return deferred
 
         user = annotations['user'] if annotations and 'user' in annotations else None
+
+        Log.warning("router::forward: hardcoded execute value")
+        execute = True
+        Log.warning("router::forward: hardcoded is_deferred value")
+        is_deferred = True
 
         # We suppose we have no namespace from here
         if not execute: 
@@ -154,48 +152,41 @@ class Router(Interface):
         # This might be a deferred, we cannot put any hook here...
         return self.execute_query(query, annotations, is_deferred, receiver)
 
-    def process_qp_results(self, query, records, annotations, query_plan):
-
-        # Enforcing policy
-        (decision, data) = self.policy.filter(query, records, annotations)
-        if decision != Policy.ACCEPT:
-            raise Exception, "Unknown decision from policy engine"
-
-        description = query_plan.get_result_value_array()
-        return ResultValue.get_result_value(records, description)
-
-    def execute_query_plan(self, query, annotations, query_plan, is_deferred = False):
-        records = query_plan.execute(is_deferred)
-        if is_deferred:
-            # results is a deferred
-            records.addCallback(lambda records: self.process_qp_results(query, records, annotations, query_plan))
-            return records # will be a result_value after the callback
-        else:
-            return self.process_qp_results(query, records, annotations, query_plan)
-
-    def execute_query(self, query, annotations, is_deferred=False):
+    @returns(ResultValue)
+    def execute_query(self, query, annotations, is_deferred, receiver):
+        """
+        Execute a Query.
+        Args:
+            query: A Query instance.
+            annotations:
+        Returns:
+            The ResultValue instance corresponding to this Query.
+        """
+        Log.warning("execute_query: manage is_deferred properly")
         if annotations:
-            user = annotations.get('user', None)
+            user = annotations.get("user", None)
         else:
             user = None
 
         # Code duplication with Interface() class
-        if ':' in query.get_from():
-            namespace, table = query.get_from().rsplit(':', 2)
+        if ":" in query.get_from():
+            namespace, table = query.get_from().rsplit(":", 2)
             query.object = table
-            allowed_platforms = [p['platform'] for p in self.platforms if p['platform'] == namespace]
+            allowed_platforms = [p["platform"] for p in self.get_platforms() if p["platform"] == namespace]
         else:
-            allowed_platforms = [p['platform'] for p in self.platforms]
+            allowed_platforms = [p["platform"] for p in self.get_platforms()]
 
         query_plan = QueryPlan()
-        query_plan.build(query, self.g_3nf, allowed_platforms, self.allowed_capabilities, user)
-
-        self.init_from_nodes(query_plan, user)
-        #XXX#self.instanciate_gateways(query_plan, user) # removed by marco ????
-
-        #query_plan.dump()
-
-        return self.execute_query_plan(query, annotations, query_plan, is_deferred)
+        try:
+            query_plan.build(query, self.g_3nf, allowed_platforms, self.allowed_capabilities, user)
+            self.init_from_nodes(query_plan, user)
+            #query_plan.dump()
+            records = self.execute_query_plan(query, annotations, query_plan, is_deferred)
+            return ResultValue.get_success(records)
+        except Exception, e:
+            Log.error("execute_query: Error while executing %s: %s %s" % (query, traceback.format_exc(), e))
+            return ResultValue.get_error(ResultValue.ERROR, e)  
+            
 
     # NEW ROUTER PACKET INTERFACE
 
