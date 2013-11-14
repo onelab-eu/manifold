@@ -11,6 +11,8 @@
 import crypt
 from types                          import StringTypes
 
+from manifold.util.type             import accepts, returns
+
 @returns(StringTypes)
 def hash_password(password):
     """

@@ -87,6 +87,10 @@ class Record(dict):
     def is_last(self):
         return False
 
+#    def __hash__(self):
+#        return hash(self)
+
+
 class LastRecord(Record):
     def is_last(self):
         return True

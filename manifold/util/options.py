@@ -14,9 +14,12 @@ import sys, argparse
 import os.path
 import StringIO
 
+from types                      import StringTypes
+from ConfigParser               import SafeConfigParser
+
 # Do not import manifold.util.log here!
 from manifold.util.singleton    import Singleton
-from ConfigParser               import SafeConfigParser
+from manifold.util.type         import accepts, returns
 
 # http://docs.python.org/dev/library/argparse.html#upgrading-optparse-code
 # http://stackoverflow.com/questions/2819696/parsing-properties-file-in-python/2819788#2819788

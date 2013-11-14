@@ -32,6 +32,7 @@ from manifold.util.log                      import Log
 from manifold.util.type                     import accepts, returns 
 
 class SFA_RMGateway(SFAGatewayCommon):
+    __gateway_name__ = "sfa_rm"
 
     from manifold.gateways.sfa.rm.methods.authority import Authority
     from manifold.gateways.sfa.rm.methods.slice     import Slice 
