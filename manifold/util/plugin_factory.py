@@ -28,10 +28,11 @@ METAPROPERTY  = '__plugin__name__attribute__'
 class PluginFactory(type):
     def __init__(cls, class_name, parents, attrs):
         """
-        upperattr_metaclass
-        future_class_name, 
-        future_class_parents
-        future_class_attr
+        Args:
+            cls: The class type we're registering.
+            class_name: A String containing the class_name.
+            parents: The parent class types of 'cls'.
+            attrs: The attribute (members) of 'cls'.
         """
         type.__init__(cls, class_name, parents, attrs)
 
@@ -51,6 +52,8 @@ class PluginFactory(type):
                 plugin_names = [plugin_names]
                 
             for plugin_name in plugin_names:
+                if plugin_name in registry.keys():
+                    raise KeyError("Colliding plugin_name (%s) for class %s" % (plugin_name, cls))
                 registry[plugin_name] = cls #class_name
 
         else:
@@ -66,8 +69,8 @@ class PluginFactory(type):
                 Returns:
                     The corresponding Gateway.
                 """
-                Log.tmp("PluginFactory: get: name = %s registry.keys() = %s" % (name, registry.keys()))
                 try:
+                    Log.tmp("name = %s registry = %s" % (name, registry))
                     return registry[name]
                 except KeyError:
                     Log.error("Cannot find %s in {%s}" % (name, ', '.join(registry.keys())))
@@ -80,14 +83,15 @@ class PluginFactory(type):
 
     @staticmethod
     def register(package):
+        """
+        Register a package (class) in Manifold.
+        Args:
+            package:
+        """
+        Log.tmp("package = %s" % package)
         prefix = package.__name__ + "."
-#OBSOLETE|        for importer, modname, ispkg in pkgutil.iter_modules(package.__path__, prefix):
-#OBSOLETE|            try:
-#OBSOLETE|                module = __import__(modname, fromlist="dummy")
-#OBSOLETE|            except Exception, e:
-#OBSOLETE|                Log.info("Could not load %s : %s" % (modname, e))
         # Explored modules are automatically imported by walk_modules + it allows to explore
         # recursively manifold/gateways/
         # http://docs.python.org/2/library/pkgutil.html
-        for importer, modname, ispkg in pkgutil.walk_modules(package.__path__, prefix, onerror = None):
+        for importer, modname, ispkg in pkgutil.walk_packages(package.__path__, prefix, onerror = None):
             pass

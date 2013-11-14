@@ -33,7 +33,7 @@ def unique_call_id():
     return uuid.uuid4().urn
 
 class SFA_AMGateway(SFAGatewayCommon):
-    __gateway_name__ = "sfa_rm"
+    __gateway_name__ = "sfa_am"
 
     def __init__(self, interface, platform, platform_config = None):
         """

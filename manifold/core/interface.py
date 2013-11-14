@@ -57,7 +57,6 @@ class Interface(object):
         self.storage = Storage(self) 
         self.platforms = list()
         self.storage_user = user
-#DEPRECATED#        self.platforms = Storage.execute(Query().get("platform").filter_by("disabled", "=", False)) #, format = "object")
 
         # self.allowed_capabilities is a Capabilities instance (or None)
         self.allowed_capabilities = allowed_capabilities
@@ -70,9 +69,12 @@ class Interface(object):
         # the appropriate Gateway instance.
         self.gateways = dict()
 
+        # self.policy is a Policy object implementing kind of iptables
+        # allowing to filter Packets (Announces and so on).
         self.policy = Policy(self)
 
         self.boot()
+        self.policy.load()
 
     #---------------------------------------------------------------------
     # Accessors 
@@ -90,25 +92,11 @@ class Interface(object):
     @returns(GeneratorType)
     def get_platforms(self):
         """
-        Returns;
+        Returns:
             A Generator allowing to iterate on Platform managed by this Interface.
         """
         for platform in self.platforms:
             yield platform
-#UNASSIGNED#            # Get platform configuration
-#UNASSIGNED#            platform_config = platform['config']
-#UNASSIGNED#            if platform_config:
-#UNASSIGNED#                platform_config = json.loads(platform_config)
-#UNASSIGNED#
-#UNASSIGNED#            platform_name = platform['platform']
-#UNASSIGNED#            args = [None, platform_name, None, platform_config, {}, None]
-#UNASSIGNED#            gateway = Gateway.get(platform['gateway_type'])(*args)
-#UNASSIGNED#            announces = gateway.get_metadata()
-#UNASSIGNED#            self.metadata[platform_name] = list() 
-#UNASSIGNED#            for announce in announces:
-#UNASSIGNED#                self.metadata[platform_name].append(announce)
-#UNASSIGNED#
-#UNASSIGNED#        self.policy.load()
 
     @returns(Record)
     def get_platform(self, platform_name):
@@ -234,18 +222,6 @@ class Interface(object):
 
         # Gateway is a plugin_factory
         return Gateway.get(platform["gateway_type"])(*args)
-#DEVEL#        if platform_name == "dummy":
-#DEVEL#            args = [None, platform_name, None, platform.gateway_config, None, user]
-#DEVEL#        else:
-#DEVEL#            platform_config = platform['config']
-#DEVEL#            if platform_config:
-#DEVEL#                platform_config = json.loads(platform_config)
-#DEVEL#            
-#DEVEL#            user_config = self.get_user_config(user, platform)
-#DEVEL#
-#DEVEL#            args = [self, platform_name, None, platform_config, user_config, user]
-#DEVEL#
-#DEVEL#        return Gateway.get(platform['gateway_type'])(*args)
 
     def make_gateways(self):
         """
@@ -253,7 +229,6 @@ class Interface(object):
         Delete Announces related to disabled platforms
         """
         platform_names_loaded  = set([platform["platform"] for platform in self.get_platforms()])
-        Log.tmp("platform_names_loaded = %s" % platform_names_loaded)
         annotations       = {'user': self.storage_user}
         self.platforms    = self.storage.execute(
             Query()\
@@ -273,7 +248,6 @@ class Interface(object):
             except:
                 Log.error("Cannot remove %s from %s" % (platform_name, self.gateways))
 
-        Log.tmp("platform_names_add = %s" % platform_names_add)
         for platform_name in platform_names_add: 
             # Create Gateway corresponding to the current Platform
             Log.info("Enabling platform '%s'" % platform_name) 
@@ -289,10 +263,6 @@ class Interface(object):
                 type(announces)
             )
             self.announces[platform_name] = announces 
-
-        #self.platforms = list(platforms_enabled)
-        for platform in self.platforms:
-            Log.tmp(self.platforms)
 
     def boot(self):
         """
