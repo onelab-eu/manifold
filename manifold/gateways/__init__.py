@@ -8,76 +8,12 @@
 #
 # Copyright (C) 2013 UPMC 
 
-#OBSOLETE|<<<<<<< HEAD
-#OBSOLETE|import traceback, sys
-#OBSOLETE|from os                                 import sep, walk
-#OBSOLETE|from os.path                            import basename, dirname, join
-#OBSOLETE|from inspect                            import getmembers, isclass
-#OBSOLETE|
-#OBSOLETE|from manifold.gateways                  import Gateway
-#OBSOLETE|from manifold.util.log                  import Log
-#OBSOLETE|from manifold.util.type                 import accepts, returns
-#OBSOLETE|
-#OBSOLETE|#-------------------------------------------------------------------------------
-#OBSOLETE|# List of gateways
-#OBSOLETE|#-------------------------------------------------------------------------------
-#OBSOLETE|
-#OBSOLETE|@returns(bool)
-#OBSOLETE|def is_gateway(class_type):
-#OBSOLETE|    """
-#OBSOLETE|    Test whether a class_type corresponds to a Manifold Gateway or not.
-#OBSOLETE|    Returns:
-#OBSOLETE|        True iif a class type corresponds to a Manifold Gateway
-#OBSOLETE|    """
-#OBSOLETE|    try:
-#OBSOLETE|        ret = isclass(class_type) and class_type != Gateway #and issubclass(class_type, Gateway) and class_type != Gateway
-#OBSOLETE|    except Exception, e:
-#OBSOLETE|        # AttributeError: class Cache has no attribute '__class__', etc...
-#OBSOLETE|        ret = False
-#OBSOLETE|    return ret
-#OBSOLETE|
-#OBSOLETE|@returns(list)
-#OBSOLETE|def get_class_names(module_name):
-#OBSOLETE|    """
-#OBSOLETE|    Returns:
-#OBSOLETE|        A list of Strings where each String is the class name of a Gateway.
-#OBSOLETE|    """
-#OBSOLETE|    __import__(module_name)
-#OBSOLETE|    return [class_name for class_name, class_type in getmembers(sys.modules[module_name], is_gateway) if class_name.endswith("Gateway")]
-#OBSOLETE|
-#OBSOLETE|def register_gateways():
-#OBSOLETE|    """
-#OBSOLETE|    Import every *Gateway classes disseminated in manifold/gateways/*/__init__.py.
-#OBSOLETE|    """
-#OBSOLETE|    gateway_dir = dirname(__file__)
-#OBSOLETE|    start = len(gateway_dir) - len("manifold/gateways")
-#OBSOLETE|
-#OBSOLETE|    # Build module names providing Gateways (['manifold.gateways.csv', ...])
-#OBSOLETE|    # We only inpect __init__.py files.
-#OBSOLETE|    module_names = list()
-#OBSOLETE|    for directory, _, filenames in walk(gateway_dir):
-#OBSOLETE|        if "__init__.py" in filenames:
-#OBSOLETE|            module_name = directory.replace(sep, ".")[start:]
-#OBSOLETE|            module_names.append(module_name)
-#OBSOLETE|
-#OBSOLETE|    # Inspect each modules to find *Gateway classes which inherits
-#OBSOLETE|    # Gateway (excepted Gateway itself).
-#OBSOLETE|    for module_name in module_names:
-#OBSOLETE|        try:
-#OBSOLETE|            class_names = get_class_names(module_name) 
-#OBSOLETE|        except Exception, e:
-#OBSOLETE|            # An Exception has been raised, probably due to a syntax error
-#OBSOLETE|            # inside the Gateway sources
-#OBSOLETE|            Log.error(traceback.format_exc())
-#OBSOLETE|
-#OBSOLETE|        # http://stackoverflow.com/questions/9544331/from-a-b-import-x-using-import
-#OBSOLETE|        for class_name in class_names:
-#OBSOLETE|            __import__(module_name, fromlist = [class_name])
-#OBSOLETE|=======
 import json, os, sys, traceback
 from types                        import StringTypes
 
 from manifold.core.announce       import Announces
+from manifold.core.query          import Query
+from manifold.core.record         import Record
 from manifold.core.result_value   import ResultValue
 from manifold.util.log            import Log
 from manifold.util.plugin_factory import PluginFactory
@@ -276,7 +212,7 @@ class Gateway(object):
         """
         return self.result_value
         
-    def check_forward(self, query, callback, is_deferred, execute, user, account_config, format, receiver):
+    def check_forward(self, query, annotations, callback, is_deferred, execute, account_config, receiver):
         """
         Checks Gateway::forward parameters.
         """
@@ -286,16 +222,12 @@ class Gateway(object):
             "Invalid execute value: %s (%s)" % (is_deferred, type(is_deferred))
         assert isinstance(execute, bool), \
             "Invalid is_deferred value: %s (%s)" % (execute, type(execute))
-        #assert not user or isinstance(user, User), \
-        #    "Invalid User: %s (%s)" % (user, type(user))
         assert not account_config or isinstance(account_config, dict), \
             "Invalid account_config: %s (%s)" % (account_config, type(account_config))
-        assert format in ["dict", "object"], \
-            "Invalid format: %s (%s)" % (format, type(format))
         assert not receiver or receiver.set_result_value, \
             "Invalid receiver: %s (%s)" % (receiver, type(receiver))
 
-    def forward(self, query, callback, is_deferred = False, execute = True, user = None, account_config = None, receiver = None):
+    def forward(self, query, annotations, callback, is_deferred = False, execute = True, account_config = None, receiver = None):
         """
         Query handler.
         Args:
@@ -320,7 +252,7 @@ class Gateway(object):
         Log.warning("Remove 'callback' parameter which is receiver.get_callback()")
         Log.warning("Remove 'format' parameter which is receiver.get_callback()")
         if receiver: receiver.set_result_value(None)
-        self.check_forward(query, callback, is_deferred, execute, user, account_config, format, receiver)
+        self.check_forward(query, annotations, callback, is_deferred, execute, account_config, receiver)
 
     @returns(list)
     def query_storage(self, query, user):
@@ -387,7 +319,6 @@ class Gateway(object):
                     traceback   = traceback.format_exc()
                 )
             )
-
 
 def register_gateways():
     current_module = sys.modules[__name__]

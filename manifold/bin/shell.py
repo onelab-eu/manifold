@@ -230,7 +230,7 @@ class ManifoldXMLRPCClientSSLGID(ManifoldXMLRPCClient):
         self.annotations = { 'authentication': {'AuthMethod': 'gid'} } 
 
         # This has to be tested to get rid of the previously defined CtxFactory class
-        self.interface.setSSLClientContext(ssl.DefaultOpenSSLContextFactory(self.pkey_file, self.cert_file))
+        self.interface.setSSLClientContext(ssl.DefaultOpenSSLContextFactory(pkey_file, cert_file))
 
     def log_info(self):
         Log.info("Shell using XMLRPC account '%r' (GID) on %s" % (self.gid_subject, self.url))
@@ -339,6 +339,7 @@ class Shell(Receiver):
                     self.select_auth_method(method)
                     return
                 except Exception, e:
+                    Log.error(format_exc())
                     Log.debug("Failed client authentication '%s': %s" % (method, e))
             raise Exception, "Could not authentication automatically (tried: local, gid, password)"
 
