@@ -246,7 +246,10 @@ class Interface(object):
         args = [self, platform_name, platform_config]
 
         # Gateway is a plugin_factory
-        return Gateway.get(platform["gateway_type"])(*args)
+        gateway = Gateway.get(platform["gateway_type"])
+        if not gateway:
+            raise Exception, "Gateway not found: %s" % platform["gateway_type"]
+        return gateway(*args)
 
     def make_gateways(self):
         """

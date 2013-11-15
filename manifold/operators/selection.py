@@ -28,14 +28,14 @@ class Selection(Node):
 
         super(Selection, self).__init__()
 
-        self.child, self._filters = child, filters
+        self._filters = filters
 
-        old_cb = child.get_callback()
-        child.set_callback(self.child_callback)
-        self.set_callback(old_cb)
-
-        self.query = self.child.get_query().copy()
-        self.query.filters |= filters
+#        old_cb = child.get_callback()
+#        child.set_callback(self.child_callback)
+#        self.set_callback(old_cb)
+#
+#        self.query = self.child.get_query().copy()
+#        self.query.filters |= filters
     
     #---------------------------------------------------------------------------
     # Internal methods

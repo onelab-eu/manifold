@@ -50,7 +50,7 @@ class Router(Interface):
 
         self._sockets = list()
         # We already have gateways defined in Interface
-        self._operator_graph = OperatorGraph()
+        self._operator_graph = OperatorGraph(router = self)
 
     def boot(self):
         """
@@ -86,12 +86,12 @@ class Router(Interface):
         """
         return self.g_3nf.find_node(table_name).get_keys()
 
-    def forward(self, query, annotations = None, receiver = None):
+    def forward(self, query, annotation = None, receiver = None):
         """
         Forwards an incoming Query to the appropriate Gateways managed by this Router.
         Args:
             query: The user's Query.
-            annotations: Query annotations.
+            annotation: Query annotation.
             receiver: An instance supporting the method set_result_value or None.
                 receiver.set_result_value() will be called once the Query has terminated.
         """
@@ -100,7 +100,7 @@ class Router(Interface):
         # Try to forward the Query according to the parent class.
         # In practice, Interface::forwards() succeeds iif this is a local Query,
         # otherwise, an Exception is raised.
-        ret = super(Router, self).forward(query, annotations, receiver)
+        ret = super(Router, self).forward(query, annotation, receiver)
         if ret: 
             # Note: we do not run hooks at the moment for local queries
             return ret
@@ -109,7 +109,7 @@ class Router(Interface):
         #XXX#if receiver.get_result_value():
         #XXX#    return deferred
 
-        user = annotations['user'] if annotations and 'user' in annotations else None
+        user = annotation['user'] if annotation and 'user' in annotation else None
 
         Log.warning("router::forward: hardcoded execute value")
         execute = True
@@ -150,21 +150,21 @@ class Router(Interface):
         # Execute query plan
         # the deferred object is sent to execute function of the query_plan
         # This might be a deferred, we cannot put any hook here...
-        return self.execute_query(query, annotations, is_deferred, receiver)
+        return self.execute_query(query, annotation, is_deferred, receiver)
 
     @returns(ResultValue)
-    def execute_query(self, query, annotations, is_deferred, receiver):
+    def execute_query(self, query, annotation, is_deferred, receiver):
         """
         Execute a Query.
         Args:
             query: A Query instance.
-            annotations:
+            annotation:
         Returns:
             The ResultValue instance corresponding to this Query.
         """
         Log.warning("execute_query: manage is_deferred properly")
-        if annotations:
-            user = annotations.get("user", None)
+        if annotation:
+            user = annotation.get("user", None)
         else:
             user = None
 
@@ -181,7 +181,7 @@ class Router(Interface):
             query_plan.build(query, self.g_3nf, allowed_platforms, self.allowed_capabilities, user)
             self.init_from_nodes(query_plan, user)
             #query_plan.dump()
-            records = self.execute_query_plan(query, annotations, query_plan, is_deferred)
+            records = self.execute_query_plan(query, annotation, query_plan, is_deferred)
             return ResultValue.get_success(records)
         except Exception, e:
             Log.error("execute_query: Error while executing %s: %s %s" % (query, traceback.format_exc(), e))
@@ -198,8 +198,66 @@ class Router(Interface):
         # Create a Socket holding the connection information
         socket = Socket(packet, router = self)
 
+        query = packet.get_query()
+
+        # Handling local queries separately, could be improved
+        namespace = None
+
+        # Handling internal queries
+        if ":" in query.get_from():
+            namespace, table_name = query.get_from().rsplit(":", 2)
+
+        if namespace == self.LOCAL_NAMESPACE:
+            if table_name in ['object', 'gateway']:
+                if table_name == 'object':
+                    records = self.get_metadata_objects()
+                elif table_name == "gateway":
+                    records = [{'name': name} for name in Gateway.list().keys()]
+                qp = QueryPlan()
+                qp.ast.from_table(query, records, key = None).selection(query.get_where()).projection(query.get_select())
+                Interface.success(receiver, query, result_value)
+                return self.execute_query_plan(query, annotation, qp, is_deferred)
+                
+            else:
+                query_storage = query.copy()
+                query_storage.object = table_name
+                records = self.storage.execute(query_storage, annotation)
+
+                if query_storage.get_from() == "platform" and query_storage.get_action() != "get":
+                    self.make_gateways()
+
+                Interface.success(receiver, query, result_value)
+                return self.send(query, records, annotation, is_deferred)
+
+        elif namespace:
+            platform_names = [platform['platform'] for platform in self.get_platforms()]
+            if namespace not in platform_names:
+                self.send(ErrorPacket()) # XXX
+                #Interface.error(
+                #    receiver,
+                #    query,
+                #    "Unsupported namespace '%s': valid namespaces are platform names ('%s') and 'local'." % (
+                #        namespace,
+                #        "', '".join(platform_names)
+                #    )
+                #)
+                return
+
+#            if table_name == "object":
+#                # Prepare 'output' which will contains announces transposed as a list
+#                # of dictionnaries.
+#                output = list()
+#                announces = self.announces[namespace]
+#                for announce in announces:
+#                    output.append(announce.get_table().to_dict())
+#
+#                qp = QueryPlan()
+#                qp.ast.from_table(query, output, key = None).selection(query.get_where()).projection(query.get_select())
+#                Interface.success(query, receiver, result_value)
+#                return self.execute_query_plan(query, annotation, qp, is_deferred)
+
         # We need to route the query (aka connect is to the OperatorGraph)
-        self._operator_graph.build_query_plan(packet.query, packet.annotations, receiver = socket)
+        self._operator_graph.build_query_plan(query, packet.annotation, receiver = socket)
 
         # Execute the operators related to the socket, if needed
 

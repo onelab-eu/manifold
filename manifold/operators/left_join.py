@@ -1,5 +1,5 @@
 from manifold.core.filter          import Filter
-from manifold.operators.operator   import operator
+from manifold.operators.operator   import Operator
 from manifold.core.packet          import QueryPacket
 from manifold.core.record          import Record
 from manifold.operators.selection  import Selection
