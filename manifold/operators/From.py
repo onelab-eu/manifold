@@ -15,9 +15,12 @@
 #   Jordan Augé       <jordan.auge@lip6.fr>
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
+import traceback
 from types                         import StringTypes
 
+from manifold.core.annotation      import Annotation
 from manifold.core.query           import Query
+from manifold.core.receiver        import Receiver
 from manifold.core.result_value    import ResultValue 
 from manifold.operators            import Node
 from manifold.operators.selection  import Selection   # XXX
@@ -28,49 +31,37 @@ from manifold.operators.selection  import Selection
 from manifold.util.log             import Log
 from manifold.util.type            import returns
 
-#------------------------------------------------------------------
-# FROM node
-#------------------------------------------------------------------
-
-class From(Node):
+class From(Node, Receiver):
     """
     From Node are responsible to forward a Query and its corresponding User
     to a Gateway.
     """
 
-    def __init__(self, platform, query, capabilities, key):
+    def __init__(self, platform_name, query, capabilities, key):
         """
         Constructor.
         Args:
-            platform: A String instance storing the name of the platform queried by
+            platform_name: A String instance storing the name of the Platform queried by
                 this From Node.
             query: A Query instance querying a Table provided by this Platform.
+            annotation: An Annotation instance.
             capabilities: A Capabilities instance, set according to the metadata related
                 to the Table queried by this From Node.
             key: A Key instance. 
         """
-        assert isinstance(query, Query), "Invalid type: query = %r (%r)" % (query, type(query))
+        assert isinstance(platform_name, StringTypes),\
+            "Invalid platform_name = %s (%s)" % (platform_name, type(platform_name))
+        assert isinstance(query, Query), \
+            "Invalid type: query = %s (%s)" % (query, type(query))
 
         super(From, self).__init__()
 
-        self.platform       = platform
-        self.user           = None # This dictionnary will be initalized by init_from_node
-        self.account_config = None # This dictionnary will be initalized by init_from_node
-        self.query          = query
+        self.platform_name = platform_name
+        self.query         = query
         Log.warning("capabilities still useful in From ?")
-        self.capabilities   = capabilities
-        self.key            = key
-        self.gateway        = None # This Gateway will be initalized by init_from_node
-        self.result_value   = None # A ResultValue (TODO: From should inherits Receiver)
-
-    def set_account_config(self, account_config):
-        """
-        Args:
-            account_config: A dictionnary instance
-        """
-        assert not account_config or isinstance(account_config, dict), \
-            "Invalid account_config: %s (%s)" % (account_config, type(account_config))
-        self.account_config = account_config
+        self.capabilities  = capabilities
+        self.key           = key
+        self.gateway       = None # This Gateway will be initalized by init_from_node
 
     def add_fields_to_query(self, field_names):
         """
@@ -89,27 +80,7 @@ class From(Node):
         Returns:
             The name of the Platform queried by this FROM node.
         """
-        return self.platform
-
-    @returns(ResultValue)
-    def get_result_value(self):
-        """
-        (TODO) remove this method and make From inherits Receiver
-        Returns:
-            The ResultValue related to the query embeded in this From Node.
-            It could be None if the query has not been run (see From::forward())
-        """
-        return self.result_value
-
-    def set_result_value(self, result_value):
-        """
-        (TODO) remove this method and make From inherits Receiver
-        Args:
-            result_value: The ResultValue related to the query embeded in this From Node.
-        """
-        assert not result_value or isinstance(result_value, ResultValue), "Invalid ResultValue: %s (%s)" % (result_value, type(result_value))
-        assert not isinstance(self.result_value, ResultValue), "self.result_value has been already set! %s" % self.get_result_value()
-        self.result_value = result_value
+        return self.platform_name
 
     @returns(StringTypes)
     def __repr__(self):
@@ -174,21 +145,33 @@ class From(Node):
 
         return join
 
-    def set_user(self, user):
+    def set_annotation(self, annotation):
         """
-        Set the User querying the nested platform of this From Node.
         Args:
-            user: A User instance (None if anonymous).
+            annotation: An Annotation instance.
         """
-        self.user = user
+        assert isinstance(annotation, Annotation), "Invalid annotation = %s (%s)" % (annotation, type(annotation))
+        self.annotation = annotation
 
-    #@returns(User)
+    @returns(Annotation)
+    def get_annotation(self):
+        """
+        Returns:
+            The Annotation instance related to this From Node and corresponding
+            to the Query of this Node.
+        """
+        return self.annotation
+
+    @returns(dict)
     def get_user(self):
         """
         Returns:
-            The User querying the nested platform of this From Node (None if anonymous).
+            A dictionnary containing information related to the User querying
+            the nested platform of this From Node (None if anonymous).
         """
-        return self.user
+        Log.warning("From::get_user is deprecated: %s" % traceback.format_exc())
+        annotation = self.get_annotation()
+        return annotation["user"] if annotation else None
 
     @returns(dict)
     def get_account_config(self):
@@ -197,35 +180,23 @@ class From(Node):
             A dictionnary containing the account configuration of the User instanciating
             this From Node or None.
         """
-        return self.account_config
+        Log.warning("From::get_account_config is deprecated: %s" % traceback.format_exc())
+        annotation = self.get_annotation()
+        return annotation["account_config"] if annotation else None
 
     def start(self):
         """
         Propagates a START message through the node
         """
-        # @loic Added self.send(LastRecord()) if no Gateway is selected, then send no result
-        # That might mean that the user has no account for the platform
         if not self.gateway:
             Log.error("No Gateway set for this From Node: %r" % self)
             self.send(LastRecord())
         else:
             self.gateway.forward(
-                self.get_query(),          # Forward the nested Query to the nested Gateway.
-                self.get_callback(),       # Records are returned through this Callback.
-                False,                     # is_deferred
-                True,                      # execute
-                self.get_user(),           # The Query is performed using this User.
-                self.get_account_config(), # Account configuration of this User on this Platform
-                "record",                  # Node only consider Records in the "dict" format
-                self                       # From Node mimics a Receiver. 
+                self.get_query(),      # Forward the nested Query to the nested Gateway.
+                self.get_annotation(), # Forward corresponding Annotation to the nested Gateway.
+                self                   # From Node acts as a Receiver. 
             )
-        #Log.tmp("uncomment this assert")
-        #assert self.get_result_value() and isinstance(self.get_result_value(), ResultValue), \
-        #    "%s::forward() does not set instance: %s (%s)" % (
-        #        self.gateway.__class__.__name__,
-        #        self.get_result_value(),
-        #        type(self.get_result_value())
-        #    )
 
     def set_gateway(self, gateway):
         """
@@ -258,7 +229,7 @@ class From(Node):
                 # The result of the request is empty, no need to instanciate any gateway
                 # Replace current node by an empty node
                 old_self_callback = self.get_callback()
-                from_table = FromTable(self.query, [], self.key)
+                from_table = FromTable(self.query, list(), self.key)
                 from_table.set_callback(old_self_callback)
                 return from_table
             # XXX Note that such issues could be detected beforehand

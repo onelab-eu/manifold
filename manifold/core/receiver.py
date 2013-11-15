@@ -11,6 +11,7 @@
 # Authors:
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
+from manifold.core.record           import Record
 from manifold.core.result_value     import ResultValue
 from manifold.util.type             import accepts, returns
 
@@ -40,3 +41,48 @@ class Receiver(object):
             "Invalid result_value = %s (%s)" % (result_value, type(result_value))
         self.result_value = result_value
 
+###############
+# CODE jetable
+# <<
+###############
+
+    @returns(int)
+    def get_identifier(self):
+        """
+        Returns:
+            An integer identifying the Receiver. This identifier is only used
+            for debug purposes.
+        """
+        return 0
+
+    def default_callback(self, record):
+        """
+        Accumulate incoming Record in the nested ResultValue.
+        Args:
+            record: A Record instance.
+        """
+        try:
+            x = self.records
+        except AttributeError:
+            self.records = list()
+
+        if record.is_last():
+            result_value = ResultValue.get_success(self.records)
+            del self.records
+            self.set_result_value(result_value)
+        else:
+            self.records.append(record)
+
+    def callback(self, record):
+        """
+        This method is called back whenever the Receiver receives a Record.
+        A class inheriting Receiver may overwrite this method.
+        Args:
+            record: A Record instance.
+        """
+        return self.default_callback(record)
+
+###############
+# CODE jetable
+# >>
+###############

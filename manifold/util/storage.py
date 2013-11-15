@@ -11,8 +11,11 @@
 # Copyright (C) 2013 UPMC 
 
 
+from manifold.core.receiver         import Receiver
 from manifold.gateways              import Gateway
 from manifold.util.callback         import Callback
+from manifold.util.log              import Log 
+from manifold.util.type             import accepts, returns
 
 URL = 'sqlite:////var/myslice/db.sqlite?check_same_thread=False'
 
@@ -45,16 +48,15 @@ class DBStorage(Storage):
         storage_config = {"url" : URL}
         self.gateway = Gateway.get("sqlalchemy")(interface, None, storage_config)
 
-    def execute(self, query, annotations):
+    @returns(list)
+    def execute(self, query, annotation, receiver):
         """
         Executes a Query on the Manifold Storage and fetches the corresponding results.
         Args:
             query: A Query instance.
-            annotations: A dictionnary or None containing Query's annotations.
+            annotation: A dictionnary or None containing Query's annotation.
+            receiver: A Receiver instance.
+        Returns:
+            A list of Record.
         """
-        # XXX Need to pass local parameters
-#MANDO|        gw = Gateway.get('sqlalchemy')(config={'url': URL}, user=user, format=format)
-        callback = Callback()
-        account_config = None
-        self.gateway.forward(query, annotations, callback, False, True, account_config, None)
-        return callback.get_results()
+        self.gateway.forward(query, annotation, receiver)

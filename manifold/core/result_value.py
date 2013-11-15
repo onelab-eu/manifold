@@ -150,8 +150,8 @@ class ResultValue(dict):
         err = "%r" % self['description']
 
     @staticmethod
-    def to_html (raw_dict):
-        return pprint.pformat (raw_dict).replace("\\n","<br/>")
+    def to_html(raw_dict):
+        return pprint.pformat(raw_dict).replace("\\n","<br/>")
 
 # 67    <code>
 # 68      <value>9</value>

@@ -258,21 +258,13 @@ class SFAGatewayCommon(Gateway):
             return DEFAULT_TIMEOUT
 
     @defer.inlineCallbacks
-    def forward(self, query, callback, is_deferred = False, execute = True, user = None, user_account_config = None, format = "dict", receiver = None):
+    def forward(self, query, annotation, receiver = None):
         """
         Query handler.
         Args:
             query: A Query instance, reaching this Gateway.
-            callback: The function called to send this record. This callback is provided
-                most of time by a From Node.
-                Prototype : def callback(record)
-            is_deferred: A boolean set to True if this Query is async.
-            execute: A boolean set to True if the treatement requested in query
-                must be run or simply ignored.
-            user: The User issuing the Query.
-            user_account_config: A dictionnary containing the user's account config.
-                In pratice, this is the result of the following query (run on the Storage)
-                SELECT config FROM local:account WHERE user_id == user.user_id
+            annotation: A dictionnary instance containing Query's annotation.
+            receiver : A Receiver instance which collects the results of the Query.
             receiver: The From Node running the Query or None. Its ResultValue will
                 be updated once the query has terminated.
         Returns:
@@ -280,9 +272,12 @@ class SFAGatewayCommon(Gateway):
             decorator. 
         """
         identifier = receiver.get_identifier() if receiver else None
-        super(SFAGatewayCommon, self).forward(query, callback, is_deferred, execute, user, user_account_config, format, receiver)
+        super(SFAGatewayCommon, self).forward(query, annotation, receiver)
+
+        user = annotation["user"]
 
         try:
+            user_account_config = annotation["account"]["config"]
             Gateway.start(user, user_account_config, query)
         except Exception, e:
             Log.error("Error while starting SFA_RMGateway")
@@ -315,10 +310,10 @@ class SFAGatewayCommon(Gateway):
             # account is managed, then run managed and try to rerun the Query.
             result = list()
             try:
-                result = yield self.perform_query(user_dict, user_account_config, query)
+                result = yield self.perform_query(user, user_account_config, query)
             except Exception, e:
                 if self.handle_error(user_account):
-                    result = yield self.perform_query(user_dict, user_account_config, query)
+                    result = yield self.perform_query(user, user_account_config, query)
                 else:
                     failure = Failure("Account not managed: user_account_config = %s / auth_type = %s" % (account_config, user_account["auth_type"]))
                     failure.raiseException()

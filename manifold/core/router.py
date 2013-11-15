@@ -86,12 +86,12 @@ class Router(Interface):
         """
         return self.g_3nf.find_node(table_name).get_keys()
 
-    def forward(self, query, annotations = None, receiver = None):
+    def forward(self, query, annotation = None, receiver = None):
         """
         Forwards an incoming Query to the appropriate Gateways managed by this Router.
         Args:
             query: The user's Query.
-            annotations: Query annotations.
+            annotation: Query annotation.
             receiver: An instance supporting the method set_result_value or None.
                 receiver.set_result_value() will be called once the Query has terminated.
         """
@@ -100,7 +100,7 @@ class Router(Interface):
         # Try to forward the Query according to the parent class.
         # In practice, Interface::forwards() succeeds iif this is a local Query,
         # otherwise, an Exception is raised.
-        ret = super(Router, self).forward(query, annotations, receiver)
+        ret = super(Router, self).forward(query, annotation, receiver)
         if ret: 
             # Note: we do not run hooks at the moment for local queries
             return ret
@@ -109,7 +109,7 @@ class Router(Interface):
         #XXX#if receiver.get_result_value():
         #XXX#    return deferred
 
-        user = annotations['user'] if annotations and 'user' in annotations else None
+        user = annotation['user'] if annotation and 'user' in annotation else None
 
         Log.warning("router::forward: hardcoded execute value")
         execute = True
@@ -150,21 +150,21 @@ class Router(Interface):
         # Execute query plan
         # the deferred object is sent to execute function of the query_plan
         # This might be a deferred, we cannot put any hook here...
-        return self.execute_query(query, annotations, is_deferred, receiver)
+        return self.execute_query(query, annotation, is_deferred, receiver)
 
     @returns(ResultValue)
-    def execute_query(self, query, annotations, is_deferred, receiver):
+    def execute_query(self, query, annotation, is_deferred, receiver):
         """
         Execute a Query.
         Args:
             query: A Query instance.
-            annotations:
+            annotation:
         Returns:
             The ResultValue instance corresponding to this Query.
         """
         Log.warning("execute_query: manage is_deferred properly")
-        if annotations:
-            user = annotations.get("user", None)
+        if annotation:
+            user = annotation.get("user", None)
         else:
             user = None
 
@@ -181,7 +181,7 @@ class Router(Interface):
             query_plan.build(query, self.g_3nf, allowed_platforms, self.allowed_capabilities, user)
             self.init_from_nodes(query_plan, user)
             #query_plan.dump()
-            records = self.execute_query_plan(query, annotations, query_plan, is_deferred)
+            records = self.execute_query_plan(query, annotation, query_plan, is_deferred)
             return ResultValue.get_success(records)
         except Exception, e:
             Log.error("execute_query: Error while executing %s: %s %s" % (query, traceback.format_exc(), e))
@@ -199,12 +199,12 @@ class Router(Interface):
         socket = Socket(packet, router = self)
 
         # We need to route the query (aka connect is to the OperatorGraph)
-        self._operator_graph.build_query_plan(packet.query, packet.annotations, receiver = socket)
+        self._operator_graph.build_query_plan(packet.query, packet.annotation, receiver = socket)
 
         # Execute the operators related to the socket, if needed
 
         
         
-    # Is it useful at all ?
-    def send(self, packet):
-        pass
+#    # Is it useful at all ?
+#    def send(self, packet):
+#        pass

@@ -819,7 +819,7 @@ def to_3nf(metadata):
                             map_method_keys[method] = set()
                         map_method_keys[method].add(key)
 
-                        # field annotations
+                        # field annotation
                         if not method in map_method_fields.keys():
                             map_method_fields[method] = set()
                         map_method_fields[method].add(field.get_name())

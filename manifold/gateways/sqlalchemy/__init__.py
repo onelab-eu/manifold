@@ -289,29 +289,15 @@ class SQLAlchemyGateway(Gateway):
 #MANDO|            self.callback(row)
 #MANDO|        self.callback(None)
 
-    def forward(self, query, annotations, callback, is_deferred = False, execute = True, account_config = None, receiver = None):
+    def forward(self, query, annotation, receiver):
         """
         Query handler.
         Args:
             query: A Query instance, reaching this Gateway.
-            callback: The function called to send this record. This callback is provided
-                most of time by a From Node.
-                Prototype : def callback(record)
-            is_deferred: A boolean.
-            execute: A boolean set to True if the treatement requested in query
-                must be run or simply ignored.
-            user: The User issuing the Query.
-            account_config: A dictionnary containing the user's account config.
-                In pratice, this is the result of the following query (run on the Storage)
-                SELECT config FROM local:account WHERE user_id == user.user_id
-            format: A String specifying in which format the Records must be returned.
-            receiver : The From Node running the Query or None. Its ResultValue will
-                be updated once the query has terminated.
-        Returns:
-            forward must NOT return value otherwise we cannot use @defer.inlineCallbacks
-            decorator. 
+            annotation: A dictionnary instance containing Query's annotation.
+            receiver : A Receiver instance which collects the results of the Query.
         """
-        super(SQLAlchemyGateway, self).forward(query, annotations, callback, is_deferred, execute, account_config, receiver)
+        super(SQLAlchemyGateway, self).forward(query, annotation, receiver)
         identifier = receiver.get_identifier() if receiver else None
 
         assert isinstance(query, Query), "Invalid query"
@@ -323,14 +309,14 @@ class SQLAlchemyGateway(Gateway):
         }
 
         try:
-            user = annotations.get('user', None)
+            user = annotation.get('user', None)
             rows = _map_action[query.get_action()](query, user)
             for row in rows:
-                self.send(row2record(row), callback, identifier)
-            self.send(LastRecord(), callback, identifier)
+                self.send(row2record(row), receiver, identifier)
+            self.send(LastRecord(), receiver, identifier)
             self.success(receiver, query)
         except AttributeError, e:
-            self.send(LastRecord(), callback, identifier)
+            self.send(LastRecord(), receiver, identifier)
             self.error(receiver, query, e)
 
     @returns(list)

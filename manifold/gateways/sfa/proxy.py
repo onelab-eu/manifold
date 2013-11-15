@@ -155,7 +155,7 @@ class SFATokenMgr(object):
 
     def get_token(self, interface):
         # We police queries only on blacklisted interfaces
-        Log.warning("Please update SFATokenMgr::BLACKLIST")
+        Log.warning("SFATokenMgr::get_token(): TODO: update SFATokenMgr::BLACKLIST")
         if not interface or interface not in self.BLACKLIST:
             return True
 

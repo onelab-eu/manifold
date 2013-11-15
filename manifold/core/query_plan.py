@@ -186,69 +186,69 @@ class QueryPlan(object):
     
         # Do we need to wait for self.ast here ?
 
-    # XXX Note for later: what about holes in the subquery chain. Is there a notion
-    # of inject ? How do we collect subquery results two or more levels up to match
-    # the structure (with shortcuts) as requested by the user.
-
-    def build_simple(self, query, metadata, allowed_capabilities):
-        """
-        Builds a QueryPlan (self) related to a single Gateway.
-        This is used only by a Forwarder. This function will probably soon
-        become DEPRECATED.
-        If several Gateways are involved, you must use QueryPlan::build.
-        Args:
-            query: The Query issued by the user.
-            metadata:
-            allowed_capabilities: The Capabilities related to this Gateway.
-        """
-        # XXX allowed_capabilities should be a property of the query plan !
-
-        # XXX Check whether we can answer query.object
-
-        # Here we assume we have a single platform
-        platform = metadata.keys()[0]
-        announce = metadata[platform][query.get_from()] # eg. table test
-        
-        # Set up an AST for missing capabilities (need configuration)
-
-        # Selection ?
-        if query.filters and not announce.capabilities.selection:
-            if not allowed_capabilities.selection:
-                raise Exception, 'Cannot answer query: SELECTION'
-            add_selection = query.filters
-            query.filters = Filter()
-        else:
-            add_selection = None
-
-        # Projection ?
-        announce_fields = announce.get_table().get_fields()
-        if query.fields < announce_fields and not announce.capabilities.projection:
-            if not allowed_capabilities.projection:
-                raise Exception, 'Cannot answer query: PROJECTION'
-            add_projection = query.fields
-            query.fields = set()
-        else:
-            add_projection = None
-
-        table = Table({platform:''}, {}, query.get_from(), set(), set())
-        key = metadata.get_key(query.get_from())
-        capabilities = metadata.get_capabilities(platform, query.get_from())
-        self.ast = self.ast.From(table, query, capabilities, key)
-
-        # XXX associate the From node to the Gateway
-        from_node = self.ast.get_root()
-        self.add_from(from_node)
-        #from_node.set_gateway(gw_or_router)
-        #gw_or_router.query = query
-
-        if not self.root:
-            return
-        if add_selection:
-            self.ast.optimize_selection(add_selection)
-        if add_projection:
-            self.ast.optimize_projection(add_projection)
-
-        self.inject_at(query)
+#OBSOLETE|    # XXX Note for later: what about holes in the subquery chain. Is there a notion
+#OBSOLETE|    # of inject ? How do we collect subquery results two or more levels up to match
+#OBSOLETE|    # the structure (with shortcuts) as requested by the user.
+#OBSOLETE|
+#OBSOLETE|    def build_simple(self, query, metadata, allowed_capabilities):
+#OBSOLETE|        """
+#OBSOLETE|        Builds a QueryPlan (self) related to a single Gateway.
+#OBSOLETE|        This is used only by a Forwarder. This function will probably soon
+#OBSOLETE|        become DEPRECATED.
+#OBSOLETE|        If several Gateways are involved, you must use QueryPlan::build.
+#OBSOLETE|        Args:
+#OBSOLETE|            query: The Query issued by the user.
+#OBSOLETE|            metadata:
+#OBSOLETE|            allowed_capabilities: The Capabilities related to this Gateway.
+#OBSOLETE|        """
+#OBSOLETE|        # XXX allowed_capabilities should be a property of the query plan !
+#OBSOLETE|
+#OBSOLETE|        # XXX Check whether we can answer query.object
+#OBSOLETE|
+#OBSOLETE|        # Here we assume we have a single platform
+#OBSOLETE|        platform = metadata.keys()[0]
+#OBSOLETE|        announce = metadata[platform][query.get_from()] # eg. table test
+#OBSOLETE|        
+#OBSOLETE|        # Set up an AST for missing capabilities (need configuration)
+#OBSOLETE|
+#OBSOLETE|        # Selection ?
+#OBSOLETE|        if query.filters and not announce.capabilities.selection:
+#OBSOLETE|            if not allowed_capabilities.selection:
+#OBSOLETE|                raise Exception, 'Cannot answer query: SELECTION'
+#OBSOLETE|            add_selection = query.filters
+#OBSOLETE|            query.filters = Filter()
+#OBSOLETE|        else:
+#OBSOLETE|            add_selection = None
+#OBSOLETE|
+#OBSOLETE|        # Projection ?
+#OBSOLETE|        announce_fields = announce.get_table().get_fields()
+#OBSOLETE|        if query.fields < announce_fields and not announce.capabilities.projection:
+#OBSOLETE|            if not allowed_capabilities.projection:
+#OBSOLETE|                raise Exception, 'Cannot answer query: PROJECTION'
+#OBSOLETE|            add_projection = query.fields
+#OBSOLETE|            query.fields = set()
+#OBSOLETE|        else:
+#OBSOLETE|            add_projection = None
+#OBSOLETE|
+#OBSOLETE|        table = Table({platform:''}, {}, query.get_from(), set(), set())
+#OBSOLETE|        key = metadata.get_key(query.get_from())
+#OBSOLETE|        capabilities = metadata.get_capabilities(platform, query.get_from())
+#OBSOLETE|        self.ast = self.ast.From(table, query, capabilities, key)
+#OBSOLETE|
+#OBSOLETE|        # XXX associate the From node to the Gateway
+#OBSOLETE|        from_node = self.ast.get_root()
+#OBSOLETE|        self.add_from(from_node)
+#OBSOLETE|        #from_node.set_gateway(gw_or_router)
+#OBSOLETE|        #gw_or_router.query = query
+#OBSOLETE|
+#OBSOLETE|        if not self.root:
+#OBSOLETE|            return
+#OBSOLETE|        if add_selection:
+#OBSOLETE|            self.ast.optimize_selection(add_selection)
+#OBSOLETE|        if add_projection:
+#OBSOLETE|            self.ast.optimize_projection(add_projection)
+#OBSOLETE|
+#OBSOLETE|        self.inject_at(query)
 
     #@returns(ResultValue)
     def execute(self, is_deferred = False, receiver = None):
