@@ -1,11 +1,12 @@
-from manifold.core.producer import Producer
-from manifold.core.consumer import Consumer
+# -*- coding: utf-8 -*-
+
 from manifold.core.packet import Packet
+from manifold.core.relay  import Relay
 
 # NOTES: it seem we don't need the query anymore in the operators expect From
 # maybe ? Selection, projection ??
 
-class Operator(Producer, Consumer):
+class Operator(Relay):
 
     #---------------------------------------------------------------------------
     # Constructor
@@ -23,12 +24,6 @@ class Operator(Producer, Consumer):
     #---------------------------------------------------------------------------
     # Methods
     #---------------------------------------------------------------------------
-
-    def send(self, packet):
-        if packet.get_type() in [Packet.TYPE_QUERY]:
-            Producer.send(self, packet)
-        elif packet.get_type() in [Packet.TYPE_RECORD, Packet.TYPE_ERROR]:
-            Consumer.send(self, packet)
 
     def receive(self, packet):
         raise Exception, "Operator::receive() should be implemented in children classes"

@@ -24,6 +24,7 @@ from manifold.core.packet           import Packet, QueryPacket
 from manifold.core.query            import Query
 from manifold.core.router           import Router
 from manifold.core.receiver         import Receiver 
+from manifold.core.sync_receiver    import SyncReceiver
 from manifold.core.result_value     import ResultValue
 from manifold.input.sql             import SQLParser
 from manifold.util.log              import Log
@@ -43,11 +44,11 @@ class ManifoldClient(Receiver):
 
 class ManifoldLocalClient(ManifoldClient):
     def __init__(self, username = None):
-        self.interface = Router()
-        self.interface.__enter__()
+        self.router = Router()
+        self.router.__enter__()
 
         try:
-            users = self.interface.execute_local_query(
+            users = self.router.execute_local_query(
                 Query.get('local:user').filter_by('email', '==', username)
             )
         except:
@@ -61,10 +62,13 @@ class ManifoldLocalClient(ManifoldClient):
 
     def __del__(self):
         try:
-            if self.interface:
-                self.interface.__exit__()
-            self.interface = None
+            if self.router:
+                self.router.__exit__()
+            self.router = None
         except: pass
+
+    def send(self, packet):
+        return self.router.receive(packet)
 
     def forward(self, query, annotation = None):
         if not annotation:
@@ -73,15 +77,12 @@ class ManifoldLocalClient(ManifoldClient):
             annotation["user"] = self.user
 
         receiver = SyncReceiver()
-
-        packet = QueryPacket()
-        packet.set_query(query)
-        packet.set_annotation(annotation)
-        packet.set_receiver(receiver)
-
-        receiver.get_result_value()
-        
-
+        packet = QueryPacket(query, annotation, receiver = receiver)
+        Log.tmp("sending packet")
+        self.send(packet)
+        Log.tmp("done... waiting")
+        # This code is blocking
+        return receiver.get_result_value()
 
     def log_info(self):
         Log.info("Shell using local account %r" % self.user)
@@ -95,17 +96,17 @@ class ManifoldXMLRPCClientXMLRPCLIB(ManifoldClient):
     def __init__(self):
         import xmlrpclib
         url = Options().xmlrpc_url
-        self.interface = xmlrpclib.ServerProxy(url, allow_none=True)
+        self.router = xmlrpclib.ServerProxy(url, allow_none=True)
         self.auth = None
 
     def forward(self, query, annotation = None):
         if not annotation:
             annotation = {}
         annotation['authentication'] = self.auth
-        return self.interface.forward(query.to_dict(), annotation, self)
+        return self.router.forward(query.to_dict(), annotation, self)
 
     # mode_str      = 'XMLRPC'
-    # interface_str = ' towards XMLRPC API %s' % self.interface
+    # interface_str = ' towards XMLRPC API %s' % self.router
 
 class Proxy(xmlrpc.Proxy):
     def __str__(self):
@@ -194,7 +195,7 @@ class ManifoldXMLRPCClient(ManifoldClient):
         if not annotation:
             annotation = {}
         annotation.update(self.annotation)
-        return self.interface.forward(query.to_dict(), annotation, self)
+        return self.router.forward(query.to_dict(), annotation, self)
         
 
     @defer.inlineCallbacks
@@ -203,7 +204,7 @@ class ManifoldXMLRPCClient(ManifoldClient):
         #if not annotation:
         #    annotation = {}
         #annotation.update(self.annotation)
-        #ret = yield self.interface.AuthCheck(annotation)
+        #ret = yield self.router.AuthCheck(annotation)
         #defer.returnValue(ret)
 
 class ManifoldXMLRPCClientSSLPassword(ManifoldXMLRPCClient):
@@ -217,8 +218,8 @@ class ManifoldXMLRPCClientSSLPassword(ManifoldXMLRPCClient):
         else:
             self.annotation = { 'authentication': {'AuthMethod': 'anonymous'} } 
 
-        self.interface = Proxy(self.url, allowNone=True, useDateTime=False)
-        self.interface.setSSLClientContext(ssl.ClientContextFactory())
+        self.router = Proxy(self.url, allowNone=True, useDateTime=False)
+        self.router.setSSLClientContext(ssl.ClientContextFactory())
 
     def log_info(self):
         Log.info("Shell using XMLRPC account '%r' (password) on %s" % (self.username, self.url))
@@ -237,13 +238,13 @@ class ManifoldXMLRPCClientSSLGID(ManifoldXMLRPCClient):
     def __init__(self, url, pkey_file, cert_file):
         self.url = url
         self.gid_subject = 'NULL'
-        self.interface = Proxy(self.url, allowNone=True, useDateTime=False)
-        #self.interface.setSSLClientContext(CtxFactory(pkey_file, cert_file))
+        self.router = Proxy(self.url, allowNone=True, useDateTime=False)
+        #self.router.setSSLClientContext(CtxFactory(pkey_file, cert_file))
 
         self.annotation = { 'authentication': {'AuthMethod': 'gid'} } 
 
         # This has to be tested to get rid of the previously defined CtxFactory class
-        self.interface.setSSLClientContext(ssl.DefaultOpenSSLContextFactory(pkey_file, cert_file))
+        self.router.setSSLClientContext(ssl.DefaultOpenSSLContextFactory(pkey_file, cert_file))
 
     def log_info(self):
         Log.info("Shell using XMLRPC account '%r' (GID) on %s" % (self.gid_subject, self.url))
@@ -365,7 +366,7 @@ class Shell(object):
         else: # XMLRPC 
             url = Options().xmlrpc_url
 #XXX#<<<<<<< HEAD
-#XXX#            self.interface = xmlrpclib.ServerProxy(url, allow_none = True)
+#XXX#            self.router = xmlrpclib.ServerProxy(url, allow_none = True)
 #XXX#=======
 #XXX#>>>>>>> devel
 
@@ -464,7 +465,7 @@ class Shell(object):
             return None
         query = Query(dic)
         if "*" in query.get_select(): query.fields = None
-        ret = self.client.forward(query)
+        ret = self.execute(query)
         if not value:
             return ret 
         else:
@@ -479,7 +480,14 @@ class Shell(object):
         Args:
             query: The Query typed by the user.
         """
-        return self.client.forward(query)
+        try:
+            return self.client.forward(query)
+        except Exception, e:
+            print "Error executing query: %s" % e
+            print ""
+            import traceback
+            traceback.print_exc()
+            print ""
 
     def whoami(self):
         # Who is authenticating ?

@@ -12,3 +12,16 @@ class Consumer(Node):
     def add_producers(self, producers):
         for producer in producers:
             self.add_producer(producer)
+
+    def send(self, packet):
+        """
+        A Consumer sends queries to Producers
+        """
+        if packet.get_type() not in [Packet.TYPE_QUERY]:
+            raise ValueError, "Invalid packet type for producer: %s" % Packet.get_type_name(packet.get_type())
+
+        self._pool_producers.receive(packet)
+        
+    # ???
+    def receive(self, packet):
+        pass
