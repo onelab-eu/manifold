@@ -228,8 +228,8 @@ class SubQuery(Node):
                             record = []
                         if relation.get_type() in [Relation.types.LINK_1N, Relation.types.LINK_1N_BACKWARDS]:
                             # we have a list of elements 
-                            # element = id or dict    : clé simple
-                            #         = tuple or dict : clé multiple
+                            # element = id or dict    : cle simple
+                            #         = tuple or dict : cle multiple
                             parent_ids.extend([self.get_element_key(r, value) for r in record])
                         else:
                             parent_ids.append(self.get_element_key(record, value))
@@ -316,8 +316,8 @@ class SubQuery(Node):
                             record = [record]
                         if relation.get_type() in [Relation.types.LINK_1N, Relation.types.LINK_1N_BACKWARDS]:
                             # we have a list of elements 
-                            # element = id or dict    : clé simple
-                            #         = tuple or dict : clé multiple
+                            # element = id or dict    : cle simple
+                            #         = tuple or dict : cle multiple
                             ids = [SubQuery.get_element_key(r, value) for r in record]
                         else:
                             ids = [SubQuery.get_element_key(record, value)]
