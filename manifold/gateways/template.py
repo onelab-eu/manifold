@@ -10,7 +10,6 @@
 
 from manifold.gateways      import Gateway
 from manifold.core.record   import Record, Records, LastRecord
-from manifold.core.record   import Rec
 from manifold.core.table    import Table
 from manifold.core.field    import Field
 from manifold.core.announce import Announce
