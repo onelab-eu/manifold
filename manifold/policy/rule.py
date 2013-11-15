@@ -42,9 +42,9 @@ class Rule(object):
             'target': self.target
         }
     
-    def match(self, query, annotations):
+    def match(self, query, annotation):
         """
-        Match a query, annotations pair against the current rule
+        Match a query, annotation pair against the current rule
         """
         # XXX Note that we are not inspecting 'action' 
 

@@ -12,8 +12,10 @@ import json, os, sys, traceback
 from types                        import StringTypes
 
 from manifold.core.announce       import Announces
+from manifold.core.annotation     import Annotation
 from manifold.core.query          import Query
 from manifold.core.record         import Record
+from manifold.core.receiver       import Receiver
 from manifold.core.result_value   import ResultValue
 from manifold.util.log            import Log
 from manifold.util.plugin_factory import PluginFactory
@@ -25,11 +27,10 @@ from manifold.util.type           import accepts, returns
 
 class Gateway(object):
     
-    registry = dict() 
+    #OBSOLETE|registry = dict() 
 
     __metaclass__ = PluginFactory
     __plugin__name__attribute__ = '__gateway_name__'
-
 
     def __init__(self, interface, platform_name, platform_config = None):
         """
@@ -116,40 +117,39 @@ class Gateway(object):
         """
         return self.__str__()
 
-    def send(self, record, callback, identifier = None):
+    def send(self, record, receiver, identifier = None):
         """
         Calls the parent callback with the record passed in parameter
         In other word, this From Node send Record to its parent Node in the QueryPlan.
         Args:
             record: A Record (dictionnary) sent by this Gateway.
-            callback: The function called to send this record. This callback is provided
-                most of time by a From Node.
-                Prototype :
-
-                    @returns(list) # see manifold.util.callback::get_results()
-                    @accepts(dict)
-                    def callback(record)
-
+            receiver: A Receiver instance.
             identifier: An integer identifying the From Node which is fetching
                 this Record. This parameter is only needed for debug purpose.
         """
-        assert isinstance(record, Record), "Invalid Record %s (%s)" % (record, type(record))
+        assert isinstance(record,   Record),   "Invalid Record %s (%s)"   % (record,   type(record))
+        assert isinstance(receiver, Receiver), "Invalid Receiver %s (%s)" % (receiver, type(receiver))
 
         if identifier:
             Log.record("[#%04d] [ %r ]" % (identifier, record))
         else:
             Log.record("[ %r ]" % record)
-        callback(record)
+        receiver.callback(record)
 
     # TODO clean this method and plug it in Router::forward()
     @staticmethod
     @returns(dict)
     def get_variables(user, account_config):
+        """
+        Args:
+            user: A dictionnary corresponding to the User.
+            account_config: A dictionnary correspoding to the user's Account config
+        """
         #assert isinstance(user, User), "Invalid user : %s (%s)" % (user, type(user))
         variables = dict() 
         # Authenticated user
         variables["user_email"] = user["email"]
-        for k, v in user.get_config().items():
+        for k, v in user["config"].items():
             if isinstance(v, StringTypes) and not "credential" in v:
                 variables[k] = v
         # Account information of the authenticated user
@@ -164,13 +164,15 @@ class Gateway(object):
         """
         ???
         Args:
-            user: A User instance.
-            account_config: A dictionnary.
+            user: A dictionnary corresponding to the User.
+            account_config: A dictionnary correspoding to the user's Account config
         Returns:
             The corresponding dictionnary.
         """
         Log.tmp("I'm maybe obsolete")
-        #assert isinstance(user, User), "Invalid user : %s (%s)" % (user, type(user))
+        assert isinstance(user, dict),           "Invalid user : %s (%s)"           % (user, type(user))
+        assert isinstance(account_config, dict), "Invalid account_config : %s (%s)" % (account_config, type(account_config))
+
         try:
             # Replaces variables in the Query (predicate in filters and parameters)
             filter = query.get_where()
@@ -212,47 +214,27 @@ class Gateway(object):
         """
         return self.result_value
         
-    def check_forward(self, query, annotations, callback, is_deferred, execute, account_config, receiver):
+    def check_forward(self, query, annotation, receiver):
         """
         Checks Gateway::forward parameters.
         """
         assert isinstance(query, Query), \
             "Invalid Query: %s (%s)" % (query, type(query))
-        assert isinstance(is_deferred, bool), \
-            "Invalid execute value: %s (%s)" % (is_deferred, type(is_deferred))
-        assert isinstance(execute, bool), \
-            "Invalid is_deferred value: %s (%s)" % (execute, type(execute))
-        assert not account_config or isinstance(account_config, dict), \
-            "Invalid account_config: %s (%s)" % (account_config, type(account_config))
+        assert isinstance(annotation, dict), \
+            "Invalid Query: %s (%s)" % (annotation, type(Annotation))
         assert not receiver or receiver.set_result_value, \
             "Invalid receiver: %s (%s)" % (receiver, type(receiver))
 
-    def forward(self, query, annotations, callback, is_deferred = False, execute = True, account_config = None, receiver = None):
+    def forward(self, query, annotation, receiver = None):
         """
         Query handler.
         Args:
             query: A Query instance, reaching this Gateway.
-            callback: The function called to send this record. This callback is provided
-                most of time by a From Node.
-                Prototype : def callback(record)
-            is_deferred: A boolean set to True if this Query is async.
-            execute: A boolean set to True if the treatement requested in query
-                must be run or simply ignored.
-            user: The User issuing the Query.
-            account_config: A dictionnary containing the user's account config.
-                In pratice, this is the result of the following query (run on the Storage)
-                SELECT config FROM local:account WHERE user_id == user.user_id
-            format: A String specifying in which format the Records must be returned.
-            receiver : The From Node running the Query or None. Its ResultValue will
-                be updated once the query has terminated.
-        Returns:
-            forward must NOT return value otherwise we cannot use @defer.inlineCallbacks
-            decorator. 
+            annotation: A dictionnary instance containing Query's annotation.
+            receiver : A Receiver instance which collects the results of the Query.
         """
-        Log.warning("Remove 'callback' parameter which is receiver.get_callback()")
-        Log.warning("Remove 'format' parameter which is receiver.get_callback()")
         if receiver: receiver.set_result_value(None)
-        self.check_forward(query, annotations, callback, is_deferred, execute, account_config, receiver)
+        self.check_forward(query, annotation, receiver)
 
     @returns(list)
     def query_storage(self, query, user):
@@ -280,13 +262,14 @@ class Gateway(object):
         """
         if receiver:
             assert isinstance(query, Query), "Invalid Query: %s (%s)" % (query, type(query))
-            result_value = ResultValue(
-                origin = (ResultValue.GATEWAY, self.__class__.__name__, self.get_platform_name(), query),
-                type   = ResultValue.SUCCESS, 
-                code   = ResultValue.SUCCESS,
-                value  = None 
-            )
-            receiver.set_result_value(result_value)
+            if not receiver.get_result_value():
+                result_value = ResultValue(
+                    origin = (ResultValue.GATEWAY, self.__class__.__name__, self.get_platform_name(), query),
+                    type   = ResultValue.SUCCESS, 
+                    code   = ResultValue.SUCCESS,
+                    value  = None 
+                )
+                receiver.set_result_value(result_value)
 
     def error(self, receiver, query, description = ""):
         """
