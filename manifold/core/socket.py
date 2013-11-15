@@ -1,5 +1,5 @@
-from manifold.core.pool_consumers import PoolConsumers
-from manifold.core.pool_producers import PoolProducers
+from manifold.core.producer import Producer
+from manifold.core.consumer import Consumer
 
 class Socket(Producer, Consumer):
     def __init__(self, packet, router):

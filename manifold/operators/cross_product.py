@@ -1,10 +1,10 @@
-from manifold.operators       import operator
-from manifold.operators       import ChildCallback, ChildStatus
-from manifold.core.filter     import Filter
-from manifold.util.predicate  import Predicate, eq
-from manifold.util.type       import returns
-from manifold.util.log        import Log
-from itertools                import product, imap
+from manifold.operators.operator import Operator
+from manifold.operators          import ChildCallback, ChildStatus
+from manifold.core.filter        import Filter
+from manifold.util.predicate     import Predicate, eq
+from manifold.util.type          import returns
+from manifold.util.log           import Log
+from itertools                   import product, imap
 
 DUMPSTR_CROSSPRODUCT      = "XPRODUCT"
 

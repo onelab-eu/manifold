@@ -20,6 +20,7 @@ from twisted.web                    import xmlrpc
 
 # XXX Those imports may fail for xmlrpc calls
 from manifold.auth                  import Auth
+from manifold.core.packet           import Packet, QueryPacket
 from manifold.core.query            import Query
 from manifold.core.router           import Router
 from manifold.core.receiver         import Receiver 
@@ -65,12 +66,22 @@ class ManifoldLocalClient(ManifoldClient):
             self.interface = None
         except: pass
 
-    def forward(self, query, annotations = None):
-        if not annotations:
-            annotations = dict() 
-        if not "user" in annotations.keys():
-            annotations["user"] = self.user
-        self.interface.forward(query, annotations, self)
+    def forward(self, query, annotation = None):
+        if not annotation:
+            annotation = dict() 
+        if not "user" in annotation.keys():
+            annotation["user"] = self.user
+
+        receiver = SynchronousReceiver()
+
+        packet = QueryPacket()
+        packet.set_query(query)
+        packet.set_annotation(annotation)
+        packet.set_receiver(receiver)
+
+        receiver.get_result_value()
+        
+
 
     def log_info(self):
         Log.info("Shell using local account %r" % self.user)
@@ -87,11 +98,11 @@ class ManifoldXMLRPCClientXMLRPCLIB(ManifoldClient):
         self.interface = xmlrpclib.ServerProxy(url, allow_none=True)
         self.auth = None
 
-    def forward(self, query, annotations = None):
-        if not annotations:
-            annotations = {}
-        annotations['authentication'] = self.auth
-        return self.interface.forward(query.to_dict(), annotations, self)
+    def forward(self, query, annotation = None):
+        if not annotation:
+            annotation = {}
+        annotation['authentication'] = self.auth
+        return self.interface.forward(query.to_dict(), annotation, self)
 
     # mode_str      = 'XMLRPC'
     # interface_str = ' towards XMLRPC API %s' % self.interface
@@ -179,20 +190,20 @@ class ManifoldXMLRPCClient(ManifoldClient):
     def __del__(self):
         ReactorThread().stop_reactor()
 
-    def forward(self, query, annotations = None):
-        if not annotations:
-            annotations = {}
-        annotations.update(self.annotations)
-        return self.interface.forward(query.to_dict(), annotations, self)
+    def forward(self, query, annotation = None):
+        if not annotation:
+            annotation = {}
+        annotation.update(self.annotation)
+        return self.interface.forward(query.to_dict(), annotation, self)
         
 
     @defer.inlineCallbacks
-    def whoami(self, query, annotations = None):
+    def whoami(self, query, annotation = None):
         Log.tmp("TBD")
-        #if not annotations:
-        #    annotations = {}
-        #annotations.update(self.annotations)
-        #ret = yield self.interface.AuthCheck(annotations)
+        #if not annotation:
+        #    annotation = {}
+        #annotation.update(self.annotation)
+        #ret = yield self.interface.AuthCheck(annotation)
         #defer.returnValue(ret)
 
 class ManifoldXMLRPCClientSSLPassword(ManifoldXMLRPCClient):
@@ -202,9 +213,9 @@ class ManifoldXMLRPCClientSSLPassword(ManifoldXMLRPCClient):
         self.username = username
 
         if username:
-            self.annotations = { 'authentication': {'AuthMethod': 'password', 'Username': username, 'AuthString': password} }
+            self.annotation = { 'authentication': {'AuthMethod': 'password', 'Username': username, 'AuthString': password} }
         else:
-            self.annotations = { 'authentication': {'AuthMethod': 'anonymous'} } 
+            self.annotation = { 'authentication': {'AuthMethod': 'anonymous'} } 
 
         self.interface = Proxy(self.url, allowNone=True, useDateTime=False)
         self.interface.setSSLClientContext(ssl.ClientContextFactory())
@@ -229,7 +240,7 @@ class ManifoldXMLRPCClientSSLGID(ManifoldXMLRPCClient):
         self.interface = Proxy(self.url, allowNone=True, useDateTime=False)
         #self.interface.setSSLClientContext(CtxFactory(pkey_file, cert_file))
 
-        self.annotations = { 'authentication': {'AuthMethod': 'gid'} } 
+        self.annotation = { 'authentication': {'AuthMethod': 'gid'} } 
 
         # This has to be tested to get rid of the previously defined CtxFactory class
         self.interface.setSSLClientContext(ssl.DefaultOpenSSLContextFactory(pkey_file, cert_file))
