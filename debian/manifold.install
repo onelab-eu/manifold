@@ -27,6 +27,14 @@ usr/lib*/python*/site-packages/manifold/gateways/postgresql
 usr/lib*/python*/site-packages/manifold/gateways/sfa
 usr/lib*/python*/site-packages/manifold/gateways/sqlalchemy
 usr/lib*/python*/site-packages/manifold/gateways/tdmi
+usr/lib*/python*/site-packages/manifold/policy
+usr/lib*/python*/site-packages/manifold/policy/__init__.py*
+usr/lib*/python*/site-packages/manifold/policy/match
+usr/lib*/python*/site-packages/manifold/policy/match/__init__.py*
+usr/lib*/python*/site-packages/manifold/policy/target
+usr/lib*/python*/site-packages/manifold/policy/target/__init__.py*
+usr/lib*/python*/site-packages/manifold/policy/target/cache
+usr/lib*/python*/site-packages/manifold/policy/target/cache/__init__.py*
 usr/bin/manifold-add-account
 usr/bin/manifold-enable-platform
 usr/bin/manifold-upload-credential
