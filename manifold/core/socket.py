@@ -1,7 +1,9 @@
-from manifold.core.producer import Producer
-from manifold.core.consumer import Consumer
+# -*- coding: utf-8 -*-
 
-class Socket(Producer, Consumer):
+from manifold.core.packet   import Packet
+from manifold.core.relay    import Relay
+
+class Socket(Relay):
     def __init__(self, packet, router):
         """
         packet:
@@ -11,6 +13,10 @@ class Socket(Producer, Consumer):
 
         # A socket serves only one query
         Producer.__init__(self, packet.get_receiver(), max_consumers = 1)
-        Consumer.__init__(self, max_producer  = 1)
+        Consumer.__init__(self, max_producers = 1)
     
         self._packet = packet
+
+    def receive(self, packet):
+        self.send(packet)
+        

@@ -16,6 +16,8 @@ class PoolProducers(set):
         """
         if not producers:
             producers = set()
+        if not isinstance(producers, (list, set)):
+            producers = [producers]
         super(PoolProducers, self).__init__(set(producers))
 
         self._max_producers = max_producers
@@ -34,8 +36,9 @@ class PoolProducers(set):
             raise Exception, "Cannot add producer: maximum (%d) reached." % self._max_producers
         super(PoolProducers).add(producer)
 
-    def send(self, packet):
-        assert packet.get_type() in [Packet.TYPE_QUERY], "Invalid packet type for producer: %s" % Packet.get_type_name(packet.get_type())
+    def receive(self, packet):
+        if packet.get_type() not in [Packet.TYPE_QUERY]:
+            raise ValueError, "Invalid packet type for producer: %s" % Packet.get_type_name(packet.get_type())
 
         for producer in self:
             producer.receive(packet)

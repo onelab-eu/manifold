@@ -15,6 +15,8 @@ class PoolConsumers(set):
         """
         if not consumers:
             consumers = set()
+        if not isinstance(consumers, (list, set)):
+            consumers = [consumers]
         super(PoolConsumers, self).__init__(set(consumers))
 
         self._max_consumers = max_consumers
@@ -33,8 +35,9 @@ class PoolConsumers(set):
             raise Exception, "Cannot add consumer: maximum (%d) reached." % self._max_consumers
         super(PoolConsumers, self).add(consumer)
 
-    def send(self, packet):
-        assert packet.get_type() in [Packet.TYPE_RECORD, Packet.TYPE_ERROR], "Invalid packet type for consumer: %s" % Packet.get_type_name(packet.get_type())
+    def receive(self, packet):
+        if packet.get_type() not in [Packet.TYPE_RECORD, Packet.TYPE_ERROR]:
+            raise "Invalid packet type for consumer: %s" % Packet.get_type_name(packet.get_type())
 
         for consumer in self:
             consumer.receive(packet)

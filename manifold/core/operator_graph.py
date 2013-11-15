@@ -36,7 +36,7 @@ class OperatorGraph(object):
     # Methods
     #---------------------------------------------------------------------------
 
-    def build_query_plan(query, annotations, receiver):
+    def build_query_plan(self, query, annotations, receiver):
         user = annotations.get('user', None)
 
         # XXX Code duplication 

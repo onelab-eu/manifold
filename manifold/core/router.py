@@ -195,10 +195,16 @@ class Router(Interface):
         This method replaces forward() at the packet level
         """
 
+        Log.tmp("received packet")
+
         # Create a Socket holding the connection information
         socket = Socket(packet, router = self)
 
+        Log.tmp("socket ok: %r" % socket)
+
         query = packet.get_query()
+
+        Log.tmp("query ok: %r" % query)
 
         # Handling local queries separately, could be improved
         namespace = None
@@ -208,9 +214,12 @@ class Router(Interface):
             namespace, table_name = query.get_from().rsplit(":", 2)
 
         if namespace == self.LOCAL_NAMESPACE:
+            Log.tmp("local namespace")
             if table_name in ['object', 'gateway']:
                 if table_name == 'object':
+                    Log.tmp("object")
                     records = self.get_metadata_objects()
+                    Log.tmp("records=%r" % records)
                 elif table_name == "gateway":
                     records = [{'name': name} for name in Gateway.list().keys()]
                 qp = QueryPlan()
@@ -257,9 +266,10 @@ class Router(Interface):
 #                return self.execute_query_plan(query, annotation, qp, is_deferred)
 
         # We need to route the query (aka connect is to the OperatorGraph)
-        self._operator_graph.build_query_plan(query, packet.annotation, receiver = socket)
+        self._operator_graph.build_query_plan(query, packet.get_annotation(), receiver = socket)
 
         # Execute the operators related to the socket, if needed
+        socket.receive(query)
 
         
         
