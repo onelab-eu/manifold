@@ -72,7 +72,7 @@ class ManifoldLocalClient(ManifoldClient):
         if not "user" in annotation.keys():
             annotation["user"] = self.user
 
-        receiver = SynchronousReceiver()
+        receiver = SyncReceiver()
 
         packet = QueryPacket()
         packet.set_query(query)
