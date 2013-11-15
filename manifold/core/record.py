@@ -25,21 +25,9 @@ from manifold.util.type            import returns, accepts
 
 class Record(dict):
 
-    @classmethod
-    def get_value(self, record, key):
-        """
-        Args:
-            record: A Record instance.
-            key: A String instance (field name), or a set of String instances
-                (field names)
-        Returns:
-            If key is a String,  return the corresponding value.
-            If key is a set, return a tuple of corresponding value.
-        """
-        if isinstance(key, StringTypes):
-            return record[key]
-        else:
-            return tuple(map(lambda x: record[x], key))
+   #--------------------------------------------------------------------------- 
+   # Class methods
+   #--------------------------------------------------------------------------- 
 
     @classmethod
     @returns(dict)
@@ -47,30 +35,46 @@ class Record(dict):
         if isinstance(key, StringTypes):
             return { key: value }
         else:
-            return dict(izip(key, value))
+            return Record(izip(key, value))
 
-    @classmethod
+
+    #--------------------------------------------------------------------------- 
+    # Methods
+    #--------------------------------------------------------------------------- 
+
+    def get_value(self, key):
+        """
+        Args:
+            key: A String instance (field name), or a set of String instances
+                (field names)
+        Returns:
+            If key is a String,  return the corresponding value.
+            If key is a set, return a tuple of corresponding value.
+        """
+        if isinstance(key, StringTypes):
+            return self[key]
+        else:
+            return tuple(map(lambda x: self[x], key))
+
     @returns(bool)
-    def has_fields(self, record, fields):
+    def has_fields(self, fields):
         """
         Test whether a Record carries a set of fields.
         Args:
-            record: A Record instance.
             fields: A String instance (field name) or
                     a set of String instances (field names)
         Returns:
             True iif record carries this set of fields.
         """
         if isinstance(fields, StringTypes):
-            return fields in record
+            return fields in self
         else:
-            return fields <= set(record.keys())
+            return fields <= set(self.keys())
    
-    @classmethod
     @returns(bool)
-    def is_empty_record(self, record, keys):
+    def is_empty(self, keys):
         for key in keys:
-            if record[key]: return False
+            if self[key]: return False
         return True
 
     def to_dict(self):
@@ -86,9 +90,6 @@ class Record(dict):
 
     def is_last(self):
         return False
-
-#    def __hash__(self):
-#        return hash(self)
 
 
 class LastRecord(Record):

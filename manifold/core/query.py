@@ -401,6 +401,22 @@ class Query(object):
         else:
             raise Exception, 'Invalid expression for filter'
         return self
+
+    def unfilter_by(self, *args):
+        if len(args) == 1:
+            filters = args[0]
+            if filters == None:
+                return self
+            if not isinstance(filters, (set, list, tuple, Filter)):
+                filters = [filters]
+            for predicate in filters:
+                self.filters.remove(predicate)
+        elif len(args) == 3: 
+            predicate = Predicate(*args)
+            self.filters.remove(predicate)
+        else:
+            raise Exception, 'Invalid expression for filter'
+        return self
             
     def select(self, *fields):
 

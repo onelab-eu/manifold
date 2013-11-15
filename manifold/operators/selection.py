@@ -13,6 +13,10 @@ class Selection(Node):
     Selection operator node (cf WHERE clause in SQL)
     """
 
+    #---------------------------------------------------------------------------
+    # Constructor
+    #---------------------------------------------------------------------------
+
     def __init__(self, child, filters):
         """
         \brief Constructor
@@ -24,7 +28,7 @@ class Selection(Node):
 
         super(Selection, self).__init__()
 
-        self.child, self.filters = child, filters
+        self.child, self._filters = child, filters
 
         old_cb = child.get_callback()
         child.set_callback(self.child_callback)
@@ -32,20 +36,37 @@ class Selection(Node):
 
         self.query = self.child.get_query().copy()
         self.query.filters |= filters
+    
+    #---------------------------------------------------------------------------
+    # Internal methods
+    #---------------------------------------------------------------------------
+    
+    def __repr__(self):
+        return DUMPSTR_SELECTION % ' AND '.join(["%s %s %s" % f.get_str_tuple() for f in self._filters])
 
 
-#    @returns(Query)
-#    def get_query(self):
-#        """
-#        \brief Returns the query representing the data produced by the childs.
-#        \return query representing the data produced by the childs.
-#        """
-#        print "Selection::get_query()"
-#        q = Query(self.child.get_query())
-#
-#        # Selection add filters (union)
-#        q.filters |= filters
-#        return q
+    #---------------------------------------------------------------------------
+    # Methods
+    #---------------------------------------------------------------------------
+
+    def receive(self, packet):
+        """
+        """
+
+        if packet.get_type() == Packet.TYPE_QUERY:
+            # XXX need to remove the filter in the query
+            new_packet = packet.clone()
+            packet.update_query(Query.unfilter_by, self.predicate)
+            self.send(new_packet)
+
+        elif packet.get_type() == Packet.TYPE_RECORD:
+            record = packet
+
+            if record.is_last() or (self._filters and self._filters.match(record)):
+                self.send(record)
+
+        else: # TYPE_ERROR
+            self.send(packet)
 
     def dump(self, indent = 0):
         """
@@ -55,51 +76,23 @@ class Selection(Node):
         Node.dump(self, indent)
         self.child.dump(indent + 1)
 
-    def __repr__(self):
-        return DUMPSTR_SELECTION % ' AND '.join(["%s %s %s" % f.get_str_tuple() for f in self.filters])
-
-    def start(self):
-        """
-        \brief Propagates a START message through the child
-        """
-        self.child.start()
-
-    #@returns(Selection)
-    def inject(self, records, key, query):
-        """
-        \brief Inject record / record keys into the child
-        \param records A list of dictionaries representing records,
-                       or list of record keys
-        \return This node
-        """
-        self.child = self.child.inject(records, key, query) # XXX
-        return self
-
-    def child_callback(self, record):
-        """
-        \brief Processes records received by the child node 
-        \param record dictionary representing the received record
-        """
-        if record.is_last() or (self.filters and self.filters.match(record)):
-            self.send(record)
-
-    def optimize_selection(self, filter):
-        # Concatenate both selections...
-        for predicate in self.filters:
-            filter.add(predicate)
-        return self.child.optimize_selection(filter)
-
-    def optimize_projection(self, fields):
-        # Do we have to add fields for filtering, if so, we have to remove them after
-        # otherwise we can just swap operators
-        keys = self.filters.keys()
-        self.child = self.child.optimize_projection(fields | keys)
-        self.query.fields = fields
-        if not keys <= fields:
-            # XXX add projection that removed added_fields
-            # or add projection that removes fields
-            old_self_callback = self.get_callback()
-            projection = Projection(self, fields)
-            projection.set_callback(old_self_callback)
-            return projection
-        return self
+#    def optimize_selection(self, filter):
+#        # Concatenate both selections...
+#        for predicate in self._filters:
+#            filter.add(predicate)
+#        return self.child.optimize_selection(filter)
+#
+#    def optimize_projection(self, fields):
+#        # Do we have to add fields for filtering, if so, we have to remove them after
+#        # otherwise we can just swap operators
+#        keys = self._filters.keys()
+#        self.child = self.child.optimize_projection(fields | keys)
+#        self.query.fields = fields
+#        if not keys <= fields:
+#            # XXX add projection that removed added_fields
+#            # or add projection that removes fields
+#            old_self_callback = self.get_callback()
+#            projection = Projection(self, fields)
+#            projection.set_callback(old_self_callback)
+#            return projection
+#        return self
