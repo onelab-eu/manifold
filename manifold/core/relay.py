@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+from manifold.core.packet   import Packet
 from manifold.core.producer import Producer
 from manifold.core.consumer import Consumer
 
@@ -10,6 +11,6 @@ class Relay(Producer, Consumer):
 
     def send(self, packet):
         if packet.get_type() in [Packet.TYPE_QUERY]:
-            Producer.send(self, packet)
-        elif packet.get_type() in [Packet.TYPE_RECORD, Packet.TYPE_ERROR]:
             Consumer.send(self, packet)
+        elif packet.get_type() in [Packet.TYPE_RECORD, Packet.TYPE_ERROR]:
+            Producer.send(self, packet)

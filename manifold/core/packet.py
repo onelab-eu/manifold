@@ -15,15 +15,16 @@ class Packet(object):
     # Helpers for assertions
     #---------------------------------------------------------------------------
 
-    TYPE_NAMES = {
-        TYPE_QUERY  : 'QUERY',
-        TYPE_RECORD : 'RECORD',
-        TYPE_ERROR  : 'ERROR'
-    }
-
     @staticmethod
-    def get_type_name(self, type):
-        return self.TYPE_NAMES[type]
+    def get_type_name(type):
+
+        TYPE_NAMES = {
+            Packet.TYPE_QUERY  : 'QUERY',
+            Packet.TYPE_RECORD : 'RECORD',
+            Packet.TYPE_ERROR  : 'ERROR'
+        }
+
+        return TYPE_NAMES[type]
 
     #---------------------------------------------------------------------------
     # Constructor

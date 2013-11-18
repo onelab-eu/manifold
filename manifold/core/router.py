@@ -238,7 +238,7 @@ class Router(Interface):
         self._operator_graph.build_query_plan(packet)
 
         # Execute the operators related to the socket, if needed
-        socket.receive(query)
+        socket.receive(packet)
 
         
         

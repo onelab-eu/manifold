@@ -82,5 +82,3 @@ class OperatorGraph(object):
         print "ROOT=", root
 
         root.receive(packet)
-
-        query_plan.ast.start()

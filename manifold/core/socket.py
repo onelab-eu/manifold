@@ -18,4 +18,3 @@ class Socket(Relay):
 
     def receive(self, packet):
         self.send(packet)
-        
