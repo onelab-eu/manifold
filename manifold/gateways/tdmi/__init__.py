@@ -96,39 +96,24 @@ class TDMIGateway(PostgreSQLGateway):
         # order to support queries involving the traceroute table in a JOIN.
         self.get_metadata()
 
-    def forward(self, query, callback, is_deferred = False, execute = True, user = None, account_config = None, format = "dict", receiver = None):
+    def forward(self, query, annotation, receiver):
         """
         Query handler.
         Args:
             query: A Query instance, reaching this Gateway.
-            callback: The function called to send this record. This callback is provided
-                most of time by a From Node.
-                Prototype : def callback(record)
-            is_deferred: A boolean set to True if this Query is async.
-            execute: A boolean set to True if the treatement requested in query
-                must be run or simply ignored.
-            user: The User issuing the Query.
-            account_config: A dictionnary containing the user's account config.
-                In pratice, this is the result of the following query (run on the Storage)
-                SELECT config FROM local:account WHERE user_id == user.user_id
-            format: A String specifying in which format the Records must be returned.
-            receiver : The From Node running the Query or None. Its ResultValue will
-                be updated once the query has terminated.
-        Returns:
-            forward must NOT return value otherwise we cannot use @defer.inlineCallbacks
-            decorator. 
+            annotation: A dictionnary instance containing Query's annotation.
+            receiver : A Receiver instance which collects the results of the Query.
         """
         identifier = receiver.get_identifier() if receiver else None
         table_name = query.get_from()
 
         if table_name in self.METHOD_MAP.keys():
-            Gateway.forward(self, query, callback, is_deferred, execute, user, account_config, format, receiver)
+            Gateway.forward(self, query, annotation, receiver) 
             if self.METHOD_MAP[table_name]:
                 # See manifold/gateways/tdmi/methods/*
-                params = None
                 instance = self.METHOD_MAP[table_name](query, db = self)
                 sql = instance.get_sql()
-                rows = self.selectall(sql, params)
+                rows = self.selectall(sql, None)
 
                 if instance.need_repack and instance.repack:
                     # Does this object tweak the python dictionnary returned by selectall?
@@ -141,14 +126,12 @@ class TDMIGateway(PostgreSQLGateway):
                 rows = list()
 
             rows = Records(rows)
-
             for row in rows:
                 self.send(row, callback, identifier)
-
             self.send(LastRecord(), callback, identifier)
             self.success(receiver, query)
             
         else:
             # Update FROM clause according to postgresql aliases
             query.object = self.get_pgsql_name(table_name)
-            super(TDMIGateway, self).forward(query, callback, is_deferred, execute, user, account_config, format, receiver)
+            super(TDMIGateway, self).forward(query, annotation, receiver)

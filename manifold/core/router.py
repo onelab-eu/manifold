@@ -86,7 +86,7 @@ class Router(Interface):
         """
         return self.g_3nf.find_node(table_name).get_keys()
 
-    def forward(self, query, annotation = None, receiver = None):
+    def forward(self, query, annotation, receiver):
         """
         Forwards an incoming Query to the appropriate Gateways managed by this Router.
         Args:
@@ -155,10 +155,11 @@ class Router(Interface):
     @returns(ResultValue)
     def execute_query(self, query, annotation, is_deferred, receiver):
         """
-        Execute a Query.
+        Execute a Query on this Router.
         Args:
             query: A Query instance.
-            annotation:
+            annotation: An Annotation instance.
+            receiver: A Receiver instance.
         Returns:
             The ResultValue instance corresponding to this Query.
         """
@@ -182,10 +183,11 @@ class Router(Interface):
             self.init_from_nodes(query_plan, user)
             #query_plan.dump()
             records = self.execute_query_plan(query, annotation, query_plan, is_deferred)
-            return ResultValue.get_success(records)
+            receiver.set_result_value(ResultValue.get_success(records))
+            Log.tmp("receiver = %s records = %s" % (receiver, receiver.get_result_value()))
         except Exception, e:
             Log.error("execute_query: Error while executing %s: %s %s" % (query, traceback.format_exc(), e))
-            return ResultValue.get_error(ResultValue.ERROR, e)  
+            receiver.set_result_value(ResultValue.get_error(ResultValue.ERROR, e))
             
 
     # NEW ROUTER PACKET INTERFACE

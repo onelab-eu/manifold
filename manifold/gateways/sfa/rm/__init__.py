@@ -68,11 +68,10 @@ class SFA_RMGateway(SFAGatewayCommon):
         Returns:
             Allow to iterate on the Platform corresponding this RM.
         """
-        platforms = self.query_storage(
-            Query.get("local:platform")\
-                .filter_by("gateway_type", "=", "sfa_rm")\
-                .filter_by("platform",     "=", self.get_platform_name()),
-            self.get_user_storage()
+        platforms = self.query_storage(Query\
+            .get("local:platform")\
+            .filter_by("gateway_type", "=", "sfa_rm")\
+            .filter_by("platform",     "=", self.get_platform_name())
         )
 
         assert len(platforms) == 1
@@ -101,6 +100,7 @@ class SFA_RMGateway(SFAGatewayCommon):
         """
         Log.debug("Not yet implemented. Run delegation script in the meantime")
     
+    # TODO move in ../__init__
     def get_object(self, table_name):
         """
         Retrieve the Object corresponding to a table_name.
@@ -117,6 +117,7 @@ class SFA_RMGateway(SFAGatewayCommon):
             )
         return SFA_RMGateway.METHOD_MAP[table_name](self) 
 
+    # TODO move in ../__init__
     @defer.inlineCallbacks
     @returns(GeneratorType)
     def perform_query(self, user, user_account_config, query):
@@ -155,6 +156,7 @@ class SFA_RMGateway(SFAGatewayCommon):
         records = yield method(user, user_account_config, query)
         defer.returnValue(records)
 
+    # TODO move in ../__init__
     @defer.inlineCallbacks
     @returns(GeneratorType)
     def handle_error(self, user_account):
@@ -175,12 +177,11 @@ class SFA_RMGateway(SFAGatewayCommon):
             user_account_config = yield self.manage(user_dict, user_account_config, admin_account_config)
 
             # Update the Storage consequently
-            self.query_storage(
-                Query.update("local:account")\
-                    .set({"config": json.dumps(user_account_config)})\
-                    .filter_by("user_id",     "=", user_account["user_id"])\
-                    .filter_by("platform_id", "=", user_account["platform_id"]),
-                self.get_user_storage()
+            self.query_storage(Query\
+                .update("local:account")
+                .set({"config": json.dumps(user_account_config)})\
+                .filter_by("user_id",     "=", user_account["user_id"])\
+                .filter_by("platform_id", "=", user_account["platform_id"])
             )
 
             defer.returnValue(True)
@@ -502,7 +503,7 @@ class SFA_RMGateway(SFAGatewayCommon):
         
         timeout = self.get_timeout()
         registry_url = self.get_url()
-        registry_proxy = self.get_sfa_proxy_impl(registry_url, user, user_account_config, "sscert", timeout)
+        registry_proxy = self.get_sfa_proxy(registry_url, user, user_account_config, "sscert", timeout)
         if need_user_credential and SFA_RMGateway.credentials_needed("user_credential", user_account_config):
             Log.debug("Requesting user credential for user %s" % user)
             try:
