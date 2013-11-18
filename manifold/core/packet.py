@@ -2,8 +2,6 @@
 
 from copy                 import deepcopy
 
-from manifold.core.record import Record
-
 class Packet(object):
     """
     A generic packet class: Query packet, Record packet, Error packet (ICMP), etc.
@@ -82,19 +80,12 @@ class QueryPacket(Packet):
     def get_receiver(self):
         return self._receiver
 
+    def set_receiver(self, receiver):
+        self._receiver = receiver
+
     def get_source(self):
         return self._source
 
-    #---------------------------------------------------------------------------
-    # Methods
-    #---------------------------------------------------------------------------
-
-class RecordPacket(Packet, Record):
-    """
-    Equivalent to current Record
-    """
-    def __init__(self):
-        Packet.__init__(self, TYPE_RECORD)
 
 class ErrorPacket(Packet):
     """
@@ -102,4 +93,4 @@ class ErrorPacket(Packet):
     Equivalent to current ICMP errors
     """
     def __init__(self):
-        Packet.__init__(self, TYPE_ERROR)
+        Packet.__init__(self, Packet.TYPE_ERROR)

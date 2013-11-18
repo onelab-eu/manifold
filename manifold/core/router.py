@@ -12,9 +12,12 @@
 import os, sys, json, copy, time, traceback #, threading
 from twisted.internet.defer         import Deferred
 
+from manifold.core.capabilities     import Capabilities
 from manifold.core.dbnorm           import to_3nf 
+from manifold.core.dbgraph          import DBGraph
 from manifold.core.interface        import Interface
 from manifold.core.key              import Keys
+from manifold.core.method           import Method
 from manifold.core.operator_graph   import OperatorGraph
 from manifold.core.query_plan       import QueryPlan
 from manifold.core.result_value     import ResultValue
@@ -43,6 +46,10 @@ class Router(Interface):
     Specialized to handle Announces/Routes, ...
     """
 
+    #---------------------------------------------------------------------------
+    # Constructor
+    #---------------------------------------------------------------------------
+
     def __init__(self, user = None, allowed_capabilities = None):
         # NOTE: We should avoid having code in the Interface class
         # Interface should be a parent class for Router and Gateway, so that for example we can plug an XMLRPC interface on top of it
@@ -51,6 +58,27 @@ class Router(Interface):
         self._sockets = list()
         # We already have gateways defined in Interface
         self._operator_graph = OperatorGraph(router = self)
+
+        # XXX metadata/g_3nf
+
+    #---------------------------------------------------------------------------
+    # Accessors
+    #---------------------------------------------------------------------------
+
+    def get_metadata(self):
+        return self.g_3nf
+
+    def get_local_metadata(self):
+        # We do not need normalization here, can directly query the gateway
+        map_method_capabilities = {
+            Method('local', 'object'): Capabilities('retrieve', 'join', 'selection', 'projection'),
+            Method('local', 'column'): Capabilities('retrieve', 'join', 'selection', 'projection')
+        }
+        return DBGraph(self.storage.get_metadata(), map_method_capabilities)
+
+    #---------------------------------------------------------------------------
+    # Methods
+    #---------------------------------------------------------------------------
 
     def boot(self):
         """
@@ -200,73 +228,14 @@ class Router(Interface):
         # Create a Socket holding the connection information
         socket = Socket(packet, router = self)
 
+        packet.set_receiver(socket)
+
         Log.tmp("socket ok: %r" % socket)
-
         query = packet.get_query()
-
         Log.tmp("query ok: %r" % query)
 
-        # Handling local queries separately, could be improved
-        namespace = None
-
-        # Handling internal queries
-        if ":" in query.get_from():
-            namespace, table_name = query.get_from().rsplit(":", 2)
-
-        if namespace == self.LOCAL_NAMESPACE:
-            Log.tmp("local namespace")
-            if table_name in ['object', 'gateway']:
-                if table_name == 'object':
-                    Log.tmp("object")
-                    records = self.get_metadata_objects()
-                    Log.tmp("records=%r" % records)
-                elif table_name == "gateway":
-                    records = [{'name': name} for name in Gateway.list().keys()]
-                qp = QueryPlan()
-                qp.ast.from_table(query, records, key = None).selection(query.get_where()).projection(query.get_select())
-                Interface.success(receiver, query, result_value)
-                return self.execute_query_plan(query, annotation, qp, is_deferred)
-                
-            else:
-                query_storage = query.copy()
-                query_storage.object = table_name
-                records = self.storage.execute(query_storage, annotation)
-
-                if query_storage.get_from() == "platform" and query_storage.get_action() != "get":
-                    self.make_gateways()
-
-                Interface.success(receiver, query, result_value)
-                return self.send(query, records, annotation, is_deferred)
-
-        elif namespace:
-            platform_names = [platform['platform'] for platform in self.get_platforms()]
-            if namespace not in platform_names:
-                self.send(ErrorPacket()) # XXX
-                #Interface.error(
-                #    receiver,
-                #    query,
-                #    "Unsupported namespace '%s': valid namespaces are platform names ('%s') and 'local'." % (
-                #        namespace,
-                #        "', '".join(platform_names)
-                #    )
-                #)
-                return
-
-#            if table_name == "object":
-#                # Prepare 'output' which will contains announces transposed as a list
-#                # of dictionnaries.
-#                output = list()
-#                announces = self.announces[namespace]
-#                for announce in announces:
-#                    output.append(announce.get_table().to_dict())
-#
-#                qp = QueryPlan()
-#                qp.ast.from_table(query, output, key = None).selection(query.get_where()).projection(query.get_select())
-#                Interface.success(query, receiver, result_value)
-#                return self.execute_query_plan(query, annotation, qp, is_deferred)
-
         # We need to route the query (aka connect is to the OperatorGraph)
-        self._operator_graph.build_query_plan(query, packet.get_annotation(), receiver = socket)
+        self._operator_graph.build_query_plan(packet)
 
         # Execute the operators related to the socket, if needed
         socket.receive(query)

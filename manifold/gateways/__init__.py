@@ -12,6 +12,8 @@ import json, os, sys, traceback
 from types                        import StringTypes
 
 from manifold.core.announce       import Announces
+from manifold.core.packet         import ErrorPacket
+from manifold.core.producer       import Producer
 from manifold.core.query          import Query
 from manifold.core.record         import Record
 from manifold.core.result_value   import ResultValue
@@ -23,7 +25,7 @@ from manifold.util.type           import accepts, returns
 # Generic Gateway class
 #-------------------------------------------------------------------------------
 
-class Gateway(object):
+class Gateway(Producer):
     
     registry = dict() 
 
@@ -31,7 +33,7 @@ class Gateway(object):
     __plugin__name__attribute__ = '__gateway_name__'
 
 
-    def __init__(self, interface, platform_name, platform_config = None):
+    def __init__(self, interface, platform_name, platform_config = None, *args, **kwargs):
         """
         Constructor
         Args:
@@ -48,6 +50,8 @@ class Gateway(object):
             "Invalid platform name: %s (%s)" % (platform_name,   type(platform_name))
         assert isinstance(platform_config, dict) or not platform_config, \
             "Invalid configuration: %s (%s)" % (platform_config, type(platform_config))
+
+        Producer.__init__(self, *args, **kwargs)
 
         self.interface       = interface
         self.platform_name   = platform_name
@@ -116,30 +120,30 @@ class Gateway(object):
         """
         return self.__str__()
 
-    def send(self, record, callback, identifier = None):
-        """
-        Calls the parent callback with the record passed in parameter
-        In other word, this From Node send Record to its parent Node in the QueryPlan.
-        Args:
-            record: A Record (dictionnary) sent by this Gateway.
-            callback: The function called to send this record. This callback is provided
-                most of time by a From Node.
-                Prototype :
-
-                    @returns(list) # see manifold.util.callback::get_results()
-                    @accepts(dict)
-                    def callback(record)
-
-            identifier: An integer identifying the From Node which is fetching
-                this Record. This parameter is only needed for debug purpose.
-        """
-        assert isinstance(record, Record), "Invalid Record %s (%s)" % (record, type(record))
-
-        if identifier:
-            Log.record("[#%04d] [ %r ]" % (identifier, record))
-        else:
-            Log.record("[ %r ]" % record)
-        callback(record)
+#DEPRECATED|    def send(self, record, callback, identifier = None):
+#DEPRECATED|        """
+#DEPRECATED|        Calls the parent callback with the record passed in parameter
+#DEPRECATED|        In other word, this From Node send Record to its parent Node in the QueryPlan.
+#DEPRECATED|        Args:
+#DEPRECATED|            record: A Record (dictionnary) sent by this Gateway.
+#DEPRECATED|            callback: The function called to send this record. This callback is provided
+#DEPRECATED|                most of time by a From Node.
+#DEPRECATED|                Prototype :
+#DEPRECATED|
+#DEPRECATED|                    @returns(list) # see manifold.util.callback::get_results()
+#DEPRECATED|                    @accepts(dict)
+#DEPRECATED|                    def callback(record)
+#DEPRECATED|
+#DEPRECATED|            identifier: An integer identifying the From Node which is fetching
+#DEPRECATED|                this Record. This parameter is only needed for debug purpose.
+#DEPRECATED|        """
+#DEPRECATED|        assert isinstance(record, Record), "Invalid Record %s (%s)" % (record, type(record))
+#DEPRECATED|
+#DEPRECATED|        if identifier:
+#DEPRECATED|            Log.record("[#%04d] [ %r ]" % (identifier, record))
+#DEPRECATED|        else:
+#DEPRECATED|            Log.record("[ %r ]" % record)
+#DEPRECATED|        callback(record)
 
     # TODO clean this method and plug it in Router::forward()
     @staticmethod
@@ -271,47 +275,54 @@ class Gateway(object):
         router = self.get_interface()
         return router.execute_local_query(query)
 
-    def success(self, receiver, query):
-        """
-        Shorthand method that must be called by a Gateway if its forward method succeeds.
-        Args:
-            receiver: A Receiver instance or a From Node.
-            query: A Query instance:
-        """
-        if receiver:
-            assert isinstance(query, Query), "Invalid Query: %s (%s)" % (query, type(query))
-            result_value = ResultValue(
-                origin = (ResultValue.GATEWAY, self.__class__.__name__, self.get_platform_name(), query),
-                type   = ResultValue.SUCCESS, 
-                code   = ResultValue.SUCCESS,
-                value  = None 
-            )
-            receiver.set_result_value(result_value)
+#DEPRECATED|    def success(self, receiver, query):
+#DEPRECATED|        """
+#DEPRECATED|        Shorthand method that must be called by a Gateway if its forward method succeeds.
+#DEPRECATED|        Args:
+#DEPRECATED|            receiver: A Receiver instance or a From Node.
+#DEPRECATED|            query: A Query instance:
+#DEPRECATED|        """
+#DEPRECATED|        if receiver:
+#DEPRECATED|            assert isinstance(query, Query), "Invalid Query: %s (%s)" % (query, type(query))
+#DEPRECATED|            result_value = ResultValue(
+#DEPRECATED|                origin = (ResultValue.GATEWAY, self.__class__.__name__, self.get_platform_name(), query),
+#DEPRECATED|                type   = ResultValue.SUCCESS, 
+#DEPRECATED|                code   = ResultValue.SUCCESS,
+#DEPRECATED|                value  = None 
+#DEPRECATED|            )
+#DEPRECATED|            receiver.set_result_value(result_value)
 
-    def error(self, receiver, query, description = ""):
-        """
-        Shorthand method that must be called by a Gateway if its forward method fails.
-        Args:
-            receiver: A Receiver instance or a From Node.
-            query: A Query instance:
-        """
-        Log.error("triggered due to the following query:\n%(sep)s\n%(query)s\n%(sep)s\n%(traceback)s%(sep)s\n(%(description)s)" % {
-            "sep"         : "-" * 80,
-            "query"       : query,
-            "description" : description,
-            "traceback"   : traceback.format_exc()
-        })
-        if receiver:
-            assert isinstance(query, Query), "Invalid Query: %s (%s)" % (query, type(query))
-            receiver.set_result_value(
-                ResultValue(
-                    origin      = (ResultValue.GATEWAY, self.__class__.__name__, self.get_platform_name(), query),
-                    type        = ResultValue.ERROR,
-                    code        = ResultValue.ERROR,
-                    description = description, 
-                    traceback   = traceback.format_exc()
-                )
-            )
+    def error(self, query, description = ""):
+        self.send(ErrorPacket())
+#DEPRECATED|        """
+#DEPRECATED|        Shorthand method that must be called by a Gateway if its forward method fails.
+#DEPRECATED|        Args:
+#DEPRECATED|            receiver: A Receiver instance or a From Node.
+#DEPRECATED|            query: A Query instance:
+#DEPRECATED|        """
+#DEPRECATED|        Log.error("triggered due to the following query:\n%(sep)s\n%(query)s\n%(sep)s\n%(traceback)s%(sep)s\n(%(description)s)" % {
+#DEPRECATED|            "sep"         : "-" * 80,
+#DEPRECATED|            "query"       : query,
+#DEPRECATED|            "description" : description,
+#DEPRECATED|            "traceback"   : traceback.format_exc()
+#DEPRECATED|        })
+#DEPRECATED|        if receiver:
+#DEPRECATED|            assert isinstance(query, Query), "Invalid Query: %s (%s)" % (query, type(query))
+#DEPRECATED|            receiver.set_result_value(
+#DEPRECATED|                ResultValue(
+#DEPRECATED|                    origin      = (ResultValue.GATEWAY, self.__class__.__name__, self.get_platform_name(), query),
+#DEPRECATED|                    type        = ResultValue.ERROR,
+#DEPRECATED|                    code        = ResultValue.ERROR,
+#DEPRECATED|                    description = description, 
+#DEPRECATED|                    traceback   = traceback.format_exc()
+#DEPRECATED|                )
+#DEPRECATED|            )
+
+    def receive(self, packet):
+        # formerly forward()
+        Producer.receive(self, packet)
+        # Mostly implemented in children
+
 
 def register_gateways():
     current_module = sys.modules[__name__]

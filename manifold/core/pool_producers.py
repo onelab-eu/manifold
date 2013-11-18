@@ -10,7 +10,7 @@ class PoolProducers(set):
     # Constructor
     #---------------------------------------------------------------------------
     
-    def __init__(self, producers=None, max_producers=None):
+    def __init__(self, producers = None, max_producers = None):
         """
         Constructor.
         """
@@ -32,7 +32,7 @@ class PoolProducers(set):
     #---------------------------------------------------------------------------
 
     def add(self, producer):
-        if len(self._producers) >= self._max_producers:
+        if self._max_producers and len(self) >= self._max_producers:
             raise Exception, "Cannot add producer: maximum (%d) reached." % self._max_producers
         super(PoolProducers).add(producer)
 

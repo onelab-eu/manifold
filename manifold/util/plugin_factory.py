@@ -92,7 +92,6 @@ class PluginFactory(type):
         # recursively manifold/gateways/
         # http://docs.python.org/2/library/pkgutil.html
         for importer, modname, ispkg in pkgutil.walk_packages(package.__path__, prefix, onerror = None):
-            print "modname=", modname
             try:
                 module = __import__(modname, fromlist="dummy")
             except Exception, e:

@@ -12,8 +12,7 @@ class Socket(Relay):
         """
 
         # A socket serves only one query
-        Producer.__init__(self, packet.get_receiver(), max_consumers = 1)
-        Consumer.__init__(self, max_producers = 1)
+        Relay.__init__(self, consumers=packet.get_receiver(), max_consumers = 1, max_producers = 1)
     
         self._packet = packet
 

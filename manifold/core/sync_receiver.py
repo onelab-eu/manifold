@@ -4,6 +4,7 @@ import threading
 
 from manifold.core.packet       import Packet
 from manifold.core.result_value import ResultValue
+from manifold.util.log          import Log
 
 class SyncReceiver(object):
 
@@ -23,10 +24,9 @@ class SyncReceiver(object):
         """
         """
         if packet.get_type() == Packet.TYPE_RECORD:
-            record = packet
-            if record.is_last():
-                print "last record"
+            if packet.is_last():
                 self._event.set()
+                return
 
             self._records.append(packet)
 
@@ -40,7 +40,11 @@ class SyncReceiver(object):
     def get_results(self):
         self._event.wait()
         self._event.clear()
-        return self.results
+        return self._records
 
     def get_result_value(self):
         return ResultValue.get_success(self.get_results())
+
+    def get_records(self):
+        # XXX We should inspect the return code of get_result_value()
+        return self.get_results()

@@ -334,9 +334,13 @@ class ExploreTask(Deferred):
         # Update the key used by a given method
         # The more we iterate, the best the key is
         if key:
-            for method, keys in table.map_method_keys.items():
-                if key in table.map_method_keys[method]: 
-                    map_method_bestkey[method] = key 
+            Log.tmp("TABLE=%r" % table)
+            try:
+                for method, keys in table.map_method_keys.items():
+                    if key in table.map_method_keys[method]: 
+                        map_method_bestkey[method] = key 
+            except AttributeError:
+                map_method_bestkey[table.name] = key
 
         # For each platform related to the current table, extract the
         # corresponding table and build the corresponding FROM node
@@ -354,7 +358,7 @@ class ExploreTask(Deferred):
                 platform = method.get_platform()
                 capabilities = metadata.get_capabilities(platform, query.get_from())
 
-                if not platform in allowed_platforms:
+                if allowed_platforms and not platform in allowed_platforms:
                     continue
 
                 # The current platform::table might be ONJOIN (no retrieve capability), but we
@@ -365,11 +369,15 @@ class ExploreTask(Deferred):
                 from_ast = AST(user = user).From(platform, query, capabilities, key)
                 query_plan.add_from(from_ast.get_root())
 
-                if method in table.methods_demux:
-                    from_ast.demux().projection(list(fields))
-                    demux_node = from_ast.get_root().get_child()
-                    assert isinstance(demux_node, Demux), "Bug"
-                    map_method_demux[method] = demux_node 
+                Log.tmp("methods_demux")
+                try:
+                    if method in table.methods_demux:
+                        from_ast.demux().projection(list(fields))
+                        demux_node = from_ast.get_root().get_child()
+                        assert isinstance(demux_node, Demux), "Bug"
+                        map_method_demux[method] = demux_node 
+                except AttributeError:
+                    pass
 
             else:
                 # The table announced by the platform doesn't fit with the 3nf schema

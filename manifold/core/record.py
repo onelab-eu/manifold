@@ -19,15 +19,64 @@
 # operations, and faster processing. Hence, consider the current code as a
 # transition towards this new class.
 
-from types                         import StringTypes
-from manifold.util.log             import Log
-from manifold.util.type            import returns, accepts
+from types                  import StringTypes
 
-class Record(dict):
+from manifold.core.packet   import Packet
+from manifold.util.log      import Log
+from manifold.util.type     import returns, accepts
 
-   #--------------------------------------------------------------------------- 
-   # Class methods
-   #--------------------------------------------------------------------------- 
+class Record(Packet):
+
+    #---------------------------------------------------------------------------
+    # Constructor
+    #---------------------------------------------------------------------------
+
+    def __init__(self, *args, **kwargs):
+        Packet.__init__(self, Packet.TYPE_RECORD)
+
+        self._dict = dict(*args, **kwargs)
+        self._last = False
+
+
+    #---------------------------------------------------------------------------
+    # Accessors
+    #---------------------------------------------------------------------------
+
+    def get_dict(self):
+        return self._dict
+
+    def to_dict(self):
+        dic = {}
+        for k, v in self._dict.iteritems():
+            if isinstance(v, Record):
+                dic[k] = v.to_dict()
+            elif isinstance(v, Records):
+                dic[k] = v.to_list()
+            else:
+                dic[k] = v
+        return dic
+
+    def get_last(self):
+        return self._last
+
+    def set_last(self, value):
+        self._last = value
+
+    def is_last(self):
+        return self._last
+
+
+    #--------------------------------------------------------------------------- 
+    # Internal methods
+    #--------------------------------------------------------------------------- 
+
+    def __getitem__(self, key):
+        return self._dict[key]
+
+
+    #--------------------------------------------------------------------------- 
+    # Class methods
+    #--------------------------------------------------------------------------- 
 
     @classmethod
     @returns(dict)
@@ -52,9 +101,9 @@ class Record(dict):
             If key is a set, return a tuple of corresponding value.
         """
         if isinstance(key, StringTypes):
-            return self[key]
+            return self._dict[key]
         else:
-            return tuple(map(lambda x: self[x], key))
+            return tuple(map(lambda x: self._dict[x], key))
 
     @returns(bool)
     def has_fields(self, fields):
@@ -67,34 +116,22 @@ class Record(dict):
             True iif record carries this set of fields.
         """
         if isinstance(fields, StringTypes):
-            return fields in self
+            return fields in self._dict
         else:
-            return fields <= set(self.keys())
+            return fields <= set(self._dict.keys())
    
     @returns(bool)
     def is_empty(self, keys):
         for key in keys:
-            if self[key]: return False
+            if self._dict[key]: return False
         return True
 
-    def to_dict(self):
-        dic = {}
-        for k, v in self.iteritems():
-            if isinstance(v, Record):
-                dic[k] = v.to_dict()
-            elif isinstance(v, Records):
-                dic[k] = v.to_list()
-            else:
-                dic[k] = v
-        return dic
-
-    def is_last(self):
-        return False
 
 
 class LastRecord(Record):
-    def is_last(self):
-        return True
+    def __init__(self, *args, **kwargs):
+        Record.__init__(self, *args, **kwargs)
+        self._last = True
 
 class Records(list):
     """
