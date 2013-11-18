@@ -19,6 +19,7 @@ from types                import StringTypes
 #OBSOLETE|from networkx.algorithms.traversal.depth_first_search import dfs_edges
 
 #OBSOLETE|from manifold.core.query          import Query 
+from manifold.core.method         import Method
 from manifold.core.table          import Table 
 from manifold.core.key            import Key
 from manifold.util.type           import returns, accepts
@@ -38,7 +39,7 @@ class DBGraph(object):
         self.map_method_capabilities = map_method_capabilities
 
     def get_capabilities(self, platform, method):
-        return self.map_method_capabilities[(platform, method)]
+        return self.map_method_capabilities[Method(platform, method)]
 
     def get_key(self, method):
         self.find_node(method).get_keys()

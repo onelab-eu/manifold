@@ -183,6 +183,7 @@ class QueryPlan(object):
         while not stack.is_empty():
             task = stack.pop()
             task.cancel()
+        print "BUILD DONE"
     
         # Do we need to wait for self.ast here ?
 

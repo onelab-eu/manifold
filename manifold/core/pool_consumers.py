@@ -31,13 +31,13 @@ class PoolConsumers(set):
     #---------------------------------------------------------------------------
 
     def add(self, consumer):
-        if len(self._consumers) >= self._max_consumers:
+        if self._max_consumers and len(self) >= self._max_consumers:
             raise Exception, "Cannot add consumer: maximum (%d) reached." % self._max_consumers
         super(PoolConsumers, self).add(consumer)
 
     def receive(self, packet):
         if packet.get_type() not in [Packet.TYPE_RECORD, Packet.TYPE_ERROR]:
             raise "Invalid packet type for consumer: %s" % Packet.get_type_name(packet.get_type())
-
+        
         for consumer in self:
             consumer.receive(packet)
