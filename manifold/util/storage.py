@@ -46,7 +46,11 @@ class DBStorage(Storage):
         # Call SQLAlchemyGateway::__init__() without having a direct
         # dependancy to manifold.gateway.sqlalchemy module.
         storage_config = {"url" : URL}
-        self.gateway = Gateway.get("sqlalchemy")(interface, None, storage_config)
+        sqlalchemy_gw = Gateway.get("sqlalchemy")
+        if not sqlalchemy_gw:
+            raise Exception, "Cannot find sqlalchemy gateway, which is necessary for DBStorage module"
+        self.gateway = sqlalchemy_gw(interface, None, storage_config)
+
 
     @returns(list)
     def execute(self, query, annotation, receiver):
