@@ -37,20 +37,6 @@ DEMO_HOOKS = ["demo"]
 class SFAGatewayCommon(Gateway):
 
     #--------------------------------------------------------------------------
-    # Storage config
-    #--------------------------------------------------------------------------
-
-    @returns(dict)
-    def get_user_storage(self):
-        """
-        Returns:
-            A dictionnary the Manifold User used by SFAGateways to query the
-            Manifold Storage (or None if using anonymous access)
-        """
-        Log.warning("Using anonymous to access Manifold's Storage")
-        user_storage = None
-
-    #--------------------------------------------------------------------------
     # User config
     #--------------------------------------------------------------------------
 
@@ -83,25 +69,24 @@ class SFAGatewayCommon(Gateway):
         platform_name = self.get_platform_name()
 
         Log.warning("Using anonymous to access Manifold's Storage")
-        user_storage = self.get_user_storage() 
 
         # Get User
         try:
-            user = self.query_storage(
-                Query.get("local:user").filter_by("email", "=", user_email),
-                user_storage
+            user = self.query_storage(Query\
+                .get("local:user")\
+                .filter_by("email", "=", user_email)
             )[0]
         except Exception, e:
             raise ValueError("No Account found for User %s, Platform %s ignored: %s" % (user_email, platform_name, traceback.format_exc()))
 
         # Get Platform related to this RM/AM
         try:
-            platform = self.query_storage(
-                Query.get("local:platform").filter_by("platform", "=", platform_name),
-                user_storage
+            platform = self.query_storage(Query\
+                .get("local:platform")\
+                .filter_by("platform", "=", platform_name)
             )[0]
         except Exception, e:
-            raise Exception("Platform %s not found: %s" % (platform_name, traceback.format_exc()))
+            raise ValueError("Platform %s not found: %s" % (platform_name, traceback.format_exc()))
 
         # Retrieve RMs (list of dict) related to this Gateway.
         # - if this is a SFA_RMGateway, this is the RM itself.
@@ -111,14 +96,13 @@ class SFAGatewayCommon(Gateway):
         # Get Accounts for this user on each related RM
         try:
             platform_ids = list([platform["platform_id"] for platform in rm_platforms])
-            accounts = self.query_storage(
-                Query.get("local:account")\
-                    .filter_by("user_id",     "=", user["user_id"])\
-                    .filter_by("platform_id", "{", platform_ids),
-                user_storage
+            accounts = self.query_storage(Query\
+                .get("local:account")\
+                .filter_by("user_id",     "=", user["user_id"])\
+                .filter_by("platform_id", "{", platform_ids),
             )
         except Exception, e:
-            raise Exception("Account(s) not found for user %s and platform %s: %s" % (user, platform, traceback.format_exc()))
+            raise ValueError("Account(s) not found for user %s and platform %s: %s" % (user, platform, traceback.format_exc()))
 
         if len(accounts) == 0:
             raise ValueError("No account found for User %s on those RMs: %s" % (
@@ -170,6 +154,23 @@ class SFAGatewayCommon(Gateway):
         raise Exception("This method must be overloaded")
 
     @returns(SFAProxy)
+    def get_sfa_proxy(self, interface_url, user, account_config, cert_type, timeout, store_in_cached = True):
+        """
+        Retrieve a SFAProxy toward a given SFA interface (RM or AM).
+        Args:
+            interface_url: A String containing the URL of the SFA interface.
+            user: A dictionnary describing the User issuing the SFA Query.
+            account_config: A dictionnary describing the User's Account.
+            cert_type: A String among "gid" and "sscert".
+            timeout: The timeout (in seconds).
+            store_in_cache: A boolean set to True if this SFAProxy must be
+                stored in the SFAProxyPool or only returned by this function.
+        Returns:
+            The requested SFAProxy.
+        """
+        return self.sfa_proxy_pool.get(interface_url, user, account_config, cert_type, timeout, store_in_cached)
+
+    @returns(SFAProxy)
     def get_sfa_proxy_admin(self):
         """
         Returns:
@@ -177,7 +178,7 @@ class SFAGatewayCommon(Gateway):
         """
         admin_config = self.get_account(ADMIN_USER["email"])["config"]
 
-        sfa_proxy = self.get_sfa_proxy_impl(
+        sfa_proxy = self.get_sfa_proxy(
             self.get_url(),
             ADMIN_USER,
             admin_config,
@@ -204,7 +205,7 @@ class SFAGatewayCommon(Gateway):
     # Gateway 
     #--------------------------------------------------------------------------
 
-    def __init__(self, interface, platform, platform_config = None):
+    def __init__(self, interface, platform, platform_config):
         """
         Constructor
         Args:
@@ -212,6 +213,8 @@ class SFAGatewayCommon(Gateway):
             platform: A String storing name of the platform related to this Gateway or None.
             platform_config: A dictionnary containing the configuration related to this Gateway.
         """
+        assert isinstance(platform_config, dict), \
+            "Invalid platform_config = %s (%s)" % (platform_config, type(platform_config))
         super(SFAGatewayCommon, self).__init__(interface, platform, platform_config)
         self.sfa_proxy_pool = SFAProxyPool()
         platform_config = self.get_config()
@@ -228,23 +231,6 @@ class SFAGatewayCommon(Gateway):
             platform_config["debug"] = False
         if not "timeout" in platform_config:
             platform_config["timeout"] = DEFAULT_TIMEOUT
-
-    @returns(SFAProxy)
-    def get_sfa_proxy_impl(self, interface_url, user, account_config, cert_type, timeout, store_in_cached = True):
-        """
-        Retrieve a SFAProxy toward a given SFA interface (RM or AM).
-        Args:
-            interface_url: A String containing the URL of the SFA interface.
-            user: A dictionnary describing the User issuing the SFA Query.
-            account_config: A dictionnary describing the User's Account.
-            cert_type: A String among "gid" and "sscert".
-            timeout: The timeout (in seconds).
-            store_in_cache: A boolean set to True if this SFAProxy must be
-                stored in the SFAProxyPool or only returned by this function.
-        Returns:
-            The requested SFAProxy.
-        """
-        return self.sfa_proxy_pool.get(interface_url, user, account_config, cert_type, timeout, store_in_cached)
 
     @returns(int)
     def get_timeout(self):
@@ -265,45 +251,35 @@ class SFAGatewayCommon(Gateway):
             query: A Query instance, reaching this Gateway.
             annotation: A dictionnary instance containing Query's annotation.
             receiver : A Receiver instance which collects the results of the Query.
-            receiver: The From Node running the Query or None. Its ResultValue will
-                be updated once the query has terminated.
-        Returns:
-            forward must NOT return value otherwise we cannot use @defer.inlineCallbacks
-            decorator. 
         """
-        identifier = receiver.get_identifier() if receiver else None
         super(SFAGatewayCommon, self).forward(query, annotation, receiver)
-
-        user = annotation["user"]
+        identifier = receiver.get_identifier() if receiver else None
 
         try:
-            user_account_config = annotation["account"]["config"]
+
+            # Retrieve parameters
+            user = annotation["user"]
+            user_email = user["email"]
+
+            try:
+                user_account = self.get_account(user_email)
+            except AttributeError:
+                user_account = annotation["account"]
+
+            user_account_config = user_account["config"]
+            message_header = "On platform %s, using account %s: " % (self.get_platform_name(), user_email)
+
+            # Check parameters
+            assert isinstance(query, Query), \
+                "%sCannot run invalid query %s (%s)" % (message_header, query, type(query)) 
+            assert isinstance(user,  dict), \
+                "%sCannot run %s with invalid user = %s (%s)" % (message_header, user, type(user))
+            assert isinstance(user_account,  dict), \
+                "%sInvalid user_account = %s (%s) for platform %s" % (message_header, user_account, type(user_account))
+            assert isinstance(user,  dict), \
+                "%sInvalid user_account_config = %s (%s)" % (message_header, user_account_config, type(user_account_config))
+
             Gateway.start(user, user_account_config, query)
-        except Exception, e:
-            Log.error("Error while starting SFA_RMGateway")
-            traceback.print_exc()
-            Log.error(str(e))
-
-        if not user:
-            self.error(receiver, query, "No user specified, aborting")
-            return
-
-        user_email = user["email"]
-
-        try:
-            assert query, "Cannot run %s without query" % self.get_platform_name()
-            self.debug = "debug" in query.params and query.params["debug"]
-
-            # Retrieve user's config (managed acccounts)
-            user_account = self.get_account(user_email)
-            if user_account: user_account_config = user_account["config"]
-            assert isinstance(user_account_config,  dict), "Invalid user_account_config"
- 
-            # If no user_account_config: failure
-            if not user_account_config:
-                self.send(LastRecord(), callback, identifier)
-                self.error(receiver, query, "Account related to %s for platform %s not found" % (user_email, self.get_platform_name()))
-                return
 
             # Call the appropriate method (for instance User.get(...)) in a first
             # time without managing the user account. If it fails and if this
@@ -312,28 +288,36 @@ class SFAGatewayCommon(Gateway):
             try:
                 result = yield self.perform_query(user, user_account_config, query)
             except Exception, e:
-                if self.handle_error(user_account):
+                #<<<<<<<< specific to RM
+                try:
+                    is_managed = self.handle_error(user_account)
+                except AttributeError, e:
+                    failure.raiseException()
+                    
+                if is_managed:
                     result = yield self.perform_query(user, user_account_config, query)
                 else:
                     failure = Failure("Account not managed: user_account_config = %s / auth_type = %s" % (account_config, user_account["auth_type"]))
                     failure.raiseException()
+                #<<<<<<
            
-            # Insert a RENAME above this FROM Node if necessary.
+            # Insert a RENAME Node above this FROM Node if necessary.
             instance = self.get_object(query.get_from())
             aliases  = instance.get_aliases()
             if aliases:
                 Rename(receiver, aliases)
-                callback = receiver.get_callback()
 
             # Send Records to the From Node.
             for row in result:
-                self.send(Record(row), callback, identifier)
-            self.send(LastRecord(), callback, identifier)
+                self.send(Record(row), receiver, identifier)
+            self.send(LastRecord(), receiver, identifier)
             self.success(receiver, query)
 
         except Exception, e:
+
+            # Handle properly exceptions which may have been raised 
             Log.error(traceback.format_exc())
-            self.send(LastRecord(), callback, identifier)
+            self.send(LastRecord(), receiver, identifier)
             self.error(receiver, query, str(e))
 
 

@@ -13,6 +13,7 @@
 
 import time
 import pprint
+from types                      import StringTypes
 
 from manifold.util.log          import Log
 from manifold.util.type         import accepts, returns
@@ -146,8 +147,9 @@ class ResultValue(dict):
     def ok_value(self):
         return self['value']
 
-    def error(self):
-        err = "%r" % self['description']
+    @returns(StringTypes)
+    def get_error_message(self):
+        return "%r" % self["description"]
 
     @staticmethod
     def to_html(raw_dict):

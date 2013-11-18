@@ -103,7 +103,8 @@ class Interface(object):
     def get_platforms(self):
         """
         Returns:
-            A Generator allowing to iterate on Platform managed by this Interface.
+            A Generator allowing to iterate on list of dict where each
+            dict represents a Platform managed by this Interface.
         """
         for platform in self.platforms:
             yield platform
@@ -139,7 +140,12 @@ class Interface(object):
         Returns:
             A list of Records.            
         """
-        assert not annotation or isinstance(annotation, Annotation), "Invalid annotation = %s (%s)" % (annotation, type(annotation))
+        assert isinstance(query, Query), \
+            "Invalid query = %s (%s)" % (query, type(query))
+        assert query.get_from().startswith("local:"), \
+            "Invalid Query, it must query local:* (%s)"
+        assert not annotation or isinstance(annotation, Annotation), \
+            "Invalid annotation = %s (%s)" % (annotation, type(annotation))
 
         receiver = Receiver()
         if not annotation:
@@ -500,6 +506,18 @@ class Interface(object):
             )
 
     def send_result_value(self, query, result_value, annotation, is_deferred):
+        """
+        (Internal use). See send() method.
+        Deferred / not deferred abstraction.
+        Args:
+            query: A Query instance.
+            records: A list of Record instances.
+            annotation: An Annotation instance.
+            is_deferred: A boolean indicating whether the Query is async (True) or not (False)
+        Returns:
+            A deferred instance (if is_deferred is set to True) or the ResultValue
+            resulting from the Query (otherwise).
+        """
         # if Interface is_deferred  
         d = defer.Deferred() if is_deferred else None
 
@@ -510,8 +528,18 @@ class Interface(object):
             return d
         
     def send(self, query, records, annotation, is_deferred):
-        rv = ResultValue.get_success(records)
-        return self.send_result_value(query, rv, annotation, is_deferred)
+        """
+        Args:
+            query: A Query instance.
+            records: A list of Record instances.
+            annotation: An Annotation instance.
+            is_deferred: A boolean indicating whether the Query is async (True) or not (False)
+        Returns:
+            A deferred instance (if is_deferred is set to True) or the ResultValue
+            resulting from the Query (otherwise).
+        """
+        result_value = ResultValue.get_success(records)
+        return self.send_result_value(query, result_value, annotation, is_deferred)
 
     def process_qp_results(self, query, records, annotation, query_plan):
         # Enforcing policy
@@ -629,7 +657,7 @@ class Interface(object):
 #OBSOLETE|                    return d
 # >>
         elif namespace:
-            platform_names = [platform.platform for platform in self.get_platforms()]
+            platform_names = [platform["platform"] for platform in self.get_platforms()]
             if namespace not in platform_names:
                 Interface.error(
                     receiver,

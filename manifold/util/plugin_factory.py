@@ -19,7 +19,7 @@
 #   Jordan Augé         <jordan.auge@lip6.fr>
 #   Marc-Olivier Buob   <marc-olivier.buob@lip6.fr>
 
-import pkgutil
+import pkgutil, traceback
 from manifold.util.log import Log
 
 PROPERTY_NAME = '__plugin_factory_registry__'
@@ -92,8 +92,7 @@ class PluginFactory(type):
         # recursively manifold/gateways/
         # http://docs.python.org/2/library/pkgutil.html
         for importer, modname, ispkg in pkgutil.walk_packages(package.__path__, prefix, onerror = None):
-            print "modname=", modname
             try:
-                module = __import__(modname, fromlist="dummy")
+                module = __import__(modname, fromlist = "dummy")
             except Exception, e:
-                Log.info("Could not load %s : %s" % (modname, e))
+                Log.warning("Cannot load %s : %s: %s" % (modname, e, traceback.format_exc()))

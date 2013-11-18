@@ -427,37 +427,28 @@ class PostgreSQLGateway(Gateway):
     # Overloaded methods 
     #---------------------------------------------------------------------------
 
-    def forward(self, query, callback, is_deferred = False, execute = True, user = None, account_config = None, format = "dict", receiver = None):
+    def forward(self, query, annotation, receiver):
         """
         Query handler.
         Args:
             query: A Query instance, reaching this Gateway.
-            callback: The function called to send this record. This callback is provided
-                most of time by a From Node.
-                Prototype : def callback(record)
-            is_deferred: A boolean set to True if this Query is async.
-            execute: A boolean set to True if the treatement requested in query
-                must be run or simply ignored.
-            user: The User issuing the Query.
-            account_config: A dictionnary containing the user's account config.
-                In pratice, this is the result of the following query (run on the Storage)
-                SELECT config FROM local:account WHERE user_id == user.user_id
-            format: A String specifying in which format the Records must be returned.
-            receiver : The From Node running the Query or None. Its ResultValue will
-                be updated once the query has terminated.
-        Returns:
-            forward must NOT return value otherwise we cannot use @defer.inlineCallbacks
-            decorator. 
+            annotation: A dictionnary instance containing Query's annotation.
+            receiver : A Receiver instance which collects the results of the Query.
         """
-        Gateway.forward(self, query, callback, is_deferred, execute, user, account_config, format, receiver)
+        super(PostgreSQLGateway, self).forward(query, annotation, receiver)
         identifier = receiver.get_identifier() if receiver else None
 
-        sql = PostgreSQLGateway.to_sql(query)
-        rows = Records(self.selectall(sql, None))
-        for row in rows:
-            self.send(row, callback, identifier)
-        self.send(LastRecord(), callback, identifier)
-        self.success(receiver, query)
+        try:
+            sql = PostgreSQLGateway.to_sql(query)
+            rows = Records(self.selectall(sql, None))
+            for row in rows:
+                self.send(row, receiver, identifier)
+            self.send(LastRecord(), receiver, identifier)
+            self.success(receiver, query)
+        except Exception, e:
+            Log.error(traceback.format_exc())
+            self.send(LastRecord(), receiver, identifier)
+            self.error(receiver, query, str(e))
        
     @staticmethod
     def get_colliding_announces(announces1, announces2):

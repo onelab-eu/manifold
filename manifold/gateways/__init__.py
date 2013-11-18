@@ -237,21 +237,15 @@ class Gateway(object):
         self.check_forward(query, annotation, receiver)
 
     @returns(list)
-    def query_storage(self, query, user):
+    def query_storage(self, query):
         """
         Run a Query on the Manifold's Storage.
         Args:
             query: A Query instance.
-            user: A dictionnary describing the User issuing this Query.
         Returns:
             A list of dictionnaries corresponding to each fetched Records.
         """
-        assert isinstance(query, Query) 
-        assert query.get_from().startswith("local:"), "Invalid Query, it must query local:* (%s)"
-
-        receiver = Receiver()
-        router = self.get_interface()
-        return router.execute_local_query(query)
+        return self.get_interface().execute_local_query(query)
 
     def success(self, receiver, query):
         """
