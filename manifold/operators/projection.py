@@ -1,6 +1,7 @@
+from manifold.core.packet import Packet
 from manifold.core.record import Record
-from manifold.operators import Node
-from manifold.util.type import returns
+from manifold.operators   import Node
+from manifold.util.type   import returns
 
 DUMPSTR_PROJECTION = "SELECT %s" 
 
@@ -52,6 +53,10 @@ class Projection(Node):
     PROJECTION operator node (cf SELECT clause in SQL)
     """
 
+    #---------------------------------------------------------------------------
+    # Constructor
+    #---------------------------------------------------------------------------
+
     def __init__(self, child, fields):
         """
         \brief Constructor
@@ -76,6 +81,10 @@ class Projection(Node):
         self.query.fields &= fields
 
 
+    #---------------------------------------------------------------------------
+    # Accessors
+    #---------------------------------------------------------------------------
+
     @returns(set)
     def get_fields(self):
         """
@@ -83,24 +92,34 @@ class Projection(Node):
         """
         return self.fields
 
-#    @returns(Query)
-#    def get_query(self):
-#        """
-#        \brief Returns the query representing the data produced by the nodes.
-#        \return The Query representing the data produced by the nodes.
-#        """
-#        print "Projection()::get_query()"
-#        q = Query(self.child.get_query())
-#
-#        # Projection restricts the set of available fields (intersection)
-#        q.fields &= fields
-#        return q
 
-    def get_child(self):
+    #---------------------------------------------------------------------------
+    # Internal methods
+    #---------------------------------------------------------------------------
+
+    def __repr__(self):
+        return DUMPSTR_PROJECTION % ", ".join(self.get_fields())
+
+
+    #---------------------------------------------------------------------------
+    # Methods
+    #---------------------------------------------------------------------------
+
+    def receive(self, packet):
         """
-        \return A Node instance (the child Node) of this Demux instance.
         """
-        return self.child
+
+        if packet.get_type() == Packet.TYPE_QUERY:
+            self.send(packet)
+
+        elif packet.get_type() == Packet.TYPE_RECORD:
+            record = packet
+            if not record.is_last():
+                record = do_projection(record, self.fields)
+            self.send(record)
+
+        else: # TYPE_ERROR
+            self.send(packet)
 
     def dump(self, indent=0):
         """
@@ -109,26 +128,6 @@ class Projection(Node):
         """
         Node.dump(self, indent)
         self.child.dump(indent+1)
-
-    def __repr__(self):
-        return DUMPSTR_PROJECTION % ", ".join(self.get_fields())
-
-    def start(self):
-        """
-        \brief Propagates a START message through the node
-        """
-        self.child.start()
-
-    #@returns(Projection)
-    def inject(self, records, key, query):
-        """
-        \brief Inject record / record keys into the node
-        \param records A list of dictionaries representing records,
-                       or a list of record keys
-        \return This node
-        """
-        self.child = self.child.inject(records, key, query) # XXX
-        return self
 
     def child_callback(self, record):
         """
@@ -139,11 +138,11 @@ class Projection(Node):
             record = do_projection(record, self.fields)
         self.send(record)
 
-    def optimize_selection(self, filter):
-        self.child = self.child.optimize_selection(filter)
-        return self
-
-    def optimize_projection(self, fields):
-        # We only need the intersection of both
-        self.child = self.child.optimize_projection(self.fields & fields)
-        return self.child
+#    def optimize_selection(self, filter):
+#        self.child = self.child.optimize_selection(filter)
+#        return self
+#
+#    def optimize_projection(self, fields):
+#        # We only need the intersection of both
+#        self.child = self.child.optimize_projection(self.fields & fields)
+#        return self.child

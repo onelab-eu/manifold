@@ -1,4 +1,5 @@
 from manifold.core.node           import Node
+from manifold.core.packet         import Packet
 from manifold.core.pool_producers import PoolProducers
 
 class Consumer(Node):
