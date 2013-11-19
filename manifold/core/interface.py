@@ -149,7 +149,7 @@ class Interface(object):
         receiver    = SyncReceiver()
         packet      = QueryPacket(query, annotation, receiver)
 
-        Node.connect(receiver, self._storage)
+        receiver.set_producer(self._storage)
 
         self._storage.receive(packet)
         result_value = receiver.get_result_value()

@@ -31,9 +31,9 @@ class Selection(Operator):
 
         Operator.__init__(self, producers = child, max_producers = 1)
         # XXX Shall we connect when passed as an argument
-        Node.connect(self, child)
-
         self._filter = filters
+        self.set_producer(child)
+
 
 #        old_cb = child.get_callback()
 #        child.set_callback(self.child_callback)
@@ -48,6 +48,7 @@ class Selection(Operator):
     #---------------------------------------------------------------------------
     
     def __repr__(self):
+        print "filter====", self._filter
         return DUMPSTR_SELECTION % ' AND '.join(["%s %s %s" % f.get_str_tuple() for f in self._filter])
 
 
@@ -93,7 +94,6 @@ class Selection(Operator):
         # Do we have to add fields for filtering, if so, we have to remove them after
         # otherwise we can just swap operators
         keys = self._filter.keys()
-        Log.tmp("TODO Connect")
         self.update_producer(lambda p: p.optimize_projection(query, fields | keys))
         #self.query.fields = fields
         if not keys <= fields:

@@ -11,6 +11,11 @@ class Producer(Node):
 
     def __init__(self, consumers = None, max_consumers = None):
         Node.__init__(self)
+        if consumers:
+            if not isinstance(consumers, list):
+                consumers = [consumers]
+            for consumer in consumers:
+                consumer.add_producer(self, cascade = False)
         self._pool_consumers = PoolConsumers(consumers, max_consumers = max_consumers)
 
 
@@ -21,28 +26,50 @@ class Producer(Node):
     def get_consumers(self):
         return set(self._pool_consumers)
 
-    def get_consumer(self):
-        # XXX only if max_consumer == 1
+    def get_max_consumers(self):
+        return self._pool_consumers.get_max_consumers()
 
-        num = len(self._pool_consumers)
-        if num == 0:
-            return None
-        elif num == 1:
-            return iter(self._pool_consumers).next()
-        else:
-            raise Exception, "More than 1 consumer"
-
-    def clear_consumers(self):
+    def clear_consumers(self, cascade = True):
+        if cascade:
+            for consumer in self._pool_consumers:
+                consumer.del_producer(self, cascade = False)
         self._pool_consumers.clear()
 
-    def add_consumer(self, consumer):
+    def add_consumer(self, consumer, cascade = True):
         self._pool_consumers.add(consumer)
+        if cascade:
+            consumer.add_producer(self, cascade = False)
 
+    def del_consumer(self, consumer, cascade = True):
+        print "self (producer) ==", self
+        print "consumer", consumer
+        print "pool=", self._pool_consumers
+        self._pool_consumers.remove(consumer)
+        if cascade:
+            customer.del_producer(self, cascade = False)
+
+    #---------------------------------------------------------------------------
     # Helpers
+    #---------------------------------------------------------------------------
 
     def add_consumers(self, consumers):
         for consumer in consumers:
             self.add_consumer(consumer)
+
+    def update_consumers(self, function):
+        raise Exception, "Not implemented"
+
+    # max_consumers == 1
+
+    def get_consumer(self):
+        if self.get_max_consumers() == 1:
+            raise Exception, "Cannot call get_consumer with max_producers != 1 (=%d)" % self._max_producers
+
+        num = len(self._pool_consumers)
+        if num == 0:
+            return None
+
+        return iter(self.get_consumers()).next()
 
     def set_consumer(self, consumer):
         self.clear_consumers()
@@ -51,6 +78,12 @@ class Producer(Node):
     def set_consumers(self, consumers):
         self.clear_consumers()
         self.add_consumers(consumers)
+
+    def update_consumer(self, function):
+        if self.get_max_consumers() != 1:
+            raise Exception, "Cannot call update_consumer with max_consumers != 1 (=%d)" % self._max_consumers
+
+        self.set_consumer(function(self.get_consumer()))
 
 
     #---------------------------------------------------------------------------

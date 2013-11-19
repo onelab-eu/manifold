@@ -75,6 +75,6 @@ class OperatorGraph(object):
 
         self._interface.init_from_nodes(query_plan, user)
 
-        Node.connect(receiver, query_plan.ast)
+        receiver.set_producer(query_plan.ast)
 
         query_plan.ast.root.receive(packet)

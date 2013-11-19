@@ -281,6 +281,7 @@ class SFAGatewayCommon(Gateway):
         query = packet.get_query()
         annotation = packet.get_annotation()
         user = annotation.get('user', None)
+        user_email = user["email"]
 
         if not user:
             print "no user"

@@ -10,6 +10,11 @@ class Consumer(Node):
 
     def __init__(self, producers = None, max_producers = 1, has_parent_producer = False):
         Node.__init__(self)
+        if producers:
+            if not isinstance(producers, list):
+                producers = [producers]
+            for producer in producers:
+                producer.add_consumer(self, cascade = False)
         self._pool_producers = PoolProducers(producers, max_producers = max_producers)
         self._has_parent_producer = has_parent_producer
     
@@ -24,9 +29,21 @@ class Consumer(Node):
     def get_max_producers(self):
         return self._pool_producers.get_max_producers()
 
-    def clear_producers(self):
+    def clear_producers(self, cascade = True):
+        if cascade:
+            for producer in self._pool_producers:
+                producer.del_consumer(self, cascade = False)
         self._pool_producers.clear()
 
+    def add_producer(self, producer, cascade = True):
+        self._pool_producers.add(producer)
+        if cascade:
+            producer.add_consumer(self, cascade = False)
+
+    def del_producer(self, producer, cascade = True):
+        self._pool_producers.remove(producer)
+        if cascade:
+            producer.del_customer(self, cascade = False)
 
     #---------------------------------------------------------------------------
     # Helpers
@@ -43,21 +60,21 @@ class Consumer(Node):
 
     def get_producer(self):
         if self.get_max_producers() != 1:
-            raise Exception, "Cannot call update_producer with max_producers != 1 (=%d)" % self._max_producers
+            raise Exception, "Cannot call get_producer with max_producers != 1 (=%d)" % self._max_producers
 
         num = len(self._pool_producers)
-
         if num == 0:
             return None
-        return iter(self._pool_producers).next()
 
-    def add_producer(self, producer):
-        self._pool_producers.add(producer)
+        return iter(self.get_producers()).next()
 
     def set_producer(self, producer):
         self.clear_producers()
         self.add_producer(producer)
 
+    def set_producers(self, consumers):
+        self.clear_producers()
+        self.add_producers(producers)
 
     def update_producer(self, function):
         if self.get_max_producers() != 1:
