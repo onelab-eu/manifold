@@ -41,9 +41,6 @@ class Producer(Node):
             consumer.add_producer(self, cascade = False)
 
     def del_consumer(self, consumer, cascade = True):
-        print "self (producer) ==", self
-        print "consumer", consumer
-        print "pool=", self._pool_consumers
         self._pool_consumers.remove(consumer)
         if cascade:
             customer.del_producer(self, cascade = False)

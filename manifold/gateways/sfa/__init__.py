@@ -280,6 +280,7 @@ class SFAGatewayCommon(Gateway):
 
         query = packet.get_query()
         annotation = packet.get_annotation()
+        receiver = packet.get_receiver()
         user = annotation.get('user', None)
         user_email = user["email"]
 
@@ -367,6 +368,7 @@ class SFAGatewayCommon(Gateway):
             instance = self.get_object(query.get_from())
             aliases  = instance.get_aliases()
             if aliases:
+                Log.warning("<jordan> i find it weird to pass a receiver as an argument")
                 Rename(receiver, aliases)
 
             # Send Records to the From Node.
