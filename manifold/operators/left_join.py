@@ -149,9 +149,9 @@ class LeftJoin(Operator):
         \brief Dump the current node
         \param indent current indentation
         """
-        super(LeftJoin).dump(indent)
-        for producer in self._producers:
-            producer.dump(indent + 1)
+        Node.dump(indent)
+        # We have one producer for sure
+        self.get_producer().dump()
 
     def optimize_selection(self, filter):
         # LEFT JOIN

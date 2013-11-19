@@ -13,8 +13,8 @@ class Node(object):
 
     @staticmethod
     def connect(consumer, producer):
-        consumer.add_producer(producer)
-        producer.add_consumer(consumer)
+        consumer.set_producer(producer)
+        producer.set_consumer(consumer)
 
 
     #---------------------------------------------------------------------------

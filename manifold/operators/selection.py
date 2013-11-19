@@ -1,4 +1,6 @@
 from manifold.core.node             import Node
+from manifold.core.packet           import Packet
+from manifold.core.query            import Query
 from manifold.operators.operator    import Operator
 from manifold.operators.projection  import Projection
 from manifold.util.log              import Log
@@ -27,9 +29,11 @@ class Selection(Operator):
         assert issubclass(type(child), Node), "Invalid child = %r (%r)"   % (child,   type(child))
         assert isinstance(filters, set),      "Invalid filters = %r (%r)" % (filters, type(filters))
 
-        super(Selection, self).__init__()
+        Operator.__init__(self, producers = child, max_producers = 1)
+        # XXX Shall we connect when passed as an argument
+        Node.connect(self, child)
 
-        self._filters = filters
+        self._filter = filters
 
 #        old_cb = child.get_callback()
 #        child.set_callback(self.child_callback)
@@ -38,14 +42,13 @@ class Selection(Operator):
 #        self.query = self.child.get_query().copy()
 #        self.query.filters |= filters
 
-        Node.connect(self, child)
     
     #---------------------------------------------------------------------------
     # Internal methods
     #---------------------------------------------------------------------------
     
     def __repr__(self):
-        return DUMPSTR_SELECTION % ' AND '.join(["%s %s %s" % f.get_str_tuple() for f in self._filters])
+        return DUMPSTR_SELECTION % ' AND '.join(["%s %s %s" % f.get_str_tuple() for f in self._filter])
 
 
     #---------------------------------------------------------------------------
@@ -59,13 +62,13 @@ class Selection(Operator):
         if packet.get_type() == Packet.TYPE_QUERY:
             # XXX need to remove the filter in the query
             new_packet = packet.clone()
-            packet.update_query(Query.unfilter_by, self.predicate)
+            packet.update_query(Query.unfilter_by, self._filter)
             self.send(new_packet)
 
         elif packet.get_type() == Packet.TYPE_RECORD:
             record = packet
 
-            if record.is_last() or (self._filters and self._filters.match(record)):
+            if record.is_last() or (self._filter and self._filter.match(record)):
                 self.send(record)
 
         else: # TYPE_ERROR
@@ -77,20 +80,22 @@ class Selection(Operator):
         \param indent The current indentation
         """
         Node.dump(self, indent)
-        self.child.dump(indent + 1)
+        # We have one producer for sure
+        self.get_producer().dump(indent + 1)
 
     def optimize_selection(self, query, filter):
         # Concatenate both selections...
-        for predicate in self._filters:
+        for predicate in self._filter:
             filter.add(predicate)
-        return self.child.optimize_selection(query, filter)
+        return self.get_producer().optimize_selection(query, filter)
 
-    def optimize_projection(self, fields):
+    def optimize_projection(self, query, fields):
         # Do we have to add fields for filtering, if so, we have to remove them after
         # otherwise we can just swap operators
-        keys = self._filters.keys()
-        self.child = self.child.optimize_projection(query, fields | keys)
-        self.query.fields = fields
+        keys = self._filter.keys()
+        Log.tmp("TODO Connect")
+        self.update_producer(lambda p: p.optimize_projection(query, fields | keys))
+        #self.query.fields = fields
         if not keys <= fields:
             # XXX add projection that removed added_fields
             # or add projection that removes fields
