@@ -310,55 +310,55 @@ class SQLAlchemyGateway(Gateway):
 #MANDO|            self.callback(row)
 #MANDO|        self.callback(None)
 
-    def forward(self, query, annotation, callback, is_deferred = False, execute = True, account_config = None, receiver = None):
-        """
-        Query handler.
-        Args:
-            query: A Query instance, reaching this Gateway.
-            callback: The function called to send this record. This callback is provided
-                most of time by a From Node.
-                Prototype : def callback(record)
-            is_deferred: A boolean.
-            execute: A boolean set to True if the treatement requested in query
-                must be run or simply ignored.
-            user: The User issuing the Query.
-            account_config: A dictionnary containing the user's account config.
-                In pratice, this is the result of the following query (run on the Storage)
-                SELECT config FROM local:account WHERE user_id == user.user_id
-            format: A String specifying in which format the Records must be returned.
-            receiver : The From Node running the Query or None. Its ResultValue will
-                be updated once the query has terminated.
-        Returns:
-            forward must NOT return value otherwise we cannot use @defer.inlineCallbacks
-            decorator. 
-        """
-        super(SQLAlchemyGateway, self).forward(query, annotation, callback, is_deferred, execute, account_config, receiver)
-        identifier = receiver.get_identifier() if receiver else None
-
-        assert isinstance(query, Query), "Invalid query"
-        _map_action = {
-            'get'    : self.local_query_get,
-            'update' : self.local_query_update,
-            'create' : self.local_query_create,
-            'delete' : self.local_query_delete
-        }
-
-        try:
-
-            if query.get_from() == 'object':
-                if not query.get_action() == 'get':
-                    raise Exception, "Invalid query on local object table"
-                return self.get_metadata()
-
-            user = annotation.get('user', None)
-            rows = _map_action[query.get_action()](query, user)
-            for row in rows:
-                self.send(row2record(row), callback, identifier)
-            self.send(LastRecord(), callback, identifier)
-            self.success(receiver, query)
-        except AttributeError, e:
-            self.send(LastRecord(), callback, identifier)
-            self.error(receiver, query, e)
+#DEPRECATED|    def forward(self, query, annotation, callback, is_deferred = False, execute = True, account_config = None, receiver = None):
+#DEPRECATED|        """
+#DEPRECATED|        Query handler.
+#DEPRECATED|        Args:
+#DEPRECATED|            query: A Query instance, reaching this Gateway.
+#DEPRECATED|            callback: The function called to send this record. This callback is provided
+#DEPRECATED|                most of time by a From Node.
+#DEPRECATED|                Prototype : def callback(record)
+#DEPRECATED|            is_deferred: A boolean.
+#DEPRECATED|            execute: A boolean set to True if the treatement requested in query
+#DEPRECATED|                must be run or simply ignored.
+#DEPRECATED|            user: The User issuing the Query.
+#DEPRECATED|            account_config: A dictionnary containing the user's account config.
+#DEPRECATED|                In pratice, this is the result of the following query (run on the Storage)
+#DEPRECATED|                SELECT config FROM local:account WHERE user_id == user.user_id
+#DEPRECATED|            format: A String specifying in which format the Records must be returned.
+#DEPRECATED|            receiver : The From Node running the Query or None. Its ResultValue will
+#DEPRECATED|                be updated once the query has terminated.
+#DEPRECATED|        Returns:
+#DEPRECATED|            forward must NOT return value otherwise we cannot use @defer.inlineCallbacks
+#DEPRECATED|            decorator. 
+#DEPRECATED|        """
+#DEPRECATED|        super(SQLAlchemyGateway, self).forward(query, annotation, callback, is_deferred, execute, account_config, receiver)
+#DEPRECATED|        identifier = receiver.get_identifier() if receiver else None
+#DEPRECATED|
+#DEPRECATED|        assert isinstance(query, Query), "Invalid query"
+#DEPRECATED|        _map_action = {
+#DEPRECATED|            'get'    : self.local_query_get,
+#DEPRECATED|            'update' : self.local_query_update,
+#DEPRECATED|            'create' : self.local_query_create,
+#DEPRECATED|            'delete' : self.local_query_delete
+#DEPRECATED|        }
+#DEPRECATED|
+#DEPRECATED|        try:
+#DEPRECATED|
+#DEPRECATED|            if query.get_from() == 'object':
+#DEPRECATED|                if not query.get_action() == 'get':
+#DEPRECATED|                    raise Exception, "Invalid query on local object table"
+#DEPRECATED|                return self.get_metadata()
+#DEPRECATED|
+#DEPRECATED|            user = annotation.get('user', None)
+#DEPRECATED|            rows = _map_action[query.get_action()](query, user)
+#DEPRECATED|            for row in rows:
+#DEPRECATED|                self.send(row2record(row), callback, identifier)
+#DEPRECATED|            self.send(LastRecord(), callback, identifier)
+#DEPRECATED|            self.success(receiver, query)
+#DEPRECATED|        except AttributeError, e:
+#DEPRECATED|            self.send(LastRecord(), callback, identifier)
+#DEPRECATED|            self.error(receiver, query, e)
 
     @returns(list)
     def make_metadata(self):
@@ -426,14 +426,14 @@ class SQLAlchemyGateway(Gateway):
                 if not query.get_action() == 'get':
                     raise Exception, "Invalid query on local object table"
                 for record in self.get_metadata():
-                    self.send(Record(record))
+                    self.send(Record(record.to_dict()))
+                self.send(LastRecord())
+                return
 
             user = annotation.get('user', None)
             rows = _map_action[query.get_action()](query, user)
-            print "sending records"
             for row in rows:
                 self.send(row2record(row)) #, callback, identifier)
-            print "sending last"
             self.send(LastRecord())
         except AttributeError, e:
             self.send(LastRecord())

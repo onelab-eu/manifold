@@ -34,13 +34,14 @@ class QueryPlan(object):
     Building a query plan consists in setting the AST and the list of Froms.
     """
 
-    def __init__(self):
+    def __init__(self, interface):
         """
         Constructor.
         """
         # TODO metadata, user should be a property of the query plan
-        self.ast   = AST()
-        self.froms = list() 
+        self.ast        = AST(interface)
+        self.froms      = list() 
+        self._interface = interface
 
     def add_from(self, from_node):
         """
@@ -104,9 +105,8 @@ class QueryPlan(object):
             ast: An AST instance made of Union, LeftJoin, SubQuery and From Nodes.
             query: The Query issued by the user.
         """
-        #print "QUERY PLAN (before optimization):"
         #ast.dump()
-        ast.optimize(query)
+        # XXX ast.optimize(query)
         self.inject_at(query)
         self.ast = ast
     
@@ -151,7 +151,8 @@ class QueryPlan(object):
                 ', '.join(metadata.get_table_names()))
             )
         
-        root_task = ExploreTask(root, relation=None, path=[], parent=self, depth=1)
+        root_task = ExploreTask(self._interface, root, relation=None, path=[], parent=self, depth=1)
+        print "root_task=", root_task
         if not root_task:
             raise Exception("Unable to build a suitable QueryPlan")
         root_task.addCallback(self.set_ast, query)
@@ -163,9 +164,13 @@ class QueryPlan(object):
         missing_fields |= query.get_select()
         missing_fields |= query.get_where().get_field_names()
 
+        
+        print "BEGIN missing fields", missing_fields
         while missing_fields:
+            print "missing fields", missing_fields
             # Explore the next prior ExploreTask
             task = stack.pop()
+            print "EXPLORING task", task
 
             # The Stack is empty, so we have explored the DBGraph
             # without finding the every queried fields.

@@ -5,6 +5,7 @@ from manifold.core.pool_producers import PoolProducers
 class Consumer(Node):
 
     def __init__(self, producers = None, max_producers = 1):
+        Node.__init__(self)
         self._pool_producers = PoolProducers(producers, max_producers = max_producers)
 
     def add_producer(self, producer):
@@ -25,4 +26,5 @@ class Consumer(Node):
         
     # ???
     def receive(self, packet):
+        print "Consumer::receive", packet
         pass

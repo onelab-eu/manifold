@@ -24,7 +24,7 @@ class OperatorGraph(object):
         """
 
         # A pointer to the router to which the OperatorGraph belongs
-        self._router  = router
+        self._interface  = router
         
         # A lattice that maps the queries currently contained in the
         # OperatorGraph with the corresponding operators
@@ -38,6 +38,10 @@ class OperatorGraph(object):
     #---------------------------------------------------------------------------
     # Methods
     #---------------------------------------------------------------------------
+
+    def connect(self, consumer, producer):
+        consumer.add_producer(producer)
+        producer.add_consumer(consumer)
 
     def build_query_plan(self, packet):
         
@@ -55,30 +59,28 @@ class OperatorGraph(object):
             query.object = table
 
             if namespace == self.LOCAL_NAMESPACE:
-                metadata = self._router.get_local_metadata()
+                metadata = self._interface.get_local_metadata()
                 allowed_platforms = []
 
             else: # namespace == 1 platform
-                metadata = self._router.get_metadata() #self._router.g_3nf
-                allowed_platforms = [p['platform'] for p in self._router.get_platforms() if p['platform'] == namespace]
+                metadata = self._interface.get_metadata() #self._interface.g_3nf
+                allowed_platforms = [p['platform'] for p in self._interface.get_platforms() if p['platform'] == namespace]
         else:
-            metadata = self._router.g_3nf
-            allowed_platforms = [p['platform'] for p in self._router.get_platforms()]
+            metadata = self._interface.g_3nf
+            allowed_platforms = [p['platform'] for p in self._interface.get_platforms()]
 
         # Handling metadata
 
-        query_plan = QueryPlan()
-        query_plan.build(query, metadata, allowed_platforms, self._router.allowed_capabilities, user)
+        query_plan = QueryPlan(self._interface)
+        query_plan.build(query, metadata, allowed_platforms, self._interface.allowed_capabilities, user)
         query_plan.dump()
 
-        self._router.init_from_nodes(query_plan, user)
-        #XXX#self.instanciate_gateways(query_plan, user) # removed by marco ????
+        self._interface.init_from_nodes(query_plan, user)
 
-
-        #return self.execute_query_plan(query, annotation, query_plan, is_deferred)
-        query_plan.ast.set_callback(receiver.receive)
+        #self.connect(receiver, query_plan.ast)
 
         root = query_plan.ast.get_root()
         print "ROOT=", root
 
+        print "packet=", packet
         root.receive(packet)

@@ -12,6 +12,7 @@ import json, os, sys, traceback
 from types                        import StringTypes
 
 from manifold.core.announce       import Announces
+from manifold.core.node           import Node
 from manifold.core.packet         import ErrorPacket
 from manifold.core.producer       import Producer
 from manifold.core.query          import Query
@@ -32,6 +33,20 @@ class Gateway(Producer):
     __metaclass__ = PluginFactory
     __plugin__name__attribute__ = '__gateway_name__'
 
+
+    #---------------------------------------------------------------------------  
+    # Static methods
+    #---------------------------------------------------------------------------  
+
+    @staticmethod
+    def register_all():
+        current_module = sys.modules[__name__]
+        PluginFactory.register(current_module)
+
+
+    #---------------------------------------------------------------------------  
+    # Constructor
+    #---------------------------------------------------------------------------  
 
     def __init__(self, interface, platform_name, platform_config = None, *args, **kwargs):
         """
@@ -56,6 +71,11 @@ class Gateway(Producer):
         self.interface       = interface
         self.platform_name   = platform_name
         self.platform_config = platform_config
+
+
+    #---------------------------------------------------------------------------  
+    # Accessors
+    #---------------------------------------------------------------------------  
 
     #@returns(Interface)
     def get_interface(self):
@@ -104,13 +124,18 @@ class Gateway(Producer):
         """
         return Announces.from_dot_h(self.get_platform_name(), self.get_gateway_type())
 
+
+    #---------------------------------------------------------------------------  
+    # Internal methods
+    #---------------------------------------------------------------------------  
+
     @returns(StringTypes)
     def __str__(self):
         """
         Returns:
             The '%s' representation of this Gateway.
         """
-        return "Platform<%s %s>" % (self.get_platform_name(), self.get_gateway_type())
+        return "%s [%s]" % (self.get_platform_name(), self.get_gateway_type())
 
     @returns(StringTypes)
     def __repr__(self):
@@ -118,7 +143,7 @@ class Gateway(Producer):
         Returns:
             The '%r' representation of this Gateway.
         """
-        return self.__str__()
+        return "<Gateway %s [%s]>" % (self.get_platform_name(), self.get_gateway_type())
 
 #DEPRECATED|    def send(self, record, callback, identifier = None):
 #DEPRECATED|        """
@@ -145,6 +170,20 @@ class Gateway(Producer):
 #DEPRECATED|            Log.record("[ %r ]" % record)
 #DEPRECATED|        callback(record)
 
+
+
+    #---------------------------------------------------------------------------  
+    # Methods
+    #---------------------------------------------------------------------------  
+
+    def receive(self, packet):
+        # formerly forward()
+        Producer.receive(self, packet)
+        # Mostly implemented in children
+
+    def dump(self, indent = 0):
+        Node.dump(self, indent)
+
     # TODO clean this method and plug it in Router::forward()
     @staticmethod
     @returns(dict)
@@ -162,50 +201,50 @@ class Gateway(Producer):
                 variables[k] = v
         return variables
 
-    # TODO clean this method and plug it in Router::forward()
-    @staticmethod
-    def start(user, account_config, query):
-        """
-        ???
-        Args:
-            user: A User instance.
-            account_config: A dictionnary.
-        Returns:
-            The corresponding dictionnary.
-        """
-        Log.tmp("I'm maybe obsolete")
-        #assert isinstance(user, User), "Invalid user : %s (%s)" % (user, type(user))
-        try:
-            # Replaces variables in the Query (predicate in filters and parameters)
-            filter = query.get_where()
-            params = query.get_params()
-            variables = Gateway.get_variables(user, account_config)
-
-            for predicate in filter:
-                value = predicate.get_value()
-
-                if isinstance(value, (tuple, list)):
-                    Log.warning("Ignoring tuple/list value %s (not yet implemented)" % (value,))
-                    continue
-
-                if value and isinstance(value, StringTypes) and value[0] == '$':
-                    var = value[1:]
-                    if var in variables:
-                        predicate.set_value(variables[var])
-
-            for key, value in params.items():
-                # XXX variable support not implemented for lists and tuples
-                if isinstance(value, (tuple, list)):
-                    continue
-
-                if value and isinstance(value, StringTypes) and value[0] == '$':
-                    var = value[1:]
-                    if var in variables and isinstance(variables[var], StringTypes):
-                        params[k] = variables[var]
-        except Exception, e:
-            import traceback
-            Log.warning("Exception in start", e)
-            traceback.print_exc()
+#DEPRECATED|    # TODO clean this method and plug it in Router::forward()
+#DEPRECATED|    @staticmethod
+#DEPRECATED|    def start(user, account_config, query):
+#DEPRECATED|        """
+#DEPRECATED|        ???
+#DEPRECATED|        Args:
+#DEPRECATED|            user: A User instance.
+#DEPRECATED|            account_config: A dictionnary.
+#DEPRECATED|        Returns:
+#DEPRECATED|            The corresponding dictionnary.
+#DEPRECATED|        """
+#DEPRECATED|        Log.tmp("I'm maybe obsolete")
+#DEPRECATED|        #assert isinstance(user, User), "Invalid user : %s (%s)" % (user, type(user))
+#DEPRECATED|        try:
+#DEPRECATED|            # Replaces variables in the Query (predicate in filters and parameters)
+#DEPRECATED|            filter = query.get_where()
+#DEPRECATED|            params = query.get_params()
+#DEPRECATED|            variables = Gateway.get_variables(user, account_config)
+#DEPRECATED|
+#DEPRECATED|            for predicate in filter:
+#DEPRECATED|                value = predicate.get_value()
+#DEPRECATED|
+#DEPRECATED|                if isinstance(value, (tuple, list)):
+#DEPRECATED|                    Log.warning("Ignoring tuple/list value %s (not yet implemented)" % (value,))
+#DEPRECATED|                    continue
+#DEPRECATED|
+#DEPRECATED|                if value and isinstance(value, StringTypes) and value[0] == '$':
+#DEPRECATED|                    var = value[1:]
+#DEPRECATED|                    if var in variables:
+#DEPRECATED|                        predicate.set_value(variables[var])
+#DEPRECATED|
+#DEPRECATED|            for key, value in params.items():
+#DEPRECATED|                # XXX variable support not implemented for lists and tuples
+#DEPRECATED|                if isinstance(value, (tuple, list)):
+#DEPRECATED|                    continue
+#DEPRECATED|
+#DEPRECATED|                if value and isinstance(value, StringTypes) and value[0] == '$':
+#DEPRECATED|                    var = value[1:]
+#DEPRECATED|                    if var in variables and isinstance(variables[var], StringTypes):
+#DEPRECATED|                        params[k] = variables[var]
+#DEPRECATED|        except Exception, e:
+#DEPRECATED|            import traceback
+#DEPRECATED|            Log.warning("Exception in start", e)
+#DEPRECATED|            traceback.print_exc()
 
     @returns(list)
     def get_result_value(self):
@@ -317,16 +356,4 @@ class Gateway(Producer):
 #DEPRECATED|                    traceback   = traceback.format_exc()
 #DEPRECATED|                )
 #DEPRECATED|            )
-
-    def receive(self, packet):
-        # formerly forward()
-        Producer.receive(self, packet)
-        # Mostly implemented in children
-
-
-def register_gateways():
-    current_module = sys.modules[__name__]
-    PluginFactory.register(current_module)
-
-__all__ = ['Gateway']
 

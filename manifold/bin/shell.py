@@ -78,9 +78,7 @@ class ManifoldLocalClient(ManifoldClient):
 
         receiver = SyncReceiver()
         packet = QueryPacket(query, annotation, receiver = receiver)
-        Log.tmp("sending packet")
         self.send(packet)
-        Log.tmp("done... waiting")
         # This code is blocking
         return receiver.get_result_value()
 

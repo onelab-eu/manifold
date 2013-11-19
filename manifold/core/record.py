@@ -138,8 +138,11 @@ class Records(list):
     A list of records
     """
 
-    def __init__(self, itr): 
-        list.__init__(self, [Record(x) for x in itr])
+    def __init__(self, itr = None): 
+        if itr:
+            list.__init__(self, [Record(x) for x in itr])
+        else:
+            list.__init__(self)
 
     def to_list(self):
         return [record.to_dict() for record in self]
