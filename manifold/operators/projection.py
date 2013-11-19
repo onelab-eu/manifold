@@ -79,7 +79,7 @@ class Projection(Operator):
 #DEPRECATED|
 #DEPRECATED|        self.query = self.child.get_query().copy()
 #DEPRECATED|        self.query.fields &= fields
-        Node.connect(self, child)
+        self.set_producer(child)
 
 
     #---------------------------------------------------------------------------

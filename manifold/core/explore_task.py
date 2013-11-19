@@ -121,7 +121,6 @@ class ExploreTask(Deferred):
                 related to the User Query.
         """
         Log.debug("Search in", self.root.get_name(), "for fields", missing_fields, 'path=', self.path, "SEEN SET =", seen_set)
-        Log.tmp("Search in", self.root.get_name(), "for fields", missing_fields, 'path=', self.path, "SEEN SET =", seen_set)
         relations_11, relations_1N, relations_1Nsq = (), {}, {}
         deferred_list = []
 
@@ -336,7 +335,6 @@ class ExploreTask(Deferred):
         # Update the key used by a given method
         # The more we iterate, the best the key is
         if key:
-            Log.tmp("TABLE=%r" % table)
             try:
                 for method, keys in table.map_method_keys.items():
                     if key in table.map_method_keys[method]: 
@@ -374,7 +372,6 @@ class ExploreTask(Deferred):
                 from_ast = AST(self._interface, user = user).From(platform, query, capabilities, key)
                 query_plan.add_from(from_ast.get_root())
 
-                Log.tmp("methods_demux")
                 try:
                     if method in table.methods_demux:
                         from_ast.demux().projection(list(fields))

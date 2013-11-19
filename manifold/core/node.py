@@ -7,14 +7,14 @@ class Node(object):
     A processing node. Base object
     """
 
-    #---------------------------------------------------------------------------
-    # Static methods
-    #---------------------------------------------------------------------------
-
-    @staticmethod
-    def connect(consumer, producer):
-        consumer.set_producer(producer)
-        producer.set_consumer(consumer)
+#DEPRECATED|    #---------------------------------------------------------------------------
+#DEPRECATED|    # Static methods
+#DEPRECATED|    #---------------------------------------------------------------------------
+#DEPRECATED|
+#DEPRECATED|    @staticmethod
+#DEPRECATED|    def connect(consumer, producer):
+#DEPRECATED|        consumer.set_producer(producer)
+#DEPRECATED|        producer.set_consumer(consumer)
 
 
     #---------------------------------------------------------------------------
