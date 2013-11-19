@@ -9,18 +9,21 @@
 # Copyright (C) 2013 UPMC 
 
 import json, os, sys, traceback
-from types                        import StringTypes
+from types                         import StringTypes
 
-from manifold.core.announce       import Announces
-from manifold.core.node           import Node
-from manifold.core.packet         import ErrorPacket
-from manifold.core.producer       import Producer
-from manifold.core.query          import Query
-from manifold.core.record         import Record
-from manifold.core.result_value   import ResultValue
-from manifold.util.log            import Log
-from manifold.util.plugin_factory import PluginFactory
-from manifold.util.type           import accepts, returns
+from manifold.core.announce        import Announces
+from manifold.core.capabilities    import Capabilities
+from manifold.core.node            import Node
+from manifold.core.packet          import ErrorPacket
+from manifold.core.producer        import Producer
+from manifold.core.query           import Query
+from manifold.core.record          import Record
+from manifold.core.result_value    import ResultValue
+from manifold.operators.projection import Projection
+from manifold.operators.selection  import Selection
+from manifold.util.log             import Log
+from manifold.util.plugin_factory  import PluginFactory
+from manifold.util.type            import accepts, returns
 
 #-------------------------------------------------------------------------------
 # Generic Gateway class
@@ -72,6 +75,11 @@ class Gateway(Producer):
         self.platform_name   = platform_name
         self.platform_config = platform_config
 
+        # Both should be loaded at initialization
+        self._metadata       = None
+        # XXX in the meantime we support all capabilities
+        self._capabilities   = dict()
+
 
     #---------------------------------------------------------------------------  
     # Accessors
@@ -122,8 +130,17 @@ class Gateway(Producer):
         Returns:
             The list of corresponding Announce instances
         """
-        return Announces.from_dot_h(self.get_platform_name(), self.get_gateway_type())
+        if not self._metadata:
+            self._metadata = self.make_metadata()
+        return self._metadata
 
+    def get_capabilities(self, method):
+        capabilities = self._capabilities.get(method, None)
+        return capabilities if capabilities else Capabilities()
+
+    def get_table(self, method):
+        table, = [table for table in self._metadata if table.get_name() == method]
+        return table
 
     #---------------------------------------------------------------------------  
     # Internal methods
@@ -143,7 +160,7 @@ class Gateway(Producer):
         Returns:
             The '%r' representation of this Gateway.
         """
-        return "<Gateway %s [%s]>" % (self.get_platform_name(), self.get_gateway_type())
+        return "FROM <Gateway %s [%s]>" % (self.get_platform_name(), self.get_gateway_type())
 
 #DEPRECATED|    def send(self, record, callback, identifier = None):
 #DEPRECATED|        """
@@ -183,6 +200,10 @@ class Gateway(Producer):
 
     def dump(self, indent = 0):
         Node.dump(self, indent)
+
+    @returns(list)
+    def make_metadata(self):
+        return Announces.from_dot_h(self.get_platform_name(), self.get_gateway_type())
 
     # TODO clean this method and plug it in Router::forward()
     @staticmethod
@@ -357,3 +378,72 @@ class Gateway(Producer):
 #DEPRECATED|                )
 #DEPRECATED|            )
 
+
+    @returns(Node)
+    def optimize_selection(self, query, filter):
+        """
+        Propagate a WHERE clause through a FROM Node.
+        Args:
+            filter: A Filter instance. 
+        Returns:
+            The updated root Node of the sub-AST.
+        """
+        # XXX Simplifications
+        for predicate in filter:
+            if predicate.get_field_names() == self.key.get_field_names() and predicate.has_empty_value():
+                # The result of the request is empty, no need to instanciate any gateway
+                # Replace current node by an empty node
+                return FromTable(query, [], self.key)
+            # XXX Note that such issues could be detected beforehand
+
+        if self._capabilities.selection:
+            # Push filters into the From node
+            query.filter_by(filter)
+            #old for predicate in filter:
+            #old    self.query.filters.add(predicate)
+            return self
+        else:
+            # Create a new Selection node
+            selection = Selection(self, filter)
+
+            # XXX fullquery ?
+            if self._capabilities.fullquery:
+                # We also push the filter down into the node
+                for p in filter:
+                    query.filters.add(p)
+
+            return selection
+
+    @returns(Node)
+    def optimize_projection(self, query, fields):
+        """
+        Propagate a SELECT clause through a FROM Node.
+        Args:
+            fields: A set of String instances (queried fields).
+        Returns:
+            The updated root Node of the sub-AST.
+        """
+        if self.get_capabilities(query.get_from()).projection:
+            # Push fields into the From node
+            self.query.select().select(fields)
+            return self
+        else:
+            provided_fields = self.get_table(query.get_from()).get_field_names()
+
+            # Test whether this From node can return every queried Fields.
+            if fields - provided_fields:
+                Log.warning("From::optimize_projection: some requested fields (%s) are not provided by {%s} From node. Available fields are: {%s}" % (
+                    ', '.join(list(fields - provided_fields)),
+                    query.get_from(),
+                    ', '.join(list(provided_fields))
+                )) 
+
+            # If this From node returns more Fields than those explicitely queried
+            # (because the projection capability is not enabled), create an additional
+            # Projection Node above this From Node in order to guarantee that
+            # we only return queried fields
+            if provided_fields - fields:
+                # XXX fullquery ?
+                return Projection(self, fields)
+                #projection.query = self.query.copy().filter_by(filter) # XXX
+            return self

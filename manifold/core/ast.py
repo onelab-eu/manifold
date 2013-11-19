@@ -18,7 +18,7 @@ from manifold.core.capabilities       import Capabilities
 from manifold.core.field              import Field
 from manifold.core.filter             import Filter
 from manifold.core.key                import Key
-from manifold.core.producer           import Producer
+from manifold.core.relay              import Relay
 from manifold.core.query              import Query
 from manifold.core.table              import Table 
 from manifold.operators.From          import From
@@ -39,7 +39,7 @@ from manifold.util.log                import Log
 # AST (Abstract Syntax Tree)
 #------------------------------------------------------------------
 
-class AST(Producer):
+class AST(Relay):
     """
     An AST (Abstract Syntax Tree) is used to represent a Query Plan.
     It acts as a factory (see example at the end of this file).
@@ -55,7 +55,7 @@ class AST(Producer):
         Args:
             user: A User instance
         """
-        Producer.__init__(self)
+        Relay.__init__(self)
         self._interface = interface
         self.user = user
         # The AST is initially empty
@@ -339,11 +339,10 @@ class AST(Producer):
         Args:
             query: The Query issued by the user.
         """
-        print "W: AST::optimize() disabled"
-        self.optimize_selection(query.get_where())
-        self.optimize_projection(query.get_select())
+        self.optimize_selection(query, query.get_where())
+        self.optimize_projection(query, query.get_select())
 
-    def optimize_selection(self, filter):
+    def optimize_selection(self, query, filter):
         """
         Apply a WHERE operation to an AST and spread this operation
         along the AST branches by adding appropriate Selection Nodes
@@ -353,12 +352,11 @@ class AST(Producer):
                 involved in the WHERE clause.
         """
         if not filter: return
-        old_cb = self.get_callback()
-        self.root = self.root.optimize_selection(filter)
+        self.root = self.root.optimize_selection(query, filter)
         assert not self.is_empty(), "ast::optimize_selection() has failed: filter = %s" % filter
-        self.set_callback(old_cb)
+        self.root.set_consumer(self)
 
-    def optimize_projection(self, fields):
+    def optimize_projection(self, query, fields):
         """
         Apply a SELECT operation to an AST and spread this operation
         along the AST branches by adding appropriate Projection Nodes
@@ -368,8 +366,7 @@ class AST(Producer):
                 involved in the SELECT clause.
         """
         if not fields: return
-        old_cb = self.get_callback()
-        self.root = self.root.optimize_projection(fields)
+        self.root = self.root.optimize_projection(query, fields)
         assert not self.is_empty(), "ast::optimize_projection() has failed: fields = %s" % fields 
-        self.set_callback(old_cb)
+        self.root.set_consumer(self)
 

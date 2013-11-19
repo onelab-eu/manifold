@@ -5,16 +5,57 @@ from manifold.util.log            import Log
 
 class Producer(Node):
 
+    #---------------------------------------------------------------------------
+    # Constructor
+    #---------------------------------------------------------------------------
+
     def __init__(self, consumers = None, max_consumers = None):
         Node.__init__(self)
         self._pool_consumers = PoolConsumers(consumers, max_consumers = max_consumers)
 
+
+    #---------------------------------------------------------------------------
+    # Accessors
+    #---------------------------------------------------------------------------
+
+    def get_consumers(self):
+        return set(self._pool_consumers)
+
+    def get_consumer(self):
+        # XXX only if max_consumer == 1
+
+        num = len(self._pool_consumers)
+        if num == 0:
+            return None
+        elif num == 1:
+            return iter(self._pool_consumers).next()
+        else:
+            raise Exception, "More than 1 consumer"
+
+    def clear_consumers(self):
+        self._pool_consumers.clear()
+
     def add_consumer(self, consumer):
         self._pool_consumers.add(consumer)
+
+    # Helpers
 
     def add_consumers(self, consumers):
         for consumer in consumers:
             self.add_consumer(consumer)
+
+    def set_consumer(self, consumer):
+        self.clear_consumers()
+        self.add_consumer(consumer)
+
+    def set_consumers(self, consumers):
+        self.clear_consumers()
+        self.add_consumers(consumers)
+
+
+    #---------------------------------------------------------------------------
+    # Methods
+    #---------------------------------------------------------------------------
 
     def send(self, packet):
         # A producer sends results/error to its consumers
@@ -30,11 +71,7 @@ class Producer(Node):
         self._pool_consumers.receive(packet)
         
     def receive(self, packet):
-        print "Producer::receive()", self.__class__, packet
         # A Producer only receives QueryPackets
         if packet.get_type() not in [Packet.TYPE_QUERY]:
             raise ValueError, "Invalid packet type received in producer: %s" % \
                     Packet.get_type_name(packet.get_type()) 
-
-        # We add the receive to the pool of consumers
-        self.add_consumer(packet.get_receiver())
