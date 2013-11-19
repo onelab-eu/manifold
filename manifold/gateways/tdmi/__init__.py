@@ -127,8 +127,8 @@ class TDMIGateway(PostgreSQLGateway):
 
             rows = Records(rows)
             for row in rows:
-                self.send(row, callback, identifier)
-            self.send(LastRecord(), callback, identifier)
+                self.send(row, receiver, identifier)
+            self.send(LastRecord(), receiver, identifier)
             self.success(receiver, query)
             
         else:

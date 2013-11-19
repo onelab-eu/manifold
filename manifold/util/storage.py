@@ -48,7 +48,9 @@ class DBStorage(Storage):
         storage_config = {"url" : URL}
         sqlalchemy_gw = Gateway.get("sqlalchemy")
         if not sqlalchemy_gw:
-            raise Exception, "Cannot find sqlalchemy gateway, which is necessary for DBStorage module"
+            raise Exception, \
+                "Cannot find SQLALchemy Gateway, which is necessary for DBStorage module. Known Gateways are: {%s}"\
+                % ", ".join(Gateway.list().keys())
         self.gateway = sqlalchemy_gw(interface, None, storage_config)
 
 

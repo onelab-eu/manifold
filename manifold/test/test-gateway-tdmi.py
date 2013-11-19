@@ -5,6 +5,8 @@
 #
 # Usage:
 #  ./test-gateway-tdmi.py
+#
+# To turn on debug messages:
 #  ./test-gateway-tdmi.py -d manifold -L DEBUG
 #
 # Copyright (C) UPMC Paris Universitas
@@ -13,147 +15,42 @@
 
 import sys
 
-from manifold.gateways.tdmi        import TDMIGateway
-from manifold.core.query           import Query
-from manifold.core.result_value    import ResultValue
-from manifold.core.receiver        import Receiver
-from manifold.core.router          import Router
-from manifold.util.storage         import DBStorage
-from manifold.util.type            import returns, accepts 
-from manifold.util.log             import Log
-from manifold.util.options         import Options
-from manifold.util.predicate       import Predicate, eq
+from manifold.bin.shell     import Shell
+from gateway                import check_platform, test_commands, MESSAGE_TO_ENABLE_PLATFORM 
+from manifold.util.log      import Log
+from manifold.util.options  import Options
+from manifold.util.type     import accepts, returns 
 
-Options().parse()
+MESSAGE_TO_ADD_TDMI = """
+tdmi has not been found in the Manifold Storage, please run:
 
-@accepts(dict)
-def print_record(record):
-    """
-    Process a record fetched by the gateway
-    Args:
-        record: A dictionnary storing the fetched record
-    """
-    if record:
-        print "{"
-        for field_name in sorted(record.keys()):
-            print "\t%s: %s" % (field_name, record[field_name])
-        print "}"
-    else:
-        print "END"
+    manifold-add-platform "tdmi" "Tophat Dedicated Measurement Infrastructure" "TDMI" "none" '{"db_host": "132.227.62.103", "db_port": 5432, "db_user": "postgres", "db_password": null, "db_name": "tophat", "name" : "TopHat team", "mail_support_address" : "xxx@xxx" }' 1
 
-@returns(Router)
-def make_tdmi_router():
-    """
-    Prepare a TDMI router/
-    Returns:
-        The corresponding Router instance.
-    """
-    # Fetch tdmi configuration from myslice storage
-    db_storage = DBStorage()
-    platforms = db_storage.execute(Query().get("platform").filter_by(Predicate("platform", eq, "tdmi")), format = "dict")
-    if len(platforms) != 1:
-        # TODO: we should use this account
-        #'db_user'     : 'guest@top-hat.info'
-        #'db_password' : 'guest'
-        print """No information found about TDMI in the storage, you should run:
+"""
 
-        manifold-add-platform "tdmi" "Tophat Dedicated Measurement Infrastructure" "TDMI" "none" '{"db_host": "132.227.62.103", "db_port": 5432, "db_user": "postgres", "db_password": null, "db_name": "tophat", "name" : "TopHat team", "mail_support_address" : "xxx@xxx" }' 1
-        """
-        sys.exit(-1)
+@returns(int)
+def main():
+    argc = len(sys.argv)
+    Shell.init_options()
+    Log.init_options()
+    Options().parse()
 
-    # Our Forwarder does not need any capability since pgsql is
-    return Router(platforms)
+    shell = Shell(interactive = True)
 
-@accepts(Router, Query)
-def run_query(router, query, execute = True):
-    """
-    Forward a query to the router and dump the result to the standard outpur
-    Params:
-        router: The router instance related to TDMI
-        query: The query instance send to the TDMI's router
-        execute: Execute the Query on the TDMIGateway
-    """
-    print "*" * 80
-    print query
-    print "*" * 80
-    receiver = Receiver()
-    router.forward(query, execute = execute, receiver = receiver)
-    result_value = receiver.get_result_value()
-    if execute:
-        if result_value["code"] == ResultValue.SUCCESS:
-            for record in result_value["value"]:
-                print_record(record)
-        else:
-            Log.error("Failed to run query:\n\n%s" % query)
+    # Check whether tdmi is configured and enabled in Manifold
+    if not check_platform(shell, "tdmi", MESSAGE_TO_ADD_TDMI, MESSAGE_TO_ENABLE_PLATFORM):
+        sys.exit(1)
 
-# Print metadata stored in the router
-@accepts(Router)
-def dump_routing_table(router):
-    for platform, announces in router.metadata.items():
-        print "*** Platform %s:" % platform
-        for announce in announces:
-            table = announce.get_table()
-            print ">> %r (cost %r)\n%s\n%s" % (table, announce.get_cost(), table, table.get_capabilities())
+    # Prepare TDMI Queries
+    commands = [
+        'SELECT agent_id, ip FROM agent WHERE agent_id == 11824',
+        'SELECT destination_id, ip FROM destination_id WHERE agent_id == 1417',
+        'SELECT src_ip, dst_ip, agent.ip, destination.ip, hops.ip, hops.ttl AT "2012-09-09 14:30:09" FROM traceroute WHERE agent_id == 11824 AND destination_id == 1417',
+        'SELECT agent.ip, src_ip, agent.hostname, destination.ip, dst_ip, destination.hostname AT "2012-09-09 14:30:09" FROM traceroute WHERE agent_id == 11824 AND destination_id INCLUDED [1416, 1417]'
+    ]
 
-router = make_tdmi_router()
-#dump_routing_table(router)
+    ret = 0 if test_commands(shell, commands) else 2
+    sys.exit(ret)
 
-queries = [
-    # Query traceroute
-    # TODO should work without querying src_ip
-    Query(
-        action  = "get",
-        object  = "traceroute",
-        filters =  [
-            ["agent_id",       "=", 11824],
-            ["destination_id", "=", 1417]
-            #["destination_id", "=", [1416, 1417]]
-        ],
-        fields  = [
-#            "src_ip", "dst_ip",
-#            "agent.ip",   "destination.ip",
-            "hops.ip", "hops.ttl"#, "hops.hostname", "timestamp"
-        ],
-        timestamp = "2012-09-09 14:30:09"
-    ),
-
-    # Query agent 
-    Query(
-        action  = "get",
-        object  = "agent",
-        filters =  [["agent_id", "=", 11824]],
-        fields  = ["agent_id", "ip"]
-    ),
-
-    # Query destination 
-    Query(
-        action  = "get",
-        object  = "destination",
-        filters =  [["destination_id", "=", 1417]],
-        fields  = ["destination_id", "ip"]
-    ),
-
-    # Query traceroute JOIN agent
-    Query(
-        action  = "get",
-        object  = "traceroute",
-        filters =  [
-            ["agent_id",       "=", 11824],
-            ["destination_id", "=", 1417]
-            #["destination_id", "=", [1416, 1417]]
-        ],
-        fields  = [
-            "agent.ip",       "src_ip", "agent.hostname",
-            "destination.ip", "dst_ip", "destination.hostname",
-#            "hops.ip", "hops.ttl"
-        ],
-        timestamp = "2012-09-09 14:30:09"
-    )
-]
-
-#for query in queries:
-#    run_query(router, query)
-run_query(router, queries[1])
-#run_query(router, queries[0])
-
-
+if __name__ == '__main__':
+    main()

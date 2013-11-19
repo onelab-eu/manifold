@@ -3,24 +3,26 @@
 #
 # Tests for SFA Gateways (RM and AM)
 #
+# Authors:
+#   Marc-Olivier Buob   <marc-olivier.buob@lip6.fr>
+#   Loic Baron          <loic.baron@lip6.fr>
 
-import cfgparse, pprint, sys, traceback
-import random, string
-from manifold.bin.shell  import Shell
-
+import sys, random, string
+from types                          import StringTypes
 from sfa.util.xrn                   import Xrn
 
-from manifold.core.query            import Query
-from manifold.core.receiver         import Receiver 
-from manifold.core.router           import Router
+from manifold.bin.shell             import Shell
 from manifold.util.log              import Log
 from manifold.util.options          import Options
+from manifold.util.type             import accepts, returns 
 
 def usage():
-    print "Usage: %s" % sys.argv[0]
+    Log.error("Usage: %s" % sys.argv[0])
 
+@returns(StringTypes)
+@accepts(int)
 def random_char(y):
-    return ''.join(random.choice(string.ascii_letters) for x in range(y))
+    return "".join(random.choice(string.ascii_letters) for x in range(y))
 
 def main():
     argc = len(sys.argv)
@@ -28,11 +30,11 @@ def main():
         usage()
         sys.exit(1)
 
-    # variables for UPDATE slice Query
+    # Variables for UPDATE slice Query
     resource_urn = "urn:publicid:IDN+ple:upmc+node+ple4.ipv6.lip6.fr"
 
-    # variables for INSERT INTO slice Query
-    # this will create a slice with a Random name with 10 characters
+    # Variables for INSERT INTO slice Query
+    # This will create a slice with a Random name with 10 characters
     # Need to check if Metadata match with the Queries (ex: slice_hrn vs hrn / slice_urn vs urn)
     # DELETE Query will delete the newly created slice, Let's hope it will not match a previously existing slice...
     # Please delete it manually from the SFA Registry if DELETE Query fails !
