@@ -67,11 +67,10 @@ class SFA_AMGateway(SFAGatewayCommon):
             raise ValueError("This AM %s must refer to at least one RM!" % self.get_platform_name())
 
         # Retrieve RM related to this AM by querying the Manifold Storage.
-        platforms = self.query_storage(
-            Query.get("local:platform")\
+        platforms = self._interface.execute_local_query(
+            Query.get("platform")\
                 .filter_by("gateway_type", "=", "sfa_rm")\
                 .filter_by("platform",     "{", platform_names),
-            self.get_user_storage()
         )
 
         # Check whether every RM referenced by this AM have been found. 

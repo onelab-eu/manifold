@@ -61,7 +61,5 @@ class Method(object):
 
     @returns(bool)
     def __eq__(self, x):
-        print "x", x
-        print "class x", x.__class__
         return self.get_platform() == x.get_platform() and self.get_name() == x.get_name()
 

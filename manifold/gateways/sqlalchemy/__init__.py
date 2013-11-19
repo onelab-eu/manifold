@@ -386,11 +386,11 @@ class SQLAlchemyGateway(Gateway):
             table.capabilities.join       = False
             table.capabilities.selection  = False
             table.capabilities.projection = False
-                
-            announces.append(table)
+
+            announces.append(Announce(table))
 
         metadata_announces = Announce.get_metadata_tables('local')
-        announces.extend([a.table for a in metadata_announces])
+        announces.extend(metadata_announces)
         return announces
 
     def receive(self, packet):
@@ -407,6 +407,8 @@ class SQLAlchemyGateway(Gateway):
         try:
             query = packet.get_query()
             annotation = packet.get_annotation()
+            if not annotation:
+                annotation = {}
 
             if query.get_from() == 'object':
                 if not query.get_action() == 'get':
@@ -422,5 +424,7 @@ class SQLAlchemyGateway(Gateway):
                 self.send(row2record(row)) #, callback, identifier)
             self.send(LastRecord())
         except AttributeError, e:
+            import traceback
+            traceback.print_exc()
             self.send(LastRecord())
             self.error(query, e)

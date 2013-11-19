@@ -143,6 +143,7 @@ class Query(object):
 
     def copy(self):
         return copy.deepcopy(self)
+    clone = copy
 
     def clear(self):
         self.action = 'get'
@@ -409,7 +410,7 @@ class Query(object):
                 return self
             if not isinstance(filters, (set, list, tuple, Filter)):
                 filters = [filters]
-            for predicate in filters:
+            for predicate in set(filters):
                 self.filters.remove(predicate)
         elif len(args) == 3: 
             predicate = Predicate(*args)

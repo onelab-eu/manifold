@@ -71,9 +71,9 @@ class Gateway(Producer):
 
         Producer.__init__(self, *args, **kwargs)
 
-        self.interface       = interface
-        self.platform_name   = platform_name
-        self.platform_config = platform_config
+        self._interface       = interface
+        self._platform_name   = platform_name
+        self._platform_config = platform_config
 
         # Both should be loaded at initialization
         self._metadata       = None
@@ -92,7 +92,7 @@ class Gateway(Producer):
             The Interface instance using this Gateway. Most of time
             this is a Router instance.
         """
-        return self.interface
+        return self._interface
 
     @returns(dict)
     def get_config(self):
@@ -101,7 +101,7 @@ class Gateway(Producer):
             A dictionnary containing the configuration related to
                 the Platform managed by this Gateway. 
         """
-        return self.platform_config
+        return self._platform_config
 
     @returns(StringTypes)
     def get_platform_name(self):
@@ -110,7 +110,7 @@ class Gateway(Producer):
             The String containing the name of the platform related
             to this Gateway.
         """
-        return self.platform_name
+        return self._platform_name
 
     @returns(StringTypes)
     def get_gateway_type(self):
@@ -139,7 +139,7 @@ class Gateway(Producer):
         return capabilities if capabilities else Capabilities()
 
     def get_table(self, method):
-        table, = [table for table in self._metadata if table.get_name() == method]
+        table, = [announce.table for announce in self._metadata if announce.table.get_name() == method]
         return table
 
     #---------------------------------------------------------------------------  
@@ -197,6 +197,7 @@ class Gateway(Producer):
         # formerly forward()
         Producer.receive(self, packet)
         # Mostly implemented in children
+        
 
     def dump(self, indent = 0):
         Node.dump(self, indent)
@@ -389,14 +390,16 @@ class Gateway(Producer):
             The updated root Node of the sub-AST.
         """
         # XXX Simplifications
-        for predicate in filter:
-            if predicate.get_field_names() == self.key.get_field_names() and predicate.has_empty_value():
-                # The result of the request is empty, no need to instanciate any gateway
-                # Replace current node by an empty node
-                return FromTable(query, [], self.key)
-            # XXX Note that such issues could be detected beforehand
+#FIXME|        for predicate in filter:
+#FIXME|            if predicate.get_field_names() == self.key.get_field_names() and predicate.has_empty_value():
+#FIXME|                # The result of the request is empty, no need to instanciate any gateway
+#FIXME|                # Replace current node by an empty node
+#FIXME|                return FromTable(query, [], self.key)
+#FIXME|            # XXX Note that such issues could be detected beforehand
 
-        if self._capabilities.selection:
+        capabilities = self.get_capabilities(query.get_from())
+
+        if capabilities.selection:
             # Push filters into the From node
             query.filter_by(filter)
             #old for predicate in filter:
@@ -407,7 +410,7 @@ class Gateway(Producer):
             selection = Selection(self, filter)
 
             # XXX fullquery ?
-            if self._capabilities.fullquery:
+            if capabilities.fullquery:
                 # We also push the filter down into the node
                 for p in filter:
                     query.filters.add(p)
@@ -423,7 +426,8 @@ class Gateway(Producer):
         Returns:
             The updated root Node of the sub-AST.
         """
-        if self.get_capabilities(query.get_from()).projection:
+        capabilities = self.get_capabilities(query.get_from())
+        if capabilities.projection:
             # Push fields into the From node
             self.query.select().select(fields)
             return self

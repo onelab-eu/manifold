@@ -356,6 +356,9 @@ class Announce(object):
     def __repr__(self):
         return "<Announce %r>" % self.table
 
+    def to_dict(self):
+        return self.table.to_dict()
+
 class Announces(object):
 
     @classmethod

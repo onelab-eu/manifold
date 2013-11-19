@@ -87,19 +87,13 @@ class SFAGatewayCommon(Gateway):
 
         # Get User
         try:
-            user = self.query_storage(
-                Query.get("local:user").filter_by("email", "=", user_email),
-                user_storage
-            )[0]
+            user, = self._interface.execute_local_query(Query.get("user").filter_by("email", "=", user_email))
         except Exception, e:
             raise ValueError("No Account found for User %s, Platform %s ignored: %s" % (user_email, platform_name, traceback.format_exc()))
 
         # Get Platform related to this RM/AM
         try:
-            platform = self.query_storage(
-                Query.get("local:platform").filter_by("platform", "=", platform_name),
-                user_storage
-            )[0]
+            platform, = self._interface.execute_local_query( Query.get("platform").filter_by("platform", "=", platform_name))
         except Exception, e:
             raise Exception("Platform %s not found: %s" % (platform_name, traceback.format_exc()))
 
@@ -111,11 +105,10 @@ class SFAGatewayCommon(Gateway):
         # Get Accounts for this user on each related RM
         try:
             platform_ids = list([platform["platform_id"] for platform in rm_platforms])
-            accounts = self.query_storage(
-                Query.get("local:account")\
+            accounts = self._interface.execute_local_query(
+                Query.get("account")\
                     .filter_by("user_id",     "=", user["user_id"])\
-                    .filter_by("platform_id", "{", platform_ids),
-                user_storage
+                    .filter_by("platform_id", "{", platform_ids)
             )
         except Exception, e:
             raise Exception("Account(s) not found for user %s and platform %s: %s" % (user, platform, traceback.format_exc()))
@@ -257,40 +250,52 @@ class SFAGatewayCommon(Gateway):
         except KeyError:
             return DEFAULT_TIMEOUT
 
-    @defer.inlineCallbacks
-    def forward(self, query, callback, is_deferred = False, execute = True, user = None, user_account_config = None, format = "dict", receiver = None):
-        """
-        Query handler.
-        Args:
-            query: A Query instance, reaching this Gateway.
-            callback: The function called to send this record. This callback is provided
-                most of time by a From Node.
-                Prototype : def callback(record)
-            is_deferred: A boolean set to True if this Query is async.
-            execute: A boolean set to True if the treatement requested in query
-                must be run or simply ignored.
-            user: The User issuing the Query.
-            user_account_config: A dictionnary containing the user's account config.
-                In pratice, this is the result of the following query (run on the Storage)
-                SELECT config FROM local:account WHERE user_id == user.user_id
-            receiver: The From Node running the Query or None. Its ResultValue will
-                be updated once the query has terminated.
-        Returns:
-            forward must NOT return value otherwise we cannot use @defer.inlineCallbacks
-            decorator. 
-        """
-        identifier = receiver.get_identifier() if receiver else None
-        super(SFAGatewayCommon, self).forward(query, callback, is_deferred, execute, user, user_account_config, format, receiver)
+#DEPRECATED|    @defer.inlineCallbacks
+#DEPRECATED|    def forward(self, query, callback, is_deferred = False, execute = True, user = None, user_account_config = None, format = "dict", receiver = None):
+#DEPRECATED|        """
+#DEPRECATED|        Query handler.
+#DEPRECATED|        Args:
+#DEPRECATED|            query: A Query instance, reaching this Gateway.
+#DEPRECATED|            callback: The function called to send this record. This callback is provided
+#DEPRECATED|                most of time by a From Node.
+#DEPRECATED|                Prototype : def callback(record)
+#DEPRECATED|            is_deferred: A boolean set to True if this Query is async.
+#DEPRECATED|            execute: A boolean set to True if the treatement requested in query
+#DEPRECATED|                must be run or simply ignored.
+#DEPRECATED|            user: The User issuing the Query.
+#DEPRECATED|            user_account_config: A dictionnary containing the user's account config.
+#DEPRECATED|                In pratice, this is the result of the following query (run on the Storage)
+#DEPRECATED|                SELECT config FROM local:account WHERE user_id == user.user_id
+#DEPRECATED|            receiver: The From Node running the Query or None. Its ResultValue will
+#DEPRECATED|                be updated once the query has terminated.
+#DEPRECATED|        Returns:
+#DEPRECATED|            forward must NOT return value otherwise we cannot use @defer.inlineCallbacks
+#DEPRECATED|            decorator. 
+#DEPRECATED|        """
 
-        try:
-            Gateway.start(user, user_account_config, query)
-        except Exception, e:
-            Log.error("Error while starting SFA_RMGateway")
-            traceback.print_exc()
-            Log.error(str(e))
+    @defer.inlineCallbacks
+    def receive(self, packet):
+        
+        Gateway.receive(self, packet)
+
+#DEPRECATED|        identifier = receiver.get_identifier() if receiver else None
+#DEPRECATED|        super(SFAGatewayCommon, self).forward(query, callback, is_deferred, execute, user, user_account_config, format, receiver)
+#DEPRECATED|
+#DEPRECATED|        try:
+#DEPRECATED|            Gateway.start(user, user_account_config, query)
+#DEPRECATED|        except Exception, e:
+#DEPRECATED|            Log.error("Error while starting SFA_RMGateway")
+#DEPRECATED|            traceback.print_exc()
+#DEPRECATED|            Log.error(str(e))
+
+
+        query = packet.get_query()
+        annotation = packet.get_annotation()
+        user = annotation.get('user', None)
 
         if not user:
-            self.error(receiver, query, "No user specified, aborting")
+            print "no user"
+            self.error(query, "No user specified, aborting")
             return
 
         user_email = user["email"]
@@ -306,8 +311,9 @@ class SFAGatewayCommon(Gateway):
  
             # If no user_account_config: failure
             if not user_account_config:
-                self.send(LastRecord(), callback, identifier)
-                self.error(receiver, query, "Account related to %s for platform %s not found" % (user_email, self.get_platform_name()))
+                self.send(LastRecord())
+                print "account not found"
+                self.error(query, "Account related to %s for platform %s not found" % (user_email, self.get_platform_name()))
                 return
 
             # Call the appropriate method (for instance User.get(...)) in a first
@@ -315,10 +321,10 @@ class SFAGatewayCommon(Gateway):
             # account is managed, then run managed and try to rerun the Query.
             result = list()
             try:
-                result = yield self.perform_query(user_dict, user_account_config, query)
+                result = yield self.perform_query(user, user_account_config, query)
             except Exception, e:
-                if self.handle_error(user_account):
-                    result = yield self.perform_query(user_dict, user_account_config, query)
+                if self.handle_error(user, user_account):
+                    result = yield self.perform_query(user, user_account_config, query)
                 else:
                     failure = Failure("Account not managed: user_account_config = %s / auth_type = %s" % (account_config, user_account["auth_type"]))
                     failure.raiseException()
@@ -333,12 +339,12 @@ class SFAGatewayCommon(Gateway):
             # Send Records to the From Node.
             for row in result:
                 self.send(Record(row), callback, identifier)
-            self.send(LastRecord(), callback, identifier)
-            self.success(receiver, query)
+            self.send(LastRecord())
 
         except Exception, e:
             Log.error(traceback.format_exc())
-            self.send(LastRecord(), callback, identifier)
-            self.error(receiver, query, str(e))
+            self.send(LastRecord())
+            print "exc", e
+            self.error(query, str(e))
 
 

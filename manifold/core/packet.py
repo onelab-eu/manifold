@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from copy                 import deepcopy
+import copy
 
 class Packet(object):
     """
@@ -44,9 +44,8 @@ class Packet(object):
     # Methods
     #---------------------------------------------------------------------------
 
-    # UNUSED ?
-    def clone():
-        return copy.deepcopy(packet)
+    def clone(self):
+        raise Exception, "To be implemented in child classes"
 
 class QueryPacket(Packet):
     
@@ -86,6 +85,12 @@ class QueryPacket(Packet):
 
     def get_source(self):
         return self._source
+
+    def clone(self):
+        query      = self._query.clone()
+        annotation = self._annotation
+        receiver   = self._receiver
+        return QueryPacket(query, annotation, receiver)
 
 
 class ErrorPacket(Packet):

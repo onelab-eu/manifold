@@ -12,11 +12,14 @@ class Operator(Relay):
     # Constructor
     #---------------------------------------------------------------------------
 
-    def __init__(self, max_producers = None, max_consumers = None, has_parent_producer = False):
+    def __init__(self, producers = None, consumers = None, max_producers = None, max_consumers = None, has_parent_producer = False):
         """
         Constructor.
         """
-        Relay.__init__(self, max_consumers = max_consumers, max_producers = max_producers, has_parent_producer = has_parent_producer)
+        Relay.__init__(self, \
+            producers = producers, consumers = consumers, \
+            max_consumers = max_consumers, max_producers = max_producers, \
+            has_parent_producer = has_parent_producer)
 
 
     #---------------------------------------------------------------------------

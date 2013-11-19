@@ -74,7 +74,9 @@ class Router(Interface):
             Method('local', 'object'): Capabilities('retrieve', 'join', 'selection', 'projection'),
             Method('local', 'column'): Capabilities('retrieve', 'join', 'selection', 'projection')
         }
-        return DBGraph(self._storage.get_metadata(), map_method_capabilities)
+        local_metadata = self._storage.get_metadata()
+        local_tables = [a.table for a in local_metadata]
+        return DBGraph(local_tables, map_method_capabilities)
 
     #---------------------------------------------------------------------------
     # Methods
@@ -114,71 +116,71 @@ class Router(Interface):
         """
         return self.g_3nf.find_node(table_name).get_keys()
 
-    def forward(self, query, annotation = None, receiver = None):
-        """
-        Forwards an incoming Query to the appropriate Gateways managed by this Router.
-        Args:
-            query: The user's Query.
-            annotation: Query annotation.
-            receiver: An instance supporting the method set_result_value or None.
-                receiver.set_result_value() will be called once the Query has terminated.
-        """
-        assert receiver, "Invalid receiver"
-
-        # Try to forward the Query according to the parent class.
-        # In practice, Interface::forwards() succeeds iif this is a local Query,
-        # otherwise, an Exception is raised.
-        ret = super(Router, self).forward(query, annotation, receiver)
-        if ret: 
-            # Note: we do not run hooks at the moment for local queries
-            return ret
-
-        #XXX#deferred = super(Router, self).forward(query, is_deferred, execute, user, receiver)
-        #XXX#if receiver.get_result_value():
-        #XXX#    return deferred
-
-        user = annotation['user'] if annotation and 'user' in annotation else None
-
-        Log.warning("router::forward: hardcoded execute value")
-        execute = True
-        Log.warning("router::forward: hardcoded is_deferred value")
-        is_deferred = True
-
-        # We suppose we have no namespace from here
-        if not execute: 
-            query_plan = QueryPlan(interface = self)
-            # Duplicated code
-            if ':' in query.get_from():
-                namespace, table = query.get_from().rsplit(':', 2)
-                query.object = table
-                allowed_platforms = [p['platform'] for p in self.platforms if p['platform'] == namespace]
-            else:
-                allowed_platforms = [p['platform'] for p in self.platforms]
-            try:
-                query_plan.build(query, self.g_3nf, allowed_platforms, self.allowed_capabilities, user)
-            except Exception, e:
-                Router.error(receiver, query, e)
-                return None
-            #query_plan.dump()
-
-            Router.success(receiver, query)
-            return None
-
-        if query.get_action() == "update":
-            # At the moment we can only update if the primary key is present
-            keys = self.metadata_get_keys(query.get_from())
-            if not keys:
-                Router.error(receiver, query, "Missing metadata for table %s" % query.get_from())
-            key_fields = keys.one().get_minimal_names()
-            
-            # XXX THIS SHOULD BE ABLE TO ACCEPT TUPLES
-            #if not query.filters.has_eq(key):
-            #    self.error(receiver, query, "The key field(s) '%r' must be present in update request" % key)
-
-        # Execute query plan
-        # the deferred object is sent to execute function of the query_plan
-        # This might be a deferred, we cannot put any hook here...
-        return self.execute_query(query, annotation, is_deferred, receiver)
+#DEPRECATED|    def forward(self, query, annotation = None, receiver = None):
+#DEPRECATED|        """
+#DEPRECATED|        Forwards an incoming Query to the appropriate Gateways managed by this Router.
+#DEPRECATED|        Args:
+#DEPRECATED|            query: The user's Query.
+#DEPRECATED|            annotation: Query annotation.
+#DEPRECATED|            receiver: An instance supporting the method set_result_value or None.
+#DEPRECATED|                receiver.set_result_value() will be called once the Query has terminated.
+#DEPRECATED|        """
+#DEPRECATED|        assert receiver, "Invalid receiver"
+#DEPRECATED|
+#DEPRECATED|        # Try to forward the Query according to the parent class.
+#DEPRECATED|        # In practice, Interface::forwards() succeeds iif this is a local Query,
+#DEPRECATED|        # otherwise, an Exception is raised.
+#DEPRECATED|        ret = super(Router, self).forward(query, annotation, receiver)
+#DEPRECATED|        if ret: 
+#DEPRECATED|            # Note: we do not run hooks at the moment for local queries
+#DEPRECATED|            return ret
+#DEPRECATED|
+#DEPRECATED|        #XXX#deferred = super(Router, self).forward(query, is_deferred, execute, user, receiver)
+#DEPRECATED|        #XXX#if receiver.get_result_value():
+#DEPRECATED|        #XXX#    return deferred
+#DEPRECATED|
+#DEPRECATED|        user = annotation['user'] if annotation and 'user' in annotation else None
+#DEPRECATED|
+#DEPRECATED|        Log.warning("router::forward: hardcoded execute value")
+#DEPRECATED|        execute = True
+#DEPRECATED|        Log.warning("router::forward: hardcoded is_deferred value")
+#DEPRECATED|        is_deferred = True
+#DEPRECATED|
+#DEPRECATED|        # We suppose we have no namespace from here
+#DEPRECATED|        if not execute: 
+#DEPRECATED|            query_plan = QueryPlan(interface = self)
+#DEPRECATED|            # Duplicated code
+#DEPRECATED|            if ':' in query.get_from():
+#DEPRECATED|                namespace, table = query.get_from().rsplit(':', 2)
+#DEPRECATED|                query.object = table
+#DEPRECATED|                allowed_platforms = [p['platform'] for p in self.platforms if p['platform'] == namespace]
+#DEPRECATED|            else:
+#DEPRECATED|                allowed_platforms = [p['platform'] for p in self.platforms]
+#DEPRECATED|            try:
+#DEPRECATED|                query_plan.build(query, self.g_3nf, allowed_platforms, self.allowed_capabilities, user)
+#DEPRECATED|            except Exception, e:
+#DEPRECATED|                Router.error(receiver, query, e)
+#DEPRECATED|                return None
+#DEPRECATED|            #query_plan.dump()
+#DEPRECATED|
+#DEPRECATED|            Router.success(receiver, query)
+#DEPRECATED|            return None
+#DEPRECATED|
+#DEPRECATED|        if query.get_action() == "update":
+#DEPRECATED|            # At the moment we can only update if the primary key is present
+#DEPRECATED|            keys = self.metadata_get_keys(query.get_from())
+#DEPRECATED|            if not keys:
+#DEPRECATED|                Router.error(receiver, query, "Missing metadata for table %s" % query.get_from())
+#DEPRECATED|            key_fields = keys.one().get_minimal_names()
+#DEPRECATED|            
+#DEPRECATED|            # XXX THIS SHOULD BE ABLE TO ACCEPT TUPLES
+#DEPRECATED|            #if not query.filters.has_eq(key):
+#DEPRECATED|            #    self.error(receiver, query, "The key field(s) '%r' must be present in update request" % key)
+#DEPRECATED|
+#DEPRECATED|        # Execute query plan
+#DEPRECATED|        # the deferred object is sent to execute function of the query_plan
+#DEPRECATED|        # This might be a deferred, we cannot put any hook here...
+#DEPRECATED|        return self.execute_query(query, annotation, is_deferred, receiver)
 
     @returns(ResultValue)
     def execute_query(self, query, annotation, is_deferred, receiver):
@@ -233,6 +235,8 @@ class Router(Interface):
         Log.tmp("socket ok: %r" % socket)
         query = packet.get_query()
         Log.tmp("query ok: %r" % query)
+        annotation = packet.get_annotation()
+        Log.tmp("annotation: %r" % annotation)
 
         # We need to route the query (aka connect is to the OperatorGraph)
         self._operator_graph.build_query_plan(packet)

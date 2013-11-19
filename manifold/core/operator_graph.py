@@ -54,6 +54,7 @@ class OperatorGraph(object):
         if ':' in query.get_from():
             namespace, table = query.get_from().rsplit(':', 2)
             query.object = table
+            packet.set_query(query)
 
             if namespace == self.LOCAL_NAMESPACE:
                 metadata = self._interface.get_local_metadata()

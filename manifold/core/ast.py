@@ -109,7 +109,7 @@ class AST(Relay):
         if platform_name == 'local':
             self.root = self._interface.get_storage()
         else:
-            self.root = self._interface.get_self.root(platform_name)
+            self.root = self._interface.get_gateway(platform_name)
 
         return self
 
@@ -366,6 +366,7 @@ class AST(Relay):
                 involved in the SELECT clause.
         """
         if not fields: return
+        print "self.root=", self.root
         self.root = self.root.optimize_projection(query, fields)
         assert not self.is_empty(), "ast::optimize_projection() has failed: fields = %s" % fields 
         self.root.set_consumer(self)

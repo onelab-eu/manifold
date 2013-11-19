@@ -77,14 +77,14 @@ class Record(Packet):
         ]
         return "<Record %s>" % ' '.join(content)
 
-    def __getitem__(self, key):
-        return self._dict[key]
+    def __getitem__(self, key, **kwargs):
+        return dict.__getitem__(self._dict, key, **kwargs)
 
-    def __setitem__(self, key, value):
-        self._dict[key] = value
+    def __setitem__(self, key, value, **kwargs):
+        return dict.__setitem__(self._dict, key, value, **kwargs)
 
     def __iter__(self): 
-        return self._dict.itervalues()
+        return dict.__iter__(self._dict)
 
 
     #--------------------------------------------------------------------------- 

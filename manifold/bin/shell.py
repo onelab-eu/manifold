@@ -49,7 +49,7 @@ class ManifoldLocalClient(ManifoldClient):
 
         try:
             users = self.router.execute_local_query(
-                Query.get('local:user').filter_by('email', '==', username)
+                Query.get('user').filter_by('email', '==', username)
             )
         except:
             users = list()

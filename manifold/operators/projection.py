@@ -31,7 +31,6 @@ def do_projection(record, fields):
     # 2/ process local fields
     for l in local:
         ret[l] = record[l] if l in record else None
-
     # 3/ recursively process subqueries
     for method, subfields in subqueries.items():
         # record[method] is an array whose all elements must be
@@ -129,7 +128,7 @@ class Projection(Operator):
         \param indent current indentation
         """
         Node.dump(self, indent)
-        self.child.dump(indent+1)
+        self.child.dump(indent + 1)
 
     def child_callback(self, record):
         """
