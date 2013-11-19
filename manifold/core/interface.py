@@ -15,18 +15,21 @@ from twisted.internet.defer         import Deferred
 
 from manifold.gateways              import Gateway
 from manifold.core.annotation       import Annotation 
+from manifold.core.node             import Node
+from manifold.core.packet           import QueryPacket
 from manifold.core.query            import Query
 from manifold.core.query_plan       import QueryPlan
 from manifold.core.receiver         import Receiver
 from manifold.core.record           import Record
 from manifold.core.result_value     import ResultValue
+from manifold.core.sync_receiver    import SyncReceiver
 from manifold.models.platform       import Platform
 from manifold.models.user           import User
 from manifold.policy                import Policy
-from manifold.util.storage          import DBStorage as Storage
 from manifold.util.type             import accepts, returns 
 from manifold.util.log              import Log
-from manifold.gateways              import register_gateways
+
+STORAGE_URL = 'sqlite:////var/myslice/db.sqlite?check_same_thread=False'
 
 class Interface(object):
     """
@@ -52,12 +55,17 @@ class Interface(object):
         """
         # Register the list of Gateways
         Log.info("Registering gateways")
-        register_gateways()
+        Gateway.register_all()
         Log.info("Registered gateways are: {%s}" % ' '.join(Gateway.list().keys()))
 
         # self.platforms is list(dict) where each dict describes a platform.
         # See platform table in the Storage.
-        self.storage = Storage(self) 
+        sqlalchemy_gw = Gateway.get("sqlalchemy")
+        if not sqlalchemy_gw:
+            raise Exception, "Cannot find sqlalchemy gateway, which is necessary for DBStorage module"
+        storage_config = {"url" : STORAGE_URL}
+        self._storage = sqlalchemy_gw(self, None, storage_config)
+
         self.platforms = list()
         self.user_storage = user_storage
 
@@ -110,11 +118,11 @@ class Interface(object):
         for platform in self.platforms:
             yield platform
 
-    @returns(Record)
+    @returns(dict)
     def get_platform(self, platform_name):
         """
         Retrieve the dictionnary representing a platform for a given
-        platform name
+        platform name.
         Args:
             platform_name: A String containing the name of the platform.
         Returns:
@@ -133,7 +141,6 @@ class Interface(object):
         Args:
             query: A Query. query.get_from() should start with "local:".
             annotation: An Annotation instance related to Query.
-                If you pass None, it uses the default user storage account.
             error_message: A String containing the error_message that must
                 be written in case of failure.
         Raises:
@@ -141,17 +148,12 @@ class Interface(object):
         Returns:
             A list of Records.            
         """
-        assert isinstance(query, Query), \
-            "Invalid query = %s (%s)" % (query, type(query))
-        assert query.get_from().startswith("local:"), \
-            "Invalid Query, it must query local:* (%s)"
-        assert not annotation or isinstance(annotation, Annotation), \
-            "Invalid annotation = %s (%s)" % (annotation, type(annotation))
+        receiver = SyncReceiver()
+        packet   = QueryPacket(query, annotation, receiver)
 
-        receiver = Receiver()
-        if not annotation:
-            annotation = Annotation({"user" : self.get_user_storage()})
-        self.forward(query, annotation, receiver)
+        receiver.set_producer(self._storage)
+
+        self._storage.receive(packet)
         result_value = receiver.get_result_value()
 
         if not result_value.is_success():
@@ -160,6 +162,7 @@ class Interface(object):
             raise Exception, error_message
 
         return result_value["value"]
+        
 
 #OBSOLETE|    def get_user_config(self, user, platform):
 #OBSOLETE|        # all are dict
@@ -241,6 +244,9 @@ class Interface(object):
                 raise ValueError("Cannot find/create Gateway related to platform %s (%s)" % (platform, e))
         return self.gateways[platform_name]
 
+    def get_storage(self):
+        return self._storage
+
     #---------------------------------------------------------------------
     # Methods 
     #---------------------------------------------------------------------
@@ -261,7 +267,10 @@ class Interface(object):
         args = [self, platform_name, platform_config]
 
         # Gateway is a plugin_factory
-        return Gateway.get(platform["gateway_type"])(*args)
+        gateway = Gateway.get(platform["gateway_type"])
+        if not gateway:
+            raise Exception, "Gateway not found: %s" % platform["gateway_type"]
+        return gateway(*args)
 
     def make_gateways(self):
         """
@@ -270,9 +279,10 @@ class Interface(object):
         """
         platform_names_loaded = set([platform["platform"] for platform in self.get_platforms()])
 
-        self.platforms = self.execute_local_query(
-            Query.get("local:platform").filter_by("disabled", "=", False)
-        )
+        query      = Query().get("platform").filter_by("disabled", "=", False)
+        annotation = Annotation({"user" : self.get_user_storage()})
+
+        self.platforms = self.execute_local_query(query, annotation)
 
         platform_names_enabled = set([platform["platform"] for platform in self.platforms])
         platform_names_del     = platform_names_loaded - platform_names_enabled 
@@ -319,17 +329,22 @@ class Interface(object):
             The corresponding dictionnary, None if no account found for
             this User and this Platform.
         """
-        account = None
+        if platform_name == 'local':
+            return {}
+
+        annotation = {"user" : self.get_user_storage()}
 
         # Retrieve the Platform having the name "platform_name" in the Storage
-        platforms = self.execute_local_query(
-            Query.get("local:platform").filter_by("platform", "=", platform_name)
+        platforms = self._storage.execute(
+            Query().get("platform").filter_by("platform", "=", platform_name),
+            annotation,
         )
         platform_id = platforms[0]["platform_id"]
 
         # Retrieve the first Account having the name "platform_name" in the Storage
-        accounts = self.execute_local_query(
-            Query.get("local:account").filter_by("platform_id", "=", platform_id)
+        account_configs = self._storage.execute(
+            Query().get("account").filter_by("platform_id", "=", platform_id),
+            annotation
         )
 
         # Convert the json string "config" into a python dictionnary
@@ -366,7 +381,10 @@ class Interface(object):
         # For each From Node, plug the right Gateway and craft the appropriate Annotation.
         for from_node in query_plan.get_froms():
             platform_name = from_node.get_platform_name()
-            gateway = self.get_gateway(platform_name)
+            if platform_name == 'local':
+                gateway = self._storage
+            else:
+                gateway = self.get_gateway(platform_name)
             if gateway:
                 from_node.set_gateway(gateway)
                 from_node.set_annotation(
@@ -507,18 +525,6 @@ class Interface(object):
             )
 
     def send_result_value(self, query, result_value, annotation, is_deferred):
-        """
-        (Internal use). See send() method.
-        Deferred / not deferred abstraction.
-        Args:
-            query: A Query instance.
-            records: A list of Record instances.
-            annotation: An Annotation instance.
-            is_deferred: A boolean indicating whether the Query is async (True) or not (False)
-        Returns:
-            A deferred instance (if is_deferred is set to True) or the ResultValue
-            resulting from the Query (otherwise).
-        """
         # if Interface is_deferred  
         d = defer.Deferred() if is_deferred else None
 
@@ -529,18 +535,8 @@ class Interface(object):
             return d
         
     def send(self, query, records, annotation, is_deferred):
-        """
-        Args:
-            query: A Query instance.
-            records: A list of Record instances.
-            annotation: An Annotation instance.
-            is_deferred: A boolean indicating whether the Query is async (True) or not (False)
-        Returns:
-            A deferred instance (if is_deferred is set to True) or the ResultValue
-            resulting from the Query (otherwise).
-        """
-        result_value = ResultValue.get_success(records)
-        return self.send_result_value(query, result_value, annotation, is_deferred)
+        rv = ResultValue.get_success(records)
+        return self.send_result_value(query, rv, annotation, is_deferred)
 
     def process_qp_results(self, query, records, annotation, query_plan):
         # Enforcing policy
@@ -560,138 +556,174 @@ class Interface(object):
         else:
             return self.process_qp_results(query, records, annotation, query_plan)
 
-    def forward(self, query, annotation, receiver):
-        """
-        Forwards an incoming Query to the appropriate Gateways managed by this Router.
-        Basically we only handle local queries here. The other queries are in charge
-        of the forward() method of the class inheriting Interface.
-        Args:
-            query: The user's Query.
-            annotation: A dictionnary or None containing Query's annotation.
-            receiver: An instance supporting the method set_result_value or None.
-                receiver.set_result_value() will be called once the Query has terminated.
-        Returns:
-            A Deferred instance if the Query is async,
-            None otherwise (see QueryPlan::execute())
-        """
-        if receiver:
-            receiver.set_result_value(None)
-        self.check_forward(query, annotation, receiver)
-
-        # Enforcing policy
-        (decision, data) = self.policy.filter(query, None, annotation)
-        if decision == Policy.ACCEPT:
-            pass
-        elif decision == Policy.REWRITE:
-            _query, _annotation = data
-            if _query:
-                query = _query
-            if _annotation:
-                annotation = _annotation
-        elif decision == Policy.RECORDS:
-            return self.send(query, data, annotation, is_deferred)
-        elif decision in [Policy.DENIED, Policy.ERROR]:
-            if decision == Policy.DENIED:
-                data = ResultValue.get_error(ResultValue.FORBIDDEN)
-            return self.send_result_value(query, data)
-        else:
-            raise Exception, "Unknown decision from policy engine"
-        
-        # if Interface is_deferred  
-        Log.warning("Interface::forward: TODO: manage defer properly")
-        is_deferred = False ##### << HARDCODED
-        d = Deferred() if is_deferred else None ### TO REMOVE
-
-        # Implements common functionalities = local queries, etc.
-        namespace = None
-
-        # Handling internal queries
-        if ":" in query.get_from():
-            namespace, table_name = query.get_from().rsplit(":", 2)
-
-        if namespace == self.LOCAL_NAMESPACE:
-            if table_name in ['object', 'gateway']:
-                if table_name == 'object':
-                    records = self.get_metadata_objects()
-                elif table_name == "gateway":
-                    records = [{'name': name} for name in Gateway.list().keys()]
-                qp = QueryPlan()
-                qp.ast.from_table(query, records, key = None).selection(query.get_where()).projection(query.get_select())
-                records = self.execute_query_plan(query, annotation, qp, is_deferred)
-                Interface.success(receiver, query, ResultValue.get_success(records))
-                
-            else:
-                query_storage = query.copy()
-                query_storage.object = table_name
-
-                self.storage.execute(query_storage, annotation, receiver)
-
-                if query_storage.get_from() == "platform" and query_storage.get_action() != "get":
-                    self.make_gateways()
-
-                records = receiver.get_result_value()["value"]
-                return self.send(query, records, annotation, is_deferred)
-# ==
-#OBSOLETE|            if table_name == "object":
-#OBSOLETE|                list_objects = self.get_metadata_objects()
-#OBSOLETE|                qp = QueryPlan()
-#OBSOLETE|                qp.ast.from_table(query, list_objects, key = None).selection(query.get_where()).projection(query.get_select())
-#OBSOLETE|                Interface.success(receiver, query)
-#OBSOLETE|                return qp.execute(d, receiver)
-#OBSOLETE|            else:
-#OBSOLETE|                query_storage = query.copy()
-#OBSOLETE|                query_storage.object = table_name
-#OBSOLETE|                output = self.execute_local_query(query_storage)
-#OBSOLETE|                result_value = ResultValue.get_success(output)
-#OBSOLETE|
-#OBSOLETE|                if query_storage.get_from() == "platform" and query_storage.get_action() != "get":
-#OBSOLETE|                    self.make_gateways()
-#OBSOLETE|
-#OBSOLETE|                if not d:
-#OBSOLETE|                    # async
-#OBSOLETE|                    Interface.success(receiver, query, result_value)
-#OBSOLETE|                    return result_value
-#OBSOLETE|                else:
-#OBSOLETE|                    # sync
-#OBSOLETE|                    d.callback(result_value)
-#OBSOLETE|                    Interface.success(receiver, query, result_value)
-#OBSOLETE|                    return d
-# >>
-        elif namespace:
-            platform_names = [platform["platform"] for platform in self.get_platforms()]
-            if namespace not in platform_names:
-                Interface.error(
-                    receiver,
-                    query,
-                    "Unsupported namespace '%s': valid namespaces are platform names ('%s') and 'local'." % (
-                        namespace,
-                        "', '".join(platform_names)
-                    )
-                )
-                return None
-
-            if table_name == "object":
-                # Prepare 'output' which will contains announces transposed as a list
-                # of dictionnaries.
-                output = list()
-                announces = self.announces[namespace]
-                for announce in announces:
-                    output.append(announce.get_table().to_dict())
-
-                qp = QueryPlan()
-                qp.ast.from_table(query, output, key = None).selection(query.get_where()).projection(query.get_select())
-                Interface.success(query, receiver, result_value)
-                return self.execute_query_plan(query, annotation, qp, is_deferred)
-
-                #output = ResultValue.get_success(output)
-                #if not d:
-                #    return output
-                #else:
-                #    d.callback(output)
-                #    return d
-                
-                # In fact we would need a simple query plan here instead
-                # Source = list of dict
-                # Result = a list or a deferred
-     
-        return None
+#DEPRECATED|    def forward(self, query, annotation, receiver):
+#DEPRECATED|        """
+#DEPRECATED|        Forwards an incoming Query to the appropriate Gateways managed by this Router.
+#DEPRECATED|        Basically we only handle local queries here. The other queries are in charge
+#DEPRECATED|        of the forward() method of the class inheriting Interface.
+#DEPRECATED|        Args:
+#DEPRECATED|            query: The user's Query.
+#DEPRECATED|            annotation: A dictionnary or None containing Query's annotation.
+#DEPRECATED|            receiver: An instance supporting the method set_result_value or None.
+#DEPRECATED|                receiver.set_result_value() will be called once the Query has terminated.
+#DEPRECATED|        Returns:
+#DEPRECATED|            A Deferred instance if the Query is async,
+#DEPRECATED|            None otherwise (see QueryPlan::execute())
+#DEPRECATED|        """
+#DEPRECATED|        if receiver:
+#DEPRECATED|            receiver.set_result_value(None)
+#DEPRECATED|        self.check_forward(query, annotation, receiver)
+#DEPRECATED|
+#DEPRECATED|        # Enforcing policy
+#DEPRECATED|        (decision, data) = self.policy.filter(query, None, annotation)
+#DEPRECATED|        if decision == Policy.ACCEPT:
+#DEPRECATED|            pass
+#DEPRECATED|        elif decision == Policy.REWRITE:
+#DEPRECATED|            _query, _annotation = data
+#DEPRECATED|            if _query:
+#DEPRECATED|                query = _query
+#DEPRECATED|            if _annotation:
+#DEPRECATED|                annotation = _annotation
+#DEPRECATED|        elif decision == Policy.RECORDS:
+#DEPRECATED|            return self.send(query, data, annotation, is_deferred)
+#DEPRECATED|        elif decision in [Policy.DENIED, Policy.ERROR]:
+#DEPRECATED|            if decision == Policy.DENIED:
+#DEPRECATED|                data = ResultValue.get_error(ResultValue.FORBIDDEN)
+#DEPRECATED|            return self.send_result_value(query, data)
+#DEPRECATED|        else:
+#DEPRECATED|            raise Exception, "Unknown decision from policy engine"
+#DEPRECATED|        
+#DEPRECATED|        # if Interface is_deferred  
+#DEPRECATED|        Log.warning("Interface::forward: TODO: manage defer properly")
+#DEPRECATED|        is_deferred = False ##### << HARDCODED
+#DEPRECATED|        d = Deferred() if is_deferred else None ### TO REMOVE
+#DEPRECATED|
+#DEPRECATED|        # Implements common functionalities = local queries, etc.
+#DEPRECATED|        namespace = None
+#DEPRECATED|
+#DEPRECATED|        # Handling internal queries
+#DEPRECATED|        if ":" in query.get_from():
+#DEPRECATED|            namespace, table_name = query.get_from().rsplit(":", 2)
+#DEPRECATED|
+#DEPRECATED|        if namespace == self.LOCAL_NAMESPACE:
+#DEPRECATED|<<<<<<< HEAD
+#DEPRECATED|# <<
+#DEPRECATED|#OBSOLETE|            if table_name in ['object', 'gateway']:
+#DEPRECATED|#OBSOLETE|                if table_name == 'object':
+#DEPRECATED|#OBSOLETE|                    records = self.get_metadata_objects()
+#DEPRECATED|#OBSOLETE|                elif table_name == "gateway":
+#DEPRECATED|#OBSOLETE|                    records = [{'name': name} for name in Gateway.list().keys()]
+#DEPRECATED|#OBSOLETE|                qp = QueryPlan()
+#DEPRECATED|#OBSOLETE|                qp.ast.from_table(query, records, key = None).selection(query.get_where()).projection(query.get_select())
+#DEPRECATED|#OBSOLETE|                Interface.success(receiver, query, result_value)
+#DEPRECATED|#OBSOLETE|                return self.execute_query_plan(query, annotation, qp, is_deferred)
+#DEPRECATED|#OBSOLETE|                
+#DEPRECATED|#OBSOLETE|            else:
+#DEPRECATED|#OBSOLETE|                query_storage = query.copy()
+#DEPRECATED|#OBSOLETE|                query_storage.object = table_name
+#DEPRECATED|#OBSOLETE|                records = self._storage.execute(query_storage, annotation)
+#DEPRECATED|#OBSOLETE|
+#DEPRECATED|#OBSOLETE|                if query_storage.get_from() == "platform" and query_storage.get_action() != "get":
+#DEPRECATED|#OBSOLETE|                    self.make_gateways()
+#DEPRECATED|#OBSOLETE|
+#DEPRECATED|#OBSOLETE|                Interface.success(receiver, query, result_value)
+#DEPRECATED|#OBSOLETE|                return self.send(query, records, annotation, is_deferred)
+#DEPRECATED|# ==
+#DEPRECATED|            if table_name == "object":
+#DEPRECATED|                list_objects = self.get_metadata_objects()
+#DEPRECATED|                qp = QueryPlan(interface = self)
+#DEPRECATED|                qp.ast.from_table(query, list_objects, key = None).selection(query.get_where()).projection(query.get_select())
+#DEPRECATED|                Interface.success(receiver, query)
+#DEPRECATED|                return qp.execute(d, receiver)
+#DEPRECATED|            else:
+#DEPRECATED|                query_storage = query.copy()
+#DEPRECATED|                query_storage.object = table_name
+#DEPRECATED|                output = self._storage.execute(query_storage, annotation)
+#DEPRECATED|                result_value = ResultValue.get_success(output)
+#DEPRECATED|=======
+#DEPRECATED|            if table_name in ['object', 'gateway']:
+#DEPRECATED|                if table_name == 'object':
+#DEPRECATED|                    records = self.get_metadata_objects()
+#DEPRECATED|                elif table_name == "gateway":
+#DEPRECATED|                    records = [{'name': name} for name in Gateway.list().keys()]
+#DEPRECATED|                qp = QueryPlan()
+#DEPRECATED|                qp.ast.from_table(query, records, key = None).selection(query.get_where()).projection(query.get_select())
+#DEPRECATED|                records = self.execute_query_plan(query, annotation, qp, is_deferred)
+#DEPRECATED|                Interface.success(receiver, query, ResultValue.get_success(records))
+#DEPRECATED|                
+#DEPRECATED|            else:
+#DEPRECATED|                query_storage = query.copy()
+#DEPRECATED|                query_storage.object = table_name
+#DEPRECATED|
+#DEPRECATED|                self.storage.execute(query_storage, annotation, receiver)
+#DEPRECATED|>>>>>>> routerv2
+#DEPRECATED|
+#DEPRECATED|                if query_storage.get_from() == "platform" and query_storage.get_action() != "get":
+#DEPRECATED|                    self.make_gateways()
+#DEPRECATED|
+#DEPRECATED|                records = receiver.get_result_value()["value"]
+#DEPRECATED|                return self.send(query, records, annotation, is_deferred)
+#DEPRECATED|# ==
+#DEPRECATED|#OBSOLETE|            if table_name == "object":
+#DEPRECATED|#OBSOLETE|                list_objects = self.get_metadata_objects()
+#DEPRECATED|#OBSOLETE|                qp = QueryPlan()
+#DEPRECATED|#OBSOLETE|                qp.ast.from_table(query, list_objects, key = None).selection(query.get_where()).projection(query.get_select())
+#DEPRECATED|#OBSOLETE|                Interface.success(receiver, query)
+#DEPRECATED|#OBSOLETE|                return qp.execute(d, receiver)
+#DEPRECATED|#OBSOLETE|            else:
+#DEPRECATED|#OBSOLETE|                query_storage = query.copy()
+#DEPRECATED|#OBSOLETE|                query_storage.object = table_name
+#DEPRECATED|#OBSOLETE|                output = self.execute_local_query(query_storage)
+#DEPRECATED|#OBSOLETE|                result_value = ResultValue.get_success(output)
+#DEPRECATED|#OBSOLETE|
+#DEPRECATED|#OBSOLETE|                if query_storage.get_from() == "platform" and query_storage.get_action() != "get":
+#DEPRECATED|#OBSOLETE|                    self.make_gateways()
+#DEPRECATED|#OBSOLETE|
+#DEPRECATED|#OBSOLETE|                if not d:
+#DEPRECATED|#OBSOLETE|                    # async
+#DEPRECATED|#OBSOLETE|                    Interface.success(receiver, query, result_value)
+#DEPRECATED|#OBSOLETE|                    return result_value
+#DEPRECATED|#OBSOLETE|                else:
+#DEPRECATED|#OBSOLETE|                    # sync
+#DEPRECATED|#OBSOLETE|                    d.callback(result_value)
+#DEPRECATED|#OBSOLETE|                    Interface.success(receiver, query, result_value)
+#DEPRECATED|#OBSOLETE|                    return d
+#DEPRECATED|# >>
+#DEPRECATED|        elif namespace:
+#DEPRECATED|            platform_names = [platform["platform"] for platform in self.get_platforms()]
+#DEPRECATED|            if namespace not in platform_names:
+#DEPRECATED|                Interface.error(
+#DEPRECATED|                    receiver,
+#DEPRECATED|                    query,
+#DEPRECATED|                    "Unsupported namespace '%s': valid namespaces are platform names ('%s') and 'local'." % (
+#DEPRECATED|                        namespace,
+#DEPRECATED|                        "', '".join(platform_names)
+#DEPRECATED|                    )
+#DEPRECATED|                )
+#DEPRECATED|                return None
+#DEPRECATED|
+#DEPRECATED|            if table_name == "object":
+#DEPRECATED|                # Prepare 'output' which will contains announces transposed as a list
+#DEPRECATED|                # of dictionnaries.
+#DEPRECATED|                output = list()
+#DEPRECATED|                announces = self.announces[namespace]
+#DEPRECATED|                for announce in announces:
+#DEPRECATED|                    output.append(announce.get_table().to_dict())
+#DEPRECATED|
+#DEPRECATED|                qp = QueryPlan(interface = self)
+#DEPRECATED|                qp.ast.from_table(query, output, key = None).selection(query.get_where()).projection(query.get_select())
+#DEPRECATED|                Interface.success(query, receiver, result_value)
+#DEPRECATED|                return self.execute_query_plan(query, annotation, qp, is_deferred)
+#DEPRECATED|
+#DEPRECATED|                #output = ResultValue.get_success(output)
+#DEPRECATED|                #if not d:
+#DEPRECATED|                #    return output
+#DEPRECATED|                #else:
+#DEPRECATED|                #    d.callback(output)
+#DEPRECATED|                #    return d
+#DEPRECATED|                
+#DEPRECATED|                # In fact we would need a simple query plan here instead
+#DEPRECATED|                # Source = list of dict
+#DEPRECATED|                # Result = a list or a deferred
+#DEPRECATED|     
+#DEPRECATED|        return None

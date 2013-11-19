@@ -1,9 +1,10 @@
-from manifold.operators       import Node, ChildCallback, ChildStatus
-from manifold.core.filter     import Filter
-from manifold.util.predicate  import Predicate, eq
-from manifold.util.type       import returns
-from manifold.util.log        import Log
-from itertools                import product, imap
+from manifold.operators.operator import Operator
+from manifold.operators          import ChildCallback, ChildStatus
+from manifold.core.filter        import Filter
+from manifold.util.predicate     import Predicate, eq
+from manifold.util.type          import returns
+from manifold.util.log           import Log
+from itertools                   import product, imap
 
 DUMPSTR_CROSSPRODUCT      = "XPRODUCT"
 
@@ -11,10 +12,17 @@ DUMPSTR_CROSSPRODUCT      = "XPRODUCT"
 # CROSS PRODUCT node
 #------------------------------------------------------------------
 
-class CrossProduct(Node):
+class CrossProduct(Operator):
     """
     CROSS PRODUCT operator node
+
+    Until we figure out how to realize a streaming cross product, we are doing a
+    blocking version that waits for all children.
     """
+
+    #---------------------------------------------------------------------------
+    # Constructor
+    #---------------------------------------------------------------------------
 
     def __init__(self, children_ast_relation_list, query = None):
         """
@@ -52,7 +60,7 @@ class CrossProduct(Node):
             self.relations.append(_relation)
 
         self.child_results = []
-        self.status = ChildStatus(self.all_done)
+        self.status = ChildStatus(self._all_done)
 
         # Set up callbacks & prepare array for storing results from children:
         # parent result can only be propagated once all children have replied
@@ -60,43 +68,20 @@ class CrossProduct(Node):
             child.set_callback(ChildCallback(self, i))
             self.child_results.append([])
 
-    def dump(self, indent = 0):
-        """
-        \brief Dump the current node
-        \param indent current indentation
-        """
-        Node.dump(self, indent)
-        for child in self.children:
-            child.dump(indent + 1)
+
+    #---------------------------------------------------------------------------
+    # Internal methods
+    #---------------------------------------------------------------------------
 
     def __repr__(self):
         return DUMPSTR_CROSSPRODUCT
 
-    def start(self):
-        """
-        \brief Propagates a START message through the node
-        """
-        # Start all children
-        for i, child in enumerate(self.children):
-            self.status.started(i)
-        for i, child in enumerate(self.children):
-            child.start()
 
-    def child_callback(self, child_id, record):
-        """
-        \brief Processes records received by the child node
-        \param child_id identifier of the child that received the record
-        \param record dictionary representing the received record
-        """
-        if record.is_last():
-            self.status.completed(child_id)
-            return
-        # We could only add the information of interest here, instead of doing
-        # it in all_done
-        # p = self.relations[i].get_predicate()
-        self.child_results[child_id].append(record)
+    #---------------------------------------------------------------------------
+    # Private methods
+    #---------------------------------------------------------------------------
 
-    def all_done(self):
+    def _all_done(self):
         """
         \brief Called when all children of the current cross product are done
 
@@ -119,6 +104,55 @@ class CrossProduct(Node):
         map(lambda x: self.send(x), records)
         self.send(LastRecord())
         
+
+    #---------------------------------------------------------------------------
+    # Methods
+    #---------------------------------------------------------------------------
+
+    def receive(self, packet):
+        """
+        """
+
+        if packet.get_type() == Packet.TYPE_QUERY:
+            # formerly start()
+            raise Exception, "CrossProduct::receive(QUERY) Not implemented"
+
+            # We would need to do all the tracking here instead of init(), a bit
+            # like cwnd
+
+            # XXX We need to send a query to all producers
+            # - parent_query
+            # - child_query
+            # - relation
+
+            # Start all children
+            for i, child in enumerate(self.children):
+                self.status.started(i)
+            for i, child in enumerate(self.children):
+                child.start()
+
+        elif packet.get_type() == Packet.TYPE_RECORD:
+            # formerly child_callback()
+
+            # XXX child_id & source ?
+            record = packet.get_record()
+            if record.is_last():
+                self.status.completed(child_id)
+                return
+            self.child_results[child_id].append(record)
+
+        else: # TYPE_ERROR
+            self.send(packet)
+
+    def dump(self, indent = 0):
+        """
+        \brief Dump the current node
+        \param indent current indentation
+        """
+        super(CrossProduct).dump(indent)
+        for producer in self._producers:
+            producer.dump(indent + 1)
+
     def optimize_selection(self, filter):
         for i, child in enumerate(self.children):
             child_fields = child.query.get_select()

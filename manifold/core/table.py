@@ -539,7 +539,12 @@ class Table(object):
         \return A dictionnary which map for each Method (e.g. platform +
             method name) the set of Field that can be retrieved 
         """
-        return self.map_method_fields 
+        try:
+            return self.map_method_fields 
+        except AttributeError:
+            # Tables might not have such method
+            Log.warning("get_annotations on table with unknown platform... set to local")
+            return { Method('local', self.name): self.get_field_names() }
 
     #-----------------------------------------------------------------------
     # Relations between two Table instances 
@@ -805,13 +810,13 @@ class Table(object):
         """
         # Build columns from fields
         columns = list() 
-        for field in table.fields.values():
+        for field in self.fields.values():
             columns.append(field.to_dict())
         
-        keys = tuple(table.get_keys().one().get_field_names())
+        keys = tuple(self.get_keys().one().get_field_names())
 
         return {
-            "table"      : table.get_name(),
+            "table"      : self.get_name(),
             "column"     : columns,
             "key"        : keys,
             "capability" : []

@@ -19,63 +19,35 @@
 # operations, and faster processing. Hence, consider the current code as a
 # transition towards this new class.
 
-from types                         import StringTypes
-from manifold.util.log             import Log
-from manifold.util.type            import returns, accepts
+from types                  import StringTypes
 
-class Record(dict):
+from manifold.core.packet   import Packet
+from manifold.util.log      import Log
+from manifold.util.type     import returns, accepts
 
-    @classmethod
-    def get_value(self, record, key):
-        """
-        Args:
-            record: A Record instance.
-            key: A String instance (field name), or a set of String instances
-                (field names)
-        Returns:
-            If key is a String,  return the corresponding value.
-            If key is a set, return a tuple of corresponding value.
-        """
-        if isinstance(key, StringTypes):
-            return record[key]
-        else:
-            return tuple(map(lambda x: record[x], key))
+class Record(Packet):
 
-    @classmethod
-    @returns(dict)
-    def from_key_value(self, key, value):
-        if isinstance(key, StringTypes):
-            return { key: value }
-        else:
-            return dict(izip(key, value))
+    #---------------------------------------------------------------------------
+    # Constructor
+    #---------------------------------------------------------------------------
 
-    @classmethod
-    @returns(bool)
-    def has_fields(self, record, fields):
-        """
-        Test whether a Record carries a set of fields.
-        Args:
-            record: A Record instance.
-            fields: A String instance (field name) or
-                    a set of String instances (field names)
-        Returns:
-            True iif record carries this set of fields.
-        """
-        if isinstance(fields, StringTypes):
-            return fields in record
-        else:
-            return fields <= set(record.keys())
-   
-    @classmethod
-    @returns(bool)
-    def is_empty_record(self, record, keys):
-        for key in keys:
-            if record[key]: return False
-        return True
+    def __init__(self, *args, **kwargs):
+        Packet.__init__(self, Packet.TYPE_RECORD)
+
+        self._dict = dict(*args, **kwargs)
+        self._last = False
+
+
+    #---------------------------------------------------------------------------
+    # Accessors
+    #---------------------------------------------------------------------------
+
+    def get_dict(self):
+        return self._dict
 
     def to_dict(self):
         dic = {}
-        for k, v in self.iteritems():
+        for k, v in self._dict.iteritems():
             if isinstance(v, Record):
                 dic[k] = v.to_dict()
             elif isinstance(v, Records):
@@ -84,24 +56,110 @@ class Record(dict):
                 dic[k] = v
         return dic
 
-    def is_last(self):
-        return False
+    def get_last(self):
+        return self._last
 
-#    def __hash__(self):
-#        return hash(self)
+    def set_last(self, value):
+        self._last = value
+
+    def is_last(self):
+        return self._last
+
+
+    #--------------------------------------------------------------------------- 
+    # Internal methods
+    #--------------------------------------------------------------------------- 
+
+    def __repr__(self):
+        content = [
+            ("%r" % self._dict) if self._dict else '',
+            'LAST' if self._last else ''
+        ]
+        return "<Record %s>" % ' '.join(content)
+
+    def __getitem__(self, key, **kwargs):
+        return dict.__getitem__(self._dict, key, **kwargs)
+
+    def __setitem__(self, key, value, **kwargs):
+        return dict.__setitem__(self._dict, key, value, **kwargs)
+
+    def __iter__(self): 
+        return dict.__iter__(self._dict)
+
+
+    #--------------------------------------------------------------------------- 
+    # Class methods
+    #--------------------------------------------------------------------------- 
+
+    @classmethod
+    @returns(dict)
+    def from_key_value(self, key, value):
+        if isinstance(key, StringTypes):
+            return { key: value }
+        else:
+            return Record(izip(key, value))
+
+
+    #--------------------------------------------------------------------------- 
+    # Methods
+    #--------------------------------------------------------------------------- 
+
+    def get_value(self, key):
+        """
+        Args:
+            key: A String instance (field name), or a set of String instances
+                (field names)
+        Returns:
+            If key is a String,  return the corresponding value.
+            If key is a set, return a tuple of corresponding value.
+        """
+        if isinstance(key, StringTypes):
+            return self._dict[key]
+        else:
+            return tuple(map(lambda x: self._dict[x], key))
+
+    @returns(bool)
+    def has_fields(self, fields):
+        """
+        Test whether a Record carries a set of fields.
+        Args:
+            fields: A String instance (field name) or
+                    a set of String instances (field names)
+        Returns:
+            True iif record carries this set of fields.
+        """
+        if isinstance(fields, StringTypes):
+            return fields in self._dict
+        else:
+            return fields <= set(self._dict.keys())
+   
+    @returns(bool)
+    def is_empty(self, keys):
+        for key in keys:
+            if self._dict[key]: return False
+        return True
+
+    def pop(self, key):
+        """
+        """
+        return dict.pop(self._dict, key)
 
 
 class LastRecord(Record):
-    def is_last(self):
-        return True
+    def __init__(self, *args, **kwargs):
+        Record.__init__(self, *args, **kwargs)
+        self._last = True
 
 class Records(list):
     """
     A list of records
     """
 
-    def __init__(self, itr): 
-        list.__init__(self, [Record(x) for x in itr])
+    def __init__(self, itr = None): 
+        if itr:
+            list.__init__(self, [Record(x) for x in itr])
+        else:
+            list.__init__(self)
 
     def to_list(self):
         return [record.to_dict() for record in self]

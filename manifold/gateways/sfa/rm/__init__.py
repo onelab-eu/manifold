@@ -68,10 +68,10 @@ class SFA_RMGateway(SFAGatewayCommon):
         Returns:
             Allow to iterate on the Platform corresponding this RM.
         """
-        platforms = self.query_storage(Query\
-            .get("local:platform")\
-            .filter_by("gateway_type", "=", "sfa_rm")\
-            .filter_by("platform",     "=", self.get_platform_name())
+        platforms = self._interface.execute_local_query(
+            Query.get("platform")\
+                .filter_by("gateway_type", "=", "sfa_rm")\
+                .filter_by("platform",     "=", self.get_platform_name())
         )
 
         assert len(platforms) == 1
@@ -159,7 +159,7 @@ class SFA_RMGateway(SFAGatewayCommon):
     # TODO move in ../__init__
     @defer.inlineCallbacks
     @returns(GeneratorType)
-    def handle_error(self, user_account):
+    def handle_error(self, user, user_account):
         """
         This function when a Query has failed in its first attemp.
         Returns:
@@ -168,20 +168,22 @@ class SFA_RMGateway(SFAGatewayCommon):
         if user_account["auth_type"] == "managed":
             Log.warning("Using anonymous to access Manifold's Storage")
 
+            user_account_config = user_account['config'] if user_account else None
+
             # Retrieve admin's config
             admin_account = self.get_account(ADMIN_USER["email"])
-            if admin_account: admin_account_config = admin_account["config"]
+            admin_account_config = admin_account["config"] if admin_account else None
             assert isinstance(admin_account_config, dict), "Invalid admin_account_config"
 
             # Managing account
-            user_account_config = yield self.manage(user_dict, user_account_config, admin_account_config)
+            user_account_config = yield self.manage(user, user_account_config, admin_account_config)
 
             # Update the Storage consequently
-            self.query_storage(Query\
-                .update("local:account")
-                .set({"config": json.dumps(user_account_config)})\
-                .filter_by("user_id",     "=", user_account["user_id"])\
-                .filter_by("platform_id", "=", user_account["platform_id"])
+            self._interface.execute_local_query(
+                Query.update("account")\
+                    .set({"config": json.dumps(user_account_config)})\
+                    .filter_by("user_id",     "=", user_account["user_id"])\
+                    .filter_by("platform_id", "=", user_account["platform_id"])
             )
 
             defer.returnValue(True)
@@ -311,7 +313,7 @@ class SFA_RMGateway(SFAGatewayCommon):
 
     @staticmethod
     @returns(bool)
-    def credentials_needed(self, cred_name, user_account_config):
+    def credentials_needed(cred_name, user_account_config):
         """
         Tests whether credential are present and not expired.
         Args:

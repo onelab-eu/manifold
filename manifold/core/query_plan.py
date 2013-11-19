@@ -34,13 +34,14 @@ class QueryPlan(object):
     Building a query plan consists in setting the AST and the list of Froms.
     """
 
-    def __init__(self):
+    def __init__(self, interface):
         """
         Constructor.
         """
         # TODO metadata, user should be a property of the query plan
-        self.ast   = AST()
-        self.froms = list() 
+        self.ast        = AST(interface)
+        self.froms      = list() 
+        self._interface = interface
 
     def add_from(self, from_node):
         """
@@ -104,8 +105,6 @@ class QueryPlan(object):
             ast: An AST instance made of Union, LeftJoin, SubQuery and From Nodes.
             query: The Query issued by the user.
         """
-        #print "QUERY PLAN (before optimization):"
-        #ast.dump()
         ast.optimize(query)
         self.inject_at(query)
         self.ast = ast
@@ -151,7 +150,7 @@ class QueryPlan(object):
                 ', '.join(metadata.get_table_names()))
             )
         
-        root_task = ExploreTask(root, relation=None, path=[], parent=self, depth=1)
+        root_task = ExploreTask(self._interface, root, relation=None, path=[], parent=self, depth=1)
         if not root_task:
             raise Exception("Unable to build a suitable QueryPlan")
         root_task.addCallback(self.set_ast, query)
@@ -163,6 +162,7 @@ class QueryPlan(object):
         missing_fields |= query.get_select()
         missing_fields |= query.get_where().get_field_names()
 
+        
         while missing_fields:
             # Explore the next prior ExploreTask
             task = stack.pop()
@@ -186,97 +186,97 @@ class QueryPlan(object):
     
         # Do we need to wait for self.ast here ?
 
-#OBSOLETE|    # XXX Note for later: what about holes in the subquery chain. Is there a notion
-#OBSOLETE|    # of inject ? How do we collect subquery results two or more levels up to match
-#OBSOLETE|    # the structure (with shortcuts) as requested by the user.
-#OBSOLETE|
-#OBSOLETE|    def build_simple(self, query, metadata, allowed_capabilities):
-#OBSOLETE|        """
-#OBSOLETE|        Builds a QueryPlan (self) related to a single Gateway.
-#OBSOLETE|        This is used only by a Forwarder. This function will probably soon
-#OBSOLETE|        become DEPRECATED.
-#OBSOLETE|        If several Gateways are involved, you must use QueryPlan::build.
-#OBSOLETE|        Args:
-#OBSOLETE|            query: The Query issued by the user.
-#OBSOLETE|            metadata:
-#OBSOLETE|            allowed_capabilities: The Capabilities related to this Gateway.
-#OBSOLETE|        """
-#OBSOLETE|        # XXX allowed_capabilities should be a property of the query plan !
-#OBSOLETE|
-#OBSOLETE|        # XXX Check whether we can answer query.object
-#OBSOLETE|
-#OBSOLETE|        # Here we assume we have a single platform
-#OBSOLETE|        platform = metadata.keys()[0]
-#OBSOLETE|        announce = metadata[platform][query.get_from()] # eg. table test
-#OBSOLETE|        
-#OBSOLETE|        # Set up an AST for missing capabilities (need configuration)
-#OBSOLETE|
-#OBSOLETE|        # Selection ?
-#OBSOLETE|        if query.filters and not announce.capabilities.selection:
-#OBSOLETE|            if not allowed_capabilities.selection:
-#OBSOLETE|                raise Exception, 'Cannot answer query: SELECTION'
-#OBSOLETE|            add_selection = query.filters
-#OBSOLETE|            query.filters = Filter()
-#OBSOLETE|        else:
-#OBSOLETE|            add_selection = None
-#OBSOLETE|
-#OBSOLETE|        # Projection ?
-#OBSOLETE|        announce_fields = announce.get_table().get_fields()
-#OBSOLETE|        if query.fields < announce_fields and not announce.capabilities.projection:
-#OBSOLETE|            if not allowed_capabilities.projection:
-#OBSOLETE|                raise Exception, 'Cannot answer query: PROJECTION'
-#OBSOLETE|            add_projection = query.fields
-#OBSOLETE|            query.fields = set()
-#OBSOLETE|        else:
-#OBSOLETE|            add_projection = None
-#OBSOLETE|
-#OBSOLETE|        table = Table({platform:''}, {}, query.get_from(), set(), set())
-#OBSOLETE|        key = metadata.get_key(query.get_from())
-#OBSOLETE|        capabilities = metadata.get_capabilities(platform, query.get_from())
-#OBSOLETE|        self.ast = self.ast.From(table, query, capabilities, key)
-#OBSOLETE|
-#OBSOLETE|        # XXX associate the From node to the Gateway
-#OBSOLETE|        from_node = self.ast.get_root()
-#OBSOLETE|        self.add_from(from_node)
-#OBSOLETE|        #from_node.set_gateway(gw_or_router)
-#OBSOLETE|        #gw_or_router.query = query
-#OBSOLETE|
-#OBSOLETE|        if not self.root:
-#OBSOLETE|            return
-#OBSOLETE|        if add_selection:
-#OBSOLETE|            self.ast.optimize_selection(add_selection)
-#OBSOLETE|        if add_projection:
-#OBSOLETE|            self.ast.optimize_projection(add_projection)
-#OBSOLETE|
-#OBSOLETE|        self.inject_at(query)
+    # XXX Note for later: what about holes in the subquery chain. Is there a notion
+    # of inject ? How do we collect subquery results two or more levels up to match
+    # the structure (with shortcuts) as requested by the user.
 
-    #@returns(ResultValue)
-    def execute(self, is_deferred = False, receiver = None):
-        """
-        Execute the QueryPlan in order to query the appropriate
-        sources of data, collect, combine and returns the records
-        requested by the user.
-        Args:
-            deferred: A twisted.internet.defer.Deferred instance (async query)
-                or None (sync query)
-            receiver: An instance supporting the method set_result_value or None.
-                receiver.set_result_value() will be called once the Query has terminated.
-        Returns:
-            The updated Deferred instance (if any) 
-        """
-        # Check whether the AST (Abstract Syntax Tree), which describes the QueryPlan.
-        assert self.ast, "Uninitialized AST"
-
-        # create a Callback object with deferred object as arg
-        # manifold/util/callback.py 
-        deferred = Deferred() if is_deferred else None
-        callback = Callback(deferred)
-
-        # Run the QueryPlan
-        self.ast.set_callback(callback)
-        self.ast.start()
-
-        return deferred if is_deferred else callback.get_results()
+#DEPRECATED|    def build_simple(self, query, metadata, allowed_capabilities):
+#DEPRECATED|        """
+#DEPRECATED|        Builds a QueryPlan (self) related to a single Gateway.
+#DEPRECATED|        This is used only by a Forwarder. This function will probably soon
+#DEPRECATED|        become DEPRECATED.
+#DEPRECATED|        If several Gateways are involved, you must use QueryPlan::build.
+#DEPRECATED|        Args:
+#DEPRECATED|            query: The Query issued by the user.
+#DEPRECATED|            metadata:
+#DEPRECATED|            allowed_capabilities: The Capabilities related to this Gateway.
+#DEPRECATED|        """
+#DEPRECATED|        # XXX allowed_capabilities should be a property of the query plan !
+#DEPRECATED|
+#DEPRECATED|        # XXX Check whether we can answer query.object
+#DEPRECATED|
+#DEPRECATED|        # Here we assume we have a single platform
+#DEPRECATED|        platform = metadata.keys()[0]
+#DEPRECATED|        announce = metadata[platform][query.get_from()] # eg. table test
+#DEPRECATED|        
+#DEPRECATED|        # Set up an AST for missing capabilities (need configuration)
+#DEPRECATED|
+#DEPRECATED|        # Selection ?
+#DEPRECATED|        if query.filters and not announce.capabilities.selection:
+#DEPRECATED|            if not allowed_capabilities.selection:
+#DEPRECATED|                raise Exception, 'Cannot answer query: SELECTION'
+#DEPRECATED|            add_selection = query.filters
+#DEPRECATED|            query.filters = Filter()
+#DEPRECATED|        else:
+#DEPRECATED|            add_selection = None
+#DEPRECATED|
+#DEPRECATED|        # Projection ?
+#DEPRECATED|        announce_fields = announce.get_table().get_fields()
+#DEPRECATED|        if query.fields < announce_fields and not announce.capabilities.projection:
+#DEPRECATED|            if not allowed_capabilities.projection:
+#DEPRECATED|                raise Exception, 'Cannot answer query: PROJECTION'
+#DEPRECATED|            add_projection = query.fields
+#DEPRECATED|            query.fields = set()
+#DEPRECATED|        else:
+#DEPRECATED|            add_projection = None
+#DEPRECATED|
+#DEPRECATED|        table = Table({platform:''}, {}, query.get_from(), set(), set())
+#DEPRECATED|        key = metadata.get_key(query.get_from())
+#DEPRECATED|        capabilities = metadata.get_capabilities(platform, query.get_from())
+#DEPRECATED|        self.ast = self.ast.From(table, query, capabilities, key)
+#DEPRECATED|
+#DEPRECATED|        # XXX associate the From node to the Gateway
+#DEPRECATED|        from_node = self.ast.get_root()
+#DEPRECATED|        self.add_from(from_node)
+#DEPRECATED|        #from_node.set_gateway(gw_or_router)
+#DEPRECATED|        #gw_or_router.query = query
+#DEPRECATED|
+#DEPRECATED|        if not self.root:
+#DEPRECATED|            return
+#DEPRECATED|        if add_selection:
+#DEPRECATED|            self.ast.optimize_selection(add_selection)
+#DEPRECATED|        if add_projection:
+#DEPRECATED|            self.ast.optimize_projection(add_projection)
+#DEPRECATED|
+#DEPRECATED|        self.inject_at(query)
+#DEPRECATED|
+#DEPRECATED|    #@returns(ResultValue)
+#DEPRECATED|    def execute(self, is_deferred = False, receiver = None):
+#DEPRECATED|        """
+#DEPRECATED|        Execute the QueryPlan in order to query the appropriate
+#DEPRECATED|        sources of data, collect, combine and returns the records
+#DEPRECATED|        requested by the user.
+#DEPRECATED|        Args:
+#DEPRECATED|            deferred: A twisted.internet.defer.Deferred instance (async query)
+#DEPRECATED|                or None (sync query)
+#DEPRECATED|            receiver: An instance supporting the method set_result_value or None.
+#DEPRECATED|                receiver.set_result_value() will be called once the Query has terminated.
+#DEPRECATED|        Returns:
+#DEPRECATED|            The updated Deferred instance (if any) 
+#DEPRECATED|        """
+#DEPRECATED|        # Check whether the AST (Abstract Syntax Tree), which describes the QueryPlan.
+#DEPRECATED|        assert self.ast, "Uninitialized AST"
+#DEPRECATED|
+#DEPRECATED|        # create a Callback object with deferred object as arg
+#DEPRECATED|        # manifold/util/callback.py 
+#DEPRECATED|        deferred = Deferred() if is_deferred else None
+#DEPRECATED|        callback = Callback(deferred)
+#DEPRECATED|
+#DEPRECATED|        # Run the QueryPlan
+#DEPRECATED|        self.ast.set_callback(callback)
+#DEPRECATED|        self.ast.start()
+#DEPRECATED|
+#DEPRECATED|        return deferred if is_deferred else callback.get_results()
 
     def dump(self):
         """
