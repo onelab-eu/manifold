@@ -11,8 +11,11 @@
 # Copyright (C) 2013 UPMC 
 
 
+from manifold.core.receiver         import Receiver
 from manifold.gateways              import Gateway
 from manifold.util.callback         import Callback
+from manifold.util.log              import Log 
+from manifold.util.type             import accepts, returns
 
 
 class Storage(object):
@@ -56,7 +59,10 @@ class DBStorage(Storage):
         Executes a Query on the Manifold Storage and fetches the corresponding results.
         Args:
             query: A Query instance.
-            annotations: A dictionnary or None containing Query's annotations.
+            annotation: A dictionnary or None containing Query's annotation.
+            receiver: A Receiver instance.
+        Returns:
+            A list of Record.
         """
         # XXX Need to pass local parameters
 #MANDO|        gw = Gateway.get('sqlalchemy')(config={'url': URL}, user=user, format=format)

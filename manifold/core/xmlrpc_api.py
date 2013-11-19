@@ -59,10 +59,10 @@ class XMLRPCAPI(xmlrpc.XMLRPC, object):
 
     
     @withRequest
-    def xmlrpc_AuthCheck(self, request, annotations = None):
-        # We expect to find an authentication token in the annotations
-        if annotations:
-            auth = annotations.get('authentication', None)
+    def xmlrpc_AuthCheck(self, request, annotation = None):
+        # We expect to find an authentication token in the annotation
+        if annotation:
+            auth = annotation.get('authentication', None)
         else:
             auth = {}
            
@@ -73,21 +73,21 @@ class XMLRPCAPI(xmlrpc.XMLRPC, object):
     # QUERIES
     # xmlrpc_forward function is called by the Query of the user using xmlrpc
     @withRequest
-    def xmlrpc_forward(self, request, query, annotations = None):
+    def xmlrpc_forward(self, request, query, annotation = None):
         """
         """
 
-        Log.info("Incoming XMLRPC request, query = %r, annotations = %r" % (self.display_query(query), annotations))
+        Log.info("Incoming XMLRPC request, query = %r, annotation = %r" % (self.display_query(query), annotation))
         if Options().disable_auth:
             Log.info("Authentication disabled by configuration")
         else:
-            if not annotations or not 'authentication' in annotations:
-                msg ="You need to specify an authentication token in annotations"
+            if not annotation or not 'authentication' in annotation:
+                msg ="You need to specify an authentication token in annotation"
                 return dict(ResultValue.get_error(ResultValue.FORBIDDEN, msg))
                 
-            # We expect to find an authentication token in the annotations
-            if annotations:
-                auth = annotations.get('authentication', None)
+            # We expect to find an authentication token in the annotation
+            if annotation:
+                auth = annotation.get('authentication', None)
             else:
                 auth = {}
                
@@ -104,10 +104,10 @@ class XMLRPCAPI(xmlrpc.XMLRPC, object):
         query = Query(query)
         # self.interface is either a Router or a Forwarder
         # forward function is called with is_deferred = True in args
-        if not annotations:
-            annotations = {}
-        annotations['user'] = user
-        deferred = self.interface.forward(query, annotations, is_deferred=True, receiver=Receiver())
+        if not annotation:
+            annotation = {}
+        annotation['user'] = user
+        deferred = self.interface.forward(query, annotation, is_deferred=True, receiver=Receiver())
 
         def process_results(rv):
             if 'description' in rv and isinstance(rv['description'], list):

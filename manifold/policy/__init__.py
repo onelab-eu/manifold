@@ -40,15 +40,15 @@ class Policy(object):
         for rule in rules:
             self.rules.append(Rule.from_dict(json.loads(rule['policy_json'])))
 
-    def filter(self, query, record, annotations):
+    def filter(self, query, record, annotation):
         for rule in self.rules:
-            if not rule.match(query, annotations):
+            if not rule.match(query, annotation):
                 continue
             target = Target.get(rule.target)
             if not target:
                 Log.warning("Unknown target %s" % rule.target)
                 continue
-            decision, data = target().process(query, record, annotations)
+            decision, data = target().process(query, record, annotation)
             if decision == TargetValue.ACCEPT:
                 return (self.ACCEPT, None)
             elif decision == TargetValue.REWRITE:

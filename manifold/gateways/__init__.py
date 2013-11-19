@@ -31,7 +31,7 @@ from manifold.util.type            import accepts, returns
 
 class Gateway(Producer):
     
-    registry = dict() 
+    #OBSOLETE|registry = dict() 
 
     __metaclass__ = PluginFactory
     __plugin__name__attribute__ = '__gateway_name__'
@@ -210,11 +210,16 @@ class Gateway(Producer):
     @staticmethod
     @returns(dict)
     def get_variables(user, account_config):
+        """
+        Args:
+            user: A dictionnary corresponding to the User.
+            account_config: A dictionnary correspoding to the user's Account config
+        """
         #assert isinstance(user, User), "Invalid user : %s (%s)" % (user, type(user))
         variables = dict() 
         # Authenticated user
         variables["user_email"] = user["email"]
-        for k, v in user.get_config().items():
+        for k, v in user["config"].items():
             if isinstance(v, StringTypes) and not "credential" in v:
                 variables[k] = v
         # Account information of the authenticated user
@@ -277,64 +282,38 @@ class Gateway(Producer):
         """
         return self.result_value
         
-    def check_forward(self, query, annotations, callback, is_deferred, execute, account_config, receiver):
+    def check_forward(self, query, annotation, receiver):
         """
         Checks Gateway::forward parameters.
         """
         assert isinstance(query, Query), \
             "Invalid Query: %s (%s)" % (query, type(query))
-        assert isinstance(is_deferred, bool), \
-            "Invalid execute value: %s (%s)" % (is_deferred, type(is_deferred))
-        assert isinstance(execute, bool), \
-            "Invalid is_deferred value: %s (%s)" % (execute, type(execute))
-        assert not account_config or isinstance(account_config, dict), \
-            "Invalid account_config: %s (%s)" % (account_config, type(account_config))
+        assert isinstance(annotation, dict), \
+            "Invalid Query: %s (%s)" % (annotation, type(Annotation))
         assert not receiver or receiver.set_result_value, \
             "Invalid receiver: %s (%s)" % (receiver, type(receiver))
 
-    def forward(self, query, annotations, callback, is_deferred = False, execute = True, account_config = None, receiver = None):
+    def forward(self, query, annotation, receiver = None):
         """
         Query handler.
         Args:
             query: A Query instance, reaching this Gateway.
-            callback: The function called to send this record. This callback is provided
-                most of time by a From Node.
-                Prototype : def callback(record)
-            is_deferred: A boolean set to True if this Query is async.
-            execute: A boolean set to True if the treatement requested in query
-                must be run or simply ignored.
-            user: The User issuing the Query.
-            account_config: A dictionnary containing the user's account config.
-                In pratice, this is the result of the following query (run on the Storage)
-                SELECT config FROM local:account WHERE user_id == user.user_id
-            format: A String specifying in which format the Records must be returned.
-            receiver : The From Node running the Query or None. Its ResultValue will
-                be updated once the query has terminated.
-        Returns:
-            forward must NOT return value otherwise we cannot use @defer.inlineCallbacks
-            decorator. 
+            annotation: A dictionnary instance containing Query's annotation.
+            receiver : A Receiver instance which collects the results of the Query.
         """
-        Log.warning("Remove 'callback' parameter which is receiver.get_callback()")
-        Log.warning("Remove 'format' parameter which is receiver.get_callback()")
         if receiver: receiver.set_result_value(None)
-        self.check_forward(query, annotations, callback, is_deferred, execute, account_config, receiver)
+        self.check_forward(query, annotation, receiver)
 
     @returns(list)
-    def query_storage(self, query, user):
+    def query_storage(self, query):
         """
         Run a Query on the Manifold's Storage.
         Args:
             query: A Query instance.
-            user: A dictionnary describing the User issuing this Query.
         Returns:
             A list of dictionnaries corresponding to each fetched Records.
         """
-        assert isinstance(query, Query) 
-        assert query.get_from().startswith("local:"), "Invalid Query, it must query local:* (%s)"
-
-        receiver = Receiver()
-        router = self.get_interface()
-        return router.execute_local_query(query)
+        return self.get_interface().execute_local_query(query)
 
 #DEPRECATED|    def success(self, receiver, query):
 #DEPRECATED|        """

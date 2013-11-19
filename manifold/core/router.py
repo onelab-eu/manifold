@@ -182,40 +182,45 @@ class Router(Interface):
 #DEPRECATED|        # This might be a deferred, we cannot put any hook here...
 #DEPRECATED|        return self.execute_query(query, annotation, is_deferred, receiver)
 
-    @returns(ResultValue)
-    def execute_query(self, query, annotation, is_deferred, receiver):
-        """
-        Execute a Query.
-        Args:
-            query: A Query instance.
-            annotation:
-        Returns:
-            The ResultValue instance corresponding to this Query.
-        """
-        Log.warning("execute_query: manage is_deferred properly")
-        if annotation:
-            user = annotation.get("user", None)
-        else:
-            user = None
-
-        # Code duplication with Interface() class
-        if ":" in query.get_from():
-            namespace, table = query.get_from().rsplit(":", 2)
-            query.object = table
-            allowed_platforms = [p["platform"] for p in self.get_platforms() if p["platform"] == namespace]
-        else:
-            allowed_platforms = [p["platform"] for p in self.get_platforms()]
-
-        query_plan = QueryPlan(interface = self)
-        try:
-            query_plan.build(query, self.g_3nf, allowed_platforms, self.allowed_capabilities, user)
-            self.init_from_nodes(query_plan, user)
-            #query_plan.dump()
-            records = self.execute_query_plan(query, annotation, query_plan, is_deferred)
-            return ResultValue.get_success(records)
-        except Exception, e:
-            Log.error("execute_query: Error while executing %s: %s %s" % (query, traceback.format_exc(), e))
-            return ResultValue.get_error(ResultValue.ERROR, e)  
+#DEPRECATED|    @returns(ResultValue)
+#DEPRECATED|    def execute_query(self, query, annotation, is_deferred, receiver):
+#DEPRECATED|        """
+#DEPRECATED|        Execute a Query on this Router.
+#DEPRECATED|        Args:
+#DEPRECATED|            query: A Query instance.
+#DEPRECATED|            annotation:
+#DEPRECATED|        Returns:
+#DEPRECATED|            The ResultValue instance corresponding to this Query.
+#DEPRECATED|        """
+#DEPRECATED|        Log.warning("execute_query: manage is_deferred properly")
+#DEPRECATED|        if annotation:
+#DEPRECATED|            user = annotation.get("user", None)
+#DEPRECATED|        else:
+#DEPRECATED|            user = None
+#DEPRECATED|
+#DEPRECATED|        # Code duplication with Interface() class
+#DEPRECATED|        if ":" in query.get_from():
+#DEPRECATED|            namespace, table = query.get_from().rsplit(":", 2)
+#DEPRECATED|            query.object = table
+#DEPRECATED|            allowed_platforms = [p["platform"] for p in self.get_platforms() if p["platform"] == namespace]
+#DEPRECATED|        else:
+#DEPRECATED|            allowed_platforms = [p["platform"] for p in self.get_platforms()]
+#DEPRECATED|
+#DEPRECATED|        query_plan = QueryPlan(interface = self)
+#DEPRECATED|        try:
+#DEPRECATED|            query_plan.build(query, self.g_3nf, allowed_platforms, self.allowed_capabilities, user)
+#DEPRECATED|            self.init_from_nodes(query_plan, user)
+#DEPRECATED|            #query_plan.dump()
+#DEPRECATED|            records = self.execute_query_plan(query, annotation, query_plan, is_deferred)
+#DEPRECATED|<<<<<<< HEAD
+#DEPRECATED|            return ResultValue.get_success(records)
+#DEPRECATED|=======
+#DEPRECATED|            receiver.set_result_value(ResultValue.get_success(records))
+#DEPRECATED|            Log.tmp("receiver = %s records = %s" % (receiver, receiver.get_result_value()))
+#DEPRECATED|>>>>>>> routerv2
+#DEPRECATED|        except Exception, e:
+#DEPRECATED|            Log.error("execute_query: Error while executing %s: %s %s" % (query, traceback.format_exc(), e))
+#DEPRECATED|            receiver.set_result_value(ResultValue.get_error(ResultValue.ERROR, e))
             
 
     # NEW ROUTER PACKET INTERFACE
@@ -246,6 +251,6 @@ class Router(Interface):
 
         
         
-    # Is it useful at all ?
-    def send(self, packet):
-        pass
+#    # Is it useful at all ?
+#    def send(self, packet):
+#        pass

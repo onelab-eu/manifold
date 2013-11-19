@@ -10,8 +10,8 @@ class CacheTarget(Target):
         # cache structure before the first query arrives
         self._cache = Cache()
 
-    def process_query(self, query, annotations):
-        #Log.tmp("CACHE - Processing query: %r, %r" % (query, annotations))
+    def process_query(self, query, annotation):
+        #Log.tmp("CACHE - Processing query: %r, %r" % (query, annotation))
         #print "==== DUMPING CACHE ====="
         #print self._cache.dump()
         #print "="*40
@@ -25,7 +25,7 @@ class CacheTarget(Target):
         # Continue with the normal processing
         return (TargetValue.CONTINUE, None)
 
-    def process_record(self, query, record, annotations):
+    def process_record(self, query, record, annotation):
         #print "*** CACHE: appending records into cache for query", query
         self._cache.append_records(query, record, create=True)
         #print "==== DUMPING CACHE ====="
@@ -33,8 +33,8 @@ class CacheTarget(Target):
         #print "="*40
         return (TargetValue.CONTINUE, None)
 
-    def process(self, query, record, annotations):
+    def process(self, query, record, annotation):
         if not record:
-            return self.process_query(query, annotations)
+            return self.process_query(query, annotation)
         else:
-            return self.process_record(query, record, annotations)
+            return self.process_record(query, record, annotation)
