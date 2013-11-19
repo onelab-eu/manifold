@@ -58,7 +58,10 @@ class ManifoldLocalClient(ManifoldClient):
             self.user = None
         else:
             self.user = users[0]
-            self.user["config"] = json.loads(self.user["config"])
+            if "config" in self.user and self.user["config"]:
+                self.user["config"] = json.loads(self.user["config"])
+            else:
+                self.user["config"] = None
 
     def __del__(self):
         try:
@@ -356,10 +359,7 @@ class Shell(object):
 
         else: # XMLRPC 
             url = Options().xmlrpc_url
-#XXX#<<<<<<< HEAD
 #XXX#            self.interface = xmlrpclib.ServerProxy(url, allow_none = True)
-#XXX#=======
-#XXX#>>>>>>> devel
 
             if auth_method == 'gid':
                 pkey_file = Options().pkey_file
@@ -397,7 +397,10 @@ class Shell(object):
     def __init__(self, interactive=False):
         self.interactive = interactive
         
-        self.select_auth_method(Options().auth_method)
+        auth_method = Options().auth_method
+        if not auth_method: auth_method = "local"
+
+        self.select_auth_method(auth_method)
         if self.interactive:
             self.client.log_info()
         self.whoami()
@@ -410,13 +413,22 @@ class Shell(object):
             self.client.__del__()
         except: pass
 
+    @returns(ResultValue)
+    def get_result_value(self):
+        """
+        Returns:
+            The ResultValue corresponding to the last Query executed
+            on this Shell.
+        """
+        return self.client.get_result_value()
+
     def display(self):
         """
         Print the ResultValue of a Query in the standard output.
         If this ResultValue carries error(s), those error(s) are recursively
         unested and printed to the standard output.
         """
-        result_value = self.client.get_result_value()
+        result_value = self.get_result_value()
         if not result_value:
             return
 
@@ -473,7 +485,7 @@ class Shell(object):
 
         # Run the query
         self.client.forward(query, annotation)
-        result_value = self.client.get_result_value()
+        result_value = self.get_result_value()
 
         if not result_value.is_success():
             raise Exception, "Error evaluating command: %s (%s)" % (command, result_value.get_error_message())

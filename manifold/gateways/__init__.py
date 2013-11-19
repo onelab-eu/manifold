@@ -141,9 +141,12 @@ class Gateway(object):
     @returns(dict)
     def get_variables(user, account_config):
         """
+        ???
         Args:
             user: A dictionnary corresponding to the User.
-            account_config: A dictionnary correspoding to the user's Account config
+            account_config: A dictionnary corresponding to the user's Account config.
+        Returns:
+            The corresponding dictionnary.
         """
         #assert isinstance(user, User), "Invalid user : %s (%s)" % (user, type(user))
         variables = dict() 
@@ -165,7 +168,7 @@ class Gateway(object):
         ???
         Args:
             user: A dictionnary corresponding to the User.
-            account_config: A dictionnary correspoding to the user's Account config
+            account_config: A dictionnary corresponding to the user's Account config.
         Returns:
             The corresponding dictionnary.
         """

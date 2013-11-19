@@ -2,12 +2,13 @@
 # http://chandlerproject.org/Projects/ChandlerTwistedInThreadedEnvironment
 
 import threading, time
-from manifold.util.singleton    import Singleton
-from manifold.util.log          import *
 from twisted.internet           import defer
 from twisted.python             import threadable
 
-__author__ ="Brian Kirsch <bkirsch@osafoundation.org>"
+from manifold.util.singleton    import Singleton
+from manifold.util.log          import Log 
+
+__author__ = "Brian Kirsch <bkirsch@osafoundation.org>"
 
 #required for using threads with the Reactor
 threadable.init()
@@ -60,7 +61,7 @@ class ReactorThread(threading.Thread):
        
     def start_reactor(self):
         if self._reactorRunning:
-            log_warning("Reactor already running. This is normal, please remove this debug message")
+            Log.warning("Reactor already running. This is normal, please remove this debug message")
             return
             #raise ReactorException("Reactor Already Running")
         threading.Thread.start(self)

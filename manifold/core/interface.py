@@ -53,6 +53,7 @@ class Interface(object):
         # Register the list of Gateways
         Log.info("Registering gateways")
         register_gateways()
+        Log.info("Registered gateways are: {%s}" % ' '.join(Gateway.list().keys()))
 
         # self.platforms is list(dict) where each dict describes a platform.
         # See platform table in the Storage.
