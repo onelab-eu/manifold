@@ -18,6 +18,7 @@ class PoolProducers(set):
             producers = set()
         if not isinstance(producers, (list, set)):
             producers = [producers]
+
         super(PoolProducers, self).__init__(set(producers))
 
         self._max_producers = max_producers

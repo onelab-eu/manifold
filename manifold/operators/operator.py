@@ -33,7 +33,9 @@ class Operator(Relay):
         """
         \brief print _indent_ tabs
         """
-        print "[%04d]" % self._identifier, ' ' * 4 * indent,
+        print "         P: ", self._pool_producers
+        print "         C: ", self._pool_consumers
+        print "[%04d ]" % self._identifier, ' ' * 4 * indent,
         #        sys.stdout.write(' ' * indent * 4)
 
     def dump(self, indent = 0):

@@ -142,6 +142,9 @@ class Gateway(Producer):
         table, = [announce.table for announce in self._metadata if announce.table.get_name() == method]
         return table
 
+    def set_consumer(self, consumer):
+        return self.add_consumer(consumer)
+
     #---------------------------------------------------------------------------  
     # Internal methods
     #---------------------------------------------------------------------------  
@@ -427,6 +430,9 @@ class Gateway(Producer):
             # we only return queried fields
             if provided_fields - fields:
                 # XXX fullquery ?
-                return Projection(self, fields)
+                p = Projection(self, fields)
+                print "added projection in GW"
+                print "**********", p.get_consumers()
+                return p
                 #projection.query = self.query.copy().filter_by(filter) # XXX
             return self

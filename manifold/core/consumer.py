@@ -10,12 +10,11 @@ class Consumer(Node):
 
     def __init__(self, producers = None, max_producers = 1, has_parent_producer = False):
         Node.__init__(self)
-        if producers:
-            if not isinstance(producers, list):
-                producers = [producers]
-            for producer in producers:
-                producer.add_consumer(self, cascade = False)
         self._pool_producers = PoolProducers(producers, max_producers = max_producers)
+
+        for producer in self.get_producers():
+            producer.add_consumer(self, cascade = False)
+
         self._has_parent_producer = has_parent_producer
     
 
@@ -60,7 +59,9 @@ class Consumer(Node):
 
     def get_producer(self):
         if self.get_max_producers() != 1:
-            raise Exception, "Cannot call get_producer with max_producers != 1 (=%d)" % self._max_producers
+            max = self.get_max_producers()
+            max_str = "%d" % max if max else 'UNLIMITED'
+            raise Exception, "Cannot call get_producer with max_producers != 1 (=%s)" % max_str
 
         num = len(self._pool_producers)
         if num == 0:
@@ -78,7 +79,9 @@ class Consumer(Node):
 
     def update_producer(self, function):
         if self.get_max_producers() != 1:
-            raise Exception, "Cannot call update_producer with max_producers != 1 (=%d)" % self._max_producers
+            max = self.get_max_producers()
+            max_str = "%d" % max if max else 'UNLIMITED'
+            raise Exception, "Cannot call update_producer with max_producers != 1 (=%s)" % max_str
 
         self.set_producer(function(self.get_producer()))
         

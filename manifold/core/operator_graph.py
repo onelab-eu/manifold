@@ -77,4 +77,4 @@ class OperatorGraph(object):
 
         receiver.set_producer(query_plan.ast)
 
-        query_plan.ast.root.receive(packet)
+        query_plan.ast.get_producer().receive(packet)

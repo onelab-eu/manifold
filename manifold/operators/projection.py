@@ -65,12 +65,14 @@ class Projection(Operator):
         \param fields A list of Field instances corresponding to
             the fields we're selecting.
         """
-        super(Projection, self).__init__()
+        Operator.__init__(self, producers = child, max_producers = 1)
+
         #for field in fields:
         #    assert isinstance(field, Field), "Invalid field %r (%r)" % (field, type(field))
+
         if isinstance(fields, (list, tuple, frozenset)):
             fields = set(fields)
-        self.child, self.fields = child, fields
+        self._fields = fields
 
 #DEPRECATED|        # Callbacks
 #DEPRECATED|        old_cb = child.get_callback()
@@ -79,8 +81,6 @@ class Projection(Operator):
 #DEPRECATED|
 #DEPRECATED|        self.query = self.child.get_query().copy()
 #DEPRECATED|        self.query.fields &= fields
-        self.set_producer(child)
-
 
     #---------------------------------------------------------------------------
     # Accessors
@@ -91,7 +91,7 @@ class Projection(Operator):
         """
         \returns The list of Field instances selected in this node.
         """
-        return self.fields
+        return self._fields
 
 
     #---------------------------------------------------------------------------
@@ -116,7 +116,7 @@ class Projection(Operator):
         elif packet.get_type() == Packet.TYPE_RECORD:
             record = packet
             if not record.is_last():
-                record = do_projection(record, self.fields)
+                record = do_projection(record, self._fields)
             self.send(record)
 
         else: # TYPE_ERROR
@@ -128,21 +128,15 @@ class Projection(Operator):
         \param indent current indentation
         """
         Node.dump(self, indent)
-        self.child.dump(indent + 1)
+        # We have one producer for sure
+        self.get_producer().dump(indent + 1)
 
-    def child_callback(self, record):
-        """
-        \brief Processes records received by the child node
-        \param record dictionary representing the received record
-        """
-        if not record.is_last():
-            record = do_projection(record, self.fields)
-        self.send(record)
 
     def optimize_selection(self, query, filter):
-        self.child = self.child.optimize_selection(query, filter)
+        producer = self.get_producer().optimize_selection(query, filter)
+        self.get_producer(producer)
         return self
 
     def optimize_projection(self, query, fields):
         # We only need the intersection of both
-        return self.child.optimize_projection(query, self.fields & fields)
+        return self.child.optimize_projection(query, self._fields & fields)
