@@ -9,8 +9,11 @@ class Relay(Producer, Consumer):
         Producer.__init__(self, consumers, max_consumers)
         Consumer.__init__(self, producers, max_producers)
 
-    def send(self, packet):
+    def relay(self, packet):
         if packet.get_type() in [Packet.TYPE_QUERY]:
             Consumer.send(self, packet)
         elif packet.get_type() in [Packet.TYPE_RECORD, Packet.TYPE_ERROR]:
             Producer.send(self, packet)
+
+    send    = relay
+    receive = relay

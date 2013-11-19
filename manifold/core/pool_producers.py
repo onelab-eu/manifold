@@ -34,7 +34,7 @@ class PoolProducers(set):
     def add(self, producer):
         if self._max_producers and len(self) >= self._max_producers:
             raise Exception, "Cannot add producer: maximum (%d) reached." % self._max_producers
-        super(PoolProducers).add(producer)
+        set.add(self, producer)
 
     def receive(self, packet):
         if packet.get_type() not in [Packet.TYPE_QUERY]:

@@ -74,7 +74,7 @@ class Router(Interface):
             Method('local', 'object'): Capabilities('retrieve', 'join', 'selection', 'projection'),
             Method('local', 'column'): Capabilities('retrieve', 'join', 'selection', 'projection')
         }
-        return DBGraph(self.storage.get_metadata(), map_method_capabilities)
+        return DBGraph(self._storage.get_metadata(), map_method_capabilities)
 
     #---------------------------------------------------------------------------
     # Methods
@@ -146,7 +146,7 @@ class Router(Interface):
 
         # We suppose we have no namespace from here
         if not execute: 
-            query_plan = QueryPlan()
+            query_plan = QueryPlan(interface = self)
             # Duplicated code
             if ':' in query.get_from():
                 namespace, table = query.get_from().rsplit(':', 2)
@@ -204,7 +204,7 @@ class Router(Interface):
         else:
             allowed_platforms = [p["platform"] for p in self.get_platforms()]
 
-        query_plan = QueryPlan()
+        query_plan = QueryPlan(interface = self)
         try:
             query_plan.build(query, self.g_3nf, allowed_platforms, self.allowed_capabilities, user)
             self.init_from_nodes(query_plan, user)

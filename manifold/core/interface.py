@@ -26,7 +26,6 @@ from manifold.models.user           import User
 from manifold.policy                import Policy
 from manifold.util.type             import accepts, returns 
 from manifold.util.log              import Log
-from manifold.gateways              import register_gateways
 
 STORAGE_URL = 'sqlite:////var/myslice/db.sqlite?check_same_thread=False'
 
@@ -54,7 +53,7 @@ class Interface(object):
         """
         # Register the list of Gateways
         Log.info("Registering gateways")
-        register_gateways()
+        Gateway.register_all()
 
         # self.platforms is list(dict) where each dict describes a platform.
         # See platform table in the Storage.
@@ -62,7 +61,7 @@ class Interface(object):
         if not sqlalchemy_gw:
             raise Exception, "Cannot find sqlalchemy gateway, which is necessary for DBStorage module"
         storage_config = {"url" : STORAGE_URL}
-        self.storage = sqlalchemy_gw(self, None, storage_config)
+        self._storage = sqlalchemy_gw(self, None, storage_config)
 
         self.platforms = list()
         self.user_storage = user_storage
@@ -146,7 +145,7 @@ class Interface(object):
         receiver    = SyncReceiver()
         packet      = QueryPacket(query, annotation, receiver)
 
-        self.storage.receive(packet)
+        self._storage.receive(packet)
         result_value = receiver.get_result_value()
 
         if not result_value.is_success():
@@ -237,6 +236,9 @@ class Interface(object):
                 raise ValueError("Cannot find/create Gateway related to platform %s (%s)" % (platform, e))
         return self.gateways[platform_name]
 
+    def get_storage(self):
+        return self._storage
+
     #---------------------------------------------------------------------
     # Methods 
     #---------------------------------------------------------------------
@@ -325,14 +327,14 @@ class Interface(object):
         annotation = {"user" : self.get_user_storage()}
 
         # Retrieve the Platform having the name "platform_name" in the Storage
-        platforms = self.storage.execute(
+        platforms = self._storage.execute(
             Query().get("platform").filter_by("platform", "=", platform_name),
             annotation,
         )
         platform_id = platforms[0]["platform_id"]
 
         # Retrieve the first Account having the name "platform_name" in the Storage
-        account_configs = self.storage.execute(
+        account_configs = self._storage.execute(
             Query().get("account").filter_by("platform_id", "=", platform_id),
             annotation
         )
@@ -366,7 +368,7 @@ class Interface(object):
         for from_node in query_plan.get_froms():
             platform_name = from_node.get_platform_name()
             if platform_name == 'local':
-                gateway = self.storage
+                gateway = self._storage
             else:
                 gateway = self.get_gateway(platform_name)
             if gateway:
@@ -600,7 +602,7 @@ class Interface(object):
 #OBSOLETE|            else:
 #OBSOLETE|                query_storage = query.copy()
 #OBSOLETE|                query_storage.object = table_name
-#OBSOLETE|                records = self.storage.execute(query_storage, annotation)
+#OBSOLETE|                records = self._storage.execute(query_storage, annotation)
 #OBSOLETE|
 #OBSOLETE|                if query_storage.get_from() == "platform" and query_storage.get_action() != "get":
 #OBSOLETE|                    self.make_gateways()
@@ -610,14 +612,14 @@ class Interface(object):
 # ==
             if table_name == "object":
                 list_objects = self.get_metadata_objects()
-                qp = QueryPlan()
+                qp = QueryPlan(interface = self)
                 qp.ast.from_table(query, list_objects, key = None).selection(query.get_where()).projection(query.get_select())
                 Interface.success(receiver, query)
                 return qp.execute(d, receiver)
             else:
                 query_storage = query.copy()
                 query_storage.object = table_name
-                output = self.storage.execute(query_storage, annotation)
+                output = self._storage.execute(query_storage, annotation)
                 result_value = ResultValue.get_success(output)
 
                 if query_storage.get_from() == "platform" and query_storage.get_action() != "get":
@@ -654,7 +656,7 @@ class Interface(object):
                 for announce in announces:
                     output.append(announce.get_table().to_dict())
 
-                qp = QueryPlan()
+                qp = QueryPlan(interface = self)
                 qp.ast.from_table(query, output, key = None).selection(query.get_where()).projection(query.get_select())
                 Interface.success(query, receiver, result_value)
                 return self.execute_query_plan(query, annotation, qp, is_deferred)

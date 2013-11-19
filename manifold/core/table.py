@@ -810,13 +810,13 @@ class Table(object):
         """
         # Build columns from fields
         columns = list() 
-        for field in table.fields.values():
+        for field in self.fields.values():
             columns.append(field.to_dict())
         
-        keys = tuple(table.get_keys().one().get_field_names())
+        keys = tuple(self.get_keys().one().get_field_names())
 
         return {
-            "table"      : table.get_name(),
+            "table"      : self.get_name(),
             "column"     : columns,
             "key"        : keys,
             "capability" : []

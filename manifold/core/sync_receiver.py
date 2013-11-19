@@ -3,6 +3,7 @@
 import threading
 
 from manifold.core.packet       import Packet
+from manifold.core.record       import Records
 from manifold.core.result_value import ResultValue
 from manifold.util.log          import Log
 
@@ -13,7 +14,7 @@ class SyncReceiver(object):
     #---------------------------------------------------------------------------
 
     def __init__(self):
-        self._records = []
+        self._records = Records()
         self._event = threading.Event()
 
     #---------------------------------------------------------------------------
@@ -40,7 +41,7 @@ class SyncReceiver(object):
     def get_results(self):
         self._event.wait()
         self._event.clear()
-        return self._records
+        return self._records.to_list()
 
     def get_result_value(self):
         return ResultValue.get_success(self.get_results())

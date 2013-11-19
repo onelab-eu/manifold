@@ -33,7 +33,7 @@ class ExploreTask(Deferred):
     A pending exploration of the metadata graph
     """
 
-    def __init__(self, root, relation, path, parent, depth):
+    def __init__(self, interface, root, relation, path, parent, depth):
         """
         Constructor.
         Args:
@@ -47,6 +47,7 @@ class ExploreTask(Deferred):
         assert root != None, "ExploreTask::__init__(): invalid root = %s" % root
 
         # Context
+        self._interface  = interface
         self.root        = root
         self.relation    = relation
         self.path        = path
@@ -61,6 +62,7 @@ class ExploreTask(Deferred):
         self.identifier  = random.randint(0, 9999)
 
         Deferred.__init__(self)
+        print self
 
     @returns(StringTypes)
     def __repr__(self):
@@ -120,6 +122,7 @@ class ExploreTask(Deferred):
                 related to the User Query.
         """
         Log.debug("Search in", self.root.get_name(), "for fields", missing_fields, 'path=', self.path, "SEEN SET =", seen_set)
+        Log.tmp("Search in", self.root.get_name(), "for fields", missing_fields, 'path=', self.path, "SEEN SET =", seen_set)
         relations_11, relations_1N, relations_1Nsq = (), {}, {}
         deferred_list = []
 
@@ -191,7 +194,7 @@ class ExploreTask(Deferred):
                 if relation.requires_subquery():
                     subpath = self.path[:]
                     subpath.append(name)
-                    task = ExploreTask(neighbour, relation, subpath, self, self.depth+1)
+                    task = ExploreTask(self._interface, neighbour, relation, subpath, self, self.depth+1)
                     task.addCallback(self.store_subquery, relation)
 
                     relation_name = relation.get_relation_name()
@@ -205,7 +208,7 @@ class ExploreTask(Deferred):
                     #priority = TASK_1Nsq if relation_name in missing_subqueries else TASK_1N
                     
                 else:
-                    task = ExploreTask(neighbour, relation, self.path, self.parent, self.depth)
+                    task = ExploreTask(self._interface, neighbour, relation, self.path, self.parent, self.depth)
                     task.addCallback(self.perform_left_join, relation, allowed_platforms, metadata, user, query_plan)
                     priority = TASK_11
 
@@ -302,7 +305,7 @@ class ExploreTask(Deferred):
             if sq_ast_relation:
                 ast.subquery(sq_ast_relation)
             query = Query.action('get', self.root.get_name()).select(set(xp_key))
-            self.ast = AST().cross_product(xp_ast_relation, query)
+            self.ast = AST(self._interface).cross_product(xp_ast_relation, query)
             predicate = Predicate(xp_key, eq, xp_value)
 
             self.ast.left_join(ast, predicate)
@@ -366,7 +369,10 @@ class ExploreTask(Deferred):
                 # XXX Improve platform capabilities support
                 # XXX if not capabilities.retrieve: continue
 
-                from_ast = AST(user = user).From(platform, query, capabilities, key)
+                # We need to connect the right gateway
+                # XXX
+
+                from_ast = AST(self._interface, user = user).From(platform, query, capabilities, key)
                 query_plan.add_from(from_ast.get_root())
 
                 Log.tmp("methods_demux")
@@ -393,7 +399,7 @@ class ExploreTask(Deferred):
                 print "FROMTABLE -- DUP(%r) -- SELECT(%r) -- %r -- %r" % (key_dup, select_fields, demux_node, from_node) 
 
                 # Build a new AST (the branch we'll add) above an existing FROM node
-                from_ast = AST(user = user)
+                from_ast = AST(self._interface, user = user)
                 from_ast.root = demux_node
                 Log.warning("ExploreTask: TODO: plug callback")
                 #TODO from_node.addCallback(from_ast.callback)
@@ -409,6 +415,6 @@ class ExploreTask(Deferred):
         # Process this table, which is the root of the 3nf tree
         if not from_asts:
             return None
-        return AST().union(from_asts, key)
+        return AST(self._interface).union(from_asts, key)
 
 

@@ -41,7 +41,7 @@ class Cache(object):
             # We need to add processing
             # XXX This could be optimized and made into a function into QueryPlan
             #print "** Building records from bigger query"
-            qp = QueryPlan()
+            qp = QueryPlan(interface = None)
             qp.ast.from_table(query, records, key = None).selection(query.get_where()).projection(query.get_select())
             return qp.execute()
     

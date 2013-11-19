@@ -462,7 +462,7 @@ if __name__ == '__main__':
     from argparse               import ArgumentParser
     from manifold.core.query    import Query
     from manifold.util.storage  import DBStorage as Storage
-    from manifold.gateways      import register_gateways
+    from manifold.gateways      import Gateway
     import os, json, pprint
 
     DEFAULT_INTERFACE = 'https://www.planet-lab.eu:12346'
@@ -549,7 +549,7 @@ if __name__ == '__main__':
             parser.print_help()
             sys.exit(1)
 
-        register_gateways()
+        Gateway.register_all()
 
         try:
             if platform_specified:

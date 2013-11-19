@@ -6,6 +6,7 @@ from manifold.util.log            import Log
 class Producer(Node):
 
     def __init__(self, consumers = None, max_consumers = None):
+        Node.__init__(self)
         self._pool_consumers = PoolConsumers(consumers, max_consumers = max_consumers)
 
     def add_consumer(self, consumer):
@@ -29,6 +30,7 @@ class Producer(Node):
         self._pool_consumers.receive(packet)
         
     def receive(self, packet):
+        print "Producer::receive()", self.__class__, packet
         # A Producer only receives QueryPackets
         if packet.get_type() not in [Packet.TYPE_QUERY]:
             raise ValueError, "Invalid packet type received in producer: %s" % \

@@ -16,5 +16,3 @@ class Socket(Relay):
     
         self._packet = packet
 
-    def receive(self, packet):
-        self.send(packet)

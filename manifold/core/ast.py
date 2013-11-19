@@ -14,12 +14,13 @@
 import sys, random
 from copy                             import copy, deepcopy
 from types                            import StringTypes
+from manifold.core.capabilities       import Capabilities
+from manifold.core.field              import Field
 from manifold.core.filter             import Filter
+from manifold.core.key                import Key
+from manifold.core.producer           import Producer
 from manifold.core.query              import Query
 from manifold.core.table              import Table 
-from manifold.core.field              import Field
-from manifold.core.key                import Key
-from manifold.core.capabilities       import Capabilities
 from manifold.operators.From          import From
 from manifold.operators.from_table    import FromTable
 from manifold.operators.selection     import Selection
@@ -38,21 +39,32 @@ from manifold.util.log                import Log
 # AST (Abstract Syntax Tree)
 #------------------------------------------------------------------
 
-class AST(object):
+class AST(Producer):
     """
     An AST (Abstract Syntax Tree) is used to represent a Query Plan.
     It acts as a factory (see example at the end of this file).
     """
 
-    def __init__(self, user = None):
+    #---------------------------------------------------------------------------
+    # Constructor
+    #---------------------------------------------------------------------------
+
+    def __init__(self, interface, user = None):
         """
         Constructor
         Args:
             user: A User instance
         """
+        Producer.__init__(self)
+        self._interface = interface
         self.user = user
         # The AST is initially empty
         self.root = None
+
+
+    #---------------------------------------------------------------------------
+    # Accessors
+    #---------------------------------------------------------------------------
 
     def get_root(self):
         """
@@ -60,6 +72,11 @@ class AST(object):
             The root Node of this AST (if any), None otherwise
         """
         return self.root
+
+
+    #---------------------------------------------------------------------------
+    # Methods
+    #---------------------------------------------------------------------------
 
     @returns(bool)
     def is_empty(self):
@@ -69,12 +86,17 @@ class AST(object):
         """
         return self.get_root() == None
 
+
+    #---------------------------------------------------------------------------
+    # Helpers
+    #---------------------------------------------------------------------------
+
     #@returns(AST)
-    def From(self, platform, query, capabilities, key):
+    def From(self, platform_name, query, capabilities, key):
         """
         Append a From Node to this AST.
         Args:
-            platform: The Platform related to this From Node. 
+            platform_name: the name of the Platform related to this From Node. 
             query: The Query sent to the platform.
             capabilities: The Capabilities related to this Table of this Platform.
             key: The Key related to this Table.
@@ -84,8 +106,10 @@ class AST(object):
         assert self.is_empty(),          "Should be instantiated on an empty AST"
         assert isinstance(query, Query), "Invalid query = %r (%r)" % (query, type(query))
 
-        self.root = From(platform, query, capabilities, key)
-        self.root.set_callback(self.get_callback())
+        if platform_name == 'local':
+            self.root = self._interface.get_storage()
+        else:
+            self.root = self._interface.get_self.root(platform_name)
 
         return self
 
@@ -266,6 +290,11 @@ class AST(object):
 
         return self
 
+
+    #---------------------------------------------------------------------------
+    # Methods
+    #---------------------------------------------------------------------------
+
     def dump(self, indent = 0):
         """
         Dump the current AST.
@@ -278,14 +307,14 @@ class AST(object):
         else:
             self.root.dump(indent)
 
-    def start(self):
-        """
-        Propagates a START message through the AST which is used to wake
-        up each Node in order to execute the Query.
-        """
-        assert not self.is_empty(), "Empty AST, cannot send START message"
-        self.get_root().start()
-
+#DEPRECATED|    def start(self):
+#DEPRECATED|        """
+#DEPRECATED|        Propagates a START message through the AST which is used to wake
+#DEPRECATED|        up each Node in order to execute the Query.
+#DEPRECATED|        """
+#DEPRECATED|        assert not self.is_empty(), "Empty AST, cannot send START message"
+#DEPRECATED|        self.get_root().start()
+#DEPRECATED|
 #DEPRECATED|    @property
 #DEPRECATED|    def callback(self):
 #DEPRECATED|        Log.info("I: callback property is deprecated")
@@ -295,12 +324,12 @@ class AST(object):
 #DEPRECATED|    def callback(self, callback):
 #DEPRECATED|        Log.info("I: callback property is deprecated")
 #DEPRECATED|        self.root.callback = callback
-
-    def get_callback(self):
-        return self.root.get_callback()
-
-    def set_callback(self, callback):
-        self.root.set_callback(callback)
+#DEPRECATED|
+#DEPRECATED|    def get_callback(self):
+#DEPRECATED|        return self.root.get_callback()
+#DEPRECATED|
+#DEPRECATED|    def set_callback(self, callback):
+#DEPRECATED|        self.root.set_callback(callback)
 
     def optimize(self, query):
         """
@@ -310,6 +339,7 @@ class AST(object):
         Args:
             query: The Query issued by the user.
         """
+        print "W: AST::optimize() disabled"
         self.optimize_selection(query.get_where())
         self.optimize_projection(query.get_select())
 
