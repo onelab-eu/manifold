@@ -430,9 +430,6 @@ class Gateway(Producer):
             # we only return queried fields
             if provided_fields - fields:
                 # XXX fullquery ?
-                p = Projection(self, fields)
-                print "added projection in GW"
-                print "**********", p.get_consumers()
-                return p
+                return Projection(self, fields)
                 #projection.query = self.query.copy().filter_by(filter) # XXX
             return self

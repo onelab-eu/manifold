@@ -105,11 +105,6 @@ class QueryPlan(object):
             ast: An AST instance made of Union, LeftJoin, SubQuery and From Nodes.
             query: The Query issued by the user.
         """
-        print "*" * 80
-        print "BEFORE OPTIMIZATION"
-        print ast.get_producer()
-        ast.dump()
-        print "*" * 80
         ast.optimize(query)
         self.inject_at(query)
         self.ast = ast

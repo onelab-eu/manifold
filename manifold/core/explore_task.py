@@ -370,7 +370,6 @@ class ExploreTask(Deferred):
                 # XXX
 
                 from_ast = AST(self._interface, user = user).From(platform, query, capabilities, key)
-                print "***from ast", from_ast.get_producer()
                 query_plan.add_from(from_ast.get_root())
 
                 try:
@@ -381,7 +380,6 @@ class ExploreTask(Deferred):
                         map_method_demux[method] = demux_node 
                 except AttributeError:
                     pass
-                print "***from ast", from_ast.get_producer()
 
             else:
                 # The table announced by the platform doesn't fit with the 3nf schema
