@@ -36,10 +36,10 @@ class DBGraph(object):
         self.graph = DiGraph()
         for table in tables:
             self.append(table)
-        self.map_method_capabilities = map_method_capabilities
+        self._map_method_capabilities = map_method_capabilities
 
     def get_capabilities(self, platform, method):
-        return self.map_method_capabilities[Method(platform, method)]
+        return self._map_method_capabilities[Method(platform, method)]
 
     def get_key(self, method):
         self.find_node(method).get_keys()
