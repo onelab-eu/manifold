@@ -33,8 +33,8 @@ class Operator(Relay):
         """
         \brief print _indent_ tabs
         """
-        print "         P: ", self._pool_producers
-        print "         C: ", self._pool_consumers
+        #print "         P: ", self._pool_producers
+        #print "         C: ", self._pool_consumers
         print "[%04d ]" % self._identifier, ' ' * 4 * indent,
         #        sys.stdout.write(' ' * indent * 4)
 
