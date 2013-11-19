@@ -70,8 +70,21 @@ class Record(Packet):
     # Internal methods
     #--------------------------------------------------------------------------- 
 
+    def __repr__(self):
+        content = [
+            ("%r" % self._dict) if self._dict else '',
+            'LAST' if self._last else ''
+        ]
+        return "<Record %s>" % ' '.join(content)
+
     def __getitem__(self, key):
         return self._dict[key]
+
+    def __setitem__(self, key, value):
+        self._dict[key] = value
+
+    def __iter__(self): 
+        return self._dict.itervalues()
 
 
     #--------------------------------------------------------------------------- 

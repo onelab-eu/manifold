@@ -1,7 +1,8 @@
-from manifold.core.packet import Packet
-from manifold.core.record import Record
-from manifold.operators   import Node
-from manifold.util.type   import returns
+from manifold.core.packet           import Packet
+from manifold.core.record           import Record
+from manifold.core.node             import Node
+from manifold.operators.operator    import Operator
+from manifold.util.type             import returns
 
 DUMPSTR_PROJECTION = "SELECT %s" 
 
@@ -48,7 +49,7 @@ def do_projection(record, fields):
 # PROJECTION node
 #------------------------------------------------------------------
 
-class Projection(Node):
+class Projection(Operator):
     """
     PROJECTION operator node (cf SELECT clause in SQL)
     """
@@ -72,13 +73,14 @@ class Projection(Node):
             fields = set(fields)
         self.child, self.fields = child, fields
 
-        # Callbacks
-        old_cb = child.get_callback()
-        child.set_callback(self.child_callback)
-        self.set_callback(old_cb)
-
-        self.query = self.child.get_query().copy()
-        self.query.fields &= fields
+#DEPRECATED|        # Callbacks
+#DEPRECATED|        old_cb = child.get_callback()
+#DEPRECATED|        child.set_callback(self.child_callback)
+#DEPRECATED|        self.set_callback(old_cb)
+#DEPRECATED|
+#DEPRECATED|        self.query = self.child.get_query().copy()
+#DEPRECATED|        self.query.fields &= fields
+        Node.connect(self, child)
 
 
     #---------------------------------------------------------------------------
@@ -138,11 +140,10 @@ class Projection(Node):
             record = do_projection(record, self.fields)
         self.send(record)
 
-#    def optimize_selection(self, filter):
-#        self.child = self.child.optimize_selection(filter)
-#        return self
-#
-#    def optimize_projection(self, fields):
-#        # We only need the intersection of both
-#        self.child = self.child.optimize_projection(self.fields & fields)
-#        return self.child
+    def optimize_selection(self, query, filter):
+        self.child = self.child.optimize_selection(query, filter)
+        return self
+
+    def optimize_projection(self, query, fields):
+        # We only need the intersection of both
+        return self.child.optimize_projection(query, self.fields & fields)

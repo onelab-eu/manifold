@@ -14,6 +14,7 @@ from types                          import GeneratorType, StringTypes
 from twisted.internet.defer         import Deferred
 
 from manifold.gateways              import Gateway
+from manifold.core.node             import Node
 from manifold.core.packet           import QueryPacket
 from manifold.core.query            import Query
 from manifold.core.query_plan       import QueryPlan
@@ -144,6 +145,8 @@ class Interface(object):
         """
         receiver    = SyncReceiver()
         packet      = QueryPacket(query, annotation, receiver)
+
+        Node.connect(receiver, self._storage)
 
         self._storage.receive(packet)
         result_value = receiver.get_result_value()

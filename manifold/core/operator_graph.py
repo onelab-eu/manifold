@@ -2,6 +2,7 @@
 
 # We currently build on QueryPlan, the idea is in the end to merge the QueryPlan class in this class.
 from manifold.core.query_plan import QueryPlan
+from manifold.core.node       import Node
 from manifold.util.lattice    import Lattice
 
 class OperatorGraph(object):
@@ -39,10 +40,6 @@ class OperatorGraph(object):
     # Methods
     #---------------------------------------------------------------------------
 
-    def connect(self, consumer, producer):
-        consumer.add_producer(producer)
-        producer.add_consumer(consumer)
-
     def build_query_plan(self, packet):
         
         query      = packet.get_query()
@@ -77,10 +74,6 @@ class OperatorGraph(object):
 
         self._interface.init_from_nodes(query_plan, user)
 
-        #self.connect(receiver, query_plan.ast)
+        Node.connect(receiver, query_plan.ast)
 
-        root = query_plan.ast.get_root()
-        print "ROOT=", root
-
-        print "packet=", packet
-        root.receive(packet)
+        query_plan.ast.root.receive(packet)

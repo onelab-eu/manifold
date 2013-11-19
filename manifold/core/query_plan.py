@@ -105,8 +105,7 @@ class QueryPlan(object):
             ast: An AST instance made of Union, LeftJoin, SubQuery and From Nodes.
             query: The Query issued by the user.
         """
-        #ast.dump()
-        # XXX ast.optimize(query)
+        ast.optimize(query)
         self.inject_at(query)
         self.ast = ast
     
@@ -152,7 +151,6 @@ class QueryPlan(object):
             )
         
         root_task = ExploreTask(self._interface, root, relation=None, path=[], parent=self, depth=1)
-        print "root_task=", root_task
         if not root_task:
             raise Exception("Unable to build a suitable QueryPlan")
         root_task.addCallback(self.set_ast, query)
@@ -165,12 +163,9 @@ class QueryPlan(object):
         missing_fields |= query.get_where().get_field_names()
 
         
-        print "BEGIN missing fields", missing_fields
         while missing_fields:
-            print "missing fields", missing_fields
             # Explore the next prior ExploreTask
             task = stack.pop()
-            print "EXPLORING task", task
 
             # The Stack is empty, so we have explored the DBGraph
             # without finding the every queried fields.
@@ -188,7 +183,6 @@ class QueryPlan(object):
         while not stack.is_empty():
             task = stack.pop()
             task.cancel()
-        print "BUILD DONE"
     
         # Do we need to wait for self.ast here ?
 

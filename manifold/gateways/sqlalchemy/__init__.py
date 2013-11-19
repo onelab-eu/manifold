@@ -143,8 +143,6 @@ class SQLAlchemyGateway(Gateway):
         Session = sessionmaker(bind = engine)
         self.db = Session()
 
-        self._metadata = None
-
 
     #---------------------------------------------------------------------------
     # Methods
@@ -385,27 +383,15 @@ class SQLAlchemyGateway(Gateway):
             table.insert_key(primary_key)
         
             table.capabilities.retrieve   = True
-            table.capabilities.join       = True
-            table.capabilities.selection  = True
-            table.capabilities.projection = True
+            table.capabilities.join       = False
+            table.capabilities.selection  = False
+            table.capabilities.projection = False
                 
             announces.append(table)
 
         metadata_announces = Announce.get_metadata_tables('local')
         announces.extend([a.table for a in metadata_announces])
         return announces
-
-    # XXX This might be factored ?
-    @returns(list)
-    def get_metadata(self):
-        """
-        Build metadata by loading header files
-        Returns:
-            The list of corresponding Announce instances
-        """
-        if not self._metadata:
-            self._metadata = self.make_metadata()
-        return self._metadata
 
     def receive(self, packet):
         # formerly forward

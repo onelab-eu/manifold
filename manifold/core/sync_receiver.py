@@ -2,18 +2,20 @@
 
 import threading
 
+from manifold.core.consumer     import Consumer
 from manifold.core.packet       import Packet
 from manifold.core.record       import Records
 from manifold.core.result_value import ResultValue
 from manifold.util.log          import Log
 
-class SyncReceiver(object):
+class SyncReceiver(Consumer):
 
     #---------------------------------------------------------------------------
     # Constructor
     #---------------------------------------------------------------------------
 
     def __init__(self):
+        Consumer.__init__(self)
         self._records = Records()
         self._event = threading.Event()
 

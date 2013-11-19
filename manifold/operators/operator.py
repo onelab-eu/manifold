@@ -16,9 +16,7 @@ class Operator(Relay):
         """
         Constructor.
         """
-
-        Producer.__init__(self, max_consumers = max_consumers)
-        Consumer.__init__(self, max_producers = max_producers, has_parent_producer = has_parent_producer)
+        Relay.__init__(self, max_consumers = max_consumers, max_producers = max_producers, has_parent_producer = has_parent_producer)
 
 
     #---------------------------------------------------------------------------
@@ -32,7 +30,7 @@ class Operator(Relay):
         """
         \brief print _indent_ tabs
         """
-        print "[%04d]" % self.identifier, ' ' * 4 * indent,
+        print "[%04d]" % self._identifier, ' ' * 4 * indent,
         #        sys.stdout.write(' ' * indent * 4)
 
     def dump(self, indent = 0):

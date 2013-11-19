@@ -62,7 +62,6 @@ class ExploreTask(Deferred):
         self.identifier  = random.randint(0, 9999)
 
         Deferred.__init__(self)
-        print self
 
     @returns(StringTypes)
     def __repr__(self):
