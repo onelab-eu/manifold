@@ -17,6 +17,7 @@ class PoolConsumers(set):
             consumers = set()
         if not isinstance(consumers, (list, set)):
             consumers = [consumers]
+
         super(PoolConsumers, self).__init__(set(consumers))
 
         self._max_consumers = max_consumers

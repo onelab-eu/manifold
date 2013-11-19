@@ -30,25 +30,13 @@ class Selection(Operator):
         assert isinstance(filters, set),      "Invalid filters = %r (%r)" % (filters, type(filters))
 
         Operator.__init__(self, producers = child, max_producers = 1)
-        # XXX Shall we connect when passed as an argument
         self._filter = filters
-        self.set_producer(child)
-
-
-#        old_cb = child.get_callback()
-#        child.set_callback(self.child_callback)
-#        self.set_callback(old_cb)
-#
-#        self.query = self.child.get_query().copy()
-#        self.query.filters |= filters
-
     
     #---------------------------------------------------------------------------
     # Internal methods
     #---------------------------------------------------------------------------
     
     def __repr__(self):
-        print "filter====", self._filter
         return DUMPSTR_SELECTION % ' AND '.join(["%s %s %s" % f.get_str_tuple() for f in self._filter])
 
 
@@ -97,6 +85,7 @@ class Selection(Operator):
         self.update_producer(lambda p: p.optimize_projection(query, fields | keys))
         #self.query.fields = fields
         if not keys <= fields:
+            print "in selection - added projection"
             # XXX add projection that removed added_fields
             # or add projection that removes fields
             return Projection(self, fields)

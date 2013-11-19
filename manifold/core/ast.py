@@ -55,7 +55,7 @@ class AST(Relay):
         Args:
             user: A User instance
         """
-        Relay.__init__(self)
+        Relay.__init__(self, max_producers = 1)
         self._interface = interface
         self.user = user
         # The AST is initially empty
@@ -67,12 +67,8 @@ class AST(Relay):
     #---------------------------------------------------------------------------
 
     def get_root(self):
-        """
-        Returns:
-            The root Node of this AST (if any), None otherwise
-        """
-        return self.root
-
+        Log.warning('Do not use get_root anymore, use get_producer()')
+        return self.get_producer()
 
     #---------------------------------------------------------------------------
     # Methods
@@ -84,7 +80,7 @@ class AST(Relay):
         Returns:
             True iif the AST has no Node.
         """
-        return self.get_root() == None
+        return self.get_producer() == None
 
 
     #---------------------------------------------------------------------------
@@ -107,9 +103,10 @@ class AST(Relay):
         assert isinstance(query, Query), "Invalid query = %r (%r)" % (query, type(query))
 
         if platform_name == 'local':
-            self.root = self._interface.get_storage()
+            producer = self._interface.get_storage()
         else:
-            self.root = self._interface.get_gateway(platform_name)
+            producer = self._interface.get_gateway(platform_name)
+        self.set_producer(producer)
 
         return self
 
@@ -124,8 +121,8 @@ class AST(Relay):
         Returns:
             The resulting AST.
         """
-        self.root = FromTable(query, records, key)
-        self.root.set_callback(self.get_callback())
+        producer = FromTable(query, records, key)
+        self.set_producer(producer)
         return self
 
     #@returns(AST)
@@ -156,9 +153,8 @@ class AST(Relay):
         # ... as the other children
         children.extend([ast.get_root() for ast in children_ast])
 
-        self.root = children[0] if len(children) == 1 else Union(children, key)
-        if old_cb:
-            self.root.set_callback(old_cb)
+        producer = children[0] if len(children) == 1 else Union(children, key)
+        self.set_producer(producer)
 
         return self
 
@@ -225,7 +221,8 @@ class AST(Relay):
         #assert isinstance(fields, list), "Invalid fields = %r (%r)" % (fields, type(fields))
         if not fields:
             return self
-        self.root = Projection(self.get_root(), fields)
+        producer = Projection(self.get_root(), fields)
+        self.set_producer(producer)
         return self
 
     #@returns(AST)
@@ -243,7 +240,8 @@ class AST(Relay):
         #assert filters != set(),         "Empty set of filters"
         if not filters:
             return self
-        self.root = Selection(self.get_root(), filters)
+        producer = Selection(self.get_root(), filters)
+        self.set_producer(producer)
         return self
 
     #@returns(AST)
@@ -303,9 +301,9 @@ class AST(Relay):
                 (number of space characters).
         """
         if self.is_empty():
-            print "Empty AST (no root)"
+            print "Empty AST (no producer)"
         else:
-            self.root.dump(indent)
+            self.get_producer().dump(indent)
 
 #DEPRECATED|    def start(self):
 #DEPRECATED|        """
@@ -352,9 +350,9 @@ class AST(Relay):
                 involved in the WHERE clause.
         """
         if not filter: return
-        self.root = self.root.optimize_selection(query, filter)
-        assert not self.is_empty(), "ast::optimize_selection() has failed: filter = %s" % filter
-        self.root.set_consumer(self)
+        producer = self.get_producer().optimize_selection(query, filter)
+        assert producer, "ast::optimize_selection() has failed: filter = %s" % filter
+        self.set_producer(producer)
 
     def optimize_projection(self, query, fields):
         """
@@ -366,8 +364,7 @@ class AST(Relay):
                 involved in the SELECT clause.
         """
         if not fields: return
-        print "self.root=", self.root
-        self.root = self.root.optimize_projection(query, fields)
-        assert not self.is_empty(), "ast::optimize_projection() has failed: fields = %s" % fields 
-        self.root.set_consumer(self)
+        producer = self.get_producer().optimize_projection(query, fields)
+        assert producer, "ast::optimize_projection() has failed: fields = %s" % fields 
+        self.set_producer(producer)
 

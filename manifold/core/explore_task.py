@@ -370,6 +370,7 @@ class ExploreTask(Deferred):
                 # XXX
 
                 from_ast = AST(self._interface, user = user).From(platform, query, capabilities, key)
+                print "***from ast", from_ast.get_producer()
                 query_plan.add_from(from_ast.get_root())
 
                 try:
@@ -380,6 +381,7 @@ class ExploreTask(Deferred):
                         map_method_demux[method] = demux_node 
                 except AttributeError:
                     pass
+                print "***from ast", from_ast.get_producer()
 
             else:
                 # The table announced by the platform doesn't fit with the 3nf schema
@@ -410,6 +412,7 @@ class ExploreTask(Deferred):
         # Add the current table in the query plane 
         # Process this table, which is the root of the 3nf tree
         if not from_asts:
+            print "#### NONE"
             return None
         return AST(self._interface).union(from_asts, key)
 
