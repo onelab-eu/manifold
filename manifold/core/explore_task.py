@@ -33,7 +33,7 @@ class ExploreTask(Deferred):
     A pending exploration of the metadata graph
     """
 
-    def __init__(self, root, relation, path, parent, depth):
+    def __init__(self, interface, root, relation, path, parent, depth):
         """
         Constructor.
         Args:
@@ -47,6 +47,7 @@ class ExploreTask(Deferred):
         assert root != None, "ExploreTask::__init__(): invalid root = %s" % root
 
         # Context
+        self._interface  = interface
         self.root        = root
         self.relation    = relation
         self.path        = path
@@ -191,7 +192,7 @@ class ExploreTask(Deferred):
                 if relation.requires_subquery():
                     subpath = self.path[:]
                     subpath.append(name)
-                    task = ExploreTask(neighbour, relation, subpath, self, self.depth+1)
+                    task = ExploreTask(self._interface, neighbour, relation, subpath, self, self.depth+1)
                     task.addCallback(self.store_subquery, relation)
 
                     relation_name = relation.get_relation_name()
@@ -205,7 +206,7 @@ class ExploreTask(Deferred):
                     #priority = TASK_1Nsq if relation_name in missing_subqueries else TASK_1N
                     
                 else:
-                    task = ExploreTask(neighbour, relation, self.path, self.parent, self.depth)
+                    task = ExploreTask(self._interface, neighbour, relation, self.path, self.parent, self.depth)
                     task.addCallback(self.perform_left_join, relation, allowed_platforms, metadata, user, query_plan)
                     priority = TASK_11
 
@@ -302,7 +303,7 @@ class ExploreTask(Deferred):
             if sq_ast_relation:
                 ast.subquery(sq_ast_relation)
             query = Query.action('get', self.root.get_name()).select(set(xp_key))
-            self.ast = AST().cross_product(xp_ast_relation, query)
+            self.ast = AST(self._interface).cross_product(xp_ast_relation, query)
             predicate = Predicate(xp_key, eq, xp_value)
 
             self.ast.left_join(ast, predicate)
@@ -334,9 +335,12 @@ class ExploreTask(Deferred):
         # Update the key used by a given method
         # The more we iterate, the best the key is
         if key:
-            for method, keys in table.map_method_keys.items():
-                if key in table.map_method_keys[method]: 
-                    map_method_bestkey[method] = key 
+            try:
+                for method, keys in table.map_method_keys.items():
+                    if key in table.map_method_keys[method]: 
+                        map_method_bestkey[method] = key 
+            except AttributeError:
+                map_method_bestkey[table.name] = key
 
         # For each platform related to the current table, extract the
         # corresponding table and build the corresponding FROM node
@@ -354,7 +358,7 @@ class ExploreTask(Deferred):
                 platform = method.get_platform()
                 capabilities = metadata.get_capabilities(platform, query.get_from())
 
-                if not platform in allowed_platforms:
+                if allowed_platforms and not platform in allowed_platforms:
                     continue
 
                 # The current platform::table might be ONJOIN (no retrieve capability), but we
@@ -362,14 +366,20 @@ class ExploreTask(Deferred):
                 # XXX Improve platform capabilities support
                 # XXX if not capabilities.retrieve: continue
 
-                from_ast = AST(user = user).From(platform, query, capabilities, key)
+                # We need to connect the right gateway
+                # XXX
+
+                from_ast = AST(self._interface, user = user).From(platform, query, capabilities, key)
                 query_plan.add_from(from_ast.get_root())
 
-                if method in table.methods_demux:
-                    from_ast.demux().projection(list(fields))
-                    demux_node = from_ast.get_root().get_child()
-                    assert isinstance(demux_node, Demux), "Bug"
-                    map_method_demux[method] = demux_node 
+                try:
+                    if method in table.methods_demux:
+                        from_ast.demux().projection(list(fields))
+                        demux_node = from_ast.get_root().get_child()
+                        assert isinstance(demux_node, Demux), "Bug"
+                        map_method_demux[method] = demux_node 
+                except AttributeError:
+                    pass
 
             else:
                 # The table announced by the platform doesn't fit with the 3nf schema
@@ -385,7 +395,7 @@ class ExploreTask(Deferred):
                 print "FROMTABLE -- DUP(%r) -- SELECT(%r) -- %r -- %r" % (key_dup, select_fields, demux_node, from_node) 
 
                 # Build a new AST (the branch we'll add) above an existing FROM node
-                from_ast = AST(user = user)
+                from_ast = AST(self._interface, user = user)
                 from_ast.root = demux_node
                 Log.warning("ExploreTask: TODO: plug callback")
                 #TODO from_node.addCallback(from_ast.callback)
@@ -400,7 +410,8 @@ class ExploreTask(Deferred):
         # Add the current table in the query plane 
         # Process this table, which is the root of the 3nf tree
         if not from_asts:
+            print "#### NONE"
             return None
-        return AST().union(from_asts, key)
+        return AST(self._interface).union(from_asts, key)
 
 

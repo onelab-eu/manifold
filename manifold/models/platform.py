@@ -18,7 +18,6 @@ from types                          import StringTypes
 
 from manifold.core.query            import Query
 from manifold.models                import Base
-from manifold.util.storage          import DBStorage
 from manifold.util.type             import accepts, returns 
 
 class Platform(Base):

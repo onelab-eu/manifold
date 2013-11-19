@@ -17,7 +17,6 @@ from manifold.util.callback         import Callback
 from manifold.util.log              import Log 
 from manifold.util.type             import accepts, returns
 
-URL = 'sqlite:////var/myslice/db.sqlite?check_same_thread=False'
 
 class Storage(object):
     pass
@@ -54,8 +53,10 @@ class DBStorage(Storage):
         self.gateway = sqlalchemy_gw(interface, None, storage_config)
 
 
-    @returns(list)
-    def execute(self, query, annotation, receiver):
+    def send(self, packet):
+        pass
+
+    def execute(self, query, annotations):
         """
         Executes a Query on the Manifold Storage and fetches the corresponding results.
         Args:
@@ -65,4 +66,12 @@ class DBStorage(Storage):
         Returns:
             A list of Record.
         """
-        self.gateway.forward(query, annotation, receiver)
+        # XXX Need to pass local parameters
+#MANDO|        gw = Gateway.get('sqlalchemy')(config={'url': URL}, user=user, format=format)
+        callback = Callback()
+        account_config = None
+        self.gateway.forward(query, annotations, callback, False, True, account_config, None)
+        return callback.get_results()
+
+    def get_metadata(self):
+        return self.gateway.get_metadata()

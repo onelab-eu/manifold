@@ -143,6 +143,7 @@ class Query(object):
 
     def copy(self):
         return copy.deepcopy(self)
+    clone = copy
 
     def clear(self):
         self.action = 'get'
@@ -398,6 +399,22 @@ class Query(object):
         elif len(args) == 3: 
             predicate = Predicate(*args)
             self.filters.add(predicate)
+        else:
+            raise Exception, 'Invalid expression for filter'
+        return self
+
+    def unfilter_by(self, *args):
+        if len(args) == 1:
+            filters = args[0]
+            if filters == None:
+                return self
+            if not isinstance(filters, (set, list, tuple, Filter)):
+                filters = [filters]
+            for predicate in set(filters):
+                self.filters.remove(predicate)
+        elif len(args) == 3: 
+            predicate = Predicate(*args)
+            self.filters.remove(predicate)
         else:
             raise Exception, 'Invalid expression for filter'
         return self

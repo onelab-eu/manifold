@@ -9,11 +9,13 @@
 #   Jordan Augé       <jordan.auge@lip6.fr>
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
-from types                  import StringTypes
+from types                          import StringTypes
 
-from manifold.operators     import Node
-from manifold.util.log      import Log 
-from manifold.util.type     import returns
+from manifold.core.node             import Node
+from manifold.core.packet           import Packet
+from manifold.operators.operator    import Operator
+from manifold.util.log              import Log 
+from manifold.util.type             import returns
 
 DUMPSTR_RENAME = "RENAME %r" 
 
@@ -21,23 +23,22 @@ DUMPSTR_RENAME = "RENAME %r"
 # RENAME node
 #------------------------------------------------------------------
 
-class Rename(Node):
+class Rename(Operator):
     """
     RENAME operator node (cf SELECT clause in SQL)
     """
+
+    #---------------------------------------------------------------------------
+    # Constructor
+    #---------------------------------------------------------------------------
 
     def __init__(self, child, map_fields):
         """
         Constructor
         """
-        super(Rename, self).__init__()
-        self.child, self.map_fields = child, map_fields
 
-        # Callbacks
-        old_cb = child.get_callback()
-        child.set_callback(self.child_callback)
-        self.set_callback(old_cb)
-        self.query = None
+        Operator.__init__(self, producers = child, max_producers = 1)
+        self._map_fields = map_fields
 
     @returns(dict)
     def get_map_fields(self):
@@ -46,25 +47,12 @@ class Rename(Node):
             A dictionnary {String : String} which maps the field name
             to rename with the corresponding updated field name.
         """
-        return self.map_fields
+        return self._map_fields
 
-    @returns(Node)
-    def get_child(self):
-        """
-        Returns:
-            A Node instance (the child Node) of this Rename instance.
-        """
-        return self.child
 
-    def dump(self, indent = 0):
-        """
-        Dump the current node
-        Args:
-            indent: An integer corresponding to the current indentation
-                in number of spaces.
-        """
-        Node.dump(self, indent)
-        self.child.dump(indent + 1)
+    #---------------------------------------------------------------------------
+    # Internal methods
+    #---------------------------------------------------------------------------
 
     @returns(StringTypes)
     def __repr__(self):
@@ -74,38 +62,57 @@ class Rename(Node):
         """
         return DUMPSTR_RENAME % self.get_map_fields()
 
-    def start(self):
-        """
-        Propagates a START message through this Node.
-        """
-        self.child.start()
 
-    def child_callback(self, record):
+    #---------------------------------------------------------------------------
+    # Methods
+    #---------------------------------------------------------------------------
+
+    def receive(self, packet):
         """
-        Processes records received by the child node
+        """
+
+        if packet.get_type() == Packet.TYPE_QUERY:
+            # XXX need to remove the filter in the query
+            new_packet = packet.clone()
+            packet.update_query(Query.unfilter_by, self._filter)
+            self.send(new_packet)
+
+        elif packet.get_type() == Packet.TYPE_RECORD:
+            record = packet
+
+            if not record.is_last():
+                #record = { self._map_fields.get(k, k): v for k, v in record.items() }
+                try:
+                    for k, v in self._map_fields.items():
+                        if k in record:
+                            if '.' in v: # users.hrn
+                                method, key = v.split('.')
+                                if not method in record:
+                                    record[method] = list() 
+                                for x in record[k]:
+                                    record[method].append({key: x})        
+                            else:
+                                record[v] = record.pop(k) #record[k]
+                            #del record[k]
+                except Exception, e:
+                    Log.error("Error in Rename::child_callback:", e)
+                    import traceback
+                    traceback.print_exc()
+            self.send(record)
+
+        else: # TYPE_ERROR
+            self.send(packet)
+
+    def dump(self, indent = 0):
+        """
+        Dump the current node
         Args:
-            record: A dictionary representing the received Record
+            indent: An integer corresponding to the current indentation
+                in number of spaces.
         """
-        if not record.is_last():
-            #record = { self.map_fields.get(k, k): v for k, v in record.items() }
-            try:
-                for k, v in self.map_fields.items():
-                    if k in record:
-                        if '.' in v: # users.hrn
-                            method, key = v.split('.')
-                            if not method in record:
-                                record[method] = list() 
-                            for x in record[k]:
-                                record[method].append({key: x})        
-                        else:
-                            record[v] = record.pop(k) #record[k]
-                        #del record[k]
-            except Exception, e:
-                Log.error("Error in Rename::child_callback:", e)
-                import traceback
-                traceback.print_exc()
-        self.send(record)
-
+        Node.dump(self, indent)
+        self.get_producer().dump(indent + 1)
+    
     @returns(Node)
     def optimize_selection(self, filter):
         """

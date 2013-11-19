@@ -20,10 +20,11 @@ from twisted.web                    import xmlrpc
 
 # XXX Those imports may fail for xmlrpc calls
 from manifold.auth                  import Auth
-from manifold.core.annotation       import Annotation 
+from manifold.core.packet           import Packet, QueryPacket
 from manifold.core.query            import Query
 from manifold.core.router           import Router
 from manifold.core.receiver         import Receiver 
+from manifold.core.sync_receiver    import SyncReceiver
 from manifold.core.result_value     import ResultValue
 from manifold.input.sql             import SQLParser
 from manifold.util.log              import Log
@@ -37,18 +38,18 @@ DEFAULT_PASSWORD  = 'demo'
 DEFAULT_PKEY_FILE = '/etc/manifold/keys/client.pkey' 
 DEFAULT_CERT_FILE = '/etc/manifold/keys/client.cert'
 
-class ManifoldClient(Receiver):
+class ManifoldClient(object):
     def log_info(self): pass
     def whoami(self): return None
 
 class ManifoldLocalClient(ManifoldClient):
-    def __init__(self, user_email = None):
-        self.interface = Router()
-        self.interface.__enter__()
+    def __init__(self, username = None):
+        self.router = Router()
+        self.router.__enter__()
 
         try:
-            users = self.interface.execute_local_query(
-                Query.get('local:user').filter_by('email', '==', user_email)
+            users = self.router.execute_local_query(
+                Query.get('user').filter_by('email', '==', username)
             )
         except:
             users = list()
@@ -58,24 +59,33 @@ class ManifoldLocalClient(ManifoldClient):
             self.user = None
         else:
             self.user = users[0]
-            if "config" in self.user and self.user["config"]:
-                self.user["config"] = json.loads(self.user["config"])
-            else:
-                self.user["config"] = None
+#MANDO|            if "config" in self.user and self.user["config"]:
+#MANDO|                self.user["config"] = json.loads(self.user["config"])
+#MANDO|            else:
+#MANDO|                self.user["config"] = None
 
     def __del__(self):
         try:
-            if self.interface:
-                self.interface.__exit__()
-            self.interface = None
+            if self.router:
+                self.router.__exit__()
+            self.router = None
         except: pass
 
+    def send(self, packet):
+        return self.router.receive(packet)
+
+    @returns(ResultValue)
     def forward(self, query, annotation = None):
         if not annotation:
-            annotation = Annotation() 
+            annotation = dict() 
         if not "user" in annotation.keys():
             annotation["user"] = self.user
-        self.interface.forward(query, annotation, self)
+
+        receiver = SyncReceiver()
+        packet = QueryPacket(query, annotation, receiver = receiver)
+        self.send(packet)
+        # This code is blocking
+        return receiver.get_result_value()
 
     def log_info(self):
         Log.info("Shell using local account %s" % self.user["email"])
@@ -89,18 +99,17 @@ class ManifoldXMLRPCClientXMLRPCLIB(ManifoldClient):
     def __init__(self):
         import xmlrpclib
         url = Options().xmlrpc_url
-        self.interface = xmlrpclib.ServerProxy(url, allow_none=True)
+        self.router = xmlrpclib.ServerProxy(url, allow_none=True)
         self.auth = None
 
     def forward(self, query, annotation = None):
         if not annotation:
-            annotation = Annotation() 
-        if not "authentication" in annotation.keys():
-            annotation["authentication"] = self.auth
-        self.interface.forward(query.to_dict(), annotation, self)
+            annotation = {}
+        annotation['authentication'] = self.auth
+        return self.router.forward(query.to_dict(), annotation, self)
 
     # mode_str      = 'XMLRPC'
-    # interface_str = ' towards XMLRPC API %s' % self.interface
+    # interface_str = ' towards XMLRPC API %s' % self.router
 
 class Proxy(xmlrpc.Proxy):
     def __str__(self):
@@ -135,7 +144,7 @@ class Proxy(xmlrpc.Proxy):
                 print "Must Set a SSL Context"
                 print "use self.setSSLClientContext() first"
                 # Its very bad to connect to ssl without some kind of
-                # verification of who your talking to.
+                # verfication of who your talking to
                 # Using the default sslcontext without verification
                 # Can lead to man in the middle attacks
             ReactorThread().connectSSL(self.host, self.port or 443,
@@ -187,9 +196,9 @@ class ManifoldXMLRPCClient(ManifoldClient):
 
     def forward(self, query, annotation = None):
         if not annotation:
-            annotation = Annotation() 
+            annotation = {}
         annotation.update(self.annotation)
-        self.interface.forward(query.to_dict(), annotation, self)
+        return self.router.forward(query.to_dict(), annotation, self)
         
 
     @defer.inlineCallbacks
@@ -198,25 +207,25 @@ class ManifoldXMLRPCClient(ManifoldClient):
         #if not annotation:
         #    annotation = {}
         #annotation.update(self.annotation)
-        #ret = yield self.interface.AuthCheck(annotation)
+        #ret = yield self.router.AuthCheck(annotation)
         #defer.returnValue(ret)
 
 class ManifoldXMLRPCClientSSLPassword(ManifoldXMLRPCClient):
     
-    def __init__(self, url, user_email=None, password=None):
+    def __init__(self, url, username=None, password=None):
         ManifoldXMLRPCClient.__init__(self, url)
-        self.user_email = user_email
+        self.username = username
 
-        if user_email:
-            self.annotation = { 'authentication': {'AuthMethod': 'password', 'Username': user_email, 'AuthString': password} }
+        if username:
+            self.annotation = { 'authentication': {'AuthMethod': 'password', 'Username': username, 'AuthString': password} }
         else:
             self.annotation = { 'authentication': {'AuthMethod': 'anonymous'} } 
 
-        self.interface = Proxy(self.url, allowNone=True, useDateTime=False)
-        self.interface.setSSLClientContext(ssl.ClientContextFactory())
+        self.router = Proxy(self.url, allowNone=True, useDateTime=False)
+        self.router.setSSLClientContext(ssl.ClientContextFactory())
 
     def log_info(self):
-        Log.info("Shell using XMLRPC account '%r' (password) on %s" % (self.user_email, self.url))
+        Log.info("Shell using XMLRPC account '%r' (password) on %s" % (self.username, self.url))
 
 class ManifoldXMLRPCClientSSLGID(ManifoldXMLRPCClient):
     
@@ -232,13 +241,13 @@ class ManifoldXMLRPCClientSSLGID(ManifoldXMLRPCClient):
     def __init__(self, url, pkey_file, cert_file):
         self.url = url
         self.gid_subject = 'NULL'
-        self.interface = Proxy(self.url, allowNone=True, useDateTime=False)
-        #self.interface.setSSLClientContext(CtxFactory(pkey_file, cert_file))
+        self.router = Proxy(self.url, allowNone=True, useDateTime=False)
+        #self.router.setSSLClientContext(CtxFactory(pkey_file, cert_file))
 
         self.annotation = { 'authentication': {'AuthMethod': 'gid'} } 
 
         # This has to be tested to get rid of the previously defined CtxFactory class
-        self.interface.setSSLClientContext(ssl.DefaultOpenSSLContextFactory(pkey_file, cert_file))
+        self.router.setSSLClientContext(ssl.DefaultOpenSSLContextFactory(pkey_file, cert_file))
 
     def log_info(self):
         Log.info("Shell using XMLRPC account '%r' (GID) on %s" % (self.gid_subject, self.url))
@@ -262,9 +271,9 @@ class Shell(object):
         }
         if result_value["traceback"]:
             for line in result_value["traceback"].split("\n"):
-                Log.error("\t", line)
+                Log.debug("\t", line)
         else:
-            Log.error("(Traceback not set)")
+            Log.debug("(Traceback not set)")
         print ""
 
     @classmethod
@@ -289,7 +298,7 @@ class Shell(object):
             default = 'https://localhost:7080'
         )
         opt.add_argument(
-            "-u", "--username", dest = "user_email",
+            "-u", "--username", dest = "username",
             help = "API user name", 
             default = DEFAULT_USER
         )
@@ -353,13 +362,12 @@ class Shell(object):
 
         elif auth_method == 'local':
 #XXX#>>>>>>> devel
-            user_email = Options().user_email
+            username = Options().username
             
-            self.client = ManifoldLocalClient(user_email)
+            self.client = ManifoldLocalClient(username)
 
         else: # XMLRPC 
             url = Options().xmlrpc_url
-#XXX#            self.interface = xmlrpclib.ServerProxy(url, allow_none = True)
 
             if auth_method == 'gid':
                 pkey_file = Options().pkey_file
@@ -369,13 +377,13 @@ class Shell(object):
 
             elif auth_method == 'password':
                 # If user is specified but password is not
-                user_email = Options().user_email
+                username = Options().username
                 password = Options().password
 
-                if user_email != DEFAULT_USER and password == DEFAULT_PASSWORD:
+                if username != DEFAULT_USER and password == DEFAULT_PASSWORD:
                     if Options().interactive:
                         try:
-                            _password = getpass("Enter password for '%s' (or ENTER to keep default):" % user_email)
+                            _password = getpass("Enter password for '%s' (or ENTER to keep default):" % username)
                         except (EOFError, KeyboardInterrupt):
                             print
                             sys.exit(0)
@@ -384,7 +392,7 @@ class Shell(object):
                     else:
                         Log.warning("No password specified, using default.")
 
-                self.client = ManifoldXMLRPCClientSSLPassword(url, user_email, password)
+                self.client = ManifoldXMLRPCClientSSLPassword(url, username, password)
 
             elif auth_method == 'anonymous':
 
@@ -413,37 +421,26 @@ class Shell(object):
             self.client.__del__()
         except: pass
 
-    @returns(ResultValue)
-    def get_result_value(self):
-        """
-        Returns:
-            The ResultValue corresponding to the last Query executed
-            on this Shell.
-        """
-        return self.client.get_result_value()
-
-    def display(self):
+    def display(self, result_value):
         """
         Print the ResultValue of a Query in the standard output.
         If this ResultValue carries error(s), those error(s) are recursively
         unested and printed to the standard output.
+        Args:
+            result_value: The ResultValue instance corresponding to this Query.
         """
-        result_value = self.get_result_value()
-        if not result_value:
-            return
-
         assert isinstance(result_value, ResultValue), "Invalid ResultValue: %s (%s)" % (result_value, type(result_value))
 
         if not result_value.is_success():
             print ''
             print 'ERROR:'
-            if isinstance(result_value.get_error_message(), list):
+            if isinstance(result_value['description'], list):
                 # We have a list of errors
                 for nested_result_value in result_value["description"]:
                     Shell.print_error(nested_result_value)
                     return
             else:
-                print result_value.get_error_message()
+                print result_value['description']
 
         records = result_value["value"]
     
@@ -455,27 +452,16 @@ class Shell(object):
             # Used by script to it may be piped.
             print json.dumps(records)
 
-    #@returns(list)
-    def evaluate(self, command):
+    @returns(ResultValue)
+    def evaluate(self, command, value=False):
         """
         Parse a command type by the User, and run the corresponding Query.
         Args:
             command: A String instance containing the command typed by the user.
-        Raises:
-            Exception: In case of Failure.
         Returns:
-            A list of Records corresponding to the Query deduced from the command.
+            The ResultValue resulting from the Query
         """
-
-        # Prepare annotation
-        annotation = Annotation({
-            "user" : {
-                "email"    : Options().user_email,
-                "password" : Options().password
-            }
-        })
-
-        # Prepare query
+        #username, password = Options().username, Options().password
         dic = SQLParser().parse(command)
         if not dic:
             return None
@@ -483,22 +469,24 @@ class Shell(object):
         if "*" in query.get_select():
             query.fields = None
 
-        # Run the query
-        self.client.forward(query, annotation)
-        result_value = self.get_result_value()
+        return self.execute(query)
 
-        if not result_value.is_success():
-            raise Exception, "Error evaluating command: %s (%s)" % (command, result_value.get_error_message())
-
-        return result_value["value"]
-
+    @returns(ResultValue)
     def execute(self, query):
         """
         Execute a Query (used if the Shell is run with option "-e").
         Args:
             query: The Query typed by the user.
+        Returns:
+            The ResultValue resulting from the Query
         """
-        return self.client.forward(query)
+        try:
+            result_value = self.client.forward(query)
+        except Exception, e:
+            import traceback
+            message = "Error executing query: %s: %s" % (e, traceback.print_exc())
+            result_value = ResultValue.get_error(ResultValue.ERROR, message)
+        return result_value
 
     def whoami(self):
         # Who is authenticating ?
@@ -594,13 +582,12 @@ class Shell(object):
                     break
 
                 try:
-                    self.evaluate(command)
-                    self.display()
+                    self.display(self.evaluate(command))
                 except KeyboardInterrupt:
                     command = ""
                     print
                 except Exception, err:
-                    Log.error(format_exc())
+                    Log.debug(format_exc())
 
         except EOFError:
             self.terminate()
@@ -611,10 +598,9 @@ def main():
     Options().parse()
     command = Options().execute
     if command:
-        shell = Shell(interactive = False)
-        shell.evaluate(command)
-        shell.display()
-        #shell.terminate()
+        s = Shell(interactive = False)
+        s.display(s.evaluate(command))
+        #s.terminate()
     else:
         Shell(interactive = True).start()
 

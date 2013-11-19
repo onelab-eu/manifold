@@ -324,6 +324,28 @@ class Announce(object):
         self.table = table
         self.cost = cost
 
+    @staticmethod
+    def get_metadata_tables(platform_name):
+        @announces_from_docstring(platform_name)
+        def _get_metadata_tables():
+            """
+            class object {
+                string table;
+                column column;
+                CAPABILITY(selection,projection,retrieve,join);
+                KEY(table);
+            }; 
+
+            class column {
+                string qualifier;
+                string name;
+                string type;
+                string description;
+                bool is_array;
+            };
+            """
+        return _get_metadata_tables()
+
     #@returns(Table)
     def get_table(self):
         return self.table
@@ -333,6 +355,9 @@ class Announce(object):
 
     def __repr__(self):
         return "<Announce %r>" % self.table
+
+    def to_dict(self):
+        return self.table.to_dict()
 
 class Announces(object):
 

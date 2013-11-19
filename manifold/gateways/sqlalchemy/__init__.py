@@ -17,12 +17,15 @@ from hashlib                        import md5
 from random                         import Random
 
 from sqlalchemy                     import create_engine
+from sqlalchemy                     import types
 from sqlalchemy.ext.declarative     import declarative_base, declared_attr
 from sqlalchemy.orm                 import sessionmaker
 from sqlalchemy.util._collections   import NamedTuple ##
-
+from manifold.core.announce         import Announce
+from manifold.core.field            import Field
 from manifold.core.query            import Query ##
 from manifold.core.record           import Record, LastRecord 
+from manifold.core.table            import Table
 from manifold.gateways              import Gateway
 from manifold.models                import db
 from manifold.models.account        import Account
@@ -91,7 +94,7 @@ def row2record(row):
 class SQLAlchemyGateway(Gateway):
     __gateway_name__ = 'sqlalchemy'
 
-    map_object = {
+    _map_object = {
         "platform"       : Platform,
         "user"           : User,
         "account"        : Account,
@@ -99,6 +102,17 @@ class SQLAlchemyGateway(Gateway):
         "linked_account" : LinkedAccount,
         "policy"         : Policy
     }
+
+    _map_types = {
+        types.Integer: 'integer',
+        types.Enum:    'integer', # XXX
+        types.String:  'string',
+        types.Boolean: 'bool'
+    }
+
+    #---------------------------------------------------------------------------
+    # Constructor
+    #---------------------------------------------------------------------------
 
     def __init__(self, interface, platform, config = None):
         """
@@ -128,6 +142,11 @@ class SQLAlchemyGateway(Gateway):
         Base.metadata.create_all(engine)
         Session = sessionmaker(bind = engine)
         self.db = Session()
+
+
+    #---------------------------------------------------------------------------
+    # Methods
+    #---------------------------------------------------------------------------
         
     @returns(list)
     def local_query_get(self, query, user):
@@ -138,7 +157,7 @@ class SQLAlchemyGateway(Gateway):
         fields = query.get_select()
         # XXX else tap into metadata
 
-        cls = self.map_object[query.get_from()]
+        cls = self._map_object[query.get_from()]
 
         # Transform a Filter into a sqlalchemy expression
         _filters = get_sqla_filters(cls, query.get_where())
@@ -174,7 +193,7 @@ class SQLAlchemyGateway(Gateway):
             if not query.get_where().has_eq('platform_id') and not query.get_where().has_eq('platform'):
                 raise Exception, "Cannot update JSON fields on multiple platforms"
 
-        cls = self.map_object[query.get_from()]
+        cls = self._map_object[query.get_from()]
 
         # Note: we can request several values
 
@@ -226,7 +245,7 @@ class SQLAlchemyGateway(Gateway):
     def local_query_create(self, query, user):
         assert not query.get_where(), "Filters should be empty for a create request"
 
-        cls = self.map_object[query.get_from()]
+        cls = self._map_object[query.get_from()]
 
         params = query.get_params()
         if 'password' in params:
@@ -254,7 +273,7 @@ class SQLAlchemyGateway(Gateway):
 
         fields = query.fields
 
-        cls = self.map_object[query.object]
+        cls = self._map_object[query.object]
 
         # Transform a Filter into a sqlalchemy expression
         _filters = get_sqla_filters(cls, query.filters)
@@ -289,18 +308,107 @@ class SQLAlchemyGateway(Gateway):
 #MANDO|            self.callback(row)
 #MANDO|        self.callback(None)
 
-    def forward(self, query, annotation, receiver):
-        """
-        Query handler.
-        Args:
-            query: A Query instance, reaching this Gateway.
-            annotation: A dictionnary instance containing Query's annotation.
-            receiver : A Receiver instance which collects the results of the Query.
-        """
-        super(SQLAlchemyGateway, self).forward(query, annotation, receiver)
-        identifier = receiver.get_identifier() if receiver else None
+#DEPRECATED|    def forward(self, query, annotation, callback, is_deferred = False, execute = True, account_config = None, receiver = None):
+#DEPRECATED|        """
+#DEPRECATED|        Query handler.
+#DEPRECATED|        Args:
+#DEPRECATED|            query: A Query instance, reaching this Gateway.
+#DEPRECATED|            callback: The function called to send this record. This callback is provided
+#DEPRECATED|                most of time by a From Node.
+#DEPRECATED|                Prototype : def callback(record)
+#DEPRECATED|            is_deferred: A boolean.
+#DEPRECATED|            execute: A boolean set to True if the treatement requested in query
+#DEPRECATED|                must be run or simply ignored.
+#DEPRECATED|            user: The User issuing the Query.
+#DEPRECATED|            account_config: A dictionnary containing the user's account config.
+#DEPRECATED|                In pratice, this is the result of the following query (run on the Storage)
+#DEPRECATED|                SELECT config FROM local:account WHERE user_id == user.user_id
+#DEPRECATED|            format: A String specifying in which format the Records must be returned.
+#DEPRECATED|            receiver : The From Node running the Query or None. Its ResultValue will
+#DEPRECATED|                be updated once the query has terminated.
+#DEPRECATED|        Returns:
+#DEPRECATED|            forward must NOT return value otherwise we cannot use @defer.inlineCallbacks
+#DEPRECATED|            decorator. 
+#DEPRECATED|        """
+#DEPRECATED|        super(SQLAlchemyGateway, self).forward(query, annotation, callback, is_deferred, execute, account_config, receiver)
+#DEPRECATED|        identifier = receiver.get_identifier() if receiver else None
+#DEPRECATED|
+#DEPRECATED|        assert isinstance(query, Query), "Invalid query"
+#DEPRECATED|        _map_action = {
+#DEPRECATED|            'get'    : self.local_query_get,
+#DEPRECATED|            'update' : self.local_query_update,
+#DEPRECATED|            'create' : self.local_query_create,
+#DEPRECATED|            'delete' : self.local_query_delete
+#DEPRECATED|        }
+#DEPRECATED|
+#DEPRECATED|        try:
+#DEPRECATED|
+#DEPRECATED|            if query.get_from() == 'object':
+#DEPRECATED|                if not query.get_action() == 'get':
+#DEPRECATED|                    raise Exception, "Invalid query on local object table"
+#DEPRECATED|                return self.get_metadata()
+#DEPRECATED|
+#DEPRECATED|            user = annotation.get('user', None)
+#DEPRECATED|            rows = _map_action[query.get_action()](query, user)
+#DEPRECATED|            for row in rows:
+#DEPRECATED|                self.send(row2record(row), callback, identifier)
+#DEPRECATED|            self.send(LastRecord(), callback, identifier)
+#DEPRECATED|            self.success(receiver, query)
+#DEPRECATED|        except AttributeError, e:
+#DEPRECATED|            self.send(LastRecord(), callback, identifier)
+#DEPRECATED|            self.error(receiver, query, e)
 
-        assert isinstance(query, Query), "Invalid query"
+    @returns(list)
+    def make_metadata(self):
+        announces = list()
+
+        # Each model is a table
+        for table_name, cls in self._map_object.items():
+            table = Table('local', None, table_name, None, None)
+
+            primary_key = tuple()
+
+            for column in cls.__table__.columns:
+                table.insert_field(Field(
+                    qualifiers  = [], # nothing ["const"]
+                    name        = column.name,
+                    type        = self._map_types[column.type.__class__],
+                    is_array    = False,
+                    description = column.description
+                ))
+
+                if column.primary_key:
+                    primary_key += (column.name, )
+                
+            table.insert_key(primary_key)
+        
+            table.capabilities.retrieve   = True
+            table.capabilities.join       = False
+            table.capabilities.selection  = False
+            table.capabilities.projection = False
+
+            announces.append(Announce(table))
+
+        metadata_announces = Announce.get_metadata_tables('local')
+        announces.extend(metadata_announces)
+        return announces
+
+    def receive(self, packet):
+        # formerly forward
+        Gateway.receive(self, packet)
+#DEPRECATED|=======
+#DEPRECATED|    def forward(self, query, annotation, receiver):
+#DEPRECATED|        """
+#DEPRECATED|        Query handler.
+#DEPRECATED|        Args:
+#DEPRECATED|            query: A Query instance, reaching this Gateway.
+#DEPRECATED|            annotation: A dictionnary instance containing Query's annotation.
+#DEPRECATED|            receiver : A Receiver instance which collects the results of the Query.
+#DEPRECATED|        """
+#DEPRECATED|        super(SQLAlchemyGateway, self).forward(query, annotation, receiver)
+#DEPRECATED|        identifier = receiver.get_identifier() if receiver else None
+#DEPRECATED|>>>>>>> routerv2
+
         _map_action = {
             'get'    : self.local_query_get,
             'update' : self.local_query_update,
@@ -309,22 +417,47 @@ class SQLAlchemyGateway(Gateway):
         }
 
         try:
+            query = packet.get_query()
+            annotation = packet.get_annotation()
+            if not annotation:
+                annotation = {}
+
+            if query.get_from() == 'object':
+                if not query.get_action() == 'get':
+                    raise Exception, "Invalid query on local object table"
+                for record in self.get_metadata():
+                    self.send(Record(record.to_dict()))
+                self.send(LastRecord())
+                return
+
             user = annotation.get('user', None)
             rows = _map_action[query.get_action()](query, user)
             for row in rows:
-                self.send(row2record(row), receiver, identifier)
-            self.send(LastRecord(), receiver, identifier)
-            self.success(receiver, query)
+                self.send(row2record(row)) #, callback, identifier)
+            self.send(LastRecord())
         except AttributeError, e:
-            self.send(LastRecord(), receiver, identifier)
-            self.error(receiver, query, e)
-
-    @returns(list)
-    def get_metadata(self):
-        """
-        Build metadata by loading header files
-        Returns:
-            The list of corresponding Announce instances
-        """
-        Log.warning("SQLAlchemyGateway::get_metadata: Not yet implemented")
-        return list()
+            import traceback
+            traceback.print_exc()
+            self.send(LastRecord())
+            self.error(query, e)
+#DEPRECATED|=======
+#DEPRECATED|            user = annotation.get('user', None)
+#DEPRECATED|            rows = _map_action[query.get_action()](query, user)
+#DEPRECATED|            for row in rows:
+#DEPRECATED|                self.send(row2record(row), receiver, identifier)
+#DEPRECATED|            self.send(LastRecord(), receiver, identifier)
+#DEPRECATED|            self.success(receiver, query)
+#DEPRECATED|        except AttributeError, e:
+#DEPRECATED|            self.send(LastRecord(), receiver, identifier)
+#DEPRECATED|            self.error(receiver, query, e)
+#DEPRECATED|
+#DEPRECATED|    @returns(list)
+#DEPRECATED|    def get_metadata(self):
+#DEPRECATED|        """
+#DEPRECATED|        Build metadata by loading header files
+#DEPRECATED|        Returns:
+#DEPRECATED|            The list of corresponding Announce instances
+#DEPRECATED|        """
+#DEPRECATED|        Log.warning("SQLAlchemyGateway::get_metadata: Not yet implemented")
+#DEPRECATED|        return list()
+#DEPRECATED|>>>>>>> routerv2
