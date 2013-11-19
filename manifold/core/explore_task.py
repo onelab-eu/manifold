@@ -346,7 +346,7 @@ class ExploreTask(Deferred):
 
         # For each platform related to the current table, extract the
         # corresponding table and build the corresponding FROM node
-        map_method_fields = table.get_annotations()
+        map_method_fields = table.get_annotation()
         for method, fields in map_method_fields.items(): 
             if method.get_name() == table.get_name():
                 # The table announced by the platform fits with the 3nf schema

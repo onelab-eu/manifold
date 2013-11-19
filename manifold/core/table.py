@@ -534,7 +534,7 @@ class Table(object):
         return ret
 
     @returns(dict)
-    def get_annotations(self):
+    def get_annotation(self):
         """
         \return A dictionnary which map for each Method (e.g. platform +
             method name) the set of Field that can be retrieved 

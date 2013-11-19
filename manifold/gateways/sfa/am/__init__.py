@@ -60,7 +60,6 @@ class SFA_AMGateway(SFAGatewayCommon):
             related to this AM.
         """
         platform_names = self.get_config()["rm_platforms"]
-        Log.tmp("platform_names = %s" % platform_names)
 
         # Check whether this AM refers to at least one RM.
         if len(platform_names) == 0:

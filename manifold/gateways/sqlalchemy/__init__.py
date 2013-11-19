@@ -396,6 +396,18 @@ class SQLAlchemyGateway(Gateway):
     def receive(self, packet):
         # formerly forward
         Gateway.receive(self, packet)
+#DEPRECATED|=======
+#DEPRECATED|    def forward(self, query, annotation, receiver):
+#DEPRECATED|        """
+#DEPRECATED|        Query handler.
+#DEPRECATED|        Args:
+#DEPRECATED|            query: A Query instance, reaching this Gateway.
+#DEPRECATED|            annotation: A dictionnary instance containing Query's annotation.
+#DEPRECATED|            receiver : A Receiver instance which collects the results of the Query.
+#DEPRECATED|        """
+#DEPRECATED|        super(SQLAlchemyGateway, self).forward(query, annotation, receiver)
+#DEPRECATED|        identifier = receiver.get_identifier() if receiver else None
+#DEPRECATED|>>>>>>> routerv2
 
         _map_action = {
             'get'    : self.local_query_get,
@@ -428,3 +440,24 @@ class SQLAlchemyGateway(Gateway):
             traceback.print_exc()
             self.send(LastRecord())
             self.error(query, e)
+#DEPRECATED|=======
+#DEPRECATED|            user = annotation.get('user', None)
+#DEPRECATED|            rows = _map_action[query.get_action()](query, user)
+#DEPRECATED|            for row in rows:
+#DEPRECATED|                self.send(row2record(row), receiver, identifier)
+#DEPRECATED|            self.send(LastRecord(), receiver, identifier)
+#DEPRECATED|            self.success(receiver, query)
+#DEPRECATED|        except AttributeError, e:
+#DEPRECATED|            self.send(LastRecord(), receiver, identifier)
+#DEPRECATED|            self.error(receiver, query, e)
+#DEPRECATED|
+#DEPRECATED|    @returns(list)
+#DEPRECATED|    def get_metadata(self):
+#DEPRECATED|        """
+#DEPRECATED|        Build metadata by loading header files
+#DEPRECATED|        Returns:
+#DEPRECATED|            The list of corresponding Announce instances
+#DEPRECATED|        """
+#DEPRECATED|        Log.warning("SQLAlchemyGateway::get_metadata: Not yet implemented")
+#DEPRECATED|        return list()
+#DEPRECATED|>>>>>>> routerv2
