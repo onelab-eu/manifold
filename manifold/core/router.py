@@ -71,6 +71,7 @@ class Router(Interface):
     def get_local_metadata(self):
         # We do not need normalization here, can directly query the gateway
         map_method_capabilities = {
+            Method('local', 'platform'): Capabilities('retrieve', 'join', 'selection', 'projection'),
             Method('local', 'object'): Capabilities('retrieve', 'join', 'selection', 'projection'),
             Method('local', 'column'): Capabilities('retrieve', 'join', 'selection', 'projection')
         }

@@ -98,7 +98,7 @@ class Producer(Node):
         #if self.get_identifier():
         #    Log.record("[#%04d] [ %r ]" % (identifier, record))
         #else:
-        Log.record("[ %r ]" % packet)
+        Log.record(packet)
 
         self._pool_consumers.receive(packet)
         

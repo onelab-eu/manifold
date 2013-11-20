@@ -225,9 +225,10 @@ class Gateway(Producer):
         variables = dict() 
         # Authenticated user
         variables["user_email"] = user["email"]
-        for k, v in user["config"].items():
-            if isinstance(v, StringTypes) and not "credential" in v:
-                variables[k] = v
+        if user:
+            for k, v in user["config"].items():
+                if isinstance(v, StringTypes) and not "credential" in v:
+                    variables[k] = v
         # Account information of the authenticated user
         for k, v in account_config.items():
             if isinstance(v, StringTypes) and not "credential" in v:

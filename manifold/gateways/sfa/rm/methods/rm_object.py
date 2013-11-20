@@ -17,6 +17,7 @@ from twisted.internet                           import defer
 
 from sfa.util.xrn                               import hrn_to_urn 
 
+from manifold.core.record                       import Record
 from manifold.gateways.sfa.object               import Object
 from manifold.util.log                          import Log
 from manifold.util.predicate                    import eq, lt, le, included
@@ -48,6 +49,7 @@ class RM_Object(Object):
                 geni_urn: a String containing the GENI URN (ex: "urn:publicid:IDN+ple:upmc+user+john_doe")
                 date_created: an integer (timestamp)
         """
+        Log.tmp("SFA:RM:get(%r)" % query)
         object     = query.get_from()
         object_hrn = "%s_hrn" % object
         filters    = query.get_where()

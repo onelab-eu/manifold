@@ -144,6 +144,12 @@ class Record(Packet):
         """
         return dict.pop(self._dict, key)
 
+    def items(self):
+        return dict.items(self._dict)
+
+    def keys(self):
+        return dict.keys(self._dict)
+
 
 class LastRecord(Record):
     def __init__(self, *args, **kwargs):

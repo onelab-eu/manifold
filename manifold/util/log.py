@@ -275,8 +275,13 @@ class Log(object):
         cls.print_msg(' '.join(map(lambda x: "%r" % x, make_list(msg))), 'TMP', caller_name())
 
     @classmethod
-    def record(cls, *msg):
-        #cls.print_msg(' '.join(map(lambda x: "%r" % x, make_list(msg))), 'RECORD', caller_name())
+    def record(cls, record, source=None):
+        msg = [
+            "[%04d] %s :" % (source.get_identifier(), source.__class__.__name__) if source else "",
+            "%r" % record,
+            #"KEYS=%r" % record.keys()
+        ]
+        #cls.print_msg(' '.join(msg), 'RECORD', caller_name())
         pass
 
     @classmethod

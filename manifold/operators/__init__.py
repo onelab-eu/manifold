@@ -117,7 +117,7 @@ class Node(object):
         """
         \brief calls the parent callback with the record passed in parameter
         """
-        Log.record("[#%04d] SEND %r [ %r ]" % (self.identifier, self.__class__.__name__, record))
+        Log.record(record, source=self)
         self.callback(record)
 
     @returns(Query)

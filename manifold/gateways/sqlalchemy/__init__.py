@@ -20,10 +20,9 @@ from sqlalchemy                     import create_engine
 from sqlalchemy                     import types
 from sqlalchemy.ext.declarative     import declarative_base, declared_attr
 from sqlalchemy.orm                 import sessionmaker
-from sqlalchemy.util._collections   import NamedTuple ##
+from sqlalchemy.util._collections   import NamedTuple
 from manifold.core.announce         import Announce
 from manifold.core.field            import Field
-from manifold.core.query            import Query ##
 from manifold.core.record           import Record, LastRecord 
 from manifold.core.table            import Table
 from manifold.gateways              import Gateway
@@ -81,15 +80,22 @@ def row2record(row):
     Returns:
         The corresponding Record.
     """
-    try:
-        return Record({c.name: getattr(row, c.name) for c in row.__table__.columns})
-    except:
-        Log.warning("row2record: this is strange: row = %s (%s)" % (row, type(row)))
-        Log.warning(traceback.format_exc())
-        pass
+#DEPRECATED|    try:
+#DEPRECATED|        return Record({c.name: getattr(row, c.name) for c in row.__table__.columns})
+#DEPRECATED|    except:
+#DEPRECATED|        Log.warning("row2record: this is strange: row = %s (%s)" % (row, type(row)))
+#DEPRECATED|        Log.warning(traceback.format_exc())
+#DEPRECATED|        pass
+
+    # http://stackoverflow.com/questions/18110033/getting-first-row-from-sqlalchemy
+    # Yes, when you ask specifically for a column of a mapped class with
+    # query(Class.attr), SQLAlchemy will return a
+    # sqlalchemy.util._collections.NamedTuple instead of DB objects.
 
     if isinstance(row, NamedTuple):
         return Record(zip(row.keys(), row))
+    else:
+        return Record({c.name: getattr(row, c.name) for c in row.__table__.columns})
 
 class SQLAlchemyGateway(Gateway):
     __gateway_name__ = 'sqlalchemy'
@@ -161,8 +167,9 @@ class SQLAlchemyGateway(Gateway):
 
         # Transform a Filter into a sqlalchemy expression
         _filters = get_sqla_filters(cls, query.get_where())
-        _fields = xgetattr(cls, query.get_select()) if query.get_select() else None
+        _fields = xgetattr(cls, fields) if fields else None
 
+        # db.query(cls) seems to return NamedTuples
         res = db.query(*_fields) if _fields else db.query(cls)
         if query.get_where():
             for _filter in _filters:
