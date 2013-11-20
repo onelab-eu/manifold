@@ -68,6 +68,7 @@ class OperatorGraph(object):
             allowed_platforms = [p['platform'] for p in self._interface.get_platforms()]
 
         # Handling metadata
+        print "query=", query
 
         query_plan = QueryPlan(self._interface)
         query_plan.build(query, metadata, allowed_platforms, self._interface.allowed_capabilities, user)
