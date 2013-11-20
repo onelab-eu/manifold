@@ -1503,11 +1503,11 @@ class SFAGateway(Gateway):
         super(SFAGateway, self).start()
         try:
             assert self.query, "Cannot run gateway with not query associated: %s" % self.platform
+            q = self.query
 
             self.debug = 'debug' in self.query.params and self.query.params['debug']
 
             yield self.bootstrap()
-            q = self.query
 
             if not self.user_config:
                 self.send(LastRecord())
