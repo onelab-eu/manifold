@@ -73,9 +73,10 @@ class Gateway(object):
         if user_config:
             user_config = json.loads(user_config)
 
-        for k, v in user_config.items():
-            if isinstance(v, StringTypes) and not 'credential' in v:
-                variables[k] = v
+            for k, v in user_config.items():
+                if isinstance(v, StringTypes) and not 'credential' in v:
+                    variables[k] = v
+
         # Account information of the authenticated user
         if self.user_config:
             for k, v in self.user_config.items():
