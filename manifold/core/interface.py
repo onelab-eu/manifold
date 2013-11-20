@@ -116,7 +116,6 @@ class Interface(object):
 
         platform_name = platform['platform']
         platform_id   = platform['platform_id']
-        user_id       = user['user_id']
 
         auth_type = platform.get('auth_type', None)
         if not auth_type:
@@ -132,6 +131,10 @@ class Interface(object):
         # For default, take myslice account
         elif auth_type == 'user':
 
+            if not user:
+                raise Exception, "Cannot use auth_type user when no user is configured"
+
+            user_id = user['user_id'] if user else None
             
             # User account information
             query_accounts = Query.get('local:account').filter_by('user_id', '==', user_id).filter_by('platform_id', '==', platform_id)
