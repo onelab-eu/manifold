@@ -750,7 +750,7 @@ class SFAGateway(Gateway):
             except TypeError, e:
                 raise Exception, "Missing user credential %s" %  str(e)
         elif type in ['authority', 'slice']:
-            if not 'delegated_%s_credentials' % type in self.user_config:
+            if not '%s%s_credentials' % (delegated, type) in self.user_config:
                 self.user_config['%s%s_credentials' % (delegated, type)] = {}
 
             creds = self.user_config['%s%s_credentials' % (delegated, type)]
