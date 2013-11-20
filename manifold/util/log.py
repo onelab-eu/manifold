@@ -251,7 +251,7 @@ class Log(object):
         logger = Log().get_logger()
         if not Log().get_logger():
             traceback.print_exc()
-        sys.exit(0)
+        #sys.exit(0)
 
     @classmethod
     def warning(cls, *msg, **ctx): 
