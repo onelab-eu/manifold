@@ -116,16 +116,17 @@ class Router(Interface):
         # action = what to do on this QP
         # ts = how it behaves
 
-        if query.get_action() == "update":
-            # At the moment we can only update if the primary key is present
-            keys = self.metadata_get_keys(query.get_from())
-            if not keys:
-                raise Exception, "Missing metadata for table %s" % query.get_from()
-            key_fields = keys.one().get_minimal_names()
-            
-            # XXX THIS SHOULD BE ABLE TO ACCEPT TUPLES
-            #if not query.filters.has_eq(key):
-            #    raise Exception, "The key field(s) '%r' must be present in update request" % key
+        # XXX disabled
+        #if query.get_action() == "update":
+        #    # At the moment we can only update if the primary key is present
+        #    keys = self.metadata_get_keys(query.get_from())
+        #    if not keys:
+        #        raise Exception, "Missing metadata for table %s" % query.get_from()
+        #    key_fields = keys.one().get_minimal_names()
+        #    
+        #    # XXX THIS SHOULD BE ABLE TO ACCEPT TUPLES
+        #    #if not query.filters.has_eq(key):
+        #    #    raise Exception, "The key field(s) '%r' must be present in update request" % key
 
         # Execute query plan
         # the deferred object is sent to execute function of the query_plan

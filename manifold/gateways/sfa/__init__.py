@@ -723,7 +723,6 @@ class SFAGateway(Gateway):
             else:
                 raise Exception, "Not supported type of resource" 
         
-
         rspec.version.add_nodes(nodes, rspec_content_type="request")
         #rspec.version.add_leases(leases)
         #rspec.version.add_links(links)
@@ -791,7 +790,6 @@ class SFAGateway(Gateway):
         # We suppose resource
         rspec = self.build_sfa_rspec(slice_urn, resources, leases)
         #print "BUILDING SFA RSPEC", rspec
-
         # Sliver attributes (tags) are ignored at the moment
 
 

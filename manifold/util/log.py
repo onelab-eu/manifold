@@ -273,7 +273,7 @@ class Log(object):
 
     @classmethod
     def tmp(cls, *msg):
-        cls.print_msg(' '.join(map(lambda x: "%r"%x, make_list(msg))), 'TMP', caller_name())
+            cls.print_msg(' '.join(map(lambda x: "%r"%(x,), make_list(msg))), 'TMP', caller_name())
 
     @classmethod
     def record(cls, *msg):
