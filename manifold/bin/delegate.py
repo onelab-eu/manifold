@@ -207,7 +207,7 @@ Example:
                 'filters':      [['platform', '=', platform]],
                 'params':       {'credential': c}
             }
-            MySlice.forward(auth, query)
+            MySlice.forward(query, {'authentication': auth})
             print "I: uploading credential"
     except Exception, e:
         print "E: Error uploading credential: %s" % e

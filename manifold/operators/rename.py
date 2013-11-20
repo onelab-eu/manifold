@@ -1,4 +1,4 @@
-from manifold.operators import Node, LAST_RECORD
+from manifold.operators import Node
 from manifold.util.type import returns
 
 DUMPSTR_RENAME = "RENAME %r" 
@@ -61,7 +61,7 @@ class Rename(Node):
         \brief Processes records received by the child node
         \param record dictionary representing the received record
         """
-        if record != LAST_RECORD:
+        if not record.is_last():
             #record = { self.map_fields.get(k, k): v for k, v in record.items() }
             try:
                 for k, v in self.map_fields.items():
@@ -73,8 +73,8 @@ class Rename(Node):
                             for x in record[k]:
                                 record[method].append({key: x})        
                         else:
-                            record[v] = record[k]
-                        del record[k]
+                            record[v] = record.pop(k) #record[k]
+                        #del record[k]
             except Exception, e:
                 print "EEE RENAME", e
                 import traceback

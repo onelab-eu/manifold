@@ -23,7 +23,7 @@ from types                         import StringTypes
 from manifold.util.log             import Log
 from manifold.util.type            import returns, accepts
 
-class Record(object):
+class Record(dict):
 
     @classmethod
     def get_value(self, record, key):
@@ -73,4 +73,31 @@ class Record(object):
             if record[key]: return False
         return True
 
+    def to_dict(self):
+        dic = {}
+        for k, v in self.iteritems():
+            if isinstance(v, Record):
+                dic[k] = v.to_dict()
+            elif isinstance(v, Records):
+                dic[k] = v.to_list()
+            else:
+                dic[k] = v
+        return dic
 
+    def is_last(self):
+        return False
+
+class LastRecord(Record):
+    def is_last(self):
+        return True
+
+class Records(list):
+    """
+    A list of records
+    """
+
+    def __init__(self, itr): 
+        list.__init__(self, [Record(x) for x in itr])
+
+    def to_list(self):
+        return [record.to_dict() for record in self]

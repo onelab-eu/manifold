@@ -6,9 +6,7 @@ try:
 except:
     ADMIN_USER = 'admin' # XXX
 
-from manifold.models            import db
-from manifold.models.user       import User
-from manifold.models.session    import Session 
+from manifold.core.query        import Query
 
 #-------------------------------------------------------------------------------
 # Helper functions
@@ -48,7 +46,8 @@ class AuthenticationFailure(Exception): pass
 class AuthMethod(object):
     """
     """
-    def __init__(self, auth):
+    def __init__(self, auth, interface):
+        self.interface = interface
         self.auth = auth
 
 class PasswordAuth(AuthMethod):
@@ -61,13 +60,14 @@ class PasswordAuth(AuthMethod):
         
         # Get record (must be enabled)
         try:
-            user = db.query(User).filter(User.email == self.auth['Username'].lower()).one()
+            query_users = Query.get('local:user').filter_by('email', '==', self.auth['Username'].lower())
+            user, = self.interface.execute_local_query(query_users)
         except Exception, e:
             raise AuthenticationFailure, "No such account (PW): %s" % e
 
         # Compare encrypted plaintext against encrypted password stored in the DB
         plaintext = self.auth['AuthString'].encode('latin1') # XXX method.api.encoding)
-        password = user.password
+        password = user['password']
 
         # Protect against blank passwords in the DB
         if password is None or password[:12] == "" or \
@@ -78,7 +78,41 @@ class PasswordAuth(AuthMethod):
 
 class AnonymousAuth(AuthMethod):
     def check(self):
-        return None
+        return {}
+
+class GIDAuth(AuthMethod):
+    def check(self):
+        request = self.auth.request
+        # Have we been authenticated by the ssl layer ?
+        peer_certificate = request.channel.transport.getPeerCertificate()
+        user_hrn = peer_certificate.get_subject().commonName if peer_certificate else None
+
+        if not user_hrn:
+            raise AuthenticationFailure, "GID verification failed"
+
+        # We need to map the SFA user to the Manifold user... let's search into his accounts
+
+        query_user_id = Query.get('local:linked_account').filter_by('identifier', '==', user_hrn).select('user_id')
+        ret_user_ids = self.interface.forward(query_user_id)
+        if ret_user_ids['code'] != 0:
+            raise Exception, "Failure requesting linked accounts for identifier '%s'" % user_hrn
+        user_ids = ret_user_ids['value']
+        if not user_ids:
+            raise Exception, "No linked account found with identifier '%s'" % user_hrn
+        print "user_ids", user_ids
+        user_id = user_ids[0]['user_id']
+
+        query_user = Query.get('local:user').filter_by('user_id', '==', user_id)
+        ret_users = self.interface.forward(query_user)
+        if ret_users['code'] != 0:
+            raise Exception, "Failure requesting linked accounts for identifier '%s'" % user_hrn
+        users = ret_users['value']
+        if not users:
+            raise Exception, "Internal error: no user found with user_id = '%d'" % user_id
+        user, = users
+
+        print "Linked SFA account '%s' for user: %r" % (user_hrn, user)
+
 
 class SessionAuth(AuthMethod):
     """
@@ -91,32 +125,51 @@ class SessionAuth(AuthMethod):
         assert self.auth.has_key('session')
 
         try:
-            sess = db.query(Session).filter(Session.session == self.auth['session']).one()
+            query_sessions = Query.get('local:session').filter_by('session', '==', self.auth['session'])
+            session, = self.interface.execute_local_query(query_sessions)
         except Exception, e:
             raise AuthenticationFailure, "No such session: %s" % e
 
-        user = sess.user
-        if user and sess.expires > time.time():
+        user_id = session['user_id']
+        try:
+            query_users = Query.get('local:user').filter_by('user_id', '==', user_id)
+            user, = self.interface.execute_local_query(query_users)
+        except Exception, e:
+            raise AuthenticationFailure, "No such user_id: %s" % e
+        
+        if user and session['expires'] > time.time():
             return user
         else:
-            db.delete(sess)
+            query_sessions = Query.delete('local:session').filter_by('session', '==', session['session'])
+            try:
+                self.interface.execute_local_query(query_sessions)
+            except: pass
             raise AuthenticationFailure, "Invalid session"
 
     def get_session(self, user):
         assert user, "A user associated to a session should not be NULL"
         # Before a new session is added, delete expired sessions
-        db.query(Session).filter(Session.expires < int(time.time())).delete()
+        query_sessions = Query.delete('local:session').filter_by('expires', '<', int(time.time()))
+        try:
+            self.interface.execute_local_query(query_sessions)
+        except: pass
 
-        s = Session()
         # Generate 32 random bytes
         bytes = random.sample(xrange(0, 256), 32)
         # Base64 encode their string representation
-        s.session = base64.b64encode("".join(map(chr, bytes)))
-        s.user = user #self.authenticate(self.auth)
-        s.expires = int(time.time()) + (24 * 60 * 60)
-        db.add(s)
-        db.commit()
-        return s.session
+
+        session_params = {
+            'session': base64.b64encode("".join(map(chr, bytes))),
+            'user_id': user['user_id'],
+            'expires': int(time.time()) + (24 * 60 * 60)
+        }
+
+        query_session = Query.create('local:session').set(session_params).select('session')
+        try:
+            session, = self.interface.execute_local_query(query_sessions)
+        except: pass
+
+        return session['session']
 
 
 class PLEAuth(AuthMethod):
@@ -230,26 +283,21 @@ class Auth(object):
         'session': SessionAuth,
         'ple': PLEAuth,
         'plc': PLCAuth,
-        'managed': ManagedAuth
+        'managed': ManagedAuth,
+        'gid': GIDAuth
     }
 
-    def __init__(self, auth):
+    def __init__(self, auth, interface):
         if not 'AuthMethod' in auth:
             raise AuthenticationFailure, "AuthMethod should be specified"
 
         try:
-            self.auth_method = self.auth_map[auth['AuthMethod']](auth)
+            self.auth_method = self.auth_map[auth['AuthMethod']](auth, interface)
         except Exception, e:
-            raise AuthenticationFailure, "Unsupported authentication method: %s" % auth['AuthMethod']
+            raise AuthenticationFailure, "Unsupported authentication method: %s, %s" % (auth['AuthMethod'], e)
 
     def check(self):
         return self.auth_method.check()
-    
-    @classmethod
-    def AuthCheck(self, auth):
-        #print "AuthCheck auth=",auth
-        Auth(auth).check()
-        return 1
 
 # deprecated #     # These are temporary functions...
 # deprecated # 

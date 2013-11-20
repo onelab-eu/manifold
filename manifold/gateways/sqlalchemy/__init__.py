@@ -5,9 +5,12 @@ from sqlalchemy.orm             import sessionmaker
 from manifold.gateways          import Gateway
 from manifold.util.log          import Log
 from manifold.util.predicate    import included
+from manifold.core.record       import Record, LastRecord
 
 from manifold.models            import db
 from manifold.models.account    import Account
+from manifold.models.linked_account    import LinkedAccount
+from manifold.models.policy     import Policy
 from manifold.models.platform   import Platform
 from manifold.models.user       import User
 from manifold.models.session    import Session as DBSession 
@@ -39,25 +42,28 @@ def get_sqla_filters(cls, filters):
     else:
         return None
 
-def row2dict(row):
+def row2record(row):
     try:
-        return {c.name: getattr(row, c.name) for c in row.__table__.columns}
+        return Record({c.name: getattr(row, c.name) for c in row.__table__.columns})
     except:
-        Log.tmp("Inconsistency in ROW2DICT")
-        return {c: getattr(row, c) for c in row.keys()}
+        #Log.tmp("Inconsistency in ROW2RECORD", row)
+        return Record({c: getattr(row, c) for c in row.keys()})
 
 class SQLAlchemyGateway(Gateway):
+    __gateway_name__ = 'sqlalchemy'
 
     map_object = {
         'platform' : Platform,
         'user'     : User,
         'account'  : Account,
-        'session'  : DBSession
+        'session'  : DBSession,
+        'linked_account': LinkedAccount,
+        'policy'   : Policy
     }
 
-    def __init__(self, router=None, platform=None, query=None, config=None, user_config=None, user=None, format='dict'):
+    def __init__(self, router=None, platform=None, query=None, config=None, user_config=None, user=None, format='record'):
 
-        assert format in ['dict', 'object'], 'Unknown return format for gateway SQLAlchemy'
+        assert format in ['record', 'object'], 'Unknown return format for gateway SQLAlchemy'
         if format == 'object':
             Log.tmp("Objects should not be used")
         self.format = format
@@ -106,8 +112,8 @@ class SQLAlchemyGateway(Gateway):
 
         # Do we need to limit to the user's own results
         try:
-            if cls.restrict_to_self and self.user.email != 'demo':
-                res = res.filter(cls.user_id == self.user.user_id)
+            if self.user and cls.restrict_to_self and self.user['email'] != 'demo':
+                res = res.filter(cls.user_id == self.user['user_id'])
         except AttributeError: pass
 
         tuplelist = res.all()
@@ -165,14 +171,13 @@ class SQLAlchemyGateway(Gateway):
         q = db.query(cls)
         for _filter in _filters:
             q = q.filter(_filter)
-        if cls.restrict_to_self:
-            q = q.filter(getattr(cls, 'user_id') == self.user.user_id)
+        if self.user and cls.restrict_to_self:
+            q = q.filter(getattr(cls, 'user_id') == self.user['user_id'])
         q = q.update(_params, synchronize_session=False)
         try:
             db.commit()
         except:
             db.rollback()
-
 
         return []
 
@@ -191,18 +196,13 @@ class SQLAlchemyGateway(Gateway):
             params['password'] = self.encrypt_password(params['password'])
         
         _params = cls.process_params(query.get_params(), None, self.user)
-        print "CLS=", cls
-        print "BASES", cls.__bases__
-        print "PARAMS=", params
         new_obj = cls()
         #from sqlalchemy.orm.attributes import manager_of_class
         #mgr = manager_of_class(cls)
         #instance = mgr.new_instance()
-        print "new obj=", new_obj
 
         if params:
             for k, v in params.items():
-                print "%s = %s" % (k,v)
                 setattr(new_obj, k, v)
         db.add(new_obj)
         try:
@@ -211,6 +211,31 @@ class SQLAlchemyGateway(Gateway):
             db.rollback()
         
         return [new_obj]
+
+    def local_query_delete(self, query):
+        #session.query(User).filter(User.id==7).delete()
+
+        fields = query.fields
+
+        cls = self.map_object[query.object]
+
+        # Transform a Filter into a sqlalchemy expression
+        _filters = get_sqla_filters(cls, query.filters)
+        _fields = xgetattr(cls, query.fields) if query.fields else None
+
+
+        res = db.query( *_fields ) if _fields else db.query( cls )
+        if query.filters:
+            for _filter in _filters:
+                res = res.filter(_filter)
+
+        # Do we need to limit to the user's own results
+        try:
+            if self.user and cls.restrict_to_self and self.user['email'] != 'demo':
+                res = res.filter(cls.user_id == self.user['user_id'])
+        except AttributeError: pass
+
+        res.delete()
 
     def encrypt_password(self, password):
         #
@@ -231,17 +256,19 @@ class SQLAlchemyGateway(Gateway):
     def start(self):
         assert self.query, "Cannot start gateway with no query associated"
         _map_action = {
-            "get"    : self.local_query_get,
-            "update" : self.local_query_update,
-            "create" : self.local_query_create
+            'get'    : self.local_query_get,
+            'update' : self.local_query_update,
+            'create' : self.local_query_create,
+            'delete' : self.local_query_delete
         }
         table = _map_action[self.query.action](self.query)
         # XXX For local namespace queries, we need to keep a dict
-        for t in table:
-#MANDO|            row = row2dict(t) if self.format == 'dict' else t.get_object()
-            row = row2dict(t) if self.format == 'dict' else t
-            self.callback(row)
-        self.callback(None)
+        if table:
+            for t in table:
+    #MANDO|            row = row2dict(t) if self.format == 'dict' else t.get_object()
+                row = row2record(t) if self.format == 'record' else t
+                self.send(row)
+        self.send(LastRecord())
 
     def get_metadata(self):
         return []	

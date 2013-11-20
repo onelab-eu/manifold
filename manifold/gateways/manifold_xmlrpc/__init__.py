@@ -7,6 +7,7 @@ from manifold.gateways import Gateway
 import sys
 
 class ManifoldGateway(Gateway):
+    __gateway_name__ = 'manifold'
 
     def __str__(self):
         return "<ManifoldGateway %s %s>" % (self.config['url'], self.query)

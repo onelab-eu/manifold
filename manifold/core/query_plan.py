@@ -215,7 +215,7 @@ class QueryPlan(object):
         self.inject_at(query)
 
     #@returns(ResultValue)
-    def execute(self, deferred = None):
+    def execute(self, is_deferred = False):
         """
         Execute the QueryPlan in order to query the appropriate
         sources of data, collect, combine and returns the records
@@ -225,9 +225,12 @@ class QueryPlan(object):
         Returns:
             The corresponding ResultValue instance.    
         """
+
+
         # create a Callback object with deferred object as arg
         # manifold/util/callback.py 
-        cb = Callback(deferred)
+        d = Deferred() if is_deferred else None
+        cb = Callback(d)
 
         # Start AST = Abstract Syntax Tree 
         # An AST represents a query plan
@@ -235,16 +238,7 @@ class QueryPlan(object):
         self.ast.set_callback(cb)
         self.ast.start()
 
-        # Not Async, wait for results
-        if not deferred:
-            results = cb.get_results()
-            results = ResultValue.get_result_value(results, self.get_result_value_array())
-            return results
-
-        # Async, results sent to a deferred object 
-        # Formating results triggered when deferred get results
-        deferred.addCallback(lambda results:ResultValue.get_result_value(results, self.get_result_value_array()))
-        return deferred
+        return d if is_deferred else cb.get_results()
 
     def dump(self):
         """

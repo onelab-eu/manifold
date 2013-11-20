@@ -1,4 +1,3 @@
-from manifold.operators      import LAST_RECORD
 import threading
 
 #------------------------------------------------------------------
@@ -20,9 +19,9 @@ class Callback:
         self.router = router
         self.cache_id = cache_id
 
-    def __call__(self, value):
+    def __call__(self, record):
         # End of the list of records sent by Gateway
-        if value == LAST_RECORD:
+        if record.is_last():
             if self.cache_id:
                 # Add query results to cache (expires in 30min)
                 #print "Result added to cached under id", self.cache_id
@@ -37,7 +36,7 @@ class Callback:
             return self.event
 
         # Not LAST_RECORD add the value to the results
-        self.results.append(value)
+        self.results.append(record)
 
     def wait(self):
         self.event.wait()

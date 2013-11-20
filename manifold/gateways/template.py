@@ -8,13 +8,15 @@
 #
 # Copyright (C) 2013 UFPE/UPMC 
 
-from manifold.gateways                  import Gateway, LAST_RECORD
-from manifold.core.table                import Table
-from manifold.core.field                import Field
-from manifold.core.announce             import Announce
-from manifold.util.log                  import Log
+from manifold.gateways      import Gateway
+from manifold.core.record   import Record, Records, LastRecord
+from manifold.core.table    import Table
+from manifold.core.field    import Field
+from manifold.core.announce import Announce
+from manifold.util.log      import Log
 
 class PerfSONARGateway(Gateway):
+    __gateway_name__ = 'template'
 
     #---------------------------------------------------------------------------
     # Constructor
@@ -65,14 +67,10 @@ class PerfSONARGateway(Gateway):
         # Results of the query (TODO)
         rows = []
 
-        # Adding a flag indicating this is the last record
-        rows.append(LAST_RECORD)
-
         # Sending rows to parent processing node in the AST
-        map(self.send, rows)
+        map(self.send, Records(rows))
+        self.send(LastRecord())
 
-        return 
-       
 
     #---------------------------------------------------------------------------
     # Metadata 
