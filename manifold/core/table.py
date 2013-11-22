@@ -240,14 +240,28 @@ class Table(object):
     @returns(Field)
     def get_field(self, field_name):
         """
+        Retrieve a Field according to its name.
         Args:
             field_name: A String instance storing a field name of this Table.
+        Raises:
+            KeyError: if the field_name does not refer to a Field of this Table.
         Returns:
             The Field instance corresponding to this field name. 
         """
         return self.fields[field_name]
 
+    @returns(StringTypes)
     def get_field_type(self, field_name):
+        """
+        Retrieve the type of a Field of this Table. 
+        Args:
+            field_name: A String instance containing the field name of a
+                Field contained in this Table.
+        Raises:
+            KeyError: if the field_name does not refer to a Field of this Table.
+        Returns:
+            A String containing the type of this Field.
+        """
         return self.get_field(field_name).get_type()
 
     @returns(bool)
@@ -257,6 +271,8 @@ class Table(object):
         Args:
             field_name: A String containing the name of the
                 field we want to remove.
+        Raises:
+            KeyError: if the field_name does not refer to a Field of this Table.
         Returns:
             True iif the field has been successfully removed
         """
@@ -273,6 +289,8 @@ class Table(object):
                 Field      (a Field instance belonging to this Table)
                 StringType (a field name, related to a field of this Table)
                 container  (list, set, frozenset, tuple) made of StringType (field names)
+        Raises:
+            TypeError: if the key argument is not valid. 
         """
         if isinstance(key, Key):
             self.keys.add(key)
@@ -389,9 +407,11 @@ class Table(object):
     @returns(set)
     def get_names_from_keys(self):
         """
-        \return A set of tuple of field names
-            Each tuple corresponds to a key of 'self'.
-            Each element of these tuples is a String.
+        Returns:
+            A set of tuple of Strings.
+            - Each tuple corresponds to a Key of this Table.
+            - Each String of those tuples corresponds to a
+            field name of this Key.
         """
         return set([
             frozenset([
@@ -402,11 +422,12 @@ class Table(object):
     @returns(set)
     def get_types_from_keys(self):
         """
-        \return A set of tuple of types 
-            Each sub-array correspond to a key of 'self'.
-            Each element of these subarray is a typename 
+        Returns:
+            A set of frozenset of Strings,
+            - Each frozenset corresponds to a Key of 'self'.
+            - Each String of those frozenset corresponds to a
+            type name involved in this Key.
         """
-
         return set([
             frozenset([
                 field.get_type() for field in fields
@@ -416,7 +437,8 @@ class Table(object):
     @returns(dict)
     def get_partitions(self):
         """
-        \return The dictionnary which map for each platform its corresponding clause
+        Returns:
+            The dictionnary which maps for each platform its corresponding clause
             (e.g the partition). A None clause means that this clause is always True
         """
         return self.partitions
@@ -439,7 +461,9 @@ class Table(object):
     @returns(set)
     def get_platforms(self):
         """
-        \return The set of platform that corresponds to this table
+        Returns:
+            The set of String where each String is the name of a
+            Platform providing this Table.
         """
         return self.platforms
 
@@ -536,7 +560,8 @@ class Table(object):
     @returns(dict)
     def get_annotation(self):
         """
-        \return A dictionnary which map for each Method (e.g. platform +
+        Returns:
+            A dictionnary which map for each Method (e.g. platform name +
             method name) the set of Field that can be retrieved 
         """
         try:
@@ -544,7 +569,7 @@ class Table(object):
         except AttributeError:
             # Tables might not have such method
             Log.warning("get_annotations on table with unknown platform... set to local")
-            return { Method('local', self.name): self.get_field_names() }
+            return { Method('local', self.get_name()): self.get_field_names() }
 
     #-----------------------------------------------------------------------
     # Relations between two Table instances 
@@ -600,7 +625,15 @@ class Table(object):
 #DEPRECATED|                return (u.fields.intersection(v_key), v_key)
 #DEPRECATED|        return None
 
+    @returns(bool)
     def is_child_of(self, table):
+        """
+        Tests whether this Table inherits a given Table.
+        Args:
+            table: A Table instance.
+        Returns:
+            True iif this Table inherits 'table'.
+        """
         u = self
         v = table
         try:

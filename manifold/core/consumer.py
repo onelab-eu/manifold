@@ -1,6 +1,19 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+# A Consumer is a Node:
+#  - sending QUERY Packets to its Producers
+#  - receiving a RECORD Packets (or an ERROR Packet) 
+#
+# Copyright (C) UPMC Paris Universitas
+# Authors:
+#   Jordan Augé         <jordan.auge@lip6.fr>
+#   Marc-Olivier Buob   <marc-olivier.buob@lip6.fr>
+
 from manifold.core.node           import Node
 from manifold.core.packet         import Packet
 from manifold.core.pool_producers import PoolProducers
+from manifold.util.type           import accepts, returns
 
 class Consumer(Node):
 
@@ -16,15 +29,16 @@ class Consumer(Node):
             producer.add_consumer(self, cascade = False)
 
         self._has_parent_producer = has_parent_producer
-    
 
     #---------------------------------------------------------------------------
     # Accessors
     #---------------------------------------------------------------------------
 
+    @returns(set)
     def get_producers(self):
         return set(self._pool_producers)
 
+    @returns(int)
     def get_max_producers(self):
         return self._pool_producers.get_max_producers()
 
@@ -73,7 +87,7 @@ class Consumer(Node):
         self.clear_producers()
         self.add_producer(producer)
 
-    def set_producers(self, consumers):
+    def set_producers(self, producers):
         self.clear_producers()
         self.add_producers(producers)
 
@@ -92,7 +106,7 @@ class Consumer(Node):
 
     def send(self, packet):
         """
-        A Consumer sends queries to Producers
+        A Consumer sends Query Packets to Producers
         """
         if packet.get_type() not in [Packet.TYPE_QUERY]:
             raise ValueError, "Invalid packet type for producer: %s" % Packet.get_type_name(packet.get_type())

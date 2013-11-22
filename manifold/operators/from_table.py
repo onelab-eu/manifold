@@ -37,6 +37,7 @@ class FromTable(Node):
                 (same fields, same key).
             key: The Key instance related to these Records.
         """
+        Log.warning("FromTable must be updated to inherit Producer instead of Node")
         assert isinstance(query,   Query), "Invalid query = %r (%r)"   % (query,   type(query))
         assert isinstance(records, list),  "Invalid records = %r (%r)" % (records, type(records))
 

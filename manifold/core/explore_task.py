@@ -331,16 +331,16 @@ class ExploreTask(Deferred):
         map_method_bestkey = dict()
         map_method_demux   = dict()
 
-        # XXX I don't understand this -- Jordan
-        # Update the key used by a given method
-        # The more we iterate, the best the key is
-        if key:
-            try:
-                for method, keys in table.map_method_keys.items():
-                    if key in table.map_method_keys[method]: 
-                        map_method_bestkey[method] = key 
-            except AttributeError:
-                map_method_bestkey[table.name] = key
+#DISABLED|        # XXX I don't understand this -- Jordan
+#DISABLED|        # Update the key used by a given method
+#DISABLED|        # The more we iterate, the best the key is
+#DISABLED|        if key:
+#DISABLED|            try:
+#DISABLED|                for method, keys in table.map_method_keys.items():
+#DISABLED|                    if key in table.map_method_keys[method]: 
+#DISABLED|                        map_method_bestkey[method] = key 
+#DISABLED|            except AttributeError:
+#DISABLED|                map_method_bestkey[table.name] = key
 
         # For each platform related to the current table, extract the
         # corresponding table and build the corresponding FROM node
@@ -370,16 +370,16 @@ class ExploreTask(Deferred):
                 # XXX
 
                 from_ast = AST(self._interface, user = user).From(platform, query, capabilities, key)
-                query_plan.add_from(from_ast.get_root())
+                query_plan.add_from(from_ast.get_producer())
 
-                try:
-                    if method in table.methods_demux:
-                        from_ast.demux().projection(list(fields))
-                        demux_node = from_ast.get_root().get_child()
-                        assert isinstance(demux_node, Demux), "Bug"
-                        map_method_demux[method] = demux_node 
-                except AttributeError:
-                    pass
+#DISABLED|                try:
+#DISABLED|                    if method in table.methods_demux:
+#DISABLED|                        from_ast.demux().projection(list(fields))
+#DISABLED|                        demux_node = from_ast.get_root().get_child()
+#DISABLED|                        assert isinstance(demux_node, Demux), "Bug"
+#DISABLED|                        map_method_demux[method] = demux_node 
+#DISABLED|                except AttributeError:
+#DISABLED|                    pass
 
             else:
                 # The table announced by the platform doesn't fit with the 3nf schema

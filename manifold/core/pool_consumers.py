@@ -9,12 +9,16 @@ class PoolConsumers(set):
     # Constructor
     #---------------------------------------------------------------------------
 
-    def __init__(self, consumers=None, max_consumers=None):
+    def __init__(self, consumers = None, max_consumers = None):
         """
         Constructor
+        Args:
+            consumers: A list or a set of Consumer instances (children of this Node).
+            max_consumers: A strictly positive integer or None (maximum
+                 number of children, pass None if not bounded).
         """
         if not consumers:
-            consumers = set()
+            consumers = list()
         if not isinstance(consumers, (list, set)):
             consumers = [consumers]
 

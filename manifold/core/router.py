@@ -41,22 +41,29 @@ CACHE_LIFETIME     = 1800
 #------------------------------------------------------------------
 
 class Router(Interface):
-    """
-    Implements a Manifold Router.
-    Specialized to handle Announces/Routes, ...
-    """
 
     #---------------------------------------------------------------------------
     # Constructor
     #---------------------------------------------------------------------------
 
-    def __init__(self, user = None, allowed_capabilities = None):
+    def __init__(self, user_storage = None, allowed_capabilities = None):
+        """
+        Constructor.
+        Args:
+            user_storage: A dictionnary used to access to the Manifold Storage
+                or None if the Storage can be accessed anonymously.
+            allowed_capabilities: A Capabilities instance which defines which
+                operation can be performed by this Router. Pass None if there
+                is no restriction.
+        """
         # NOTE: We should avoid having code in the Interface class
-        # Interface should be a parent class for Router and Gateway, so that for example we can plug an XMLRPC interface on top of it
-        Interface.__init__(self, user, allowed_capabilities)
+        # Interface should be a parent class for Router and Gateway, so
+        # that for example we can plug an XMLRPC interface on top of it
+        Interface.__init__(self, user_storage, allowed_capabilities)
 
         self._sockets = list()
-        # We already have gateways defined in Interface
+
+        # Manifold Gateways are already initialized in parent class. 
         self._operator_graph = OperatorGraph(router = self)
 
         # XXX metadata/g_3nf
@@ -65,18 +72,30 @@ class Router(Interface):
     # Accessors
     #---------------------------------------------------------------------------
 
+    @returns(DBGraph)
     def get_metadata(self):
+        """
+        Returns:
+            The DBGraph related to all the Tables except those related to the
+            "local:" namespace.
+        """
         return self.g_3nf
 
+    @returns(DBGraph)
     def get_local_metadata(self):
+        """
+        Returns:
+            The DBGraph related to the "local:" namespace.
+        """
         # We do not need normalization here, can directly query the gateway
         map_method_capabilities = {
-            Method('local', 'platform'): Capabilities('retrieve', 'join', 'selection', 'projection'),
-            Method('local', 'object'): Capabilities('retrieve', 'join', 'selection', 'projection'),
-            Method('local', 'column'): Capabilities('retrieve', 'join', 'selection', 'projection')
+            Method('local', 'platform') : Capabilities('retrieve', 'join', 'selection', 'projection'),
+            Method('local', 'object')   : Capabilities('retrieve', 'join', 'selection', 'projection'),
+            Method('local', 'column')   : Capabilities('retrieve', 'join', 'selection', 'projection')
         }
-        local_metadata = self._storage.get_metadata()
-        local_tables = [a.table for a in local_metadata]
+        local_announces = self._storage.get_metadata()
+        local_tables = [announce.get_table() for announce in local_announces]
+
         return DBGraph(local_tables, map_method_capabilities)
 
     #---------------------------------------------------------------------------
@@ -230,28 +249,16 @@ class Router(Interface):
         """
         This method replaces forward() at the packet level
         """
-
-        Log.tmp("received packet")
-
         # Create a Socket holding the connection information
         socket = Socket(packet, router = self)
-
         packet.set_receiver(socket)
 
-        Log.tmp("socket ok: %r" % socket)
-        query = packet.get_query()
-        Log.tmp("query ok: %r" % query)
-        annotation = packet.get_annotation()
-        Log.tmp("annotation: %r" % annotation)
-
-        # We need to route the query (aka connect is to the OperatorGraph)
+        # We need to route the Query (i.e. update the OperatorGraph consequently)
         self._operator_graph.build_query_plan(packet)
 
         # Execute the operators related to the socket, if needed
         socket.receive(packet)
 
-        
-        
 #    # Is it useful at all ?
 #    def send(self, packet):
 #        pass

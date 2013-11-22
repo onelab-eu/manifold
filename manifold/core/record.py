@@ -33,19 +33,26 @@ class Record(Packet):
 
     def __init__(self, *args, **kwargs):
         Packet.__init__(self, Packet.TYPE_RECORD)
-
         self._dict = dict(*args, **kwargs)
-        self._last = False
-
 
     #---------------------------------------------------------------------------
     # Accessors
     #---------------------------------------------------------------------------
 
+    @returns(dict)
     def get_dict(self):
+        """
+        Returns:
+            The dict nested in this Record. Note that most of time
+            you should use to_dict() method instead.
+        """
         return self._dict
 
     def to_dict(self):
+        """
+        Returns:
+            The dict representation of this Record.
+        """
         dic = {}
         for k, v in self._dict.iteritems():
             if isinstance(v, Record):
@@ -56,36 +63,51 @@ class Record(Packet):
                 dic[k] = v
         return dic
 
-    def get_last(self):
-        return self._last
-
-    def set_last(self, value):
-        self._last = value
-
+    @returns(bool)
     def is_last(self):
-        return self._last
-
+        """
+        (This method is overwritten in LastRecord)
+        Returns:
+            True iif this Record is the last one of a list
+            of Records corresponding to a given Query.
+        """
+        return False 
 
     #--------------------------------------------------------------------------- 
     # Internal methods
     #--------------------------------------------------------------------------- 
 
+    @returns(StringTypes)
     def __repr__(self):
-        content = [
-            ("%r" % self._dict) if self._dict else '',
-            'LAST' if self._last else ''
-        ]
-        return "<Record %s>" % ' '.join(content)
+        """
+        Returns:
+            The '%s' representation of this Record.
+        """
+        return "<Record %s>" % ' '.join([("%s" % self._dict) if self._dict else ''])
 
     def __getitem__(self, key, **kwargs):
+        """
+        Extract from this Record a field value.
+        Args:
+            key: A String instance corresponding to a field name
+                of this Record.
+        Returns:
+            The corresponding value. 
+        """
         return dict.__getitem__(self._dict, key, **kwargs)
 
     def __setitem__(self, key, value, **kwargs):
+        """
+        Set the value corresponding to a given key.
+        Args:
+            key: A String instance corresponding to a field name
+                of this Record.
+            value: The value that must be mapped with this key.
+        """
         return dict.__setitem__(self._dict, key, value, **kwargs)
 
     def __iter__(self): 
         return dict.__iter__(self._dict)
-
 
     #--------------------------------------------------------------------------- 
     # Class methods
@@ -98,7 +120,6 @@ class Record(Packet):
             return { key: value }
         else:
             return Record(izip(key, value))
-
 
     #--------------------------------------------------------------------------- 
     # Methods
@@ -150,22 +171,55 @@ class Record(Packet):
     def keys(self):
         return dict.keys(self._dict)
 
-
 class LastRecord(Record):
     def __init__(self, *args, **kwargs):
-        Record.__init__(self, *args, **kwargs)
-        self._last = True
+        """
+        Constructor.
+        """
+        super(LastRecord, self).__init__(*args, **kwargs)
+
+    @returns(bool)
+    def is_last(self):
+        """
+        (This method is overwritten in LastRecord)
+        Returns:
+            True iif this Record is the last one of a list
+            of Records corresponding to a given Query.
+        """
+        return True 
+
+    @returns(StringTypes)
+    def __repr__(self):
+        """
+        Returns:
+            The '%s' representation of this Record.
+        """
+        return 'LAST'
 
 class Records(list):
     """
-    A list of records
+    A Records instance transport a list of Record instances.
     """
 
     def __init__(self, itr = None): 
+        """
+        Constructor.
+        Args:
+            itr: An Iterable instance containing instances that
+                can be casted into a Record (namely dict or
+                Record instance). For example, itr may be
+                a list of dict (having the same keys).
+        """
         if itr:
             list.__init__(self, [Record(x) for x in itr])
         else:
             list.__init__(self)
 
+    @returns(list)
     def to_list(self):
+        """
+        Returns:
+            The list of Record instance corresponding to this
+            Records instance.
+        """
         return [record.to_dict() for record in self]
