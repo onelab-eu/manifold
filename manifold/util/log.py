@@ -1,9 +1,24 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+# Log is a Singleton providing several methods allowing to log
+# message locally or thanks to a rsyslog. It can write colored
+# messages colors.
+#
+# Copyright (C) UPMC Paris Universitas
+# Authors:
+#   Jordan Augé       <jordan.auge@lip6.fr>
+#   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
+
 import sys, logging, traceback, inspect, os.path
-from logging                 import handlers
-from manifold.util.singleton import Singleton
-from manifold.util.options   import Options
-from manifold.util.misc      import caller_name, make_list
-from manifold.util           import colors
+from logging                    import handlers
+from types                      import StringTypes
+
+from manifold.util              import colors
+from manifold.util.options      import Options
+from manifold.util.misc         import caller_name, make_list
+from manifold.util.singleton    import Singleton
+from manifold.util.type         import accepts, returns
 
 # TODO Log should take separately message strings and arguments to be able to
 # remember which messages are seen several times, and also to allow for
@@ -38,20 +53,43 @@ class Log(object):
 
     @classmethod
     def color(cls, color):
+        """
+        Args:
+            color: A String among Log.color_ansi.keys().
+        Returns:
+            The String changing the color used to write message.
+        """
         return cls.color_ansi[color] if color else ''
 
     # To remove duplicate messages
-    seen = {}
+    seen = dict() 
 
-    def __init__(self, name='(default)'):
+    def __init__(self, name = '(default)'):
+        """
+        Constructor.
+        Args:
+            name: A String identifying the logger (not yet supported).
+        """
         self.log = None # logging.getLogger(name)
-        self.files_to_keep = []
+        self.files_to_keep = list() 
         self.init_log()
         self.color = True
 
-
     @classmethod
     def init_options(self):
+        """
+        This function is used in a script to enrich Options exposed by a
+        program to the user by adding every options concerning the logger.
+
+        Example:
+
+            @returns(int)
+            def main():
+                Shell.init_options()
+                Log.init_options()
+                Options().parse()
+                #...
+        """
         opt = Options()
 
         opt.add_argument(
@@ -91,7 +129,11 @@ class Log(object):
             default = self.DEFAULTS["log_duplicates"]
         )
 
-    def init_log(self, options=object()):
+    def init_log(self):
+        """
+        (Internal use)
+        Initialize self.log
+        """
         # Initialize self.log (require self.files_to_keep)
         if self.log: # for debugging by using stdout, log may be equal to None
             if Options().rsyslog_host:
@@ -110,12 +152,18 @@ class Log(object):
     # Log
     #------------------------------------------------------------------------
 
+    @returns(handlers.SysLogHandler)
     def make_handler_rsyslog(self, rsyslog_host, rsyslog_port, log_level):
         """
-        \brief (Internal usage) Prepare logging via rsyslog
-        \param rsyslog_host The hostname of the rsyslog server
-        \param rsyslog_port The port of the rsyslog server
-        \param log_level Log level
+        (Internal usage) Prepare logging via rsyslog
+        Args:
+            rsyslog_host: A String containing rsyslog server's FQDN.
+            rsyslog_port: An positive integer equal to the rsyslog server's port.
+            log_level: A value among: 
+                {logging.DEBUG, logging.INFO, logging.WARNING,
+                 logging.ERROR, logging.CRITICAL}
+        Returns:
+            The corresponding handler.
         """
         # Prepare the handler
         shandler = handlers.SysLogHandler(
@@ -127,11 +175,16 @@ class Log(object):
         self.prepare_handler(shandler, log_level)
         return shandler
 
+    @returns(handlers.RotatingFileHandler)
     def make_handler_locallog(self, log_filename, log_level):
         """
-        \brief (Internal usage) Prepare local logging
-        \param log_filename The file in which we write the logs
-        \param log_level Log level
+        (Internal usage) Prepare local logging
+        Args:
+            log_filename: A String containing the filename of the file
+                in which the logger has to write log messages.
+            log_level: A value among: 
+                {logging.DEBUG, logging.INFO, logging.WARNING,
+                 logging.ERROR, logging.CRITICAL}
         """
         # Create directory in which we store the log file
         log_dir = os.path.dirname(log_filename)
@@ -143,7 +196,7 @@ class Log(object):
                 print "OS error: %s" % why
 
         # Prepare the handler
-        shandler = logging.handlers.RotatingFileHandler(
+        shandler = handlers.RotatingFileHandler(
             log_filename,
             backupCount = 0
         )
@@ -155,9 +208,12 @@ class Log(object):
 
     def prepare_handler(self, shandler, log_level):
         """
-        \brief (Internal usage)
-        \param shandler Handler used to log information
-        \param log_level Log level
+        (Internal usage) Prepare the logger's handler.
+        Args:
+            shandler: Handler used to log information
+            log_level: A value among: 
+                {logging.DEBUG, logging.INFO, logging.WARNING,
+                 logging.ERROR, logging.CRITICAL}
         """
         shandler.setLevel(log_level)
         formatter = logging.Formatter("%(asctime)s: %(name)s: %(levelname)s %(message)s")
@@ -281,7 +337,7 @@ class Log(object):
             "%r" % record,
             #"KEYS=%r" % record.keys()
         ]
-        #cls.print_msg(' '.join(msg), 'RECORD', caller_name())
+        cls.print_msg(' '.join(msg), 'RECORD', caller_name())
         pass
 
     @classmethod

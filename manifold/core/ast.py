@@ -2,9 +2,10 @@
 # -*- coding: utf-8 -*-
 #
 # Abstract Syntax Tree: 
-#   An AST represents a query plan. It is made of a set
-#   of interconnected Node instance which may be an SQL
-#   operator (SELECT, FROM, UNION, LEFT JOIN, ...).
+#   An AST is used to build and represent a QueryPlan.
+#   It manages a set of interconnected Operator instances 
+#   inspired from the SQL operators (SELECT, FROM, UNION,
+#   LEFT JOIN, ...).
 #
 # Copyright (C) UPMC Paris Universitas
 # Authors:
@@ -14,14 +15,10 @@
 import sys, random
 from copy                             import copy, deepcopy
 from types                            import StringTypes
-from manifold.core.capabilities       import Capabilities
-from manifold.core.field              import Field
-from manifold.core.filter             import Filter
+
 from manifold.core.key                import Key
 from manifold.core.relay              import Relay
 from manifold.core.query              import Query
-from manifold.core.table              import Table 
-from manifold.operators.From          import From
 from manifold.operators.from_table    import FromTable
 from manifold.operators.selection     import Selection
 from manifold.operators.projection    import Projection
@@ -53,7 +50,7 @@ class AST(Relay):
         """
         Constructor
         Args:
-            user: A User instance
+            user: A dictionnary reprensenting the User instance.
         """
         Relay.__init__(self, max_producers = 1)
         self._interface = interface
@@ -61,14 +58,13 @@ class AST(Relay):
         # The AST is initially empty
         self.root = None
 
-
     #---------------------------------------------------------------------------
     # Accessors
     #---------------------------------------------------------------------------
 
-    def get_root(self):
-        Log.warning('Do not use get_root anymore, use get_producer()')
-        return self.get_producer()
+#MANDO|    def get_root(self):
+#MANDO|        Log.warning('Do not use get_root anymore, use get_producer()')
+#MANDO|        return self.get_producer()
 
     #---------------------------------------------------------------------------
     # Methods
@@ -81,7 +77,6 @@ class AST(Relay):
             True iif the AST has no Node.
         """
         return self.get_producer() == None
-
 
     #---------------------------------------------------------------------------
     # Helpers
@@ -115,8 +110,9 @@ class AST(Relay):
         """
         Append a FromTable Node to this AST.
         Args:
-            query:
-            records:
+            query: A Query instance describing the Records provided by this
+                FromTable Node.
+            records: A list of corresponding Records.
             key: A Key instance which can be used to identify each Records.
         Returns:
             The resulting AST.
@@ -132,7 +128,8 @@ class AST(Relay):
         Args:
             children_ast: A list of AST gathered by this Union operator.
             key: A Key instance which can be used to identify each Records.
-        \return The AST corresponding to the UNION
+        Returns:
+            The AST corresponding to the UNION.
         """
         # We only need a key for UNION distinct, not supported yet
         assert not key or isinstance(key, Key), "Invalid key %r (type %r)"          % (key, type(key))
@@ -145,13 +142,13 @@ class AST(Relay):
         if not self.is_empty():
             # # old_root = self.get_root()
             children = [self.root]
-            old_cb = self.root.get_callback()
+#MANDO|            old_cb = self.root.get_callback()
         else:
-            children = []
-            old_cb = None
+            children = list() 
+#MANDO|            old_cb = None
 
         # ... as the other children
-        children.extend([ast.get_root() for ast in children_ast])
+        children.extend([child_ast.get_producer() for child_ast in children_ast])
 
         producer = children[0] if len(children) == 1 else Union(children, key)
         self.set_producer(producer)
@@ -198,7 +195,7 @@ class AST(Relay):
         Args:
             key: A Key instance, allowing to detecting duplicates
         Returns:
-            The updated AST 
+            The updated AST. 
         """
         assert not self.is_empty(), "AST not initialized"
 
@@ -337,6 +334,7 @@ class AST(Relay):
         Args:
             query: The Query issued by the user.
         """
+        Log.warning("AST::optimize is buggy")
         self.optimize_selection(query, query.get_where())
         self.optimize_projection(query, query.get_select())
 

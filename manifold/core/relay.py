@@ -1,4 +1,17 @@
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
+#
+# A Relay Node is simultaneously a Producer and Receiver.
+#
+# Examples:
+#  - Manifold Gateways  (manifold/gateways)
+#  - Manifold Operators (manifold/operators)
+#
+# Copyright (C) UPMC Paris Universitas
+# Authors:
+#   Jordan Augé         <jordan.auge@lip6.fr>
+#   Marc-Olivier Buob   <marc-olivier.buob@lip6.fr>
+
 
 from manifold.core.packet   import Packet
 from manifold.core.producer import Producer

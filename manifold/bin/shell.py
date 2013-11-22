@@ -10,16 +10,18 @@
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
 import os, sys, pprint, json
-from socket                         import gethostname
-from optparse                       import OptionParser
 from getpass                        import getpass
+from optparse                       import OptionParser
+from socket                         import gethostname
 from traceback                      import format_exc
+from types                          import StringTypes
 
 from twisted.internet               import defer, ssl
 from twisted.web                    import xmlrpc
 
 # XXX Those imports may fail for xmlrpc calls
 from manifold.auth                  import Auth
+from manifold.core.annotation       import Annotation
 from manifold.core.packet           import Packet, QueryPacket
 from manifold.core.query            import Query
 from manifold.core.router           import Router
@@ -39,11 +41,29 @@ DEFAULT_PKEY_FILE = '/etc/manifold/keys/client.pkey'
 DEFAULT_CERT_FILE = '/etc/manifold/keys/client.cert'
 
 class ManifoldClient(object):
-    def log_info(self): pass
-    def whoami(self): return None
+    def log_info(self):
+        """
+        Method that should be overloaded and used to log
+        information while running the Query (level: INFO).
+        """
+        pass
+
+    #@returns(dict)
+    def whoami(self):
+        """
+        Returns:
+            The dictionnary representing the User currently
+            running the Manifold Client.
+        """
+        return None
 
 class ManifoldLocalClient(ManifoldClient):
     def __init__(self, username = None):
+        """
+        Constructor.
+        Args:
+            username: A String containing the User's email address.
+        """
         self.router = Router()
         self.router.__enter__()
 
@@ -65,6 +85,9 @@ class ManifoldLocalClient(ManifoldClient):
 #MANDO|                self.user["config"] = None
 
     def __del__(self):
+        """
+        Shutdown gracefully the nested Manifold Router.
+        """
         try:
             if self.router:
                 self.router.__exit__()
@@ -72,12 +95,33 @@ class ManifoldLocalClient(ManifoldClient):
         except: pass
 
     def send(self, packet):
-        return self.router.receive(packet)
+        """
+        Send a Packet to the nested Manifold Router.
+        Args:
+            packet: A QUERY Packet instance.
+        """
+        assert isinstance(packet, Packet), \
+            "Invalid packet %s (%s)" % (packet, type(packet))
+        assert packet.get_type() == Packet.TYPE_QUERY, \
+            "Invalid packet %s of type %s" % (
+                packet,
+                Packet.get_type_name(packet.get_type())
+            )
+        self.router.receive(packet)
 
     @returns(ResultValue)
     def forward(self, query, annotation = None):
+        """
+        Send a Query to the nested Manifold Router.
+        Args:
+            query: A Query instance.
+            annotation: The corresponding Annotation instance (if
+                needed) or None.
+        Results:
+            The ResultValue resulting from this Query.
+        """
         if not annotation:
-            annotation = dict() 
+            annotation = Annotation() 
         if not "user" in annotation.keys():
             annotation["user"] = self.user
 
@@ -88,23 +132,45 @@ class ManifoldLocalClient(ManifoldClient):
         return receiver.get_result_value()
 
     def log_info(self):
+        """
+        Method that should be overloaded and used to log
+        information while running the Query (level: INFO).
+        """
         Log.info("Shell using local account %s" % self.user["email"])
 
+    #@returns(dict)
     def whoami(self):
+        """
+        Returns:
+            The dictionnary representing the User currently
+            running the Manifold Client.
+        """
         return self.user
 
 class ManifoldXMLRPCClientXMLRPCLIB(ManifoldClient):
     # on ne sait pas si c'est secure ou non
 
     def __init__(self):
+        """
+        Construcor.
+        """
         import xmlrpclib
         url = Options().xmlrpc_url
         self.router = xmlrpclib.ServerProxy(url, allow_none=True)
         self.auth = None
 
     def forward(self, query, annotation = None):
+        """
+        Send a Query to the XMLRPC server. 
+        Args:
+            query: A Query instance.
+            annotation: The corresponding Annotation instance (if
+                needed) or None.
+        Results:
+            The ResultValue resulting from this Query.
+        """
         if not annotation:
-            annotation = {}
+            annotation = Annotation() 
         annotation['authentication'] = self.auth
         return self.router.forward(query.to_dict(), annotation, self)
 
@@ -112,10 +178,12 @@ class ManifoldXMLRPCClientXMLRPCLIB(ManifoldClient):
     # interface_str = ' towards XMLRPC API %s' % self.router
 
 class Proxy(xmlrpc.Proxy):
-    def __str__(self):
-        return "<XMLRPC client to %s>" % self.url
-
     def __init__(self, url, user=None, password=None, allowNone=False, useDateTime=False, connectTimeout=30.0, reactor=None): # XXX
+        """
+        Constructor.
+        Args:
+            See http://twistedmatrix.com/documents/12.2.0/api/twisted.web.xmlrpc.Proxy.html
+        """
         import threading
         xmlrpc.Proxy.__init__(self, url, user, password, allowNone, useDateTime, connectTimeout, reactor)
         self.url = url
@@ -123,7 +191,15 @@ class Proxy(xmlrpc.Proxy):
         self.result = None
         self.error = None
 
-    def setSSLClientContext(self,SSLClientContext):
+    @returns(StringTypes)
+    def __str__(self):
+        """
+        Returns:
+            The '%s' representation of this Proxy.
+        """
+        return "<XMLRPC client to %s>" % self.url
+
+    def setSSLClientContext(self, SSLClientContext):
         self.SSLClientContext = SSLClientContext
 
     def callRemote(self, method, *args):
@@ -196,7 +272,7 @@ class ManifoldXMLRPCClient(ManifoldClient):
 
     def forward(self, query, annotation = None):
         if not annotation:
-            annotation = {}
+            annotation = Annotation() 
         annotation.update(self.annotation)
         return self.router.forward(query.to_dict(), annotation, self)
         
@@ -205,7 +281,7 @@ class ManifoldXMLRPCClient(ManifoldClient):
     def whoami(self, query, annotation = None):
         Log.tmp("TBD")
         #if not annotation:
-        #    annotation = {}
+        #    annotation = Annotation() 
         #annotation.update(self.annotation)
         #ret = yield self.router.AuthCheck(annotation)
         #defer.returnValue(ret)
@@ -217,9 +293,19 @@ class ManifoldXMLRPCClientSSLPassword(ManifoldXMLRPCClient):
         self.username = username
 
         if username:
-            self.annotation = { 'authentication': {'AuthMethod': 'password', 'Username': username, 'AuthString': password} }
+            self.annotation = Annotation({
+                "authentication": {
+                    "AuthMethod" : "password",
+                    "Username"   : username,
+                    "AuthString" : password
+                }
+            })
         else:
-            self.annotation = { 'authentication': {'AuthMethod': 'anonymous'} } 
+            self.annotation = Annotation({
+                "authentication": {
+                    "AuthMethod" : "anonymous"
+                }
+            }) 
 
         self.router = Proxy(self.url, allowNone=True, useDateTime=False)
         self.router.setSSLClientContext(ssl.ClientContextFactory())
@@ -244,7 +330,11 @@ class ManifoldXMLRPCClientSSLGID(ManifoldXMLRPCClient):
         self.router = Proxy(self.url, allowNone=True, useDateTime=False)
         #self.router.setSSLClientContext(CtxFactory(pkey_file, cert_file))
 
-        self.annotation = { 'authentication': {'AuthMethod': 'gid'} } 
+        self.annotation = Annotation({
+            "authentication": {
+                "AuthMethod": "gid"
+            }
+        })
 
         # This has to be tested to get rid of the previously defined CtxFactory class
         self.router.setSSLClientContext(ssl.DefaultOpenSSLContextFactory(pkey_file, cert_file))
@@ -295,7 +385,7 @@ class Shell(object):
         opt.add_argument(
             "-U", "--url", dest = "xmlrpc_url",
             help = "API URL", 
-            default = 'https://localhost:7080'
+            default = "https://localhost:7080"
         )
         opt.add_argument(
             "-u", "--username", dest = "username",
@@ -402,7 +492,13 @@ class Shell(object):
                 raise Exception, "Authentication method not supported: '%s'" % auth_method
 
 
-    def __init__(self, interactive=False):
+    def __init__(self, interactive = False):
+        """
+        Constructor.
+        Args:
+            interactive: A boolean set to True if the Shell is used in command-line,
+                and set to False otherwise (Shell used in a script, etc.).
+        """
         self.interactive = interactive
         
         auth_method = Options().auth_method
@@ -411,9 +507,11 @@ class Shell(object):
         self.select_auth_method(auth_method)
         if self.interactive:
             self.client.log_info()
-        self.whoami()
 
     def terminate(self):
+        """
+        Leave gracefully the Shell by shutdowning properly the nested ManifoldClient.
+        """
         # XXX Issues with the reference counter
         #del self.client
         #self.client = None
@@ -488,7 +586,12 @@ class Shell(object):
             result_value = ResultValue.get_error(ResultValue.ERROR, message)
         return result_value
 
+    @returns(dict)
     def whoami(self):
+        """
+        Returns:
+            The dictionnary representing the User currently using this Shell.
+        """
         # Who is authenticating ?
         # authentication
         return self.client.whoami
@@ -598,9 +701,11 @@ def main():
     Options().parse()
     command = Options().execute
     if command:
-        s = Shell(interactive = False)
-        s.display(s.evaluate(command))
-        #s.terminate()
+        try:
+            shell = Shell(interactive = False)
+            shell.display(s.evaluate(command))
+        except:
+            shell.terminate()
     else:
         Shell(interactive = True).start()
 

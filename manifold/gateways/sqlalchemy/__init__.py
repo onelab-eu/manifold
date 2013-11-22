@@ -12,7 +12,6 @@
 from __future__                     import absolute_import
 
 import json, sys, time, traceback
-
 from hashlib                        import md5
 from random                         import Random
 
@@ -21,7 +20,9 @@ from sqlalchemy                     import types
 from sqlalchemy.ext.declarative     import declarative_base, declared_attr
 from sqlalchemy.orm                 import sessionmaker
 from sqlalchemy.util._collections   import NamedTuple
+
 from manifold.core.announce         import Announce
+from manifold.core.annotation       import Annotation
 from manifold.core.field            import Field
 from manifold.core.record           import Record, LastRecord 
 from manifold.core.table            import Table
@@ -49,20 +50,30 @@ def xgetattr(cls, list_attr):
         The corresponding tuple.
     """
     ret = list()
-    invalid_attributes = list()
     for a in list_attr:
         ret.append(getattr(cls, a))
     return tuple(ret)
 
 @returns(list)
-def get_sqla_filters(cls, filters):
-    if filters:
+def get_sqla_filters(cls, predicates):
+    """
+    Convert a list of Predicate instances (i.e. WHERE Clause provided
+    by Query) into a list of sqlalchemy filters.
+    Args:
+        predicates: A list of Predicate instances or None.
+    Returns:
+        The corresponding filters (or None if predicates == None).
+    """
+    if predicates:
         _filters = list() 
-        for p in filters:
-            if p.op == included:
-                f = getattr(cls, p.key).in_(p.value)
+        for predicate in predicates:
+            if predicate.get_op() == included:
+                f = getattr(cls, predicate.get_key()).in_(predicate.get_value())
             else:
-                f = p.op(getattr(cls, p.key), p.value)
+                f = predicate.get_op()(
+                    getattr(cls, predicate.get_key()),
+                    predicate.get_value()
+                )
             _filters.append(f)
         return _filters
     else:
@@ -80,15 +91,8 @@ def row2record(row):
     Returns:
         The corresponding Record.
     """
-#DEPRECATED|    try:
-#DEPRECATED|        return Record({c.name: getattr(row, c.name) for c in row.__table__.columns})
-#DEPRECATED|    except:
-#DEPRECATED|        Log.warning("row2record: this is strange: row = %s (%s)" % (row, type(row)))
-#DEPRECATED|        Log.warning(traceback.format_exc())
-#DEPRECATED|        pass
-
     # http://stackoverflow.com/questions/18110033/getting-first-row-from-sqlalchemy
-    # Yes, when you ask specifically for a column of a mapped class with
+    # When you ask specifically for a column of a mapped class with
     # query(Class.attr), SQLAlchemy will return a
     # sqlalchemy.util._collections.NamedTuple instead of DB objects.
 
@@ -110,10 +114,10 @@ class SQLAlchemyGateway(Gateway):
     }
 
     _map_types = {
-        types.Integer: 'integer',
-        types.Enum:    'integer', # XXX
-        types.String:  'string',
-        types.Boolean: 'bool'
+        types.Integer : 'integer',
+        types.Enum    : 'integer', # XXX
+        types.String  : 'string',
+        types.Boolean : 'bool'
     }
 
     #---------------------------------------------------------------------------
@@ -127,28 +131,24 @@ class SQLAlchemyGateway(Gateway):
             interface: The Manifold Interface on which this Gateway is running.
             platform: A String storing name of the platform related to this Gateway.
             config: A dictionnary containing the configuration related to this Gateway.
-                It may contains the following keys:
-                "name" : name of the platform's maintainer. 
-                "mail" : email address of the maintainer.
         """
         super(SQLAlchemyGateway, self).__init__(interface, platform, config)
 
         from manifold.models.base import Base
         Base = declarative_base(cls = Base)
         
-        # Models
-        from manifold.models.account        import Account       as DBAccount
-        from manifold.models.linked_account import LinkedAccount as DBLinkedAccount
-        from manifold.models.platform       import Platform      as DBPlatform
-        from manifold.models.policy         import Policy        as DBPolicy
-        from manifold.models.session        import Session       as DBSession
-        from manifold.models.user           import User          as DBUser
+#OBSOLETE|        # Models
+#OBSOLETE|        from manifold.models.account        import Account       as DBAccount
+#OBSOLETE|        from manifold.models.linked_account import LinkedAccount as DBLinkedAccount
+#OBSOLETE|        from manifold.models.platform       import Platform      as DBPlatform
+#OBSOLETE|        from manifold.models.policy         import Policy        as DBPolicy
+#OBSOLETE|        from manifold.models.session        import Session       as DBSession
+#OBSOLETE|        from manifold.models.user           import User          as DBUser
 
         engine = create_engine(config['url'], echo = False)
         Base.metadata.create_all(engine)
         Session = sessionmaker(bind = engine)
         self.db = Session()
-
 
     #---------------------------------------------------------------------------
     # Methods
@@ -156,6 +156,17 @@ class SQLAlchemyGateway(Gateway):
         
     @returns(list)
     def local_query_get(self, query, user):
+        """
+        Perform a SELECT ... FROM ... query on the sqlalchemy database
+        wrapped by this SQLAlchemyGateway.
+        Args:
+            query: A Query instance.
+            user: A dictionnary representing the User issuing the Query
+                or None (anonymous access).
+        Returns:
+            The list of object (see manifold/models) resulting from
+            this Query.
+        """
         #
         # XXX How are we handling subqueries
         #
@@ -171,7 +182,7 @@ class SQLAlchemyGateway(Gateway):
 
         # db.query(cls) seems to return NamedTuples
         res = db.query(*_fields) if _fields else db.query(cls)
-        if query.get_where():
+        if _filters: 
             for _filter in _filters:
                 res = res.filter(_filter)
 
@@ -188,7 +199,16 @@ class SQLAlchemyGateway(Gateway):
 
     @returns(list)
     def local_query_update(self, query, user):
-
+        """
+        Perform a UPDATE ... query on the sqlalchemy database
+        wrapped by this SQLAlchemyGateway.
+        Args:
+            query: A Query instance.
+            user: A dictionnary representing the User issuing the Query
+                or None (anonymous access).
+        Returns:
+            An empty list.
+        """
         # XXX The filters that are accepted in config depend on the gateway
         # Real fields : user_credential
         # Convenience fields : credential, then redispatched to real fields
@@ -240,7 +260,7 @@ class SQLAlchemyGateway(Gateway):
         if user and cls.restrict_to_self:
             q = q.filter(getattr(cls, 'user_id') == user['user_id'])
 
-        q = q.update(_params, synchronize_session=False)
+        q = q.update(_params, synchronize_session = False)
         try:
             db.commit()
         except:
@@ -250,7 +270,17 @@ class SQLAlchemyGateway(Gateway):
 
     @returns(list)
     def local_query_create(self, query, user):
-        assert not query.get_where(), "Filters should be empty for a create request"
+        """
+        Perform a INSERT ... INTO query on the sqlalchemy database
+        wrapped by this SQLAlchemyGateway.
+        Args:
+            query: A Query instance.
+            user: A dictionnary representing the User issuing the Query
+                or None (anonymous access).
+        Returns:
+            The list of inserted object.
+        """
+        assert not query.get_where(), "Filters should be empty for a CREATE Query (%s)" % query
 
         cls = self._map_object[query.get_from()]
 
@@ -258,7 +288,7 @@ class SQLAlchemyGateway(Gateway):
         if 'password' in params:
             params['password'] = hash_password(params['password'])
         
-        _params = cls.process_params(query.get_params(), None, user)
+        _params = cls.process_params(params, None, user)
         new_obj = cls()
         #from sqlalchemy.orm.attributes import manager_of_class
         #mgr = manager_of_class(cls)
@@ -276,18 +306,19 @@ class SQLAlchemyGateway(Gateway):
         return [new_obj]
 
     def local_query_delete(self, query):
-        #session.query(User).filter(User.id==7).delete()
-
-        fields = query.fields
-
-        cls = self._map_object[query.object]
+        """
+        Perform a DELETE ... FROM query on the sqlalchemy database
+        wrapped by this SQLAlchemyGateway.
+        Args:
+            query: A Query instance.
+        """
+        cls = self._map_object[query.get_from()]
 
         # Transform a Filter into a sqlalchemy expression
         _filters = get_sqla_filters(cls, query.filters)
-        _fields = xgetattr(cls, query.fields) if query.fields else None
+        _fields = xgetattr(cls, query.get_select()) if query.get_select() else None
 
-
-        res = db.query( *_fields ) if _fields else db.query( cls )
+        res = db.query(*_fields) if _fields else db.query(cls)
         if query.filters:
             for _filter in _filters:
                 res = res.filter(_filter)
@@ -300,73 +331,29 @@ class SQLAlchemyGateway(Gateway):
 
         res.delete()
 
-#MANDO|    def start(self):
-#MANDO|        assert self.query, "Cannot start gateway with no query associated"
-#MANDO|        _map_action = {
-#MANDO|            "get"    : self.local_query_get,
-#MANDO|            "update" : self.local_query_update,
-#MANDO|            "create" : self.local_query_create
-#MANDO|        }
-#MANDO|        table = _map_action[self.query.action](self.query)
-#MANDO|        # XXX For local namespace queries, we need to keep a dict
-#MANDO|        for t in table:
-#MANDO|            row = row2dict(t) if self.format == 'dict' else t.get_object()
-#MANDO|            row = row2dict(t) if self.format == 'dict' else t
-#MANDO|            self.callback(row)
-#MANDO|        self.callback(None)
-
-#DEPRECATED|    def forward(self, query, annotation, callback, is_deferred = False, execute = True, account_config = None, receiver = None):
-#DEPRECATED|        """
-#DEPRECATED|        Query handler.
-#DEPRECATED|        Args:
-#DEPRECATED|            query: A Query instance, reaching this Gateway.
-#DEPRECATED|            callback: The function called to send this record. This callback is provided
-#DEPRECATED|                most of time by a From Node.
-#DEPRECATED|                Prototype : def callback(record)
-#DEPRECATED|            is_deferred: A boolean.
-#DEPRECATED|            execute: A boolean set to True if the treatement requested in query
-#DEPRECATED|                must be run or simply ignored.
-#DEPRECATED|            user: The User issuing the Query.
-#DEPRECATED|            account_config: A dictionnary containing the user's account config.
-#DEPRECATED|                In pratice, this is the result of the following query (run on the Storage)
-#DEPRECATED|                SELECT config FROM local:account WHERE user_id == user.user_id
-#DEPRECATED|            format: A String specifying in which format the Records must be returned.
-#DEPRECATED|            receiver : The From Node running the Query or None. Its ResultValue will
-#DEPRECATED|                be updated once the query has terminated.
-#DEPRECATED|        Returns:
-#DEPRECATED|            forward must NOT return value otherwise we cannot use @defer.inlineCallbacks
-#DEPRECATED|            decorator. 
-#DEPRECATED|        """
-#DEPRECATED|        super(SQLAlchemyGateway, self).forward(query, annotation, callback, is_deferred, execute, account_config, receiver)
-#DEPRECATED|        identifier = receiver.get_identifier() if receiver else None
-#DEPRECATED|
-#DEPRECATED|        assert isinstance(query, Query), "Invalid query"
-#DEPRECATED|        _map_action = {
-#DEPRECATED|            'get'    : self.local_query_get,
-#DEPRECATED|            'update' : self.local_query_update,
-#DEPRECATED|            'create' : self.local_query_create,
-#DEPRECATED|            'delete' : self.local_query_delete
-#DEPRECATED|        }
-#DEPRECATED|
-#DEPRECATED|        try:
-#DEPRECATED|
-#DEPRECATED|            if query.get_from() == 'object':
-#DEPRECATED|                if not query.get_action() == 'get':
-#DEPRECATED|                    raise Exception, "Invalid query on local object table"
-#DEPRECATED|                return self.get_metadata()
-#DEPRECATED|
-#DEPRECATED|            user = annotation.get('user', None)
-#DEPRECATED|            rows = _map_action[query.get_action()](query, user)
-#DEPRECATED|            for row in rows:
-#DEPRECATED|                self.send(row2record(row), callback, identifier)
-#DEPRECATED|            self.send(LastRecord(), callback, identifier)
-#DEPRECATED|            self.success(receiver, query)
-#DEPRECATED|        except AttributeError, e:
-#DEPRECATED|            self.send(LastRecord(), callback, identifier)
-#DEPRECATED|            self.error(receiver, query, e)
+#OBSOLETE|    def start(self):
+#OBSOLETE|        assert self.query, "Cannot start gateway with no query associated"
+#OBSOLETE|        _map_action = {
+#OBSOLETE|            "get"    : self.local_query_get,
+#OBSOLETE|            "update" : self.local_query_update,
+#OBSOLETE|            "create" : self.local_query_create
+#OBSOLETE|        }
+#OBSOLETE|        table = _map_action[self.query.action](self.query)
+#OBSOLETE|        # XXX For local namespace queries, we need to keep a dict
+#OBSOLETE|        for t in table:
+#OBSOLETE|            row = row2dict(t) if self.format == 'dict' else t.get_object()
+#OBSOLETE|            row = row2dict(t) if self.format == 'dict' else t
+#OBSOLETE|            self.callback(row)
+#OBSOLETE|        self.callback(None)
 
     @returns(list)
     def make_metadata(self):
+        """
+        Produce Announces corresponding to the table store in
+        the SQLAlchemy database wrapped by this SQLAlchemyGateway.
+        Returns:
+            A list of Announce instances.
+        """
         announces = list()
 
         # Each model is a table
@@ -377,7 +364,7 @@ class SQLAlchemyGateway(Gateway):
 
             for column in cls.__table__.columns:
                 table.insert_field(Field(
-                    qualifiers  = [], # nothing ["const"]
+                    qualifiers  = list(), # nothing ["const"]
                     name        = column.name,
                     type        = self._map_types[column.type.__class__],
                     is_array    = False,
@@ -401,20 +388,12 @@ class SQLAlchemyGateway(Gateway):
         return announces
 
     def receive(self, packet):
-        # formerly forward
+        """
+        Perform the Query carried by an incoming Packet.
+        Args:
+            packet: A Packet instance carrying a Query.
+        """
         Gateway.receive(self, packet)
-#DEPRECATED|=======
-#DEPRECATED|    def forward(self, query, annotation, receiver):
-#DEPRECATED|        """
-#DEPRECATED|        Query handler.
-#DEPRECATED|        Args:
-#DEPRECATED|            query: A Query instance, reaching this Gateway.
-#DEPRECATED|            annotation: A dictionnary instance containing Query's annotation.
-#DEPRECATED|            receiver : A Receiver instance which collects the results of the Query.
-#DEPRECATED|        """
-#DEPRECATED|        super(SQLAlchemyGateway, self).forward(query, annotation, receiver)
-#DEPRECATED|        identifier = receiver.get_identifier() if receiver else None
-#DEPRECATED|>>>>>>> routerv2
 
         _map_action = {
             'get'    : self.local_query_get,
@@ -422,16 +401,18 @@ class SQLAlchemyGateway(Gateway):
             'create' : self.local_query_create,
             'delete' : self.local_query_delete
         }
+        query = packet.get_query()
+
+        Log.tmp(">>>>>>>>>>>> query = %s" % query)
 
         try:
-            query = packet.get_query()
             annotation = packet.get_annotation()
             if not annotation:
-                annotation = {}
+                annotation = Annotation() 
 
             if query.get_from() == 'object':
                 if not query.get_action() == 'get':
-                    raise Exception, "Invalid query on local object table"
+                    raise Exception, "Invalid action (%s) on 'local:object' table" % query.get_action()
                 for record in self.get_metadata():
                     self.send(Record(record.to_dict()))
                 self.send(LastRecord())
@@ -440,31 +421,10 @@ class SQLAlchemyGateway(Gateway):
             user = annotation.get('user', None)
             rows = _map_action[query.get_action()](query, user)
             for row in rows:
-                self.send(row2record(row)) #, callback, identifier)
+                self.send(row2record(row))
             self.send(LastRecord())
-        except AttributeError, e:
-            import traceback
-            traceback.print_exc()
+        except Exception, e:
+            Log.error(traceback.format_exc())
             self.send(LastRecord())
             self.error(query, e)
-#DEPRECATED|=======
-#DEPRECATED|            user = annotation.get('user', None)
-#DEPRECATED|            rows = _map_action[query.get_action()](query, user)
-#DEPRECATED|            for row in rows:
-#DEPRECATED|                self.send(row2record(row), receiver, identifier)
-#DEPRECATED|            self.send(LastRecord(), receiver, identifier)
-#DEPRECATED|            self.success(receiver, query)
-#DEPRECATED|        except AttributeError, e:
-#DEPRECATED|            self.send(LastRecord(), receiver, identifier)
-#DEPRECATED|            self.error(receiver, query, e)
-#DEPRECATED|
-#DEPRECATED|    @returns(list)
-#DEPRECATED|    def get_metadata(self):
-#DEPRECATED|        """
-#DEPRECATED|        Build metadata by loading header files
-#DEPRECATED|        Returns:
-#DEPRECATED|            The list of corresponding Announce instances
-#DEPRECATED|        """
-#DEPRECATED|        Log.warning("SQLAlchemyGateway::get_metadata: Not yet implemented")
-#DEPRECATED|        return list()
-#DEPRECATED|>>>>>>> routerv2
+

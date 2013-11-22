@@ -14,7 +14,7 @@ from types                         import StringTypes
 from manifold.core.announce        import Announces
 from manifold.core.capabilities    import Capabilities
 from manifold.core.node            import Node
-from manifold.core.packet          import ErrorPacket
+from manifold.core.packet          import Packet, ErrorPacket
 from manifold.core.producer        import Producer
 from manifold.core.query           import Query
 from manifold.core.record          import Record
@@ -143,6 +143,8 @@ class Gateway(Producer):
         return table
 
     def set_consumer(self, consumer):
+        Log.warning("what if several pending QP querying this GW")
+        Log.warning("we must trigger add when create")
         return self.add_consumer(consumer)
 
     #---------------------------------------------------------------------------  
@@ -197,10 +199,14 @@ class Gateway(Producer):
     #---------------------------------------------------------------------------  
 
     def receive(self, packet):
-        # formerly forward()
+        """
+        Handle a QUERY Packet from a Consumer. 
+        This method should be overloaded by its child class(es).
+        Args:
+            packet: A QUERY Packet.
+        """
+        # Check type of the incoming Packet
         Producer.receive(self, packet)
-        # Mostly implemented in children
-        
 
     def dump(self, indent = 0):
         Node.dump(self, indent)

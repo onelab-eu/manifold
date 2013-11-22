@@ -8,16 +8,18 @@
 # Copyright (C)2009-2012, UPMC Paris Universitas
 # Authors:
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
-#   Jordan Aug√© <jordan.auge@lip6.fr>
+#   Jordan Aug√       <jordan.auge@lip6.fr>
 
 import os, re, functools
-from manifold.core.table              import Table
-from manifold.core.capabilities       import Capabilities
-from manifold.core.field              import Field 
-from manifold.core.key                import Key, Keys
-from manifold.util.clause             import Clause
-from manifold.util.type               import returns, accepts 
-from manifold.util.log                import Log
+from types                          import StringTypes
+
+from manifold.core.capabilities     import Capabilities
+from manifold.core.field            import Field 
+from manifold.core.key              import Key, Keys
+from manifold.core.table            import Table
+from manifold.util.clause           import Clause
+from manifold.util.log              import Log
+from manifold.util.type             import returns, accepts 
 
 STATIC_ROUTES_DIR = "/usr/share/manifold/metadata/"
 
@@ -65,8 +67,9 @@ class MetadataEnum:
             enum_name: The name of the enum 
         """
         self.enum_name = enum_name
-        self.values = []
+        self.values = list()
 
+    @returns(StringTypes)
     def __repr__(self):
         """
         Returns:
@@ -74,6 +77,7 @@ class MetadataEnum:
         """
         return "Enum(n = %r, v = %r)\n" % (self.enum_name, self.values)
 
+    @returns(StringTypes)
     def __str__(self):
         """
         Returns:
@@ -85,6 +89,7 @@ class MetadataEnum:
 # .h file parsing
 #------------------------------------------------------------------
 
+@returns(tuple)
 def parse_dot_h(iterable, filename = None):
     """
     Import information stored in a .h file (see manifold/metadata/*.h)
@@ -232,6 +237,7 @@ def parse_dot_h(iterable, filename = None):
 
     return (tables, enums)
 
+@returns(list)
 def make_announces(tables, platform):
     """
     Build a list of Announces instances based on a platform name
@@ -242,7 +248,7 @@ def make_announces(tables, platform):
     Returns:
         The corresponding list of Announces.
     """
-    announces = []
+    announces = list() 
     for table in tables.values():
         table.set_partitions(platform) # XXX This is weird
         announces.append(Announce(table))
@@ -266,14 +272,27 @@ def check_table_consistency(tables):
     # Rq: We cannot check type consistency while a table might refer to types provided by another file.
     # Thus we can't use get_invalid_types yet
 
+@returns(list)
 def import_file_h(filename, platform):
+    """
+    Parse a ".h" file (see manifold/metadata) and produce
+    the corresponding Announces.
+    Returns:
+        The corresponding list of Announce instances.
+    """
     f = open(filename, 'r')
     (classes, enum) = parse_dot_h(f, filename)
     f.close()
     check_table_consistency(classes)
     return make_announces(classes, platform)
         
+@returns(list)
 def import_string_h(string, platform):
+    """
+    Parse a String and produce the corresponding Announces.
+    Returns:
+        The corresponding list of Announce instances.
+    """
     # We build an iterator on the lines in the string
     def iter(string):
         prevnl = -1
@@ -292,6 +311,8 @@ def announces_from_docstring(platform):
     This could typically be used in a get_metadata() function.
     Args:
         platform: A String instance containing the platform name.
+    Returns:
+        The corresponding decorator. 
     Example:
         @announces_from_docstring('my_platform')
         def get_metadata(self):
@@ -319,8 +340,13 @@ def announces_from_docstring(platform):
 class Announce(object):
     def __init__(self, table, cost = None):
         """
-        \brief Constructor
+        Constructor.
+        Args:
+            table: A Table instance.
+            cost: The cost we've to pay to query this Table.
         """
+        assert isinstance(table, Table), \
+            "Invalid table = %s (%s)" % (table, type(table))
         self.table = table
         self.cost = cost
 
@@ -346,26 +372,47 @@ class Announce(object):
             """
         return _get_metadata_tables()
 
-    #@returns(Table)
+    @returns(Table)
     def get_table(self):
+        """
+        Returns:
+            The Table instance nested in this Announce.
+        """
         return self.table
 
+    @returns(int)
     def get_cost(self):
+        """
+        Returns:
+            The cost related to this Announce.
+        """
         return self.cost
 
+    @returns(StringTypes)
     def __repr__(self):
+        """
+        Returns:
+            The '%r' representation of this Announce.
+        """
         return "<Announce %r>" % self.table
 
+    @returns(dict)
     def to_dict(self):
+        """
+        Returns:
+            The dict representation of this Announce.
+        """
         return self.table.to_dict()
 
 class Announces(object):
 
     @classmethod
+    @returns(list)
     def from_dot_h(self, platform_name, gateway_type):
         return self.import_file_h(STATIC_ROUTES_DIR, platform_name, gateway_type)
 
     @classmethod
+    @returns(list)
     def import_file_h(self, directory, platform, gateway_type):
         """
         Import a .h file (see manifold.metadata/*.h)
@@ -389,7 +436,7 @@ class Announces(object):
             filename = os.path.join(directory, "%s-%s.h" % (gateway_type, platform))
             if not os.path.exists(filename):
                 Log.debug("Metadata file '%s' not found (platform = %r, gateway_type = %r)" % (filename, platform, gateway_type))
-                return []
+                return list() 
 
         # Read input file
         Log.debug("Platform %s: Processing %s" % (platform, filename))
@@ -399,6 +446,10 @@ class Announces(object):
     def get_announces(self, metadata):
         return [Announce(t) for t in metadata.get_announce_tables()]
         
+#------------------------------------------------------------------
+# Tests 
+#------------------------------------------------------------------
+
 if __name__ == '__main__':
     string = """
 class traceroute {

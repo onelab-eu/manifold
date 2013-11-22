@@ -49,9 +49,11 @@ class Interface(object):
         """
         Create an Interface instance.
         Args:
-            user_storage: A User instance (used to access to the Manifold Storage) or None
-                if the Storage can be accessed anonymously.
-            allowed_capabilities: A Capabilities instance or None
+            user_storage: A dictionnary used to access to the Manifold Storage
+                or None if the Storage can be accessed anonymously.
+            allowed_capabilities: A Capabilities instance which defines which
+                operation can be performed by this Interface. Pass None if there
+                is no restriction.
         """
         # Register the list of Gateways
         Log.info("Registering gateways")
@@ -71,6 +73,8 @@ class Interface(object):
 
         # self.allowed_capabilities is a Capabilities instance (or None)
         self.allowed_capabilities = allowed_capabilities
+        if self.allowed_capabilities:
+            Log.warning("allowed_capabilities parameter not yet supported")
 
         # self.data is {String : list(Announce)} dictionnary mapping each
         # platform name (= namespace) with its corresponding Announces.

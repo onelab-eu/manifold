@@ -14,7 +14,7 @@ from manifold.bin.shell     import Shell
 from manifold.util.log      import Log
 from manifold.util.type     import accepts, returns 
 
-MESSAGE_TO_ADD_PLATFORM = "You add '%(platform_name)s' Gateway in the Manifold Storage."
+MESSAGE_TO_ADD_PLATFORM = "You must add '%(platform_name)s' Gateway in the Manifold Storage."
 
 MESSAGE_TO_ENABLE_PLATFORM = """
 You must enable '%(platform_name)s' Gateway in the Manifold Storage: please run:
@@ -63,7 +63,8 @@ def check_platform(shell, platform_name, message_to_add_platform, message_to_ena
             else:
                 ret = True
         else:
-            Log.error(MESSAGE_TO_ADD_TDMI % dict_message)
+            Log.tmp(records)
+            Log.error(MESSAGE_TO_ADD_PLATFORM % dict_message)
     else:
         Log.error(result_value.get_error_message())
 

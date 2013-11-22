@@ -1,9 +1,10 @@
-from manifold.core.packet import Packet
+from manifold.core.packet   import Packet
+from manifold.util.type     import accepts, returns
 
 class PoolProducers(set):
     """
     A pool of producers.
-    A producer receives Queries
+    A producer receives Query Packets.
     """
 
     #---------------------------------------------------------------------------
@@ -14,6 +15,9 @@ class PoolProducers(set):
         """
         Constructor.
         """
+        assert isinstance(max_producers, int)
+        assert max_producers >= 0
+ 
         if not producers:
             producers = set()
         if not isinstance(producers, (list, set)):
@@ -23,11 +27,11 @@ class PoolProducers(set):
 
         self._max_producers = max_producers
 
-
     #---------------------------------------------------------------------------
     # Accessors
     #---------------------------------------------------------------------------
 
+    @returns(int)
     def get_max_producers(self):
         return self._max_producers
 
