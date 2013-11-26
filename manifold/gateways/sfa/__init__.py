@@ -863,6 +863,7 @@ class SFAGateway(Gateway):
         else:
             print "GOT MANIFEST FROM", self.platform
             print "MANIFEST=", manifest
+            sys.stdout.flush()
         rsrc_leases = self.parse_sfa_rspec(manifest)
 
         slice = {'slice_hrn': filters.get_eq('slice_hrn')}
