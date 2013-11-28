@@ -637,7 +637,7 @@ class SFAGateway(Gateway):
             node['hostname'] = node['component_name']
             node['initscripts'] = node.pop('pl_initscripts')
             if 'exclusive' in node:
-                node['exclusive'] = node['exclusive'].lower() == 'false'
+                node['exclusive'] = node['exclusive'].lower() == 'true'
 
             # XXX This should use a MAP as before
             if 'position' in node: # iotlab
