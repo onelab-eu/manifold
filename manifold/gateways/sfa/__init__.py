@@ -630,8 +630,6 @@ class SFAGateway(Gateway):
         resources = [] 
         # Extend object and Format object field's name
         for node in nodes:
-            if node['component_name'] == 'iason.inf.uth.gr':
-                print "node", node
             node['type'] = 'node'
             node['network_hrn'] = Xrn(node['component_id']).authority[0] # network ? XXX
             node['hrn'] = urn_to_hrn(node['component_id'])[0]
