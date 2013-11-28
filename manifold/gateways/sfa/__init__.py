@@ -586,7 +586,7 @@ class SFAGateway(Gateway):
     ############################################################################ 
 
     def make_dict_rec(self, obj):
-        if not obj or isinstance(obj, StringTypes):
+        if not obj or isinstance(obj, (StringTypes, bool)):
             return obj
         if isinstance(obj, list):
             objcopy = []
