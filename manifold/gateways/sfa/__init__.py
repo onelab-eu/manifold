@@ -12,7 +12,7 @@ from manifold.core.filter               import Filter
 from manifold.core.record               import Record, Records, LastRecord
 from manifold.operators.rename          import Rename
 from manifold.gateways                  import Gateway
-from manifold.gateways.sfa.rspecs.SFAv1 import SFAv1Parser # as Parser
+#from manifold.gateways.sfa.rspecs.SFAv1 import SFAv1Parser # as Parser
 from manifold.gateways.sfa.proxy        import SFAProxy
 from manifold.util.predicate            import contains, eq, lt, le, included
 from manifold.util.log                  import Log
@@ -630,12 +630,16 @@ class SFAGateway(Gateway):
         resources = [] 
         # Extend object and Format object field's name
         for node in nodes:
+            if node['component_name'] == 'iason.inf.uth.gr':
+                print "node", node
             node['type'] = 'node'
             node['network_hrn'] = Xrn(node['component_id']).authority[0] # network ? XXX
             node['hrn'] = urn_to_hrn(node['component_id'])[0]
             node['urn'] = node['component_id']
             node['hostname'] = node['component_name']
             node['initscripts'] = node.pop('pl_initscripts')
+            if 'exclusive' in node:
+                node['exclusive'] = lower(node['exclusive']) == 'false'
 
             # XXX This should use a MAP as before
             if 'position' in node: # iotlab

@@ -1,5 +1,5 @@
 from manifold.core.filter          import Filter
-from manifold.core.record          import Record
+from manifold.core.record          import Record, LastRecord
 from manifold.operators            import Node
 from manifold.operators.selection  import Selection
 from manifold.operators.projection import Projection

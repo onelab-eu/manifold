@@ -1,6 +1,9 @@
 For sfa
 - python-lxml
 
+For sfa-gateway
+- sfa sfa-common sfa-client sfa-plc
+
 - sqlalchemy
 
 For building debian packages:
