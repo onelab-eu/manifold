@@ -134,7 +134,7 @@ class SFATokenMgr(object):
     """
     __metaclass__ = Singleton
 
-    BLACKLIST = ['ple', 'nitos', 'iotlab']
+    BLACKLIST = ['https://www.planet-lab.eu:12345/']
 
     def __init__(self):
         self.busy     = {} # network -> Bool
@@ -143,6 +143,7 @@ class SFATokenMgr(object):
     def get_token(self, interface):
         #Log.debug("SFATokenMgr::get_token(interface=%r)" % interface)
         # We police queries only on blacklisted interfaces
+        print "interface=", interface
         if not interface or interface not in self.BLACKLIST:
             return True
 

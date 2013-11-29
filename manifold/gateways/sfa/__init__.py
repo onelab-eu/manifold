@@ -1052,8 +1052,9 @@ class SFAGateway(Gateway):
     def get_user(self, filters, params, fields):
 
         if self.user['email'] in DEMO_HOOKS:
-            defer.returnValue(self.get_user_demo(filters, params, fields))
-            return
+            Log.tmp(self.user)
+        #    defer.returnValue(self.get_user_demo(filters, params, fields))
+        #    return
 
         return self.get_object('user', 'user_hrn', filters, params, fields)
 
