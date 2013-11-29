@@ -605,8 +605,8 @@ class SFAGateway(Gateway):
         if 'rspec_type' and 'rspec_version' in self.config:
             rspec_version = self.config['rspec_type'] + ' ' + self.config['rspec_version']
         else:
-            #rspec_version = 'GENI 3'
-            rspec_version = 'SFA 1'
+            rspec_version = 'GENI 3'
+            #rspec_version = 'SFA 1'
 
         rspec = RSpec(rspec_string, version=rspec_version)
         
