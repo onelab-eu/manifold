@@ -29,7 +29,7 @@ class Policy(object):
 
     def __init__(self, interface):
         self.interface = interface
-        self.rules = []
+        self.rules = list() 
 
     def load(self):
         Target.register_plugins()

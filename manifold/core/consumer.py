@@ -10,9 +10,12 @@
 #   Jordan Augé         <jordan.auge@lip6.fr>
 #   Marc-Olivier Buob   <marc-olivier.buob@lip6.fr>
 
+from types                          import StringTypes
+
 from manifold.core.node           import Node
 from manifold.core.packet         import Packet
 from manifold.core.pool_producers import PoolProducers
+from manifold.util.log            import Log
 from manifold.util.type           import accepts, returns
 
 class Consumer(Node):
@@ -22,6 +25,13 @@ class Consumer(Node):
     #---------------------------------------------------------------------------
 
     def __init__(self, producers = None, max_producers = 1, has_parent_producer = False):
+        """
+        Constructor.
+        Args:
+            consumers: A list or a set of Producer instances (children of this Node).
+            max_producers: A strictly positive integer or None (maximum
+                number of parents, pass None if not bounded).
+        """
         Node.__init__(self)
         self._pool_producers = PoolProducers(producers, max_producers = max_producers)
 
@@ -36,13 +46,37 @@ class Consumer(Node):
 
     @returns(set)
     def get_producers(self):
+        """
+        Retrieve the Producers linked to this Consumer.
+        Returns:
+            A set of Producer instances.
+        """
         return set(self._pool_producers)
 
     @returns(int)
+    def get_num_producers(self):
+        """
+        Returns:
+            The number of Producers related to this Consumer.
+        """
+        return len(self.get_producers())
+
+    @returns(int)
     def get_max_producers(self):
+        """
+        Returns:
+            The maximum number of Producers allowed for this Consumer or
+            None if this value is unbounded.
+        """
         return self._pool_producers.get_max_producers()
 
     def clear_producers(self, cascade = True):
+        """
+        Unlink this Consumer from its Producers.
+        Args:
+            cascade: A boolean set to true to unlink those
+                Producers from self.
+        """
         if cascade:
             for producer in self._pool_producers:
                 producer.del_consumer(self, cascade = False)
@@ -58,6 +92,34 @@ class Consumer(Node):
         if cascade:
             producer.del_customer(self, cascade = False)
 
+    @returns(StringTypes)
+    def format_producer_ids(self):
+        """
+        Returns:
+            A String containing the ids of the Producers of this Consumer.
+        """
+        return "{[%s]}" % "], [".join(("%r" % producer.get_identifier() for producer in self.get_producers())) 
+ 
+    @returns(StringTypes)
+    def __repr__(self):
+        """
+        Returns:
+            The '%r' representation of this Consumer.
+        """
+        return "%s[%s](Producers: %s)" % (
+            self.__class__.__name__,
+            self.get_identifier(),
+            self.format_producer_ids()
+        )
+
+    @returns(StringTypes)
+    def __str__(self):
+        """
+        Returns:
+            The '%s' representation of this Consumer.
+        """
+        return self.__repr__() 
+
     #---------------------------------------------------------------------------
     # Helpers
     #---------------------------------------------------------------------------
@@ -69,8 +131,7 @@ class Consumer(Node):
     def update_producers(self, function):
         raise Exception, "Not implemented"
 
-    # max_producers == 1
-
+    #@returns(Producer)
     def get_producer(self):
         if self.get_max_producers() != 1:
             max = self.get_max_producers()
@@ -98,7 +159,6 @@ class Consumer(Node):
             raise Exception, "Cannot call update_producer with max_producers != 1 (=%s)" % max_str
 
         self.set_producer(function(self.get_producer()))
-        
 
     #---------------------------------------------------------------------------
     # Methods
@@ -106,7 +166,9 @@ class Consumer(Node):
 
     def send(self, packet):
         """
-        A Consumer sends Query Packets to Producers
+        Send a QUERY Packet from this Consumer towards its Producers(s).
+        Args:
+            packet: A QUERY Packet.
         """
         if packet.get_type() not in [Packet.TYPE_QUERY]:
             raise ValueError, "Invalid packet type for producer: %s" % Packet.get_type_name(packet.get_type())

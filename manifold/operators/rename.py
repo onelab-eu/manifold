@@ -105,12 +105,12 @@ class Rename(Operator):
 
     def dump(self, indent = 0):
         """
-        Dump the current node
+        Dump the this Rename instance to the standard output. 
         Args:
-            indent: An integer corresponding to the current indentation
-                in number of spaces.
+            indent: An integer corresponding to the number of spaces
+                to write (current indentation).
         """
-        Node.dump(self, indent)
+        super(Demux, self).dump(indent)
         self.get_producer().dump(indent + 1)
     
     @returns(Node)

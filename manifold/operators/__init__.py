@@ -76,101 +76,105 @@ class ChildStatus:
                 import traceback
                 traceback.print_exc()
 
-#------------------------------------------------------------------
-# Node (parent class)
-#------------------------------------------------------------------
-
-class Node(object):
-    """
-    \brief Base class for implementing AST node objects
-    """
-
-    def __init__(self, node = None):
-        """
-        \brief Constructor
-        """
-        if node:
-            if not isinstance(node, Node):
-                raise ValueError('Expected type Node, got %s' % node.__class__.__name__)
-            return deepcopy(node)
-        # Callback triggered when the current node produces data.
-        self.callback = None
-        # Query representing the data produced by the node.
-#        self.query = self.get_query()
-        self.identifier = random.randint(0,9999)
-
-    def set_callback(self, callback):
-        """
-        \brief Associates a callback to the current node
-        \param callback The callback to associate
-        """
-        self.callback = callback
-        # Basic information about the data provided by a node
-
-    def get_callback(self):
-        """
-        \brief Return the callback related to this Node 
-        """
-        return self.callback
-
-    def send(self, record):
-        """
-        \brief calls the parent callback with the record passed in parameter
-        """
-        Log.record(record, source=self)
-        self.callback(record)
-
-    @returns(Query)
-    def get_query(self):
-        """
-        \brief Returns the query representing the data produced by the nodes.
-        \return query representing the data produced by the nodes.
-        """
-
-        return self.query
-
-        # Raise an exception in the base class to force child classes to
-        # implement this method
-        #raise Exception, "Nodes should implement the query function: %s" % self.__class__.__name__
-
-    def tab(self, indent):
-        """
-        \brief print _indent_ tabs
-        """
-        print "[%04d]" % self.identifier, ' ' * 4 * indent,
-        #        sys.stdout.write(' ' * indent * 4)
-
-    def dump(self, indent = 0):
-        """
-        \brief Dump the current node
-        \param indent current indentation
-        """
-        self.tab(indent)
-        print "%r" % self
-        #print "%r (%r)" % (self, self.query)
-        #print "%r (%r)" % (self, self.callback)
-
-    @returns(StringTypes)
-    def __repr__(self):
-        return "This method should be overloaded!"
-
-    @returns(StringTypes)
-    def __str__(self):
-        return self.__repr__() 
-
-    def optimize(self):
-        Log.info("Calling optimize()")
-        tree = self.optimize_selection(Filter())
-        tree = tree.optimize_projection(set())
-        return tree
-    
-    def optimize_selection(self, filter):
-        Log.warning("optimize_selection() not implemented in" % self.__class__.__name__)
-        return self
-
-    def optimize_projection(self, fields):
-        Log.warning("optimize_projection() not implemented in" % self.__class__.__name__)
-        return self
-
-    def get_identifier(self):
-        return self.identifier
+# see code/node.py
+#OBSOLETE|#------------------------------------------------------------------
+#OBSOLETE|# Node (parent class)
+#OBSOLETE|#------------------------------------------------------------------
+#OBSOLETE|
+#OBSOLETE|class Node(object):
+#OBSOLETE|    """
+#OBSOLETE|    \brief Base class for implementing AST node objects
+#OBSOLETE|    """
+#OBSOLETE|
+#OBSOLETE|    def __init__(self, node = None):
+#OBSOLETE|        """
+#OBSOLETE|        \brief Constructor
+#OBSOLETE|        """
+#OBSOLETE|        if node:
+#OBSOLETE|            if not isinstance(node, Node):
+#OBSOLETE|                raise ValueError('Expected type Node, got %s' % node.__class__.__name__)
+#OBSOLETE|            return deepcopy(node)
+#OBSOLETE|        # Callback triggered when the current node produces data.
+#OBSOLETE|        self.callback = None
+#OBSOLETE|        # Query representing the data produced by the node.
+#OBSOLETE|#        self.query = self.get_query()
+#OBSOLETE|        self.identifier = random.randint(0,9999)
+#OBSOLETE|
+#OBSOLETE|    def set_callback(self, callback):
+#OBSOLETE|        """
+#OBSOLETE|        \brief Associates a callback to the current node
+#OBSOLETE|        \param callback The callback to associate
+#OBSOLETE|        """
+#OBSOLETE|        self.callback = callback
+#OBSOLETE|        # Basic information about the data provided by a node
+#OBSOLETE|
+#OBSOLETE|    def get_callback(self):
+#OBSOLETE|        """
+#OBSOLETE|        \brief Return the callback related to this Node 
+#OBSOLETE|        """
+#OBSOLETE|        return self.callback
+#OBSOLETE|
+#OBSOLETE|    def send(self, record):
+#OBSOLETE|        """
+#OBSOLETE|        \brief calls the parent callback with the record passed in parameter
+#OBSOLETE|        """
+#OBSOLETE|        Log.record(record, source=self)
+#OBSOLETE|        self.callback(record)
+#OBSOLETE|
+#OBSOLETE|    @returns(Query)
+#OBSOLETE|    def get_query(self):
+#OBSOLETE|        """
+#OBSOLETE|        \brief Returns the query representing the data produced by the nodes.
+#OBSOLETE|        \return query representing the data produced by the nodes.
+#OBSOLETE|        """
+#OBSOLETE|
+#OBSOLETE|        return self.query
+#OBSOLETE|
+#OBSOLETE|        # Raise an exception in the base class to force child classes to
+#OBSOLETE|        # implement this method
+#OBSOLETE|        #raise Exception, "Nodes should implement the query function: %s" % self.__class__.__name__
+#OBSOLETE|
+#OBSOLETE|    def tab(self, indent):
+#OBSOLETE|        """
+#OBSOLETE|        \brief print _indent_ tabs
+#OBSOLETE|        """
+#OBSOLETE|        print "[%04d]" % self.get_identifier(), ' ' * 4 * indent,
+#OBSOLETE|        #        sys.stdout.write(' ' * indent * 4)
+#OBSOLETE|
+#OBSOLETE|    def dump(self, indent = 0):
+#OBSOLETE|        """
+#OBSOLETE|        \brief Dump the current node
+#OBSOLETE|        \param indent current indentation
+#OBSOLETE|        """
+#OBSOLETE|        self.tab(indent)
+#OBSOLETE|        print "%r" % self
+#OBSOLETE|        #print "%r (%r)" % (self, self.query)
+#OBSOLETE|        #print "%r (%r)" % (self, self.callback)
+#OBSOLETE|
+#OBSOLETE|    @returns(StringTypes)
+#OBSOLETE|    def __repr__(self):
+#OBSOLETE|        return "This method should be overloaded!"
+#OBSOLETE|
+#OBSOLETE|    @returns(StringTypes)
+#OBSOLETE|    def __str__(self):
+#OBSOLETE|        return self.__repr__() 
+#OBSOLETE|
+#OBSOLETE|    def optimize(self):
+#OBSOLETE|        Log.info("Calling optimize()")
+#OBSOLETE|        tree = self.optimize_selection(Filter())
+#OBSOLETE|        tree = tree.optimize_projection(set())
+#OBSOLETE|        return tree
+#OBSOLETE|    
+#OBSOLETE|    #@returns(Node)
+#OBSOLETE|    def optimize_selection(self, filter):
+#OBSOLETE|        Log.warning("optimize_selection() not implemented in" % self.__class__.__name__)
+#OBSOLETE|        return self
+#OBSOLETE|
+#OBSOLETE|    #@returns(Node)
+#OBSOLETE|    def optimize_projection(self, fields):
+#OBSOLETE|        Log.warning("optimize_projection() not implemented in" % self.__class__.__name__)
+#OBSOLETE|        return self
+#OBSOLETE|
+#OBSOLETE|    @returns(int)
+#OBSOLETE|    def get_identifier(self):
+#OBSOLETE|        return self.identifier

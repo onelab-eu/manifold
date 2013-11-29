@@ -1,7 +1,9 @@
+from types                          import StringTypes
 from manifold.core.packet           import Packet
 from manifold.core.record           import Record
 from manifold.core.node             import Node
 from manifold.operators.operator    import Operator
+from manifold.util.log              import Log
 from manifold.util.type             import returns
 
 DUMPSTR_PROJECTION = "SELECT %s" 
@@ -31,6 +33,7 @@ def do_projection(record, fields):
     # 2/ process local fields
     for l in local:
         ret[l] = record[l] if l in record else None
+
     # 3/ recursively process subqueries
     for method, subfields in subqueries.items():
         # record[method] is an array whose all elements must be
@@ -45,12 +48,12 @@ def do_projection(record, fields):
     return ret
 
 #------------------------------------------------------------------
-# PROJECTION node
+# Projection Node
 #------------------------------------------------------------------
 
 class Projection(Operator):
     """
-    PROJECTION operator node (cf SELECT clause in SQL)
+    Projection Operator Node (cf SELECT clause in SQL)
     """
 
     #---------------------------------------------------------------------------
@@ -65,14 +68,15 @@ class Projection(Operator):
         \param fields A list of Field instances corresponding to
             the fields we're selecting.
         """
-        Operator.__init__(self, producers = child, max_producers = 1)
-
+        Log.tmp(">>>>>>>>>> Projection::init()")
         #for field in fields:
         #    assert isinstance(field, Field), "Invalid field %r (%r)" % (field, type(field))
 
         if isinstance(fields, (list, tuple, frozenset)):
             fields = set(fields)
         self._fields = fields
+
+        Operator.__init__(self, producers = child, max_producers = 1)
 
 #DEPRECATED|        # Callbacks
 #DEPRECATED|        old_cb = child.get_callback()
@@ -89,18 +93,22 @@ class Projection(Operator):
     @returns(set)
     def get_fields(self):
         """
-        \returns The list of Field instances selected in this node.
+        Returns:
+            The set of Field instances selected in this Projection instance.
         """
         return self._fields
-
 
     #---------------------------------------------------------------------------
     # Internal methods
     #---------------------------------------------------------------------------
 
+    @returns(StringTypes)
     def __repr__(self):
+        """
+        Returns:
+            The '%r' representation of this Projection instance.
+        """
         return DUMPSTR_PROJECTION % ", ".join(self.get_fields())
-
 
     #---------------------------------------------------------------------------
     # Methods
@@ -108,8 +116,14 @@ class Projection(Operator):
 
     def receive(self, packet):
         """
+        Process an incoming Packet instance.
+        - If this is a RECORD Packet, remove every fields that are
+          not SELECTed by this Operator.
+        - If this is the LastRecord or an ERROR Packet, forward
+          this Packet.
+        Args:
+            packet: A Packet instance.
         """
-
         if packet.get_type() == Packet.TYPE_QUERY:
             self.send(packet)
 
@@ -122,21 +136,23 @@ class Projection(Operator):
         else: # TYPE_ERROR
             self.send(packet)
 
-    def dump(self, indent=0):
+    def dump(self, indent = 0):
         """
-        \brief Dump the current node
-        \param indent current indentation
+        Dump the current node.
+        Args:
+            indent: Current indentation.
         """
-        Node.dump(self, indent)
+        super(Projection, self).dump(indent)
         # We have one producer for sure
         self.get_producer().dump(indent + 1)
 
-
+    @returns(Node)
     def optimize_selection(self, query, filter):
         producer = self.get_producer().optimize_selection(query, filter)
         self.get_producer(producer)
         return self
 
+    @returns(Node)
     def optimize_projection(self, query, fields):
         # We only need the intersection of both
         return self.child.optimize_projection(query, self._fields & fields)

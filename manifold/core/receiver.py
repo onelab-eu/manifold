@@ -1,88 +1,90 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-#
-# A Receiver is passed to a forward method (see Router, Gateway...) 
-# to store the ResultValue corresponding to a Query.
-#
-# A From Node, a Shell should inherits Receiver since they forward
-# Query instances to a Router.
-#
-# Copyright (C) UPMC Paris Universitas
-# Authors:
-#   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
+#use Consumer class instead
 
-from manifold.core.record           import Record
-from manifold.core.result_value     import ResultValue
-from manifold.util.type             import accepts, returns
-
-class Receiver(object):
-    def __init__(self):
-        """
-        Constructor.
-        """
-        self.result_value = None # ResultValue corresponding to the last Query
-
-    @returns(ResultValue)
-    def get_result_value(self):
-        """
-        Returns:
-            The ResultValue corresponding to the last issued Query.
-        """
-        return self.result_value
-
-    def set_result_value(self, result_value):
-        """
-        Function called back by self.interface.forward() once the Query
-        has been executed.
-        Args:
-            result_value: A ResultValue or None.
-        """
-        assert not result_value or isinstance(result_value, ResultValue), \
-            "Invalid result_value = %s (%s)" % (result_value, type(result_value))
-        self.result_value = result_value
-
-###############
-# CODE jetable
-# <<
-###############
-
-    @returns(int)
-    def get_identifier(self):
-        """
-        Returns:
-            An integer identifying the Receiver. This identifier is only used
-            for debug purposes.
-        """
-        return 0
-
-    def default_callback(self, record):
-        """
-        Accumulate incoming Record in the nested ResultValue.
-        Args:
-            record: A Record instance.
-        """
-        try:
-            x = self.records
-        except AttributeError:
-            self.records = list()
-
-        if record.is_last():
-            result_value = ResultValue.get_success(self.records)
-            del self.records
-            self.set_result_value(result_value)
-        else:
-            self.records.append(record)
-
-    def callback(self, record):
-        """
-        This method is called back whenever the Receiver receives a Record.
-        A class inheriting Receiver may overwrite this method.
-        Args:
-            record: A Record instance.
-        """
-        return self.default_callback(record)
-
-###############
-# CODE jetable
-# >>
-###############
+#DEPRECATED|#!/usr/bin/env python
+#DEPRECATED|# -*- coding: utf-8 -*-
+#DEPRECATED|#
+#DEPRECATED|# A Receiver is passed to a forward method (see Router, Gateway...) 
+#DEPRECATED|# to store the ResultValue corresponding to a Query.
+#DEPRECATED|#
+#DEPRECATED|# A From Node, a Shell should inherits Receiver since they forward
+#DEPRECATED|# Query instances to a Router.
+#DEPRECATED|#
+#DEPRECATED|# Copyright (C) UPMC Paris Universitas
+#DEPRECATED|# Authors:
+#DEPRECATED|#   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
+#DEPRECATED|
+#DEPRECATED|from manifold.core.record           import Record
+#DEPRECATED|from manifold.core.result_value     import ResultValue
+#DEPRECATED|from manifold.util.type             import accepts, returns
+#DEPRECATED|
+#DEPRECATED|class Receiver(object):
+#DEPRECATED|    def __init__(self):
+#DEPRECATED|        """
+#DEPRECATED|        Constructor.
+#DEPRECATED|        """
+#DEPRECATED|        self.result_value = None # ResultValue corresponding to the last Query
+#DEPRECATED|
+#DEPRECATED|    @returns(ResultValue)
+#DEPRECATED|    def get_result_value(self):
+#DEPRECATED|        """
+#DEPRECATED|        Returns:
+#DEPRECATED|            The ResultValue corresponding to the last issued Query.
+#DEPRECATED|        """
+#DEPRECATED|        return self.result_value
+#DEPRECATED|
+#DEPRECATED|    def set_result_value(self, result_value):
+#DEPRECATED|        """
+#DEPRECATED|        Function called back by self.interface.forward() once the Query
+#DEPRECATED|        has been executed.
+#DEPRECATED|        Args:
+#DEPRECATED|            result_value: A ResultValue or None.
+#DEPRECATED|        """
+#DEPRECATED|        assert not result_value or isinstance(result_value, ResultValue), \
+#DEPRECATED|            "Invalid result_value = %s (%s)" % (result_value, type(result_value))
+#DEPRECATED|        self.result_value = result_value
+#DEPRECATED|
+#DEPRECATED|###############
+#DEPRECATED|# CODE jetable
+#DEPRECATED|# <<
+#DEPRECATED|###############
+#DEPRECATED|
+#DEPRECATED|    @returns(int)
+#DEPRECATED|    def get_identifier(self):
+#DEPRECATED|        """
+#DEPRECATED|        Returns:
+#DEPRECATED|            An integer identifying the Receiver. This identifier is only used
+#DEPRECATED|            for debug purposes.
+#DEPRECATED|        """
+#DEPRECATED|        return 0
+#DEPRECATED|
+#DEPRECATED|    def default_callback(self, record):
+#DEPRECATED|        """
+#DEPRECATED|        Accumulate incoming Record in the nested ResultValue.
+#DEPRECATED|        Args:
+#DEPRECATED|            record: A Record instance.
+#DEPRECATED|        """
+#DEPRECATED|        try:
+#DEPRECATED|            x = self.records
+#DEPRECATED|        except AttributeError:
+#DEPRECATED|            self.records = list()
+#DEPRECATED|
+#DEPRECATED|        if record.is_last():
+#DEPRECATED|            result_value = ResultValue.get_success(self.records)
+#DEPRECATED|            del self.records
+#DEPRECATED|            self.set_result_value(result_value)
+#DEPRECATED|        else:
+#DEPRECATED|            self.records.append(record)
+#DEPRECATED|
+#DEPRECATED|    def callback(self, record):
+#DEPRECATED|        """
+#DEPRECATED|        This method is called back whenever the Receiver receives a Record.
+#DEPRECATED|        A class inheriting Receiver may overwrite this method.
+#DEPRECATED|        Args:
+#DEPRECATED|            record: A Record instance.
+#DEPRECATED|        """
+#DEPRECATED|        return self.default_callback(record)
+#DEPRECATED|
+#DEPRECATED|###############
+#DEPRECATED|# CODE jetable
+#DEPRECATED|# >>
+#DEPRECATED|###############

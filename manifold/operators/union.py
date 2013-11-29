@@ -1,15 +1,27 @@
-from manifold.operators            import Node, ChildStatus, ChildCallback
-from manifold.operators.projection import Projection
-from manifold.core.record          import Record, LastRecord
-from manifold.util.log             import Log
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+# An Union Node aggregates the Record returned by several
+# child Nodes.
+#
+# Copyright (C) UPMC Paris Universitas
+# Authors:
+#   Jordan Augé       <jordan.auge@lip6.fr> 
+#   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
-DUMPSTR_UNION      = "UNION"
+from manifold.operators             import ChildStatus, ChildCallback
+from manifold.operators.projection  import Projection
+from manifold.operators.operator    import Operator
+from manifold.core.record           import Record, LastRecord
+from manifold.util.log              import Log
+
+DUMPSTR_UNION = "UNION"
 
 #------------------------------------------------------------------
 # UNION node
 #------------------------------------------------------------------
             
-class Union(Node):
+class Union(Operator):
     """
     UNION operator node.
     """
@@ -42,25 +54,25 @@ class Union(Node):
         self.query = self.children[0].get_query().copy()
 
 
-#    @returns(Query)
-#    def get_query(self):
-#        """
-#        \brief Returns the query representing the data produced by the nodes.
-#        \return query representing the data produced by the nodes.
-#        """
-#        # We suppose all child queries have the same format, and that we have at
-#        # least one child
-#        print "Union::get_query()"
-#        return Query(self.children[0].get_query())
+    @returns(Query)
+    def get_query(self):
+        """
+        \brief Returns the query representing the data produced by the nodes.
+        \return query representing the data produced by the nodes.
+        """
+        # We suppose all child queries have the same format, and that we have at
+        # least one child
+        print "Union::get_query()"
+        return Query(self.children[0].get_query())
         
     def dump(self, indent = 0):
         """
-        Dump the current node
+        Dump the this Union instance to the standard output. 
         Args:
-            indent: An integer corresponding to the number of space
+            indent: An integer corresponding to the number of spaces
                 to write (current indentation).
         """
-        Node.dump(self, indent)
+        super(Union, self).dump(indent)
         for child in self.children:
             child.dump(indent + 1)
 

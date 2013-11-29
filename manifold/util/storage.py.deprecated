@@ -10,13 +10,10 @@
 #
 # Copyright (C) 2013 UPMC 
 
-
-from manifold.core.receiver         import Receiver
 from manifold.gateways              import Gateway
 from manifold.util.callback         import Callback
 from manifold.util.log              import Log 
 from manifold.util.type             import accepts, returns
-
 
 class Storage(object):
     pass
@@ -32,26 +29,26 @@ class Storage(object):
         pass
 
 class DBStorage(Storage):
-    def __init__(self, interface = None, url = URL):
+    def __init__(self, interface = None, url):
         """
         Constructor.
         Args:
             interface: An Interface instance (the one using this Storage) or None.
             url: A String instance containing the URL of the DBStorage.
                 Examples:
+                    See in core/interface.py STORAGE_URL.
                     'sqlite:///:memory:?check_same_thread=False'
                     'sqlite:////var/myslice/db.sqlite?check_same_thread=False'
         """
         # Call SQLAlchemyGateway::__init__() without having a direct
         # dependancy to manifold.gateway.sqlalchemy module.
-        storage_config = {"url" : URL}
+        storage_config = {"url" : url}
         sqlalchemy_gw = Gateway.get("sqlalchemy")
         if not sqlalchemy_gw:
             raise Exception, \
                 "Cannot find SQLALchemy Gateway, which is necessary for DBStorage module. Known Gateways are: {%s}"\
                 % ", ".join(Gateway.list().keys())
         self.gateway = sqlalchemy_gw(interface, None, storage_config)
-
 
     def send(self, packet):
         pass
@@ -73,5 +70,11 @@ class DBStorage(Storage):
         self.gateway.forward(query, annotations, callback, False, True, account_config, None)
         return callback.get_results()
 
+    @returns(list)
     def get_metadata(self):
+        """
+        Build metadata by loading header files
+        Returns:
+            The list of corresponding Announce instances
+        """
         return self.gateway.get_metadata()

@@ -10,11 +10,13 @@
 #   Jordan Augé         <jordan.auge@lip6.fr
 #   Marc-Olivier Buob   <marc-olivier.buob@lip6.fr>
 
-from manifold.core.node           import Node
-from manifold.core.packet         import Packet
-from manifold.core.pool_consumers import PoolConsumers
-from manifold.util.log            import Log
-from manifold.util.type           import accepts, returns
+from types                          import StringTypes
+
+from manifold.core.node             import Node
+from manifold.core.packet           import Packet
+from manifold.core.pool_consumers   import PoolConsumers
+from manifold.util.log              import Log
+from manifold.util.type             import accepts, returns
 
 class Producer(Node):
 
@@ -30,6 +32,9 @@ class Producer(Node):
             max_consumers: A strictly positive integer or None (maximum
                 number of children, pass None if not bounded).
         """
+        assert not max_consumers or (isinstance(max_consumers, int) and max_consumers >= 1),\
+            "Invalid max_consumers = %s (%s)" % (max_consumers, type(max_consumers))
+
         Node.__init__(self)
         self._pool_consumers = PoolConsumers(consumers, max_consumers = max_consumers)
 
@@ -50,20 +55,28 @@ class Producer(Node):
         return set(self._pool_consumers)
 
     @returns(int)
+    def get_num_consumers(self):
+        """
+        Returns:
+            The number of Consumers related to this Producer.
+        """
+        return len(self.get_consumers())
+
+    @returns(int)
     def get_max_consumers(self):
         """
         Returns:
-            The maximum number of consumers allowed for this Producer or
+            The maximum number of Consumers allowed for this Producer or
             None if this value is unbounded.
         """
         return self._pool_consumers.get_max_consumers()
 
     def clear_consumers(self, cascade = True):
         """
-        Unlink all the Consumers of this Producer.
+        Unlink this Producer from its Consumers.
         Args:
-            cascade: A boolean set to true to unlink 'self'
-                to the producers set of 'consumer'.
+            cascade: A boolean set to true to unlink those
+                Consumers from self.
         """
         if cascade:
             for consumer in self._pool_consumers:
@@ -93,6 +106,34 @@ class Producer(Node):
         self._pool_consumers.remove(consumer)
         if cascade:
             customer.del_producer(self, cascade = False)
+
+    @returns(StringTypes)
+    def format_consumer_ids(self):
+        """
+        Returns:
+            A String containing the ids of the Consumers of this Producer.
+        """
+        return "{[%s]}" % "], [".join(("%r" % consumer.get_identifier() for consumer in self.get_consumers())) 
+ 
+    @returns(StringTypes)
+    def __repr__(self):
+        """
+        Returns:
+            The '%r' representation of this Producer.
+        """
+        return "%s[%s](Consumers: %s>)" % (
+            self.__class__.__name__,
+            self.get_identifier(),
+            self.format_consumer_ids()
+        )
+
+    @returns(StringTypes)
+    def __str__(self):
+        """
+        Returns:
+            The '%s' representation of this Producer.
+        """
+        return self.__repr__() 
 
     #---------------------------------------------------------------------------
     # Helpers
@@ -124,7 +165,7 @@ class Producer(Node):
         Returns:
             The corresponding Consumer instance (if any), None otherwise.
         """
-        if self.get_max_consumers() == 1:
+        if self.get_max_consumers() != 1:
             max = self.get_max_consumers()
             max_str = "%d" % max if max else 'UNLIMITED'
             raise Exception, "Cannot call get_consumer with max_consumers != 1 (=%s)" % max_str
