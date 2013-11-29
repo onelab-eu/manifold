@@ -22,6 +22,7 @@ from manifold.core.packet import Packet
 from manifold.core.query  import Query 
 from manifold.core.relay  import Relay
 from manifold.util.log    import Log
+from manifold.util.type   import accepts, returns
 
 # NOTES: it seem we don't need the query anymore in the operators expect From
 # maybe ? Selection, projection ??

@@ -9,11 +9,13 @@
 #   Jordan Augé       <jordan.auge@lip6.fr> 
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
+from manifold.core.query            import Query
+from manifold.core.record           import Record, LastRecord
 from manifold.operators             import ChildStatus, ChildCallback
 from manifold.operators.projection  import Projection
 from manifold.operators.operator    import Operator
-from manifold.core.record           import Record, LastRecord
 from manifold.util.log              import Log
+from manifold.util.type             import accepts, returns
 
 DUMPSTR_UNION = "UNION"
 
