@@ -20,7 +20,6 @@ from manifold.core.filter          import Filter
 from manifold.core.query           import Query
 from manifold.core.stack           import Stack, TASK_11, TASK_1Nsq, TASK_1N
 from manifold.operators.demux      import Demux
-from manifold.operators.From       import From
 from manifold.util.log             import Log
 from manifold.util.misc            import is_sublist
 from manifold.util.predicate       import Predicate, eq
@@ -268,6 +267,7 @@ class ExploreTask(Deferred):
             user: The User issuing the Query.
             query_plan: The QueryPlan instance related to this Query, and that we're updating.
         """
+        Log.warning("perform_subquery: user is not needed anymore")
         # We need to build an AST just to collect subqueries
 #OBSOLETE|        # XXX metadata not defined
 #OBSOLETE|        #if not self.ast:
@@ -322,6 +322,7 @@ class ExploreTask(Deferred):
             user: The User issuing the Query.
             query_plan: The QueryPlan instance related to this Query, and that we're updating.
         """
+        Log.warning("perform_union: user is not needed anymore")
         from_asts = list()
         key = table.get_keys().one()
 
@@ -369,8 +370,9 @@ class ExploreTask(Deferred):
                 # We need to connect the right gateway
                 # XXX
 
-                from_ast = AST(self._interface, user = user).From(platform, query, capabilities, key)
-                query_plan.add_from(from_ast.get_producer())
+#                from_ast = AST(self._interface, user = user).From(platform, query, capabilities, key)
+                from_ast = AST(self._interface).From(platform, query, capabilities, key)
+#DEPRECATED|                query_plan.add_from(from_ast.get_producer())
 
 #DISABLED|                try:
 #DISABLED|                    if method in table.methods_demux:
@@ -395,7 +397,8 @@ class ExploreTask(Deferred):
                 print "FROMTABLE -- DUP(%r) -- SELECT(%r) -- %r -- %r" % (key_dup, select_fields, demux_node, from_node) 
 
                 # Build a new AST (the branch we'll add) above an existing FROM node
-                from_ast = AST(self._interface, user = user)
+#                from_ast = AST(self._interface, user = user)
+                from_ast = AST(self._interface)
                 from_ast.root = demux_node
                 Log.warning("ExploreTask: TODO: plug callback")
                 #TODO from_node.addCallback(from_ast.callback)

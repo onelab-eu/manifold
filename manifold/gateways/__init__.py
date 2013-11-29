@@ -36,16 +36,17 @@ class Gateway(Producer):
     __metaclass__ = PluginFactory
     __plugin__name__attribute__ = '__gateway_name__'
 
-
     #---------------------------------------------------------------------------  
     # Static methods
     #---------------------------------------------------------------------------  
 
     @staticmethod
     def register_all():
+        """
+        Register each available Manifold Gateway.
+        """
         current_module = sys.modules[__name__]
         PluginFactory.register(current_module)
-
 
     #---------------------------------------------------------------------------  
     # Constructor
@@ -64,6 +65,8 @@ class Gateway(Producer):
                 
                     SELECT config FROM local:platform WHERE platform == "platform_name"
         """
+        if interface:
+            Log.warning("Gateway::__init__(): interface obsolete?")
         assert isinstance(platform_name, StringTypes) or not platform_name, \
             "Invalid platform name: %s (%s)" % (platform_name,   type(platform_name))
         assert isinstance(platform_config, dict) or not platform_config, \
@@ -80,7 +83,6 @@ class Gateway(Producer):
         # XXX in the meantime we support all capabilities
         self._capabilities   = dict()
 
-
     #---------------------------------------------------------------------------  
     # Accessors
     #---------------------------------------------------------------------------  
@@ -92,6 +94,7 @@ class Gateway(Producer):
             The Interface instance using this Gateway. Most of time
             this is a Router instance.
         """
+        Log.warning("Gateway::get_interface(): <mando> obsolete?")
         return self._interface
 
     @returns(dict)
@@ -389,6 +392,7 @@ class Gateway(Producer):
 #FIXME|                return FromTable(query, [], self.key)
 #FIXME|            # XXX Note that such issues could be detected beforehand
 
+        Log.tmp("optimize_selection: query = %s filter = %s" % (query, filter))
         capabilities = self.get_capabilities(query.get_from())
 
         if capabilities.selection:
@@ -418,6 +422,7 @@ class Gateway(Producer):
         Returns:
             The updated root Node of the sub-AST.
         """
+        Log.tmp("optimize_projection: query = %s fields = %s" % (query, fields))
         capabilities = self.get_capabilities(query.get_from())
         if capabilities.projection:
             # Push fields into the From node

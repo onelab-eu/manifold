@@ -1,9 +1,25 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+# Selection Operator filters incoming RECORD Packets according
+# to a clause of Predicate.
+#
+# It acts like the WHERE Clause in SQL.
+#
+# Copyright (C) UPMC Paris Universitas
+# Authors:
+#   Jordan Augé         <jordan.auge@lip6.fr>
+#   Marc-Olivier Buob   <marc-olivier.buob@lip6.fr>
+
+from types                          import StringTypes
+
 from manifold.core.node             import Node
 from manifold.core.packet           import Packet
 from manifold.core.query            import Query
 from manifold.operators.operator    import Operator
 from manifold.operators.projection  import Projection
 from manifold.util.log              import Log
+from manifold.util.type             import accepts, returns
 
 DUMPSTR_SELECTION  = "WHERE %s"
 
@@ -12,9 +28,6 @@ DUMPSTR_SELECTION  = "WHERE %s"
 #------------------------------------------------------------------
 
 class Selection(Operator):
-    """
-    Selection operator node (cf WHERE clause in SQL)
-    """
 
     #---------------------------------------------------------------------------
     # Constructor
@@ -22,27 +35,29 @@ class Selection(Operator):
 
     def __init__(self, child, filters):
         """
-        \brief Constructor
-        \param child A Node instance (the child of this Node)
-        \param filters A set of Predicate instances
+        Constructor
+        Args:
+            child: A Node instance (the child of this Node)
+            filters: A set of Predicate instances
         """
+        Log.tmp(">>>>>>>>>>>>>>>>>>>> Selection")
         assert issubclass(type(child), Node), "Invalid child = %r (%r)"   % (child,   type(child))
         assert isinstance(filters, set),      "Invalid filters = %r (%r)" % (filters, type(filters))
 
-        Operator.__init__(self, producers = child, max_producers = 1)
         self._filter = filters
-    
-    #---------------------------------------------------------------------------
-    # Internal methods
-    #---------------------------------------------------------------------------
-    
-    def __repr__(self):
-        return DUMPSTR_SELECTION % ' AND '.join(["%s %s %s" % f.get_str_tuple() for f in self._filter])
-
-
+        Operator.__init__(self, producers = child, max_producers = 1)
+ 
     #---------------------------------------------------------------------------
     # Methods
     #---------------------------------------------------------------------------
+
+    @returns(StringTypes)
+    def __repr__(self):
+        """
+        Returns:
+            The '%r' representation of this Selection instance.
+        """
+        return DUMPSTR_SELECTION % ' AND '.join(["%s %s %s" % f.get_str_tuple() for f in self._filter])
 
     def receive(self, packet):
         """
@@ -65,10 +80,11 @@ class Selection(Operator):
 
     def dump(self, indent = 0):
         """
-        \brief Dump the current child
-        \param indent The current indentation
+        Dump the current child
+        Args:
+            indent: The current indentation
         """
-        Node.dump(self, indent)
+        super(Selection, self).dump(indent)
         # We have one producer for sure
         self.get_producer().dump(indent + 1)
 

@@ -1,8 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# A Manifold Interface can be either a Manifold Router or
-# a Manifold Forwarder. 
+# Manifold Interface class. 
 #
 # Copyright (C) UPMC Paris Universitas
 # Authors:
@@ -15,31 +14,16 @@ from twisted.internet.defer         import Deferred
 
 from manifold.gateways              import Gateway
 from manifold.core.annotation       import Annotation 
-from manifold.core.node             import Node
-from manifold.core.packet           import QueryPacket
+from manifold.core.capabilities     import Capabilities
 from manifold.core.query            import Query
-from manifold.core.query_plan       import QueryPlan
-from manifold.core.receiver         import Receiver
 from manifold.core.record           import Record
 from manifold.core.result_value     import ResultValue
-from manifold.core.sync_receiver    import SyncReceiver
-from manifold.models.platform       import Platform
-from manifold.models.user           import User
 from manifold.policy                import Policy
-from manifold.util.type             import accepts, returns 
 from manifold.util.log              import Log
-
-STORAGE_URL = 'sqlite:////var/myslice/db.sqlite?check_same_thread=False'
+from manifold.util.storage          import make_storage, storage_execute
+from manifold.util.type             import accepts, returns 
 
 class Interface(object):
-    """
-    A Manifold standard Interface.
-    It stores metadata and is able to build a QueryPlan from a Query.
-
-    Exposes : forward, get_announces, etc.
-    """
-
-    LOCAL_NAMESPACE = "local"
 
     #---------------------------------------------------------------------
     # Constructor
@@ -49,27 +33,29 @@ class Interface(object):
         """
         Create an Interface instance.
         Args:
-            user_storage: A dictionnary used to access to the Manifold Storage
-                or None if the Storage can be accessed anonymously.
+            user_storage: A String containing the email of the user accessing
+                the Storage, None if the Storage can be accessed anonymously.
             allowed_capabilities: A Capabilities instance which defines which
                 operation can be performed by this Interface. Pass None if there
                 is no restriction.
         """
+        assert not user_storage or isinstance(user_storage, StringTypes),\
+            "Invalid user = %s (%s)" % (user_storage, type(user_storage))
+        assert not allowed_capabilities or isinstance(allowed_capabilities, Capabilities),\
+            "Invalid capabilities = %s (%s)" % (allowed_capabilities, type(allowed_capabilities))
+
         # Register the list of Gateways
         Log.info("Registering gateways")
         Gateway.register_all()
         Log.info("Registered gateways are: {%s}" % ' '.join(Gateway.list().keys()))
 
+        # Prepare Manifold Storage
+        self.user_storage = user_storage
+        self._storage = make_storage(None)
+
         # self.platforms is list(dict) where each dict describes a platform.
         # See platform table in the Storage.
-        sqlalchemy_gw = Gateway.get("sqlalchemy")
-        if not sqlalchemy_gw:
-            raise Exception, "Cannot find sqlalchemy gateway, which is necessary for DBStorage module"
-        storage_config = {"url" : STORAGE_URL}
-        self._storage = sqlalchemy_gw(self, None, storage_config)
-
         self.platforms = list()
-        self.user_storage = user_storage
 
         # self.allowed_capabilities is a Capabilities instance (or None)
         self.allowed_capabilities = allowed_capabilities
@@ -112,6 +98,15 @@ class Interface(object):
         """
         return self.announces
 
+    @returns(Capabilities)
+    def get_capabilities(self):
+        """
+        Returns:
+            The Capabilities supported by this Router,
+            None if every Capabilities are supported.
+        """
+        return self.allowed_capabilities
+
     @returns(GeneratorType)
     def get_platforms(self):
         """
@@ -143,8 +138,9 @@ class Interface(object):
         Execute a Query related to the Manifold Storage
         (ie any "local:*" object).
         Args:
-            query: A Query. query.get_from() should start with "local:".
-            annotation: An Annotation instance related to Query.
+            query: A Query. query.get_from() must start with the
+                STORAGE_NAMESPACE namespace (see util/storage.py).
+            annotation: An Annotation instance related to Query or None.
             error_message: A String containing the error_message that must
                 be written in case of failure.
         Raises:
@@ -152,20 +148,24 @@ class Interface(object):
         Returns:
             A list of Records.            
         """
-        receiver = SyncReceiver()
-        packet   = QueryPacket(query, annotation, receiver)
-
-        receiver.set_producer(self._storage)
-
-        self._storage.receive(packet)
-        result_value = receiver.get_result_value()
-
-        if not result_value.is_success():
-            if not error_message:
-                error_message = "Error executing local query: %s" % query
-            raise Exception, error_message
-
-        return result_value["value"]
+        return storage_execute(self.get_storage(), query, annotation, error_message)
+#MANDO|        assert not annotation or isinstance(annotation, Annotation), \
+#MANDO|            "Invalid annotation = %s (%s)" % (annotation, type(annotation))
+#MANDO|
+#MANDO|        receiver = SyncReceiver()
+#MANDO|        packet   = QueryPacket(query, annotation, receiver)
+#MANDO|        storage  = self.get_storage()
+#MANDO|
+#MANDO|        receiver.set_producer(storage)
+#MANDO|        storage.receive(packet)
+#MANDO|        result_value = receiver.get_result_value()
+#MANDO|
+#MANDO|        if not result_value.is_success():
+#MANDO|            if not error_message:
+#MANDO|                error_message = "Error executing local query: %s" % query
+#MANDO|            raise Exception, error_message
+#MANDO|
+#MANDO|        return result_value["value"]
         
 
 #OBSOLETE|    def get_user_config(self, user, platform):
@@ -245,10 +245,20 @@ class Interface(object):
             try:
                 self.make_gateway(platform_name)
             except Exception, e:
-                raise ValueError("Cannot find/create Gateway related to platform %s (%s)" % (platform, e))
-        return self.gateways[platform_name]
+                Log.error(traceback.format_exc())
+                raise ValueError("Cannot find/create Gateway related to platform %s (%s)" % (platform_name, e))
+        try:
+            return self.gateways[platform_name]
+        except KeyError:
+            Log.error("Unable to retrieve Gateway %s" % platform_name)
+            return None
 
+    @returns(Gateway)
     def get_storage(self):
+        """
+        Returns:
+            The Gateway used to query the Manifold Storage.
+        """
         return self._storage
 
     #---------------------------------------------------------------------
@@ -266,7 +276,14 @@ class Interface(object):
         Returns:
             The corresponding Gateway if found, None otherwise.
         """
+        assert isinstance(platform_name, StringTypes),\
+            "Invalid platform_name = %s (%s)" % (platform_name, type(platform_name))
+
         platform = self.get_platform(platform_name)
+        if not platform:
+            Log.error("Cannot make Gateway %s" % platform_name)
+            return None
+
         platform_config = json.loads(platform["config"])
         args = [self, platform_name, platform_config]
 
@@ -333,72 +350,93 @@ class Interface(object):
             The corresponding dictionnary, None if no account found for
             this User and this Platform.
         """
-        if platform_name == 'local':
-            return {}
+        assert isinstance(platform_name, StringTypes),\
+            "Invalid platform_name = %s (%s)" % (platform_name, type(platform_name))
 
-        annotation = {"user" : self.get_user_storage()}
+        if platform_name == 'local':
+            return dict() 
+
+        annotation = Annotation({"user" : self.get_user_storage()})
 
         # Retrieve the Platform having the name "platform_name" in the Storage
-        platforms = self._storage.execute(
-            Query().get("platform").filter_by("platform", "=", platform_name),
-            annotation,
-        )
-        platform_id = platforms[0]["platform_id"]
+        try:
+            platforms = self.execute_local_query(
+                Query().get("platform").filter_by("platform", "=", platform_name),
+                annotation,
+            )
+            platform_id = platforms[0]["platform_id"]
+        except IndexError:
+            Log.error("interface::get_account_config(): platform %s not found" % platform_name)
+            return None
 
         # Retrieve the first Account having the name "platform_name" in the Storage
-        account_configs = self._storage.execute(
-            Query().get("account").filter_by("platform_id", "=", platform_id),
-            annotation
-        )
+        try:
+            account_configs = self.execute_local_query( 
+                Query().get("account").filter_by("platform_id", "=", platform_id),
+                annotation
+            )
+        except IndexError:
+            Log.error("interface::get_account_config(): no account found for platform %s" % platform_name)
+            return None
 
         # Convert the json string "config" into a python dictionnary
-        if len(accounts) > 0:
+        num_accounts = len(accounts)
+        if num_accounts > 0:
+            if num_accounts > 1:
+                Log.warning("Several accounts found for [%s]@%s: %s" % (user["email"], platform_name, accounts))
             account = accounts[0]
             account["config"] = json.loads(account["config"])
+        else:
+            account = None
 
         return account
 
-    def init_from_nodes(self, query_plan, user):
-        """
-        Initialize the From Nodes involved in a QueryPlan by:
-            - setting the User of each From Node.
-            - setting the Gateways used by each From Node.
-        Args:
-            query_plan: A QueryPlan instance, deduced from the user's Query.
-            user: The User who executes the QueryPlan (None if anonymous).
-        """
-        # XXX Platforms only serve for metadata
-        # in fact we should initialize filters from the instance, then rely on
-        # Storage including those filters...
-
-        # Retrieve for each Platform involved in the QueryPlan the account(s)
-        # corresponding to this User.
-        platform_names = set()
-        for from_node in query_plan.get_froms():
-            platform_names.add(from_node.get_platform_name())
-        
-        # Retrieve for each Platform the corresponding Account
-        accounts = dict()
-        for platform_name in platform_names:
-            accounts[platform_name] = self.get_account_config(platform_name, user)
-
-        # For each From Node, plug the right Gateway and craft the appropriate Annotation.
-        for from_node in query_plan.get_froms():
-            platform_name = from_node.get_platform_name()
-            if platform_name == 'local':
-                gateway = self._storage
-            else:
-                gateway = self.get_gateway(platform_name)
-            if gateway:
-                from_node.set_gateway(gateway)
-                from_node.set_annotation(
-                    Annotation({
-                        "user"    : user,
-                        "account" : accounts[platform_name]
-                    })
-                )
-            else:
-                raise Exception("Cannot instanciate all required Gateways")
+#DEPRECATED|    def init_from_nodes(self, query_plan, user):
+#DEPRECATED|        """
+#DEPRECATED|        Initialize the From Nodes involved in a QueryPlan by:
+#DEPRECATED|            - setting the User of each From Node.
+#DEPRECATED|            - setting the Gateways used by each From Node.
+#DEPRECATED|        Args:
+#DEPRECATED|            query_plan: A QueryPlan instance, deduced from the user's Query.
+#DEPRECATED|            user: The dictionnary describing the User running the QueryPlan
+#DEPRECATED|                (Pass None if anonymous).
+#DEPRECATED|        Raises:
+#DEPRECATED|            Exception: If some required Gateways cannot be run.
+#DEPRECATED|        """
+#DEPRECATED|        # XXX Platforms only serve for metadata
+#DEPRECATED|        # in fact we should initialize filters from the instance, then rely on
+#DEPRECATED|        # Storage including those filters...
+#DEPRECATED|
+#DEPRECATED|        # Retrieve for each Platform involved in the QueryPlan the account(s)
+#DEPRECATED|        # corresponding to this User.
+#DEPRECATED|        platform_names = set()
+#DEPRECATED|        for from_node in query_plan.get_froms():
+#DEPRECATED|            platform_names.add(from_node.get_platform_name())
+#DEPRECATED|        
+#DEPRECATED|        # Retrieve for each Platform the corresponding Account
+#DEPRECATED|        accounts = dict()
+#DEPRECATED|        for platform_name in platform_names:
+#DEPRECATED|            Log.tmp("retrieving [%s]@%s" % (user['email'], platform_name))
+#DEPRECATED|            accounts[platform_name] = self.get_account_config(platform_name, user)
+#DEPRECATED|
+#DEPRECATED|        # For each From Node, plug the right Gateway and craft the appropriate Annotation.
+#DEPRECATED|        for from_node in query_plan.get_froms():
+#DEPRECATED|            Log.tmp("from_node = %s (%s)" % (from_node, type(from_node)))
+#DEPRECATED|            platform_name = from_node.get_platform_name()
+#DEPRECATED|            if platform_name == 'local':
+#DEPRECATED|                gateway = self.get_storage()
+#DEPRECATED|            else:
+#DEPRECATED|                gateway = self.get_gateway(platform_name)
+#DEPRECATED|            if gateway:
+#DEPRECATED|                from_node.set_gateway(gateway)
+#DEPRECATED|                from_node.set_annotation(
+#DEPRECATED|                    Annotation({
+#DEPRECATED|                        "user"    : user,
+#DEPRECATED|                        "account" : accounts[platform_name]
+#DEPRECATED|                    })
+#DEPRECATED|                )
+#DEPRECATED|            else:
+#DEPRECATED|                raise Exception("Cannot instanciate all required Gateways")
 
 #DEPRECATED#    @returns(list)
 #DEPRECATED#    def get_metadata_objects(self):
@@ -481,52 +519,52 @@ class Interface(object):
             })
         return output
 
-    def check_forward(self, query, annotation, receiver):
-        """
-        Checks whether parameters passed to Interface::forward() are well-formed.
-        Args:
-            See Interface::forward.
-        """
-        assert isinstance(query, Query), \
-            "Invalid Query: %s (%s)" % (query, type(query))
-        assert not annotation or isinstance(annotation, dict), \
-            "Invalid annotation  = %s (%s)" % (annotation, type(annotation))
-        assert not receiver or issubclass(type(receiver), Receiver) or not receiver.set_result_value,\
-            "Invalid receiver = %s (%s)" % (receiver, type(receiver))
-
-    @staticmethod
-    def success(receiver, query, result_value = None):
-        """
-        Shorthand method when Interface::forward is successful.
-        Args:
-            receiver: A Receiver instance.
-            query: A Query instance.
-            result_value: A ResultValue or None that will be assigned to receiver.
-        """
-        assert isinstance(query, Query), "Invalid Query: %s (%s)" % (query, type(query))
-        if receiver:
-            receiver.set_result_value(result_value)
-
-    @staticmethod
-    def error(receiver, query, description = ""):
-        """
-        Shorthand method when Interface::error is successful.
-        Args:
-            receiver: A Receiver instance.
-            query: A Query instance.
-            description: A String containing a customized error message.
-        """
-        assert isinstance(query, Query), "Invalid Query: %s (%s)" % (query, type(query))
-        message = "Error in query %s: %s" % (query, description)
-        Log.error(description)
-        if receiver:
-            import traceback
-            receiver.set_result_value(
-                ResultValue.get_error(
-                    message,
-                    traceback.format_exc()
-                )
-            )
+#DEPRECATED|    def check_forward(self, query, annotation, receiver):
+#DEPRECATED|        """
+#DEPRECATED|        Checks whether parameters passed to Interface::forward() are well-formed.
+#DEPRECATED|        Args:
+#DEPRECATED|            See Interface::forward.
+#DEPRECATED|        """
+#DEPRECATED|        assert isinstance(query, Query), \
+#DEPRECATED|            "Invalid Query: %s (%s)" % (query, type(query))
+#DEPRECATED|        assert not annotation or isinstance(annotation, dict), \
+#DEPRECATED|            "Invalid annotation  = %s (%s)" % (annotation, type(annotation))
+#DEPRECATED|        assert not receiver or issubclass(type(receiver), Receiver) or not receiver.set_result_value,\
+#DEPRECATED|            "Invalid receiver = %s (%s)" % (receiver, type(receiver))
+#DEPRECATED|
+#DEPRECATED|    @staticmethod
+#DEPRECATED|    def success(receiver, query, result_value = None):
+#DEPRECATED|        """
+#DEPRECATED|        Shorthand method when Interface::forward is successful.
+#DEPRECATED|        Args:
+#DEPRECATED|            receiver: A Receiver instance.
+#DEPRECATED|            query: A Query instance.
+#DEPRECATED|            result_value: A ResultValue or None that will be assigned to receiver.
+#DEPRECATED|        """
+#DEPRECATED|        assert isinstance(query, Query), "Invalid Query: %s (%s)" % (query, type(query))
+#DEPRECATED|        if receiver:
+#DEPRECATED|            receiver.set_result_value(result_value)
+#DEPRECATED|
+#DEPRECATED|    @staticmethod
+#DEPRECATED|    def error(receiver, query, description = ""):
+#DEPRECATED|        """
+#DEPRECATED|        Shorthand method when Interface::error is successful.
+#DEPRECATED|        Args:
+#DEPRECATED|            receiver: A Receiver instance.
+#DEPRECATED|            query: A Query instance.
+#DEPRECATED|            description: A String containing a customized error message.
+#DEPRECATED|        """
+#DEPRECATED|        assert isinstance(query, Query), "Invalid Query: %s (%s)" % (query, type(query))
+#DEPRECATED|        message = "Error in query %s: %s" % (query, description)
+#DEPRECATED|        Log.error(description)
+#DEPRECATED|        if receiver:
+#DEPRECATED|            import traceback
+#DEPRECATED|            receiver.set_result_value(
+#DEPRECATED|                ResultValue.get_error(
+#DEPRECATED|                    message,
+#DEPRECATED|                    traceback.format_exc()
+#DEPRECATED|                )
+#DEPRECATED|            )
 
     def send_result_value(self, query, result_value, annotation, is_deferred):
         # if Interface is_deferred  
@@ -609,7 +647,7 @@ class Interface(object):
 #DEPRECATED|        if ":" in query.get_from():
 #DEPRECATED|            namespace, table_name = query.get_from().rsplit(":", 2)
 #DEPRECATED|
-#DEPRECATED|        if namespace == self.LOCAL_NAMESPACE:
+#DEPRECATED|        if namespace == STORAGE_NAMESPACE:
 #DEPRECATED|<<<<<<< HEAD
 #DEPRECATED|# <<
 #DEPRECATED|#OBSOLETE|            if table_name in ['object', 'gateway']:
@@ -625,7 +663,7 @@ class Interface(object):
 #DEPRECATED|#OBSOLETE|            else:
 #DEPRECATED|#OBSOLETE|                query_storage = query.copy()
 #DEPRECATED|#OBSOLETE|                query_storage.object = table_name
-#DEPRECATED|#OBSOLETE|                records = self._storage.execute(query_storage, annotation)
+#DEPRECATED|#OBSOLETE|                records = self.execute_local_query(query_storage, annotation)
 #DEPRECATED|#OBSOLETE|
 #DEPRECATED|#OBSOLETE|                if query_storage.get_from() == "platform" and query_storage.get_action() != "get":
 #DEPRECATED|#OBSOLETE|                    self.make_gateways()
@@ -642,7 +680,7 @@ class Interface(object):
 #DEPRECATED|            else:
 #DEPRECATED|                query_storage = query.copy()
 #DEPRECATED|                query_storage.object = table_name
-#DEPRECATED|                output = self._storage.execute(query_storage, annotation)
+#DEPRECATED|                output = self.execute_local_query(query_storage, annotation)
 #DEPRECATED|                result_value = ResultValue.get_success(output)
 #DEPRECATED|=======
 #DEPRECATED|            if table_name in ['object', 'gateway']:
@@ -659,7 +697,7 @@ class Interface(object):
 #DEPRECATED|                query_storage = query.copy()
 #DEPRECATED|                query_storage.object = table_name
 #DEPRECATED|
-#DEPRECATED|                self.storage.execute(query_storage, annotation, receiver)
+#DEPRECATED|                self.execute_local_query(query_storage, annotation, receiver)
 #DEPRECATED|>>>>>>> routerv2
 #DEPRECATED|
 #DEPRECATED|                if query_storage.get_from() == "platform" and query_storage.get_action() != "get":

@@ -4,7 +4,6 @@
 import sys
 
 from manifold.core.query    import Query
-from manifold.core.receiver import Receiver 
 from manifold.core.router   import Router
 
 def usage(gateways):
@@ -24,7 +23,7 @@ def main():
 
     with Router() as router:
 
-        ret_gateways = router.forward(Query.get('local:gateway').select('name'))
+        ret_gateways = router.receive(Query.get('local:gateway').select('name'))
         if ret_gateways['code'] != 0:
             print "W: Could not contact the Manifold server to list available gateways. Check disabled."
             supported_gateways = None
@@ -87,7 +86,7 @@ def main():
             'disabled': disabled
         }
 
-        router.forward(Query.create('local:platform').set(platform_params))
+        router.receive(Query.create('local:platform').set(platform_params))
 
 if __name__ == "__main__":
     main()

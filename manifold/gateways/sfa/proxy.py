@@ -36,6 +36,7 @@ from sfa.client.return_value            	import ReturnValue
 from manifold.util.reactor_thread           import ReactorThread
 from manifold.util.log                      import Log
 from manifold.util.singleton                import Singleton
+from manifold.util.storage                  import make_storage, storage_execute
 from manifold.util.type                 	import accepts, returns 
 
 DEFAULT_TIMEOUT = 20
@@ -462,7 +463,6 @@ if __name__ == '__main__':
     from twisted.internet       import defer #, reactor
     from argparse               import ArgumentParser
     from manifold.core.query    import Query
-    from manifold.util.storage  import DBStorage as Storage
     from manifold.gateways      import Gateway
     import os, json, pprint
 
@@ -536,7 +536,7 @@ if __name__ == '__main__':
 
         if len(args.options) == 0:
             command    = 'GetVersion'
-            parameters = []
+            parameters = list() 
         else:
             command    = args.options[0]
             parameters = args.options[1:]
@@ -550,7 +550,8 @@ if __name__ == '__main__':
             parser.print_help()
             sys.exit(1)
 
-        Gateway.register_all()
+        # Retrieve access to the Manifold Storage
+        storage = make_storage(None)
 
         try:
             if platform_specified:

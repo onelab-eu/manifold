@@ -7,12 +7,11 @@ from random                     import Random
 
 from manifold.core.router       import Router
 from manifold.core.query        import Query
-from manifold.core.receiver     import Receiver 
 
 def usage():
     print "Usage: %s EMAIL" % sys.argv[0]
     print ""
-    print "Add a user to MySlice"
+    print "Add a user to Manifold"
     print "    EMAIL: email address that identifies the user"
 
 def main():

@@ -11,16 +11,16 @@
 #   Jordan Augé       <jordan.auge@lip6.fr> 
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
-from types                         import StringTypes
-from manifold.core.capabilities    import Capabilities
-from manifold.core.query           import Query
-from manifold.operators            import Node
-from manifold.util.type            import returns, accepts
-from manifold.core.record          import Record, Records, LastRecord
+from types                          import StringTypes
+from manifold.core.capabilities     import Capabilities
+from manifold.core.producer         import Producer
+from manifold.core.query            import Query
+from manifold.core.record           import Record, Records, LastRecord
+from manifold.util.type             import returns, accepts
 
 DUMPSTR_FROMTABLE  = "SELECT %s FROM [%r, ...]" 
 
-class FromTable(Node):
+class FromTable(Producer):
     """
     A FromTable Node stores a list of homogeneous records (e.g.
     a list of records that we could store in a same given Table

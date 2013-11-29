@@ -217,5 +217,14 @@ class ErrorPacket(Packet):
     Equivalent to current ResultValue
     Equivalent to current ICMP errors
     """
-    def __init__(self):
+    def __init__(self, message = None):
         Packet.__init__(self, Packet.TYPE_ERROR)
+        self._message = message
+
+    @returns(StringTypes)
+    def get_message(self):
+        """
+        Returns:
+            The error message related to this ErrorPacket.
+        """
+        return self._message

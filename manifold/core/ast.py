@@ -12,7 +12,7 @@
 #   Jordan Augé       <jordan.auge@lip6.fr> 
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
-import sys, random
+import sys, random, traceback
 from copy                             import copy, deepcopy
 from types                            import StringTypes
 
@@ -28,9 +28,10 @@ from manifold.operators.subquery      import SubQuery
 from manifold.operators.cross_product import CrossProduct
 from manifold.operators.demux         import Demux
 from manifold.operators.dup           import Dup
-from manifold.util.predicate          import Predicate, eq, contains, included
-from manifold.util.type               import returns, accepts
 from manifold.util.log                import Log
+from manifold.util.predicate          import Predicate, eq, contains, included
+from manifold.util.storage            import STORAGE_NAMESPACE 
+from manifold.util.type               import returns, accepts
 
 #------------------------------------------------------------------
 # AST (Abstract Syntax Tree)
@@ -46,15 +47,15 @@ class AST(Relay):
     # Constructor
     #---------------------------------------------------------------------------
 
-    def __init__(self, interface, user = None):
+    def __init__(self, interface):
         """
-        Constructor
+        Constructor.
         Args:
-            user: A dictionnary reprensenting the User instance.
+            interface: The Router which instanciate this AST.
         """
         Relay.__init__(self, max_producers = 1)
         self._interface = interface
-        self.user = user
+#DEPRECATED|        self.user = user
         # The AST is initially empty
         self.root = None
 
@@ -97,7 +98,7 @@ class AST(Relay):
         assert self.is_empty(),          "Should be instantiated on an empty AST"
         assert isinstance(query, Query), "Invalid query = %r (%r)" % (query, type(query))
 
-        if platform_name == 'local':
+        if platform_name == STORAGE_NAMESPACE:
             producer = self._interface.get_storage()
         else:
             producer = self._interface.get_gateway(platform_name)
@@ -334,9 +335,28 @@ class AST(Relay):
         Args:
             query: The Query issued by the user.
         """
-        Log.warning("AST::optimize is buggy")
-        self.optimize_selection(query, query.get_where())
-        self.optimize_projection(query, query.get_select())
+        print "=" * 80
+        print "query = %s" % query
+        print "=" * 80
+
+        try: # DEBUG
+            print "BEFORE OPTIMIZE"
+            print "---------------"
+            self.dump()
+
+            self.optimize_selection(query, query.get_where())
+
+            print "AFTER OPTIMIZE_SELECTION"
+            print "-------------------------"
+            self.dump()
+
+            self.optimize_projection(query, query.get_select())
+
+            print "AFTER OPTIMIZE_PROJECTION"
+            print "--------------------------"
+            self.dump()
+        except Exception, e:
+            Log.error(traceback.format_exc())
 
     def optimize_selection(self, query, filter):
         """
@@ -365,4 +385,3 @@ class AST(Relay):
         producer = self.get_producer().optimize_projection(query, fields)
         assert producer, "ast::optimize_projection() has failed: fields = %s" % fields 
         self.set_producer(producer)
-

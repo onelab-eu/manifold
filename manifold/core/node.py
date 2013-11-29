@@ -1,6 +1,19 @@
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
+#
+# Node class may corresponds to:
+# - a Manifold operator  (see manifold/operators)
+# - a Manifold interface (see manifold/core/interface.py)
+#   for instance a Manifold router.
+#
+# Copyright (C) UPMC Paris Universitas
+# Authors:
+#   Jordan Augé         <jordan.auge@lip6.fr>
+#   Marc-Olivier Buob   <marc-olivier.buob@lip6.fr>
 
-import random
+
+import random, sys
+from manifold.util.type     import accepts, returns
 
 class Node(object):
     """
@@ -22,16 +35,22 @@ class Node(object):
     #---------------------------------------------------------------------------
 
     def __init__(self):
+        """
+        Constructor.
+        """
         self._identifier =  random.randint(0, 9999)
-
 
     #---------------------------------------------------------------------------
     # Accessors
     #---------------------------------------------------------------------------
 
+    @returns(int)
     def get_identifier(self):
+        """
+        Returns:
+            The identifier of this Node.
+        """
         return self._identifier
-
 
     #---------------------------------------------------------------------------
     # Methods
@@ -39,17 +58,22 @@ class Node(object):
 
     def tab(self, indent):
         """
-        \brief print _indent_ tabs
+        Print 'indent' tabs.
+        Args:
+            indent: An integer corresponding to the current indentation (in
+                number of spaces)
         """
-        print "[%04d]" % self._identifier, ' ' * 4 * indent,
-        #        sys.stdout.write(' ' * indent * 4)
+        sys.stdout.write("[%04d] %s" % (
+            self.get_identifier(),
+            ' ' * 4 * indent
+        ))
 
     def dump(self, indent = 0):
         """
-        \brief Dump the current node
-        \param indent current indentation
+        Dump the current Node.
+        Args:
+            indent: An integer corresponding to the current indentation (in
+                number of spaces)
         """
         self.tab(indent)
         print "%r" % self
-        #print "%r (%r)" % (self, self.query)
-        #print "%r (%r)" % (self, self.callback)

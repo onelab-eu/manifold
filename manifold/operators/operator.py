@@ -1,7 +1,27 @@
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
+#
+# An Operator Node represents a SQL-like operation and
+# is used to build an OperatorGraph. Operator forwards
+# QUERY Packets received from its parents (Consumers) to its
+# children (Producers). Resulting RECORD or ERROR Packets
+# are sent back to its parents.
+#
+# Note:
+# - An Operator producer may be either an Operator
+# instance or a Socket.
+# - An Operator consumer may be either an Operator
+# instance or, if this is a From instance, a Gateway. 
+#
+# Copyright (C) UPMC Paris Universitas
+# Authors:
+#   Jordan Augé       <jordan.auge@lip6.fr> 
+#   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
 from manifold.core.packet import Packet
+from manifold.core.query  import Query 
 from manifold.core.relay  import Relay
+from manifold.util.log    import Log
 
 # NOTES: it seem we don't need the query anymore in the operators expect From
 # maybe ? Selection, projection ??
@@ -15,35 +35,34 @@ class Operator(Relay):
     def __init__(self, producers = None, consumers = None, max_producers = None, max_consumers = None, has_parent_producer = False):
         """
         Constructor.
+        Args:
+            See relay::__init__()
         """
-        Relay.__init__(self, \
-            producers = producers, consumers = consumers, \
-            max_consumers = max_consumers, max_producers = max_producers, \
-            has_parent_producer = has_parent_producer)
-
+        Log.tmp(">>>>>>>>>>>>>>>>>>>> Operator")
+        Relay.__init__( \
+            self, \
+            producers = producers, \
+            consumers = consumers, \
+            max_consumers = max_consumers, \
+            max_producers = max_producers, \
+            has_parent_producer = has_parent_producer \
+        )
 
     #---------------------------------------------------------------------------
     # Methods
     #---------------------------------------------------------------------------
 
     def receive(self, packet):
-        raise Exception, "Operator::receive() should be implemented in children classes"
+        raise Exception, "Operator::receive() must be overwritten in children classes"
         
-    def tab(self, indent):
-        """
-        \brief print _indent_ tabs
-        """
-        #print "         P: ", self._pool_producers
-        #print "         C: ", self._pool_consumers
-        print "[%04d ]" % self._identifier, ' ' * 4 * indent,
-        #        sys.stdout.write(' ' * indent * 4)
+    @returns(Query)
+    def get_query(self):
+        raise Exception, "Operator::get_query() must be overwritten in children classes"
 
     def dump(self, indent = 0):
         """
-        \brief Dump the current node
-        \param indent current indentation
+        Dump the current node
+        indent current indentation
         """
         self.tab(indent)
-        print "%r" % self
-        #print "%r (%r)" % (self, self.query)
-        #print "%r (%r)" % (self, self.callback)
+        print "%r (%s)" % (self, super(Operator, self).__repr__())

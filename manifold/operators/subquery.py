@@ -1,15 +1,26 @@
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
+#
+# A SubQuery Node applies a posteri a Query on a set of Records.
+#
+# Copyright (C) UPMC Paris Universitas
+# Authors:
+#   Jordan Augé       <jordan.auge@lip6.fr> 
+#   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
 import traceback
-from types                         import StringTypes
-from manifold.core.filter          import Filter
-from manifold.core.relation        import Relation
-from manifold.core.record          import Record, LastRecord
-from manifold.operators            import Node, ChildStatus, ChildCallback
-from manifold.operators.selection  import Selection
-from manifold.operators.projection import Projection
-from manifold.util.predicate       import Predicate, eq, contains, included
-from manifold.util.log             import Log
+from types                          import StringTypes
+
+from manifold.core.filter           import Filter
+from manifold.core.relation         import Relation
+from manifold.core.record           import Record, LastRecord
+from manifold.operators             import ChildStatus, ChildCallback
+from manifold.operators.operator    import Operator
+from manifold.operators.projection  import Projection
+from manifold.operators.selection   import Selection
+from manifold.util.log              import Log
+from manifold.util.predicate        import Predicate, eq, contains, included
+from manifold.util.type             import accepts, returns
 
 DUMPSTR_SUBQUERIES = "<subqueries>"
 
@@ -17,7 +28,7 @@ DUMPSTR_SUBQUERIES = "<subqueries>"
 # SUBQUERY node
 #------------------------------------------------------------------
 
-class SubQuery(Node):
+class SubQuery(Operator):
     """
     SUBQUERY operator (cf nested SELECT statements in SQL)
         self.parent represents the main query involved in the SUBQUERY operation.
@@ -73,14 +84,14 @@ class SubQuery(Node):
             self.child_results.append([])
 
 
-#    @returns(Query)
-#    def get_query(self):
-#        """
-#        \brief Returns the query representing the data produced by the nodes.
-#        \return query representing the data produced by the nodes.
-#        """
-#        # Query is unchanged XXX ???
-#        return Query(self.parent.get_query())
+    @returns(Query)
+    def get_query(self):
+        """
+        \brief Returns the query representing the data produced by the nodes.
+        \return query representing the data produced by the nodes.
+        """
+        # Query is unchanged XXX ???
+        return Query(self.parent.get_query())
 
     def dump(self, indent = 0):
         """
@@ -96,15 +107,16 @@ class SubQuery(Node):
         for child in self.children:
             child.dump(indent + 1)
 
+    @returns(StringTypes)
     def __repr__(self):
         return DUMPSTR_SUBQUERIES
 
-    def start(self):
-        """
-        \brief Propagates a START message through the node
-        """
-        # Start the parent first
-        self.parent.start()
+#DEPRECATED|    def start(self):
+#DEPRECATED|        """
+#DEPRECATED|        Propagates a START message through the node
+#DEPRECATED|        """
+#DEPRECATED|        # Start the parent first
+#DEPRECATED|        self.parent.start()
 
     def parent_callback(self, record):
         """

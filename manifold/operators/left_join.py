@@ -1,12 +1,13 @@
-from manifold.core.filter          import Filter
-from manifold.operators.operator   import Operator
-from manifold.core.packet          import QueryPacket
-from manifold.core.record          import Record
-from manifold.operators.selection  import Selection
-from manifold.operators.projection import Projection
-from manifold.util.predicate       import Predicate, eq, included
-from manifold.util.type            import returns
-from manifold.util.log             import Log
+from types                          import StringTypes
+from manifold.core.filter           import Filter
+from manifold.operators.operator    import Operator
+from manifold.core.packet           import QueryPacket
+from manifold.core.record           import Record
+from manifold.operators.selection   import Selection
+from manifold.operators.projection  import Projection
+from manifold.util.predicate        import Predicate, eq, included
+from manifold.util.type             import returns
+from manifold.util.log              import Log
 
 # XXX No more support for list as a child
 # XXX Manage callbacks
@@ -55,13 +56,30 @@ class LeftJoin(Operator):
     # Internal methods
     #---------------------------------------------------------------------------
 
+    @returns(StringTypes)
     def __repr__(self):
         return "LEFT JOIN %s %s %s" % self.predicate.get_str_tuple()
-
 
     #---------------------------------------------------------------------------
     # Methods
     #---------------------------------------------------------------------------
+
+    @returns(Query)
+    def get_query(self):
+        """
+        Returns:
+            The Query representing AST reprensenting the AST rooted
+            at this node.
+        """
+        print "LeftJoin::get_query()"
+        q = Query(self.get_children()[0])
+        for child in self.get_children():
+            # XXX can we join on filtered lists ? I'm not sure !!!
+            # XXX some asserts needed
+            # XXX NOT WORKING !!!
+            q.filters |= child.filters
+            q.fields  |= child.fields
+        return q
 
     def receive(self, packet):
         """
@@ -146,10 +164,12 @@ class LeftJoin(Operator):
 
     def dump(self, indent = 0):
         """
-        \brief Dump the current node
-        \param indent current indentation
+        Dump the this LeftJoin instance to the standard output. 
+        Args:
+            indent: An integer corresponding to the number of spaces
+                to write (current indentation).
         """
-        Node.dump(indent)
+        super(LeftJoin, self).dump(indent)
         # We have one producer for sure
         self.get_producer().dump()
 

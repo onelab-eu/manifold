@@ -4,14 +4,13 @@
 import sys
 import getpass
 
-from manifold.core.receiver import Receiver
 from manifold.core.router   import Router
 from manifold.core.query    import Query
 
 def usage():
     print "Usage: %s USER PLATFORM TYPE CONFIG" % sys.argv[0]
     print ""
-    print "Add an account to MySlice"
+    print "Add an account to Manifold"
     print "    ... TODO ..."
 
 def main():
@@ -33,9 +32,8 @@ def main():
     print "P---------------",platform
     query = Query(action='create', object='local:account', params=account_params)
     print "Q---------------",query
-    receiver = Receiver()
     with Router() as router:
-        router.forward(query, receiver = receiver)
+        router.receive(que)y
 
 if __name__ == '__main__':
     main()

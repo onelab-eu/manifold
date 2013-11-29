@@ -13,19 +13,11 @@
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 #   Loïc Baron        <loic.baron@lip6.fr>
 
-import copy, random
-from types                         import StringTypes, GeneratorType
-from twisted.internet.defer        import Deferred, DeferredList
-
 from manifold.core.stack           import Stack
 from manifold.core.explore_task    import ExploreTask
 
 from manifold.core.ast             import AST
-from manifold.core.filter          import Filter
-from manifold.core.result_value    import ResultValue
-from manifold.core.table           import Table 
-from manifold.operators.From       import From
-from manifold.util.callback        import Callback
+from manifold.operators.operator   import Operator
 from manifold.util.log             import Log
 from manifold.util.type            import returns, accepts
 
@@ -40,82 +32,95 @@ class QueryPlan(object):
         """
         # TODO metadata, user should be a property of the query plan
         self.ast        = AST(interface)
-        self.froms      = list() 
+#DEPRECATED|        self.froms      = list() 
         self._interface = interface
 
-    def add_from(self, from_node):
-        """
-        Register a From Node in this QueryPlan.
-        FromTable Nodes are not registered and are ignored.
-        Args:
-            from_node: A From instance. 
-        """
-        if isinstance(from_node, From):
-            self.froms.append(from_node)
-
-    @returns(GeneratorType)
-    def get_froms(self):
-        """
-        Returns:
-            A Generator allowing to iterate on From nodes involved
-            in this QueryPlan.
-        """
-        for from_node in self.froms:
-            yield from_node
-
-    @returns(list)
-    def get_result_value_array(self):
-        """
-        Returns:
-            A list of ResultValue instance corresponding to each From Node
-            involved in this QueryPlan.
-        """
-        # Iterate over gateways to get their ResultValue 
-        result_values = list() 
-        for from_node in self.get_froms():
-            assert from_node.gateway, "Invalid FROM node: %s" % from_node
-            result_value = from_node.get_result_value()
-            if not result_value:
-                Log.debug("%s didn't returned a ResultValue, may be it is related to a pruned child" % from_node)
-                continue
-            if result_value["code"] != ResultValue.SUCCESS:
-                result_values.append(result_value)
-        return result_values
-
-    def inject_at(self, query):
-        """
-        Update From Nodes of the QueryPlan in order to take into account AT
-        clause involved in a user Query.
-        Args:
-            query: The Query issued by the user.
-        """
-        # OPTIMIZATION: We should not built From Node involving a Table
-        # unable to serve the Query due to its timestamp
-        # (see query.get_timestamp())
-        # Or their corresponding Gateway should return an empty result
-        # by only sending LAST_RECORD.
-        for from_node in self.get_froms():
-            from_node.query.timestamp = query.get_timestamp()
+#DEPRECATED|    def add_from(self, from_node):
+#DEPRECATED|        """
+#DEPRECATED|        Register a From Node in this QueryPlan.
+#DEPRECATED|        FromTable Nodes are not registered and are ignored.
+#DEPRECATED|        Args:
+#DEPRECATED|            from_node: A From instance. 
+#DEPRECATED|        """
+#DEPRECATED|        Log.tmp("adding From Node %s" % from_node)
+#DEPRECATED|        if isinstance(from_node, From):
+#DEPRECATED|        self.froms.append(from_node)
+#DEPRECATED|
+#DEPRECATED|    @returns(GeneratorType)
+#DEPRECATED|    def get_froms(self):
+#DEPRECATED|        """
+#DEPRECATED|        Returns:
+#DEPRECATED|            A Generator allowing to iterate on From nodes involved
+#DEPRECATED|            in this QueryPlan.
+#DEPRECATED|        """
+#DEPRECATED|        for from_node in self.froms:
+#DEPRECATED|            yield from_node
+#DEPRECATED|
+#DEPRECATED|    @returns(list)
+#DEPRECATED|    def get_result_value_array(self):
+#DEPRECATED|        """
+#DEPRECATED|        Returns:
+#DEPRECATED|            A list of ResultValue instance corresponding to each From Node
+#DEPRECATED|            involved in this QueryPlan.
+#DEPRECATED|        """
+#DEPRECATED|        # Iterate over gateways to get their ResultValue 
+#DEPRECATED|        result_values = list() 
+#DEPRECATED|        for from_node in self.get_froms():
+#DEPRECATED|            assert from_node.gateway, "Invalid FROM node: %s" % from_node
+#DEPRECATED|            result_value = from_node.get_result_value()
+#DEPRECATED|            if not result_value:
+#DEPRECATED|                Log.debug("%s didn't returned a ResultValue, may be it is related to a pruned child" % from_node)
+#DEPRECATED|                continue
+#DEPRECATED|            if not result_value.is_success():
+#DEPRECATED|                result_values.append(result_value)
+#DEPRECATED|        return result_values
+#DEPRECATED|
+#DEPRECATED|    def inject_at(self, query):
+#DEPRECATED|        """
+#DEPRECATED|        Update From Nodes of the QueryPlan in order to take into account AT
+#DEPRECATED|        clause involved in a user Query.
+#DEPRECATED|        Args:
+#DEPRECATED|            query: The Query issued by the user.
+#DEPRECATED|        """
+#DEPRECATED|        # OPTIMIZATION: We should not built From Node involving a Table
+#DEPRECATED|        # unable to serve the Query due to its timestamp
+#DEPRECATED|        # (see query.get_timestamp())
+#DEPRECATED|        # Or their corresponding Gateway should return an empty result
+#DEPRECATED|        # by only sending LAST_RECORD.
+#DEPRECATED|        for from_node in self.get_froms():
+#DEPRECATED|            from_node.query.timestamp = query.get_timestamp()
 
     def set_ast(self, ast, query):
         """
         Complete an AST in order to take into account SELECT and WHERE clauses
         involved in a user Query.
         Args:
-            ast: An AST instance made of Union, LeftJoin, SubQuery and From Nodes.
+            ast: An AST instance is made of Union, LeftJoin, SubQuery [...] Nodes.
             query: The Query issued by the user.
         """
+        assert isinstance(ast, AST),\
+            "Invalid ast = %s (%s)" % (ast, type(ast))
+
         ast.optimize(query)
-        self.inject_at(query)
+#DEPRECATED|        self.inject_at(query)
         self.ast = ast
     
-        # Update the main query to add applicative information such as action and params
-        # NOTE: I suppose params cannot have '.' inside
-        for from_node in self.get_froms():
-            q = from_node.get_query()
-            if q.get_from() == query.get_from():
-                q.action = query.get_action()
-                q.params = query.get_params()
+#DEPRECATED|        # Update the main query to add applicative information such as action and params
+#DEPRECATED|        # NOTE: I suppose params cannot have '.' inside
+#DEPRECATED|        for from_node in self.get_froms():
+#DEPRECATED|            q = from_node.get_query()
+#DEPRECATED|            if q.get_from() == query.get_from():
+#DEPRECATED|                q.action = query.get_action()
+#DEPRECATED|                q.params = query.get_params()
+
+    @returns(Operator)
+    def get_root_operator():
+        """
+        Returns:
+            An Operator instance corresponding to the root node of
+            the AST related to this QueryPlan, None otherwise.
+        """
+        return self.ast.get_root() if self.ast else None
 
     def build(self, query, metadata, allowed_platforms, allowed_capabilities, user = None):
         """
@@ -150,19 +155,18 @@ class QueryPlan(object):
                 ', '.join(metadata.get_table_names()))
             )
         
-        root_task = ExploreTask(self._interface, root, relation=None, path=[], parent=self, depth=1)
+        root_task = ExploreTask(self._interface, root, relation = None, path = list(), parent = self, depth = 1)
         if not root_task:
             raise Exception("Unable to build a suitable QueryPlan")
         root_task.addCallback(self.set_ast, query)
 
         stack = Stack(root_task)
-        seen = {} # path -> set()
+        seen = dict() # path -> set()
 
         missing_fields  = set()
         missing_fields |= query.get_select()
         missing_fields |= query.get_where().get_field_names()
 
-        
         while missing_fields:
             # Explore the next prior ExploreTask
             task = stack.pop()

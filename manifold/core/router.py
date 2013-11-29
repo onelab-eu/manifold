@@ -9,9 +9,6 @@
 #   Jordan Augé       <jordan.auge@lip6.fr>
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
-import os, sys, json, copy, time, traceback #, threading
-from twisted.internet.defer         import Deferred
-
 from manifold.core.capabilities     import Capabilities
 from manifold.core.dbnorm           import to_3nf 
 from manifold.core.dbgraph          import DBGraph
@@ -19,13 +16,13 @@ from manifold.core.interface        import Interface
 from manifold.core.key              import Keys
 from manifold.core.method           import Method
 from manifold.core.operator_graph   import OperatorGraph
-from manifold.core.query_plan       import QueryPlan
-from manifold.core.result_value     import ResultValue
+from manifold.core.packet           import ErrorPacket, Packet 
 from manifold.core.socket           import Socket
 from manifold.policy                import Policy
 from manifold.util.log              import Log
-from manifold.util.type             import returns, accepts
 from manifold.util.reactor_thread   import ReactorThread
+from manifold.util.type             import returns, accepts
+
 # XXX cannot use the wrapper with sample script
 # XXX cannot use the thread with xmlrpc -n
 #from manifold.util.reactor_wrapper  import ReactorWrapper as ReactorThread
@@ -247,17 +244,32 @@ class Router(Interface):
 
     def receive(self, packet):
         """
-        This method replaces forward() at the packet level
+        Process an incoming Packet instance.
+        Args:
+            packet: A QUERY Packet instance. 
         """
-        # Create a Socket holding the connection information
-        socket = Socket(packet, router = self)
+        assert isinstance(packet, Packet) and packet.get_type() == Packet.TYPE_QUERY, \
+            "Invalid packet %s (%s) (%s) (invalid type)" % (packet, type(packet))
+
+        # Create a Socket holding the connection information and bind it.
+        socket = Socket(consumer = packet.get_receiver())
         packet.set_receiver(socket)
 
-        # We need to route the Query (i.e. update the OperatorGraph consequently)
-        self._operator_graph.build_query_plan(packet)
+        # Build the AST and retrieve the corresponding root_node Operator instance.
+        query = packet.get_query()
+        annotation = packet.get_annotation()
+        producer = self._operator_graph.build_query_plan(query, annotation)
+        Log.warning("router::receive(): TODO: Handle properly cases when producer == None")
 
         # Execute the operators related to the socket, if needed
-        socket.receive(packet)
+        if producer:
+            socket.set_producer(producer)
+            Log.tmp("socket = %s" % socket)
+            Log.tmp("socket.producer = %s" % socket.get_producer())
+            Log.tmp("socket.consumer = %s" % socket.get_consumer())
+            socket.receive(packet)
+        else:
+            socket.receive(ErrorPacket("Unable to build a suitable Query Plan (query = %s)" % query))
 
 #    # Is it useful at all ?
 #    def send(self, packet):

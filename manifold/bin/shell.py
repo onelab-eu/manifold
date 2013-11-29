@@ -25,7 +25,6 @@ from manifold.core.annotation       import Annotation
 from manifold.core.packet           import Packet, QueryPacket
 from manifold.core.query            import Query
 from manifold.core.router           import Router
-from manifold.core.receiver         import Receiver 
 from manifold.core.sync_receiver    import SyncReceiver
 from manifold.core.result_value     import ResultValue
 from manifold.input.sql             import SQLParser

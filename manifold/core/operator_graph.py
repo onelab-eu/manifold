@@ -15,11 +15,14 @@
 #   Marc-Olivier Buob   <marc-olivier.buob@lip6.fr>
 
 # We currently build on QueryPlan, the idea is in the end to merge the QueryPlan class in this class.
-from manifold.core.packet       import Packet 
-from manifold.core.query_plan   import QueryPlan
-from manifold.core.node         import Node
-from manifold.util.lattice      import Lattice
-from manifold.util.log          import Log 
+from manifold.core.annotation       import Annotation
+from manifold.core.query            import Query
+from manifold.core.query_plan       import QueryPlan
+from manifold.core.producer         import Producer 
+from manifold.util.lattice          import Lattice
+from manifold.util.log              import Log 
+from manifold.util.storage          import STORAGE_NAMESPACE
+from manifold.util.type             import accepts, returns 
 
 class OperatorGraph(object):
     """
@@ -28,20 +31,19 @@ class OperatorGraph(object):
     To begin with, the operator graph will be a set of parallel ASTs.
     """
 
-    # Duplicated in manifold.core.interface
-    LOCAL_NAMESPACE = "local"
-
     #---------------------------------------------------------------------------
     # Constructor
     #---------------------------------------------------------------------------
 
     def __init__(self, router):
         """
-        Constructor
+        Constructor.
+        Args:
+            router: A Interface instance.
         """
 
         # A pointer to the router to which the OperatorGraph belongs
-        self._interface  = router
+        self._router = router
         
         # A lattice that maps the queries currently contained in the
         # OperatorGraph with the corresponding operators
@@ -52,48 +54,57 @@ class OperatorGraph(object):
     # Accessors
     #---------------------------------------------------------------------------
 
+    #@returns(Router)
+    def get_router(self):
+        return self._router
+
     #---------------------------------------------------------------------------
     # Methods
     #---------------------------------------------------------------------------
 
-    def build_query_plan(self, packet):
+    @returns(Producer)
+    def build_query_plan(self, query, annotation):
         """
-        Build the Query Plan according a QUERY Packet.
+        Build the Query Plan according to a Query and its optionnal Annotation.
         Args:
-            packet: A QUERY Packet instance.
+            query: A Query instance.
+            annotation: An Annotation instance.
+        Returns:
+            The Producer corresponding to the root node of the QueryPlan (most
+            of time this is the top Operator of the AST). 
         """
-        assert isinstance(packet, Packet) and packet.get_type() == Packet.TYPE_QUERY, \
-            "Invalid packet %s (%s) (%s) (invalid type)" % (packet, type(packet))
+        # Check parameters
+        assert isinstance(query, Query),\
+            "Invalid query %s (%s)" % (query, type(query))
+        assert isinstance(annotation, Annotation),\
+            "Invalid annotation %s (%s)" % (annotation, type(annotation))
 
-        query      = packet.get_query()
-        annotation = packet.get_annotation()
-        receiver   = packet.get_receiver()
-
-        user = annotation.get('user', None)
-
-        # Handling platforms
-        namespace = None
-
+        # Retrieve the DBGraph to compute a QueryPlan in respect of
+        # namespace explicitly set in the Query and user's grants. 
+        router = self.get_router()
+        user   = annotation.get('user', None)
         if ':' in query.get_from():
             namespace, table = query.get_from().rsplit(':', 2)
             query.object = table
-            packet.set_query(query)
 
-            if namespace == self.LOCAL_NAMESPACE:
-                metadata = self._interface.get_local_metadata()
+            if namespace == STORAGE_NAMESPACE:
+                db_graph = router.get_local_metadata()
                 allowed_platforms = list() 
-
             else: # namespace == 1 platform
-                metadata = self._interface.get_metadata()
-                allowed_platforms = [p['platform'] for p in self._interface.get_platforms() if p['platform'] == namespace]
+                db_graph = router.get_metadata()
+                allowed_platforms = [p['platform'] for p in router.get_platforms() if p['platform'] == namespace]
         else:
-            metadata = self._interface.get_metadata()
-            allowed_platforms = [p['platform'] for p in self._interface.get_platforms()]
+            db_graph = router.get_metadata()
+            allowed_platforms = [p['platform'] for p in router.get_platforms()]
 
-        # Handling metadata
-        query_plan = QueryPlan(self._interface)
-        query_plan.build(query, metadata, allowed_platforms, self._interface.allowed_capabilities, user)
+        # Build the QueryPlan according to this DBGraph and to the user's Query. 
+        query_plan = QueryPlan(router)
+        query_plan.build(query, db_graph, allowed_platforms, router.get_capabilities(), user)
         query_plan.dump()
 
-        self._interface.init_from_nodes(query_plan, user)
-        receiver.set_producer(query_plan.ast)
+        # Return the corresponding Producer (if any)
+        producer = query_plan.ast
+        assert isinstance(producer, Producer), "Invalid producer = %s (%s)" % (producer, type(producer))
+        return producer 
+
+#DEPRECATED|        self._interface.init_from_nodes(query_plan, user)
