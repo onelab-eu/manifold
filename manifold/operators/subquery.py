@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# A SubQuery Node applies a posteri a Query on a set of Records.
+# A SubQuery Node applies a posteriori a Query on a
+# set of Records already fetched.
 #
 # Copyright (C) UPMC Paris Universitas
 # Authors:
@@ -12,6 +13,7 @@ import traceback
 from types                          import StringTypes
 
 from manifold.core.filter           import Filter
+from manifold.core.query            import Query
 from manifold.core.relation         import Relation
 from manifold.core.record           import Record, LastRecord
 from manifold.operators             import ChildStatus, ChildCallback

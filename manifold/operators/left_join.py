@@ -1,13 +1,26 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+# A LeftJoin combines Records collect from its left child
+# and its right child and combine them.
+#
+# Copyright (C) UPMC Paris Universitas
+# Authors:
+#   Jordan Augé       <jordan.auge@lip6.fr> 
+#   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
+
 from types                          import StringTypes
+
 from manifold.core.filter           import Filter
-from manifold.operators.operator    import Operator
+from manifold.core.query            import Query
 from manifold.core.packet           import QueryPacket
 from manifold.core.record           import Record
-from manifold.operators.selection   import Selection
+from manifold.operators.operator    import Operator
 from manifold.operators.projection  import Projection
+from manifold.operators.selection   import Selection
 from manifold.util.predicate        import Predicate, eq, included
-from manifold.util.type             import returns
 from manifold.util.log              import Log
+from manifold.util.type             import returns
 
 # XXX No more support for list as a child
 # XXX Manage callbacks
