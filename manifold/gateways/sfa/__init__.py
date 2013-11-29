@@ -12,7 +12,7 @@ from manifold.core.filter               import Filter
 from manifold.core.record               import Record, Records, LastRecord
 from manifold.operators.rename          import Rename
 from manifold.gateways                  import Gateway
-from manifold.gateways.sfa.rspecs.SFAv1 import SFAv1Parser # as Parser
+#from manifold.gateways.sfa.rspecs.SFAv1 import SFAv1Parser # as Parser
 from manifold.gateways.sfa.proxy        import SFAProxy
 from manifold.util.predicate            import contains, eq, lt, le, included
 from manifold.util.log                  import Log
@@ -586,7 +586,7 @@ class SFAGateway(Gateway):
     ############################################################################ 
 
     def make_dict_rec(self, obj):
-        if not obj or isinstance(obj, StringTypes):
+        if not obj or isinstance(obj, (StringTypes, bool)):
             return obj
         if isinstance(obj, list):
             objcopy = []
@@ -605,8 +605,8 @@ class SFAGateway(Gateway):
         if 'rspec_type' and 'rspec_version' in self.config:
             rspec_version = self.config['rspec_type'] + ' ' + self.config['rspec_version']
         else:
-            #rspec_version = 'GENI 3'
-            rspec_version = 'SFA 1'
+            rspec_version = 'GENI 3'
+            #rspec_version = 'SFA 1'
 
         rspec = RSpec(rspec_string, version=rspec_version)
         
@@ -636,6 +636,8 @@ class SFAGateway(Gateway):
             node['urn'] = node['component_id']
             node['hostname'] = node['component_name']
             node['initscripts'] = node.pop('pl_initscripts')
+            if 'exclusive' in node:
+                node['exclusive'] = node['exclusive'].lower() == 'true'
 
             # XXX This should use a MAP as before
             if 'position' in node: # iotlab
@@ -863,6 +865,7 @@ class SFAGateway(Gateway):
         else:
             print "GOT MANIFEST FROM", self.platform
             print "MANIFEST=", manifest
+            sys.stdout.flush()
         rsrc_leases = self.parse_sfa_rspec(manifest)
 
         slice = {'slice_hrn': filters.get_eq('slice_hrn')}

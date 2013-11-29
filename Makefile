@@ -126,16 +126,59 @@ debian.clean:
 	rm -rf build/ MANIFEST ../*.tar.gz ../*.dsc ../*.build
 	find . -name '*.pyc' -delete
 
+########################################
+### devel-oriented
+########################################
+
 ####################
-tags:
+tags: force
 	git ls-files | xargs etags
 
-#################### convenience, for debugging only
-# make +foo : prints the value of $(foo)
-# make ++foo : idem but verbose, i.e. foo=$(foo)
-++%: varname=$(subst +,,$@)
-++%:
-	@echo "$(varname)=$($(varname))"
-+%: varname=$(subst +,,$@)
-+%:
-	@echo "$($(varname))"
+#################### sync : push current code on a box running manifold
+# this for now targets deployments based on the debian packaging
+SSHURL:=root@$(MANIFOLDBOX):/
+SSHCOMMAND:=ssh root@$(MANIFOLDBOX)
+
+### rsync options
+LOCAL_RSYNC_EXCLUDES	:= --exclude '*.pyc'
+LOCAL_RSYNC_EXCLUDES	+= --exclude more-exclusions-here
+# usual excludes
+RSYNC_EXCLUDES		:= --exclude .git --exclude '*~' --exclude TAGS --exclude .DS_Store $(LOCAL_RSYNC_EXCLUDES) 
+# make -n will propagate as rsync -n 
+RSYNC_COND_DRY_RUN	:= $(if $(findstring n,$(MAKEFLAGS)),--dry-run,)
+# putting it together
+RSYNC			:= rsync -a -v $(RSYNC_COND_DRY_RUN) $(RSYNC_EXCLUDES)
+
+#################### minimal convenience for pushing work-in-progress in an apache-based depl.
+# xxx until we come up with a packaging this is going to be a wild guess
+# on debian04 I have stuff in /usr/share/myslice and a symlink in /root/myslice
+INSTALLED_MAIN		=/usr/share/pyshared/manifold
+
+sync: sync-main sync-bin
+
+sync-main:
+ifeq (,$(MANIFOLDBOX))
+	@echo "you need to set MANIFOLDBOX, like in e.g."
+	@echo "  $(MAKE) MANIFOLDBOX=debian04.pl.sophia.inria.fr "$@""
+	@exit 1
+else
+	+$(RSYNC) ./manifold/ $(SSHURL)/$(INSTALLED_MAIN)/
+endif
+
+sync-bin:
+ifeq (,$(MANIFOLDBOX))
+	@echo "you need to set MANIFOLDBOX, like in e.g."
+	@echo "  $(MAKE) MANIFOLDBOX=debian04.pl.sophia.inria.fr "$@""
+	@exit 1
+else
+	+echo $@ not implemented yet
+endif
+
+restart:
+ifeq (,$(MANIFOLDBOX))
+	@echo "you need to set MANIFOLDBOX, like in e.g."
+	@echo "  $(MAKE) MANIFOLDBOX=debian04.pl.sophia.inria.fr "$@""
+	@exit 1
+else
+	+$(SSHCOMMAND) service manifold restart
+endif

@@ -98,7 +98,7 @@ class Gateway(object):
                 if isinstance(value, (tuple, list)):
                     continue
 
-                if value[0] == '$':
+                if value and value[0] == '$':
                     var = value[1:]
                     if var in variables:
                         predicate.set_value(variables[var])

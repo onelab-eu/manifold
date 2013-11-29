@@ -177,6 +177,7 @@ class Log(object):
             print "[%30s]" % caller,
         print msg,
         print cls.color('END')
+        sys.stdout.flush()
 
     #---------------------------------------------------------------------
     # Log: logger abstraction
