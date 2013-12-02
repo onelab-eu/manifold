@@ -12,7 +12,8 @@
 #   Marc-Olivier Buob   <marc-olivier.buob@lip6.fr>
 
 
-import random, sys
+#import random, sys
+import sys
 from manifold.util.type     import accepts, returns
 
 class Node(object):
@@ -20,6 +21,7 @@ class Node(object):
     A processing node. Base object
     """
 
+    last_identifier = 0
 #DEPRECATED|    #---------------------------------------------------------------------------
 #DEPRECATED|    # Static methods
 #DEPRECATED|    #---------------------------------------------------------------------------
@@ -38,7 +40,8 @@ class Node(object):
         """
         Constructor.
         """
-        self._identifier =  random.randint(0, 9999)
+        Node.last_identifier += 1
+        self._identifier = Node.last_identifier
 
     #---------------------------------------------------------------------------
     # Accessors

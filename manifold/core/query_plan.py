@@ -17,6 +17,7 @@ from manifold.core.stack           import Stack
 from manifold.core.explore_task    import ExploreTask
 
 from manifold.core.ast             import AST
+from manifold.core.producer        import Producer
 from manifold.operators.operator   import Operator
 from manifold.util.log             import Log
 from manifold.util.type            import returns, accepts
@@ -26,69 +27,12 @@ class QueryPlan(object):
     Building a query plan consists in setting the AST and the list of Froms.
     """
 
-    def __init__(self, interface):
+    def __init__(self):
         """
         Constructor.
         """
-        # TODO metadata, user should be a property of the query plan
-        self.ast        = AST(interface)
-#DEPRECATED|        self.froms      = list() 
-        self._interface = interface
-
-#DEPRECATED|    def add_from(self, from_node):
-#DEPRECATED|        """
-#DEPRECATED|        Register a From Node in this QueryPlan.
-#DEPRECATED|        FromTable Nodes are not registered and are ignored.
-#DEPRECATED|        Args:
-#DEPRECATED|            from_node: A From instance. 
-#DEPRECATED|        """
-#DEPRECATED|        Log.tmp("adding From Node %s" % from_node)
-#DEPRECATED|        if isinstance(from_node, From):
-#DEPRECATED|        self.froms.append(from_node)
-#DEPRECATED|
-#DEPRECATED|    @returns(GeneratorType)
-#DEPRECATED|    def get_froms(self):
-#DEPRECATED|        """
-#DEPRECATED|        Returns:
-#DEPRECATED|            A Generator allowing to iterate on From nodes involved
-#DEPRECATED|            in this QueryPlan.
-#DEPRECATED|        """
-#DEPRECATED|        for from_node in self.froms:
-#DEPRECATED|            yield from_node
-#DEPRECATED|
-#DEPRECATED|    @returns(list)
-#DEPRECATED|    def get_result_value_array(self):
-#DEPRECATED|        """
-#DEPRECATED|        Returns:
-#DEPRECATED|            A list of ResultValue instance corresponding to each From Node
-#DEPRECATED|            involved in this QueryPlan.
-#DEPRECATED|        """
-#DEPRECATED|        # Iterate over gateways to get their ResultValue 
-#DEPRECATED|        result_values = list() 
-#DEPRECATED|        for from_node in self.get_froms():
-#DEPRECATED|            assert from_node.gateway, "Invalid FROM node: %s" % from_node
-#DEPRECATED|            result_value = from_node.get_result_value()
-#DEPRECATED|            if not result_value:
-#DEPRECATED|                Log.debug("%s didn't returned a ResultValue, may be it is related to a pruned child" % from_node)
-#DEPRECATED|                continue
-#DEPRECATED|            if not result_value.is_success():
-#DEPRECATED|                result_values.append(result_value)
-#DEPRECATED|        return result_values
-#DEPRECATED|
-#DEPRECATED|    def inject_at(self, query):
-#DEPRECATED|        """
-#DEPRECATED|        Update From Nodes of the QueryPlan in order to take into account AT
-#DEPRECATED|        clause involved in a user Query.
-#DEPRECATED|        Args:
-#DEPRECATED|            query: The Query issued by the user.
-#DEPRECATED|        """
-#DEPRECATED|        # OPTIMIZATION: We should not built From Node involving a Table
-#DEPRECATED|        # unable to serve the Query due to its timestamp
-#DEPRECATED|        # (see query.get_timestamp())
-#DEPRECATED|        # Or their corresponding Gateway should return an empty result
-#DEPRECATED|        # by only sending LAST_RECORD.
-#DEPRECATED|        for from_node in self.get_froms():
-#DEPRECATED|            from_node.query.timestamp = query.get_timestamp()
+        # self.ast will be set thanks to set_ast()
+        self.ast = None
 
     def set_ast(self, ast, query):
         """
@@ -102,17 +46,8 @@ class QueryPlan(object):
             "Invalid ast = %s (%s)" % (ast, type(ast))
 
         ast.optimize(query)
-#DEPRECATED|        self.inject_at(query)
         self.ast = ast
     
-#DEPRECATED|        # Update the main query to add applicative information such as action and params
-#DEPRECATED|        # NOTE: I suppose params cannot have '.' inside
-#DEPRECATED|        for from_node in self.get_froms():
-#DEPRECATED|            q = from_node.get_query()
-#DEPRECATED|            if q.get_from() == query.get_from():
-#DEPRECATED|                q.action = query.get_action()
-#DEPRECATED|                q.params = query.get_params()
-
     @returns(Operator)
     def get_root_operator():
         """
@@ -122,7 +57,8 @@ class QueryPlan(object):
         """
         return self.ast.get_root() if self.ast else None
 
-    def build(self, query, metadata, allowed_platforms, allowed_capabilities, user = None):
+    @returns(Producer)
+    def build(self, query, router, db_graph, allowed_platforms, user = None):
         """
         Build the QueryPlan involving several Gateways according to a 3nf
         graph and a user Query. If only one Gateway is involved, you should
@@ -132,30 +68,26 @@ class QueryPlan(object):
             Exception if the QueryPlan cannot be built.
         Args:
             query: The Query issued by the user.
-            metadata: The 3nf graph (DBGraph instance).
+            db_graph: The 3nf graph (DBGraph instance).
             allowed_platforms: A list of platform names (list of String).
                 Which platforms the router is allowed to query.
                 Could be used to restrict the Query to a limited set of platforms
                 either because it is specified by the user Query or either due
                 to the Router configuration.
-            allowed_capabilities: A Capabilities instance or None.
-                Specify which capabilities the Router can perform if it is
-                involved as an intermediate Router between two other Routers.
-            TODO: metadata, allowed_platforms and allowed_platforms capabilities should be
-                deduced from the query, the router, and the user.
-                    router.get_metadata()
-                    router.get_allowed_platforms(query, user)
-                    router.get_allowed_capabilities(query, user)
             user: A User instance or None.
+        Returns:
+            The corresponding Producer, None in case of failure
         """
-        root = metadata.find_node(query.get_from())
+        allowed_capabilities = router.get_capabilities()
+
+        root = db_graph.find_node(query.get_from())
         if not root:
-            raise ValueError("Cannot find %s in metadata, known tables are {%s}" % (
+            raise ValueError("Cannot find %s in db_graph, known tables are {%s}" % (
                 query.get_from(),
-                ', '.join(metadata.get_table_names()))
+                ", ".join(db_graph.get_table_names()))
             )
         
-        root_task = ExploreTask(self._interface, root, relation = None, path = list(), parent = self, depth = 1)
+        root_task = ExploreTask(router, root, relation = None, path = list(), parent = self, depth = 1)
         if not root_task:
             raise Exception("Unable to build a suitable QueryPlan")
         root_task.addCallback(self.set_ast, query)
@@ -180,7 +112,7 @@ class QueryPlan(object):
             pathstr = '.'.join(task.path)
             if not pathstr in seen:
                 seen[pathstr] = set()
-            task.explore(stack, missing_fields, metadata, allowed_platforms, allowed_capabilities, user, seen[pathstr], query_plan = self)
+            task.explore(stack, missing_fields, db_graph, allowed_platforms, allowed_capabilities, user, seen[pathstr], query_plan = self)
 
         # Cancel every remaining ExploreTasks, we cannot found anymore
         # queried fields.
@@ -189,6 +121,7 @@ class QueryPlan(object):
             task.cancel()
     
         # Do we need to wait for self.ast here ?
+        return self.ast.get_root()
 
     # XXX Note for later: what about holes in the subquery chain. Is there a notion
     # of inject ? How do we collect subquery results two or more levels up to match

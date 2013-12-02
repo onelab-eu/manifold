@@ -258,15 +258,11 @@ class Router(Interface):
         # Build the AST and retrieve the corresponding root_node Operator instance.
         query = packet.get_query()
         annotation = packet.get_annotation()
-        producer = self._operator_graph.build_query_plan(query, annotation)
-        Log.warning("router::receive(): TODO: Handle properly cases when producer == None")
+        root_node = self._operator_graph.build_query_plan(query, annotation)
 
-        # Execute the operators related to the socket, if needed
-        if producer:
-            socket.set_producer(producer)
-            Log.tmp("socket = %s" % socket)
-            Log.tmp("socket.producer = %s" % socket.get_producer())
-            Log.tmp("socket.consumer = %s" % socket.get_consumer())
+        # Execute the operators related to the socket, if needed.
+        if root_node: 
+            root_node.add_consumer(socket)
             socket.receive(packet)
         else:
             socket.receive(ErrorPacket("Unable to build a suitable Query Plan (query = %s)" % query))

@@ -31,6 +31,7 @@ class Consumer(Node):
             consumers: A list or a set of Producer instances (children of this Node).
             max_producers: A strictly positive integer or None (maximum
                 number of parents, pass None if not bounded).
+            has_consumer_producer: (temporary fix for LeftJoin)
         """
         Node.__init__(self)
         self._pool_producers = PoolProducers(producers, max_producers = max_producers)

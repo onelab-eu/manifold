@@ -13,7 +13,7 @@
 from types                          import StringTypes
 
 from manifold.core.node             import Node
-from manifold.core.packet           import Packet
+from manifold.core.packet           import Packet, ErrorPacket
 from manifold.core.pool_consumers   import PoolConsumers
 from manifold.util.log              import Log
 from manifold.util.type             import accepts, returns
@@ -121,7 +121,7 @@ class Producer(Node):
         Returns:
             The '%r' representation of this Producer.
         """
-        return "%s[%s](Consumers: %s>)" % (
+        return "%s[%s](Consumers: %s)" % (
             self.__class__.__name__,
             self.get_identifier(),
             self.format_consumer_ids()
@@ -146,7 +146,8 @@ class Producer(Node):
             consumers: An Iterable (set, list...) containing one or more
                 Consumer instance(s).
         """
-        if len(consumers) > self.get_max_consumers() + len(self.get_consumers()):
+        max_consumers = self.get_max_consumers()
+        if max_consumers and len(consumers) > max_consumers + len(self.get_consumers()):
             raise ValueError("Trying to add too many Consumers (%s) to Producer %s" % (consumers, self))
         for consumer in consumers:
             self.add_consumer(consumer)
@@ -211,22 +212,33 @@ class Producer(Node):
     # Methods
     #---------------------------------------------------------------------------
 
+    def check_send(self, packet):
+        """
+        (Internal usage) Check Producer::send() parameters.
+        """
+        # Check packet. A Producer sends Record/Error Packets to its consumers
+        assert isinstance(packet, Packet),\
+            "Invalid packet = %s (%s)" % (packet, type(packet))
+        assert packet.get_type() in [Packet.TYPE_RECORD, Packet.TYPE_ERROR],\
+            "Invalid packet type (%s)" % packet
+
+    def check_receive(self, packet):
+        """
+        (Internal usage) Check Producer::receive() parameters.
+        """
+        # Check packet. A Producer sends RECORD/ERROR Packets to its consumers
+        assert isinstance(packet, Packet), \
+            "Invalid packet = %s (%s)" % (packet, type(packet))
+
     def send(self, packet):
         """
         Send an ERROR or RECORD Packet from this Producer towards its Consumer(s).
+        By default, send this Record to every Consumers.
         Args:
-            packet: A ERROR or RECORD Packet.
+            packet: An ERROR or RECORD Packet instance.
         """
-        # A producer sends Record/Error Packets to its consumers
-        if packet.get_type() not in [Packet.TYPE_RECORD, Packet.TYPE_ERROR]:
-            raise ValueError, "Invalid packet type for consumer: %s" % \
-                Packet.get_type_name(packet.get_type())
-
-        if self.get_identifier():
-            Log.record("[#%04d] [ %r ]" % (self.get_identifier(), packet))
-        else:
-            Log.record(packet)
-
+        self.check_send(packet)
+        Log.record(packet, self)
         self._pool_consumers.receive(packet)
         
     def receive(self, packet):
@@ -236,7 +248,4 @@ class Producer(Node):
         Args:
             packet: A QUERY Packet.
         """
-        assert isinstance(packet, Packet)
-        if packet.get_type() not in [Packet.TYPE_QUERY]:
-            raise ValueError, "Invalid packet type received in producer: %s" % \
-                Packet.get_type_name(packet.get_type()) 
+        self.check_receive(packet)

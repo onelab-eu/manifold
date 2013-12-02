@@ -638,7 +638,7 @@ class Shell(object):
 
         #print 'Type "system.listMethods()" or "help(method)" for more information.'
         # Load command history
-        history_path = os.path.join(os.environ["HOME"], ".plcapi_history")
+        history_path = os.path.join(os.environ["HOME"], ".manifold_history")
         try:
             file(history_path, 'a').close()
             readline.read_history_file(history_path)

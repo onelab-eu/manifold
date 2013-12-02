@@ -124,28 +124,20 @@ class SQLAlchemyGateway(Gateway):
     # Constructor
     #---------------------------------------------------------------------------
 
-    def __init__(self, interface, platform, config = None):
+    def __init__(self, interface, platform_name, platform_config = None):
         """
         Constructor
         Args:
             interface: The Manifold Interface on which this Gateway is running.
-            platform: A String storing name of the platform related to this Gateway.
-            config: A dictionnary containing the configuration related to this Gateway.
+            platform_name: A String storing name of the platform related to this Gateway.
+            platform_config: A dictionnary containing the configuration related to this Gateway.
         """
-        super(SQLAlchemyGateway, self).__init__(interface, platform, config)
+        super(SQLAlchemyGateway, self).__init__(interface, platform_name, platform_config)
 
         from manifold.models.base import Base
         Base = declarative_base(cls = Base)
         
-#OBSOLETE|        # Models
-#OBSOLETE|        from manifold.models.account        import Account       as DBAccount
-#OBSOLETE|        from manifold.models.linked_account import LinkedAccount as DBLinkedAccount
-#OBSOLETE|        from manifold.models.platform       import Platform      as DBPlatform
-#OBSOLETE|        from manifold.models.policy         import Policy        as DBPolicy
-#OBSOLETE|        from manifold.models.session        import Session       as DBSession
-#OBSOLETE|        from manifold.models.user           import User          as DBUser
-
-        engine = create_engine(config['url'], echo = False)
+        engine = create_engine(platform_config["url"], echo = False)
         Base.metadata.create_all(engine)
         Session = sessionmaker(bind = engine)
         self.db = Session()
@@ -389,11 +381,14 @@ class SQLAlchemyGateway(Gateway):
 
     def receive(self, packet):
         """
-        Perform the Query carried by an incoming Packet.
+        Handle a incoming QUERY Packet.
         Args:
-            packet: A Packet instance carrying a Query.
+            packet: A QUERY Packet instance.
         """
-        Gateway.receive(self, packet)
+        super(SQLAlchemyGateway, self).receive(packet)
+
+        consumer   = packet.get_receiver()
+        query      = packet.get_query()
 
         _map_action = {
             'get'    : self.local_query_get,
@@ -401,22 +396,19 @@ class SQLAlchemyGateway(Gateway):
             'create' : self.local_query_create,
             'delete' : self.local_query_delete
         }
-        query = packet.get_query()
-
-        Log.tmp(">>>>>>>>>>>> query = %s" % query)
 
         try:
-            annotation = packet.get_annotation()
-            if not annotation:
-                annotation = Annotation() 
-
             if query.get_from() == 'object':
                 if not query.get_action() == 'get':
                     raise Exception, "Invalid action (%s) on 'local:object' table" % query.get_action()
-                for record in self.get_metadata():
-                    self.send(Record(record.to_dict()))
+                for announce in self.get_metadata():
+                    self.send(Record(announce.to_dict()))
                 self.send(LastRecord())
                 return
+
+            annotation = packet.get_annotation()
+            if not annotation:
+                annotation = Annotation() 
 
             user = annotation.get('user', None)
             rows = _map_action[query.get_action()](query, user)

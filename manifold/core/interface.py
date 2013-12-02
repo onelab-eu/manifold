@@ -47,7 +47,7 @@ class Interface(object):
         # Register the list of Gateways
         Log.info("Registering gateways")
         Gateway.register_all()
-        Log.info("Registered gateways are: {%s}" % ' '.join(Gateway.list().keys()))
+        Log.info("Registered gateways are: {%s}" % ", ".join(sorted(Gateway.list().keys())))
 
         # Prepare Manifold Storage
         self.user_storage = user_storage
@@ -247,6 +247,7 @@ class Interface(object):
             except Exception, e:
                 Log.error(traceback.format_exc())
                 raise ValueError("Cannot find/create Gateway related to platform %s (%s)" % (platform_name, e))
+
         try:
             return self.gateways[platform_name]
         except KeyError:

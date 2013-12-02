@@ -40,12 +40,14 @@ class Selection(Operator):
             child: A Node instance (the child of this Node)
             filters: A set of Predicate instances
         """
-        Log.tmp(">>>>>>>>>>>>>>>>>>>> Selection")
         assert issubclass(type(child), Node), "Invalid child = %r (%r)"   % (child,   type(child))
         assert isinstance(filters, set),      "Invalid filters = %r (%r)" % (filters, type(filters))
 
         self._filter = filters
         Operator.__init__(self, producers = child, max_producers = 1)
+
+        self.query = self.child.get_query().copy()
+        self.query.filters |= filters
  
     #---------------------------------------------------------------------------
     # Methods
