@@ -39,7 +39,6 @@ class Operator(Relay):
         Args:
             See relay::__init__()
         """
-        Log.tmp(">>>>>>>>>>>>>>>>>>>> Operator")
         Relay.__init__( \
             self, \
             producers = producers, \
@@ -58,7 +57,7 @@ class Operator(Relay):
         
     @returns(Query)
     def get_query(self):
-        raise Exception, "Operator::get_query() must be overwritten in children classes"
+        return self.query
 
     def dump(self, indent = 0):
         """

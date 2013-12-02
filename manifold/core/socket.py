@@ -16,6 +16,7 @@
 from types                  import StringTypes
 
 from manifold.core.consumer import Consumer
+from manifold.core.packet   import Packet
 from manifold.core.relay    import Relay
 from manifold.util.log      import Log
 from manifold.util.type     import accepts, returns
@@ -27,19 +28,27 @@ class Socket(Relay):
         Args:
             consumer: A Consumer instance.
         """
-        Log.tmp(">>>>>>>>>>> Creating Socket with consumer = %s" % consumer)
         assert isinstance(consumer, Consumer),\
             "Invalid consumer = %s" % (consumer, type(consumer))
         Relay.__init__(self, consumers = [consumer], max_consumers = 1, max_producers = 1)
 
-    def check_send(self):
-        assert self.get_num_producers() == 1,\
-            "Invalid number of Producers in %s (expected: 1, got: %s) " % (
-                self,
-                self.get_num_producers()
-            )
+    def check_send(self, packet):
+        """
+        Overload producer::check_send()
+        """
+        super(Socket, self).check_send(packet)
+        if packet.get_type() != Packet.TYPE_ERROR:
+            assert self.get_num_producers() == 1,\
+                "Invalid number of Producers in %s (expected: 1, got: %s) " % (
+                    self,
+                    self.get_num_producers()
+                )
 
-    def check_receive(self):
+    def check_receive(self, packet):
+        """
+        Overload producer::check_receive()
+        """
+        super(Socket, self).check_receive(packet)
         assert self.get_num_consumers() == 1,\
             "Invalid number of Consumers in %s (expected: 1, got: %s)" % (
                 self,
@@ -53,7 +62,7 @@ class Socket(Relay):
         Args:
             packet: A Packet instance.
         """
-        self.check_send()
+        self.check_send(packet)
         Log.tmp("--> [%s] sending %s" % (self.get_identifier(), packet))
         super(Socket, self).send(packet)
 
@@ -64,7 +73,7 @@ class Socket(Relay):
         Args:
             packet: A Packet instance.
         """
-        self.check_receive()
+        self.check_receive(packet)
         Log.tmp("<-- [%s] receiving %s" % (self.get_identifier(), packet))
         super(Socket, self).receive(packet)
     

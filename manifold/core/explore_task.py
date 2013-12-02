@@ -11,7 +11,6 @@
 #   Jordan Augé       <jordan.auge@lip6.fr> 
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
-import random
 from types                         import StringTypes
 from twisted.internet.defer        import Deferred, DeferredList
 
@@ -31,6 +30,7 @@ class ExploreTask(Deferred):
     """
     A pending exploration of the metadata graph
     """
+    last_identifier = 0
 
     def __init__(self, interface, root, relation, path, parent, depth):
         """
@@ -58,7 +58,8 @@ class ExploreTask(Deferred):
         self.keep_root_a = set()
         self.subqueries  = dict() 
 
-        self.identifier  = random.randint(0, 9999)
+        ExploreTask.last_identifier += 1
+        self.identifier  = ExploreTask.last_identifier 
 
         Deferred.__init__(self)
 
@@ -110,7 +111,7 @@ class ExploreTask(Deferred):
             missing_fields: A set of String containing field names (which
                 may be prefixed, such has hops.ttl) involved in the Query.
             metadata: The DBGraph instance related to the 3nf graph.
-            allowed_platforms: A set of String where each String correponds
+            allowed_platforms: A set of String where each String corresponds
                 to a queried platform name.
             allowed_platforms: A Capabilities instance.
             user: The User issuing the Query.
@@ -219,7 +220,7 @@ class ExploreTask(Deferred):
 
         Args:
             result:
-            allowed_platforms: A set of String where each String correponds to a queried platform name.
+            allowed_platforms: A set of String where each String corresponds to a queried platform name.
             metadata: The DBGraph instance related to the 3nf graph.
             user: The User issuing the Query.
             query_plan: The QueryPlan instance related to this Query, and that we're updating.
@@ -252,8 +253,6 @@ class ExploreTask(Deferred):
         #Log.debug(ast, relation)
         if not ast: return
         if not self.ast:
-#OBSOLETE|            # XXX not sure about fields
-#OBSOLETE|            self.ast = self.build_union(self.root, self.root.keys.one().get_field_names(), allowed_platforms, metadata, user, query_plan)
             self.ast = self.perform_union(self.root, allowed_platforms, metadata, user, query_plan)
         self.ast.left_join(ast, relation.get_predicate())
 
@@ -263,20 +262,12 @@ class ExploreTask(Deferred):
         If the connected table is "on join", we will use a LeftJoin and a CrossProduct Node instead.
         Args:
             metadata: The DBGraph instance related to the 3nf graph.
-            allowed_platforms: A set of String where each String correponds to a queried platform name.
+            allowed_platforms: A set of String where each String corresponds to a queried platform name.
             user: The User issuing the Query.
             query_plan: The QueryPlan instance related to this Query, and that we're updating.
         """
         Log.warning("perform_subquery: user is not needed anymore")
         # We need to build an AST just to collect subqueries
-#OBSOLETE|        # XXX metadata not defined
-#OBSOLETE|        #if not self.ast:
-#OBSOLETE|        #    self.ast = self.build_union(self.root, self.keep_root_a, metadata, user)
-#OBSOLETE|        if not self.ast:
-#OBSOLETE|            fields = set()
-#OBSOLETE|            for _, (_, relation) in self.subqueries.items():
-#OBSOLETE|                fields |= relation.get_predicate().get_field_names()
-#OBSOLETE|            self.ast = self.build_union(self.root, fields, allowed_platforms, metadata, user, query_plan)
         if not self.ast:
             self.ast = self.perform_union(self.root, allowed_platforms, metadata, user, query_plan)
         
@@ -310,15 +301,13 @@ class ExploreTask(Deferred):
         else:
             self.ast.subquery(self.subqueries.values())
 
-    # TODO rename: perform_union and remove needed_fields parameter
     def perform_union(self, table, allowed_platforms, metadata, user, query_plan):
-#OBSOLETE|    def build_union(self, table, needed_fields, allowed_platforms, metadata, user, query_plan):
         """
         Complete a QueryPlan instance by adding an Union of From Node related
         to a same Table.
         Args:
             table: The 3nf Table, potentially provided by several platforms.
-            allowed_platforms: A set of String where each String correponds to a queried platform name.
+            allowed_platforms: A set of String where each String corresponds to a queried platform name.
             user: The User issuing the Query.
             query_plan: The QueryPlan instance related to this Query, and that we're updating.
         """
@@ -370,7 +359,6 @@ class ExploreTask(Deferred):
                 # We need to connect the right gateway
                 # XXX
 
-#                from_ast = AST(self._interface, user = user).From(platform, query, capabilities, key)
                 from_ast = AST(self._interface).From(platform, query, capabilities, key)
 #DEPRECATED|                query_plan.add_from(from_ast.get_producer())
 

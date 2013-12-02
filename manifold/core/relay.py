@@ -62,12 +62,12 @@ class Relay(Producer, Consumer):
         Returns:
             The '%r' representation of this Consumer.
         """
-        return "%s<[%s] Consumers: %s Producers: %s>" % (
-            self.__class__.__name__,
-            self.get_identifier(),
-            self.format_consumer_ids(),
-            self.format_producer_ids()
-        )
+        return "%(class_name)s<C:%(consumers)s -- [%(identifier)s] -- P: %(producers)s>" % {
+            "class_name" : self.__class__.__name__,
+            "identifier" : self.get_identifier(),
+            "consumers"  : self.format_consumer_ids(),
+            "producers"  : self.format_producer_ids()
+        }
 
     @returns(StringTypes)
     def __str__(self):

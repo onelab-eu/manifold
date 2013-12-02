@@ -65,8 +65,6 @@ class Gateway(Producer):
                 
                     SELECT config FROM local:platform WHERE platform == "platform_name"
         """
-        if interface:
-            Log.warning("Gateway::__init__(): interface obsolete?")
         assert isinstance(platform_name, StringTypes) or not platform_name, \
             "Invalid platform name: %s (%s)" % (platform_name,   type(platform_name))
         assert isinstance(platform_config, dict) or not platform_config, \
@@ -94,7 +92,6 @@ class Gateway(Producer):
             The Interface instance using this Gateway. Most of time
             this is a Router instance.
         """
-        Log.warning("Gateway::get_interface(): <mando> obsolete?")
         return self._interface
 
     @returns(dict)
@@ -137,18 +134,19 @@ class Gateway(Producer):
             self._metadata = self.make_metadata()
         return self._metadata
 
+    @returns(Capabilities)
     def get_capabilities(self, method):
         capabilities = self._capabilities.get(method, None)
         return capabilities if capabilities else Capabilities()
 
+    #@returns(Table)
     def get_table(self, method):
-        table, = [announce.table for announce in self._metadata if announce.table.get_name() == method]
-        return table
-
-    def set_consumer(self, consumer):
-        Log.warning("what if several pending QP querying this GW")
-        Log.warning("we must trigger add when create")
-        return self.add_consumer(consumer)
+        #table, = [announce.get_table() for announce in self.get_metadata() if announce.get_table().get_name() == method]
+        for announce in self.get_metadata():
+            table = announce.get_table()
+            if table.get_name() == method:
+                return table
+        return None
 
     #---------------------------------------------------------------------------  
     # Internal methods
@@ -200,16 +198,6 @@ class Gateway(Producer):
     #---------------------------------------------------------------------------  
     # Methods
     #---------------------------------------------------------------------------  
-
-    def receive(self, packet):
-        """
-        Handle a QUERY Packet from a Consumer. 
-        This method should be overloaded by its child class(es).
-        Args:
-            packet: A QUERY Packet.
-        """
-        # Check type of the incoming Packet
-        Producer.receive(self, packet)
 
     def dump(self, indent = 0):
         Node.dump(self, indent)
@@ -448,3 +436,4 @@ class Gateway(Producer):
                 return Projection(self, fields)
                 #projection.query = self.query.copy().filter_by(filter) # XXX
             return self
+

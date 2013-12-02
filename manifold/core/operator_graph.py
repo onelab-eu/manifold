@@ -81,30 +81,30 @@ class OperatorGraph(object):
 
         # Retrieve the DBGraph to compute a QueryPlan in respect of
         # namespace explicitly set in the Query and user's grants. 
-        router = self.get_router()
-        user   = annotation.get('user', None)
-        if ':' in query.get_from():
-            namespace, table = query.get_from().rsplit(':', 2)
-            query.object = table
+        router    = self.get_router()
+        user      = annotation.get('user', None)
+        namespace = query.get_namespace()
+        query.clear_namespace()
 
-            if namespace == STORAGE_NAMESPACE:
-                db_graph = router.get_local_metadata()
-                allowed_platforms = list() 
-            else: # namespace == 1 platform
-                db_graph = router.get_metadata()
-                allowed_platforms = [p['platform'] for p in router.get_platforms() if p['platform'] == namespace]
+        if namespace == STORAGE_NAMESPACE:
+            db_graph = router.get_local_metadata()
+            allowed_platforms = list() 
         else:
             db_graph = router.get_metadata()
-            allowed_platforms = [p['platform'] for p in router.get_platforms()]
+            allowed_platforms = [platform["platform"] for platform in router.get_platforms()]
+            if namespace and namespace in allowed_platforms:
+                allowed_platforms = [namespace]
 
         # Build the QueryPlan according to this DBGraph and to the user's Query. 
-        query_plan = QueryPlan(router)
-        query_plan.build(query, db_graph, allowed_platforms, router.get_capabilities(), user)
-        query_plan.dump()
+        query_plan = QueryPlan()
 
         # Return the corresponding Producer (if any)
-        producer = query_plan.ast
-        assert isinstance(producer, Producer), "Invalid producer = %s (%s)" % (producer, type(producer))
-        return producer 
+        try:
+            producer = query_plan.build(query, router, db_graph, allowed_platforms, user)
+            assert isinstance(producer, Producer), "Invalid producer = %s (%s)" % (producer, type(producer))
+            return producer 
+        except Exception, e:
+            Log.error(e)
+            return None
 
 #DEPRECATED|        self._interface.init_from_nodes(query_plan, user)

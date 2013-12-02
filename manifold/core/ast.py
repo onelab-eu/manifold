@@ -17,17 +17,17 @@ from copy                             import copy, deepcopy
 from types                            import StringTypes
 
 from manifold.core.key                import Key
-from manifold.core.relay              import Relay
 from manifold.core.query              import Query
-from manifold.operators.from_table    import FromTable
-from manifold.operators.selection     import Selection
-from manifold.operators.projection    import Projection
-from manifold.operators.left_join     import LeftJoin
-from manifold.operators.union         import Union
-from manifold.operators.subquery      import SubQuery
 from manifold.operators.cross_product import CrossProduct
-from manifold.operators.demux         import Demux
 from manifold.operators.dup           import Dup
+from manifold.operators.From          import From
+from manifold.operators.from_table    import FromTable
+from manifold.operators.left_join     import LeftJoin
+from manifold.operators.operator      import Operator
+from manifold.operators.projection    import Projection
+from manifold.operators.selection     import Selection
+from manifold.operators.subquery      import SubQuery
+from manifold.operators.union         import Union
 from manifold.util.log                import Log
 from manifold.util.predicate          import Predicate, eq, contains, included
 from manifold.util.storage            import STORAGE_NAMESPACE 
@@ -37,7 +37,7 @@ from manifold.util.type               import returns, accepts
 # AST (Abstract Syntax Tree)
 #------------------------------------------------------------------
 
-class AST(Relay):
+class AST(object):
     """
     An AST (Abstract Syntax Tree) is used to represent a Query Plan.
     It acts as a factory (see example at the end of this file).
@@ -53,19 +53,20 @@ class AST(Relay):
         Args:
             interface: The Router which instanciate this AST.
         """
-        Relay.__init__(self, max_producers = 1)
         self._interface = interface
-#DEPRECATED|        self.user = user
-        # The AST is initially empty
-        self.root = None
+        self.root = None # Points to the root operator
 
     #---------------------------------------------------------------------------
     # Accessors
     #---------------------------------------------------------------------------
 
-#MANDO|    def get_root(self):
-#MANDO|        Log.warning('Do not use get_root anymore, use get_producer()')
-#MANDO|        return self.get_producer()
+    @returns(Operator)
+    def get_root(self):
+        """
+        Returns:
+            The root Operator of this AST.
+        """
+        return self.root
 
     #---------------------------------------------------------------------------
     # Methods
@@ -77,7 +78,7 @@ class AST(Relay):
         Returns:
             True iif the AST has no Node.
         """
-        return self.get_producer() == None
+        return self.root == None
 
     #---------------------------------------------------------------------------
     # Helpers
@@ -96,14 +97,17 @@ class AST(Relay):
             The updated AST.
         """
         assert self.is_empty(),          "Should be instantiated on an empty AST"
-        assert isinstance(query, Query), "Invalid query = %r (%r)" % (query, type(query))
+        assert isinstance(query, Query), "Invalid query = %s (%s)" % (query, type(query))
+        assert isinstance(key, Key),     "Invalid key = %s (%s)" % (key, type(key))
 
+        # Retrieve the appropriate Gateway.
         if platform_name == STORAGE_NAMESPACE:
-            producer = self._interface.get_storage()
+            gateway = self._interface.get_storage()
         else:
-            producer = self._interface.get_gateway(platform_name)
-        self.set_producer(producer)
+            gateway = self._interface.get_gateway(platform_name)
 
+        # Build the corresponding From Operator and connect it to this AST.
+        self.root = From(gateway, query, capabilities, key)
         return self
 
     #@returns(AST)
@@ -118,8 +122,11 @@ class AST(Relay):
         Returns:
             The resulting AST.
         """
-        producer = FromTable(query, records, key)
-        self.set_producer(producer)
+        assert self.is_empty(),          "Should be instantiated on an empty AST"
+        assert isinstance(query, Query), "Invalid query = %r (%r)" % (query, type(query))
+        assert isinstance(key, Key),     "Invalid key = %s (%s)" % (key, type(key))
+
+        self.root = FromTable(query, records, key)
         return self
 
     #@returns(AST)
@@ -139,21 +146,13 @@ class AST(Relay):
 
         # If the current AST has already a root node, this node become a child
         # of this Union node ...
-        old_root = None
-        if not self.is_empty():
-            # # old_root = self.get_root()
-            children = [self.root]
-#MANDO|            old_cb = self.root.get_callback()
-        else:
-            children = list() 
-#MANDO|            old_cb = None
+        children = list() if self.is_empty() else [self.get_root()] 
 
         # ... as the other children
-        children.extend([child_ast.get_producer() for child_ast in children_ast])
+        children.extend([child_ast.get_root() for child_ast in children_ast])
 
-        producer = children[0] if len(children) == 1 else Union(children, key)
-        self.set_producer(producer)
-
+        # If there are several children, we require an Union Operator
+        self.root = children[0] if len(children) == 1 else Union(children, key)
         return self
 
     #@returns(AST)
@@ -172,21 +171,7 @@ class AST(Relay):
         assert isinstance(predicate, Predicate), "Invalid predicate = %r (%r)" % (predicate, type(Predicate))
         assert not self.is_empty(),              "No left table"
 
-        self.root = LeftJoin(self.get_root(), right_child.get_root(), predicate)#, None)
-        return self
-
-    #@returns(AST)
-    def demux(self):
-        """
-        Append a DEMUX Node above this AST.
-        Returns:
-            The updated AST. 
-        """
-        assert not self.is_empty(), "AST not initialized"
-
-        old_root = self.get_root()
-        self.root = Demux(old_root)
-        self.root.set_callback(old_root.get_callback())
+        self.root = LeftJoin(self.get_root(), right_child.get_root(), predicate)
         return self
 
     #@returns(AST)
@@ -200,9 +185,7 @@ class AST(Relay):
         """
         assert not self.is_empty(), "AST not initialized"
 
-        old_root = self.get_root()
-        self.root = Dup(old_root, key)
-        self.root.set_callback(old_root.get_callback())
+        self.root = Dup(self.get_root(), key)
         return self
 
     #@returns(AST)
@@ -219,8 +202,7 @@ class AST(Relay):
         #assert isinstance(fields, list), "Invalid fields = %r (%r)" % (fields, type(fields))
         if not fields:
             return self
-        producer = Projection(self.get_root(), fields)
-        self.set_producer(producer)
+        self.root = Projection(self.get_root(), fields)
         return self
 
     #@returns(AST)
@@ -235,11 +217,9 @@ class AST(Relay):
         """
         assert not self.is_empty(),      "AST not initialized"
         assert isinstance(filters, set), "Invalid filters = %r (%r)" % (filters, type(filters))
-        #assert filters != set(),         "Empty set of filters"
         if not filters:
             return self
-        producer = Selection(self.get_root(), filters)
-        self.set_producer(producer)
+        self.root = Selection(self.get_root(), filters)
         return self
 
     #@returns(AST)
@@ -301,7 +281,7 @@ class AST(Relay):
         if self.is_empty():
             print "Empty AST (no producer)"
         else:
-            self.get_producer().dump(indent)
+            self.get_root().dump(indent)
 
 #DEPRECATED|    def start(self):
 #DEPRECATED|        """
@@ -336,6 +316,7 @@ class AST(Relay):
             query: The Query issued by the user.
         """
         print "=" * 80
+        print "ast = %s" % self 
         print "query = %s" % query
         print "=" * 80
 
@@ -368,9 +349,9 @@ class AST(Relay):
                 involved in the WHERE clause.
         """
         if not filter: return
-        producer = self.get_producer().optimize_selection(query, filter)
+        producer = self.get_root().optimize_selection(query, filter)
         assert producer, "ast::optimize_selection() has failed: filter = %s" % filter
-        self.set_producer(producer)
+        self.root = producer
 
     def optimize_projection(self, query, fields):
         """
@@ -382,6 +363,6 @@ class AST(Relay):
                 involved in the SELECT clause.
         """
         if not fields: return
-        producer = self.get_producer().optimize_projection(query, fields)
+        producer = self.get_root().optimize_projection(query, fields)
         assert producer, "ast::optimize_projection() has failed: fields = %s" % fields 
-        self.set_producer(producer)
+        self.root = producer

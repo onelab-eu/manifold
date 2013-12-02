@@ -503,4 +503,13 @@ class Query(object):
     def __gt__(self, other):
         return other < self
 
+    @returns(StringTypes)
+    def get_namespace(self):
+        l = self.get_from().rsplit(':', 2)
+        return l[0] if len(l) == 2 else None  
 
+    @returns(StringTypes)
+    def clear_namespace(self):
+        if ':' in self.get_from():
+            namespace, table_name = self.get_from().rsplit(':', 2)
+            self.object = table_name

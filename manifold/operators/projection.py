@@ -62,13 +62,13 @@ class Projection(Operator):
 
     def __init__(self, child, fields):
         """
-        \brief Constructor
-        \param child A Node instance which will be the child of
-            this Node.
-        \param fields A list of Field instances corresponding to
-            the fields we're selecting.
+        Constructor.
+        Args:
+            child: A Node instance which will be the child of
+                this Node.
+            fields: A list of Field instances corresponding to
+                the fields we're selecting.
         """
-        Log.tmp(">>>>>>>>>> Projection::init()")
         #for field in fields:
         #    assert isinstance(field, Field), "Invalid field %r (%r)" % (field, type(field))
 
@@ -78,13 +78,8 @@ class Projection(Operator):
 
         Operator.__init__(self, producers = child, max_producers = 1)
 
-#DEPRECATED|        # Callbacks
-#DEPRECATED|        old_cb = child.get_callback()
-#DEPRECATED|        child.set_callback(self.child_callback)
-#DEPRECATED|        self.set_callback(old_cb)
-#DEPRECATED|
-#DEPRECATED|        self.query = self.child.get_query().copy()
-#DEPRECATED|        self.query.fields &= fields
+        self.query = self.get_producer().get_query().copy()
+        self.query.fields &= fields
 
     #---------------------------------------------------------------------------
     # Accessors
@@ -155,4 +150,4 @@ class Projection(Operator):
     @returns(Node)
     def optimize_projection(self, query, fields):
         # We only need the intersection of both
-        return self.child.optimize_projection(query, self._fields & fields)
+        return self.get_producer().optimize_projection(query, self._fields & fields)

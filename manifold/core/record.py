@@ -2,22 +2,15 @@
 # -*- coding: utf-8 -*-
 #
 # Class Record
-# Records transport values fetched by a Query.
+# A Record is a Packet transporting value resulting of a Query.
 # A Record can be seen as a python dictionnary where
 # - each key corresponds to a field name
 # - each value corresponds to the corresponding field value.
 # 
-# QueryPlan class builds, process and executes Queries
-#
 # Copyright (C) UPMC Paris Universitas
 # Authors:
 #   Jordan Augé       <jordan.auge@lip6.fr> 
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
-
-# TODO:
-# Currently, records are dictionary, but we will need a special class for typed
-# operations, and faster processing. Hence, consider the current code as a
-# transition towards this new class.
 
 from types                  import StringTypes
 
@@ -32,6 +25,9 @@ class Record(Packet):
     #---------------------------------------------------------------------------
 
     def __init__(self, *args, **kwargs):
+        """
+        Constructor.
+        """
         Packet.__init__(self, Packet.TYPE_RECORD)
         self._dict = dict(*args, **kwargs)
 
@@ -48,12 +44,13 @@ class Record(Packet):
         """
         return self._dict
 
+    @returns(dict)
     def to_dict(self):
         """
         Returns:
             The dict representation of this Record.
         """
-        dic = {}
+        dic = dict() 
         for k, v in self._dict.iteritems():
             if isinstance(v, Record):
                 dic[k] = v.to_dict()
