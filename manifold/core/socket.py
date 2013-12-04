@@ -63,7 +63,6 @@ class Socket(Relay):
             packet: A Packet instance.
         """
         self.check_send(packet)
-        Log.tmp("--> [%s] sending %s" % (self.get_identifier(), packet))
         super(Socket, self).send(packet)
 
     def receive(self, packet):
@@ -74,6 +73,5 @@ class Socket(Relay):
             packet: A Packet instance.
         """
         self.check_receive(packet)
-        Log.tmp("<-- [%s] receiving %s" % (self.get_identifier(), packet))
         super(Socket, self).receive(packet)
     

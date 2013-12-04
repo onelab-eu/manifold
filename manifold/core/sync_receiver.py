@@ -54,7 +54,7 @@ class SyncReceiver(Consumer):
                 do_stop = False
                 self._records.append(packet)
         elif packet.get_type() == Packet.TYPE_ERROR:
-            Log.error(packet.get_message())
+            raise Exception(packet.get_message())
         else:
             Log.warning(
                 "SyncReceiver::receive(): Invalid Packet type (%s, %s)" % (
@@ -63,6 +63,9 @@ class SyncReceiver(Consumer):
                 )
             )
 
+        # TODO this flag should be set to True iif we receive a LastRecord
+        # Packet (which could be a RECORD or an ERROR Packet). Each Node
+        # should manage the "LAST_RECORD" flag while forwarding its Packets.
         if do_stop:
             self.stop()
 

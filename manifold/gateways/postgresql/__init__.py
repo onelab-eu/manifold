@@ -10,7 +10,7 @@
 # Copyright (C) 2013 UPMC 
 
 from __future__                         import absolute_import
-import re, datetime
+import re, datetime, traceback
 from itertools                          import izip
 from uuid                               import uuid4
 from types                              import StringTypes, GeneratorType, NoneType, IntType, LongType, FloatType, ListType, TupleType
@@ -24,7 +24,7 @@ psycopg2.extensions.register_type(psycopg2.extensions.UNICODE)
 psycopg2.extensions.register_type(psycopg2._psycopg.UNICODEARRAY)
 
 from manifold.gateways                  import Gateway
-from manifold.core.announce             import Announce, Announces
+from manifold.core.announce             import Announce, Announces, merge_announces
 from manifold.core.field                import Field
 from manifold.core.record               import Record, Records, LastRecord
 from manifold.core.table                import Table
@@ -243,7 +243,7 @@ class PostgreSQLGateway(Gateway):
         Args:
             sql_query: A SQL query passed to PostgreSQL (String instance)
         Returns:
-            The correspnding generator instance
+            The corresponding generator instance
         """
         cursor = self.get_cursor()
         cursor.execute(sql_query)
@@ -268,6 +268,7 @@ class PostgreSQLGateway(Gateway):
         return self._get_generator(PostgreSQLGateway.SQL_DB_TABLE_NAMES % self.get_config())
 
     # TODO this could be moved into Gateway to implement "Access List"
+    # TODO see manifold/policy
     @returns(bool)
     def is_ignored_table(self, table_name):
         """
@@ -427,61 +428,75 @@ class PostgreSQLGateway(Gateway):
     # Overloaded methods 
     #---------------------------------------------------------------------------
 
-    def forward(self, query, annotation, receiver):
+#DEPRECATED|    def forward(self, query, annotation, receiver):
+#DEPRECATED|        """
+#DEPRECATED|        Query handler.
+#DEPRECATED|        Args:
+#DEPRECATED|            query: A Query instance, reaching this Gateway.
+#DEPRECATED|            annotation: A dictionnary instance containing Query's annotation.
+#DEPRECATED|            receiver : A Receiver instance which collects the results of the Query.
+#DEPRECATED|        """
+#DEPRECATED|        super(PostgreSQLGateway, self).forward(query, annotation, receiver)
+#DEPRECATED|        identifier = receiver.get_identifier() if receiver else None
+#DEPRECATED|
+#DEPRECATED|        try:
+#DEPRECATED|            sql = PostgreSQLGateway.to_sql(query)
+#DEPRECATED|            rows = Records(self.selectall(sql, None))
+#DEPRECATED|            for row in rows:
+#DEPRECATED|                self.send(row, receiver, identifier)
+#DEPRECATED|            self.send(LastRecord(), receiver, identifier)
+#DEPRECATED|            self.success(receiver, query)
+#DEPRECATED|        except Exception, e:
+#DEPRECATED|            Log.error(traceback.format_exc())
+#DEPRECATED|            self.send(LastRecord(), receiver, identifier)
+#DEPRECATED|            self.error(receiver, query, str(e))
+    def receive(self, packet):
         """
-        Query handler.
+        Handle a incoming QUERY Packet.
         Args:
-            query: A Query instance, reaching this Gateway.
-            annotation: A dictionnary instance containing Query's annotation.
-            receiver : A Receiver instance which collects the results of the Query.
+            packet: A QUERY Packet instance.
         """
-        super(PostgreSQLGateway, self).forward(query, annotation, receiver)
-        identifier = receiver.get_identifier() if receiver else None
-
+        self.check_receive(packet)
+        query = packet.get_query()
         try:
             sql = PostgreSQLGateway.to_sql(query)
-            rows = Records(self.selectall(sql, None))
-            for row in rows:
-                self.send(row, receiver, identifier)
-            self.send(LastRecord(), receiver, identifier)
-            self.success(receiver, query)
+            records = Records(self.selectall(sql, None))
+
+            for record in records:
+                self.send(record)
+            self.send(LastRecord())
         except Exception, e:
             Log.error(traceback.format_exc())
-            self.send(LastRecord(), receiver, identifier)
-            self.error(receiver, query, str(e))
-       
-    @staticmethod
-    def get_colliding_announces(announces1, announces2):
-        return frozenset([announce.get_table().get_name() for announce in announces1]) \
-             & frozenset([announce.get_table().get_name() for announce in announces2])
+            self.send(LastRecord())
+            self.error(query, e)
 
-    @returns(list)
-    def merge_announces(self, announces_pgsql, announces_h):
-        # Merge metadata
-        s = PostgreSQLGateway.get_colliding_announces(announces_pgsql, announces_h)
-        if s:
-            Log.warning("merge_announces: colliding announces for table(s): {%s}" % ", ".join(s))
-        announces = announces_pgsql + announces_h
-        return announces
+    #---------------------------------------------------------------------------
+    # Announces (TODO move this in Gateway and/or Announce) 
+    #---------------------------------------------------------------------------
 
-    @returns(list)
-    def tweak_announces(self, announces_pgsql):
-        # Inject custom keys and fields
-        for announce in announces_pgsql:
-            table = announce.get_table()
-            table_name = table.get_name()
+    @returns(Table)
+    def tweak_table(self, table):
+        """
+        Update a Table instance according to tweaks described in
+        self.custom_fields and self.custom_keys
+        Args:
+            table: A reference to this Table.
+        Returns:
+            The updated Table.
+        """
+        table_name = table.get_name()
 
-            # Inject custom fields in their corresponding announce
-            if table_name in self.custom_fields.keys():
-                for field in self.custom_fields[table_name]:
-                    table.insert_field(field)
+        # Inject custom fields in their corresponding announce
+        if table_name in self.custom_fields.keys():
+            for field in self.custom_fields[table_name]:
+                table.insert_field(field)
 
-            # Inject custom keys in their corresponding announce
-            if table_name in self.custom_keys.keys():
-                for key in self.custom_keys[table_name]:
-                    table.insert_key(key)
+        # Inject custom keys in their corresponding announce
+        if table_name in self.custom_keys.keys():
+            for key in self.custom_keys[table_name]:
+                table.insert_key(key)
 
-        return announces_pgsql
+        return table
 
     def make_metadata(self):
         """
@@ -491,50 +506,39 @@ class PostgreSQLGateway(Gateway):
         """
         # Import metadata from pgsql schema.
         # By default, we only fetch tables and we ignore views.
-        ########
         announces_pgsql = self.make_metadata_from_names(self.get_table_names())
         if not announces_pgsql:
-            Log.warning("Cannot find metadata for platform %s: %s" % (self.platform, e))
+            Log.warning("Cannot find metadata for platform %s: %s" % (self.get_platform_name(), e))
         else:
             Log.info("Tables imported from pgsql schema: %s" % [announce.get_table() for announce in announces_pgsql])
-        ###
-        """
-        class table {
-            string comment;
-            field  fields[];
-            key    keys[];
-        };
 
-        class field {
-            string comment;
-            bool   is_const;
-            bool   is_array;
-            string type;
-        };
-
-        class key {
-            table table;    /**< BACKWARD_1N */
-            field fields[];
-        };
-        """
-        # 1) router::boot:
-        #      for each gateway:
-        #        if gateway.type == postgresql:
-        #        router.instantiate_gateway(gateway)
-        #    PostgreSQLGateway::__init__():
-        #      self.router.instantiate_gateway(platform = postgresql_metadata, config = config)
-        # 2) d = self.router.forward(Query.get('object').select([name, field.name, field.type, field.comment, key])
-        #   see core/interface.py:180
-        # 3) announces_pgsql = Announce.from_dict(d)
-        # In this gateway inject field info in table info
-        #########
+#TODO|        ###
+#TODO|        """
+#TODO|        class table {
+#TODO|            string comment;
+#TODO|            field  fields[];
+#TODO|            key    keys[];
+#TODO|        };
+#TODO|
+#TODO|        class field {
+#TODO|            string comment;
+#TODO|            bool   is_const;
+#TODO|            bool   is_array;
+#TODO|            string type;
+#TODO|        };
+#TODO|
+#TODO|        class key {
+#TODO|            table table;    /**< BACKWARD_1N */
+#TODO|            field fields[];
+#TODO|        };
+#TODO|        """
 
         # Fetch metadata from .h files (if any)
         announces_h = Announces.from_dot_h(self.get_platform_name(), self.get_gateway_type())
         Log.info("Tables imported from .h schema: %s" % [announce.get_table() for announce in announces_h])
 
         # Return the resulting announces
-        return self.merge_announces(announces_pgsql, announces_h) if announces_h else announces_pgsql
+        return merge_announces(announces_pgsql, announces_h) if announces_h else announces_pgsql
 
     @returns(list)
     def get_metadata(self):
@@ -962,11 +966,6 @@ class PostgreSQLGateway(Gateway):
     # Metadata 
     #---------------------------------------------------------------------------
 
-    def get_table_infos(self, table_name, sql):
-        cursor = self.get_cursor()
-        cursor.execute(sql, {"table_name": table_name})
-        return cursor.fetchall()
-
     @returns(dict)
     def get_tables_comment(self):
         """
@@ -1089,10 +1088,12 @@ class PostgreSQLGateway(Gateway):
         announces_pgsql = list() 
         
         for table_name in table_names:
-            if self.is_ignored_table(table_name):
-                continue
-            announces_pgsql.append(Announce(self.make_table(table_name)))
+            if self.is_ignored_table(table_name): continue
+            table = self.make_table(table_name)
+            table = self.tweak_table(table)
+            Log.tmp(table)
+            announce = Announce(table)
+            announces_pgsql.append(announce)
 
-        announces_pgsql = self.tweak_announces(announces_pgsql)
         return announces_pgsql
 

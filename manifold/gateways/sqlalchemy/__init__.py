@@ -386,9 +386,7 @@ class SQLAlchemyGateway(Gateway):
             packet: A QUERY Packet instance.
         """
         self.check_receive(packet)
-
-        consumer   = packet.get_receiver()
-        query      = packet.get_query()
+        query = packet.get_query()
 
         _map_action = {
             'get'    : self.local_query_get,
