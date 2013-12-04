@@ -315,11 +315,6 @@ class AST(object):
         Args:
             query: The Query issued by the user.
         """
-        print "=" * 80
-        print "ast = %s" % self 
-        print "query = %s" % query
-        print "=" * 80
-
         try: # DEBUG
             print "BEFORE OPTIMIZE"
             print "---------------"

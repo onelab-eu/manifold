@@ -16,7 +16,6 @@ from manifold.core.announce         import Announces
 from manifold.core.field            import Field 
 from manifold.gateways              import Gateway
 from manifold.gateways.postgresql   import PostgreSQLGateway
-from manifold.core.record           import Record, Records, LastRecord
 from manifold.util.type             import accepts, returns 
 from manifold.util.log              import Log
 
@@ -26,15 +25,34 @@ from manifold.util.log              import Log
 class TDMIGateway(PostgreSQLGateway):
     __gateway_name__ = 'tdmi'
 
-    def __init__(self, router, platform, config):
+    # Some Manifold objects doesn't exactly match with the corresponding
+    # table in PostgreSQL database (or do not even exist in pgsql). 
+    # Those objects are managed thanks to dedicated python objects 
+    # (see for example manifold/gateways/tdmi/methods/*.py).
+    # Example:
+    # - Agent object provide an additionnal platform field
+    # - Traceroute object crafts a SQL query involving a stored procedure.
+    # - Hops does not exists in the pgsql schema and is only declared to describe
+    # the type hops involved in Traceroute, we ignore queries related to hops. 
+
+    from manifold.gateways.tdmi.methods   import Traceroute
+    from manifold.gateways.tdmi.methods   import Agent 
+
+    METHOD_MAP = {
+        "traceroute" : Traceroute,   # See manifold/gateways/tdmi/methods/traceroute.py
+        "agent"      : Agent,        # See manifold/gateways/tdmi/methods/agent.py
+        "hop"        : None          # This is a dummy object, see metadata/tdmi.h 
+    }
+
+    def __init__(self, router, platform, platform_config):
         """
-        Constructor of TDMIGateway
+        Constructor of TDMIGateway.
         Args:
             router: None or a Router instance
             platform: A StringValue. You may pass u"dummy" for example
-            config: A dictionnary containing information to connect to the postgresql server
+            platform_config: A dictionnary containing information to connect to the postgresql server
                 Example :
-                    config = {
+                    platform_config = {
                         "db_password" : None,
                         "db_name"     : "tophat",
                         "db_user"     : "postgres",
@@ -54,26 +72,9 @@ class TDMIGateway(PostgreSQLGateway):
             re.compile("^node$")
         ]
 
-        super(TDMIGateway, self).__init__(router, platform, config, re_ignored_tables, re_allowed_tables)
-
-        # Some Manifold objects doesn't exactly match with the corresponding
-        # table in PostgreSQL database (or even do not expist in pgsql). 
-        # Those objects are managed thanks to dedicated python objects 
-        # (see for example manifold/gateways/tdmi/methods/*.py).
-        # Example:
-        # - Agent object provide an additionnal platform field
-        # - Traceroute object crafts a SQL query involving a stored procedure.
-        # - Hops does not exists in the pgsql schema and is only declared to describe
-        # the type hops involved in Traceroute, we ignore queries related to hops. 
-
-        from manifold.gateways.tdmi.methods   import Traceroute
-        from manifold.gateways.tdmi.methods   import Agent 
-
-        self.METHOD_MAP = {
-            "traceroute" : Traceroute,   # See manifold/gateways/tdmi/methods/traceroute.py
-            "agent"      : Agent,        # See manifold/gateways/tdmi/methods/agent.py
-            "hop"        : None          # This is a dummy object, see metadata/tdmi.h 
-        }
+        # Note: We inject some additional Manifold objects thanks to the TDMI header
+        # (see /usr/share/manifold/metadata/tdmi.h). We need to load them in
+        # order to support queries involving the traceroute table in a JOIN.
 
         # Some Fields do not exists in TDMI's database but are exposed to Manifold
         # (see /usr/share/manifold/metadata/tdmi.h) so we inject the missing Fields
@@ -91,47 +92,46 @@ class TDMIGateway(PostgreSQLGateway):
         #    "agent" : [["ip", "platform"]]
         }
 
-        # We inject some additional Manifold objects thanks to the TDMI header
-        # (see /usr/share/manifold/metadata/tdmi.h). We need to load them in
-        # order to support queries involving the traceroute table in a JOIN.
-        self.get_metadata()
+        super(TDMIGateway, self).__init__(router, platform, platform_config, re_ignored_tables, re_allowed_tables)
 
-    def forward(self, query, annotation, receiver):
+    def receive(self, packet): 
         """
-        Query handler.
+        Handle a incoming QUERY Packet.
         Args:
-            query: A Query instance, reaching this Gateway.
-            annotation: A dictionnary instance containing Query's annotation.
-            receiver : A Receiver instance which collects the results of the Query.
+            packet: A QUERY Packet instance.
         """
-        identifier = receiver.get_identifier() if receiver else None
+        self.check_receive(packet)
+
+        query = packet.get_query()
         table_name = query.get_from()
+        Log.tmp("query = %s" % query)
+        try:
+            if table_name in TDMIGateway.METHOD_MAP.keys():
+                if TDMIGateway.METHOD_MAP[table_name]:
+                    if not query.get_action() == "get":
+                        raise RuntimeError("Invalid action (%s) on '%s::%s' table" % (query.get_action(), self.get_platform_name(), table_name))
 
-        if table_name in self.METHOD_MAP.keys():
-            Gateway.forward(self, query, annotation, receiver) 
-            if self.METHOD_MAP[table_name]:
-                # See manifold/gateways/tdmi/methods/*
-                instance = self.METHOD_MAP[table_name](query, db = self)
-                sql = instance.get_sql()
-                rows = self.selectall(sql, None)
+                    # See manifold/gateways/tdmi/methods/*
+                    instance = TDMIGateway.METHOD_MAP[table_name](query, db = self)
+                    sql = instance.get_sql()
+                    rows = self.selectall(sql, None)
 
-                if instance.need_repack and instance.repack:
-                    # Does this object tweak the python dictionnary returned by selectall?
-                    if instance.need_repack(query):
-                        rows = [instance.repack(query, row) for row in rows]
+                    if instance.need_repack and instance.repack:
+                        # Does this object tweak the Record returned by selectall?
+                        if instance.need_repack(query):
+                            rows = [instance.repack(query, row) for row in rows]
+                else:
+                    # Dummy object, like hops (hops is declared in tdmi.h) but
+                    # do not corresponds to any table in the TDMI database 
+                    Log.warning("TDMI::forward(): Querying a dummy object (%s)" % table_name)
+                    rows = list()
+
+                self.send_records(rows)
+                
             else:
-                # Dummy object, like hops (hops is declared in tdmi.h) but
-                # do not corresponds to any 
-                Log.warning("TDMI::forward(): Querying a dummy object (%s)" % table_name)
-                rows = list()
+                # Update FROM clause according to postgresql aliases
+                query.object = self.get_pgsql_name(table_name)
+                super(TDMIGateway, self).receive(packet)
+        except Exception, e:
+            self.error(packet, e)
 
-            rows = Records(rows)
-            for row in rows:
-                self.send(row, receiver, identifier)
-            self.send(LastRecord(), receiver, identifier)
-            self.success(receiver, query)
-            
-        else:
-            # Update FROM clause according to postgresql aliases
-            query.object = self.get_pgsql_name(table_name)
-            super(TDMIGateway, self).forward(query, annotation, receiver)

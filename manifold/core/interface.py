@@ -326,8 +326,8 @@ class Interface(object):
             self.gateways[platform_name] = gateway 
 
             # Load Announces related to this Platform
-            announces = gateway.get_metadata()
-            assert isinstance(announces, list), "%s::get_metadata() should return a list : %s (%s)" % (
+            announces = gateway.get_announces()
+            assert isinstance(announces, list), "%s::get_announces() should return a list : %s (%s)" % (
                 gateway.__class__.__name__,
                 announces,
                 type(announces)

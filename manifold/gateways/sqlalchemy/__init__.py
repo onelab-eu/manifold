@@ -11,13 +11,9 @@
 
 from __future__                     import absolute_import
 
-import json, sys, time, traceback
-from hashlib                        import md5
-from random                         import Random
-
 from sqlalchemy                     import create_engine
 from sqlalchemy                     import types
-from sqlalchemy.ext.declarative     import declarative_base, declared_attr
+from sqlalchemy.ext.declarative     import declarative_base
 from sqlalchemy.orm                 import sessionmaker
 from sqlalchemy.util._collections   import NamedTuple
 
@@ -102,7 +98,7 @@ def row2record(row):
         return Record({c.name: getattr(row, c.name) for c in row.__table__.columns})
 
 class SQLAlchemyGateway(Gateway):
-    __gateway_name__ = 'sqlalchemy'
+    __gateway_name__ = "sqlalchemy"
 
     _map_object = {
         "platform"       : Platform,
@@ -114,10 +110,10 @@ class SQLAlchemyGateway(Gateway):
     }
 
     _map_types = {
-        types.Integer : 'integer',
-        types.Enum    : 'integer', # XXX
-        types.String  : 'string',
-        types.Boolean : 'bool'
+        types.Integer : "integer",
+        types.Enum    : "integer", # XXX
+        types.String  : "string",
+        types.Boolean : "bool"
     }
 
     #---------------------------------------------------------------------------
@@ -339,7 +335,7 @@ class SQLAlchemyGateway(Gateway):
 #OBSOLETE|        self.callback(None)
 
     @returns(list)
-    def make_metadata(self):
+    def make_announces(self):
         """
         Produce Announces corresponding to the table store in
         the SQLAlchemy database wrapped by this SQLAlchemyGateway.
@@ -389,32 +385,29 @@ class SQLAlchemyGateway(Gateway):
         query = packet.get_query()
 
         _map_action = {
-            'get'    : self.local_query_get,
-            'update' : self.local_query_update,
-            'create' : self.local_query_create,
-            'delete' : self.local_query_delete
+            "get"    : self.local_query_get,
+            "update" : self.local_query_update,
+            "create" : self.local_query_create,
+            "delete" : self.local_query_delete
         }
 
         try:
-            if query.get_from() == 'object':
-                if not query.get_action() == 'get':
-                    raise Exception, "Invalid action (%s) on 'local:object' table" % query.get_action()
-                for announce in self.get_metadata():
-                    self.send(Record(announce.to_dict()))
+            if query.get_from() == "object":
+                if not query.get_action() == "get":
+                    raise RuntimeError("Invalid action (%s) on '%s::%s' table" % (query.get_action(), self.get_platform_name(), table_name))
+
+                rows = [announce.to_dict() for announce in self.get_announces()]
+                self.send_records(rows)
+            else:
+                annotation = packet.get_annotation()
+                if not annotation:
+                    annotation = Annotation() 
+
+                user = annotation.get("user", None)
+                rows = _map_action[query.get_action()](query, user)
+                for row in rows:
+                    self.send(row2record(row))
                 self.send(LastRecord())
-                return
-
-            annotation = packet.get_annotation()
-            if not annotation:
-                annotation = Annotation() 
-
-            user = annotation.get('user', None)
-            rows = _map_action[query.get_action()](query, user)
-            for row in rows:
-                self.send(row2record(row))
-            self.send(LastRecord())
         except Exception, e:
-            Log.error(traceback.format_exc())
-            self.send(LastRecord())
-            self.error(query, e)
+            self.error(packet, e)
 

@@ -78,7 +78,6 @@ class QueryPlan(object):
         Returns:
             The corresponding Producer, None in case of failure
         """
-        Log.tmp("query = %s" % query)
         allowed_capabilities = router.get_capabilities()
 
         root_table = db_graph.find_node(query.get_from())
@@ -118,7 +117,7 @@ class QueryPlan(object):
                 seen[pathstr] = set()
             task.explore(stack, missing_fields, db_graph, allowed_platforms, allowed_capabilities, user, seen[pathstr], query_plan = self)
 
-        # Cancel every remaining ExploreTasks, we cannot found anymore
+        # Cancel every remaining ExploreTasks, we cannot found additional 
         # queried fields.
         while not stack.is_empty():
             task = stack.pop()

@@ -26,14 +26,13 @@ psycopg2.extensions.register_type(psycopg2._psycopg.UNICODEARRAY)
 from manifold.gateways                  import Gateway
 from manifold.core.announce             import Announce, Announces, merge_announces
 from manifold.core.field                import Field
-from manifold.core.record               import Record, Records, LastRecord
 from manifold.core.table                import Table
 from manifold.util.log                  import Log
 from manifold.util.predicate            import and_, or_, inv, add, mul, sub, mod, truediv, lt, le, ne, gt, ge, eq, neg, contains
 from manifold.util.type                 import accepts, returns
 
 class PostgreSQLGateway(Gateway):
-    __gateway_name__ = 'postgresql'
+    __gateway_name__ = "postgresql"
 
     DEFAULT_DB_NAME = "postgres" 
     DEFAULT_PORT    = 5432
@@ -132,13 +131,19 @@ class PostgreSQLGateway(Gateway):
     """
 
     ANY_TABLE  = [re.compile(".*")]
-    NONE_TABLE = []
+    NONE_TABLE = list() 
 
     #---------------------------------------------------------------------------
     # Constructor
     #---------------------------------------------------------------------------
 
-    def __init__(self, router, platform, config, re_ignored_tables = NONE_TABLE, re_allowed_tables = ANY_TABLE):
+    def __init__(self, router, platform, platform_config, \
+        re_ignored_tables = NONE_TABLE, \
+        re_allowed_tables = ANY_TABLE, \
+        table_aliases     = None , \
+        custom_keys       = None, \
+        custom_fields     = None \
+    ):
         """
         Construct a PostgreSQLGateway instance
         Args:
@@ -150,79 +155,57 @@ class PostgreSQLGateway(Gateway):
             re_allowed_tables: A list of re instances allowing tables. This supersedes
                 table filtered by re_ignored_tables regular expressions. You may
                 also pass
+
+            table_aliases: A { String : String } dictionnary maps each Manifold object
+                name with its corresponding pgsql table/view name.
+                If the both names match, you do not need to provide alias.
+                
+                Example:
+                
+                  self.table_aliases = {
+                      "my_object_name" : "my_table_name",
+                      "foo"            : "view_foo"
+                  }
+
+            custom_keys: A {String : list(list(String))} dictionnary is used to inject
+                additional Keys (list of field names) in the Manifold object not
+                declared in the pgsql schema. These custom keys may involve custom
+                fields.
+                
+                Example:
+                  custom_keys = {
+                      "agent" : [["ip", "platform"]]
+                  }
+
+            custom_fields: A {String : list(Field)} dictionnary is used to inject
+                additional Fields in the Manifold object which correspond
+                to columns not declared in the pgsql schema. The Gateway
+                is supposed to inject the appropriate value in the returned
+                records.
+                
+                Example:
+                  custom_fields = {
+                      "agent" : [
+                          Field("const", "string", "my_field_name", None, "My description")
+                      ]
+                  }
+
         """
-        super(PostgreSQLGateway, self).__init__(router, platform, config)
+        super(PostgreSQLGateway, self).__init__(router, platform, platform_config)
         self.connection = None
-        self.cursor = None
+        self.cursor     = None
 
         # The table matching those regular expressions are ignored...
-        self.re_ignored_tables = re_ignored_tables
-
         # ... excepted the ones explicitly allowed
+        self.re_ignored_tables = re_ignored_tables
         self.re_allowed_tables = re_allowed_tables
 
-        # This { String : String } dictionnary maps each Manifold object
-        # name with its corresponding pgsql table/view name.
-        # If the both names match, you do not need to provide alias.
-        #
-        # Example:
-        #
-        #   self.table_aliases = {
-        #       "my_object_name" : "my_table_name",
-        #       "foo"            : "view_foo"
-        #   }
-        self.table_aliases = dict() 
-
-        # This {String : list(Field)} dictionnary is used to inject
-        # additional Fields in the Manifold object which correspond
-        # to columns not declared in the pgsql schema. The Gateway
-        # is supposed to inject the appropriate value in the returned
-        # records.
-        #
-        # Example:
-        #
-        #   self.custom_fields = {
-        #       "agent" : [
-        #           Field("const", "string", "platform", None, "Platform annotation, always equal to 'tdmi'")
-        #       ]
-        #   }
-        self.custom_fields = dict() 
-
-        # This {String : list(list(String))} dictionnary is used to inject
-        # additional Keys (list of field names) in the Manifold object not
-        # declared in the pgsql schema. These custom keys may involve custom
-        # fields.
-        #
-        # Example:
-        #
-        #   self.custom_keys = {
-        #       "agent" : [["ip", "platform"]]
-        #   }
-        self.custom_keys = dict()
-
-        self.metadata = None
+        self.table_aliases = table_aliases if table_aliases else dict() 
+        self.custom_fields = custom_fields if custom_fields else dict() 
+        self.custom_keys   = custom_keys   if custom_keys   else dict()
 
     #---------------------------------------------------------------------------
-    # (Internal usage)
-    #---------------------------------------------------------------------------
-
-    @returns(StringTypes)
-    def get_pgsql_name(self, manifold_name):
-        """
-        (Internal usage)
-        Translate the name of Manifold object into the appropriate view/table name
-        Args:
-            manifold_name: the Manifold object name (for example "agent") (String instance)
-        Returns:
-            The corresponding pgsql name (for instance "view_agent") (String instance).
-            If not found, returns the value stored in the manifold_name parameter.
-        """
-        if manifold_name in self.table_aliases.keys():
-            return self.table_aliases[manifold_name]
-        return manifold_name
-
-    #---------------------------------------------------------------------------
-    # Accessors 
+    # Schema 
     #---------------------------------------------------------------------------
 
     @returns(list)
@@ -286,6 +269,10 @@ class PostgreSQLGateway(Gateway):
                 return True
         return False
 
+    #---------------------------------------------------------------------------
+    # Connection 
+    #---------------------------------------------------------------------------
+
     def get_cursor(self, cursor_factory = None):
         """
         Retrieve the cursor used to interact with the PostgreSQL server.
@@ -295,10 +282,6 @@ class PostgreSQLGateway(Gateway):
             The cursor used to interact with the PostgreSQL server.
         """
         return self.cursor if self.cursor else self.connect(cursor_factory = psycopg2.extras.NamedTupleCursor)
-
-    #---------------------------------------------------------------------------
-    # Connection 
-    #---------------------------------------------------------------------------
 
     @returns(dict)
     def make_psycopg2_config(self):
@@ -425,52 +408,6 @@ class PostgreSQLGateway(Gateway):
         self.connection.rollback()
 
     #---------------------------------------------------------------------------
-    # Overloaded methods 
-    #---------------------------------------------------------------------------
-
-#DEPRECATED|    def forward(self, query, annotation, receiver):
-#DEPRECATED|        """
-#DEPRECATED|        Query handler.
-#DEPRECATED|        Args:
-#DEPRECATED|            query: A Query instance, reaching this Gateway.
-#DEPRECATED|            annotation: A dictionnary instance containing Query's annotation.
-#DEPRECATED|            receiver : A Receiver instance which collects the results of the Query.
-#DEPRECATED|        """
-#DEPRECATED|        super(PostgreSQLGateway, self).forward(query, annotation, receiver)
-#DEPRECATED|        identifier = receiver.get_identifier() if receiver else None
-#DEPRECATED|
-#DEPRECATED|        try:
-#DEPRECATED|            sql = PostgreSQLGateway.to_sql(query)
-#DEPRECATED|            rows = Records(self.selectall(sql, None))
-#DEPRECATED|            for row in rows:
-#DEPRECATED|                self.send(row, receiver, identifier)
-#DEPRECATED|            self.send(LastRecord(), receiver, identifier)
-#DEPRECATED|            self.success(receiver, query)
-#DEPRECATED|        except Exception, e:
-#DEPRECATED|            Log.error(traceback.format_exc())
-#DEPRECATED|            self.send(LastRecord(), receiver, identifier)
-#DEPRECATED|            self.error(receiver, query, str(e))
-    def receive(self, packet):
-        """
-        Handle a incoming QUERY Packet.
-        Args:
-            packet: A QUERY Packet instance.
-        """
-        self.check_receive(packet)
-        query = packet.get_query()
-        try:
-            sql = PostgreSQLGateway.to_sql(query)
-            records = Records(self.selectall(sql, None))
-
-            for record in records:
-                self.send(record)
-            self.send(LastRecord())
-        except Exception, e:
-            Log.error(traceback.format_exc())
-            self.send(LastRecord())
-            self.error(query, e)
-
-    #---------------------------------------------------------------------------
     # Announces (TODO move this in Gateway and/or Announce) 
     #---------------------------------------------------------------------------
 
@@ -498,15 +435,17 @@ class PostgreSQLGateway(Gateway):
 
         return table
 
-    def make_metadata(self):
+    @returns(list)
+    def make_announces(self):
         """
-        Prepare metadata (e.g. Tables encapsulated in Announces instances) related
-        to this Gateway. Metadata are in the generic case retrieved both by
-        inspecting the pgsql schema and the .h file related to this Gateway.
+        Prepare Announces to this Gateway, deduced by default by inspecting the pgsql
+        schema and the .h file corresponding to this Gateway.
+        Returns:
+            A list of Announce instances
         """
         # Import metadata from pgsql schema.
         # By default, we only fetch tables and we ignore views.
-        announces_pgsql = self.make_metadata_from_names(self.get_table_names())
+        announces_pgsql = self.make_announces_from_names(self.get_table_names())
         if not announces_pgsql:
             Log.warning("Cannot find metadata for platform %s: %s" % (self.get_platform_name(), e))
         else:
@@ -540,16 +479,23 @@ class PostgreSQLGateway(Gateway):
         # Return the resulting announces
         return merge_announces(announces_pgsql, announces_h) if announces_h else announces_pgsql
 
-    @returns(list)
-    def get_metadata(self):
+    #---------------------------------------------------------------------------
+    # Manifold <-> pgsql
+    #---------------------------------------------------------------------------
+
+    @returns(StringTypes)
+    def get_pgsql_name(self, manifold_name):
         """
-        Build metadata by loading header files
+        Translate the name of Manifold object into the appropriate view/table name
+        Args:
+            manifold_name: the Manifold object name (for example "agent") (String instance)
         Returns:
-            The list of corresponding Announce instances
+            The corresponding pgsql name (for instance "view_agent") (String instance).
+            If not found, returns the value stored in the manifold_name parameter.
         """
-        if not self.metadata:
-            self.metadata = self.make_metadata()
-        return self.metadata
+        if manifold_name in self.table_aliases.keys():
+            return self.table_aliases[manifold_name]
+        return manifold_name
 
 #OBSOLETE|    def do(self, query, params = None):
 #OBSOLETE|        cursor = self.execute(query, params)
@@ -1074,7 +1020,7 @@ class PostgreSQLGateway(Gateway):
         return table
 
     @returns(list)
-    def make_metadata_from_names(self, table_names):
+    def make_announces_from_names(self, table_names):
         """
         Build metadata by querying postgresql's information schema
         Param
@@ -1097,3 +1043,21 @@ class PostgreSQLGateway(Gateway):
 
         return announces_pgsql
 
+    #---------------------------------------------------------------------------
+    # Overloaded methods 
+    #---------------------------------------------------------------------------
+
+    def receive(self, packet):
+        """
+        Handle a incoming QUERY Packet.
+        Args:
+            packet: A QUERY Packet instance.
+        """
+        self.check_receive(packet)
+        query = packet.get_query()
+        try:
+            sql = PostgreSQLGateway.to_sql(query)
+            rows = self.selectall(sql, None)
+            self.send_records(rows)
+        except Exception, e:
+            self.error(packet, e)
