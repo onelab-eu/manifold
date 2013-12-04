@@ -81,14 +81,14 @@ class QueryPlan(object):
         Log.tmp("query = %s" % query)
         allowed_capabilities = router.get_capabilities()
 
-        root = db_graph.find_node(query.get_from())
-        if not root:
+        root_table = db_graph.find_node(query.get_from())
+        if not root_table:
             raise ValueError("Cannot find %s in db_graph, known tables are {%s}" % (
                 query.get_from(),
                 ", ".join(db_graph.get_table_names()))
             )
         
-        root_task = ExploreTask(router, root, relation = None, path = list(), parent = self, depth = 1)
+        root_task = ExploreTask(router, root_table, relation = None, path = list(), parent = self, depth = 1)
         if not root_task:
             raise Exception("Unable to build a suitable QueryPlan")
         root_task.addCallback(self.set_ast, query)
@@ -96,9 +96,12 @@ class QueryPlan(object):
         stack = Stack(root_task)
         seen = dict() # path -> set()
 
-        missing_fields  = set()
-        missing_fields |= query.get_select()
-        missing_fields |= query.get_where().get_field_names()
+        missing_fields = set()
+        if query.get_select() == frozenset(): # SELECT * FROM root_table
+            missing_fields |= root_table.get_field_names()
+        else:
+            missing_fields |= query.get_select()
+            missing_fields |= query.get_where().get_field_names()
 
         while missing_fields:
             # Explore the next prior ExploreTask
