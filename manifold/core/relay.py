@@ -14,6 +14,7 @@
 
 from types                  import StringTypes
 
+from manifold.core.node     import Node
 from manifold.core.packet   import Packet
 from manifold.core.producer import Producer
 from manifold.core.consumer import Consumer
@@ -36,6 +37,7 @@ class Relay(Producer, Consumer):
         Args:
             packet: A Packet instance.
         """
+        Node.check_packet(self, packet)
         if packet.get_type() != Packet.TYPE_ERROR:
             assert self.get_num_producers() > 0, "No Producer set in %s: packet = %s" % (self, packet)
         assert self.get_num_consumers() > 0, "No Consumer set in %s: packet = %s" % (self, packet)
@@ -47,14 +49,15 @@ class Relay(Producer, Consumer):
         Args:
             packet: A Packet instance.
         """
-        self.check_relay(packet)
         if packet.get_type() in [Packet.TYPE_QUERY]:
             Consumer.send(self, packet)
         elif packet.get_type() in [Packet.TYPE_RECORD, Packet.TYPE_ERROR]:
             Producer.send(self, packet)
 
-    send    = relay
-    receive = relay
+    check_send    = check_relay
+    check_receive = check_relay
+    send          = relay
+    receive       = relay
 
     @returns(StringTypes)
     def __repr__(self):

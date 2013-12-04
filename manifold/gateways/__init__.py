@@ -78,8 +78,9 @@ class Gateway(Producer):
 
         # Both should be loaded at initialization
         self._metadata       = None
+
         # XXX in the meantime we support all capabilities
-        self._capabilities   = dict()
+        self._capabilities   = Capabilities()
 
     #---------------------------------------------------------------------------  
     # Accessors
@@ -135,16 +136,33 @@ class Gateway(Producer):
         return self._metadata
 
     @returns(Capabilities)
-    def get_capabilities(self, method):
-        capabilities = self._capabilities.get(method, None)
+    def get_capabilities(self, table_name):
+        """
+        Retrieve the Capabilities related to a given table.
+        Args:
+            table_name: A String containing the name of a Table exposed
+                by this Gateway.
+        Return:
+            The corresponding Capabilities instance exposed by this Gateway
+            if found, Capabilities() otherwise.
+        """
+        capabilities = self._capabilities.get(table_name, None)
         return capabilities if capabilities else Capabilities()
 
     #@returns(Table)
-    def get_table(self, method):
-        #table, = [announce.get_table() for announce in self.get_metadata() if announce.get_table().get_name() == method]
+    def get_table(self, table_name):
+        """
+        Retrieve the Table instance having a given name.
+        Args:
+            table_name: A String containing the name of a Table exposed
+                by this Gateway.
+        Return:
+            The corresponding Table instance exposed by this Gateway
+            if found, None otherwise.
+        """
         for announce in self.get_metadata():
             table = announce.get_table()
-            if table.get_name() == method:
+            if table.get_name() == table_name:
                 return table
         return None
 
@@ -192,8 +210,6 @@ class Gateway(Producer):
 #DEPRECATED|        else:
 #DEPRECATED|            Log.record("[ %r ]" % record)
 #DEPRECATED|        callback(record)
-
-
 
     #---------------------------------------------------------------------------  
     # Methods
@@ -286,27 +302,27 @@ class Gateway(Producer):
         """
         return self.result_value
         
-    def check_forward(self, query, annotation, receiver):
-        """
-        Checks Gateway::forward parameters.
-        """
-        assert isinstance(query, Query), \
-            "Invalid Query: %s (%s)" % (query, type(query))
-        assert isinstance(annotation, dict), \
-            "Invalid Query: %s (%s)" % (annotation, type(Annotation))
-        assert not receiver or receiver.set_result_value, \
-            "Invalid receiver: %s (%s)" % (receiver, type(receiver))
-
-    def forward(self, query, annotation, receiver = None):
-        """
-        Query handler.
-        Args:
-            query: A Query instance, reaching this Gateway.
-            annotation: A dictionnary instance containing Query's annotation.
-            receiver : A Receiver instance which collects the results of the Query.
-        """
-        if receiver: receiver.set_result_value(None)
-        self.check_forward(query, annotation, receiver)
+#DEPRECATED|    def check_forward(self, query, annotation, receiver):
+#DEPRECATED|        """
+#DEPRECATED|        Checks Gateway::forward parameters.
+#DEPRECATED|        """
+#DEPRECATED|        assert isinstance(query, Query), \
+#DEPRECATED|            "Invalid Query: %s (%s)" % (query, type(query))
+#DEPRECATED|        assert isinstance(annotation, dict), \
+#DEPRECATED|            "Invalid Query: %s (%s)" % (annotation, type(Annotation))
+#DEPRECATED|        assert not receiver or receiver.set_result_value, \
+#DEPRECATED|            "Invalid receiver: %s (%s)" % (receiver, type(receiver))
+#DEPRECATED|
+#DEPRECATED|    def forward(self, query, annotation, receiver = None):
+#DEPRECATED|        """
+#DEPRECATED|        Query handler.
+#DEPRECATED|        Args:
+#DEPRECATED|            query: A Query instance, reaching this Gateway.
+#DEPRECATED|            annotation: A dictionnary instance containing Query's annotation.
+#DEPRECATED|            receiver : A Receiver instance which collects the results of the Query.
+#DEPRECATED|        """
+#DEPRECATED|        if receiver: receiver.set_result_value(None)
+#DEPRECATED|        self.check_forward(query, annotation, receiver)
 
     @returns(list)
     def query_storage(self, query):
@@ -337,7 +353,7 @@ class Gateway(Producer):
 #DEPRECATED|            receiver.set_result_value(result_value)
 
     def error(self, query, description = ""):
-        self.send(ErrorPacket())
+        self.send(ErrorPacket(description), traceback.format_exc())
 #DEPRECATED|        """
 #DEPRECATED|        Shorthand method that must be called by a Gateway if its forward method fails.
 #DEPRECATED|        Args:

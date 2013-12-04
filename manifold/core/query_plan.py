@@ -78,6 +78,7 @@ class QueryPlan(object):
         Returns:
             The corresponding Producer, None in case of failure
         """
+        Log.tmp("query = %s" % query)
         allowed_capabilities = router.get_capabilities()
 
         root = db_graph.find_node(query.get_from())

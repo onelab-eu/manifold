@@ -13,7 +13,7 @@ from types                      import StringTypes
 
 from manifold.core.consumer     import Consumer
 from manifold.core.packet       import Packet
-from manifold.core.record       import Records, LastRecord
+from manifold.core.record       import Records
 from manifold.core.result_value import ResultValue
 from manifold.util.log          import Log
 from manifold.util.type         import accepts, returns
@@ -33,34 +33,57 @@ class SyncReceiver(Consumer):
     # Methods
     #---------------------------------------------------------------------------
 
+    def stop(self):
+        """
+        Stop the SyncReceiver by unlocking its thread.
+        """
+        self._event.set()
+
     def receive(self, packet):
         """
+        Process an incoming Packet received by this SyncReceiver instance.
+        Args:
+            packet: A Packet instance. If this is a RECORD Packet, its
+                corresponding record is bufferized in this SyncReceiver
+                until records retrieval.
         """
+        do_stop = True
+
         if packet.get_type() == Packet.TYPE_RECORD:
-            if packet.is_last():
-                self._event.set()
-                return
-
-            self._records.append(packet)
-
+            if not packet.is_last():
+                do_stop = False
+                self._records.append(packet)
         elif packet.get_type() == Packet.TYPE_ERROR:
             Log.error(packet.get_message())
-            self._records.append(LastRecord())
-
         else:
-            Log.warning("Received invalid Packet type (%s)" % packet)
+            Log.warning(
+                "SyncReceiver::receive(): Invalid Packet type (%s, %s)" % (
+                    packet,
+                    Packet.get_type_name(packet.get_type())
+                )
+            )
+
+        if do_stop:
+            self.stop()
 
     @returns(list)
-    def get_results(self):
+    def get_records(self):
+        """
+        Returns:
+            The list of Record corresponding to a given Query. This function
+            is blocking until having fetched the whole set of Records
+            corresponding to this Query.
+        """
         self._event.wait()
         self._event.clear()
         return self._records.to_list()
 
     @returns(ResultValue)
     def get_result_value(self):
-        return ResultValue.get_success(self.get_results())
-
-    @returns(list)
-    def get_records(self):
-        # XXX We should inspect the return code of get_result_value()
-        return self.get_results()
+        """
+        Returns:
+            The ResultValue corresponding to a given Query. This function
+            is blocking until having fetched the whole set of Records
+            corresponding to this Query.
+        """
+        return ResultValue.get_success(self.get_records())
