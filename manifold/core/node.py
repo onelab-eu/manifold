@@ -11,10 +11,10 @@
 #   Jordan Augé         <jordan.auge@lip6.fr>
 #   Marc-Olivier Buob   <marc-olivier.buob@lip6.fr>
 
-
-#import random, sys
 import sys
-from manifold.util.type     import accepts, returns
+
+from manifold.core.packet           import Packet
+from manifold.util.type             import accepts, returns
 
 class Node(object):
     """
@@ -80,3 +80,37 @@ class Node(object):
         """
         self.tab(indent)
         print "%r" % self
+
+    def check_packet(self, packet):
+        assert isinstance(packet, Packet), \
+            "Invalid packet = %s (%s)" % (packet, type(packet))
+
+    def check_receive(self, packet):
+        """
+        Check Node::receive() parameters. This method should be overloaded.
+        """
+        self.check_packet(packet)
+
+    def check_send(self, packet):
+        """
+        Check Node::send() parameters. This method should be overloaded.
+        """
+        self.check_packet(packet)
+
+    def send(self, packet):
+        """
+        (pure virtual method). Send a Packet.
+        Args:
+            packet: A Packet instance. 
+        """
+        self.check_send(packet)
+        raise NotImplementedError("Method 'send' must be overloaded: %s" % self.__class__.__name__)
+        
+    def receive(self, packet):
+        """
+        (pure virtual method). Send a Packet.
+        Args:
+            packet: A Packet instance.
+        """
+        self.check_receive(packet)
+        raise NotImplementedError("Method 'receive' must be overloaded: %s" % self.__class__.__name__)

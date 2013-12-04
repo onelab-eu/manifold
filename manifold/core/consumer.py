@@ -10,7 +10,7 @@
 #   Jordan Augé         <jordan.auge@lip6.fr>
 #   Marc-Olivier Buob   <marc-olivier.buob@lip6.fr>
 
-from types                          import StringTypes
+from types                        import StringTypes
 
 from manifold.core.node           import Node
 from manifold.core.packet         import Packet
@@ -165,16 +165,22 @@ class Consumer(Node):
     # Methods
     #---------------------------------------------------------------------------
 
+    def check_send(self, packet):
+        """
+        Check Node::send() parameters. This method should be overloaded.
+        """
+        super(Consumer, self).check_send(packet)
+        assert packet.get_type() in [Packet.TYPE_QUERY],\
+            "Invalid packet type (%s)" % packet
+
     def send(self, packet):
         """
         Send a QUERY Packet from this Consumer towards its Producers(s).
         Args:
             packet: A QUERY Packet.
         """
-        if packet.get_type() not in [Packet.TYPE_QUERY]:
-            raise ValueError, "Invalid packet type for producer: %s" % Packet.get_type_name(packet.get_type())
-
+        self.check_send(packet)
         self._pool_producers.receive(packet)
         
     def receive(self, packet):
-        raise Exception, "Not implemented"
+        raise NotImplementedError("Not yet implemented")

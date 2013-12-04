@@ -385,7 +385,7 @@ class SQLAlchemyGateway(Gateway):
         Args:
             packet: A QUERY Packet instance.
         """
-        super(SQLAlchemyGateway, self).receive(packet)
+        self.check_receive(packet)
 
         consumer   = packet.get_receiver()
         query      = packet.get_query()

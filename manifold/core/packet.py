@@ -217,9 +217,16 @@ class ErrorPacket(Packet):
     Equivalent to current ResultValue
     Equivalent to current ICMP errors
     """
-    def __init__(self, message = None):
+    def __init__(self, message = None, traceback = None):
+        """
+        Constructor.
+        Args:
+            message: A String containing the error message or None.
+            traceback: A String containing the traceback or None.
+        """
         Packet.__init__(self, Packet.TYPE_ERROR)
-        self._message = message
+        self._message   = message
+        self._traceback = traceback
 
     @returns(StringTypes)
     def get_message(self):
@@ -228,3 +235,12 @@ class ErrorPacket(Packet):
             The error message related to this ErrorPacket.
         """
         return self._message
+
+    @returns(StringTypes)
+    def get_traceback(self):
+        """
+        Returns:
+            The traceback related to this ErrorPacket.
+        """
+        return self._traceback
+

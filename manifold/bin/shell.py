@@ -528,29 +528,28 @@ class Shell(object):
         """
         assert isinstance(result_value, ResultValue), "Invalid ResultValue: %s (%s)" % (result_value, type(result_value))
 
-        if not result_value.is_success():
-            print ''
-            print 'ERROR:'
-            if isinstance(result_value['description'], list):
+        if result_value.is_success():
+            records = result_value["value"]
+            if self.interactive:
+                # Command-line
+                print "===== RESULTS ====="
+                pprint.pprint(records)
+            elif Options().execute:
+                # Used by script to it may be piped.
+                print json.dumps(records)
+
+        else:
+            print "===== ERROR ====="
+            if isinstance(result_value["description"], list):
                 # We have a list of errors
                 for nested_result_value in result_value["description"]:
                     Shell.print_error(nested_result_value)
                     return
             else:
-                print result_value['description']
-
-        records = result_value["value"]
-    
-        if self.interactive:
-            # Command-line
-            print "===== RESULTS ====="
-            pprint.pprint(records)
-        elif Options().execute:
-            # Used by script to it may be piped.
-            print json.dumps(records)
+                print result_value["description"]
 
     @returns(ResultValue)
-    def evaluate(self, command, value=False):
+    def evaluate(self, command, value = False):
         """
         Parse a command type by the User, and run the corresponding Query.
         Args:
@@ -702,7 +701,8 @@ def main():
     if command:
         try:
             shell = Shell(interactive = False)
-            shell.display(s.evaluate(command))
+            print "---------------------------------->"
+            shell.display(shell.evaluate(command))
         except:
             shell.terminate()
     else:

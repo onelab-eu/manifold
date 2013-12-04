@@ -216,9 +216,8 @@ class Producer(Node):
         """
         (Internal usage) Check Producer::send() parameters.
         """
-        # Check packet. A Producer sends Record/Error Packets to its consumers
-        assert isinstance(packet, Packet),\
-            "Invalid packet = %s (%s)" % (packet, type(packet))
+        # A Producer sends RECORD/ERROR Packets to its consumers
+        super(Producer, self).check_send(packet)
         assert packet.get_type() in [Packet.TYPE_RECORD, Packet.TYPE_ERROR],\
             "Invalid packet type (%s)" % packet
 
@@ -226,9 +225,10 @@ class Producer(Node):
         """
         (Internal usage) Check Producer::receive() parameters.
         """
-        # Check packet. A Producer sends RECORD/ERROR Packets to its consumers
-        assert isinstance(packet, Packet), \
-            "Invalid packet = %s (%s)" % (packet, type(packet))
+        # A Producer sends QUERY/ERROR Packets to its consumers
+        super(Producer, self).check_receive(packet)
+        assert packet.get_type() in [Packet.TYPE_QUERY, Packet.TYPE_ERROR],\
+            "Invalid packet type (%s)" % packet
 
     def send(self, packet):
         """
@@ -240,12 +240,3 @@ class Producer(Node):
         self.check_send(packet)
         Log.record(packet, self)
         self._pool_consumers.receive(packet)
-        
-    def receive(self, packet):
-        """
-        Handle a QUERY Packet from a Consumer. 
-        This method should be overloaded by its child class(es).
-        Args:
-            packet: A QUERY Packet.
-        """
-        self.check_receive(packet)
