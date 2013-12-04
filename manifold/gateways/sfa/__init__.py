@@ -636,7 +636,7 @@ class SFAGateway(Gateway):
             node['urn'] = node['component_id']
             node['hostname'] = node['component_name']
             node['initscripts'] = node.pop('pl_initscripts')
-            if 'exclusive' in node:
+            if 'exclusive' in node and node['exclusive']:
                 node['exclusive'] = node['exclusive'].lower() == 'true'
 
             # XXX This should use a MAP as before
