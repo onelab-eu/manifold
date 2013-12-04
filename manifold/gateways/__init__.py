@@ -13,12 +13,11 @@ from types                         import StringTypes
 
 from manifold.core.announce        import Announces
 from manifold.core.capabilities    import Capabilities
-from manifold.core.node            import Node
+from manifold.core.node            import Node 
 from manifold.core.packet          import Packet, ErrorPacket
 from manifold.core.producer        import Producer
 from manifold.core.query           import Query
-from manifold.core.record          import Record
-from manifold.core.result_value    import ResultValue
+from manifold.core.record          import LastRecord, Record, Records
 from manifold.operators.projection import Projection
 from manifold.operators.selection  import Selection
 from manifold.util.log             import Log
@@ -31,8 +30,6 @@ from manifold.util.type            import accepts, returns
 
 class Gateway(Producer):
     
-    #OBSOLETE|registry = dict() 
-
     __metaclass__ = PluginFactory
     __plugin__name__attribute__ = '__gateway_name__'
 
@@ -75,9 +72,7 @@ class Gateway(Producer):
         self._interface       = interface
         self._platform_name   = platform_name
         self._platform_config = platform_config
-
-        # Both should be loaded at initialization
-        self._metadata       = None
+        self._announces       = None
 
         # XXX in the meantime we support all capabilities
         self._capabilities   = Capabilities()
@@ -125,15 +120,17 @@ class Gateway(Producer):
         return gateway_type.lower()
 
     @returns(list)
-    def get_metadata(self):
+    def get_announces(self):
         """
         Build metadata by loading header files
         Returns:
             The list of corresponding Announce instances
         """
-        if not self._metadata:
-            self._metadata = self.make_metadata()
-        return self._metadata
+        # We do not instanciate make_announces in __init__
+        # to allow child classes to tweak their metadata.
+        if not self._announces:
+            self._announces = self.make_announces()
+        return self._announces
 
     @returns(Capabilities)
     def get_capabilities(self, table_name):
@@ -160,7 +157,7 @@ class Gateway(Producer):
             The corresponding Table instance exposed by this Gateway
             if found, None otherwise.
         """
-        for announce in self.get_metadata():
+        for announce in self.get_announces():
             table = announce.get_table()
             if table.get_name() == table_name:
                 return table
@@ -186,40 +183,17 @@ class Gateway(Producer):
         """
         return "FROM <Gateway %s [%s]>" % (self.get_platform_name(), self.get_gateway_type())
 
-#DEPRECATED|    def send(self, record, callback, identifier = None):
-#DEPRECATED|        """
-#DEPRECATED|        Calls the parent callback with the record passed in parameter
-#DEPRECATED|        In other word, this From Node send Record to its parent Node in the QueryPlan.
-#DEPRECATED|        Args:
-#DEPRECATED|            record: A Record (dictionnary) sent by this Gateway.
-#DEPRECATED|            callback: The function called to send this record. This callback is provided
-#DEPRECATED|                most of time by a From Node.
-#DEPRECATED|                Prototype :
-#DEPRECATED|
-#DEPRECATED|                    @returns(list) # see manifold.util.callback::get_results()
-#DEPRECATED|                    @accepts(dict)
-#DEPRECATED|                    def callback(record)
-#DEPRECATED|
-#DEPRECATED|            identifier: An integer identifying the From Node which is fetching
-#DEPRECATED|                this Record. This parameter is only needed for debug purpose.
-#DEPRECATED|        """
-#DEPRECATED|        assert isinstance(record, Record), "Invalid Record %s (%s)" % (record, type(record))
-#DEPRECATED|
-#DEPRECATED|        if identifier:
-#DEPRECATED|            Log.record("[#%04d] [ %r ]" % (identifier, record))
-#DEPRECATED|        else:
-#DEPRECATED|            Log.record("[ %r ]" % record)
-#DEPRECATED|        callback(record)
-
     #---------------------------------------------------------------------------  
     # Methods
     #---------------------------------------------------------------------------  
 
-    def dump(self, indent = 0):
-        Node.dump(self, indent)
-
     @returns(list)
-    def make_metadata(self):
+    def make_announces(self):
+        """
+        Build the list of Announces corresponding to this Gateway.
+        This method may be overloaded/overwritten if the Gateway announces Tables
+        not referenced in a dedicated .h file.
+        """
         return Announces.from_dot_h(self.get_platform_name(), self.get_gateway_type())
 
     # TODO clean this method and plug it in Router::forward()
@@ -236,6 +210,7 @@ class Gateway(Producer):
         """
         #assert isinstance(user, User), "Invalid user : %s (%s)" % (user, type(user))
         variables = dict() 
+
         # Authenticated user
         variables["user_email"] = user["email"]
         if user:
@@ -294,37 +269,6 @@ class Gateway(Producer):
 #DEPRECATED|            traceback.print_exc()
 
     @returns(list)
-    def get_result_value(self):
-        """
-        Retrieve the fetched records
-        Returns:
-            A list of ResultValue instances corresponding to the fetched records
-        """
-        return self.result_value
-        
-#DEPRECATED|    def check_forward(self, query, annotation, receiver):
-#DEPRECATED|        """
-#DEPRECATED|        Checks Gateway::forward parameters.
-#DEPRECATED|        """
-#DEPRECATED|        assert isinstance(query, Query), \
-#DEPRECATED|            "Invalid Query: %s (%s)" % (query, type(query))
-#DEPRECATED|        assert isinstance(annotation, dict), \
-#DEPRECATED|            "Invalid Query: %s (%s)" % (annotation, type(Annotation))
-#DEPRECATED|        assert not receiver or receiver.set_result_value, \
-#DEPRECATED|            "Invalid receiver: %s (%s)" % (receiver, type(receiver))
-#DEPRECATED|
-#DEPRECATED|    def forward(self, query, annotation, receiver = None):
-#DEPRECATED|        """
-#DEPRECATED|        Query handler.
-#DEPRECATED|        Args:
-#DEPRECATED|            query: A Query instance, reaching this Gateway.
-#DEPRECATED|            annotation: A dictionnary instance containing Query's annotation.
-#DEPRECATED|            receiver : A Receiver instance which collects the results of the Query.
-#DEPRECATED|        """
-#DEPRECATED|        if receiver: receiver.set_result_value(None)
-#DEPRECATED|        self.check_forward(query, annotation, receiver)
-
-    @returns(list)
     def query_storage(self, query):
         """
         Run a Query on the Manifold's Storage.
@@ -335,49 +279,38 @@ class Gateway(Producer):
         """
         return self.get_interface().execute_local_query(query)
 
-#DEPRECATED|    def success(self, receiver, query):
-#DEPRECATED|        """
-#DEPRECATED|        Shorthand method that must be called by a Gateway if its forward method succeeds.
-#DEPRECATED|        Args:
-#DEPRECATED|            receiver: A Receiver instance or a From Node.
-#DEPRECATED|            query: A Query instance:
-#DEPRECATED|        """
-#DEPRECATED|        if receiver:
-#DEPRECATED|            assert isinstance(query, Query), "Invalid Query: %s (%s)" % (query, type(query))
-#DEPRECATED|            result_value = ResultValue(
-#DEPRECATED|                origin = (ResultValue.GATEWAY, self.__class__.__name__, self.get_platform_name(), query),
-#DEPRECATED|                type   = ResultValue.SUCCESS, 
-#DEPRECATED|                code   = ResultValue.SUCCESS,
-#DEPRECATED|                value  = None 
-#DEPRECATED|            )
-#DEPRECATED|            receiver.set_result_value(result_value)
+    def send_records(self, records):
+        """
+        Helper used in Gateway to return the records resulting
+        of a query. 
+        Args:
+            records: A Records instance or a list of dictionnaries.
+        Example:
+            self.send(Records(dictionnaries))
+        """
+        assert isinstance(records, Records) or isinstance(records, list), "Invalid records (type: %s)" % type(records)
 
-    def error(self, query, description = ""):
-        self.send(ErrorPacket(description), traceback.format_exc())
-#DEPRECATED|        """
-#DEPRECATED|        Shorthand method that must be called by a Gateway if its forward method fails.
-#DEPRECATED|        Args:
-#DEPRECATED|            receiver: A Receiver instance or a From Node.
-#DEPRECATED|            query: A Query instance:
-#DEPRECATED|        """
-#DEPRECATED|        Log.error("triggered due to the following query:\n%(sep)s\n%(query)s\n%(sep)s\n%(traceback)s%(sep)s\n(%(description)s)" % {
-#DEPRECATED|            "sep"         : "-" * 80,
-#DEPRECATED|            "query"       : query,
-#DEPRECATED|            "description" : description,
-#DEPRECATED|            "traceback"   : traceback.format_exc()
-#DEPRECATED|        })
-#DEPRECATED|        if receiver:
-#DEPRECATED|            assert isinstance(query, Query), "Invalid Query: %s (%s)" % (query, type(query))
-#DEPRECATED|            receiver.set_result_value(
-#DEPRECATED|                ResultValue(
-#DEPRECATED|                    origin      = (ResultValue.GATEWAY, self.__class__.__name__, self.get_platform_name(), query),
-#DEPRECATED|                    type        = ResultValue.ERROR,
-#DEPRECATED|                    code        = ResultValue.ERROR,
-#DEPRECATED|                    description = description, 
-#DEPRECATED|                    traceback   = traceback.format_exc()
-#DEPRECATED|                )
-#DEPRECATED|            )
+        if isinstance(records, list):
+            records = Records(records)
 
+        for record in records:
+            self.send(record)
+
+        self.send(LastRecord())
+
+    def error(self, packet, description):
+        """
+        Helper used in Gateway when a received QUERY Packet
+        provokes an error.
+        Args:
+            packet: The Packet instance received by this Gateway. 
+            description: A String containing the error message.
+        """
+        assert isinstance(packet, Packet), \
+            "Invalid packet = %s (%s)" % (packet, type(packet))
+        assert isinstance(description, StringTypes), \
+            "Invalid query = %s (%s)" % (description, type(description))
+        self.send(ErrorPacket(description, traceback.format_exc()))
 
     @returns(Node)
     def optimize_selection(self, query, filter):
@@ -412,8 +345,8 @@ class Gateway(Producer):
             # XXX fullquery ?
             if capabilities.fullquery:
                 # We also push the filter down into the node
-                for p in filter:
-                    query.filters.add(p)
+                for predicate in filter:
+                    query.filters.add(predicate)
 
             return selection
 
@@ -437,10 +370,10 @@ class Gateway(Producer):
 
             # Test whether this From node can return every queried Fields.
             if fields - provided_fields:
-                Log.warning("From::optimize_projection: some requested fields (%s) are not provided by {%s} From node. Available fields are: {%s}" % (
-                    ', '.join(list(fields - provided_fields)),
+                Log.warning("From::optimize_projection: some requested fields (%s) are not provided by %s. Available fields are: {%s}" % (
+                    ", ".join(list(fields - provided_fields)),
                     query.get_from(),
-                    ', '.join(list(provided_fields))
+                    ", ".join(list(provided_fields))
                 )) 
 
             # If this From node returns more Fields than those explicitely queried

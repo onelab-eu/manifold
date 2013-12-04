@@ -39,7 +39,7 @@ class OperatorGraph(object):
         """
         Constructor.
         Args:
-            router: A Interface instance.
+            router: A Interface instance (needed to access to internal DBGraphs).
         """
 
         # A pointer to the router to which the OperatorGraph belongs
