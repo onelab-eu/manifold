@@ -337,7 +337,7 @@ class Log(object):
             "%r" % record,
             #"KEYS=%r" % record.keys()
         ]
-        cls.print_msg(' '.join(msg), 'RECORD', caller_name())
+        #cls.print_msg(' '.join(msg), 'RECORD', caller_name())
 
 #    @classmethod
 #    def record(cls, packet, producer, consumer):

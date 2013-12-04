@@ -337,6 +337,23 @@ def announces_from_docstring(platform):
 # Announce
 #------------------------------------------------------------------
 
+@returns(list)
+def merge_announces(announces1, announces2):
+    """
+    Merge two set of announces.
+    Args:
+        announces1: A list of Announce instance.
+        announces2: A list of Announce instance.
+    Returns:
+        A list of Announces instances.
+    """
+    s1 = frozenset(announces1)
+    s2 = frozenset(announces2)
+    colliding_announces = s1 & s2 
+    if colliding_announces:
+        Log.warning("Colliding announces: {%s}" % ", ".join([announces.get_table().get_name() for announce in colliding_announces]))
+    return list(s1 | s2)
+
 class Announce(object):
     def __init__(self, table, cost = None):
         """

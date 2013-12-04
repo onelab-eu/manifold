@@ -65,7 +65,7 @@ class QueryPlan(object):
         use QueryPlan::build_simple.
         Raises:
             ValueError if the query is not coherent (invalid table name...).
-            Exception if the QueryPlan cannot be built.
+            RuntimeError if the QueryPlan cannot be built.
         Args:
             query: The Query issued by the user.
             db_graph: The 3nf graph (DBGraph instance).
@@ -90,7 +90,7 @@ class QueryPlan(object):
         
         root_task = ExploreTask(router, root_table, relation = None, path = list(), parent = self, depth = 1)
         if not root_task:
-            raise Exception("Unable to build a suitable QueryPlan")
+            raise RuntimeError("Unable to build a suitable QueryPlan")
         root_task.addCallback(self.set_ast, query)
 
         stack = Stack(root_task)
