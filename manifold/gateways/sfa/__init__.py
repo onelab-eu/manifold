@@ -12,7 +12,7 @@ from manifold.core.filter               import Filter
 from manifold.core.record               import Record, Records, LastRecord
 from manifold.operators.rename          import Rename
 from manifold.gateways                  import Gateway
-from manifold.gateways.sfa.rspecs.SFAv1 import SFAv1Parser # as Parser
+#from manifold.gateways.sfa.rspecs.SFAv1 import SFAv1Parser # as Parser
 from manifold.gateways.sfa.proxy        import SFAProxy
 from manifold.util.predicate            import contains, eq, lt, le, included
 from manifold.util.log                  import Log
@@ -586,7 +586,7 @@ class SFAGateway(Gateway):
     ############################################################################ 
 
     def make_dict_rec(self, obj):
-        if not obj or isinstance(obj, StringTypes):
+        if not obj or isinstance(obj, (StringTypes, bool)):
             return obj
         if isinstance(obj, list):
             objcopy = []
@@ -605,8 +605,8 @@ class SFAGateway(Gateway):
         if 'rspec_type' and 'rspec_version' in self.config:
             rspec_version = self.config['rspec_type'] + ' ' + self.config['rspec_version']
         else:
-            #rspec_version = 'GENI 3'
-            rspec_version = 'SFA 1'
+            rspec_version = 'GENI 3'
+            #rspec_version = 'SFA 1'
 
         rspec = RSpec(rspec_string, version=rspec_version)
         
@@ -636,6 +636,8 @@ class SFAGateway(Gateway):
             node['urn'] = node['component_id']
             node['hostname'] = node['component_name']
             node['initscripts'] = node.pop('pl_initscripts')
+            if 'exclusive' in node and node['exclusive']:
+                node['exclusive'] = node['exclusive'].lower() == 'true'
 
             # XXX This should use a MAP as before
             if 'position' in node: # iotlab
@@ -750,7 +752,7 @@ class SFAGateway(Gateway):
             except TypeError, e:
                 raise Exception, "Missing user credential %s" %  str(e)
         elif type in ['authority', 'slice']:
-            if not 'delegated_%s_credentials' % type in self.user_config:
+            if not '%s%s_credentials' % (delegated, type) in self.user_config:
                 self.user_config['%s%s_credentials' % (delegated, type)] = {}
 
             creds = self.user_config['%s%s_credentials' % (delegated, type)]
@@ -863,6 +865,7 @@ class SFAGateway(Gateway):
         else:
             print "GOT MANIFEST FROM", self.platform
             print "MANIFEST=", manifest
+            sys.stdout.flush()
         rsrc_leases = self.parse_sfa_rspec(manifest)
 
         slice = {'slice_hrn': filters.get_eq('slice_hrn')}
@@ -1056,8 +1059,9 @@ class SFAGateway(Gateway):
     def get_user(self, filters, params, fields):
 
         if self.user['email'] in DEMO_HOOKS:
-            defer.returnValue(self.get_user_demo(filters, params, fields))
-            return
+            Log.tmp(self.user)
+        #    defer.returnValue(self.get_user_demo(filters, params, fields))
+        #    return
 
         return self.get_object('user', 'user_hrn', filters, params, fields)
 
@@ -1507,11 +1511,11 @@ class SFAGateway(Gateway):
         super(SFAGateway, self).start()
         try:
             assert self.query, "Cannot run gateway with not query associated: %s" % self.platform
+            q = self.query
 
             self.debug = 'debug' in self.query.params and self.query.params['debug']
 
             yield self.bootstrap()
-            q = self.query
 
             if not self.user_config:
                 self.send(LastRecord())
@@ -1529,6 +1533,7 @@ class SFAGateway(Gateway):
             self.send(LastRecord())
 
         except Exception, e:
+            Log.error(" contacting %s Query (action = %s , object = %s, filters = %s, fields = %s, params = %s)" % (self.platform,q.action,q.object,q.filters,q.fields,q.params))
             traceback.print_exc()
             rv = ResultValue(
                 origin      = (ResultValue.GATEWAY, self.__class__.__name__, self.platform, str(self.query)),
