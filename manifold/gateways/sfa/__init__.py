@@ -1038,7 +1038,10 @@ class SFAGateway(Gateway):
         else:
             auth_xrn = stack.pop()
             records = yield self.registry.List(auth_xrn, cred, {'recursive': recursive})
+            print "CALLING RECURSIVE LIST on auth_xrn=", auth_xrn
             records = [r for r in records if r['type'] == object]
+            record_urns = [hrn_to_urn(record['hrn'], object) for record in records]
+            records = yield self.registry.Resolve(record_urns, cred, {'details': True}) 
             defer.returnValue(records)
 
     def get_slice(self, filters, params, fields):
