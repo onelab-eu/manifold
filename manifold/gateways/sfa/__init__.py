@@ -636,7 +636,7 @@ class SFAGateway(Gateway):
             node['urn'] = node['component_id']
             node['hostname'] = node['component_name']
             node['initscripts'] = node.pop('pl_initscripts')
-            if 'exclusive' in node:
+            if 'exclusive' in node and node['exclusive']:
                 node['exclusive'] = node['exclusive'].lower() == 'true'
 
             # XXX This should use a MAP as before
@@ -956,6 +956,8 @@ class SFAGateway(Gateway):
         auth_hrn = make_list(filters.get_op('authority_hrn', [eq, lt, le]))
         interface_hrn = yield self.get_interface_hrn(self.registry)
 
+        # XXX details = True always, only trigger details if needed wrt fields
+
         # recursive: Should be based on jokers, eg. ple.upmc.*
         # resolve  : True: make resolve instead of list
         if object_name:
@@ -1042,6 +1044,8 @@ class SFAGateway(Gateway):
             auth_xrn = stack.pop()
             records = yield self.registry.List(auth_xrn, cred, {'recursive': recursive})
             records = [r for r in records if r['type'] == object]
+            record_urns = [hrn_to_urn(record['hrn'], object) for record in records]
+            records = yield self.registry.Resolve(record_urns, cred, {'details': True}) 
             defer.returnValue(records)
 
     def get_slice(self, filters, params, fields):
@@ -1055,8 +1059,9 @@ class SFAGateway(Gateway):
     def get_user(self, filters, params, fields):
 
         if self.user['email'] in DEMO_HOOKS:
-            defer.returnValue(self.get_user_demo(filters, params, fields))
-            return
+            Log.tmp(self.user)
+        #    defer.returnValue(self.get_user_demo(filters, params, fields))
+        #    return
 
         return self.get_object('user', 'user_hrn', filters, params, fields)
 
