@@ -124,11 +124,12 @@ class SessionAuth(AuthMethod):
     def check(self):
         assert self.auth.has_key('session')
 
-        try:
-            query_sessions = Query.get('local:session').filter_by('session', '==', self.auth['session'])
-            session, = self.interface.execute_local_query(query_sessions)
-        except Exception, e:
-            raise AuthenticationFailure, "No such session: %s" % e
+        query_sessions = Query.get('local:session').filter_by('session', '==', self.auth['session'])
+        sessions = self.interface.execute_local_query(query_sessions)
+        if not sessions:
+            del self.auth['session']
+            raise AuthenticationFailure, "No such session: %s" % self.auth['session']
+        session = sessions[0]
 
         user_id = session['user_id']
         try:
