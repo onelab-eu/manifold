@@ -320,12 +320,14 @@ class AST(object):
             print "---------------"
             self.dump()
 
+            Log.tmp("%s" % query.get_where())
             self.optimize_selection(query, query.get_where())
 
             print "AFTER OPTIMIZE_SELECTION"
             print "-------------------------"
             self.dump()
 
+            Log.tmp("%s" % query.get_select())
             self.optimize_projection(query, query.get_select())
 
             print "AFTER OPTIMIZE_PROJECTION"

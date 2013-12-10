@@ -9,20 +9,23 @@
 # Copyright (C) 2013 UPMC 
 
 import json, os, sys, traceback
-from types                         import StringTypes
+from types                          import StringTypes
 
-from manifold.core.announce        import Announces
-from manifold.core.capabilities    import Capabilities
-from manifold.core.node            import Node 
-from manifold.core.packet          import Packet, ErrorPacket
-from manifold.core.producer        import Producer
-from manifold.core.query           import Query
-from manifold.core.record          import LastRecord, Record, Records
-from manifold.operators.projection import Projection
-from manifold.operators.selection  import Selection
-from manifold.util.log             import Log
-from manifold.util.plugin_factory  import PluginFactory
-from manifold.util.type            import accepts, returns
+from manifold.core.announce         import Announces
+from manifold.core.capabilities     import Capabilities
+from manifold.core.consumer         import Consumer
+from manifold.core.node             import Node 
+from manifold.core.packet           import Packet, ErrorPacket
+from manifold.core.pit              import Pit
+from manifold.core.producer         import Producer
+from manifold.core.query            import Query
+from manifold.core.record           import LastRecord, Record, Records
+from manifold.core.socket           import Socket 
+from manifold.operators.projection  import Projection
+from manifold.operators.selection   import Selection
+from manifold.util.log              import Log
+from manifold.util.plugin_factory   import PluginFactory
+from manifold.util.type             import accepts, returns
 
 #-------------------------------------------------------------------------------
 # Generic Gateway class
@@ -69,13 +72,12 @@ class Gateway(Producer):
 
         Producer.__init__(self, *args, **kwargs)
 
-        self._interface       = interface
-        self._platform_name   = platform_name
-        self._platform_config = platform_config
-        self._announces       = None
-
-        # XXX in the meantime we support all capabilities
-        self._capabilities   = Capabilities()
+        self._interface       = interface       # Router
+        self._platform_name   = platform_name   # String
+        self._platform_config = platform_config # dict
+        self._announces       = None            # list(Announces)
+        self._capabilities    = Capabilities()  # XXX in the meantime we support all capabilities
+        self._pit             = Pit(self)       # Pit
 
     #---------------------------------------------------------------------------  
     # Accessors
@@ -90,15 +92,6 @@ class Gateway(Producer):
         """
         return self._interface
 
-    @returns(dict)
-    def get_config(self):
-        """
-        Returns:
-            A dictionnary containing the configuration related to
-                the Platform managed by this Gateway. 
-        """
-        return self._platform_config
-
     @returns(StringTypes)
     def get_platform_name(self):
         """
@@ -107,6 +100,15 @@ class Gateway(Producer):
             to this Gateway.
         """
         return self._platform_name
+
+    @returns(dict)
+    def get_config(self):
+        """
+        Returns:
+            A dictionnary containing the configuration related to
+                the Platform managed by this Gateway. 
+        """
+        return self._platform_config
 
     @returns(StringTypes)
     def get_gateway_type(self):
@@ -139,17 +141,25 @@ class Gateway(Producer):
         Args:
             table_name: A String containing the name of a Table exposed
                 by this Gateway.
-        Return:
+        Returns:
             The corresponding Capabilities instance exposed by this Gateway
             if found, Capabilities() otherwise.
         """
         capabilities = self._capabilities.get(table_name, None)
         return capabilities if capabilities else Capabilities()
 
+    @returns(Pit)
+    def get_pit(self):
+        """
+        Returns:
+            The PIT of this Gateway.
+        """
+        return self._pit
+
     #@returns(Table)
     def get_table(self, table_name):
         """
-        Retrieve the Table instance having a given name.
+        Retrieve the Table instance corresponding to given table name.
         Args:
             table_name: A String containing the name of a Table exposed
                 by this Gateway.
@@ -279,39 +289,119 @@ class Gateway(Producer):
         """
         return self.get_interface().execute_local_query(query)
 
-    def send_records(self, records):
+    def check_send(self, packet):
         """
-        Helper used in Gateway to return the records resulting
-        of a query. 
+        send() method must be used only for ERROR Packets. RECORD Packets
+        must be sent using send_record() or send_records().
         Args:
-            records: A Records instance or a list of dictionnaries.
-        Example:
-            self.send(Records(dictionnaries))
+            packet: A Packet instance.
         """
-        assert isinstance(records, Records) or isinstance(records, list), "Invalid records (type: %s)" % type(records)
+        super(Gateway, self).check_send(packet)
+        assert packet.get_type() ==  Packet.TYPE_ERROR,\
+            "Invalid packet type (%s)" % packet
 
-        if isinstance(records, list):
-            records = Records(records)
+    @returns(Socket)
+    def get_socket(self, query):
+        """
+        Retrieve the Socket used to return ERROR and RECORD Packet
+        related to a given Query. A Socket is automatically created
+        if this query is not yet pending.
+        Args:
+            query: A Query instance.
+        Returns:
+            The corresponding Socket (if any)
+        """
+        assert isinstance(query, Query),\
+            "Invalid query = %s (%s)" % (query, type(query))
+
+        try:
+            socket = self._pit.get_socket(query)
+        except KeyError, e:
+            Log.warning(traceback.format_exc())
+            Log.warning("Can't find query = %s in %s's Pit: %s" % (query, self.__class__.__name__, self._pit))
+            raise e
+        return socket
+
+    def add_flow(self, query, consumer):
+        """
+        Add a consumer issuing a given Query on this Gateway.
+        Args:
+            query: A Query instance correponding to a pending Query.
+            consumer: A Consumer instance (a From instance most of time). 
+        """
+        self._pit.add_flow(query, consumer)
+
+    @staticmethod
+    def record(socket, record):
+        """
+        Helper used in Gateway when a has to send an ERROR Packet. 
+        Args:
+            socket: The Socket used to transport the Packet.
+                It is usually retrieved using get_socket() method.
+            record: A Record or a dict instance.
+        """
+        assert isinstance(socket, Socket),\
+            "Invalid socket = %s (%s)" % (socket, type(socket))
+
+        socket.receive(record if isinstance(record, Record) else Record(record))
+
+    @staticmethod
+    def records(socket, records):
+        """
+        Helper used in Gateway when a has to send an ERROR Packet. 
+        Args:
+            socket: The Socket used to transport the Packet.
+                It is usually retrieved using get_socket() method.
+            record: A Records or a list of instances that may be
+                casted in Record (e.g. Record or dict instances).
+        """
+        assert isinstance(socket, Socket),\
+            "Invalid socket = %s (%s)" % (socket, type(socket))
 
         for record in records:
-            self.send(record)
+            Gateway.record(socket, record)
+        Gateway.record(socket, LastRecord())
 
-        self.send(LastRecord())
-
-    def error(self, packet, description):
+    @staticmethod
+    def error(socket, description):
         """
-        Helper used in Gateway when a received QUERY Packet
-        provokes an error.
+        Helper used in Gateway when a has to send an ERROR Packet. 
         Args:
-            packet: The Packet instance received by this Gateway. 
-            description: A String containing the error message.
+            socket: The Socket used to transport the Packet.
+                It is usually retrieved using get_socket() method.
         """
-        assert isinstance(packet, Packet), \
-            "Invalid packet = %s (%s)" % (packet, type(packet))
-        assert isinstance(description, StringTypes), \
-            "Invalid query = %s (%s)" % (description, type(description))
-        self.send(ErrorPacket(description, traceback.format_exc()))
+        assert isinstance(socket, Socket),\
+            "Invalid socket = %s (%s)" % (socket, type(socket))
 
+        socket.receive(ErrorPacket("%s" % description, traceback.format_exc()))
+
+    def del_consumer(self, receiver, cascade = True):
+        """
+        Unlink a Consumer from this Gateway. 
+        Args:
+            consumer: A Consumer instance.
+            cascade: A boolean set to true to remove 'self'
+                to the producers set of 'consumer'.
+        """
+        self.get_pit().del_receiver(receiver)
+        if cascade:
+            receiver.del_producer(self, cascade = False)
+        
+    def close(self, query):
+        """
+        Close the Socket related to a given Query and update
+        the PIT consequently.
+        Args:
+            query: A Query instance 
+        """
+        socket = self.get_socket(query)
+
+        # Clear PIT
+        self.get_pit().del_query(query)
+
+        # Unlink this Socket from its Customers 
+        socket.close()
+        
     @returns(Node)
     def optimize_selection(self, query, filter):
         """

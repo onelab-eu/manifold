@@ -80,3 +80,10 @@ class Relay(Producer, Consumer):
         """
         return self.__repr__() 
 
+    def release(self):
+        """
+        Release from memory this Relay.
+        Recursively remove in cascade Consumers having no more Producer
+        """
+        Producer.release(self)
+        Consumer.release(self)

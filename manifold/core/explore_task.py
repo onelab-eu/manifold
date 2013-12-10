@@ -342,7 +342,7 @@ class ExploreTask(Deferred):
                 #sub_table = Table.make_table_from_platform(table, fields, method.get_platform())
 
                 # XXX We lack field pruning
-                # We create 'get' queries by default, this will be overriden in set_ast
+                # We create 'get' queries by default, this will be overriden in query_plan::fix_froms 
                 query = Query.action('get', method.get_name()).select(fields)
 
                 platform = method.get_platform()
@@ -360,7 +360,7 @@ class ExploreTask(Deferred):
                 # XXX
 
                 from_ast = AST(self._interface).From(platform, query, capabilities, key)
-#DEPRECATED|                query_plan.add_from(from_ast.get_producer())
+#DEPRECATED|                query_plan.add_from(from_ast.get_root())
 
 #DISABLED|                try:
 #DISABLED|                    if method in table.methods_demux:
@@ -391,7 +391,7 @@ class ExploreTask(Deferred):
                 Log.warning("ExploreTask: TODO: plug callback")
                 #TODO from_node.addCallback(from_ast.callback)
 
-                query_plan.add_from(from_ast.get_root())
+#DEPRECATED|                query_plan.add_from(from_ast.get_root())
 
                 # Add DUP and SELECT to this AST
                 from_ast.dup(key_dup).projection(select_fields)

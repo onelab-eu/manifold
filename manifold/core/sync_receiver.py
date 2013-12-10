@@ -25,6 +25,9 @@ class SyncReceiver(Consumer):
     #---------------------------------------------------------------------------
 
     def __init__(self):
+        """
+        Constructor.
+        """
         Consumer.__init__(self)
         self._records = Records()
         self._event = threading.Event()
@@ -54,7 +57,12 @@ class SyncReceiver(Consumer):
                 do_stop = False
                 self._records.append(packet)
         elif packet.get_type() == Packet.TYPE_ERROR:
-            raise Exception(packet.get_message())
+            message = packet.get_message()
+            trace   = packet.get_traceback()
+            raise Exception("%(message)s%(trace)s" % {
+                "message" : message if message else "(No message)",
+                "trace"   : trace   if trace   else "(No traceback)"
+            })
         else:
             Log.warning(
                 "SyncReceiver::receive(): Invalid Packet type (%s, %s)" % (

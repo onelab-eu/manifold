@@ -25,11 +25,8 @@ class Socket(Relay):
     def __init__(self, consumer):
         """
         Constructor.
-        Args:
-            consumer: A Consumer instance.
         """
-        assert isinstance(consumer, Consumer),\
-            "Invalid consumer = %s" % (consumer, type(consumer))
+        # Stream socket should allow several consumers
         Relay.__init__(self, consumers = [consumer], max_consumers = 1, max_producers = 1)
 
     def check_send(self, packet):
@@ -75,3 +72,5 @@ class Socket(Relay):
         self.check_receive(packet)
         super(Socket, self).receive(packet)
     
+    def close(self):
+        self.release()

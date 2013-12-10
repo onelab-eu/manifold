@@ -13,14 +13,15 @@
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 #   Loïc Baron        <loic.baron@lip6.fr>
 
-from manifold.core.stack           import Stack
-from manifold.core.explore_task    import ExploreTask
+from manifold.core.stack            import Stack
+from manifold.core.explore_task     import ExploreTask
 
-from manifold.core.ast             import AST
-from manifold.core.producer        import Producer
-from manifold.operators.operator   import Operator
-from manifold.util.log             import Log
-from manifold.util.type            import returns, accepts
+from manifold.core.ast              import AST
+from manifold.core.producer         import Producer
+from manifold.operators.operator    import Operator
+from manifold.operators.From        import From 
+from manifold.util.log              import Log
+from manifold.util.type             import returns, accepts
 
 class QueryPlan(object):
     """
@@ -31,9 +32,24 @@ class QueryPlan(object):
         """
         Constructor.
         """
-        # self.ast will be set thanks to set_ast()
-        self.ast = None
-
+        self.ast = None      # AST instance, set later thanks to set_ast()
+#DEPRECATED|        self._froms = list() # list(From), feed later using add_from
+#DEPRECATED|
+#DEPRECATED|    def add_from(self, from_node):
+#DEPRECATED|        assert isinstance(from_node, From),\
+#DEPRECATED|            "Invalid from_node = %s (%s)" % (from_node, type(from_node))
+#DEPRECATED|        self._froms.append(from_node)
+#DEPRECATED|
+#DEPRECATED|    def fix_from(self, query):
+#DEPRECATED|        # Update the main query to add applicative information such as action and params
+#DEPRECATED|        # NOTE: I suppose params cannot have '.' inside
+#DEPRECATED|        for from_node in self._froms:
+#DEPRECATED|            q = from_node.get_query()
+#DEPRECATED|            if q.get_from() == query.get_from():
+#DEPRECATED|                q.action = query.get_action()
+#DEPRECATED|                q.params = query.get_params()
+#DEPRECATED|            Log.warning("from_node: %s" % from_node)
+ 
     def set_ast(self, ast, query):
         """
         Complete an AST in order to take into account SELECT and WHERE clauses
@@ -47,7 +63,13 @@ class QueryPlan(object):
 
         ast.optimize(query)
         self.ast = ast
-    
+
+#DEPRECATED|        # So far FROM Node embeds dummy queries having only the
+#DEPRECATED|        # appropriate "destination", we've to update them accordingly
+#DEPRECATED|        # the initial query. This is required to match correctly
+#DEPRECATED|        # PIT's flows in each Gateway.
+#DEPRECATED|        self.fix_from(query)
+   
     @returns(Operator)
     def get_root_operator():
         """
@@ -61,8 +83,7 @@ class QueryPlan(object):
     def build(self, query, router, db_graph, allowed_platforms, user = None):
         """
         Build the QueryPlan involving several Gateways according to a 3nf
-        graph and a user Query. If only one Gateway is involved, you should
-        use QueryPlan::build_simple.
+        graph and a user Query.
         Raises:
             ValueError if the query is not coherent (invalid table name...).
             RuntimeError if the QueryPlan cannot be built.
@@ -129,94 +150,6 @@ class QueryPlan(object):
     # XXX Note for later: what about holes in the subquery chain. Is there a notion
     # of inject ? How do we collect subquery results two or more levels up to match
     # the structure (with shortcuts) as requested by the user.
-
-#DEPRECATED|    def build_simple(self, query, metadata, allowed_capabilities):
-#DEPRECATED|        """
-#DEPRECATED|        Builds a QueryPlan (self) related to a single Gateway.
-#DEPRECATED|        This is used only by a Forwarder. This function will probably soon
-#DEPRECATED|        become DEPRECATED.
-#DEPRECATED|        If several Gateways are involved, you must use QueryPlan::build.
-#DEPRECATED|        Args:
-#DEPRECATED|            query: The Query issued by the user.
-#DEPRECATED|            metadata:
-#DEPRECATED|            allowed_capabilities: The Capabilities related to this Gateway.
-#DEPRECATED|        """
-#DEPRECATED|        # XXX allowed_capabilities should be a property of the query plan !
-#DEPRECATED|
-#DEPRECATED|        # XXX Check whether we can answer query.object
-#DEPRECATED|
-#DEPRECATED|        # Here we assume we have a single platform
-#DEPRECATED|        platform = metadata.keys()[0]
-#DEPRECATED|        announce = metadata[platform][query.get_from()] # eg. table test
-#DEPRECATED|        
-#DEPRECATED|        # Set up an AST for missing capabilities (need configuration)
-#DEPRECATED|
-#DEPRECATED|        # Selection ?
-#DEPRECATED|        if query.filters and not announce.capabilities.selection:
-#DEPRECATED|            if not allowed_capabilities.selection:
-#DEPRECATED|                raise Exception, 'Cannot answer query: SELECTION'
-#DEPRECATED|            add_selection = query.filters
-#DEPRECATED|            query.filters = Filter()
-#DEPRECATED|        else:
-#DEPRECATED|            add_selection = None
-#DEPRECATED|
-#DEPRECATED|        # Projection ?
-#DEPRECATED|        announce_fields = announce.get_table().get_fields()
-#DEPRECATED|        if query.fields < announce_fields and not announce.capabilities.projection:
-#DEPRECATED|            if not allowed_capabilities.projection:
-#DEPRECATED|                raise Exception, 'Cannot answer query: PROJECTION'
-#DEPRECATED|            add_projection = query.fields
-#DEPRECATED|            query.fields = set()
-#DEPRECATED|        else:
-#DEPRECATED|            add_projection = None
-#DEPRECATED|
-#DEPRECATED|        table = Table({platform:''}, {}, query.get_from(), set(), set())
-#DEPRECATED|        key = metadata.get_key(query.get_from())
-#DEPRECATED|        capabilities = metadata.get_capabilities(platform, query.get_from())
-#DEPRECATED|        self.ast = self.ast.From(table, query, capabilities, key)
-#DEPRECATED|
-#DEPRECATED|        # XXX associate the From node to the Gateway
-#DEPRECATED|        from_node = self.ast.get_root()
-#DEPRECATED|        self.add_from(from_node)
-#DEPRECATED|        #from_node.set_gateway(gw_or_router)
-#DEPRECATED|        #gw_or_router.query = query
-#DEPRECATED|
-#DEPRECATED|        if not self.root:
-#DEPRECATED|            return
-#DEPRECATED|        if add_selection:
-#DEPRECATED|            self.ast.optimize_selection(add_selection)
-#DEPRECATED|        if add_projection:
-#DEPRECATED|            self.ast.optimize_projection(add_projection)
-#DEPRECATED|
-#DEPRECATED|        self.inject_at(query)
-#DEPRECATED|
-#DEPRECATED|    #@returns(ResultValue)
-#DEPRECATED|    def execute(self, is_deferred = False, receiver = None):
-#DEPRECATED|        """
-#DEPRECATED|        Execute the QueryPlan in order to query the appropriate
-#DEPRECATED|        sources of data, collect, combine and returns the records
-#DEPRECATED|        requested by the user.
-#DEPRECATED|        Args:
-#DEPRECATED|            deferred: A twisted.internet.defer.Deferred instance (async query)
-#DEPRECATED|                or None (sync query)
-#DEPRECATED|            receiver: An instance supporting the method set_result_value or None.
-#DEPRECATED|                receiver.set_result_value() will be called once the Query has terminated.
-#DEPRECATED|        Returns:
-#DEPRECATED|            The updated Deferred instance (if any) 
-#DEPRECATED|        """
-#DEPRECATED|        # Check whether the AST (Abstract Syntax Tree), which describes the QueryPlan.
-#DEPRECATED|        assert self.ast, "Uninitialized AST"
-#DEPRECATED|
-#DEPRECATED|        # create a Callback object with deferred object as arg
-#DEPRECATED|        # manifold/util/callback.py 
-#DEPRECATED|        deferred = Deferred() if is_deferred else None
-#DEPRECATED|        callback = Callback(deferred)
-#DEPRECATED|
-#DEPRECATED|        # Run the QueryPlan
-#DEPRECATED|        self.ast.set_callback(callback)
-#DEPRECATED|        self.ast.start()
-#DEPRECATED|
-#DEPRECATED|        return deferred if is_deferred else callback.get_results()
 
     def dump(self):
         """

@@ -11,6 +11,8 @@
 
 from __future__                     import absolute_import
 
+import traceback
+
 from sqlalchemy                     import create_engine
 from sqlalchemy                     import types
 from sqlalchemy.ext.declarative     import declarative_base
@@ -20,7 +22,7 @@ from sqlalchemy.util._collections   import NamedTuple
 from manifold.core.announce         import Announce
 from manifold.core.annotation       import Annotation
 from manifold.core.field            import Field
-from manifold.core.record           import Record, LastRecord 
+from manifold.core.record           import Record, Records, LastRecord 
 from manifold.core.table            import Table
 from manifold.gateways              import Gateway
 from manifold.models                import db
@@ -33,7 +35,8 @@ from manifold.models.user           import User
 from manifold.util.log              import Log
 from manifold.util.password         import hash_password 
 from manifold.util.predicate        import included
-from manifold.util.type             import accepts, returns 
+from manifold.util.storage          import get_metadata_tables, STORAGE_NAMESPACE 
+from manifold.util.type             import accepts, returns
 
 @returns(tuple)
 def xgetattr(cls, list_attr):
@@ -316,23 +319,7 @@ class SQLAlchemyGateway(Gateway):
             if self.user and cls.restrict_to_self and self.user['email'] != 'demo':
                 res = res.filter(cls.user_id == self.user['user_id'])
         except AttributeError: pass
-
         res.delete()
-
-#OBSOLETE|    def start(self):
-#OBSOLETE|        assert self.query, "Cannot start gateway with no query associated"
-#OBSOLETE|        _map_action = {
-#OBSOLETE|            "get"    : self.local_query_get,
-#OBSOLETE|            "update" : self.local_query_update,
-#OBSOLETE|            "create" : self.local_query_create
-#OBSOLETE|        }
-#OBSOLETE|        table = _map_action[self.query.action](self.query)
-#OBSOLETE|        # XXX For local namespace queries, we need to keep a dict
-#OBSOLETE|        for t in table:
-#OBSOLETE|            row = row2dict(t) if self.format == 'dict' else t.get_object()
-#OBSOLETE|            row = row2dict(t) if self.format == 'dict' else t
-#OBSOLETE|            self.callback(row)
-#OBSOLETE|        self.callback(None)
 
     @returns(list)
     def make_announces(self):
@@ -344,9 +331,9 @@ class SQLAlchemyGateway(Gateway):
         """
         announces = list()
 
-        # Each model is a table
+        # Each model is a table ("account", "linked_account", "user"...)
         for table_name, cls in self._map_object.items():
-            table = Table('local', None, table_name, None, None)
+            table = Table(STORAGE_NAMESPACE, None, table_name, None, None)
 
             primary_key = tuple()
 
@@ -364,14 +351,16 @@ class SQLAlchemyGateway(Gateway):
                 
             table.insert_key(primary_key)
         
-            table.capabilities.retrieve   = True
-            table.capabilities.join       = False
-            table.capabilities.selection  = False
-            table.capabilities.projection = False
+            isnt_table_object = (table_name == "object")
+            table.capabilities.retrieve   = isnt_table_object
+            table.capabilities.join       = isnt_table_object
+            table.capabilities.selection  = isnt_table_object
+            table.capabilities.projection = isnt_table_object
 
             announces.append(Announce(table))
 
-        metadata_announces = Announce.get_metadata_tables('local')
+        # Meta-tables "object" and "column"
+        metadata_announces = get_metadata_tables(STORAGE_NAMESPACE)
         announces.extend(metadata_announces)
         return announces
 
@@ -383,6 +372,8 @@ class SQLAlchemyGateway(Gateway):
         """
         self.check_receive(packet)
         query = packet.get_query()
+        Log.tmp("query = %s" % query)
+        socket = self.get_socket(query)
 
         _map_action = {
             "get"    : self.local_query_get,
@@ -396,18 +387,17 @@ class SQLAlchemyGateway(Gateway):
                 if not query.get_action() == "get":
                     raise RuntimeError("Invalid action (%s) on '%s::%s' table" % (query.get_action(), self.get_platform_name(), table_name))
 
-                rows = [announce.to_dict() for announce in self.get_announces()]
-                self.send_records(rows)
+                records = Records([announce.to_dict() for announce in self.get_announces()])
             else:
                 annotation = packet.get_annotation()
                 if not annotation:
                     annotation = Annotation() 
-
                 user = annotation.get("user", None)
-                rows = _map_action[query.get_action()](query, user)
-                for row in rows:
-                    self.send(row2record(row))
-                self.send(LastRecord())
-        except Exception, e:
-            self.error(packet, e)
+                records = Records([row2record(row) for row in _map_action[query.get_action()](query, user)])
 
+            Gateway.records(socket, records)
+        except Exception, e:
+            Log.error(traceback.format_exc())
+            Gateway.error(socket, e)
+        finally:
+            self.close(query)

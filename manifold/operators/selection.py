@@ -13,8 +13,8 @@
 
 from types                          import StringTypes
 
-from manifold.core.node             import Node
 from manifold.core.packet           import Packet
+from manifold.core.producer         import Producer 
 from manifold.core.query            import Query
 from manifold.operators.operator    import Operator
 from manifold.operators.projection  import Projection
@@ -40,13 +40,15 @@ class Selection(Operator):
             child: A Node instance (the child of this Node)
             filters: A set of Predicate instances
         """
-        assert issubclass(type(child), Node), "Invalid child = %r (%r)"   % (child,   type(child))
-        assert isinstance(filters, set),      "Invalid filters = %r (%r)" % (filters, type(filters))
+        assert issubclass(type(child), Producer),\
+            "Invalid child = %r (%r)"   % (child,   type(child))
+        assert isinstance(filters, set),\
+            "Invalid filters = %r (%r)" % (filters, type(filters))
 
         self._filter = filters
         Operator.__init__(self, producers = child, max_producers = 1)
 
-        self.query = self.child.get_query().copy()
+        self.query = self.get_producer().get_query().copy()
         self.query.filters |= filters
  
     #---------------------------------------------------------------------------
@@ -90,12 +92,14 @@ class Selection(Operator):
         # We have one producer for sure
         self.get_producer().dump(indent + 1)
 
+    @returns(Producer)
     def optimize_selection(self, query, filter):
         # Concatenate both selections...
         for predicate in self._filter:
             filter.add(predicate)
         return self.get_producer().optimize_selection(query, filter)
 
+    @returns(Producer)
     def optimize_projection(self, query, fields):
         # Do we have to add fields for filtering, if so, we have to remove them after
         # otherwise we can just swap operators

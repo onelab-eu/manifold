@@ -53,6 +53,17 @@ class Operator(Relay):
     #---------------------------------------------------------------------------
 
     def receive(self, packet):
+        """
+        Handle a Packet.
+        Args:
+            packet: A Packet instance.
+                - If this is a RECORD Packet, this Operator is supposed to recraft
+                the Record nested in this Packet and send it to its Consumers (parent
+                Operators) and its additional Receivers (if any). Those Receivers
+                corresponds to AST roots.
+                - Otherwise (ERROR Packet), this Operator should simply
+                forward this Packet.
+        """
         raise Exception, "Operator::receive() must be overwritten in children classes"
         
     @returns(Query)

@@ -306,6 +306,7 @@ class Log(object):
     def error(cls, *msg, **ctx): 
         if not Options().log_level in ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']:
             return
+        cls.log_message('ERROR', traceback.format_exc(), ctx)
         cls.log_message('ERROR', msg, ctx)
 
     @classmethod
@@ -337,7 +338,7 @@ class Log(object):
             "%r" % record,
             #"KEYS=%r" % record.keys()
         ]
-        #cls.print_msg(' '.join(msg), 'RECORD', caller_name())
+        cls.print_msg(' '.join(msg), 'RECORD', caller_name())
 
 #    @classmethod
 #    def record(cls, packet, producer, consumer):

@@ -1,4 +1,5 @@
 from manifold.core.packet   import Packet
+from manifold.util.log      import Log 
 from manifold.util.type     import accepts, returns
 
 class PoolProducers(set):
@@ -48,5 +49,10 @@ class PoolProducers(set):
         if packet.get_type() not in [Packet.TYPE_QUERY]:
             raise ValueError, "Invalid packet type for producer: %s" % Packet.get_type_name(packet.get_type())
 
-        for producer in self:
-            producer.receive(packet)
+        try:
+            for producer in self:
+                producer.receive(packet)
+        except:
+            # I did this crappy try..except to allow Gateways to close Socket and
+            # removing in cascade parent operators without making crash this loop.
+            pass

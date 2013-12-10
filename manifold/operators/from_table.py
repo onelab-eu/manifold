@@ -41,7 +41,7 @@ class FromTable(Producer):
         assert isinstance(query,   Query), "Invalid query = %r (%r)"   % (query,   type(query))
         assert isinstance(records, list),  "Invalid records = %r (%r)" % (records, type(records))
 
-        super(FromTable, self).__init__()
+        super(FromTable, self).__init__(max_producers = 0)
         self.query, self.records, self.key = query, Records(records), key
 
     @returns(StringTypes)
@@ -58,12 +58,12 @@ class FromTable(Producer):
         else:
             return 'EMPTY'
 
-    def start(self):
-        """
-        Propagates a START message through the FromTable Node.
-        """
-        for record in self.records:
-            if not isinstance(record, Record):
-                record = {self.key: record}
-            self.send(record)
-        self.send(LastRecord())
+#DEPRECATED|    def start(self):
+#DEPRECATED|        """
+#DEPRECATED|        Propagates a START message through the FromTable Node.
+#DEPRECATED|        """
+#DEPRECATED|        for record in self.records:
+#DEPRECATED|            if not isinstance(record, Record):
+#DEPRECATED|                record = {self.key: record}
+#DEPRECATED|            self.send(record)
+#DEPRECATED|        self.send(LastRecord())

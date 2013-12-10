@@ -102,6 +102,7 @@ class TDMIGateway(PostgreSQLGateway):
         """
         self.check_receive(packet)
 
+        Log.tmp("PIT:" % self.get_pit())
         query = packet.get_query()
         table_name = query.get_from()
         Log.tmp("query = %s" % query)
