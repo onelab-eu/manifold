@@ -127,15 +127,16 @@ class QueryPacket(Packet):
         Args:
             query: A Query instance.
             annotation: An Annotation instance related to the Query or None.
-            receiver: The Node instance which will receive this Packet (next hop).
-            source:
+            receiver: An absolute destination on which RECORD Packet must
+                be uploaded 
+            source: The issuer of the QueryPacket
         """
-        Packet.__init__(self, Packet.TYPE_QUERY)
         assert isinstance(query, Query), \
             "Invalid query = %s (%s)" % (query, type(query))
         assert not annotation or isinstance(annotation, Annotation), \
             "Invalid annotation = %s (%s)" % (annotation, type(annotation))
 
+        Packet.__init__(self, Packet.TYPE_QUERY)
         self._query      = query
         self._annotation = annotation
         self._receiver   = receiver

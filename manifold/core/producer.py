@@ -95,6 +95,14 @@ class Producer(Node):
         if cascade:
             consumer.add_producer(self, cascade = False)
 
+    @returns(bool)
+    def is_empty(self):
+        """
+        Returns:
+            True iif this Socket has no Consumer.
+        """
+        return len(self._pool_consumers) == 0
+
     def del_consumer(self, consumer, cascade = True):
         """
         Unlink a Consumer from this Producer.
@@ -208,6 +216,19 @@ class Producer(Node):
 
         self.set_consumer(function(self.get_consumer()))
 
+    def release(self):
+        """
+        Unlink this Producer from its Consumers.
+        Recusively release in cascade Consumers having no more Producer.
+        """
+        for consumer in self.get_consumers():
+            consumer.del_producer(self, cascade = True)
+            # This Producer is the only one of this parent Consumer, so we can
+            # safely release this childless Consumer.
+            if consumer.get_num_producers() == 0:
+                consumer.release()
+
+
     #---------------------------------------------------------------------------
     # Methods
     #---------------------------------------------------------------------------
@@ -232,8 +253,8 @@ class Producer(Node):
 
     def send(self, packet):
         """
-        Send an ERROR or RECORD Packet from this Producer towards its Consumer(s).
-        By default, send this Record to every Consumers.
+        Send an ERROR or RECORD Packet from this Producer towards all
+        its Consumer(s).
         Args:
             packet: An ERROR or RECORD Packet instance.
         """

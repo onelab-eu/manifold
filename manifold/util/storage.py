@@ -10,6 +10,7 @@
 #   Jordan Augé       <jordan.auge@lip6.f>
 
 from manifold.gateways              import Gateway
+from manifold.core.announce         import announces_from_docstring
 from manifold.core.annotation       import Annotation
 from manifold.core.packet           import QueryPacket
 from manifold.core.sync_receiver    import SyncReceiver
@@ -35,12 +36,12 @@ def make_storage(interface, storage_config = STORAGE_CONFIG):
     return cls_storage(interface, STORAGE_NAMESPACE, STORAGE_CONFIG)
 
 @returns(list)
-def storage_execute(storage, query, annotation = None, error_message = None):
+def storage_execute(gateway, query, annotation = None, error_message = None):
     """
     Execute a Query related to the Manifold Storage
     (ie any "local:*" object).
     Args:
-        storage: A Gateway instance allowing to query the Manifold Storage.
+        gateway: A Gateway instance allowing to query the Manifold Storage.
         query: A Query. query.get_from() should start with "local:".
         annotation: An Annotation instance related to Query or None.
         error_message: A String containing the error_message that must
@@ -50,8 +51,8 @@ def storage_execute(storage, query, annotation = None, error_message = None):
     Returns:
         A list of Records.            
     """
-    assert isinstance(storage, Gateway),\
-        "Invalid storage = %s (%s)" % (storage, type(storage))
+    assert isinstance(gateway, Gateway),\
+        "Invalid gateway = %s (%s)" % (gateway, type(gateway))
     assert not annotation or isinstance(annotation, Annotation),\
         "Invalid annotation = %s (%s)" % (annotation, type(annotation))
     assert not ':' in query.get_from() or query.get_from().startswith(STORAGE_NAMESPACE),\
@@ -60,8 +61,8 @@ def storage_execute(storage, query, annotation = None, error_message = None):
     receiver = SyncReceiver()
     packet   = QueryPacket(query, annotation, receiver)
 
-    receiver.set_producer(storage)
-    storage.receive(packet)
+    gateway.add_flow(query, receiver)
+    gateway.receive(packet)
     result_value = receiver.get_result_value()
 
     if not result_value.is_success():
@@ -71,4 +72,37 @@ def storage_execute(storage, query, annotation = None, error_message = None):
 
     return result_value["value"]
         
+@returns(list)
+def get_metadata_tables(platform_name = STORAGE_NAMESPACE):
+    """
+    Craft a list of Announces used to feed the Storage's namespace.
+    Args:
+        platform_name: A name of the Storage platform.
+    Returns:
+        The corresponding list of Announces.
+    """
+    @announces_from_docstring(platform_name)
+    def _get_metadata_tables():
+        """
+        class object {
+            string table;
+            column column;
+
+            CAPABILITY(selection, projection, retrieve, join);
+            KEY(table);
+        }; 
+
+        class column {
+            string qualifier;
+            string name;
+            string type;
+            string description;
+            bool is_array;
+
+            KEY(name);
+        };
+        """
+    announces = _get_metadata_tables()
+    return announces
+
 

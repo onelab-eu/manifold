@@ -91,7 +91,7 @@ class Consumer(Node):
     def del_producer(self, producer, cascade = True):
         self._pool_producers.remove(producer)
         if cascade:
-            producer.del_customer(self, cascade = False)
+            producer.del_consumer(self, cascade = False)
 
     @returns(StringTypes)
     def format_producer_ids(self):
@@ -145,9 +145,9 @@ class Consumer(Node):
 
         return iter(self.get_producers()).next()
 
-    def set_producer(self, producer):
+    def set_producer(self, producer, cascade = True):
         self.clear_producers()
-        self.add_producer(producer)
+        self.add_producer(producer, cascade)
 
     def set_producers(self, producers):
         self.clear_producers()
@@ -160,6 +160,19 @@ class Consumer(Node):
             raise Exception, "Cannot call update_producer with max_producers != 1 (=%s)" % max_str
 
         self.set_producer(function(self.get_producer()))
+
+    def release(self):
+        """
+        Unlink this Consumer from its Producers.
+        Recusively release in cascade Producers (resp. Consumers)
+        having no more Consumer (resp. Producer)
+        """
+        for producer in self.get_producers():
+            producer.del_consumer(self, cascade = True)
+            # This Consumer has only this child Producer, so we can
+            # safely release this childless Consumer.
+            if producer.get_num_consumers() == 0:
+                producer.release()
 
     #---------------------------------------------------------------------------
     # Methods

@@ -16,17 +16,20 @@
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
 import traceback
-from types                         import StringTypes
+from types                          import StringTypes
 
-from manifold.core.annotation      import Annotation
-from manifold.core.capabilities    import Capabilities
-from manifold.core.key             import Key
-from manifold.core.query           import Query
-from manifold.operators.operator   import Operator 
-from manifold.operators.from_table import FromTable
-from manifold.operators.projection import Projection #XXX
-from manifold.util.log             import Log
-from manifold.util.type            import returns
+from manifold.core.annotation       import Annotation
+from manifold.core.capabilities     import Capabilities
+from manifold.core.key              import Key
+from manifold.core.packet           import Packet
+from manifold.core.query            import Query
+from manifold.gateways              import Gateway
+from manifold.operators.from_table  import FromTable
+from manifold.operators.operator    import Operator 
+from manifold.operators.projection  import Projection
+from manifold.operators.selection   import Selection 
+from manifold.util.log              import Log
+from manifold.util.type             import returns
 
 class From(Operator):
     """
@@ -46,6 +49,8 @@ class From(Operator):
                 to the Table queried by this From Node.
             key: A Key instance. 
         """
+        assert isinstance(gateway, Gateway),\
+            "Invalid gateway = %s (%s)" % (gateway, type(gateway))
         assert isinstance(query, Query),\
             "Invalid query = %s (%s)" % (query, type(query))
         assert isinstance(capabilities, Capabilities),\
@@ -53,14 +58,16 @@ class From(Operator):
         assert isinstance(key, Key),\
             "Invalid key = %s (%s)" % (key, type(key))
 
-        super(From, self).__init__(
-            producers     = [gateway],
-            max_producers = 1
-        )
+        Log.tmp("query = %s" % query)
+
+        # The producer will be set once a QUERY will be received
+        super(From, self).__init__(max_producers = 1)
 
         self.query        = query
         self.capabilities = capabilities
         self.key          = key
+
+        self._gateway     = gateway
 
 #DEPRECATED|    def add_fields_to_query(self, field_names):
 #DEPRECATED|        """
@@ -73,14 +80,22 @@ class From(Operator):
 #DEPRECATED|            assert isinstance(field_name, StringTypes), "Invalid field_name = %r in field_names = %r" % (field_name, field_names)
 #DEPRECATED|        self.query.fields = frozenset(set(self.query.fields) | set(field_names))
 
+    @returns(Gateway)
+    def get_gateway(self):
+        """
+        Returns:
+            The Gateway instance used to query the Platform wrapped
+            by this FROM node.
+        """
+        return self._gateway
+
     @returns(StringTypes)
     def get_platform_name(self):
         """
         Returns:
             The name of the Platform queried by this FROM node.
         """
-        gateway = self.get_producer()
-        return gateway.get_platform_name()
+        return self.get_gateway().get_platform_name()
 
     @returns(StringTypes)
     def __repr__(self):
@@ -89,7 +104,11 @@ class From(Operator):
             The name of the platform queried by this FROM node.
         """
         #return "%s" % self.get_query().to_sql(platform = self.get_platform_name())
-        return "FROM %s:%s" % (self.get_platform_name(), self.get_query().get_from())
+        return "FROM %s:%s (%s)" % (
+            self.get_platform_name(),
+            self.get_query().get_from(),
+            self.get_query().to_sql(platform = self.get_platform_name())
+        )
 
 #DEPRECATED|    #@returns(From)
 #DEPRECATED|    def inject(self, records, key, query):
@@ -145,76 +164,7 @@ class From(Operator):
 #DEPRECATED|        join.set_callback(old_self_callback)
 #DEPRECATED|
 #DEPRECATED|        return join
-#DEPRECATED|
-#DEPRECATED|    def set_annotation(self, annotation):
-#DEPRECATED|        """
-#DEPRECATED|        Args:
-#DEPRECATED|            annotation: An Annotation instance.
-#DEPRECATED|        """
-#DEPRECATED|        assert isinstance(annotation, Annotation), "Invalid annotation = %s (%s)" % (annotation, type(annotation))
-#DEPRECATED|        self.annotation = annotation
-#DEPRECATED|
-#DEPRECATED|    @returns(Annotation)
-#DEPRECATED|    def get_annotation(self):
-#DEPRECATED|        """
-#DEPRECATED|        Returns:
-#DEPRECATED|            The Annotation instance related to this From Node and corresponding
-#DEPRECATED|            to the Query of this Node.
-#DEPRECATED|        """
-#DEPRECATED|        return self.annotation
-#DEPRECATED|
-#DEPRECATED|    @returns(dict)
-#DEPRECATED|    def get_user(self):
-#DEPRECATED|        """
-#DEPRECATED|        Returns:
-#DEPRECATED|            A dictionnary containing information related to the User querying
-#DEPRECATED|            the nested platform of this From Node (None if anonymous).
-#DEPRECATED|        """
-#DEPRECATED|        Log.warning("From::get_user is deprecated: %s" % traceback.format_exc())
-#DEPRECATED|        annotation = self.get_annotation()
-#DEPRECATED|        return annotation["user"] if annotation else None
-#DEPRECATED|
-#DEPRECATED|    @returns(dict)
-#DEPRECATED|    def get_account_config(self):
-#DEPRECATED|        """
-#DEPRECATED|        Returns:
-#DEPRECATED|            A dictionnary containing the account configuration of the User instanciating
-#DEPRECATED|            this From Node or None.
-#DEPRECATED|        """
-#DEPRECATED|        Log.warning("From::get_account_config is deprecated: %s" % traceback.format_exc())
-#DEPRECATED|        annotation = self.get_annotation()
-#DEPRECATED|        return annotation["account_config"] if annotation else None
-#DEPRECATED|
-#DEPRECATED|    def start(self):
-#DEPRECATED|        """
-#DEPRECATED|        Propagates a START message through the node
-#DEPRECATED|        """
-#DEPRECATED|        if not self.gateway:
-#DEPRECATED|            Log.error("No Gateway set for this From Node: %r" % self)
-#DEPRECATED|            self.send(LastRecord())
-#DEPRECATED|        else:
-#DEPRECATED|            self.gateway.forward(
-#DEPRECATED|                self.get_query(),      # Forward the nested Query to the nested Gateway.
-#DEPRECATED|                self.get_annotation(), # Forward corresponding Annotation to the nested Gateway.
-#DEPRECATED|                self                   # From Node acts as a Receiver. 
-#DEPRECATED|            )
-#DEPRECATED|
-#DEPRECATED|    def set_gateway(self, gateway):
-#DEPRECATED|        """
-#DEPRECATED|        Associate this From Node to a given Gateway.
-#DEPRECATED|        Args:
-#DEPRECATED|            gateway: A instance which inherits Gateway.
-#DEPRECATED|        """
-#DEPRECATED|        self.gateway = gateway
-#DEPRECATED|
-#DEPRECATED|    def set_callback(self, callback):
-#DEPRECATED|        """
-#DEPRECATED|        Set the callback of this From Node to return fetched Records.
-#DEPRECATED|        Args:
-#DEPRECATED|            callback: A function called back whenever a Record is fetched.
-#DEPRECATED|        """
-#DEPRECATED|        super(From, self).set_callback(callback)
-#DEPRECATED|
+
     @returns(Query)
     def get_query(self):
         """
@@ -224,8 +174,28 @@ class From(Operator):
         return self.query
 
     def receive(self, packet):
+        """
+        Process an incoming packet.
+        Args:
+            packet: A Packet instance.
+        """
+        # Register this flow in the Gateway
+        if packet.get_type() == Packet.TYPE_QUERY:
+            self.get_gateway().add_flow(packet.get_query(), self)
+
+        # A From Operator forwards the incoming Packets without modification.
         self.send(packet)
-        
+    
+    def receive(self, packet):
+        if packet.get_type() == Packet.TYPE_QUERY:
+            query = packet.get_query()
+            from_select = self.get_query().get_select()
+            from_where = self.get_where()
+            if query.get_select() < from_select:
+                query.fields = from_select
+            query.filter_by(from_where)
+        self.send(packet)
+
     @returns(Operator)
     def optimize_selection(self, query, filter):
         """
@@ -235,17 +205,16 @@ class From(Operator):
         Returns:
             The updated root Node of the sub-AST.
         """
-        Log.warning("From::optimize_selection(): not yet implemented")
-        return self
-
         # XXX Simplifications
         for predicate in filter:
             if predicate.get_field_names() == self.key.get_field_names() and predicate.has_empty_value():
                 # The result of the request is empty, no need to instanciate any gateway
                 # Replace current node by an empty node
-                old_self_callback = self.get_callback()
-                from_table = FromTable(self.query, list(), self.key)
-                from_table.set_callback(old_self_callback)
+                consumers = self.get_consumers()
+                self.clear_consumers() # XXX We must only unlink consumers involved in the QueryPlan that we're optimizing
+                from_table = FromTable(self.get_query(), list(), self.key)
+                for consumer in consumers:
+                    consumer.add_producer(from_table)
                 Log.warning("From: optimize_selection: empty table")
                 return from_table
 
@@ -257,10 +226,11 @@ class From(Operator):
             return self
         else:
             # Create a new Selection node
-            old_self_callback = self.get_callback()
+            consumers = self.get_consumers()
+            self.clear_consumers() # XXX We must only unlink consumers involved in the QueryPlan that we're optimizing and create a new From node 
             selection = Selection(self, filter)
             #selection.query = self.query.copy().filter_by(filter)
-            selection.set_callback(old_self_callback)
+            selection.set_consumers(consumers)
 
             if self.capabilities.fullquery:
                 # We also push the filter down into the node

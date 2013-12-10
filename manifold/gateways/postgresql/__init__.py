@@ -1037,7 +1037,7 @@ class PostgreSQLGateway(Gateway):
             if self.is_ignored_table(table_name): continue
             table = self.make_table(table_name)
             table = self.tweak_table(table)
-            Log.tmp(table)
+            #Log.tmp(table)
             announce = Announce(table)
             announces_pgsql.append(announce)
 

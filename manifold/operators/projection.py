@@ -1,7 +1,21 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+# Projection Operator remove from Records the fields that
+# are not queried.
+#
+# It acts like the SELECT Clause in SQL.
+#
+# Copyright (C) UPMC Paris Universitas
+# Authors:
+#   Jordan Augé         <jordan.auge@lip6.fr>
+#   Marc-Olivier Buob   <marc-olivier.buob@lip6.fr>
+
 from types                          import StringTypes
+
 from manifold.core.packet           import Packet
 from manifold.core.record           import Record
-from manifold.core.node             import Node
+from manifold.core.producer         import Producer 
 from manifold.operators.operator    import Operator
 from manifold.util.log              import Log
 from manifold.util.type             import returns
@@ -64,14 +78,16 @@ class Projection(Operator):
         """
         Constructor.
         Args:
-            child: A Node instance which will be the child of
-                this Node.
+            child: A Producer instance which will be the child of
+                this Projection.
             fields: A list of Field instances corresponding to
                 the fields we're selecting.
         """
         #for field in fields:
         #    assert isinstance(field, Field), "Invalid field %r (%r)" % (field, type(field))
 
+        assert issubclass(type(child), Producer),\
+            "Invalid child = %r (%r)"   % (child, type(child))
         if isinstance(fields, (list, tuple, frozenset)):
             fields = set(fields)
         self._fields = fields
@@ -141,13 +157,13 @@ class Projection(Operator):
         # We have one producer for sure
         self.get_producer().dump(indent + 1)
 
-    @returns(Node)
+    @returns(Producer)
     def optimize_selection(self, query, filter):
         producer = self.get_producer().optimize_selection(query, filter)
         self.get_producer(producer)
         return self
 
-    @returns(Node)
+    @returns(Producer)
     def optimize_projection(self, query, fields):
         # We only need the intersection of both
         return self.get_producer().optimize_projection(query, self._fields & fields)
