@@ -172,7 +172,7 @@ class SFAGateway(Gateway):
         'reg-urn'           : 'slice_urn',                  # slice_geni_urn ???
         'site_id'           : 'slice_site_id',              # X ID 
         'site'              : 'slice_site',                 # authority.hrn
-        'authority'         : 'authority_hrn',              # isn't it the same ???
+        'authority'         : 'parent_authority',       # isn't it the same ???
         'pointer'           : 'slice_pointer',              # X
         'instantiation'     : 'slice_instantiation',        # instanciation
         'max_nodes'         : 'slice_max_nodes',            # max nodes
@@ -200,7 +200,7 @@ class SFAGateway(Gateway):
     }
 
     map_user_fields = {
-        'authority': 'authority_hrn',               # authority it belongs to
+        'authority': 'parent_authority',               # authority it belongs to
         'peer_authority': 'user_peer_authority',    # ?
         'hrn': 'user_hrn',                          # hrn
         'gid': 'user_gid',                          # gif
@@ -607,7 +607,7 @@ class SFAGateway(Gateway):
         else:
             rspec_version = 'GENI 3'
             #rspec_version = 'SFA 1'
-
+        Log.debug(rspec_version)
         rspec = RSpec(rspec_string, version=rspec_version)
         
         try:
@@ -952,8 +952,10 @@ class SFAGateway(Gateway):
     @defer.inlineCallbacks
     def get_object(self, object, object_hrn, filters, params, fields):
         # Let's find some additional information in filters in order to restrict our research
+        Log.tmp(object_hrn)
+        Log.tmp(filters)
         object_name = make_list(filters.get_op(object_hrn, [eq, included]))
-        auth_hrn = make_list(filters.get_op('authority_hrn', [eq, lt, le]))
+        auth_hrn = make_list(filters.get_op('parent_authority', [eq, lt, le]))
         interface_hrn = yield self.get_interface_hrn(self.registry)
 
         # XXX details = True always, only trigger details if needed wrt fields
@@ -1522,7 +1524,7 @@ class SFAGateway(Gateway):
                 return
 
             fields = q.fields # Metadata.expand_output_fields(q.object, list(q.fields))
-            #print "SFA CALL START %s_%s" % (q.action, q.object), q.filters, q.params, fields
+            Log.debug("SFA CALL START %s_%s" % (q.action, q.object), q.filters, q.params, fields)
             records = yield getattr(self, "%s_%s" % (q.action, q.object))(q.filters, q.params, fields)
 
             if q.object in self.map_fields:

@@ -1,7 +1,7 @@
-
 class slice {
     const text  slice_hrn;   /**< Slice Human Readable name */
     const text  slice_type;
+    const authority parent_authority;
     lease       lease[];       /**< List of leases associated to the slice */
     user        user[];        /**< List of users associated to the slice */
 
@@ -127,8 +127,8 @@ class user {
     const text email;
     const text telephone;
     const text user_hrn;
-    const text password;
-    const text site;
+#    const text password;
+    const authority parent_authority;
     slice slice[];
 
     KEY(user_hrn);
@@ -139,6 +139,7 @@ class authority {
     const text name;
     const text abbreviated_name;
     const text authority_hrn;
+    const authority parent_authority;
     slice      slice[];
     user       user[];
 

@@ -19,7 +19,7 @@ from manifold.core.ast             import AST
 from manifold.core.filter          import Filter
 from manifold.core.query           import Query
 from manifold.core.stack           import Stack, TASK_11, TASK_1Nsq, TASK_1N
-from manifold.operators.demux      import Demux
+#DEPRECATED|LOIC|#from manifold.operators.demux      import Demux
 from manifold.operators.From       import From
 from manifold.util.log             import Log
 from manifold.util.misc            import is_sublist
@@ -321,7 +321,7 @@ class ExploreTask(Deferred):
         # Exploring this tree according to a DFS algorithm leads to a table
         # ordering leading to feasible successive joins
         map_method_bestkey = dict()
-        map_method_demux   = dict()
+#DEPRECATED|LOIC|        map_method_demux   = dict()
 
         # XXX I don't understand this -- Jordan
         # Update the key used by a given method
@@ -358,28 +358,28 @@ class ExploreTask(Deferred):
                 from_ast = AST(user = user).From(platform, query, capabilities, key)
                 query_plan.add_from(from_ast.get_root())
 
-                if method in table.methods_demux:
-                    from_ast.demux().projection(list(fields))
-                    demux_node = from_ast.get_root().get_child()
-                    assert isinstance(demux_node, Demux), "Bug"
-                    map_method_demux[method] = demux_node 
+#DEPRECATED|LOIC|                if method in table.methods_demux:
+#DEPRECATED|LOIC|                    from_ast.demux().projection(list(fields))
+#DEPRECATED|LOIC|                    demux_node = from_ast.get_root().get_child()
+#DEPRECATED|LOIC|                    assert isinstance(demux_node, Demux), "Bug"
+#DEPRECATED|LOIC|                    map_method_demux[method] = demux_node 
 
             else:
                 # The table announced by the platform doesn't fit with the 3nf schema
                 # Build a FROMTABLE + DUP(best_key) + SELECT(best_key u {fields}) branch
                 # and plug it to the above the DEMUX node referenced in map_method_demux
                 # Ask this FROM node for fetching fields
-                demux_node = map_method_demux[method]
-                from_node = demux_node.get_child()
+#DEPRECATED|LOIC|                demux_node = map_method_demux[method]
+#DEPRECATED|LOIC|                from_node = demux_node.get_child()
                 key_dup = map_method_bestkey[method]
                 select_fields = list(set(fields) | set(key_dup))
                 from_node.add_fields_to_query(fields)
 
-                print "FROMTABLE -- DUP(%r) -- SELECT(%r) -- %r -- %r" % (key_dup, select_fields, demux_node, from_node) 
+#DEPRECATED|LOIC|                print "FROMTABLE -- DUP(%r) -- SELECT(%r) -- %r -- %r" % (key_dup, select_fields, demux_node, from_node) 
 
                 # Build a new AST (the branch we'll add) above an existing FROM node
                 from_ast = AST(user = user)
-                from_ast.root = demux_node
+#DEPRECATED|LOIC|                from_ast.root = demux_node
                 Log.warning("ExploreTask: TODO: plug callback")
                 #TODO from_node.addCallback(from_ast.callback)
 

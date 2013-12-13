@@ -28,7 +28,7 @@ from manifold.operators.left_join     import LeftJoin
 from manifold.operators.union         import Union
 from manifold.operators.subquery      import SubQuery
 from manifold.operators.cross_product import CrossProduct
-from manifold.operators.demux         import Demux
+#DEPRECATED|LOIC|from manifold.operators.demux         import Demux
 from manifold.operators.dup           import Dup
 from manifold.util.predicate          import Predicate, eq, contains, included
 from manifold.util.type               import returns, accepts
@@ -159,18 +159,18 @@ class AST(object):
         return self
 
     #@returns(AST)
-    def demux(self):
-        """
-        Append a DEMUX Node above this AST.
-        Returns:
-            The updated AST. 
-        """
-        assert not self.is_empty(), "AST not initialized"
-
-        old_root = self.get_root()
-        self.root = Demux(old_root)
-        self.root.set_callback(old_root.get_callback())
-        return self
+#DEPRECATED|LOIC|    def demux(self):
+#DEPRECATED|LOIC|        """
+#DEPRECATED|LOIC|        Append a DEMUX Node above this AST.
+#DEPRECATED|LOIC|        Returns:
+#DEPRECATED|LOIC|            The updated AST. 
+#DEPRECATED|LOIC|        """
+#DEPRECATED|LOIC|        assert not self.is_empty(), "AST not initialized"
+#DEPRECATED|LOIC|
+#DEPRECATED|LOIC|        old_root = self.get_root()
+#DEPRECATED|LOIC|        self.root = Demux(old_root)
+#DEPRECATED|LOIC|        self.root.set_callback(old_root.get_callback())
+#DEPRECATED|LOIC|        return self
 
     #@returns(AST)
     def dup(self, key):

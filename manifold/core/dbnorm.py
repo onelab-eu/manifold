@@ -777,8 +777,8 @@ def to_3nf(metadata):
 
     # 5) Making 3-nf tables
     tables_3nf = list()
-    map_tablename_methods = dict() # map table_name with methods to demux
-
+#DEPRECATED|LOIC|    map_tablename_methods = dict() # map table_name with methods to demux
+#DEPRECATED|LOIC|
     for table_name, map_platform_fds in fdss.items():
         # For the potential parent table
         # Stores the number of distinct platforms set
@@ -825,13 +825,13 @@ def to_3nf(metadata):
                         map_method_fields[method].add(field.get_name())
                         map_method_fields[method].add(key_field.get_name())
 
-                        # demux annotation
-                        method_name = method.get_name()
-                        if method_name != table_name :
-                            if method_name not in map_tablename_methods.keys():
-                                map_tablename_methods[method_name] = set()
-                            map_tablename_methods[method_name].add(method)
-
+#DEPRECATED|LOIC|                        # demux annotation
+#DEPRECATED|LOIC|                        method_name = method.get_name()
+#DEPRECATED|LOIC|                        if method_name != table_name :
+#DEPRECATED|LOIC|                            if method_name not in map_tablename_methods.keys():
+#DEPRECATED|LOIC|                                map_tablename_methods[method_name] = set()
+#DEPRECATED|LOIC|                            map_tablename_methods[method_name].add(method)
+#DEPRECATED|LOIC|
                         platforms.add(method.get_platform())
 
             table = Table(platforms, None, table_name, fields, keys)
@@ -895,12 +895,12 @@ def to_3nf(metadata):
         # XXX we already know about the links between those two platforms
         # but we can find them easily (cf dbgraph)
 
-    # inject demux annotation
-    for table in tables_3nf:
-        if table.get_name() in map_tablename_methods.keys():
-            table.methods_demux = map_tablename_methods[table.get_name()]
-        else:
-            table.methods_demux = set()
+#DEPRECATED|LOIC|    # inject demux annotation
+#DEPRECATED|LOIC|    for table in tables_3nf:
+#DEPRECATED|LOIC|        if table.get_name() in map_tablename_methods.keys():
+#DEPRECATED|LOIC|            table.methods_demux = map_tablename_methods[table.get_name()]
+#DEPRECATED|LOIC|        else:
+#DEPRECATED|LOIC|            table.methods_demux = set()
 
     # 6) Inject capabilities
     # TODO: capabilities are now in tables, shall they be present in tables_3nf
