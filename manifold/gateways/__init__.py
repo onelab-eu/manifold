@@ -20,6 +20,7 @@ from manifold.core.pit              import Pit
 from manifold.core.producer         import Producer
 from manifold.core.query            import Query
 from manifold.core.record           import LastRecord, Record, Records
+from manifold.core.result_value     import ResultValue 
 from manifold.core.socket           import Socket 
 from manifold.operators.projection  import Projection
 from manifold.operators.selection   import Selection
@@ -363,17 +364,25 @@ class Gateway(Producer):
         Gateway.record(socket, LastRecord())
 
     @staticmethod
-    def error(socket, description):
+    def error(socket, description, code = ResultValue.ERROR):
         """
-        Helper used in Gateway when a has to send an ERROR Packet. 
+        Helper used in Gateway when a has to send an ERROR Packet
+        carrying an Error. See also Gateway::warning() 
         Args:
             socket: The Socket used to transport the Packet.
                 It is usually retrieved using get_socket() method.
+            code: See manifold.core.result_value
         """
         assert isinstance(socket, Socket),\
             "Invalid socket = %s (%s)" % (socket, type(socket))
 
-        socket.receive(ErrorPacket("%s" % description, traceback.format_exc()))
+        socket.receive(ErrorPacket(
+            message   = "%s" % description,
+            traceback = traceback.format_exc()),
+            origin    = ResultValue.GATEWAY,
+            code      = code, 
+            type      = ResultValue.ERROR 
+        )
 
     def del_consumer(self, receiver, cascade = True):
         """

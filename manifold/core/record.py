@@ -220,3 +220,15 @@ class Records(list):
             Records instance.
         """
         return [record.to_dict() for record in self]
+
+    @returns(StringTypes)
+    def __repr__(self):
+        """
+        Returns:
+            The '%r' representation of this QUERY Packet.
+        """
+        return "<Packet.%s %s>" % (
+            Packet.get_type_name(self.get_type()),
+            self.to_dict()
+        )
+

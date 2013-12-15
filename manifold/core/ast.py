@@ -279,33 +279,9 @@ class AST(object):
                 (number of space characters).
         """
         if self.is_empty():
-            print "Empty AST (no producer)"
+            print "Empty AST"
         else:
             self.get_root().dump(indent)
-
-#DEPRECATED|    def start(self):
-#DEPRECATED|        """
-#DEPRECATED|        Propagates a START message through the AST which is used to wake
-#DEPRECATED|        up each Node in order to execute the Query.
-#DEPRECATED|        """
-#DEPRECATED|        assert not self.is_empty(), "Empty AST, cannot send START message"
-#DEPRECATED|        self.get_root().start()
-#DEPRECATED|
-#DEPRECATED|    @property
-#DEPRECATED|    def callback(self):
-#DEPRECATED|        Log.info("I: callback property is deprecated")
-#DEPRECATED|        return self.root.callback
-#DEPRECATED|
-#DEPRECATED|    @callback.setter
-#DEPRECATED|    def callback(self, callback):
-#DEPRECATED|        Log.info("I: callback property is deprecated")
-#DEPRECATED|        self.root.callback = callback
-#DEPRECATED|
-#DEPRECATED|    def get_callback(self):
-#DEPRECATED|        return self.root.get_callback()
-#DEPRECATED|
-#DEPRECATED|    def set_callback(self, callback):
-#DEPRECATED|        self.root.set_callback(callback)
 
     def optimize(self, query):
         """

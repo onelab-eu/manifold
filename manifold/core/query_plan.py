@@ -33,23 +33,7 @@ class QueryPlan(object):
         Constructor.
         """
         self.ast = None      # AST instance, set later thanks to set_ast()
-#DEPRECATED|        self._froms = list() # list(From), feed later using add_from
-#DEPRECATED|
-#DEPRECATED|    def add_from(self, from_node):
-#DEPRECATED|        assert isinstance(from_node, From),\
-#DEPRECATED|            "Invalid from_node = %s (%s)" % (from_node, type(from_node))
-#DEPRECATED|        self._froms.append(from_node)
-#DEPRECATED|
-#DEPRECATED|    def fix_from(self, query):
-#DEPRECATED|        # Update the main query to add applicative information such as action and params
-#DEPRECATED|        # NOTE: I suppose params cannot have '.' inside
-#DEPRECATED|        for from_node in self._froms:
-#DEPRECATED|            q = from_node.get_query()
-#DEPRECATED|            if q.get_from() == query.get_from():
-#DEPRECATED|                q.action = query.get_action()
-#DEPRECATED|                q.params = query.get_params()
-#DEPRECATED|            Log.warning("from_node: %s" % from_node)
- 
+
     def set_ast(self, ast, query):
         """
         Complete an AST in order to take into account SELECT and WHERE clauses
@@ -85,7 +69,6 @@ class QueryPlan(object):
         Build the QueryPlan involving several Gateways according to a 3nf
         graph and a user Query.
         Raises:
-            ValueError if the query is not coherent (invalid table name...).
             RuntimeError if the QueryPlan cannot be built.
         Args:
             query: The Query issued by the user.
@@ -103,7 +86,7 @@ class QueryPlan(object):
 
         root_table = db_graph.find_node(query.get_from())
         if not root_table:
-            raise ValueError("Cannot find %s in db_graph, known tables are {%s}" % (
+            raise RuntimeError("Cannot find %s in db_graph, known tables are {%s}" % (
                 query.get_from(),
                 ", ".join(db_graph.get_table_names()))
             )
@@ -130,8 +113,7 @@ class QueryPlan(object):
             # The Stack is empty, so we have explored the DBGraph
             # without finding the every queried fields.
             if not task:
-                Log.warning("Exploration terminated without finding fields: %r" % missing_fields)
-                break
+                raise RuntimeError("Exploration terminated without finding fields: %r" % missing_fields)
 
             pathstr = '.'.join(task.path)
             if not pathstr in seen:
@@ -145,7 +127,7 @@ class QueryPlan(object):
             task.cancel()
     
         # Do we need to wait for self.ast here ?
-        return self.ast.get_root()
+        return self.ast.get_root() if self.ast else None
 
     # XXX Note for later: what about holes in the subquery chain. Is there a notion
     # of inject ? How do we collect subquery results two or more levels up to match

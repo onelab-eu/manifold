@@ -26,10 +26,12 @@ class SyncReceiver(Consumer):
 
     def __init__(self):
         """
-        Constructor.
+        Constructor. Lifetime of a SyncReceiver corresponds to the Query
+        it transports and the corresponding results retrieval.
         """
         Consumer.__init__(self)
-        self._records = Records()
+        self._records = Records() # Records resulting from a Query
+        self._errors = list()     # ResultValue to errors which have occured 
         self._event = threading.Event()
 
     #---------------------------------------------------------------------------
@@ -57,12 +59,7 @@ class SyncReceiver(Consumer):
                 do_stop = False
                 self._records.append(packet)
         elif packet.get_type() == Packet.TYPE_ERROR:
-            message = packet.get_message()
-            trace   = packet.get_traceback()
-            raise Exception("%(message)s%(trace)s" % {
-                "message" : message if message else "(No message)",
-                "trace"   : trace   if trace   else "(No traceback)"
-            })
+            self._errors.append(packet.to_result_value())
         else:
             Log.warning(
                 "SyncReceiver::receive(): Invalid Packet type (%s, %s)" % (
@@ -97,4 +94,7 @@ class SyncReceiver(Consumer):
             is blocking until having fetched the whole set of Records
             corresponding to this Query.
         """
+        #if self._errors != list():
         return ResultValue.get_success(self.get_records())
+        #else:
+        #    return ResultValue.get_error(ResultValue.ERROR, self._errors)
