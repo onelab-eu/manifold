@@ -9,6 +9,8 @@
 #   Jordan Augé       <jordan.auge@lip6.fr>
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
+import traceback
+
 from manifold.core.capabilities     import Capabilities
 from manifold.core.dbnorm           import to_3nf 
 from manifold.core.dbgraph          import DBGraph
@@ -138,11 +140,13 @@ class Router(Interface):
         # Build the AST and retrieve the corresponding root_node Operator instance.
         query = packet.get_query()
         annotation = packet.get_annotation()
-        root_node = self._operator_graph.build_query_plan(query, annotation)
-
-        # Execute the operators related to the socket, if needed.
-        if root_node: 
+        try:
+            root_node = self._operator_graph.build_query_plan(query, annotation)
             root_node.add_consumer(socket)
+            Log.tmp(root_node)
             socket.receive(packet)
-        else:
-            socket.receive(ErrorPacket("Unable to build a suitable Query Plan (query = %s)" % query))
+        except RuntimeError, e:
+            socket.receive(ErrorPacket(
+                "Unable to build a suitable Query Plan (query = %s): %s" % (query, e),
+                traceback.format_exc()
+            ))

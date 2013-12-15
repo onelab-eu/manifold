@@ -546,7 +546,7 @@ class Shell(object):
                     Shell.print_error(nested_result_value)
                     return
             else:
-                print result_value["description"]
+                result_value["description"]
 
     @returns(ResultValue)
     def evaluate(self, command, value = False):

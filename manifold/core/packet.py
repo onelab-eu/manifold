@@ -30,6 +30,7 @@ from types                      import StringTypes
 
 from manifold.core.annotation   import Annotation
 from manifold.core.query        import Query
+from manifold.core.result_value import ResultValue
 from manifold.util.log          import Log 
 from manifold.util.type         import accepts, returns
 
@@ -215,19 +216,28 @@ class QueryPacket(Packet):
 # NOTE: This class will probably disappear and we will use only the Packet class
 class ErrorPacket(Packet):
     """
-    Equivalent to current ResultValue
-    Equivalent to current ICMP errors
+    Equivalent to current ResultValue (in case of failure)
+    Analog with ICMP errors packets in IP networks
     """
-    def __init__(self, message = None, traceback = None):
+    def __init__(self, message = None, traceback = None, origin = ResultValue.CORE, code = ResultValue.ERROR, type = ResultValue.ERROR):
         """
         Constructor.
         Args:
             message: A String containing the error message or None.
             traceback: A String containing the traceback or None.
+            origin: A value among {ResultValue.CORE, ResultValue.GATEWAY}
+            code: See manifold.core.result_value 
+            type: A value among {ResultValue.SUCCESS, ResultValue.WARNING}
         """
         Packet.__init__(self, Packet.TYPE_ERROR)
-        self._message   = message
-        self._traceback = traceback
+
+        # Each attribute is prefixed "_error" to avoid collisions Packet class' attributes
+        self._error_origin    = origin 
+        self._error_code      = code 
+        self._error_type      = type 
+        self._error_message   = message
+        self._error_traceback = traceback
+        Log.tmp(">> CREATING ERROR PACKET message = %s" % message)
 
     @returns(StringTypes)
     def get_message(self):
@@ -235,7 +245,7 @@ class ErrorPacket(Packet):
         Returns:
             The error message related to this ErrorPacket.
         """
-        return self._message
+        return self._error_message
 
     @returns(StringTypes)
     def get_traceback(self):
@@ -243,5 +253,56 @@ class ErrorPacket(Packet):
         Returns:
             The traceback related to this ErrorPacket.
         """
-        return self._traceback
+        return self._error_traceback
 
+    @returns(int)
+    def get_origin(self):
+        """
+        Returns:
+            A value among {ResultValue.CORE, ResultValue.GATEWAY}
+            identifying who is the origin of this ErrorPacket.
+        """
+        return self._error_origin 
+
+    @returns(int)
+    def get_code(self):
+        """
+        Returns:
+            The error code of the Error carried by this ErrorPacket.
+            See manifold.core.result_value
+        """
+        return self._error_code
+
+    @returns(int)
+    def get_type(self):
+        """
+        Returns:
+            The error type of the Error carried by this ErrorPacket.
+            See manifold.core.result_value
+        """
+        return self._error_type
+
+    @returns(StringTypes)
+    def __repr__(self):
+        """
+        Returns:
+            The '%r' representation of this QUERY Packet.
+        """
+        return "<Packet.%s %s>" % (
+            Packet.get_type_name(self.get_type()),
+            self.to_result_value()
+        )
+
+    @returns(ResultValue)
+    def to_result_value(self):
+        """
+        Returns:
+            The ResultValue corresponding to this ErrorPacket.
+        """
+        return ResultValue(
+            origin      = self.get_origin(), 
+            code        = self.get_code(),
+            type        = self.get_type(), 
+            description = self.get_message(),
+            traceback   = self.get_traceback()
+        )
