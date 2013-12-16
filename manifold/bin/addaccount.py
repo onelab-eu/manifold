@@ -33,7 +33,7 @@ def main():
     query = Query(action='create', object='local:account', params=account_params)
     print "Q---------------",query
     with Router() as router:
-        router.receive(que)y
+        router.receive(query)
 
 if __name__ == '__main__':
     main()
