@@ -131,18 +131,25 @@ class Router(Interface):
         assert isinstance(packet, Packet) and packet.get_type() == Packet.TYPE_QUERY, \
             "Invalid packet %s (%s) (%s) (invalid type)" % (packet, type(packet))
 
+        print "Router received a query", packet.get_query()
         # Create a Socket holding the connection information and bind it.
+        print "Create socket..."
         socket = Socket(consumer = packet.get_receiver())
+        print "... and set its receiver"
         packet.set_receiver(socket)
 
         # Build the AST and retrieve the corresponding root_node Operator instance.
+        print "Build the AST"
         query = packet.get_query()
         annotation = packet.get_annotation()
         root_node = self._operator_graph.build_query_plan(query, annotation)
 
         # Execute the operators related to the socket, if needed.
         if root_node: 
+            print "Root node", root_node, "got added the socket as a consumer", socket
             root_node.add_consumer(socket)
+            print "=====> Socket should now have a producer", socket
+            print "Socket is receiving packet", packet
             socket.receive(packet)
         else:
             socket.receive(ErrorPacket("Unable to build a suitable Query Plan (query = %s)" % query))

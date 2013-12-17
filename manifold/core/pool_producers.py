@@ -16,8 +16,8 @@ class PoolProducers(set):
         """
         Constructor.
         """
-        assert isinstance(max_producers, int)
-        assert max_producers >= 0
+        assert not max_producers or isinstance(max_producers, int), "max_producers not an int: %r" % max_producers
+        assert not max_producers or max_producers >= 0
  
         if not producers:
             producers = set()

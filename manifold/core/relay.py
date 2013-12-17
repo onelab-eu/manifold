@@ -85,5 +85,5 @@ class Relay(Producer, Consumer):
         Release from memory this Relay.
         Recursively remove in cascade Consumers having no more Producer
         """
-        Producer.release(self)
+        #Producer.release(self)
         Consumer.release(self)

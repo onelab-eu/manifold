@@ -105,7 +105,7 @@ class LeftJoin(Operator):
             left_packet        = packet.clone()
             self._right_packet = packet.clone() 
 
-            self._producers.send_parent(packet)
+            self._producers.send_parent(left_packet)
 
         elif packet.get_type() == Packet.TYPE_RECORD:
             record = packet

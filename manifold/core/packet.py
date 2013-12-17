@@ -245,3 +245,18 @@ class ErrorPacket(Packet):
         """
         return self._traceback
 
+    @returns(StringTypes)
+    def __repr__(self):
+        """
+        Returns:
+            The '%r' representation of this QUERY Packet.
+        """
+        return "<ErrorPacket: %s>" % self.get_message()
+
+    @returns(StringTypes)
+    def __str__(self):
+        """
+        Returns:
+            The '%s' representation of this QUERY Packet.
+        """
+        return self.__repr__() 

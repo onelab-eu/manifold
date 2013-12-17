@@ -221,6 +221,7 @@ class Producer(Node):
         Unlink this Producer from its Consumers.
         Recusively release in cascade Consumers having no more Producer.
         """
+        raise Exception, "releasing a producer is meaningless"
         for consumer in self.get_consumers():
             consumer.del_producer(self, cascade = True)
             # This Producer is the only one of this parent Consumer, so we can

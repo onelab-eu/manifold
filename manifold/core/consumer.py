@@ -168,6 +168,8 @@ class Consumer(Node):
         having no more Consumer (resp. Producer)
         """
         for producer in self.get_producers():
+            print "self=", self
+            print "producer = ", producer
             producer.del_consumer(self, cascade = True)
             # This Consumer has only this child Producer, so we can
             # safely release this childless Consumer.

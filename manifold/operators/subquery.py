@@ -37,63 +37,83 @@ class SubQuery(Operator):
         self.children represents each subqueries involved in the SUBQUERY operation.
     """
 
-    def __init__(self, parent, children_ast_relation_list):
+    #---------------------------------------------------------------------------
+    # Constructor
+    #---------------------------------------------------------------------------
+
+    def __init__(self, parent_producer, producer_relation_list):
         """
         Constructor
         Args:
             parent: The main query (AST instance ?)
             children_ast_relation_list: A list of (AST , Relation) tuples
         """
-        super(SubQuery, self).__init__()
+        # Check parameters
 
-        # Parameters
-        self.parent = parent
-
-        # Remove potentially None children
-        # TODO  how do we guarantee an answer to a subquery ? we should branch
-        # an empty FromList at query plane construction
-        self.children = []
+        producers = []
         self.relations = []
-        for ast, relation in children_ast_relation_list:
-            self.children.append(ast)
+        for producer, relation in producer_relation_list:
+            producers.append(producer)
             self.relations.append(relation)
+
+        # Initialization
+        super(SubQuery, self).__init__(producers, parent_producer, has_parent_producer = True)
 
         # Member variables
         self.parent_output = []
 
-        # Set up callbacks
-        old_cb = parent.get_callback()
-        parent.set_callback(self.parent_callback)
-        self.set_callback(old_cb)
-
-        self.query = self.parent.get_query().copy()
-        for i, child in enumerate(self.children):
-            self.query.fields.add(child.get_query().get_from())
-            # Adding dotted fields like "hops.ttl"
-            self.query.fields |= set([
-                ".".join([
-                    self.relations[i].get_relation_name(),
-                    field_name
-                ]) for field_name in child.get_query().get_select()
-            ])
-
         # Prepare array for storing results from children: parent result can
         # only be propagated once all children have replied
+        # XXX
         self.child_results = []
         self.status = ChildStatus(self.all_done)
-        for i, child in enumerate(self.children):
-            child.set_callback(ChildCallback(self, i))
+        for producer in producers:
             self.child_results.append([])
 
+    #---------------------------------------------------------------------------
+    # Internal methods
+    #---------------------------------------------------------------------------
 
-    @returns(Query)
-    def get_query(self):
+    @returns(StringTypes)
+    def __repr__(self):
+        return DUMPSTR_SUBQUERIES
+
+    #---------------------------------------------------------------------------
+    # Methods
+    #---------------------------------------------------------------------------
+
+    def receive(self, packet):
         """
-        \brief Returns the query representing the data produced by the nodes.
-        \return query representing the data produced by the nodes.
         """
-        # Query is unchanged XXX ???
-        return Query(self.parent.get_query())
+
+        if packet.get_type() == Packet.TYPE_QUERY:
+            parent_packet         = packet.clone()
+            self._children_packet = packet.clone() 
+
+            self._producers.send_parent(parent_packet)
+
+        elif packet.get_type() == Packet.TYPE_RECORD:
+            if packet.get_source() == self._producers.get_parent_producer(): # XXX
+                # formerly parent_callback
+                if record.is_last():
+                    # When we have received all parent records, we can run children
+                    if self.parent_output:
+                        self._run_children()
+                    return
+                # Store the record for later...
+                self.parent_output.append(record)
+
+            else:
+                # formerly child callback
+                if record.is_last():
+                    self.status.completed(child_id)
+                    return
+                # Store the results for later...
+                self.child_results[child_id].append(record)
+
+
+        else: # TYPE_ERROR
+            self.send(packet)
 
     def dump(self, indent = 0):
         """
@@ -109,30 +129,6 @@ class SubQuery(Operator):
         for child in self.children:
             child.dump(indent + 1)
 
-    @returns(StringTypes)
-    def __repr__(self):
-        return DUMPSTR_SUBQUERIES
-
-#DEPRECATED|    def start(self):
-#DEPRECATED|        """
-#DEPRECATED|        Propagates a START message through the node
-#DEPRECATED|        """
-#DEPRECATED|        # Start the parent first
-#DEPRECATED|        self.parent.start()
-
-    def parent_callback(self, record):
-        """
-        Processes records received by the parent node
-        Args:
-            record: A dictionary representing the received record
-        """
-        if record.is_last():
-            # When we have received all parent records, we can run children
-            if self.parent_output:
-                self.run_children()
-            return
-        # Store the record for later...
-        self.parent_output.append(record)
 
     @staticmethod
     def get_element_key(element, key):
@@ -143,7 +139,7 @@ class SubQuery(Operator):
             # id or tuple(id1, id2, ...)
             return element
 
-    def run_children(self):
+    def _run_children(self):
         """
         Run children queries (subqueries) assuming the parent query (main query)
         has successfully ended.
@@ -402,25 +398,8 @@ class SubQuery(Operator):
             print "EEE", e
             traceback.print_exc()
 
-    def child_callback(self, child_id, record):
-        """
-        \brief Processes records received by a child node
-        \param record dictionary representing the received record
-        """
-        if record.is_last():
-            self.status.completed(child_id)
-            return
-        # Store the results for later...
-        self.child_results[child_id].append(record)
-
-    def inject(self, records, key, query):
-        """
-        \brief Inject record / record keys into the node
-        \param records list of dictionaries representing records, or list of
-        """
-        raise Exception, "Not implemented"
-
     def optimize_selection(self, filter):
+        return self
         parent_filter, top_filter = Filter(), Filter()
         for predicate in filter:
             if predicate.get_field_names() <= self.parent.get_query().get_select():
@@ -449,6 +428,7 @@ class SubQuery(Operator):
         Returns:
             The optimized AST once this projection has been propagated.
         """
+        return self
         # 1) Determine for the parent and each child which fields are explicitely
         #    queried by the user.
         # 2) Determine for the parent and each child which additionnal fields are
