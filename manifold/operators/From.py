@@ -60,14 +60,15 @@ class From(Operator):
 
         Log.tmp("query = %s" % query)
 
-        # The producer will be set once a QUERY will be received
-        super(From, self).__init__(max_producers = 1)
-
         self.query        = query
         self.capabilities = capabilities
         self.key          = key
 
         self._gateway     = gateway
+
+        # The producer will be set once a QUERY will be received
+        super(From, self).__init__(max_producers = 1)
+
 
 #DEPRECATED|    def add_fields_to_query(self, field_names):
 #DEPRECATED|        """
@@ -104,11 +105,14 @@ class From(Operator):
             The name of the platform queried by this FROM node.
         """
         #return "%s" % self.get_query().to_sql(platform = self.get_platform_name())
-        return "FROM %s:%s (%s)" % (
-            self.get_platform_name(),
-            self.get_query().get_from(),
-            self.get_query().to_sql(platform = self.get_platform_name())
-        )
+        try:
+            return "FROM %s:%s (%s)" % (
+                self.get_platform_name(),
+                self.get_query().get_from(),
+                self.get_query().to_sql(platform = self.get_platform_name())
+            )
+        except Exception, e:
+            print "Exception in repr: %s" % e
 
 #DEPRECATED|    #@returns(From)
 #DEPRECATED|    def inject(self, records, key, query):
@@ -179,22 +183,48 @@ class From(Operator):
         Args:
             packet: A Packet instance.
         """
+        Log.tmp("From::receive")
         # Register this flow in the Gateway
         if packet.get_type() == Packet.TYPE_QUERY:
-            self.get_gateway().add_flow(packet.get_query(), self)
+            print "From receive query"
+            try:
+                print "xxx"
+                # XXX This triggers an error the second time
 
-        # A From Operator forwards the incoming Packets without modification.
-        self.send(packet)
+                self.get_gateway().add_flow(packet.get_query(), self)
+                print "xxx"
+                packet.set_receiver(self)
+                print "xxx"
+                self.get_gateway().receive(packet) #self.send(packet)
+                print "xxx"
+            except Exception, e:
+                print "EXC FROM", e
+#jo#
+#jo#        # A From Operator forwards the incoming Packets without modification.
+#jo#        try:
+#jo#            print "Before From::send --1--"
+#jo#            print "Before From::send --3--", self
+#jo#            print "Before From::send --1--"
+#jo#        except Exception, e:
+#jo#            print "zzz", e
+#jo#        # Jordan changed this also:
+#jo#        print "send, i expect producers to receive"
+#jo#        print "send, i expect producers to receive" , self._producers
+#jo#        self.send(packet)
+
+        elif packet.get_type() == Packet.TYPE_RECORD:
+            print "from receive record"
+            self.send(packet)
     
-    def receive(self, packet):
-        if packet.get_type() == Packet.TYPE_QUERY:
-            query = packet.get_query()
-            from_select = self.get_query().get_select()
-            from_where = self.get_where()
-            if query.get_select() < from_select:
-                query.fields = from_select
-            query.filter_by(from_where)
-        self.send(packet)
+#    def receive(self, packet):
+#        if packet.get_type() == Packet.TYPE_QUERY:
+#            query = packet.get_query()
+#            from_select = self.get_query().get_select()
+#            from_where = self.get_where()
+#            if query.get_select() < from_select:
+#                query.fields = from_select
+#            query.filter_by(from_where)
+#        self.send(packet)
 
     @returns(Operator)
     def optimize_selection(self, query, filter):
@@ -224,7 +254,28 @@ class From(Operator):
             #old for predicate in filter:
             #old    self.query.filters.add(predicate)
             return self
+        elif self.capabilities.join:
+            key_filter, remaining_filter = filter.split_fields(self.key.get_field_names())
+
+            if key_filter:
+                # We push only parts related to the key (unless fullquery)
+                if self.capabilities.fullquery:
+                    self.query.filter_by(filter)
+                else:
+                    self.query.filter_by(key_filter)
+
+            if remaining_filter:
+                # FROM (= self) becomes the new producer for Selection
+                selection = Selection(self, remaining_filter)
+                selection.set_producer(self)
+                return selection
+
+            else:
+                return self
+
         else:
+            # XXX New rework just like the previous elif XXX
+
             # Create a new Selection node
             consumers = self.get_consumers()
             self.clear_consumers() # XXX We must only unlink consumers involved in the QueryPlan that we're optimizing and create a new From node 

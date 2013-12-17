@@ -17,7 +17,12 @@ from sqlalchemy                     import create_engine
 from sqlalchemy                     import types
 from sqlalchemy.ext.declarative     import declarative_base
 from sqlalchemy.orm                 import sessionmaker
-from sqlalchemy.util._collections   import NamedTuple
+
+try:
+    from sqlalchemy.util._collections   import NamedTuple
+except ImportError:
+    # NamedTuple was renamed in latest sqlalchemy versions
+    from sqlalchemy.util._collections   import KeyedTuple as NamedTuple
 
 from manifold.core.announce         import Announce
 from manifold.core.annotation       import Annotation

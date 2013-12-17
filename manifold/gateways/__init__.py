@@ -79,6 +79,7 @@ class Gateway(Producer):
         self._capabilities    = Capabilities()  # XXX in the meantime we support all capabilities
         self._pit             = Pit(self)       # Pit
 
+
     #---------------------------------------------------------------------------  
     # Accessors
     #---------------------------------------------------------------------------  
@@ -296,9 +297,11 @@ class Gateway(Producer):
         Args:
             packet: A Packet instance.
         """
-        super(Gateway, self).check_send(packet)
-        assert packet.get_type() ==  Packet.TYPE_ERROR,\
-            "Invalid packet type (%s)" % packet
+#jo#        super(Gateway, self).check_send(packet)
+#jo#        assert packet.get_type() ==  Packet.TYPE_ERROR,\
+#jo#            "Invalid packet type (%s)" % packet
+        # A packet is a packet and should be sent !
+        pass
 
     @returns(Socket)
     def get_socket(self, query):
@@ -329,6 +332,7 @@ class Gateway(Producer):
             query: A Query instance correponding to a pending Query.
             consumer: A Consumer instance (a From instance most of time). 
         """
+        print "adding flow to pit"
         self._pit.add_flow(query, consumer)
 
     @staticmethod
@@ -386,6 +390,9 @@ class Gateway(Producer):
         self.get_pit().del_receiver(receiver)
         if cascade:
             receiver.del_producer(self, cascade = False)
+
+    def release(self):
+        print "Not releasing gw"
         
     def close(self, query):
         """

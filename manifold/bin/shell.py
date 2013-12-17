@@ -135,7 +135,10 @@ class ManifoldLocalClient(ManifoldClient):
         Method that should be overloaded and used to log
         information while running the Query (level: INFO).
         """
-        Log.info("Shell using local account %s" % self.user["email"])
+        if self.user:
+            Log.info("Shell using local account %s" % self.user["email"])
+        else:
+            Log.info("Shell using no account")
 
     #@returns(dict)
     def whoami(self):

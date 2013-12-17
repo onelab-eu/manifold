@@ -47,15 +47,18 @@ class Pit(object):
         assert isinstance(receiver, Consumer), \
             "Invalid receiver = %s (%s)" % (receiver, type(receiver))
 
-        try:
-            # If no exception is raised, there is an existing Socket can be reused.
-            socket = self._map_query_socket[query]
-            socket.add_receiver(receiver) 
-        except KeyError:
-            # We need to create a new Socket 
-            socket = Socket(receiver)
-            socket.set_producer(self._producer, cascade = False) 
-            self._map_query_socket[query] = socket 
+        #try:
+        #    # If no exception is raised, there is an existing Socket can be reused.
+        #    Log.tmp("Why would we reuse a socket here, for a non streaming query")
+        #    socket = self._map_query_socket[query]
+        #    print "socket from pit", socket
+        #    socket.add_producer(receiver) 
+        #except KeyError:
+        # We need to create a new Socket 
+        socket = Socket(receiver)
+        # XXX
+        socket.set_producer(self._producer, cascade = False) 
+        self._map_query_socket[query] = socket 
 
         self._map_receiver_query[receiver] = query
         return socket
