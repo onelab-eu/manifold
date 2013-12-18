@@ -276,7 +276,7 @@ class ManifoldXMLRPCClient(ManifoldClient):
         if not annotation:
             annotation = Annotation() 
         annotation.update(self.annotation)
-        return self.router.forward(query.to_dict(), annotation.to_dict())
+        return ResultValue(self.router.forward(query.to_dict(), annotation.to_dict()))
         
 
     @defer.inlineCallbacks
