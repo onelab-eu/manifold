@@ -244,7 +244,7 @@ class Proxy(xmlrpc.Proxy):
                 self.result = result
                 self.event.set()
             def proxy_error_cb(failure):
-                self.error = failure.trap(Exception)
+                self.error = failure
                 self.event.set()
             
             #@defer.inlineCallbacks
@@ -256,9 +256,9 @@ class Proxy(xmlrpc.Proxy):
             self.event.wait()
             self.event.clear()
             if self.error:
-                e = self.error
+                failure = self.error
                 self.error = None
-                raise e
+                raise Exception, "Error in proxy: %s" % failure # .trap(Exception)
             result = self.result
             self.result = None
             return result
