@@ -61,7 +61,7 @@ class ResultValue(dict):
 
     ALLOWED_FIELDS = set(['origin', 'type', 'code', 'value', 'description', 'traceback', 'ts'])
 
-    def __init__(self, **kwargs):
+    def __init__(self, *args, **kwargs):
         """
         Constructor.
         Args:
@@ -81,6 +81,13 @@ class ResultValue(dict):
         """ 
         
         # Checks
+        if args:
+            if kwargs:
+                raise Exception, "Bad initialization for ResultValue"
+
+            if len(args) == 1 and isinstance(args[0], dict):
+                kwargs = args[0]
+            
         given = set(kwargs.keys())
         cstr_success = set(['code', 'origin', 'value']) <= given
         cstr_error   = set(['code', 'type', 'origin', 'description']) <= given
@@ -146,6 +153,17 @@ class ResultValue(dict):
 
     def ok_value(self):
         return self['value']
+
+    def get_all(self):
+        if not self.is_success():
+            raise Exception, "Error executing query: %s" % e
+        return self.ok_value()
+
+    def get_one(self):
+        records = self.get_all()
+        if len(records) > 1:
+            raise Exception, "More than 1 record"
+        return records[0]
 
     @returns(StringTypes)
     def get_error_message(self):
