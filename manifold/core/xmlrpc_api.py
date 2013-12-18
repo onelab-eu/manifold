@@ -2,8 +2,10 @@ import traceback,copy
 from twisted.web                        import xmlrpc
 from twisted.web.xmlrpc                 import withRequest
 from manifold.auth                      import Auth
+from manifold.core.annotation		import Annotation
 from manifold.core.deferred_receiver    import DeferredReceiver
 from manifold.core.query                import Query
+from manifold.core.packet		import QueryPacket
 from manifold.core.result_value         import ResultValue
 from manifold.util.options              import Options
 from manifold.util.log                  import Log
@@ -102,15 +104,12 @@ class XMLRPCAPI(xmlrpc.XMLRPC, object):
                 return dict(ResultValue.get_error(ResultValue.FORBIDDEN, msg))
 
         query = Query(query)
-        # self.interface is either a Router or a Forwarder
-        # forward function is called with is_deferred = True in args
-        if not annotation:
-            annotation = {}
+	annotation = Annotation(annotation) if annotation else Annotation()
         annotation['user'] = user
         receiver = DeferredReceiver()
 
         packet = QueryPacket(query, annotation, receiver = receiver)
-        self.interface.send(packet)
+        self.interface.receive(packet)
 
         return receiver.get_deferred()
 
