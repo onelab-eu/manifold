@@ -42,7 +42,7 @@ class DeferredReceiver(Consumer):
         Stop the DeferredReceiver by triggering its callback.
         """
         result_value = ResultValue.get_success(self._records.to_list())
-        self._deferred.callback(result_value)
+        self._deferred.callback(result_value.to_dict())
 
 #DEPRECATED|        def process_results(rv):
 #DEPRECATED|            if 'description' in rv and isinstance(rv['description'], list):
