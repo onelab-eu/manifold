@@ -372,7 +372,10 @@ class SFAGateway(Gateway):
             cache.add(cache_key, version, ttl= 60*20)
 
         # version as a property of the gateway instanciated, to be used in the parser
-        self.version = version
+        if version['interface'] == 'registry':
+            self.registry_version = version
+        else:
+            self.am_version = version
 
         defer.returnValue(version)
 
@@ -844,7 +847,7 @@ class SFAGateway(Gateway):
         api_options ['append'] = False
         api_options ['call_id'] = unique_call_id()
 
-        if self.version['geni_api'] == 2:
+        if self.am_version['geni_api'] == 2:
             # AM API v2
             ois = yield self.ois(self.sliceapi, api_options)
             result = yield self.sliceapi.CreateSliver(slice_urn, [slice_cred], rspec, users, ois)
@@ -1433,7 +1436,7 @@ class SFAGateway(Gateway):
         else:
             cred = self._get_cred('user')
 
-        if self.version['geni_api'] == 2:
+        if self.am_version['geni_api'] == 2:
             # AM API v2 
             result = yield self.sliceapi.ListResources([cred], api_options)
         else:
