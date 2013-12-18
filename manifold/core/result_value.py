@@ -155,6 +155,9 @@ class ResultValue(dict):
     def to_html(raw_dict):
         return pprint.pformat(raw_dict).replace("\\n","<br/>")
 
+    def to_dict(self):
+        return dict(self)
+
 # 67    <code>
 # 68      <value>9</value>
 # 69      <label>DBERROR</label>
