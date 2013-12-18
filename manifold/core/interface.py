@@ -289,13 +289,13 @@ class Interface(object):
         args = [self, platform_name, platform_config]
 
         # Gateway is a plugin_factory
-	if platform['gateway_type']:
-	    gateway_type = platform['gateway_type']
-	else:
+        if platform['gateway_type']:
+            gateway_type = platform['gateway_type']
+        else:
             Log.warning("No gateway_type for platform '%s'. Defaulting to MANIFOLD." % platform['platform'])
-	    gateway_type = 'manifold'
+            gateway_type = 'manifold'
 
-        gateway = Gateway.get(platform["gateway_type"])
+        gateway = Gateway.get(gateway_type)
         if not gateway:
             raise Exception, "Gateway not found: %s" % platform["gateway_type"]
         return gateway(*args)
