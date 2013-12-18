@@ -40,7 +40,7 @@ DEFAULT_PKEY_FILE = '/etc/manifold/keys/client.pkey'
 DEFAULT_CERT_FILE = '/etc/manifold/keys/client.cert'
 
 class ManifoldClient(object):
-    def log_info(self):
+    def log_message(self):
         """
         Method that should be overloaded and used to log
         information while running the Query (level: INFO).
@@ -130,15 +130,15 @@ class ManifoldLocalClient(ManifoldClient):
         # This code is blocking
         return receiver.get_result_value()
 
-    def log_info(self):
+    def log_message(self):
         """
         Method that should be overloaded and used to log
         information while running the Query (level: INFO).
         """
         if self.user:
-            Log.info("Shell using local account %s" % self.user["email"])
+            return "Shell using local account %s" % self.user["email"]
         else:
-            Log.info("Shell using no account")
+            return "Shell using no account"
 
     #@returns(dict)
     def whoami(self):
@@ -312,8 +312,8 @@ class ManifoldXMLRPCClientSSLPassword(ManifoldXMLRPCClient):
         self.router = Proxy(self.url, allowNone=True, useDateTime=False)
         self.router.setSSLClientContext(ssl.ClientContextFactory())
 
-    def log_info(self):
-        Log.info("Shell using XMLRPC account '%r' (password) on %s" % (self.username, self.url))
+    def log_message(self):
+        return "Shell using XMLRPC account '%r' (password) on %s" % (self.username, self.url)
 
 class ManifoldXMLRPCClientSSLGID(ManifoldXMLRPCClient):
     
@@ -341,8 +341,8 @@ class ManifoldXMLRPCClientSSLGID(ManifoldXMLRPCClient):
         # This has to be tested to get rid of the previously defined CtxFactory class
         self.router.setSSLClientContext(ssl.DefaultOpenSSLContextFactory(pkey_file, cert_file))
 
-    def log_info(self):
-        Log.info("Shell using XMLRPC account '%r' (GID) on %s" % (self.gid_subject, self.url))
+    def log_message(self):
+        return "Shell using XMLRPC account '%r' (GID) on %s" % (self.gid_subject, self.url)
 
 class Shell(object):
 
@@ -427,19 +427,18 @@ class Shell(object):
         #parser.add_argument("-m", "--method", help = "API authentication method")
         #parser.add_argument("-s", "--session", help = "API session key")
 
-#XXX#<<<<<<< HEAD
-#XXX#    def __init__(self, interactive = False):
-#XXX#        """
-#XXX#        Constructor.
-#XXX#        Args:
-#XXX#            interactive: A boolean.
-#XXX#        """
-#XXX#        super(Shell, self).__init__()
-#XXX#        self.interactive = interactive
-#XXX#
-#XXX#        if not Options().anonymous:
-#XXX#            # If user is specified but password is not
-#XXX#=======
+    def authenticate_local(self, username):
+        self.client = ManifoldLocalClient(username)
+
+    def authenticate_xmlrpc_password(self, url, username, password):
+        self.client = ManifoldXMLRPCClientSSLPassword(url, username, password)
+
+    def authenticate_xmlrpc_gid(self, url, pkey_file, cert_file):
+        self.client = ManifoldXMLRPCClientSSLGID(url, pkey_file, cert_file)
+
+    def authenticate_anonymous(self, url, pkey_file, cert_file):
+        self.client = ManifoldXMLRPCClientSSLPassword(url)
+
     def select_auth_method(self, auth_method):
         if auth_method == 'auto':
             for method in ['local', 'gid', 'password']:
@@ -453,10 +452,8 @@ class Shell(object):
             raise Exception, "Could not authentication automatically (tried: local, gid, password)"
 
         elif auth_method == 'local':
-#XXX#>>>>>>> devel
             username = Options().username
-            
-            self.client = ManifoldLocalClient(username)
+            self.authenticate_local(username)
 
         else: # XMLRPC 
             url = Options().xmlrpc_url
@@ -464,8 +461,7 @@ class Shell(object):
             if auth_method == 'gid':
                 pkey_file = Options().pkey_file
                 cert_file = Options().cert_file
-
-                self.client = ManifoldXMLRPCClientSSLGID(url, pkey_file, cert_file)
+                self.authenticate_xmlrpc_gid(url, pkey_file, cert_file)
 
             elif auth_method == 'password':
                 # If user is specified but password is not
@@ -484,11 +480,11 @@ class Shell(object):
                     else:
                         Log.warning("No password specified, using default.")
 
-                self.client = ManifoldXMLRPCClientSSLPassword(url, username, password)
+                self.authenticate_xmlrpc_password(url, username, password)
 
             elif auth_method == 'anonymous':
 
-                self.client = ManifoldXMLRPCClientSSLPassword(url)
+                self.authenticate_anonymous(url)
 
             else:
                 raise Exception, "Authentication method not supported: '%s'" % auth_method
@@ -508,7 +504,7 @@ class Shell(object):
 
         self.select_auth_method(auth_method)
         if self.interactive:
-            self.client.log_info()
+            Log.info(self.client.log_message())
 
     def terminate(self):
         """
