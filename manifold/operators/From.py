@@ -188,15 +188,9 @@ class From(Operator):
         if packet.get_type() == Packet.TYPE_QUERY:
             print "From receive query"
             try:
-                print "xxx"
-                # XXX This triggers an error the second time
-
                 self.get_gateway().add_flow(packet.get_query(), self)
-                print "xxx"
                 packet.set_receiver(self)
-                print "xxx"
                 self.get_gateway().receive(packet) #self.send(packet)
-                print "xxx"
             except Exception, e:
                 print "EXC FROM", e
 #jo#
@@ -213,7 +207,7 @@ class From(Operator):
 #jo#        self.send(packet)
 
         elif packet.get_type() == Packet.TYPE_RECORD:
-            print "from receive record"
+            print "from receive record", packet
             self.send(packet)
     
 #    def receive(self, packet):
