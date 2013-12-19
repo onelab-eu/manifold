@@ -259,6 +259,7 @@ class Proxy(xmlrpc.Proxy):
                 failure = self.error
                 self.error = None
                 raise Exception, "Error in proxy: %s" % failure # .trap(Exception)
+
             result = self.result
             self.result = None
             return result
@@ -579,7 +580,7 @@ class Shell(object):
             result_value = self.client.forward(query)
         except Exception, e:
             import traceback
-            message = "Error executing query: %s: %s" % (e, traceback.print_exc())
+            message = "Error executing query: %s" % (e,)
             result_value = ResultValue.get_error(ResultValue.ERROR, message)
         return result_value
 
