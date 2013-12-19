@@ -156,7 +156,7 @@ class ResultValue(dict):
 
     def get_all(self):
         if not self.is_success():
-            raise Exception, "Error executing query: %s" % e
+            raise Exception, "Error executing query: %s" % self['description']
         return self.ok_value()
 
     def get_one(self):
