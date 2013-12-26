@@ -22,7 +22,8 @@ try:
     from sfa.trust.credential   import Credential
 except: pass
 
-from manifold.models            import Base, db
+from sqlalchemy import inspect
+from manifold.models            import Base #, db
 from manifold.models.user       import User
 from manifold.models.platform   import Platform
 from manifold.util.log          import Log 
@@ -147,6 +148,7 @@ class Account(Base):
             if 'config' in given_json_fields:
                 raise Exception, "Cannot mix full JSON specification & JSON encoded fields"
 
+            db = inspect(self).session
             r = db.query(Account.config)
             for filter in filters:
                 r = r.filter(filter)

@@ -30,7 +30,7 @@ from manifold.core.field            import Field
 from manifold.core.record           import Record, Records, LastRecord 
 from manifold.core.table            import Table
 from manifold.gateways              import Gateway
-from manifold.models                import db
+#from manifold.models                import db
 from manifold.models.account        import Account
 from manifold.models.linked_account import LinkedAccount
 from manifold.models.platform       import Platform
@@ -138,13 +138,20 @@ class SQLAlchemyGateway(Gateway):
         """
         super(SQLAlchemyGateway, self).__init__(interface, platform_name, platform_config)
 
+        engine = create_engine(platform_config["url"], echo = False)
+
         from manifold.models.base import Base
         Base = declarative_base(cls = Base)
-        
-        engine = create_engine(platform_config["url"], echo = False)
-        Base.metadata.create_all(engine)
         Session = sessionmaker(bind = engine)
         self.db = Session()
+        
+        from manifold.models.platform       import Platform
+        from manifold.models.user           import User
+        from manifold.models.account        import Account
+        from manifold.models.session        import Session
+        from manifold.models.linked_account import LinkedAccount
+        from manifold.models.policy         import Policy
+        Base.metadata.create_all(engine)
 
     #---------------------------------------------------------------------------
     # Methods
@@ -177,7 +184,7 @@ class SQLAlchemyGateway(Gateway):
         _fields = xgetattr(cls, fields) if fields else None
 
         # db.query(cls) seems to return NamedTuples
-        res = db.query(*_fields) if _fields else db.query(cls)
+        res = self.db.query(*_fields) if _fields else self.db.query(cls)
         if _filters: 
             for _filter in _filters:
                 res = res.filter(_filter)
@@ -248,8 +255,8 @@ class SQLAlchemyGateway(Gateway):
         # only 2.7+ _params = { getattr(cls, k): v for k,v in query.params.items() }
         _params = dict([ (getattr(cls, k), v) for k,v in _params.items() ])
        
-        #db.query(cls).update(_params, synchronize_session=False)
-        q = db.query(cls)
+        #self.db.query(cls).update(_params, synchronize_session=False)
+        q = self.db.query(cls)
         for _filter in _filters:
             q = q.filter(_filter)
 
@@ -258,9 +265,9 @@ class SQLAlchemyGateway(Gateway):
 
         q = q.update(_params, synchronize_session = False)
         try:
-            db.commit()
+            self.db.commit()
         except:
-            db.rollback()
+            self.db.rollback()
 
         return list() 
 
@@ -293,11 +300,11 @@ class SQLAlchemyGateway(Gateway):
         if params:
             for k, v in params.items():
                 setattr(new_obj, k, v)
-        db.add(new_obj)
+        self.db.add(new_obj)
         try:
-            db.commit()
+            self.db.commit()
         except:
-            db.rollback()
+            self.db.rollback()
         
         return [new_obj]
 
@@ -314,7 +321,7 @@ class SQLAlchemyGateway(Gateway):
         _filters = get_sqla_filters(cls, query.filters)
         _fields = xgetattr(cls, query.get_select()) if query.get_select() else None
 
-        res = db.query(*_fields) if _fields else db.query(cls)
+        res = self.db.query(*_fields) if _fields else self.db.query(cls)
         if query.filters:
             for _filter in _filters:
                 res = res.filter(_filter)

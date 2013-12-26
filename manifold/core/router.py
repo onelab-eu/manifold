@@ -28,6 +28,7 @@ from manifold.util.type             import returns, accepts
 #from manifold.util.reactor_wrapper  import ReactorWrapper as ReactorThread
 
 CACHE_LIFETIME     = 1800
+VAR_DIR            = '/var/manifold'
 
 #------------------------------------------------------------------
 # Class Router
@@ -37,13 +38,14 @@ CACHE_LIFETIME     = 1800
 # builds the query plan, and execute query plan using deferred if required
 #------------------------------------------------------------------
 
+# TODO remove Interface inheritance
 class Router(Interface):
 
     #---------------------------------------------------------------------------
     # Constructor
     #---------------------------------------------------------------------------
 
-    def __init__(self, user_storage = None, allowed_capabilities = None):
+    def __init__(self, user_storage = None, allowed_capabilities = None, var_dir = VAR_DIR):
         """
         Constructor.
         Args:
