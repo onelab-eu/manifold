@@ -14,8 +14,8 @@
 
 import json
 from sqlalchemy                 import Column, Integer, String
-
-from manifold.models            import Base, db
+from sqlalchemy                 import inspect
+from manifold.models            import Base #, db
 from manifold.util.type         import accepts, returns 
 
 
@@ -38,6 +38,7 @@ class User(Base):
             value: A String encoded in JSON containing
                 the new "config" related to this User.
         """
+        db = inspect(self).session
         self.config = json.dumps(value)
         db.add(self)
         db.commit()
@@ -66,11 +67,13 @@ class User(Base):
         Returns:
             The user ID related to an User.
         """
+        db = inspect(self).session
         ret = db.query(User.user_id).filter(User.email == user_params).one()
         return ret[0]
 
     @staticmethod
     def process_params(params, filters, user):
+        db = inspect(self).session
 
         # JSON ENCODED FIELDS are constructed into the json_fields variable
         given = set(params.keys())
@@ -102,6 +105,8 @@ class User(Base):
 
     @classmethod
     def params_ensure_user(cls, params, user):
+        db = inspect(self).session
+
         # A user can only create its own objects
         if cls.restrict_to_self:
             params['user_id'] = user['user_id']

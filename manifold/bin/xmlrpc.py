@@ -21,6 +21,7 @@ from manifold.core.router           import Router
 from manifold.core.record           import Record
 from manifold.core.capabilities     import Capabilities
 from manifold.models.platform       import Platform
+from manifold.util.filesystem       import ensure_writable_directory, ensure_keypair, ensure_certificate
 from manifold.util.log              import Log
 from manifold.util.options          import Options
 from manifold.util.daemon           import Daemon
@@ -98,11 +99,11 @@ class XMLRPCDaemon(Daemon):
             help = "Select the directory holding trusted root certificates",
             default = '/etc/manifold/trusted_roots/'
         )
-        opt.add_argument(
-            "-s", "--server-ssl-path", action="store_true", dest = "ssl_path",
-            help = "Select the directory holding the server private key and certificate for SSL",
-            default = '/etc/manifold/keys'
-        )
+#DEPRECATED|        opt.add_argument(
+#DEPRECATED|            "-s", "--server-ssl-path", action="store_true", dest = "ssl_path",
+#DEPRECATED|            help = "Select the directory holding the server private key and certificate for SSL",
+#DEPRECATED|            default = '/etc/manifold/keys'
+#DEPRECATED|        )
 
     # XXX should be removed
     def get_gateway_config(self, gateway_name):
@@ -140,8 +141,6 @@ class XMLRPCDaemon(Daemon):
         # This also imports manifold.util.reactor_thread that uses reactor
         from manifold.core.router       import Router
             
-
-
         assert not (Options().platform and Options().gateway), "Both gateway and platform cannot be specified at commandline" 
 
         # This imports twisted code so we need to import it locally
@@ -174,6 +173,34 @@ class XMLRPCDaemon(Daemon):
         else:
             self.interface = Router()
 
+        # SSL support
+
+        # XXX - should the directory be passed as an option ?
+        # XXX - is ensure_writable_directory creating directories recursively ?
+
+        manifold_etc_dir  = '/etc/manifold' # XXX
+        # XXX should ssl_path be a subdirectory of /etc/manifold ?
+        # ssl_path = Options().ssl_path
+        manifold_keys_dir = os.path.join(manifold_etc_dir, 'keys')
+        keypair_fn        = os.path.join(manifold_keys_dir, 'server.key')
+        certificate_fn    = os.path.join(manifold_keys_dir, 'server.cert')
+
+        ensure_writable_directory('/etc/manifold/keys')
+        keypair = ensure_keypair('/etc/manifold/keys/server.key')
+        subject = 'manifold' # XXX Where to get the subject of the certificate ?
+        certificate = ensure_certificate('/etc/manifold/keys/server.cert', subject, keypair)
+
+#DEPRECATED|        if not ssl_path or not os.path.exists(ssl_path):
+#DEPRECATED|            print ""
+#DEPRECATED|            print "You need to generate SSL keys and certificate in '%s' to be able to run manifold" % ssl_path
+#DEPRECATED|            print ""
+#DEPRECATED|            print "mkdir -p /etc/manifold/keys"
+#DEPRECATED|            print "openssl genrsa 1024 > /etc/manifold/keys/server.key"
+#DEPRECATED|            print "chmod 400 /etc/manifold/keys/server.key"
+#DEPRECATED|            print "openssl req -new -x509 -nodes -sha1 -days 365 -key /etc/manifold/keys/server.key > /etc/manifold/keys/server.cert"
+#DEPRECATED|            print ""
+#DEPRECATED|            sys.exit(0)
+
         try:
             def verifyCallback(connection, x509, errnum, errdepth, ok):
                 if not ok:
@@ -184,22 +211,7 @@ class XMLRPCDaemon(Daemon):
                     print "Certs are fine", x509, x509.get_subject()
                 return True
             
-            ssl_path = Options().ssl_path
-            if not ssl_path or not os.path.exists(ssl_path):
-                print ""
-                print "You need to generate SSL keys and certificate in '%s' to be able to run manifold" % ssl_path
-                print ""
-                print "mkdir -p /etc/manifold/keys"
-                print "openssl genrsa 1024 > /etc/manifold/keys/server.key"
-                print "chmod 400 /etc/manifold/keys/server.key"
-                print "openssl req -new -x509 -nodes -sha1 -days 365 -key /etc/manifold/keys/server.key > /etc/manifold/keys/server.cert"
-                print ""
-                sys.exit(0)
-
-            server_key_file = "%s/server.key" % ssl_path
-            server_crt_file = "%s/server.cert" % ssl_path
-            Log.tmp("key, cert=", server_key_file, server_crt_file)
-            myContextFactory = ssl.DefaultOpenSSLContextFactory(server_key_file, server_crt_file)
+            myContextFactory = ssl.DefaultOpenSSLContextFactory(keypair_fn, certificate_fn)
             
             ctx = myContextFactory.getContext()
             
@@ -216,7 +228,7 @@ class XMLRPCDaemon(Daemon):
             if not trusted_roots_path or not os.path.exists(trusted_roots_path):
                 Log.warning("No trusted root found in %s. You won't be able to login using SSL client certificates" % trusted_roots_path)
                 
-            ctx.load_verify_locations(None, ssl_path)
+            ctx.load_verify_locations(None, trusted_roots_path)
 
 
             #ReactorThread().listenTCP(Options().xmlrpc_port, server.Site(XMLRPCAPI(self.interface, allowNone=True)))

@@ -1,13 +1,13 @@
 import traceback,copy
-from twisted.web                import xmlrpc
-from twisted.web.xmlrpc         import withRequest
-from manifold.auth              import Auth
-from manifold.core.query        import Query
-from manifold.core.receiver     import Receiver 
-from manifold.core.result_value import ResultValue
-from manifold.util.options      import Options
-from manifold.util.log          import Log
-from manifold.util.misc         import make_list
+from twisted.web                        import xmlrpc
+from twisted.web.xmlrpc                 import withRequest
+from manifold.auth                      import Auth
+from manifold.core.deferred_receiver    import DeferredReceiver
+from manifold.core.query                import Query
+from manifold.core.result_value         import ResultValue
+from manifold.util.options              import Options
+from manifold.util.log                  import Log
+from manifold.util.misc                 import make_list
 
 #-------------------------------------------------------------------------------
 # Class XMLRPCAPI
@@ -107,26 +107,12 @@ class XMLRPCAPI(xmlrpc.XMLRPC, object):
         if not annotation:
             annotation = {}
         annotation['user'] = user
-        deferred = self.interface.forward(query, annotation, is_deferred=True, receiver=Receiver())
+        receiver = DeferredReceiver()
 
-        def process_results(rv):
-            if 'description' in rv and isinstance(rv['description'], list):
-                rv['description'] = [dict(x) for x in rv['description']]
-            # Print Results
-            return dict(rv)
+        packet = QueryPacket(query, annotation, receiver = receiver)
+        self.interface.send(packet)
 
-        def handle_exceptions(failure):
-            e = failure.trap(Exception)
-
-            Log.warning("XMLRPCAPI::xmlrpc_forward: Authentication failed: %s" % failure)
-
-            msg ="XMLRPC error : %s" % e
-            return dict(ResultValue.get_error(ResultValue.FORBIDDEN, msg))
-
-        # deferred receives results asynchronously
-        # Callbacks are triggered process_results if success and handle_exceptions if errors
-        deferred.addCallbacks(process_results, handle_exceptions)
-        return deferred
+        return receiver.get_deferred()
 
     def _xmlrpc_action(self, action, *args):
         # The first argument is eventually an authentication token
