@@ -94,11 +94,11 @@ class XMLRPCDaemon(Daemon):
             help = "Disable authentication",
             default = False
         )
-        opt.add_argument(
-            "-t", "--trusted-roots-path", dest = "trusted_roots_path",
-            help = "Select the directory holding trusted root certificates",
-            default = '/etc/manifold/trusted_roots/'
-        )
+#DEPRECATED|        opt.add_argument(
+#DEPRECATED|            "-t", "--trusted-roots-path", dest = "trusted_roots_path",
+#DEPRECATED|            help = "Select the directory holding trusted root certificates",
+#DEPRECATED|            default = '/etc/manifold/trusted_roots/'
+#DEPRECATED|        )
 #DEPRECATED|        opt.add_argument(
 #DEPRECATED|            "-s", "--server-ssl-path", action="store_true", dest = "ssl_path",
 #DEPRECATED|            help = "Select the directory holding the server private key and certificate for SSL",
@@ -185,7 +185,11 @@ class XMLRPCDaemon(Daemon):
         keypair_fn        = os.path.join(manifold_keys_dir, 'server.key')
         certificate_fn    = os.path.join(manifold_keys_dir, 'server.cert')
 
-        ensure_writable_directory('/etc/manifold/keys')
+        manifold_trusted_roots_dir = os.path.join(manifold_etc_dir, 'trusted_roots')
+
+        ensure_writable_directory(manifold_keys_dir)
+        ensure_writable_directory(manifold_trusted_roots_dir)
+
         keypair = ensure_keypair('/etc/manifold/keys/server.key')
         subject = 'manifold' # XXX Where to get the subject of the certificate ?
         certificate = ensure_certificate('/etc/manifold/keys/server.cert', subject, keypair)
@@ -224,11 +228,11 @@ class XMLRPCDaemon(Daemon):
             # tell the server to trust them.
             #ctx.load_verify_locations("keys/ca.pem")
 
-            trusted_roots_path = Options().trusted_roots_path
-            if not trusted_roots_path or not os.path.exists(trusted_roots_path):
-                Log.warning("No trusted root found in %s. You won't be able to login using SSL client certificates" % trusted_roots_path)
+#DEPRECATED|            trusted_roots_path = Options().trusted_roots_path
+#DEPRECATED|            if not trusted_roots_path or not os.path.exists(trusted_roots_path):
+#DEPRECATED|                Log.warning("No trusted root found in %s. You won't be able to login using SSL client certificates" % trusted_roots_path)
                 
-            ctx.load_verify_locations(None, trusted_roots_path)
+            ctx.load_verify_locations(None, manifold_trusted_roots_dir) #trusted_roots_path)
 
 
             #ReactorThread().listenTCP(Options().xmlrpc_port, server.Site(XMLRPCAPI(self.interface, allowNone=True)))

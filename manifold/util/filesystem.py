@@ -28,7 +28,6 @@ def ensure_writable_directory(directory):
     try:
         check_writable_directory(directory)
     except Exception, e:
-        print 'EXC', e
         make_writable_directory(directory) 
 
 #-------------------------------------------------------------------------------
