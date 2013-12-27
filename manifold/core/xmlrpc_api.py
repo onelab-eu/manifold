@@ -4,6 +4,7 @@ from twisted.web.xmlrpc                 import withRequest
 from manifold.auth                      import Auth
 from manifold.core.deferred_receiver    import DeferredReceiver
 from manifold.core.query                import Query
+from manifold.core.packet		import QueryPacket
 from manifold.core.result_value         import ResultValue
 from manifold.util.options              import Options
 from manifold.util.log                  import Log
