@@ -577,9 +577,9 @@ class Interface(object):
             d.callback(result_value)
             return d
         
-    def send(self, query, records, annotation, is_deferred):
-        rv = ResultValue.get_success(records)
-        return self.send_result_value(query, rv, annotation, is_deferred)
+#DEPRECATED|    def send(self, query, records, annotation, is_deferred):
+#DEPRECATED|        rv = ResultValue.get_success(records)
+#DEPRECATED|        return self.send_result_value(query, rv, annotation, is_deferred)
 
     def process_qp_results(self, query, records, annotation, query_plan):
         # Enforcing policy

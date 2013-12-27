@@ -109,7 +109,7 @@ class XMLRPCAPI(xmlrpc.XMLRPC, object):
         receiver = DeferredReceiver()
 
         packet = QueryPacket(query, annotation, receiver = receiver)
-        self.interface.send(packet)
+        self.interface.receive(packet)
 
         return receiver.get_deferred()
 
