@@ -392,7 +392,7 @@ class Gateway(Producer):
             receiver.del_producer(self, cascade = False)
 
     def release(self):
-        print "Not releasing gw"
+        pass
         
     def close(self, query):
         """
