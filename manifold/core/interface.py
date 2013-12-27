@@ -285,10 +285,16 @@ class Interface(object):
             Log.error("Cannot make Gateway %s" % platform_name)
             return None
 
-        platform_config = json.loads(platform["config"])
+        platform_config = json.loads(platform["config"]) if platform['config'] else {}
         args = [self, platform_name, platform_config]
 
         # Gateway is a plugin_factory
+	if platform['gateway_type']:
+	    gateway_type = platform['gateway_type']
+	else:
+            Log.warning("No gateway_type for platform '%s'. Defaulting to MANIFOLD." % platform['platform'])
+	    gateway_type = 'manifold'
+
         gateway = Gateway.get(platform["gateway_type"])
         if not gateway:
             raise Exception, "Gateway not found: %s" % platform["gateway_type"]
