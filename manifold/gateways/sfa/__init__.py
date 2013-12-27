@@ -372,9 +372,12 @@ class SFAGateway(Gateway):
             cache.add(cache_key, version, ttl= 60*20)
 
         # version as a property of the gateway instanciated, to be used in the parser
-        if version['interface'] == 'registry':
+        #if version['interface'] == 'registry':
+        if 'interface' in version and version['interface'] == 'registry':
+            Log.tmp(version['interface'])
             self.registry_version = version
         else:
+            Log.tmp('aggregate')
             self.am_version = version
 
         defer.returnValue(version)
@@ -1648,7 +1651,10 @@ class SFAGateway(Gateway):
     # using defer to have an asynchronous results management in functions prefixed by yield
     @defer.inlineCallbacks
     def manage(self, user, platform, config):
+        if isinstance(platform, Platform):
+            platform = platform.platform           
         Log.debug("Managing %r account on %s..." % (user, platform))
+        Log.tmp(platform)
         # The gateway should be able to perform user config management taks on
         # behalf of MySlice
         #
@@ -1704,11 +1710,18 @@ class SFAGateway(Gateway):
         # 
         need_delegated_slice_credentials = not is_admin and self.credentials_needed('delegated_slice_credentials', config)
         need_delegated_authority_credentials = not is_admin and self.credentials_needed('delegated_authority_credentials', config)
-        need_slice_credentials = is_admin or need_delegated_slice_credentials
+        need_slice_credentials = need_delegated_slice_credentials
+        # Why do we need slice credentials for admin user???
+        #need_slice_credentials = is_admin or need_delegated_slice_credentials
         need_slice_list = need_slice_credentials
-        need_authority_credentials = is_admin or need_delegated_authority_credentials
+        # Why do we need authority credentials for admin user???
+        #need_authority_credentials = is_admin or need_delegated_authority_credentials
+        need_authority_credentials = need_delegated_authority_credentials
         need_authority_list = need_authority_credentials
         need_delegated_user_credential = not is_admin and self.credentials_needed('delegated_user_credential', config)
+        if need_slice_list:
+            Log.tmp('is admin = need slice credentials')
+            Log.tmp('need slice list')
         need_gid = not 'gid' in config
         need_user_credential = is_admin or need_authority_credentials or need_slice_list or need_slice_credentials or need_delegated_user_credential or need_gid
 
