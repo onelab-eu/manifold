@@ -174,7 +174,7 @@ class ManifoldXMLRPCClientXMLRPCLIB(ManifoldClient):
         if not annotation:
             annotation = Annotation() 
         annotation['authentication'] = self.auth
-        return self.router.forward(query.to_dict(), annotation.to_dict())
+        return ResultValue(self.router.forward(query.to_dict(), annotation.to_dict()))
 
     # mode_str      = 'XMLRPC'
     # interface_str = ' towards XMLRPC API %s' % self.router
@@ -576,11 +576,8 @@ class Shell(object):
             The ResultValue resulting from the Query
         """
         try:
-            print "shell execute query", query
             result_value = self.client.forward(query)
-            print "shell result value", result_value
         except Exception, e:
-            print "shell exc:", e
             import traceback
             message = "Error executing query: %s: %s" % (e, traceback.print_exc())
             result_value = ResultValue.get_error(ResultValue.ERROR, message)
