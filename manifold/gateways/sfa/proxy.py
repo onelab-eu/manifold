@@ -16,7 +16,7 @@
 #twisted.protocols.tls.TLSMemoryBIOProtocol = _TLSMemoryBIOProtocol
 ##/bugfix
 
-import os, sys, tempfile
+import os, sys, tempfile, time
 from types                        import StringTypes
 from manifold.util.reactor_thread import ReactorThread
 from manifold.util.log            import Log
@@ -304,9 +304,13 @@ class SFAProxy(object):
 
             def proxy_success_cb(result):
                 #SFATokenMgr().put_token(self.interface)
+                diff = time.time() - self.started
+                Log.debug('SFA CALL %s(%s) - interface = %s - execution time = %s sec.' % (self.arg0, self.arg1, self.interface, round(diff,2)))
                 d.callback(result)
             def proxy_error_cb(error):
                 #SFATokenMgr().put_token(self.interface)
+                diff = time.time() - self.started
+                Log.debug('SFA CALL %s(%s) - interface = %s - execution time = %s sec.' % (self.arg0, self.arg1, self.interface, round(diff,2)))
                 d.errback(ValueError("Error in SFA Proxy %s" % error))
 
             #success_cb = lambda result: d.callback(result)
@@ -326,9 +330,12 @@ class SFAProxy(object):
                     else:
                         printable_args.append(str(arg))
 
-                Log.debug("SFA CALL %s(%s)" % (printable_args[0], printable_args[1:]))
+                self.started = time.time()
+                self.arg0 = printable_args[0]
+                self.arg1 = printable_args[1:]
+                Log.debug("SFA CALL %s(%s) - interface = %s" % (printable_args[0], printable_args[1:], self.interface))
                 self.proxy.callRemote(*args).addCallbacks(proxy_success_cb, proxy_error_cb)
-            
+                
             ReactorThread().callInReactor(wrap, self, args)
             return d
         return _missing
