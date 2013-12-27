@@ -174,7 +174,7 @@ class ManifoldXMLRPCClientXMLRPCLIB(ManifoldClient):
         if not annotation:
             annotation = Annotation() 
         annotation['authentication'] = self.auth
-        return self.router.forward(query.to_dict(), annotation, self)
+        return self.router.forward(query.to_dict(), annotation.to_dict())
 
     # mode_str      = 'XMLRPC'
     # interface_str = ' towards XMLRPC API %s' % self.router
@@ -235,6 +235,7 @@ class Proxy(xmlrpc.Proxy):
 
     def __getattr__(self, name):
         # We transfer missing methods to the remote server
+        # XXX Let's not use twisted if we write synchronous code
         def _missing(*args):
             from twisted.internet import defer
             d = defer.Deferred()
@@ -242,8 +243,8 @@ class Proxy(xmlrpc.Proxy):
             def proxy_success_cb(result):
                 self.result = result
                 self.event.set()
-            def proxy_error_cb(error):
-                self.error = error
+            def proxy_error_cb(failure):
+                self.error = failure.trap(Exception)
                 self.event.set()
             
             #@defer.inlineCallbacks
@@ -255,13 +256,12 @@ class Proxy(xmlrpc.Proxy):
             self.event.wait()
             self.event.clear()
             if self.error:
-                Log.error("ERROR IN PROXY: %s" % self.error)
+                e = self.error
                 self.error = None
-                return None
-            else:
-                result = self.result
-                self.result = None
-                return result
+                raise e
+            result = self.result
+            self.result = None
+            return result
         return _missing
 
 class ManifoldXMLRPCClient(ManifoldClient):
@@ -276,7 +276,7 @@ class ManifoldXMLRPCClient(ManifoldClient):
         if not annotation:
             annotation = Annotation() 
         annotation.update(self.annotation)
-        return self.router.forward(query.to_dict(), annotation, self)
+        return self.router.forward(query.to_dict(), annotation.to_dict())
         
 
     @defer.inlineCallbacks
@@ -328,7 +328,7 @@ class ManifoldXMLRPCClientSSLGID(ManifoldXMLRPCClient):
 
     def __init__(self, url, pkey_file, cert_file):
         self.url = url
-        self.gid_subject = 'NULL'
+        self.gid_subject = '(TODO: extract from cert_file)' # XXX 
         self.router = Proxy(self.url, allowNone=True, useDateTime=False)
         #self.router.setSSLClientContext(CtxFactory(pkey_file, cert_file))
 
@@ -436,7 +436,7 @@ class Shell(object):
     def authenticate_xmlrpc_gid(self, url, pkey_file, cert_file):
         self.client = ManifoldXMLRPCClientSSLGID(url, pkey_file, cert_file)
 
-    def authenticate_anonymous(self, url, pkey_file, cert_file):
+    def authenticate_xmlrpc_anonymous(self, url):
         self.client = ManifoldXMLRPCClientSSLPassword(url)
 
     def select_auth_method(self, auth_method):
@@ -484,7 +484,7 @@ class Shell(object):
 
             elif auth_method == 'anonymous':
 
-                self.authenticate_anonymous(url)
+                self.authenticate_xmlrpc_anonymous(url)
 
             else:
                 raise Exception, "Authentication method not supported: '%s'" % auth_method
@@ -576,8 +576,11 @@ class Shell(object):
             The ResultValue resulting from the Query
         """
         try:
+            print "shell execute query", query
             result_value = self.client.forward(query)
+            print "shell result value", result_value
         except Exception, e:
+            print "shell exc:", e
             import traceback
             message = "Error executing query: %s: %s" % (e, traceback.print_exc())
             result_value = ResultValue.get_error(ResultValue.ERROR, message)
@@ -592,6 +595,9 @@ class Shell(object):
         # Who is authenticating ?
         # authentication
         return self.client.whoami
+
+    def log_message(self):
+        return self.client.log_message()
         
         
 #    # If called by a script 
