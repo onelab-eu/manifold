@@ -28,9 +28,12 @@ class Record(Packet):
         """
         Constructor.
         """
-        Packet.__init__(self, Packet.PROTOCOL_RECORD, **kwargs)
+        Packet.__init__(self, Packet.PROTOCOL_RECORD, last = False, **kwargs)
         if args:
-            self._record = dict(*args)
+            if len(args) == 1 and isinstance(args[0], dict):
+                self._record = dict(args[0])
+            else:
+                raise Exception, "Bad initializer for Record"
         else:
             self._record = None
 

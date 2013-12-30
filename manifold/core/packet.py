@@ -86,6 +86,15 @@ class Packet(object):
         """
         return self._protocol
 
+    def is_last(self):
+        return self._last
+
+    def set_last(self, value = True):
+        self._last = value
+
+    def unset_last(self):
+        self._last = False
+
     #---------------------------------------------------------------------------
     # Methods
     #---------------------------------------------------------------------------

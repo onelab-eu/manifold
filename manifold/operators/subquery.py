@@ -15,7 +15,7 @@ from types                          import StringTypes
 from manifold.core.filter           import Filter
 from manifold.core.query            import Query
 from manifold.core.relation         import Relation
-from manifold.core.record           import Record, LastRecord
+from manifold.core.record           import Record
 from manifold.operators             import ChildStatus, ChildCallback
 from manifold.operators.operator    import Operator
 from manifold.operators.projection  import Projection
@@ -146,7 +146,7 @@ class SubQuery(Operator):
         """
         if not self.parent_output:
             # No parent record, this is useless to run children queries.
-            self.send(LastRecord())
+            self.send(Record(last = True))
             return
 
         if not self.children:
@@ -154,7 +154,7 @@ class SubQuery(Operator):
             # so this SubQuery operator is useless and should be replaced by
             # its main query.
             Log.warning("SubQuery::run_children: no child node. The query plan could be improved")
-            self.send(LastRecord())
+            self.send(Record(last = True))
             return
 
         # Inspect the first parent record to deduce which fields have already
@@ -195,7 +195,7 @@ class SubQuery(Operator):
         # thanks to the parent query, so we simply forward those records.
         if len(self.children) == len(useless_children):
             map(self.send, self.parent_output)
-            self.send(LastRecord())
+            self.send(Record(last = True))
             return
 
         # Loop through children and inject the appropriate parent results
@@ -393,7 +393,7 @@ class SubQuery(Operator):
                         raise Exception, "No link between parent and child queries"
 
                 self.send(parent_record)
-            self.send(LastRecord())
+            self.send(Record(last = True))
         except Exception, e:
             print "EEE", e
             traceback.print_exc()

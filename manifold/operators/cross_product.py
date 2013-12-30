@@ -101,8 +101,9 @@ class CrossProduct(Operator):
             return { k: v for dic in dics for k,v in dic.items() if k in keys }
 
         records = imap(lambda x: merge(x), product(*self.child_results))
+        records[-1].set_last()
+        
         map(lambda x: self.send(x), records)
-        self.send(LastRecord())
         
 
     #---------------------------------------------------------------------------
