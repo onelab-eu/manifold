@@ -192,7 +192,9 @@ class From(Operator):
                 packet.set_receiver(self)
                 self.get_gateway().receive(packet) #self.send(packet)
             except Exception, e:
-                print "EXC FROM", e
+                import traceback
+                traceback.print_exc()
+                print "EXC FROM: %s" % e
 #jo#
 #jo#        # A From Operator forwards the incoming Packets without modification.
 #jo#        try:
