@@ -29,18 +29,14 @@ class SyncReceiver(Consumer):
         Constructor.
         """
         Consumer.__init__(self)
-        self._records = Records()
+        self._records = list()
+        self._errors = list()
         self._event = threading.Event()
 
     #---------------------------------------------------------------------------
     # Methods
     #---------------------------------------------------------------------------
 
-    def stop(self):
-        """
-        Stop the SyncReceiver by unlocking its thread.
-        """
-        self._event.set()
 
     def receive(self, packet):
         """
@@ -50,19 +46,17 @@ class SyncReceiver(Consumer):
                 corresponding record is bufferized in this SyncReceiver
                 until records retrieval.
         """
-        do_stop = True
-
         if packet.get_protocol() == Packet.PROTOCOL_RECORD:
-            if not packet.is_last():
-                do_stop = False
+            if not packet.is_empty():
                 self._records.append(packet)
         elif packet.get_protocol() == Packet.PROTOCOL_ERROR:
-            message = packet.get_message()
-            trace   = packet.get_traceback()
-            raise Exception("%(message)s%(trace)s" % {
-                "message" : message if message else "(No message)",
-                "trace"   : trace   if trace   else "(No traceback)"
-            })
+            self._errors.append(packet)
+            #message = packet.get_message()
+            #trace   = packet.get_traceback()
+            #raise Exception("%(message)s%(trace)s" % {
+            #    "message" : message if message else "(No message)",
+            #    "trace"   : trace   if trace   else "(No traceback)"
+            #})
         else:
             Log.warning(
                 "SyncReceiver::receive(): Invalid Packet type (%s, %s)" % (
@@ -74,20 +68,8 @@ class SyncReceiver(Consumer):
         # TODO this flag should be set to True iif we receive a LastRecord
         # Packet (which could be a RECORD or an ERROR Packet). Each Node
         # should manage the "LAST_RECORD" flag while forwarding its Packets.
-        if do_stop:
-            self.stop()
-
-    @returns(list)
-    def get_records(self):
-        """
-        Returns:
-            The list of Record corresponding to a given Query. This function
-            is blocking until having fetched the whole set of Records
-            corresponding to this Query.
-        """
-        self._event.wait()
-        self._event.clear()
-        return self._records.to_list()
+        if packet.is_last()
+            self._event.set()
 
     @returns(ResultValue)
     def get_result_value(self):
@@ -97,4 +79,7 @@ class SyncReceiver(Consumer):
             is blocking until having fetched the whole set of Records
             corresponding to this Query.
         """
-        return ResultValue.get_success(self.get_records())
+        self._event.wait()
+        self._event.clear()
+
+        return ResultValue.get(self._records, self._errors)

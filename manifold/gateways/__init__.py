@@ -369,7 +369,7 @@ class Gateway(Producer):
                 It is usually retrieved using get_socket() method.
         """
         socket = self.get_socket(query)
-        socket.receive(ErrorPacket("%s" % description, traceback.format_exc()))
+        socket.receive(ErrorPacket(2, 0, "%s" % description, traceback.format_exc()))
 
     def del_consumer(self, receiver, cascade = True):
         """

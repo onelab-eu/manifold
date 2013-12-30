@@ -228,7 +228,7 @@ class ErrorPacket(Packet):
     Equivalent to current ResultValue
     Equivalent to current ICMP errors
     """
-    def __init__(self, type, code, message = None, traceback = None):
+    def __init__(self, type = 2, code = 0, message = None, traceback = None):
         """
         Constructor.
         Args:
