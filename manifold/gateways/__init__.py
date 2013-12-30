@@ -332,7 +332,6 @@ class Gateway(Producer):
             query: A Query instance correponding to a pending Query.
             consumer: A Consumer instance (a From instance most of time). 
         """
-        print "adding flow to pit"
         self._pit.add_flow(query, consumer)
 
     def record(self, query, record):

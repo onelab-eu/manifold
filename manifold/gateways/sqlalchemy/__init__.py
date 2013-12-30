@@ -398,7 +398,6 @@ class SQLAlchemyGateway(Gateway):
             "delete" : self.local_query_delete
         }
 
-        print "sqlalch receive query", packet
         try:
             if query.get_from() == "object":
                 if not query.get_action() == "get":
@@ -412,7 +411,6 @@ class SQLAlchemyGateway(Gateway):
                 user = annotation.get("user", None)
                 records = Records([row2record(row) for row in _map_action[query.get_action()](query, user)])
 
-            print "calling self.records", records
             self.records(query, records)
         except Exception, e:
             Log.error("%s" % e)

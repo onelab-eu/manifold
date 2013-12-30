@@ -32,7 +32,6 @@ class Record(Packet):
             kwargs['last'] = False
         Packet.__init__(self, Packet.PROTOCOL_RECORD, **kwargs)
         if args:
-            print "args", args
             if len(args) == 1:
                 self._record = dict(args[0])
             else:
