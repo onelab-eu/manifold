@@ -62,10 +62,8 @@ class ReactorThread(threading.Thread):
     def start_reactor(self):
         if self._reactorRunning:
             Log.warning("Reactor already running. This is normal, please remove this debug message")
-            print "REACTOR ALREADY RUNNING. IGNORED."
             return
             #raise ReactorException("Reactor Already Running")
-        print "Starting reactor"
         threading.Thread.start(self)
         cpt = 0
         while not self._reactorRunning:
