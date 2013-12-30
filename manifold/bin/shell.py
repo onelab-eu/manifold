@@ -225,7 +225,6 @@ class Proxy(xmlrpc.Proxy):
                 # verfication of who your talking to
                 # Using the default sslcontext without verification
                 # Can lead to man in the middle attacks
-            print "self.host", self.host, self.port
             ReactorThread().connectSSL(self.host, self.port or 443,
                                factory, self.SSLClientContext,
                                timeout=self.connectTimeout)
@@ -312,7 +311,6 @@ class ManifoldXMLRPCClientSSLPassword(ManifoldXMLRPCClient):
                     "AuthMethod" : "anonymous"
                 }
             }) 
-            print "going anonymous"
 
         self.router = Proxy(self.url, allowNone=True, useDateTime=False)
         self.router.setSSLClientContext(ssl.ClientContextFactory())
@@ -566,15 +564,12 @@ class Shell(object):
         """
         #username, password = Options().username, Options().password
         dic = SQLParser().parse(command)
-        print "dic=", dic
         if not dic:
             return None
         query = Query(dic)
-        print "query=", query
         if "*" in query.get_select():
             query.fields = None
 
-        print "execute"
         return self.execute(query)
 
     @returns(ResultValue)
@@ -587,12 +582,8 @@ class Shell(object):
             The ResultValue resulting from the Query
         """
         try:
-            print "before execute"
-            print "client=", self.client
             result_value = self.client.forward(query)
-            print "after execute"
         except Exception, e:
-            import traceback
             message = "Error executing query: %s" % (e,)
             result_value = ResultValue.get_error(ResultValue.ERROR, message)
         return result_value
