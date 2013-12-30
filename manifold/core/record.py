@@ -33,7 +33,7 @@ class Record(Packet):
         Packet.__init__(self, Packet.PROTOCOL_RECORD, **kwargs)
         if args:
             print "args", args
-            if len(args) == 1 and isinstance(args[0], (Record, dict)):
+            if len(args) == 1:
                 self._record = dict(args[0])
             else:
                 raise Exception, "Bad initializer for Record"
@@ -89,7 +89,10 @@ class Record(Packet):
         Returns:
             The '%s' representation of this Record.
         """
-        return "<Record %s>" % ' '.join([("%s" % self._record) if self._record else ''])
+        return "<Record %s%s>" % (
+            ' '.join([("%s" % self._record) if self._record else '']),
+            ' LAST' if self.is_last() else ''
+        )
 
     def __getitem__(self, key, **kwargs):
         """
@@ -100,6 +103,8 @@ class Record(Packet):
         Returns:
             The corresponding value. 
         """
+        if not self._record:
+            raise Exception, "Empty record"
         return dict.__getitem__(self._record, key, **kwargs)
 
     def __setitem__(self, key, value, **kwargs):
@@ -110,6 +115,8 @@ class Record(Packet):
                 of this Record.
             value: The value that must be mapped with this key.
         """
+        if not self._record:
+            self._record = dict()
         return dict.__setitem__(self._record, key, value, **kwargs)
 
     def __iter__(self): 

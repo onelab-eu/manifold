@@ -242,26 +242,22 @@ class Proxy(xmlrpc.Proxy):
             d = defer.Deferred()
             
             def proxy_success_cb(result):
-                print "success", result
                 self.result = result
                 self.event.set()
+
             def proxy_error_cb(failure):
-                print "error", failure
                 self.error = failure
                 self.event.set()
             
             #@defer.inlineCallbacks
             def wrap(source, args):
                 args = (name,) + args
-                print "call..."
                 self.callRemote(*args).addCallbacks(proxy_success_cb, proxy_error_cb)
-                print "call done"
             
             ReactorThread().callInReactor(wrap, self, args)
             self.event.wait()
             self.event.clear()
             if self.error:
-                print "error in getattr", self.error
                 failure = self.error
                 self.error = None
                 raise Exception, "Error in proxy: %s" % failure # .trap(Exception)
@@ -283,21 +279,8 @@ class ManifoldXMLRPCClient(ManifoldClient):
         if not annotation:
             annotation = Annotation() 
         annotation.update(self.annotation)
-        print "annotation=", annotation
-        print "forward"
-        try:
-            print "query.to_dict()", query.to_dict()
-            print "annotation.to_dict()", annotation.to_dict()
-            print "self.router", self.router
-            ret = self.router.forward(query.to_dict(), annotation.to_dict())
-            print "ret=", ret
-            rv=ResultValue(ret)
-            print "rv=", rv
-            return rv
-        except Exception, e:
-            print "EXC in forward", e
 
-#        return ResultValue(self.router.forward(query.to_dict(), annotation.to_dict()))
+        return ResultValue(self.router.forward(query.to_dict(), annotation.to_dict()))
         
 
     @defer.inlineCallbacks
@@ -521,6 +504,9 @@ class Shell(object):
         """
         self.interactive = interactive
         
+        if not interactive:
+            return
+
         auth_method = Options().auth_method
         if not auth_method: auth_method = "local"
 

@@ -74,8 +74,10 @@ def storage_execute(gateway, query, annotation = None, error_message = None):
     if not result_value.is_success():
         if not error_message:
             error_message = "Error executing local query: %s" % query
+        print "ERROR", error_message
         raise Exception, error_message
 
+    print "success"
     return result_value["value"]
         
 @returns(list)

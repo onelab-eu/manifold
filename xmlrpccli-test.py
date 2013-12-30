@@ -2,6 +2,5 @@
 #! -*- coding: utf-8 -*-
 
 import xmlrpclib
-srv = xmlrpclib.Server("http://localhost:58000/RPC/", allow_none = True)
-print srv.system.listMethods()
+srv = xmlrpclib.Server("https://localhost:7080/", allow_none = True)
 print srv.forward({'object': 'traceroute'}, {})
