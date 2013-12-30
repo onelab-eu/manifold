@@ -28,7 +28,7 @@ except ImportError:
 from manifold.core.announce         import Announce
 from manifold.core.annotation       import Annotation
 from manifold.core.field            import Field
-from manifold.core.record           import Record, Records, LastRecord 
+from manifold.core.record           import Record, Records
 from manifold.core.table            import Table
 from manifold.gateways              import Gateway
 #from manifold.models                import db

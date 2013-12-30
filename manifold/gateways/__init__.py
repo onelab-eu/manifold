@@ -335,7 +335,7 @@ class Gateway(Producer):
         print "adding flow to pit"
         self._pit.add_flow(query, consumer)
 
-    def record(query, record):
+    def record(self, query, record):
         """
         Helper used in Gateway when a has to send an ERROR Packet. 
         Args:
@@ -344,10 +344,10 @@ class Gateway(Producer):
             record: A Record or a dict instance.
         """
 
-        socket = self.get_pit().get_socket(query)
+        socket = self.get_socket(query)
         socket.receive(record if isinstance(record, Record) else Record(record))
 
-    def records(query, records):
+    def records(self, query, records):
         """
         Helper used in Gateway when a has to send an ERROR Packet. 
         Args:
@@ -361,14 +361,14 @@ class Gateway(Producer):
         for record in records:
             self.record(query, record)
 
-    def error(query, description):
+    def error(self, query, type, code, description):
         """
         Helper used in Gateway when a has to send an ERROR Packet. 
         Args:
             socket: The Socket used to transport the Packet.
                 It is usually retrieved using get_socket() method.
         """
-        socket = self.get_pit().get_socket(query)
+        socket = self.get_socket(query)
         socket.receive(ErrorPacket("%s" % description, traceback.format_exc()))
 
     def del_consumer(self, receiver, cascade = True):
