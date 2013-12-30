@@ -28,7 +28,9 @@ class Record(Packet):
         """
         Constructor.
         """
-        Packet.__init__(self, Packet.PROTOCOL_RECORD, last = False, **kwargs)
+        if not 'last' in kwargs:
+            kwargs['last'] = False
+        Packet.__init__(self, Packet.PROTOCOL_RECORD, **kwargs)
         if args:
             print "args", args
             if len(args) == 1 and isinstance(args[0], (Record, dict)):
@@ -68,14 +70,14 @@ class Record(Packet):
         return dic
 
     @returns(bool)
-    def is_last(self):
+    def is_empty(self):
         """
         (This method is overwritten in LastRecord)
         Returns:
             True iif this Record is the last one of a list
             of Records corresponding to a given Query.
         """
-        return False 
+        return self._record is None
 
     #--------------------------------------------------------------------------- 
     # Internal methods

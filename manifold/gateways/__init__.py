@@ -357,9 +357,12 @@ class Gateway(Producer):
                 casted in Record (e.g. Record or dict instances).
         """
 
-        records[-1].set_last()
-        for record in records:
-            self.record(query, record)
+        if records:
+            records[-1].set_last()
+            for record in records:
+                self.record(query, record)
+        else:
+            self.record(query, Record(last = True))
 
     def error(self, query, type, code, description):
         """

@@ -68,7 +68,7 @@ class SyncReceiver(Consumer):
         # TODO this flag should be set to True iif we receive a LastRecord
         # Packet (which could be a RECORD or an ERROR Packet). Each Node
         # should manage the "LAST_RECORD" flag while forwarding its Packets.
-        if packet.is_last()
+        if packet.is_last():
             self._event.set()
 
     @returns(ResultValue)
