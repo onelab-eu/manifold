@@ -305,9 +305,9 @@ class SQLAlchemyGateway(Gateway):
         try:
             self.db.commit()
         except exc.IntegrityError, e:
-            raise Exception, "Integrity error: %e" % e
+            raise Exception, "Integrity error: %s" % e
         except Exception, e:
-            raise Exception, "Query error: %e" % e
+            raise Exception, "Query error: %s" % e
         finally:
             self.db.rollback()
         

@@ -53,7 +53,7 @@ class Packet(object):
         Returns:
             The String corresponding to the type of Packet.
         """
-        TYPE_NAMES = {
+        PROTOCOL_NAMES = {
             Packet.PROTOCOL_QUERY  : 'QUERY',
             Packet.PROTOCOL_RECORD : 'RECORD',
             Packet.PROTOCOL_ERROR  : 'ERROR'
@@ -114,7 +114,7 @@ class Packet(object):
         Returns:
             The '%r' representation of this QUERY Packet.
         """
-        return "<Packet.%s>" % Packet.get_protocol_name(self.get_type())
+        return "<Packet.%s>" % Packet.get_protocol_name(self.get_protocol())
 
     @returns(StringTypes)
     def __str__(self):
