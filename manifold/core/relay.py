@@ -49,9 +49,12 @@ class Relay(Producer, Consumer):
         Args:
             packet: A Packet instance.
         """
+        print "relay receive", packet
         if packet.get_protocol() in [Packet.PROTOCOL_QUERY]:
+            print "query => consumer.Send"
             Consumer.send(self, packet)
         elif packet.get_protocol() in [Packet.PROTOCOL_RECORD, Packet.PROTOCOL_ERROR]:
+            print "record => producer.send"
             Producer.send(self, packet)
 
     check_send    = check_relay

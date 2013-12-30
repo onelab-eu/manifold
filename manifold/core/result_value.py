@@ -141,7 +141,7 @@ class ResultValue(dict):
         elif records:
             return ResultValue.get_warning(records, errors)
         else:
-            return ResultValue.get_error(errors)
+            return ResultValue.get_errors(errors)
 
     @classmethod
     #@returns(ResultValue)
@@ -165,10 +165,20 @@ class ResultValue(dict):
 
     @classmethod
     #@returns(ResultValue)
-    def get_error(self, errors):
+    def get_error(self, type, errors):
         return ResultValue(
             code        = self.ERROR,
-            type        = 0,                # XXX
+            type        = type,
+            origin      = [self.CORE, 0],
+            description = errors
+        )
+
+    @classmethod
+    #@returns(ResultValue)
+    def get_errors(self, errors):
+        return ResultValue(
+            code        = self.ERROR,
+            type        = None,
             origin      = [self.CORE, 0],
             description = errors
         )

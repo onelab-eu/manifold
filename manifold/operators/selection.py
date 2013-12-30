@@ -76,7 +76,7 @@ class Selection(Operator):
         elif packet.get_protocol() == Packet.PROTOCOL_RECORD:
             record = packet
 
-            if record.is_last() or (self._filter and self._filter.match(record)):
+            if record.is_empty() or (self._filter and self._filter.match(record)):
                 self.send(record)
 
         else: # TYPE_ERROR

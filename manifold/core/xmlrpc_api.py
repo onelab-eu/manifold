@@ -2,10 +2,10 @@ import traceback,copy
 from twisted.web                        import xmlrpc
 from twisted.web.xmlrpc                 import withRequest
 from manifold.auth                      import Auth
-from manifold.core.annotation		import Annotation
+from manifold.core.annotation                import Annotation
 from manifold.core.deferred_receiver    import DeferredReceiver
 from manifold.core.query                import Query
-from manifold.core.packet		import QueryPacket
+from manifold.core.packet                import QueryPacket
 from manifold.core.result_value         import ResultValue
 from manifold.util.options              import Options
 from manifold.util.log                  import Log
@@ -79,6 +79,7 @@ class XMLRPCAPI(xmlrpc.XMLRPC, object):
         """
         """
 
+        print "forward"
         Log.info("Incoming XMLRPC request, query = %r, annotation = %r" % (self.display_query(query), annotation))
         if Options().disable_auth:
             Log.info("Authentication disabled by configuration")
@@ -104,13 +105,14 @@ class XMLRPCAPI(xmlrpc.XMLRPC, object):
                 return dict(ResultValue.get_error(ResultValue.FORBIDDEN, msg))
 
         query = Query(query)
-	annotation = Annotation(annotation) if annotation else Annotation()
+        annotation = Annotation(annotation) if annotation else Annotation()
         annotation['user'] = user
         receiver = DeferredReceiver()
 
         packet = QueryPacket(query, annotation, receiver = receiver)
         self.interface.receive(packet)
 
+        print "forward : returned deferred"
         return receiver.get_deferred()
 
     def _xmlrpc_action(self, action, *args):

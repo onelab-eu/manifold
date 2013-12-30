@@ -208,7 +208,7 @@ class From(Operator):
 #jo#        print "send, i expect producers to receive" , self._producers
 #jo#        self.send(packet)
 
-        elif packet.get_protocol() == Packet.PROTOCOL_RECORD:
+        else: #if packet.get_protocol() == Packet.PROTOCOL_RECORD:
             print "from receive record", packet
             self.send(packet)
     

@@ -59,6 +59,8 @@ def do_projection(record, fields):
             arr.append(do_projection(x, subfields))
         ret[method] = arr
 
+    ret.set_last(record.is_last())
+
     return ret
 
 #------------------------------------------------------------------
@@ -140,7 +142,7 @@ class Projection(Operator):
 
         elif packet.get_protocol() == Packet.PROTOCOL_RECORD:
             record = packet
-            if not record.is_last():
+            if not record.is_empty():
                 record = do_projection(record, self._fields)
             self.send(record)
 
