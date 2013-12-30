@@ -250,7 +250,7 @@ class Log(object):
         return msg
 
     @classmethod
-    def log_message(cls, level, msg, ctx):
+    def log_message(cls, level, *msg, **ctx):
         """
         \brief Logs an message
         \param level (string) Log level
