@@ -86,13 +86,13 @@ class SubQuery(Operator):
         """
         """
 
-        if packet.get_type() == Packet.TYPE_QUERY:
+        if packet.get_protocol() == Packet.PROTOCOL_QUERY:
             parent_packet         = packet.clone()
             self._children_packet = packet.clone() 
 
             self._producers.send_parent(parent_packet)
 
-        elif packet.get_type() == Packet.TYPE_RECORD:
+        elif packet.get_protocol() == Packet.PROTOCOL_RECORD:
             if packet.get_source() == self._producers.get_parent_producer(): # XXX
                 # formerly parent_callback
                 if record.is_last():

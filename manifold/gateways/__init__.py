@@ -19,7 +19,7 @@ from manifold.core.packet           import Packet, ErrorPacket
 from manifold.core.pit              import Pit
 from manifold.core.producer         import Producer
 from manifold.core.query            import Query
-from manifold.core.record           import LastRecord, Record, Records
+from manifold.core.record           import Record, Records
 from manifold.core.socket           import Socket 
 from manifold.operators.projection  import Projection
 from manifold.operators.selection   import Selection
@@ -298,7 +298,7 @@ class Gateway(Producer):
             packet: A Packet instance.
         """
 #jo#        super(Gateway, self).check_send(packet)
-#jo#        assert packet.get_type() ==  Packet.TYPE_ERROR,\
+#jo#        assert packet.get_protocol() ==  Packet.PROTOCOL_ERROR,\
 #jo#            "Invalid packet type (%s)" % packet
         # A packet is a packet and should be sent !
         pass
@@ -335,8 +335,7 @@ class Gateway(Producer):
         print "adding flow to pit"
         self._pit.add_flow(query, consumer)
 
-    @staticmethod
-    def record(socket, record):
+    def record(query, record):
         """
         Helper used in Gateway when a has to send an ERROR Packet. 
         Args:
@@ -344,13 +343,11 @@ class Gateway(Producer):
                 It is usually retrieved using get_socket() method.
             record: A Record or a dict instance.
         """
-        assert isinstance(socket, Socket),\
-            "Invalid socket = %s (%s)" % (socket, type(socket))
 
+        socket = self.get_pit().get_socket(query)
         socket.receive(record if isinstance(record, Record) else Record(record))
 
-    @staticmethod
-    def records(socket, records):
+    def records(query, records):
         """
         Helper used in Gateway when a has to send an ERROR Packet. 
         Args:
@@ -359,24 +356,19 @@ class Gateway(Producer):
             record: A Records or a list of instances that may be
                 casted in Record (e.g. Record or dict instances).
         """
-        assert isinstance(socket, Socket),\
-            "Invalid socket = %s (%s)" % (socket, type(socket))
 
+        records[-1].set_last()
         for record in records:
-            Gateway.record(socket, record)
-        Gateway.record(socket, LastRecord())
+            self.record(query, record)
 
-    @staticmethod
-    def error(socket, description):
+    def error(query, description):
         """
         Helper used in Gateway when a has to send an ERROR Packet. 
         Args:
             socket: The Socket used to transport the Packet.
                 It is usually retrieved using get_socket() method.
         """
-        assert isinstance(socket, Socket),\
-            "Invalid socket = %s (%s)" % (socket, type(socket))
-
+        socket = self.get_pit().get_socket(query)
         socket.receive(ErrorPacket("%s" % description, traceback.format_exc()))
 
     def del_consumer(self, receiver, cascade = True):

@@ -46,8 +46,8 @@ class PoolProducers(set):
         set.add(self, producer)
 
     def receive(self, packet):
-        if packet.get_type() not in [Packet.TYPE_QUERY]:
-            raise ValueError, "Invalid packet type for producer: %s" % Packet.get_type_name(packet.get_type())
+        if packet.get_protocol() not in [Packet.PROTOCOL_QUERY]:
+            raise ValueError, "Invalid packet type for producer: %s" % Packet.get_protocol_name(packet.get_protocol())
 
         try:
             for producer in self:

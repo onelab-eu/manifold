@@ -98,7 +98,7 @@ class LeftJoin(Operator):
         """
         """
 
-        if packet.get_type() == Packet.TYPE_QUERY:
+        if packet.get_protocol() == Packet.PROTOCOL_QUERY:
             # We forward the query to the left node
             # TODO : a subquery in fact
 
@@ -107,7 +107,7 @@ class LeftJoin(Operator):
 
             self._producers.send_parent(left_packet)
 
-        elif packet.get_type() == Packet.TYPE_RECORD:
+        elif packet.get_protocol() == Packet.PROTOCOL_RECORD:
             record = packet
 
             if packet.get_source() == self._producers.get_parent_producer(): # XXX
@@ -157,7 +157,7 @@ class LeftJoin(Operator):
 
                 # Skip records missing information necessary to join
                 if not set(self.predicate.get_value()) <= set(record.keys()) \
-                or record.is_empty(self.predicate.get_value()):
+                or record.has_empty_fields(self.predicate.get_value()):
                     Log.warning("Missing LEFTJOIN predicate %s in right record %r: ignored" % \
                             (self.predicate, record))
                     # XXX Shall we send ICMP ?

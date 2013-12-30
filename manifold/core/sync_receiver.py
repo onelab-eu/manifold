@@ -52,11 +52,11 @@ class SyncReceiver(Consumer):
         """
         do_stop = True
 
-        if packet.get_type() == Packet.TYPE_RECORD:
+        if packet.get_protocol() == Packet.PROTOCOL_RECORD:
             if not packet.is_last():
                 do_stop = False
                 self._records.append(packet)
-        elif packet.get_type() == Packet.TYPE_ERROR:
+        elif packet.get_protocol() == Packet.PROTOCOL_ERROR:
             message = packet.get_message()
             trace   = packet.get_traceback()
             raise Exception("%(message)s%(trace)s" % {
@@ -67,7 +67,7 @@ class SyncReceiver(Consumer):
             Log.warning(
                 "SyncReceiver::receive(): Invalid Packet type (%s, %s)" % (
                     packet,
-                    Packet.get_type_name(packet.get_type())
+                    Packet.get_protocol_name(packet.get_protocol())
                 )
             )
 

@@ -113,7 +113,7 @@ class CrossProduct(Operator):
         """
         """
 
-        if packet.get_type() == Packet.TYPE_QUERY:
+        if packet.get_protocol() == Packet.PROTOCOL_QUERY:
             # formerly start()
             raise Exception, "CrossProduct::receive(QUERY) Not implemented"
 
@@ -131,7 +131,7 @@ class CrossProduct(Operator):
             for i, child in enumerate(self.children):
                 child.start()
 
-        elif packet.get_type() == Packet.TYPE_RECORD:
+        elif packet.get_protocol() == Packet.PROTOCOL_RECORD:
             # formerly child_callback()
 
             # XXX child_id & source ?

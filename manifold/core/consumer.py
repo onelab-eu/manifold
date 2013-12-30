@@ -185,7 +185,7 @@ class Consumer(Node):
         Check Node::send() parameters. This method should be overloaded.
         """
         super(Consumer, self).check_send(packet)
-        assert packet.get_type() in [Packet.TYPE_QUERY],\
+        assert packet.get_protocol() in [Packet.PROTOCOL_QUERY],\
             "Invalid packet type (%s)" % packet
 
     def send(self, packet):

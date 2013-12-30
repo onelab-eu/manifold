@@ -185,7 +185,7 @@ class From(Operator):
         """
         Log.tmp("From::receive")
         # Register this flow in the Gateway
-        if packet.get_type() == Packet.TYPE_QUERY:
+        if packet.get_protocol() == Packet.PROTOCOL_QUERY:
             print "From receive query"
             try:
                 self.get_gateway().add_flow(packet.get_query(), self)
@@ -206,12 +206,12 @@ class From(Operator):
 #jo#        print "send, i expect producers to receive" , self._producers
 #jo#        self.send(packet)
 
-        elif packet.get_type() == Packet.TYPE_RECORD:
+        elif packet.get_protocol() == Packet.PROTOCOL_RECORD:
             print "from receive record", packet
             self.send(packet)
     
 #    def receive(self, packet):
-#        if packet.get_type() == Packet.TYPE_QUERY:
+#        if packet.get_protocol() == Packet.PROTOCOL_QUERY:
 #            query = packet.get_query()
 #            from_select = self.get_query().get_select()
 #            from_where = self.get_where()

@@ -101,10 +101,10 @@ class ManifoldLocalClient(ManifoldClient):
         """
         assert isinstance(packet, Packet), \
             "Invalid packet %s (%s)" % (packet, type(packet))
-        assert packet.get_type() == Packet.TYPE_QUERY, \
+        assert packet.get_protocol() == Packet.PROTOCOL_QUERY, \
             "Invalid packet %s of type %s" % (
                 packet,
-                Packet.get_type_name(packet.get_type())
+                Packet.get_protocol_name(packet.get_protocol())
             )
         self.router.receive(packet)
 
@@ -225,6 +225,7 @@ class Proxy(xmlrpc.Proxy):
                 # verfication of who your talking to
                 # Using the default sslcontext without verification
                 # Can lead to man in the middle attacks
+            print "self.host", self.host, self.port
             ReactorThread().connectSSL(self.host, self.port or 443,
                                factory, self.SSLClientContext,
                                timeout=self.connectTimeout)
@@ -241,21 +242,26 @@ class Proxy(xmlrpc.Proxy):
             d = defer.Deferred()
             
             def proxy_success_cb(result):
+                print "success", result
                 self.result = result
                 self.event.set()
             def proxy_error_cb(failure):
+                print "error", failure
                 self.error = failure
                 self.event.set()
             
             #@defer.inlineCallbacks
             def wrap(source, args):
                 args = (name,) + args
+                print "call..."
                 self.callRemote(*args).addCallbacks(proxy_success_cb, proxy_error_cb)
+                print "call done"
             
             ReactorThread().callInReactor(wrap, self, args)
             self.event.wait()
             self.event.clear()
             if self.error:
+                print "error in getattr", self.error
                 failure = self.error
                 self.error = None
                 raise Exception, "Error in proxy: %s" % failure # .trap(Exception)
@@ -277,7 +283,21 @@ class ManifoldXMLRPCClient(ManifoldClient):
         if not annotation:
             annotation = Annotation() 
         annotation.update(self.annotation)
-        return ResultValue(self.router.forward(query.to_dict(), annotation.to_dict()))
+        print "annotation=", annotation
+        print "forward"
+        try:
+            print "query.to_dict()", query.to_dict()
+            print "annotation.to_dict()", annotation.to_dict()
+            print "self.router", self.router
+            ret = self.router.forward(query.to_dict(), annotation.to_dict())
+            print "ret=", ret
+            rv=ResultValue(ret)
+            print "rv=", rv
+            return rv
+        except Exception, e:
+            print "EXC in forward", e
+
+#        return ResultValue(self.router.forward(query.to_dict(), annotation.to_dict()))
         
 
     @defer.inlineCallbacks
@@ -309,6 +329,7 @@ class ManifoldXMLRPCClientSSLPassword(ManifoldXMLRPCClient):
                     "AuthMethod" : "anonymous"
                 }
             }) 
+            print "going anonymous"
 
         self.router = Proxy(self.url, allowNone=True, useDateTime=False)
         self.router.setSSLClientContext(ssl.ClientContextFactory())
@@ -559,12 +580,15 @@ class Shell(object):
         """
         #username, password = Options().username, Options().password
         dic = SQLParser().parse(command)
+        print "dic=", dic
         if not dic:
             return None
         query = Query(dic)
+        print "query=", query
         if "*" in query.get_select():
             query.fields = None
 
+        print "execute"
         return self.execute(query)
 
     @returns(ResultValue)
@@ -577,7 +601,10 @@ class Shell(object):
             The ResultValue resulting from the Query
         """
         try:
+            print "before execute"
+            print "client=", self.client
             result_value = self.client.forward(query)
+            print "after execute"
         except Exception, e:
             import traceback
             message = "Error executing query: %s" % (e,)
