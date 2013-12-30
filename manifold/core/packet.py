@@ -38,9 +38,9 @@ class Packet(object):
     A generic packet class: Query packet, Record packet, Error packet (ICMP), etc.
     """
 
-    TYPE_QUERY  = 1
-    TYPE_RECORD = 2
-    TYPE_ERROR  = 3
+    PROTOCOL_QUERY  = 1
+    PROTOCOL_RECORD = 2
+    PROTOCOL_ERROR  = 3
 
     #---------------------------------------------------------------------------
     # Helpers for assertions
@@ -48,42 +48,43 @@ class Packet(object):
 
     @staticmethod
     @returns(StringTypes)
-    def get_type_name(type):
+    def get_protocol_name(type):
         """
         Returns:
             The String corresponding to the type of Packet.
         """
         TYPE_NAMES = {
-            Packet.TYPE_QUERY  : 'QUERY',
-            Packet.TYPE_RECORD : 'RECORD',
-            Packet.TYPE_ERROR  : 'ERROR'
+            Packet.PROTOCOL_QUERY  : 'QUERY',
+            Packet.PROTOCOL_RECORD : 'RECORD',
+            Packet.PROTOCOL_ERROR  : 'ERROR'
         }
 
-        return TYPE_NAMES[type]
+        return PROTOCOL_NAMES[type]
 
     #---------------------------------------------------------------------------
     # Constructor
     #---------------------------------------------------------------------------
 
-    def __init__(self, type):
+    def __init__(self, protocol, last = True):
         """
         Constructor.
         Args:
-            type: A value among {Packet.TYPE_QUERY, Packet.TYPE_RECORD, Packet.TYPE_ERROR}.
+            type: A value among {Packet.PROTOCOL_QUERY, Packet.PROTOCOL_RECORD, Packet.PROTOCOL_ERROR}.
         """
-        self._type = type
+        self._protocol = protocol
+        self._last     = last
 
     #---------------------------------------------------------------------------
     # Accessors
     #---------------------------------------------------------------------------
 
     @returns(int)
-    def get_type(self):
+    def get_protocol(self):
         """
         Returns:
             The type of packet corresponding to this Packet instance.
         """
-        return self._type
+        return self._protocol
 
     #---------------------------------------------------------------------------
     # Methods
@@ -104,7 +105,7 @@ class Packet(object):
         Returns:
             The '%r' representation of this QUERY Packet.
         """
-        return "<Packet.%s>" % Packet.get_type_name(self.get_type())
+        return "<Packet.%s>" % Packet.get_protocol_name(self.get_type())
 
     @returns(StringTypes)
     def __str__(self):
@@ -136,7 +137,7 @@ class QueryPacket(Packet):
         assert not annotation or isinstance(annotation, Annotation), \
             "Invalid annotation = %s (%s)" % (annotation, type(annotation))
 
-        Packet.__init__(self, Packet.TYPE_QUERY)
+        Packet.__init__(self, Packet.PROTOCOL_QUERY)
         self._query      = query
         self._annotation = annotation
         self._receiver   = receiver
@@ -218,14 +219,16 @@ class ErrorPacket(Packet):
     Equivalent to current ResultValue
     Equivalent to current ICMP errors
     """
-    def __init__(self, message = None, traceback = None):
+    def __init__(self, type, code, message = None, traceback = None):
         """
         Constructor.
         Args:
             message: A String containing the error message or None.
             traceback: A String containing the traceback or None.
         """
-        Packet.__init__(self, Packet.TYPE_ERROR)
+        Packet.__init__(self, Packet.PROTOCOL_ERROR)
+        self._type      = type
+        self._code      = code
         self._message   = message
         self._traceback = traceback
 

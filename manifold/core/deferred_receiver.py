@@ -37,12 +37,6 @@ class DeferredReceiver(Consumer):
     # Methods
     #---------------------------------------------------------------------------
 
-    def stop(self):
-        """
-        Stop the DeferredReceiver by triggering its callback.
-        """
-        result_value = ResultValue.get_success(self._records.to_list())
-        self._deferred.callback(result_value.to_dict())
 
 #DEPRECATED|        def process_results(rv):
 #DEPRECATED|            if 'description' in rv and isinstance(rv['description'], list):
@@ -73,15 +67,12 @@ class DeferredReceiver(Consumer):
                 corresponding record is bufferized in this SyncReceiver
                 until records retrieval.
         """
-        # XXX Why do we need this flag ?
-        do_stop = True
 
         # XXX We should accumulate records and errors here to build up the ResultValue
-        if packet.get_type() == Packet.TYPE_RECORD:
-            if not packet.is_last():
-                do_stop = False
+        if packet.get_protocol() == Packet.PROTOCOL_RECORD:
+            if not packet.is_empty():
                 self._records.append(packet)
-        elif packet.get_type() == Packet.TYPE_ERROR:
+        elif packet.get_protocol() == Packet.PROTOCOL_ERROR:
             message = packet.get_message()
             trace   = packet.get_traceback()
             raise Exception("%(message)s%(trace)s" % {
@@ -92,15 +83,16 @@ class DeferredReceiver(Consumer):
             Log.warning(
                 "SyncReceiver::receive(): Invalid Packet type (%s, %s)" % (
                     packet,
-                    Packet.get_type_name(packet.get_type())
+                    Packet.get_protocol_name(packet.get_protocol())
                 )
             )
 
         # TODO this flag should be set to True iif we receive a LastRecord
         # Packet (which could be a RECORD or an ERROR Packet). Each Node
         # should manage the "LAST_RECORD" flag while forwarding its Packets.
-        if do_stop:
-            self.stop()
+        if packet.is_last()
+            result_value = ResultValue.get_success(self._records.to_list())
+            self._deferred.callback(result_value.to_dict())
 
     def get_deferred(self):
         return self._deferred

@@ -28,8 +28,11 @@ class Record(Packet):
         """
         Constructor.
         """
-        Packet.__init__(self, Packet.TYPE_RECORD)
-        self._dict = dict(*args, **kwargs)
+        Packet.__init__(self, Packet.PROTOCOL_RECORD, **kwargs)
+        if args:
+            self._record = dict(*args)
+        else:
+            self._record = None
 
     #---------------------------------------------------------------------------
     # Accessors
@@ -42,7 +45,7 @@ class Record(Packet):
             The dict nested in this Record. Note that most of time
             you should use to_dict() method instead.
         """
-        return self._dict
+        return self._record
 
     @returns(dict)
     def to_dict(self):
@@ -51,7 +54,7 @@ class Record(Packet):
             The dict representation of this Record.
         """
         dic = dict() 
-        for k, v in self._dict.iteritems():
+        for k, v in self._record.iteritems():
             if isinstance(v, Record):
                 dic[k] = v.to_dict()
             elif isinstance(v, Records):
@@ -80,7 +83,7 @@ class Record(Packet):
         Returns:
             The '%s' representation of this Record.
         """
-        return "<Record %s>" % ' '.join([("%s" % self._dict) if self._dict else ''])
+        return "<Record %s>" % ' '.join([("%s" % self._record) if self._record else ''])
 
     def __getitem__(self, key, **kwargs):
         """
@@ -91,7 +94,7 @@ class Record(Packet):
         Returns:
             The corresponding value. 
         """
-        return dict.__getitem__(self._dict, key, **kwargs)
+        return dict.__getitem__(self._record, key, **kwargs)
 
     def __setitem__(self, key, value, **kwargs):
         """
@@ -101,10 +104,10 @@ class Record(Packet):
                 of this Record.
             value: The value that must be mapped with this key.
         """
-        return dict.__setitem__(self._dict, key, value, **kwargs)
+        return dict.__setitem__(self._record, key, value, **kwargs)
 
     def __iter__(self): 
-        return dict.__iter__(self._dict)
+        return dict.__iter__(self._record)
 
     #--------------------------------------------------------------------------- 
     # Class methods
@@ -132,9 +135,9 @@ class Record(Packet):
             If key is a set, return a tuple of corresponding value.
         """
         if isinstance(key, StringTypes):
-            return self._dict[key]
+            return self._record[key]
         else:
-            return tuple(map(lambda x: self._dict[x], key))
+            return tuple(map(lambda x: self._record[x], key))
 
     @returns(bool)
     def has_fields(self, fields):
@@ -147,51 +150,26 @@ class Record(Packet):
             True iif record carries this set of fields.
         """
         if isinstance(fields, StringTypes):
-            return fields in self._dict
+            return fields in self._record
         else:
-            return fields <= set(self._dict.keys())
+            return fields <= set(self._record.keys())
    
     @returns(bool)
-    def is_empty(self, keys):
+    def has_empty_fields(self, keys):
         for key in keys:
-            if self._dict[key]: return False
+            if self._record[key]: return False
         return True
 
     def pop(self, key):
         """
         """
-        return dict.pop(self._dict, key)
+        return dict.pop(self._record, key)
 
     def items(self):
-        return dict.items(self._dict)
+        return dict.items(self._record)
 
     def keys(self):
-        return dict.keys(self._dict)
-
-class LastRecord(Record):
-    def __init__(self, *args, **kwargs):
-        """
-        Constructor.
-        """
-        super(LastRecord, self).__init__(*args, **kwargs)
-
-    @returns(bool)
-    def is_last(self):
-        """
-        (This method is overwritten in LastRecord)
-        Returns:
-            True iif this Record is the last one of a list
-            of Records corresponding to a given Query.
-        """
-        return True 
-
-    @returns(StringTypes)
-    def __repr__(self):
-        """
-        Returns:
-            The '%s' representation of this Record.
-        """
-        return 'LAST'
+        return dict.keys(self._record)
 
 class Records(list):
     """

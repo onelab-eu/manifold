@@ -13,6 +13,7 @@ from __future__                     import absolute_import
 
 import traceback
 
+from sqlalchemy                     import exc
 from sqlalchemy                     import create_engine
 from sqlalchemy                     import types
 from sqlalchemy.ext.declarative     import declarative_base
@@ -303,7 +304,11 @@ class SQLAlchemyGateway(Gateway):
         self.db.add(new_obj)
         try:
             self.db.commit()
-        except:
+        except exc.IntegrityError, e:
+            raise Exception, "Integrity error: %e" % e
+        except Exception, e:
+            raise Exception, "Query error: %e" % e
+        finally:
             self.db.rollback()
         
         return [new_obj]
@@ -384,8 +389,7 @@ class SQLAlchemyGateway(Gateway):
         """
         self.check_receive(packet)
         query = packet.get_query()
-        Log.tmp("query = %s" % query)
-        socket = self.get_socket(query)
+        #socket = self.get_socket(query)
 
         _map_action = {
             "get"    : self.local_query_get,
@@ -407,9 +411,9 @@ class SQLAlchemyGateway(Gateway):
                 user = annotation.get("user", None)
                 records = Records([row2record(row) for row in _map_action[query.get_action()](query, user)])
 
-            Gateway.records(socket, records)
+            self.records(query, records)
         except Exception, e:
-            Log.error(traceback.format_exc())
-            Gateway.error(socket, e)
+            #Log.error(traceback.format_exc())
+            self.error(query, 0, 0, e)
         finally:
             self.close(query)

@@ -130,7 +130,7 @@ class Router(Interface):
         Args:
             packet: A QUERY Packet instance. 
         """
-        assert isinstance(packet, Packet) and packet.get_type() == Packet.TYPE_QUERY, \
+        assert isinstance(packet, Packet) and packet.get_protocol() == Packet.PROTOCOL_QUERY, \
             "Invalid packet %s (%s) (%s) (invalid type)" % (packet, type(packet))
 
         print "Router received a query", packet.get_query()

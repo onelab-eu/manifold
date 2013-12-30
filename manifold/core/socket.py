@@ -34,7 +34,7 @@ class Socket(Relay):
         Overload producer::check_send()
         """
         super(Socket, self).check_send(packet)
-        if packet.get_type() != Packet.TYPE_ERROR:
+        if packet.get_protocol() != Packet.PROTOCOL_ERROR:
             assert self.get_num_producers() == 1,\
                 "Invalid number of Producers in %s (expected: 1, got: %s) " % (
                     self,

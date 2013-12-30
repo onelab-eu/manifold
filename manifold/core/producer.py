@@ -240,7 +240,7 @@ class Producer(Node):
         """
         # A Producer sends RECORD/ERROR Packets to its consumers
         super(Producer, self).check_send(packet)
-        assert packet.get_type() in [Packet.TYPE_RECORD, Packet.TYPE_ERROR],\
+        assert packet.get_protocol() in [Packet.PROTOCOL_RECORD, Packet.PROTOCOL_ERROR],\
             "Invalid packet type (%s)" % packet
 
     def check_receive(self, packet):
@@ -249,7 +249,7 @@ class Producer(Node):
         """
         # A Producer sends QUERY/ERROR Packets to its consumers
         super(Producer, self).check_receive(packet)
-        assert packet.get_type() in [Packet.TYPE_QUERY, Packet.TYPE_ERROR],\
+        assert packet.get_protocol() in [Packet.PROTOCOL_QUERY, Packet.PROTOCOL_ERROR],\
             "Invalid packet type (%s)" % packet
 
     def send(self, packet):

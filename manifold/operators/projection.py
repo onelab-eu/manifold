@@ -135,10 +135,10 @@ class Projection(Operator):
         Args:
             packet: A Packet instance.
         """
-        if packet.get_type() == Packet.TYPE_QUERY:
+        if packet.get_protocol() == Packet.PROTOCOL_QUERY:
             self.send(packet)
 
-        elif packet.get_type() == Packet.TYPE_RECORD:
+        elif packet.get_protocol() == Packet.PROTOCOL_RECORD:
             record = packet
             if not record.is_last():
                 record = do_projection(record, self._fields)
