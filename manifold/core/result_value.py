@@ -109,47 +109,76 @@ class ResultValue(dict):
     # Gateway errors            : return RESULT WITH WARNING
     # all Gateways errors       : return ERROR
     
+#DEPRECATED|    @classmethod
+#DEPRECATED|    #@returns(ResultValue)
+#DEPRECATED|    def get_result_value(self, results, result_values):
+#DEPRECATED|        """
+#DEPRECATED|        Craft a ResultValue instance according to a list of Records and
+#DEPRECATED|        an optionnal list of ResultValues retrieved during the QueryPlan
+#DEPRECATED|        execution.
+#DEPRECATED|        Args:
+#DEPRECATED|            results: A list of Records 
+#DEPRECATED|            result_values: A list of ResultValue instances.
+#DEPRECATED|        """
+#DEPRECATED|        # let's analyze the results of the query plan
+#DEPRECATED|        # XXX we should inspect all errors to determine whether to return a
+#DEPRECATED|        # result or not
+#DEPRECATED|        
+#DEPRECATED|        if not result_values:
+#DEPRECATED|            # No error
+#DEPRECATED|            return ResultValue(code = self.SUCCESS, origin = [self.CORE, 0], value = results)
+#DEPRECATED|        else:
+#DEPRECATED|            # Handle errors
+#DEPRECATED|            return ResultValue(code = self.WARNING, origin = [self.CORE, 0], value = results, description = result_values)
+#DEPRECATED|
+
     @classmethod
-    #@returns(ResultValue)
-    def get_result_value(self, results, result_values):
-        """
-        Craft a ResultValue instance according to a list of Records and
-        an optionnal list of ResultValues retrieved during the QueryPlan
-        execution.
-        Args:
-            results: A list of Records 
-            result_values: A list of ResultValue instances.
-        """
-        # let's analyze the results of the query plan
-        # XXX we should inspect all errors to determine whether to return a
-        # result or not
-        
-        if not result_values:
-            # No error
-            return ResultValue(code = self.SUCCESS, origin = [self.CORE, 0], value = results)
+    def get(self, records, errors):
+        num_errors = len(errors)
+
+        if num_errors == 0:
+            return ResultValue.get_success(records)
+        elif results:
+            return ResultValue.get_warning(records, errors)
         else:
-            # Handle errors
-            return ResultValue(code = self.WARNING, origin = [self.CORE, 0], value = results, description = result_values)
-
-    @classmethod
-    #@returns(ResultValue)
-    def get_error(self, error, description=None):
-        if not description:
-            description = self.ERRSTR[error]
-        return ResultValue(code=self.ERROR, type=error, origin=[self.CORE, 0], description=description)
-
-    @returns(bool)
-    def is_success(self):
-        return self["code"] == self.SUCCESS
+            return ResultValue.get_error(errors)
 
     @classmethod
     #@returns(ResultValue)
     def get_success(self, result):
         return ResultValue(
-            code      = self.SUCCESS,
-            origin    = [self.CORE, 0],
-            value     = result
+            code        = self.SUCCESS,
+            origin      = [self.CORE, 0],
+            value       = result
         )
+
+    @classmethod
+    #@returns(ResultValue)
+    def get_warning(self, result, errors):
+        return ResultValue(
+            code        = self.WARNING,
+            # type
+            origin      = [self.CORE, 0],
+            value       = result,
+            # description
+        )
+
+    @classmethod
+    #@returns(ResultValue)
+    def get_error(self, errors):
+        if not description:
+            description = self.ERRSTR[error]
+        return ResultValue(
+            code        = self.ERROR,
+            type        = 0,  # XXX
+            origin      = [self.CORE, 0],
+            description = description
+        )
+
+    @returns(bool)
+    def is_success(self):
+        return self["code"] == self.SUCCESS
+
 
     def ok_value(self):
         return self['value']

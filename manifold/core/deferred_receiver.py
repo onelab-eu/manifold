@@ -12,7 +12,6 @@ from types                      import StringTypes
 
 from manifold.core.consumer     import Consumer
 from manifold.core.packet       import Packet
-from manifold.core.record       import Records
 from manifold.core.result_value import ResultValue
 from manifold.util.log          import Log
 from manifold.util.type         import accepts, returns
@@ -30,7 +29,8 @@ class DeferredReceiver(Consumer):
         Constructor.
         """
         Consumer.__init__(self)
-        self._records = Records()
+        self._records = list()
+        self._errors  = list()
         self._deferred = Deferred()
         
     #---------------------------------------------------------------------------
@@ -73,12 +73,13 @@ class DeferredReceiver(Consumer):
             if not packet.is_empty():
                 self._records.append(packet)
         elif packet.get_protocol() == Packet.PROTOCOL_ERROR:
-            message = packet.get_message()
-            trace   = packet.get_traceback()
-            raise Exception("%(message)s%(trace)s" % {
-                "message" : message if message else "(No message)",
-                "trace"   : trace   if trace   else "(No traceback)"
-            })
+            self._errors.append(packet)
+            #message = packet.get_message()
+            #trace   = packet.get_traceback()
+            #raise Exception("%(message)s%(trace)s" % {
+            #    "message" : message if message else "(No message)",
+            #    "trace"   : trace   if trace   else "(No traceback)"
+            #})
         else:
             Log.warning(
                 "SyncReceiver::receive(): Invalid Packet type (%s, %s)" % (
@@ -91,7 +92,7 @@ class DeferredReceiver(Consumer):
         # Packet (which could be a RECORD or an ERROR Packet). Each Node
         # should manage the "LAST_RECORD" flag while forwarding its Packets.
         if packet.is_last()
-            result_value = ResultValue.get_success(self._records.to_list())
+            result_value = ResultValue.get(self._records, self._errors)
             self._deferred.callback(result_value.to_dict())
 
     def get_deferred(self):
