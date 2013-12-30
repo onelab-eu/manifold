@@ -112,7 +112,6 @@ class XMLRPCAPI(xmlrpc.XMLRPC, object):
         packet = QueryPacket(query, annotation, receiver = receiver)
         self.interface.receive(packet)
 
-        print "forward : returned deferred"
         return receiver.get_deferred()
 
     def _xmlrpc_action(self, action, *args):

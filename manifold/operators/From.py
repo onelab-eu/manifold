@@ -183,18 +183,11 @@ class From(Operator):
         Args:
             packet: A Packet instance.
         """
-        Log.tmp("From::receive")
         # Register this flow in the Gateway
         if packet.get_protocol() == Packet.PROTOCOL_QUERY:
-            print "From receive query"
-            try:
-                self.get_gateway().add_flow(packet.get_query(), self)
-                packet.set_receiver(self)
-                self.get_gateway().receive(packet) #self.send(packet)
-            except Exception, e:
-                import traceback
-                traceback.print_exc()
-                print "EXC FROM: %s" % e
+            self.get_gateway().add_flow(packet.get_query(), self)
+            packet.set_receiver(self)
+            self.get_gateway().receive(packet) #self.send(packet)
 #jo#
 #jo#        # A From Operator forwards the incoming Packets without modification.
 #jo#        try:
@@ -209,7 +202,6 @@ class From(Operator):
 #jo#        self.send(packet)
 
         else: #if packet.get_protocol() == Packet.PROTOCOL_RECORD:
-            print "from receive record", packet
             self.send(packet)
     
 #    def receive(self, packet):

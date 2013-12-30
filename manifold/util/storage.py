@@ -70,14 +70,11 @@ def storage_execute(gateway, query, annotation = None, error_message = None):
     gateway.receive(packet)
     result_value = receiver.get_result_value()
 
-    print "RV=", result_value
     if not result_value.is_success():
         if not error_message:
             error_message = "Error executing local query: %s" % query
-        print "ERROR", error_message
         raise Exception, error_message
 
-    print "success"
     return result_value["value"]
         
 @returns(list)
