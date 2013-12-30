@@ -413,7 +413,8 @@ class SQLAlchemyGateway(Gateway):
 
             self.records(query, records)
         except Exception, e:
-            #Log.error(traceback.format_exc())
+            Log.error(e)
+            Log.error(traceback.format_exc())
             self.error(query, 0, 0, e)
         finally:
             self.close(query)

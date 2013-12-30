@@ -1,6 +1,5 @@
 # Inspired from http://twistedmatrix.com/documents/10.1.0/web/howto/xmlrpc.html
 
-from manifold.core.record           import LastRecord
 from manifold.gateways              import Gateway
 from manifold.util.reactor_thread   import ReactorThread
 #from twisted.internet import reactor

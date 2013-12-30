@@ -138,7 +138,7 @@ class ResultValue(dict):
 
         if num_errors == 0:
             return ResultValue.get_success(records)
-        elif results:
+        elif records:
             return ResultValue.get_warning(records, errors)
         else:
             return ResultValue.get_error(errors)
@@ -166,13 +166,11 @@ class ResultValue(dict):
     @classmethod
     #@returns(ResultValue)
     def get_error(self, errors):
-        if not description:
-            description = self.ERRSTR[error]
         return ResultValue(
             code        = self.ERROR,
-            type        = 0,  # XXX
+            type        = 0,                # XXX
             origin      = [self.CORE, 0],
-            description = description
+            description = errors
         )
 
     @returns(bool)
