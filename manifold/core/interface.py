@@ -285,11 +285,17 @@ class Interface(object):
             Log.error("Cannot make Gateway %s" % platform_name)
             return None
 
-        platform_config = json.loads(platform["config"])
+        platform_config = json.loads(platform["config"]) if platform['config'] else {}
         args = [self, platform_name, platform_config]
 
         # Gateway is a plugin_factory
-        gateway = Gateway.get(platform["gateway_type"])
+        if platform['gateway_type']:
+            gateway_type = platform['gateway_type']
+        else:
+            Log.warning("No gateway_type for platform '%s'. Defaulting to MANIFOLD." % platform['platform'])
+            gateway_type = 'manifold'
+
+        gateway = Gateway.get(gateway_type)
         if not gateway:
             raise Exception, "Gateway not found: %s" % platform["gateway_type"]
         return gateway(*args)
@@ -304,7 +310,7 @@ class Interface(object):
         query      = Query().get("platform").filter_by("disabled", "=", False)
         annotation = Annotation({"user" : self.get_user_storage()})
 
-        self.platforms = self.execute_local_query(query, annotation)
+        self.platforms = [record.to_dict() for record in self.execute_local_query(query, annotation)]
 
         platform_names_enabled = set([platform["platform"] for platform in self.platforms])
         platform_names_del     = platform_names_loaded - platform_names_enabled 
@@ -577,9 +583,9 @@ class Interface(object):
             d.callback(result_value)
             return d
         
-    def send(self, query, records, annotation, is_deferred):
-        rv = ResultValue.get_success(records)
-        return self.send_result_value(query, rv, annotation, is_deferred)
+#DEPRECATED|    def send(self, query, records, annotation, is_deferred):
+#DEPRECATED|        rv = ResultValue.get_success(records)
+#DEPRECATED|        return self.send_result_value(query, rv, annotation, is_deferred)
 
     def process_qp_results(self, query, records, annotation, query_plan):
         # Enforcing policy

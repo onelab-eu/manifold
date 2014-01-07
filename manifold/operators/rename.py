@@ -71,13 +71,13 @@ class Rename(Operator):
         """
         """
 
-        if packet.get_type() == Packet.TYPE_QUERY:
+        if packet.get_protocol() == Packet.PROTOCOL_QUERY:
             # XXX need to remove the filter in the query
             new_packet = packet.clone()
             packet.update_query(Query.unfilter_by, self._filter)
             self.send(new_packet)
 
-        elif packet.get_type() == Packet.TYPE_RECORD:
+        elif packet.get_protocol() == Packet.PROTOCOL_RECORD:
             record = packet
 
             if not record.is_last():

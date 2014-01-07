@@ -11,7 +11,7 @@
 
 import GeoIP
 
-from manifold.core.record               import Record, Records, LastRecord
+from manifold.core.record               import Record
 from manifold.gateways                  import Gateway
 from manifold.util.log                  import Log
 from manifold.util.type                 import returns, accepts 
@@ -46,56 +46,33 @@ class MaxMindGateway(Gateway):
         """
         super(MaxMindGateway, self).__init__(interface, platform, config)
 
-    def forward(self, query, callback, is_deferred = False, execute = True, user = None, account_config = None, format = "dict", from_node = None):
+    def receive_impl(self, packet):
         """
-        Query handler.
+        Handle a incoming QUERY Packet.
         Args:
-            query: A Query instance, reaching this Gateway.
-            callback: The function called to send this record. This callback is provided
-                most of time by a From Node.
-                Prototype : def callback(record)
-            is_deferred: A boolean.
-            execute: A boolean set to True if the treatement requested in query
-                must be run or simply ignored.
-            user: The User issuing the Query.
-            account_config: A dictionnary containing the user's account config.
-                In pratice, this is the result of the following query (run on the Storage)
-                SELECT config FROM local:account WHERE user_id == user.user_id
-            format: A String specifying in which format the Records must be returned.
-            from_node : The From Node running the Query or None. Its ResultValue will
-                be updated once the query has terminated.
-        Returns:
-            forward must NOT return value otherwise we cannot use @defer.inlineCallbacks
-            decorator. 
+            packet: A QUERY Packet instance.
         """
-        Gateway.forward(self, query, callback, is_deferred, execute, user, account_config, format, receiver)
-        identifier = from_node.get_identifier() if from_node else None
+        self.check_receive(packet)
+        query = packet.get_query()
+        where = query.get_where()
 
-        #assert timestamp == 'latest'
-        #assert set(input_filter.keys()).issubset(['ip', 'hostname'])
-        #assert set(output_fields).issubset(allowed_fields)
-        print "W: MaxMind faking data until python-geoip is installed"
-        self.started = True
-        # XXX We never stop gateways even when finished. Investigate ?
+        Log.warning("MaxMind faking data until python-geoip is installed")
 
-        if not 'ip' in query.filters and not 'hostname' in query.filters:
-            raise Exception, "MaxMind is an ONJOIN platform only"
+        if not "ip" in where and not "hostname" in where:
+            self.error(packet, "MaxMind is an ONJOIN platform only")
+            return
 
         rows = list()
 
         # HARDCODED dummy cities
-        for i in query.filters['ip']:
-            rows.append({'ip': i, 'city': 'TEMP'})
+        for ip in where:
+            rows.append({"ip": ip, "city": "TEMP"})
 
         # HARDCODED dummy hostnames
-        for h in query.filters['hostname']:
-            rows.append({'hostname': h, 'city': 'TEMP'})
+        for hostname in where:
+            rows.append({"hostname": hostname, "city": "TEMP"})
 
-        for row in rows:
-            self.send(Record(row), callback, identifier)
-        self.send(LastRecord(), callback, identifier)
-
-        self.success(from_node, query)
+        self.records(packet, rows)
 
 #        gi = GeoIP.open("/usr/local/share/GeoIP/GeoLiteCity.dat",GeoIP.GEOIP_STANDARD)
 #

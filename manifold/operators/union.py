@@ -10,7 +10,7 @@
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
 from manifold.core.query            import Query
-from manifold.core.record           import Record, LastRecord
+from manifold.core.record           import Record
 from manifold.operators             import ChildStatus, ChildCallback
 from manifold.operators.projection  import Projection
 from manifold.operators.operator    import Operator
@@ -105,7 +105,7 @@ class Union(Operator):
     def all_done(self):
         #for record in self.child_results.values():
         #    self.send(record)
-        self.send(LastRecord())
+        self.send(Record(last = True))
 
     def child_callback(self, child_id, record):
         """

@@ -1,107 +1,144 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Class to manage Manifold's gateways
+# Manifold Gateway speak to another Manifold Router by
+# using XMLRPC calls.
+# Inspired from:
+#   http://twistedmatrix.com/documents/10.1.0/web/howto/xmlrpc.html
 #
 # Jordan Auge       <jordan.auge@lip6.fr>
 # Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 #
 # Copyright (C) 2013 UPMC 
 
-# Inspired from http://twistedmatrix.com/documents/10.1.0/web/howto/xmlrpc.html
+from types                          import StringTypes
+#from twisted.internet              import reactor
 
-import sys
-
-from manifold.core.record               import Record, LastRecord
-from manifold.gateways                  import Gateway
-from manifold.util.log                  import Log
+from manifold.gateways              import Gateway
+from manifold.util.reactor_thread   import ReactorThread
+from manifold.util.type             import accepts, returns 
 
 class ManifoldGateway(Gateway):
     __gateway_name__ = 'manifold'
 
+    def __init__(self, interface, platform, platform_config):
+        """
+        Constructor
+        Args:
+            interface: The Manifold Interface on which this Gateway is running.
+            platform: A String storing name of the platform related to this Gateway or None.
+            platform_config: A dictionnary containing the configuration related to this Gateway.
+        """
+        super(ManifoldGateway, self).__init__(interface, platform, platform_config)
+
+    @returns(StringTypes)
     def __str__(self):
         """
         Returns:
             The '%s' representation of this ManifoldGateway.
         """
-        return "<ManifoldGateway %s %s>" % (self.config["url"], self.query)
+        return "<ManifoldGateway %s %s>" % (self._platform_config['url'], self.query)
 
-    def success_cb(self, records, callback, identifier):
+    def callback_records(self, rows, packet):
         """
+        (Internal usage) See ManifoldGateway::receive_impl.
         Args:
-            records: The list containing the fetched Records.
+            packet: A QUERY Packet.
+            rows: The corresponding list of dict or Record instances.
         """
-        for record in records:
-            self.send(Record(record), callback, identifier)
-        self.send(LastRecord(), callback, identifier)
-        self.success(receiver, query)
+        self.records(packet, rows)
 
-    def exception_cb(self, error, callback, identifier):
-        Log.warning("Error during Manifold call: %s" % error)
-        self.send(LastRecord(), callback, identifier)
-        # XXX self.error(receiver, query)
-
-    def forward(self, query, callback, is_deferred = False, execute = True, user = None, account_config = None, format = "dict", receiver = None):
+    def callback_error(self, error, packet):
         """
-        Query handler.
+        (Internal usage) See ManifoldGateway::receive_impl.
         Args:
-            query: A Query instance, reaching this Gateway.
-            callback: The function called to send this record. This callback is provided
-                most of time by a From Node.
-                Prototype : def callback(record)
-            is_deferred: A boolean set to True if this Query is async.
-            execute: A boolean set to True if the treatement requested in query
-                must be run or simply ignored.
-            user: The User issuing the Query.
-            account_config: A dictionnary containing the user's account config.
-                In pratice, this is the result of the following query (run on the Storage)
-                SELECT config FROM local:account WHERE user_id == user.user_id
-            format: A String specifying in which format the Records must be returned.
-            receiver : The From Node running the Query or None. Its ResultValue will
-                be updated once the query has terminated.
-        Returns:
-            forward must NOT return value otherwise we cannot use @defer.inlineCallbacks
-            decorator. 
+            packet: A QUERY Packet.
+            error: The corresponding error message. 
         """
-        Gateway.forward(self, query, callback, is_deferred, execute, user, account_config, format, receiver)
-        identifier = receiver.get_identifier() if receiver else None
+        self.error(packet, "Error during Manifold call: %r" % error)
 
-        from twisted.web.xmlrpc import Proxy
-        try:
-            def wrap(source):
-                proxy = Proxy(self.config['url'], allowNone = True)
-                query = source.query
-                auth = {'AuthMethod': 'guest'}
+    def receive_impl(self, packet):
+        """
+        Handle a incoming QUERY Packet (processing).
+        Args:
+            packet: A QUERY Packet instance.
+        """
+        query = packet.get_query()
+        annotation = packet.get_annotation()
+        receiver = packet.get_receiver()
 
-                # DEBUG
-                if self.config['url'] == "https://api2.top-hat.info/API/":
-                    Log.warning("Hardcoding XML RPC call")
+        from twisted.web import xmlrpc 
+        class Proxy(xmlrpc.Proxy):
+            ''' See: http://twistedmatrix.com/projects/web/documentation/howto/xmlrpc.html
+                this is eacly like the xmlrpc.Proxy included in twisted but you can
+                give it a SSLContext object insted of just accepting the defaults..
+            '''
+            def setSSLClientContext(self,SSLClientContext):
+                self.SSLClientContext = SSLClientContext
+            def callRemote(self, method, *args):
+                def cancel(d):
+                    factory.deferred = None
+                    connector.disconnect()
+                factory = self.queryFactory(
+                    self.path, self.host, method, self.user,
+                    self.password, self.allowNone, args, cancel, self.useDateTime)
+                #factory = xmlrpc._QueryFactory(
+                #    self.path, self.host, method, self.user,
+                #    self.password, self.allowNone, args)
 
-                    # Where conversion
-                    filters = {}
-                    for predicate in query.filters:
-                        field = "%s%s" % ('' if predicate.get_str_op() == "=" else predicate.op, predicate.key)
-                        if field not in filters:
-                            filters[field] = []
-                        filters[field].append(predicate.value)
-                    for field, value in filters.iteritems():
-                        if len(value) == 1:
-                            filters[field] = value[0]
-                    query.filters = filters
+                if self.secure:
+                    try:
+                        self.SSLClientContext
+                    except NameError:
+                        print "Must Set a SSL Context"
+                        print "use self.setSSLClientContext() first"
+                        # Its very bad to connect to ssl without some kind of
+                        # verfication of who your talking to
+                        # Using the default sslcontext without verification
+                        # Can lead to man in the middle attacks
+                    ReactorThread().connectSSL(self.host, self.port or 443,
+                                       factory, self.SSLClientContext,
+                                       timeout=self.connectTimeout)
 
-                Log.info("Issuing xmlrpc call to %s: %s" % (self.config['url'], query))
+                else:
+                    ReactorThread().connectTCP(self.host, self.port or 80, factory, timeout=self.connectTimeout)
+                return factory.deferred
 
-                proxy.callRemote(
-                    'Get',
-                    auth,
-                    query.get_from(),
-                    query.get_timestamp(),
-                    query.get_where(),
-                    list(query.get_select())
-                ).addCallbacks(source.success_cb, source.exception_cb, callback, identifier)
+        #try:
+        #    def wrap(source):
+        proxy = Proxy(self._platform_config['url'].encode('latin-1'), allowNone = True)
+        #query = source.query
+        auth = {'AuthMethod': 'guest'}
+
+        # DEBUG
+        if self._platform_config['url'] == "https://api2.top-hat.info/API/":
+            print "W: Hardcoding XML RPC call"
+
+            # Where conversion
+            filters = {}
+            for predicate in query.filters:
+                field = "%s%s" % ('' if predicate.get_str_op() == "=" else predicate.op, predicate.key)
+                if field not in filters:
+                    filters[field] = []
+                filters[field].append(predicate.value)
+            for field, value in filters.iteritems():
+                if len(value) == 1:
+                    filters[field] = value[0]
+            query.filters = filters
+
+        proxy.callRemote(
+            'forward',
+            query.to_dict(),
+            {'authentication': auth}
+        ).addCallback(self.callback_records, packet).addErrback(self.callback_error, packet)
 
             #reactor.callFromThread(wrap, self) # run wrap(self) in the event loop
-            wrap(self)
-            
-        except Exception, e:
-            Log.warning("Exception in ManifoldGateway::start()", e)
+        #    wrap(self)
+        #    print "done wrap"
+        #    
+        #except Exception, e:
+        #    print "Exception in Manifold::start", e
+
+    def get_metadata(self):
+        pass
+        

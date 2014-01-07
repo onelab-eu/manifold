@@ -221,6 +221,7 @@ class Producer(Node):
         Unlink this Producer from its Consumers.
         Recusively release in cascade Consumers having no more Producer.
         """
+        raise Exception, "releasing a producer is meaningless"
         for consumer in self.get_consumers():
             consumer.del_producer(self, cascade = True)
             # This Producer is the only one of this parent Consumer, so we can
@@ -239,7 +240,7 @@ class Producer(Node):
         """
         # A Producer sends RECORD/ERROR Packets to its consumers
         super(Producer, self).check_send(packet)
-        assert packet.get_type() in [Packet.TYPE_RECORD, Packet.TYPE_ERROR],\
+        assert packet.get_protocol() in [Packet.PROTOCOL_RECORD, Packet.PROTOCOL_ERROR],\
             "Invalid packet type (%s)" % packet
 
     def check_receive(self, packet):
@@ -248,7 +249,7 @@ class Producer(Node):
         """
         # A Producer sends QUERY/ERROR Packets to its consumers
         super(Producer, self).check_receive(packet)
-        assert packet.get_type() in [Packet.TYPE_QUERY, Packet.TYPE_ERROR],\
+        assert packet.get_protocol() in [Packet.PROTOCOL_QUERY, Packet.PROTOCOL_ERROR],\
             "Invalid packet type (%s)" % packet
 
     def send(self, packet):
@@ -261,3 +262,14 @@ class Producer(Node):
         self.check_send(packet)
         Log.record(packet, self)
         self._pool_consumers.receive(packet)
+
+    def debug(self, indent = 0):
+        """
+        Print debug information to test the path(s) from this Producer
+        towards the end-Consumer(s)
+        """
+        tab = " " * indent
+        Log.tmp("%s%s" % (tab, self))
+        for consumer in self.get_consumers():
+            consumer.debug(indent + 4)
+

@@ -101,8 +101,9 @@ class CrossProduct(Operator):
             return { k: v for dic in dics for k,v in dic.items() if k in keys }
 
         records = imap(lambda x: merge(x), product(*self.child_results))
+        records[-1].set_last()
+        
         map(lambda x: self.send(x), records)
-        self.send(LastRecord())
         
 
     #---------------------------------------------------------------------------
@@ -113,7 +114,7 @@ class CrossProduct(Operator):
         """
         """
 
-        if packet.get_type() == Packet.TYPE_QUERY:
+        if packet.get_protocol() == Packet.PROTOCOL_QUERY:
             # formerly start()
             raise Exception, "CrossProduct::receive(QUERY) Not implemented"
 
@@ -131,7 +132,7 @@ class CrossProduct(Operator):
             for i, child in enumerate(self.children):
                 child.start()
 
-        elif packet.get_type() == Packet.TYPE_RECORD:
+        elif packet.get_protocol() == Packet.PROTOCOL_RECORD:
             # formerly child_callback()
 
             # XXX child_id & source ?

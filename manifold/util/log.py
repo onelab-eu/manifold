@@ -75,6 +75,10 @@ class Log(object):
         self.init_log()
         self.color = True
 
+    @staticmethod
+    def reset_duplicates():
+        Log.seen = dict()
+        
     @classmethod
     def init_options(self):
         """
@@ -252,10 +256,10 @@ class Log(object):
     @classmethod
     def log_message(cls, level, msg, ctx):
         """
-        \brief Logs an message
-        \param level (string) Log level
-        \param msg (string / list of strings) Message string, or List of message strings
-        \param ctx (dict) Context for the message strings
+        Logs an message
+            level: A String corresponding to the Log level.
+            msg: A String / tuple of Strings corresponding to the message(s).
+            ctx: A dict describing the context for the message strings.
         """
         caller = None
 
@@ -268,6 +272,8 @@ class Log(object):
                 count = 0
             
             if count == 1:
+                if isinstance(msg, StringTypes):
+                    msg = (msg,)
                 msg += (" -- REPEATED -- Future similar messages will be silently ignored. Please use the --log_duplicates option to allow for duplicates",)
             elif count > 1:
                 return
@@ -290,7 +296,6 @@ class Log(object):
             logger_fct("%s(): %s" % (inspect.stack()[2][3], msg_str))
         else:
             cls.print_msg(msg_str, level, caller)
-        
 
     @classmethod
     def critical(cls, *msg, **ctx):
@@ -306,7 +311,7 @@ class Log(object):
     def error(cls, *msg, **ctx): 
         if not Options().log_level in ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']:
             return
-        cls.log_message('ERROR', "%s" % traceback.format_exc(), ctx)
+        #cls.log_message('ERROR', "%s" % traceback.format_exc(), ctx)
         cls.log_message('ERROR', msg, ctx)
 
     @classmethod
@@ -319,6 +324,7 @@ class Log(object):
     def info(cls, *msg, **ctx):
         if not Options().log_level in ['DEBUG', 'INFO']:
             return
+        ctx = {'a' : 1}
         cls.log_message('INFO', msg, ctx)
 
     @classmethod
@@ -338,7 +344,7 @@ class Log(object):
             "%r" % record,
             #"KEYS=%r" % record.keys()
         ]
-        cls.print_msg(' '.join(msg), 'RECORD', caller_name())
+        #cls.print_msg(' '.join(msg), 'RECORD', caller_name())
 
 #    @classmethod
 #    def record(cls, packet, producer, consumer):

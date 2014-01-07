@@ -38,7 +38,7 @@ class Relay(Producer, Consumer):
             packet: A Packet instance.
         """
         Node.check_packet(self, packet)
-        if packet.get_type() != Packet.TYPE_ERROR:
+        if packet.get_protocol() != Packet.PROTOCOL_ERROR:
             assert self.get_num_producers() > 0, "No Producer set in %s: packet = %s" % (self, packet)
         assert self.get_num_consumers() > 0, "No Consumer set in %s: packet = %s" % (self, packet)
 
@@ -49,9 +49,9 @@ class Relay(Producer, Consumer):
         Args:
             packet: A Packet instance.
         """
-        if packet.get_type() in [Packet.TYPE_QUERY]:
+        if packet.get_protocol() in [Packet.PROTOCOL_QUERY]:
             Consumer.send(self, packet)
-        elif packet.get_type() in [Packet.TYPE_RECORD, Packet.TYPE_ERROR]:
+        elif packet.get_protocol() in [Packet.PROTOCOL_RECORD, Packet.PROTOCOL_ERROR]:
             Producer.send(self, packet)
 
     check_send    = check_relay
@@ -85,5 +85,12 @@ class Relay(Producer, Consumer):
         Release from memory this Relay.
         Recursively remove in cascade Consumers having no more Producer
         """
-        Producer.release(self)
+        #Producer.release(self)
         Consumer.release(self)
+
+    def debug(self, indent = 0):
+        """
+        Print debug information to test the path(s) from this Producer
+        towards the end-Consumer(s)
+        """
+        Consumer.debug(self, indent)

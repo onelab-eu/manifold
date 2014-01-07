@@ -1,9 +1,20 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+# Session class.
+#
+# Jordan Auge       <jordan.auge@lip6.fr>
+# Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
+#
+# Copyright (C) 2013 UPMC
+
 import time, crypt, base64, random
 from hashlib              import md5
+
 from sqlalchemy           import Column, ForeignKey, Integer, String
 from sqlalchemy.orm       import relationship, backref
 
-from manifold.models import Base 
+from manifold.models      import Base 
 from manifold.models.user import User 
 
 class Session(Base):

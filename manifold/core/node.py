@@ -40,6 +40,12 @@ class Node(object):
         """
         Constructor.
         """
+        try:
+            self._identifier
+            #print "node already init"
+            return
+        except: pass
+
         Node.last_identifier += 1
         self._identifier = Node.last_identifier
 

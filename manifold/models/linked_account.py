@@ -6,7 +6,7 @@ try:
     from sfa.trust.credential   import Credential
 except: pass
 from manifold.util.predicate    import Predicate
-from manifold.models            import Base, db
+from manifold.models            import Base
 from manifold.models.user       import User
 from manifold.models.platform   import Platform
 

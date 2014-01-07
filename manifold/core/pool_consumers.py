@@ -44,8 +44,8 @@ class PoolConsumers(set):
         set.add(self, consumer)
 
     def receive(self, packet):
-        if packet.get_type() not in [Packet.TYPE_RECORD, Packet.TYPE_ERROR]:
-            raise "Invalid packet type for consumer: %s" % Packet.get_type_name(packet.get_type())
+        if packet.get_protocol() not in [Packet.PROTOCOL_RECORD, Packet.PROTOCOL_ERROR]:
+            raise "Invalid packet type for consumer: %s" % Packet.get_protocol_name(packet.get_protocol())
         
         for consumer in self:
             consumer.receive(packet)

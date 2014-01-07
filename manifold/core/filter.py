@@ -170,6 +170,24 @@ class Filter(set):
             field_names |= predicate.get_field_names()
         return field_names
 
+    def grep(self, fun):
+        return Filter([x for x in self if fun(x)])
+
+    def rgrep(self, fun):
+        return Filter([x for x in self if not fun(x)])
+
+    def split(self, fun):
+        true_filter, false_filter = Filter(), Filter()
+        for predicate in self:
+            if fun(predicate):
+                true_filter.add(predicate)
+            else:
+                false_filter.add(predicate)
+        return (true_filter, false_filter)
+
+    def split_fields(self, fields):
+        return self.split(lambda predicate: predicate.get_key() in fields)
+
     # __eq__ : similar to set.__eq__   
     # __le__: For now, we are using set equality, but this is wrong per se.
         

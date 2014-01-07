@@ -19,7 +19,7 @@ from manifold.core.packet           import Packet, ErrorPacket
 from manifold.core.pit              import Pit
 from manifold.core.producer         import Producer
 from manifold.core.query            import Query
-from manifold.core.record           import LastRecord, Record, Records
+from manifold.core.record           import Record, Records
 from manifold.core.result_value     import ResultValue 
 from manifold.core.socket           import Socket 
 from manifold.operators.projection  import Projection
@@ -175,131 +175,36 @@ class Gateway(Producer):
         return None
 
     #---------------------------------------------------------------------------  
-    # Internal methods
+    # Parameter checking (internal usage) 
     #---------------------------------------------------------------------------  
-
-    @returns(StringTypes)
-    def __str__(self):
-        """
-        Returns:
-            The '%s' representation of this Gateway.
-        """
-        return "%s [%s]" % (self.get_platform_name(), self.get_gateway_type())
-
-    @returns(StringTypes)
-    def __repr__(self):
-        """
-        Returns:
-            The '%r' representation of this Gateway.
-        """
-        return "FROM <Gateway %s [%s]>" % (self.get_platform_name(), self.get_gateway_type())
-
-    #---------------------------------------------------------------------------  
-    # Methods
-    #---------------------------------------------------------------------------  
-
-    @returns(list)
-    def make_announces(self):
-        """
-        Build the list of Announces corresponding to this Gateway.
-        This method may be overloaded/overwritten if the Gateway announces Tables
-        not referenced in a dedicated .h file.
-        """
-        return Announces.from_dot_h(self.get_platform_name(), self.get_gateway_type())
-
-    # TODO clean this method and plug it in Router::forward()
-    @staticmethod
-    @returns(dict)
-    def get_variables(user, account_config):
-        """
-        ???
-        Args:
-            user: A dictionnary corresponding to the User.
-            account_config: A dictionnary corresponding to the user's Account config.
-        Returns:
-            The corresponding dictionnary.
-        """
-        #assert isinstance(user, User), "Invalid user : %s (%s)" % (user, type(user))
-        variables = dict() 
-
-        # Authenticated user
-        variables["user_email"] = user["email"]
-        if user:
-            for k, v in user["config"].items():
-                if isinstance(v, StringTypes) and not "credential" in v:
-                    variables[k] = v
-        # Account information of the authenticated user
-        for k, v in account_config.items():
-            if isinstance(v, StringTypes) and not "credential" in v:
-                variables[k] = v
-        return variables
-
-#DEPRECATED|    # TODO clean this method and plug it in Router::forward()
-#DEPRECATED|    @staticmethod
-#DEPRECATED|    def start(user, account_config, query):
-#DEPRECATED|        """
-#DEPRECATED|        ???
-#DEPRECATED|        Args:
-#DEPRECATED|            user: A User instance.
-#DEPRECATED|            account_config: A dictionnary.
-#DEPRECATED|        Returns:
-#DEPRECATED|            The corresponding dictionnary.
-#DEPRECATED|        """
-#DEPRECATED|        Log.tmp("I'm maybe obsolete")
-#DEPRECATED|        #assert isinstance(user, User), "Invalid user : %s (%s)" % (user, type(user))
-#DEPRECATED|        try:
-#DEPRECATED|            # Replaces variables in the Query (predicate in filters and parameters)
-#DEPRECATED|            filter = query.get_where()
-#DEPRECATED|            params = query.get_params()
-#DEPRECATED|            variables = Gateway.get_variables(user, account_config)
-#DEPRECATED|
-#DEPRECATED|            for predicate in filter:
-#DEPRECATED|                value = predicate.get_value()
-#DEPRECATED|
-#DEPRECATED|                if isinstance(value, (tuple, list)):
-#DEPRECATED|                    Log.warning("Ignoring tuple/list value %s (not yet implemented)" % (value,))
-#DEPRECATED|                    continue
-#DEPRECATED|
-#DEPRECATED|                if value and isinstance(value, StringTypes) and value[0] == '$':
-#DEPRECATED|                    var = value[1:]
-#DEPRECATED|                    if var in variables:
-#DEPRECATED|                        predicate.set_value(variables[var])
-#DEPRECATED|
-#DEPRECATED|            for key, value in params.items():
-#DEPRECATED|                # XXX variable support not implemented for lists and tuples
-#DEPRECATED|                if isinstance(value, (tuple, list)):
-#DEPRECATED|                    continue
-#DEPRECATED|
-#DEPRECATED|                if value and isinstance(value, StringTypes) and value[0] == '$':
-#DEPRECATED|                    var = value[1:]
-#DEPRECATED|                    if var in variables and isinstance(variables[var], StringTypes):
-#DEPRECATED|                        params[k] = variables[var]
-#DEPRECATED|        except Exception, e:
-#DEPRECATED|            import traceback
-#DEPRECATED|            Log.warning("Exception in start", e)
-#DEPRECATED|            traceback.print_exc()
-
-    @returns(list)
-    def query_storage(self, query):
-        """
-        Run a Query on the Manifold's Storage.
-        Args:
-            query: A Query instance.
-        Returns:
-            A list of dictionnaries corresponding to each fetched Records.
-        """
-        return self.get_interface().execute_local_query(query)
 
     def check_send(self, packet):
         """
-        send() method must be used only for ERROR Packets. RECORD Packets
-        must be sent using send_record() or send_records().
+        send() method must be used only for ERROR Packets.
+        RECORD Packets must be sent using record() or records().
         Args:
             packet: A Packet instance.
         """
-        super(Gateway, self).check_send(packet)
-        assert packet.get_type() ==  Packet.TYPE_ERROR,\
-            "Invalid packet type (%s)" % packet
+#jo#        super(Gateway, self).check_send(packet)
+#jo#        assert packet.get_protocol() ==  Packet.PROTOCOL_ERROR,\
+#jo#            "Invalid packet type (%s)" % packet
+        # A packet is a packet and should be sent !
+        pass
+
+    def check_query_packet(self, packet):
+        """
+        (Internal usage) Check whether a Packet is a QUERY Packet.
+        Args:
+            packet: It should be a QUERY Packet instance.
+        """
+        assert isinstance(packet, Packet), \
+            "Invalid packet = %s (%s)" % (packet, type(packet))
+        assert packet.get_protocol() == Packet.PROTOCOL_QUERY,\
+            "Invalid packet type = %s (%s)" % (packet, type(packet))
+
+    #---------------------------------------------------------------------------  
+    # Flow management 
+    #---------------------------------------------------------------------------  
 
     @returns(Socket)
     def get_socket(self, query):
@@ -319,7 +224,11 @@ class Gateway(Producer):
             socket = self._pit.get_socket(query)
         except KeyError, e:
             Log.warning(traceback.format_exc())
-            Log.warning("Can't find query = %s in %s's Pit: %s" % (query, self.__class__.__name__, self._pit))
+            Log.warning("Can't find query = %s in %s's Pit: %s" % (
+                query,
+                self.__class__.__name__,
+                self._pit
+            ))
             raise e
         return socket
 
@@ -332,58 +241,6 @@ class Gateway(Producer):
         """
         self._pit.add_flow(query, consumer)
 
-    @staticmethod
-    def record(socket, record):
-        """
-        Helper used in Gateway when a has to send an ERROR Packet. 
-        Args:
-            socket: The Socket used to transport the Packet.
-                It is usually retrieved using get_socket() method.
-            record: A Record or a dict instance.
-        """
-        assert isinstance(socket, Socket),\
-            "Invalid socket = %s (%s)" % (socket, type(socket))
-
-        socket.receive(record if isinstance(record, Record) else Record(record))
-
-    @staticmethod
-    def records(socket, records):
-        """
-        Helper used in Gateway when a has to send an ERROR Packet. 
-        Args:
-            socket: The Socket used to transport the Packet.
-                It is usually retrieved using get_socket() method.
-            record: A Records or a list of instances that may be
-                casted in Record (e.g. Record or dict instances).
-        """
-        assert isinstance(socket, Socket),\
-            "Invalid socket = %s (%s)" % (socket, type(socket))
-
-        for record in records:
-            Gateway.record(socket, record)
-        Gateway.record(socket, LastRecord())
-
-    @staticmethod
-    def error(socket, description, code = ResultValue.ERROR):
-        """
-        Helper used in Gateway when a has to send an ERROR Packet
-        carrying an Error. See also Gateway::warning() 
-        Args:
-            socket: The Socket used to transport the Packet.
-                It is usually retrieved using get_socket() method.
-            code: See manifold.core.result_value
-        """
-        assert isinstance(socket, Socket),\
-            "Invalid socket = %s (%s)" % (socket, type(socket))
-
-        socket.receive(ErrorPacket(
-            message   = "%s" % description,
-            traceback = traceback.format_exc()),
-            origin    = ResultValue.GATEWAY,
-            code      = code, 
-            type      = ResultValue.ERROR 
-        )
-
     def del_consumer(self, receiver, cascade = True):
         """
         Unlink a Consumer from this Gateway. 
@@ -395,14 +252,19 @@ class Gateway(Producer):
         self.get_pit().del_receiver(receiver)
         if cascade:
             receiver.del_producer(self, cascade = False)
-        
-    def close(self, query):
+ 
+    def release(self):
+        pass
+ 
+    def close(self, packet):
         """
         Close the Socket related to a given Query and update
         the PIT consequently.
         Args:
-            query: A Query instance 
+            packet: A QUERY Packet instance. 
         """
+        self.check_query_packet(packet)
+        query = packet.get_query()
         socket = self.get_socket(query)
 
         # Clear PIT
@@ -411,11 +273,16 @@ class Gateway(Producer):
         # Unlink this Socket from its Customers 
         socket.close()
         
+    #---------------------------------------------------------------------------  
+    # Query plan optimization. 
+    #---------------------------------------------------------------------------  
+
     @returns(Node)
     def optimize_selection(self, query, filter):
         """
         Propagate a WHERE clause through a FROM Node.
         Args:
+            query: The Query received by this Gateway.
             filter: A Filter instance. 
         Returns:
             The updated root Node of the sub-AST.
@@ -454,6 +321,7 @@ class Gateway(Producer):
         """
         Propagate a SELECT clause through a FROM Node.
         Args:
+            query: The Query received by this Gateway.
             fields: A set of String instances (queried fields).
         Returns:
             The updated root Node of the sub-AST.
@@ -484,4 +352,203 @@ class Gateway(Producer):
                 return Projection(self, fields)
                 #projection.query = self.query.copy().filter_by(filter) # XXX
             return self
+
+    #---------------------------------------------------------------------------  
+    # Helpers for child classes 
+    #---------------------------------------------------------------------------  
+
+    # TODO clean this method and plug it in Router::forward()
+    @staticmethod
+    @returns(dict)
+    def get_variables(user, account_config):
+        """
+        ???
+        Args:
+            user: A dictionnary corresponding to the User.
+            account_config: A dictionnary corresponding to the user's Account config.
+        Returns:
+            The corresponding dictionnary.
+        """
+        #assert isinstance(user, User), "Invalid user : %s (%s)" % (user, type(user))
+        variables = dict() 
+
+        # Authenticated user
+        variables["user_email"] = user["email"]
+        if user:
+            for k, v in user["config"].items():
+                if isinstance(v, StringTypes) and not "credential" in v:
+                    variables[k] = v
+        # Account information of the authenticated user
+        for k, v in account_config.items():
+            if isinstance(v, StringTypes) and not "credential" in v:
+                variables[k] = v
+        return variables
+
+    @returns(list)
+    def query_storage(self, query):
+        """
+        Run a Query on the Manifold's Storage.
+        Args:
+            query: A Query instance.
+        Returns:
+            A list of dictionnaries corresponding to each fetched Records.
+        """
+        return self.get_interface().execute_local_query(query)
+
+    def record_impl(self, socket, record):
+        """
+        (Internal usage) Send a Record in a Socket.
+        Args:
+            socket: The Socket which has to transport the Record.
+            record: The Record we want to send. 
+        """
+        socket.receive(record if isinstance(record, Record) else Record(record))
+
+    def record(self, packet, record):
+        """
+        Helper used in Gateway when a has to send an ERROR Packet. 
+        See also Gateway::records() instead.
+        Args:
+            packet: The QUERY Packet instance which has triggered
+                the call to this method.
+            record: A Record or a dict instance. If this is the only
+                Packet that must be returned, turn on the LAST_RECORD
+                flag otherwise the Gateway will freeze.
+                Example:
+                    my_record = Record({"field" : "value"})
+                    my_record.set_last(True)
+                    self.record(my_record)
+        """
+        self.check_query_packet(packet)
+        socket = self.get_socket(packet.get_query())
+        self.record_impl(socket, record)
+
+    def records(self, packet, records):
+        """
+        Helper used in Gateway when a has to send several RECORDS Packet. 
+        Args:
+            packet: The QUERY Packet instance which has triggered
+                the call to this method.
+            record: A Records or a list of instances that may be
+                casted in Record (e.g. Record or dict instances).
+        """
+        socket = self.get_socket(packet.get_query())
+
+        if records:
+            # Enable LAST_RECORD flag on the last Record 
+            if isinstance(records[-1], dict):
+                records[-1] = Record(records[-1], last = True)
+            else:
+                records[-1].set_last()
+
+            # Send the records
+            for record in records:
+                self.record_impl(socket, record)
+        else:
+            self.record_impl(socket, Record(last = True))
+
+    def warning(self, packet, description):
+        """
+        Helper used in Gateway when a has to send an ERROR Packet
+        carrying an Warning. See also Gateway::error() 
+        Args:
+            packet: The QUERY Packet instance which has triggered
+                the call to this method.
+            description: The corresponding warning message (String) or
+                Exception.
+        """
+        self.error(packet, description, False)
+        
+    def error(self, packet, description, is_fatal = True):
+        """
+        Helper used in Gateway when a has to send an ERROR Packet
+        carrying an Error. See also Gateway::warning() 
+        Args:
+            packet: The QUERY Packet instance which has triggered
+                the call to this method.
+            description: The corresponding error message (String) or
+                Exception.
+            is_fatal: Set to True if this ERROR Packet must stops
+                the Record retrieval. Pass True if the Gateway won't
+                send back more Packet for the current Query, False
+                otherwise.
+        """
+        try:
+            self.check_query_packet(packet)
+            if issubclass(type(description), Exception):
+                description = "%s" % description
+            assert isinstance(description, StringTypes),\
+                "Invalid description = %s (%s)" % (description, type(description))
+            assert isinstance(is_fatal, bool),\
+                "Invalid is_fatal = %s (%s)" % (is_fatal, type(is_fatal))
+        except Exception, e:
+            Log.error(e)
+
+        socket = self.get_socket(packet.get_query())
+        if is_fatal:
+            Log.error(description)
+        else:
+            Log.warning(description)
+        error_packet = ErrorPacket(2, 0, description, traceback.format_exc())
+        error_packet.set_last(is_fatal)
+        #socket.get_producer().debug()
+        socket.receive(error_packet)
+
+    def receive(self, packet):
+        """
+        Handle a incoming QUERY Packet (processing).
+        Classes inheriting Gateway must not overload this method, they
+        must overload Gateway::receive_impl() instead.
+        Args:
+            packet: A QUERY Packet instance.
+        """
+        self.check_receive(packet)
+
+        try:
+            # This method must be overloaded on the Gateway
+            # See manifold/gateways/template/__init__.py
+            self.receive_impl(packet)
+        except Exception, e:
+            self.error(packet, 0, 0, e)
+        finally:
+            self.close(packet)
+
+    #---------------------------------------------------------------------------  
+    # Methods that could/must be overloaded/overwritten in the child classes
+    #---------------------------------------------------------------------------  
+
+    @returns(StringTypes)
+    def __str__(self):
+        """
+        Returns:
+            The '%s' representation of this Gateway.
+        """
+        return "%s [%s]" % (self.get_platform_name(), self.get_gateway_type())
+
+    @returns(StringTypes)
+    def __repr__(self):
+        """
+        Returns:
+            The '%r' representation of this Gateway.
+        """
+        return "FROM <Gateway %s [%s]>" % (self.get_platform_name(), self.get_gateway_type())
+
+    @returns(list)
+    def make_announces(self):
+        """
+        Build the list of Announces corresponding to this Gateway.
+        This method should be overloaded/overwritten if the Gateway
+        announces Tables not referenced in a dedicated .h file/docstring.
+        """
+        return Announces.from_dot_h(self.get_platform_name(), self.get_gateway_type())
+
+    def receive_impl(self, packet):
+        """
+        Handle a incoming QUERY Packet. This callback must
+        be overloaded in each Gateway. See Gateway::receive().
+        Args:
+            packet: A QUERY Packet instance.
+        """
+        raise NotImplementedError, "receive_impl must be overloaded"
+
 

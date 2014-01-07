@@ -9,7 +9,7 @@
 #   Jordan Augé       <jordan.auge@lip6.fr>
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
-import os, sys, pprint, json
+import os, sys, pprint, json, traceback
 from getpass                        import getpass
 from optparse                       import OptionParser
 from socket                         import gethostname
@@ -22,7 +22,7 @@ from twisted.web                    import xmlrpc
 # XXX Those imports may fail for xmlrpc calls
 from manifold.auth                  import Auth
 from manifold.core.annotation       import Annotation
-from manifold.core.packet           import Packet, QueryPacket
+from manifold.core.packet           import ErrorPacket, Packet, QueryPacket
 from manifold.core.query            import Query
 from manifold.core.router           import Router
 from manifold.core.sync_receiver    import SyncReceiver
@@ -40,7 +40,7 @@ DEFAULT_PKEY_FILE = '/etc/manifold/keys/client.pkey'
 DEFAULT_CERT_FILE = '/etc/manifold/keys/client.cert'
 
 class ManifoldClient(object):
-    def log_info(self):
+    def log_message(self):
         """
         Method that should be overloaded and used to log
         information while running the Query (level: INFO).
@@ -101,10 +101,10 @@ class ManifoldLocalClient(ManifoldClient):
         """
         assert isinstance(packet, Packet), \
             "Invalid packet %s (%s)" % (packet, type(packet))
-        assert packet.get_type() == Packet.TYPE_QUERY, \
+        assert packet.get_protocol() == Packet.PROTOCOL_QUERY, \
             "Invalid packet %s of type %s" % (
                 packet,
-                Packet.get_type_name(packet.get_type())
+                Packet.get_protocol_name(packet.get_protocol())
             )
         self.router.receive(packet)
 
@@ -127,15 +127,22 @@ class ManifoldLocalClient(ManifoldClient):
         receiver = SyncReceiver()
         packet = QueryPacket(query, annotation, receiver = receiver)
         self.send(packet)
-        # This code is blocking
-        return receiver.get_result_value()
 
-    def log_info(self):
+        # This code is blocking
+        result_value = receiver.get_result_value()
+        assert isinstance(result_value, ResultValue),\
+            "Invalid result_value = %s (%s)" % (result_value, type(result_value))
+        return result_value
+
+    def log_message(self):
         """
         Method that should be overloaded and used to log
         information while running the Query (level: INFO).
         """
-        Log.info("Shell using local account %s" % self.user["email"])
+        if self.user:
+            return "Shell using local account %s" % self.user["email"]
+        else:
+            return "Shell using no account"
 
     #@returns(dict)
     def whoami(self):
@@ -171,7 +178,7 @@ class ManifoldXMLRPCClientXMLRPCLIB(ManifoldClient):
         if not annotation:
             annotation = Annotation() 
         annotation['authentication'] = self.auth
-        return self.router.forward(query.to_dict(), annotation, self)
+        return ResultValue(self.router.forward(query.to_dict(), annotation.to_dict()))
 
     # mode_str      = 'XMLRPC'
     # interface_str = ' towards XMLRPC API %s' % self.router
@@ -232,6 +239,7 @@ class Proxy(xmlrpc.Proxy):
 
     def __getattr__(self, name):
         # We transfer missing methods to the remote server
+        # XXX Let's not use twisted if we write synchronous code
         def _missing(*args):
             from twisted.internet import defer
             d = defer.Deferred()
@@ -239,8 +247,9 @@ class Proxy(xmlrpc.Proxy):
             def proxy_success_cb(result):
                 self.result = result
                 self.event.set()
-            def proxy_error_cb(error):
-                self.error = error
+
+            def proxy_error_cb(failure):
+                self.error = failure
                 self.event.set()
             
             #@defer.inlineCallbacks
@@ -252,13 +261,13 @@ class Proxy(xmlrpc.Proxy):
             self.event.wait()
             self.event.clear()
             if self.error:
-                Log.error("ERROR IN PROXY: %s" % self.error)
+                failure = self.error
                 self.error = None
-                return None
-            else:
-                result = self.result
-                self.result = None
-                return result
+                raise Exception, "Error in proxy: %s" % failure # .trap(Exception)
+
+            result = self.result
+            self.result = None
+            return result
         return _missing
 
 class ManifoldXMLRPCClient(ManifoldClient):
@@ -273,7 +282,8 @@ class ManifoldXMLRPCClient(ManifoldClient):
         if not annotation:
             annotation = Annotation() 
         annotation.update(self.annotation)
-        return self.router.forward(query.to_dict(), annotation, self)
+
+        return ResultValue(self.router.forward(query.to_dict(), annotation.to_dict()))
         
 
     @defer.inlineCallbacks
@@ -309,8 +319,8 @@ class ManifoldXMLRPCClientSSLPassword(ManifoldXMLRPCClient):
         self.router = Proxy(self.url, allowNone=True, useDateTime=False)
         self.router.setSSLClientContext(ssl.ClientContextFactory())
 
-    def log_info(self):
-        Log.info("Shell using XMLRPC account '%r' (password) on %s" % (self.username, self.url))
+    def log_message(self):
+        return "Shell using XMLRPC account '%r' (password) on %s" % (self.username, self.url)
 
 class ManifoldXMLRPCClientSSLGID(ManifoldXMLRPCClient):
     
@@ -325,7 +335,7 @@ class ManifoldXMLRPCClientSSLGID(ManifoldXMLRPCClient):
 
     def __init__(self, url, pkey_file, cert_file):
         self.url = url
-        self.gid_subject = 'NULL'
+        self.gid_subject = '(TODO: extract from cert_file)' # XXX 
         self.router = Proxy(self.url, allowNone=True, useDateTime=False)
         #self.router.setSSLClientContext(CtxFactory(pkey_file, cert_file))
 
@@ -338,32 +348,58 @@ class ManifoldXMLRPCClientSSLGID(ManifoldXMLRPCClient):
         # This has to be tested to get rid of the previously defined CtxFactory class
         self.router.setSSLClientContext(ssl.DefaultOpenSSLContextFactory(pkey_file, cert_file))
 
-    def log_info(self):
-        Log.info("Shell using XMLRPC account '%r' (GID) on %s" % (self.gid_subject, self.url))
+    def log_message(self):
+        return "Shell using XMLRPC account '%r' (GID) on %s" % (self.gid_subject, self.url)
 
 class Shell(object):
 
     PROMPT = 'manifold'
 
+#OBSOLETE|    @classmethod
+#OBSOLETE|    def print_error(self, result_value):
+#OBSOLETE|        """
+#OBSOLETE|        Print a ResultValue to the standard output.
+#OBSOLETE|        Args:
+#OBSOLETE|            result_value: A ResultValue instance.
+#OBSOLETE|        """
+#OBSOLETE|        assert isinstance(result_value, ResultValue),\
+#OBSOLETE|            "Invalid result_value = %s (%s)" % (result_value, type(result_value))
+#OBSOLETE|
+#OBSOLETE|        Log.tmp("coucou")
+#OBSOLETE|        print "-" * 80
+#OBSOLETE|        print "Exception %(code)s raised by %(origin)s %(description)s" % {
+#OBSOLETE|            "code"        : result_value["code"],
+#OBSOLETE|            "origin"      : result_value["origin"],
+#OBSOLETE|            "description" : ": %s" % result_value["description"] if result_value["description"] else ""
+#OBSOLETE|        }
+#OBSOLETE|        if result_value["traceback"]:
+#OBSOLETE|            for line in result_value["traceback"].split("\n"):
+#OBSOLETE|                Log.error("\t", line)
+#OBSOLETE|        else:
+#OBSOLETE|            Log.error("(Traceback not set)")
+#OBSOLETE|        print ""
+
+
     @classmethod
-    def print_error(self, result_value):
+    def print_error(self, error):
         """
-        Print a ResultValue to the standard output.
+        Print ErrorPacket content
         Args:
-            result_value: A ResultValue instance.
+            error: An ErrorPacket instance.
         """
-        print "-" * 80
-        print "Exception %(code)s raised by %(origin)s %(description)s" % {
-            "code"        : result_value["code"],
-            "origin"      : result_value["origin"],
-            "description" : ": %s" % result_value["description"] if result_value["description"] else ""
-        }
-        if result_value["traceback"]:
-            for line in result_value["traceback"].split("\n"):
-                Log.debug("\t", line)
-        else:
-            Log.debug("(Traceback not set)")
-        print ""
+        assert isinstance(error, ErrorPacket),\
+            "Invalid error = %s (%s)" % (error, type(error))
+
+        message   = error.get_message()
+        traceback = error.get_traceback()
+
+        print "* Error:"
+        if message:
+            Log.error(message)
+
+        print "* Traceback:"
+        if traceback:
+            Log.error(traceback)
 
     @classmethod
     def init_options(self):
@@ -424,19 +460,18 @@ class Shell(object):
         #parser.add_argument("-m", "--method", help = "API authentication method")
         #parser.add_argument("-s", "--session", help = "API session key")
 
-#XXX#<<<<<<< HEAD
-#XXX#    def __init__(self, interactive = False):
-#XXX#        """
-#XXX#        Constructor.
-#XXX#        Args:
-#XXX#            interactive: A boolean.
-#XXX#        """
-#XXX#        super(Shell, self).__init__()
-#XXX#        self.interactive = interactive
-#XXX#
-#XXX#        if not Options().anonymous:
-#XXX#            # If user is specified but password is not
-#XXX#=======
+    def authenticate_local(self, username):
+        self.client = ManifoldLocalClient(username)
+
+    def authenticate_xmlrpc_password(self, url, username, password):
+        self.client = ManifoldXMLRPCClientSSLPassword(url, username, password)
+
+    def authenticate_xmlrpc_gid(self, url, pkey_file, cert_file):
+        self.client = ManifoldXMLRPCClientSSLGID(url, pkey_file, cert_file)
+
+    def authenticate_xmlrpc_anonymous(self, url):
+        self.client = ManifoldXMLRPCClientSSLPassword(url)
+
     def select_auth_method(self, auth_method):
         if auth_method == 'auto':
             for method in ['local', 'gid', 'password']:
@@ -450,10 +485,8 @@ class Shell(object):
             raise Exception, "Could not authentication automatically (tried: local, gid, password)"
 
         elif auth_method == 'local':
-#XXX#>>>>>>> devel
             username = Options().username
-            
-            self.client = ManifoldLocalClient(username)
+            self.authenticate_local(username)
 
         else: # XMLRPC 
             url = Options().xmlrpc_url
@@ -461,8 +494,7 @@ class Shell(object):
             if auth_method == 'gid':
                 pkey_file = Options().pkey_file
                 cert_file = Options().cert_file
-
-                self.client = ManifoldXMLRPCClientSSLGID(url, pkey_file, cert_file)
+                self.authenticate_xmlrpc_gid(url, pkey_file, cert_file)
 
             elif auth_method == 'password':
                 # If user is specified but password is not
@@ -481,11 +513,11 @@ class Shell(object):
                     else:
                         Log.warning("No password specified, using default.")
 
-                self.client = ManifoldXMLRPCClientSSLPassword(url, username, password)
+                self.authenticate_xmlrpc_password(url, username, password)
 
             elif auth_method == 'anonymous':
 
-                self.client = ManifoldXMLRPCClientSSLPassword(url)
+                self.authenticate_xmlrpc_anonymous(url)
 
             else:
                 raise Exception, "Authentication method not supported: '%s'" % auth_method
@@ -500,12 +532,16 @@ class Shell(object):
         """
         self.interactive = interactive
         
+        if not interactive:
+            return
+
         auth_method = Options().auth_method
-        if not auth_method: auth_method = "local"
+        if not auth_method:
+            auth_method = "local"
 
         self.select_auth_method(auth_method)
         if self.interactive:
-            self.client.log_info()
+            Log.info(self.client.log_message())
 
     def terminate(self):
         """
@@ -530,23 +566,32 @@ class Shell(object):
 
         if result_value.is_success():
             records = result_value["value"]
+            dicts = [record.to_dict() for record in records]
             if self.interactive:
                 # Command-line
                 print "===== RESULTS ====="
-                pprint.pprint(records)
+                pprint.pprint(dicts)
             elif Options().execute:
                 # Used by script to it may be piped.
-                print json.dumps(records)
+                print json.dumps(dicts)
 
         else:
             print "===== ERROR ====="
-            if isinstance(result_value["description"], list):
-                # We have a list of errors
-                for nested_result_value in result_value["description"]:
-                    Shell.print_error(nested_result_value)
-                    return
+            Log.reset_duplicates()
+            errors = result_value["description"]
+            if isinstance(errors, StringTypes):
+                # String
+                Log.error(errors)
+            elif isinstance(errors, list):
+                # list of ErrorPacket 
+                i = 0
+                num_errors = len(errors)
+                for error in errors:
+                    i += 1
+                    print "Error (%s/%s)" % (i, num_errors)
+                    Shell.print_error(error)
             else:
-                result_value["description"]
+                raise RuntimeError("Invalid description type (%s) in result_value = %s" % (errors, result_value))
 
     @returns(ResultValue)
     def evaluate(self, command, value = False):
@@ -560,7 +605,7 @@ class Shell(object):
         #username, password = Options().username, Options().password
         dic = SQLParser().parse(command)
         if not dic:
-            return None
+            raise RuntimeError("Can't parse input command: %s" % command)
         query = Query(dic)
         if "*" in query.get_select():
             query.fields = None
@@ -577,10 +622,11 @@ class Shell(object):
             The ResultValue resulting from the Query
         """
         try:
+            Log.tmp("execute")
             result_value = self.client.forward(query)
         except Exception, e:
-            import traceback
-            message = "Error executing query: %s: %s" % (e, traceback.print_exc())
+            Log.tmp("execute exc %s" % e)
+            message = "Error executing query: %s" % (e,)
             result_value = ResultValue.get_error(ResultValue.ERROR, message)
         return result_value
 
@@ -593,6 +639,9 @@ class Shell(object):
         # Who is authenticating ?
         # authentication
         return self.client.whoami
+
+    def log_message(self):
+        return self.client.log_message()
         
         
 #    # If called by a script 
@@ -685,10 +734,17 @@ class Shell(object):
                 try:
                     self.display(self.evaluate(command))
                 except KeyboardInterrupt:
+                    # Ctrl c
                     command = ""
                     print
-                except Exception, err:
-                    Log.debug(format_exc())
+                except RuntimeError, e:
+                    # Parse error raised by evaluate()
+                    Log.error(e)
+                except Exception:
+                    # Unhandled Exception raised by this Shell
+                    Log.reset_duplicates()
+                    print "=== UNHANDLED EXCEPTION ==="
+                    Log.error(format_exc())
 
         except EOFError:
             self.terminate()

@@ -11,4 +11,5 @@
 # Copyright (C) 2013 UPMC 
 
 class Annotation(dict):
-    pass
+    def to_dict(self):
+        return dict(self)
