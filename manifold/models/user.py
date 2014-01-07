@@ -5,7 +5,7 @@
 #
 # For the moment, this is an python object used by
 # SQLAlchemy, which is used to interact with the
-# sqlite database /var/myslice/db.sqlite.
+# Manifold Storage. 
 #
 # Jordan Auge       <jordan.auge@lip6.fr>
 # Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
@@ -13,11 +13,11 @@
 # Copyright (C) 2013 UPMC
 
 import json
-from sqlalchemy                 import Column, Integer, String
+from sqlalchemy                     import Column, Integer, String
 
-from manifold.models            import Base, db
-from manifold.util.type         import accepts, returns 
-
+from manifold.models                import Base
+from manifold.models.get_session    import get_session
+from manifold.util.type             import accepts, returns 
 
 class User(Base):
     restrict_to_self = True
@@ -38,6 +38,7 @@ class User(Base):
             value: A String encoded in JSON containing
                 the new "config" related to this User.
         """
+        db = get_session(self)
         self.config = json.dumps(value)
         db.add(self)
         db.commit()
@@ -66,11 +67,13 @@ class User(Base):
         Returns:
             The user ID related to an User.
         """
+        db = get_session(self)
         ret = db.query(User.user_id).filter(User.email == user_params).one()
         return ret[0]
 
     @staticmethod
     def process_params(params, filters, user):
+        db = get_session(self)
 
         # JSON ENCODED FIELDS are constructed into the json_fields variable
         given = set(params.keys())
@@ -102,6 +105,8 @@ class User(Base):
 
     @classmethod
     def params_ensure_user(cls, params, user):
+        db = get_session(self)
+
         # A user can only create its own objects
         if cls.restrict_to_self:
             params['user_id'] = user['user_id']

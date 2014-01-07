@@ -255,7 +255,7 @@ class AST(object):
         if len(children_ast_relation_list) == 1:
             #(ast, relation) = children_ast_relation_list[0]
             try:
-                (ast, relation), _ = children_ast_relation_list
+                (ast, relation), = children_ast_relation_list
             except ValueError, e:
                 Log.tmp("children_ast_relation_list = %s" % children_ast_relation_list)
                 raise ValueError(e)

@@ -18,7 +18,7 @@ from types                                  import StringTypes, GeneratorType
 from twisted.internet                       import defer
 
 from manifold.core.query                    import Query 
-from manifold.core.record                   import Record, Records, LastRecord
+from manifold.core.record                   import Record, Records
 from manifold.gateways                      import Gateway
 from manifold.gateways.sfa.proxy            import SFAProxy
 from manifold.gateways.sfa.proxy_pool       import SFAProxyPool
@@ -263,10 +263,13 @@ class SFAGatewayCommon(Gateway):
 #DEPRECATED|        """
 
     @defer.inlineCallbacks
-    def receive(self, packet):
+    def receive_impl(self, packet):
+        """
+        Handle a incoming QUERY Packet.
+        Args:
+            packet: A QUERY Packet instance.
+        """
         
-        Gateway.receive(self, packet)
-
 #DEPRECATED|        identifier = receiver.get_identifier() if receiver else None
 #DEPRECATED|        super(SFAGatewayCommon, self).forward(query, callback, is_deferred, execute, user, user_account_config, format, receiver)
 #DEPRECATED|
@@ -280,13 +283,12 @@ class SFAGatewayCommon(Gateway):
 
         query = packet.get_query()
         annotation = packet.get_annotation()
-        receiver = packet.get_receiver()
-        user = annotation.get('user', None)
+        user = annotation.get("user", None)
         user_email = user["email"]
 
         if not user:
             print "no user"
-            self.error(query, "No user specified, aborting")
+            self.error(packet, "No user specified, aborting")
             return
 #DEPRECATED|=======
 #DEPRECATED|    def forward(self, query, annotation, receiver = None):
@@ -307,79 +309,68 @@ class SFAGatewayCommon(Gateway):
 #DEPRECATED|            user_email = user["email"]
 #DEPRECATED|>>>>>>> routerv2
 
-            try:
-                user_account = self.get_account(user_email)
-            except AttributeError:
-                user_account = annotation["account"]
-
-            user_account_config = user_account["config"]
-            message_header = "On platform %s, using account %s: " % (self.get_platform_name(), user_email)
-
-            # Check parameters
-            assert isinstance(query, Query), \
-                "%sCannot run invalid query %s (%s)" % (message_header, query, type(query)) 
-            assert isinstance(user,  dict), \
-                "%sCannot run %s with invalid user = %s (%s)" % (message_header, user, type(user))
-            assert isinstance(user_account,  dict), \
-                "%sInvalid user_account = %s (%s) for platform %s" % (message_header, user_account, type(user_account))
-            assert isinstance(user,  dict), \
-                "%sInvalid user_account_config = %s (%s)" % (message_header, user_account_config, type(user_account_config))
-
         try:
-            assert query, "Cannot run %s without query" % self.get_platform_name()
-            self.debug = "debug" in query.params and query.params["debug"]
-
-            # Retrieve user's config (managed acccounts)
             user_account = self.get_account(user_email)
-            if user_account: user_account_config = user_account["config"]
-            assert isinstance(user_account_config,  dict), "Invalid user_account_config"
- 
-            # If no user_account_config: failure
-            if not user_account_config:
-                self.send(LastRecord())
-                print "account not found"
-                self.error(query, "Account related to %s for platform %s not found" % (user_email, self.get_platform_name()))
-                return
+        except AttributeError:
+            user_account = annotation["account"]
+
+        user_account_config = user_account["config"]
+        message_header = "On platform %s, using account %s: " % (self.get_platform_name(), user_email)
+
+        # Check parameters
+        assert isinstance(user,  dict), \
+            "%sCannot run %s with invalid user = %s (%s)" % (message_header, user, type(user))
+        assert isinstance(user_account,  dict), \
+            "%sInvalid user_account = %s (%s) for platform %s" % (message_header, user_account, type(user_account))
+        assert isinstance(user,  dict), \
+            "%sInvalid user_account_config = %s (%s)" % (message_header, user_account_config, type(user_account_config))
+        assert isinstance(query, Query), \
+            "Cannot run %s without query" % self.get_platform_name()
+
+        self.debug = "debug" in query.params and query.params["debug"]
+
+        # Retrieve user's config (managed acccounts)
+        user_account = self.get_account(user_email)
+        if user_account: user_account_config = user_account["config"]
+        assert isinstance(user_account_config,  dict), "Invalid user_account_config"
+
+        # If no user_account_config: failure
+        if not user_account_config:
+            Log.error("account not found")
+            self.error(packet, "Account related to %s for platform %s not found" % (user_email, self.get_platform_name()))
+            return
 #DEPRECATED|=======
 #DEPRECATED|            Gateway.start(user, user_account_config, query)
 #DEPRECATED|>>>>>>> routerv2
 
-            # Call the appropriate method (for instance User.get(...)) in a first
-            # time without managing the user account. If it fails and if this
-            # account is managed, then run managed and try to rerun the Query.
-            result = list()
-            try:
-                result = yield self.perform_query(user, user_account_config, query)
-            except Exception, e:
-                #<<<<<<<< specific to RM
-                try:
-                    is_managed = self.handle_error(user, user_account)
-                except AttributeError, e:
-                    failure.raiseException()
-                    
-                if is_managed:
-                    result = yield self.perform_query(user, user_account_config, query)
-                else:
-                    failure = Failure("Account not managed: user_account_config = %s / auth_type = %s" % (account_config, user_account["auth_type"]))
-                    failure.raiseException()
-                #<<<<<<
-           
-            # Insert a RENAME Node above this FROM Node if necessary.
-            instance = self.get_object(query.get_from())
-            aliases  = instance.get_aliases()
-            if aliases:
-                Rename(self, aliases)
-
-            # Send Records to the From Node.
-            for row in result:
-                self.send(Record(row))
-            self.send(LastRecord())
-
+        # Call the appropriate method (for instance User.get(...)) in a first
+        # time without managing the user account. If it fails and if this
+        # account is managed, then run managed and try to rerun the Query.
+        result = list()
+        try:
+            result = yield self.perform_query(user, user_account_config, query)
         except Exception, e:
+            #<<<<<<<< specific to RM
+            try:
+                is_managed = self.handle_error(user, user_account)
+            except AttributeError, e:
+                failure.raiseException()
+                
+            if is_managed:
+                result = yield self.perform_query(user, user_account_config, query)
+            else:
+                failure = Failure("Account not managed: user_account_config = %s / auth_type = %s" % (account_config, user_account["auth_type"]))
+                failure.raiseException()
+            #<<<<<<
+       
+        # Insert a RENAME Node above this FROM Node if necessary.
+        instance = self.get_object(query.get_from())
+        aliases  = instance.get_aliases()
+        if aliases:
+            Rename(self, aliases)
 
-            # Handle properly exceptions which may have been raised 
-            Log.error(traceback.format_exc())
-            self.send(LastRecord())
-            self.error(query, str(e))
+        # Send Records to the From Node.
+        self.records(row)
+
 
 

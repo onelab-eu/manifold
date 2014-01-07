@@ -2,6 +2,6 @@
 #! -*- coding: utf-8 -*-
 
 import xmlrpclib
-auth = {'AuthMethod': 'guest'}
-srv = xmlrpclib.Server("http://localhost:7080/", allow_none = True)
-print srv.AuthCheck()
+auth = {'AuthMethod': 'anonymous'}
+srv = xmlrpclib.Server("https://dryad.ipv6.lip6.fr:7080/", allow_none = True)
+print srv.AuthCheck({'authentication': auth})

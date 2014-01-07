@@ -13,19 +13,25 @@ from __future__                     import absolute_import
 
 import traceback
 
+from sqlalchemy                     import exc
 from sqlalchemy                     import create_engine
 from sqlalchemy                     import types
 from sqlalchemy.ext.declarative     import declarative_base
 from sqlalchemy.orm                 import sessionmaker
-from sqlalchemy.util._collections   import NamedTuple
+
+try:
+    from sqlalchemy.util._collections   import NamedTuple
+except ImportError:
+    # NamedTuple was renamed in latest sqlalchemy versions
+    from sqlalchemy.util._collections   import KeyedTuple as NamedTuple
 
 from manifold.core.announce         import Announce
 from manifold.core.annotation       import Annotation
 from manifold.core.field            import Field
-from manifold.core.record           import Record, Records, LastRecord 
+from manifold.core.record           import Record, Records
 from manifold.core.table            import Table
 from manifold.gateways              import Gateway
-from manifold.models                import db
+#from manifold.models                import db
 from manifold.models.account        import Account
 from manifold.models.linked_account import LinkedAccount
 from manifold.models.platform       import Platform
@@ -133,13 +139,20 @@ class SQLAlchemyGateway(Gateway):
         """
         super(SQLAlchemyGateway, self).__init__(interface, platform_name, platform_config)
 
+        engine = create_engine(platform_config["url"], echo = False)
+
         from manifold.models.base import Base
         Base = declarative_base(cls = Base)
-        
-        engine = create_engine(platform_config["url"], echo = False)
-        Base.metadata.create_all(engine)
         Session = sessionmaker(bind = engine)
         self.db = Session()
+        
+        from manifold.models.platform       import Platform
+        from manifold.models.user           import User
+        from manifold.models.account        import Account
+        from manifold.models.session        import Session
+        from manifold.models.linked_account import LinkedAccount
+        from manifold.models.policy         import Policy
+        Base.metadata.create_all(engine)
 
     #---------------------------------------------------------------------------
     # Methods
@@ -172,7 +185,7 @@ class SQLAlchemyGateway(Gateway):
         _fields = xgetattr(cls, fields) if fields else None
 
         # db.query(cls) seems to return NamedTuples
-        res = db.query(*_fields) if _fields else db.query(cls)
+        res = self.db.query(*_fields) if _fields else self.db.query(cls)
         if _filters: 
             for _filter in _filters:
                 res = res.filter(_filter)
@@ -243,8 +256,8 @@ class SQLAlchemyGateway(Gateway):
         # only 2.7+ _params = { getattr(cls, k): v for k,v in query.params.items() }
         _params = dict([ (getattr(cls, k), v) for k,v in _params.items() ])
        
-        #db.query(cls).update(_params, synchronize_session=False)
-        q = db.query(cls)
+        #self.db.query(cls).update(_params, synchronize_session=False)
+        q = self.db.query(cls)
         for _filter in _filters:
             q = q.filter(_filter)
 
@@ -253,9 +266,9 @@ class SQLAlchemyGateway(Gateway):
 
         q = q.update(_params, synchronize_session = False)
         try:
-            db.commit()
+            self.db.commit()
         except:
-            db.rollback()
+            self.db.rollback()
 
         return list() 
 
@@ -288,11 +301,15 @@ class SQLAlchemyGateway(Gateway):
         if params:
             for k, v in params.items():
                 setattr(new_obj, k, v)
-        db.add(new_obj)
+        self.db.add(new_obj)
         try:
-            db.commit()
-        except:
-            db.rollback()
+            self.db.commit()
+        except exc.IntegrityError, e:
+            raise Exception, "Integrity error: %s" % e
+        except Exception, e:
+            raise Exception, "Query error: %s" % e
+        finally:
+            self.db.rollback()
         
         return [new_obj]
 
@@ -309,7 +326,7 @@ class SQLAlchemyGateway(Gateway):
         _filters = get_sqla_filters(cls, query.filters)
         _fields = xgetattr(cls, query.get_select()) if query.get_select() else None
 
-        res = db.query(*_fields) if _fields else db.query(cls)
+        res = self.db.query(*_fields) if _fields else self.db.query(cls)
         if query.filters:
             for _filter in _filters:
                 res = res.filter(_filter)
@@ -364,17 +381,12 @@ class SQLAlchemyGateway(Gateway):
         announces.extend(metadata_announces)
         return announces
 
-    def receive(self, packet):
+    def receive_impl(self, packet):
         """
         Handle a incoming QUERY Packet.
         Args:
             packet: A QUERY Packet instance.
         """
-        self.check_receive(packet)
-        query = packet.get_query()
-        Log.tmp("query = %s" % query)
-        socket = self.get_socket(query)
-
         _map_action = {
             "get"    : self.local_query_get,
             "update" : self.local_query_update,
@@ -382,22 +394,18 @@ class SQLAlchemyGateway(Gateway):
             "delete" : self.local_query_delete
         }
 
-        try:
-            if query.get_from() == "object":
-                if not query.get_action() == "get":
-                    raise RuntimeError("Invalid action (%s) on '%s::%s' table" % (query.get_action(), self.get_platform_name(), table_name))
+        query = packet.get_query()
 
-                records = Records([announce.to_dict() for announce in self.get_announces()])
-            else:
-                annotation = packet.get_annotation()
-                if not annotation:
-                    annotation = Annotation() 
-                user = annotation.get("user", None)
-                records = Records([row2record(row) for row in _map_action[query.get_action()](query, user)])
+        if query.get_from() == "object":
+            if not query.get_action() == "get":
+                raise RuntimeError("Invalid action (%s) on '%s::%s' table" % (query.get_action(), self.get_platform_name(), table_name))
 
-            Gateway.records(socket, records)
-        except Exception, e:
-            Log.error(traceback.format_exc())
-            Gateway.error(socket, e)
-        finally:
-            self.close(query)
+            records = Records([announce.to_dict() for announce in self.get_announces()])
+        else:
+            annotation = packet.get_annotation()
+            if not annotation:
+                annotation = Annotation() 
+            user = annotation.get("user", None)
+            records = Records([row2record(row) for row in _map_action[query.get_action()](query, user)])
+
+        self.records(packet, records)

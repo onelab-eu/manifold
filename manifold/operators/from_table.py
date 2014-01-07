@@ -15,7 +15,7 @@ from types                          import StringTypes
 from manifold.core.capabilities     import Capabilities
 from manifold.core.producer         import Producer
 from manifold.core.query            import Query
-from manifold.core.record           import Record, Records, LastRecord
+from manifold.core.record           import Record, Records
 from manifold.util.type             import returns, accepts
 
 DUMPSTR_FROMTABLE  = "SELECT %s FROM [%r, ...]" 

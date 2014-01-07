@@ -1,7 +1,19 @@
-from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base, declared_attr
-from sqlalchemy.orm import sessionmaker
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+# Base class (internal usage).
+# It must only used in __init__.py.
+# Otherwise please use:
+#
+#   from manifold.models import Base
+#
+# Jordan Auge       <jordan.auge@lip6.fr>
+# Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
+# Loic Baron        <loic.baron@lip6.fr>
+#
+# Copyright (C) 2013 UPMC
 
+from sqlalchemy.ext.declarative import declared_attr
 
 class Base(object):
     @declared_attr

@@ -1,9 +1,10 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Class Record
+# Record and Records classes.
+#
 # A Record is a Packet transporting value resulting of a Query.
-# A Record can be seen as a python dictionnary where
+# A Record behaves like a python dictionnary where:
 # - each key corresponds to a field name
 # - each value corresponds to the corresponding field value.
 # 
@@ -12,11 +13,15 @@
 #   Jordan Augé       <jordan.auge@lip6.fr> 
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
-from types                  import StringTypes
+from types                  import GeneratorType, StringTypes
 
 from manifold.core.packet   import Packet
 from manifold.util.log      import Log
 from manifold.util.type     import returns, accepts
+
+#-------------------------------------------------------------------------------
+# Record class
+#-------------------------------------------------------------------------------
 
 class Record(Packet):
 
@@ -28,8 +33,16 @@ class Record(Packet):
         """
         Constructor.
         """
-        Packet.__init__(self, Packet.TYPE_RECORD)
-        self._dict = dict(*args, **kwargs)
+        if not 'last' in kwargs:
+            kwargs['last'] = False
+        Packet.__init__(self, Packet.PROTOCOL_RECORD, **kwargs)
+        if args:
+            if len(args) == 1:
+                self._record = dict(args[0])
+            else:
+                raise Exception, "Bad initializer for Record"
+        else:
+            self._record = None
 
     #---------------------------------------------------------------------------
     # Accessors
@@ -42,7 +55,7 @@ class Record(Packet):
             The dict nested in this Record. Note that most of time
             you should use to_dict() method instead.
         """
-        return self._dict
+        return self._record
 
     @returns(dict)
     def to_dict(self):
@@ -51,24 +64,25 @@ class Record(Packet):
             The dict representation of this Record.
         """
         dic = dict() 
-        for k, v in self._dict.iteritems():
-            if isinstance(v, Record):
-                dic[k] = v.to_dict()
-            elif isinstance(v, Records):
-                dic[k] = v.to_list()
-            else:
-                dic[k] = v
+        if self._record:
+            for k, v in self._record.iteritems():
+                if isinstance(v, Record):
+                    dic[k] = v.to_dict()
+                elif isinstance(v, Records):
+                    dic[k] = v.to_list()
+                else:
+                    dic[k] = v
         return dic
 
     @returns(bool)
-    def is_last(self):
+    def is_empty(self):
         """
-        (This method is overwritten in LastRecord)
         Returns:
             True iif this Record is the last one of a list
             of Records corresponding to a given Query.
         """
-        return False 
+        Log.warning("Record::is_empty() is probably obsolete and should be removed")
+        return self._record is None
 
     #--------------------------------------------------------------------------- 
     # Internal methods
@@ -80,7 +94,10 @@ class Record(Packet):
         Returns:
             The '%s' representation of this Record.
         """
-        return "<Record %s>" % ' '.join([("%s" % self._dict) if self._dict else ''])
+        return "<Record %s%s>" % (
+            ' '.join([("%s" % self._record) if self._record else '']),
+            ' LAST' if self.is_last() else ''
+        )
 
     def __getitem__(self, key, **kwargs):
         """
@@ -91,7 +108,9 @@ class Record(Packet):
         Returns:
             The corresponding value. 
         """
-        return dict.__getitem__(self._dict, key, **kwargs)
+        if not self._record:
+            raise Exception, "Empty record"
+        return dict.__getitem__(self._record, key, **kwargs)
 
     def __setitem__(self, key, value, **kwargs):
         """
@@ -101,10 +120,17 @@ class Record(Packet):
                 of this Record.
             value: The value that must be mapped with this key.
         """
-        return dict.__setitem__(self._dict, key, value, **kwargs)
+        if not self._record:
+            self._record = dict()
+        return dict.__setitem__(self._record, key, value, **kwargs)
 
     def __iter__(self): 
-        return dict.__iter__(self._dict)
+        """
+        Returns:
+            A dictionary-keyiterator allowing to iterate on fields
+            of this Record.
+        """
+        return dict.__iter__(self._record)
 
     #--------------------------------------------------------------------------- 
     # Class methods
@@ -114,7 +140,7 @@ class Record(Packet):
     @returns(dict)
     def from_key_value(self, key, value):
         if isinstance(key, StringTypes):
-            return { key: value }
+            return {key : value}
         else:
             return Record(izip(key, value))
 
@@ -132,9 +158,9 @@ class Record(Packet):
             If key is a set, return a tuple of corresponding value.
         """
         if isinstance(key, StringTypes):
-            return self._dict[key]
+            return self._record[key]
         else:
-            return tuple(map(lambda x: self._dict[x], key))
+            return tuple(map(lambda x: self._record[x], key))
 
     @returns(bool)
     def has_fields(self, fields):
@@ -147,51 +173,39 @@ class Record(Packet):
             True iif record carries this set of fields.
         """
         if isinstance(fields, StringTypes):
-            return fields in self._dict
+            return fields in self._record
         else:
-            return fields <= set(self._dict.keys())
+            return fields <= set(self._record.keys())
    
     @returns(bool)
-    def is_empty(self, keys):
+    def has_empty_fields(self, keys):
         for key in keys:
-            if self._dict[key]: return False
+            if self._record[key]: return False
         return True
 
     def pop(self, key):
-        """
-        """
-        return dict.pop(self._dict, key)
+        return dict.pop(self._record, key)
 
     def items(self):
-        return dict.items(self._dict)
+        return dict.items(self._record)
 
     def keys(self):
-        return dict.keys(self._dict)
-
-class LastRecord(Record):
-    def __init__(self, *args, **kwargs):
-        """
-        Constructor.
-        """
-        super(LastRecord, self).__init__(*args, **kwargs)
-
-    @returns(bool)
-    def is_last(self):
-        """
-        (This method is overwritten in LastRecord)
-        Returns:
-            True iif this Record is the last one of a list
-            of Records corresponding to a given Query.
-        """
-        return True 
+        return dict.keys(self._record)
 
     @returns(StringTypes)
     def __repr__(self):
         """
         Returns:
-            The '%s' representation of this Record.
+            The '%r' representation of this QUERY Packet.
         """
-        return 'LAST'
+        return "<Packet.%s %s>" % (
+            Packet.get_protocol_name(self.get_protocol()),
+            self.to_dict()
+        )
+
+#-------------------------------------------------------------------------------
+# Records class
+#-------------------------------------------------------------------------------
 
 class Records(list):
     """
@@ -220,15 +234,4 @@ class Records(list):
             Records instance.
         """
         return [record.to_dict() for record in self]
-
-    @returns(StringTypes)
-    def __repr__(self):
-        """
-        Returns:
-            The '%r' representation of this QUERY Packet.
-        """
-        return "<Packet.%s %s>" % (
-            Packet.get_type_name(self.get_type()),
-            self.to_dict()
-        )
 

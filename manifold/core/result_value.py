@@ -11,8 +11,7 @@
 
 # Inspired from GENI error codes
 
-import time
-import pprint
+import pprint, time, traceback
 from types                      import StringTypes
 
 from manifold.util.log          import Log
@@ -61,7 +60,7 @@ class ResultValue(dict):
 
     ALLOWED_FIELDS = set(['origin', 'type', 'code', 'value', 'description', 'traceback', 'ts'])
 
-    def __init__(self, **kwargs):
+    def __init__(self, *args, **kwargs):
         """
         Constructor.
         Args:
@@ -81,19 +80,26 @@ class ResultValue(dict):
         """ 
         
         # Checks
+        if args:
+            if kwargs:
+                raise Exception, "Bad initialization for ResultValue"
+
+            if len(args) == 1 and isinstance(args[0], dict):
+                kwargs = args[0]
+            
         given = set(kwargs.keys())
-        cstr_success = set(['code', 'origin', 'value']) <= given
-        cstr_error   = set(['code', 'type', 'origin', 'description']) <= given
+        cstr_success = set(["code", "origin", "value"]) <= given
+        cstr_error   = set(["code", "type", "origin", "description"]) <= given
         assert given <= self.ALLOWED_FIELDS, "Wrong fields in ResultValue constructor: %r" % (given - self.ALLOWED_FIELDS)
-        assert cstr_success or cstr_error, 'Incomplete set of fields in ResultValue constructor: %r' % given
+        assert cstr_success or cstr_error, "Incomplete set of fields in ResultValue constructor: %r" % given
         
         dict.__init__(self, **kwargs)
 
         # Set missing fields to None
         for field in self.ALLOWED_FIELDS - given:
             self[field] = None
-        if not 'ts' in self:
-            self['ts'] = time.time()
+        if not "ts" in self:
+            self["ts"] = time.time()
             
 
     # Internal MySlice errors   : return ERROR
@@ -102,50 +108,105 @@ class ResultValue(dict):
     # Gateway errors            : return RESULT WITH WARNING
     # all Gateways errors       : return ERROR
     
+#DEPRECATED|    @classmethod
+#DEPRECATED|    #@returns(ResultValue)
+#DEPRECATED|    def get_result_value(self, results, result_values):
+#DEPRECATED|        """
+#DEPRECATED|        Craft a ResultValue instance according to a list of Records and
+#DEPRECATED|        an optionnal list of ResultValues retrieved during the QueryPlan
+#DEPRECATED|        execution.
+#DEPRECATED|        Args:
+#DEPRECATED|            results: A list of Records 
+#DEPRECATED|            result_values: A list of ResultValue instances.
+#DEPRECATED|        """
+#DEPRECATED|        # let's analyze the results of the query plan
+#DEPRECATED|        # XXX we should inspect all errors to determine whether to return a
+#DEPRECATED|        # result or not
+#DEPRECATED|        
+#DEPRECATED|        if not result_values:
+#DEPRECATED|            # No error
+#DEPRECATED|            return ResultValue(code = self.SUCCESS, origin = [self.CORE, 0], value = results)
+#DEPRECATED|        else:
+#DEPRECATED|            # Handle errors
+#DEPRECATED|            return ResultValue(code = self.WARNING, origin = [self.CORE, 0], value = results, description = result_values)
+#DEPRECATED|
+
     @classmethod
-    #@returns(ResultValue)
-    def get_result_value(self, results, result_values):
-        """
-        Craft a ResultValue instance according to a list of Records and
-        an optionnal list of ResultValues retrieved during the QueryPlan
-        execution.
-        Args:
-            results: A list of Records 
-            result_values: A list of ResultValue instances.
-        """
-        # let's analyze the results of the query plan
-        # XXX we should inspect all errors to determine whether to return a
-        # result or not
-        
-        if not result_values:
-            # No error
-            return ResultValue(code = self.SUCCESS, origin = [self.CORE, 0], value = results)
+    def get(self, records, errors):
+        num_errors = len(errors)
+
+        if num_errors == 0:
+            return ResultValue.get_success(records)
+        elif records:
+            return ResultValue.get_warning(records, errors)
         else:
-            # Handle errors
-            return ResultValue(code = self.WARNING, origin = [self.CORE, 0], value = results, description = result_values)
-
-    @classmethod
-    #@returns(ResultValue)
-    def get_error(self, error, description=None):
-        if not description:
-            description = self.ERRSTR[error]
-        return ResultValue(code=self.ERROR, type=error, origin=[self.CORE, 0], description=description)
-
-    @returns(bool)
-    def is_success(self):
-        return self["code"] == self.SUCCESS
+            return ResultValue.get_errors(errors)
 
     @classmethod
     #@returns(ResultValue)
     def get_success(self, result):
         return ResultValue(
-            code      = self.SUCCESS,
-            origin    = [self.CORE, 0],
-            value     = result
+            code        = self.SUCCESS,
+            origin      = [self.CORE, 0],
+            value       = result
         )
 
+    @classmethod
+    #@returns(ResultValue)
+    def get_warning(self, result, errors):
+        return ResultValue(
+            code        = self.WARNING,
+            # type
+            origin      = [self.CORE, 0],
+            value       = result,
+            # description
+        )
+
+    @classmethod
+    #@returns(ResultValue)
+    def get_error(self, type, errors):
+        assert isinstance(errors, StringTypes)
+        return ResultValue(
+            code        = self.ERROR,
+            type        = type,
+            origin      = [self.CORE, 0],
+            description = errors
+        )
+
+    @classmethod
+    #@returns(ResultValue)
+    def get_errors(self, errors):
+        """
+        Args:
+            errors: A list of ErrorPacket instances.
+        """
+        assert isinstance(errors, list),\
+            "Invalid errors = %s (%s)" % (errors, type(errors))
+        return ResultValue(
+            code        = self.ERROR,
+            type        = None,
+            origin      = [self.CORE, 0],
+            description = errors
+        )
+
+    @returns(bool)
+    def is_success(self):
+        return self["code"] == self.SUCCESS
+
+    @returns(list)
     def ok_value(self):
-        return self['value']
+        return self["value"]
+
+    def get_all(self):
+        if not self.is_success():
+            raise Exception, "Error executing query: %s" % self['description']
+        return self.ok_value()
+
+    def get_one(self):
+        records = self.get_all()
+        if len(records) > 1:
+            raise Exception, "More than 1 record"
+        return records[0]
 
     @returns(StringTypes)
     def get_error_message(self):
@@ -154,6 +215,10 @@ class ResultValue(dict):
     @staticmethod
     def to_html(raw_dict):
         return pprint.pformat(raw_dict).replace("\\n","<br/>")
+
+    @returns(dict)
+    def to_dict(self):
+        return dict(self)
 
 # 67    <code>
 # 68      <value>9</value>

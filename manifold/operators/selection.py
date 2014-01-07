@@ -67,16 +67,16 @@ class Selection(Operator):
         """
         """
 
-        if packet.get_type() == Packet.TYPE_QUERY:
+        if packet.get_protocol() == Packet.PROTOCOL_QUERY:
             # XXX need to remove the filter in the query
             new_packet = packet.clone()
             packet.update_query(Query.unfilter_by, self._filter)
             self.send(new_packet)
 
-        elif packet.get_type() == Packet.TYPE_RECORD:
+        elif packet.get_protocol() == Packet.PROTOCOL_RECORD:
             record = packet
 
-            if record.is_last() or (self._filter and self._filter.match(record)):
+            if record.is_empty() or (self._filter and self._filter.match(record)):
                 self.send(record)
 
         else: # TYPE_ERROR

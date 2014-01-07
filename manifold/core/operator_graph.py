@@ -15,6 +15,7 @@
 #   Marc-Olivier Buob   <marc-olivier.buob@lip6.fr>
 
 # We currently build on QueryPlan, the idea is in the end to merge the QueryPlan class in this class.
+
 from manifold.core.annotation       import Annotation
 from manifold.core.query            import Query
 from manifold.core.query_plan       import QueryPlan
@@ -75,6 +76,7 @@ class OperatorGraph(object):
             The Producer corresponding to the root node of the QueryPlan (most
             of time this is the top Operator of the AST). 
         """
+        Log.tmp("Build query plan")
         # Check parameters
         assert isinstance(query, Query),\
             "Invalid query %s (%s)" % (query, type(query))

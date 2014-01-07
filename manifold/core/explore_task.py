@@ -95,6 +95,7 @@ class ExploreTask(Deferred):
 #DEPRECATED|        query.filter_by(None).filter_by(new_filter)
 
     def store_subquery(self, ast, relation):
+        print "store subquery", ast, relation
         #Log.debug(ast, relation)
         if not ast: return
         self.subqueries[relation.get_relation_name()] = (ast, relation)
@@ -189,7 +190,9 @@ class ExploreTask(Deferred):
 
                 seen_set.add(name)
 
+                print "relation", relation
                 if relation.requires_subquery():
+                    print " - requires subquery"
                     subpath = self.path[:]
                     subpath.append(name)
                     task = ExploreTask(self._interface, neighbour, relation, subpath, self, self.depth+1)
@@ -206,6 +209,7 @@ class ExploreTask(Deferred):
                     #priority = TASK_1Nsq if relation_name in missing_subqueries else TASK_1N
                     
                 else:
+                    print " - does not require subquery"
                     task = ExploreTask(self._interface, neighbour, relation, self.path, self.parent, self.depth)
                     task.addCallback(self.perform_left_join, relation, allowed_platforms, metadata, user, query_plan)
                     priority = TASK_11
@@ -269,16 +273,54 @@ class ExploreTask(Deferred):
         Log.warning("perform_subquery: user is not needed anymore")
         # We need to build an AST just to collect subqueries
         if not self.ast:
+            print "[perform_subquery] not self.ast"
+            # XXX ?????
+            # XXX What is self.root here ?
             self.ast = self.perform_union(self.root, allowed_platforms, metadata, user, query_plan)
-        
+
+        print "perform subquery"
+        print "="*80
+        self.ast.dump() # = FROM tdmi:Traceroute()
+        print "="*80
+        print "subqueries:"
+        print self.subqueries
+        print "="*80
         if self.root.capabilities.is_onjoin():
-            # Let's identify tables involved in the key
+            # We need to have all root_key_fields available before running the
+            # onjoin query
             root_key_fields = self.root.keys.one().get_field_names()
+
+            # We assume for now that if the fields will be either available as a
+            # WHERE condition (not available at this stage), or through a
+            # subquery. We only look into subqueries, if the field is not
+            # present, that means it will be there at execution time. It will
+            # fail otherwise.
+            #
+            # A = onjoin(X,Y)
+            #                   
+            # SQ = A
+            #   |_ X     <=>  SQ  - |X| - x - X
+            #   |_ Y              \     \   \
+            #   |_ Z                Z     A   Y
+            #
+            # We will have:
+            #    |X| if a root key field is given by a subquery == not available #    in a filter
+            #     x  if more than 1 subquery is involved
+            # 
+            # NOTE: x will either return a single record with a list of values,
+            # or multiple records with simple values
+
             xp_ast_relation, sq_ast_relation = [], []
             xp_key = ()
             xp_value = ()
+
+            # We go though the set of subqueries to find
+            # - the ones for the cross product
+            # - the ones for the subqueries
             for name, ast_relation in self.subqueries.items():
+                print "name=", name, "ast_relation", ast_relation
                 if name in root_key_fields:
+                    print "name in rootkeyfields"
                     ast, relation = ast_relation
                     key, _, value = relation.get_predicate().get_tuple()
                     assert isinstance(key, StringTypes), "Invalid key"
@@ -287,17 +329,36 @@ class ExploreTask(Deferred):
                     xp_value += (key,)
                     xp_ast_relation.append(ast_relation)
                 else:
+                    print "name NOT in rootkeyfields"
                     sq_ast_relation.append(ast_relation)
 
-            ast = self.ast
+# OLD CODE #             ast = self.ast
+# OLD CODE # 
+# OLD CODE #             # SUBQUERY
+# OLD CODE #             if sq_ast_relation:
+# OLD CODE #                 ast.subquery(sq_ast_relation)
+# OLD CODE # 
+# OLD CODE #             # CROSS PRODUCT
+# OLD CODE #             query = Query.action('get', self.root.get_name()).select(set(xp_key))
+# OLD CODE #             self.ast = AST(self._interface).cross_product(xp_ast_relation, query)
+# OLD CODE # 
+# OLD CODE #             # JOIN
+# OLD CODE #             predicate = Predicate(xp_key, eq, xp_value)
+# OLD CODE #             self.ast.left_join(ast, predicate)
 
-            if sq_ast_relation:
-                ast.subquery(sq_ast_relation)
-            query = Query.action('get', self.root.get_name()).select(set(xp_key))
-            self.ast = AST(self._interface).cross_product(xp_ast_relation, query)
-            predicate = Predicate(xp_key, eq, xp_value)
+            # 1) Cross product
+            if len(xp_ast_relation) > 1:
+                pass
 
-            self.ast.left_join(ast, predicate)
+            # 2) Left join
+            if len(xp_ast_relation) > 0:
+                pass
+                
+            # 3) Subquery
+            if len(sq_ast_relation) > 0:
+                self.ast.subquery
+                pass
+
         else:
             self.ast.subquery(self.subqueries.values())
 

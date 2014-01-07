@@ -10,6 +10,18 @@
 #   Jordan Augé       <jordan.auge@lip6.fr>
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
+# TODO:
+#
+# We should ensure some contraints on options, for example:
+# - to be not null after parsing,
+# - the directory should exist,
+# - ...
+# otherwise throw an error at the beginning. This would help us diminish the
+# amount of code for checks later.
+#
+# This option singleton should only be used within executable, options to
+# classes should be passed via the constructor exclusively 
+
 import sys, argparse
 import os.path
 import StringIO

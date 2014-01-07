@@ -18,7 +18,7 @@ from datetime                           import datetime
 from manifold.core.announce             import Announce
 from manifold.core.field                import Field 
 from manifold.core.key                  import Key
-from manifold.core.record               import Record, LastRecord
+from manifold.core.record               import Record
 from manifold.core.table                import Table
 from manifold.gateways                  import Gateway
 from manifold.types.inet                import inet
@@ -67,32 +67,13 @@ class CSVGateway(Gateway):
         for value, name, type in izip(row, field_names, field_types):
             return Record([ (name, type_by_name(type)(value)) for value, name, type in izip(row, field_names, field_types)])
 
-    def forward(self, query, callback, is_deferred = False, execute = True, user = None, account_config = None, format = "dict", from_node = None):
+    def receive_impl(self, packet): 
         """
-        Query handler.
+        Handle a incoming QUERY Packet.
         Args:
-            query: A Query instance, reaching this Gateway.
-            callback: The function called to send this record. This callback is provided
-                most of time by a From Node.
-                Prototype : def callback(record)
-            is_deferred: A boolean.
-            execute: A boolean set to True if the treatement requested in query
-                must be run or simply ignored.
-            account_config: A dictionnary containing the user's account config.
-                In pratice, this is the result of the following query (run on the Storage)
-                SELECT config FROM local:account WHERE user_id == user.user_id
-            user: The User issuing the Query.
-            format: A String specifying in which format the Records must be returned.
-            from_node : The From Node running the Query or None. Its ResultValue will
-                be updated once the query has terminated.
-        Returns:
-            forward must NOT return value otherwise we cannot use @defer.inlineCallbacks
-            decorator. 
+            packet: A QUERY Packet instance.
         """
-        Gateway.forward(self, query, callback, is_deferred, execute, user, account_config, format, receiver)
-        assert isinstance(query, Query), "Invalid query"
-
-        identifier = from_node.get_identifier() if from_node else None
+        query = packet.get_query()
         table_name = query.get_from()
 
         dialect, field_names, field_types = self.get_dialect_and_field_info(table_name)
@@ -105,17 +86,17 @@ class CSVGateway(Gateway):
             try:
                 if self.has_headers[table_name]:
                     values = reader.next()
+
+                records = list()
                 for row in reader:
                     row = self.convert(row, field_names, field_types)
                     if not row: continue
-                    self.send(Record(row), callback, identifier)
-                self.send(LastRecord(), callback, identifier)
-                self.success(from_node, query)
+                    records.append(row)
+                self.records(records)
+
             except csv.Error as e:
                 message = "CSVGateway::forward(): Error in file %s, line %d: %s" % (filename, reader.line_num, e)
-                Log.warning(message)
-                self.error(from_node, query, message)
-
+                self.warning(query, e)
 
 #UNUSED|    @staticmethod
 #UNUSED|    @returns(StringTypes)
