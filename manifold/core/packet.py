@@ -42,6 +42,12 @@ class Packet(object):
     PROTOCOL_RECORD = 2
     PROTOCOL_ERROR  = 3
 
+    PROTOCOL_NAMES = {
+        PROTOCOL_QUERY  : "QUERY",
+        PROTOCOL_RECORD : "RECORD",
+        PROTOCOL_ERROR  : "ERROR"
+    }
+
     #---------------------------------------------------------------------------
     # Helpers for assertions
     #---------------------------------------------------------------------------
@@ -53,13 +59,7 @@ class Packet(object):
         Returns:
             The String corresponding to the type of Packet.
         """
-        PROTOCOL_NAMES = {
-            Packet.PROTOCOL_QUERY  : 'QUERY',
-            Packet.PROTOCOL_RECORD : 'RECORD',
-            Packet.PROTOCOL_ERROR  : 'ERROR'
-        }
-
-        return PROTOCOL_NAMES[type]
+        return Packet.PROTOCOL_NAMES[type]
 
     #---------------------------------------------------------------------------
     # Constructor
@@ -71,6 +71,11 @@ class Packet(object):
         Args:
             type: A value among {Packet.PROTOCOL_QUERY, Packet.PROTOCOL_RECORD, Packet.PROTOCOL_ERROR}.
         """
+        assert protocol in Packet.PROTOCOL_NAMES.keys(),\
+            "Invalid protocol = %s (not in %s)" % (protocol, Packet.PROTOCOL_NAMES.keys())
+        assert isinstance(last, bool),\
+            "Invalid last = %s (%s)" % (last, type(last))
+
         self._protocol = protocol
         self._last     = last
 

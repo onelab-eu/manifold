@@ -292,22 +292,10 @@ class AST(object):
             query: The Query issued by the user.
         """
         try: # DEBUG
-            print "BEFORE OPTIMIZE"
-            print "---------------"
-            self.dump()
-
-            Log.tmp("%s" % query.get_where())
             self.optimize_selection(query, query.get_where())
-
-            print "AFTER OPTIMIZE_SELECTION"
-            print "-------------------------"
-            self.dump()
-
-            Log.tmp("%s" % query.get_select())
             self.optimize_projection(query, query.get_select())
-
-            print "AFTER OPTIMIZE_PROJECTION"
-            print "--------------------------"
+            print "QUERY PLAN:"
+            print "-----------"
             self.dump()
         except Exception, e:
             Log.error(traceback.format_exc())

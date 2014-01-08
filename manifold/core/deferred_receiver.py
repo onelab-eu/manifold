@@ -50,7 +50,7 @@ class DeferredReceiver(Consumer):
 #DEPRECATED|            Log.warning("XMLRPCAPI::xmlrpc_forward: Authentication failed: %s" % failure)
 #DEPRECATED|
 #DEPRECATED|            msg ="XMLRPC error : %s" % e
-#DEPRECATED|            return dict(ResultValue.get_error(ResultValue.FORBIDDEN, msg))
+#DEPRECATED|            return dict(ResultValue.error(msg, ResultValue.FORBIDDEN))
 #DEPRECATED|
 #DEPRECATED|        # deferred receives results asynchronously
 #DEPRECATED|        # Callbacks are triggered process_results if success and handle_exceptions if errors

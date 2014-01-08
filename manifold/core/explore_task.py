@@ -95,7 +95,6 @@ class ExploreTask(Deferred):
 #DEPRECATED|        query.filter_by(None).filter_by(new_filter)
 
     def store_subquery(self, ast, relation):
-        print "store subquery", ast, relation
         #Log.debug(ast, relation)
         if not ast: return
         self.subqueries[relation.get_relation_name()] = (ast, relation)
@@ -190,9 +189,7 @@ class ExploreTask(Deferred):
 
                 seen_set.add(name)
 
-                print "relation", relation
                 if relation.requires_subquery():
-                    print " - requires subquery"
                     subpath = self.path[:]
                     subpath.append(name)
                     task = ExploreTask(self._interface, neighbour, relation, subpath, self, self.depth+1)
@@ -209,7 +206,6 @@ class ExploreTask(Deferred):
                     #priority = TASK_1Nsq if relation_name in missing_subqueries else TASK_1N
                     
                 else:
-                    print " - does not require subquery"
                     task = ExploreTask(self._interface, neighbour, relation, self.path, self.parent, self.depth)
                     task.addCallback(self.perform_left_join, relation, allowed_platforms, metadata, user, query_plan)
                     priority = TASK_11

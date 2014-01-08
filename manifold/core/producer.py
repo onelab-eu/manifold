@@ -263,13 +263,26 @@ class Producer(Node):
         Log.record(packet, self)
         self._pool_consumers.receive(packet)
 
-    def debug(self, indent = 0):
+    @returns(StringTypes)
+    def format_backward_paths_rec(self, indent, res):
         """
-        Print debug information to test the path(s) from this Producer
+        (Internal use)
+        Format debug information to test the path(s) from this Producer
+        towards the end-Consumer(s)
+        Args:
+            ident: An integer corresponding to the current indentation.
+            res: The String we're crafting (rec)
+        """
+        res = super(Producer, self).format_backward_paths_rec(indent, res)
+        for consumer in self.get_consumers():
+            res = consumer.format_backward_paths_rec(indent + 2, res)
+        return res
+
+    @returns(StringTypes)
+    def format_backward_paths(self):
+        """
+        Format debug information to test the path(s) from this Producer
         towards the end-Consumer(s)
         """
-        tab = " " * indent
-        Log.tmp("%s%s" % (tab, self))
-        for consumer in self.get_consumers():
-            consumer.debug(indent + 4)
-
+        res = ""
+        return self.format_backward_paths_rec(0, res)

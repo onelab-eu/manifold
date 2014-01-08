@@ -72,7 +72,6 @@ class Gateway(Producer):
             "Invalid configuration: %s (%s)" % (platform_config, type(platform_config))
 
         Producer.__init__(self, *args, **kwargs)
-
         self._interface       = interface       # Router
         self._platform_name   = platform_name   # String
         self._platform_config = platform_config # dict
@@ -177,19 +176,6 @@ class Gateway(Producer):
     #---------------------------------------------------------------------------  
     # Parameter checking (internal usage) 
     #---------------------------------------------------------------------------  
-
-    def check_send(self, packet):
-        """
-        send() method must be used only for ERROR Packets.
-        RECORD Packets must be sent using record() or records().
-        Args:
-            packet: A Packet instance.
-        """
-#jo#        super(Gateway, self).check_send(packet)
-#jo#        assert packet.get_protocol() ==  Packet.PROTOCOL_ERROR,\
-#jo#            "Invalid packet type (%s)" % packet
-        # A packet is a packet and should be sent !
-        pass
 
     def check_query_packet(self, packet):
         """
@@ -434,6 +420,12 @@ class Gateway(Producer):
         """
         socket = self.get_socket(packet.get_query())
 
+        # Print debugging information
+        print "BACKWARD PATH:"
+        print "--------------"
+        print socket.get_producer().format_backward_paths()
+        print socket.format_backward_paths()
+
         if records:
             # Enable LAST_RECORD flag on the last Record 
             if isinstance(records[-1], dict):
@@ -491,7 +483,6 @@ class Gateway(Producer):
             Log.warning(description)
         error_packet = ErrorPacket(2, 0, description, traceback.format_exc())
         error_packet.set_last(is_fatal)
-        #socket.get_producer().debug()
         socket.receive(error_packet)
 
     def receive(self, packet):
@@ -509,7 +500,7 @@ class Gateway(Producer):
             # See manifold/gateways/template/__init__.py
             self.receive_impl(packet)
         except Exception, e:
-            self.error(packet, 0, 0, e)
+            self.error(packet, e, True)
         finally:
             self.close(packet)
 
@@ -523,7 +514,7 @@ class Gateway(Producer):
         Returns:
             The '%s' representation of this Gateway.
         """
-        return "%s [%s]" % (self.get_platform_name(), self.get_gateway_type())
+        return repr(self) 
 
     @returns(StringTypes)
     def __repr__(self):
@@ -531,7 +522,10 @@ class Gateway(Producer):
         Returns:
             The '%r' representation of this Gateway.
         """
-        return "FROM <Gateway %s [%s]>" % (self.get_platform_name(), self.get_gateway_type())
+        return "Gateway<%s>[%s]" % (
+            self.get_platform_name(),
+            self.get_gateway_type()
+        )
 
     @returns(list)
     def make_announces(self):
