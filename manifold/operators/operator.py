@@ -68,6 +68,11 @@ class Operator(Relay):
         
     @returns(Query)
     def get_query(self):
+        """
+        Returns:
+            A Query having a SELECT and a WHERE clause homogeneous to the
+            query modeled by the tree of Operator rooted to this Operator.
+        """
         return self.query
 
     def dump(self, indent = 0):

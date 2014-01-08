@@ -622,12 +622,12 @@ class Shell(object):
             The ResultValue resulting from the Query
         """
         try:
-            Log.tmp("execute")
             result_value = self.client.forward(query)
         except Exception, e:
-            Log.tmp("execute exc %s" % e)
-            message = "Error executing query: %s" % (e,)
-            result_value = ResultValue.get_error(ResultValue.ERROR, message)
+            Log.error(traceback.format_exc())
+            message = "Exception raised while performing this query:\n\n\t%s\n\n\t%s" % (query, e)
+            Log.error(message)
+            result_value = ResultValue.error(message)
         return result_value
 
     @returns(dict)

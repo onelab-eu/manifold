@@ -76,7 +76,6 @@ class OperatorGraph(object):
             The Producer corresponding to the root node of the QueryPlan (most
             of time this is the top Operator of the AST). 
         """
-        Log.tmp("Build query plan")
         # Check parameters
         assert isinstance(query, Query),\
             "Invalid query %s (%s)" % (query, type(query))

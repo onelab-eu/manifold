@@ -81,7 +81,6 @@ class Record(Packet):
             True iif this Record is the last one of a list
             of Records corresponding to a given Query.
         """
-        Log.warning("Record::is_empty() is probably obsolete and should be removed")
         return self._record is None
 
     #--------------------------------------------------------------------------- 

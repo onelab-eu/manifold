@@ -130,10 +130,9 @@ class Projection(Operator):
     def receive(self, packet):
         """
         Process an incoming Packet instance.
-        - If this is a RECORD Packet, remove every fields that are
-          not SELECTed by this Operator.
-        - If this is the LastRecord or an ERROR Packet, forward
-          this Packet.
+          - If this is a RECORD Packet, remove every fields that are
+            not SELECTed by this Operator.
+          - If this is an ERROR Packet, forward this Packet.
         Args:
             packet: A Packet instance.
         """
@@ -161,8 +160,10 @@ class Projection(Operator):
 
     @returns(Producer)
     def optimize_selection(self, query, filter):
-        producer = self.get_producer().optimize_selection(query, filter)
-        self.get_producer(producer)
+#OBSOLETE|        producer = self.get_producer().optimize_selection(query, filter)
+#OBSOLETE|        self.get_producer(producer)
+#OBSOLETE|        return self
+        self.get_producer().optimize_selection(query, filter)
         return self
 
     @returns(Producer)

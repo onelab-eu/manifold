@@ -346,23 +346,6 @@ class Log(object):
         ]
         #cls.print_msg(' '.join(msg), 'RECORD', caller_name())
 
-#    @classmethod
-#    def record(cls, packet, producer, consumer):
-#        """
-#        Print in the log information related to a RECORD Packet.
-#        Args:
-#            packet: A RECORD or a ERROR Packet instance.
-#            producer: A Producer instance.
-#            consumer: A Consumer instance
-#        """
-#        log_level = "RECORD"
-#        message = "[%r --> %r] %r" % (
-#            producer.get_identifier(),
-#            consumer.get_identifier(),
-#            packet
-#        )
-#        cls.print_msg(message, log_level, caller_name())
-
     @classmethod
     def deprecated(cls, new):
         #cls.print_msg("Function %s is deprecated, please use %s" % (caller_name(skip=3), new))

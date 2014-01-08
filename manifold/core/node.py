@@ -12,6 +12,7 @@
 #   Marc-Olivier Buob   <marc-olivier.buob@lip6.fr>
 
 import sys
+from types                        import StringTypes
 
 from manifold.core.packet           import Packet
 from manifold.util.type             import accepts, returns
@@ -22,15 +23,6 @@ class Node(object):
     """
 
     last_identifier = 0
-#DEPRECATED|    #---------------------------------------------------------------------------
-#DEPRECATED|    # Static methods
-#DEPRECATED|    #---------------------------------------------------------------------------
-#DEPRECATED|
-#DEPRECATED|    @staticmethod
-#DEPRECATED|    def connect(consumer, producer):
-#DEPRECATED|        consumer.set_producer(producer)
-#DEPRECATED|        producer.set_consumer(consumer)
-
 
     #---------------------------------------------------------------------------
     # Constructor
@@ -72,7 +64,7 @@ class Node(object):
             indent: An integer corresponding to the current indentation (in
                 number of spaces)
         """
-        sys.stdout.write("[%04d] %s" % (
+        sys.stdout.write("[%04d]%s" % (
             self.get_identifier(),
             ' ' * 4 * indent
         ))
@@ -120,3 +112,31 @@ class Node(object):
         """
         self.check_receive(packet)
         raise NotImplementedError("Method 'receive' must be overloaded: %s" % self.__class__.__name__)
+
+    @returns(StringTypes)
+    def format_node(self, indent = 0):
+        """
+        Args:
+            ident: An integer corresponding to the current indentation.
+        Returns:
+            The '%s' representation of this Node
+        """
+        return "[%(id)04d]%(tab)s %(self)s" % {
+            "id"   : self.get_identifier(),
+            "tab"  : " " * indent,
+            "self" : self
+        }
+
+    @returns(StringTypes)
+    def format_backward_paths_rec(self, indent, res):
+        """
+        Format debug information to test the path(s) from this Producer
+        towards the end-Consumer(s). This function ends this recursion.
+        Args:
+            ident: An integer corresponding to the current indentation.
+            res: The String we're crafting (rec)
+        """
+        return "%(res)s%(self)s" % {
+            "res"  : "%s\n" % res if res else "",
+            "self" : self.format_node(indent + 2)
+        }

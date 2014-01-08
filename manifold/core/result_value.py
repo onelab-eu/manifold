@@ -136,62 +136,79 @@ class ResultValue(dict):
         num_errors = len(errors)
 
         if num_errors == 0:
-            return ResultValue.get_success(records)
+            return ResultValue.success(records)
         elif records:
-            return ResultValue.get_warning(records, errors)
+            return ResultValue.warning(records, errors)
         else:
-            return ResultValue.get_errors(errors)
+            return ResultValue.errors(errors)
 
     @classmethod
     #@returns(ResultValue)
-    def get_success(self, result):
+    def success(self, result):
         return ResultValue(
-            code        = self.SUCCESS,
-            origin      = [self.CORE, 0],
+            code        = ResultValue.SUCCESS,
+            origin      = [ResultValue.CORE, 0],
             value       = result
         )
 
-    @classmethod
+    @staticmethod
     #@returns(ResultValue)
-    def get_warning(self, result, errors):
+    def warning(result, errors):
         return ResultValue(
-            code        = self.WARNING,
+            code        = ResultValue.WARNING,
             # type
-            origin      = [self.CORE, 0],
+            origin      = [ResultValue.CORE, 0],
             value       = result,
             # description
         )
 
-    @classmethod
+    @staticmethod
     #@returns(ResultValue)
-    def get_error(self, type, errors):
-        assert isinstance(errors, StringTypes)
+    def error(description, code = ERROR):
+        """
+        Make a ResultValue corresponding to an error.
+        Args:
+            description: A String instance.
+            code: An integer (see codes provided by ResultValue). 
+        Returns:
+            The corresponding ResultValue instance.
+        """
+        assert isinstance(description, StringTypes),\
+            "Invalid description = %s (%s)" % (description, type(description))
+        assert isinstance(code, int),\
+            "Invalid code = %s (%s)" % (code, type(code))
+
         return ResultValue(
-            code        = self.ERROR,
-            type        = type,
-            origin      = [self.CORE, 0],
-            description = errors
+            type        = ResultValue.ERROR,
+            code        = code, 
+            origin      = [ResultValue.CORE, 0],
+            description = description 
         )
 
-    @classmethod
+    @staticmethod
     #@returns(ResultValue)
-    def get_errors(self, errors):
+    def errors(errors):
         """
+        Make a ResultValue corresponding to an error and
+        gathering a set of ErrorPacket instances.
         Args:
             errors: A list of ErrorPacket instances.
+        Returns:
+            The corresponding ResultValue instance.
         """
         assert isinstance(errors, list),\
             "Invalid errors = %s (%s)" % (errors, type(errors))
+
         return ResultValue(
-            code        = self.ERROR,
-            type        = None,
-            origin      = [self.CORE, 0],
+            type        = ResultValue.ERROR,
+            code        = ResultValue.ERROR,
+            origin      = [ResultValue.CORE, 0],
             description = errors
         )
 
     @returns(bool)
     def is_success(self):
-        return self["code"] == self.SUCCESS
+        return self["code"] == ResultValue.SUCCESS
 
     @returns(list)
     def ok_value(self):
