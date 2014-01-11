@@ -76,16 +76,6 @@ class Operator(Relay):
         """
         return self.query
 
-    def dump(self, indent = 0):
-        """
-        Dump the current node
-        indent current indentation
-        """
-        self.tab(indent)
-        print "%r (%s)" % (self, super(Operator, self).__repr__())
-        for producer in self.get_producers():
-            producer.dump(indent + 1)
-
     def error(self, description, is_fatal = True):
         """
         Craft an ErrorPacket carrying an error message.
@@ -96,5 +86,5 @@ class Operator(Relay):
                 must make crash the pending Query.
         """
         # Could be factorized with Gateway::error() by defining Producer::error()
-        error_packet = self.make_error(description, 0, is_fatal)
+        error_packet = self.make_error(CORE, description, is_fatal)
         self.send(error_packet)

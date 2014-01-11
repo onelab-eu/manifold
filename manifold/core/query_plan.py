@@ -13,13 +13,19 @@
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 #   Loïc Baron        <loic.baron@lip6.fr>
 
-from manifold.core.stack            import Stack
-from manifold.core.explore_task     import ExploreTask
+
+# XXX Note for later: what about holes in the subquery chain. Is there a notion
+# of inject ? How do we collect subquery results two or more levels up to match
+# the structure (with shortcuts) as requested by the user.
+
+from types                                  import StringTypes
 
 from manifold.core.ast              import AST
+from manifold.core.explore_task     import ExploreTask
 from manifold.core.producer         import Producer
-from manifold.operators.operator    import Operator
+from manifold.core.stack            import Stack
 from manifold.operators.From        import From 
+from manifold.operators.operator    import Operator
 from manifold.util.log              import Log
 from manifold.util.type             import returns, accepts
 
@@ -62,6 +68,25 @@ class QueryPlan(object):
             the AST related to this QueryPlan, None otherwise.
         """
         return self.ast.get_root() if self.ast else None
+
+    @returns(StringTypes)
+    def __repr__(self):
+        """
+        Returns:
+            The '%r' representation of this QueryPlan instance.
+        """
+        if self.ast:
+            return "QUERY PLAN:\n-----------\n%s" % self.ast
+        else:
+            return "(Invalid QueryPlan)"
+
+    @returns(StringTypes)
+    def __str__(self):
+        """
+        Returns:
+            The '%s' representation of this QueryPlan instance.
+        """
+        return repr(self)
 
     @returns(Producer)
     def build(self, query, router, db_graph, allowed_platforms, user = None):
@@ -127,20 +152,6 @@ class QueryPlan(object):
             task.cancel()
     
         # Do we need to wait for self.ast here ?
+        Log.debug(self)
         return self.ast.get_root() if self.ast else None
-
-    # XXX Note for later: what about holes in the subquery chain. Is there a notion
-    # of inject ? How do we collect subquery results two or more levels up to match
-    # the structure (with shortcuts) as requested by the user.
-
-    def dump(self):
-        """
-        Dump this QueryPlan to the standard output.
-        """
-        print ""
-        print "QUERY PLAN:"
-        print "-----------"
-        self.ast.dump()
-        print ""
-        print ""
 

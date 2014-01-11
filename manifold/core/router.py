@@ -130,7 +130,7 @@ class Router(Interface):
         ReactorThread().start_reactor()
         return self
 
-    def __exit__(self, type=None, value=None, traceback=None):
+    def __exit__(self, type = None, value = None, traceback = None):
         """
         Function called back while leaving a "with" statement.
         See http://effbot.org/zone/python-with-statement.htm

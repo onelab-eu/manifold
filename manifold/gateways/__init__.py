@@ -422,10 +422,14 @@ class Gateway(Producer):
         socket = self.get_socket(packet.get_query())
 
         # Print debugging information
-        Log.debug("BACKWARD PATH:")
-        Log.debug("--------------")
-        Log.debug(socket.get_producer().format_backward_paths())
-        Log.debug(socket.format_backward_paths())
+        # TODO refer properly pending Socket of each Gateway because
+        # that's why we do not simply run socket.get_producer().format_uptree()
+        Log.debug(
+            "UP-TREE:\n--------\n%s\n%s" % (
+                socket.get_producer().format_node(),
+                socket.format_uptree()
+            )
+        )
 
         if records:
             # Enable LAST_RECORD flag on the last Record 
@@ -479,7 +483,7 @@ class Gateway(Producer):
 
         # Could be factorized with Operator::error() by defining Producer::error()
         socket = self.get_socket(packet.get_query())
-        error_packet = self.make_error(description, GATEWAY, is_fatal)
+        error_packet = self.make_error(GATEWAY, description, is_fatal)
         socket.receive(error_packet)
 
     def receive(self, packet):

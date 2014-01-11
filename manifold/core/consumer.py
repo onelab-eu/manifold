@@ -102,6 +102,34 @@ class Consumer(Node):
         return "{[%s]}" % "], [".join(("%r" % producer.get_identifier() for producer in self.get_producers())) 
  
     @returns(StringTypes)
+    def format_downtree_rec(self, indent, res):
+        """
+        (Internal use)
+        Format debug information to test the path(s) from this Consumer 
+        towards the end-Producer(s)
+        Args:
+            ident: An integer corresponding to the current indentation.
+            res: The String we're crafting (rec)
+        Returns:
+            The String containing the corresponding down-tree.
+        """
+        res = super(Consumer, self).format_downtree_rec(indent, res)
+        for producer in self.get_producers():
+            res = producer.format_downtree_rec(indent + 2, res)
+        return res
+
+    @returns(StringTypes)
+    def format_downtree(self):
+        """
+        Format debug information to test the path(s) from this Consumer 
+        towards the end-Producer(s)
+        Returns:
+            The String containing the corresponding down-tree.
+        """
+        res = ""
+        return self.format_downtree_rec(0, res)
+
+    @returns(StringTypes)
     def __repr__(self):
         """
         Returns:
