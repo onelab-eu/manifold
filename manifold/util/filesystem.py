@@ -7,6 +7,21 @@ from ..util.certificate import Keypair, Certificate
 # File and directory management
 #-------------------------------------------------------------------------------
 
+def mkdir(path):
+    """
+    Create a directory (mkdir -p).
+    Args:
+        path: An absolute path.
+    """
+    # http://stackoverflow.com/questions/600268/mkdir-p-functionality-in-python
+    try:
+        os.makedirs(path)
+    except OSError as exc: # Python >2.5
+        if exc.errno == errno.EEXIST and os.path.isdir(path):
+            pass
+        else:
+            raise
+
 def check_writable_directory(directory):
     if not os.path.exists(directory):
         raise Exception, "Directory '%s' does not exists" % directory

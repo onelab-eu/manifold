@@ -18,11 +18,12 @@
 #   Jordan Augé       <jordan.auge@lip6.fr> 
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
-from manifold.core.packet import Packet
-from manifold.core.query  import Query 
-from manifold.core.relay  import Relay
-from manifold.util.log    import Log
-from manifold.util.type   import accepts, returns
+from manifold.core.code     import CORE
+from manifold.core.packet   import Packet
+from manifold.core.query    import Query 
+from manifold.core.relay    import Relay
+from manifold.util.log      import Log
+from manifold.util.type     import accepts, returns
 
 # NOTES: it seem we don't need the query anymore in the operators expect From
 # maybe ? Selection, projection ??
@@ -84,3 +85,16 @@ class Operator(Relay):
         print "%r (%s)" % (self, super(Operator, self).__repr__())
         for producer in self.get_producers():
             producer.dump(indent + 1)
+
+    def error(self, description, is_fatal = True):
+        """
+        Craft an ErrorPacket carrying an error message.
+        Args:
+            description: The corresponding error message (String) or
+                Exception.
+            is_fatal: Set to True if this ErrorPacket
+                must make crash the pending Query.
+        """
+        # Could be factorized with Gateway::error() by defining Producer::error()
+        error_packet = self.make_error(description, 0, is_fatal)
+        self.send(error_packet)

@@ -13,6 +13,7 @@ from types                          import StringTypes
 
 from manifold.core.node             import Node
 from manifold.core.packet           import Packet
+from manifold.core.producer         import Producer
 from manifold.operators.operator    import Operator
 from manifold.util.log              import Log 
 from manifold.util.type             import returns
@@ -24,31 +25,50 @@ DUMPSTR_RENAME = "RENAME %r"
 #------------------------------------------------------------------
 
 class Rename(Operator):
-    """
-    RENAME operator node (cf SELECT clause in SQL)
-    """
 
     #---------------------------------------------------------------------------
     # Constructor
     #---------------------------------------------------------------------------
 
-    def __init__(self, child, map_fields):
+    def __init__(self, child, aliases):
         """
-        Constructor
+        Constructor.
+        Args:
+            child: The child Producer.
+            aliases: A dict {String : String} which translate field name used
+                in the incoming Records into the corresponding field name
+                in the output Records.
         """
+        assert isinstance(aliases, dict),\
+            "Invalid aliases = %s (%s)" % (aliases, type(aliases))
+        assert set(aliases.keys()) & set(aliases.values()),\
+            "Invalid aliases = %r (keys and values should be disjoint)" % aliases
 
         Operator.__init__(self, producers = child, max_producers = 1)
-        self._map_fields = map_fields
+        self._aliases = aliases
 
     @returns(dict)
-    def get_map_fields(self):
+    def get_aliases(self):
         """
         Returns:
             A dictionnary {String : String} which maps the field name
             to rename with the corresponding updated field name.
         """
-        return self._map_fields
+        return self._aliases
 
+    @returns(StringTypes)
+    def get_alias(self, field_name):
+        """
+        Args:
+            field_name: A String related to a field name for which
+                we want to get the alias.
+        Returns:
+            The corresponding alias if any, field_name otherwise.
+        """
+        try:
+            return self.get_aliases(field_name)
+        except KeyError:
+            return field_name
 
     #---------------------------------------------------------------------------
     # Internal methods
@@ -58,10 +78,9 @@ class Rename(Operator):
     def __repr__(self):
         """
         Returns:
-            The '%r' representation of this Node.
+            The '%r' representation of this Operator.
         """
-        return DUMPSTR_RENAME % self.get_map_fields()
-
+        return DUMPSTR_RENAME % self.get_aliases()
 
     #---------------------------------------------------------------------------
     # Methods
@@ -70,7 +89,6 @@ class Rename(Operator):
     def receive(self, packet):
         """
         """
-
         if packet.get_protocol() == Packet.PROTOCOL_QUERY:
             # XXX need to remove the filter in the query
             new_packet = packet.clone()
@@ -79,26 +97,22 @@ class Rename(Operator):
 
         elif packet.get_protocol() == Packet.PROTOCOL_RECORD:
             record = packet
-
-            if not record.is_last():
-                #record = { self._map_fields.get(k, k): v for k, v in record.items() }
-                try:
-                    for k, v in self._map_fields.items():
-                        if k in record:
-                            if '.' in v: # users.hrn
-                                method, key = v.split('.')
-                                if not method in record:
-                                    record[method] = list() 
-                                for x in record[k]:
-                                    record[method].append({key: x})        
-                            else:
-                                record[v] = record.pop(k) #record[k]
-                            #del record[k]
-                except Exception, e:
-                    Log.error("Error in Rename::child_callback:", e)
-                    import traceback
-                    traceback.print_exc()
-            self.send(record)
+            #record = { self._aliases.get(k, k): v for k, v in record.items() }
+            try:
+                for k, v in self._aliases.items():
+                    if k in record:
+                        if '.' in v: # users.hrn
+                            method, key = v.split('.')
+                            if not method in record:
+                                record[method] = list() 
+                            for x in record[k]:
+                                record[method].append({key: x})        
+                        else:
+                            record[v] = record.pop(k) #record[k]
+                        #del record[k]
+                self.send(record)
+            except Exception, e:
+                self.error("Error in Rename::receive: %s" % e)
 
         else: # TYPE_ERROR
             self.send(packet)
@@ -113,28 +127,30 @@ class Rename(Operator):
         super(Demux, self).dump(indent)
         self.get_producer().dump(indent + 1)
     
-    @returns(Node)
+    @returns(Producer)
     def optimize_selection(self, filter):
         """
-        Propage WHERE operator through this RENAME Node.
+        Propagate Selection Operator through this Operator.
         Args:
             filter: A Filter instance storing the WHERE clause.
         Returns:
-            The update root Node of the optimized AST.
+            The root Operator of the optimized sub-AST.
         """
-        # TODO We must rename fields involved in filter
-        Log.warning('Not implemented')
+        Log.tmp("Not yet tested")
+        # We must rename fields involved in filter
+        # self.get_producer().optimize_selection(query, updated_filter)
         return self
 
-    @returns(Node)
+    @returns(Producer)
     def optimize_projection(self, fields):
         """
-        Propage SELECT operator through this RENAME Node.
+        Propagate Projection Operator through this Operator.
         Args:
             fields: A list of String correspoding the SELECTed fields.
         Returns:
-            The update root Node of the optimized AST.
+            The root Operator of the optimized sub-AST.
         """
-        # TODO We must rename fields involved in filter
-        Log.warning('Not implemented')
+        Log.tmp("Not yet tested")
+        # We must rename fields involved in fields
+        self.get_producer().optimize_projection(query, updated_fields)
         return self

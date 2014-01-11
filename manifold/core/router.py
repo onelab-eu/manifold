@@ -12,6 +12,7 @@
 import errno, os, traceback
 
 from manifold.core.capabilities     import Capabilities
+from manifold.core.code             import BADARGS, ERROR
 from manifold.core.dbnorm           import to_3nf 
 from manifold.core.dbgraph          import DBGraph
 from manifold.core.interface        import Interface
@@ -22,6 +23,7 @@ from manifold.core.packet           import ErrorPacket, Packet
 from manifold.core.result_value     import ResultValue
 from manifold.core.socket           import Socket
 from manifold.policy                import Policy
+from manifold.util.filesystem       import mkdir
 from manifold.util.log              import Log
 from manifold.util.reactor_thread   import ReactorThread
 from manifold.util.type             import returns, accepts
@@ -32,21 +34,6 @@ from manifold.util.type             import returns, accepts
 
 CACHE_LIFETIME = 1800
 VAR_DIR        = "/var/lib/manifold"
-
-def mkdir(path):
-    """
-    Create a directory (mkdir -p).
-    Args:
-        path: An absolute path.
-    """
-    # http://stackoverflow.com/questions/600268/mkdir-p-functionality-in-python
-    try:
-        os.makedirs(path)
-    except OSError as exc: # Python >2.5
-        if exc.errno == errno.EEXIST and os.path.isdir(path):
-            pass
-        else:
-            raise
 
 #------------------------------------------------------------------
 # Class Router
@@ -177,8 +164,8 @@ class Router(Interface):
         except Exception, e:
             #Log.error(traceback.format_exc())
             error_packet = ErrorPacket(
-                type      = ResultValue.ERROR,
-                code      = ResultValue.BADARGS, 
+                type      = ERROR,
+                code      = BADARGS, 
                 message   = "Unable to build a suitable Query Plan (query = %s): %s" % (query, e),
                 traceback = traceback.format_exc()
             )

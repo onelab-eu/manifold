@@ -14,65 +14,27 @@
 import pprint, time, traceback
 from types                      import StringTypes
 
+from manifold.core.code         import CORE, GATEWAY, SUCCESS, ERROR, WARNING
 from manifold.util.log          import Log
 from manifold.util.type         import accepts, returns
 
 class ResultValue(dict):
 
-    # type
-    SUCCESS     = 0
-    WARNING     = 1
-    ERROR       = 2
-
-    # origin
-    CORE        = 0
-    GATEWAY     = 1
-
-    # code
-    SUCCESS     = 0
-    SERVERBUSY  = 32001
-    BADARGS     = 1
-    ERROR       = 2
-    FORBIDDEN   = 3
-    BADVERSION  = 4
-    SERVERERROR = 5
-    TOOBIG      = 6
-    REFUSED     = 7
-    TIMEDOUT    = 8
-    DBERROR     = 9
-    RPCERROR    = 10
-
-    # description
-    ERRSTR = {
-        SUCCESS     : 'Success',
-        SERVERBUSY  : 'Server is (temporarily) too busy; try again later',
-        BADARGS     : 'Bad Arguments: malformed',
-        ERROR       : 'Error (other)',
-        FORBIDDEN   : 'Operation Forbidden: eg supplied credentials do not provide sufficient privileges (on the given slice)',
-        BADVERSION  : 'Bad Version (eg of RSpec)',
-        SERVERERROR : 'Server Error',
-        TOOBIG      : 'Too Big (eg request RSpec)',
-        REFUSED     : 'Operation Refused',
-        TIMEDOUT    : 'Operation Timed Out',
-        DBERROR     : 'Database Error',
-        RPCERROR    : ''
-    }
-
-    ALLOWED_FIELDS = set(['origin', 'type', 'code', 'value', 'description', 'traceback', 'ts'])
+    ALLOWED_FIELDS = set(["origin", "type", "code", "value", "description", "traceback", "ts"])
 
     def __init__(self, *args, **kwargs):
         """
         Constructor.
         Args:
             origin: A value among:
-                ResultValue.CORE    : iif the error is raised by manifold/core/*
-                ResultValue.GATEWAY : iif the error is raised by manifold/gateways/*
+                CORE    : iif the error is raised by manifold/core/*
+                GATEWAY : iif the error is raised by manifold/gateways/*
             type: An integer describing the status of the query. 
-                ResultValue.SUCCESS : the Query has succeeded.
-                ResultValue.WARNING : the Query results are not complete.
-                ResultValue.ERROR   : the Query has failed.
+                SUCCESS : the Query has succeeded.
+                WARNING : the Query results are not complete.
+                ERROR   : the Query has failed.
             code: An integer value.
-            value: A list of ResultValue in case of failure or A list of Records in case of success.
+            value: A list of ErrorPacket in case of failure or A list of Records in case of success.
             description:
             traceback: A String containing the traceback.
             ts: A String containing the date when this Query has been issued. By default, this
@@ -125,10 +87,10 @@ class ResultValue(dict):
 #DEPRECATED|        
 #DEPRECATED|        if not result_values:
 #DEPRECATED|            # No error
-#DEPRECATED|            return ResultValue(code = self.SUCCESS, origin = [self.CORE, 0], value = results)
+#DEPRECATED|            return ResultValue(code = SUCCESS, origin = [self.CORE, 0], value = results)
 #DEPRECATED|        else:
 #DEPRECATED|            # Handle errors
-#DEPRECATED|            return ResultValue(code = self.WARNING, origin = [self.CORE, 0], value = results, description = result_values)
+#DEPRECATED|            return ResultValue(code = WARNING, origin = [self.CORE, 0], value = results, description = result_values)
 #DEPRECATED|
 
     @classmethod
@@ -146,8 +108,8 @@ class ResultValue(dict):
     #@returns(ResultValue)
     def success(self, result):
         return ResultValue(
-            code        = ResultValue.SUCCESS,
-            origin      = [ResultValue.CORE, 0],
+            code        = SUCCESS,
+            origin      = [CORE, 0],
             value       = result
         )
 
@@ -155,9 +117,9 @@ class ResultValue(dict):
     #@returns(ResultValue)
     def warning(result, errors):
         return ResultValue(
-            code        = ResultValue.WARNING,
+            code        = WARNING,
             # type
-            origin      = [ResultValue.CORE, 0],
+            origin      = [CORE, 0],
             value       = result,
             # description
         )
@@ -179,9 +141,9 @@ class ResultValue(dict):
             "Invalid code = %s (%s)" % (code, type(code))
 
         return ResultValue(
-            type        = ResultValue.ERROR,
+            type        = ERROR,
             code        = code, 
-            origin      = [ResultValue.CORE, 0],
+            origin      = [CORE, 0],
             description = description 
         )
 
@@ -200,15 +162,15 @@ class ResultValue(dict):
             "Invalid errors = %s (%s)" % (errors, type(errors))
 
         return ResultValue(
-            type        = ResultValue.ERROR,
-            code        = ResultValue.ERROR,
-            origin      = [ResultValue.CORE, 0],
+            type        = ERROR,
+            code        = ERROR,
+            origin      = [CORE, 0],
             description = errors
         )
 
     @returns(bool)
     def is_success(self):
-        return self["code"] == ResultValue.SUCCESS
+        return self["code"] == SUCCESS
 
     @returns(list)
     def ok_value(self):

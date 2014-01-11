@@ -1,11 +1,23 @@
-import traceback,copy
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+# XMLRPCAPI class
+#
+# Copyright (C) UPMC Paris Universitas
+# Authors:
+#   Jordan Augé         <jordan.auge@lip6.fr>
+#   Marc-Olivier Buob   <marc-olivier.buob@lip6.fr>
+
+import copy, traceback
 from twisted.web                        import xmlrpc
 from twisted.web.xmlrpc                 import withRequest
+
 from manifold.auth                      import Auth
-from manifold.core.annotation                import Annotation
+from manifold.core.annotation           import Annotation
+from manifold.core.code                 import CORE, ERROR, FORBIDDEN
 from manifold.core.deferred_receiver    import DeferredReceiver
+from manifold.core.packet               import QueryPacket
 from manifold.core.query                import Query
-from manifold.core.packet                import QueryPacket
 from manifold.core.result_value         import ResultValue
 from manifold.util.options              import Options
 from manifold.util.log                  import Log
@@ -31,9 +43,9 @@ class XMLRPCAPI(xmlrpc.XMLRPC, object):
                             v(*args, **kwargs)
                         except Exception, e:
                             ret = dict(ResultValue(
-                               origin      = (ResultValue.CORE, cls.__class__.__name__),
-                               type        = ResultValue.ERROR,
-                               code        = ResultValue.ERROR,
+                               origin      = (CORE, cls.__class__.__name__),
+                               type        = ERROR,
+                               code        = ERROR,
                                description = str(e),
                                traceback   = traceback.format_exc()))
                             return ret
@@ -84,9 +96,9 @@ class XMLRPCAPI(xmlrpc.XMLRPC, object):
         if Options().disable_auth:
             Log.info("Authentication disabled by configuration")
         else:
-            if not annotation or not 'authentication' in annotation:
-                msg ="You need to specify an authentication token in annotation"
-                return dict(ResultValue.error(msg, ResultValue.FORBIDDEN))
+            if not annotation or not "authentication" in annotation:
+                msg = "You need to specify an authentication token in annotation"
+                return dict(ResultValue.error(msg, FORBIDDEN))
                 
             # We expect to find an authentication token in the annotation
             if annotation:
@@ -102,7 +114,7 @@ class XMLRPCAPI(xmlrpc.XMLRPC, object):
             except Exception, e:
                 Log.warning("XMLRPCAPI::xmlrpc_forward: Authentication failed...: %s" % str(e))
                 msg = "Authentication failed: %s" % e
-                return dict(ResultValue.error(msg, ResultValue.FORBIDDEN))
+                return dict(ResultValue.error(msg, FORBIDDEN))
 
         query = Query(query)
         annotation = Annotation(annotation) if annotation else Annotation()
