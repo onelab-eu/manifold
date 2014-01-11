@@ -6,11 +6,16 @@
 #
 # Copyright (C) UPMC Paris Universitas
 # Authors:
-#   Jordan Augé       <jordan.auge@lip6.fr> 
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
+#   Jordan Augé       <jordan.auge@lip6.fr> 
 
+from types                          import StringTypes
+
+from manifold.core.key              import Key
+from manifold.core.packet           import Packet
+from manifold.core.producer         import Producer
 from manifold.core.query            import Query
-from manifold.operators             import ChildCallback
+from manifold.core.record           import Record
 from manifold.operators.operator    import Operator
 from manifold.util.type             import returns
 
@@ -18,68 +23,83 @@ from manifold.util.type             import returns
 # DUP node
 #------------------------------------------------------------------
 
+DUMPSTR_DUP = "DUP"
+
 class Dup(Operator):
+
+    #---------------------------------------------------------------------------
+    # Constructor
+    #---------------------------------------------------------------------------
 
     def __init__(self, child, key):
         """
         Constructor.
         Args:
             child: A Node instance, child of this Dup Node.
-            key: A Key instance.
+            key: A Key instance which describes which fields of
+                incoming Records allows to detect duplicates.
         """
-        #assert issubclass(Node, type(child)), "Invalid child %r (%r)" % (child, type(child))
-        #assert isinstance(Key,  type(key)),   "Invalid key %r (%r)"   % (key,   type(key))
-        super(Dup, self).__init__()
+        #assert isinstance(key, Key),\
+        #    "Invalid key %r (%r)" % (key, type(key))
 
-        self.child = child
-        #TO FIX self.status = ChildStatus(self.all_done)
-        self.child.set_callback(ChildCallback(self, 0))
-        self.child_results = set()
+        super(Dup, self).__init__(self, producers = child, max_producers = 1)
+        self.query = self.get_producer().get_query().copy()
 
-#DEPRECATED|    @returns(Query)
-#DEPRECATED|    def get_query(self):
-#DEPRECATED|        """
-#DEPRECATED|        Returns:
-#DEPRECATED|            The Query representing the data produced by the nodes.
-#DEPRECATED|        """
-#DEPRECATED|        return Query(self.child.get_query())
-#DEPRECATED|
-#DEPRECATED|    def get_child(self):
-#DEPRECATED|        """
-#DEPRECATED|        Returns
-#DEPRECATED|            A Node instance (the child Node) of this Demux instance.
-#DEPRECATED|        """
-#DEPRECATED|        return self.child
+        # A set of Strings (if key is made of only one field) or a set of tuples
+        # which stores the Key of each Record that have already traversed this
+        # Dup Operator.
+        self._seen = set()
 
-    def dump(self, indent = 0):
+    #---------------------------------------------------------------------------
+    # Internal methods
+    #---------------------------------------------------------------------------
+
+    @returns(StringTypes)
+    def __repr__(self):
         """
-        Dump the current node.
+        Returns:
+            The '%r' representation of this Selection instance.
+        """
+        return "DEMUX"
+
+    #---------------------------------------------------------------------------
+    # Methods
+    #---------------------------------------------------------------------------
+
+    @returns(bool)
+    def is_duplicate(self, record):
+        """
+        Returns:
+            True iif this record has already been seen
+        """
+        return record.get_value() in self._seen
+        
+    def receive(self, packet):
+        """
+        Process an incoming Packet instance.
         Args:
-            indent: current indentation.
+            packet: A Packet instance.
         """
-        self.tab(indent)
-        print "DUP (built above %r)" % self.get_child()
-        self.get_child().dump(indent + 1)
+        # Demux Operator simply forwards any kind of Packet to its
+        # Consumer(s)/Producer according to the nature of the Packet.
+        if packet.get_protocol() == Packet.PROTOCOL_RECORD:
+            record = packet
+            if not self.is_duplicate(record):
+                self.send(packet)
+            elif packet.is_last():
+                # This packet has been already seen, however is has
+                # the LAST_RECORD flag enabled, so we send an empty
+                # RECORD Packet carrying this flag.
+                self.send(Packet(Packet.PROTOCOL_RECORD, True))
+        else:
+            self.send(packet)
 
-#DEPRECATED|    def start(self):
-#DEPRECATED|        """
-#DEPRECATED|        \brief Propagates a START message through the node
-#DEPRECATED|        """
-#DEPRECATED|        self.child.start()
-#DEPRECATED|        self.status.started(0)
-#DEPRECATED|
-#DEPRECATED|    def child_callback(self, child_id, record):
-#DEPRECATED|        """
-#DEPRECATED|        \brief Processes records received by a child node
-#DEPRECATED|        \param record dictionary representing the received record
-#DEPRECATED|        """
-#DEPRECATED|        assert child_id == 0
-#DEPRECATED|
-#DEPRECATED|        if record.is_last():
-#DEPRECATED|            self.status.completed(child_id)
-#DEPRECATED|            return
-#DEPRECATED|
-#DEPRECATED|        if record not in self.child_results:
-#DEPRECATED|            self.child_results.add(record)
-#DEPRECATED|            self.send(record)
-#DEPRECATED|            return
+    @returns(Producer)
+    def optimize_selection(self, query, filter):
+        self.get_producer().optimize_selection(query, filter)
+        return self
+
+    @returns(Producer)
+    def optimize_projection(self, query, fields):
+        self.get_producer().optimize_projection(query, fields)
+        return self

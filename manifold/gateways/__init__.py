@@ -421,10 +421,10 @@ class Gateway(Producer):
         socket = self.get_socket(packet.get_query())
 
         # Print debugging information
-        print "BACKWARD PATH:"
-        print "--------------"
-        print socket.get_producer().format_backward_paths()
-        print socket.format_backward_paths()
+        Log.debug("BACKWARD PATH:")
+        Log.debug("--------------")
+        Log.debug(socket.get_producer().format_backward_paths())
+        Log.debug(socket.format_backward_paths())
 
         if records:
             # Enable LAST_RECORD flag on the last Record 

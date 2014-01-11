@@ -23,10 +23,10 @@ from manifold.operators.projection  import Projection
 from manifold.util.log              import Log
 from manifold.util.type             import accepts, returns
 
-DUMPSTR_SELECTION  = "WHERE %s (%s)"
+DUMPSTR_SELECTION  = "WHERE %s"
 
 #------------------------------------------------------------------
-# Selection node (WHERE)
+# Selection Operator (WHERE)
 #------------------------------------------------------------------
 
 class Selection(Operator):
@@ -43,7 +43,7 @@ class Selection(Operator):
             filter: A Filter instance. 
         """
         assert issubclass(type(child), Producer),\
-            "Invalid child = %r (%r)"   % (child,   type(child))
+            "Invalid child = %r (%r)"   % (child, type(child))
         assert isinstance(filter, Filter),\
             "Invalid filter = %r (%r)" % (filter, type(filter))
 
@@ -68,8 +68,7 @@ class Selection(Operator):
             The '%r' representation of this Selection instance.
         """
         return DUMPSTR_SELECTION % (
-            ' AND '.join(["%s %s %s" % f.get_str_tuple() for f in self._filter]),
-            type(self._filter)
+            ' AND '.join(["%s %s %s" % f.get_str_tuple() for f in self._filter])
         )
 
     def receive(self, packet):
@@ -90,7 +89,6 @@ class Selection(Operator):
 
         elif packet.get_protocol() == Packet.PROTOCOL_RECORD:
             record = packet
-
             if self._filter.match(record):
                 self.send(packet)
             elif packet.is_last():
@@ -101,16 +99,6 @@ class Selection(Operator):
 
         else: # TYPE_ERROR
             self.send(packet)
-
-    def dump(self, indent = 0):
-        """
-        Dump the current child
-        Args:
-            indent: The current indentation
-        """
-        super(Selection, self).dump(indent)
-        # We have one Producer for sure
-        self.get_producer().dump(indent + 1)
 
     @returns(Producer)
     def optimize_selection(self, query, filter):

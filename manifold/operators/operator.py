@@ -82,3 +82,5 @@ class Operator(Relay):
         """
         self.tab(indent)
         print "%r (%s)" % (self, super(Operator, self).__repr__())
+        for producer in self.get_producers():
+            producer.dump(indent + 1)

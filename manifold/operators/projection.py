@@ -22,10 +22,6 @@ from manifold.util.type             import returns
 
 DUMPSTR_PROJECTION = "SELECT %s" 
 
-#------------------------------------------------------------------
-# Shared utility function
-#------------------------------------------------------------------
-
 def do_projection(record, fields):
     """
     Take the necessary fields in dic
@@ -64,7 +60,7 @@ def do_projection(record, fields):
     return ret
 
 #------------------------------------------------------------------
-# Projection Node
+# Projection Operator (SELECT) 
 #------------------------------------------------------------------
 
 class Projection(Operator):
@@ -148,21 +144,8 @@ class Projection(Operator):
         else: # TYPE_ERROR
             self.send(packet)
 
-    def dump(self, indent = 0):
-        """
-        Dump the current node.
-        Args:
-            indent: Current indentation.
-        """
-        super(Projection, self).dump(indent)
-        # We have one producer for sure
-        self.get_producer().dump(indent + 1)
-
     @returns(Producer)
     def optimize_selection(self, query, filter):
-#OBSOLETE|        producer = self.get_producer().optimize_selection(query, filter)
-#OBSOLETE|        self.get_producer(producer)
-#OBSOLETE|        return self
         self.get_producer().optimize_selection(query, filter)
         return self
 
