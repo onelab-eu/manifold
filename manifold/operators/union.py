@@ -9,6 +9,8 @@
 #   Jordan Augé       <jordan.auge@lip6.fr> 
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
+from types                          import StringTypes
+
 from manifold.core.query            import Query
 from manifold.core.record           import Record
 from manifold.operators             import ChildStatus, ChildCallback
@@ -45,7 +47,7 @@ class Union(Operator):
         #self.child_results = {}
         # Stores the list of keys already received to implement DISTINCT
         self.distinct = distinct
-        self.key_list = []
+        self.key_list = list() 
         self.status = ChildStatus(self.all_done)
         # Set up callbacks
         for i, child in enumerate(self.children):
@@ -53,54 +55,47 @@ class Union(Operator):
 
         # We suppose all children have the same format...
         # NOTE: copy is important otherwise we use the same
-        self.query = self.children[0].get_query().copy()
-
+        self.query = self.get_producers()[0].get_query().copy()
 
     @returns(Query)
     def get_query(self):
         """
-        \brief Returns the query representing the data produced by the nodes.
-        \return query representing the data produced by the nodes.
+        Returns:
+            The Query stored in the first child Producer of
+            this Union Operator. We assume that all child
+            queries have the same format, and that we have at
+            least one child.
         """
-        # We suppose all child queries have the same format, and that we have at
-        # least one child
-        print "Union::get_query()"
-        return Query(self.children[0].get_query())
+        return self.get_producers()[0].get_query()
         
-    def dump(self, indent = 0):
-        """
-        Dump the this Union instance to the standard output. 
-        Args:
-            indent: An integer corresponding to the number of spaces
-                to write (current indentation).
-        """
-        super(Union, self).dump(indent)
-        for child in self.children:
-            child.dump(indent + 1)
-
+    @returns(StringTypes)
     def __repr__(self):
+        """
+        Returns:
+            The '%r' representation of this LeftJoin Operator.
+        """
         return DUMPSTR_UNION
 
-    def start(self):
-        """
-        Propagates a START message through the Node.
-        """
-        # Start all children
-        for i, child in enumerate(self.children):
-            self.status.started(i)
-        for i, child in enumerate(self.children):
-            child.start()
+#DEPRECATED|    def start(self):
+#DEPRECATED|        """
+#DEPRECATED|        Propagates a START message through the Node.
+#DEPRECATED|        """
+#DEPRECATED|        # Start all children
+#DEPRECATED|        for i, child in enumerate(self.children):
+#DEPRECATED|            self.status.started(i)
+#DEPRECATED|        for i, child in enumerate(self.children):
+#DEPRECATED|            child.start()
 
-    def inject(self, records, key, query):
-        """
-        Inject Record / record keys into the Node
-        Args:
-            records: A list of dictionaries representing Records,
-                or list of Record keys
-        """
-        for i, child in enumerate(self.children):
-            self.children[i] = child.inject(records, key, query)
-        return self
+#OBSOLETE|    def inject(self, records, key, query):
+#OBSOLETE|        """
+#OBSOLETE|        Inject Record / record keys into the Node
+#OBSOLETE|        Args:
+#OBSOLETE|            records: A list of dictionaries representing Records,
+#OBSOLETE|                or list of Record keys
+#OBSOLETE|        """
+#OBSOLETE|        for i, child in enumerate(self.children):
+#OBSOLETE|            self.children[i] = child.inject(records, key, query)
+#OBSOLETE|        return self
 
     def all_done(self):
         #for record in self.child_results.values():

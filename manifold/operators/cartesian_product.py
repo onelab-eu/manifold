@@ -92,7 +92,7 @@ class CartesianProduct(Operator):
     def __repr__(self):
         """
         Returns:
-            The '%r' representation of this Selection instance.
+            The '%r' representation of this CartesianProduct instance.
         """
         return DUMPSTR_CARTESIANPRODUCT
 

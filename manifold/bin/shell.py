@@ -532,16 +532,27 @@ class Shell(object):
         """
         self.interactive = interactive
         
-        if not interactive:
-            return
+# This does not work for shell command like manifold-enable-platform because self.client
+# won't be initialized.
+#MANDO|        if not interactive:
+#MANDO|            return
+#MANDO|
+#MANDO|        auth_method = Options().auth_method
+#MANDO|        if not auth_method:
+#MANDO|            auth_method = "local"
+#MANDO|
+#MANDO|        self.select_auth_method(auth_method)
+#MANDO|        if self.interactive:
+#MANDO|            Log.info(self.client.log_message())
 
-        auth_method = Options().auth_method
+        auth_method = Options().auth_method if interactive else None
         if not auth_method:
             auth_method = "local"
 
         self.select_auth_method(auth_method)
         if self.interactive:
             Log.info(self.client.log_message())
+        
 
     def terminate(self):
         """

@@ -266,7 +266,7 @@ class Producer(Node):
         self._pool_consumers.receive(packet)
 
     @returns(StringTypes)
-    def format_backward_paths_rec(self, indent, res):
+    def format_uptree_rec(self, indent, res):
         """
         (Internal use)
         Format debug information to test the path(s) from this Producer
@@ -277,13 +277,13 @@ class Producer(Node):
         Returns:
             The String containing the corresponding up-tree.
         """
-        res = super(Producer, self).format_backward_paths_rec(indent, res)
+        res = super(Producer, self).format_uptree_rec(indent, res)
         for consumer in self.get_consumers():
-            res = consumer.format_backward_paths_rec(indent + 2, res)
+            res = consumer.format_uptree_rec(indent + 2, res)
         return res
 
     @returns(StringTypes)
-    def format_backward_paths(self):
+    def format_uptree(self):
         """
         Format debug information to test the path(s) from this Producer
         towards the end-Consumer(s)
@@ -291,7 +291,7 @@ class Producer(Node):
             The String containing the corresponding up-tree.
         """
         res = ""
-        return self.format_backward_paths_rec(0, res)
+        return self.format_uptree_rec(0, res)
 
     # TODO Rename Producer::make_error() into Producer::error()
     # and retrieve the appropriate consumers and send to them

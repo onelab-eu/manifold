@@ -12,8 +12,9 @@
 from types                          import StringTypes
 
 from manifold.core.filter           import Filter
+from manifold.core.packet           import Packet
+from manifold.core.producer         import Producer
 from manifold.core.query            import Query
-from manifold.core.packet           import QueryPacket
 from manifold.core.record           import Record
 from manifold.operators.operator    import Operator
 from manifold.operators.projection  import Projection
@@ -42,12 +43,15 @@ class LeftJoin(Operator):
 
     def __init__(self, predicate, parent_producer, producers):
         """
-        \brief Constructor
-        \param left_child  A Node instance corresponding to left  operand of the LEFT JOIN
-        \param right_child A Node instance corresponding to right operand of the LEFT JOIN
-        \param predicate A Predicate instance invoked to determine whether two record of
-            left_child and right_child can be joined.
-        \param callback The callback invoked when the LeftJoin instance returns records. 
+        Constructor.
+        Args:
+            left_child:  A Node instance corresponding to left
+                operand of the LEFT JOIN
+            right_child: A Node instance corresponding to right
+                operand of the LEFT JOIN
+            predicate: A Predicate instance invoked to determine
+                whether two records of left_child and right_child
+                can be joined.
         """
 
         # Check parameters
@@ -60,10 +64,9 @@ class LeftJoin(Operator):
         super(LeftJoin, self).__init__(producers, parent_producer, max_producers = 2, has_parent_producer = True)
         self._predicate = predicate
 
-        self._left_map     = {}
+        self._left_map     = dict() 
         self._left_done    = False
         self._right_packet = None
-
 
     #---------------------------------------------------------------------------
     # Internal methods
@@ -71,6 +74,10 @@ class LeftJoin(Operator):
 
     @returns(StringTypes)
     def __repr__(self):
+        """
+        Returns:
+            The '%r' representation of this LeftJoin Operator.
+        """
         return "LEFT JOIN %s %s %s" % self.predicate.get_str_tuple()
 
     #---------------------------------------------------------------------------
@@ -175,17 +182,7 @@ class LeftJoin(Operator):
         else: # TYPE_ERROR
             self.send(packet)
 
-    def dump(self, indent = 0):
-        """
-        Dump the this LeftJoin instance to the standard output. 
-        Args:
-            indent: An integer corresponding to the number of spaces
-                to write (current indentation).
-        """
-        super(LeftJoin, self).dump(indent)
-        # We have one producer for sure
-        self.get_producer().dump()
-
+    @returns(Producer)
     def optimize_selection(self, filter):
         # LEFT JOIN
         # We are pushing selections down as much as possible:
@@ -215,6 +212,7 @@ class LeftJoin(Operator):
             return selection
         return self
 
+    @returns(Producer)
     def optimize_projection(self, fields):
         
         # Ensure we have keys in left and right children

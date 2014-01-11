@@ -1,10 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Node class may corresponds to:
-# - a Manifold operator  (see manifold/operators)
-# - a Manifold interface (see manifold/core/interface.py)
-#   for instance a Manifold router.
+# Node is the parent class of: 
+# - Consumer (see manifold/core/consumer.py)
+# - Producer (see manifold/core/producer.py)
 #
 # Copyright (C) UPMC Paris Universitas
 # Authors:
@@ -12,7 +11,7 @@
 #   Marc-Olivier Buob   <marc-olivier.buob@lip6.fr>
 
 import sys
-from types                        import StringTypes
+from types                          import StringTypes
 
 from manifold.core.packet           import Packet
 from manifold.util.type             import accepts, returns
@@ -56,28 +55,6 @@ class Node(object):
     #---------------------------------------------------------------------------
     # Methods
     #---------------------------------------------------------------------------
-
-    def tab(self, indent):
-        """
-        Print 'indent' tabs.
-        Args:
-            indent: An integer corresponding to the current indentation (in
-                number of spaces)
-        """
-        sys.stdout.write("[%04d]%s" % (
-            self.get_identifier(),
-            ' ' * 4 * indent
-        ))
-
-    def dump(self, indent = 0):
-        """
-        Dump the current Node.
-        Args:
-            indent: An integer corresponding to the current indentation (in
-                number of spaces)
-        """
-        self.tab(indent)
-        print "%r" % self
 
     def check_packet(self, packet):
         assert isinstance(packet, Packet), \
@@ -128,7 +105,19 @@ class Node(object):
         }
 
     @returns(StringTypes)
-    def format_backward_paths_rec(self, indent, res):
+    def format_tree_impl(self, indent, res):
+        """
+        (Internal usage)
+        """
+        # By default stop up-tree recursion since only Producers are
+        # not leaves of the up-tree
+        return "%(res)s%(self)s" % {
+            "res"  : "%s\n" % res if res else "",
+            "self" : self.format_node(indent + 2)
+        }
+
+    @returns(StringTypes)
+    def format_uptree_rec(self, indent, res):
         """
         Format debug information to test the path(s) from this Producer
         towards the end-Consumer(s). This function ends this recursion.
@@ -140,3 +129,23 @@ class Node(object):
             "res"  : "%s\n" % res if res else "",
             "self" : self.format_node(indent + 2)
         }
+
+
+        return format_tree_impl(indent, res)
+
+    @returns(StringTypes)
+    def format_downtree_rec(self, indent, res):
+        """
+        Format debug information to test the path(s) from this Consumer
+        towards the end-Producer(s). This function ends this recursion.
+        Args:
+            ident: An integer corresponding to the current indentation.
+            res: The String we're crafting (rec)
+        """
+        return "%(res)s%(self)s" % {
+            "res"  : "%s\n" % res if res else "",
+            "self" : self.format_node(indent + 2)
+        }
+
+
+        return format_tree_impl(indent, res)

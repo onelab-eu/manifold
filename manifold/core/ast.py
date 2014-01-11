@@ -271,17 +271,22 @@ class AST(object):
     # Methods
     #---------------------------------------------------------------------------
 
-    def dump(self, indent = 0):
+    @returns(StringTypes)
+    def __repr__(self):
         """
-        Dump the current AST.
-        Params:
-            indent: An integer corresponding to the current indentation
-                (number of space characters).
+        Returns:
+            The '%r' representation of this AST instance.
         """
-        if self.is_empty():
-            print "Empty AST"
-        else:
-            self.get_root().dump(indent)
+        if self.is_empty(): return "Empty AST"
+        return self.get_root().format_downtree()
+
+    @returns(StringTypes)
+    def __str__(self):
+        """
+        Returns:
+            The '%s' representation of this AST instance.
+        """
+        return repr(self)
 
     def optimize(self, query):
         """
@@ -294,9 +299,6 @@ class AST(object):
         try: # DEBUG
             self.optimize_selection(query, query.get_where())
             self.optimize_projection(query, query.get_select())
-            print "QUERY PLAN:"
-            print "-----------"
-            self.dump()
         except Exception, e:
             Log.error(traceback.format_exc())
 
