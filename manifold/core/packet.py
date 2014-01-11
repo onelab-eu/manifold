@@ -29,6 +29,7 @@ import copy
 from types                      import StringTypes
 
 from manifold.core.annotation   import Annotation
+from manifold.core.code         import ERROR, WARNING
 from manifold.core.query        import Query
 from manifold.util.log          import Log 
 from manifold.util.type         import accepts, returns
@@ -233,21 +234,19 @@ class QueryPacket(Packet):
 # NOTE: This class will probably disappear and we will use only the Packet class
 class ErrorPacket(Packet):
     """
-    Equivalent to current ResultValue (in case of failure)
     Analog with ICMP errors packets in IP networks
     """
 
-    def __init__(self, type = 2, code = 0, message = None, traceback = None):
+    def __init__(self, type = ERROR, code = ERROR, message = None, traceback = None):
         """
         Constructor.
         Args:
-            type: A value among {ResultValue.SUCCESS, ResultValue.WARNING}
-            code: See manifold.core.result_value 
+            type: An integer among {code::ERROR, code::WARNING}
+            code: An integer corresponding to a code defined in manifold.core.code
             message: A String containing the error message or None.
             traceback: A String containing the traceback or None.
-            origin: A value among {ResultValue.CORE, ResultValue.GATEWAY}
         """
-        assert isinstance(type, int)
+        assert type in [WARNING, ERROR]
         assert isinstance(code, int)
         assert not message   or isinstance(message, StringTypes)
         assert not traceback or isinstance(traceback, StringTypes)
@@ -278,7 +277,7 @@ class ErrorPacket(Packet):
     def get_origin(self):
         """
         Returns:
-            A value among {ResultValue.CORE, ResultValue.GATEWAY}
+            A value among {code::CORE, code::GATEWAY}
             identifying who is the origin of this ErrorPacket.
         """
         return self._origin 

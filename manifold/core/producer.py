@@ -7,11 +7,13 @@
 #
 # Copyright (C) UPMC Paris Universitas
 # Authors:
-#   Jordan Augé         <jordan.auge@lip6.fr
+#   Jordan Augé         <jordan.auge@lip6.f>
 #   Marc-Olivier Buob   <marc-olivier.buob@lip6.fr>
 
+import traceback
 from types                          import StringTypes
 
+from manifold.core.code             import CORE, ERROR, GATEWAY
 from manifold.core.node             import Node
 from manifold.core.packet           import Packet, ErrorPacket
 from manifold.core.pool_consumers   import PoolConsumers
@@ -272,6 +274,8 @@ class Producer(Node):
         Args:
             ident: An integer corresponding to the current indentation.
             res: The String we're crafting (rec)
+        Returns:
+            The String containing the corresponding up-tree.
         """
         res = super(Producer, self).format_backward_paths_rec(indent, res)
         for consumer in self.get_consumers():
@@ -283,6 +287,43 @@ class Producer(Node):
         """
         Format debug information to test the path(s) from this Producer
         towards the end-Consumer(s)
+        Returns:
+            The String containing the corresponding up-tree.
         """
         res = ""
         return self.format_backward_paths_rec(0, res)
+
+    # TODO Rename Producer::make_error() into Producer::error()
+    # and retrieve the appropriate consumers and send to them
+    # the ErrorPacket that has been crafted
+    @returns(ErrorPacket)
+    def make_error(self, origin, description, is_fatal):
+        """
+        Craft an ErrorPacket carrying an error message.
+        Args:
+            description: The corresponding error message (String) or
+                Exception.
+            origin: An integer indicated who raised this error.
+                Valid values are {CORE, GATEWAY}
+            description: A String containing the error message.
+            is_fatal: Set to True if this ErrorPacket
+                must make crash the pending Query.
+        Returns:
+            The corresponding ErrorPacket.
+        """
+        assert isinstance(description, StringTypes),\
+            "Invalid description = %s (%s)" % (description, type(description))
+        # Note: 'origin' is ignored for the moment
+        # Note: 'type'   is ignored for the moment
+        assert origin in [CORE, GATEWAY],\
+            "Invalid origin = %s (%s)" % (origin, type(origin))
+        assert isinstance(is_fatal, bool),\
+            "Invalid is_fatal = %s (%s)" % (is_fatal, type(is_fatal))
+
+        if is_fatal:
+            Log.error(description)
+        else:
+            Log.warning(description)
+        error_packet = ErrorPacket(ERROR, origin, description, traceback.format_exc())
+        error_packet.set_last(is_fatal)
+        return error_packet

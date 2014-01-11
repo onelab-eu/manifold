@@ -96,10 +96,26 @@ class Dup(Operator):
 
     @returns(Producer)
     def optimize_selection(self, query, filter):
+        """
+        Propagate Selection Operator through this Operator.
+        Args:
+            filter: A Filter instance storing the WHERE clause.
+        Returns:
+            The root Operator of the optimized sub-AST.
+        """
+        Log.tmp("Not yet tested")
         self.get_producer().optimize_selection(query, filter)
         return self
 
     @returns(Producer)
     def optimize_projection(self, query, fields):
+        """
+        Propagate Projection Operator through this Operator.
+        Args:
+            fields: A list of String correspoding the SELECTed fields.
+        Returns:
+            The root Operator of the optimized sub-AST.
+        """
+        Log.tmp("Not yet tested")
         self.get_producer().optimize_projection(query, fields)
         return self

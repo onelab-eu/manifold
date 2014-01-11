@@ -13,6 +13,7 @@ from types                          import StringTypes
 
 from manifold.core.announce         import Announces
 from manifold.core.capabilities     import Capabilities
+from manifold.core.code             import GATEWAY
 from manifold.core.consumer         import Consumer
 from manifold.core.node             import Node 
 from manifold.core.packet           import Packet, ErrorPacket
@@ -476,13 +477,9 @@ class Gateway(Producer):
         except Exception, e:
             Log.error(e)
 
+        # Could be factorized with Operator::error() by defining Producer::error()
         socket = self.get_socket(packet.get_query())
-        if is_fatal:
-            Log.error(description)
-        else:
-            Log.warning(description)
-        error_packet = ErrorPacket(2, 0, description, traceback.format_exc())
-        error_packet.set_last(is_fatal)
+        error_packet = self.make_error(description, GATEWAY, is_fatal)
         socket.receive(error_packet)
 
     def receive(self, packet):
