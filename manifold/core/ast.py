@@ -13,25 +13,25 @@
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
 import sys, random, traceback
-from copy                             import copy, deepcopy
-from types                            import StringTypes
+from copy                                   import copy, deepcopy
+from types                                  import StringTypes
 
-from manifold.core.key                import Key
-from manifold.core.query              import Query
-from manifold.operators.cross_product import CrossProduct
-from manifold.operators.dup           import Dup
-from manifold.operators.From          import From
-from manifold.operators.from_table    import FromTable
-from manifold.operators.left_join     import LeftJoin
-from manifold.operators.operator      import Operator
-from manifold.operators.projection    import Projection
-from manifold.operators.selection     import Selection
-from manifold.operators.subquery      import SubQuery
-from manifold.operators.union         import Union
-from manifold.util.log                import Log
-from manifold.util.predicate          import Predicate, eq, contains, included
-from manifold.util.storage            import STORAGE_NAMESPACE 
-from manifold.util.type               import returns, accepts
+from manifold.core.key                      import Key
+from manifold.core.query                    import Query
+from manifold.operators.cartesian_product   import CartesianProduct
+from manifold.operators.dup                 import Dup
+from manifold.operators.From                import From
+from manifold.operators.from_table          import FromTable
+from manifold.operators.left_join           import LeftJoin
+from manifold.operators.operator            import Operator
+from manifold.operators.projection          import Projection
+from manifold.operators.selection           import Selection
+from manifold.operators.subquery            import SubQuery
+from manifold.operators.union               import Union
+from manifold.util.log                      import Log
+from manifold.util.predicate                import Predicate, eq, contains, included
+from manifold.util.storage                  import STORAGE_NAMESPACE 
+from manifold.util.type                     import returns, accepts
 
 #------------------------------------------------------------------
 # AST (Abstract Syntax Tree)
@@ -241,16 +241,16 @@ class AST(object):
         return self
 
     #@returns(AST)
-    def cross_product(self, children_ast_relation_list, query):
+    def cartesian_product(self, children_ast_relation_list, query):
         """
-        Append a CrossProduct Node above the current AST
+        Append a CartesianProduct Node above the current AST
         Args:
             children_ast_relation_list: A list of (AST, Relation) tuples.
             query: A Query instance
         Returns:
             The resulting AST.
         """
-        assert self.is_empty(), "Cross-product should be done on an empty AST"
+        assert self.is_empty(), "Cartesian product should be done on an empty AST"
 
         if len(children_ast_relation_list) == 1:
             #(ast, relation) = children_ast_relation_list[0]
@@ -262,7 +262,7 @@ class AST(object):
             self.root = ast.get_root()
         else:
             children = map(lambda (ast, relation): (ast.get_root(), relation), children_ast_relation_list)
-            self.root = CrossProduct(children, query)
+            self.root = CartesianProduct(children, query)
 
         return self
 

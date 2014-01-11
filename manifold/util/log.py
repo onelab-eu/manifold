@@ -229,7 +229,13 @@ class Log(object):
         return self.log
 
     @classmethod
-    def print_msg(cls, msg, level=None, caller=None):
+    def print_msg(cls, msg, level = None, caller = None):
+        """
+        Args:
+            msg: A String storing the message to print.
+            level: The log level related to this message.
+            caller: The function which has called the Log method.
+        """
         sys.stdout.write(cls.color(level))
         if level:
             print "%s" % level,
@@ -340,9 +346,8 @@ class Log(object):
     @classmethod
     def record(cls, record, source = None):
         msg = [
-            "[%04d] %s :" % (source.get_identifier(), source.__class__.__name__) if source else "",
+            "%s :" % (source.format_node()) if source else "",
             "%r" % record,
-            #"KEYS=%r" % record.keys()
         ]
         #cls.print_msg(' '.join(msg), 'RECORD', caller_name())
 
