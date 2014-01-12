@@ -13,22 +13,34 @@
 # NOTE: The fastest way to traverse all edges of a graph is via
 # adjacency_iter(), but the edges() method is often more convenient.
 
-from copy                 import deepcopy
-from networkx             import draw_graphviz, DiGraph
-from types                import StringTypes
-#OBSOLETE|from networkx.algorithms.traversal.depth_first_search import dfs_edges
+from copy                       import deepcopy
+from networkx                   import draw_graphviz, DiGraph
+from traceback                  import format_exc
+from types                      import StringTypes
 
-#OBSOLETE|from manifold.core.query          import Query 
-from manifold.core.method         import Method
-from manifold.core.table          import Table 
-from manifold.core.key            import Key
-from manifold.util.type           import returns, accepts
-from manifold.util.predicate      import Predicate 
-from manifold.util.log            import Log
-from manifold.core.relation       import Relation
+from manifold.core.capabilities import Capabilities
+from manifold.core.method       import Method
+from manifold.core.key          import Key, Keys
+from manifold.core.relation     import Relation
+from manifold.core.table        import Table 
+from manifold.util.predicate    import Predicate 
+from manifold.util.log          import Log
+from manifold.util.type         import accepts, returns
 
 # TODO DBGraph should inherit nx.DiGraph
 class DBGraph(object):
+    def check_init(tables, map_method_capabilities):
+        """
+        (Internal usage) Check DbGraph::__init__() parameters consistency.
+        """
+        table_names_1 = set([table.get_name()  for table  in tables])
+        table_names_2 = set([method.get_name() for method in map_method_capabilities.keys()])
+        assert table_names_1 == table_names_2,\
+            "Inconsistency between:\n- table_names_1 = %s\n- table_names_2 = %s" % (
+                table_names_1,
+                table_names_2
+            )
+
     def __init__(self, tables, map_method_capabilities):
         """
         Maintains a JOIN graph between the different tables of the database
@@ -38,29 +50,56 @@ class DBGraph(object):
             self.append(table)
         self._map_method_capabilities = map_method_capabilities
 
-    def get_capabilities(self, platform, method):
-        return self._map_method_capabilities[Method(platform, method)]
+    @returns(Capabilities)
+    def get_capabilities(self, platform_name, table_name):
+        """
+        Retrieve Capabilities related to a given Table provided by
+        a given platform.
+        Args:
+            platform_name: The name of a Manifold platform.
+            table_name: The name of the Table.
+        Returns:
+            The corresponding Capabilities/
+        """
+        method = Method(platform_name, table_name)
+        try:
+            return self._map_method_capabilities[method]
+        except KeyError, e:
+            Log.error("DbGraph::get_capabilities(): Cannot find method %s in {%s}" % (
+                method,
+                ", ".join(["%s" % m for m in self._map_method_capabilities.keys()]))
+            )
+            raise e
 
+    @returns(Keys)
     def get_key(self, method):
+        """
+        Retrieve Key instances related to a given Method.
+        Args:
+            method: A Method instance identifying a Table related
+                to a given platform in this DbGraph.
+        """
         self.find_node(method).get_keys()
 
     def make_arc(self, u, v):
         """
-        \brief Connect a "u" Table to a "v" Table (if necessary) in the DbGraph
-        \param u The source node (Table instance)
-        \param v The target node (Table instance)
+        Connect a "u" Table to a "v" Table (if necessary) in the DbGraph
+        Args:
+            u: The source node (Table instance)
+            v: The target node (Table instance)
         """
         #-----------------------------------------------------------------------
 
-        #returns(Predicate)
-        #@accepts(set, Key)
+        returns(Predicate)
+        @accepts(set, Key)
         def make_predicate(fields_u, key_v):
             """
-            \brief Compute the Predicate to JOIN a "u" Table with "v" Table
-            \param fields_u The set of Field of u required to JOIN with v
-            \param key_v The Key of v involved in the JOIN. You may pass None
-                if v has no key.
-            \return This function returns :
+            Compute the Predicate to JOIN a "u" Table with "v" Table
+            Args:
+                fields_u: The set of Field of u required to JOIN with v
+                key_v: The Key of v involved in the JOIN. You may pass None
+                           if v has no key.
+            Returns :
                 - either None iif u embeds a set of v instances
                 - either a Predicate instance which indicates how to join u and v
             """
@@ -90,7 +129,7 @@ class DBGraph(object):
         relations = u.get_relations(v)
         if relations:
             self.graph.add_edge(u, v, relations=relations)
-            Log.debug("NEW EDGE %s" % self.print_arc(u, v))
+            Log.debug("NEW EDGE %s" % self.format_arc(u, v))
 
 #        if relation_uv:
 #            (type, fields_u) = relation_uv
@@ -101,7 +140,7 @@ class DBGraph(object):
 #            # evolve predicates towards supporting Fields ?
 #            predicate = make_predicate(fields_u, key_v)
 #            self.graph.add_edge(u, v, relation=Relation(type, predicate))
-#            Log.debug("NEW EDGE %s" % self.print_arc(u, v))
+#            Log.debug("NEW EDGE %s" % self.format_arc(u, v))
 
     def append(self, u):
         """
@@ -122,11 +161,13 @@ class DBGraph(object):
             self.make_arc(u, v)
             self.make_arc(v, u)
 
-    def print_arc(self, u, v):
+    @returns(StringTypes)
+    def format_arc(self, u, v):
         """
-        \brief Print a (u, v) arc
-        \param u The source node (Table instance)
-        \param v The target node (Table instance)
+        Print a DbGraph arc
+        Args:
+            u: The source node (Table instance)
+            v: The target node (Table instance)
         """
         relations = self.get_relations(u,v)
         relation_str = ', '.join(map(lambda r: "%r" % r, relations))
@@ -134,29 +175,21 @@ class DBGraph(object):
 
     def plot(self):
         """
-        \brief Produce de graphviz file related to this DBGraph and show the graph
+        Produce the graphviz file related to a DBGraph and show the graph
         """
-        DBGraph.plot_graph(self.graph)
+        from matplotlib.pyplot import show
+        draw_graphviz(self.graph)
+        show()
 
-    @staticmethod
-    #@accepts(DBGraph)
-    def plot_graph(graph):
-        """
-        \brief Produce de graphviz file related to a DBGraph and show the graph
-        \param graph A DBGraph instance
-        """
-        import matplotlib.pyplot  as plt
-        draw_graphviz(graph)
-        plt.show()
-
-#OBSOLETE|    def get_tree_edges(self, root):
-#OBSOLETE|        return [e for e in dfs_edges(self.graph, root)]
-
+    @returns(Table)
     def find_node(self, table_name, get_parent=True):
         """
-        \brief Search a Table instance in the DbGraph for a given table name
-        \param table_name A String value (the name of the table)
-        \return The corresponding Table instance, None if not found
+        Search a Table instance in the DbGraph for a given table name.
+        If several Table have the same name, it returns the parent Table.
+        Args:
+            table_name: A String value (the name of the table)
+        Returns:
+            The corresponding Table instance, None if not found
         """
         for table in self.graph.nodes(False):
             if table.get_name() == table_name:
@@ -168,6 +201,7 @@ class DBGraph(object):
                 return table
         return None
 
+    @returns(list)
     def get_table_names(self):
         """
         Retrieve the list of Table names belonging to this DBGraph.
@@ -176,9 +210,11 @@ class DBGraph(object):
         """
         return [table.get_name() for table in self.graph.nodes(False)]
 
+    @returns(bool)
     def is_parent(self, table_or_table_name):
         return not bool(self.get_parent(table_or_table_name))
 
+    @returns(Table)
     def get_parent(self, table_or_table_name):
         if not isinstance(table_or_table_name, Table):
             table_or_table_name = self.find_node(table_or_table_name, get_parent=False)
@@ -187,8 +223,9 @@ class DBGraph(object):
                 return parent
         return None
         
+    @returns(list)
     def get_announce_tables(self):
-        tables = []
+        tables = list()
         for table in self.graph.nodes(False):
             # Ignore child tables with the same name as parents
             keep = True

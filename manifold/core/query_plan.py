@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 #
 # Convert a 3nf-tree into an AST (e.g. a query plan)
-# \sa manifold.core.pruned_tree.py
-# \sa manifold.core.ast.py
+# See:
+#   manifold/core/ast.py
 # 
 # QueryPlan class builds, process and executes Queries
 #
@@ -18,7 +18,7 @@
 # of inject ? How do we collect subquery results two or more levels up to match
 # the structure (with shortcuts) as requested by the user.
 
-from types                                  import StringTypes
+from types                          import StringTypes
 
 from manifold.core.ast              import AST
 from manifold.core.explore_task     import ExploreTask

@@ -26,6 +26,7 @@ from manifold.policy                import Policy
 from manifold.util.filesystem       import mkdir
 from manifold.util.log              import Log
 from manifold.util.reactor_thread   import ReactorThread
+from manifold.util.storage          import STORAGE_NAMESPACE
 from manifold.util.type             import returns, accepts
 
 # XXX cannot use the wrapper with sample script
@@ -85,28 +86,31 @@ class Router(Interface):
     #---------------------------------------------------------------------------
 
     @returns(DBGraph)
-    def get_metadata(self):
+    def get_dbgraph(self):
         """
         Returns:
-            The DBGraph related to all the Tables except those related to the
-            "local:" namespace.
+            The DBGraph related to all the Tables except those
+            provided by the Manifold Storage.
         """
         return self.g_3nf
 
     @returns(DBGraph)
-    def get_local_metadata(self):
+    def get_dbgraph_storage(self):
         """
         Returns:
-            The DBGraph related to the "local:" namespace.
+            The DBGraph related to the Manifold Storage. 
         """
-        # We do not need normalization here, can directly query the gateway
-        map_method_capabilities = {
-            Method("local", "platform") : Capabilities("retrieve", "join", "selection", "projection"),
-            Method("local", "object")   : Capabilities("retrieve", "join", "selection", "projection"),
-            Method("local", "column")   : Capabilities("retrieve", "join", "selection", "projection")
-        }
+        # We do not need normalization here, can directly query the Gateway
         local_announces = self._storage.get_announces()
         local_tables = [announce.get_table() for announce in local_announces]
+
+        map_method_capabilities = dict()
+        for announce in local_announces:
+            table = announce.get_table()
+            table_name = table.get_name()
+            method = Method(STORAGE_NAMESPACE, table_name)
+            capabilities = table.get_capabilities()
+            map_method_capabilities[method] = capabilities 
 
         return DBGraph(local_tables, map_method_capabilities)
 
