@@ -175,7 +175,7 @@ class Table(object):
         Returns:
             The '%s' representation of this Table.
         """
-        return "{%s}::%s {\n\t%s;\n\t%s;\n\t%s\n};" % (
+        return "{%s}::%s {\n\t%s;\n\n\t%s;\n\t%s\n};" % (
             ', '.join([p          for p in sorted(self.get_platforms())]),
             self.get_name(),
             ';\n\t'.join(["%s%s" % (f, "[]" if f.is_array() else "") for f in sorted(self.get_fields())]),

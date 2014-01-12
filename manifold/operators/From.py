@@ -1,14 +1,14 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# A From Node wraps a Query performed by a User and sent
-# to a given Platform through a Gateway. It allows to
-# fetch Records from those Plaforms.
+# A QueryPlan manages an AST where each leaves are a From
+# of a FromTable Operators.
 #
-# A QueryPlan is an AST where each leaves are a From
-# of a FromTable node. Those records traverse the branches
-# of this tree until reaching the root Node or being
-# filtered.
+# A From Node wraps a dummy Query having SELECT and WHERE
+# clause homogenous to the query issued by the user. 
+# From Nodes are useful until having optimized the QueryPlan.
+# Then, each Operator using a From Node is connected to a Socket
+# plugged on the appropriate Gateway.
 #
 # Copyright (C) UPMC Paris Universitas
 # Authors:

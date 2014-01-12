@@ -338,6 +338,20 @@ class SQLAlchemyGateway(Gateway):
         except AttributeError: pass
         res.delete()
 
+    @staticmethod
+    @returns(bool)
+    def is_virtual_table(table_name):
+        """
+        Tests whether a Table is virtual or not. A Table is said to be
+        the Manifold object do not rely to a SQLAlchemy table.
+        Args:
+            table_name: A String instance.
+        Returns:
+            True iif this Table is virtual.
+        """
+        virtual_table_names = [announce.get_table().get_name() for announce in get_metadata_tables(STORAGE_NAMESPACE)]
+        return table_name in virtual_table_names 
+
     @returns(list)
     def make_announces(self):
         """
@@ -349,6 +363,8 @@ class SQLAlchemyGateway(Gateway):
         announces = list()
 
         # Each model is a table ("account", "linked_account", "user"...)
+        # Note that "object" and "column" table are not in self._map_object
+        # this map only contains table existing in the SQLAlchemy database.
         for table_name, cls in self._map_object.items():
             table = Table(STORAGE_NAMESPACE, None, table_name, None, None)
 
@@ -368,11 +384,10 @@ class SQLAlchemyGateway(Gateway):
                 
             table.insert_key(primary_key)
         
-            isnt_table_object = (table_name == "object")
-            table.capabilities.retrieve   = isnt_table_object
-            table.capabilities.join       = isnt_table_object
-            table.capabilities.selection  = isnt_table_object
-            table.capabilities.projection = isnt_table_object
+            table.capabilities.retrieve   = True 
+            table.capabilities.join       = True
+            table.capabilities.selection  = True
+            table.capabilities.projection = True
 
             announces.append(Announce(table))
 

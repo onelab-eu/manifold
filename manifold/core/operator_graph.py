@@ -90,10 +90,10 @@ class OperatorGraph(object):
         query.clear_namespace()
 
         if namespace == STORAGE_NAMESPACE:
-            db_graph = router.get_local_metadata()
+            db_graph = router.get_dbgraph_storage()
             allowed_platforms = list() 
         else:
-            db_graph = router.get_metadata()
+            db_graph = router.get_dbgraph()
             allowed_platforms = [platform["platform"] for platform in router.get_platforms()]
             if namespace and namespace in allowed_platforms:
                 allowed_platforms = [namespace]

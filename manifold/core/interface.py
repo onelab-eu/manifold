@@ -20,7 +20,7 @@ from manifold.core.record           import Record
 from manifold.core.result_value     import ResultValue
 from manifold.policy                import Policy
 from manifold.util.log              import Log
-from manifold.util.storage          import make_storage, storage_execute
+from manifold.util.storage          import make_storage, storage_execute, STORAGE_NAMESPACE
 from manifold.util.type             import accepts, returns 
 
 class Interface(object):
@@ -127,8 +127,8 @@ class Interface(object):
         Returns:
             The corresponding Platform if found, None otherwise.
         """
-        for platform in self.platforms:
-            if platform['platform'] == platform_name:
+        for platform in self.get_platforms():
+            if platform["platform"] == platform_name:
                 return platform
         return None 
 
@@ -207,15 +207,15 @@ class Interface(object):
             Log.error("Cannot make Gateway %s" % platform_name)
             return None
 
-        platform_config = json.loads(platform["config"]) if platform['config'] else {}
+        platform_config = json.loads(platform["config"]) if platform["config"] else dict() 
         args = [self, platform_name, platform_config]
 
         # Gateway is a plugin_factory
-        if platform['gateway_type']:
-            gateway_type = platform['gateway_type']
+        if platform["gateway_type"]:
+            gateway_type = platform["gateway_type"]
         else:
-            Log.warning("No gateway_type for platform '%s'. Defaulting to MANIFOLD." % platform['platform'])
-            gateway_type = 'manifold'
+            Log.warning("No gateway_type set for platform '%s'. Defaulting to MANIFOLD." % platform["platform"])
+            gateway_type = "manifold"
 
         gateway = Gateway.get(gateway_type)
         if not gateway:
@@ -282,7 +282,7 @@ class Interface(object):
         assert isinstance(platform_name, StringTypes),\
             "Invalid platform_name = %s (%s)" % (platform_name, type(platform_name))
 
-        if platform_name == 'local':
+        if platform_name == STORAGE_NAMESPACE:
             return dict() 
 
         annotation = Annotation({"user" : self.get_user_storage()})

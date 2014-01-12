@@ -17,33 +17,60 @@ class Capabilities(object):
     
     KEYS = [
         # Manifold operators # SQL equivalent
-        'retrieve',          # FROM
-        'join',              # LEFT OUTER JOIN
-        'selection',         # WHERE
-        'projection',        # SELECT
-        'sort',              # ORDER BY
-        'limit',             # LIMIT
-        'offset',            # OFFSET
-        'fullquery',         # Pass the full query to the Platform (even if it does not support all the operators)
-        'virtual'            # CREATE TYPE 
+        "retrieve",          # FROM
+        "join",              # LEFT OUTER JOIN
+        "selection",         # WHERE
+        "projection",        # SELECT
+        "sort",              # ORDER BY
+        "limit",             # LIMIT
+        "offset",            # OFFSET
+        "fullquery",         # Pass the full query to the Platform (even if it does not support all the operators)
+        "virtual"            # CREATE TYPE 
     ]
 
     def __init__(self, *args, **kwargs):
-        for key in self.KEYS:
-             object.__setattr__(self, key, False)
+        """
+        Constructor
+        """
+        for key in Capabilities.KEYS:
+            object.__setattr__(self, key, False)
+
+        for capability_name in args:
+            if capability_name in Capabilities.KEYS:
+                object.__setattr__(self, key, True)
+            else:
+                raise ValueError, "Invalid capability: %s" % capability_name
 
     def __deepcopy__(self, memo):
+        """
+        Returns:
+            The copy of self.
+        """
         capabilities = Capabilities()
         for key in self.KEYS:
             setattr(capabilities, key, getattr(self, key))
         return capabilities
 
     def __setattr__(self, key, value):
+        """
+        Enable/Disable a capability from this Capabilities instance.
+        Args:
+            key: A capability name (see Capabilities.KEYS)
+            value: A boolean
+        """
         assert key in self.KEYS, "Unknown capability '%s'" % key
         assert isinstance(value, bool)
         object.__setattr__(self, key, value)
 
+    @returns(bool)
     def __getattr__(self, key):
+        """
+        Retrieve a capability from this Capabilities instance.
+        Args:
+            key: A capability name (see Capabilities.KEYS)
+        Returns:
+            The corresponding boolean (True iif enabled).
+        """
         assert key in self.KEYS, "Unknown capability '%s'" % key
         object.__getattr__(self, key)
 
