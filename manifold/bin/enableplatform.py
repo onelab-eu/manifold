@@ -1,39 +1,37 @@
 #!/usr/bin/env python
 #! -*- coding: utf-8 -*-
+#
+# Enable a platform in the Manifold Storage.
+#
+# Copyright (C) UPMC Paris Universitas
+# Authors:
+#   Jordan Augé       <jordan.auge@lip6.fr
+#   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
 import sys
 
-from manifold.bin.shell  import Shell
+from manifold.bin.common    import check_num_arguments, run_command
+from manifold.util.storage  import STORAGE_NAMESPACE 
 
-def usage():
-    print "Usage: %s NAME" % sys.argv[0]
-    print ""
-    print "Enable a platform"
+DOC_ENABLE_PLATFORM = """
+%(default_message)s
+
+usage: %(program_name)s PLATFORM_NAME
+    Enable a platform
+"""
+
+CMD_ENABLE_PLATFORM = """
+UPDATE    %(namespace)s:platform
+    SET   disabled = False
+    WHERE platform == "%(platform_name)s"
+"""
 
 def main():
-    argc = len(sys.argv)
-    if argc != 2:
-        usage()
-        sys.exit(1)
-    name = sys.argv[1]
-    
-    Shell.init_options()
-    shell = Shell(interactive=False)
-
-    command = 'UPDATE local:platform SET disabled = False WHERE platform == "%(name)s"'
-    shell.evaluate(command % locals())
-
-    # Equivalent using a query object...
-    # 
-    # from manifold.core.query import Query
-    # platform_filters = [['platform', '=', name]]
-    # platform_params = {'disabled': False}
-    # query = Query(action='update', object='local:platform', filters=platform_filters, params=platform_params)
-    # shell.execute(query)
-
-
-    shell.terminate()
-
+    check_num_arguments(DOC_ENABLE_PLATFORM, 2, 2)
+    return run_command(CMD_ENABLE_PLATFORM, {
+        "platform_name" : sys.argv[1],
+        "namespace"     : STORAGE_NAMESPACE
+    })
 
 if __name__ == '__main__':
     main()

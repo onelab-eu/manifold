@@ -93,6 +93,14 @@ class ResultValue(dict):
 #DEPRECATED|            return ResultValue(code = WARNING, origin = [self.CORE, 0], value = results, description = result_values)
 #DEPRECATED|
 
+    @returns(int)
+    def get_code(self):
+        """
+        Returns:
+            The code transported in this ResultValue instance/
+        """
+        return self["code"]
+
     @classmethod
     def get(self, records, errors):
         num_errors = len(errors)
