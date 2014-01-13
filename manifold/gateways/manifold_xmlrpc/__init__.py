@@ -1,11 +1,22 @@
-# Inspired from http://twistedmatrix.com/documents/10.1.0/web/howto/xmlrpc.html
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+# Manifold Gateway speak to another Manifold Router by
+# using XMLRPC calls.
+# Inspired from:
+#   http://twistedmatrix.com/documents/10.1.0/web/howto/xmlrpc.html
+#
+# Jordan Auge       <jordan.auge@lip6.fr>
+# Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
+#
+# Copyright (C) 2013 UPMC 
+
+from types                          import StringTypes
+#from twisted.internet              import reactor
 
 from manifold.gateways              import Gateway
 from manifold.util.reactor_thread   import ReactorThread
-#from twisted.internet import reactor
-
-# DEBUG
-import sys
+from manifold.util.type             import accepts, returns 
 
 class ManifoldGateway(Gateway):
     __gateway_name__ = 'manifold'
@@ -20,22 +31,38 @@ class ManifoldGateway(Gateway):
         """
         super(ManifoldGateway, self).__init__(interface, platform, platform_config)
 
+    @returns(StringTypes)
     def __str__(self):
+        """
+        Returns:
+            The '%s' representation of this ManifoldGateway.
+        """
         return "<ManifoldGateway %s %s>" % (self._platform_config['url'], self.query)
 
-    def success_cb(self, table, query):
-        # I hope this can be simplified
-        socket = self.get_pit().get_socket(query)
-        self.records(socket, table)
+    def callback_records(self, rows, packet):
+        """
+        (Internal usage) See ManifoldGateway::receive_impl.
+        Args:
+            packet: A QUERY Packet.
+            rows: The corresponding list of dict or Record instances.
+        """
+        self.records(packet, rows)
 
-    def exception_cb(self, error, query):
-        #print 'Error during Manifold call: ', error
-        socket = self.get_pit().get_socket(query)
-        self.error(socket, 'Error during Manifold call: %r' % error)
+    def callback_error(self, error, packet):
+        """
+        (Internal usage) See ManifoldGateway::receive_impl.
+        Args:
+            packet: A QUERY Packet.
+            error: The corresponding error message. 
+        """
+        self.error(packet, "Error during Manifold call: %r" % error)
 
-    def receive(self, packet):
-
-        # The packet is a query packet
+    def receive_impl(self, packet):
+        """
+        Handle a incoming QUERY Packet (processing).
+        Args:
+            packet: A QUERY Packet instance.
+        """
         query = packet.get_query()
         annotation = packet.get_annotation()
         receiver = packet.get_receiver()
@@ -99,21 +126,11 @@ class ManifoldGateway(Gateway):
                     filters[field] = value[0]
             query.filters = filters
 
-        #print "I: Issuing xmlrpc call to %r: %r" % (self._platform_config['url'], query)
-        #print "=" * 100
-        #print "auth    =", auth
-        #print "method  =", query.object
-        #print "filters =", query.filters
-        #print "fields  =", query.fields
-        #print "ts      =", query.timestamp
-        #print "=" * 100
-
-
         proxy.callRemote(
             'forward',
             query.to_dict(),
             {'authentication': auth}
-        ).addCallback(self.success_cb, query).addErrback(self.exception_cb, query)
+        ).addCallback(self.callback_records, packet).addErrback(self.callback_error, packet)
 
             #reactor.callFromThread(wrap, self) # run wrap(self) in the event loop
         #    wrap(self)

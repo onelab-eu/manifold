@@ -1,9 +1,10 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Class Record
+# Record and Records classes.
+#
 # A Record is a Packet transporting value resulting of a Query.
-# A Record can be seen as a python dictionnary where
+# A Record behaves like a python dictionnary where:
 # - each key corresponds to a field name
 # - each value corresponds to the corresponding field value.
 # 
@@ -12,11 +13,15 @@
 #   Jordan Augé       <jordan.auge@lip6.fr> 
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
-from types                  import StringTypes
+from types                  import GeneratorType, StringTypes
 
 from manifold.core.packet   import Packet
 from manifold.util.log      import Log
 from manifold.util.type     import returns, accepts
+
+#-------------------------------------------------------------------------------
+# Record class
+#-------------------------------------------------------------------------------
 
 class Record(Packet):
 
@@ -59,19 +64,19 @@ class Record(Packet):
             The dict representation of this Record.
         """
         dic = dict() 
-        for k, v in self._record.iteritems():
-            if isinstance(v, Record):
-                dic[k] = v.to_dict()
-            elif isinstance(v, Records):
-                dic[k] = v.to_list()
-            else:
-                dic[k] = v
+        if self._record:
+            for k, v in self._record.iteritems():
+                if isinstance(v, Record):
+                    dic[k] = v.to_dict()
+                elif isinstance(v, Records):
+                    dic[k] = v.to_list()
+                else:
+                    dic[k] = v
         return dic
 
     @returns(bool)
     def is_empty(self):
         """
-        (This method is overwritten in LastRecord)
         Returns:
             True iif this Record is the last one of a list
             of Records corresponding to a given Query.
@@ -119,6 +124,11 @@ class Record(Packet):
         return dict.__setitem__(self._record, key, value, **kwargs)
 
     def __iter__(self): 
+        """
+        Returns:
+            A dictionary-keyiterator allowing to iterate on fields
+            of this Record.
+        """
         return dict.__iter__(self._record)
 
     #--------------------------------------------------------------------------- 
@@ -129,7 +139,7 @@ class Record(Packet):
     @returns(dict)
     def from_key_value(self, key, value):
         if isinstance(key, StringTypes):
-            return { key: value }
+            return {key : value}
         else:
             return Record(izip(key, value))
 
@@ -173,8 +183,6 @@ class Record(Packet):
         return True
 
     def pop(self, key):
-        """
-        """
         return dict.pop(self._record, key)
 
     def items(self):
@@ -182,6 +190,21 @@ class Record(Packet):
 
     def keys(self):
         return dict.keys(self._record)
+
+    @returns(StringTypes)
+    def __repr__(self):
+        """
+        Returns:
+            The '%r' representation of this QUERY Packet.
+        """
+        return "<Packet.%s %s>" % (
+            Packet.get_protocol_name(self.get_protocol()),
+            self.to_dict()
+        )
+
+#-------------------------------------------------------------------------------
+# Records class
+#-------------------------------------------------------------------------------
 
 class Records(list):
     """
@@ -210,3 +233,4 @@ class Records(list):
             Records instance.
         """
         return [record.to_dict() for record in self]
+

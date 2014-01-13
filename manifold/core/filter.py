@@ -1,26 +1,38 @@
-from types import StringTypes
-try:
-    set
-except NameError:
-    from sets import Set
-    set = Set
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+# A Filter is a set of Predicates. It is used to
+# model a Query and a Selection. See also:
+#
+#   manifold/core/query.py
+#   manifold/operators/selection.py
+#
+# Copyright (C) UPMC Paris Universitas
+# Authors:
+#   Jordan Augé         <jordan.auge@lip6.fr
+#   Marc-Olivier Buob   <marc-olivier.buob@lip6.fr>
 
-import time
-import datetime # Jordan
-#from manifold.util.parameter import Parameter, Mixed, python_type
-from manifold.util.predicate import Predicate, eq
-from itertools                  import ifilter
+from types                      import StringTypes
+
+from manifold.util.predicate    import Predicate, eq
+from manifold.util.type         import accepts, returns 
 
 class Filter(set):
     """
-    A filter is a set of predicates
+    A Filter is a set of Predicate instances
     """
 
     #def __init__(self, s=()):
     #    super(Filter, self).__init__(s)
 
     @staticmethod
+    #@returns(Filter)
     def from_list(l):
+        """
+        Create a Filter instance by using an input list.
+        Args:
+            l: A list of Predicate instances.
+        """
         f = Filter()
         try:
             for element in l:
@@ -31,7 +43,17 @@ class Filter(set):
         return f
         
     @staticmethod
+    #@returns(Filter)
     def from_dict(d):
+        """
+        Create a Filter instance by using an input dict.
+        Args:
+            d: A dict {key : value} instance where each
+               key-value pair leads to a Predicate.
+               'key' could start with the operator to be
+               used in the predicate, otherwise we use
+               '=' by default.
+        """
         f = Filter()
         for key, value in d.items():
             if key[0] in Predicate.operators.keys():
@@ -40,12 +62,16 @@ class Filter(set):
                 f.add(Predicate(key, '=', value))
         return f
 
+    @returns(list)
     def to_list(self):
-        ret = []
+        """
+        Returns:
+            The list corresponding to this Filter instance.
+        """
+        ret = list() 
         for predicate in self:
             ret.append(predicate.to_list())
         return ret
-        
 
     @staticmethod
     def from_clause(clause):
@@ -54,16 +80,40 @@ class Filter(set):
         """
         raise Exception, "Not implemented"
 
+    #@returns(Filter)
     def filter_by(self, predicate):
+        """
+        Update this Filter by adding a Predicate.
+        Args:
+            predicate: A Predicate instance.
+        Returns:
+            The resulting Filter instance.
+        """
+        assert isinstance(predicate, Predicate),\
+            "Invalid predicate = %s (%s)" % (predicate, type(predicate))
         self.add(predicate)
         return self
 
+    @returns(StringTypes)
     def __str__(self):
-        return ' AND '.join([str(pred) for pred in self])
+        """
+        Returns:
+            The '%s' representation of this Filter.
+        """
+        if len(self) > 0:
+            return ' AND '.join([str(pred) for pred in self])
+        else:
+            return '<empty filter>'
 
+    @returns(StringTypes)
     def __repr__(self):
-        return '<Filter: %s>' % ' AND '.join([str(pred) for pred in self])
+        """
+        Returns:
+            The '%r' representation of this Filter.
+        """
+        return '<Filter: %s>' % self 
 
+    @returns(tuple)
     def __key(self):
         return tuple([hash(pred) for pred in self])
 
@@ -71,27 +121,36 @@ class Filter(set):
         return hash(self.__key())
 
     def __additem__(self, value):
-        if value.__class__ != Predicate:
+        if not isinstance(value, Predicate):
             raise TypeError("Element of class Predicate expected, received %s" % value.__class__.__name__)
         set.__additem__(self, value)
 
+    @returns(set)
     def keys(self):
+        """
+        Returns:
+            A set of String corresponding to each field name
+            involved in this Filter.
+        """
         return set([x.key for x in self])
 
     # XXX THESE FUNCTIONS SHOULD ACCEPT MULTIPLE FIELD NAMES
 
+    @returns(bool)
     def has(self, key):
         for x in self:
             if x.key == key:
                 return True
         return False
 
+    @returns(bool)
     def has_op(self, key, op):
         for x in self:
             if x.key == key and x.op == op:
                 return True
         return False
 
+    @returns(bool)
     def has_eq(self, key):
         return self.has_op(key, eq)
 
@@ -151,12 +210,14 @@ class Filter(set):
 #            dic = predicate.filter(dic)
 #        return dic
 
+    @returns(bool)
     def match(self, dic, ignore_missing=True):
         for predicate in self:
             if not predicate.match(dic, ignore_missing):
                 return False
         return True
 
+    @returns(list)
     def filter(self, l):
         output = []
         for x in l:
@@ -164,18 +225,22 @@ class Filter(set):
                 output.append(x)
         return output
 
+    @returns(set)
     def get_field_names(self):
         field_names = set()
         for predicate in self:
             field_names |= predicate.get_field_names()
         return field_names
 
+    #@returns(Filter)
     def grep(self, fun):
         return Filter([x for x in self if fun(x)])
 
+    #@returns(Filter)
     def rgrep(self, fun):
         return Filter([x for x in self if not fun(x)])
 
+    @returns(tuple)
     def split(self, fun):
         true_filter, false_filter = Filter(), Filter()
         for predicate in self:

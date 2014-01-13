@@ -196,4 +196,10 @@ class Consumer(Node):
         self._pool_producers.receive(packet)
         
     def receive(self, packet):
+        """
+        This method must be overwritten in the class inheriting Consumer
+        and is called whenever a Packet is received.
+        Args:
+            packet: A Packet instance.
+        """
         raise NotImplementedError("Not yet implemented")

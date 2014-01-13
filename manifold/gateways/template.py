@@ -12,8 +12,6 @@
 # Add required Manifold modules in the following list (TODO)
 
 from manifold.core.announce import Announce
-from manifold.core.field    import Field
-from manifold.core.record   import Record, Records, LastRecord
 from manifold.core.table    import Table
 from manifold.gateways      import Gateway
 from manifold.util.log      import Log
@@ -63,49 +61,33 @@ class FooGateway(Gateway): # (TODO) Update this class name
     # Overloaded methods 
     #---------------------------------------------------------------------------
 
-    def forward(self, query, callback, is_deferred = False, execute = True, user = None, account_config = None, format = "dict", receiver = None):
+    def receive_impl(self, packet):
         """
-        Query handler.
+        Handle a incoming QUERY Packet.
+        Remark:
+            An Exception raised in this method will be translated into
+            the corresponding ErrorPacket instance.
+            See Gateway::receive()
         Args:
-            query: A Query instance, reaching this Gateway.
-            callback: The function called to send this record. This callback is provided
-                most of time by a From Node.
-                Prototype : def callback(record)
-            is_deferred: A boolean.
-            execute: A boolean set to True if the treatement requested in query
-                must be run or simply ignored.
-            user: The User issuing the Query.
-            account_config: A dictionnary containing the user's account config.
-                In pratice, this is the result of the following query (run on the Storage)
-                SELECT config FROM local:account WHERE user_id == user.user_id
-            format: A String specifying in which format the Records must be returned.
-            receiver : The From Node running the Query or None. Its ResultValue will
-                be updated once the query has terminated.
-        Returns:
-            forward must NOT return value otherwise we cannot use @defer.inlineCallbacks
-            decorator. 
+            packet: A QUERY Packet instance.
         """
-        super(FooGateway, self).forward(query, callback, is_deferred, execute, user, account_config, format, receiver)
-        identifier = receiver.get_identifier() if receiver else None
+        # QUERY Packets carry information such as the incoming Query,
+        # and some additionnal Annotations carrying (for instance the user
+        # credentials).
+        query = packet.get_query()
+        records = list() 
 
-        # Handle the query and feed rows with dictionary having the key corresponding
-        # to query.get_select() and containing value satisfying query.get_where().
-        #
-        # See also:
-        #   manifold/core/query.py
+        # Fill records by appending Record or dict instances
+        # according to "query"
+        records.append({
+            "field1" : "value1",
+            "field2" : "value2"
+        })
 
-        # Results of the query (TODO)
-        rows = Records() 
-
-        # Sending rows to parent processing node in the AST
-        for row in rows:
-            self.send(row, callback, identifier)
-
-        self.send(LastRecord())
-        self.success(receiver, query)
-
-        ## In case of failure, you would return something like this:
-        # self.error(receiver, query, message)
+        # - See Gateway::records()
+        # - See Gateway::warning()
+        # - See Gateway::error()
+        self.records(packet, records)
 
     #---------------------------------------------------------------------------
     # Metadata 
@@ -120,14 +102,23 @@ class FooGateway(Gateway): # (TODO) Update this class name
         """
         announces = list()
         
+        # (TODO)
+        #
         # Feed announces by adding Announce instances representing the Table
-        # provided by this Gateway (TODO). An Announce embeds a Table instance
+        # provided by this Gateway. An Announce embeds a Table instance
         # which stores a set of Fields and Keys.
         #
-        # See also:
-        #    manifold/core/announce.py
-        #    manifold/core/field.py
-        #    manifold/core/key.py
-        #    manifold/core/table.py
+        # You should define FooGateway's metadata using
+        # @announces_from_docstring('foo')
+        # Then replace the FooGateway::get_metadata docstring by putting what
+        # you would write in the corresponding ".h" file.
+        #   See metadata/*.h
+        #
+        # Otherwise you can also manually craft Announce(s) instances.
+        # For further details, see:
+        #   manifold/core/announce.py
+        #   manifold/core/field.py
+        #   manifold/core/key.py
+        #   manifold/core/table.py
 
         return announces 

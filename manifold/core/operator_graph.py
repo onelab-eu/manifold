@@ -15,6 +15,7 @@
 #   Marc-Olivier Buob   <marc-olivier.buob@lip6.fr>
 
 # We currently build on QueryPlan, the idea is in the end to merge the QueryPlan class in this class.
+
 from manifold.core.annotation       import Annotation
 from manifold.core.query            import Query
 from manifold.core.query_plan       import QueryPlan
@@ -69,11 +70,12 @@ class OperatorGraph(object):
         Args:
             query: A Query instance.
             annotation: An Annotation instance.
+        Raises:
+            Exception: if the QueryPlan cannot be built.
         Returns:
             The Producer corresponding to the root node of the QueryPlan (most
             of time this is the top Operator of the AST). 
         """
-        Log.tmp("Build query plan")
         # Check parameters
         assert isinstance(query, Query),\
             "Invalid query %s (%s)" % (query, type(query))
@@ -83,7 +85,7 @@ class OperatorGraph(object):
         # Retrieve the DBGraph to compute a QueryPlan in respect of
         # namespace explicitly set in the Query and user's grants. 
         router    = self.get_router()
-        user      = annotation.get('user', None)
+        user      = annotation.get("user", None)
         namespace = query.get_namespace()
         query.clear_namespace()
 
@@ -96,16 +98,7 @@ class OperatorGraph(object):
             if namespace and namespace in allowed_platforms:
                 allowed_platforms = [namespace]
 
-        # Build the QueryPlan according to this DBGraph and to the user's Query. 
+        # Build the QueryPlan according to this DBGraph and to the user's Query.
+        # and return the corresponding Producer (if any)
         query_plan = QueryPlan()
-
-        # Return the corresponding Producer (if any)
-        try:
-            producer = query_plan.build(query, router, db_graph, allowed_platforms, user)
-            assert isinstance(producer, Producer), "Invalid producer = %s (%s)" % (producer, type(producer))
-            return producer 
-        except Exception, e:
-            Log.error(e)
-            return None
-
-#DEPRECATED|        self._interface.init_from_nodes(query_plan, user)
+        return query_plan.build(query, router, db_graph, allowed_platforms, user)

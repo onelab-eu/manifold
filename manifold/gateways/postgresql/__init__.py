@@ -1047,17 +1047,13 @@ class PostgreSQLGateway(Gateway):
     # Overloaded methods 
     #---------------------------------------------------------------------------
 
-    def receive(self, packet):
+    def receive_impl(self, packet):
         """
         Handle a incoming QUERY Packet.
         Args:
             packet: A QUERY Packet instance.
         """
-        self.check_receive(packet)
         query = packet.get_query()
-        try:
-            sql = PostgreSQLGateway.to_sql(query)
-            rows = self.selectall(sql, None)
-            self.send_records(rows)
-        except Exception, e:
-            self.error(packet, e)
+        sql = PostgreSQLGateway.to_sql(query)
+        rows = self.selectall(sql, None)
+        self.records(packet, rows)

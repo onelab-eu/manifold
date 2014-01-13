@@ -26,17 +26,23 @@ class SyncReceiver(Consumer):
 
     def __init__(self):
         """
-        Constructor.
+        Constructor. Lifetime of a SyncReceiver corresponds to the Query
+        it transports and the corresponding results retrieval.
         """
         Consumer.__init__(self)
-        self._records = list()
-        self._errors = list()
+        self._records = Records() # Records resulting from a Query
+        self._errors = list()     # ResultValue to errors which have occured 
         self._event = threading.Event()
 
     #---------------------------------------------------------------------------
     # Methods
     #---------------------------------------------------------------------------
 
+    def terminate(self):
+        """
+        Stop this SyncReceiver.
+        """
+        self._event.set()
 
     def receive(self, packet):
         """
@@ -51,12 +57,6 @@ class SyncReceiver(Consumer):
                 self._records.append(packet)
         elif packet.get_protocol() == Packet.PROTOCOL_ERROR:
             self._errors.append(packet)
-            #message = packet.get_message()
-            #trace   = packet.get_traceback()
-            #raise Exception("%(message)s%(trace)s" % {
-            #    "message" : message if message else "(No message)",
-            #    "trace"   : trace   if trace   else "(No traceback)"
-            #})
         else:
             Log.warning(
                 "SyncReceiver::receive(): Invalid Packet type (%s, %s)" % (
@@ -69,7 +69,7 @@ class SyncReceiver(Consumer):
         # Packet (which could be a RECORD or an ERROR Packet). Each Node
         # should manage the "LAST_RECORD" flag while forwarding its Packets.
         if packet.is_last():
-            self._event.set()
+            self.terminate()
 
     @returns(ResultValue)
     def get_result_value(self):
@@ -81,5 +81,4 @@ class SyncReceiver(Consumer):
         """
         self._event.wait()
         self._event.clear()
-
         return ResultValue.get(self._records, self._errors)

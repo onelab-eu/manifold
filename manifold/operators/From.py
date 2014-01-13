@@ -58,12 +58,9 @@ class From(Operator):
         assert isinstance(key, Key),\
             "Invalid key = %s (%s)" % (key, type(key))
 
-        Log.tmp("query = %s" % query)
-
         self.query        = query
         self.capabilities = capabilities
         self.key          = key
-
         self._gateway     = gateway
 
         # The producer will be set once a QUERY will be received
@@ -187,20 +184,7 @@ class From(Operator):
         if packet.get_protocol() == Packet.PROTOCOL_QUERY:
             self.get_gateway().add_flow(packet.get_query(), self)
             packet.set_receiver(self)
-            self.get_gateway().receive(packet) #self.send(packet)
-#jo#
-#jo#        # A From Operator forwards the incoming Packets without modification.
-#jo#        try:
-#jo#            print "Before From::send --1--"
-#jo#            print "Before From::send --3--", self
-#jo#            print "Before From::send --1--"
-#jo#        except Exception, e:
-#jo#            print "zzz", e
-#jo#        # Jordan changed this also:
-#jo#        print "send, i expect producers to receive"
-#jo#        print "send, i expect producers to receive" , self._producers
-#jo#        self.send(packet)
-
+            self.get_gateway().receive(packet)
         else: #if packet.get_protocol() == Packet.PROTOCOL_RECORD:
             self.send(packet)
     

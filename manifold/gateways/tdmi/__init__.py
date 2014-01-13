@@ -94,45 +94,39 @@ class TDMIGateway(PostgreSQLGateway):
 
         super(TDMIGateway, self).__init__(router, platform, platform_config, re_ignored_tables, re_allowed_tables)
 
-    def receive(self, packet): 
+    def receive_impl(self, packet): 
         """
         Handle a incoming QUERY Packet.
         Args:
             packet: A QUERY Packet instance.
         """
-        self.check_receive(packet)
-
-        Log.tmp("PIT:" % self.get_pit())
         query = packet.get_query()
         table_name = query.get_from()
-        Log.tmp("query = %s" % query)
-        try:
-            if table_name in TDMIGateway.METHOD_MAP.keys():
-                if TDMIGateway.METHOD_MAP[table_name]:
-                    if not query.get_action() == "get":
-                        raise RuntimeError("Invalid action (%s) on '%s::%s' table" % (query.get_action(), self.get_platform_name(), table_name))
 
-                    # See manifold/gateways/tdmi/methods/*
-                    instance = TDMIGateway.METHOD_MAP[table_name](query, db = self)
-                    sql = instance.get_sql()
-                    rows = self.selectall(sql, None)
+        if table_name in TDMIGateway.METHOD_MAP.keys():
+            if TDMIGateway.METHOD_MAP[table_name]:
+                if not query.get_action() == "get":
+                    raise RuntimeError("Invalid action (%s) on '%s::%s' table" % (query.get_action(), self.get_platform_name(), table_name))
 
-                    if instance.need_repack and instance.repack:
-                        # Does this object tweak the Record returned by selectall?
-                        if instance.need_repack(query):
-                            rows = [instance.repack(query, row) for row in rows]
-                else:
-                    # Dummy object, like hops (hops is declared in tdmi.h) but
-                    # do not corresponds to any table in the TDMI database 
-                    Log.warning("TDMI::forward(): Querying a dummy object (%s)" % table_name)
-                    rows = list()
+                # See manifold/gateways/tdmi/methods/*
+                instance = TDMIGateway.METHOD_MAP[table_name](query, db = self)
+                sql = instance.get_sql()
+                rows = self.selectall(sql, None)
 
-                self.send_records(rows)
-                
+                if instance.need_repack and instance.repack:
+                    # Does this object tweak the Record returned by selectall?
+                    if instance.need_repack(query):
+                        rows = [instance.repack(query, row) for row in rows]
             else:
-                # Update FROM clause according to postgresql aliases
-                query.object = self.get_pgsql_name(table_name)
-                super(TDMIGateway, self).receive(packet)
-        except Exception, e:
-            self.error(packet, e)
+                # Dummy object, like hops (hops is declared in tdmi.h) but
+                # do not corresponds to any table in the TDMI database 
+                Log.warning("TDMI::forward(): Querying a dummy object (%s)" % table_name)
+                rows = list()
+
+            self.records(packet, rows)
+            
+        else:
+            # Update FROM clause according to postgresql aliases
+            query.object = self.get_pgsql_name(table_name)
+            super(TDMIGateway, self).receive_impl(packet)
 

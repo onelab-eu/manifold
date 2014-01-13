@@ -9,7 +9,7 @@
 #   Jordan Augé       <jordan.auge@lip6.fr>
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
-import os, sys, pprint, json
+import os, sys, pprint, json, traceback
 from getpass                        import getpass
 from optparse                       import OptionParser
 from socket                         import gethostname
@@ -22,7 +22,7 @@ from twisted.web                    import xmlrpc
 # XXX Those imports may fail for xmlrpc calls
 from manifold.auth                  import Auth
 from manifold.core.annotation       import Annotation
-from manifold.core.packet           import Packet, QueryPacket
+from manifold.core.packet           import ErrorPacket, Packet, QueryPacket
 from manifold.core.query            import Query
 from manifold.core.router           import Router
 from manifold.core.sync_receiver    import SyncReceiver
@@ -127,8 +127,12 @@ class ManifoldLocalClient(ManifoldClient):
         receiver = SyncReceiver()
         packet = QueryPacket(query, annotation, receiver = receiver)
         self.send(packet)
+
         # This code is blocking
-        return receiver.get_result_value()
+        result_value = receiver.get_result_value()
+        assert isinstance(result_value, ResultValue),\
+            "Invalid result_value = %s (%s)" % (result_value, type(result_value))
+        return result_value
 
     def log_message(self):
         """
@@ -351,25 +355,51 @@ class Shell(object):
 
     PROMPT = 'manifold'
 
+#OBSOLETE|    @classmethod
+#OBSOLETE|    def print_error(self, result_value):
+#OBSOLETE|        """
+#OBSOLETE|        Print a ResultValue to the standard output.
+#OBSOLETE|        Args:
+#OBSOLETE|            result_value: A ResultValue instance.
+#OBSOLETE|        """
+#OBSOLETE|        assert isinstance(result_value, ResultValue),\
+#OBSOLETE|            "Invalid result_value = %s (%s)" % (result_value, type(result_value))
+#OBSOLETE|
+#OBSOLETE|        Log.tmp("coucou")
+#OBSOLETE|        print "-" * 80
+#OBSOLETE|        print "Exception %(code)s raised by %(origin)s %(description)s" % {
+#OBSOLETE|            "code"        : result_value["code"],
+#OBSOLETE|            "origin"      : result_value["origin"],
+#OBSOLETE|            "description" : ": %s" % result_value["description"] if result_value["description"] else ""
+#OBSOLETE|        }
+#OBSOLETE|        if result_value["traceback"]:
+#OBSOLETE|            for line in result_value["traceback"].split("\n"):
+#OBSOLETE|                Log.error("\t", line)
+#OBSOLETE|        else:
+#OBSOLETE|            Log.error("(Traceback not set)")
+#OBSOLETE|        print ""
+
+
     @classmethod
-    def print_error(self, result_value):
+    def print_error(self, error):
         """
-        Print a ResultValue to the standard output.
+        Print ErrorPacket content
         Args:
-            result_value: A ResultValue instance.
+            error: An ErrorPacket instance.
         """
-        print "-" * 80
-        print "Exception %(code)s raised by %(origin)s %(description)s" % {
-            "code"        : result_value["code"],
-            "origin"      : result_value["origin"],
-            "description" : ": %s" % result_value["description"] if result_value["description"] else ""
-        }
-        if result_value["traceback"]:
-            for line in result_value["traceback"].split("\n"):
-                Log.debug("\t", line)
-        else:
-            Log.debug("(Traceback not set)")
-        print ""
+        assert isinstance(error, ErrorPacket),\
+            "Invalid error = %s (%s)" % (error, type(error))
+
+        message   = error.get_message()
+        traceback = error.get_traceback()
+
+        print "* Error:"
+        if message:
+            Log.error(message)
+
+        print "* Traceback:"
+        if traceback:
+            Log.error(traceback)
 
     @classmethod
     def init_options(self):
@@ -506,7 +536,8 @@ class Shell(object):
             return
 
         auth_method = Options().auth_method
-        if not auth_method: auth_method = "local"
+        if not auth_method:
+            auth_method = "local"
 
         self.select_auth_method(auth_method)
         if self.interactive:
@@ -535,23 +566,32 @@ class Shell(object):
 
         if result_value.is_success():
             records = result_value["value"]
+            dicts = [record.to_dict() for record in records]
             if self.interactive:
                 # Command-line
                 print "===== RESULTS ====="
-                pprint.pprint(records)
+                pprint.pprint(dicts)
             elif Options().execute:
                 # Used by script to it may be piped.
-                print json.dumps(records)
+                print json.dumps(dicts)
 
         else:
             print "===== ERROR ====="
-            if isinstance(result_value["description"], list):
-                # We have a list of errors
-                for nested_result_value in result_value["description"]:
-                    Shell.print_error(nested_result_value)
-                    return
+            Log.reset_duplicates()
+            errors = result_value["description"]
+            if isinstance(errors, StringTypes):
+                # String
+                Log.error(errors)
+            elif isinstance(errors, list):
+                # list of ErrorPacket 
+                i = 0
+                num_errors = len(errors)
+                for error in errors:
+                    i += 1
+                    print "Error (%s/%s)" % (i, num_errors)
+                    Shell.print_error(error)
             else:
-                print result_value["description"]
+                raise RuntimeError("Invalid description type (%s) in result_value = %s" % (errors, result_value))
 
     @returns(ResultValue)
     def evaluate(self, command, value = False):
@@ -565,7 +605,7 @@ class Shell(object):
         #username, password = Options().username, Options().password
         dic = SQLParser().parse(command)
         if not dic:
-            return None
+            raise RuntimeError("Can't parse input command: %s" % command)
         query = Query(dic)
         if "*" in query.get_select():
             query.fields = None
@@ -584,8 +624,10 @@ class Shell(object):
         try:
             result_value = self.client.forward(query)
         except Exception, e:
-            message = "Error executing query: %s" % (e,)
-            result_value = ResultValue.get_error(ResultValue.ERROR, message)
+            Log.error(traceback.format_exc())
+            message = "Exception raised while performing this query:\n\n\t%s\n\n\t%s" % (query, e)
+            Log.error(message)
+            result_value = ResultValue.error(message)
         return result_value
 
     @returns(dict)
@@ -692,10 +734,17 @@ class Shell(object):
                 try:
                     self.display(self.evaluate(command))
                 except KeyboardInterrupt:
+                    # Ctrl c
                     command = ""
                     print
-                except Exception, err:
-                    Log.debug(format_exc())
+                except RuntimeError, e:
+                    # Parse error raised by evaluate()
+                    Log.error(e)
+                except Exception:
+                    # Unhandled Exception raised by this Shell
+                    Log.reset_duplicates()
+                    print "=== UNHANDLED EXCEPTION ==="
+                    Log.error(format_exc())
 
         except EOFError:
             self.terminate()

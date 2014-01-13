@@ -95,7 +95,6 @@ class ExploreTask(Deferred):
 #DEPRECATED|        query.filter_by(None).filter_by(new_filter)
 
     def store_subquery(self, ast, relation):
-        print "store subquery", ast, relation
         #Log.debug(ast, relation)
         if not ast: return
         self.subqueries[relation.get_relation_name()] = (ast, relation)
@@ -190,9 +189,7 @@ class ExploreTask(Deferred):
 
                 seen_set.add(name)
 
-                print "relation", relation
                 if relation.requires_subquery():
-                    print " - requires subquery"
                     subpath = self.path[:]
                     subpath.append(name)
                     task = ExploreTask(self._interface, neighbour, relation, subpath, self, self.depth+1)
@@ -209,7 +206,6 @@ class ExploreTask(Deferred):
                     #priority = TASK_1Nsq if relation_name in missing_subqueries else TASK_1N
                     
                 else:
-                    print " - does not require subquery"
                     task = ExploreTask(self._interface, neighbour, relation, self.path, self.parent, self.depth)
                     task.addCallback(self.perform_left_join, relation, allowed_platforms, metadata, user, query_plan)
                     priority = TASK_11
@@ -263,7 +259,8 @@ class ExploreTask(Deferred):
     def perform_subquery(self, allowed_platforms, metadata, user, query_plan):
         """
         Connect a new AST to the current AST using a SubQuery Node.
-        If the connected table is "on join", we will use a LeftJoin and a CrossProduct Node instead.
+        If the connected table is "on join", we will use a LeftJoin
+        and a CartesianProduct Node instead.
         Args:
             metadata: The DBGraph instance related to the 3nf graph.
             allowed_platforms: A set of String where each String corresponds to a queried platform name.
@@ -315,7 +312,7 @@ class ExploreTask(Deferred):
             xp_value = ()
 
             # We go though the set of subqueries to find
-            # - the ones for the cross product
+            # - the ones for the cartesian product
             # - the ones for the subqueries
             for name, ast_relation in self.subqueries.items():
                 print "name=", name, "ast_relation", ast_relation
@@ -332,19 +329,19 @@ class ExploreTask(Deferred):
                     print "name NOT in rootkeyfields"
                     sq_ast_relation.append(ast_relation)
 
-# OLD CODE #             ast = self.ast
-# OLD CODE # 
-# OLD CODE #             # SUBQUERY
-# OLD CODE #             if sq_ast_relation:
-# OLD CODE #                 ast.subquery(sq_ast_relation)
-# OLD CODE # 
-# OLD CODE #             # CROSS PRODUCT
-# OLD CODE #             query = Query.action('get', self.root.get_name()).select(set(xp_key))
-# OLD CODE #             self.ast = AST(self._interface).cross_product(xp_ast_relation, query)
-# OLD CODE # 
-# OLD CODE #             # JOIN
-# OLD CODE #             predicate = Predicate(xp_key, eq, xp_value)
-# OLD CODE #             self.ast.left_join(ast, predicate)
+#DEPRECATED|             ast = self.ast
+#DEPRECATED| 
+#DEPRECATED|             # SUBQUERY
+#DEPRECATED|             if sq_ast_relation:
+#DEPRECATED|                 ast.subquery(sq_ast_relation)
+#DEPRECATED| 
+#DEPRECATED|             # CARTESIAN PRODUCT
+#DEPRECATED|             query = Query.action('get', self.root.get_name()).select(set(xp_key))
+#DEPRECATED|             self.ast = AST(self._interface).cartesian_product(xp_ast_relation, query)
+#DEPRECATED| 
+#DEPRECATED|             # JOIN
+#DEPRECATED|             predicate = Predicate(xp_key, eq, xp_value)
+#DEPRECATED|             self.ast.left_join(ast, predicate)
 
             # 1) Cross product
             if len(xp_ast_relation) > 1:
