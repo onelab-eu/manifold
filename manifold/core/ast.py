@@ -13,25 +13,25 @@
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
 import sys, random, traceback
-from copy                             import copy, deepcopy
-from types                            import StringTypes
+from copy                                   import copy, deepcopy
+from types                                  import StringTypes
 
-from manifold.core.key                import Key
-from manifold.core.query              import Query
-from manifold.operators.cross_product import CrossProduct
-from manifold.operators.dup           import Dup
-from manifold.operators.From          import From
-from manifold.operators.from_table    import FromTable
-from manifold.operators.left_join     import LeftJoin
-from manifold.operators.operator      import Operator
-from manifold.operators.projection    import Projection
-from manifold.operators.selection     import Selection
-from manifold.operators.subquery      import SubQuery
-from manifold.operators.union         import Union
-from manifold.util.log                import Log
-from manifold.util.predicate          import Predicate, eq, contains, included
-from manifold.util.storage            import STORAGE_NAMESPACE 
-from manifold.util.type               import returns, accepts
+from manifold.core.key                      import Key
+from manifold.core.query                    import Query
+from manifold.operators.cartesian_product   import CartesianProduct
+from manifold.operators.dup                 import Dup
+from manifold.operators.From                import From
+from manifold.operators.from_table          import FromTable
+from manifold.operators.left_join           import LeftJoin
+from manifold.operators.operator            import Operator
+from manifold.operators.projection          import Projection
+from manifold.operators.selection           import Selection
+from manifold.operators.subquery            import SubQuery
+from manifold.operators.union               import Union
+from manifold.util.log                      import Log
+from manifold.util.predicate                import Predicate, eq, contains, included
+from manifold.util.storage                  import STORAGE_NAMESPACE 
+from manifold.util.type                     import returns, accepts
 
 #------------------------------------------------------------------
 # AST (Abstract Syntax Tree)
@@ -241,16 +241,16 @@ class AST(object):
         return self
 
     #@returns(AST)
-    def cross_product(self, children_ast_relation_list, query):
+    def cartesian_product(self, children_ast_relation_list, query):
         """
-        Append a CrossProduct Node above the current AST
+        Append a CartesianProduct Node above the current AST
         Args:
             children_ast_relation_list: A list of (AST, Relation) tuples.
             query: A Query instance
         Returns:
             The resulting AST.
         """
-        assert self.is_empty(), "Cross-product should be done on an empty AST"
+        assert self.is_empty(), "Cartesian product should be done on an empty AST"
 
         if len(children_ast_relation_list) == 1:
             #(ast, relation) = children_ast_relation_list[0]
@@ -262,7 +262,7 @@ class AST(object):
             self.root = ast.get_root()
         else:
             children = map(lambda (ast, relation): (ast.get_root(), relation), children_ast_relation_list)
-            self.root = CrossProduct(children, query)
+            self.root = CartesianProduct(children, query)
 
         return self
 
@@ -279,33 +279,9 @@ class AST(object):
                 (number of space characters).
         """
         if self.is_empty():
-            print "Empty AST (no producer)"
+            print "Empty AST"
         else:
             self.get_root().dump(indent)
-
-#DEPRECATED|    def start(self):
-#DEPRECATED|        """
-#DEPRECATED|        Propagates a START message through the AST which is used to wake
-#DEPRECATED|        up each Node in order to execute the Query.
-#DEPRECATED|        """
-#DEPRECATED|        assert not self.is_empty(), "Empty AST, cannot send START message"
-#DEPRECATED|        self.get_root().start()
-#DEPRECATED|
-#DEPRECATED|    @property
-#DEPRECATED|    def callback(self):
-#DEPRECATED|        Log.info("I: callback property is deprecated")
-#DEPRECATED|        return self.root.callback
-#DEPRECATED|
-#DEPRECATED|    @callback.setter
-#DEPRECATED|    def callback(self, callback):
-#DEPRECATED|        Log.info("I: callback property is deprecated")
-#DEPRECATED|        self.root.callback = callback
-#DEPRECATED|
-#DEPRECATED|    def get_callback(self):
-#DEPRECATED|        return self.root.get_callback()
-#DEPRECATED|
-#DEPRECATED|    def set_callback(self, callback):
-#DEPRECATED|        self.root.set_callback(callback)
 
     def optimize(self, query):
         """
@@ -316,22 +292,10 @@ class AST(object):
             query: The Query issued by the user.
         """
         try: # DEBUG
-            print "BEFORE OPTIMIZE"
-            print "---------------"
-            self.dump()
-
-            Log.tmp("%s" % query.get_where())
             self.optimize_selection(query, query.get_where())
-
-            print "AFTER OPTIMIZE_SELECTION"
-            print "-------------------------"
-            self.dump()
-
-            Log.tmp("%s" % query.get_select())
             self.optimize_projection(query, query.get_select())
-
-            print "AFTER OPTIMIZE_PROJECTION"
-            print "--------------------------"
+            print "QUERY PLAN:"
+            print "-----------"
             self.dump()
         except Exception, e:
             Log.error(traceback.format_exc())

@@ -11,8 +11,10 @@
 #   Jordan Augé         <jordan.auge@lip6.fr>
 #   Marc-Olivier Buob   <marc-olivier.buob@lip6.fr>
 
+import traceback
 from types                          import StringTypes
 
+from manifold.core.filter           import Filter
 from manifold.core.packet           import Packet
 from manifold.core.producer         import Producer 
 from manifold.core.query            import Query
@@ -24,7 +26,7 @@ from manifold.util.type             import accepts, returns
 DUMPSTR_SELECTION  = "WHERE %s"
 
 #------------------------------------------------------------------
-# Selection node (WHERE)
+# Selection Operator (WHERE)
 #------------------------------------------------------------------
 
 class Selection(Operator):
@@ -33,27 +35,31 @@ class Selection(Operator):
     # Constructor
     #---------------------------------------------------------------------------
 
-    def __init__(self, child, filters):
+    def __init__(self, child, filter):
         """
         Constructor
         Args:
             child: A Node instance (the child of this Node)
-            filters: A set of Predicate instances
+            filter: A Filter instance. 
         """
         assert issubclass(type(child), Producer),\
-            "Invalid child = %r (%r)"   % (child,   type(child))
-        assert isinstance(filters, set),\
-            "Invalid filters = %r (%r)" % (filters, type(filters))
+            "Invalid child = %r (%r)"   % (child, type(child))
+        assert isinstance(filter, Filter),\
+            "Invalid filter = %r (%r)" % (filter, type(filter))
 
-        self._filter = filters
+        self._filter = filter
         Operator.__init__(self, producers = child, max_producers = 1)
 
         self.query = self.get_producer().get_query().copy()
-        self.query.filters |= filters
+        self.query.filters |= filter
  
     #---------------------------------------------------------------------------
     # Methods
     #---------------------------------------------------------------------------
+
+    @returns(Filter)
+    def get_filter(self):
+        return self._filter
 
     @returns(StringTypes)
     def __repr__(self):
@@ -61,12 +67,20 @@ class Selection(Operator):
         Returns:
             The '%r' representation of this Selection instance.
         """
-        return DUMPSTR_SELECTION % ' AND '.join(["%s %s %s" % f.get_str_tuple() for f in self._filter])
+        return DUMPSTR_SELECTION % (
+            ' AND '.join(["%s %s %s" % f.get_str_tuple() for f in self._filter])
+        )
 
     def receive(self, packet):
         """
+        Process an incoming Packet instance.
+          - If this is a RECORD Packet, forward the Packet if it's
+            carried Record satisfies the Predicate(s) of this Selection
+            Operator. Otherwise, drop it.
+          - If this is an ERROR Packet, forward this Packet.
+        Args:
+            packet: A Packet instance.
         """
-
         if packet.get_protocol() == Packet.PROTOCOL_QUERY:
             # XXX need to remove the filter in the query
             new_packet = packet.clone()
@@ -75,22 +89,16 @@ class Selection(Operator):
 
         elif packet.get_protocol() == Packet.PROTOCOL_RECORD:
             record = packet
-
-            if record.is_empty() or (self._filter and self._filter.match(record)):
-                self.send(record)
+            if self._filter.match(record):
+                self.send(packet)
+            elif packet.is_last():
+                # This packet doesn't satisfies the Filter, however is has
+                # the LAST_RECORD flag enabled, so we send an empty
+                # RECORD Packet carrying this flag.
+                self.send(Packet(Packet.PROTOCOL_RECORD, True))
 
         else: # TYPE_ERROR
             self.send(packet)
-
-    def dump(self, indent = 0):
-        """
-        Dump the current child
-        Args:
-            indent: The current indentation
-        """
-        super(Selection, self).dump(indent)
-        # We have one producer for sure
-        self.get_producer().dump(indent + 1)
 
     @returns(Producer)
     def optimize_selection(self, query, filter):
@@ -107,7 +115,6 @@ class Selection(Operator):
         self.update_producer(lambda p: p.optimize_projection(query, fields | keys))
         #self.query.fields = fields
         if not keys <= fields:
-            print "in selection - added projection"
             # XXX add projection that removed added_fields
             # or add projection that removes fields
             return Projection(self, fields)

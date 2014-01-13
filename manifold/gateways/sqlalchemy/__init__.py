@@ -381,16 +381,12 @@ class SQLAlchemyGateway(Gateway):
         announces.extend(metadata_announces)
         return announces
 
-    def receive(self, packet):
+    def receive_impl(self, packet):
         """
         Handle a incoming QUERY Packet.
         Args:
             packet: A QUERY Packet instance.
         """
-        self.check_receive(packet)
-        query = packet.get_query()
-        #socket = self.get_socket(query)
-
         _map_action = {
             "get"    : self.local_query_get,
             "update" : self.local_query_update,
@@ -398,23 +394,18 @@ class SQLAlchemyGateway(Gateway):
             "delete" : self.local_query_delete
         }
 
-        try:
-            if query.get_from() == "object":
-                if not query.get_action() == "get":
-                    raise RuntimeError("Invalid action (%s) on '%s::%s' table" % (query.get_action(), self.get_platform_name(), table_name))
+        query = packet.get_query()
 
-                records = Records([announce.to_dict() for announce in self.get_announces()])
-            else:
-                annotation = packet.get_annotation()
-                if not annotation:
-                    annotation = Annotation() 
-                user = annotation.get("user", None)
-                records = Records([row2record(row) for row in _map_action[query.get_action()](query, user)])
+        if query.get_from() == "object":
+            if not query.get_action() == "get":
+                raise RuntimeError("Invalid action (%s) on '%s::%s' table" % (query.get_action(), self.get_platform_name(), table_name))
 
-            self.records(query, records)
-        except Exception, e:
-            Log.error("%s" % e)
-            Log.error("%s" % traceback.format_exc())
-            self.error(query, 0, 0, e)
-        finally:
-            self.close(query)
+            records = Records([announce.to_dict() for announce in self.get_announces()])
+        else:
+            annotation = packet.get_annotation()
+            if not annotation:
+                annotation = Annotation() 
+            user = annotation.get("user", None)
+            records = Records([row2record(row) for row in _map_action[query.get_action()](query, user)])
+
+        self.records(packet, records)

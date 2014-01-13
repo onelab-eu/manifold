@@ -9,6 +9,8 @@
 #   Jordan Augé       <jordan.auge@lip6.fr>
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
+import errno, os, traceback
+
 from manifold.core.capabilities     import Capabilities
 from manifold.core.dbnorm           import to_3nf 
 from manifold.core.dbgraph          import DBGraph
@@ -17,6 +19,7 @@ from manifold.core.key              import Keys
 from manifold.core.method           import Method
 from manifold.core.operator_graph   import OperatorGraph
 from manifold.core.packet           import ErrorPacket, Packet 
+from manifold.core.result_value     import ResultValue
 from manifold.core.socket           import Socket
 from manifold.policy                import Policy
 from manifold.util.log              import Log
@@ -27,8 +30,23 @@ from manifold.util.type             import returns, accepts
 # XXX cannot use the thread with xmlrpc -n
 #from manifold.util.reactor_wrapper  import ReactorWrapper as ReactorThread
 
-CACHE_LIFETIME     = 1800
-VAR_DIR            = '/var/manifold'
+CACHE_LIFETIME = 1800
+VAR_DIR        = "/var/lib/manifold"
+
+def mkdir(path):
+    """
+    Create a directory (mkdir -p).
+    Args:
+        path: An absolute path.
+    """
+    # http://stackoverflow.com/questions/600268/mkdir-p-functionality-in-python
+    try:
+        os.makedirs(path)
+    except OSError as exc: # Python >2.5
+        if exc.errno == errno.EEXIST and os.path.isdir(path):
+            pass
+        else:
+            raise
 
 #------------------------------------------------------------------
 # Class Router
@@ -54,11 +72,19 @@ class Router(Interface):
             allowed_capabilities: A Capabilities instance which defines which
                 operation can be performed by this Router. Pass None if there
                 is no restriction.
+            var_dir: An absolute path corresponding to a folder in which this
+                Router can store data.
         """
         # NOTE: We should avoid having code in the Interface class
         # Interface should be a parent class for Router and Gateway, so
         # that for example we can plug an XMLRPC interface on top of it
         Interface.__init__(self, user_storage, allowed_capabilities)
+
+        if not os.path.exists(var_dir):
+            try:
+                mkdir(var_dir)
+            except Exception, e:
+                Log.warning(e)
 
         self._sockets = list()
 
@@ -133,25 +159,27 @@ class Router(Interface):
         assert isinstance(packet, Packet) and packet.get_protocol() == Packet.PROTOCOL_QUERY, \
             "Invalid packet %s (%s) (%s) (invalid type)" % (packet, type(packet))
 
-        print "Router received a query", packet.get_query()
         # Create a Socket holding the connection information and bind it.
-        print "Create socket..."
         socket = Socket(consumer = packet.get_receiver())
-        print "... and set its receiver"
         packet.set_receiver(socket)
 
         # Build the AST and retrieve the corresponding root_node Operator instance.
-        print "Build the AST"
         query = packet.get_query()
         annotation = packet.get_annotation()
-        root_node = self._operator_graph.build_query_plan(query, annotation)
 
-        # Execute the operators related to the socket, if needed.
-        if root_node: 
-            print "Root node", root_node, "got added the socket as a consumer", socket
+        try:
+            root_node = self._operator_graph.build_query_plan(query, annotation)
+            if not root_node:
+                raise RuntimeError("Invalid root_node")
+
             root_node.add_consumer(socket)
-            print "=====> Socket should now have a producer", socket
-            print "Socket is receiving packet", packet
             socket.receive(packet)
-        else:
-            socket.receive(ErrorPacket("Unable to build a suitable Query Plan (query = %s)" % query))
+        except Exception, e:
+            #Log.error(traceback.format_exc())
+            error_packet = ErrorPacket(
+                type      = ResultValue.ERROR,
+                code      = ResultValue.BADARGS, 
+                message   = "Unable to build a suitable Query Plan (query = %s): %s" % (query, e),
+                traceback = traceback.format_exc()
+            )
+            socket.receive(error_packet)

@@ -5,7 +5,7 @@
 #
 # For the moment, this is an python object used by
 # SQLAlchemy, which is used to interact with the
-# sqlite database /var/myslice/db.sqlite.
+# Manifold Storage. 
 #
 # Jordan Auge       <jordan.auge@lip6.fr>
 # Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
@@ -14,21 +14,21 @@
 # Copyright (C) 2013 UPMC
 
 import json
-from sqlalchemy                 import Column, ForeignKey, Integer, String, Enum
-from sqlalchemy.orm             import relationship, backref
+from sqlalchemy                     import Column, ForeignKey, Integer, String, Enum
+from sqlalchemy.orm                 import relationship, backref
 
 # TODO move the SFA specific part in manifold/gateways/sfa
 try:
-    from sfa.trust.credential   import Credential
+    from sfa.trust.credential       import Credential
 except: pass
 
-from sqlalchemy import inspect
-from manifold.models            import Base #, db
-from manifold.models.user       import User
-from manifold.models.platform   import Platform
-from manifold.util.log          import Log 
-from manifold.util.predicate    import Predicate
-from manifold.util.type         import accepts, returns 
+from manifold.models                import Base
+from manifold.models.user           import User
+from manifold.models.platform       import Platform
+from manifold.models.get_session    import get_session
+from manifold.util.log              import Log 
+from manifold.util.predicate        import Predicate
+from manifold.util.type             import accepts, returns 
 
 class Account(Base):
 
@@ -148,7 +148,7 @@ class Account(Base):
             if 'config' in given_json_fields:
                 raise Exception, "Cannot mix full JSON specification & JSON encoded fields"
 
-            db = inspect(self).session
+            db = get_session(self)
             r = db.query(Account.config)
             for filter in filters:
                 r = r.filter(filter)

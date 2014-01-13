@@ -42,6 +42,12 @@ class Packet(object):
     PROTOCOL_RECORD = 2
     PROTOCOL_ERROR  = 3
 
+    PROTOCOL_NAMES = {
+        PROTOCOL_QUERY  : "QUERY",
+        PROTOCOL_RECORD : "RECORD",
+        PROTOCOL_ERROR  : "ERROR"
+    }
+
     #---------------------------------------------------------------------------
     # Helpers for assertions
     #---------------------------------------------------------------------------
@@ -53,13 +59,7 @@ class Packet(object):
         Returns:
             The String corresponding to the type of Packet.
         """
-        PROTOCOL_NAMES = {
-            Packet.PROTOCOL_QUERY  : 'QUERY',
-            Packet.PROTOCOL_RECORD : 'RECORD',
-            Packet.PROTOCOL_ERROR  : 'ERROR'
-        }
-
-        return PROTOCOL_NAMES[type]
+        return Packet.PROTOCOL_NAMES[type]
 
     #---------------------------------------------------------------------------
     # Constructor
@@ -71,6 +71,11 @@ class Packet(object):
         Args:
             type: A value among {Packet.PROTOCOL_QUERY, Packet.PROTOCOL_RECORD, Packet.PROTOCOL_ERROR}.
         """
+        assert protocol in Packet.PROTOCOL_NAMES.keys(),\
+            "Invalid protocol = %s (not in %s)" % (protocol, Packet.PROTOCOL_NAMES.keys())
+        assert isinstance(last, bool),\
+            "Invalid last = %s (%s)" % (last, type(last))
+
         self._protocol = protocol
         self._last     = last
 
@@ -228,16 +233,25 @@ class QueryPacket(Packet):
 # NOTE: This class will probably disappear and we will use only the Packet class
 class ErrorPacket(Packet):
     """
-    Equivalent to current ResultValue
-    Equivalent to current ICMP errors
+    Equivalent to current ResultValue (in case of failure)
+    Analog with ICMP errors packets in IP networks
     """
+
     def __init__(self, type = 2, code = 0, message = None, traceback = None):
         """
         Constructor.
         Args:
+            type: A value among {ResultValue.SUCCESS, ResultValue.WARNING}
+            code: See manifold.core.result_value 
             message: A String containing the error message or None.
             traceback: A String containing the traceback or None.
+            origin: A value among {ResultValue.CORE, ResultValue.GATEWAY}
         """
+        assert isinstance(type, int)
+        assert isinstance(code, int)
+        assert not message   or isinstance(message, StringTypes)
+        assert not traceback or isinstance(traceback, StringTypes)
+
         Packet.__init__(self, Packet.PROTOCOL_ERROR)
         self._type      = type
         self._code      = code
@@ -260,13 +274,43 @@ class ErrorPacket(Packet):
         """
         return self._traceback
 
+    @returns(int)
+    def get_origin(self):
+        """
+        Returns:
+            A value among {ResultValue.CORE, ResultValue.GATEWAY}
+            identifying who is the origin of this ErrorPacket.
+        """
+        return self._origin 
+
+    @returns(int)
+    def get_code(self):
+        """
+        Returns:
+            The error code of the Error carried by this ErrorPacket.
+            See manifold.core.result_value
+        """
+        return self._code
+
+    @returns(int)
+    def get_type(self):
+        """
+        Returns:
+            The error type of the Error carried by this ErrorPacket.
+            See manifold.core.result_value
+        """
+        return self._type
+
     @returns(StringTypes)
     def __repr__(self):
         """
         Returns:
             The '%r' representation of this QUERY Packet.
         """
-        return "<ErrorPacket: %s>" % self.get_message()
+        return "<Packet.%s: %s>" % (
+            Packet.get_protocol_name(self.get_protocol()),
+            self.get_message()
+        )
 
     @returns(StringTypes)
     def __str__(self):

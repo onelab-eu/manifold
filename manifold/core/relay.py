@@ -87,3 +87,14 @@ class Relay(Producer, Consumer):
         """
         #Producer.release(self)
         Consumer.release(self)
+
+    @returns(StringTypes)
+    def format_backward_paths_rec(self, indent, res):
+        """
+        Format debug information to test the path(s) from this Producer
+        towards the end-Consumer(s)
+        Args:
+            ident: An integer corresponding to the current indentation.
+            res: The String we're crafting (rec)
+        """
+        return Producer.format_backward_paths_rec(self, indent, res)

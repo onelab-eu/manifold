@@ -4,7 +4,7 @@ import pyparsing as pp
 from manifold.core.announce         import Announce, announces_from_docstring
 from manifold.core.key              import Key, Keys
 from manifold.core.field            import Field 
-from manifold.core.record           import Record, Records, LastRecord
+from manifold.core.record           import Record, Records
 from manifold.core.table            import Table
 from manifold.gateways              import Gateway
 
@@ -181,16 +181,15 @@ class ConfGateway(Gateway):
     # account : %(account)t/%(user)f/%(platform)f/%f
     # key must be encoded in the filesystem
     
-    # TODO thos shoud respect the forward prototype defined in Gateway class.
-    # XXX to be moved to the gateway class, instead of start()
-    # XXX should accept deferred or not...
-    def forward(self, query):
+    def receive_impl(self, packet):
         """
         Executes a query on the local gateway.
         """
+        query = packet.get_query()
         # XXX ensure query parameters are non empty for create
-        p = PatternParser(query, BASEDIR)
-        return p.parse(self.MAP_PATTERN[query.get_from()])
+        parser = PatternParser(query, BASEDIR)
+        rows = parser.parse(self.MAP_PATTERN[query.get_from()])
+        self.records(rows)
         
     @announces_from_docstring('local')
     def get_metadata(self):

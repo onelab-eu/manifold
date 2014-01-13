@@ -22,10 +22,6 @@ from manifold.util.type             import returns
 
 DUMPSTR_PROJECTION = "SELECT %s" 
 
-#------------------------------------------------------------------
-# Shared utility function
-#------------------------------------------------------------------
-
 def do_projection(record, fields):
     """
     Take the necessary fields in dic
@@ -64,7 +60,7 @@ def do_projection(record, fields):
     return ret
 
 #------------------------------------------------------------------
-# Projection Node
+# Projection Operator (SELECT) 
 #------------------------------------------------------------------
 
 class Projection(Operator):
@@ -130,10 +126,9 @@ class Projection(Operator):
     def receive(self, packet):
         """
         Process an incoming Packet instance.
-        - If this is a RECORD Packet, remove every fields that are
-          not SELECTed by this Operator.
-        - If this is the LastRecord or an ERROR Packet, forward
-          this Packet.
+          - If this is a RECORD Packet, remove every fields that are
+            not SELECTed by this Operator.
+          - If this is an ERROR Packet, forward this Packet.
         Args:
             packet: A Packet instance.
         """
@@ -149,20 +144,9 @@ class Projection(Operator):
         else: # TYPE_ERROR
             self.send(packet)
 
-    def dump(self, indent = 0):
-        """
-        Dump the current node.
-        Args:
-            indent: Current indentation.
-        """
-        super(Projection, self).dump(indent)
-        # We have one producer for sure
-        self.get_producer().dump(indent + 1)
-
     @returns(Producer)
     def optimize_selection(self, query, filter):
-        producer = self.get_producer().optimize_selection(query, filter)
-        self.get_producer(producer)
+        self.get_producer().optimize_selection(query, filter)
         return self
 
     @returns(Producer)

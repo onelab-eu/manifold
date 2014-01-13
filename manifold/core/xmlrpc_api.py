@@ -86,7 +86,7 @@ class XMLRPCAPI(xmlrpc.XMLRPC, object):
         else:
             if not annotation or not 'authentication' in annotation:
                 msg ="You need to specify an authentication token in annotation"
-                return dict(ResultValue.get_error(ResultValue.FORBIDDEN, msg))
+                return dict(ResultValue.error(msg, ResultValue.FORBIDDEN))
                 
             # We expect to find an authentication token in the annotation
             if annotation:
@@ -102,7 +102,7 @@ class XMLRPCAPI(xmlrpc.XMLRPC, object):
             except Exception, e:
                 Log.warning("XMLRPCAPI::xmlrpc_forward: Authentication failed...: %s" % str(e))
                 msg = "Authentication failed: %s" % e
-                return dict(ResultValue.get_error(ResultValue.FORBIDDEN, msg))
+                return dict(ResultValue.error(msg, ResultValue.FORBIDDEN))
 
         query = Query(query)
         annotation = Annotation(annotation) if annotation else Annotation()
