@@ -135,14 +135,13 @@ class Interface(object):
     @returns(list)
     def execute_local_query(self, query, annotation = None, error_message = None):
         """
-        Execute a Query related to the Manifold Storage
-        (ie any "local:*" object).
+        Execute a Query related to the Manifold Storage.
         Args:
             query: A Query. query.get_from() must start with the
                 STORAGE_NAMESPACE namespace (see util/storage.py).
-            annotation: An Annotation instance related to Query or None.
+            annotation: An Annotation instance related to query or None.
             error_message: A String containing the error_message that must
-                be written in case of failure.
+                be written in case of failure or None.
         Raises:
             Exception: if the Query does not succeed.
         Returns:
@@ -175,6 +174,14 @@ class Interface(object):
         except KeyError:
             Log.error("Unable to retrieve Gateway %s" % platform_name)
             return None
+
+    @returns(list)
+    def get_gateways(self):
+        """
+        Returns:
+            The list of Gateway currently loaded.
+        """
+        return self.gateways.values()
 
     @returns(Gateway)
     def get_storage(self):
