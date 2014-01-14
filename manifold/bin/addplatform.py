@@ -1,92 +1,108 @@
 #!/usr/bin/env python
 #! -*- coding: utf-8 -*-
+#
+# Add a platform in the Manifold Storage.
+#
+# Copyright (C) UPMC Paris Universitas
+# Authors:
+#   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
 import sys
+from types                  import StringTypes
 
-from manifold.core.query    import Query
-from manifold.core.router   import Router
+from manifold.bin.common    import check_num_arguments, check_option, check_option_bool, check_option_enum, run_command, string_to_bool
+from manifold.util.storage  import STORAGE_NAMESPACE 
+from manifold.util.type     import accepts, returns 
 
-def usage(gateways):
-    print "Usage: %s NAME LONGNAME GATEWAY AUTH_TYPE CONFIG [DISABLED]" % sys.argv[0]
-    print ""
-    print "Add a platform to Manifold"
-    print "    NAME: short name of the platform (lower case)."
-    print "    LONGNAME: long name of the platform."
-    print "    GATEWAY: type of gateway. Supported values: %s" % ', '.join(gateways) if gateways else '(unavailable)'
-    print "    AUTH_TYPE: authentification type. Supported values: 'none', 'default', 'user'"
-    print "    CONFIG: {'param':'value'}"
-    print "    DISABLED: 0=enabled, 1=disabled"
+DOC_ADD_PLATFORM = """
+%(default_message)s
+
+usage: %(program_name)s PLATFORM_NAME LONGNAME GATEWAY AUTH_TYPE CONFIG [DISABLED]
+
+Add a platform to Manifold
+    PLATFORM_NAME : A String containing the short name of the platform (lower case).
+    LONGNAME      : A String containing the long name of the platform.
+    GATEWAY_TYPE  : A String containing the type of Gateway.
+    AUTH_TYPE     : Authentification type.
+        Supported values are:
+            "none"    : The platform support anonymous access.
+            "default" :
+            "user"    : The platform expect user's credentials.
+    CONFIG        : A json encoded dict which may transports additional information
+        related to this platform.
+    DISABLED      : Disable this new platform in Manifold (default: 1)
+        0: enabled
+        1: disabled
+"""
+
+CMD_LIST_GATEWAYS = """
+SELECT name
+    FROM %(namespace)s:gateway
+"""
+
+CMD_ADD_PLATFORM = """
+INSERT INTO %(namespace)s:platform
+    SET 
+        platform          = %(platform_name)s,
+        platform_longname = %(platform_longname)s,
+        gateway_type      = %(gateway_type)s,
+        auth_type         = %(auth_type)s,
+        config            = %(config)s,
+        disabled          = %(disabled)s
+"""
+
+CMD_GET_GATEWAYS = """
+SELECT type FROM %(namespace)s:gateway
+"""
+
+SUPPORTED_AUTH_TYPE = ["none", "default", "user"]
+
+@returns(list)
+def get_supported_gateway_types():
+    """
+    A list of String containing the name of each supported Gateway.
+    """
+    gateways = list()
+    run_command(CMD_GET_GATEWAYS % {"namespace" : STORAGE_NAMESPACE}, gateways)
+    return [gateway["type"] for gateway in gateways]
+
+@returns(bool)
+@accepts(StringTypes)
+def is_lower_case(s):
+    """
+    Args:
+        s: A String instance.
+    Returns:
+        True iif s is lower case.
+    """
+    return s == s.lower()
 
 def main():
+    check_num_arguments(DOC_ADD_PLATFORM, 6, 7)
+    platform_name, platform_longname, gateway_type, auth_type, config = sys.argv[1:6]
+    disabled = "1"
     argc = len(sys.argv)
-    program_name = sys.argv[0]
+    if argc == 7:
+        disabled = sys.argv[6]
 
-    with Router() as router:
+    # Check NAME
+    check_option("PLATFORM_NAME", platform_name, is_lower_case)
 
-        ret_gateways = router.receive(Query.get('local:gateway').select('name'))
-        if ret_gateways['code'] != 0:
-            print "W: Could not contact the Manifold server to list available gateways. Check disabled."
-            supported_gateways = None
-        else:
-            gateways = ret_gateways['value']
-            if not gateways:
-                print "W: Could not contact the Manifold server to list available gateways. Check disabled."
-                supported_gateways = None
-            else:
-                supported_gateways = [gw['name'] for gw in gateways]
+    # Check GATEWAY
+    supported_gateway_types = get_supported_gateway_types()
+    if supported_gateway_types:
+        check_option_enum("GATEWAY_TYPE", gateway_type, supported_gateway_types)
+        
+    # Check AUTH_TYPE
+    check_option_enum("AUTH_TYPE", auth_type, SUPPORTED_AUTH_TYPE)
 
-        # Check number of arguments
-        if argc not in [6, 7]:
-            print >> sys.stderr, "%s: Invalid number of arguments (is equal to %d, should be equal to 6 or 7) " % (program_name, argc)
-            usage(supported_gateways)
-            sys.exit(1)
+    # Check DISABLED
+    if argc == 7:
+        check_option_bool("DISABLED", disabled)
+    disabled = string_to_bool(disabled) 
 
-        name, longname, gateway, auth_type, config = sys.argv[1:6]
-        if argc == 7:
-            disabled = sys.argv[6]
-        else:
-            disabled = "1"
-
-
-        # Check NAME
-        if name != name.lower():
-            print >> sys.stderr, "%s: Invalid NAME parameter (is '%s', should be '%s')" % (program_name, name, name.lower())
-            usage()
-            sys.exit(1)
-
-        # Check GATEWAY
-        if supported_gateways and gateway not in supported_gateways:
-            print >> sys.stderr, "%s: Invalid GATEWAY parameter (is '%s', should be in '%s')" % (program_name, gateway, "', '".join(supported_gateways))
-            usage()
-            sys.exit(1)
-            
-        # Check AUTH_TYPE
-        supported_auth_type = ["none", "default", "user"]
-        if auth_type not in supported_auth_type:
-            print >> sys.stderr, "%s: Invalid AUTH_TYPE parameter (is '%s', should be in '%s')" % (program_name, auth_type, "', '".join(supported_auth_type))
-            usage()
-            sys.exit(1)
-
-        # Check DISABLED
-        if argc == 7:
-            supported_disabled = ["False", "FALSE", "NO", "0", "True", "TRUE", "YES", "1"]
-            if str(sys.argv[6]) not in supported_disabled:
-                print >> sys.stderr, "%s: Invalid DISABLED parameter (is '%s', should be in '%s')" % (program_name, disabled, "', '".join(supported_disabled))
-                usage()
-                sys.exit(1)
-
-        disabled = str(sys.argv[6]) in ["False", "FALSE", "NO", "0"]
-
-        platform_params = {
-            'platform': name,
-            'platform_longname': longname,
-            'gateway_type': gateway,
-            'auth_type':auth_type,
-            'config': config,
-            'disabled': disabled
-        }
-
-        router.receive(Query.create('local:platform').set(platform_params))
+    namespace = STORAGE_NAMESPACE
+    return run_command(CMD_ADD_PLATFORM % locals())
 
 if __name__ == "__main__":
     main()

@@ -28,6 +28,7 @@ from manifold.core.router           import Router
 from manifold.core.sync_receiver    import SyncReceiver
 from manifold.core.result_value     import ResultValue
 from manifold.input.sql             import SQLParser
+from manifold.util.colors           import BOLDBLUE, NORMAL
 from manifold.util.log              import Log
 from manifold.util.options          import Options
 from manifold.util.reactor_thread   import ReactorThread
@@ -719,7 +720,7 @@ class Shell(object):
                             sep = ">>> "
                         else:
                             sep = "... "
-                        line = raw_input(self.PROMPT + sep)
+                        line = raw_input(BOLDBLUE + Shell.PROMPT + sep + NORMAL)
                     # Ctrl-C
                     except KeyboardInterrupt:
                         command = ""

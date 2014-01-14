@@ -36,15 +36,16 @@ class ExploreTask(Deferred):
         """
         Constructor.
         Args:
-            root:
-            relation: A Relation instance
-            path:
-            parent:
-            depth: An positive integer value, corresponding to the number of
+            interface: A Router instance.
+            root     : A Table instance.
+            relation : A Relation instance
+            path     : A list instance.
+            parent   : An ExploreTask instance.
+            depth    : A positive integer value, corresponding to the number of
                 none 1..1 args traversed from the root Table to the current
         """
         assert root != None, "ExploreTask::__init__(): invalid root = %s" % root
-
+        
         # Context
         self._interface  = interface
         self.root        = root

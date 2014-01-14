@@ -41,7 +41,7 @@ from manifold.models.user           import User
 from manifold.util.log              import Log
 from manifold.util.password         import hash_password 
 from manifold.util.predicate        import included
-from manifold.util.storage          import get_metadata_tables, STORAGE_NAMESPACE 
+from manifold.util.storage          import storage_make_virtual_announces, STORAGE_NAMESPACE 
 from manifold.util.type             import accepts, returns
 
 @returns(tuple)
@@ -349,7 +349,7 @@ class SQLAlchemyGateway(Gateway):
         Returns:
             True iif this Table is virtual.
         """
-        virtual_table_names = [announce.get_table().get_name() for announce in get_metadata_tables(STORAGE_NAMESPACE)]
+        virtual_table_names = [announce.get_table().get_name() for announce in storage_make_virtual_announces(STORAGE_NAMESPACE)]
         return table_name in virtual_table_names 
 
     @returns(list)
@@ -362,9 +362,12 @@ class SQLAlchemyGateway(Gateway):
         """
         announces = list()
 
-        # Each model is a table ("account", "linked_account", "user"...)
-        # Note that "object" and "column" table are not in self._map_object
-        # this map only contains table existing in the SQLAlchemy database.
+        # Virtual tables ("object", "column", ...) 
+        #    See SQLAlchemyGateway::make_announces()
+        virtual_announces = storage_make_virtual_announces(STORAGE_NAMESPACE)
+
+        # Tables stored in SQLAlchemy
+        #    Each model is a table ("account", "linked_account", "user"...)
         for table_name, cls in self._map_object.items():
             table = Table(STORAGE_NAMESPACE, None, table_name, None, None)
 
@@ -391,9 +394,7 @@ class SQLAlchemyGateway(Gateway):
 
             announces.append(Announce(table))
 
-        # Meta-tables "object" and "column"
-        metadata_announces = get_metadata_tables(STORAGE_NAMESPACE)
-        announces.extend(metadata_announces)
+        announces.extend(virtual_announces)
         return announces
 
     def receive_impl(self, packet):
@@ -410,17 +411,26 @@ class SQLAlchemyGateway(Gateway):
         }
 
         query = packet.get_query()
+        action = query.get_action()
+        table_name = query.get_from()
 
-        if query.get_from() == "object":
-            if not query.get_action() == "get":
-                raise RuntimeError("Invalid action (%s) on '%s::%s' table" % (query.get_action(), self.get_platform_name(), table_name))
-
-            records = Records([announce.to_dict() for announce in self.get_announces()])
+        if SQLAlchemyGateway.is_virtual_table(table_name):
+            # Handle queries related to local:object and local:gateway.
+            # Note that local:column won't be queried since it has no RETRIEVE capability. 
+            if not action == "get":
+                 raise RuntimeError("Invalid action (%s) on '%s::%s' table" % (action, self.get_platform_name(), table_name))
+ 
+            if table_name == "object":            
+                records = Records([announce.to_dict() for announce in self.get_announces()])
+            elif table_name == "gateway":
+                records = Records([{"type" : gateway_type} for gateway_type in sorted(Gateway.list().keys())])
+            else:
+                raise RuntimeError("Invalid table '%s::%s'" % (self.get_platform_name(), table_name))
         else:
             annotation = packet.get_annotation()
             if not annotation:
                 annotation = Annotation() 
             user = annotation.get("user", None)
-            records = Records([row2record(row) for row in _map_action[query.get_action()](query, user)])
+            records = Records([row2record(row) for row in _map_action[action](query, user)])
 
         self.records(packet, records)

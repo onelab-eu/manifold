@@ -78,7 +78,7 @@ def storage_execute(gateway, query, annotation = None, error_message = None):
     return result_value["value"]
         
 @returns(list)
-def get_metadata_tables(platform_name = STORAGE_NAMESPACE):
+def storage_make_virtual_announces(platform_name = STORAGE_NAMESPACE):
     """
     Craft a list of Announces used to feed the Storage's namespace.
     Args:
@@ -93,7 +93,7 @@ def get_metadata_tables(platform_name = STORAGE_NAMESPACE):
             string table;
             column column;
 
-            CAPABILITY(selection, projection, retrieve, join);
+            CAPABILITY(retrieve, join);
             KEY(table);
         }; 
 
@@ -102,9 +102,16 @@ def get_metadata_tables(platform_name = STORAGE_NAMESPACE):
             string name;
             string type;
             string description;
-            bool is_array;
+            bool   is_array;
 
             KEY(name);
+        };
+
+        class gateway {
+            string type;
+
+            CAPABILITY(retrieve);
+            KEY(type);
         };
         """
     announces = _get_metadata_tables()
