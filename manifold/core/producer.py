@@ -193,7 +193,7 @@ class Producer(Node):
         Args:
             consumer: A Consumer instance.
         Raises:
-            Exception: if the node may have several Consumers.
+            Exception: if dthe node may have several Consumers.
         """
         if self.get_max_consumers() != 1:
             raise Exception, "Cannot call set_consumer with max_consumers != 1"

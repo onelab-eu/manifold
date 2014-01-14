@@ -374,10 +374,19 @@ class SQLAlchemyGateway(Gateway):
             primary_key = tuple()
 
             for column in cls.__table__.columns:
+
+                fk = column.foreign_keys
+                if fk:
+                    fk = iter(column.foreign_keys).next()
+                    _type = fk.column.table.name
+                else:
+                    _type = self._map_types[column.type.__class__]
+
+                # Multiple foreign keys are not handled yet
                 table.insert_field(Field(
                     qualifiers  = list(), # nothing ["const"]
                     name        = column.name,
-                    type        = self._map_types[column.type.__class__],
+                    type        = _type,
                     is_array    = False,
                     description = column.description
                 ))

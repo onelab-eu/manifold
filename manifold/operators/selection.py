@@ -50,12 +50,16 @@ class Selection(Operator):
         self._filter = filter
         Operator.__init__(self, producers = child, max_producers = 1)
 
-        self.query = self.get_producer().get_query().copy()
-        self.query.filters |= filter
+#DEPRECATED|        self.query = self.get_producer().get_query().copy()
+#DEPRECATED|        self.query.filters |= filter
  
     #---------------------------------------------------------------------------
     # Methods
     #---------------------------------------------------------------------------
+
+    def get_destination(self):
+        d = self.get_producer().get_destination()
+        return d.selection(self._filter)
 
     @returns(Filter)
     def get_filter(self):
@@ -101,18 +105,18 @@ class Selection(Operator):
             self.send(packet)
 
     @returns(Producer)
-    def optimize_selection(self, query, filter):
+    def optimize_selection(self, filter):
         # Concatenate both selections...
         for predicate in self._filter:
             filter.add(predicate)
-        return self.get_producer().optimize_selection(query, filter)
+        return self.get_producer().optimize_selection(filter)
 
     @returns(Producer)
-    def optimize_projection(self, query, fields):
+    def optimize_projection(self, fields):
         # Do we have to add fields for filtering, if so, we have to remove them after
         # otherwise we can just swap operators
         keys = self._filter.keys()
-        self.update_producer(lambda p: p.optimize_projection(query, fields | keys))
+        self.update_producer(lambda p: p.optimize_projection(fields | keys))
         #self.query.fields = fields
         if not keys <= fields:
             # XXX add projection that removed added_fields

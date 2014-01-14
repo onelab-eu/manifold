@@ -171,7 +171,7 @@ class AST(object):
         assert isinstance(predicate, Predicate), "Invalid predicate = %r (%r)" % (predicate, type(Predicate))
         assert not self.is_empty(),              "No left table"
 
-        self.root = LeftJoin(self.get_root(), right_child.get_root(), predicate)
+        self.root = LeftJoin(predicate, self.get_root(), right_child.get_root())
         return self
 
     #@returns(AST)
@@ -297,12 +297,12 @@ class AST(object):
             query: The Query issued by the user.
         """
         try: # DEBUG
-            self.optimize_selection(query, query.get_where())
-            self.optimize_projection(query, query.get_select())
+            self.optimize_selection(query.get_where())
+            self.optimize_projection(query.get_select())
         except Exception, e:
             Log.error(traceback.format_exc())
 
-    def optimize_selection(self, query, filter):
+    def optimize_selection(self, filter):
         """
         Apply a WHERE operation to an AST and spread this operation
         along the AST branches by adding appropriate Selection Nodes
@@ -312,11 +312,11 @@ class AST(object):
                 involved in the WHERE clause.
         """
         if not filter: return
-        producer = self.get_root().optimize_selection(query, filter)
+        producer = self.get_root().optimize_selection(filter)
         assert producer, "ast::optimize_selection() has failed: filter = %s" % filter
         self.root = producer
 
-    def optimize_projection(self, query, fields):
+    def optimize_projection(self, fields):
         """
         Apply a SELECT operation to an AST and spread this operation
         along the AST branches by adding appropriate Projection Nodes
@@ -326,6 +326,6 @@ class AST(object):
                 involved in the SELECT clause.
         """
         if not fields: return
-        producer = self.get_root().optimize_projection(query, fields)
+        producer = self.get_root().optimize_projection(fields)
         assert producer, "ast::optimize_projection() has failed: fields = %s" % fields 
         self.root = producer
