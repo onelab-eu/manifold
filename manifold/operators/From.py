@@ -20,6 +20,7 @@ from types                          import StringTypes
 
 from manifold.core.annotation       import Annotation
 from manifold.core.capabilities     import Capabilities
+from manifold.core.destination      import Destination
 from manifold.core.key              import Key
 from manifold.core.packet           import Packet
 from manifold.core.query            import Query
@@ -58,7 +59,7 @@ class From(Operator):
         assert isinstance(key, Key),\
             "Invalid key = %s (%s)" % (key, type(key))
 
-        self.query        = query
+        self._query        = query
         self.capabilities = capabilities
         self.key          = key
         self._gateway     = gateway
@@ -172,7 +173,11 @@ class From(Operator):
         Returns:
             The Query nested in this From instance.
         """
-        return self.query
+        return self._query
+
+    def get_destination(self):
+        q = self.get_query()
+        return Destination(q.get_from(), q.get_where(), q.get_select())
 
     def receive(self, packet):
         """
@@ -199,7 +204,7 @@ class From(Operator):
 #        self.send(packet)
 
     @returns(Operator)
-    def optimize_selection(self, query, filter):
+    def optimize_selection(self, filter):
         """
         Propagate a WHERE clause through this From instance. 
         Args:
@@ -222,7 +227,7 @@ class From(Operator):
 
         if self.capabilities.selection:
             # Push filters into the From node
-            self.query.filter_by(filter)
+            self._query.filter_by(filter)
             #old for predicate in filter:
             #old    self.query.filters.add(predicate)
             return self
@@ -232,9 +237,9 @@ class From(Operator):
             if key_filter:
                 # We push only parts related to the key (unless fullquery)
                 if self.capabilities.fullquery:
-                    self.query.filter_by(filter)
+                    self._query.filter_by(filter)
                 else:
-                    self.query.filter_by(key_filter)
+                    self._query.filter_by(key_filter)
 
             if remaining_filter:
                 # FROM (= self) becomes the new producer for Selection
@@ -258,23 +263,22 @@ class From(Operator):
             if self.capabilities.fullquery:
                 # We also push the filter down into the node
                 for predicate in filter:
-                    self.query.filters.add(predicate)
+                    self._query.filters.add(predicate)
 
             return selection
 
     @returns(Operator)
-    def optimize_projection(self, query, fields):
+    def optimize_projection(self, fields):
         """
         Propagate a SELECT clause through this From instance. 
         Args:
             fields: A set of String instances (queried fields).
-            query: A Query instance.
         Returns:
             The updated root Node of the sub-AST.
         """
         if self.capabilities.projection:
             # Push fields into the From node
-            self.query.select().select(fields)
+            self._query.select().select(fields)
             return self
         else:
             provided_fields = self.get_query().get_select()

@@ -241,17 +241,21 @@ class Filter(set):
         return Filter([x for x in self if not fun(x)])
 
     @returns(tuple)
-    def split(self, fun):
+    def split(self, fun, true_only = False):
         true_filter, false_filter = Filter(), Filter()
         for predicate in self:
             if fun(predicate):
                 true_filter.add(predicate)
             else:
                 false_filter.add(predicate)
-        return (true_filter, false_filter)
+        if true_only:
+            return true_filter
+        else:
+            return (true_filter, false_filter)
+        
 
-    def split_fields(self, fields):
-        return self.split(lambda predicate: predicate.get_key() in fields)
+    def split_fields(self, fields, true_only = False):
+        return self.split(lambda predicate: predicate.get_key() in fields, true_only)
 
     # __eq__ : similar to set.__eq__   
     # __le__: For now, we are using set equality, but this is wrong per se.

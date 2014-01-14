@@ -80,6 +80,9 @@ class ExploreTask(Deferred):
         """
         return "<ExploreTask %d -- %s -- %s [%d]>" % (self.identifier, self.root.get_name(), self.relation, self.depth)
 
+    def default_errback(self, failure):
+        print "DEFAULT ERRBACK", failure
+
     def cancel(self):
         self.callback(None)
 
@@ -150,13 +153,16 @@ class ExploreTask(Deferred):
         # Which fields we are keeping for the current table, and which we are removing from missing_fields
         self.keep_root_a = set()
         for field in root_provided_fields:
-            for missing in list(missing_fields):
+
+            # We use a list since the set is changing during iteration
+            #print "list(missing_fields)", list(missing_fields)
+            for missing in list(missing_fields): 
+                # XXX Comment ce print peut il influencer le reste
                 # missing has dots inside
                 # hops.ttl --> missing_path == ["hops"] missing_field == ["ttl"]
                 missing_list = missing.split('.')
                 missing_path, (missing_field,) = missing_list[:-1], missing_list[-1:]
                 flag, shortcut = is_sublist(missing_path, self.path) #self.path, missing_path)
-
                 if flag and missing_field == field:
                     #print 'current table provides missing field PATH=', self.path, 'field=', field, 'missing=', missing
                     self.keep_root_a.add(field)
@@ -166,6 +172,7 @@ class ExploreTask(Deferred):
                     is_onjoin = self.root.capabilities.is_onjoin()
                     
                     if not is_onjoin or field not in root_key_fields:
+                        # Set is changing during iteration !!!
                         missing_fields.remove(missing)
                     
         assert self.depth == 1 or root_key_fields not in missing_fields, "Requesting key fields in child table"
@@ -174,7 +181,7 @@ class ExploreTask(Deferred):
             # XXX NOTE that we have built an AST here without taking into account fields for the JOINs and SUBQUERIES
             # It might not pose any problem though if they come from the optimization phase
 #OBSOLETE|            self.ast = self.build_union(self.root, self.keep_root_a, allowed_platforms, metadata, user, query_plan)
-            self.ast = self.perform_union(self.root, allowed_platforms, metadata, user, query_plan)
+            self.ast = self.perform_union(self.root, allowed_platforms, metadata, query_plan)
 
         if self.depth == MAX_DEPTH:
             self.callback(self.ast)
@@ -182,19 +189,20 @@ class ExploreTask(Deferred):
 
         # In all cases, we have to list neighbours for returning 1..N relationships. Let's do it now. 
         for neighbour in metadata.graph.successors(self.root):
+            #print "NEIGH:", neighbour
             for relation in metadata.get_relations(self.root, neighbour):
                 name = relation.get_relation_name()
 
-                if name in seen_set:
-                    continue
-
-                seen_set.add(name)
+                if name:
+                    if name in seen_set:
+                        continue
+                    seen_set.add(name)
 
                 if relation.requires_subquery():
                     subpath = self.path[:]
                     subpath.append(name)
                     task = ExploreTask(self._interface, neighbour, relation, subpath, self, self.depth+1)
-                    task.addCallback(self.store_subquery, relation)
+                    task.addCallback(self.store_subquery, relation).addErrback(self.default_errback)
 
                     relation_name = relation.get_relation_name()
 
@@ -208,15 +216,15 @@ class ExploreTask(Deferred):
                     
                 else:
                     task = ExploreTask(self._interface, neighbour, relation, self.path, self.parent, self.depth)
-                    task.addCallback(self.perform_left_join, relation, allowed_platforms, metadata, user, query_plan)
+                    task.addCallback(self.perform_left_join, relation, allowed_platforms, metadata, query_plan).addErrback(self.default_errback)
                     priority = TASK_11
 
                 deferred_list.append(task)
                 stack.push(task, priority)
 
-        DeferredList(deferred_list).addCallback(self.all_done, allowed_platforms, metadata, user, query_plan)
+        DeferredList(deferred_list).addCallback(self.all_done, allowed_platforms, metadata, query_plan).addErrback(self.default_errback)
 
-    def all_done(self, result, allowed_platforms, metadata, user, query_plan):
+    def all_done(self, result, allowed_platforms, metadata, query_plan):
         """
 
         Args:
@@ -234,30 +242,31 @@ class ExploreTask(Deferred):
         #        continue
         try:
             if self.subqueries:
-                self.perform_subquery(allowed_platforms, metadata, user, query_plan)
+                self.perform_subquery(allowed_platforms, metadata, query_plan)
             self.callback(self.ast)
         except Exception, e:
             Log.error("Exception caught in ExploreTask::all_done: %s" % e)
             self.cancel()
             raise e
 
-    def perform_left_join(self, ast, relation, allowed_platforms, metadata, user, query_plan):
+    def perform_left_join(self, ast, relation, allowed_platforms, metadata, query_plan):
         """
         Connect a new AST to the current AST using a LeftJoin Node.
         Args:
-            ast: A child AST that must be connected to self.ast using LEFT JOIN .
             relation: The Relation connecting the child Table and the parent Table involved in this LEFT jOIN.
             metadata: The DBGraph instance related to the 3nf graph.
             user: The User issuing the Query.
             query_plan: The QueryPlan instance related to this Query, and that we're updating.
         """
-        #Log.debug(ast, relation)
+        # ast should be equal to self.ast. We need to pass it as a parameter to the defer callback
+        #Log.debug("Perform left join", self.ast, relation)
         if not ast: return
         if not self.ast:
-            self.ast = self.perform_union(self.root, allowed_platforms, metadata, user, query_plan)
+            # This can occur if no interesting field was found in the table, but it is just used to connect children tables
+            self.ast = self.perform_union(self.root, allowed_platforms, metadata, query_plan)
         self.ast.left_join(ast, relation.get_predicate())
 
-    def perform_subquery(self, allowed_platforms, metadata, user, query_plan):
+    def perform_subquery(self, allowed_platforms, metadata, query_plan):
         """
         Connect a new AST to the current AST using a SubQuery Node.
         If the connected table is "on join", we will use a LeftJoin
@@ -265,16 +274,14 @@ class ExploreTask(Deferred):
         Args:
             metadata: The DBGraph instance related to the 3nf graph.
             allowed_platforms: A set of String where each String corresponds to a queried platform name.
-            user: The User issuing the Query.
             query_plan: The QueryPlan instance related to this Query, and that we're updating.
         """
-        Log.warning("perform_subquery: user is not needed anymore")
         # We need to build an AST just to collect subqueries
         if not self.ast:
             print "[perform_subquery] not self.ast"
             # XXX ?????
             # XXX What is self.root here ?
-            self.ast = self.perform_union(self.root, allowed_platforms, metadata, user, query_plan)
+            self.ast = self.perform_union(self.root, allowed_platforms, metadata, query_plan)
 
         print "perform subquery"
         print "="*80
@@ -360,17 +367,15 @@ class ExploreTask(Deferred):
         else:
             self.ast.subquery(self.subqueries.values())
 
-    def perform_union(self, table, allowed_platforms, metadata, user, query_plan):
+    def perform_union(self, table, allowed_platforms, metadata, query_plan):
         """
         Complete a QueryPlan instance by adding an Union of From Node related
         to a same Table.
         Args:
             table: The 3nf Table, potentially provided by several platforms.
             allowed_platforms: A set of String where each String corresponds to a queried platform name.
-            user: The User issuing the Query.
             query_plan: The QueryPlan instance related to this Query, and that we're updating.
         """
-        Log.warning("perform_union: user is not needed anymore")
         from_asts = list()
         key = table.get_keys().one()
 

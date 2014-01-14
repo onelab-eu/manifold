@@ -92,8 +92,8 @@ class Projection(Operator):
 
         Operator.__init__(self, producers = child, max_producers = 1)
 
-        self.query = self.get_producer().get_query().copy()
-        self.query.fields &= fields
+#DEPRECATED|        self.query = self.get_producer().get_query().copy()
+#DEPRECATED|        self.query.fields &= fields
 
     #---------------------------------------------------------------------------
     # Accessors
@@ -123,6 +123,10 @@ class Projection(Operator):
     # Methods
     #---------------------------------------------------------------------------
 
+    def get_destination(self):
+        d = self.get_producer().get_destination()
+        return d.projection(self._fields)
+
     def receive(self, packet):
         """
         Process an incoming Packet instance.
@@ -145,11 +149,11 @@ class Projection(Operator):
             self.send(packet)
 
     @returns(Producer)
-    def optimize_selection(self, query, filter):
-        self.get_producer().optimize_selection(query, filter)
+    def optimize_selection(self, filter):
+        self.get_producer().optimize_selection(filter)
         return self
 
     @returns(Producer)
-    def optimize_projection(self, query, fields):
+    def optimize_projection(self, fields):
         # We only need the intersection of both
-        return self.get_producer().optimize_projection(query, self._fields & fields)
+        return self.get_producer().optimize_projection(self._fields & fields)
