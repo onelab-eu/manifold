@@ -130,7 +130,6 @@ class DBGraph(object):
         if relations:
             self.graph.add_edge(u, v, relations=relations)
             Log.debug("NEW EDGE %s" % self.format_arc(u, v))
-            print("NEW EDGE %s" % self.format_arc(u, v))
 
 #        if relation_uv:
 #            (type, fields_u) = relation_uv

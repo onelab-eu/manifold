@@ -163,9 +163,8 @@ class OMLGateway(PostgreSQLGateway):
         #print "DATABASES", self.get_databases()
 
     @returns(list)
-    def get_metadata(self):
+    def get_announces(self):
         """
-        Build metadata by loading header files
         Returns:
             The list of corresponding Announce instances
         """

@@ -11,7 +11,7 @@
 
 # Add required Manifold modules in the following list (TODO)
 
-from manifold.core.announce import Announce
+from manifold.core.announce import Announce, announces_from_docstring
 from manifold.core.table    import Table
 from manifold.gateways      import Gateway
 from manifold.util.log      import Log
@@ -94,9 +94,9 @@ class FooGateway(Gateway): # (TODO) Update this class name
     #---------------------------------------------------------------------------
 
     @returns(list)
-    def get_metadata(self):
+    def make_announces(self):
         """
-        Build metadata by querying postgresql's information schema
+        Build announces by querying postgresql's information schema
         Returns:
             The list of corresponding Announce instances
         """
@@ -108,17 +108,13 @@ class FooGateway(Gateway): # (TODO) Update this class name
         # provided by this Gateway. An Announce embeds a Table instance
         # which stores a set of Fields and Keys.
         #
-        # You should define FooGateway's metadata using
-        # @announces_from_docstring('foo')
-        # Then replace the FooGateway::get_metadata docstring by putting what
-        # you would write in the corresponding ".h" file.
-        #   See metadata/*.h
+        # You should define FooGateway's metadata by using:
         #
-        # Otherwise you can also manually craft Announce(s) instances.
-        # For further details, see:
-        #   manifold/core/announce.py
-        #   manifold/core/field.py
-        #   manifold/core/key.py
-        #   manifold/core/table.py
+        #    @announces_from_docstring('foo')
+        #
+        # ... as illustrated in manifold.util.storage and in in metadata/*.h
+        #
+        # Otherwise you can also manually craft the Announce(s) instances.
+        #   See manifold/core/announce.py
 
         return announces 
