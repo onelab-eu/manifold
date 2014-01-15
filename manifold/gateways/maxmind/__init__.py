@@ -9,11 +9,10 @@
 #
 # Copyright (C) 2013 UPMC 
 
-import GeoIP, os
+import os
 from types                              import StringTypes
 from urllib                             import urlretrieve
 
-from manifold.core.announce             import announces_from_docstring
 from manifold.gateways                  import Gateway
 from manifold.util.filesystem           import check_writable_directory, check_readable_file, mkdir
 from manifold.util.log                  import Log
@@ -53,7 +52,16 @@ MAXMIND_DAT_BASENAMES = [
 ]
 
 class MaxMindGateway(Gateway):
+
     __gateway_name__ = "maxmind"
+
+    from manifold.gateways.maxmind.methods.ip       import Ip
+    from manifold.gateways.maxmind.methods.hostname import Hostname
+
+    MAP_OBJECT = {
+        "ip"       : Ip,
+        "hostname" : Hostname
+    }
 
     @staticmethod
     @accepts(StringTypes)
@@ -163,10 +171,15 @@ class MaxMindGateway(Gateway):
         """
         self.check_receive(packet)
         query = packet.get_query()
-        records = list()
+        table_name = query.get_from()
+
+        records = None 
+        if table_name in MaxMindGateway.MAP_OBJECT.keys():
+            instance = MaxMindGateway[table_name](self)
+            records = instance.get(query, packet.get_annotation())
+        else:
+            raise RuntimeError("Invalid object %s" % table_name) 
         self.records(packet, records)
-
-
 
 #        where = query.get_where()
 #
@@ -244,32 +257,9 @@ class MaxMindGateway(Gateway):
         Returns:
             The list of corresponding Announce instances
         """
-        
-        @announces_from_docstring(platform_name)
-        def make_announces_impl():
-            """
-            // See record_by_addr
-            class ip {
-                inet   ip;            /**< Ex: '64.233.161.99' */
-                string city;          /**< Ex: 'Mountain View' */
-                string region_name,   /**< Ex: 'CA' */
-                int    area_code;     /**< Ex: 650 */
-                double longitude;     /**< Ex: -122.0574 */
-                string country_code3; /**< Ex: 'USA' */
-                double latitude;      /**< Ex: 37.419199999999989 */
-                string postal_code;   /**< Ex: '94043' */
-                int    dma_code       /**< Ex: 807 */
-                string country_code   /**< Ex: 'US' */
-                string country_name   /**< Ex: 'United States' */
-
-                CAPABILITY(retrieve);
-                KEY(table);
-            }; 
-
-            // See record_by_name
-            class hostname {
-
-            }
-            """
-
-        return make_announces_impl()
+        # Ex:  https://code.google.com/p/pygeoip/wiki/Usage
+        # Doc: https://code.google.com/p/pygeoip/downloads/list
+        announces = list()
+        for instance in MaxMindGateway.MAP_OBJECT.values():
+            announces += instance(self).make_announces()
+        return announces

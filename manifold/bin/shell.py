@@ -454,6 +454,7 @@ class Shell(object):
                 try:
                     Log.debug("Trying client authentication '%s'" % method)
                     self.select_auth_method(method)
+                    Log.info("Automatically selected '%s' authentication method" % method)
                     return
                 except Exception, e:
                     Log.error(format_exc())

@@ -349,7 +349,7 @@ class SQLAlchemyGateway(Gateway):
         Returns:
             True iif this Table is virtual.
         """
-        virtual_table_names = [announce.get_table().get_name() for announce in storage_make_virtual_announces(STORAGE_NAMESPACE)]
+        virtual_table_names = [announce.get_table().get_name() for announce in storage_make_virtual_announces()]
         return table_name in virtual_table_names 
 
     @returns(list)
@@ -364,7 +364,7 @@ class SQLAlchemyGateway(Gateway):
 
         # Virtual tables ("object", "column", ...) 
         #    See SQLAlchemyGateway::make_announces()
-        virtual_announces = storage_make_virtual_announces(STORAGE_NAMESPACE)
+        virtual_announces = storage_make_virtual_announces()
 
         # Tables stored in SQLAlchemy
         #    Each model is a table ("account", "linked_account", "user"...)
