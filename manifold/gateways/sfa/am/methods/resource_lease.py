@@ -10,10 +10,11 @@
 #
 # Copyright (C) 2013 UPMC-INRIA
 
-from types                                      import StringTypes, GeneratorType
-from twisted.internet                           import defer
+from types                              import StringTypes, GeneratorType
+from twisted.internet                   import defer
+from manifold.gateways.deferred_object  import DeferredObject 
 
-class ResourceLease(Object):
+class ResourceLease(DeferredObject):
     @defer.inlineCallbacks
     def get(self, user, user_account_config, query):
     #def get_resource_lease(self, user, user_config, filters, params, fields):

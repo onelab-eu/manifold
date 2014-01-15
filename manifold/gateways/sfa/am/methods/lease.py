@@ -8,7 +8,7 @@
 #
 # Copyright (C) 2013 UPMC-INRIA
 
-from manifold.gateways.sfa.object    import Object
+from manifold.gateways.deferred_object  import DeferredObject 
 
-class Lease(Object):
+class Lease(DeferredObject):
     pass
