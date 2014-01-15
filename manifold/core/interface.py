@@ -150,29 +150,35 @@ class Interface(object):
         return storage_execute(self.get_storage(), query, annotation, error_message)
 
     @returns(Gateway)
-    def get_gateway(self, platform_name):
+    def get_gateway(self, gateway_type):
         """
         Prepare the Gateway instance corresponding to a platform name.
         Args:
-            platform_name: A String containing the name of the platform.
+            gateway_type: A String containing the type of the Gateway.
+                It should be a lower case String bases on classes provided
+                in manifold/gateways/ (for instance, if FooGateway
+                is provided, "foo" is a valid gateway_type). 
         Raises:
             ValueError: in case of failure.
         Returns:
             The corresponding Gateway if found, None otherwise.
         """
-        if platform_name not in self.gateways.keys():
+        if gateway_type.lower() != gateway_type:
+            raise ValueError("Invalid gateway_type = %s, it must be lower case" % gateway_type)
+
+        if gateway_type not in self.gateways.keys():
             # This platform is not referenced in the router, try to create the
             # appropriate Gateway.
             try:
-                self.make_gateway(platform_name)
+                self.make_gateway(gateway_type)
             except Exception, e:
                 Log.error(traceback.format_exc())
-                raise ValueError("Cannot find/create Gateway related to platform %s (%s)" % (platform_name, e))
+                raise ValueError("Cannot find/create Gateway related to platform %s (%s)" % (gateway_type, e))
 
         try:
-            return self.gateways[platform_name]
+            return self.gateways[gateway_type]
         except KeyError:
-            Log.error("Unable to retrieve Gateway %s" % platform_name)
+            Log.error("Unable to retrieve Gateway %s" % gateway_type)
             return None
 
     @returns(list)
