@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Manage IPv4 and IPv6 addresses in Maxmind 
+# Manage hostnames in Maxmind 
 #
 # Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 #
-# Copyright (C) 2013 UPMC-INRIA
+# Copyright (C) 2013 UPMC
 
 import GeoIP
 from types                          import GeneratorType

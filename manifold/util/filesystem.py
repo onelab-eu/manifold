@@ -5,14 +5,106 @@
 # 
 # Copyright (C) UPMC Paris Universitas
 # Authors:
-#   Jordan Augé       <jordan.auge@lip6.fr> 
+#   Jordan Augé       <jordan.auge@lip6.fr
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
-import os, tempfile
-from types              import StringTypes
+import errno, os, tempfile
+from types                  import StringTypes
 
-from ..util.certificate import Keypair, Certificate
-from manifold.util.type import accepts, returns
+from ..util.certificate     import Keypair, Certificate
+from manifold.util.log      import Log 
+from manifold.util.type     import accepts, returns
+
+#-------------------------------------------------------------------------------
+# Shell like commands 
+#-------------------------------------------------------------------------------
+
+@accepts(StringTypes)
+def mkdir(directory):
+    """
+    Create a directory (mkdir -p).
+    Args:
+        directory: A String containing an absolute path.
+    Raises:
+        RuntimeError: If the directory cannot be created.
+    """
+    # http://stackoverflow.com/questions/600268/mkdir-p-functionality-in-python
+    try:
+        Log.info("Creating '%s' directory" % directory)
+        os.makedirs(directory)
+    except OSError as e: # Python >2.5
+        if e.errno == errno.EEXIST and os.path.isdir(directory):
+            pass
+        else:
+            raise RuntimeError("Cannot mkdir %s: %s" % (directory, e))
+
+@accepts(StringTypes, StringTypes, bool)
+def wget(url, filename_out, overwrite):
+    """
+    Download a file using http into a directory with a given path.
+    The target directory is created if required.
+    Args:
+        url: A String containing the URL of the file to download.
+        filename_out: A String corresponding to the path of the downloaded file.
+        overwrite: Pass True if this function must overwrites filename_out file
+            if it already exists, False otherwise.
+    Raises:
+        RuntimeError: in case of failure
+    """
+    # Do not the file if not required 
+    if not overwrite:
+        try:
+            check_readable_file(filename_out)
+            return
+        except:
+            pass
+
+    try:
+        from urllib import urlretrieve
+
+        # mkdir output directory
+        mkdir(os.path.dirname(filename_out))
+
+        # wget dat_filename
+        Log.info("Downloading '%(url)s' into '%(filename_out)s'" % locals())
+        urlretrieve(url, filename_out)
+    except Exception, e:
+        raise RuntimeError(e)
+
+@accepts(StringTypes, StringTypes, bool)
+def gunzip(filename_gz, filename_out, overwrite):
+    """
+    Uncompress a .gz file.
+    Args:
+        filename_gz: Input .gz absolute path.
+        filename_out: Output absolute path.
+        overwrite: Pass True if this function must overwrites filename_out file
+            if it already exists, False otherwise.
+    Raises:
+        ImportError: if gzip is not installed
+        IOError: if the input file is not a gzip file
+        RuntimeError: in case of failure
+    """
+    # Do not the file if not required 
+    if not overwrite:
+        try:
+            check_readable_file(filename_out)
+            return
+        except:
+            pass
+
+    import gzip
+
+    Log.info("Gunzip %(filename_gz)s into %(filename_out)s" % locals())
+    f_gz = None
+    f_out = None
+    try:
+        f_gz = gzip.open(filename_gz, "rb")
+        f_out = open(filename_out, "wb")
+        f_out.write(f_gz.read())
+    finally:
+        if f_out: f_out.close()
+        if f_gz:  f_gz.close()
 
 #-------------------------------------------------------------------------------
 # File management
@@ -38,24 +130,6 @@ def check_readable_file(filename):
 #-------------------------------------------------------------------------------
 # Directory management
 #-------------------------------------------------------------------------------
-
-@accepts(StringTypes)
-def mkdir(directory):
-    """
-    Create a directory (mkdir -p).
-    Raises:
-        RuntimeError: If the directory cannot be created.
-    Args:
-        directory: A String containing an absolute path.
-    """
-    # http://stackoverflow.com/questions/600268/mkdir-p-functionality-in-python
-    try:
-        os.makedirs(directory)
-    except OSError as e: # Python >2.5
-        if exc.errno == errno.EEXIST and os.path.isdir(directory):
-            pass
-        else:
-            raise RuntimeError("Cannot mkdir %s: %s" % (directory, e))
 
 @accepts(StringTypes)
 def check_writable_directory(directory):
