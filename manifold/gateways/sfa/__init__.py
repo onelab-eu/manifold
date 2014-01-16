@@ -7,6 +7,7 @@ from StringIO                           import StringIO
 from types                              import StringTypes, ListType
 from twisted.internet                   import defer
 
+from manifold.conf                      import ADMIN_USER
 from manifold.core.result_value         import ResultValue
 from manifold.core.filter               import Filter
 from manifold.core.record               import Record, Records, LastRecord
@@ -52,7 +53,6 @@ def row2dict(row):
 
     return d
 
-ADMIN_USER = 'admin'
 DEMO_HOOKS = ['demo']
 
 xslt='''<xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">

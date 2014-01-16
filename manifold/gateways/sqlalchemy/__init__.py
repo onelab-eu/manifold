@@ -2,6 +2,8 @@ from __future__                 import absolute_import
 from sqlalchemy                 import create_engine
 from sqlalchemy.ext.declarative import declarative_base, declared_attr
 from sqlalchemy.orm             import sessionmaker
+
+from manifold.conf              import ADMIN_USER
 from manifold.gateways          import Gateway
 from manifold.util.log          import Log
 from manifold.util.predicate    import included
@@ -112,7 +114,7 @@ class SQLAlchemyGateway(Gateway):
 
         # Do we need to limit to the user's own results
         try:
-            if self.user and cls.restrict_to_self and self.user['email'] != 'demo':
+            if self.user and cls.restrict_to_self and self.user['email'] != ADMIN_USER:
                 res = res.filter(cls.user_id == self.user['user_id'])
         except AttributeError: pass
 
@@ -231,7 +233,7 @@ class SQLAlchemyGateway(Gateway):
 
         # Do we need to limit to the user's own results
         try:
-            if self.user and cls.restrict_to_self and self.user['email'] != 'demo':
+            if self.user and cls.restrict_to_self and self.user['email'] != ADMIN_USER:
                 res = res.filter(cls.user_id == self.user['user_id'])
         except AttributeError: pass
 

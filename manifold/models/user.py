@@ -4,6 +4,7 @@ from manifold.models import Base, db
 import json
 
 class User(Base):
+    # if not admin restrict_to_self
     restrict_to_self = True
     user_id = Column(Integer, primary_key=True, doc="User identifier")
     email = Column(String, doc="User email")

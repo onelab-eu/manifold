@@ -2,7 +2,7 @@ import time, crypt, base64, random
 from hashlib                    import md5
 
 try:
-    from manifold.gateways.sfa  import ADMIN_USER
+    from manifold.conf  import ADMIN_USER
 except:
     ADMIN_USER = 'admin' # XXX
 
