@@ -5,7 +5,7 @@
 #
 # Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 #
-# Copyright (C) 2013 UPMC-INRIA
+# Copyright (C) UPMC 
 
 from types                          import GeneratorType
 

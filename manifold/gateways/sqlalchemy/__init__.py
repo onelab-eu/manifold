@@ -365,6 +365,11 @@ class SQLAlchemyGateway(Gateway):
         # Virtual tables ("object", "column", ...) 
         #    See SQLAlchemyGateway::make_announces()
         virtual_announces = storage_make_virtual_announces()
+        #<<<<<<<<<<<<<<
+        Log.tmp("printing virtual announces")
+        for announce in virtual_announces:
+            print "%s" % announce.get_table()
+        #<<<<<<<<<<<<<<
 
         # Tables stored in SQLAlchemy
         #    Each model is a table ("account", "linked_account", "user"...)
