@@ -718,7 +718,7 @@ class Table(object):
                 # How to consider inheritance ?
                 vfield = [f for f in v_key if f.get_type() == field.get_type()][0]
                 p = Predicate(field.get_name(), eq, vfield.get_name())
-                relations.add(Relation(Relation.types.LINK_1N, p, name=field.get_name())) # LINK_1N_FORWARD ?
+                relations.add(Relation(Relation.types.LINK_1N, p, name=field.get_name() + "_" + v.get_name())) # LINK_1N_FORWARD ?
                 continue
         
 

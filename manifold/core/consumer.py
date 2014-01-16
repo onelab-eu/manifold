@@ -24,7 +24,7 @@ class Consumer(Node):
     # Constructor
     #---------------------------------------------------------------------------
 
-    def __init__(self, producers = None, max_producers = 1, has_parent_producer = False):
+    def __init__(self, producers = None, parent_producer = None, max_producers = 1, has_parent_producer = False):
         """
         Constructor.
         Args:
@@ -39,7 +39,14 @@ class Consumer(Node):
         for producer in self.get_producers():
             producer.add_consumer(self, cascade = False)
 
+        # XXX Both variables are redundant
         self._has_parent_producer = has_parent_producer
+        
+        if parent_producer:
+            self._parent_producer     = parent_producer
+            # We have to manually handle the reciprocal link
+            parent_producer.add_consumer(self, cascade = False)
+        
 
     #---------------------------------------------------------------------------
     # Accessors
@@ -113,6 +120,10 @@ class Consumer(Node):
         Returns:
             The String containing the corresponding down-tree.
         """
+        # XXX maybe "res = ..." are not needed anymore since we are modifying
+        # the string in place: res is a parameter of every function call
+        if self._has_parent_producer:
+            res = self._parent_producer.format_downtree_rec(indent + 2, res)
         res = super(Consumer, self).format_downtree_rec(indent, res)
         for producer in self.get_producers():
             res = producer.format_downtree_rec(indent + 2, res)
@@ -189,6 +200,11 @@ class Consumer(Node):
 
         self.set_producer(function(self.get_producer()))
 
+    def update_parent_producer(self, function):
+        if not self._has_parent_producer:
+            raise Exception, "Cannot call update_parent_producer when _has_parent_producer is False"
+        self._parent_producer = function(self._parent_producer)
+
     def release(self):
         """
         Unlink this Consumer from its Producers.
@@ -223,6 +239,9 @@ class Consumer(Node):
         self.check_send(packet)
         self._pool_producers.receive(packet)
         
+    def send_parent(self, packet):
+        self._parent_producer.receive(packet)
+
     def receive(self, packet):
         """
         This method must be overwritten in the class inheriting Consumer

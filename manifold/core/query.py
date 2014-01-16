@@ -255,15 +255,31 @@ class Query(object):
         return self.action
 
     @returns(frozenset)
-    def get_select(self):
+    def get_select(self): # DEPRECATED
+        return self.get_fields()
+
+    @returns(frozenset)
+    def get_fields(self):
         return frozenset(self.fields) if self.fields else frozenset()
 
     @returns(StringTypes)
-    def get_from(self):
+    def get_from(self): # DEPRECATED
+        return self.get_object()
+
+    @returns(StringTypes)
+    def get_object(self):
         return self.object
 
+    def set_object(self, object):
+        self.object = object
+        return self
+
     @returns(Filter)
-    def get_where(self):
+    def get_where(self): # DEPRECATED
+        return self.get_filter()
+
+    @returns(Filter)
+    def get_filter(self):
         return self.filters
 
     @returns(dict)
@@ -378,7 +394,7 @@ class Query(object):
         self.timestamp = timestamp
         return self
 
-    def filter_by(self, *args):
+    def filter_by(self, *args, **kwargs):
         """
         Args:
             args: It may be:
@@ -387,6 +403,12 @@ class Query(object):
                 - a Filter instance
                 - a set/list/tuple of Predicate instances
         """
+        
+        clear = kwargs.get('clear', False)
+        # We might raise an Exception for other attributes
+        if clear:
+            self.filters = Filter()
+
         if len(args) == 1:
             filters = args[0]
             if filters == None:
@@ -419,7 +441,11 @@ class Query(object):
             raise Exception, 'Invalid expression for filter'
         return self
             
-    def select(self, *fields):
+    def select(self, *fields, **kwargs):
+        clear = kwargs.get('clear', False)
+        # We might raise an Exception for other attributes
+        if clear:
+            self.fields = set()
 
         # Accept passing iterables
         if len(fields) == 1:

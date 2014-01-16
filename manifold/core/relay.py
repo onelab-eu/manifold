@@ -21,7 +21,7 @@ from manifold.core.consumer import Consumer
 from manifold.util.type     import accepts, returns
 
 class Relay(Producer, Consumer):
-    def __init__(self, producers = None, consumers = None, max_producers = None, max_consumers = None, has_parent_producer = None):
+    def __init__(self, producers = None, consumers = None, parent_producer = None, max_producers = None, max_consumers = None, has_parent_producer = None):
         """
         Constructor:
         Args:
@@ -29,7 +29,7 @@ class Relay(Producer, Consumer):
             See Consumer::__init__
         """
         Producer.__init__(self, consumers = consumers, max_consumers = max_consumers)
-        Consumer.__init__(self, producers = producers, max_producers = max_producers, has_parent_producer = has_parent_producer)
+        Consumer.__init__(self, producers = producers, parent_producer = parent_producer, max_producers = max_producers, has_parent_producer = has_parent_producer)
 
     def check_relay(self, packet):
         """
