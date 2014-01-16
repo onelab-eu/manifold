@@ -55,13 +55,12 @@ class LeftJoin(Operator):
         """
 
         # Check parameters
-        #assert issubclass(type(right_child), Node), "Invalid right child = %r (%r)" % (right_child, type(right_child))
         assert isinstance(predicate, Predicate), "Invalid predicate = %r (%r)" % (predicate, type(predicate))
         assert predicate.op == eq
         # In fact predicate is always : object.key, ==, VALUE
 
         # Initialization
-        super(LeftJoin, self).__init__(producers, parent_producer, max_producers = 2, has_parent_producer = True)
+        super(LeftJoin, self).__init__(producers, parent_producer = parent_producer, max_producers = 1, has_parent_producer = True)
         self._predicate = predicate
 
         self._left_map     = dict() 
@@ -78,46 +77,90 @@ class LeftJoin(Operator):
         Returns:
             The '%r' representation of this LeftJoin Operator.
         """
-        return "LEFT JOIN %s %s %s" % self.predicate.get_str_tuple()
+        return "LEFT JOIN ON (%s %s %s)" % self._predicate.get_str_tuple()
+
+    #---------------------------------------------------------------------------
+    # Helpers
+    #---------------------------------------------------------------------------
+
+    def _get_left(self):
+        return self._parent_producer
+
+    def _get_right(self):
+        return self.get_producer()
+
+    def _update_left(self, function):
+        self._parent_producer = function(self._parent_producer)
+        Log.warning("If the parent producer changes, must update reciprocal link")
+
+    def _update_right(self, function):
+        self.update_producer(function)
+        Log.warning("If the parent producer changes, must update reciprocal link")
 
     #---------------------------------------------------------------------------
     # Methods
     #---------------------------------------------------------------------------
 
     @returns(Query)
-    def get_query(self):
+    def get_destination(self):
         """
         Returns:
             The Query representing AST reprensenting the AST rooted
             at this node.
         """
-        print "LeftJoin::get_query()"
-        q = Query(self.get_children()[0])
-        for child in self.get_children():
-            # XXX can we join on filtered lists ? I'm not sure !!!
-            # XXX some asserts needed
-            # XXX NOT WORKING !!!
-            q.filters |= child.filters
-            q.fields  |= child.fields
-        return q
+        dleft  = self._get_left().get_destination()
+        dright = self._get_right().get_destination()
+
+        return dleft.left_join(dright)
 
     def receive(self, packet):
         """
         """
 
+        # Out of the Query part since it is used for a True Hack !
+        left_fields = self._get_left().get_destination().get_fields()
+
         if packet.get_protocol() == Packet.PROTOCOL_QUERY:
+            q = packet.get_query()
             # We forward the query to the left node
             # TODO : a subquery in fact
 
-            left_packet        = packet.clone()
-            self._right_packet = packet.clone() 
+            try:
+                left_key    = self._predicate.get_field_names()
+                right_key    = self._predicate.get_value_names()
 
-            self._producers.send_parent(left_packet)
+                right_fields = self._get_right().get_destination().get_fields()
+                right_object = self._get_right().get_destination().get_object()
+
+                left_packet        = packet.clone()
+                # split filter and fields
+                left_packet.update_query(lambda q: q.select(q.get_fields() & left_fields | left_key, clear = True))
+                left_packet.update_query(lambda q: q.filter_by(q.get_filter().split_fields(left_fields, True), clear = True))
+
+                print "RIGHT FIELDS", right_fields
+                print "RIGHT FILTER", q.get_filter().split_fields(right_fields, True)
+                Log.tmp("The From fields are wrong !!")
+                #import sys
+                #sys.exit(0)
+                right_packet = packet.clone()
+                # We should rewrite the query...
+                right_packet.update_query(lambda q: q.set_object(right_object))
+                right_packet.update_query(lambda q: q.select(q.get_fields() & right_fields | right_key, clear = True))
+                right_packet.update_query(lambda q: q.filter_by(q.get_filter().split_fields(right_fields, True), clear = True))
+                print "right packet=", right_packet
+                self._right_packet = right_packet
+            except Exception, e:
+                print "EEE", e
+
+            self.send_parent(left_packet)
 
         elif packet.get_protocol() == Packet.PROTOCOL_RECORD:
             record = packet
 
-            if packet.get_source() == self._producers.get_parent_producer(): # XXX
+            # True hack... if the fields are the left_fields, it comes from the parent_producer
+            # Not robust for incomplete records, but since we expect None values ...
+            if set(packet.keys()) == left_fields:
+            #if packet.get_source() == self._producers.get_parent_producer(): # XXX
                 # formerly left_callback()
                 if record.is_last():
                     # We have all left records
@@ -128,23 +171,24 @@ class LeftJoin(Operator):
 
                     self._left_done = True
 
-                    keys = self._left_map.keys()
-                    predicate = Predicate(self.predicate.get_value(), included, self.left_map.keys())
+                    try:
+                        keys = self._left_map.keys()
+                        predicate = Predicate(self._predicate.get_value(), included, self._left_map.keys())
+                        self._right_packet.update_query(lambda q: q.filter_by(predicate))
+                    except Exception, e:
+                        print "EEEEE", e
 
-                    query = self.right_packet.get_query().filter_by(predicate)
-                    self.right_packet.set_query(query) # XXX
-
-                    self.send(self.right_packet) # XXX
+                    self.send(self._right_packet) # XXX
                     return
 
-                if not record.has_fields(self.predicate.get_field_names()):
+                if not record.has_fields(self._predicate.get_field_names()):
                     Log.warning("Missing LEFTJOIN predicate %s in left record %r : forwarding" % \
-                            (self.predicate, record))
+                            (self._predicate, record))
                     self.send(record)
                     return
 
                 # Store the result in a hash for joining later
-                hash_key = record.get_value(self.predicate.get_key())
+                hash_key = record.get_value(self._predicate.get_key())
                 if not hash_key in self._left_map:
                     self._left_map[hash_key] = []
                 self._left_map[hash_key].append(record)
@@ -163,17 +207,17 @@ class LeftJoin(Operator):
                     return
 
                 # Skip records missing information necessary to join
-                if not set(self.predicate.get_value()) <= set(record.keys()) \
-                or record.has_empty_fields(self.predicate.get_value()):
+                if not set(self._predicate.get_value()) <= set(record.keys()) \
+                or record.has_empty_fields(self._predicate.get_value()):
                     Log.warning("Missing LEFTJOIN predicate %s in right record %r: ignored" % \
-                            (self.predicate, record))
+                            (self._predicate, record))
                     # XXX Shall we send ICMP ?
                     return
                 
                 # We expect to receive information about keys we asked, and only these,
                 # so we are confident the key exists in the map
                 # XXX Dangers of duplicates ?
-                key = record.get_value(self.predicate.get_value())
+                key = record.get_value(self._predicate.get_value())
                 left_records = self._left_map.pop(key)
                 for left_record in left_records:
                     left_record.update(record)
@@ -189,55 +233,65 @@ class LeftJoin(Operator):
         # - selection on filters on the left: can push down in the left child
         # - selection on filters on the right: cannot push down
         # - selection on filters on the key / common fields ??? TODO
-        parent_filter, left_filter = Filter(), Filter()
+        # 
+        #                                        +------- ...
+        #                                       /
+        #                    +---+    +---+    /
+        #  FILTER -->    ----| ? |----| ⨝ |--< 
+        #                    +---+    +---+    \
+        #                                       +---+
+        #                 top_filter            | ? |---- ...
+        #                                       +---+
+        #                                    child_filter == parent_producer (sic.)
+        #
+
+        left_filter = self._get_left().get_destination().get_filter()
+
+        # Classify predicates...
+        top_filter, child_filter = Filter(), Filter()
         for predicate in filter:
-            if predicate.get_field_names() < self.left.get_query().get_select():
-                left_filter.add(predicate)
+            if predicate.get_field_names() < left_filter:
+                child_filter.add(predicate)
             else:
-                parent_filter.add(predicate)
+                top_filter.add(predicate)
 
-        if left_filter:
-            self.left = self.left.optimize_selection(left_filter)
-            #selection = Selection(self.left, left_filter)
-            #selection.query = self.left.copy().filter_by(left_filter)
-            self.left.set_callback(self.left_callback)
-            #self.left = selection
+        # ... then apply child_filter...
+        if child_filter:
+            self.update_parent_producer(lambda p: p.optimize_selection(child_filter))
 
-        if parent_filter:
-            old_self_callback = self.get_callback()
-            selection = Selection(self, parent_filter)
-            # XXX do we need to set query here ?
-            #selection.query = self.query.copy().filter_by(parent_filter)
-            selection.set_callback(old_self_callback)
-            return selection
+        # ... and top_filter.
+        if top_filter:
+            return Selection(self, top_filter)
         return self
 
     @returns(Producer)
     def optimize_projection(self, fields):
-        
+        """
+        query:
+        fields: the set of fields we want after the projection
+
+        Note: We list all the fields we want every time
+        """
         # Ensure we have keys in left and right children
         # After LEFTJOIN, we might keep the left key, but never keep the right key
 
-        key_left = self.predicate.get_field_names()
-        key_right = self.predicate.get_value_names()
+        # What are the keys needed in the left (resp. right) table/view
+        key_left = self._predicate.get_field_names()
+        key_right = self._predicate.get_value_names()
 
-        left_fields    = fields & self.left.get_query().get_select()
-        right_fields   = fields & self.right.get_query().get_select()
-        left_fields   |= key_left
-        right_fields  |= key_right
+        # Fields requested on the left side = fields requested belonging in left side
+        left_fields  = fields & self._get_left().get_destination().get_fields()
+        left_fields |= key_left
 
-        self.left  = self.left.optimize_projection(left_fields)
-        self.right = self.right.optimize_projection(right_fields)
+        right_fields  = fields & self._get_right().get_destination().get_fields()
+        right_fields |= key_right
 
-        self.query.fields = fields
+        self._update_left( lambda l: l.optimize_projection(left_fields))
+        self._update_right(lambda r: r.optimize_projection(right_fields))
 
+        # Do we need a projection on top (= we do not request the join keys)
         if left_fields | right_fields > fields:
-            old_self_callback = self.get_callback()
-            projection = Projection(self, fields)
-            projection.query = self.get_query().copy()
-            projection.query.fields = fields
-            projection.set_callback(old_self_callback)
-            return projection
+            return Projection(self, fields)
         return self
             
 

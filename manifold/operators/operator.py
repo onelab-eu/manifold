@@ -34,7 +34,7 @@ class Operator(Relay):
     # Constructor
     #---------------------------------------------------------------------------
 
-    def __init__(self, producers = None, consumers = None, max_producers = None, max_consumers = None, has_parent_producer = False):
+    def __init__(self, producers = None, parent_producer = None, consumers = None, max_producers = None, max_consumers = None, has_parent_producer = False):
         """
         Constructor.
         Args:
@@ -44,6 +44,7 @@ class Operator(Relay):
             self, \
             producers = producers, \
             consumers = consumers, \
+            parent_producer = parent_producer, \
             max_consumers = max_consumers, \
             max_producers = max_producers, \
             has_parent_producer = has_parent_producer \
@@ -67,14 +68,14 @@ class Operator(Relay):
         """
         raise Exception, "Operator::receive() must be overwritten in children classes"
         
-    @returns(Query)
-    def get_query(self):
-        """
-        Returns:
-            A Query having a SELECT and a WHERE clause homogeneous to the
-            query modeled by the tree of Operator rooted to this Operator.
-        """
-        return self.query
+#DEPRECATED|    @returns(Query)
+#DEPRECATED|    def get_query(self):
+#DEPRECATED|        """
+#DEPRECATED|        Returns:
+#DEPRECATED|            A Query having a SELECT and a WHERE clause homogeneous to the
+#DEPRECATED|            query modeled by the tree of Operator rooted to this Operator.
+#DEPRECATED|        """
+#DEPRECATED|        return self.query
 
     def error(self, description, is_fatal = True):
         """
