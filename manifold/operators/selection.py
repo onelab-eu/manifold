@@ -88,7 +88,11 @@ class Selection(Operator):
         if packet.get_protocol() == Packet.PROTOCOL_QUERY:
             # XXX need to remove the filter in the query
             new_packet = packet.clone()
-            packet.update_query(Query.unfilter_by, self._filter)
+            
+            # We don't need the result to be filtered since we are doing it...
+            new_packet.update_query(Query.unfilter_by, self._filter)
+            # ... but we need the fields to filter on
+            new_packet.update_query(Query.select, self._filter.get_field_names())
             self.send(new_packet)
 
         elif packet.get_protocol() == Packet.PROTOCOL_RECORD:
