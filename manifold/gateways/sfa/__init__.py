@@ -1,6 +1,6 @@
 import sys, os, os.path, re, tempfile, itertools
 import zlib, hashlib, BeautifulSoup, urllib
-import json, signal, traceback
+import json, signal, traceback, time
 from datetime                           import datetime
 from lxml                               import etree
 from StringIO                           import StringIO
@@ -256,7 +256,7 @@ class SFAGateway(Gateway):
         accounts = [a for a in user.accounts if a.platform == platform]
         if not accounts:
             Log.info("No account for user %s. Ignoring platform %s" % (user_email, platform.platform))
-            defer.returnValue(None)
+            defer.returnValue((None, None))
         else:
             account = accounts[0]
 
@@ -293,9 +293,9 @@ class SFAGateway(Gateway):
                 db.commit()
         # return using defer async
         if new_user_config:
-            defer.returnValue(json.loads(new_user_config))
+            defer.returnValue((account.auth_type, json.loads(new_user_config)))
         else:
-            defer.returnValue(json.loads(account.config))
+            defer.returnValue((account.auth_type, json.loads(account.config)))
         #return json.loads(new_user_config) if new_user_config else None
 
     def make_user_proxy(self, interface_url, user_config, cert_type='gid'):
@@ -318,13 +318,16 @@ class SFAGateway(Gateway):
     @defer.inlineCallbacks
     def bootstrap (self):
         # Cache admin config
-        self.admin_config = yield self.get_user_config(ADMIN_USER)
+        _, self.admin_config = yield self.get_user_config(ADMIN_USER)
         assert self.admin_config, "Could not retrieve admin config"
 
         # Overwrite user config (reference & managed acccounts)
-        new_user_config = yield self.get_user_config(self.user['email'])
+        new_auth_type, new_user_config = yield self.get_user_config(self.user['email'])
         if new_user_config:
+            self.auth_type   = new_auth_type
             self.user_config = new_user_config
+        else:
+            self.auth_type   = None
 
         # Initialize manager proxies using MySlice Admin account
         try:
@@ -962,7 +965,16 @@ class SFAGateway(Gateway):
         Log.tmp(filters)
         object_name = make_list(filters.get_op(object_hrn, [eq, included]))
         auth_hrn = make_list(filters.get_op('parent_authority', [eq, lt, le]))
-        interface_hrn = yield self.get_interface_hrn(self.registry)
+        interface_hrn    = yield self.get_interface_hrn(self.registry)
+        
+        # XXX Hack for avoiding multiple calls to the same registry...
+        # This will be fixed in newer versions where AM and RM have separate gateways
+        if self.auth_type == "reference":
+            # We could check for the "reference_platform" entry in
+            # self.user_config but it seems in some configurations it has been
+            # erased by credentials... weird
+            defer.returnValue([])
+        print "Requesting authorities for platform", interface_hrn
 
         # XXX details = True always, only trigger details if needed wrt fields
 
@@ -1003,7 +1015,8 @@ class SFAGateway(Gateway):
 
         else: # Nothing given
             resolve   = False
-            recursive = True
+            recursive = True if object != 'authority' else False
+            print "RECURSIVE=", recursive
             stack = [interface_hrn]
         
         # TODO: user's objects, use reg-researcher
@@ -1032,6 +1045,7 @@ class SFAGateway(Gateway):
  
             defer.returnValue(output)
         
+        print "STACK=", stack
         if len(stack) > 1:
             deferred_list = []
             while stack:
@@ -1050,10 +1064,18 @@ class SFAGateway(Gateway):
 
         else:
             auth_xrn = stack.pop()
+
+            started = time.time()
             records = yield self.registry.List(auth_xrn, cred, {'recursive': recursive})
+            print "LIST:", time.time() - started, "s"
+
             records = [r for r in records if r['type'] == object]
             record_urns = [hrn_to_urn(record['hrn'], object) for record in records]
+
+            started = time.time()
             records = yield self.registry.Resolve(record_urns, cred, {'details': True}) 
+            print "RESOLVE:", time.time() - started, "s"
+
             defer.returnValue(records)
 
     def get_slice(self, filters, params, fields):
