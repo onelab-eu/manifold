@@ -1,48 +1,38 @@
 #!/usr/bin/env python
 #! -*- coding: utf-8 -*-
+#
+# Add an user in the Manifold Storage.
+#
+# Copyright (C) UPMC Paris Universitas
+# Authors:
+#   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
-import getpass, sys, time, crypt
-from hashlib                    import md5
-from random                     import Random
+import getpass, sys
 
-from manifold.core.router       import Router
-from manifold.core.query        import Query
+from manifold.bin.common        import check_option_email, check_num_arguments, run_command
+from manifold.util.password     import ask_password
 
-def usage():
-    print "Usage: %s EMAIL" % sys.argv[0]
-    print ""
-    print "Add a user to Manifold"
-    print "    EMAIL: email address that identifies the user"
+DOC_ADD_USER = """
+%(default_message)s
+
+usage: %(program_name)s USER_EMAIL
+    Add an User into the Manifold Storage.
+
+    USER_EMAIL : A String containing the e-mail address of the user.
+"""
+
+CMD_ADD_USER = """
+INSERT INTO %(namespace)s:user
+    SET email    = "%(user_email)s",
+        password = "%(password)s"
+"""
 
 def main():
-    argc = len(sys.argv)
-    if argc != 2:
-        usage()
-        sys.exit(1)
+    check_num_arguments(DOC_ADD_USER, 2, 2)
+    user_email = sys.argv[1]
+    check_option_email("USER_EMAIL", user_email)
+    password = ask_password()
+    return run_command(CMD_ADD_USER % locals())
 
-    email = sys.argv[1]
-    password = getpass.getpass("Password: ")
-
-    magic = "$1$"
-
-    password = password
-    # Generate a somewhat unique 8 character salt string
-    salt = str(time.time()) + str(Random().random())
-    salt = md5(salt).hexdigest()[:8]
-
-    if len(password) <= len(magic) or password[0:len(magic)] != magic:
-        password = crypt.crypt(password.encode('latin1'), magic + salt + "$")
-
-    user_params = {
-        'email'    : email,
-        'password' : password
-    }
-    query = Query(action='create', object='local:user', params=user_params)
-
-    receiver = Receiver()
-    # Instantiate a TopHat router
-    with Router() as router:
-        router.forward(query, receiver = receiver)
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

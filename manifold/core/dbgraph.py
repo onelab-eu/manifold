@@ -322,18 +322,4 @@ class DBGraph(object):
 #DEPRECATED| 
 #DEPRECATED|         return (stack_11, stack_1N)
 
-# TODO This should be a method of DBGraph and DBGraph should inherits DiGraph
-@accepts(DiGraph)
-def find_root(tree):
-    """
-    \brief Search the root node of a tree
-    \param tree A DiGraph instance representing a tree
-    \return The corresponding root node, None if not found
-    """
-    for u in tree.nodes():
-        if not tree.in_edges(u):
-            # The root is the only node with no incoming edge
-            return u
-    return None
-    
 

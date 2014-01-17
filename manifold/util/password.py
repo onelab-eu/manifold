@@ -9,11 +9,15 @@
 # Copyright (C) 2013 UPMC 
 
 import crypt
-from types                          import StringTypes
+from getpass                import getpass
+from types                  import StringTypes
 
-from manifold.util.type             import accepts, returns
+from manifold.util.type     import accepts, returns
+
+PROMPT_PASSWORD = "Password: "
 
 @returns(StringTypes)
+@accepts(StringTypes)
 def hash_password(password):
     """
     Args:
@@ -32,4 +36,11 @@ def hash_password(password):
 
     return password 
 
-
+@returns(StringTypes)
+def ask_password():
+    """
+    Ask the User to type a password.
+    Returns:
+        The hash of the password typed by the User.
+    """
+    return hash_password(getpass.getpass(PROMPT_PASSWORD))
