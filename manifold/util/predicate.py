@@ -257,9 +257,6 @@ class Predicate:
         else:
             # Individual field operations: this could be simplified, since we are now using operators_short !!
             # XXX match
-            print "current predicate", self
-            print "matching", dic
-            print "----"
             return dic if self.match(dic) else None
 
     def get_field_names(self):

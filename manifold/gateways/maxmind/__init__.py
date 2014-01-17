@@ -11,7 +11,7 @@
 
 import os
 
-from manifold.gateways.maxmind.geoip_database   import check_filename_dat, get_dat_basenames, install_dat
+from manifold.gateways.maxmind.geoip_database   import check_filename_dat, get_dat_basenames, install_dat, MAXMIND_DIR
 from manifold.gateways                          import Gateway
 from manifold.util.log                          import Log
 from manifold.util.type                         import returns, accepts 
@@ -68,7 +68,8 @@ class MaxMindGateway(Gateway):
             # This database is not yet loaded
             dat_filename = os.path.join(MAXMIND_DIR, dat_basename)
             Log.tmp("Loading %s" % dat_filename)
-            self.map_dat_geoips[dat_basename] = GeoIP.open(dat_filename, GeoIP.GEOIP_STANDARD)
+            geoip = GeoIP.open(dat_filename, GeoIP.GEOIP_STANDARD)
+            self.map_dat_geoips[dat_basename] = geoip
         return geoip
 
     def receive_impl(self, packet):

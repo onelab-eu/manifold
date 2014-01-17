@@ -495,7 +495,6 @@ class Gateway(Producer):
             packet: A QUERY Packet instance.
         """
         self.check_receive(packet)
-        Log.tmp("packet = %s" % packet)
 
         try:
             # This method must be overloaded on the Gateway

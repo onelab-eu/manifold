@@ -185,7 +185,6 @@ class From(Operator):
         Args:
             packet: A Packet instance.
         """
-        Log.tmp("packet = %s" % packet)
         # Register this flow in the Gateway
         if packet.get_protocol() == Packet.PROTOCOL_QUERY:
             self.get_gateway().add_flow(packet.get_query(), self)
