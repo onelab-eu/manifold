@@ -76,16 +76,22 @@ class SubQuery(Operator):
 
     @returns(StringTypes)
     def __repr__(self):
+        """
+        Returns:
+            The '%r' representation of this SubQuery Operator.
+        """
         return DUMPSTR_SUBQUERIES
 
     #---------------------------------------------------------------------------
     # Methods
     #---------------------------------------------------------------------------
 
-    def receive(self, packet):
+    def receive_impl(self, packet):
         """
+        Handle an incoming Packet instance.
+        Args:
+            packet: A Packet instance.
         """
-
         if packet.get_protocol() == Packet.PROTOCOL_QUERY:
             parent_packet         = packet.clone()
             self._children_packet = packet.clone() 
@@ -117,8 +123,8 @@ class SubQuery(Operator):
 
     def dump(self, indent = 0):
         """
-        \brief Dump the current node
-        \param indent current indentation
+        Dump the current node
+        indent current indentation
         """
         self.tab(indent)
         print '<main>'
@@ -128,7 +134,6 @@ class SubQuery(Operator):
         print '<subqueries>'
         for child in self.children:
             child.dump(indent + 1)
-
 
     @staticmethod
     def get_element_key(element, key):

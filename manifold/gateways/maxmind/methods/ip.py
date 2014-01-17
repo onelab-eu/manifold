@@ -8,12 +8,13 @@
 #
 # Copyright (C) UPMC
 
-from types                          import GeneratorType
+from types                                      import GeneratorType
 
-from manifold.core.announce         import announces_from_docstring
-from manifold.gateways.object       import Object
-from manifold.util.log              import Log
-from manifold.util.type             import accepts, returns 
+from manifold.core.announce                     import announces_from_docstring
+from manifold.gateways.object                   import Object
+from manifold.gateways.maxmind.geoip_database   import MAXMIND_DAT_IPV4_CITY
+from manifold.util.log                          import Log
+from manifold.util.type                         import accepts, returns 
 
 class Ip(Object):
     aliases = dict()
@@ -30,6 +31,8 @@ class Ip(Object):
         """
         ip = None
         gateway = self.get_gateway()
+        where = query.get_where()
+        Log.tmp("where = %s" % where)
         predicates = query.get_where().get("ip")
         if not len(predicates) == 0: 
             raise RuntimeError("No predicate found in WHERE clause of query = %s" % query)
@@ -72,7 +75,7 @@ class Ip(Object):
                 const string country_code;  /**< Ex: 'US'               */
                 const string country_name;  /**< Ex: 'United States'    */
 
-                CAPABILITY(retrieve);
+                CAPABILITY(retrieve, fullquery);
                 KEY(ip);
             }; 
             """
