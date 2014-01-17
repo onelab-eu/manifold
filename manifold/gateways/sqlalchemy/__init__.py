@@ -173,7 +173,7 @@ class SQLAlchemyGateway(Gateway):
         q = db.query(cls)
         for _filter in _filters:
             q = q.filter(_filter)
-        if self.user and cls.restrict_to_self:
+        if self.user and cls.restrict_to_self and self.user['email'] != ADMIN_USER:
             q = q.filter(getattr(cls, 'user_id') == self.user['user_id'])
         q = q.update(_params, synchronize_session=False)
         try:
