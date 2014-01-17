@@ -86,8 +86,11 @@ class Rename(Operator):
     # Methods
     #---------------------------------------------------------------------------
 
-    def receive(self, packet):
+    def receive_impl(self, packet):
         """
+        Handle an incoming Packet instance.
+        Args:
+            packet: A Packet instance.
         """
         if packet.get_protocol() == Packet.PROTOCOL_QUERY:
             # XXX need to remove the filter in the query

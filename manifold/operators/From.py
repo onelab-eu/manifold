@@ -179,12 +179,13 @@ class From(Operator):
         q = self.get_query()
         return Destination(q.get_from(), q.get_where(), q.get_select())
 
-    def receive(self, packet):
+    def receive_impl(self, packet):
         """
         Process an incoming packet.
         Args:
             packet: A Packet instance.
         """
+        Log.tmp("packet = %s" % packet)
         # Register this flow in the Gateway
         if packet.get_protocol() == Packet.PROTOCOL_QUERY:
             self.get_gateway().add_flow(packet.get_query(), self)
@@ -193,7 +194,7 @@ class From(Operator):
         else: #if packet.get_protocol() == Packet.PROTOCOL_RECORD:
             self.send(packet)
     
-#    def receive(self, packet):
+#    def receive_impl(self, packet):
 #        if packet.get_protocol() == Packet.PROTOCOL_QUERY:
 #            query = packet.get_query()
 #            from_select = self.get_query().get_select()

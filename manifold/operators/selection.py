@@ -75,7 +75,7 @@ class Selection(Operator):
             ' AND '.join(["%s %s %s" % f.get_str_tuple() for f in self._filter])
         )
 
-    def receive(self, packet):
+    def receive_impl(self, packet):
         """
         Process an incoming Packet instance.
           - If this is a RECORD Packet, forward the Packet if it's
@@ -85,28 +85,35 @@ class Selection(Operator):
         Args:
             packet: A Packet instance.
         """
-        if packet.get_protocol() == Packet.PROTOCOL_QUERY:
-            # XXX need to remove the filter in the query
-            new_packet = packet.clone()
-            
-            # We don't need the result to be filtered since we are doing it...
-            new_packet.update_query(Query.unfilter_by, self._filter)
-            # ... but we need the fields to filter on
-            new_packet.update_query(Query.select, self._filter.get_field_names())
-            self.send(new_packet)
+        try:
+            Log.tmp("packet = %s" % packet)
+            if packet.get_protocol() == Packet.PROTOCOL_QUERY:
+                # XXX need to remove the filter in the query
+                new_packet = packet.clone()
+                
+                # We don't need the result to be filtered since we are doing it...
+                Log.tmp("1) updating new_packet = %s" % new_packet)
+                new_packet.update_query(Query.unfilter_by, self._filter)
+                # ... but we need the fields to filter on
+                Log.tmp("2) updating new_packet = %s" % new_packet)
+                new_packet.update_query(Query.select, self._filter.get_field_names())
+                Log.tmp("3) sending new_packet = %s" % new_packet)
+                self.send(new_packet)
 
-        elif packet.get_protocol() == Packet.PROTOCOL_RECORD:
-            record = packet
-            if self._filter.match(record):
+            elif packet.get_protocol() == Packet.PROTOCOL_RECORD:
+                record = packet
+                if self._filter.match(record):
+                    self.send(packet)
+                elif packet.is_last():
+                    # This packet doesn't satisfies the Filter, however is has
+                    # the LAST_RECORD flag enabled, so we send an empty
+                    # RECORD Packet carrying this flag.
+                    self.send(Packet(Packet.PROTOCOL_RECORD, True))
+
+            else: # TYPE_ERROR
                 self.send(packet)
-            elif packet.is_last():
-                # This packet doesn't satisfies the Filter, however is has
-                # the LAST_RECORD flag enabled, so we send an empty
-                # RECORD Packet carrying this flag.
-                self.send(Packet(Packet.PROTOCOL_RECORD, True))
-
-        else: # TYPE_ERROR
-            self.send(packet)
+        except Exception, e:
+            self.error("%s" % e)
 
     @returns(Producer)
     def optimize_selection(self, filter):

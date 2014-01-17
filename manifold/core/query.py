@@ -461,7 +461,11 @@ class Query(object):
             return self
 
         for field in fields:
-            self.fields.add(field)
+            if self.fields:
+                self.fields.add(field)
+            else:
+                # This is a SELECT * clause, so we've nothing to add.
+                pass
         return self
 
     def set(self, params):
