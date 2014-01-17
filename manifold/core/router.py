@@ -101,9 +101,12 @@ class Router(Interface):
             The DBGraph related to the Manifold Storage. 
         """
         # We do not need normalization here, can directly query the Gateway
+
+        # 1) Fetch the Storage's annouces and get the corresponding Tables.
         local_announces = self._storage.get_announces()
         local_tables = [announce.get_table() for announce in local_announces]
 
+        # 2) Build the corresponding map of Capabilities
         map_method_capabilities = dict()
         for announce in local_announces:
             table = announce.get_table()
@@ -112,6 +115,7 @@ class Router(Interface):
             capabilities = table.get_capabilities()
             map_method_capabilities[method] = capabilities 
 
+        # 3) Build the corresponding DBGraph
         return DBGraph(local_tables, map_method_capabilities)
 
     #---------------------------------------------------------------------------
