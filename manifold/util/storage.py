@@ -93,7 +93,7 @@ def storage_make_virtual_announces(platform_name = STORAGE_NAMESPACE):
             string table;
             column column;
 
-            CAPABILITY(retrieve, join);
+            CAPABILITY(retrieve);
             KEY(table);
         }; 
 
