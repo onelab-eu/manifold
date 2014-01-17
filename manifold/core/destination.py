@@ -38,11 +38,11 @@ class Destination(object):
     def selection(self, filter):
         return Destination(
             object = self._object(),
-            filter = self._filter | filter,
+            filter = self._filter & filter,
             fields = self._fields)
 
     def projection(self, fields):
         return Destination(
             object = self._object(),
             filter = self._filter,
-            fields = fields) # equivalent to (self._fields & fields) since (self._fields c fields)
+            fields = self._fields) # equivalent to (self._fields & fields) since (self._fields c fields)

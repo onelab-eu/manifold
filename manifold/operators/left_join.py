@@ -125,32 +125,25 @@ class LeftJoin(Operator):
             # We forward the query to the left node
             # TODO : a subquery in fact
 
-            try:
-                left_key    = self._predicate.get_field_names()
-                right_key    = self._predicate.get_value_names()
+            left_key    = self._predicate.get_field_names()
+            right_key    = self._predicate.get_value_names()
 
-                right_fields = self._get_right().get_destination().get_fields()
-                right_object = self._get_right().get_destination().get_object()
+            right_fields = self._get_right().get_destination().get_fields()
+            right_object = self._get_right().get_destination().get_object()
 
-                left_packet        = packet.clone()
-                # split filter and fields
-                left_packet.update_query(lambda q: q.select(q.get_fields() & left_fields | left_key, clear = True))
-                left_packet.update_query(lambda q: q.filter_by(q.get_filter().split_fields(left_fields, True), clear = True))
+            left_packet        = packet.clone()
+            # split filter and fields
+            left_packet.update_query(lambda q: q.select(q.get_fields() & left_fields | left_key, clear = True))
+            left_packet.update_query(lambda q: q.filter_by(q.get_filter().split_fields(left_fields, True), clear = True))
 
-                print "RIGHT FIELDS", right_fields
-                print "RIGHT FILTER", q.get_filter().split_fields(right_fields, True)
-                Log.tmp("The From fields are wrong !!")
-                #import sys
-                #sys.exit(0)
-                right_packet = packet.clone()
-                # We should rewrite the query...
-                right_packet.update_query(lambda q: q.set_object(right_object))
-                right_packet.update_query(lambda q: q.select(q.get_fields() & right_fields | right_key, clear = True))
-                right_packet.update_query(lambda q: q.filter_by(q.get_filter().split_fields(right_fields, True), clear = True))
-                print "right packet=", right_packet
-                self._right_packet = right_packet
-            except Exception, e:
-                print "EEE", e
+            #import sys
+            #sys.exit(0)
+            right_packet = packet.clone()
+            # We should rewrite the query...
+            right_packet.update_query(lambda q: q.set_object(right_object))
+            right_packet.update_query(lambda q: q.select(q.get_fields() & right_fields | right_key, clear = True))
+            right_packet.update_query(lambda q: q.filter_by(q.get_filter().split_fields(right_fields, True), clear = True))
+            self._right_packet = right_packet
 
             self.send_parent(left_packet)
 
@@ -171,12 +164,9 @@ class LeftJoin(Operator):
 
                     self._left_done = True
 
-                    try:
-                        keys = self._left_map.keys()
-                        predicate = Predicate(self._predicate.get_value(), included, self._left_map.keys())
-                        self._right_packet.update_query(lambda q: q.filter_by(predicate))
-                    except Exception, e:
-                        print "EEEEE", e
+                    keys = self._left_map.keys()
+                    predicate = Predicate(self._predicate.get_value(), included, self._left_map.keys())
+                    self._right_packet.update_query(lambda q: q.filter_by(predicate))
 
                     self.send(self._right_packet) # XXX
                     return
@@ -198,7 +188,7 @@ class LeftJoin(Operator):
 
                 if record.is_last():
                     # Send records in left_results that have not been joined...
-                    for left_record_list in self.left_map.values():
+                    for left_record_list in self._left_map.values():
                         for left_record in left_record_list:
                             self.send(left_record)
 
