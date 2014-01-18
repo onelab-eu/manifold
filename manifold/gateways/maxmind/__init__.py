@@ -105,5 +105,5 @@ class MaxMindGateway(Gateway):
         # Doc: https://code.google.com/p/pygeoip/downloads/list
         announces = list()
         for instance in MaxMindGateway.METHOD_MAP.values():
-            announces += instance(self).make_announces()
+            announces.append(instance(self).make_announce())
         return announces

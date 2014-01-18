@@ -10,7 +10,7 @@
 
 from types                                      import GeneratorType
 
-from manifold.core.announce                     import announces_from_docstring
+from manifold.core.announce                     import Announce, announces_from_docstring
 from manifold.gateways.object                   import Object
 from manifold.gateways.maxmind.geoip_database   import MAXMIND_DAT_IPV4_CITY
 from manifold.util.log                          import Log
@@ -49,11 +49,11 @@ class Ip(Object):
         record = geoip.record_by_addr(ip)
         return record
 
-    @returns(list)
-    def make_announces(self):
+    @returns(Announce)
+    def make_announce(self):
         """
         Returns:
-            The list of Announce instances related to this object.
+            The Announce related to this object.
         """
         platform_name = self.get_gateway().get_platform_name()
 
@@ -80,5 +80,5 @@ class Ip(Object):
             }; 
             """
         announces = make_announces_impl()
-        return announces
+        return announces[0]
 
