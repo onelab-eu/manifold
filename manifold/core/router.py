@@ -68,11 +68,10 @@ class Router(Interface):
         # that for example we can plug an XMLRPC interface on top of it
         Interface.__init__(self, user_storage, allowed_capabilities)
 
-        if not os.path.exists(var_dir):
-            try:
-                mkdir(var_dir)
-            except Exception, e:
-                Log.warning(e)
+        try:
+            mkdir(var_dir)
+        except OSError, e:
+            Log.warning(e)
 
         self._sockets = list()
 
@@ -102,7 +101,7 @@ class Router(Interface):
         """
         # We do not need normalization here, can directly query the Gateway
 
-        # 1) Fetch the Storage's annouces and get the corresponding Tables.
+        # 1) Fetch the Storage's announces and get the corresponding Tables.
         local_announces = self._storage.get_announces()
         local_tables = [announce.get_table() for announce in local_announces]
 

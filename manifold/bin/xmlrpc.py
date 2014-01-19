@@ -216,10 +216,10 @@ class XMLRPCDaemon(Daemon):
                     })
                     ret = False
                 else:
-                    Log.ingo("Certs are fine: %(x509)s %s(subject)s" % {
+                    Log.info("Certs are fine: %(x509)s %s(subject)s" % {
                         "x509"    : x509,
                         "subject" :  x509.get_subject()
-                    }
+                    })
                     ret = True
                 return ret 
             

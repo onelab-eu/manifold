@@ -26,7 +26,7 @@ def mkdir(directory):
     Args:
         directory: A String containing an absolute path.
     Raises:
-        RuntimeError: If the directory cannot be created.
+        OSError: If the directory cannot be created.
     """
     # http://stackoverflow.com/questions/600268/mkdir-p-functionality-in-python
     try:
@@ -36,7 +36,7 @@ def mkdir(directory):
         if e.errno == errno.EEXIST and os.path.isdir(directory):
             pass
         else:
-            raise RuntimeError("Cannot mkdir %s: %s" % (directory, e))
+            raise OSError("Cannot mkdir %s: %s" % (directory, e))
 
 @accepts(StringTypes, StringTypes, bool)
 def wget(url, filename_out, overwrite):
