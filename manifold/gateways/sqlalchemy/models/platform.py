@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
 #
-# See manifold/models/platform.py
-#
 # A Platform represents a source of data. A Platform is related
 # to a Gateway, which wrap this source of data in the Manifold
 # framework. For instance, TDMI is a Platform using the PostgreSQL
@@ -14,13 +12,11 @@
 
 import json
 from sqlalchemy                     import Column, Integer, String, Boolean, Enum
-from types                          import StringTypes
 
 from manifold.core.query            import Query
-from manifold.models                import Base
-from manifold.util.type             import accepts, returns 
+from ..models                       import Base
 
-class Platform(Base):
+class ModelPlatform(Base):
     platform_id          = Column(Integer, doc = "Platform identifier", primary_key = True)
     platform             = Column(String,  doc = "Platform name", unique = True)
     platform_longname    = Column(String,  doc = "Platform long name")
@@ -34,6 +30,6 @@ class Platform(Base):
     first                = Column(Integer, doc = "First timestamp, in seconds since UNIX epoch")
     last                 = Column(Integer, doc = "Last timestamp, in seconds since UNIX epoch")
     gateway_type         = Column(String,  doc = "Type of the gateway to use to connect to this platform")
-    auth_type            = Column(Enum('none', 'default', 'user', 'reference', 'managed'), default = 'default')
+    auth_type            = Column(Enum("none", "default", "user", "reference", "managed"), default = "default")
     config               = Column(String,  doc = "Default configuration (serialized in JSON)")
 

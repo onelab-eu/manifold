@@ -7,7 +7,7 @@
 # Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
 from sqlalchemy.ext.declarative import declarative_base
-from manifold.models.base       import Base
+from ..models.base              import Base
 
 Base = declarative_base(cls = Base)
 
