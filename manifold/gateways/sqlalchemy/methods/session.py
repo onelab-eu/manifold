@@ -1,14 +1,14 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# manifold.models.Session wrapping
+# ModelSession wrapping
 #
 # Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 #
 # Copyright (C) UPMC 
 
-from manifold.gateways.sqlalchemy.methods.sqla_object   import SQLA_Object
-from manifold.models.session                            import Session as ModelSession
+from manifold.gateways.sqlalchemy.models.session    import ModelSession
+from ..methods.sqla_object                          import SQLA_Object
 
 class Session(SQLA_Object):
     def __init__(self, gateway):

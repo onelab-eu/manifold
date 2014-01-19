@@ -86,9 +86,9 @@ def row2record(row):
     Convert a python object into the corresponding dictionnary, based
     on its attributes.
     Args:
-        row: A instance based on a type which is
-            either in manifold/models
-            or either sqlalchemy.util._collections.NamedTuple
+        row: A instance based on a type which is:
+            either in manifold.gateways.sqlalchemy.models or
+            either in sqlalchemy.util._collections.NamedTuple
     Returns:
         The corresponding Record.
     """
