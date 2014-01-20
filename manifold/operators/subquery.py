@@ -13,6 +13,7 @@ import traceback
 from types                          import StringTypes
 
 from manifold.core.filter           import Filter
+from manifold.core.packet           import Packet
 from manifold.core.query            import Query
 from manifold.core.relation         import Relation
 from manifold.core.record           import Record
@@ -49,7 +50,7 @@ class SubQuery(Operator):
             children_ast_relation_list: A list of (AST , Relation) tuples
         """
         # Check parameters
-
+        Log.error("SubQuery::__init__: not yet migrated")
         producers = []
         self.relations = []
         for producer, relation in producer_relation_list:
@@ -121,19 +122,19 @@ class SubQuery(Operator):
         else: # TYPE_ERROR
             self.send(packet)
 
-    def dump(self, indent = 0):
-        """
-        Dump the current node
-        indent current indentation
-        """
-        self.tab(indent)
-        print '<main>'
-        self.parent.dump(indent+1)
-        if not self.children: return
-        self.tab(indent)
-        print '<subqueries>'
-        for child in self.children:
-            child.dump(indent + 1)
+#DEPRECATED|    def dump(self, indent = 0):
+#DEPRECATED|        """
+#DEPRECATED|        Dump the current node
+#DEPRECATED|        indent current indentation
+#DEPRECATED|        """
+#DEPRECATED|        self.tab(indent)
+#DEPRECATED|        print '<main>'
+#DEPRECATED|        self.parent.dump(indent+1)
+#DEPRECATED|        if not self.children: return
+#DEPRECATED|        self.tab(indent)
+#DEPRECATED|        print '<subqueries>'
+#DEPRECATED|        for child in self.children:
+#DEPRECATED|            child.dump(indent + 1)
 
     @staticmethod
     def get_element_key(element, key):

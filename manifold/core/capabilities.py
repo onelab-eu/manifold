@@ -94,6 +94,17 @@ class Capabilities(object):
         """
         return [x for x in self.KEYS if getattr(self, x, False)]
 
+    @returns(dict)
+    def to_dict(self):
+        """
+        Returns:
+            The dict corresponding to this Capabilities instance.
+        """
+        ret = dict()
+        for capability in Capabilities.KEYS:
+            ret[capability] = True if getattr(self, capability, False) else False
+        return ret
+
     @returns(StringTypes)
     def __str__(self):
         """

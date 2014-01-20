@@ -115,9 +115,10 @@ class Keys(set):
     @staticmethod
     def check_keys(keys):
         """
-        \brief (Internal use)
-               Test whether the keys parameter of the constructor is well-formed
-        \param keys The keys parameter passed to __init__
+        (Internal use)
+        Test whether the keys parameter of the constructor is well-formed
+        Args:
+            keys: The keys parameter passed to __init__
         """
         if not isinstance(keys, (frozenset, set, list)):
             raise TypeError("keys = %r is of type %r (set or frozenset expected)" % (keys, type(keys)))
@@ -127,28 +128,31 @@ class Keys(set):
 
     def __init__(self, keys = set()):
         """
-        \brief Constructor
-        \param keys A set/frozenset/list of Key instances
+        Constructor
+        Args:
+            keys: A set/frozenset/list of Key instances
         """
         Keys.check_keys(keys)
         set.__init__(set(keys))
 
     @returns(StringTypes)
     def __str__(self):
-        return "{%s}" % (", ".join(["%s" % key for key in self]))
+        return "[%s]" % (", ".join(["%s" % key for key in self]))
 
     @returns(StringTypes)
     def __repr__(self):
-        return "{%s}" % (", ".join(["%r" % key for key in self]))
+        return str(self) 
 
+    @returns(True)
     def has_field(self, field):
         for key in self:
             if field in key:
                 return True
         return False
 
+    @returns(Key)
     def one(self):
-        assert len(self) == 1, "Cannot call one() when multiple keys"
+        assert len(self) == 1, "Cannot call one() when not exactly 1 keys (self = %s)" % self
         # XXX Note we might need to prevent multiple key cases
         return iter(self).next()
 

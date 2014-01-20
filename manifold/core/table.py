@@ -23,6 +23,8 @@ from manifold.util.type         import returns, accepts
 from manifold.util.log          import Log
 from manifold.util.predicate    import Predicate, eq
 
+STORAGE_NAMESPACE = "local" # crappy (see manifold.util.storage)
+
 class Table(object):
     """
     Implements a database table schema.
@@ -85,39 +87,19 @@ class Table(object):
                     return TypeError("clause = %r is not of type Predicate" % clause) 
 
     @staticmethod
-    def check_map_field_methods(map_field_methods):
-        """
-        Check whether map_field_methods parameter is well-formed in __init__
-        """
-        if map_field_methods == None:
-            return
-        if not isinstance(map_field_methods, dict):
-            raise TypeError("Invalid map_field_methods = %r (%r)" % (map_field_methods, type(map_field_methods)))
-        for field, methods in map_field_methods.items():
-            if not isinstance(field, Field):
-                raise TypeError("Invalid field = %r (%r) in %r" % (field, type(field), map_field_methods))
-            for method in methods:
-                if not isinstance(method, Method):
-                    raise TypeError("Invalid method = %r (%r) in %r" % (method, type(method), map_field_methods))
-
-    @staticmethod
-    def check_init(partitions, map_field_methods, name, fields, keys):
+    def check_init(partitions, name, fields, keys):
         """
         Check whether parameters passed to __init__ are well formed
         """
         Table.check_fields(fields)
         Table.check_keys(keys)
-        Table.check_map_field_methods(map_field_methods)
         Table.check_partitions(partitions)
-        if map_field_methods:
-            if set(map_field_methods.keys()) != set(fields):
-                raise ValueError("Incoherent parameters: %r must be equal to %r" % (map_field_methods.keys(), fields))
 
     #-----------------------------------------------------------------------
     # Constructor 
     #-----------------------------------------------------------------------
 
-    def __init__(self, partitions, map_field_methods, name, fields, keys):
+    def __init__(self, partitions, table_name, fields = None, keys = None):
         """
         Table constructor
         Args:
@@ -127,14 +109,12 @@ class Table(object):
                 of a platform and each data is a Predicate or "None". "None" means
                 that the condition is always True.
                 - a set/list of platform names
-            name: The name of the table
-            map_field_methods: Pass "None" or a dictionnary which maps for each field
-                the corresponding methods to retrieve them: {Field => set(Method)}
-            fields: A set/list of Fields involved in the table
-            keys: A set of Key instances
+            table_name: The name of the table
+            fields: A set/list of Fields involved in the table or None
+            keys: A set of Key instances or None
         """
         # Check parameters
-        Table.check_init(partitions, map_field_methods, name, fields, keys)
+        Table.check_init(partitions, table_name, fields, keys)
         self.set_partitions(partitions)
 
         # Init self.fields
@@ -153,17 +133,12 @@ class Table(object):
 
         # Init self.platforms
         self.init_platforms()
-        if isinstance(map_field_methods, dict):
-            for methods in map_field_methods.values():
-                for method in methods:
-                    self.platforms.add(method.get_platform())
 
         # Init default capabilities (none)
         self.capabilities = Capabilities()
  
         # Other fields
-        self.name = name
-        self.map_field_methods = map_field_methods if map_field_methods else {}
+        self.name = table_name
 
     #-----------------------------------------------------------------------
     # Outputs 
@@ -467,95 +442,95 @@ class Table(object):
         """
         return self.platforms
 
-    #@returns(set) # XXX does not support named arguments
-    def get_fields_with_name(self, names, metadata=None):
-        """
-        \brief Retrieve a set of Field according to their name
-        \param names The name of the requested fields (String instances)
-        \return The set of Field instances nested in this table having a name
-            in names.
-        """
-        fields = set()
-        for field in self.get_fields():
-            #if metadata and field.is_reference():
-            #    key = metadata.find_node(field.get_name()).get_keys().one()
-            #    for key_field in key:
-            #        if key_field.get_name() in names:
-            #            fields.add(field)
-            #elif field.get_name() in names:
-            if field.get_name() in names:
-                fields.add(field)
-        return fields
-
-    @staticmethod
-    #@returns(Table)
-    #@accepts(Table, set)
-    def make_table_from_fields(u, relevant_fields):
-        """
-        \brief Build a sub Table according to a given u Table such as
-            - each field of the sub Table is in relevant_fields
-            - each key only involve Fields of relevant_fields
-        \param u A Table instance
-        \param relevant_fields A set of field names belonging to table
-        \return The corresponding subtable
-        """
-        copy_u = deepcopy(u)
-
-        for field in u.get_fields():
-            if field.get_name() not in relevant_fields:
-                copy_u.erase_field(field.get_name())
-
-        # In copy_u, Key instances refer to Field instance of u, which is
-        # wrong. We've to rebuild properly the relevant keys based on
-        # Field instances of copy_u.
-        copy_u.erase_keys()
-
-        # We rebuild each Key having a sense in the reduced Table,
-        # e.g. those involving only remaining Fields
-        for key in u.get_keys():
-            # We don't always have a key
-            # eg in a pruned tree, we do not need a key for the root unless we want to remove duplicates
-            if set(key) <= relevant_fields:
-                key_copy = set()
-                for field in key:
-                    key_copy.add(copy_u.get_field(field.get_name()))
-                copy_u.insert_key(Key(key_copy))
-
-        # We need to update map_method_fields
-        for method, fields in copy_u.map_method_fields.items():
-            fields &= relevant_fields
-
-        return copy_u
-
-    @staticmethod
-    #@returns(Table)
-    #@accepts(Table, StringTypes)
-    def make_table_from_platform(table, fields, platform):
-        """
-        \brief Extract from a Table instance its Key(s) and Field(s)
-            related to a given platform name to make another Table
-            instance related to this platform
-        \param table A Table instance
-        \param fields A set of Fields (those we're extracting)
-        \param platform A String value (the name of the platform)
-        \return The corresponding Table
-        """
-        # Extract the corresponding subtable
-        ret = Table.make_table_from_fields(table, fields)
-
-        # Compute the new map_field_method 
-        updated_map_field_methods = dict()
-        for field, methods in table.map_field_methods.items():
-            if field in fields:
-                for method in methods:
-                    if platform == method.get_platform():
-                        updated_map_field_methods[field] = set([method])
-                        break
-                assert len(updated_map_field_methods[field]) != 0, "No method related to field %r and platform %r" % (field, platform)
-
-        ret.map_field_methods = updated_map_field_methods
-        ret.platforms = set([platform])
-        return ret
+#UNUSED|    #@returns(set) # XXX does not support named arguments
+#UNUSED|    def get_fields_with_name(self, names, metadata=None):
+#UNUSED|        """
+#UNUSED|        \brief Retrieve a set of Field according to their name
+#UNUSED|        \param names The name of the requested fields (String instances)
+#UNUSED|        \return The set of Field instances nested in this table having a name
+#UNUSED|            in names.
+#UNUSED|        """
+#UNUSED|        fields = set()
+#UNUSED|        for field in self.get_fields():
+#UNUSED|            #if metadata and field.is_reference():
+#UNUSED|            #    key = metadata.find_node(field.get_name()).get_keys().one()
+#UNUSED|            #    for key_field in key:
+#UNUSED|            #        if key_field.get_name() in names:
+#UNUSED|            #            fields.add(field)
+#UNUSED|            #elif field.get_name() in names:
+#UNUSED|            if field.get_name() in names:
+#UNUSED|                fields.add(field)
+#UNUSED|        return fields
+#UNUSED|
+#UNUSED|    @staticmethod
+#UNUSED|    #@returns(Table)
+#UNUSED|    #@accepts(Table, set)
+#UNUSED|    def make_table_from_fields(u, relevant_fields):
+#UNUSED|        """
+#UNUSED|        \brief Build a sub Table according to a given u Table such as
+#UNUSED|            - each field of the sub Table is in relevant_fields
+#UNUSED|            - each key only involve Fields of relevant_fields
+#UNUSED|        \param u A Table instance
+#UNUSED|        \param relevant_fields A set of field names belonging to table
+#UNUSED|        \return The corresponding subtable
+#UNUSED|        """
+#UNUSED|        copy_u = deepcopy(u)
+#UNUSED|
+#UNUSED|        for field in u.get_fields():
+#UNUSED|            if field.get_name() not in relevant_fields:
+#UNUSED|                copy_u.erase_field(field.get_name())
+#UNUSED|
+#UNUSED|        # In copy_u, Key instances refer to Field instance of u, which is
+#UNUSED|        # wrong. We've to rebuild properly the relevant keys based on
+#UNUSED|        # Field instances of copy_u.
+#UNUSED|        copy_u.erase_keys()
+#UNUSED|
+#UNUSED|        # We rebuild each Key having a sense in the reduced Table,
+#UNUSED|        # e.g. those involving only remaining Fields
+#UNUSED|        for key in u.get_keys():
+#UNUSED|            # We don't always have a key
+#UNUSED|            # eg in a pruned tree, we do not need a key for the root unless we want to remove duplicates
+#UNUSED|            if set(key) <= relevant_fields:
+#UNUSED|                key_copy = set()
+#UNUSED|                for field in key:
+#UNUSED|                    key_copy.add(copy_u.get_field(field.get_name()))
+#UNUSED|                copy_u.insert_key(Key(key_copy))
+#UNUSED|
+#UNUSED|        # We need to update map_method_fields
+#UNUSED|        for method, fields in copy_u.map_method_fields.items():
+#UNUSED|            fields &= relevant_fields
+#UNUSED|
+#UNUSED|        return copy_u
+#UNUSED|
+#DEPRECATED|    @staticmethod
+#DEPRECATED|    #@returns(Table)
+#DEPRECATED|    #@accepts(Table, StringTypes)
+#DEPRECATED|    def make_table_from_platform(table, fields, platform):
+#DEPRECATED|        """
+#DEPRECATED|        \brief Extract from a Table instance its Key(s) and Field(s)
+#DEPRECATED|            related to a given platform name to make another Table
+#DEPRECATED|            instance related to this platform
+#DEPRECATED|        \param table A Table instance
+#DEPRECATED|        \param fields A set of Fields (those we're extracting)
+#DEPRECATED|        \param platform A String value (the name of the platform)
+#DEPRECATED|        \return The corresponding Table
+#DEPRECATED|        """
+#DEPRECATED|        # Extract the corresponding subtable
+#DEPRECATED|        ret = Table.make_table_from_fields(table, fields)
+#DEPRECATED|
+#DEPRECATED|        # Compute the new map_field_method 
+#DEPRECATED|        updated_map_field_methods = dict()
+#DEPRECATED|        for field, methods in table.map_field_methods.items():
+#DEPRECATED|            if field in fields:
+#DEPRECATED|                for method in methods:
+#DEPRECATED|                    if platform == method.get_platform():
+#DEPRECATED|                        updated_map_field_methods[field] = set([method])
+#DEPRECATED|                        break
+#DEPRECATED|                assert len(updated_map_field_methods[field]) != 0, "No method related to field %r and platform %r" % (field, platform)
+#DEPRECATED|
+#DEPRECATED|        ret.map_field_methods = updated_map_field_methods
+#DEPRECATED|        ret.platforms = set([platform])
+#DEPRECATED|        return ret
 
     @returns(dict)
     def get_annotation(self):
@@ -568,8 +543,8 @@ class Table(object):
             return self.map_method_fields 
         except AttributeError:
             # Tables might not have such method
-            Log.warning("get_annotations on table with unknown platform... set to local")
-            return { Method('local', self.get_name()): self.get_field_names() }
+            Log.warning("Table::get_annotations(): on table with unknown platform... set to local")
+            return {Method(STORAGE_NAMESPACE, self.get_name()): self.get_field_names()}
 
     #-----------------------------------------------------------------------
     # Relations between two Table instances 
@@ -659,8 +634,11 @@ class Table(object):
 
         relations = set()
 
+#        Log.tmp("Finding relation between %r and %r" % (u, v))
         u_key = u.keys.one()
+#        Log.tmp("> u_key = %s" % u_key)
         v_key = v.keys.one()
+#        Log.tmp("> v_key = %s" % v_key)
 
         if u.get_name() == v.get_name():
             p = Predicate(u_key.get_name(), eq, v_key.get_name())
@@ -849,10 +827,10 @@ class Table(object):
         keys = tuple(self.get_keys().one().get_field_names())
 
         return {
-            "table"      : self.get_name(),
-            "column"     : columns,
-            "key"        : keys,
-            "capability" : []
+            "table"        : self.get_name(),
+            "columns"      : columns,
+            "key"          : keys,
+            "capabilities" : self.get_capabilities().to_list() 
             # key
             # default
             # capabilities

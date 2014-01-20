@@ -44,7 +44,7 @@ class Interface(object):
         assert not allowed_capabilities or isinstance(allowed_capabilities, Capabilities),\
             "Invalid capabilities = %s (%s)" % (allowed_capabilities, type(allowed_capabilities))
 
-        # Register the list of Gateways
+        # Register the Gateways (see manifold.gateways)
         Log.info("Registering gateways")
         Gateway.register_all()
         Log.info("Registered gateways are: {%s}" % ", ".join(sorted(Gateway.list().keys())))

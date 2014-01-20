@@ -273,7 +273,7 @@ class SQLA_Object(Object):
         """
         model = self.get_model()
         table_name = self.__class__.__name__.lower()
-        table = Table(STORAGE_NAMESPACE, None, table_name, None, None)
+        table = Table(STORAGE_NAMESPACE, table_name)
 
         primary_key = tuple()
 

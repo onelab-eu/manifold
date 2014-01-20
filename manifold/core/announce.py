@@ -215,7 +215,7 @@ def parse_dot_h(iterable, filename = None):
             if m:
                 qualifier  = m.group(1)
                 table_name = m.group(2)
-                tables[table_name] = Table(None, None, table_name, None, Keys()) # qualifier ??
+                tables[table_name] = Table(None, table_name, None, Keys()) # qualifier ??
                 continue
 
             # enum MyEnum {
@@ -297,10 +297,10 @@ def import_string_h(string, platform):
     def iter(string):
         prevnl = -1
         while True:
-          nextnl = string.find('\n', prevnl + 1)
-          if nextnl < 0: break
-          yield string[prevnl + 1:nextnl]
-          prevnl = nextnl
+            nextnl = string.find('\n', prevnl + 1)
+            if nextnl < 0: break
+            yield string[prevnl + 1:nextnl]
+            prevnl = nextnl
     (classes, enum) = parse_dot_h(iter(string), None)
     check_table_consistency(classes)
     return make_announces(classes, platform)

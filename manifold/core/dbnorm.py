@@ -715,7 +715,7 @@ def to_3nf(metadata):
 
                         platforms.add(method.get_platform())
 
-            table = Table(platforms, None, table_name, fields, keys)
+            table = Table(platforms, table_name, fields, keys)
 
             # inject field and key annotation in the Table object
             table.map_method_keys   = map_method_keys
@@ -740,7 +740,7 @@ def to_3nf(metadata):
 
         # Need to add a parent table if more than two sets of platforms
         if cpt_platforms > 1:
-            table = Table(all_platforms, None, table_name, common_fields, common_keys)
+            table = Table(all_platforms, table_name, common_fields, common_keys)
 
             # Migrate common fields from children to parents, except keys
             ##map_common_method_keys   = dict()
@@ -764,13 +764,11 @@ def to_3nf(metadata):
                     if not method in map_common_method_fields: map_common_method_fields[method] = set()
                     map_common_method_fields[method].add(field.get_name())
 
-            map_common_method_fields[method].add(field.get_name())
-
-            # inject field and key annotation in the Table object
+            # Inject field and key annotation in the Table object
             table.map_method_keys   = dict() #map_common_method_keys
             table.map_method_fields = map_common_method_fields
             tables_3nf.append(table)
-            Log.debug("TABLE 3nf:", table, table.keys)
+            Log.debug("TABLE 3nf:", table, table.get_keys())
             #print "     method fields", map_common_method_fields
 
         # XXX we already know about the links between those two platforms
