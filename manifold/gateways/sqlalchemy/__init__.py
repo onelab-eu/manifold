@@ -59,6 +59,20 @@ def xgetattr(cls, list_attr):
         ret.append(getattr(cls, a))
     return tuple(ret)
 
+def make_clause(cls, key, op, value):
+    key_attr = getattr(cls, key)
+    return key_attr.in_(value) if op == included else op(key_attr, value)
+    
+def get_sqla_filter(cls, predicate):
+
+    key, op, value = predicate.get_tuple()
+
+    if isinstance(key, tuple):
+        # Recursive building of the clause ( AND ) for tuples
+        return reduce(lambda x,y: x and make_clause(cls, y[0], op, y[1]), zip(key, value), True)
+    else:
+        return make_clause(cls, key, op, value)
+
 @returns(list)
 def get_sqla_filters(cls, predicates):
     """
@@ -72,13 +86,7 @@ def get_sqla_filters(cls, predicates):
     if predicates:
         _filters = list() 
         for predicate in predicates:
-            if predicate.get_op() == included:
-                f = getattr(cls, predicate.get_key()).in_(predicate.get_value())
-            else:
-                f = predicate.get_op()(
-                    getattr(cls, predicate.get_key()),
-                    predicate.get_value()
-                )
+            f = get_sqla_filter(cls, predicate)
             _filters.append(f)
         return _filters
     else:

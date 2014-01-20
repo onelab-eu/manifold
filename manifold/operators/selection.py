@@ -18,6 +18,7 @@ from manifold.core.filter           import Filter
 from manifold.core.packet           import Packet
 from manifold.core.producer         import Producer 
 from manifold.core.query            import Query
+from manifold.core.record           import Record
 from manifold.operators.operator    import Operator
 from manifold.operators.projection  import Projection
 from manifold.util.log              import Log
@@ -97,13 +98,13 @@ class Selection(Operator):
 
         elif packet.get_protocol() == Packet.PROTOCOL_RECORD:
             record = packet
-            if self._filter.match(record):
+            if not record.is_empty() and self._filter.match(record.get_dict()):
                 self.send(packet)
             elif packet.is_last():
                 # This packet doesn't satisfies the Filter, however is has
                 # the LAST_RECORD flag enabled, so we send an empty
                 # RECORD Packet carrying this flag.
-                self.send(Packet(Packet.PROTOCOL_RECORD, True))
+                self.send(Record(last = True))
 
         else: # TYPE_ERROR
             self.send(packet)

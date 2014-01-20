@@ -191,6 +191,9 @@ class Record(Packet):
     def keys(self):
         return dict.keys(self._record)
 
+    def update(self, other_record):
+        return dict.update(self._record, other_record)
+
     @returns(StringTypes)
     def __repr__(self):
         """
