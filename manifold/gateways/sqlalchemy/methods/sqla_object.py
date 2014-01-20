@@ -15,16 +15,18 @@ from sqlalchemy.ext.declarative         import declarative_base
 from manifold.core.announce             import Announce
 from manifold.core.field                import Field
 from manifold.core.record               import Records
-from manifold.core.table                import Table 
+from manifold.core.table                import Table
 from manifold.gateways.object           import Object
-from manifold.gateways.sqlalchemy.util  import xgetattr, make_clause, make_sqla_filters, row2record 
+from manifold.gateways.sqlalchemy.util  import xgetattr, row2record
 from manifold.util.log                  import Log
 from manifold.util.password             import hash_password 
 from manifold.util.storage              import STORAGE_NAMESPACE 
 from manifold.util.type                 import accepts, returns
 
 class SQLA_Object(Object):
+
     aliases = dict()
+
     _map_types = {
         types.Integer : "integer",
         types.Enum    : "integer", # XXX
@@ -45,6 +47,10 @@ class SQLA_Object(Object):
         # and implemented in manifold/models/.
         self.model = model 
 
+    #---------------------------------------------------------------------
+    # Internal usage 
+    #---------------------------------------------------------------------
+
     def get_model(self):
         """
         Returns:
@@ -52,6 +58,10 @@ class SQLA_Object(Object):
             This is a sqlalchemy.ext.declarative.DeclarativeMeta instance.
         """
         return self.model
+
+    #---------------------------------------------------------------------
+    # Methods exposed to the SQLAlchemyGateway Gateway
+    #---------------------------------------------------------------------
 
     @returns(Records)
     def create(self, query, annotation):
@@ -133,7 +143,8 @@ class SQLA_Object(Object):
 
         # FILTERS: Note we cannot filter on json fields
         _filters = cls.process_filters(query.get_where())
-        _filters = make_sqla_filters(cls, _filters)
+        #_filters = make_sqla_filters(cls, _filters)
+        _filters = cls.make_sqla_filters(_filters)
 
         # PARAMS
         #
@@ -189,7 +200,8 @@ class SQLA_Object(Object):
         cls = self.get_model()
 
         # Transform a Filter into a sqlalchemy expression
-        _filters = make_sqla_filters(cls, query.filters)
+        #_filters = make_sqla_filters(cls, query.filters)
+        _filters = cls.make_sqla_filters(query.get_where())
         _fields = xgetattr(cls, query.get_select()) if query.get_select() else None
 
         res = session.query(*_fields) if _fields else session.query(cls)
@@ -231,7 +243,8 @@ class SQLA_Object(Object):
         cls = self.get_model()
 
         # Transform a Filter into a sqlalchemy expression
-        _filters = make_sqla_filters(cls, query.get_where())
+        #_filters = make_sqla_filters(cls, query.get_where())
+        _filters = cls.make_sqla_filters(query.get_where())
         _fields = xgetattr(cls, fields) if fields else None
 
         # db.query(cls) seems to return NamedTuples

@@ -175,7 +175,12 @@ class From(Operator):
         """
         return self._query
 
+    @returns(Destination)
     def get_destination(self):
+        """
+        Returns:
+            The Destination corresponding to this Operator. 
+        """
         q = self.get_query()
         return Destination(q.get_from(), q.get_where(), q.get_select())
 

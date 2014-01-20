@@ -169,11 +169,7 @@ class Interface(object):
         if gateway_type not in self.gateways.keys():
             # This platform is not referenced in the router, try to create the
             # appropriate Gateway.
-            try:
-                self.make_gateway(gateway_type)
-            except Exception, e:
-                Log.error(traceback.format_exc())
-                raise ValueError("Cannot find/create Gateway related to platform %s (%s)" % (gateway_type, e))
+            self.make_gateway(gateway_type)
 
         try:
             return self.gateways[gateway_type]
