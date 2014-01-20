@@ -9,8 +9,6 @@
 #
 # Copyright (C) 2013 UPMC 
 
-import traceback
-
 from manifold.core.table                import Table
 from manifold.gateways.postgresql       import PostgreSQLGateway
 from manifold.core.announce             import Announce
@@ -21,30 +19,28 @@ from manifold.util.log                  import Log
 from manifold.util.type                 import accepts, returns 
 
 class OMLGateway(PostgreSQLGateway):
-    __gateway_name__ = 'oml'
+    __gateway_name__ = "oml"
 
     # The OML gateway provides additional functions compared to PostgreSQL
-    def __init__(self, interface, platform, config = None):
+    def __init__(self, interface, platform, platform_config = None):
         """
         Constructor
         Args:
             interface: The Manifold Interface on which this Gateway is running.
             platform: A String storing name of the platform related to this Gateway or None.
-            config: A dictionnary containing the configuration related to this Gateway.
-                It may contains the following keys:
-                "name" : name of the platform's maintainer. 
-                "mail" : email address of the maintainer.
+            platform_config: A dictionnary containing the configuration related to the
+                Platform which instantiates this Gateway.
         """
-        super(OMLGateway, self).__init__(interface, platform, config)
+        super(OMLGateway, self).__init__(interface, platform, platform_config)
 
     @returns(list)
     def get_slice(self, query):
         return [{
-            'slice_hrn': 'ple.upmc.myslicedemo',
-            'lease_id':  100
+            "slice_hrn" : "ple.upmc.myslicedemo",
+            "lease_id"  :  100
         }, {
-            'slice_hrn': 'ple.upmc.agent',
-            'lease_id':  101
+            "slice_hrn" : "ple.upmc.agent",
+            "lease_id"  :  101
         }]
 
 # TODO move into oml/methods/application.py
@@ -62,7 +58,6 @@ class OMLGateway(PostgreSQLGateway):
         # List databases
         db = self.get_databases()
         if not lease_id_str in db:
-            #self.callback(None)
             Log.error("Invalid lease ID")
 
         # Connect to slice database
@@ -134,6 +129,7 @@ class OMLGateway(PostgreSQLGateway):
         query = packet.get_query()
 
         try:
+            # Announced objects: slice, application, measurement_point
             #print "QUERY", query.object, " -- FILTER=", query.filters
             records = getattr(self, "get_%s" % query.get_from())(query)
         except Exception, e:
@@ -163,7 +159,7 @@ class OMLGateway(PostgreSQLGateway):
         #print "DATABASES", self.get_databases()
 
     @returns(list)
-    def get_announces(self):
+    def make_announces(self):
         """
         Returns:
             The list of corresponding Announce instances
@@ -184,7 +180,7 @@ class OMLGateway(PostgreSQLGateway):
         # - Here we have an example of a gateway that might not support the
         # same operators on the different tables
 
-        t = Table('oml', None, 'slice', None, None)
+        t = Table(self.get_platform_name(), "slice")
 
         slice_hrn = Field(
             qualifiers  = ['const'],
@@ -217,7 +213,7 @@ class OMLGateway(PostgreSQLGateway):
         #  
         # )
 
-        t = Table('oml', None, 'application', None, None)
+        t = Table(self.get_platform_name(), "application")
 
         lease_id = Field(
             qualifiers  = ['const'],
@@ -256,7 +252,7 @@ class OMLGateway(PostgreSQLGateway):
         #  
         # )
 
-        t = Table('oml', None, 'measurement_point', None, None)
+        t = Table(self.get_platform_name(), "measurement_point")
 
         lease_id = Field(
             qualifiers  = ['const'],

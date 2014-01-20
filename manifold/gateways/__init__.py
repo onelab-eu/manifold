@@ -503,8 +503,8 @@ class Gateway(Producer):
         except Exception, e:
             #print "RECEIVE EXCEPTION", e
             self.error(packet, e, True)
-        finally:
-            self.close(packet)
+#        finally:
+#            self.close(packet)
 
     #---------------------------------------------------------------------------  
     # Methods that could/must be overloaded/overwritten in the child classes

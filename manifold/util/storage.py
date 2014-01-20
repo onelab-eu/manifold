@@ -90,8 +90,9 @@ def storage_make_virtual_announces(platform_name = STORAGE_NAMESPACE):
     def _get_metadata_tables():
         """
         class object {
-            string table;
-            column column;
+            string  table;           /**< The name of the object/table.     */
+            column  columns[];       /**< The corresponding fields/columns. */
+            string  capabilities[];  /**< The supported capabilities        */
 
             CAPABILITY(retrieve);
             KEY(table);

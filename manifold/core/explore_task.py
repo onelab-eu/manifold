@@ -285,7 +285,7 @@ class ExploreTask(Deferred):
 
         print "perform subquery"
         print "="*80
-        self.ast.dump() # = FROM tdmi:Traceroute()
+        print "%r" % self.ast # = FROM tdmi:Traceroute()
         print "="*80
         print "subqueries:"
         print self.subqueries
