@@ -101,6 +101,7 @@ class Account(Base):
             for user_filter in user_filters:
                 assert user_filter.op.__name__ == "eq", "Only == is supported for convenience filter 'user'" 
                 user_email = user_filter.value
+                print "User.get_user_id(user_email)", User.get_user_id(user_email)
                 filters.add(Predicate("user_id", "=", User.get_user_id(user_email)))
             
         # Update predicates involving "platform"

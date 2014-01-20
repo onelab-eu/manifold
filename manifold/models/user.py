@@ -115,6 +115,7 @@ class User(Base):
         if 'user_id' in params: return
         if 'user' in params:
             user_params = params['user']
+            print "user_params", user_params
             del params['user']
             ret = db.query(User.user_id)
             ret = ret.filter(User.email == user_params)
