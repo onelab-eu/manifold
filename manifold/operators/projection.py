@@ -127,7 +127,7 @@ class Projection(Operator):
         d = self.get_producer().get_destination()
         return d.projection(self._fields)
 
-    def receive(self, packet):
+    def receive_impl(self, packet):
         """
         Process an incoming Packet instance.
           - If this is a RECORD Packet, remove every fields that are

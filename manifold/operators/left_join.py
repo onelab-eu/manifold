@@ -132,10 +132,12 @@ class LeftJoin(Operator):
 
         self.send(self._right_packet) # XXX
 
-    def receive(self, packet):
+    def receive_impl(self, packet):
         """
+        Handle an incoming Packet.
+        Args:
+            packet: A Packet instance.
         """
-
         # Out of the Query part since it is used for a True Hack !
         left_fields = self._get_left().get_destination().get_fields()
 
