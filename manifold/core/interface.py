@@ -245,7 +245,7 @@ class Interface(object):
         query      = Query().get("platform").filter_by("disabled", "=", False)
         annotation = Annotation({"user" : self.get_user_storage()})
 
-        self.platforms = [record.to_dict() for record in self.execute_local_query(query, annotation)]
+        self.platforms = self.execute_local_query(query, annotation)
 
         platform_names_enabled = set([platform["platform"] for platform in self.platforms])
         platform_names_del     = platform_names_loaded - platform_names_enabled 

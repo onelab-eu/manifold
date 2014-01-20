@@ -101,6 +101,8 @@ class SFA_RMGateway(SFAGatewayCommon):
         Log.debug("Not yet implemented. Run delegation script in the meantime")
     
     # TODO move in ../__init__
+    # Jordan : why, it seems object are only present in the registry
+    # XXX What about resources/nodes
     def get_object(self, table_name):
         """
         Retrieve the Object corresponding to a table_name.
@@ -131,6 +133,7 @@ class SFA_RMGateway(SFAGatewayCommon):
         Returns:
             The list of corresponding Records if any.
         """
+        print "RM :: perform_query"
         # Check whether action is set to a valid value.
         VALID_ACTIONS = ["get", "create", "update", "delete", "execute"]
         action = query.get_action()
@@ -146,6 +149,7 @@ class SFA_RMGateway(SFAGatewayCommon):
 
         # Call the appropriate method.
         # http://stackoverflow.com/questions/3061/calling-a-function-from-a-string-with-the-functions-name-in-python
+        print "XXX, calling get_object"
         instance = self.get_object(table_name)
         try:
             method = getattr(instance, action)
@@ -206,11 +210,12 @@ class SFA_RMGateway(SFAGatewayCommon):
         assert type in ["authority", "user", "slice"], "Invalid credential type: %s" % type
         assert target_hrn == None or type == "slice",  "Invalid parameters" # NOTE: Once this function will be generalized, update this assert
 
-        try:
-            return SFA_RMGateway.get_credential_impl(user, user_account_config, type, target_hrn)
-        except Exception, why:
-            Log.error(traceback.format_exc(why))
-            raise why
+        #try:
+            # XXX Why this indirection ??
+        return SFA_RMGateway.get_credential_impl(user, user_account_config, type, target_hrn)
+        #except Exception, why:
+        #    Log.error(traceback.format_exc(why))
+        #    raise why
 
     @staticmethod
     @returns(StringTypes)

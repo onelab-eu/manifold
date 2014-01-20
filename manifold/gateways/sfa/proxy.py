@@ -139,51 +139,51 @@ class CtxFactory(ssl.ClientContextFactory):
 
         return ctx
 
-class SFATokenMgr(object):
-    """
-    This singleton class is meant to regulate accesses to the different SFA API
-    since some implementations of SFA such as SFAWrap are suspected to be
-    broken with some configuration of concurrent connections.
-    """
-    __metaclass__ = Singleton
-
-    # XXX This should be URL
-    BLACKLIST = ["ple", "nitos", "iotlab"]
-
-    def __init__(self):
-        self.busy     = dict() # network -> Bool
-        self.deferred = dict() # network -> deferred corresponding to waiting queries
-
-    def get_token(self, interface):
-        # We police queries only on blacklisted interfaces
-        Log.warning("SFATokenMgr::get_token(): TODO: update SFATokenMgr::BLACKLIST")
-        if not interface or interface not in self.BLACKLIST:
-            return True
-
-        # If the interface is not busy, the request can be done immediately
-        if not (interface in self.busy and self.busy[interface]):
-            return True
-
-        # Otherwise we queue the request and return a Deferred that will get
-        # activated when the queries terminates and triggers a put
-        d = defer.Deferred()
-        if not interface in self.deferred:
-            #print "SFATokenMgr::get_token() - Deferring query to %s" % interface
-            self.deferred[interface] = deque()
-        self.deferred[interface].append(d)
-        return d
-
-    def put_token(self, interface):
-        # are there items waiting on queue for the same interface, if so, there are deferred that can be called
-        # remember that the interface is being used for the query == available
-        if not interface:
-            return
-        self.busy[interface] = False
-        if interface in self.deferred and self.deferred[interface]:
-            #print "SFATokenMgr::put_token() - Activating deferred query to %s" % interface
-            d = self.deferred[interface].popleft()
-            d.callback(True)
-        pass
+#DEPRECATED|class SFATokenMgr(object):
+#DEPRECATED|    """
+#DEPRECATED|    This singleton class is meant to regulate accesses to the different SFA API
+#DEPRECATED|    since some implementations of SFA such as SFAWrap are suspected to be
+#DEPRECATED|    broken with some configuration of concurrent connections.
+#DEPRECATED|    """
+#DEPRECATED|    __metaclass__ = Singleton
+#DEPRECATED|
+#DEPRECATED|    # XXX This should be URL
+#DEPRECATED|    BLACKLIST = ["ple", "nitos", "iotlab"]
+#DEPRECATED|
+#DEPRECATED|    def __init__(self):
+#DEPRECATED|        self.busy     = dict() # network -> Bool
+#DEPRECATED|        self.deferred = dict() # network -> deferred corresponding to waiting queries
+#DEPRECATED|
+#DEPRECATED|    def get_token(self, interface):
+#DEPRECATED|        # We police queries only on blacklisted interfaces
+#DEPRECATED|        Log.warning("SFATokenMgr::get_token(): TODO: update SFATokenMgr::BLACKLIST")
+#DEPRECATED|        if not interface or interface not in self.BLACKLIST:
+#DEPRECATED|            return True
+#DEPRECATED|
+#DEPRECATED|        # If the interface is not busy, the request can be done immediately
+#DEPRECATED|        if not (interface in self.busy and self.busy[interface]):
+#DEPRECATED|            return True
+#DEPRECATED|
+#DEPRECATED|        # Otherwise we queue the request and return a Deferred that will get
+#DEPRECATED|        # activated when the queries terminates and triggers a put
+#DEPRECATED|        d = defer.Deferred()
+#DEPRECATED|        if not interface in self.deferred:
+#DEPRECATED|            #print "SFATokenMgr::get_token() - Deferring query to %s" % interface
+#DEPRECATED|            self.deferred[interface] = deque()
+#DEPRECATED|        self.deferred[interface].append(d)
+#DEPRECATED|        return d
+#DEPRECATED|
+#DEPRECATED|    def put_token(self, interface):
+#DEPRECATED|        # are there items waiting on queue for the same interface, if so, there are deferred that can be called
+#DEPRECATED|        # remember that the interface is being used for the query == available
+#DEPRECATED|        if not interface:
+#DEPRECATED|            return
+#DEPRECATED|        self.busy[interface] = False
+#DEPRECATED|        if interface in self.deferred and self.deferred[interface]:
+#DEPRECATED|            #print "SFATokenMgr::put_token() - Activating deferred query to %s" % interface
+#DEPRECATED|            d = self.deferred[interface].popleft()
+#DEPRECATED|            d.callback(True)
+#DEPRECATED|        pass
     
 
 class SFAProxy(object):
@@ -319,19 +319,19 @@ class SFAProxy(object):
             d = defer.Deferred()
 
             def proxy_success_cb(result):
-                SFATokenMgr().put_token(self.interface)
+#DEPRECATED|                SFATokenMgr().put_token(self.interface)
                 d.callback(result)
             def proxy_error_cb(failure):
                 exception = failure.trap(Exception)
-                SFATokenMgr().put_token(self.interface)
+#DEPRECATED|                SFATokenMgr().put_token(self.interface)
                 d.errback(exception)
 
             #success_cb = lambda result: d.callback(result)
             #error_cb   = lambda error : d.errback(ValueError("Error in SFA Proxy %s" % error))
             
-            @defer.inlineCallbacks
+            #@defer.inlineCallbacks
             def wrap(source, args):
-                token = yield SFATokenMgr().get_token(self.interface)
+#DEPRECATED|                token = yield SFATokenMgr().get_token(self.interface)
                 args = (name,) + args
                 
                 printable_args = []
@@ -345,8 +345,11 @@ class SFAProxy(object):
 
                 Log.debug("SFA CALL %s(%s)" % (printable_args[0], printable_args[1:]))
                 self.proxy.callRemote(*args).addCallbacks(proxy_success_cb, proxy_error_cb)
+                print "end of wrap"
             
+            print "ReactorThread/Wrap begin"
             ReactorThread().callInReactor(wrap, self, args)
+            print "ReactorThread/Wrap end"
             return d
         return _missing
 
