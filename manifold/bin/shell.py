@@ -69,13 +69,13 @@ class ManifoldLocalClient(ManifoldClient):
 
         try:
             users = self.router.execute_local_query(
-                Query.get('user').filter_by('email', '==', username)
+                Query.get("user").filter_by("email", "==", username)
             )
         except:
             users = list()
 
         if not len(users) >= 1:
-            Log.warning('Could not retrieve current user... going anonymous')
+            Log.warning("Could not retrieve current user... going anonymous")
             self.user = None
         else:
             self.user = users[0]
@@ -298,7 +298,7 @@ class ManifoldXMLRPCClient(ManifoldClient):
 
 class ManifoldXMLRPCClientSSLPassword(ManifoldXMLRPCClient):
     
-    def __init__(self, url, username=None, password=None):
+    def __init__(self, url, username = None, password = None):
         ManifoldXMLRPCClient.__init__(self, url)
         self.username = username
 
@@ -321,7 +321,7 @@ class ManifoldXMLRPCClientSSLPassword(ManifoldXMLRPCClient):
         self.router.setSSLClientContext(ssl.ClientContextFactory())
 
     def log_message(self):
-        return "Shell using XMLRPC account '%r' (password) on %s" % (self.username, self.url)
+        return "Shell using XMLRPC account '%s' (password) on %s" % (self.username, self.url)
 
 class ManifoldXMLRPCClientSSLGID(ManifoldXMLRPCClient):
     
@@ -355,31 +355,6 @@ class ManifoldXMLRPCClientSSLGID(ManifoldXMLRPCClient):
 class Shell(object):
 
     PROMPT = 'manifold'
-
-#OBSOLETE|    @classmethod
-#OBSOLETE|    def print_error(self, result_value):
-#OBSOLETE|        """
-#OBSOLETE|        Print a ResultValue to the standard output.
-#OBSOLETE|        Args:
-#OBSOLETE|            result_value: A ResultValue instance.
-#OBSOLETE|        """
-#OBSOLETE|        assert isinstance(result_value, ResultValue),\
-#OBSOLETE|            "Invalid result_value = %s (%s)" % (result_value, type(result_value))
-#OBSOLETE|
-#OBSOLETE|        Log.tmp("coucou")
-#OBSOLETE|        print "-" * 80
-#OBSOLETE|        print "Exception %(code)s raised by %(origin)s %(description)s" % {
-#OBSOLETE|            "code"        : result_value["code"],
-#OBSOLETE|            "origin"      : result_value["origin"],
-#OBSOLETE|            "description" : ": %s" % result_value["description"] if result_value["description"] else ""
-#OBSOLETE|        }
-#OBSOLETE|        if result_value["traceback"]:
-#OBSOLETE|            for line in result_value["traceback"].split("\n"):
-#OBSOLETE|                Log.error("\t", line)
-#OBSOLETE|        else:
-#OBSOLETE|            Log.error("(Traceback not set)")
-#OBSOLETE|        print ""
-
 
     @classmethod
     def print_error(self, error):
@@ -479,6 +454,7 @@ class Shell(object):
                 try:
                     Log.debug("Trying client authentication '%s'" % method)
                     self.select_auth_method(method)
+                    Log.info("Automatically selected '%s' authentication method" % method)
                     return
                 except Exception, e:
                     Log.error(format_exc())
@@ -774,7 +750,7 @@ def main():
         except:
             shell.terminate()
     else:
-        Shell(interactive = True).start()
+        shell = Shell(interactive = True).start()
 
 if __name__ == '__main__':
     main()

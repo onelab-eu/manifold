@@ -18,13 +18,13 @@ from twisted.internet                           import defer
 from sfa.util.xrn                               import hrn_to_urn 
 
 from manifold.core.record                       import Record
-from manifold.gateways.sfa.object               import Object
+from manifold.gateways.deferred_object          import DeferredObject
 from manifold.util.log                          import Log
 from manifold.util.predicate                    import eq, lt, le, included
 from manifold.util.type                         import accepts, returns
 from manifold.util.misc                         import make_list
 
-class RM_Object(Object):
+class RM_Object(DeferredObject):
 
     @defer.inlineCallbacks
     @returns(GeneratorType)
