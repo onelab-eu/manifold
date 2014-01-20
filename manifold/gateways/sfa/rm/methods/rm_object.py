@@ -129,7 +129,12 @@ class RM_Object(DeferredObject):
         
         # TODO: user's objects, use reg-researcher
         
+        print "-" * 80
+        print "getting credential"
+        print "    > user", user
+        print "    > account_config", account_config
         credential = gateway.get_credential(user, account_config, "user", None)
+        print "credential ok"
 
         # Retrieve the registry (= SFA proxy)
         sfa_proxy = yield gateway.get_sfa_proxy_admin()

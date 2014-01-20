@@ -16,6 +16,7 @@ import json, traceback
 
 from types                                  import StringTypes, GeneratorType
 from twisted.internet                       import defer
+from twisted.python.failure                 import Failure
 
 from manifold.core.query                    import Query 
 from manifold.core.record                   import Record, Records
@@ -338,7 +339,7 @@ class SFAGatewayCommon(Gateway):
         if not user_account_config:
             Log.error("account not found")
             self.error(packet, "Account related to %s for platform %s not found" % (user_email, self.get_platform_name()))
-            return
+            defer.returnValue()
 #DEPRECATED|=======
 #DEPRECATED|            Gateway.start(user, user_account_config, query)
 #DEPRECATED|>>>>>>> routerv2
@@ -352,15 +353,20 @@ class SFAGatewayCommon(Gateway):
         except Exception, e:
             #<<<<<<<< specific to RM
             try:
-                is_managed = self.handle_error(user, user_account)
+                is_managed = yield self.handle_error(user, user_account)
+                
             except AttributeError, e:
+                Log.warning("failure is not defined here")
+                # raiseException: Raise the original exception (http://twistedmatrix.com/documents/8.2.0/api/twisted.python.failure.Failure.html#raiseException)
                 failure.raiseException()
                 
             if is_managed:
                 result = yield self.perform_query(user, user_account_config, query)
             else:
-                failure = Failure("Account not managed: user_account_config = %s / auth_type = %s" % (account_config, user_account["auth_type"]))
+                failure = Failure("Account not managed: user_account_config = %s / auth_type = %s" % (user_account_config, user_account["auth_type"]))
+                print "failure.raiseException()"
                 failure.raiseException()
+                print "failure.raiseException() DONE"
             #<<<<<<
        
         # Insert a RENAME Node above this FROM Node if necessary.

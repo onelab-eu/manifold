@@ -75,7 +75,7 @@ def storage_execute(gateway, query, annotation = None, error_message = None):
             error_message = "Error executing local query: %s" % query
         raise Exception, error_message
 
-    return result_value["value"]
+    return [record.to_dict() for record in result_value['value']]
         
 @returns(list)
 def storage_make_virtual_announces(platform_name = STORAGE_NAMESPACE):
