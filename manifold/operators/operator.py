@@ -54,9 +54,9 @@ class Operator(Relay):
     # Methods
     #---------------------------------------------------------------------------
 
-    def receive(self, packet):
+    def receive_impl(self, packet):
         """
-        Handle a Packet.
+        Handle a Packet (must be re-implemented in children classes).
         Args:
             packet: A Packet instance.
                 - If this is a RECORD Packet, this Operator is supposed to recraft
@@ -66,7 +66,7 @@ class Operator(Relay):
                 - Otherwise (ERROR Packet), this Operator should simply
                 forward this Packet.
         """
-        raise Exception, "Operator::receive() must be overwritten in children classes"
+        raise Exception, "Operator::receive_impl() must be overwritten in children classes"
         
 #DEPRECATED|    @returns(Query)
 #DEPRECATED|    def get_query(self):
@@ -76,6 +76,17 @@ class Operator(Relay):
 #DEPRECATED|            query modeled by the tree of Operator rooted to this Operator.
 #DEPRECATED|        """
 #DEPRECATED|        return self.query
+
+    def receive(self, packet):
+        """
+        Handle a Packet.
+        Args:
+            packet: A Packet instance.
+        """
+        try:
+            self.receive_impl(packet)
+        except Exception, e:
+            self.error("%s" % e)
 
     def error(self, description, is_fatal = True):
         """

@@ -76,7 +76,7 @@ class Selection(Operator):
             ' AND '.join(["%s %s %s" % f.get_str_tuple() for f in self._filter])
         )
 
-    def receive(self, packet):
+    def receive_impl(self, packet):
         """
         Process an incoming Packet instance.
           - If this is a RECORD Packet, forward the Packet if it's
