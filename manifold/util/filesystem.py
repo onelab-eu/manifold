@@ -1,48 +1,175 @@
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
+#
+# Set of functions useful to manage the local filesystem.
+# 
+# Copyright (C) UPMC Paris Universitas
+# Authors:
+#   Jordan Augé       <jordan.auge@lip6.fr
+#   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
-import os, tempfile
-from ..util.certificate import Keypair, Certificate
+import errno, os, tempfile
+from types                  import StringTypes
+
+from ..util.certificate     import Keypair, Certificate
+from manifold.util.log      import Log 
+from manifold.util.type     import accepts, returns
 
 #-------------------------------------------------------------------------------
-# File and directory management
+# Shell like commands 
 #-------------------------------------------------------------------------------
 
-def mkdir(path):
+@accepts(StringTypes)
+def mkdir(directory):
     """
     Create a directory (mkdir -p).
     Args:
-        path: An absolute path.
+        directory: A String containing an absolute path.
+    Raises:
+        RuntimeError: If the directory cannot be created.
     """
     # http://stackoverflow.com/questions/600268/mkdir-p-functionality-in-python
     try:
-        os.makedirs(path)
-    except OSError as exc: # Python >2.5
-        if exc.errno == errno.EEXIST and os.path.isdir(path):
+        Log.info("Creating '%s' directory" % directory)
+        os.makedirs(directory)
+    except OSError as e: # Python >2.5
+        if e.errno == errno.EEXIST and os.path.isdir(directory):
             pass
         else:
-            raise
+            raise RuntimeError("Cannot mkdir %s: %s" % (directory, e))
 
-def check_writable_directory(directory):
-    if not os.path.exists(directory):
-        raise Exception, "Directory '%s' does not exists" % directory
-    if not os.access(directory, os.W_OK | os.X_OK):
-        raise Exception, "Directory '%s' is not writable" % directory
+@accepts(StringTypes, StringTypes, bool)
+def wget(url, filename_out, overwrite):
+    """
+    Download a file using http into a directory with a given path.
+    The target directory is created if required.
+    Args:
+        url: A String containing the URL of the file to download.
+        filename_out: A String corresponding to the path of the downloaded file.
+        overwrite: Pass True if this function must overwrites filename_out file
+            if it already exists, False otherwise.
+    Raises:
+        RuntimeError: in case of failure
+    """
+    # Do not the file if not required 
+    if not overwrite:
+        try:
+            check_readable_file(filename_out)
+            return
+        except:
+            pass
+
     try:
-        with tempfile.TemporaryFile(dir=directory): pass
+        from urllib import urlretrieve
+
+        # mkdir output directory
+        mkdir(os.path.dirname(filename_out))
+
+        # wget dat_filename
+        Log.info("Downloading '%(url)s' into '%(filename_out)s'" % locals())
+        urlretrieve(url, filename_out)
     except Exception, e:
-        raise Exception, "Cannot write into directory '%s': %s" % (directory, e)
+        raise RuntimeError(e)
 
+@accepts(StringTypes, StringTypes, bool)
+def gunzip(filename_gz, filename_out, overwrite):
+    """
+    Uncompress a .gz file.
+    Args:
+        filename_gz: Input .gz absolute path.
+        filename_out: Output absolute path.
+        overwrite: Pass True if this function must overwrites filename_out file
+            if it already exists, False otherwise.
+    Raises:
+        ImportError: if gzip is not installed
+        IOError: if the input file is not a gzip file
+        RuntimeError: in case of failure
+    """
+    # Do not the file if not required 
+    if not overwrite:
+        try:
+            check_readable_file(filename_out)
+            return
+        except:
+            pass
 
-def make_writable_directory(directory):
+    import gzip
+
+    Log.info("Gunzip %(filename_gz)s into %(filename_out)s" % locals())
+    f_gz = None
+    f_out = None
     try:
-        os.makedirs(directory)
-    except OSError, e:
-        raise Exception, "Could not create directory '%s': %s" % (directory, e)
+        f_gz = gzip.open(filename_gz, "rb")
+        f_out = open(filename_out, "wb")
+        f_out.write(f_gz.read())
+    finally:
+        if f_out: f_out.close()
+        if f_gz:  f_gz.close()
 
+#-------------------------------------------------------------------------------
+# File management
+#-------------------------------------------------------------------------------
+
+@accepts(StringTypes)
+def check_readable_file(filename):
+    """
+    Test whether a file can be read.
+    Args:
+        filename: A String containing the absolute path of this file.
+    Raises:
+        RuntimeError: If the directory cannot be created.
+    """
+    if not os.path.isfile(filename):
+        raise RuntimeError("%s is not a regular file" % filename)
+    try:
+        f = open(filename, "r")
+        f.close()
+    except:
+        raise RuntimeError("%s cannot be read" % filename)
+
+#-------------------------------------------------------------------------------
+# Directory management
+#-------------------------------------------------------------------------------
+
+@accepts(StringTypes)
+def check_writable_directory(directory):
+    """
+    Tests whether a directory is writable.
+    Args:
+        directory: A String containing an absolute path.
+    Raises:
+        RuntimeError: If the directory does not exists or isn't writable. 
+    """
+    if not os.path.exists(directory):
+        raise RuntimeError("Directory '%s' does not exists" % directory)
+    if not os.access(directory, os.W_OK | os.X_OK):
+        raise RuntimeError("Directory '%s' is not writable" % directory)
+    try:
+        with tempfile.TemporaryFile(dir = directory):
+            pass
+    except Exception, e:
+        raise RuntimeError("Cannot write into directory '%s': %s" % (directory, e))
+
+@accepts(StringTypes)
+def make_writable_directory(directory):
+    """
+    See mkdir()
+    """
+    mkdir(directory)
+
+@accepts(StringTypes)
 def ensure_writable_directory(directory):
+    """
+    Tests whether a directory exists and is writable. If not,
+    try to create such a directory.
+    Args:
+        directory: A String containing an absolute path.
+    Raises:
+        RuntimeError: If the directory does not exists and cannot be created. 
+    """
     try:
         check_writable_directory(directory)
-    except Exception, e:
+    except RuntimeError, e:
         make_writable_directory(directory) 
 
 #-------------------------------------------------------------------------------
@@ -52,25 +179,53 @@ def ensure_writable_directory(directory):
 # openssl genrsa 1024 > /etc/manifold/keys/server.key
 # chmod 400 /etc/manifold/keys/server.key
 
+@returns(Keypair)
+@accepts(StringTypes)
 def check_keypair(filename):
+    """
+    Tests whether a filename contains a valid Keypair.
+    Args:
+        filename: A String containing the absolute path of this file.
+    Raises:
+        RuntimeError: If the file does not exists or cannot be loaded.
+    """
     if not os.path.exists(filename):
-        raise Exception, "Private key file does not exists '%s': %s" % (filename, e)
+        raise RuntimeError("Private key file does not exists '%s': %s" % (filename, e))
     try:
         keypair = Keypair(filename=filename)
     except Exception, e:
-        raise Exception, "Cannot load private key '%s': %s" % (FN_PRIVATE_KEY, e)
+        raise RuntimeError("Cannot load private key '%s': %s" % (FN_PRIVATE_KEY, e))
 
     return keypair
 
+@returns(Keypair)
+@accepts(StringTypes)
 def make_keypair(filename):
+    """
+    Create a Keypair and stores it into a file.
+    Args:
+        filename: The absolute path of the output file. 
+    Raises:
+        RuntimeError: If the file does not exists or cannot be loaded.
+    """
     try:
         keypair = Keypair(create = True)
         keypair.save_to_file(filename)
     except Exception, e:
-        raise Exception, "Cannot generate private key '%s' : %s" % (filename, e)
+        raise RuntimeError("Cannot generate private key '%s' : %s" % (filename, e))
     return keypair
 
+@returns(Keypair)
+@accepts(StringTypes)
 def ensure_keypair(filename):
+    """
+    Test whether a file contains a valid Keypair, and if not, try to create it
+    in the specified file.
+    Args:
+        filename: The absolute path of the Keypair file. 
+    Raises:
+        RuntimeError: If the file does not exists or cannot be loaded.
+    """
     try:
         keypair = check_keypair(filename)
     except:
@@ -83,7 +238,16 @@ def ensure_keypair(filename):
 
 # openssl req -new -x509 -nodes -sha1 -days 365 -key /etc/manifold/keys/server.key > /etc/manifold/keys/server.cert
 
+@returns(Certificate)
+@accepts(StringTypes)
 def check_certificate(filename):
+    """
+    Tests whether a filename contains a valid Certificate.
+    Args:
+        filename: A String containing the absolute path of this file.
+    Raises:
+        RuntimeError: If the file does not exists or cannot be loaded.
+    """
     if not os.path.exists(filename):
         raise Exception, "Certificate file does not exists '%s': %s" % (filename, e)
     try:
@@ -93,8 +257,19 @@ def check_certificate(filename):
  
     return certificate
 
-
+@returns(Certificate)
+@accepts(StringTypes, StringTypes, Keypair)
 def make_certificate(filename, subject, keypair):
+    """
+    Create a Certificate using the public key stored in a Keypair
+    and stores it into a file.
+    Args:
+        filename: The absolute path of the output file. 
+        subject: A String encoded in latin1.
+        keypair: A Keypair instance. 
+    Raises:
+        RuntimeError: If the file does not exists or cannot be loaded.
+    """
     try:
         #subject = subject.encode("latin1"))
         certificate = Certificate(subject = subject)
@@ -107,9 +282,19 @@ def make_certificate(filename, subject, keypair):
 
     return certificate
 
-
-
+@returns(Certificate)
+@accepts(StringTypes, StringTypes, Keypair)
 def ensure_certificate(filename, subject, keypair):
+    """
+    Test whether a file contains a valid Certificate, and if not, try to create it
+    in the specified file according to an input Keypair.
+    Args:
+        filename: The absolute path of the Keypair file. 
+        subject: A String encoded in latin1.
+        keypair: A Keypair instance. 
+    Raises:
+        RuntimeError: If the file does not exists or cannot be loaded.
+    """
     try:
         certificate = check_certificate(filename)
     except:

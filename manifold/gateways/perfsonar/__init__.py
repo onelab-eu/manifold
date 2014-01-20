@@ -18,7 +18,7 @@ from manifold.gateways                  import Gateway
 from manifold.util.log                  import Log
 
 class PerfSONARGateway(Gateway):
-    __gateway_name__ = 'perfsonar'
+    __gateway_name__ = "perfsonar"
 
     #---------------------------------------------------------------------------
     # Constructor
@@ -85,8 +85,8 @@ class PerfSONARGateway(Gateway):
     # Metadata 
     #---------------------------------------------------------------------------
 
-    @announces_from_docstring('perfsonar')
-    def get_metadata(self):
+    @announces_from_docstring("perfsonar")
+    def make_announces(self):
         """
         class dummy {
             int    key;       /**< My key */
@@ -96,5 +96,3 @@ class PerfSONARGateway(Gateway):
             KEY(key);
         }; 
         """
-
-

@@ -313,7 +313,7 @@ class Certificate:
     # @param create If create==True, then also create a blank X509 certificate.
     # @param subject If subject!=None, then create a blank certificate and set
     #     it's subject name.
-    # @param string If string!=None, load the certficate from the string.
+    # @param string If string!=None, load the certficate from the string (latin1).
     # @param filename If filename!=None, load the certficiate from the file.
     # @param isCA If !=None, set whether this cert is for a CA
 

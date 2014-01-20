@@ -181,9 +181,9 @@ class CSVGateway(Gateway):
         return self.config[table]['key'].split(',')
 
     @returns(list)
-    def get_metadata(self):
+    def make_announces(self):
         """
-        Build metadata by loading header files
+        Build Announces by loading header files
         Returns:
             The list of corresponding Announce instances
         """

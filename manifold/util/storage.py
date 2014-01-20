@@ -114,5 +114,5 @@ def storage_make_virtual_announces(platform_name = STORAGE_NAMESPACE):
             KEY(type);
         };
         """
-    announces = _get_metadata_tables()
+    announces = _get_metadata_tables(platform_name)
     return announces
