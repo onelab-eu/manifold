@@ -20,7 +20,7 @@ from manifold.core.forwarder        import Forwarder
 from manifold.core.router           import Router
 from manifold.core.record           import Record
 from manifold.core.capabilities     import Capabilities
-from manifold.models.platform       import Platform
+from manifold.gateways.sqlalchemy.models.platform       import Platform
 from manifold.util.filesystem       import ensure_writable_directory, ensure_keypair, ensure_certificate
 from manifold.util.log              import Log
 from manifold.util.options          import Options
@@ -50,8 +50,8 @@ xmlrpclib.Marshaller.dispatch[Record]   = xmlrpclib.Marshaller.dump_struct
 
 class XMLRPCDaemon(Daemon):
     DEFAULTS = {
-        'xmlrpc_port' : 7080, # XMLRPC server port
-        'gateway'     : None  # Gateway
+        "xmlrpc_port" : 7080, # XMLRPC server port
+        "gateway"     : None  # Gateway
     }
 
     def __init__(self):
@@ -119,12 +119,12 @@ class XMLRPCDaemon(Daemon):
         elif gateway_name == "csv":
             config = {"filename" : "/tmp/test.csv"}
         else:
-            config = {}
+            config = dict() 
         return config
         
     def main(self):
         """
-        \brief Runs a XMLRPC server
+        Run a XMLRPC server.
         """
         Log.info("XMLRPC server daemon (%s) started." % sys.argv[0])
 
@@ -153,7 +153,7 @@ class XMLRPCDaemon(Daemon):
 
         # XXX We should harmonize interfaces between Router and Forwarder
         if Options().platform:
-            platforms = Storage.execute(Query().get('platform'), format='object')
+            platforms = Storage.execute(Query().get("platform"), format = "object")
             # We pass a single platform to Forwarder
             platform = [p for p in platforms if p.name == Options().platform][0]
             self.interface = Forwarder(platform, allowed_capabilities)
@@ -161,12 +161,12 @@ class XMLRPCDaemon(Daemon):
         elif Options().gateway:
             # XXX user
             # XXX Change Forwarded initializer
-#DEPRECATED|            platform = Platform(u'dummy', Options().gateway, self.get_gateway_config(Options().gateway), 'user')
+#DEPRECATED|            platform = Platform(u"dummy", Options().gateway, self.get_gateway_config(Options().gateway), "user")
             platform = Platform(
-                platform     = u'dummy',
+                platform     = u"dummy",
                 gateway_type = Options().gateway,
                 config       = self.get_gateway_config(Options().gateway),
-                auth_type    = 'user'
+                auth_type    = "user"
             )
             self.interface = Forwarder(platform, allowed_capabilities)
 
@@ -178,25 +178,25 @@ class XMLRPCDaemon(Daemon):
         # XXX - should the directory be passed as an option ?
         # XXX - is ensure_writable_directory creating directories recursively ?
 
-        manifold_etc_dir  = '/etc/manifold' # XXX
+        manifold_etc_dir  = "/etc/manifold" # XXX
         # XXX should ssl_path be a subdirectory of /etc/manifold ?
         # ssl_path = Options().ssl_path
-        manifold_keys_dir = os.path.join(manifold_etc_dir, 'keys')
-        keypair_fn        = os.path.join(manifold_keys_dir, 'server.key')
-        certificate_fn    = os.path.join(manifold_keys_dir, 'server.cert')
+        manifold_keys_dir = os.path.join(manifold_etc_dir, "keys")
+        keypair_fn        = os.path.join(manifold_keys_dir, "server.key")
+        certificate_fn    = os.path.join(manifold_keys_dir, "server.cert")
 
-        manifold_trusted_roots_dir = os.path.join(manifold_etc_dir, 'trusted_roots')
+        manifold_trusted_roots_dir = os.path.join(manifold_etc_dir, "trusted_roots")
 
         ensure_writable_directory(manifold_keys_dir)
         ensure_writable_directory(manifold_trusted_roots_dir)
 
-        keypair = ensure_keypair('/etc/manifold/keys/server.key')
-        subject = 'manifold' # XXX Where to get the subject of the certificate ?
-        certificate = ensure_certificate('/etc/manifold/keys/server.cert', subject, keypair)
+        keypair = ensure_keypair("/etc/manifold/keys/server.key")
+        subject = "manifold" # XXX Where to get the subject of the certificate ?
+        certificate = ensure_certificate("/etc/manifold/keys/server.cert", subject, keypair)
 
 #DEPRECATED|        if not ssl_path or not os.path.exists(ssl_path):
 #DEPRECATED|            print ""
-#DEPRECATED|            print "You need to generate SSL keys and certificate in '%s' to be able to run manifold" % ssl_path
+#DEPRECATED|            print "You need to generate SSL keys and certificate in "%s" to be able to run manifold" % ssl_path
 #DEPRECATED|            print ""
 #DEPRECATED|            print "mkdir -p /etc/manifold/keys"
 #DEPRECATED|            print "openssl genrsa 1024 > /etc/manifold/keys/server.key"
@@ -206,14 +206,22 @@ class XMLRPCDaemon(Daemon):
 #DEPRECATED|            sys.exit(0)
 
         try:
+            @returns(bool)
             def verifyCallback(connection, x509, errnum, errdepth, ok):
                 if not ok:
-                    print 'invalid cert from subject:', x509.get_subject()
-                    print errnum, errdepth
-                    return False
+                    Log.error("invalid cert from subject: %(subject)s %(errnum)s %(errdepth)" % {
+                        "subject"  : x509.get_subject(),
+                        "errnum"   : errnum,
+                        "errdepth" : errdepth
+                    })
+                    ret = False
                 else:
-                    print "Certs are fine", x509, x509.get_subject()
-                return True
+                    Log.ingo("Certs are fine: %(x509)s %s(subject)s" % {
+                        "x509"    : x509,
+                        "subject" :  x509.get_subject()
+                    }
+                    ret = True
+                return ret 
             
             myContextFactory = ssl.DefaultOpenSSLContextFactory(keypair_fn, certificate_fn)
             
@@ -250,8 +258,7 @@ def main():
     Log.init_options()
     Daemon.init_options()
     Options().parse()
-    
     XMLRPCDaemon().start()
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

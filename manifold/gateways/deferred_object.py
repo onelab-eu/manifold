@@ -10,6 +10,9 @@
 from types                          import GeneratorType
 from twisted.internet               import defer
 
+from manifold.core.annotation       import Annotation
+from manifold.core.announce         import Announce
+from manifold.core.query            import Query
 from manifold.util.type           	import accepts, returns 
 
 class DeferredObject(object):
@@ -39,6 +42,12 @@ class DeferredObject(object):
         """
         return self.gateway
 
+    def check(self, query, annotation):
+        assert isinstance(query, Query),\
+            "Invalid query = %s (%s)" % (query, type(query))
+        assert not annotation or isinstance(annotation, Annotation),\
+            "Invalid annotation = %s (%s)" % (annotation, type(annotation))
+
     @defer.inlineCallbacks
     @returns(GeneratorType)
     def create(self, query, annotation):
@@ -48,22 +57,10 @@ class DeferredObject(object):
             query: The Query issued by the User.
             annotation: The corresponding Annotation (if any, None otherwise). 
         Returns:
-            The list of updated Objects.
+            The list of created Records.
         """
+        self.check(query, annotation)
         raise NotImplementedError("%s::create method is not implemented" % self.__class__.__name__)
-
-    @defer.inlineCallbacks
-    @returns(GeneratorType)
-    def delete(self, query, annotation): 
-        """
-        This method must be overloaded if supported in the children class.
-        Args:
-            query: The Query issued by the User.
-            annotation: The corresponding Annotation (if any, None otherwise). 
-        Returns:
-            The list of updated Objects.
-        """
-        raise NotImplementedError("%s::delete method is not implemented" % self.__class__.__name__)
 
     @defer.inlineCallbacks
     @returns(GeneratorType)
@@ -74,9 +71,24 @@ class DeferredObject(object):
             query: The Query issued by the User.
             annotation: The corresponding Annotation (if any, None otherwise). 
         Returns:
-            The list of updated Objects.
+            The list of updated Records.
         """
+        self.check(query, annotation)
         raise NotImplementedError("%s::update method is not implemented" % self.__class__.__name__)
+
+    @defer.inlineCallbacks
+    @returns(GeneratorType)
+    def delete(self, query, annotation): 
+        """
+        This method must be overloaded if supported in the children class.
+        Args:
+            query: The Query issued by the User.
+            annotation: The corresponding Annotation (if any, None otherwise). 
+        Returns:
+            The list of deleted Records.
+        """
+        self.check(query, annotation)
+        raise NotImplementedError("%s::delete method is not implemented" % self.__class__.__name__)
 
     @defer.inlineCallbacks
     @returns(GeneratorType)
@@ -87,15 +99,16 @@ class DeferredObject(object):
             query: The Query issued by the User.
             annotation: The corresponding Annotation (if any, None otherwise). 
         Returns:
-            A dictionnary containing the requested object.
+            The list of queried Records.
         """
-        raise NotImplementedError("Not implemented")
+        self.check(query, annotation)
+        raise NotImplementedError("%s::get method is not implemented" % self.__class__.__name__)
 
-    @returns(list)
-    def make_announces(self):
+    @returns(Announce)
+    def make_announce(self):
         """
         Returns:
-            The list of Announce instances related to this object.
+            The Announce related to this object.
         """
-        raise NotImplementedError("Not implemented")
+        raise NotImplementedError("%s::make_announces method is not implemented" % self.__class__.__name__)
 

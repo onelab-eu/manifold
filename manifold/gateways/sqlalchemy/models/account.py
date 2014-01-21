@@ -20,17 +20,18 @@ from sqlalchemy.orm                 import relationship, backref
 # TODO move the SFA specific part in manifold/gateways/sfa
 try:
     from sfa.trust.credential       import Credential
-except: pass
+except:
+    pass
 
-from manifold.models                import Base
-from manifold.models.user           import User
-from manifold.models.platform       import Platform
-from manifold.models.get_session    import get_session
+from ..models                       import Base
+from ..models.user                  import ModelUser
+from ..models.platform              import ModelPlatform
+from ..models.get_session           import get_session
 from manifold.util.log              import Log 
 from manifold.util.predicate        import Predicate
 from manifold.util.type             import accepts, returns 
 
-class Account(Base):
+class ModelAccount(Base):
 
     restrict_to_self = True
 
@@ -39,32 +40,9 @@ class Account(Base):
     auth_type   = Column(Enum("none", "default", "user", "reference", "managed"), default = "default")
     config      = Column(String, doc = "Default configuration (serialized in JSON)")
 
-    user        = relationship("User",     backref = "accounts",  uselist = False)
-    platform    = relationship("Platform", backref = "platforms", uselist = False)
+    user        = relationship("ModelUser",     backref = "accounts",  uselist = False)
+    platform    = relationship("ModelPlatform", backref = "platforms", uselist = False)
 
-#UNUSED|    #@returns(Gateway)
-#UNUSED|    def get_gateway(self):
-#UNUSED|        """
-#UNUSED|        (Internal use)
-#UNUSED|        Retrieve the Manifold Gateway related to this Account 
-#UNUSED|        Returns:
-#UNUSED|            The Manifold Gateway related to this Platform. 
-#UNUSED|        """
-#UNUSED|        assert self.auth_type == "managed", "Invalid Account (type = %s)" % self.auth_type
-#UNUSED|        gateway = None
-#UNUSED|
-#UNUSED|        # Finds the gateway corresponding to the platform
-#UNUSED|        gateway_type = self.platform.gateway_type
-#UNUSED|
-#UNUSED|        if not gateway_type:
-#UNUSED|            Log.error("Account::get_gateway(): Undefined gateway")
-#UNUSED|        else:
-#UNUSED|            try:
-#UNUSED|                gateway = getattr(__import__("manifold.gateways", globals(), locals(), gateway_type), gateway_type)
-#UNUSED|            except: pass
-#UNUSED|
-#UNUSED|        return gateway
-#UNUSED|
 #UNUSED|    def update_config(self, gateway = None):
 #UNUSED|        """
 #UNUSED|        Update the "config" field of this Account in the Manifold Storage.
@@ -101,8 +79,8 @@ class Account(Base):
             for user_filter in user_filters:
                 assert user_filter.op.__name__ == "eq", "Only == is supported for convenience filter 'user'" 
                 user_email = user_filter.value
-                print "User.get_user_id(user_email)", User.get_user_id(user_email)
-                filters.add(Predicate("user_id", "=", User.get_user_id(user_email)))
+                print "User.get_user_id(user_email)", ModelUser.get_user_id(user_email)
+                filters.add(Predicate("user_id", "=", ModelUser.get_user_id(user_email)))
             
         # Update predicates involving "platform"
         platform_filters = filters.get("platform")
@@ -125,13 +103,13 @@ class Account(Base):
         Args:
             params: A dictionnary instance.
             filters: A list of Predicate instances.
-            user: a User instance (see manifold.models.user)
+            user: a ModelUser instance
         """
         user_params = params.get("user")
         if user_params:
             del params["user"]
             user_email = user_params
-            params["user_id"] = User.get_user_id(user_email)
+            params["user_id"] = ModelUser.get_user_id(user_email)
 
         platform_params = params.get("platform")
         if platform_params:

@@ -499,11 +499,9 @@ class Gateway(Producer):
         try:
             # This method must be overloaded on the Gateway
             # See manifold/gateways/template/__init__.py
-            print "<receive_impl>"
             self.receive_impl(packet) 
-            print "</receive_impl>"
         except Exception, e:
-            print "RECEIVE EXCEPTION", e
+            #print "RECEIVE EXCEPTION", e
             self.error(packet, e, True)
         finally:
             self.close(packet)
