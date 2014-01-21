@@ -10,7 +10,7 @@
 import GeoIP
 from types                          import GeneratorType
 
-from manifold.core.announce         import announces_from_docstring
+from manifold.core.announce         import Announce, announces_from_docstring
 from manifold.gateways.object       import Object
 from manifold.util.type           	import accepts, returns 
 
@@ -28,11 +28,11 @@ class Hostname(Object):
             A dictionnary containing the requested Object.
         """
 
-    @returns(list)
-    def make_announces(self):
+    @returns(Announce)
+    def make_announce(self):
         """
         Returns:
-            The list of Announce instances related to this object.
+            The Announce instance related to this object.
         """
         platform_name = self.get_gateway().get_platform_name()
 
@@ -59,4 +59,4 @@ class Hostname(Object):
             };
             """
         announces = make_announces_impl()
-        return announces
+        return announces[0]

@@ -13,13 +13,13 @@
 # Copyright (C) 2013 UPMC
 
 import json
-from sqlalchemy                     import Column, Integer, String
+from sqlalchemy                 import Column, Integer, String
 
-from manifold.models                import Base
-from manifold.models.get_session    import get_session
-from manifold.util.type             import accepts, returns 
+from ..models                   import Base
+from ..models.get_session       import get_session
+from manifold.util.type         import accepts, returns 
 
-class User(Base):
+class ModelUser(Base):
     restrict_to_self = True
     user_id  = Column(Integer, primary_key = True, doc = "User identifier")
     email    = Column(String,                      doc = "User email")
@@ -32,11 +32,11 @@ class User(Base):
         
     def set_config(self, value):
         """
-        Update the "config" field of this User in the
+        Update the "config" field of this ModelUser in the
         Manifold Storage.
         Args:
             value: A String encoded in JSON containing
-                the new "config" related to this User.
+                the new "config" related to this ModelUser.
         """
         db = get_session(self)
         self.config = json.dumps(value)
@@ -48,7 +48,7 @@ class User(Base):
         """
         Returns:
             The dictionnary corresponding to the JSON content
-            related to the "config" field of this User.
+            related to the "config" field of this ModelUser.
         """
         if not self.config:
             return dict() 
@@ -65,10 +65,10 @@ class User(Base):
         Args:
             user_email: a String instance. 
         Returns:
-            The user ID related to an User.
+            The user ID related to an ModelUser.
         """
         db = get_session(self)
-        ret = db.query(User.user_id).filter(User.email == user_params).one()
+        ret = db.query(ModelUser.user_id).filter(ModelUser.email == user_params).one()
         return ret[0]
 
     @staticmethod
@@ -77,17 +77,17 @@ class User(Base):
 
         # JSON ENCODED FIELDS are constructed into the json_fields variable
         given = set(params.keys())
-        accepted = set([c.name for c in User.__table__.columns])
+        accepted = set([c.name for c in ModelUser.__table__.columns])
         given_json_fields = given - accepted
         
         if given_json_fields:
-            if 'config' in given_json_fields:
+            if "config" in given_json_fields:
                 raise Exception, "Cannot mix full JSON specification & JSON encoded fields"
 
-            r = db.query(User.config).filter(filters)
+            r = db.query(ModelUser.config).filter(filters)
             if user:
-                r = r.filter(User.user_id == user['user_id'])
-            r = r.filter(filters) #User.platform_id == platform_id)
+                r = r.filter(ModelUser.user_id == user["user_id"])
+            r = r.filter(filters) #ModelUser.platform_id == platform_id)
             r = r.one()
             try:
                 json_fields = json.loads(r.config)
@@ -99,7 +99,7 @@ class User(Base):
                 json_fields[field] = params[field]
                 del params[field]
 
-            params['config'] = json.dumps(json_fields)
+            params["config"] = json.dumps(json_fields)
 
         return params
 
@@ -109,18 +109,18 @@ class User(Base):
 
         # A user can only create its own objects
         if cls.restrict_to_self:
-            params['user_id'] = user['user_id']
+            params["user_id"] = user["user_id"]
             return
 
-        if 'user_id' in params: return
-        if 'user' in params:
-            user_params = params['user']
+        if "user_id" in params: return
+        if "user" in params:
+            user_params = params["user"]
             print "user_params", user_params
-            del params['user']
-            ret = db.query(User.user_id)
-            ret = ret.filter(User.email == user_params)
+            del params["user"]
+            ret = db.query(ModelUser.user_id)
+            ret = ret.filter(ModelUser.email == user_params)
             ret = ret.one()
-            params['user_id'] = ret[0]
+            params["user_id"] = ret[0]
             return
-        raise Exception, 'User should be specified'
+        raise ValueError("User should be specified")
  

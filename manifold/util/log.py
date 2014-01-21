@@ -318,6 +318,7 @@ class Log(object):
         if not Options().log_level in ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']:
             return
         #cls.log_message('ERROR', "%s" % traceback.format_exc(), ctx)
+        #print "%s" % traceback.format_exc()
         cls.log_message('ERROR', msg, ctx)
 
     @classmethod
