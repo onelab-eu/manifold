@@ -500,7 +500,7 @@ class Gateway(Producer):
             # This method must be overloaded on the Gateway
             # See manifold/gateways/template/__init__.py
             print "<receive_impl>"
-            self.receive_impl(packet)
+            self.receive_impl(packet) 
             print "</receive_impl>"
         except Exception, e:
             print "RECEIVE EXCEPTION", e

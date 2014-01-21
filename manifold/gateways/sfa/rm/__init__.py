@@ -101,8 +101,6 @@ class SFA_RMGateway(SFAGatewayCommon):
         Log.debug("Not yet implemented. Run delegation script in the meantime")
     
     # TODO move in ../__init__
-    # Jordan : why, it seems object are only present in the registry
-    # XXX What about resources/nodes
     def get_object(self, table_name):
         """
         Retrieve the Object corresponding to a table_name.
@@ -133,7 +131,6 @@ class SFA_RMGateway(SFAGatewayCommon):
         Returns:
             The list of corresponding Records if any.
         """
-        print "RM :: perform_query"
         # Check whether action is set to a valid value.
         VALID_ACTIONS = ["get", "create", "update", "delete", "execute"]
         action = query.get_action()
@@ -194,32 +191,10 @@ class SFA_RMGateway(SFAGatewayCommon):
 
         defer.returnValue(False)
 
+
     @staticmethod
     @returns(StringTypes)
     def get_credential(user, user_account_config, type, target_hrn = None):
-        """
-        Args:
-            user: A dictionnary carrying a description of the User issuing the Query.
-            user_account_config: A dictionnary storing the account configuration related to
-                the User and to the nested Platform managed by this Gateway.
-            type: A String instance among {"user", "authority", "slice"}
-            target_hrn: If type == "slice", this String contains the slice HRN.
-                Otherwise pass None.
-        """
-        assert isinstance(user_account_config, dict),  "Invalid user_account_config"
-        assert type in ["authority", "user", "slice"], "Invalid credential type: %s" % type
-        assert target_hrn == None or type == "slice",  "Invalid parameters" # NOTE: Once this function will be generalized, update this assert
-
-        #try:
-            # XXX Why this indirection ??
-        return SFA_RMGateway.get_credential_impl(user, user_account_config, type, target_hrn)
-        #except Exception, why:
-        #    Log.error(traceback.format_exc(why))
-        #    raise why
-
-    @staticmethod
-    @returns(StringTypes)
-    def get_credential_impl(user, user_account_config, type, target_hrn = None):
         """
         Retrieve from an user's account config the appropriate credentials.
         Args:
@@ -232,6 +207,10 @@ class SFA_RMGateway(SFAGatewayCommon):
         Returns:
             The corresponding Credential String.
         """
+        assert isinstance(user_account_config, dict),  "Invalid user_account_config"
+        assert type in ["authority", "user", "slice"], "Invalid credential type: %s" % type
+        assert target_hrn == None or type == "slice",  "Invalid parameters" # NOTE: Once this function will be generalized, update this assert
+
         delegated = "delegated_" if not is_user_admin(user) else ""
         key = "%s%s_credential%s" % (
             delegated,
