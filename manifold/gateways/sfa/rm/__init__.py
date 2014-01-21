@@ -118,8 +118,8 @@ class SFA_RMGateway(SFAGatewayCommon):
         return SFA_RMGateway.METHOD_MAP[table_name](self) 
 
     # TODO move in ../__init__
-    @defer.inlineCallbacks
-    @returns(GeneratorType)
+    # XXX NO MORE DEFERRED !@defer.inlineCallbacks
+    # XXX @returns(GeneratorType)
     def perform_query(self, user, user_account_config, query):
         """
         Perform a Query on this Gateway.
@@ -151,11 +151,11 @@ class SFA_RMGateway(SFAGatewayCommon):
         try:
             method = getattr(instance, action)
         except Exception, e:
+            print "EXCEPTION HERE !!!! We should send ICMP"
             failure = Failure("Invalid method (%s): %s" % (method, e))
             failure.raiseException()
 
-        records = yield method(user, user_account_config, query)
-        defer.returnValue(records)
+        return method(user, user_account_config, query)
 
     # TODO move in ../__init__
     @defer.inlineCallbacks
