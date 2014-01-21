@@ -263,7 +263,45 @@ class SFAGatewayCommon(Gateway):
 #DEPRECATED|            decorator. 
 #DEPRECATED|        """
 
-    @defer.inlineCallbacks
+    # XXX None of the calls should be asynchronous, otherwise, let's use the packet communication
+
+    def receive_record_impl(self, record):
+        print "recieve records impl", record
+        # Insert a RENAME Node above this FROM Node if necessary.
+        instance = self.get_object(query.get_from())
+        aliases  = instance.get_aliases()
+        if aliases:
+            Log.warning("I don't think this properly recables everything")
+            Rename(self, aliases)
+
+        # Send Records to the From Node.
+        # NOTE from jordan: This might send to the Rename node
+        self.records(row)
+
+    def receive_error_impl(self, error):
+        # We might call the appropriate method (for instance User.get(...)) in
+        # a first time without managing the user account. If it fails and if
+        # this account is managed, then run managed and try to rerun the Query.
+        # XXX Be careful not to run in an infinite loop: has the account be
+        # managed recently ?
+
+        try:
+            is_managed = yield self.handle_error(user, user_account)
+        except AttributeError, e:
+            # We (should) log the error and forward the ICMP
+            self.error(error)            
+
+        if is_managed:
+            # Send the query again
+            self.perform_query(user, user_account_config, query)    \
+                .addCallback(self.receive_record_impl)          \
+                .addErrback(self.receive_error_callback)
+        else:
+            # We forward the ICMP
+            self.error(error)
+
+
+    # This is in fact receive_query_impl
     def receive_impl(self, packet):
         """
         Handle a incoming QUERY Packet.
@@ -271,44 +309,14 @@ class SFAGatewayCommon(Gateway):
             packet: A QUERY Packet instance.
         """
         
-#DEPRECATED|        identifier = receiver.get_identifier() if receiver else None
-#DEPRECATED|        super(SFAGatewayCommon, self).forward(query, callback, is_deferred, execute, user, user_account_config, format, receiver)
-#DEPRECATED|
-#DEPRECATED|        try:
-#DEPRECATED|            Gateway.start(user, user_account_config, query)
-#DEPRECATED|        except Exception, e:
-#DEPRECATED|            Log.error("Error while starting SFA_RMGateway")
-#DEPRECATED|            traceback.print_exc()
-#DEPRECATED|            Log.error(str(e))
-
-
         query = packet.get_query()
         annotation = packet.get_annotation()
         user = annotation.get("user", None)
         user_email = user["email"]
 
         if not user:
-            print "no user"
             self.error(packet, "No user specified, aborting")
             return
-#DEPRECATED|=======
-#DEPRECATED|    def forward(self, query, annotation, receiver = None):
-#DEPRECATED|        """
-#DEPRECATED|        Query handler.
-#DEPRECATED|        Args:
-#DEPRECATED|            query: A Query instance, reaching this Gateway.
-#DEPRECATED|            annotation: A dictionnary instance containing Query's annotation.
-#DEPRECATED|            receiver : A Receiver instance which collects the results of the Query.
-#DEPRECATED|        """
-#DEPRECATED|        super(SFAGatewayCommon, self).forward(query, annotation, receiver)
-#DEPRECATED|        identifier = receiver.get_identifier() if receiver else None
-#DEPRECATED|
-#DEPRECATED|        try:
-#DEPRECATED|
-#DEPRECATED|            # Retrieve parameters
-#DEPRECATED|            user = annotation["user"]
-#DEPRECATED|            user_email = user["email"]
-#DEPRECATED|>>>>>>> routerv2
 
         try:
             user_account = self.get_account(user_email)
@@ -339,44 +347,13 @@ class SFAGatewayCommon(Gateway):
         if not user_account_config:
             Log.error("account not found")
             self.error(packet, "Account related to %s for platform %s not found" % (user_email, self.get_platform_name()))
-            defer.returnValue()
-#DEPRECATED|=======
-#DEPRECATED|            Gateway.start(user, user_account_config, query)
-#DEPRECATED|>>>>>>> routerv2
+            return
 
-        # Call the appropriate method (for instance User.get(...)) in a first
-        # time without managing the user account. If it fails and if this
-        # account is managed, then run managed and try to rerun the Query.
-        result = list()
-        try:
-            result = yield self.perform_query(user, user_account_config, query)
-        except Exception, e:
-            #<<<<<<<< specific to RM
-            try:
-                is_managed = yield self.handle_error(user, user_account)
-                
-            except AttributeError, e:
-                Log.warning("failure is not defined here")
-                # raiseException: Raise the original exception (http://twistedmatrix.com/documents/8.2.0/api/twisted.python.failure.Failure.html#raiseException)
-                failure.raiseException()
-                
-            if is_managed:
-                result = yield self.perform_query(user, user_account_config, query)
-            else:
-                failure = Failure("Account not managed: user_account_config = %s / auth_type = %s" % (user_account_config, user_account["auth_type"]))
-                print "failure.raiseException()"
-                failure.raiseException()
-                print "failure.raiseException() DONE"
-            #<<<<<<
-       
-        # Insert a RENAME Node above this FROM Node if necessary.
-        instance = self.get_object(query.get_from())
-        aliases  = instance.get_aliases()
-        if aliases:
-            Rename(self, aliases)
+        
+        self.perform_query(user, user_account_config, query)    \
+            .addCallback(self.receive_record_impl)          \
+            .addErrback(self.receive_error_impl)
 
-        # Send Records to the From Node.
-        self.records(row)
 
 
 

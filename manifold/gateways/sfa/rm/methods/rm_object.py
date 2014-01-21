@@ -133,7 +133,10 @@ class RM_Object(DeferredObject):
         print "getting credential"
         print "    > user", user
         print "    > account_config", account_config
-        credential = gateway.get_credential(user, account_config, "user", None)
+        try:
+            credential = SFA_RMGateway.get_credential(user, user_account_config, type, target_hrn)
+        except Exception, e:
+            print "credential error", e
         print "credential ok"
 
         # Retrieve the registry (= SFA proxy)
