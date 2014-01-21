@@ -539,12 +539,15 @@ class Table(object):
             A dictionnary which map for each Method (e.g. platform name +
             method name) the set of Field that can be retrieved 
         """
-        try:
-            return self.map_method_fields 
-        except AttributeError:
-            # Tables might not have such method
-            Log.warning("Table::get_annotations(): on table with unknown platform... set to local")
-            return {Method(STORAGE_NAMESPACE, self.get_name()): self.get_field_names()}
+#        Log.tmp(self.get_platforms())
+#        Log.tmp(self.get_name())
+#        Log.tmp(self.get_field_names())
+#        try:
+#            return self.map_method_fields 
+#        except AttributeError:
+#            # Tables might not have such method
+#            Log.warning("Table::get_annotations(): on table with unknown platform... set to local")
+        return {Method(self.get_platforms(), self.get_name()): self.get_field_names()}
 
     #-----------------------------------------------------------------------
     # Relations between two Table instances 
