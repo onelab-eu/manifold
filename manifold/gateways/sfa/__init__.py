@@ -331,12 +331,18 @@ class SFAGateway(Gateway):
 
         # Initialize manager proxies using MySlice Admin account
         try:
-            self.registry = self.make_user_proxy(self.config['registry'], self.admin_config)
-            self.sliceapi = self.make_user_proxy(self.config['sm'],       self.admin_config)
-            registry_hrn = yield self.get_interface_hrn(self.registry)
-            sm_hrn       = yield self.get_interface_hrn(self.sliceapi)
-            self.registry.set_network_hrn(registry_hrn)
-            self.sliceapi.set_network_hrn(sm_hrn)
+            Log.tmp("--------------------")
+            Log.tmp(self.config)
+            Log.tmp("--------------------")
+            if self.config['registry']:
+                self.registry = self.make_user_proxy(self.config['registry'], self.admin_config)
+                registry_hrn = yield self.get_interface_hrn(self.registry)
+                self.registry.set_network_hrn(registry_hrn)
+
+            if self.config['sm']:
+                self.sliceapi = self.make_user_proxy(self.config['sm'],       self.admin_config)
+                sm_hrn = yield self.get_interface_hrn(self.sliceapi)
+                self.sliceapi.set_network_hrn(sm_hrn)
 
         except Exception, e:
             print "EXC in boostrap", e
@@ -354,6 +360,8 @@ class SFAGateway(Gateway):
 
     @defer.inlineCallbacks
     def get_cached_server_version(self, server):
+        Log.tmp(self.config)
+        Log.tmp(server)
         # check local cache first
         version = None 
         cache_key = server.get_interface() + "-version"
