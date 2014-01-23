@@ -17,14 +17,16 @@ def usage():
     print ""
     print "Add a user to MySlice"
     print "    EMAIL: email address that identifies the user"
+    print '    CONFIG: "{\\"firstname\\": \\"xxx\\", \\"lastname\\": \\"xxx\\", \\"authority\\": \\"ple.upmc\\"}"'
 
 def main():
     argc = len(sys.argv)
-    if argc != 2:
+    if argc != 3:
         usage()
         sys.exit(1)
 
     email = sys.argv[1]
+    config = sys.argv[2]
     password = getpass.getpass("Password: ")
 
     magic = "$1$"
@@ -38,8 +40,9 @@ def main():
         password = crypt.crypt(password.encode('latin1'), magic + salt + "$")
 
     user_params = {
-        'email': email,
-        'password': password
+        'email'   : email,
+        'password': password,
+        'config'  : config
     }
     query = Query(action='create', object='local:user', params=user_params)
 
