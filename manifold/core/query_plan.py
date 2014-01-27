@@ -132,6 +132,7 @@ class QueryPlan(object):
         missing_fields  = set()
         missing_fields |= query.get_select()
         missing_fields |= query.get_where().get_field_names()
+        missing_fields |= set(query.get_params().keys())
 
         while missing_fields:
             task = stack.pop()
