@@ -10,6 +10,7 @@ class User(Base):
     email = Column(String, doc="User email")
     password = Column(String, doc="User password")
     config = Column(String, doc="User config (serialized in JSON)")
+    status = Column(Integer, doc="User status")
 
     def config_set(self, value):
         #Log.deprecated()
