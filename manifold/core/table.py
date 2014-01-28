@@ -120,6 +120,7 @@ class Table(object):
         # Init self.fields
         self.fields = dict()
         if isinstance(fields, (list, set, frozenset)):
+            assert len(fields) > 0
             for field in fields:
                 self.insert_field(field)
         elif isinstance(fields, dict):
@@ -137,8 +138,9 @@ class Table(object):
         # Init default capabilities (none)
         self.capabilities = Capabilities()
  
-        # Other fields
-        self.name = table_name
+        # Init self.name.
+        # Enforce unicode encoding to guarantee format consistency among all Table instances. 
+        self.name = unicode(table_name)
 
     #-----------------------------------------------------------------------
     # Outputs 
@@ -539,15 +541,16 @@ class Table(object):
             A dictionnary which map for each Method (e.g. platform name +
             method name) the set of Field that can be retrieved 
         """
-#        Log.tmp(self.get_platforms())
-#        Log.tmp(self.get_name())
-#        Log.tmp(self.get_field_names())
-#        try:
-#            return self.map_method_fields 
-#        except AttributeError:
-#            # Tables might not have such method
-#            Log.warning("Table::get_annotations(): on table with unknown platform... set to local")
-        return {Method(self.get_platforms(), self.get_name()): self.get_field_names()}
+        try:
+            # This is created by dbnorm and used by ExploreTask
+            # (Table deduced from several Announces having common Keys and Fields)
+            return self.map_method_fields 
+        except AttributeError:
+            # ... Otherwise, we can craft it on the fly
+            table_name  = self.get_name() 
+            field_names = self.get_field_names()
+            for platform_name in self.get_platforms():
+                return {Method(platform_name, table_name): field_names}
 
     #-----------------------------------------------------------------------
     # Relations between two Table instances 
@@ -637,11 +640,8 @@ class Table(object):
 
         relations = set()
 
-#        Log.tmp("Finding relation between %r and %r" % (u, v))
         u_key = u.keys.one()
-#        Log.tmp("> u_key = %s" % u_key)
         v_key = v.keys.one()
-#        Log.tmp("> v_key = %s" % v_key)
 
         if u.get_name() == v.get_name():
             p = Predicate(u_key.get_name(), eq, v_key.get_name())

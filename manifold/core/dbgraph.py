@@ -201,14 +201,14 @@ class DBGraph(object):
                 return table
         return None
 
-    @returns(list)
+    @returns(set)
     def get_table_names(self):
         """
-        Retrieve the list of Table names belonging to this DBGraph.
+        Retrieve the set of Table names belonging to this DBGraph.
         Returns:
-            A list of String instances.
+            A set of String instances.
         """
-        return [table.get_name() for table in self.graph.nodes(False)]
+        return set([table.get_name() for table in self.graph.nodes(False)])
 
     @returns(bool)
     def is_parent(self, table_or_table_name):

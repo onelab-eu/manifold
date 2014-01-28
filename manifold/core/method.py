@@ -12,24 +12,23 @@ from manifold.util.type            import returns, accepts
 
 class Method(object):
     @staticmethod
-    #@accepts(StringTypes, StringTypes)
     def check_init(platform, name):
         """
-        \brief (Internal use)
-            Check whether parameters passed to __init__ are well-formed 
+        (Internal use)
+        Check whether parameters passed to __init__ are well-formed 
         """
-        assert isinstance(platform, StringTypes):
-            raise TypeError("Invalid platform %r (type = %r)" % (platform, type(platform)))
-        if not isinstance(name, StringTypes):
-            raise TypeError("Invalid name %r (type = %r)" % (name, type(name))) 
+        assert isinstance(platform, StringTypes),\
+            "Invalid platform %r (type = %r)" % (platform, type(platform))
+        assert isinstance(name, StringTypes),\
+            "Invalid name %r (type = %r)" % (name, type(name))
 
     def __init__(self, platform, name):
         """
-        Constructor/
+        Constructor.
         Args:
-            platform: The name of the platform provinding this method
+            platform: The name of the platform providing this Method.
             name: The name of the method.
-                This is the name of corresponding table announced by this platform.
+                This is the name of corresponding Table announced by this platform.
         """
         Method.check_init(platform, name)
         self.platform = platform
@@ -37,7 +36,10 @@ class Method(object):
 
     @returns(StringTypes)
     def get_platform(self):
-        raise RuntimeError("Method: Use get_platforms instead()")
+        """
+        Returns:
+            The name of the platform providing this Method.
+        """
         return self.platform
 
     @returns(StringTypes)

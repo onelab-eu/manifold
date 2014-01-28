@@ -14,6 +14,7 @@
 #   Jordan Augé       <jordan.auge@lip6.fr>
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
+import copy
 from types                  import StringTypes
 from manifold.core.field    import Field
 from manifold.util.type     import returns, accepts
@@ -28,9 +29,8 @@ class Key(frozenset):
     @staticmethod
     def check_fields(fields):
         """
-        \brief (Internal use)
-               Test whether the fields parameter of the constructor is well-formed
-        \param fields The fields parameter passed to __init__
+        (Internal use)
+        Test whether the fields parameter of the constructor is well-formed
         """
         for field in fields:
             if not isinstance(field, Field):
@@ -38,8 +38,9 @@ class Key(frozenset):
 
     def __init__(self, fields):
         """
-        \brief Constructor
-        \param fields The set of Field instances involved in the Key.
+        Constructor.
+        Args:
+            fields: The set of Field instances involved in the Key.
         """
         Key.check_fields(fields)
         frozenset.__init__(fields)
@@ -47,11 +48,13 @@ class Key(frozenset):
     @returns(bool)
     def is_composite(self):
         """
-        \brief Test whether a key is made of more that one field (composite key)
-        \return True if the key is composite, False otherwise
+        Test whether a key is made of more that one field (composite key)
+        Returns:
+            True if the key is composite, False otherwise
         """
         return len(list(self)) > 1
 
+    @returns(Field)
     def get_field(self):
         if self.is_composite():
             raise ValueError("get_field cannot be called for a composite key")
@@ -107,6 +110,16 @@ class Key(frozenset):
 #    def __hash__(self):
 #        return hash(tuple([f.get_name() for f in self]))
 
+    @returns(bool)
+    def is_local(self):
+        """
+        Returns:
+            True iif a Key involves at least one local Field/
+        """
+        for field in self:
+            if field.is_local(): return True
+        return False
+
 class Keys(set):
     """
     Implements a set of keys for a table.
@@ -133,18 +146,34 @@ class Keys(set):
             keys: A set/frozenset/list of Key instances
         """
         Keys.check_keys(keys)
-        set.__init__(set(keys))
+        set.__init__(self, set(keys))
 
     @returns(StringTypes)
     def __str__(self):
-        return "[%s]" % (", ".join(["%s" % key for key in self]))
+        """
+        Returns:
+            The '%s' representation of this Keys instance.
+        """
+        return "Keys(%s)" % (", ".join(["%s" % key for key in self]))
 
     @returns(StringTypes)
     def __repr__(self):
+        """
+        Returns:
+            The '%r' representation of this Keys instance.
+        """
         return str(self) 
 
-    @returns(True)
+    @returns(bool)
     def has_field(self, field):
+        """
+        Test whether a Field is involved in at least one Key
+        of this Keys instance.
+        Args:
+            field: A Field instance.
+        Returns:
+            True iif 'field' is involved in this Keys instance.
+        """
         for key in self:
             if field in key:
                 return True
@@ -152,6 +181,10 @@ class Keys(set):
 
     @returns(Key)
     def one(self):
+        """
+        Returns:
+            The first Key instance contained in this Keys instance.
+        """
         assert len(self) == 1, "Cannot call one() when not exactly 1 keys (self = %s)" % self
         # XXX Note we might need to prevent multiple key cases
         return iter(self).next()
@@ -165,3 +198,30 @@ class Keys(set):
 
     def __hash__(self):
         return hash(frozenset(self))
+
+    #@returns(Key)
+    def __or__(self, key2):
+        assert len(key1) == len(key2)
+
+        key1 = self
+        fields = set()
+
+        for field1 in key1:
+            merged = False
+
+            for field2 in key2:
+                # Merge matching fields 
+                try:
+                    fields.add(field1 | field2)
+                    merged = True
+                    break
+                except ValueError:
+                    continue
+
+            if not merged:
+                # No matching Field, the both Key cannot be merged 
+                raise ValueError("Cannot %s | %s" % (self, key2))
+
+        assert len(fields) == len(key1)
+        return Key(fields)
+
