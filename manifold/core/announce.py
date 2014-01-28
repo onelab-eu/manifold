@@ -399,6 +399,48 @@ class Announce(object):
         """
         return self.table.to_dict()
 
+@returns(list)
+def make_virtual_announces(platform_name):
+    """
+    Craft a list of virtual Announces corresponding to virtual
+    Table supposed to be supported by any Gateway (including *:object).
+    Args:
+        platform_name: A name of the Storage platform.
+    Returns:
+        The corresponding list of Announces.
+    """
+    @announces_from_docstring(platform_name)
+    def _get_metadata_tables():
+        """
+        class object {
+            string  table;           /**< The name of the object/table.     */
+            column  columns[];       /**< The corresponding fields/columns. */
+            string  capabilities[];  /**< The supported capabilities        */
+
+            CAPABILITY(retrieve);
+            KEY(table);
+        }; 
+
+        class column {
+            string qualifier;
+            string name;
+            string type;
+            string description;
+            bool   is_array;
+
+            KEY(name);
+        };
+
+        class gateway {
+            string type;
+
+            CAPABILITY(retrieve);
+            KEY(type);
+        };
+        """
+    announces = _get_metadata_tables(platform_name)
+    return announces
+
 class Announces(object):
 
     @classmethod
@@ -439,6 +481,7 @@ class Announces(object):
 
     @classmethod
     def get_announces(self, metadata):
+        Log.warning("what about capabilities?")
         return [Announce(t) for t in metadata.get_announce_tables()]
         
 #------------------------------------------------------------------

@@ -11,7 +11,7 @@
 import json, os, sys, traceback
 from types                          import StringTypes
 
-from manifold.core.announce         import Announces
+from manifold.core.announce         import Announces, make_virtual_announces, merge_announces
 from manifold.core.capabilities     import Capabilities
 from manifold.core.code             import GATEWAY
 from manifold.core.consumer         import Consumer
@@ -132,7 +132,10 @@ class Gateway(Producer):
         # We do not instanciate make_announces in __init__
         # to allow child classes to tweak their metadata.
         if not self._announces:
-            self._announces = self.make_announces()
+            virtual_announces  = make_virtual_announces(self.get_platform_name())
+            platform_announces = self.make_announces() 
+            self._announces = merge_announces(virtual_announces, platform_announces)
+
         return self._announces
 
     @returns(Capabilities)
@@ -486,6 +489,20 @@ class Gateway(Producer):
         error_packet = self.make_error(GATEWAY, description, is_fatal)
         socket.receive(error_packet)
 
+    @returns(bool)
+    def handle_query_object(self, packet):
+        ret = False
+        if packet.get_protocol() == Packet.PROTOCOL_QUERY:
+            query = packet.get_query()
+            table_name = query.get_from()
+            if table_name == "object":
+                action = query.get_action()
+                if action != "get":
+                    raise ValueError("Invalid action (%s) on %s:%s Table" % (action, self.get_platform_name(), table_name))
+                self.records(packet, [announce.to_dict() for announce in self.get_announces()])
+                ret = True
+        return ret
+
     def receive(self, packet):
         """
         Handle a incoming QUERY Packet (processing).
@@ -497,9 +514,10 @@ class Gateway(Producer):
         self.check_receive(packet)
 
         try:
-            # This method must be overloaded on the Gateway
-            # See manifold/gateways/template/__init__.py
-            self.receive_impl(packet) 
+            if not self.handle_query_object(packet):
+                # This method must be overloaded on the Gateway
+                # See manifold/gateways/template/__init__.py
+                self.receive_impl(packet) 
         except Exception, e:
             #print "RECEIVE EXCEPTION", e
             self.error(packet, e, True)

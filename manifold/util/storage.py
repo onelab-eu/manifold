@@ -77,43 +77,4 @@ def storage_execute(gateway, query, annotation = None, error_message = None):
 
     return [record.to_dict() for record in result_value['value']]
         
-@returns(list)
-def storage_make_virtual_announces(platform_name = STORAGE_NAMESPACE):
-    """
-    Craft a list of Announces used to feed the Storage's namespace.
-    Args:
-        platform_name: A name of the Storage platform.
-    Returns:
-        The corresponding list of Announces.
-    """
-    @announces_from_docstring(platform_name)
-    def _get_metadata_tables():
-        """
-        class object {
-            string  table;           /**< The name of the object/table.     */
-            column  columns[];       /**< The corresponding fields/columns. */
-            string  capabilities[];  /**< The supported capabilities        */
 
-            CAPABILITY(retrieve);
-            KEY(table);
-        }; 
-
-        class column {
-            string qualifier;
-            string name;
-            string type;
-            string description;
-            bool   is_array;
-
-            KEY(name);
-        };
-
-        class gateway {
-            string type;
-
-            CAPABILITY(retrieve);
-            KEY(type);
-        };
-        """
-    announces = _get_metadata_tables(platform_name)
-    return announces
