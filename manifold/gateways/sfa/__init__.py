@@ -331,12 +331,18 @@ class SFAGateway(Gateway):
 
         # Initialize manager proxies using MySlice Admin account
         try:
-            self.registry = self.make_user_proxy(self.config['registry'], self.admin_config)
-            self.sliceapi = self.make_user_proxy(self.config['sm'],       self.admin_config)
-            registry_hrn = yield self.get_interface_hrn(self.registry)
-            sm_hrn       = yield self.get_interface_hrn(self.sliceapi)
-            self.registry.set_network_hrn(registry_hrn)
-            self.sliceapi.set_network_hrn(sm_hrn)
+            Log.tmp("--------------------")
+            Log.tmp(self.config)
+            Log.tmp("--------------------")
+            if self.config['registry']:
+                self.registry = self.make_user_proxy(self.config['registry'], self.admin_config)
+                registry_hrn = yield self.get_interface_hrn(self.registry)
+                self.registry.set_network_hrn(registry_hrn)
+
+            if self.config['sm']:
+                self.sliceapi = self.make_user_proxy(self.config['sm'],       self.admin_config)
+                sm_hrn = yield self.get_interface_hrn(self.sliceapi)
+                self.sliceapi.set_network_hrn(sm_hrn)
 
         except Exception, e:
             print "EXC in boostrap", e
@@ -354,6 +360,8 @@ class SFAGateway(Gateway):
 
     @defer.inlineCallbacks
     def get_cached_server_version(self, server):
+        Log.tmp(self.config)
+        Log.tmp(server)
         # check local cache first
         version = None 
         cache_key = server.get_interface() + "-version"
@@ -748,9 +756,20 @@ class SFAGateway(Gateway):
     #
     ############################################################################ 
 
+    def _get_cred(self, type, target = None, v3 = False):
+        if v3:
+            return {
+                'geni_version': '3',
+                'geni_type': 'geni_sfa',
+                'geni_value': self.__get_cred(type, target) #.encode('latin-1')
+            }
+        else:
+            return self.__get_cred(type, target)
+
+
     # get a delegated credential of a given type to a specific target
     # default allows the use of MySlice's own credentials
-    def _get_cred(self, type, target=None):
+    def __get_cred(self, type, target=None):
         delegated='delegated_' if not self.is_admin(self.user) else ''
             
         if type == 'user':
@@ -1422,7 +1441,7 @@ class SFAGateway(Gateway):
         defer.returnValue(result['resource'])
 
     @defer.inlineCallbacks
-    def get_resource_lease(self, filters, params, fields):
+    def get_resource_lease(self, filters, params, fields, list_resources = True, list_leases = True):
         if self.user['email'] in DEMO_HOOKS:
             rspec = open('/usr/share/manifold/scripts/nitos.rspec', 'r')
             defer.returnValue(self.parse_sfa_rspec(rspec))
@@ -1456,22 +1475,33 @@ class SFAGateway(Gateway):
             api_options['geni_rspec_version'] = {'type': 'SFA', 'version': '1'}  
  
         if slice_hrn:
-            cred = self._get_cred('slice', slice_hrn)
+            cred = self._get_cred('slice', slice_hrn, v3 = self.am_version['geni_api'] != 2)
             api_options['geni_slice_urn'] = hrn_to_urn(slice_hrn, 'slice')
         else:
-            cred = self._get_cred('user')
+            cred = self._get_cred('user', v3= self.am_version['geni_api'] != 2)
 
+        if list_resources:
+            if list_leases:
+                api_options['list_leases'] = 'all' 
+            else:
+                api_options['list_leases'] = 'resources'
+        else:
+            if list_leases:
+                api_options['list_leases'] = 'leases'
+            else:
+                raise Exception, "Neither resources nor leases requested in ListResources"
+            
         if self.am_version['geni_api'] == 2:
             # AM API v2 
             result = yield self.sliceapi.ListResources([cred], api_options)
         else:
             # AM API v3
             if slice_hrn:
-               slice_urn = api_options['geni_slice_urn']
-               result = yield self.sliceapi.Describe([slice_urn], [cred], api_options)
-               result['value'] = result['value']['geni_rspec']
+                slice_urn = api_options['geni_slice_urn']
+                result = yield self.sliceapi.Describe([slice_urn], [cred], api_options)
+                result['value'] = result['value']['geni_rspec']
             else:
-               result = yield self.sliceapi.ListResources([cred], api_options)
+                result = yield self.sliceapi.ListResources([cred], api_options)
                 
         if not 'value' in result or not result['value']:
             raise Exception, result['output']
