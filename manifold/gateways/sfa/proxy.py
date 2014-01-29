@@ -315,7 +315,15 @@ class SFAProxy(object):
 
             #success_cb = lambda result: d.callback(result)
             #error_cb   = lambda error : d.errback(ValueError("Error in SFA Proxy %s" % error))
-            
+
+            def is_credential(cred):
+                is_v2 = isinstance(cred, StringTypes) and cred[:6] == '<?xml '
+                is_v3 = isinstance(cred, dict) and 'geni_type' in cred
+                return is_v2 or is_v3
+
+            def is_credential_list(cred):
+                return isinstance(cred, list) and reduce(lambda x, y: x and is_credential(y), cred, True)
+
             #@defer.inlineCallbacks
             def wrap(source, args):
                 #token = yield SFATokenMgr().get_token(self.interface)
@@ -323,10 +331,10 @@ class SFAProxy(object):
                 
                 printable_args = []
                 for arg in args:
-                    if arg and isinstance(arg, list) and arg[0][:6] == '<?xml ':
-                        printable_args.append('<credentials>')
-                    elif isinstance(arg, StringTypes) and arg[:6] == '<?xml ':
+                    if is_credential(arg):
                         printable_args.append('<credential>')
+                    elif is_credential_list(arg):
+                        printable_args.append('<credentials>')
                     else:
                         printable_args.append(str(arg))
 

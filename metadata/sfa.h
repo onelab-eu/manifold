@@ -10,12 +10,14 @@ class slice {
 };
 
 class lease {
+	slice 		   slice[];
+    timestamp      start_time;  /**< Start of the lease */ 
+    interval       duration;
     const resource resource;    /**< Resource URN attached to this lease */
+
     const text     lease_type;
     const text     network;
-    timestamp      start_time;  /**< Start of the lease */ 
     interval       granularity; 
-    interval       duration;
 
     KEY(start_time, duration, resource);
     CAPABILITY(retrieve, join);
