@@ -896,8 +896,14 @@ class SFAGateway(Gateway):
     # result = getattr(self, "%s_%s" % (q.action, q.object))(local_filters, q.params, fields)
     @defer.inlineCallbacks
     def get_network(self, filters = None, params = None, fields = None):
+        Log.debug(self.sliceapi)
         # Network (AM) 
-        server = self.sliceapi
+        if self.sliceapi:
+            server = self.sliceapi
+        # Network (Registry) 
+        else:
+            server = self.registry 
+
         version = yield self.get_cached_server_version(server)
         # Hardcoding the get network call until caching is implemented
         #if q.action == 'get' and q.object == 'network':
@@ -919,6 +925,8 @@ class SFAGateway(Gateway):
             if k=='testbed':
                 output['network_name']=v
             output['platform']=self.platform
+
+        output['version'] = version
         #result={'network_hrn': version['hrn'], 'network_name': version['testbed']}
         defer.returnValue([output])
 
@@ -1079,6 +1087,10 @@ class SFAGateway(Gateway):
 
             records = [r for r in records if r['type'] == object]
             record_urns = [hrn_to_urn(record['hrn'], object) for record in records]
+            
+            # INSERT ROOT AUTHORITY
+            if object == 'authority':
+                record_urns.insert(0,hrn_to_urn(interface_hrn, object))
 
             started = time.time()
             records = yield self.registry.Resolve(record_urns, cred, {'details': True}) 
@@ -1829,7 +1841,11 @@ class SFAGateway(Gateway):
             config['delegated_user_credential'] = self.delegate(config['user_credential'], config['user_private_key'], config['gid'], self.admin_config['user_credential'])
 
         if need_authority_list: #and not 'authority_list' in config:
-            config['authority_list'] = [get_authority(config['user_hrn'])]
+            # In case the user is PI on several authorities
+            if 'reg-pi-authorities' in record and record['reg-pi-authorities']:
+                config['authority_list'] = record['reg-pi-authorities']
+            else:
+                config['authority_list'] = [get_authority(config['user_hrn'])]
  
         # Get Authority credential for each authority of the authority_list
         if need_authority_credentials: #and not 'authority_credentials' in config:
