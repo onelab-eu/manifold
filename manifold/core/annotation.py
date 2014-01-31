@@ -13,3 +13,8 @@
 class Annotation(dict):
     def to_dict(self):
         return dict(self)
+
+    #@returns(Annotation)
+    def __ior__(self, annotation):
+        self.update(annotation)
+        return self
