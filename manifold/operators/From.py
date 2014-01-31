@@ -286,10 +286,11 @@ class From(Operator):
             self._query.select().select(fields)
             return self
         else:
+            # Provided fields is set to None if it corresponds to SELECT *
             provided_fields = self.get_query().get_select()
 
             # Test whether this From node can return every queried Fields.
-            if fields - provided_fields:
+            if provided_fields and fields - provided_fields:
                 Log.warning("From::optimize_projection: some requested fields (%s) are not provided by {%s} From node. Available fields are: {%s}" % (
                     ', '.join(list(fields - provided_fields)),
                     self.get_query().get_from(),
@@ -300,7 +301,7 @@ class From(Operator):
             # (because the projection capability is not enabled), create an additional
             # Projection Node above this From Node in order to guarantee that
             # we only return queried fields
-            if provided_fields - fields:
+            if not provided_fields or provided_fields - fields:
                 return Projection(self, fields)
                 #projection.query = self.query.copy().filter_by(filter) # XXX
             return self
