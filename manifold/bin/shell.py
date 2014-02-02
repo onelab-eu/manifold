@@ -119,18 +119,52 @@ class Shell(object):
         #parser.add_argument("-s", "--session", help = "API session key")
 
     def authenticate_local(self, username):
+        """
+        Prepare a Client to dial with a local Manifold Router.
+        Args:
+            username: A String containing the user's email address.
+        """
         from manifold.clients.local import ManifoldLocalClient
         self.client = ManifoldLocalClient(username)
 
     def authenticate_xmlrpc_password(self, url, username, password):
+        """
+        Prepare a Client to dial with a Manifold Router through a XMLRPC
+        API using a SSL connection.
+        Args:
+            url: A String containing the URL of the XMLRPC server.
+                Example: "http://localhost:7080"
+            username: A String containing the user's login. 
+            password: A String containing the user's password. 
+        """
         from manifold.clients.xmlrpc_ssl_password import ManifoldXMLRPCClientSSLPassword
         self.client = ManifoldXMLRPCClientSSLPassword(url, username, password)
 
     def authenticate_xmlrpc_gid(self, url, pkey_file, cert_file):
+        """
+        Prepare a Client to dial with a Manifold Router through a XMLRPC
+        API using a SSL connection using GIT authentication. 
+        Args:
+            url: A String containing the URL of the XMLRPC server.
+                Example: "http://localhost:7080"
+            pkey_file: A String containing the absolute path of the user's
+                private key.
+                Example: "/etc/manifold/keys/client.pkey"
+            cert_file: A String containing the absolute path of the user's
+                certificate.
+                Example: "/etc/manifold/keys/client.cert"
+        """
         from manifold.clients.xmlrpc_ssl_gid import ManifoldXMLRPCClientSSLGID
         self.client = ManifoldXMLRPCClientSSLGID(url, pkey_file, cert_file)
 
     def authenticate_xmlrpc_anonymous(self, url):
+        """
+        Prepare a Client to dial with a Manifold Router through a XMLRPC
+        API using a SSL connection using an anonymous account.
+        Args:
+            url: The URL of the XMLRPC server.
+                Example: "http://localhost:7080"
+        """
         from manifold.clients.xmlrpc_ssl_password import ManifoldXMLRPCClientSSLPassword
         self.client = ManifoldXMLRPCClientSSLPassword(url)
 
@@ -138,9 +172,9 @@ class Shell(object):
         if auth_method == 'auto':
             for method in ['local', 'gid', 'password']:
                 try:
-                    Log.tmp("Trying client authentication '%s'" % method)
+                    #Log.tmp("Trying client authentication '%s'" % method)
                     self.select_auth_method(method)
-                    Log.tmp("Automatically selected '%s' authentication method" % method)
+                    #Log.tmp("Automatically selected '%s' authentication method" % method)
                     return
                 except Exception, e:
                     Log.error(format_exc())
@@ -176,12 +210,10 @@ class Shell(object):
                     else:
                         Log.warning("No password specified, using default.")
 
-                Log.tmp("auth xmlrpc passwd %s" %  url)
                 self.authenticate_xmlrpc_password(url, username, password)
 
             elif auth_method == 'anonymous':
 
-                Log.tmp("auth xmlrpc passwd %s" %  url)
                 self.authenticate_xmlrpc_anonymous(url)
 
             else:
@@ -218,7 +250,6 @@ class Shell(object):
         self.select_auth_method(auth_method)
 
         # No client has been set, so we cannot run anything.
-        Log.tmp(self.client)
         if not self.client:
             raise RuntimeError("No client set")
 
@@ -234,7 +265,8 @@ class Shell(object):
         #self.client = None
         try:
             self.client.__del__()
-        except: pass
+        except:
+            pass
 
     def display(self, result_value):
         """
@@ -322,7 +354,13 @@ class Shell(object):
         # authentication
         return self.client.whoami
 
+    @returns(StringTypes)
     def welcome_message(self):
+        """
+        Returns:
+            The welcome message to print in this Shell, depending
+            on the ManifoldClient set for this Shell.
+        """
         return self.client.welcome_message()
         
 #    # If called by a script 
@@ -344,6 +382,9 @@ class Shell(object):
 #            execfile(script)
 
     def start(self):
+        """
+        Start this Shell.
+        """
         #if shell.server is None:
         #    print "PlanetLab Central Direct API Access"
         #    prompt = ""

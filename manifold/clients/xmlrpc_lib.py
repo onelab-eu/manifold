@@ -16,24 +16,25 @@ from ..clients.client               import ManifoldClient
 class ManifoldXMLRPCClientXMLRPCLIB(ManifoldClient):
     # on ne sait pas si c'est secure ou non
 
-    def init_router(self):
-        """
-        Initialize self.router.
-        """
-        import xmlrpclib
-        url = Options().xmlrpc_url
-        self.router = xmlrpclib.ServerProxy(url, allow_none=True)
-
     def __init__(self):
         """
         Construcor.
         """
         self.auth = None
-        super(ManifoldLocalClient, self).__init__()
+        super(ManifoldXMLRPCClientXMLRPCLIB, self).__init__()
 
     #--------------------------------------------------------------
     # Overloaded methods 
     #--------------------------------------------------------------
+
+    def make_router(self):
+        """
+        Returns an instance behaving like a Router.
+        """
+        import xmlrpclib
+        url = Options().xmlrpc_url
+        router = xmlrpclib.ServerProxy(url, allow_none=True)
+        return router
 
     @returns(Annotation)
     def get_annotation(self):
@@ -44,3 +45,5 @@ class ManifoldXMLRPCClientXMLRPCLIB(ManifoldClient):
         """
         return Annotation({"authentication" : self.auth}) 
  
+    # def whoami() should be defined
+    # def welcome_message() should be defined

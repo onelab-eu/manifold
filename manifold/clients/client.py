@@ -24,17 +24,46 @@ class ManifoldClient(object):
         """
         Constructor
         """
-        self.init_router()
+        self.router = self.make_router()
+        if not self.router:
+            raise RuntimeError("Cannot create client %s" % self)
+
+    def __del__(self):
+        """
+        Shutdown gracefully self.router 
+        """
+        try:
+            self.del_router()
+        except:
+            pass
+        self.router = None
 
     #--------------------------------------------------------------
     # Child classes may overload/overwrite the following methods.
     #--------------------------------------------------------------
 
-    def init_router(self):
+    def del_router(self):
         """
-        Method that enforces self.router initialization
+        Shutdown gracefully self.router 
         """
-        raise NotImplementedError("self.router must be initialized")
+        pass
+
+    #@returns(Router)
+    def make_router(self):
+        """
+        Method enforcing self.router initialization
+        """
+        raise NotImplementedError
+
+    @returns(Annotation)
+    def get_annotation():
+        """
+        (This method is supposed to be overwritten in child classes).
+        Returns:
+            An additionnal Annotation added into the QUERY Packet
+            sent to the Router.
+        """
+        return Annotation() 
 
     @returns(StringTypes)
     def welcome_message(self):
@@ -44,7 +73,7 @@ class ManifoldClient(object):
         Returns:
             A welcome message
         """
-        return None
+        raise NotImplementedError
 
     @returns(dict)
     def whoami(self):
@@ -53,17 +82,7 @@ class ManifoldClient(object):
             The dictionnary representing the User currently
             running the Manifold Client.
         """
-        return None
-
-    @returns(Annotation)
-    def get_annotation():
-        """
-        (This method is supposed to be overwritten in child classes).
-        Returns:
-            An additionnal Annotation to pass to the QUERY Packet
-            sent to the Router.
-        """
-        return Annotation() 
+        raise NotImplementedError
 
     #--------------------------------------------------------------
     # Common methods

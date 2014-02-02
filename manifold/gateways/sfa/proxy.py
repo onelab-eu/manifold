@@ -36,7 +36,7 @@ from sfa.client.return_value            	import ReturnValue
 from manifold.util.reactor_thread           import ReactorThread
 from manifold.util.log                      import Log
 from manifold.util.singleton                import Singleton
-from manifold.util.storage                  import make_storage, storage_execute
+from manifold.util.storage                  import SQLAlchemyStorage 
 from manifold.util.type                 	import accepts, returns 
 
 DEFAULT_TIMEOUT = 20
@@ -554,11 +554,11 @@ if __name__ == '__main__':
             sys.exit(1)
 
         # Retrieve access to the Manifold Storage
-        storage = make_storage(None)
+        storage = SQLAlchemyStorage(platform_config = None, interface = None)
 
         try:
             if platform_specified:
-                platforms = Storage.execute(Query().get('platform').filter_by('platform', '==', args.platform).select('platform_id', 'config'))
+                platforms = storage.execute(Query().get('platform').filter_by('platform', '==', args.platform).select('platform_id', 'config'))
                 if not platforms:
                     raise Exception, "Platform '%s' not found" % args.platform
                 platform = platforms[0]

@@ -14,9 +14,33 @@ from manifold.core.query            import Query
 from manifold.core.router           import Router
 from manifold.util.log              import Log 
 from manifold.util.type             import accepts, returns
+from manifold.util.storage          import SQLAlchemyStorage
 from ..clients.client               import ManifoldClient
 
 class ManifoldLocalClient(ManifoldClient):
+
+    def __init__(self, user_email = None):
+        """
+        Constructor.
+        Args:
+            user_email: A String containing the User's email address.
+        """
+        super(ManifoldLocalClient, self).__init__()
+
+        storage = SQLAlchemyStorage(
+            platform_config = None,
+            interface       = self.router 
+        )
+        self.router.set_storage(storage)
+        self.router.load_storage()
+
+        self.init_user(user_email)
+        self.router.__enter__()
+
+    #--------------------------------------------------------------
+    # Internal methods 
+    #--------------------------------------------------------------
+
     def init_user(self, user_email):
         """
         Initialize self.user.
@@ -25,6 +49,11 @@ class ManifoldLocalClient(ManifoldClient):
         Returns:
             The dictionnary representing this User.
         """
+        if not self.router.has_storage():
+            Log.warning("Storage disabled, using anonymous profile instead of '%s' profile" % user_email)
+            self.user = None
+            return
+
         try:
             users = self.router.execute_local_query(
                 Query.get("user").filter_by("email", "==", user_email)
@@ -33,7 +62,7 @@ class ManifoldLocalClient(ManifoldClient):
             users = list()
 
         if not len(users) >= 1:
-            Log.warning("Could not retrieve current user... going anonymous")
+            Log.warning("Cannot retrieve current user (%s)... going anonymous" % user_email)
             self.user = None
         else:
             self.user = users[0]
@@ -42,40 +71,23 @@ class ManifoldLocalClient(ManifoldClient):
 #MANDO|            else:
 #MANDO|                self.user["config"] = None
 
-    def init_router(self):
-        """
-        Initialize self.router.
-        """
-        self.router = Router()
-        self.router.__enter__()
-
-    def __init__(self, user_email = None):
-        """
-        Constructor.
-        Args:
-            user_email: A String containing the User's email address.
-        """
-        Log.tmp(user_email)
-        super(ManifoldLocalClient, self).__init__()
-        self.init_user(user_email)
-
-    def del_router(self):
-        if self.router:
-            self.router.__exit__()
-        self.router = None
-
-    def __del__(self):
-        """
-        Shutdown gracefully the nested Manifold Router.
-        """
-        try:
-            self.del_router()
-        except:
-            pass
-
     #--------------------------------------------------------------
     # Overloaded methods 
     #--------------------------------------------------------------
+
+    def del_router(self):
+        """
+        Shutdown gracefully self.router 
+        """
+        if self.router:
+            self.router.__exit__()
+
+    def make_router(self):
+        """
+        Initialize self.router.
+        """
+        router = Router()
+        return router
 
     @returns(Annotation)
     def get_annotation(self):
@@ -96,7 +108,7 @@ class ManifoldLocalClient(ManifoldClient):
         else:
             return "Shell using no account"
 
-    #@returns(dict)
+    @returns(dict)
     def whoami(self):
         """
         Returns:
