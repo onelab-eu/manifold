@@ -10,17 +10,19 @@
 
 import json, traceback
 from types                          import GeneratorType, StringTypes
-from twisted.internet.defer         import Deferred
+#from twisted.internet.defer         import Deferred
 
 from manifold.gateways              import Gateway
-from manifold.core.annotation       import Annotation 
+from manifold.core.annotation       import Annotation
 from manifold.core.capabilities     import Capabilities
+from manifold.core.code             import BADARGS, ERROR
+from manifold.core.packet           import ErrorPacket, Packet
 from manifold.core.query            import Query
-from manifold.core.record           import Record
-from manifold.core.result_value     import ResultValue
+#from manifold.core.result_value     import ResultValue
+from manifold.core.socket           import Socket
 from manifold.policy                import Policy
 from manifold.util.log              import Log
-from manifold.util.storage          import make_storage, storage_execute, STORAGE_NAMESPACE
+from manifold.util.reactor_thread   import ReactorThread
 from manifold.util.type             import accepts, returns 
 
 class Interface(object):
@@ -29,33 +31,27 @@ class Interface(object):
     # Constructor
     #---------------------------------------------------------------------
 
-    def __init__(self, user_storage = None, allowed_capabilities = None):
+    def __init__(self, allowed_capabilities = None):
         """
         Create an Interface instance.
         Args:
-            user_storage: A String containing the email of the user accessing
-                the Storage, None if the Storage can be accessed anonymously.
             allowed_capabilities: A Capabilities instance which defines which
                 operation can be performed by this Interface. Pass None if there
                 is no restriction.
         """
-        assert not user_storage or isinstance(user_storage, StringTypes),\
-            "Invalid user = %s (%s)" % (user_storage, type(user_storage))
         assert not allowed_capabilities or isinstance(allowed_capabilities, Capabilities),\
             "Invalid capabilities = %s (%s)" % (allowed_capabilities, type(allowed_capabilities))
 
-        # Register the Gateways (see manifold.gateways)
-        Log.info("Registering gateways")
-        Gateway.register_all()
-        Log.info("Registered gateways are: {%s}" % ", ".join(sorted(Gateway.list().keys())))
+        # Register the Gateways
+        self.register_gateways()
 
-        # Prepare Manifold Storage
-        self.user_storage = user_storage
-        self._storage = make_storage(None)
+        # Storage
+        self._storage = None
 
-        # self.platforms is list(dict) where each dict describes a platform.
-        # See platform table in the Storage.
-        self.platforms = list()
+        # self.platforms is {String : dict} mapping each platform_name with
+        # a dictionnary describing the corresponding Platform.
+        # See "platform" table in the Manifold Storage.
+        self.platforms = dict()
 
         # self.allowed_capabilities is a Capabilities instance (or None)
         self.allowed_capabilities = allowed_capabilities
@@ -75,19 +71,25 @@ class Interface(object):
         self.policy = Policy(self)
 
         self.boot()
-        self.policy.load()
+
+    def __enter__(self):
+        """
+        Function called back while entering a "with" statement.
+        See http://effbot.org/zone/python-with-statement.htm
+        """
+        ReactorThread().start_reactor()
+        return self
+
+    def __exit__(self, type = None, value = None, traceback = None):
+        """
+        Function called back while leaving a "with" statement.
+        See http://effbot.org/zone/python-with-statement.htm
+        """
+        ReactorThread().stop_reactor()
 
     #---------------------------------------------------------------------
-    # Accessors 
+    # Announces / capabilities 
     #---------------------------------------------------------------------
-
-    @returns(StringTypes)
-    def get_user_storage(self):
-        """
-        Returns:
-            The user name describing how to access the Manifold Storage.
-        """
-        return self.user_storage
 
     @returns(dict)
     def get_announces(self):
@@ -107,6 +109,82 @@ class Interface(object):
         """
         return self.allowed_capabilities
 
+    #---------------------------------------------------------------------
+    # Storage 
+    #---------------------------------------------------------------------
+
+    def set_storage(self, storage):
+        """
+        Install a Storage on this Router.
+        Args:
+            storage: A Storage instance.
+        """
+        #assert isinstance(storage, Storage)
+        self._storage = storage
+        
+    def load_storage(self):
+        """
+        Alter this Router to reflect information stored in its
+        Manifold Storage, including the set of enabled Platforms.
+        """
+        # Fetch enabled Platforms from the Storage...
+        platforms_storage = self.execute_local_query(
+            Query()\
+                .get("platform")\
+                .filter_by("disabled", "=", False)
+        )
+
+        # ... and register them in this Router. 
+        for platform in platforms_storage:
+            self.register_platform(platform)
+
+        # Enabled/disable Platforms related to this Router
+        # according to this new set of Platforms.
+        self.update_platforms(platforms_storage)
+
+        # Load policies from Storage
+        self.policy.load()
+
+    @returns(bool)
+    def has_storage(self):
+        """
+        Returns:
+            True iif this Router has a Storage.
+        """
+        try:
+            return self.get_storage() != None
+        except:
+            pass
+        return False 
+
+    #@returns(Storage)
+    def get_storage(self):
+        """
+        Returns:
+            The Gateway used to query the Manifold Storage.
+        """
+        if not self._storage:
+            raise RuntimeError("Unable to connect to the Manifold Storage")
+        return self._storage
+
+    @returns(list)
+    def execute_local_query(self, query, annotation = None, error_message = None):
+        """
+        Run a Query on the Manifold Storage embeded by this Router.
+        Args:
+            query: A Query instance.
+            annotation: An Annotation instance passed to the Storage's Gateway.
+            error_message: A String containing the message to print in case of failure.
+        Returns:
+            A list of dict corresponding to the Records resulting from
+            the query.
+        """
+        return self.get_storage().execute(query, annotation, error_message)
+
+    #---------------------------------------------------------------------
+    # Platform management. 
+    #---------------------------------------------------------------------
+
     @returns(GeneratorType)
     def get_platforms(self):
         """
@@ -114,7 +192,7 @@ class Interface(object):
             A Generator allowing to iterate on list of dict where each
             dict represents a Platform managed by this Interface.
         """
-        for platform in self.platforms:
+        for platform in self.platforms.values():
             yield platform
 
     @returns(dict)
@@ -124,78 +202,147 @@ class Interface(object):
         platform name.
         Args:
             platform_name: A String containing the name of the platform.
+        Raises:
+            KeyError: if platform_name is unknown.
         Returns:
             The corresponding Platform if found, None otherwise.
         """
-        for platform in self.get_platforms():
-            if platform["platform"] == platform_name:
-                return platform
-        return None 
+        assert isinstance(platform_name, StringTypes),\
+            "Invalid platform_name = %s (%s)" % (platform_name, type(platform_name))
 
-    @returns(list)
-    def execute_local_query(self, query, annotation = None, error_message = None):
+        return self.platforms[platform_name]
+
+    def disable_platform(self, platform_name):
         """
-        Execute a Query related to the Manifold Storage.
+        Unload a platform (e.g its correponding Gateway and Announces).
         Args:
-            query: A Query. query.get_from() must start with the
-                STORAGE_NAMESPACE namespace (see util/storage.py).
-            annotation: An Annotation instance related to query or None.
-            error_message: A String containing the error_message that must
-                be written in case of failure or None.
-        Raises:
-            Exception: if the Query does not succeed.
-        Returns:
-            A list of Records.            
+            platform_name: A String containing a platform supported by this Router.
+                Most of time, platform names corresponds to contents in "platform"
+                column of "platform" table of the Manifold Storage.
         """
-        return storage_execute(self.get_storage(), query, annotation, error_message)
+        Log.info("Disabling platform '%s'" % platform_name) 
+
+        # Unload the corresponding Gateway
+        try:
+            del self.gateways[platform_name] 
+        except:
+            Log.error("Cannot remove %s from %s" % (platform_name, self.gateways))
+
+        # Unload the corresponding Announces 
+        try:
+            del self.announces[platform_name] 
+        except:
+            Log.error("Cannot remove %s from %s" % (platform_name, self.announces))
+
+    def register_platform(self, platform):
+        """
+        Register a platform in this Router.
+        Args:
+            platform: A dict describing a Platform.
+        """
+        assert isinstance(platform, dict),\
+            "Invalid platform = %s (%s)" % (platform, type(platform))
+
+        platform_name = platform["platform"]
+        self.platforms[platform_name] = platform 
+
+    def enable_platform(self, platform_name):
+        """
+        Enable a platform (e.g its correponding Gateway and Announces).
+        This platform must be previously registered. See also:
+            Interface::register_platform
+            Interface::register_platforms_from_storage
+        Raises:
+            RuntimeError: in case of failure while instantiating the corresponding
+                Gateway.
+        Args:
+            platform_name: A String containing a platform supported by this Router.
+                Example: See in Manifold Storage table "platform", column "platform".
+        """
+        assert isinstance(platform_name, StringTypes),\
+            "Invalid platform_name = %s (%s)" % (platform_name, type(platform_name))
+
+        Log.info("Enabling platform '%s'" % platform_name) 
+
+        # Check whether the platform is registered
+        if platform_name not in self.platforms.keys():
+            raise RuntimeError("Platform %s not yet registered" % platform_name)
+
+        # Create Gateway corresponding to the current Platform
+        gateway = self.make_gateway(platform_name)
+        if not gateway:
+            raise RuntimeError("Invalid Gateway create for platform '%s': %s" % (platform_name, gateway))
+
+        # Load Announces related to this Platform
+        announces = gateway.get_announces()
+        if not isinstance(announces, list):
+            raise RuntimeError("%s::get_announces() should return a list : %s (%s)" % (
+                gateway.__class__.__name__,
+                announces,
+                type(announces)
+            ))
+
+        # Reference the Gateway and its Announce related to this Platform in this Router.
+        self.gateways[platform_name]  = gateway 
+        self.announces[platform_name] = announces 
+
+    def update_platforms(self, platforms_enabled):
+        """
+        Update the Gateways and Announces loaded by this Router according
+        to a list of platforms. This function should be called whenever
+        a Platform is enabled/disabled without explictely call
+        {dis|en}able_platform.
+        Args:
+            platforms_enabled: The list of platforms which must be enabled. All
+                the other platforms are automaticaly disabled.
+        """
+        assert set(self.gateways.keys()) == set(self.announces.keys())
+
+        platform_names_loaded  = set([platform["platform"] for platform in self.gateways.keys()])
+        platform_names_enabled = set([platform["platform"] for platform in platforms_enabled])
+
+        platform_names_del     = platform_names_loaded  - platform_names_enabled 
+        platform_names_add     = platform_names_enabled - platform_names_loaded
+
+        for platform_name in platform_names_del:
+            self.disable_platform(platform_name)
+
+        for platform_name in platform_names_add: 
+            self.enable_platform(platform_name)
+
+    #---------------------------------------------------------------------
+    # Gateways management (internal usage)
+    #---------------------------------------------------------------------
+
+    def register_gateways(self):
+        """
+        Register all Gateways supported by this Router.
+        """
+        Log.info("Registering gateways")
+        Gateway.register_all()
+        Log.info("Registered gateways are: {%s}" % ", ".join(sorted(Gateway.list().keys())))
 
     @returns(Gateway)
-    def get_gateway(self, gateway_type):
+    def get_gateway(self, platform_name):
         """
-        Prepare the Gateway instance corresponding to a platform name.
+        Retrieve the Gateway instance corresponding to a platform.
         Args:
-            gateway_type: A String containing the type of the Gateway.
-                It should be a lower case String bases on classes provided
-                in manifold/gateways/ (for instance, if FooGateway
-                is provided, "foo" is a valid gateway_type). 
+            platform_name: A String containing the name of the platform. 
         Raises:
-            ValueError: in case of failure.
+            ValueError: if platform_name is invalid. 
+            RuntimeError: in case of failure.
         Returns:
             The corresponding Gateway if found, None otherwise.
         """
-        if gateway_type.lower() != gateway_type:
-            raise ValueError("Invalid gateway_type = %s, it must be lower case" % gateway_type)
+        if platform_name.lower() != platform_name:
+            raise ValueError("Invalid platform_name = %s, it must be lower case" % platform_name)
 
-        if gateway_type not in self.gateways.keys():
-            # This platform is not referenced in the router, try to create the
+        if platform_name not in self.gateways.keys():
+            # This Platform is not referenced in the Router, try to create the
             # appropriate Gateway.
-            self.make_gateway(gateway_type)
+            self.make_gateway(platform_name)
 
-        try:
-            return self.gateways[gateway_type]
-        except KeyError:
-            Log.error("Unable to retrieve Gateway %s" % gateway_type)
-            return None
-
-    @returns(list)
-    def get_gateways(self):
-        """
-        Returns:
-            The list of Gateway currently loaded.
-        """
-        return self.gateways.values()
-
-    @returns(Gateway)
-    def get_storage(self):
-        """
-        Returns:
-            The Gateway used to query the Manifold Storage.
-        """
-        return self._storage
-
-    #---------------------------------------------------------------------
-    # Methods 
-    #---------------------------------------------------------------------
+        return self.gateways[platform_name]
 
     @returns(Gateway)
     def make_gateway(self, platform_name):
@@ -204,170 +351,187 @@ class Interface(object):
         Args:
             platform_name: A String containing the name of the Platform.
         Raises:
-            Exception: In case of failure.
+            RuntimeError: In case of failure.
         Returns:
             The corresponding Gateway if found, None otherwise.
         """
         assert isinstance(platform_name, StringTypes),\
             "Invalid platform_name = %s (%s)" % (platform_name, type(platform_name))
+        
+        # Fetch information needed to create the Gateway corresponding to this platform.
+        try:
+            platform = self.get_platform(platform_name)
 
-        platform = self.get_platform(platform_name)
-        if not platform:
-            Log.error("Cannot make Gateway %s" % platform_name)
-            return None
+            # gateway_type 
+            if platform["gateway_type"]:
+                gateway_type = platform["gateway_type"]
+            else:
+                DEFAULT_GATEWAY_TYPE = "manifold"
+                Log.warning("No gateway_type set for platform '%s'. Defaulting to '%s'." % (
+                    platform["platform"],
+                    DEFAULT_GATEWAY_TYPE
+                ))
+                gateway_type = DEFAULT_GATEWAY_TYPE 
 
-        platform_config = json.loads(platform["config"]) if platform["config"] else dict() 
+            # platform_config
+            platform_config = json.loads(platform["config"]) if platform["config"] else dict() 
+
+        except Exception, e:
+            raise RuntimeError("Cannot make Gateway %s: %s" % (platform_name, e))
+
+        # Get the Gateway class
+        cls_gateway = Gateway.get(gateway_type)
+        if not cls_gateway:
+            raise RuntimeError, "Gateway not found: %s" % platform["gateway_type"]
+
+        # Create the Gateway
         args = [self, platform_name, platform_config]
+        gateway = cls_gateway(*args)
+        return gateway
 
-        # Gateway is a plugin_factory
-        if platform["gateway_type"]:
-            gateway_type = platform["gateway_type"]
-        else:
-            Log.warning("No gateway_type set for platform '%s'. Defaulting to MANIFOLD." % platform["platform"])
-            gateway_type = "manifold"
-
-        gateway = Gateway.get(gateway_type)
-        if not gateway:
-            raise Exception, "Gateway not found: %s" % platform["gateway_type"]
-        return gateway(*args)
-
-    def make_gateways(self):
-        """
-        (Re)build Announces related to each enabled platforms
-        Delete Announces related to disabled platforms
-        """
-        platform_names_loaded = set([platform["platform"] for platform in self.get_platforms()])
-
-        query      = Query().get("platform").filter_by("disabled", "=", False)
-        annotation = Annotation({"user" : self.get_user_storage()})
-
-        self.platforms = self.execute_local_query(query, annotation)
-
-        platform_names_enabled = set([platform["platform"] for platform in self.platforms])
-        platform_names_del     = platform_names_loaded - platform_names_enabled 
-        platform_names_add     = platform_names_enabled - platform_names_loaded
-
-        for platform_name in platform_names_del:
-            # Unreference this platform which not more used
-            Log.info("Disabling platform '%s'" % platform_name) 
-            try:
-                del self.gateways[platform_name] 
-            except:
-                Log.error("Cannot remove %s from %s" % (platform_name, self.gateways))
-
-        for platform_name in platform_names_add: 
-            # Create Gateway corresponding to the current Platform
-            Log.info("Enabling platform '%s'" % platform_name) 
-            gateway = self.make_gateway(platform_name)
-            assert gateway, "Invalid Gateway create for platform '%s': %s" % (platform_name, gateway)
-            self.gateways[platform_name] = gateway 
-
-            # Load Announces related to this Platform
-            announces = gateway.get_announces()
-            assert isinstance(announces, list), "%s::get_announces() should return a list : %s (%s)" % (
-                gateway.__class__.__name__,
-                announces,
-                type(announces)
-            )
-            self.announces[platform_name] = announces 
+    #---------------------------------------------------------------------
+    # Methods 
+    #---------------------------------------------------------------------
 
     def boot(self):
         """
         Boot the Interface (prepare metadata, etc.).
         """
-        self.make_gateways()
+        # The Storage must be explicitely installed if needed.
+        # See example in manifold.clients.local
+        if self.has_storage():
+            Log.tmp("Loading Manifold Storage...")
+            self.load_storage()
 
-    @returns(dict)
-    def get_account_config(self, platform_name, user):
+    def receive(self, packet):
         """
-        Retrieve the Account of a given User on a given Platform.
+        Process an incoming Packet instance.
         Args:
-            platform_name: A String containing the name of the Platform.
-            user: The User who executes the QueryPlan (None if anonymous).
-        Returns:
-            The corresponding dictionnary, None if no account found for
-            this User and this Platform.
+            packet: A QUERY Packet instance. 
         """
-        assert isinstance(platform_name, StringTypes),\
-            "Invalid platform_name = %s (%s)" % (platform_name, type(platform_name))
+        assert isinstance(packet, Packet),\
+            "Invalid packet %s (%s) (%s) (invalid type)" % (packet, type(packet))
 
-        if platform_name == STORAGE_NAMESPACE:
-            return dict() 
+        # Create a Socket holding the connection information and bind it.
+        socket = Socket(consumer = packet.get_receiver())
+        packet.set_receiver(socket)
 
-        annotation = Annotation({"user" : self.get_user_storage()})
+        # Build the AST and retrieve the corresponding root_node Operator instance.
+        query = packet.get_query()
+        annotation = packet.get_annotation()
 
-        # Retrieve the Platform having the name "platform_name" in the Storage
         try:
-            platforms = self.execute_local_query(
-                Query().get("platform").filter_by("platform", "=", platform_name),
-                annotation,
+            root_node = self._operator_graph.build_query_plan(query, annotation)
+            root_node.add_consumer(socket)
+            socket.receive(packet)
+        except Exception, e:
+            error_packet = ErrorPacket(
+                type      = ERROR,
+                code      = BADARGS, 
+                message   = "Unable to build a suitable Query Plan (query = %s): %s" % (query, e),
+                traceback = traceback.format_exc()
             )
-            platform_id = platforms[0]["platform_id"]
-        except IndexError:
-            Log.error("interface::get_account_config(): platform %s not found" % platform_name)
-            return None
+            socket.receive(error_packet)
 
-        # Retrieve the first Account having the name "platform_name" in the Storage
-        try:
-            account_configs = self.execute_local_query( 
-                Query().get("account").filter_by("platform_id", "=", platform_id),
-                annotation
-            )
-        except IndexError:
-            Log.error("interface::get_account_config(): no account found for platform %s" % platform_name)
-            return None
-
-        # Convert the json string "config" into a python dictionnary
-        num_accounts = len(accounts)
-        if num_accounts > 0:
-            if num_accounts > 1:
-                Log.warning("Several accounts found for [%s]@%s: %s" % (user["email"], platform_name, accounts))
-            account = accounts[0]
-            account["config"] = json.loads(account["config"])
-        else:
-            account = None
-
-        return account
-
-    @returns(list)
-    def get_metadata_objects(self):
-        """
-        Returns:
-            A list of dictionnaries describing each 3nf Tables.
-        """
-        output = list()
-        # TODO try to factor using table::to_dict()
-        for table in self.g_3nf.graph.nodes():
-            # Ignore non parent tables
-            if not self.g_3nf.is_parent(table):
-                continue
-
-            table_name = table.get_name()
-
-            # We may have several table having the same name but related
-            # to two different platforms set.
-            fields = set() | table.get_fields()
-            for _, child in self.g_3nf.graph.out_edges(table):
-                if not child.get_name() == table_name:
-                    continue
-                fields |= child.get_fields()
-
-            # Build columns from fields
-            columns = list()
-            for field in fields:
-                columns.append(field.to_dict())
-
-            keys = tuple(table.get_keys().one().get_field_names())
-
-            # Add table metadata
-            output.append({
-                "table"      : table_name,
-                "column"     : columns,
-                "key"        : keys,
-                "capability" : list(),
-            })
-        return output
-
+#UNUSED|    @returns(dict)
+#UNUSED|    def get_account_config(self, platform_name, user):
+#UNUSED|        """
+#UNUSED|        Retrieve the Account of a given User on a given Platform.
+#UNUSED|        Args:
+#UNUSED|            platform_name: A String containing the name of the Platform.
+#UNUSED|            user: A dict describing the User who executes the QueryPlan (None if anonymous).
+#UNUSED|        Returns:
+#UNUSED|            The corresponding dictionnary, None if no account found for
+#UNUSED|            this User and this Platform.
+#UNUSED|        """
+#UNUSED|        assert isinstance(platform_name, StringTypes),\
+#UNUSED|            "Invalid platform_name = %s (%s)" % (platform_name, type(platform_name))
+#UNUSED|
+#UNUSED|        if platform_name == STORAGE_NAMESPACE:
+#UNUSED|            return dict() 
+#UNUSED|
+#UNUSED|        annotation = Annotation({"user" : self.get_user_storage()})
+#UNUSED|
+#UNUSED|        # Retrieve the Platform having the name "platform_name" in the Storage
+#UNUSED|        try:
+#UNUSED|            platforms = self.execute_local_query(
+#UNUSED|                Query().get("platform").filter_by("platform", "=", platform_name),
+#UNUSED|                annotation,
+#UNUSED|            )
+#UNUSED|            platform_id = platforms[0]["platform_id"]
+#UNUSED|        except IndexError:
+#UNUSED|            Log.error("interface::get_account_config(): platform %s not found" % platform_name)
+#UNUSED|            return None
+#UNUSED|
+#UNUSED|        # Retrieve the first Account having the name "platform_name" in the Storage
+#UNUSED|        try:
+#UNUSED|            accounts = self.execute_local_query( 
+#UNUSED|                Query().get("account").filter_by("platform_id", "=", platform_id),
+#UNUSED|                annotation
+#UNUSED|            )
+#UNUSED|        except IndexError:
+#UNUSED|            Log.error("interface::get_account_config(): no account found for platform %s" % platform_name)
+#UNUSED|            return None
+#UNUSED|
+#UNUSED|        #accounts2 = self.execute_local_query(
+#UNUSED|        #    Query()\
+#UNUSED|        #        .get("account")\
+#UNUSED|        #        .select("config")\
+#UNUSED|        #        .filter_by("platform", "=", platform_name)#\
+#UNUSED|        #        .filter_by("email",    "=", user["email"])\
+#UNUSED|        #)
+#UNUSED|
+#UNUSED|        # Convert the json string "config" into a python dictionnary
+#UNUSED|        num_accounts = len(accounts)
+#UNUSED|        if num_accounts > 0:
+#UNUSED|            if num_accounts > 1:
+#UNUSED|                Log.warning("Several accounts found for [%s]@%s: %s" % (user["email"], platform_name, accounts))
+#UNUSED|            account = accounts[0]
+#UNUSED|            account["config"] = json.loads(account["config"])
+#UNUSED|        else:
+#UNUSED|            account = None
+#UNUSED|
+#UNUSED|        return account
+#UNUSED|
+#UNUSED|    @returns(list)
+#UNUSED|    def get_metadata_objects(self):
+#UNUSED|        """
+#UNUSED|        Returns:
+#UNUSED|            A list of dictionnaries describing each 3nf Tables.
+#UNUSED|        """
+#UNUSED|        output = list()
+#UNUSED|        # TODO try to factor using table::to_dict()
+#UNUSED|        for table in self.g_3nf.graph.nodes():
+#UNUSED|            # Ignore non parent tables
+#UNUSED|            if not self.g_3nf.is_parent(table):
+#UNUSED|                continue
+#UNUSED|
+#UNUSED|            table_name = table.get_name()
+#UNUSED|
+#UNUSED|            # We may have several table having the same name but related
+#UNUSED|            # to two different platforms set.
+#UNUSED|            fields = set() | table.get_fields()
+#UNUSED|            for _, child in self.g_3nf.graph.out_edges(table):
+#UNUSED|                if not child.get_name() == table_name:
+#UNUSED|                    continue
+#UNUSED|                fields |= child.get_fields()
+#UNUSED|
+#UNUSED|            # Build columns from fields
+#UNUSED|            columns = list()
+#UNUSED|            for field in fields:
+#UNUSED|                columns.append(field.to_dict())
+#UNUSED|
+#UNUSED|            keys = tuple(table.get_keys().one().get_field_names())
+#UNUSED|
+#UNUSED|            # Add table metadata
+#UNUSED|            output.append({
+#UNUSED|                "table"      : table_name,
+#UNUSED|                "column"     : columns,
+#UNUSED|                "key"        : keys,
+#UNUSED|                "capability" : list(),
+#UNUSED|            })
+#UNUSED|        return output
+#UNUSED|
 #DEPRECATED|    def send_result_value(self, query, result_value, annotation, is_deferred):
 #DEPRECATED|        # if Interface is_deferred  
 #DEPRECATED|        d = defer.Deferred() if is_deferred else None

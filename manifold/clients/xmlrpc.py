@@ -14,6 +14,7 @@ from twisted.internet               import defer
 from manifold.clients.client        import ManifoldClient
 from manifold.util.log              import Log 
 from manifold.util.reactor_thread   import ReactorThread
+from manifold.util.type             import accepts, returns
 
 class ManifoldXMLRPCClient(ManifoldClient):
     def __init__(self, url):
@@ -27,12 +28,25 @@ class ManifoldXMLRPCClient(ManifoldClient):
         super(ManifoldXMLRPCClient, self).__init__()
         ReactorThread().start_reactor()
 
-    def __del__(self):
+    #--------------------------------------------------------------
+    # Overloaded methods 
+    #--------------------------------------------------------------
+
+    def del_router(self):
+        """
+        Shutdown gracefully self.router 
+        """
         ReactorThread().stop_reactor()
 
     @defer.inlineCallbacks
+    @returns(dict)
     def whoami(self, query, annotation = None):
-        Log.tmp("TBD")
+        """
+        Returns:
+            The dictionnary representing the User currently
+            running the Manifold Client.
+        """
+        Log.warning("ManifoldXMLRPCClient::whoami: Not yet implemented")
         #if not annotation:
         #    annotation = Annotation() 
         #annotation.update(self.annotation)

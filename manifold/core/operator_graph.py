@@ -50,7 +50,6 @@ class OperatorGraph(object):
         # OperatorGraph with the corresponding operators
         self._lattice = Lattice()
 
-
     #---------------------------------------------------------------------------
     # Accessors
     #---------------------------------------------------------------------------

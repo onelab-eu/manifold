@@ -113,14 +113,15 @@ class QueryPlan(object):
         if not root_table:
             table_names = list(db_graph.get_table_names())
             table_names.sort()
-            raise RuntimeError("Cannot find %s in db_graph, known tables are {%s}" % (
+            raise RuntimeError("Cannot find '%s' Table in db_graph. Known Tables are: {%s}" % (
                 query.get_from(),
                 ", ".join(table_names)
             ))
 
         if not root_table.get_capabilities().retrieve:
-            raise RuntimeError("Table %s hasn't RETRIEVE capability and cannot be used in a FROM clause" % (
-                query.get_from()
+            raise RuntimeError("Table '%s' hasn't RETRIEVE capability and cannot be used in a FROM clause:\n%s" % (
+                query.get_from(),
+                root_table
             ))
        
         root_task = ExploreTask(router, root_table, relation = None, path = list(), parent = self, depth = 1)

@@ -102,7 +102,7 @@ class AST(object):
 
         # Retrieve the appropriate Gateway.
         if platform_name == STORAGE_NAMESPACE:
-            gateway = self._interface.get_storage()
+            gateway = self._interface.get_storage().get_gateway()
         else:
             gateway = self._interface.get_gateway(platform_name)
 

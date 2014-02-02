@@ -10,6 +10,7 @@
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
 from types                          import StringTypes
+from twisted.internet               import defer, ssl
 
 from manifold.core.annotation       import Annotation
 from manifold.util.xmlrpc_proxy     import XMLRPCProxy
@@ -18,13 +19,6 @@ from ..clients.xmlrpc               import ManifoldXMLRPCClient
 
 class ManifoldXMLRPCClientSSLPassword(ManifoldXMLRPCClient):
     
-    def init_router(self):
-        """
-        Initialize self.router
-        """
-        self.router = XMLRPCProxy(self.url, allowNone=True, useDateTime=False)
-        self.router.setSSLClientContext(ssl.ClientContextFactory())
-
     def __init__(self, url, username = None, password = None):
         """
         Constructor:
@@ -35,11 +29,25 @@ class ManifoldXMLRPCClientSSLPassword(ManifoldXMLRPCClient):
         self.password = password
         super(ManifoldXMLRPCClientSSLPassword, self).__init__(url)
 
+    #--------------------------------------------------------------
+    # Overloaded methods 
+    #--------------------------------------------------------------
+
+    #@returns(XMLRPCProxy)
+    def make_router(self):
+        """
+        Returns:
+            A XMLRPCProxy behaving like a Router.
+        """
+        router = XMLRPCProxy(self.url, allowNone=True, useDateTime=False)
+        router.setSSLClientContext(ssl.ClientContextFactory())
+        return router
+
     @returns(Annotation)
     def get_annotation(self):
         """
         Returns:
-            An additionnal Annotation to pass to the QUERY Packet
+            An additionnal Annotation added into the QUERY Packet
             sent to the Router.
         """
         if self.username:
@@ -61,6 +69,18 @@ class ManifoldXMLRPCClientSSLPassword(ManifoldXMLRPCClient):
  
     @returns(StringTypes)
     def welcome_message(self):
+        """
+        Returns:
+            A welcome message.
+        """
         return "Shell using XMLRPC account '%s' (password) on %s" % (self.username, self.url)
 
-
+    @defer.inlineCallbacks
+    @returns(dict)
+    def whoami(self):
+        """
+        Returns:
+            The dictionnary representing the User currently
+            running the Manifold Client.
+        """
+        raise NotImplementedError

@@ -72,8 +72,6 @@ class Gateway(Producer):
         assert isinstance(platform_config, dict) or not platform_config, \
             "Invalid configuration: %s (%s)" % (platform_config, type(platform_config))
 
-        Log.tmp("INIT GW", self.__class__)
-
         Producer.__init__(self, *args, **kwargs)
         self._interface       = interface       # Router
         self._platform_name   = platform_name   # String
@@ -231,7 +229,6 @@ class Gateway(Producer):
             query: A Query instance correponding to a pending Query.
             consumer: A Consumer instance (a From instance most of time). 
         """
-        Log.tmp("Add flow to pit for query", query)
         self._pit.add_flow(query, consumer)
 
     def del_consumer(self, receiver, cascade = True):
