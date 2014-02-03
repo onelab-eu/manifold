@@ -156,6 +156,7 @@ class Predicate:
     def set_value(self, value):
         self.value = value
 
+    @returns(tuple)
     def get_tuple(self):
         return (self.key, self.op, self.value)
 
@@ -163,12 +164,15 @@ class Predicate:
         op_str = [s for s, op in self.operators.iteritems() if op == self.op]
         return op_str[0]
 
+    @returns(tuple)
     def get_str_tuple(self):
         return (self.key, self.get_str_op(), self.value,)
 
+    @returns(list)
     def to_list(self):
         return list(self.get_str_tuple())
 
+    @returns(bool)
     def match(self, dic, ignore_missing=False):
         if isinstance(self.key, tuple):
             print "PREDICATE MATCH", self.key
@@ -224,6 +228,7 @@ class Predicate:
         else:
             raise Exception, "Unexpected table format: %r" % dic
 
+    @returns(dict)
     def filter(self, dic):
         """
         Filter dic according to the current predicate.
@@ -259,20 +264,32 @@ class Predicate:
             # XXX match
             return dic if self.match(dic) else None
 
+    @returns(set)
     def get_field_names(self):
         if isinstance(self.key, (list, tuple, set, frozenset)):
             return set(self.key)
         else:
             return set([self.key])
 
+    @returns(set)
     def get_value_names(self):
         if isinstance(self.value, (list, tuple, set, frozenset)):
             return set(self.value)
         else:
             return set([self.value])
 
+    @returns(bool)
     def has_empty_value(self):
         if isinstance(self.value, (list, tuple, set, frozenset)):
             return not any(self.value)
         else:
             return not self.value
+
+    @returns(bool)
+    def is_composite(self):
+        """
+        Returns:
+            True iif this Predicate instance involves
+            a tuple key (and tuple value).
+        """ 
+        return isinstance(self.get_key(), tuple)

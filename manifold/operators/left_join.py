@@ -11,6 +11,7 @@
 
 from types                          import StringTypes
 
+from manifold.core.destination      import Destination
 from manifold.core.filter           import Filter
 from manifold.core.packet           import Packet
 from manifold.core.producer         import Producer
@@ -101,16 +102,14 @@ class LeftJoin(Operator):
     # Methods
     #---------------------------------------------------------------------------
 
-    @returns(Query)
+    @returns(Destination)
     def get_destination(self):
         """
         Returns:
-            The Query representing AST reprensenting the AST rooted
-            at this node.
+            The Destination corresponding to this Operator. 
         """
         dleft  = self._get_left().get_destination()
         dright = self._get_right().get_destination()
-
         return dleft.left_join(dright)
 
     def _update_and_send_right_packet(self):

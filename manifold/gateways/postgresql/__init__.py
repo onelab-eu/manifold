@@ -961,7 +961,7 @@ class PostgreSQLGateway(Gateway):
             to the queried view/relation
         """
         cursor = self.get_cursor()
-        table = Table(self.get_platform_name(), None, table_name, None, None)
+        table = Table(self.get_platform_name(), table_name)
         param_execute = {"table_name": table_name}
 
         # FOREIGN KEYS:

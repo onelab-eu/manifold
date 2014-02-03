@@ -94,6 +94,17 @@ class Capabilities(object):
         """
         return [x for x in self.KEYS if getattr(self, x, False)]
 
+    @returns(dict)
+    def to_dict(self):
+        """
+        Returns:
+            The dict corresponding to this Capabilities instance.
+        """
+        ret = dict()
+        for capability in Capabilities.KEYS:
+            ret[capability] = True if getattr(self, capability, False) else False
+        return ret
+
     @returns(StringTypes)
     def __str__(self):
         """
@@ -131,3 +142,19 @@ class Capabilities(object):
         """
         return set(self.to_list()) == set()
 
+@returns(Capabilities)
+def merge_capabilities(x, y):
+    """
+    Merge two Capabilities instances.
+    Args:
+        x: A Capabilities instance.
+        y: A Capabilities instance.
+    Returns:
+        The corresponding merged Capabilities instance.
+    """
+    # Note: We can't define |= since the left operand corresponds
+    # to None if no capability is set. 
+    capabilities = Capabilities()
+    for capability_name in set(x.to_list()) | set(y.to_list()):
+        capabilities.__setattr__(capability_name, True)
+    return capabilities

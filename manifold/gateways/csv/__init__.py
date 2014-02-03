@@ -189,34 +189,34 @@ class CSVGateway(Gateway):
         """
         announces = list() 
 
-        for table, data in self.config.items():
+        for table_name, data in self.config.items():
 
-            dialect, field_names, field_types = self.get_dialect_and_field_info(table)
-            key = self.get_key(table)
+            dialect, field_names, field_types = self.get_dialect_and_field_info(table_name)
+            key = self.get_key(table_name)
 
-            filename = data['filename']
+            filename = data["filename"]
 
-            t = Table(self.platform, None, table, None, None)
+            table = Table(self.get_platform_name(), table_name)
 
             key_fields = set()
             for name, type in zip(field_names, field_types):
-                f = Field(
-                    qualifiers  = ['const'], # unless we want to update the CSV file
+                field = Field(
+                    qualifiers  = ["const"], # unless we want to update the CSV file
                     type        = type,
                     name        = name,
                     is_array    = False,
-                    description = '(null)'
+                    description = "(null)"
                 )
-                t.insert_field(f)
+                table.insert_field(field)
                 
                 if name in key:
-                    key_fields.add(f)
+                    key_fields.add(field)
 
-            t.insert_key(key_fields)
+            table.insert_key(key_fields)
 
-            t.capabilities.retrieve   = True
-            t.capabilities.join       = True
+            table.capabilities.retrieve   = True
+            table.capabilities.join       = True
 
-            announces.append(Announce(t))
+            announces.append(Announce(table))
 
         return announces

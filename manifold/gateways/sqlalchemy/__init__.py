@@ -15,7 +15,7 @@ from sqlalchemy                     import create_engine
 from sqlalchemy.ext.declarative     import declarative_base
 from sqlalchemy.orm                 import sessionmaker
 
-from manifold.core.announce         import Announce
+from manifold.core.announce         import Announce, make_virtual_announces
 from manifold.core.annotation       import Annotation
 from manifold.core.record           import Records
 from manifold.gateways              import Gateway
@@ -28,8 +28,8 @@ from manifold.gateways.sqlalchemy.methods.session        import Session
 from manifold.gateways.sqlalchemy.methods.user           import User
 
 from manifold.util.log              import Log
-from manifold.util.storage          import storage_make_virtual_announces
 from manifold.util.type             import accepts, returns
+from manifold.util.storage          import STORAGE_NAMESPACE 
 
 class SQLAlchemyGateway(Gateway):
     __gateway_name__ = "sqlalchemy"
@@ -88,7 +88,7 @@ class SQLAlchemyGateway(Gateway):
         Returns:
             True iif this Table is virtual.
         """
-        virtual_table_names = [announce.get_table().get_name() for announce in storage_make_virtual_announces()]
+        virtual_table_names = [announce.get_table().get_name() for announce in make_virtual_announces(STORAGE_NAMESPACE)]
         return table_name in virtual_table_names 
 
     @returns(list)
@@ -108,7 +108,7 @@ class SQLAlchemyGateway(Gateway):
             announces.append(instance.make_announce())
 
         # Virtual tables ("object", "column", ...) 
-        virtual_announces = storage_make_virtual_announces()
+        virtual_announces = make_virtual_announces(STORAGE_NAMESPACE)
         announces.extend(virtual_announces)
 
         return announces

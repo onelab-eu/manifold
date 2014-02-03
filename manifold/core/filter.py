@@ -240,7 +240,8 @@ class Filter(set):
     def rgrep(self, fun):
         return Filter([x for x in self if not fun(x)])
 
-    @returns(tuple)
+    #@returns(tuple)
+    #@returns(Filter)
     def split(self, fun, true_only = False):
         true_filter, false_filter = Filter(), Filter()
         for predicate in self:

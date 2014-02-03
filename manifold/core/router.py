@@ -19,7 +19,7 @@ from manifold.core.interface        import Interface
 from manifold.core.key              import Keys
 from manifold.core.method           import Method
 from manifold.core.operator_graph   import OperatorGraph
-from manifold.core.packet           import ErrorPacket, Packet 
+from manifold.core.packet           import ErrorPacket, Packet
 from manifold.core.result_value     import ResultValue
 from manifold.core.socket           import Socket
 from manifold.policy                import Policy
@@ -150,7 +150,7 @@ class Router(Interface):
         Args:
             packet: A QUERY Packet instance. 
         """
-        assert isinstance(packet, Packet) and packet.get_protocol() == Packet.PROTOCOL_QUERY, \
+        assert isinstance(packet, Packet),\
             "Invalid packet %s (%s) (%s) (invalid type)" % (packet, type(packet))
 
         # Create a Socket holding the connection information and bind it.
@@ -169,7 +169,6 @@ class Router(Interface):
             root_node.add_consumer(socket)
             socket.receive(packet)
         except Exception, e:
-            #Log.error(traceback.format_exc())
             error_packet = ErrorPacket(
                 type      = ERROR,
                 code      = BADARGS, 

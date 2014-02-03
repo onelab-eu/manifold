@@ -331,7 +331,6 @@ class Log(object):
     def info(cls, *msg, **ctx):
         if not Options().log_level in ['DEBUG', 'INFO']:
             return
-        ctx = {'a' : 1}
         cls.log_message('INFO', msg, ctx)
 
     @classmethod
@@ -345,11 +344,32 @@ class Log(object):
         cls.print_msg(' '.join(map(lambda x: "%r" % x, make_list(msg))), 'TMP', caller_name())
 
     @classmethod
-    def record(cls, record, source = None):
+    def record(cls, packet, source = None):
+        """
+        Log a Packet instance flowing from a Producer toward a Consumer.
+        Args:
+            packet: A Packet instance. In pratice this can be either an
+                ErrorPacket or a Record instance.
+            source: A reference to the Node (for instance the Operator)
+                which has called Log.record().
+        """
         msg = [
             "%s :" % (source.format_node()) if source else "",
-            "%r" % record,
+            "%r" % packet,
         ]
+#        from manifold.core.record import Record
+#        if isinstance(packet, Record) and "config" in packet.keys():
+#            # Hide config field which is often overcrowded ;)
+#            record2 = dict()
+#            for k, v in packet.items():
+#                if k != "config":
+#                    record2[k] = v
+#                else:
+#                    record2[k] = "<config>" 
+#            msg = [
+#                "%s :" % (source.format_node()) if source else "",
+#                "%r" % record2,
+#            ]
         #cls.print_msg(' '.join(msg), 'RECORD', caller_name())
 
     @classmethod

@@ -12,23 +12,23 @@ from manifold.util.type            import returns, accepts
 
 class Method(object):
     @staticmethod
-    #@accepts(StringTypes, StringTypes)
     def check_init(platform, name):
         """
-        \brief (Internal use)
-            Check whether parameters passed to __init__ are well-formed 
+        (Internal use)
+        Check whether parameters passed to __init__ are well-formed 
         """
-        if not isinstance(platform, StringTypes):
-            raise TypeError("Invalid platform %r (type = %r)" % (platform, type(platform)))
-        if not isinstance(name, StringTypes):
-            raise TypeError("Invalid name %r (type = %r)" % (name, type(name))) 
+        assert isinstance(platform, StringTypes),\
+            "Invalid platform %r (type = %r)" % (platform, type(platform))
+        assert isinstance(name, StringTypes),\
+            "Invalid name %r (type = %r)" % (name, type(name))
 
     def __init__(self, platform, name):
         """
-        \brief Constructor
-        \param platform The name of the platform provinding this method
-        \param name The name of the method.
-            This is the name of corresponding table announced by this platform.
+        Constructor.
+        Args:
+            platform: The name of the platform providing this Method.
+            name: The name of the method.
+                This is the name of corresponding Table announced by this platform.
         """
         Method.check_init(platform, name)
         self.platform = platform
@@ -36,30 +36,52 @@ class Method(object):
 
     @returns(StringTypes)
     def get_platform(self):
+        """
+        Returns:
+            The name of the platform providing this Method.
+        """
         return self.platform
 
     @returns(StringTypes)
     def get_name(self):
+        """
+        Returns:
+            A String instance containing the (Table) name of this Method instance.
+        """
         return self.name
 
     @returns(StringTypes)
     def __str__(self):
         """
-        \return The (verbose) string representing a Method instance
+        Returns:
+            The '%s' representation of this Method instance
         """
-        return self.__repr__()
+        return repr(self)
 
     @returns(StringTypes)
     def __repr__(self):
         """
-        \return The (synthetic) string representing a Method instance
+        Returns:
+            The '%r' representation of this Method instance
         """
         return "%s::%s" % (self.get_platform(), self.get_name())
 
     def __hash__(self):
+        """
+        Returns:
+            The hash of this Method instance.
+        """
         return hash((self.get_platform(), self.get_name()))
 
     @returns(bool)
-    def __eq__(self, x):
-        return self.get_platform() == x.get_platform() and self.get_name() == x.get_name()
+    def __eq__(self, method):
+        """
+        Compare self and another Method instance.
+        Args:
+            method: A Method instance.
+        Returns:
+            True iif x and self are equal.
+        """
+        return self.get_platform() == method.get_platform() \
+           and self.get_name()     == method.get_name()
 
