@@ -24,11 +24,22 @@ from manifold.util.predicate                    import eq, lt, le, included
 from manifold.util.type                         import accepts, returns
 from manifold.util.misc                         import make_list
 
+# XXX Clarify what is a deferred object. It's unlikely we need something like this
 class RM_Object(DeferredObject):
 
+    # XXX Shall this be moved to a parent class ?
+
+    def get(self, user, account_config, packet): 
+        # XXX This function should have not return value, its role is only to
+        # forward a query inside the SFA domain. If we need to react, then
+        # let's just set up callbacks
+        gateway = self.get_gateway()
+        query = packet.get_query()
+        return self._get(user, account_config, query)
+        
     @defer.inlineCallbacks
     @returns(GeneratorType)
-    def get(self, user, account_config, query): 
+    def _get(self, user, account_config, query): 
         """
         Retrieve an RM_Object from SFA.
         Args:
@@ -49,7 +60,6 @@ class RM_Object(DeferredObject):
                 geni_urn: a String containing the GENI URN (ex: "urn:publicid:IDN+ple:upmc+user+john_doe")
                 date_created: an integer (timestamp)
         """
-        Log.tmp("SFA:RM:get(%r)" % query)
         object     = query.get_from()
         object_hrn = "%s_hrn" % object
         filters    = query.get_where()
@@ -133,10 +143,7 @@ class RM_Object(DeferredObject):
         print "getting credential"
         print "    > user", user
         print "    > account_config", account_config
-        Log.tmp("TODO marco: I'm calling a static method on the instance")
-        Log.tmp("I have an error raised here i should get")
         credential = gateway.get_credential(user, account_config, 'user', None)
-        print "credential ok"
 
         # Retrieve the registry (= SFA proxy)
         sfa_proxy = yield gateway.get_sfa_proxy_admin()

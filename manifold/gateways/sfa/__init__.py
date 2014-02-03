@@ -18,6 +18,8 @@ from types                                  import StringTypes, GeneratorType
 from twisted.internet                       import defer
 from twisted.python.failure                 import Failure
 
+from manifold.core.exceptions               import ManifoldException, MissingCredentialException, ManagementException
+from manifold.core.packet                   import ErrorPacket # XXX not catching exceptions if we comment this
 from manifold.core.query                    import Query 
 from manifold.core.record                   import Record, Records
 from manifold.gateways                      import Gateway
@@ -263,42 +265,6 @@ class SFAGatewayCommon(Gateway):
 #DEPRECATED|            decorator. 
 #DEPRECATED|        """
 
-    # XXX None of the calls should be asynchronous, otherwise, let's use the packet communication
-
-    def receive_record_impl(self, record):
-        print "recieve records impl", record
-        # Insert a RENAME Node above this FROM Node if necessary.
-        instance = self.get_object(query.get_from())
-        aliases  = instance.get_aliases()
-        if aliases:
-            Log.warning("I don't think this properly recables everything")
-            Rename(self, aliases)
-
-        # Send Records to the From Node.
-        # NOTE from jordan: This might send to the Rename node
-        self.records(row)
-
-    def receive_error_impl(self, error):
-        # We might call the appropriate method (for instance User.get(...)) in
-        # a first time without managing the user account. If it fails and if
-        # this account is managed, then run managed and try to rerun the Query.
-        # XXX Be careful not to run in an infinite loop: has the account be
-        # managed recently ?
-
-        try:
-            is_managed = yield self.handle_error(user, user_account)
-        except AttributeError, e:
-            # We (should) log the error and forward the ICMP
-            self.error(error)            
-
-        if is_managed:
-            # Send the query again
-            self.perform_query(user, user_account_config, query)    \
-                .addCallback(self.receive_record_impl)          \
-                .addErrback(self.receive_error_callback)
-        else:
-            # We forward the ICMP
-            self.error(error)
 
 
     # This is in fact receive_query_impl
@@ -349,11 +315,83 @@ class SFAGatewayCommon(Gateway):
             self.error(packet, "Account related to %s for platform %s not found" % (user_email, self.get_platform_name()))
             return
 
+        # Insert a RENAME Node above this FROM Node if necessary.
+        instance = self.get_object(query.get_from())
+        aliases  = instance.get_aliases()
+        if aliases:
+            Log.warning("I don't think this properly recables everything")
+            Rename(self, aliases)
+
+        # We know this function will return either through gw.records() or
+        # GW.error() so there is no need to specify callbacks
+        # XXX This is more like forwarding in the SFA domain
+
+        # This is the first time we are running the query. Because we want to
+        # handle failure the first time, to try to perform a manage operation,
+        # we are specifying some callbacks
+        #
+        # sfa::receive_impl [CURRENT]
+        #    sfa.rm::perform_query            => returns a deferred
+        #       sfa.rm.methods.rm_object::get => returns a deferred
+        d = self.perform_query(user, user_account_config, packet)
+        d.addCallback(self.records)
+        d.addErrback(self.on_first_error, user, user_account, packet)
+
+    def x(self, error):
+        print(error)
+
+    # XXX We could factor this function with on_first_error
+    def on_next_errors(self, failure, user, user_account, packet):
+        # We send the original error
+        self.send(ErrorPacket.from_exception(e))  
+
+    @defer.inlineCallbacks
+    def on_first_error(self, failure, user, user_account, packet):
+        """
+        This function intercepts error packets caused by a query, when issued for the first time.
+        This way, we are able to intercept errors we might solve by running manage.
+        NOTE: This function could also be Gateway.receive[error].
+        NOTE: we might only add this callback in case of a managed account.
+        """
+        # We might call the appropriate method (for instance User.get(...)) in
+        # a first time without managing the user account. If it fails and if
+        # this account is managed, then run managed and try to rerun the Query.
+        # XXX Be careful not to run in an infinite loop: has the account be
+        # managed recently ?
         
-        self.perform_query(user, user_account_config, query)    \
-            .addCallback(self.receive_record_impl)          \
-            .addErrback(self.receive_error_impl)
+        # XXX If exceptions are triggered in errbacks like here, they seem not to be catched
+        # eg. import missing for ErrorPacket or ManifoldException
 
+        query = packet.get_query()
 
+        # We can handle a certain class of failures, but we need to trap them all
+        # to avoid it being reraised to the next errback
+        e = failure.value
+        if isinstance(e, MissingCredentialException) and user_account.get('auth_type', None) == "managed":
+            # Let's try to Manage
+            try:
+                # Perform management, send the query again...
+                yield self.handle_error(user, user_account)
+                self.perform_query(user, user_account_config, query)    \
+                    .addCallback(self.records)                          \
+                    .addErrback(self.on_next_errors, user, user_account, packet)
 
+                # ...and exit the error handler.
+                defer.returnValue(None)
 
+            except Exception, e:
+                # When management fails, we also inform the user by adding an
+                # error packet before the original error packet.
+                error_packet = ErrorPacket.from_exception(ManagementException)
+                error_packet.unset_last()
+                self.send(packet, error_packet)
+
+        # We send the original error (last = True)
+        # XXX Ideally this trap should protect the whole function
+        # XXX Protect all error handlers with try:except
+        try:
+            error_packet = ErrorPacket.from_exception(e)
+        except Exception, e:
+            # XXX Serious error here, we cannot build error packets... quit ?
+            print "ERROR", e
+        self.send(packet, error_packet)

@@ -72,6 +72,8 @@ class Gateway(Producer):
         assert isinstance(platform_config, dict) or not platform_config, \
             "Invalid configuration: %s (%s)" % (platform_config, type(platform_config))
 
+        Log.tmp("INIT GW", self.__class__)
+
         Producer.__init__(self, *args, **kwargs)
         self._interface       = interface       # Router
         self._platform_name   = platform_name   # String
@@ -226,6 +228,7 @@ class Gateway(Producer):
             query: A Query instance correponding to a pending Query.
             consumer: A Consumer instance (a From instance most of time). 
         """
+        Log.tmp("Add flow to pit for query", query)
         self._pit.add_flow(query, consumer)
 
     def del_consumer(self, receiver, cascade = True):
@@ -455,6 +458,10 @@ class Gateway(Producer):
                 Exception.
         """
         self.error(packet, description, False)
+
+    def handle_failure(self, failure, query_packet):
+        e = failure.trap(Exception)
+        self.error(query_packet, str(e))
         
     def error(self, packet, description, is_fatal = True):
         """
@@ -486,6 +493,10 @@ class Gateway(Producer):
         error_packet = self.make_error(GATEWAY, description, is_fatal)
         socket.receive(error_packet)
 
+    def send(self, src_packet, packet):
+        socket = self.get_socket(src_packet.get_query())
+        socket.receive(packet)
+
     def receive(self, packet):
         """
         Handle a incoming QUERY Packet (processing).
@@ -501,10 +512,13 @@ class Gateway(Producer):
             # See manifold/gateways/template/__init__.py
             self.receive_impl(packet) 
         except Exception, e:
-            #print "RECEIVE EXCEPTION", e
             self.error(packet, e, True)
-        finally:
-            self.close(packet)
+
+# XXX Since this function always return after the query is sent, we need to close after the last receive record or error instead
+
+#DEPRECATED|        finally:
+#DEPRECATED|            print "finally close"
+#DEPRECATED|            self.close(packet)
 
     #---------------------------------------------------------------------------  
     # Methods that could/must be overloaded/overwritten in the child classes

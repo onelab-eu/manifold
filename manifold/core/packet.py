@@ -30,6 +30,7 @@ from types                      import StringTypes
 
 from manifold.core.annotation   import Annotation
 from manifold.core.code         import ERROR, WARNING
+from manifold.core.exceptions   import ManifoldException
 from manifold.core.query        import Query
 from manifold.util.log          import Log 
 from manifold.util.type         import accepts, returns
@@ -237,6 +238,10 @@ class ErrorPacket(Packet):
     Analog with ICMP errors packets in IP networks
     """
 
+    #--------------------------------------------------------------------------- 
+    # Constructor
+    #--------------------------------------------------------------------------- 
+
     def __init__(self, type = ERROR, code = ERROR, message = None, traceback = None):
         """
         Constructor.
@@ -256,6 +261,17 @@ class ErrorPacket(Packet):
         self._code      = code
         self._message   = message
         self._traceback = traceback
+
+    #--------------------------------------------------------------------------- 
+    # Static methods
+    #--------------------------------------------------------------------------- 
+
+    # XXX This function could take kwargs parameters to set last to False for example
+    @staticmethod
+    def from_exception(e):
+        if not isinstance(e, ManifoldException):
+            e = ManifoldException(e)
+        return ErrorPacket(e.TYPE, e.CODE, str(e))
 
     @returns(StringTypes)
     def get_message(self):
