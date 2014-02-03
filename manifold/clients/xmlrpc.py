@@ -1,0 +1,42 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+# ManifoldXMLRPCClient is the base class inherited by
+# any Manifold client using XMLRPC
+#
+# Copyright (C) UPMC Paris Universitas
+# Authors:
+#   Jordan Augé       <jordan.auge@lip6.fr>
+#   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
+
+from twisted.internet               import defer
+
+from manifold.clients.client        import ManifoldClient
+from manifold.util.log              import Log 
+from manifold.util.reactor_thread   import ReactorThread
+
+class ManifoldXMLRPCClient(ManifoldClient):
+    def __init__(self, url):
+        """
+        Constructor
+        Args:
+            url: A String containing the URI of the XMLRPC server queried
+                by this client (ex "http://localhost:7080").
+        """
+        self.url = url
+        super(ManifoldXMLRPCClient, self).__init__()
+        ReactorThread().start_reactor()
+
+    def __del__(self):
+        ReactorThread().stop_reactor()
+
+    @defer.inlineCallbacks
+    def whoami(self, query, annotation = None):
+        Log.tmp("TBD")
+        #if not annotation:
+        #    annotation = Annotation() 
+        #annotation.update(self.annotation)
+        #ret = yield self.router.AuthCheck(annotation)
+        #defer.returnValue(ret)
+
+

@@ -32,8 +32,8 @@ class Destination(object):
     def left_join(self, destination): 
         return Destination(
             object = self.get_object(),
-            filter = self.filters | destination.filters,
-            fields = self.fields  | destination.fields)
+            filter = self._filter | destination.get_filter(),
+            fields = self._fields | destination.get_fields())
 
     def selection(self, filter):
         return Destination(

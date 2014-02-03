@@ -44,7 +44,7 @@ class Interface(object):
         assert not allowed_capabilities or isinstance(allowed_capabilities, Capabilities),\
             "Invalid capabilities = %s (%s)" % (allowed_capabilities, type(allowed_capabilities))
 
-        # Register the list of Gateways
+        # Register the Gateways (see manifold.gateways)
         Log.info("Registering gateways")
         Gateway.register_all()
         Log.info("Registered gateways are: {%s}" % ", ".join(sorted(Gateway.list().keys())))
@@ -169,11 +169,7 @@ class Interface(object):
         if gateway_type not in self.gateways.keys():
             # This platform is not referenced in the router, try to create the
             # appropriate Gateway.
-            try:
-                self.make_gateway(gateway_type)
-            except Exception, e:
-                Log.error(traceback.format_exc())
-                raise ValueError("Cannot find/create Gateway related to platform %s (%s)" % (gateway_type, e))
+            self.make_gateway(gateway_type)
 
         try:
             return self.gateways[gateway_type]

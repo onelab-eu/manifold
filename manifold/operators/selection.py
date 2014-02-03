@@ -14,6 +14,7 @@
 import traceback
 from types                          import StringTypes
 
+from manifold.core.destination      import Destination
 from manifold.core.filter           import Filter
 from manifold.core.packet           import Packet
 from manifold.core.producer         import Producer 
@@ -58,7 +59,12 @@ class Selection(Operator):
     # Methods
     #---------------------------------------------------------------------------
 
+    @returns(Destination)
     def get_destination(self):
+        """
+        Returns:
+            The Destination corresponding to this Operator. 
+        """
         d = self.get_producer().get_destination()
         return d.selection(self._filter)
 

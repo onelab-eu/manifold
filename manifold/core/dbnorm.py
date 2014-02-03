@@ -21,14 +21,16 @@
 #
 
 import sys, copy
-from types                 import StringTypes
-from manifold.core.table   import Table
-from manifold.core.key     import Key, Keys 
-from manifold.core.field   import Field
-from manifold.core.method  import Method 
-from manifold.core.dbgraph import DBGraph
-from manifold.util.type    import returns, accepts
-from manifold.util.log     import Log
+from types                      import StringTypes
+
+from manifold.core.capabilities import Capabilities, merge_capabilities
+from manifold.core.dbgraph      import DBGraph
+from manifold.core.field        import Field, merge_fields
+from manifold.core.key          import Key, Keys
+from manifold.core.method       import Method 
+from manifold.core.table        import Table
+from manifold.util.log          import Log
+from manifold.util.type         import returns, accepts
 
 #------------------------------------------------------------------------------
 
@@ -363,7 +365,7 @@ class Fds(set):
         """
         Group a set of Fd stored in this Fds by tablename then method
         Returns:
-            A dictionnary {method_name : Fds}
+            A dictionnary {table_name (String) : {platform_name (String) : Fds} }
         """
         map_method_fds = {}
         for fd in self:
@@ -638,12 +640,13 @@ def to_3nf(metadata):
         The corresponding 3nf graph (DbGraph instance)
     """
     # 1) Compute functional dependancies
-    tables = []
-    map_method_capabilities = {}
+    tables = list() 
+    map_method_capabilities = dict() 
     for platform, announces in metadata.items():
         for announce in announces:
-            tables.append(announce.get_table())
-            map_method_capabilities[Method(platform, announce.table.get_name())] = announce.table.get_capabilities()
+            table = announce.get_table()
+            tables.append(table)
+            map_method_capabilities[Method(platform, table.get_name())] = table.get_capabilities()
     fds = make_fd_set(tables)
 
     # 2) Find a minimal cover
@@ -668,15 +671,16 @@ def to_3nf(metadata):
         # Stores the set of platforms
         all_platforms = set()
         common_fields = None
-        common_keys = None
+#        common_keys = None
+        all_keys = set() 
 
         # Annotations needed for the query plane
-        all_tables = []
+        all_tables = list() 
 
         for platform, fds in map_platform_fds.items():
-            platforms         = set()
-            fields            = set()
-            keys              = Keys()
+            platforms = set()
+            fields    = set()
+            keys      = Keys()
 
             # Annotations needed for the query plane
             map_method_keys   = dict()
@@ -715,32 +719,48 @@ def to_3nf(metadata):
 
                         platforms.add(method.get_platform())
 
-            table = Table(platforms, None, table_name, fields, keys)
+            table = Table(platforms, table_name, fields, keys)
 
             # inject field and key annotation in the Table object
             table.map_method_keys   = map_method_keys
             table.map_method_fields = map_method_fields
             tables_3nf.append(table)
             all_tables.append(table)
-            Log.debug("TABLE 3nf:", table, table.keys)
+            Log.debug("TABLE 3nf:", table, keys)
             #print "     method fields", map_method_fields
 
             cpt_platforms += 1
             all_platforms |= platforms
+
             if not common_fields:
                 common_fields = fields
             else:
-                common_fields &= fields
+                #common_fields &= fields
+                common_fields = merge_fields(fields, common_fields)
 
-            if not common_keys:
-                common_keys = keys
-            else:
-                common_keys &= keys
+#            if not common_keys:
+#                common_keys = keys
+#            else:
+#                common_keys &= keys
 
+
+            # Collect possible keys, we will restrict this set once
+            # common_fields will be computed.
+            all_keys |= keys
+
+        # Check whether we will add a parent table. If so compute the
+        # corresponding Keys based on all_keys and common_fields.
+        common_keys = None
+        if cpt_platforms > 1 and len(common_fields) > 0:
+            # Retrict common_keys according to common_fields
+            common_field_names = set([field.get_name() for field in common_fields])
+            common_keys = Keys([key for key in all_keys if key.get_field_names() <= common_field_names])
 
         # Need to add a parent table if more than two sets of platforms
-        if cpt_platforms > 1:
-            table = Table(all_platforms, None, table_name, common_fields, common_keys)
+        if common_keys: 
+
+            # Capabilities will be set later since they must be set for all the Tables.
+            table = Table(all_platforms, table_name, common_fields, common_keys)
 
             # Migrate common fields from children to parents, except keys
             ##map_common_method_keys   = dict()
@@ -764,37 +784,48 @@ def to_3nf(metadata):
                     if not method in map_common_method_fields: map_common_method_fields[method] = set()
                     map_common_method_fields[method].add(field.get_name())
 
-            map_common_method_fields[method].add(field.get_name())
-
-            # inject field and key annotation in the Table object
+            # Inject field and key annotation in the Table object
             table.map_method_keys   = dict() #map_common_method_keys
             table.map_method_fields = map_common_method_fields
             tables_3nf.append(table)
-            Log.debug("TABLE 3nf:", table, table.keys)
+            Log.debug("TABLE 3nf:", table, table.get_keys())
             #print "     method fields", map_common_method_fields
+
 
         # XXX we already know about the links between those two platforms
         # but we can find them easily (cf dbgraph)
 
     # inject demux annotation
-    for table in tables_3nf:
-        if table.get_name() in map_tablename_methods.keys():
-            table.methods_demux = map_tablename_methods[table.get_name()]
+    for table_3nf in tables_3nf:
+        if table_3nf.get_name() in map_tablename_methods.keys():
+            table_3nf.methods_demux = map_tablename_methods[table_3nf.get_name()]
         else:
-            table.methods_demux = set()
+            table_3nf.methods_demux = set()
 
-    # 6) Inject capabilities
-    # TODO: capabilities are now in tables, shall they be present in tables_3nf
-    # instead of relying on map_method_capabilities ?
-    for table in tables_3nf:
-        for announces in metadata.values():
+    # Compute Capabilities corresponding to the union of the
+    # Capabilities of each child Table.
+    for table_3nf in tables_3nf:
+        capabilities = Capabilities()
+        for platform_name in all_platforms:
+            announces = metadata[platform_name]
             for announce in announces:
-                if announce.get_table().get_name() == table.get_name():
-                    capabilities = table.get_capabilities()
-                    if capabilities.is_empty():
-                        table.set_capability(announce.get_table().get_capabilities()) 
-                    elif capabilities != announce.get_table().get_capabilities():
-                        Log.warning("Conflicting capabilities for tables %r and %r" % (table, announce.get_table()))
+                if announce.get_table().get_name() == table_name:
+                    break
+            capabilities = merge_capabilities(capabilities, announce.get_table().get_capabilities())
+        table_3nf.set_capability(capabilities)
+ 
+#    # 6) Inject capabilities
+#    # TODO: capabilities are now in tables, shall they be present in tables_3nf
+#    # instead of relying on map_method_capabilities ?
+#    for table_3nf in tables_3nf:
+#        for announces in metadata.values():
+#            for announce in announces:
+#                if announce.get_table().get_name() == table_3nf.get_name():
+#                    capabilities = table_3nf.get_capabilities()
+#                    if capabilities.is_empty():
+#                        table_3nf.set_capability(announce.get_table().get_capabilities()) 
+#                    elif capabilities != announce.get_table().get_capabilities():
+#                        Log.warning("Conflicting capabilities for tables %r and %r" % (table_3nf, announce.get_table()))
                 
     # 7) Building DBgraph
     graph_3nf = DBGraph(tables_3nf, map_method_capabilities)

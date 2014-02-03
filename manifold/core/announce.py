@@ -215,7 +215,7 @@ def parse_dot_h(iterable, filename = None):
             if m:
                 qualifier  = m.group(1)
                 table_name = m.group(2)
-                tables[table_name] = Table(None, None, table_name, None, Keys()) # qualifier ??
+                tables[table_name] = Table(None, table_name, None, Keys()) # qualifier ??
                 continue
 
             # enum MyEnum {
@@ -297,10 +297,10 @@ def import_string_h(string, platform):
     def iter(string):
         prevnl = -1
         while True:
-          nextnl = string.find('\n', prevnl + 1)
-          if nextnl < 0: break
-          yield string[prevnl + 1:nextnl]
-          prevnl = nextnl
+            nextnl = string.find('\n', prevnl + 1)
+            if nextnl < 0: break
+            yield string[prevnl + 1:nextnl]
+            prevnl = nextnl
     (classes, enum) = parse_dot_h(iter(string), None)
     check_table_consistency(classes)
     return make_announces(classes, platform)
@@ -399,6 +399,48 @@ class Announce(object):
         """
         return self.table.to_dict()
 
+@returns(list)
+def make_virtual_announces(platform_name):
+    """
+    Craft a list of virtual Announces corresponding to virtual
+    Table supposed to be supported by any Gateway (including *:object).
+    Args:
+        platform_name: A name of the Storage platform.
+    Returns:
+        The corresponding list of Announces.
+    """
+    @announces_from_docstring(platform_name)
+    def _get_metadata_tables():
+        """
+        class object {
+            string  table;           /**< The name of the object/table.     */
+            column  columns[];       /**< The corresponding fields/columns. */
+            string  capabilities[];  /**< The supported capabilities        */
+
+            CAPABILITY(retrieve);
+            KEY(table);
+        }; 
+
+        class column {
+            string qualifier;
+            string name;
+            string type;
+            string description;
+            bool   is_array;
+
+            KEY(name);
+        };
+
+        class gateway {
+            string type;
+
+            CAPABILITY(retrieve);
+            KEY(type);
+        };
+        """
+    announces = _get_metadata_tables(platform_name)
+    return announces
+
 class Announces(object):
 
     @classmethod
@@ -439,6 +481,7 @@ class Announces(object):
 
     @classmethod
     def get_announces(self, metadata):
+        Log.warning("what about capabilities?")
         return [Announce(t) for t in metadata.get_announce_tables()]
         
 #------------------------------------------------------------------

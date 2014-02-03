@@ -13,6 +13,7 @@
 
 from types                          import StringTypes
 
+from manifold.core.destination      import Destination
 from manifold.core.packet           import Packet
 from manifold.core.record           import Record
 from manifold.core.producer         import Producer 
@@ -123,7 +124,12 @@ class Projection(Operator):
     # Methods
     #---------------------------------------------------------------------------
 
+    @returns(Destination)
     def get_destination(self):
+        """
+        Returns:
+            The Destination corresponding to this Operator. 
+        """
         d = self.get_producer().get_destination()
         return d.projection(self._fields)
 

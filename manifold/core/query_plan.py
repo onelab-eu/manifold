@@ -111,10 +111,13 @@ class QueryPlan(object):
 
         root_table = db_graph.find_node(query.get_from())
         if not root_table:
+            table_names = list(db_graph.get_table_names())
+            table_names.sort()
             raise RuntimeError("Cannot find %s in db_graph, known tables are {%s}" % (
                 query.get_from(),
-                ", ".join(db_graph.get_table_names())
+                ", ".join(table_names)
             ))
+
         if not root_table.get_capabilities().retrieve:
             raise RuntimeError("Table %s hasn't RETRIEVE capability and cannot be used in a FROM clause" % (
                 query.get_from()

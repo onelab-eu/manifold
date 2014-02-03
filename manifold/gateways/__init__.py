@@ -11,7 +11,7 @@
 import json, os, sys, traceback
 from types                          import StringTypes
 
-from manifold.core.announce         import Announces
+from manifold.core.announce         import Announces, make_virtual_announces, merge_announces
 from manifold.core.capabilities     import Capabilities
 from manifold.core.code             import GATEWAY
 from manifold.core.consumer         import Consumer
@@ -134,7 +134,10 @@ class Gateway(Producer):
         # We do not instanciate make_announces in __init__
         # to allow child classes to tweak their metadata.
         if not self._announces:
-            self._announces = self.make_announces()
+            virtual_announces  = make_virtual_announces(self.get_platform_name())
+            platform_announces = self.make_announces() 
+            self._announces = merge_announces(virtual_announces, platform_announces)
+
         return self._announces
 
     @returns(Capabilities)
@@ -263,85 +266,85 @@ class Gateway(Producer):
         # Unlink this Socket from its Customers 
         socket.close()
         
-    #---------------------------------------------------------------------------  
-    # Query plan optimization. 
-    #---------------------------------------------------------------------------  
-
-    @returns(Node)
-    def optimize_selection(self, query, filter):
-        """
-        Propagate a WHERE clause through a FROM Node.
-        Args:
-            query: The Query received by this Gateway.
-            filter: A Filter instance. 
-        Returns:
-            The updated root Node of the sub-AST.
-        """
-        # XXX Simplifications
-#FIXME|        for predicate in filter:
-#FIXME|            if predicate.get_field_names() == self.key.get_field_names() and predicate.has_empty_value():
-#FIXME|                # The result of the request is empty, no need to instanciate any gateway
-#FIXME|                # Replace current node by an empty node
-#FIXME|                return FromTable(query, [], self.key)
-#FIXME|            # XXX Note that such issues could be detected beforehand
-
-        Log.tmp("optimize_selection: query = %s filter = %s" % (query, filter))
-        capabilities = self.get_capabilities(query.get_from())
-
-        if capabilities.selection:
-            # Push filters into the From node
-            query.filter_by(filter)
-            #old for predicate in filter:
-            #old    self.query.filters.add(predicate)
-            return self
-        else:
-            # Create a new Selection node
-            selection = Selection(self, filter)
-
-            # XXX fullquery ?
-            if capabilities.fullquery:
-                # We also push the filter down into the node
-                for predicate in filter:
-                    query.filters.add(predicate)
-
-            return selection
-
-    @returns(Node)
-    def optimize_projection(self, query, fields):
-        """
-        Propagate a SELECT clause through a FROM Node.
-        Args:
-            query: The Query received by this Gateway.
-            fields: A set of String instances (queried fields).
-        Returns:
-            The updated root Node of the sub-AST.
-        """
-        Log.tmp("optimize_projection: query = %s fields = %s" % (query, fields))
-        capabilities = self.get_capabilities(query.get_from())
-        if capabilities.projection:
-            # Push fields into the From node
-            self.query.select().select(fields)
-            return self
-        else:
-            provided_fields = self.get_table(query.get_from()).get_field_names()
-
-            # Test whether this From node can return every queried Fields.
-            if fields - provided_fields:
-                Log.warning("From::optimize_projection: some requested fields (%s) are not provided by %s. Available fields are: {%s}" % (
-                    ", ".join(list(fields - provided_fields)),
-                    query.get_from(),
-                    ", ".join(list(provided_fields))
-                )) 
-
-            # If this From node returns more Fields than those explicitely queried
-            # (because the projection capability is not enabled), create an additional
-            # Projection Node above this From Node in order to guarantee that
-            # we only return queried fields
-            if provided_fields - fields:
-                # XXX fullquery ?
-                return Projection(self, fields)
-                #projection.query = self.query.copy().filter_by(filter) # XXX
-            return self
+#    #---------------------------------------------------------------------------  
+#    # Query plan optimization. 
+#    #---------------------------------------------------------------------------  
+#
+#    @returns(Node)
+#    def optimize_selection(self, query, filter):
+#        """
+#        Propagate a WHERE clause through a FROM Node.
+#        Args:
+#            query: The Query received by this Gateway.
+#            filter: A Filter instance. 
+#        Returns:
+#            The updated root Node of the sub-AST.
+#        """
+#        # XXX Simplifications
+##FIXME|        for predicate in filter:
+##FIXME|            if predicate.get_field_names() == self.key.get_field_names() and predicate.has_empty_value():
+##FIXME|                # The result of the request is empty, no need to instanciate any gateway
+##FIXME|                # Replace current node by an empty node
+##FIXME|                return FromTable(query, [], self.key)
+##FIXME|            # XXX Note that such issues could be detected beforehand
+#
+#        Log.tmp("optimize_selection: query = %s filter = %s" % (query, filter))
+#        capabilities = self.get_capabilities(query.get_from())
+#
+#        if capabilities.selection:
+#            # Push filters into the From node
+#            query.filter_by(filter)
+#            #old for predicate in filter:
+#            #old    self.query.filters.add(predicate)
+#            return self
+#        else:
+#            # Create a new Selection node
+#            selection = Selection(self, filter)
+#
+#            # XXX fullquery ?
+#            if capabilities.fullquery:
+#                # We also push the filter down into the node
+#                for predicate in filter:
+#                    query.filters.add(predicate)
+#
+#            return selection
+#
+#    @returns(Node)
+#    def optimize_projection(self, query, fields):
+#        """
+#        Propagate a SELECT clause through a FROM Node.
+#        Args:
+#            query: The Query received by this Gateway.
+#            fields: A set of String instances (queried fields).
+#        Returns:
+#            The updated root Node of the sub-AST.
+#        """
+#        Log.tmp("optimize_projection: query = %s fields = %s" % (query, fields))
+#        capabilities = self.get_capabilities(query.get_from())
+#        if capabilities.projection:
+#            # Push fields into the From node
+#            self.query.select().select(fields)
+#            return self
+#        else:
+#            provided_fields = self.get_table(query.get_from()).get_field_names()
+#
+#            # Test whether this From node can return every queried Fields.
+#            if fields - provided_fields:
+#                Log.warning("Gateway::optimize_projection: some requested fields (%s) are not provided by %s. Available fields are: {%s}" % (
+#                    ", ".join(list(fields - provided_fields)),
+#                    query.get_from(),
+#                    ", ".join(list(provided_fields))
+#                )) 
+#
+#            # If this From node returns more Fields than those explicitely queried
+#            # (because the projection capability is not enabled), create an additional
+#            # Projection Node above this From Node in order to guarantee that
+#            # we only return queried fields
+#            if provided_fields - fields:
+#                # XXX fullquery ?
+#                return Projection(self, fields)
+#                #projection.query = self.query.copy().filter_by(filter) # XXX
+#            return self
 
     #---------------------------------------------------------------------------  
     # Helpers for child classes 
@@ -497,6 +500,20 @@ class Gateway(Producer):
         socket = self.get_socket(src_packet.get_query())
         socket.receive(packet)
 
+    @returns(bool)
+    def handle_query_object(self, packet):
+        ret = False
+        if packet.get_protocol() == Packet.PROTOCOL_QUERY:
+            query = packet.get_query()
+            table_name = query.get_from()
+            if table_name == "object":
+                action = query.get_action()
+                if action != "get":
+                    raise ValueError("Invalid action (%s) on %s:%s Table" % (action, self.get_platform_name(), table_name))
+                self.records(packet, [announce.to_dict() for announce in self.get_announces()])
+                ret = True
+        return ret
+
     def receive(self, packet):
         """
         Handle a incoming QUERY Packet (processing).
@@ -508,9 +525,10 @@ class Gateway(Producer):
         self.check_receive(packet)
 
         try:
-            # This method must be overloaded on the Gateway
-            # See manifold/gateways/template/__init__.py
-            self.receive_impl(packet) 
+            if not self.handle_query_object(packet):
+                # This method must be overloaded on the Gateway
+                # See manifold/gateways/template/__init__.py
+                self.receive_impl(packet) 
         except Exception, e:
             self.error(packet, e, True)
 

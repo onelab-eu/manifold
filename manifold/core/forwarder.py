@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Class Forwarder 
+# A Forwarder embeds exactly one Gateway assuming that its
+# Announces are already normalized. 
 #
 # Copyright (C) UPMC Paris Universitas
 # Authors:
@@ -16,30 +17,29 @@ from manifold.core.router       import Router
 
 class Forwarder(Interface):
 
-    # XXX This could be made more generic with the router
-    # Forwarder class is an Interface 
-    # builds the query plan, and execute query plan using deferred if required
-    def forward(self, query, is_deferred = False, execute = True, user = None, receiver = None):
+    def receive(self, packet):
         """
-        Forwards an incoming Query to the appropriate Gateways managed by this Router.
+        Process an incoming Packet instance.
         Args:
-            query: The user's Query.
-            is_deferred: A boolean set to True if this Query is async
-            execute: A boolean set to True if the QueryPlan must be executed.
-            user: The user issuing the Query.
-            receiver: An instance or None supporting the method set_result_value,
-                receiver.set_result_value() will be called once the Query has terminated.
-        Returns:
-            A Deferred instance if the Query is async, None otherwise
+            packet: A QUERY Packet instance. 
         """
+        assert isinstance(packet, Packet),\
+            "Invalid packet %s (%s) (%s) (invalid type)" % (packet, type(packet))
 
-        super(Forwarder, self).forward(query, deferred, execute, user)
+        # Create a Socket holding the connection information and bind it.
+        socket = Socket(consumer = packet.get_receiver())
+        packet.set_receiver(socket)
 
-        # We suppose we have no namespace from here
-        qp = QueryPlan()
-        qp.build_simple(query, self.metadata, self.allowed_capabilities)
-        self.init_from_nodes(qp, user)
+        # Build the AST and retrieve the corresponding root_node Operator instance.
+        query = packet.get_query()
+        annotation = packet.get_annotation()
 
-        d = defer.Deferred() if is_deferred else None
-        # the deferred object is sent to execute function of the query_plan
-        return qp.execute(d, receiver)
+        Log.warning("Forwarder::receive not yet implemented")
+#DEPRECATED|        # We suppose we have no namespace from here
+#DEPRECATED|        qp = QueryPlan()
+#DEPRECATED|        qp.build_simple(query, self.metadata, self.allowed_capabilities)
+#DEPRECATED|        self.init_from_nodes(qp, user)
+#DEPRECATED|
+#DEPRECATED|        d = defer.Deferred() if is_deferred else None
+#DEPRECATED|        # the deferred object is sent to execute function of the query_plan
+#DEPRECATED|        return qp.execute(d, receiver)

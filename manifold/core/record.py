@@ -186,10 +186,16 @@ class Record(Packet):
         return dict.pop(self._record, key)
 
     def items(self):
-        return dict.items(self._record)
+        return dict.items(self._record) if self._record else list()
 
+    @returns(list)
     def keys(self):
-        return dict.keys(self._record)
+        """
+        Returns:
+            A list of String where each String correspond to a field
+            name of this Record.
+        """
+        return dict.keys(self._record) if self._record else list()
 
     def update(self, other_record):
         return dict.update(self._record, other_record)

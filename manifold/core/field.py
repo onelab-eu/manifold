@@ -7,10 +7,12 @@
 # Authors:
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
+import copy
 from types              import StringTypes
-from manifold.util.type import returns, accepts 
-from manifold.util.log  import Log
+
 from manifold.types     import type_by_name, BASE_TYPES
+from manifold.util.log  import Log
+from manifold.util.type import returns, accepts 
 
 class Field(object):
 
@@ -68,14 +70,14 @@ class Field(object):
         if not isinstance(x, Field):
             raise TypeError("Invalid type: %r is of type %s" % (x, type(x)))
         return (
-            self.is_local(),
-            self.is_const(),
+#            self.is_local(),
+#            self.is_const(),
             self.get_type(),
             self.get_name(),
             self.is_array()
         ) == (
-            x.is_local(),
-            x.is_const(),
+#            x.is_local(),
+#            x.is_const(),
             x.get_type(),
             x.get_name(),
             x.is_array()
@@ -175,3 +177,62 @@ class Field(object):
         }
         return column
 
+    #@returns(Field)
+    def __or__(self, field2):
+        """
+        Merge two fields to produce the corresponding less
+        restrictive Field.
+        Args:
+            field2: The Field that we try to merge with self.
+        Raises:
+            ValueError: if self and field2 cannot be merged.
+        Returns:
+            The corresponding merged Field
+        """
+        if   self.is_array() != field2.is_array() \
+          or self.get_type() != field2.get_type() \
+          or self.get_name() != field2.get_name():
+            raise ValueError("Cannot %s | %s" % (self, field2))
+
+        ret = copy.copy(self)
+        if not ret.get_description():
+            ret.description = field2.get_description()
+        ret._is_const  &= field2.is_const()
+
+        return ret
+        
+@returns(set)
+def merge_fields(fields1, fields2):
+    """
+    Compute the intersection of two sets of Field instances.
+    Args:
+        fields1: A set of Field instances.
+        fields2: A set of Field instances.
+    Returns:
+        The corresponding intersection (set of Fields)
+    """
+
+    @returns(tuple)
+    def make_key(field):
+        assert isinstance(field, Field)
+        return (field.get_type(), field.get_name(), field.is_array())
+
+    @returns(dict)
+    def make_dict(fields):
+        d = dict()
+        for field in fields:
+            if field.is_local(): pass
+            d[make_key(field)] = field
+        return d
+
+    d1 = make_dict(fields1)
+    d2 = make_dict(fields2)
+    ret = set()
+    for key, field1 in d1.items():
+        try:
+            field2 = d2[key]
+            ret.add(field1 | field2)
+        except KeyError, e:
+            # This Field is in fields1, but not in fields2
+            pass
+    return ret 
