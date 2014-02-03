@@ -343,13 +343,10 @@ class SFAProxy(object):
                     else:
                         printable_args.append(str(arg))
 
-                Log.debug("SFA CALL %s(%s)" % (printable_args[0], printable_args[1:]))
+                Log.debug("SFA CALL: %s(%s)" % (printable_args[0], printable_args[1:]))
                 self.proxy.callRemote(*args).addCallbacks(proxy_success_cb, proxy_error_cb)
-                print "end of wrap"
             
-            print "ReactorThread/Wrap begin"
             ReactorThread().callInReactor(wrap, self, args)
-            print "ReactorThread/Wrap end"
             return d
         return _missing
 
@@ -385,7 +382,10 @@ class SFAProxy(object):
             version = cache.get(cache_key)
 
         if not version: 
-            result = yield self.GetVersion()
+            try:
+                result = yield self.GetVersion()
+            except Exception, e:
+                raise Exception, "Error in GetVersion"
             code = result.get("code")
             if code:
                 if code.get("geni_code") > 0:
@@ -636,7 +636,6 @@ if __name__ == '__main__':
             d2.callback = cb
 
         except Exception, e:
-            print "Exception:", e
             import traceback
             traceback.print_exc()
         finally:
