@@ -9,6 +9,10 @@
 #
 # Copyright (C) UPMC 
 
+# TODO: it would be nice to periodically re-download GeoIP databases
+# iif updated (e.g. by using "wget -N url")
+# http://dev.maxmind.com/geoip/legacy/install/country/
+
 import os
 
 from manifold.gateways.maxmind.geoip_database   import check_filename_dat, get_dat_basenames, install_dat, MAXMIND_DIR
@@ -43,7 +47,10 @@ class MaxMindGateway(Gateway):
 
         # Install dat files
         for dat_basename in dat_basenames:
-            install_dat(dat_basename, False)
+            try:
+                install_dat(dat_basename, False)
+            except Exception, e:
+                Log.warning("%s: Cannot install %s database: %s" % (self.get_platform_name(), dat_basename, e))
 
     def get_geoip(self, dat_basename):
         """
@@ -59,7 +66,7 @@ class MaxMindGateway(Gateway):
         try:
             import GeoIP
         except ImportError, e:
-            raise ImportError("Please install python-geoip (%s)" %e)
+            raise ImportError("%s requires python-geoip package (%s)" % (self.get_platform_name(), e))
 
         check_filename_dat(dat_basename)
         try:
