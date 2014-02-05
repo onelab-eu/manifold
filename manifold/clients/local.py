@@ -9,30 +9,40 @@
 #   Jordan Augé         <jordan.auge@lip6.fr>
 #   Marc-Olivier Buob   <marc-olivier.buob@lip6.fr>
 
+from types                          import StringTypes
+
 from manifold.core.annotation       import Annotation
 from manifold.core.query            import Query 
 from manifold.core.router           import Router
 from manifold.util.log              import Log 
 from manifold.util.type             import accepts, returns
-from manifold.util.storage          import SQLAlchemyStorage
 from ..clients.client               import ManifoldClient
 
 class ManifoldLocalClient(ManifoldClient):
 
-    def __init__(self, user_email = None):
+    def __init__(self, user_email = None, storage = None, load_storage = True):
         """
         Constructor.
         Args:
             user_email: A String containing the User's email address.
+            storage: A Storage instance or None, set to this Router. 
+            load_storage: A boolean set to True if the content of this Storage must
+                be loaded (storage must be != None).
         """
+        assert not user_email or isinstance(user_email, StringTypes),\
+            "Invalid user_email = %s (%s)" % (user_email, type(user_email))
+        #assert isinstance(storage, Storage),\
+        #    "Invalid enable_storage = %s (%s)" % (enable_storage, type(enable_storage))
+        assert isinstance(load_storage, bool),\
+            "Invalid load_storage = %s (%s)" % (load_storage, type(load_storage))
+
         super(ManifoldLocalClient, self).__init__()
 
-        storage = SQLAlchemyStorage(
-            platform_config = None,
-            interface       = self.router 
-        )
-        self.router.set_storage(storage)
-        self.router.load_storage()
+        if storage:
+            self.router.set_storage(storage)
+
+            if load_storage:
+                self.router.load_storage()
 
         self.init_user(user_email)
         self.router.__enter__()

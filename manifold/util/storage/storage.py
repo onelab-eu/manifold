@@ -13,12 +13,10 @@ from types                          import StringTypes
 
 from manifold.gateways              import Gateway
 from manifold.core.annotation       import Annotation
-from manifold.core.dbgraph          import DBGraph
 from manifold.core.packet           import QueryPacket
 from manifold.core.sync_receiver    import SyncReceiver
 from manifold.util.type             import accepts, returns
-
-STORAGE_NAMESPACE = "local"
+from manifold.util.storage          import STORAGE_NAMESPACE
 
 class Storage(object):
     def __init__(self, gateway_type, platform_config, interface = None):
@@ -38,6 +36,7 @@ class Storage(object):
             "Invalid platform_config = %s (%s)" % (platform_config, type(platform_config))
         
         # Initialize self._gateway
+        Gateway.register_all()
         cls_storage = Gateway.get(gateway_type)
         if not cls_storage:
             raise Exception, "Cannot find %s Gateway, required to access Manifold Storage" % gateway_type 
@@ -103,36 +102,6 @@ class Storage(object):
             raise RuntimeError(error_message)
 
         # Otherwise, return the corresponding list of dicts.
-        return [record.to_dict() for record in result_value['value']]
+        return [record.to_dict() for record in result_value["value"]]
      
-#---------------------------------------------------------------------------
-# SQLAlchemyStorage
-#---------------------------------------------------------------------------
-
-STORAGE_DIRECTORY = "/var/myslice"
-STORAGE_URL       = "sqlite:///%s/db.sqlite?check_same_thread=False" % STORAGE_DIRECTORY
-STORAGE_CONFIG    = {
-    "url"  : STORAGE_URL,
-    "user" : None
-}
-
-class SQLAlchemyStorage(Storage):
-
-    def __init__(self, platform_config = None, interface = None):
-        """
-        Constructor.
-        Args:
-            platform_config: A dictionnary containing the relevant information
-                to instantiate the corresponding Gateway.
-            interface: The Router on which this Storage is running.
-                You may pass None if this Storage is stand-alone.
-        """
-        from manifold.util.filesystem       import ensure_writable_directory
-
-        if not platform_config:
-            platform_config = STORAGE_CONFIG 
-
-        super(SQLAlchemyStorage, self).__init__("sqlalchemy", platform_config, interface)
-        ensure_writable_directory(STORAGE_DIRECTORY)
-        self._storage_annotation = Annotation({"user" : platform_config.get("user", None)})
 

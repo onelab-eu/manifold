@@ -54,7 +54,7 @@ def main():
     check_option_email("USER_EMAIL", user_email)
     check_option_enum("AUTH_TYPE", auth_type, VALID_AUTH_TYPE)
     namespace = STORAGE_NAMESPACE
-    return run_command(CMD_ADD_ACCOUNT % locals())
+    return run_command(CMD_ADD_ACCOUNT % locals(), False)
 
 if __name__ == "__main__":
     main()

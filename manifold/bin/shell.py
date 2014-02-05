@@ -6,7 +6,7 @@
 #
 # Copyright (C) UPMC Paris Universitas
 # Authors:
-#   Jordan Augé       <jordan.auge@lip6.fr>
+#   Jordan Augé       <jordan.aue@lip6.fr>
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
 import os, sys, pprint, json, traceback
@@ -27,6 +27,7 @@ from manifold.util.colors           import BOLDBLUE, NORMAL
 from manifold.util.log              import Log
 from manifold.util.options          import Options
 from manifold.util.type             import accepts, returns
+from ..bin.config                   import MANIFOLD_STORAGE
 
 # This could be moved outside of the Shell
 DEFAULT_USER      = "demo"
@@ -125,7 +126,7 @@ class Shell(object):
             username: A String containing the user's email address.
         """
         from manifold.clients.local import ManifoldLocalClient
-        self.client = ManifoldLocalClient(username)
+        self.client = ManifoldLocalClient(username, self.storage, self.load_storage)
 
     def authenticate_xmlrpc_password(self, url, username, password):
         """
@@ -219,15 +220,20 @@ class Shell(object):
             else:
                 raise Exception, "Authentication method not supported: '%s'" % auth_method
 
-
-    def __init__(self, interactive = False):
+    def __init__(self, interactive = False, storage = None, load_storage = True):
         """
         Constructor.
         Args:
-            interactive: A boolean set to True if the Shell is used in command-line,
+            interactive: A boolean set to True if this Shell is used in command-line,
                 and set to False otherwise (Shell used in a script, etc.).
+            storage: A Storage instance or None. 
+                Example: See MANIFOLD_STORAGE defined in manifold.bin.config
+            load_storage: A boolean set to True if the local Router of this Shell must
+                load this Storage.
         """
-        self.interactive = interactive
+        self.interactive    = interactive
+        self.storage        = storage 
+        self.load_storage   = load_storage
         
 # This does not work for shell command like manifold-enable-platform because self.client
 # won't be initialized.
@@ -478,13 +484,13 @@ def main():
     command = Options().execute
     if command:
         try:
-            shell = Shell(interactive = False)
+            shell = Shell(interactive = False, storage = MANIFOLD_STORAGE, load_storage = True)
             print "---------------------------------->"
             shell.display(shell.evaluate(command))
         except:
             shell.terminate()
     else:
-        shell = Shell(interactive = True).start()
+        shell = Shell(interactive = True, storage = MANIFOLD_STORAGE, load_storage = True).start()
 
 if __name__ == '__main__':
     main()

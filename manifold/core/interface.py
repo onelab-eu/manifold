@@ -317,13 +317,16 @@ class Interface(object):
     # Gateways management (internal usage)
     #---------------------------------------------------------------------
 
-    def register_gateways(self):
+    def register_gateways(self, force = False):
         """
         Register all Gateways supported by this Router.
+        This function should be called if a Gateway is added/removed
+        in manifold/gateways/ while this Router is running.
+        Args:
+            force: A boolean set to True enforcing Gateway registration
+                even if already done.
         """
-        Log.info("Registering gateways")
-        Gateway.register_all()
-        Log.info("Registered gateways are: {%s}" % ", ".join(sorted(Gateway.list().keys())))
+        Gateway.register_all(force)
 
     @returns(Gateway)
     def get_gateway(self, platform_name):
