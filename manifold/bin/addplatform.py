@@ -102,7 +102,7 @@ def main():
     disabled = string_to_bool(disabled) 
 
     namespace = STORAGE_NAMESPACE
-    return run_command(CMD_ADD_PLATFORM % locals())
+    return run_command(CMD_ADD_PLATFORM % locals(), False)
 
 if __name__ == "__main__":
     main()

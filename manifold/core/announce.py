@@ -458,11 +458,8 @@ class Announces(object):
                 Example: STATIC_ROUTES_DIR = "/usr/share/manifold/metadata/"
             platform: A String instance containing the name of the platform
                 Examples: "ple", "senslab", "tdmi", "omf", ...
-            gateway_types: A String instnace containing the type of the Gateway
-                Examples: "SFA", "XMLRPC", "MaxMind", "tdmi"
-                See:
-                    sqlite3 /var/myslice/db.sqlite
-                    > select gateway_type from platform;
+            gateway_type: A String instance containing the type of the Gateway.
+                Examples: "sfa", "xmlrpc", "maxmind", "tdmi"
         Returns:
             A list of Announce instances, each Announce embeds a Table instance.
             This list may be empty.

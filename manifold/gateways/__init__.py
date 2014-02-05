@@ -37,18 +37,26 @@ class Gateway(Producer):
     
     __metaclass__ = PluginFactory
     __plugin__name__attribute__ = '__gateway_name__'
+    registered = False # Added to avoid multiple registrations
 
     #---------------------------------------------------------------------------  
     # Static methods
     #---------------------------------------------------------------------------  
 
     @staticmethod
-    def register_all():
+    def register_all(force = False):
         """
-        Register each available Manifold Gateway.
+        Register each available Manifold Gateway if not yet done.
+        Args:
+            force: A boolean set to True enforcing Gateway registration
+                even if already done.
         """
-        current_module = sys.modules[__name__]
-        PluginFactory.register(current_module)
+        if not Gateway.registered:
+            Log.info("Registering gateways")
+            current_module = sys.modules[__name__]
+            PluginFactory.register(current_module)
+            Log.info("Registered gateways are: {%s}" % ", ".join(sorted(Gateway.list().keys())))
+            Gateway.registered = True
 
     #---------------------------------------------------------------------------  
     # Constructor

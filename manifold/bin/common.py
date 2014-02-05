@@ -11,9 +11,10 @@ import sys
 from traceback           import format_exc
 
 from types               import StringTypes
-from manifold.bin.shell  import Shell
 from manifold.util.log   import Log 
 from manifold.util.type  import accepts, returns
+from ..bin.shell         import Shell
+from ..bin.config        import MANIFOLD_STORAGE
 
 CODE_SUCCESSFUL         =  0
 
@@ -276,13 +277,15 @@ def check_option_json_dict(option_name, option_value):
 
 @returns(int)
 #@accepts(StringTypes, list)
-def run_command(command, dicts = None):
+def run_command(command, load_storage = True, dicts = None):
     """
     Pass a command to a non-interactive Manifold Shell.
     Args:
         command: The command passed to the Manifold Shell 
             Example:
                 'SELECT * FROM foo WHERE foo_id == 1'
+        load_storage: A boolean set to True if the local
+            Router of this Shell must load this Storage.
         dicts: You may either pass None or an empty list.
             - If you pass None, this parameter is ignored
             - If you pass a list, this list is fed with the
@@ -295,7 +298,9 @@ def run_command(command, dicts = None):
             See also manifold.core.code
     """
     Shell.init_options()
-    shell = Shell(interactive = False)
+    shell = Shell(False, MANIFOLD_STORAGE, load_storage)
+    assert isinstance(load_storage, bool)
+    assert not dicts or isinstance(dicts, list)
 
     try:
         result_value = shell.evaluate(command)

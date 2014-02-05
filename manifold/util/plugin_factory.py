@@ -83,9 +83,9 @@ class PluginFactory(type):
     @staticmethod
     def register(package):
         """
-        Register a package (class) in Manifold.
+        Register a module in Manifold.
         Args:
-            package:
+            package: a module instance.
         """
         prefix = package.__name__ + "."
         # Explored modules are automatically imported by walk_modules + it allows to explore

@@ -33,10 +33,13 @@ UPDATE    %(namespace)s:platform
 
 def main():
     check_num_arguments(DOC_ENABLE_PLATFORM, 2, 2)
-    return run_command(CMD_ENABLE_PLATFORM % {
-        "platform_name" : sys.argv[1],
-        "namespace"     : STORAGE_NAMESPACE
-    })
+    return run_command(
+        CMD_ENABLE_PLATFORM % {
+            "platform_name" : sys.argv[1],
+            "namespace"     : STORAGE_NAMESPACE
+        },
+        False
+    )
 
 if __name__ == "__main__":
     main()

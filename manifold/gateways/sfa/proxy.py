@@ -30,14 +30,13 @@ from types                                  import GeneratorType, StringTypes
 from OpenSSL.crypto                         import TYPE_RSA, FILETYPE_PEM, load_certificate, load_privatekey
 from twisted.internet                       import ssl, defer
 
-from sfa.util.cache                     	import Cache
-from sfa.client.return_value            	import ReturnValue
+from sfa.util.cache                         import Cache
+from sfa.client.return_value                import ReturnValue
 
 from manifold.util.reactor_thread           import ReactorThread
 from manifold.util.log                      import Log
 from manifold.util.singleton                import Singleton
-from manifold.util.storage                  import SQLAlchemyStorage 
-from manifold.util.type                 	import accepts, returns 
+from manifold.util.type                     import accepts, returns 
 
 DEFAULT_TIMEOUT = 20
 
@@ -554,7 +553,8 @@ if __name__ == '__main__':
             sys.exit(1)
 
         # Retrieve access to the Manifold Storage
-        storage = SQLAlchemyStorage(platform_config = None, interface = None)
+        from manifold.bin.config    import MANIFOLD_STORAGE
+        storage = MANIFOLD_STORAGE 
 
         try:
             if platform_specified:
