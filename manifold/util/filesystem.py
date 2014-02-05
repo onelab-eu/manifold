@@ -8,12 +8,15 @@
 #   Jordan Augé       <jordan.auge@lip6.fr
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
-import errno, os, tempfile
-from types                  import StringTypes
+from __future__ import with_statement # Required in 2.5
 
-from ..util.certificate     import Keypair, Certificate
-from manifold.util.log      import Log 
-from manifold.util.type     import accepts, returns
+import errno, os, tempfile
+from types              import StringTypes
+
+from ..util.certificate import Keypair, Certificate
+from ..util.log         import Log
+from ..util.timeout     import time_limit, TimeoutException
+from ..util.type        import accepts, returns
 
 #-------------------------------------------------------------------------------
 # Shell like commands 
@@ -30,7 +33,8 @@ def mkdir(directory):
     """
     # http://stackoverflow.com/questions/600268/mkdir-p-functionality-in-python
     try:
-        Log.info("Creating '%s' directory" % directory)
+        if not os.path.exists(directory):
+            Log.info("Creating '%s' directory" % directory)
         os.makedirs(directory)
     except OSError as e: # Python >2.5
         if e.errno == errno.EEXIST and os.path.isdir(directory):
@@ -39,7 +43,7 @@ def mkdir(directory):
             raise OSError("Cannot mkdir %s: %s" % (directory, e))
 
 @accepts(StringTypes, StringTypes, bool)
-def wget(url, filename_out, overwrite):
+def wget(url, filename_out, overwrite, timeout = 5):
     """
     Download a file using http into a directory with a given path.
     The target directory is created if required.
@@ -48,8 +52,10 @@ def wget(url, filename_out, overwrite):
         filename_out: A String corresponding to the path of the downloaded file.
         overwrite: Pass True if this function must overwrites filename_out file
             if it already exists, False otherwise.
+        timeout: The timeout, expressed in seconds.
     Raises:
         RuntimeError: in case of failure
+        TimeoutException: in case of timeout
     """
     # Do not the file if not required 
     if not overwrite:
@@ -66,8 +72,12 @@ def wget(url, filename_out, overwrite):
         mkdir(os.path.dirname(filename_out))
 
         # wget dat_filename
-        Log.info("Downloading '%(url)s' into '%(filename_out)s'" % locals())
-        urlretrieve(url, filename_out)
+        try:
+            with time_limit(timeout): # XXX This will break a download too slow!
+                Log.info("Downloading '%(url)s' into '%(filename_out)s'" % locals())
+                urlretrieve(url, filename_out)
+        except TimeoutException, msg:
+            raise TimeoutException("Cannot download '%(url)s' (timeout)" % locals())
     except Exception, e:
         raise RuntimeError(e)
 
@@ -102,6 +112,8 @@ def gunzip(filename_gz, filename_out, overwrite):
         f_gz = gzip.open(filename_gz, "rb")
         f_out = open(filename_out, "wb")
         f_out.write(f_gz.read())
+    except IOError, e:
+        raise IOError("gunzip('%(filename_gz)s' -> '%(filename_out)s'): %(e)s" % locals())
     finally:
         if f_out: f_out.close()
         if f_gz:  f_gz.close()

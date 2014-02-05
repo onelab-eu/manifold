@@ -32,13 +32,13 @@ MAXMIND_DAT_IPV6_COUNTRY = "GeoIPv6.dat"        # GeoLite Country IPv6 (beta)
 MAXMIND_DAT_IPV4_CITY    = "GeoLiteCity.dat"    # GeoLite City
 MAXMIND_DAT_IPV6_CITY    = "GeoLiteCityv6.dat"  # GeoLite City IPv6
 
-MAXMIND_DAT_URL = {
-    MAXMIND_DAT_IPV4_ASN     : "%s/asnum/%s.gz" % (MAXMIND_DAT_URL, MAXMIND_DAT_IPV4_ASN),
-    MAXMIND_DAT_IPV6_ASN     : "%s/asnum/%s.gz" % (MAXMIND_DAT_URL, MAXMIND_DAT_IPV6_ASN),
-    MAXMIND_DAT_IPV4_COUNTRY : "%s/%s.gz"       % (MAXMIND_DAT_URL, MAXMIND_DAT_IPV4_COUNTRY),
-    MAXMIND_DAT_IPV6_COUNTRY : "%s/%s.gz"       % (MAXMIND_DAT_URL, MAXMIND_DAT_IPV6_COUNTRY),
-    MAXMIND_DAT_IPV4_CITY    : "%s/%s.gz"       % (MAXMIND_DAT_URL, MAXMIND_DAT_IPV4_CITY),
-    MAXMIND_DAT_IPV6_CITY    : "%s/%s.gz"       % (MAXMIND_DAT_URL, MAXMIND_DAT_IPV6_CITY),
+MAP_MAXMIND_DAT_URL = {
+    MAXMIND_DAT_IPV4_ASN     : "%s/asnum/%s.gz"              % (MAXMIND_DAT_URL, MAXMIND_DAT_IPV4_ASN),
+    MAXMIND_DAT_IPV6_ASN     : "%s/asnum/%s.gz"              % (MAXMIND_DAT_URL, MAXMIND_DAT_IPV6_ASN),
+    MAXMIND_DAT_IPV4_COUNTRY : "%s/GeoLiteCountry/%s.gz"     % (MAXMIND_DAT_URL, MAXMIND_DAT_IPV4_COUNTRY),
+    MAXMIND_DAT_IPV6_COUNTRY : "%s/%s.gz"                    % (MAXMIND_DAT_URL, MAXMIND_DAT_IPV6_COUNTRY),
+    MAXMIND_DAT_IPV4_CITY    : "%s/%s.gz"                    % (MAXMIND_DAT_URL, MAXMIND_DAT_IPV4_CITY),
+    MAXMIND_DAT_IPV6_CITY    : "%s/GeoLiteCityv6-beta/%s.gz" % (MAXMIND_DAT_URL, MAXMIND_DAT_IPV6_CITY),
 }
 
 @accepts(StringTypes)
@@ -65,7 +65,7 @@ def get_dat_basenames():
         A list of String where each String corresponds to a
         supported MaxMind dat files.
     """
-    return MAXMIND_DAT_URL.keys() 
+    return MAP_MAXMIND_DAT_URL.keys()
 
 @returns(bool)
 @accepts(StringTypes)
@@ -97,11 +97,12 @@ def install_dat(basename_dat, overwrite):
             True otherwise.
     Raises:
         RuntimeError: in case of failure
+        TimeoutException: in case of timeout
     """
     check_filename_dat(basename_dat)
 
     # wget
-    url = MAXMIND_DAT_URL[basename_dat] 
+    url = MAP_MAXMIND_DAT_URL[basename_dat]
     basename_dl = os.path.split(url)[-1]
     filename_dl = os.path.join(MAXMIND_DIR, basename_dl)
     wget(url, filename_dl, overwrite)
