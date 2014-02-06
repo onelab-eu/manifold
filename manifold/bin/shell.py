@@ -271,7 +271,8 @@ class Shell(object):
         #self.client = None
         try:
             self.client.__del__()
-        except:
+        except Exception, e:
+            Log.error(e)
             pass
 
     def display(self, result_value):

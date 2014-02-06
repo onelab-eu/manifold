@@ -272,11 +272,79 @@ def check_option_json_dict(option_name, option_value):
     check_option(option_name, option_value, is_valid_json_dict, MSG_INVALID_JSON_DICT)
 
 #------------------------------------------------------------------------
+# Check platform status 
+#------------------------------------------------------------------------
+
+MESSAGE_TO_ADD_PLATFORM = "You must add '%(platform_name)s' Gateway in the Manifold Storage."
+
+MESSAGE_TO_ENABLE_PLATFORM = """
+You must enable '%(platform_name)s' Gateway in the Manifold Storage: please run:
+
+    manifold-enable %(platform_name)s
+
+"""
+
+@accepts(Shell, StringTypes, StringTypes, StringTypes)
+def check_platform(shell, platform_name, message_to_add_platform, message_to_enable_platform):
+    """
+    Check whether a Platform is referenced and enabled in the Manifold Storage.
+    If not, print the appropriate message using the Log class.
+    Args:
+        platform_name: The platform name 
+            ex: "tdmi"
+        message_to_add_platform: A String having the format string %(platform_name)s
+            ex: "Please add %(platform_name)s in the Manifold Storage"
+    Raises:
+        RuntimeError: in case of failure
+    """
+    dict_message = {"platform_name" : platform_name}
+
+    result_value = shell.evaluate('SELECT platform, disabled FROM local:platform WHERE platform == "%s"' % platform_name)
+
+    if not result_value.is_success():
+        raise RuntimeError(result_value.get_error_message())
+
+    records = result_value["value"]
+    if not records:
+        raise RuntimeError(MESSAGE_TO_ADD_PLATFORM % dict_message)
+
+    if len(records) > 1:
+        Log.warning("Found several Platforms named '%s' in Manifold Storage, this is strange. Selecting the first one..." % platform_name)
+    record = records[0]
+
+    if record["disabled"] == True:
+        raise RuntimeError(MESSAGE_TO_ENABLE_PLATFORM % dict_message)
+
+    return
+
+#------------------------------------------------------------------------
 # Shell wrapping 
 #------------------------------------------------------------------------
 
 @returns(int)
-#@accepts(StringTypes, list)
+@accepts(Shell, StringTypes, list)
+def shell_run_command(shell, command, dicts):
+    assert isinstance(command, StringTypes)
+
+    try:
+        result_value = shell.evaluate(command)
+        is_success = result_value.is_success()
+        if is_success:
+            Log.info(MSG_SUCCESS % locals())
+            ret = CODE_SUCCESSFUL
+            if isinstance(dicts, list): 
+                for record in result_value["value"]:
+                    dicts.append(record.to_dict())
+        else:
+            ret = result_value.get_code() 
+    except Exception, e:
+        Log.error(format_exc())
+        ret = CODE_ERROR_PARSING
+
+    return ret
+
+@returns(int)
+#@accepts(StringTypes, bool, list)
 def run_command(command, load_storage = True, dicts = None):
     """
     Pass a command to a non-interactive Manifold Shell.
@@ -299,23 +367,29 @@ def run_command(command, load_storage = True, dicts = None):
     """
     Shell.init_options()
     shell = Shell(False, MANIFOLD_STORAGE, load_storage)
-    assert isinstance(load_storage, bool)
-    assert not dicts or isinstance(dicts, list)
 
     try:
-        result_value = shell.evaluate(command)
-        is_success = result_value.is_success()
-        if is_success:
-            Log.info(MSG_SUCCESS % locals())
-            ret = CODE_SUCCESSFUL
-            if isinstance(dicts, list): 
-                for record in result_value["value"]:
-                    dicts.append(record.to_dict())
-        else:
-            ret = result_value.get_code() 
+        ret = shell_run_command(shell, command, dicts)
     except Exception, e:
         Log.error(format_exc())
-        ret = CODE_ERROR_PARSING
+        ret = 2 
+
+    shell.terminate()
+    return ret 
+
+@returns(int)
+#@accepts(StringTypes|list, list)
+def run_commands(shell, commands):
+    ret = True
+
+    for command in commands:
+        print "-" * 80
+        try:
+            ret &= (shell_run_command(shell, command, None) == 0)
+            if not ret:
+                Log.error("[!!] %s" % command)
+        except Exception, e:
+            Log.error(format_exc())
 
     shell.terminate()
     return ret 
