@@ -15,8 +15,8 @@
 
 import sys
 
+from manifold.bin.common    import MANIFOLD_STORAGE, run_commands, check_platform, MESSAGE_TO_ENABLE_PLATFORM
 from manifold.bin.shell     import Shell
-from gateway                import check_platform, test_commands, MESSAGE_TO_ENABLE_PLATFORM 
 from manifold.util.log      import Log
 from manifold.util.options  import Options
 from manifold.util.type     import accepts, returns 
@@ -28,6 +28,18 @@ tdmi has not been found in the Manifold Storage, please run:
 
 """
 
+# Prepare TDMI Queries
+COMMANDS = [
+"""
+SELECT agent_id, ip
+FROM agent
+WHERE agent_id == 11824
+""",
+    'SELECT destination_id, ip FROM destination WHERE agent_id == 1417',
+#    'SELECT src_ip, dst_ip, agent.ip, destination.ip, hops.ip, hops.ttl AT "2012-09-09 14:30:09" FROM traceroute WHERE agent_id == 11824 AND destination_id == 1417',
+#    'SELECT agent.ip, src_ip, agent.hostname, destination.ip, dst_ip, destination.hostname AT "2012-09-09 14:30:09" FROM traceroute WHERE agent_id == 11824 AND destination_id INCLUDED [1416, 1417]'
+]
+
 @returns(int)
 def main():
     argc = len(sys.argv)
@@ -35,21 +47,19 @@ def main():
     Log.init_options()
     Options().parse()
 
-    shell = Shell(interactive = True)
+    shell = Shell(interactive = False, storage = MANIFOLD_STORAGE, load_storage = True)
 
-    # Check whether tdmi is configured and enabled in Manifold
-    if not check_platform(shell, "tdmi", MESSAGE_TO_ADD_TDMI, MESSAGE_TO_ENABLE_PLATFORM):
-        sys.exit(1)
+    try:
+        # Check whether tdmi is configured and enabled in Manifold
+        check_platform(shell, "tdmi", MESSAGE_TO_ADD_TDMI, MESSAGE_TO_ENABLE_PLATFORM)
+        ret = 0 if run_commands(shell, COMMANDS) else 2
 
-    # Prepare TDMI Queries
-    commands = [
-        'SELECT agent_id, ip FROM agent WHERE agent_id == 11824',
-        'SELECT destination_id, ip FROM destination_id WHERE agent_id == 1417',
-        'SELECT src_ip, dst_ip, agent.ip, destination.ip, hops.ip, hops.ttl AT "2012-09-09 14:30:09" FROM traceroute WHERE agent_id == 11824 AND destination_id == 1417',
-        'SELECT agent.ip, src_ip, agent.hostname, destination.ip, dst_ip, destination.hostname AT "2012-09-09 14:30:09" FROM traceroute WHERE agent_id == 11824 AND destination_id INCLUDED [1416, 1417]'
-    ]
+    except Exception, e:
+        # Handle exception which might have occurs and leave the shell gracefully
+        Log.error(e)
+        shell.terminate()
+        ret = 1
 
-    ret = 0 if test_commands(shell, commands) else 2
     sys.exit(ret)
 
 if __name__ == '__main__':
