@@ -56,7 +56,7 @@ class Interface(object):
         # self.allowed_capabilities is a Capabilities instance (or None)
         self.allowed_capabilities = allowed_capabilities
         if self.allowed_capabilities:
-            Log.warning("allowed_capabilities parameter not yet supported")
+            Log.warning("Interface::__init__(): 'allowed_capabilities' parameter not yet supported")
 
         # self.data is {String : list(Announce)} dictionnary mapping each
         # platform name (= namespace) with its corresponding Announces.
@@ -116,23 +116,45 @@ class Interface(object):
     def set_storage(self, storage):
         """
         Install a Storage on this Router.
+        See also:
+            router::load_storage()
         Args:
             storage: A Storage instance.
         """
         #assert isinstance(storage, Storage)
         self._storage = storage
 
-    def load_storage(self):
+    def load_storage(self, platform_names = None):
         """
-        Alter this Router to reflect information stored in its
-        Manifold Storage, including the set of enabled Platforms.
+        Load from the Storage a set of Platforms.
+        Args:
+            platform_names: A set/frozenset of String where each String
+                is the name of a Platform. If you pass None,
+                all the Platform not disabled in the Storage
+                are considered.
         """
+        assert not platform_names or isinstance(platform_names, (frozenset, set)),\
+            "Invalid platform_names = %s (%s)" % (platform_names, type(platform_names))
+
         # Fetch enabled Platforms from the Storage...
-        platforms_storage = self.execute_local_query(
-            Query()\
-                .get("platform")\
-                .filter_by("disabled", "=", False)
-        )
+        if not platform_names:
+            platforms_storage = self.execute_local_query(
+                Query()\
+                    .get("platform")\
+                    .filter_by("disabled", "==", False)
+            )
+        else:
+            platforms_storage = self.execute_local_query(
+                Query()\
+                    .get("platform")\
+                    .filter_by("platform", "INCLUDED", platform_names)
+            )
+
+            # Check whether if all the requested Platforms have been found in the Storage.
+            platform_names_storage = set([platform["platform"] for platform in platforms_storage])
+            platform_names_missing = platform_names - platform_names_storage 
+            if platform_names_missing:
+                Log.warning("The following platform names are undefined in the Storage: %s" % platform_names_missing)
 
         # ... and register them in this Router.
         for platform in platforms_storage:
