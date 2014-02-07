@@ -27,13 +27,13 @@ from manifold.util.colors           import BOLDBLUE, NORMAL
 from manifold.util.log              import Log
 from manifold.util.options          import Options
 from manifold.util.type             import accepts, returns
-from ..bin.config                   import MANIFOLD_STORAGE
 
 # This could be moved outside of the Shell
 DEFAULT_USER      = "demo"
 DEFAULT_PASSWORD  = "demo"
 DEFAULT_PKEY_FILE = "/etc/manifold/keys/client.pkey" 
 DEFAULT_CERT_FILE = "/etc/manifold/keys/client.cert"
+DEFAULT_API_URL   = "https://localhost:7080"
 
 class Shell(object):
 
@@ -60,8 +60,8 @@ class Shell(object):
         if traceback:
             Log.error(traceback)
 
-    @classmethod
-    def init_options(self):
+    @staticmethod
+    def init_options():
         """
         Prepare options supported by a Shell.
         """
@@ -79,7 +79,7 @@ class Shell(object):
         opt.add_argument(
             "-U", "--url", dest = "xmlrpc_url",
             help = "API URL", 
-            default = "https://localhost:7080"
+            default = DEFAULT_API_URL 
         )
         opt.add_argument(
             "-u", "--username", dest = "username",
@@ -109,7 +109,7 @@ class Shell(object):
         opt.add_argument(
             "-z", "--auth-method", dest = "auth_method",
             help    = 'Choice of the authentication method: auto, anonymous, password, gid',
-            default = 'auto'
+            default = "auto"
         )
         opt.add_argument(
             "-e", "--execute", dest = "execute",
@@ -134,7 +134,7 @@ class Shell(object):
         API using a SSL connection.
         Args:
             url: A String containing the URL of the XMLRPC server.
-                Example: "http://localhost:7080"
+                Example: DEFAULT_API_URL 
             username: A String containing the user's login. 
             password: A String containing the user's password. 
         """
@@ -147,7 +147,7 @@ class Shell(object):
         API using a SSL connection using GIT authentication. 
         Args:
             url: A String containing the URL of the XMLRPC server.
-                Example: "http://localhost:7080"
+                Example: DEFAULT_API_URL 
             pkey_file: A String containing the absolute path of the user's
                 private key.
                 Example: "/etc/manifold/keys/client.pkey"
@@ -164,14 +164,19 @@ class Shell(object):
         API using a SSL connection using an anonymous account.
         Args:
             url: The URL of the XMLRPC server.
-                Example: "http://localhost:7080"
+                Example: DEFAULT_API_URL 
         """
         from manifold.clients.xmlrpc_ssl_password import ManifoldXMLRPCClientSSLPassword
         self.client = ManifoldXMLRPCClientSSLPassword(url)
 
     def select_auth_method(self, auth_method):
-        if auth_method == 'auto':
-            for method in ['local', 'gid', 'password']:
+        """
+        Args:
+            auth_method: A String instance among "auto", "gid", "local"
+        """
+        if auth_method == "auto":
+            methods = ["gid", "password"] if Options().xmlrpc else ["local"]
+            for method in methods:
                 try:
                     #Log.tmp("Trying client authentication '%s'" % method)
                     self.select_auth_method(method)
@@ -483,10 +488,16 @@ def main():
     Log.init_options()
     Options().parse()
     command = Options().execute
+
+    # Do not import MANIFOLD_STORAGE at the begining of the file, because
+    # it will cascadly include Options() and interrupts its initialization,
+    # breaking Shell options initialization.
+    # Ex: manifold-shell -u michel.bizot@upmc.fr
+    from manifold.bin.config  import MANIFOLD_STORAGE
+
     if command:
         try:
             shell = Shell(interactive = False, storage = MANIFOLD_STORAGE, load_storage = True)
-            print "---------------------------------->"
             shell.display(shell.evaluate(command))
         except:
             shell.terminate()

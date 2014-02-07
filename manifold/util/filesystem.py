@@ -8,7 +8,7 @@
 #   Jordan Augé       <jordan.auge@lip6.fr
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
-from __future__ import with_statement # Required in 2.5
+from __future__         import with_statement # Required in 2.5
 
 import errno, os, tempfile
 from types              import StringTypes
@@ -191,26 +191,25 @@ def ensure_writable_directory(directory):
 # openssl genrsa 1024 > /etc/manifold/keys/server.key
 # chmod 400 /etc/manifold/keys/server.key
 
-@returns(Keypair)
 @accepts(StringTypes)
 def check_keypair(filename):
     """
     Tests whether a filename contains a valid Keypair.
     Args:
-        filename: A String containing the absolute path of this file.
+        filename: A String containing the absolute path of the private key. 
     Raises:
         RuntimeError: If the file does not exists or cannot be loaded.
     """
     if not os.path.exists(filename):
+        # See make_keypair
         raise RuntimeError("Private key file does not exists '%s': %s" % (filename, e))
-    try:
-        keypair = Keypair(filename=filename)
-    except Exception, e:
-        raise RuntimeError("Cannot load private key '%s': %s" % (FN_PRIVATE_KEY, e))
+    else:
+        try:
+            _ = Keypair(filename = filename)
+        except Exception, e:
+            raise RuntimeError("Cannot load private key '%s': %s" % (FN_PRIVATE_KEY, e))
 
-    return keypair
-
-@returns(Keypair)
+#@returns(Keypair)
 @accepts(StringTypes)
 def make_keypair(filename):
     """
@@ -220,27 +219,27 @@ def make_keypair(filename):
     Raises:
         RuntimeError: If the file does not exists or cannot be loaded.
     """
-    try:
-        keypair = Keypair(create = True)
-        keypair.save_to_file(filename)
-    except Exception, e:
-        raise RuntimeError("Cannot generate private key '%s' : %s" % (filename, e))
+    keypair = Keypair(create = True)
+    keypair.save_to_file(filename)
     return keypair
 
-@returns(Keypair)
+#@returns(Keypair)
 @accepts(StringTypes)
 def ensure_keypair(filename):
     """
-    Test whether a file contains a valid Keypair, and if not, try to create it
-    in the specified file.
+    Test whether a file contains a valid private key. If not,
+    try to create it in the specified target file.
     Args:
-        filename: The absolute path of the Keypair file. 
+        filename: The absolute path of the file containing
+            the private key.
     Raises:
-        RuntimeError: If the file does not exists or cannot be loaded.
+        Exception: In case of failure. 
     """
     try:
-        keypair = check_keypair(filename)
+        keypair = Keypair(filename = filename)
+        Log.info("Private key found: %s" % filename)
     except:
+        Log.info("Private key not found, creating a new one in: %s" % filename)
         keypair = make_keypair(filename)
     return keypair
 
@@ -250,7 +249,7 @@ def ensure_keypair(filename):
 
 # openssl req -new -x509 -nodes -sha1 -days 365 -key /etc/manifold/keys/server.key > /etc/manifold/keys/server.cert
 
-@returns(Certificate)
+#@returns(Certificate)
 @accepts(StringTypes)
 def check_certificate(filename):
     """
@@ -258,19 +257,21 @@ def check_certificate(filename):
     Args:
         filename: A String containing the absolute path of this file.
     Raises:
-        RuntimeError: If the file does not exists or cannot be loaded.
+        IOError: If this file does not exists.
+        RuntimeError: If this file cannot be loaded.
     """
     if not os.path.exists(filename):
-        raise Exception, "Certificate file does not exists '%s': %s" % (filename, e)
+        raise IOError("Certificate file does not exists '%s': %s" % (filename, e))
+
     try:
-        certificate = Certificate(filename=filename)
+        certificate = Certificate(filename = filename)
     except:
-        raise Exception, "Cannot load certificate '%s' : %s" % (filename, e)
+        raise RuntimeError("Cannot load certificate '%s' : %s" % (filename, e))
  
     return certificate
 
-@returns(Certificate)
-@accepts(StringTypes, StringTypes, Keypair)
+#@returns(Certificate)
+#@accepts(StringTypes, StringTypes, Keypair)
 def make_certificate(filename, subject, keypair):
     """
     Create a Certificate using the public key stored in a Keypair
@@ -279,23 +280,27 @@ def make_certificate(filename, subject, keypair):
         filename: The absolute path of the output file. 
         subject: A String encoded in latin1.
         keypair: A Keypair instance. 
-    Raises:
-        RuntimeError: If the file does not exists or cannot be loaded.
+    Returns:
+        The corresponding Certificate
     """
-    try:
-        #subject = subject.encode("latin1"))
-        certificate = Certificate(subject = subject)
-        certificate.set_pubkey(keypair)
-        certificate.set_issuer(keypair, subject = subject) # XXX subject specified twice ?
-        certificate.sign()
-        certificate.save_to_file(filename)
-    except Exception, e:
-        raise Exception, "Cannot generate certificate '%s' : %s" % (filename, e)
+    assert isinstance(filename, StringTypes),\
+        "Invalid filename = %s (%s)" % (filename, type(filename))
+    assert isinstance(subject, StringTypes),\
+        "Invalid subject = %s (%s)" % (subject, type(subject))
+    assert isinstance(keypair, Keypair),\
+        "Invalid keypair = %s (%s)" % (keypair, type(keypair))
+
+    #subject = subject.encode("latin1"))
+    certificate = Certificate(subject = subject)
+    certificate.set_pubkey(keypair)
+    certificate.set_issuer(keypair, subject = subject) # XXX subject specified twice ?
+    certificate.sign()
+    certificate.save_to_file(filename)
 
     return certificate
 
 @returns(Certificate)
-@accepts(StringTypes, StringTypes, Keypair)
+#@accepts(StringTypes, StringTypes, Keypair)
 def ensure_certificate(filename, subject, keypair):
     """
     Test whether a file contains a valid Certificate, and if not, try to create it

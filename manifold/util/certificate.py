@@ -135,6 +135,11 @@ class Keypair:
     # @param filename If filename!=None, load the keypair from the file
 
     def __init__(self, create=False, string=None, filename=None):
+        """
+        Args:
+            create: Pass True to create a new Keypair
+            filename: The absolute path of the private key.
+        """
         if create:
             self.create()
         if string:
@@ -430,17 +435,23 @@ class Certificate:
         self.save_to_file(filename, save_parents=True, filep=fp)
         return filename
 
-    ##
-    # Sets the issuer private key and name
-    # @param key Keypair object containing the private key of the issuer
-    # @param subject String containing the name of the issuer
-    # @param cert (optional) Certificate object containing the name of the issuer
-
-    def set_issuer(self, key, subject=None, cert=None):
+    def set_issuer(self, key, subject = None, certificate = None):
+        """
+        Sets the issuer private key and name
+        Args:
+            key: A Keypair instance containing the private key of the issuer.
+            subject: A String containing the name of the issuer or a dict.
+            certificate: (optional) A Certificate instance containing the name of the issuer.
+        """
         self.issuerKey = key
         if subject:
-            # it's a mistake to use subject and cert params at the same time
-            assert(not cert)
+            # it's a mistake to use subject and certificate params at the same time
+            if certificate:
+                raise ValueError(
+                    "Invalid certificate = %s, must be set to 'None' if subject != None (%s)" %
+                        (certificate, subject)
+                )
+
             if isinstance(subject, dict) or isinstance(subject, str):
                 req = crypto.X509Req()
                 reqSubject = req.get_subject()
@@ -452,10 +463,12 @@ class Certificate:
                 subject = reqSubject
                 # subject is not valid once req is out of scope, so save req
                 self.issuerReq = req
-        if cert:
-            # if a cert was supplied, then get the subject from the cert
-            subject = cert.cert.get_subject()
-        assert(subject)
+
+        if certificate:
+            # if a certificate was supplied, then get the subject from the certificate
+            subject = certificate.cert.get_subject()
+
+        assert subject, "Internal error, subject not set." % subject
         self.issuerSubject = subject
 
     ##
@@ -492,14 +505,15 @@ class Certificate:
         x = self.cert.get_subject()
         return "[ OU: %s, CN: %s, SubjectAltName: %s ]" % (getattr(x, "OU"), getattr(x, "CN"), self.get_data())
 
-    ##
-    # Get the public key of the certificate.
-    #
-    # @param key Keypair object containing the public key
-
-    def set_pubkey(self, key):
-        assert(isinstance(key, Keypair))
-        self.cert.set_pubkey(key.get_openssl_pkey())
+    def set_pubkey(self, keypair):
+        """
+        Get the public key of the certificate.
+        Args:
+            keypair: Keypair object containing the public key
+        """
+        assert isinstance(keypair, Keypair),\
+            "Invalid key = %s (%s)" % (keypair, type(keypair))
+        self.cert.set_pubkey(keypair.get_openssl_pkey())
 
     ##
     # Get the public key of the certificate.

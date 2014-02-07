@@ -1,7 +1,7 @@
 Installing the API
 ==================
 
-The MySlice API is a specialized version of the TopHat interconnection
+The MySlice API is a specialized version of the MANIFOLD interconnection
 framework.
 
 1. Install the python-tophat package
@@ -23,12 +23,13 @@ framework.
     Create a sql file path/to/mytestbed.sql that will contain setup information
     for MySlice
 
-3. Initialize the myslice database
+3. Initialize the MySlice database
 
     /usr/local/bin/myslice-init.sh path/to/mytestbed.sql
 
 Packaging the API
 =================
+
 stdeb.cfg holds the necessary information to build debian packages
 
 python-stdeb
@@ -39,7 +40,7 @@ Sample path/to/mytestbed.sql file
 
 -- Create platforms
 
-insert into platform 
+INSERT INTO platform 
     (platform, platform_longname, gateway_type, gateway_conf, config, disabled) 
 VALUES (
     'ple',
@@ -50,7 +51,7 @@ VALUES (
     0
 );
 
-insert into platform 
+INSERT INTO platform 
     (platform, platform_longname, gateway_type, gateway_conf, config, disabled) 
 VALUES (
     'senslab',
@@ -62,9 +63,11 @@ VALUES (
 );
 
 -- Create a demo user
-insert into user (user_id, email) VALUES (1, 'demo');
+
+INSERT INTO user (user_id, email) VALUES (1, 'demo');
 
 -- Setup user account for the different platforms
-insert into account (user_id, platform_id, auth_type, config) VALUES (1, 1, 'user', '{"user_hrn": "ple.upmc.jordan_auge"}');
-insert into account (user_id, platform_id, auth_type, config) VALUES (1, 2, 'user', '{"user_hrn": "senslab.testuser"}');
-#insert into account (user_id, platform_id, auth_type, config) VALUES (1, 2, 'reference', '{"reference_platform": "ple"}');
+
+INSERT INTO account (user_id, platform_id, auth_type, config) VALUES (1, 1, 'user', '{"user_hrn": "ple.upmc.jordan_auge"}');
+INSERT INTO account (user_id, platform_id, auth_type, config) VALUES (1, 2, 'user', '{"user_hrn": "senslab.testuser"}');
+#INSERT INTO account (user_id, platform_id, auth_type, config) VALUES (1, 2, 'reference', '{"reference_platform": "ple"}');

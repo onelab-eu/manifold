@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# xmlrpc: daemon in charge of offering a XMLRPC interface to a router or gateway
+# XMLRPCDaemon is in charge of offering a XMLRPC interface
+# to a Router or Gateway related to a 
 # instanciate an interface of type Forwarder or Router depending on the arguments given
 # relies on the Class XMLRPCAPI in manifold/core/xmlrpc_api.py
 #
@@ -15,26 +16,23 @@
 
 import sys, xmlrpclib, datetime, os.path
 
-from manifold.core.query            import Query
-from manifold.core.forwarder        import Forwarder
 from manifold.core.router           import Router
 from manifold.core.record           import Record
 from manifold.core.capabilities     import Capabilities
-from manifold.gateways.sqlalchemy.models.platform       import Platform
-from manifold.util.filesystem       import ensure_writable_directory, ensure_keypair, ensure_certificate
+from manifold.util.daemon           import Daemon
+from manifold.util.filesystem       import ensure_writable_directory, ensure_keypair, ensure_certificate, mkdir
 from manifold.util.log              import Log
 from manifold.util.options          import Options
-from manifold.util.daemon           import Daemon
 from manifold.util.type             import returns, accepts
 from manifold.util.reactor_wrapper  import ReactorWrapper as ReactorThread
 
 # Let's try to load this before twisted
 
-from manifold.types.string      import string
-from manifold.types.int         import int
-from manifold.types.inet        import inet
-from manifold.types.hostname    import hostname
-from manifold.types.date        import date
+from manifold.types.string          import string
+from manifold.types.int             import int
+from manifold.types.inet            import inet
+from manifold.types.hostname        import hostname
+from manifold.types.date            import date
 import datetime
 
 xmlrpclib.Marshaller.dispatch[string]   = xmlrpclib.Marshaller.dump_string
@@ -51,7 +49,7 @@ xmlrpclib.Marshaller.dispatch[Record]   = xmlrpclib.Marshaller.dump_struct
 class XMLRPCDaemon(Daemon):
     DEFAULTS = {
         "xmlrpc_port" : 7080, # XMLRPC server port
-        "gateway"     : None  # Gateway
+        "platform"    : None
     }
 
     def __init__(self):
@@ -66,8 +64,8 @@ class XMLRPCDaemon(Daemon):
             self.terminate
         )
 
-    @classmethod
-    def init_options(self):
+    @staticmethod
+    def init_options():
         """
         Prepare options supported by XMLRPCDaemon.
         """
@@ -76,24 +74,25 @@ class XMLRPCDaemon(Daemon):
         opt.add_argument(
             "-P", "--port", dest = "xmlrpc_port",
             help = "Port on which the XMLRPC server will listen.", 
-            default = 7080
+            default = XMLRPCDaemon.DEFAULTS["xmlrpc_port"] 
         )
-        # XXX router could be an additional argument
-        opt.add_argument(
-            "-g", "--gateway", dest = "gateway",
-            help = "Gateway exposed by the server, None for acting as a router.",
-            default = None
-        )
+# mando: we should use -p instead
+#        # XXX router could be an additional argument
+#        opt.add_argument(
+#            "-g", "--gateway", dest = "gateway",
+#            help = "Gateway exposed by the server, None for acting as a router.",
+#            default = None
+#        )
         opt.add_argument(
             "-p", "--platform", dest = "platform",
             help = "Platform exposed by the server, None for acting as a router.",
-            default = None
+            default = XMLRPCDaemon.DEFAULTS["platform"] 
         )
-        opt.add_argument(
-            "-a", "--disable-auth", action="store_true", dest = "disable_auth",
-            help = "Disable authentication",
-            default = False
-        )
+#NOT_SUPPORTED|        opt.add_argument(
+#NOT_SUPPORTED|            "-a", "--disable-auth", action="store_true", dest = "disable_auth",
+#NOT_SUPPORTED|            help = "Disable authentication",
+#NOT_SUPPORTED|            default = False
+#NOT_SUPPORTED|        )
 #DEPRECATED|        opt.add_argument(
 #DEPRECATED|            "-t", "--trusted-roots-path", dest = "trusted_roots_path",
 #DEPRECATED|            help = "Select the directory holding trusted root certificates",
@@ -104,95 +103,111 @@ class XMLRPCDaemon(Daemon):
 #DEPRECATED|            help = "Select the directory holding the server private key and certificate for SSL",
 #DEPRECATED|            default = '/etc/manifold/keys'
 #DEPRECATED|        )
-
-    # XXX should be removed
-    def get_gateway_config(self, gateway_name):
-        """
-        Load a default hardcoded configuration.
-        """
-        Log.info("Hardcoded CSV|PostgreSQL configuration")
-        if gateway_name == "postgresql":
-            config = {
-                "db_user"     : "postgres",
-                "db_password" : None,
-                "db_name"     : "test"}
-        elif gateway_name == "csv":
-            config = {"filename" : "/tmp/test.csv"}
-        else:
-            config = dict() 
-        return config
+#DEPRECATED|
+#DEPRECATED|    # XXX should be removed
+#DEPRECATED|    def get_platform_config(self, gateway_name):
+#DEPRECATED|        """
+#DEPRECATED|        Load a default hardcoded configuration.
+#DEPRECATED|        """
+#DEPRECATED|        Log.info("Hardcoded CSV|PostgreSQL configuration")
+#DEPRECATED|        if gateway_name == "postgresql":
+#DEPRECATED|            config = {
+#DEPRECATED|                "db_user"     : "postgres",
+#DEPRECATED|                "db_password" : None,
+#DEPRECATED|                "db_name"     : "test"}
+#DEPRECATED|        elif gateway_name == "csv":
+#DEPRECATED|            config = {"filename" : "/tmp/test.csv"}
+#DEPRECATED|        else:
+#DEPRECATED|            config = dict() 
+#DEPRECATED|        return config
         
+    @staticmethod
+    @returns(Capabilities)
+    def make_capabilities():
+        """
+        Build a Router instance according to the Options passed to
+        the XMLRPCDaemon.
+        Returns:
+            The default Capabilities supported by a XMLRPCDaemon
+        """
+        # This should be configurable through Options singleton.
+        capabilities = Capabilities()
+        capabilities.selection  = True
+        capabilities.projection = True
+        return capabilities
+
+    @staticmethod
+    @returns(Router)
+    def make_router(allowed_capabilities):
+        """
+        Build a Router instance according to the Options passed to
+        the XMLRPCDaemon.
+        Args:
+            allowed_capabilities: A Capabilities defining which
+                Capabilities are supported by the Router we are building. 
+        Returns:
+            The corresponding Router instance.
+        """
+        assert isinstance(allowed_capabilities, Capabilities)
+
+        from manifold.bin.config import MANIFOLD_STORAGE
+
+        router = Router(allowed_capabilities)
+        router.set_storage(MANIFOLD_STORAGE)
+        platform_names = set([Options().platform]) if Options().platform else None
+        router.load_storage(platform_names)
+        return router
+
     def main(self):
         """
-        Run a XMLRPC server.
+        Run a XMLRPC server (called by Daemon::start).
         """
         Log.info("XMLRPC server daemon (%s) started." % sys.argv[0])
 
         # NOTE it is important to import those files only after daemonization,
         # since they open files we cannot easily preserve
-        from twisted.web        import xmlrpc, server
+        from twisted.web                import xmlrpc, server
 
         # SSL support
-        from OpenSSL import SSL
-        from twisted.internet import ssl #, reactor
+        from OpenSSL                    import SSL
+        from twisted.internet           import ssl #, reactor
         #from twisted.internet.protocol import Factory, Protocol
 
-        #from twisted.internet   import reactor
+        #from twisted.internet          import reactor
         # This also imports manifold.util.reactor_thread that uses reactor
         from manifold.core.router       import Router
             
-        assert not (Options().platform and Options().gateway), "Both gateway and platform cannot be specified at commandline" 
+        #assert not (Options().platform and Options().gateway), "Both gateway and platform cannot be specified at commandline" 
 
         # This imports twisted code so we need to import it locally
-        from manifold.core.xmlrpc_api import XMLRPCAPI
+        from manifold.core.xmlrpc_api   import XMLRPCAPI
 
-        # This should be configurable
-        allowed_capabilities = Capabilities()
-        allowed_capabilities.selection = True
-        allowed_capabilities.projection = True
-
-        # XXX We should harmonize interfaces between Router and Forwarder
-        if Options().platform:
-            platforms = Storage.execute(Query().get("platform"), format = "object")
-            # We pass a single platform to Forwarder
-            platform = [p for p in platforms if p.name == Options().platform][0]
-            self.interface = Forwarder(platform, allowed_capabilities)
-
-        elif Options().gateway:
-            # XXX user
-            # XXX Change Forwarded initializer
-#DEPRECATED|            platform = Platform(u"dummy", Options().gateway, self.get_gateway_config(Options().gateway), "user")
-            platform = Platform(
-                platform     = u"dummy",
-                gateway_type = Options().gateway,
-                config       = self.get_gateway_config(Options().gateway),
-                auth_type    = "user"
-            )
-            self.interface = Forwarder(platform, allowed_capabilities)
-
-        else:
-            self.interface = Router()
+        allowed_capabilities = XMLRPCDaemon.make_capabilities() 
+        self.interface = XMLRPCDaemon.make_router(allowed_capabilities)
 
         # SSL support
 
         # XXX - should the directory be passed as an option ?
-        # XXX - is ensure_writable_directory creating directories recursively ?
 
         manifold_etc_dir  = "/etc/manifold" # XXX
         # XXX should ssl_path be a subdirectory of /etc/manifold ?
         # ssl_path = Options().ssl_path
-        manifold_keys_dir = os.path.join(manifold_etc_dir, "keys")
-        keypair_fn        = os.path.join(manifold_keys_dir, "server.key")
-        certificate_fn    = os.path.join(manifold_keys_dir, "server.cert")
+        manifold_keys_dir          = os.path.join(manifold_etc_dir,  "keys")
+        keypair_filename           = os.path.join(manifold_keys_dir, "server.key")
+        certificate_filename       = os.path.join(manifold_keys_dir, "server.cert")
+        manifold_trusted_roots_dir = os.path.join(manifold_etc_dir,  "trusted_roots")
 
-        manifold_trusted_roots_dir = os.path.join(manifold_etc_dir, "trusted_roots")
+        try:
+            mkdir(manifold_keys_dir)
+            ensure_writable_directory(manifold_keys_dir)
+            ensure_writable_directory(manifold_trusted_roots_dir)
 
-        ensure_writable_directory(manifold_keys_dir)
-        ensure_writable_directory(manifold_trusted_roots_dir)
-
-        keypair = ensure_keypair("/etc/manifold/keys/server.key")
-        subject = "manifold" # XXX Where to get the subject of the certificate ?
-        certificate = ensure_certificate("/etc/manifold/keys/server.cert", subject, keypair)
+            keypair = ensure_keypair(keypair_filename)
+            subject = "manifold" # XXX Where to get the subject of the certificate ?
+            certificate = ensure_certificate(certificate_filename, subject, keypair)
+        except Exception, e:
+            Log.error(e)
+            raise e
 
 #DEPRECATED|        if not ssl_path or not os.path.exists(ssl_path):
 #DEPRECATED|            print ""
@@ -223,14 +238,14 @@ class XMLRPCDaemon(Daemon):
                     ret = True
                 return ret 
             
-            myContextFactory = ssl.DefaultOpenSSLContextFactory(keypair_fn, certificate_fn)
+            myContextFactory = ssl.DefaultOpenSSLContextFactory(keypair_filename, certificate_filename)
             
             ctx = myContextFactory.getContext()
             
             ctx.set_verify(
                 SSL.VERIFY_PEER, # | SSL.VERIFY_FAIL_IF_NO_PEER_CERT,
                 verifyCallback
-                )
+            )
             
             # Since we have self-signed certs we have to explicitly
             # tell the server to trust them.
@@ -242,15 +257,24 @@ class XMLRPCDaemon(Daemon):
                 
             ctx.load_verify_locations(None, manifold_trusted_roots_dir) #trusted_roots_path)
 
-
             #ReactorThread().listenTCP(Options().xmlrpc_port, server.Site(XMLRPCAPI(self.interface, allowNone=True)))
-            ReactorThread().listenSSL(Options().xmlrpc_port, server.Site(XMLRPCAPI(self.interface, allowNone=True)), myContextFactory)
+            ReactorThread().listenSSL(
+                Options().xmlrpc_port,
+                server.Site(XMLRPCAPI(self.interface, allowNone = True)),
+                myContextFactory
+            )
+
+            Log.info("Starting XMLRPCDaemon")
             ReactorThread().start_reactor()
         except Exception, e:
             # TODO If database gets disconnected, we can sleep/attempt reconnection
             Log.error("Error in XMLRPC API: %s" % str(e))
 
     def terminate(self):
+        """
+        Stop gracefully this XMLRPCDaemon instance.
+        """
+        Log.info("Stopping XMLRPCDaemon")
         ReactorThread().stop_reactor()
 
 def main():
