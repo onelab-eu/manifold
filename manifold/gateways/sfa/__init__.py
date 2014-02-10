@@ -211,7 +211,8 @@ class SFAGateway(Gateway):
         'first_name': 'user_first_name',            # first_name
         'last_name': 'user_last_name',              # last_name
         'phone': 'user_phone',                      # phone
-        'keys': 'user_keys',                        # OBJ keys !!!
+        #'keys': 'user_keys',                        # OBJ keys !!!
+        'reg-keys': 'pub_key',                        # OBJ keys !!!
         'reg-slices': 'slice.slice_hrn',            # OBJ slices
         'reg-pi-authorities': 'pi_authorities',
     }
@@ -1288,14 +1289,24 @@ class SFAGateway(Gateway):
     @defer.inlineCallbacks
     def create_object(self, filters, params, fields):
         # XXX should call create_record_from_params which would rely on mappings
-
-        object_auth_hrn = get_authority(params['hrn'])
+        dict_filters = filters.to_dict()
+        if self.query.object + '_hrn' in params:
+            object_hrn = params[self.query.object+'_hrn']
+        else:         
+            object_hrn = params['hrn']
+        if 'hrn' not in params:
+            params['hrn'] = object_hrn
+        if 'type' not in params:
+            params['type'] = self.query.object
+            #raise Exception, "Missing type in params"
+        object_auth_hrn = get_authority(object_hrn)
 
         server_version = yield self.get_cached_server_version(self.registry)    
         server_auth_hrn = server_version['hrn']
-        if not object_auth_hrn.startswith('%s.' % server_auth_hrn):
+        
+        if not params['hrn'].startswith('%s.' % server_auth_hrn):
             # XXX not a success, neither a warning !!
-            print "I: Not requesting object creation on %s for %s" % (server_auth_hrn, object_auth_hrn)
+            print "I: Not requesting object creation on %s for %s" % (server_auth_hrn, params['hrn'])
             defer.returnValue([])
 
         auth_cred = self._get_cred('authority', object_auth_hrn)
@@ -1341,6 +1352,52 @@ class SFAGateway(Gateway):
         #except Exception, e:
         #    print "E: %s" % e
         #return []
+
+    @defer.inlineCallbacks
+    def update_object(self, filters, params, fields):
+        # XXX should call create_record_from_params which would rely on mappings
+        Log.tmp('passed in update_object')
+        Log.tmp(self.query.object)
+        dict_filters = filters.to_dict()
+        if filters.has(self.query.object+'_hrn'):
+            object_hrn = dict_filters[self.query.object+'_hrn']
+        else:
+            object_hrn = dict_filters['hrn']
+        Log.tmp('object_hrn')
+        Log.tmp(object_hrn)
+        if 'hrn' not in params:
+            params['hrn'] = object_hrn
+        if 'type' not in params:
+            params['type'] = self.query.object
+            #raise Exception, "Missing type in params"
+        object_auth_hrn = get_authority(object_hrn)
+        server_version = yield self.get_cached_server_version(self.registry)
+        server_auth_hrn = server_version['hrn']
+        if not object_auth_hrn.startswith('%s.' % server_auth_hrn):
+            # XXX not a success, neither a warning !!
+            print "I: Not requesting object update on %s for %s" % (server_auth_hrn, object_auth_hrn)
+            defer.returnValue([])
+        auth_cred = self._get_cred('authority', object_auth_hrn)
+        try:
+            object_gid = yield self.registry.Update(params, auth_cred)
+        except Exception, e:
+            raise Exception, 'Failed to Update object: %s' % e
+        defer.returnValue([{'hrn': params['hrn'], 'gid': object_gid}])
+    
+    def update_user(self, filters, params, fields):
+       Log.tmp('update user')
+       Log.tmp(filters)
+       return self.update_object(filters, params, fields)
+    
+    def update_slice(self, filters, params, fields):
+        return self.update_object(filters, params, fields)
+    
+    def update_resource(self, filters, params, fields):
+        return self.update_object(filters, params, fields)
+    
+    def update_authority(self, filters, params, fields):
+        return self.update_object(filters, params, fields)
+
 
     def sfa_table_networks(self):
         versions = self.sfa_get_version_rec(self.sm_url)

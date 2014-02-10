@@ -128,8 +128,9 @@ class user {
     const text first_name;
     const text last_name;
     const text email;
-    const text telephone;
+    const text user_phone;
     const text user_hrn;
+    const text pub_key;
 #    const text password;
     const authority parent_authority;
     slice slice[];
