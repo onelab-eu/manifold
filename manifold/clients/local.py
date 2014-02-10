@@ -12,9 +12,11 @@
 from types                          import StringTypes
 
 from manifold.core.annotation       import Annotation
+from manifold.core.packet           import Packet, QueryPacket
 from manifold.core.query            import Query 
 from manifold.core.result_value     import ResultValue
 from manifold.core.router           import Router
+from manifold.core.sync_receiver    import SyncReceiver
 from manifold.util.log              import Log 
 from manifold.util.type             import accepts, returns
 from ..clients.client               import ManifoldClient

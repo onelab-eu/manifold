@@ -58,7 +58,7 @@ class XMLRPCAPI(xmlrpc.XMLRPC, object):
             assert 'interface' not in kwargs, "Cannot specify interface argument twice"
             self.interface = args[0]
         elif len(args) == 0:
-            assert 'interface' in kwargs, "interface argument mush be specified"
+            assert 'interface' in kwargs, "interface argument must be specified"
             self.interface = kwargs['interface']
         else:
             raise Exception, "Wrong arguments"

@@ -224,16 +224,16 @@ class XMLRPCDaemon(Daemon):
             @returns(bool)
             def verifyCallback(connection, x509, errnum, errdepth, ok):
                 if not ok:
-                    Log.error("invalid cert from subject: %(subject)s %(errnum)s %(errdepth)" % {
+                    Log.error("Invalid certificate from subject: %(subject)s %(errnum)s %(errdepth)" % {
                         "subject"  : x509.get_subject(),
                         "errnum"   : errnum,
                         "errdepth" : errdepth
                     })
                     ret = False
                 else:
-                    Log.info("Certs are fine: %(x509)s %s(subject)s" % {
+                    Log.info("Certificates are fine: %(x509)s %s(subject)s" % {
                         "x509"    : x509,
-                        "subject" :  x509.get_subject()
+                        "subject" : x509.get_subject()
                     })
                     ret = True
                 return ret 
