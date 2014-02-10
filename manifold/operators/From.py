@@ -59,7 +59,7 @@ class From(Operator):
         assert isinstance(key, Key),\
             "Invalid key = %s (%s)" % (key, type(key))
 
-        self._query        = query
+        self._query       = query
         self.capabilities = capabilities
         self.key          = key
         self._gateway     = gateway
@@ -175,6 +175,23 @@ class From(Operator):
         """
         return self._query
 
+    @returns(Capabilities)
+    def get_capabilities(self):
+        """
+        Returns:
+            The Capabilities nested in this From instance.
+        """
+        return self.capabilities
+
+    @returns(bool)
+    def has_children_with_fullquery(self):
+        """
+        Returns:
+            True iif this Operator or at least one of its child uses 
+            fullquery Capabilities.
+        """
+        return self.get_capabilities().fullquery
+
     @returns(Destination)
     def get_destination(self):
         """
@@ -192,6 +209,7 @@ class From(Operator):
         """
         # Register this flow in the Gateway
         if packet.get_protocol() == Packet.PROTOCOL_QUERY:
+            Log.tmp(packet.get_query())
             self.get_gateway().add_flow(packet.get_query(), self)
             packet.set_receiver(self)
             self.get_gateway().receive(packet)
@@ -230,18 +248,18 @@ class From(Operator):
                 Log.warning("From: optimize_selection: empty table")
                 return from_table
 
-        if self.capabilities.selection:
+        if self.get_capabilities().selection:
             # Push filters into the From node
             self._query.filter_by(filter)
             #old for predicate in filter:
             #old    self.query.filters.add(predicate)
             return self
-        elif self.capabilities.join:
+        elif self.get_capabilities().join:
             key_filter, remaining_filter = filter.split_fields(self.key.get_field_names())
 
             if key_filter:
                 # We push only parts related to the key (unless fullquery)
-                if self.capabilities.fullquery:
+                if self.get_capabilities().fullquery:
                     self._query.filter_by(filter)
                 else:
                     self._query.filter_by(key_filter)
@@ -265,7 +283,7 @@ class From(Operator):
             #selection.query = self.query.copy().filter_by(filter)
             selection.set_consumers(consumers)
 
-            if self.capabilities.fullquery:
+            if self.get_capabilities().fullquery:
                 # We also push the filter down into the node
                 for predicate in filter:
                     self._query.filters.add(predicate)
@@ -281,7 +299,7 @@ class From(Operator):
         Returns:
             The updated root Node of the sub-AST.
         """
-        if self.capabilities.projection:
+        if self.get_capabilities().projection:
             # Push fields into the From node
             self._query.select().select(fields)
             return self

@@ -54,6 +54,18 @@ class Operator(Relay):
     # Methods
     #---------------------------------------------------------------------------
 
+    @returns(bool)
+    def has_children_with_fullquery(self):
+        """
+        Returns:
+            True iif this Operator or at least one of its child uses 
+            fullquery Capabilities.
+        """
+        for producer in self.get_producers():
+            if producer.has_children_with_fullquery():
+                return True
+        return False 
+
     def receive_impl(self, packet):
         """
         Handle a Packet (must be re-implemented in children classes).

@@ -200,6 +200,7 @@ class Query(object):
     # Conversion
     #--------------------------------------------------------------------------- 
 
+    @returns(dict)
     def to_dict(self):
         return {
             "action"    : self.get_action(),
@@ -210,7 +211,8 @@ class Query(object):
             "fields"    : list(self.get_select())
         }
 
-    def to_json (self, analyzed_query=None):
+    @returns(StringTypes)
+    def to_json(self, analyzed_query=None):
         query_uuid=self.query_uuid
         a=self.action
         o=self.object
@@ -423,6 +425,9 @@ class Query(object):
             self.filters.add(predicate)
         else:
             raise Exception, 'Invalid expression for filter'
+
+        assert isinstance(self.filters, Filter),\
+            "Invalid self.filters = %s" % (self.filters, type(self.filters))
         return self
 
     def unfilter_by(self, *args):
@@ -439,6 +444,9 @@ class Query(object):
             self.filters.remove(predicate)
         else:
             raise Exception, 'Invalid expression for filter'
+
+        assert isinstance(self.filters, Filter),\
+            "Invalid self.filters = %s" % (self.filters, type(self.filters))
         return self
             
     def select(self, *fields, **kwargs):

@@ -443,15 +443,31 @@ class Gateway(Producer):
         )
 
         if records:
-            # Enable LAST_RECORD flag on the last Record 
-            if isinstance(records[-1], dict):
-                records[-1] = Record(records[-1], last = True)
-            else:
-                records[-1].set_last()
-
-            # Send the records
+# << ORIGINAL IMPLEMENTATION (supports list, but not Generator)
+#            # Enable LAST_RECORD flag on the last Record 
+#            if isinstance(records[-1], dict):
+#                records[-1] = Record(records[-1], last = True)
+#            else:
+#                records[-1].set_last()
+#
+#            # Send the records
+#            for record in records:
+#                self.record_impl(socket, record)
+# ==
+            Log.warning("improve Gateway::records implem (working but crappy)")
+            prev_record = None
             for record in records:
-                self.record_impl(socket, record)
+                if prev_record:
+                    self.record_impl(socket, prev_record)
+                prev_record = record
+
+            if prev_record:
+                if isinstance(prev_record, dict):
+                    prev_record = Record(prev_record, last = True)
+                else:
+                    prev_record.set_last()
+                self.record_impl(socket, prev_record)
+# >>
         else:
             self.record_impl(socket, Record(last = True))
 
