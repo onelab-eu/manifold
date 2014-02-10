@@ -8,6 +8,8 @@
 #   Jordan Augé         <jordan.auge@lip6.fr>
 #   Marc-Olivier Buob   <marc-olivier.buob@lip6.fr>
 
+from types                          import StringTypes
+
 from manifold.core.announce         import Announce
 from manifold.util.options          import Options
 from manifold.util.type             import accepts, returns
@@ -20,21 +22,14 @@ class ManifoldXMLRPCClientXMLRPCLIB(ManifoldClient):
         """
         Construcor.
         """
+        import xmlrpclib
+        url = Options().xmlrpc_url
+        self.router = xmlrpclib.ServerProxy(url, allow_none=True)
         self.auth = None
-        super(ManifoldXMLRPCClientXMLRPCLIB, self).__init__()
 
     #--------------------------------------------------------------
     # Overloaded methods 
     #--------------------------------------------------------------
-
-    def make_router(self):
-        """
-        Returns an instance behaving like a Router.
-        """
-        import xmlrpclib
-        url = Options().xmlrpc_url
-        router = xmlrpclib.ServerProxy(url, allow_none=True)
-        return router
 
     @returns(Annotation)
     def get_annotation(self):
@@ -45,5 +40,37 @@ class ManifoldXMLRPCClientXMLRPCLIB(ManifoldClient):
         """
         return Annotation({"authentication" : self.auth}) 
  
-    # def whoami() should be defined
-    # def welcome_message() should be defined
+    @returns(StringTypes)
+    def welcome_message(self):
+        """
+        Method that should be overloaded and used to log
+        information while running the Query (level: INFO).
+        Returns:
+            A welcome message
+        """
+        raise NotImplementedError
+
+    @returns(dict)
+    def whoami(self):
+        """
+        Returns:
+            The dictionnary representing the User currently
+            running the Manifold Client.
+        """
+        raise NotImplementedError
+
+    def forward(self, query, annotation = None):
+        """
+        Send a Query to the XMLRPC server. 
+        Args:
+            query: A Query instance.
+            annotation: The corresponding Annotation instance (if
+                needed) or None.
+        Results:
+            The ResultValue resulting from this Query.
+        """
+        if not annotation:
+            annotation = Annotation() 
+        annotation = self.get_annotation()
+
+        return ResultValue(self.router.forward(query.to_dict(), annotation.to_dict()))

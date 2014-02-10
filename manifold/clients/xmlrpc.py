@@ -24,15 +24,15 @@ class ManifoldXMLRPCClient(ManifoldClient):
             url: A String containing the URI of the XMLRPC server queried
                 by this client (ex "http://localhost:7080").
         """
-        self.url = url
         super(ManifoldXMLRPCClient, self).__init__()
+        self.url = url
         ReactorThread().start_reactor()
 
     #--------------------------------------------------------------
     # Overloaded methods 
     #--------------------------------------------------------------
 
-    def del_router(self):
+    def __del__(self):
         """
         Shutdown gracefully self.router 
         """

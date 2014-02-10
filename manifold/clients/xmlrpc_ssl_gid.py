@@ -24,42 +24,30 @@ class ManifoldXMLRPCClientSSLGID(ManifoldXMLRPCClient):
     #    def getContext(self):
     #        self.method = SSL.SSLv23_METHOD
     #        ctx = ssl.ClientContextFactory.getContext(self)
-    #        ctx.use_certificate_chain_file(self.cert_file)
-    #        ctx.use_privatekey_file(self.pkey_file)
+    #        ctx.use_certificate_chain_file(self.cert_filename)
+    #        ctx.use_privatekey_file(self.pkey_filename)
     #        return ctx
 
-    def __init__(self, url, pkey_file, cert_file):
+    def __init__(self, url, pkey_filename, cert_filename):
         """
         Constructor.
         Args:
             url: A String containing the URI of the XMLRPC server queried
                 by this client (ex "http://localhost:7080").
-            pkey_file: A String containing the absolute path of the private
+            pkey_filename: A String containing the absolute path of the private
                 key used to connect to the XMLRPC server.
-            cert_file: A String containing the absolute path of the private
+            cert_filename: A String containing the absolute path of the private
                 key used to connect to the XMLRPC server.
         """
-        self.pkey_file = pkey_file
-        self.cert_file = cert_file
         super(ManifoldXMLRPCClientSSLGID, self).__init__(url)
+        self.pkey_filename = pkey_filename
+        self.cert_filename = cert_filename
+        self.gid_subject   = "(TODO: extract from cert_filename = %s)" % cert_filename # XXX 
+        self.router        = XMLRPCProxy(self.url, allowNone = True, useDateTime = False)
 
-        self.gid_subject = "(TODO: extract from cert_file = %s)" % cert_file # XXX 
-
-    #--------------------------------------------------------------
-    # Overloaded methods 
-    #--------------------------------------------------------------
-
-    #@returns(XMLRPCProxy)
-    def make_router(self):
-        """
-        Returns:
-            A XMLRPCProxy behaving like a Router.
-        """
-        router = XMLRPCProxy(self.url, allowNone = True, useDateTime = False)
-        #self.router.setSSLClientContext(CtxFactory(self.pkey_file, self.cert_file))
         # This has to be tested to get rid of the previously defined CtxFactory class
-        router.setSSLClientContext(ssl.DefaultOpenSSLContextFactory(self.pkey_file, self.cert_file))
-        return router
+        #self.router.setSSLClientContext(CtxFactory(self.pkey_filename, self.cert_filename))
+        self.router.setSSLClientContext(ssl.DefaultOpenSSLContextFactory(self.pkey_filename, self.cert_filename))
 
     @returns(Annotation)
     def get_annotation(self):
