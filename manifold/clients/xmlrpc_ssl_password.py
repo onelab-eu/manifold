@@ -25,23 +25,12 @@ class ManifoldXMLRPCClientSSLPassword(ManifoldXMLRPCClient):
             username: A String containing the user name to connect the XML server.
             password: A String containing the corresponding password.
         """
+        super(ManifoldXMLRPCClientSSLPassword, self).__init__(url)
         self.username = username
         self.password = password
-        super(ManifoldXMLRPCClientSSLPassword, self).__init__(url)
+        self.router   = XMLRPCProxy(self.url, allowNone=True, useDateTime=False)
 
-    #--------------------------------------------------------------
-    # Overloaded methods 
-    #--------------------------------------------------------------
-
-    #@returns(XMLRPCProxy)
-    def make_router(self):
-        """
-        Returns:
-            A XMLRPCProxy behaving like a Router.
-        """
-        router = XMLRPCProxy(self.url, allowNone=True, useDateTime=False)
-        router.setSSLClientContext(ssl.ClientContextFactory())
-        return router
+        self.router.setSSLClientContext(ssl.ClientContextFactory())
 
     @returns(Annotation)
     def get_annotation(self):

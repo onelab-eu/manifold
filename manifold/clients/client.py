@@ -24,46 +24,13 @@ class ManifoldClient(object):
         """
         Constructor
         """
-        self.router = self.make_router()
-        if not self.router:
-            raise RuntimeError("Cannot create client %s" % self)
+        pass
 
     def __del__(self):
         """
         Shutdown gracefully self.router 
         """
-        try:
-            self.del_router()
-        except:
-            pass
-        self.router = None
-
-    #--------------------------------------------------------------
-    # Child classes may overload/overwrite the following methods.
-    #--------------------------------------------------------------
-
-    def del_router(self):
-        """
-        Shutdown gracefully self.router 
-        """
         pass
-
-    #@returns(Router)
-    def make_router(self):
-        """
-        Method enforcing self.router initialization
-        """
-        raise NotImplementedError
-
-    @returns(Annotation)
-    def get_annotation():
-        """
-        (This method is supposed to be overwritten in child classes).
-        Returns:
-            An additionnal Annotation added into the QUERY Packet
-            sent to the Router.
-        """
-        return Annotation() 
 
     @returns(StringTypes)
     def welcome_message(self):
@@ -84,25 +51,6 @@ class ManifoldClient(object):
         """
         raise NotImplementedError
 
-    #--------------------------------------------------------------
-    # Common methods
-    #--------------------------------------------------------------
-
-    def send(self, packet):
-        """
-        Send a Packet to the nested Manifold Router.
-        Args:
-            packet: A QUERY Packet instance.
-        """
-        assert isinstance(packet, Packet), \
-            "Invalid packet %s (%s)" % (packet, type(packet))
-        assert packet.get_protocol() == Packet.PROTOCOL_QUERY, \
-            "Invalid packet %s of type %s" % (
-                packet,
-                Packet.get_protocol_name(packet.get_protocol())
-            )
-        self.router.receive(packet)
-
     @returns(ResultValue)
     def forward(self, query, annotation = None):
         """
@@ -114,18 +62,5 @@ class ManifoldClient(object):
         Results:
             The ResultValue resulting from this Query.
         """
-        if not annotation:
-            annotation = Annotation()
-        annotation |= self.get_annotation() 
-
-        receiver = SyncReceiver()
-        packet = QueryPacket(query, annotation, receiver = receiver)
-        self.send(packet)
-
-        # This code is blocking
-        result_value = receiver.get_result_value()
-        assert isinstance(result_value, ResultValue),\
-            "Invalid result_value = %s (%s)" % (result_value, type(result_value))
-        return result_value
-
+        raise NotImplementedError
 
