@@ -26,9 +26,10 @@ class ManifoldXMLRPCClientSSLPassword(ManifoldXMLRPCClient):
             password: A String containing the corresponding password.
         """
         super(ManifoldXMLRPCClientSSLPassword, self).__init__(url)
-        self.username = username
-        self.password = password
-        self.router   = XMLRPCProxy(self.url, allowNone=True, useDateTime=False)
+        self.username   = username
+        self.password   = password
+        self.annotation = self.get_annotation()
+        self.router     = XMLRPCProxy(self.url, allowNone=True, useDateTime=False)
 
         self.router.setSSLClientContext(ssl.ClientContextFactory())
 

@@ -44,6 +44,7 @@ class ManifoldXMLRPCClientSSLGID(ManifoldXMLRPCClient):
         self.cert_filename = cert_filename
         self.gid_subject   = "(TODO: extract from cert_filename = %s)" % cert_filename # XXX 
         self.router        = XMLRPCProxy(self.url, allowNone = True, useDateTime = False)
+        self.annotation    = self.get_annotation()
 
         # This has to be tested to get rid of the previously defined CtxFactory class
         #self.router.setSSLClientContext(CtxFactory(self.pkey_filename, self.cert_filename))
