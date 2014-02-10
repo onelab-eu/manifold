@@ -76,10 +76,12 @@ class XMLRPCProxy(xmlrpc.Proxy):
             d = defer.Deferred()
             
             def proxy_success_cb(result):
+                print "success", result
                 self.result = result
                 self.event.set()
 
             def proxy_error_cb(failure):
+                print "error", failure
                 self.error = failure
                 self.event.set()
             

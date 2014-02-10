@@ -12,6 +12,8 @@
 from twisted.internet               import defer
 
 from manifold.clients.client        import ManifoldClient
+from manifold.core.annotation       import Annotation
+from manifold.core.result_value     import ResultValue
 from manifold.util.log              import Log 
 from manifold.util.reactor_thread   import ReactorThread
 from manifold.util.type             import accepts, returns
@@ -53,4 +55,12 @@ class ManifoldXMLRPCClient(ManifoldClient):
         #ret = yield self.router.AuthCheck(annotation)
         #defer.returnValue(ret)
 
-
+    def forward(self, query, annotation = None):
+        if not annotation:
+            annotation = Annotation() 
+        annotation.update(self.annotation)
+ 
+        print "self.router", self.router
+        print " - query", query.to_dict()
+        print " - annotation", annotation.to_dict()
+        return ResultValue(self.router.forward(query.to_dict(), annotation.to_dict()))

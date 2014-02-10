@@ -348,6 +348,7 @@ class Shell(object):
             The ResultValue resulting from the Query
         """
         try:
+            print "sel.Fclient=", self.client
             result_value = self.client.forward(query)
         except Exception, e:
             Log.error(traceback.format_exc())
