@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import sys
 from manifold.core.query     import Query
 from manifold.core.filter    import Filter
 from manifold.util.predicate import Predicate
@@ -43,14 +44,20 @@ class SQLParser(object):
         field      = pp.Word(pp.alphanums + '_' + '.')
         operator   = pp.Regex(OPERATOR_RX).setName("operator")
         variable   = pp.Literal('$').suppress() + pp.Word(pp.alphanums + '_' + '.').setParseAction(lambda t: "$%s" % t[0])
-        value      = pp.QuotedString('"') | pp.QuotedString("'") | kw_true | kw_false | integer | variable
-        value_list = value | pp.Literal("[").suppress() + pp.delimitedList(value).setParseAction(lambda tokens: tuple(tokens.asList())) + pp.Literal("]").suppress()
-        
+
+        obj        = pp.Forward()
+        value      = obj | pp.QuotedString('"') | pp.QuotedString("'") | kw_true | kw_false | integer | variable
+        value_list = value | pp.Literal("[").suppress() + pp.delimitedList(value).setParseAction(lambda tokens: tokens.asList()) + pp.Literal("]").suppress()
+
         table      = pp.Word(pp.alphanums + ':_-').setResultsName('object')
         field_list = pp.Literal("*") | pp.delimitedList(field).setParseAction(lambda tokens: set(tokens))
-        
-        param      = (field + pp.Literal("=").suppress() + value_list).setParseAction(lambda tokens: tuple(tokens.asList()))
-        params     = pp.delimitedList(param).setParseAction(lambda tokens: dict(tokens.asList()))
+
+
+        assoc      = (field + pp.Literal(":").suppress() + value_list).setParseAction(lambda tokens: [tokens.asList()])
+        obj        << pp.Literal("{").suppress() + pp.delimitedList(assoc).setParseAction(lambda t: dict(t.asList())) + pp.Literal("}").suppress()
+
+        param      = (field + pp.Literal("=").suppress() + value_list).setParseAction(lambda t: dict([tuple(t.asList())]))
+        params     = pp.delimitedList(param).setParseAction(lambda t: reduce(lambda a,b: a.update(b) or a, t))
 
         predicate  = (field + operator + value_list).setParseAction(self.handlePredicate)
 
@@ -107,6 +114,7 @@ class SQLParser(object):
 if __name__ == "__main__":
 
     STR_QUERIES = [
+        'UPDATE slice SET lease = [{resource: "urn:publicid:IDN+ple:certhple+node+iason.inf.uth.gr", start_time: 1392130800, duration: 2}] where slice_hrn == "ple.upmc.myslicedemo"',
         'SELECT ip_id, node_id AT now FROM node WHERE node_id included [8252]',
         'SELECT hops.ip, hops.ttl AT 2012-09-09 14:30:09 FROM traceroute WHERE agent_id == 11824 && destination_id == 1417 && test_field == "test"',
         'SELECT slice_hrn FROM slice',
@@ -115,8 +123,14 @@ if __name__ == "__main__":
         'UPDATE local:platform SET disabled = False WHERE platform == "omf"',
     ]
 
-    for s in STR_QUERIES:
+    def eval(s):
         print "===== %s =====" % s
         print SQLParser().parse(s)
         query = Query(SQLParser().parse(s))
         print query
+
+    if len(sys.argv) == 2:
+        eval(sys.argv[1])
+    else:
+        for s in STR_QUERIES:
+            eval(s)

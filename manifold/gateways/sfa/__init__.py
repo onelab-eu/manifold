@@ -332,9 +332,6 @@ class SFAGateway(Gateway):
 
         # Initialize manager proxies using MySlice Admin account
         try:
-            Log.tmp("--------------------")
-            Log.tmp(self.config)
-            Log.tmp("--------------------")
             if self.config['registry']:
                 self.registry = self.make_user_proxy(self.config['registry'], self.admin_config)
                 registry_hrn = yield self.get_interface_hrn(self.registry)
@@ -361,8 +358,6 @@ class SFAGateway(Gateway):
 
     @defer.inlineCallbacks
     def get_cached_server_version(self, server):
-        Log.tmp(self.config)
-        Log.tmp(server)
         # check local cache first
         version = None 
         cache_key = server.get_interface() + "-version"
@@ -386,10 +381,8 @@ class SFAGateway(Gateway):
         # version as a property of the gateway instanciated, to be used in the parser
         #if version['interface'] == 'registry':
         if 'interface' in version and version['interface'] == 'registry':
-            Log.tmp(version['interface'])
             self.registry_version = version
         else:
-            Log.tmp('aggregate')
             self.am_version = version
 
         defer.returnValue(version)
@@ -631,15 +624,15 @@ class SFAGateway(Gateway):
         try:
             nodes = rspec.version.get_nodes()
         except Exception, e:
-            Log.warning("Could not retrieve channels in RSpec: %s" % e)
+            Log.warning("Could not retrieve nodes in RSpec: %s" % e)
         try:
             leases = rspec.version.get_leases()
         except Exception, e:
-            Log.warning("Could not retrieve channels in RSpec: %s" % e)
+            Log.warning("Could not retrieve leases in RSpec: %s" % e)
         try:
             links = rspec.version.get_links()
         except Exception, e:
-            Log.warning("Could not retrieve channels in RSpec: %s" % e)
+            Log.warning("Could not retrieve links in RSpec: %s" % e)
         try:
             channels = rspec.version.get_channels()
         except Exception, e:
@@ -691,6 +684,11 @@ class SFAGateway(Gateway):
         #resources.extend(nodes)
         #resources.extend(channels)
 
+        for lease in leases:
+            lease['resource'] = lease.pop('component_id')
+            lease['slice']    = lease.pop('slice_id')
+
+        print "leases=", leases
         return {'resource': resources, 'lease': leases } 
 #               'channel': channels \
 #               }
@@ -714,12 +712,10 @@ class SFAGateway(Gateway):
         nodes = []
         channels = []
         links = []
-        Log.tmp(resources)
         for urn in resources:
             # XXX TO BE CORRECTED, this handles None values
             if not urn:
                 continue
-            Log.tmp(urn)
             resource = dict()
             # TODO: take into account the case where we send a dict of URNs without keys
             #resource['component_id'] = resource.pop('urn')
@@ -989,8 +985,6 @@ class SFAGateway(Gateway):
     @defer.inlineCallbacks
     def get_object(self, object, object_hrn, filters, params, fields):
         # Let's find some additional information in filters in order to restrict our research
-        Log.tmp(object_hrn)
-        Log.tmp(filters)
         object_name = make_list(filters.get_op(object_hrn, [eq, included]))
         auth_hrn = make_list(filters.get_op('parent_authority', [eq, lt, le]))
         interface_hrn    = yield self.get_interface_hrn(self.registry)
@@ -1002,7 +996,6 @@ class SFAGateway(Gateway):
             # self.user_config but it seems in some configurations it has been
             # erased by credentials... weird
             defer.returnValue([])
-        print "Requesting authorities for platform", interface_hrn
 
         # XXX details = True always, only trigger details if needed wrt fields
 
@@ -1356,15 +1349,11 @@ class SFAGateway(Gateway):
     @defer.inlineCallbacks
     def update_object(self, filters, params, fields):
         # XXX should call create_record_from_params which would rely on mappings
-        Log.tmp('passed in update_object')
-        Log.tmp(self.query.object)
         dict_filters = filters.to_dict()
         if filters.has(self.query.object+'_hrn'):
             object_hrn = dict_filters[self.query.object+'_hrn']
         else:
             object_hrn = dict_filters['hrn']
-        Log.tmp('object_hrn')
-        Log.tmp(object_hrn)
         if 'hrn' not in params:
             params['hrn'] = object_hrn
         if 'type' not in params:
@@ -1385,8 +1374,6 @@ class SFAGateway(Gateway):
         defer.returnValue([{'hrn': params['hrn'], 'gid': object_gid}])
     
     def update_user(self, filters, params, fields):
-       Log.tmp('update user')
-       Log.tmp(filters)
        return self.update_object(filters, params, fields)
     
     def update_slice(self, filters, params, fields):
@@ -1548,6 +1535,12 @@ class SFAGateway(Gateway):
             api_options['geni_slice_urn'] = hrn_to_urn(slice_hrn, 'slice')
         else:
             cred = self._get_cred('user', v3= self.am_version['geni_api'] != 2)
+
+        # Due to a bug in sfawrap, we need to disable caching on the testbed
+        # side, otherwise we might not get RSpecs without leases
+        # Anyways, caching on the testbed side is not needed since we have more
+        # efficient caching on the client side
+        api_options['cached'] = False
 
         if list_resources:
             if list_leases:
@@ -1775,7 +1768,6 @@ class SFAGateway(Gateway):
         if isinstance(platform, Platform):
             platform = platform.platform           
         Log.debug("Managing %r account on %s..." % (user, platform))
-        Log.tmp(platform)
         # The gateway should be able to perform user config management taks on
         # behalf of MySlice
         #
@@ -1841,8 +1833,9 @@ class SFAGateway(Gateway):
         need_authority_list = need_authority_credentials
         need_delegated_user_credential = not is_admin and self.credentials_needed('delegated_user_credential', config)
         if need_slice_list:
-            Log.tmp('is admin = need slice credentials')
-            Log.tmp('need slice list')
+            pass
+            #Log.tmp('is admin = need slice credentials')
+            #Log.tmp('need slice list')
         need_gid = not 'gid' in config
         need_user_credential = is_admin or need_authority_credentials or need_slice_list or need_slice_credentials or need_delegated_user_credential or need_gid
 
