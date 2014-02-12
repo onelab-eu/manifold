@@ -93,7 +93,7 @@ class DeferredReceiver(Consumer):
             result_value = ResultValue.get(self._records, self._errors)
             self._deferred.callback(result_value.to_dict())
 
-    @returns(Deferred)
+    #@returns(Deferred)
     def get_deferred(self):
         """
         Returns:

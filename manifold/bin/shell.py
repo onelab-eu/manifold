@@ -20,8 +20,9 @@ from types                          import StringTypes
 #from manifold.auth                  import Auth
 from manifold.core.packet           import ErrorPacket
 from manifold.core.query            import Query
-from manifold.core.sync_receiver    import SyncReceiver
+from manifold.core.record           import Record
 from manifold.core.result_value     import ResultValue
+from manifold.core.sync_receiver    import SyncReceiver
 from manifold.input.sql             import SQLParser
 from manifold.util.colors           import BOLDBLUE, NORMAL
 from manifold.util.log              import Log
@@ -292,6 +293,7 @@ class Shell(object):
 
         if result_value.is_success():
             records = result_value["value"]
+#            dicts = [record.to_dict() if isinstance(record, Record) else record for record in records]
             dicts = [record.to_dict() for record in records]
             if self.interactive:
                 # Command-line

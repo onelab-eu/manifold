@@ -90,8 +90,6 @@ class XMLRPCAPI(xmlrpc.XMLRPC, object):
     def xmlrpc_forward(self, request, query, annotation = None):
         """
         """
-
-        print "forward"
         Log.info("Incoming XMLRPC request, query = %r, annotation = %r" % (self.display_query(query), annotation))
         if Options().disable_auth:
             Log.info("Authentication disabled by configuration")

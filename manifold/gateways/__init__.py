@@ -454,7 +454,9 @@ class Gateway(Producer):
 #            for record in records:
 #                self.record_impl(socket, record)
 # ==
-            Log.warning("improve Gateway::records implem (working but crappy)")
+# It's not very beautiful but it works.
+# The goal is to set the LAST_RECORD flag on the last Record.
+# We assume here that records is a Generator instead of a list.
             prev_record = None
             for record in records:
                 if prev_record:

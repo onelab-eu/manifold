@@ -55,12 +55,24 @@ class ManifoldXMLRPCClient(ManifoldClient):
         #ret = yield self.router.AuthCheck(annotation)
         #defer.returnValue(ret)
 
+    @returns(ResultValue)
     def forward(self, query, annotation = None):
+        """
+        Forward a Query toward a Manifold XMLRPC server
+        Args:
+            query: A Query instance.
+            annotation: An Annotation instance or None.
+        Returns:
+            The corresponding ResultValue.
+        """
         if not annotation:
             annotation = Annotation() 
         annotation.update(self.annotation)
  
-        print "self.router", self.router
-        print " - query", query.to_dict()
-        print " - annotation", annotation.to_dict()
-        return ResultValue(self.router.forward(query.to_dict(), annotation.to_dict()))
+        Log.debug("Sending (q = %s, a = %s) to %s" % (query.to_dict(), annotation.to_dict(), self.router))
+        result_value_dict = self.router.forward(query.to_dict(), annotation.to_dict())
+        result_value = ResultValue(result_value_dict)
+        if result_value.is_success():
+            from manifold.core.record import Records
+            result_value["value"] = Records(result_value["value"])
+        return result_value

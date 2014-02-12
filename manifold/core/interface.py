@@ -201,6 +201,10 @@ class Interface(object):
             A list of dict corresponding to the Records resulting from
             the query.
         """
+        from manifold.util.storage import STORAGE_NAMESPACE
+
+        if query.get_from().startswith("%s:" % STORAGE_NAMESPACE):
+            query.clear_namespace()
         return self.get_storage().execute(query, annotation, error_message)
 
     #---------------------------------------------------------------------

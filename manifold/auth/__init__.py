@@ -7,38 +7,40 @@ except:
     ADMIN_USER = 'admin' # XXX
 
 from manifold.core.query        import Query
+from manifold.util.log          import Log
 
 #-------------------------------------------------------------------------------
 # Helper functions
 #-------------------------------------------------------------------------------
 
-row2dict = lambda r: {c.name: getattr(r, c.name) for c in r.__table__.columns}
-
-# XXX This should be replaced by User and Platform object classes
-def make_account_dict(account):
-    account_dict = row2dict(account)
-    account_dict['platform'] = account.platform.platform
-    #del account_dict['platform_id']
-    #del account_dict['config'] # XXX
-    return account_dict
-
-def make_user_dict(user):
-    user_dict = row2dict(user)
-    user_dict['accounts'] = [make_account_dict(a) for a in user.accounts]
-    #del user_dict['user_id']
-    del user_dict['password']
-    return user_dict
-
+#UNUSED|row2dict = lambda r: {c.name: getattr(r, c.name) for c in r.__table__.columns}
+#UNUSED|
+#UNUSED|# XXX This should be replaced by User and Platform object classes
+#UNUSED|def make_account_dict(account):
+#UNUSED|    account_dict = row2dict(account)
+#UNUSED|    account_dict['platform'] = account.platform.platform
+#UNUSED|    #del account_dict['platform_id']
+#UNUSED|    #del account_dict['config'] # XXX
+#UNUSED|    return account_dict
+#UNUSED|
+#UNUSED|def make_user_dict(user):
+#UNUSED|    user_dict = row2dict(user)
+#UNUSED|    user_dict['accounts'] = [make_account_dict(a) for a in user.accounts]
+#UNUSED|    #del user_dict['user_id']
+#UNUSED|    del user_dict['password']
+#UNUSED|    return user_dict
+#UNUSED|
 # TODO Shall we track origin of newly created users ?
 
 #-------------------------------------------------------------------------------
 # Exceptions
 #-------------------------------------------------------------------------------
 
-class AuthenticationFailure(Exception): pass
+class AuthenticationFailure(Exception):
+    pass
 
 #-------------------------------------------------------------------------------
-# Auth class
+# AuthMethod class
 #-------------------------------------------------------------------------------
 
 # http://code.activestate.com/recipes/86900/
@@ -60,8 +62,11 @@ class PasswordAuth(AuthMethod):
         
         # Get record (must be enabled)
         try:
-            query_users = Query.get('local:user').filter_by('email', '==', self.auth['Username'].lower())
-            user, = self.interface.execute_local_query(query_users)
+            user, = self.interface.execute_local_query(
+                Query\
+                    .get("local:user")\
+                    .filter_by("email", "==", self.auth["Username"].lower())
+            )
         except Exception, e:
             raise AuthenticationFailure, "No such account (PW): %s" % e
 
