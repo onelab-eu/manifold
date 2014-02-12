@@ -1,3 +1,9 @@
+DIFFERENCES BETWEEN devel and routerv2
+
+- status field in the local:user database
+- update slice splitted between AM and RM
+- create_object / update_object added by Loic 
+
 QUERIES A TESTER
 
 manifold>>> select slice_last_updated from slice where slice_hrn == "ple.upmc.jordan_auge"
