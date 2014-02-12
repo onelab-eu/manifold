@@ -34,7 +34,8 @@ class ResultValue(dict):
                 WARNING : the Query results are not complete.
                 ERROR   : the Query has failed.
             code: An integer value.
-            value: A list of ErrorPacket in case of failure or A list of Records in case of success.
+            value: - A list of ErrorPacket in case of failure
+                   - A list of Records or dicts in case of success.
             description:
             traceback: A String containing the traceback.
             ts: A String containing the date when this Query has been issued. By default, this
@@ -63,7 +64,6 @@ class ResultValue(dict):
         if not "ts" in self:
             self["ts"] = time.time()
             
-
     # Internal MySlice errors   : return ERROR
     # Internal MySlice warnings : return RESULT WITH WARNINGS
     # Debug                     : add DEBUG INFORMATION
