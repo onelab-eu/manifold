@@ -44,7 +44,6 @@ class Filter(set):
     def to_dict(self):
         ret = {}
         for predicate in self:
-            Log.tmp(predicate)
             ret[predicate.get_key()] = predicate.get_value()
         return ret
 

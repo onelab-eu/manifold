@@ -9,6 +9,12 @@ from manifold.util.log       import Log
 from manifold.util.clause    import Clause
 import pyparsing as pp
 import re
+
+#DEBUG = True
+DEBUG = False
+
+def debug(args):
+    if DEBUG: print(args)
  
 class SQLParser(object):
 
@@ -47,17 +53,53 @@ class SQLParser(object):
 
         obj        = pp.Forward()
         value      = obj | pp.QuotedString('"') | pp.QuotedString("'") | kw_true | kw_false | integer | variable
-        value_list = value | pp.Literal("[").suppress() + pp.delimitedList(value).setParseAction(lambda tokens: tokens.asList()) + pp.Literal("]").suppress()
+            
+        def handle_value_list(s, l, t):
+            t = t.asList()
+            new_t = tuple(t)
+            debug("[handle_value_list] s = %(s)s ** l = %(l)s ** t = %(t)s" % locals())
+            debug("                    new_t = %(new_t)s" % locals())
+            return new_t
+
+        value_list = value \
+                   | (pp.Literal("[").suppress() + pp.Literal("]").suppress()) \
+                        .setParseAction(lambda s, l, t: [[]]) \
+                   | pp.Literal("[").suppress() \
+                   + pp.delimitedList(value) \
+                        .setParseAction(handle_value_list) \
+                   + pp.Literal("]") \
+                        .suppress()
 
         table      = pp.Word(pp.alphanums + ':_-').setResultsName('object')
         field_list = pp.Literal("*") | pp.delimitedList(field).setParseAction(lambda tokens: set(tokens))
 
-
         assoc      = (field + pp.Literal(":").suppress() + value_list).setParseAction(lambda tokens: [tokens.asList()])
         obj        << pp.Literal("{").suppress() + pp.delimitedList(assoc).setParseAction(lambda t: dict(t.asList())) + pp.Literal("}").suppress()
 
-        param      = (field + pp.Literal("=").suppress() + value_list).setParseAction(lambda t: dict([tuple(t.asList())]))
-        params     = pp.delimitedList(param).setParseAction(lambda t: reduce(lambda a,b: a.update(b) or a, t))
+        # PARAMETER (SET)
+        # X = Y    -->    t=(X, Y)
+        def handle_param(s, l, t):
+            t = t.asList()
+            assert len(t) == 2
+            new_t = tuple(t)
+            debug("[handle_param] s = %(s)s ** l = %(l)s ** t = %(t)s" % locals())
+            debug("               new_t = %(new_t)s" % locals())
+            return new_t
+
+        param      = (field + pp.Literal("=").suppress() + value_list) \
+            .setParseAction(handle_param)
+
+        # PARAMETERS (SET)
+        # PARAMETER[, PARAMETER[, ...]]    -->    dict()
+        def handle_parameters(s, l, t):
+            t = t.asList()
+            new_t = dict(t) if t else dict()
+            debug("[handle_parameters] s = %(s)s ** l = %(l)s ** t = %(t)s" % locals())
+            debug("                    new_t = %(new_t)s" % locals())
+            return new_t
+        
+        parameters     = pp.delimitedList(param) \
+            .setParseAction(handle_parameters)
 
         predicate  = (field + operator + value_list).setParseAction(self.handlePredicate)
 
@@ -83,12 +125,12 @@ class SQLParser(object):
 
         select_elt = (kw_select.suppress() + field_list.setResultsName('fields'))
         where_elt  = (kw_where.suppress()  + filter.setResultsName('filters'))
-        set_elt    = (kw_set.suppress()    + params.setResultsName('params'))
+        set_elt    = (kw_set.suppress()    + parameters.setResultsName('params'))
         at_elt     = (kw_at.suppress()     + timestamp.setResultsName('timestamp'))
 
         # SELECT *|field_list [AT timestamp] FROM table [WHERE clause]
-        # UPDATE table SET params [WHERE clause] [SELECT *|field_list]
-        # INSERT INTO table SET params  [SELECT *|field_list]
+        # UPDATE table SET parameters [WHERE clause] [SELECT *|field_list]
+        # INSERT INTO table SET parameters  [SELECT *|field_list]
         # DELETE FROM table [WHERE clause]
         select     = (select_elt + pp.Optional(at_elt) + kw_from.suppress() + table + pp.Optional(where_elt)).setParseAction(lambda args: self.action(args, 'get'))
         update     = (kw_update + table + set_elt + pp.Optional(where_elt) + pp.Optional(select_elt)).setParseAction(lambda args: self.action(args, 'update'))
