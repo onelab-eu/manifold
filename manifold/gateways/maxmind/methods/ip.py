@@ -32,11 +32,16 @@ class Ip(Object):
         ip = None
         gateway = self.get_gateway()
         where = query.get_where()
-        Log.tmp("where = %s" % where)
-        predicates = query.get_where().get("ip")
-        if not len(predicates) == 0: 
-            raise RuntimeError("No predicate found in WHERE clause of query = %s" % query)
-        Log.tmp("ip = %s" % ip)
+        predicates = [predicate for predicate in query.get_where().get("ip") if predicate.get_str_op() == "=="]
+
+        if len(predicates) != 1: 
+            raise RuntimeError(
+                """
+                The WHERE clause (%s) must have exaclty one Predicate '==' involving 'ip' field.
+                Matching Predicate(s): {%s}
+                """ % ', '.join(predicates)
+            )
+        ip = predicates[0].get_value()
         record = dict()
 
         if "as_num" in query.get_select():
@@ -46,8 +51,9 @@ class Ip(Object):
         # City
 #        if set(["city", "region_name", "area_code", "longitude", "country_code3", "latitude", "postal_code", "dma_code", "country_code", "country_name"]) & query.get_select():
         geoip = gateway.get_geoip(MAXMIND_DAT_IPV4_CITY)
-        record = geoip.record_by_addr(ip)
-        return record
+        records = [geoip.record_by_addr(ip)]
+        for record in records:
+            yield record
 
     @returns(Announce)
     def make_announce(self):
