@@ -1428,49 +1428,39 @@ class SFAGateway(Gateway):
        return self.update_object(filters, params, fields)
     
     def update_slice(self, filters, params, fields):
-        try:
-            print "Update slice | filters = ", filters
-            print "Update slice | params = ", params
-            print "Update slice | fields = ", fields
-            need_am = bool(set(params.keys()) & AM_SLICE_FIELDS)
-            need_rm = bool(set(params.keys()) - AM_SLICE_FIELDS)
-            if need_am and need_rm:
-                print "update_slice am et rm"
-                # Part on the RM side, part on the AM side... until AM and RM are
-                # two different GW, we need to manually make a left join between
-                # the results of both calls
-                
-                # Ensure join key in fields (in fact not needed since we filter on pkey)
-                #has_key = 'slice_urn' in fields
-                fields_am = fields & AM_SLICE_FIELDS
-                #if not has_key:
-                #     fields_am |= 'slice_urn'
-                fields_rm = fields - AM_SLICE_FIELDS
-                #if not has_key:
-                #    fields_rm |= 'slice_urn'
+        need_am = bool(set(params.keys()) & AM_SLICE_FIELDS)
+        need_rm = bool(set(params.keys()) - AM_SLICE_FIELDS)
+        if need_am and need_rm:
+            # Part on the RM side, part on the AM side... until AM and RM are
+            # two different GW, we need to manually make a left join between
+            # the results of both calls
+            
+            # Ensure join key in fields (in fact not needed since we filter on pkey)
+            #has_key = 'slice_urn' in fields
+            fields_am = fields & AM_SLICE_FIELDS
+            #if not has_key:
+            #     fields_am |= 'slice_urn'
+            fields_rm = fields - AM_SLICE_FIELDS
+            #if not has_key:
+            #    fields_rm |= 'slice_urn'
 
-                ret_am = self.update_slice_am(filters, params, fields_am)
-                ret_rm = self.update_object(filters, params, fields_rm)
+            ret_am = self.update_slice_am(filters, params, fields_am)
+            ret_rm = self.update_object(filters, params, fields_rm)
 
-                # Join (note that we have only one result for the update)
-                ret_am = ret_am[0]
-                ret_rm = ret_rm[0]
-                ret_am.update(ret_rm)
+            # Join (note that we have only one result for the update)
+            ret_am = ret_am[0]
+            ret_rm = ret_rm[0]
+            ret_am.update(ret_rm)
 
-                # Remove key
-                #if not has_key:
-                #    del ret['slice_urn']
-                return [ret_am]
+            # Remove key
+            #if not has_key:
+            #    del ret['slice_urn']
+            return [ret_am]
 
-            if need_am:
-                print "update slice am"
-                return self.update_slice_am(filters, params, fields)
-            else: # need_rm
-                print "update slice rm"
-                return self.update_object(filters, params, fields)
-
-        except Exception, e:
-            print "EEE updte_slice", e
+        if need_am:
+            return self.update_slice_am(filters, params, fields)
+        else: # need_rm
+            return self.update_object(filters, params, fields)
         
     def update_resource(self, filters, params, fields):
         return self.update_object(filters, params, fields)
