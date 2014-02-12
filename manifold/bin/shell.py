@@ -185,7 +185,7 @@ class Shell(object):
                 except Exception, e:
                     Log.error(format_exc())
                     Log.debug("Failed client authentication '%s': %s" % (method, e))
-            raise Exception, "Could not authentication automatically (tried: local, gid, password)"
+            raise Exception, "Could not authenticate automatically (tried: local, gid, password)"
 
         elif auth_method == 'local':
             username = Options().username
@@ -348,7 +348,6 @@ class Shell(object):
             The ResultValue resulting from the Query
         """
         try:
-            print "sel.Fclient=", self.client
             result_value = self.client.forward(query)
         except Exception, e:
             Log.error(traceback.format_exc())
