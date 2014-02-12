@@ -12,9 +12,38 @@ from types                                      import GeneratorType
 
 from manifold.core.announce                     import Announce, announces_from_docstring
 from manifold.gateways.object                   import Object
-from manifold.gateways.maxmind.geoip_database   import MAXMIND_DAT_IPV4_CITY
+from manifold.gateways.maxmind.geoip_database   import MAXMIND_DAT_IPV4_ASN, MAXMIND_DAT_IPV4_CITY, MAXMIND_DAT_IPV4_COUNTRY 
+from manifold.gateways.maxmind.geoip_database   import MAXMIND_DAT_IPV6_ASN, MAXMIND_DAT_IPV6_CITY, MAXMIND_DAT_IPV6_COUNTRY 
 from manifold.util.log                          import Log
 from manifold.util.type                         import accepts, returns 
+
+@returns(int)
+def ip_get_family(ip):
+    """
+    Tests whether an IP address is IPv4 or IPv6
+    Args:
+        ip: A String containing an IP address
+    Raises:
+        ValueError: if the provided String is not an IP address
+    Returns:
+        4: if this is an IPv4 address
+        6: if this is an IPv6 address
+    """
+    import socket
+
+    try:
+        s = socket.inet_pton(socket.AF_INET6, ip)
+        return 6
+    except socket.error:
+        pass
+
+    try:
+        s = socket.inet_pton(socket.AF_INET, ip)
+        return 4
+    except socket.error:
+        pass
+
+    raise ValueError("Invalid ip = %s" % ip)
 
 class Ip(Object):
     aliases = dict()
@@ -42,18 +71,36 @@ class Ip(Object):
                 """ % ', '.join(predicates)
             )
         ip = predicates[0].get_value()
-        record = dict()
+        ip_family = ip_get_family(ip)
+        record = {"ip" : ip} 
+        select_all = (not query.get_select())
 
-        if "as_num" in query.get_select():
-            geoip = gateway.get_geoip(MAXMIND_DAT_IPV4_ASN)
-            Log.warning("not yet implemented")
+# I don't know why, those dat file cannot be loaded...
+#DISABLED|        # ASN
+#DISABLED|        if select_all or "as_num" in query.get_select():
+#DISABLED|            try:
+#DISABLED|                geoip = gateway.get_geoip(MAXMIND_DAT_IPV4_ASN if ip_family == 4 else MAXMIND_DAT_IPV6_ASN)
+#DISABLED|                record.update(geoip.record_by_addr(ip))
+#DISABLED|            except Exception, e:
+#DISABLED|                Log.warning(e)
+#DISABLED|
+#DISABLED|        # Country
+#DISABLED|        if select_all:
+#DISABLED|            try:
+#DISABLED|                geoip = gateway.get_geoip(MAXMIND_DAT_IPV4_COUNTRY if ip_family == 4 else MAXMIND_DAT_IPV6_COUNTRY)
+#DISABLED|                record.update(geoip.record_by_addr(ip))
+#DISABLED|            except Exception, e:
+#DISABLED|                Log.warning(e)
 
         # City
-#        if set(["city", "region_name", "area_code", "longitude", "country_code3", "latitude", "postal_code", "dma_code", "country_code", "country_name"]) & query.get_select():
-        geoip = gateway.get_geoip(MAXMIND_DAT_IPV4_CITY)
-        records = [geoip.record_by_addr(ip)]
-        for record in records:
-            yield record
+        if select_all or set(["city", "region_name", "area_code", "longitude", "country_code3", "latitude", "postal_code", "dma_code", "country_code", "country_name"]) & query.get_select():
+            try:
+                geoip = gateway.get_geoip(MAXMIND_DAT_IPV4_CITY if ip_family == 4 else MAXMIND_DAT_IPV6_CITY)
+                record.update(geoip.record_by_addr(ip))
+            except Exception, e:
+                Log.warning(e)
+
+        yield record
 
     @returns(Announce)
     def make_announce(self):

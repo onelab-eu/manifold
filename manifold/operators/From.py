@@ -209,7 +209,6 @@ class From(Operator):
         """
         # Register this flow in the Gateway
         if packet.get_protocol() == Packet.PROTOCOL_QUERY:
-            Log.tmp(packet.get_query())
             self.get_gateway().add_flow(packet.get_query(), self)
             packet.set_receiver(self)
             self.get_gateway().receive(packet)
