@@ -169,6 +169,7 @@ class SFAGateway(Gateway):
         'geni_creator'      : 'slice_geni_creator',
         'node_ids'          : 'slice_node_ids',             # X This should be 'nodes.id' but we do not want IDs
         'reg-researchers'   : 'user.user_hrn',              # This should be 'users.hrn'
+        'researchers'       : 'user.user_hrn',              # This should be 'users.hrn'
         'reg-urn'           : 'slice_urn',                  # slice_geni_urn ???
         'site_id'           : 'slice_site_id',              # X ID 
         'site'              : 'slice_site',                 # authority.hrn
@@ -207,12 +208,12 @@ class SFAGateway(Gateway):
         'type': 'user_type',                        # type ???
         'last_updated': 'user_last_updated',        # last_updated
         'date_created': 'user_date_created',        # first
-        #'email': 'user_email',                      # email
+        'email':  'user_email',                     # email
         'first_name': 'user_first_name',            # first_name
         'last_name': 'user_last_name',              # last_name
         'phone': 'user_phone',                      # phone
-        #'keys': 'user_keys',                        # OBJ keys !!!
-        'reg-keys': 'pub_key',                        # OBJ keys !!!
+        #'keys': 'user_keys',                       # OBJ keys !!!
+        'reg-keys': 'keys',                         # OBJ keys !!!
         'reg-slices': 'slice.slice_hrn',            # OBJ slices
         'reg-pi-authorities': 'pi_authorities',
     }
@@ -772,7 +773,7 @@ class SFAGateway(Gateway):
     # default allows the use of MySlice's own credentials
     def __get_cred(self, type, target=None):
         delegated='delegated_' if not self.is_admin(self.user) else ''
-            
+        Log.debug('Get Credential for %s = %s'% (type,target))           
         if type == 'user':
             if target:
                 raise Exception, "Cannot retrieve specific user credential for now"
@@ -794,6 +795,16 @@ class SFAGateway(Gateway):
                 if 'user_private_key' in self.user_config and self.user_config['user_private_key'] and type == 'slice':
                     cred = SFAGateway.generate_slice_credential(target, self.user_config)
                     creds[target] = cred
+                # If user has an authority credential above the one targeted
+                # Example: 
+                # target = ple.inria / user is a PLE Admin and has creds = [ple.upmc , ple]
+                # if ple.inria starts with ple then let's use the ple credential
+                elif type == 'authority':
+                    for my_auth in creds:
+                        if target.startswith(my_auth):
+                            cred=creds[my_auth]
+                    if not cred:
+                        raise Exception , "no cred found of type %s towards %s " % (type, target)
                 else:
                     raise Exception , "no cred found of type %s towards %s " % (type, target)
             return cred
@@ -1385,12 +1396,15 @@ class SFAGateway(Gateway):
         defer.returnValue([{'hrn': params['hrn'], 'gid': object_gid}])
     
     def update_user(self, filters, params, fields):
-       Log.tmp('update user')
-       Log.tmp(filters)
+       # XXX TODO: workaround the dash limitation in the queries
+       # How does it match between Metadata & SFA specificities?
+       if 'pub_key' in params:
+          params['reg-keys']=params['pub_key']
        return self.update_object(filters, params, fields)
-    
-    def update_slice(self, filters, params, fields):
-        return self.update_object(filters, params, fields)
+
+# Already defined earlier in the code: Line 805    
+#    def update_slice(self, filters, params, fields):
+#        return self.update_object(filters, params, fields)
     
     def update_resource(self, filters, params, fields):
         return self.update_object(filters, params, fields)

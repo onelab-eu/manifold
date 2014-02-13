@@ -1,8 +1,8 @@
 class slice {
+    const text  slice_urn;   /**< Slice Human Readable name */
     const text  slice_hrn;   /**< Slice Human Readable name */
     const text  slice_type;
     const authority parent_authority;
-    lease       lease[];       /**< List of leases associated to the slice */
     user        user[];        /**< List of users associated to the slice */
 
     KEY(slice_hrn);
@@ -127,10 +127,10 @@ class network {
 class user {
     const text first_name;
     const text last_name;
-    const text email;
+    const text user_email;
     const text user_phone;
     const text user_hrn;
-    const text pub_key;
+    const text keys;
 #    const text password;
     const authority parent_authority;
     slice slice[];
