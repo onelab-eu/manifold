@@ -1,19 +1,19 @@
 #!/usr/bin/env python
-import xmlrpclib
-srv = xmlrpclib.ServerProxy("http://dev.myslice.info:7080/", allow_none=True)
-#auth = {"AuthMethod": "password", "Username": "thierry", "AuthString": "thierry"}
-from manifold.test.config import auth 
-slicename= "ple.inria.heartbeat"
+# -*- coding: utf-8 -*-
 
-q = {
+import xmlrpclib, pprint
+
+# This is to avoid displaying our authentication tokens
+from manifold.test.config import auth 
+
+srv = xmlrpclib.ServerProxy("https://dev.myslice.info:7080/", allow_none=True)
+
+# We formulate a query
+query = {
     'action' : 'get',
     'object' : 'resource',
-#    'filters': [["slice_hrn", "==",slicename]],
-    'fields' : ["network", "type", "resource_hrn", "hostname"]
+    'fields' : ["network", "hrn"]
 }
-rs=srv.forward(auth, q)
+rs = srv.forward(query, {'authentication': auth})
 
 print rs
-
-print 'received',len(rs),'resources attached to',slicename
-

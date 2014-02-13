@@ -1,11 +1,12 @@
 class slice {
+    const text  slice_urn;   /**< Slice Human Readable name */
     const text  slice_hrn;   /**< Slice Human Readable name */
     const text  slice_type;
     const authority parent_authority;
-    lease       lease[];       /**< List of leases associated to the slice */
+# lease       lease[];       /**< List of leases associated to the slice */
     user        user[];        /**< List of users associated to the slice */
 
-    KEY(slice_hrn);
+    KEY(slice_urn);
     CAPABILITY(retrieve, join, fullquery);
 };
 
@@ -128,8 +129,9 @@ class user {
     const text first_name;
     const text last_name;
     const text email;
-    const text telephone;
+    const text user_phone;
     const text user_hrn;
+    const text pub_key;
 #    const text password;
     const authority parent_authority;
     slice slice[];

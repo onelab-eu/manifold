@@ -1,4 +1,5 @@
-from types import StringTypes
+from types                  import StringTypes
+from manifold.util.log      import Log
 try:
     set
 except NameError:
@@ -39,6 +40,12 @@ class Filter(set):
             else:
                 f.add(Predicate(key, '=', value))
         return f
+ 
+    def to_dict(self):
+        ret = {}
+        for predicate in self:
+            ret[predicate.get_key()] = predicate.get_value()
+        return ret
 
     def to_list(self):
         ret = []

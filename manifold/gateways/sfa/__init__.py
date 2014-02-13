@@ -39,6 +39,8 @@ from xmlrpclib                          import DateTime
 DEFAULT_TIMEOUT = 20
 DEFAULT_TIMEOUT_GETVERSION = 5
 
+AM_SLICE_FIELDS = set(['resource', 'lease'])
+
 class TimeOutException(Exception):
     pass
 
@@ -211,7 +213,8 @@ class SFAGateway(Gateway):
         'first_name': 'user_first_name',            # first_name
         'last_name': 'user_last_name',              # last_name
         'phone': 'user_phone',                      # phone
-        'keys': 'user_keys',                        # OBJ keys !!!
+        #'keys': 'user_keys',                        # OBJ keys !!!
+        'reg-keys': 'pub_key',                        # OBJ keys !!!
         'reg-slices': 'slice.slice_hrn',            # OBJ slices
         'reg-pi-authorities': 'pi_authorities',
     }
@@ -331,9 +334,6 @@ class SFAGateway(Gateway):
 
         # Initialize manager proxies using MySlice Admin account
         try:
-            Log.tmp("--------------------")
-            Log.tmp(self.config)
-            Log.tmp("--------------------")
             if self.config['registry']:
                 self.registry = self.make_user_proxy(self.config['registry'], self.admin_config)
                 registry_hrn = yield self.get_interface_hrn(self.registry)
@@ -360,8 +360,6 @@ class SFAGateway(Gateway):
 
     @defer.inlineCallbacks
     def get_cached_server_version(self, server):
-        Log.tmp(self.config)
-        Log.tmp(server)
         # check local cache first
         version = None 
         cache_key = server.get_interface() + "-version"
@@ -385,10 +383,8 @@ class SFAGateway(Gateway):
         # version as a property of the gateway instanciated, to be used in the parser
         #if version['interface'] == 'registry':
         if 'interface' in version and version['interface'] == 'registry':
-            Log.tmp(version['interface'])
             self.registry_version = version
         else:
-            Log.tmp('aggregate')
             self.am_version = version
 
         defer.returnValue(version)
@@ -630,15 +626,15 @@ class SFAGateway(Gateway):
         try:
             nodes = rspec.version.get_nodes()
         except Exception, e:
-            Log.warning("Could not retrieve channels in RSpec: %s" % e)
+            Log.warning("Could not retrieve nodes in RSpec: %s" % e)
         try:
             leases = rspec.version.get_leases()
         except Exception, e:
-            Log.warning("Could not retrieve channels in RSpec: %s" % e)
+            Log.warning("Could not retrieve leases in RSpec: %s" % e)
         try:
             links = rspec.version.get_links()
         except Exception, e:
-            Log.warning("Could not retrieve channels in RSpec: %s" % e)
+            Log.warning("Could not retrieve links in RSpec: %s" % e)
         try:
             channels = rspec.version.get_channels()
         except Exception, e:
@@ -690,10 +686,27 @@ class SFAGateway(Gateway):
         #resources.extend(nodes)
         #resources.extend(channels)
 
+        for lease in leases:
+            lease['resource'] = lease.pop('component_id')
+            lease['slice']    = lease.pop('slice_id')
+
+        print "leases=", leases
         return {'resource': resources, 'lease': leases } 
 #               'channel': channels \
 #               }
 
+    def manifold_to_sfa_leases(self, leases, slice_id):
+        sfa_leases = []
+        for lease in leases:
+            sfa_lease = dict()
+            # sfa_lease_id = 
+            sfa_lease['component_id'] = lease['resource']
+            sfa_lease['slice_id']     = slice_id
+            sfa_lease['start_time']   = lease['start_time']
+            sfa_lease['duration']   = lease['duration']
+            sfa_leases.append(sfa_lease)
+        return sfa_leases
+    
 
     def build_sfa_rspec(self, slice_id, resources, leases):
         #if isinstance(resources, str):
@@ -713,17 +726,18 @@ class SFAGateway(Gateway):
         nodes = []
         channels = []
         links = []
-        Log.tmp(resources)
+
+        # XXX Here it is only about mappings and hooks between ontologies
+
         for urn in resources:
             # XXX TO BE CORRECTED, this handles None values
             if not urn:
                 continue
-            Log.tmp(urn)
             resource = dict()
             # TODO: take into account the case where we send a dict of URNs without keys
             #resource['component_id'] = resource.pop('urn')
             resource['component_id'] = urn
-            resource_hrn, resource_type = urn_to_hrn(resource['component_id'])
+            resource_hrn, resource_type = urn_to_hrn(urn) # resource['component_id'])
             # build component_manager_id
             top_auth = resource_hrn.split('.')[0]
             cm = urn.split("+")
@@ -743,7 +757,8 @@ class SFAGateway(Gateway):
                 raise Exception, "Not supported type of resource" 
         
         rspec.version.add_nodes(nodes, rspec_content_type="request")
-        #rspec.version.add_leases(leases)
+        sfa_leases = self.manifold_to_sfa_leases(leases, slice_id)
+        rspec.version.add_leases(sfa_leases)
         #rspec.version.add_links(links)
         #rspec.version.add_channels(channels)
    
@@ -800,9 +815,33 @@ class SFAGateway(Gateway):
             raise Exception, "Invalid credential type: %s" % type
 
     @defer.inlineCallbacks
-    def update_slice(self, filters, params, fields):
-        if 'resource' not in params:
+    def update_slice_am(self, filters, params, fields):
+        if not 'resource' in params and not 'lease' in params:
             raise Exception, "Update failed: nothing to update"
+        
+        # Need to be specified to remain unchanged
+        need_resources = not 'resource' in params
+        need_leases    = not 'lease'    in params
+
+        # XXX We also need to add leases
+        #print "begin get rl **", filters, "**"
+        if need_resources or need_leases:
+            resource_lease = yield self.get_resource_lease(filters, None, fields, list_resources = need_resources, list_leases = need_leases)
+            #print "end get rl"
+            # XXX Need to handle +=
+            if need_resources:
+                params['resource'] = [r['urn'] for r in resource_lease['resource']]
+            if need_leases:
+                params['lease'] = resource_lease['lease']
+
+        for lease in params['lease']:
+            resource_urn = lease['resource']
+            # XXX We might have dicts, we need helper functions...
+            if not resource_urn in params['resource']:
+                params['resource'].append(lease['resource'])
+
+        #print "RESOURCES", len(params['resource'])
+        #print "LEASES:", params['lease']
 
         # Keys
         if not filters.has_eq('slice_hrn'):
@@ -818,6 +857,7 @@ class SFAGateway(Gateway):
         slice_cred = self._get_cred('slice', slice_hrn)
 
         # We suppose resource
+        print "build rspec"
         rspec = self.build_sfa_rspec(slice_urn, resources, leases)
         #print "BUILDING SFA RSPEC", rspec
         # Sliver attributes (tags) are ignored at the moment
@@ -871,6 +911,14 @@ class SFAGateway(Gateway):
         api_options = {}
         api_options ['append'] = False
         api_options ['call_id'] = unique_call_id()
+
+        # Manage Rspec versions
+        if 'rspec_type' and 'rspec_version' in self.config:
+            api_options['geni_rspec_version'] = {'type': self.config['rspec_type'], 'version': self.config['rspec_version']}
+        else:
+            # For now, lets use GENIv3 as default
+            api_options['geni_rspec_version'] = {'type': 'GENI', 'version': '3'}
+            #api_options['geni_rspec_version'] = {'type': 'SFA', 'version': '1'}  
 
         if self.am_version['geni_api'] == 2:
             # AM API v2
@@ -988,8 +1036,6 @@ class SFAGateway(Gateway):
     @defer.inlineCallbacks
     def get_object(self, object, object_hrn, filters, params, fields):
         # Let's find some additional information in filters in order to restrict our research
-        Log.tmp(object_hrn)
-        Log.tmp(filters)
         object_name = make_list(filters.get_op(object_hrn, [eq, included]))
         auth_hrn = make_list(filters.get_op('parent_authority', [eq, lt, le]))
         interface_hrn    = yield self.get_interface_hrn(self.registry)
@@ -1001,7 +1047,6 @@ class SFAGateway(Gateway):
             # self.user_config but it seems in some configurations it has been
             # erased by credentials... weird
             defer.returnValue([])
-        print "Requesting authorities for platform", interface_hrn
 
         # XXX details = True always, only trigger details if needed wrt fields
 
@@ -1288,14 +1333,24 @@ class SFAGateway(Gateway):
     @defer.inlineCallbacks
     def create_object(self, filters, params, fields):
         # XXX should call create_record_from_params which would rely on mappings
-
-        object_auth_hrn = get_authority(params['hrn'])
+        dict_filters = filters.to_dict()
+        if self.query.object + '_hrn' in params:
+            object_hrn = params[self.query.object+'_hrn']
+        else:         
+            object_hrn = params['hrn']
+        if 'hrn' not in params:
+            params['hrn'] = object_hrn
+        if 'type' not in params:
+            params['type'] = self.query.object
+            #raise Exception, "Missing type in params"
+        object_auth_hrn = get_authority(object_hrn)
 
         server_version = yield self.get_cached_server_version(self.registry)    
         server_auth_hrn = server_version['hrn']
-        if not object_auth_hrn.startswith('%s.' % server_auth_hrn):
+        
+        if not params['hrn'].startswith('%s.' % server_auth_hrn):
             # XXX not a success, neither a warning !!
-            print "I: Not requesting object creation on %s for %s" % (server_auth_hrn, object_auth_hrn)
+            print "I: Not requesting object creation on %s for %s" % (server_auth_hrn, params['hrn'])
             defer.returnValue([])
 
         auth_cred = self._get_cred('authority', object_auth_hrn)
@@ -1341,6 +1396,78 @@ class SFAGateway(Gateway):
         #except Exception, e:
         #    print "E: %s" % e
         #return []
+
+    @defer.inlineCallbacks
+    def update_object(self, filters, params, fields):
+        # XXX should call create_record_from_params which would rely on mappings
+        dict_filters = filters.to_dict()
+        if filters.has(self.query.object+'_hrn'):
+            object_hrn = dict_filters[self.query.object+'_hrn']
+        else:
+            object_hrn = dict_filters['hrn']
+        if 'hrn' not in params:
+            params['hrn'] = object_hrn
+        if 'type' not in params:
+            params['type'] = self.query.object
+            #raise Exception, "Missing type in params"
+        object_auth_hrn = get_authority(object_hrn)
+        server_version = yield self.get_cached_server_version(self.registry)
+        server_auth_hrn = server_version['hrn']
+        if not object_auth_hrn.startswith('%s.' % server_auth_hrn):
+            # XXX not a success, neither a warning !!
+            print "I: Not requesting object update on %s for %s" % (server_auth_hrn, object_auth_hrn)
+            defer.returnValue([])
+        auth_cred = self._get_cred('authority', object_auth_hrn)
+        try:
+            object_gid = yield self.registry.Update(params, auth_cred)
+        except Exception, e:
+            raise Exception, 'Failed to Update object: %s' % e
+        defer.returnValue([{'hrn': params['hrn'], 'gid': object_gid}])
+    
+    def update_user(self, filters, params, fields):
+       return self.update_object(filters, params, fields)
+    
+    def update_slice(self, filters, params, fields):
+        need_am = bool(set(params.keys()) & AM_SLICE_FIELDS)
+        need_rm = bool(set(params.keys()) - AM_SLICE_FIELDS)
+        if need_am and need_rm:
+            # Part on the RM side, part on the AM side... until AM and RM are
+            # two different GW, we need to manually make a left join between
+            # the results of both calls
+            
+            # Ensure join key in fields (in fact not needed since we filter on pkey)
+            #has_key = 'slice_urn' in fields
+            fields_am = fields & AM_SLICE_FIELDS
+            #if not has_key:
+            #     fields_am |= 'slice_urn'
+            fields_rm = fields - AM_SLICE_FIELDS
+            #if not has_key:
+            #    fields_rm |= 'slice_urn'
+
+            ret_am = self.update_slice_am(filters, params, fields_am)
+            ret_rm = self.update_object(filters, params, fields_rm)
+
+            # Join (note that we have only one result for the update)
+            ret_am = ret_am[0]
+            ret_rm = ret_rm[0]
+            ret_am.update(ret_rm)
+
+            # Remove key
+            #if not has_key:
+            #    del ret['slice_urn']
+            return [ret_am]
+
+        if need_am:
+            return self.update_slice_am(filters, params, fields)
+        else: # need_rm
+            return self.update_object(filters, params, fields)
+        
+    def update_resource(self, filters, params, fields):
+        return self.update_object(filters, params, fields)
+    
+    def update_authority(self, filters, params, fields):
+        return self.update_object(filters, params, fields)
+
 
     def sfa_table_networks(self):
         versions = self.sfa_get_version_rec(self.sm_url)
@@ -1483,14 +1610,21 @@ class SFAGateway(Gateway):
         if 'rspec_type' and 'rspec_version' in self.config:
             api_options['geni_rspec_version'] = {'type': self.config['rspec_type'], 'version': self.config['rspec_version']}
         else:
-            # For now, lets use SFAv1 as default
-            api_options['geni_rspec_version'] = {'type': 'SFA', 'version': '1'}  
+            # For now, lets use GENIv3 as default
+            api_options['geni_rspec_version'] = {'type': 'GENI', 'version': '3'}
+            #api_options['geni_rspec_version'] = {'type': 'SFA', 'version': '1'}  
  
         if slice_hrn:
             cred = self._get_cred('slice', slice_hrn, v3 = self.am_version['geni_api'] != 2)
             api_options['geni_slice_urn'] = hrn_to_urn(slice_hrn, 'slice')
         else:
             cred = self._get_cred('user', v3= self.am_version['geni_api'] != 2)
+
+        # Due to a bug in sfawrap, we need to disable caching on the testbed
+        # side, otherwise we might not get RSpecs without leases
+        # Anyways, caching on the testbed side is not needed since we have more
+        # efficient caching on the client side
+        api_options['cached'] = False
 
         if list_resources:
             if list_leases:
@@ -1718,7 +1852,6 @@ class SFAGateway(Gateway):
         if isinstance(platform, Platform):
             platform = platform.platform           
         Log.debug("Managing %r account on %s..." % (user, platform))
-        Log.tmp(platform)
         # The gateway should be able to perform user config management taks on
         # behalf of MySlice
         #
@@ -1784,8 +1917,9 @@ class SFAGateway(Gateway):
         need_authority_list = need_authority_credentials
         need_delegated_user_credential = not is_admin and self.credentials_needed('delegated_user_credential', config)
         if need_slice_list:
-            Log.tmp('is admin = need slice credentials')
-            Log.tmp('need slice list')
+            pass
+            #Log.tmp('is admin = need slice credentials')
+            #Log.tmp('need slice list')
         need_gid = not 'gid' in config
         need_user_credential = is_admin or need_authority_credentials or need_slice_list or need_slice_credentials or need_delegated_user_credential or need_gid
 

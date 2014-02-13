@@ -464,7 +464,7 @@ if __name__ == '__main__':
                     interface = platform_config['sm']
                 elif command in REGISTRY_CALLS:
                     if not 'registry' in platform_config:
-                        raise Exception, "AM interface not found into platform '%s' configuration" % args.platform
+                        raise Exception, "Registry interface not found into platform '%s' configuration" % args.platform
                     interface = platform_config['registry']
                 else:
                     raise Exception, "Unknown interface"
