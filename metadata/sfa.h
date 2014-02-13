@@ -6,7 +6,7 @@ class slice {
 # lease       lease[];       /**< List of leases associated to the slice */
     user        user[];        /**< List of users associated to the slice */
 
-    KEY(slice_urn);
+    KEY(slice_hrn);
     CAPABILITY(retrieve, join, fullquery);
 };
 

@@ -166,7 +166,8 @@ class Daemon(object):
         \param log_level Log level
             Example: logging.INFO
         """
-        log_level = _checkLevel(log_level)
+        Log.warning("Daemon::__init__: TODO Fix _checkLevel")
+        #TODO: log_level = _checkLevel(log_level)
 
         # Daemon parameters
         #self.daemon_name        = daemon_name
