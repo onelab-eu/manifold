@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 #
 # XMLRPCDaemon is in charge of offering a XMLRPC interface
-# to a Router or Gateway related to a 
+# to a Router or Gateway related to a
 # instanciate an interface of type Forwarder or Router depending on the arguments given
 # relies on the Class XMLRPCAPI in manifold/core/xmlrpc_api.py
 #
@@ -58,7 +58,7 @@ class XMLRPCDaemon(Daemon):
         """
         # XXX how to avoid option conflicts : have a list of reserved ones for consistency
         # XXX can we support option groups ?
-        
+
         Daemon.__init__(
             self,
             self.terminate
@@ -73,8 +73,8 @@ class XMLRPCDaemon(Daemon):
         opt = Options()
         opt.add_argument(
             "-P", "--port", dest = "xmlrpc_port",
-            help = "Port on which the XMLRPC server will listen.", 
-            default = XMLRPCDaemon.DEFAULTS["xmlrpc_port"] 
+            help = "Port on which the XMLRPC server will listen.",
+            default = XMLRPCDaemon.DEFAULTS["xmlrpc_port"]
         )
 # mando: we should use -p instead
 #        # XXX router could be an additional argument
@@ -86,7 +86,7 @@ class XMLRPCDaemon(Daemon):
         opt.add_argument(
             "-p", "--platform", dest = "platform",
             help = "Platform exposed by the server, None for acting as a router.",
-            default = XMLRPCDaemon.DEFAULTS["platform"] 
+            default = XMLRPCDaemon.DEFAULTS["platform"]
         )
 #NOT_SUPPORTED|        opt.add_argument(
 #NOT_SUPPORTED|            "-a", "--disable-auth", action="store_true", dest = "disable_auth",
@@ -118,9 +118,9 @@ class XMLRPCDaemon(Daemon):
 #DEPRECATED|        elif gateway_name == "csv":
 #DEPRECATED|            config = {"filename" : "/tmp/test.csv"}
 #DEPRECATED|        else:
-#DEPRECATED|            config = dict() 
+#DEPRECATED|            config = dict()
 #DEPRECATED|        return config
-        
+
     @staticmethod
     @returns(Capabilities)
     def make_capabilities():
@@ -144,7 +144,7 @@ class XMLRPCDaemon(Daemon):
         the XMLRPCDaemon.
         Args:
             allowed_capabilities: A Capabilities defining which
-                Capabilities are supported by the Router we are building. 
+                Capabilities are supported by the Router we are building.
         Returns:
             The corresponding Router instance.
         """
@@ -176,13 +176,13 @@ class XMLRPCDaemon(Daemon):
         #from twisted.internet          import reactor
         # This also imports manifold.util.reactor_thread that uses reactor
         from manifold.core.router       import Router
-            
-        #assert not (Options().platform and Options().gateway), "Both gateway and platform cannot be specified at commandline" 
+
+        #assert not (Options().platform and Options().gateway), "Both gateway and platform cannot be specified at commandline"
 
         # This imports twisted code so we need to import it locally
         from manifold.core.xmlrpc_api   import XMLRPCAPI
 
-        allowed_capabilities = XMLRPCDaemon.make_capabilities() 
+        allowed_capabilities = XMLRPCDaemon.make_capabilities()
         self.interface = XMLRPCDaemon.make_router(allowed_capabilities)
 
         # SSL support
@@ -236,17 +236,17 @@ class XMLRPCDaemon(Daemon):
                         "subject" : x509.get_subject()
                     })
                     ret = True
-                return ret 
-            
+                return ret
+
             myContextFactory = ssl.DefaultOpenSSLContextFactory(keypair_filename, certificate_filename)
-            
+
             ctx = myContextFactory.getContext()
-            
+
             ctx.set_verify(
                 SSL.VERIFY_PEER, # | SSL.VERIFY_FAIL_IF_NO_PEER_CERT,
                 verifyCallback
             )
-            
+
             # Since we have self-signed certs we have to explicitly
             # tell the server to trust them.
             #ctx.load_verify_locations("keys/ca.pem")
@@ -254,7 +254,7 @@ class XMLRPCDaemon(Daemon):
 #DEPRECATED|            trusted_roots_path = Options().trusted_roots_path
 #DEPRECATED|            if not trusted_roots_path or not os.path.exists(trusted_roots_path):
 #DEPRECATED|                Log.warning("No trusted root found in %s. You won't be able to login using SSL client certificates" % trusted_roots_path)
-                
+
             ctx.load_verify_locations(None, manifold_trusted_roots_dir) #trusted_roots_path)
 
             #ReactorThread().listenTCP(Options().xmlrpc_port, server.Site(XMLRPCAPI(self.interface, allowNone=True)))
