@@ -97,7 +97,6 @@ class Records(list):
     """
 
     def __init__(self, itr): 
-        Log.tmp(itr)
         list.__init__(self, [Record(x) for x in itr])
 
     def to_list(self):
