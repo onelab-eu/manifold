@@ -19,6 +19,20 @@ from manifold.util.options      import Options
 
 import atexit, os, signal, lockfile, logging, sys
 
+# python2.6 bugfix, useless in python2.7
+def _checkLevel(level):
+    from logging import _levelNames
+    if isinstance(level, int):
+        rv = level
+    elif str(level) == level:
+        if level not in _levelNames:
+            raise ValueError("Unknown level: %r" % level)
+        rv = _levelNames[level]
+    else:
+        raise TypeError("Level not an integer or a valid string: %r" % level)
+    return rv
+
+
 class Daemon(object):
     __metaclass__ = Singleton
 
@@ -31,9 +45,9 @@ class Daemon(object):
         "no_daemon"           : False,
         "pid_filename"        : "/var/run/%s.pid" % Options().get_name()
     }
-    
+
     #-------------------------------------------------------------------------
-    # Checks 
+    # Checks
     #-------------------------------------------------------------------------
 
     def check_python_daemon(self):
@@ -41,12 +55,12 @@ class Daemon(object):
         \brief Check whether python-daemon is properly installed
         \return True if everything is file, False otherwise
         """
-        # http://www.python.org/dev/peps/pep-3143/    
-        ret = False 
+        # http://www.python.org/dev/peps/pep-3143/
+        ret = False
         try:
             import daemon
             getattr(daemon, "DaemonContext")
-            ret = True 
+            ret = True
         except AttributeError, e:
             print e
             # daemon and python-daemon conflict with each other
@@ -56,7 +70,7 @@ class Daemon(object):
         return ret
 
     #------------------------------------------------------------------------
-    # Initialization 
+    # Initialization
     #------------------------------------------------------------------------
 
     def make_handler_rsyslog(self, rsyslog_host, rsyslog_port, log_level):
@@ -72,7 +86,7 @@ class Daemon(object):
             facility = handlers.SysLogHandler.LOG_DAEMON
         )
 
-        # The log file must remain open while daemonizing 
+        # The log file must remain open while daemonizing
         self.files_to_keep.append(shandler.socket)
         self.prepare_handler(shandler, log_level)
         return shandler
@@ -88,7 +102,7 @@ class Daemon(object):
         if not os.path.exists(log_dir):
             try:
                 os.makedirs(log_dir)
-            except OSError, why: 
+            except OSError, why:
                 log_error("OS error: %s" % why)
 
         # Prepare the handler
@@ -97,7 +111,7 @@ class Daemon(object):
             backupCount = 0
         )
 
-        # The log file must remain open while daemonizing 
+        # The log file must remain open while daemonizing
         self.files_to_keep.append(shandler.stream)
         self.prepare_handler(shandler, log_level)
         return shandler
@@ -152,6 +166,7 @@ class Daemon(object):
         \param log_level Log level
             Example: logging.INFO
         """
+        log_level = _checkLevel(log_level)
 
         # Daemon parameters
         #self.daemon_name        = daemon_name
@@ -163,10 +178,10 @@ class Daemon(object):
         #Options().no_daemon         = no_daemon
         #Options().lock_file         = None
         #Options().debug             = debug
-        #self.log               = log 
+        #self.log               = log
         #self.rsyslog_host      = rsyslog_host
-        #self.rsyslog_port      = rsyslog_port 
-        #self.log_file          = log_file 
+        #self.rsyslog_port      = rsyslog_port
+        #self.log_file          = log_file
         #self.log_level         = log_level
 
         # Reference which file descriptors must remain opened while
@@ -223,10 +238,10 @@ class Daemon(object):
             default = self.DEFAULTS['pid_filename']
         )
 
-        
+
 
     #------------------------------------------------------------------------
-    # Daemon stuff 
+    # Daemon stuff
     #------------------------------------------------------------------------
 
     def remove_pid_file(self):
@@ -240,7 +255,7 @@ class Daemon(object):
 
     def make_pid_file(self):
         """
-        \brief Create a pid file in which we store the PID of the daemon if needed 
+        \brief Create a pid file in which we store the PID of the daemon if needed
         """
         if Options().pid_filename and Options().no_daemon == False:
             atexit.register(self.remove_pid_file)
@@ -301,7 +316,7 @@ class Daemon(object):
             files_preserve     = Log().files_to_keep
         )
 
-        # Prepare signal handling to stop properly if the daemon is killed 
+        # Prepare signal handling to stop properly if the daemon is killed
         # Note that signal.SIGKILL can't be handled:
         # http://crunchtools.com/unixlinux-signals-101/
         dcontext.signal_map = {
@@ -329,6 +344,7 @@ class Daemon(object):
             Example: 15 if the received signal is signal.SIGTERM
         \param frame
         """
+        self.stop()
         self.terminate()
 
     def stop(self):
