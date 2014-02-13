@@ -18,6 +18,7 @@ from twisted.internet.defer        import Deferred, DeferredList
 from manifold.core.ast             import AST
 from manifold.core.filter          import Filter
 from manifold.core.query           import Query
+from manifold.core.relation        import Relation # ROUTERV2
 from manifold.core.stack           import Stack, TASK_11, TASK_1Nsq, TASK_1N
 #DEPRECATED|LOIC|#from manifold.operators.demux      import Demux
 from manifold.operators.From       import From
@@ -118,10 +119,14 @@ class ExploreTask(Deferred):
                 involved in the Query.
             query_plan: The QueryPlan instance we're recursively building and
                 related to the User Query.
+        Returns:
+            foreign_key_fields
         """
         Log.debug("Search in ", self.root.get_name(), "for fields", missing_fields, 'path=', self.path, "SEEN SET =", seen_set)
         relations_11, relations_1N, relations_1Nsq = (), {}, {}
         deferred_list = []
+
+        foreign_key_fields = dict()
 
         # self.path = X.Y.Z indicates the subqueries we have traversed
         # We are thus able to answer to parts of the query at the root,
@@ -143,6 +148,27 @@ class ExploreTask(Deferred):
 #DEPRECATED|         # process results
 
         root_provided_fields = self.root.get_field_names()
+        
+        # ROUTERV2 We might also query foreign keys of backward links
+        for neighbour in metadata.graph.successors(self.root):
+            for relation in metadata.get_relations(self.root, neighbour):
+                if relation.get_type() == Relation.types.LINK_1N_BACKWARDS:
+                    relation_name = relation.get_relation_name()
+                    if relation_name not in missing_fields:
+                        continue
+
+                    # For backwards links at the moment, the name of the relation is the name/type of the table
+                    # let's add the keys of this relation, since we have not explored children links yet
+                    table = metadata.find_node(relation_name)
+                    key = table.get_keys().one()
+                    _additional_fields = set(["%s.%s" % (relation_name, field.get_name()) for field in key])
+                    missing_fields |= _additional_fields
+
+                    # ... and remove the relation from requested fields
+                    missing_fields.remove(relation_name)
+
+                    foreign_key_fields[relation_name] = _additional_fields
+        
         root_key_fields = self.root.keys.one().get_field_names()
 
         # Which fields we are keeping for the current table, and which we are removing from missing_fields
@@ -213,6 +239,8 @@ class ExploreTask(Deferred):
                 stack.push(task, priority)
 
         DeferredList(deferred_list).addCallback(self.all_done, allowed_platforms, metadata, user, query_plan)
+
+        return foreign_key_fields
 
     def all_done(self, result, allowed_platforms, metadata, user, query_plan):
         """

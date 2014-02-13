@@ -45,6 +45,8 @@ class QueryPlan(object):
         self.ast   = AST()
         self.froms = list() 
 
+        self.foreign_key_fields = dict()
+
     def add_from(self, from_node):
         """
         Add a From node to the query plan. FromTable Node are not stored
@@ -84,10 +86,19 @@ class QueryPlan(object):
         """
         #print "QUERY PLAN (before optimization):"
         #ast.dump()
-        ast.optimize(query)
-        self.inject_at(query)
+        new_query = query.copy()
+
+        removed_fields    = set(self.foreign_key_fields.keys())
+        additional_fields = reduce(lambda x, y: x | y, self.foreign_key_fields.values(), set())
+
+        new_query.fields |= additional_fields
+        new_query.fields -= removed_fields
+
+        ast.optimize(new_query)
+        self.inject_at(new_query)
         self.ast = ast
     
+        # Update the main query to add applicative information such as action and params
         # Update the main query to add applicative information such as action and params
         # NOTE: I suppose params cannot have '.' inside
         for from_node in self.froms:
@@ -95,6 +106,20 @@ class QueryPlan(object):
             if q.get_from() == query.get_from():
                 q.action = query.get_action()
                 q.params = query.get_params()
+
+
+
+        # For example "UPDATE slice SET resource", since we have a backwards relation, we need update in the children query
+        # This should be done when the query is forwarded through the query plan (routerv2)
+        # In the mean time... we can assume unique names and continue looking at FROms... that will break for sure...
+# BETTER BUT NOT USED BECAUSE OF update_slice|        # XXX an update in a subquery should be both an INSERT and a DELETE
+# BETTER BUT NOT USED BECAUSE OF update_slice|        # XXX that's why for updates we will rely on update_slice !!!!
+# BETTER BUT NOT USED BECAUSE OF update_slice|        for from_node in self.froms:
+# BETTER BUT NOT USED BECAUSE OF update_slice|            q = from_node.get_query()
+# BETTER BUT NOT USED BECAUSE OF update_slice|            if q.object in query.get_params():
+# BETTER BUT NOT USED BECAUSE OF update_slice|                q.action = query.get_action()
+# BETTER BUT NOT USED BECAUSE OF update_slice|                print "q.object", q.object, " -->", query.get_params()[q.object]
+# BETTER BUT NOT USED BECAUSE OF update_slice|                q.params = {q.object : query.get_params()[q.object]}
 
     def build(self, query, metadata, allowed_platforms, allowed_capabilities, user = None):
         """
@@ -134,21 +159,29 @@ class QueryPlan(object):
         missing_fields |= query.get_where().get_field_names()
         missing_fields |= set(query.get_params().keys())
 
+
         while missing_fields:
             task = stack.pop()
             if not task:
+                # Exploration ends here
                 Log.warning("Exploration terminated without finding fields: %r" % missing_fields)
                 break
 
             pathstr = '.'.join(task.path)
             if not pathstr in seen:
                 seen[pathstr] = set()
-            task.explore(stack, missing_fields, metadata, allowed_platforms, allowed_capabilities, user, seen[pathstr], query_plan = self)
+
+            # ROUTERV2
+            # foreign_key_fields are fields added because indirectly requested by the user.
+            # For example, he asked for slice.resource, which in fact will contain slice.resource.urn
+            foreign_key_fields = task.explore(stack, missing_fields, metadata, allowed_platforms, allowed_capabilities, user, seen[pathstr], query_plan = self)
+
+            self.foreign_key_fields.update(foreign_key_fields)
 
         while not stack.is_empty():
             task = stack.pop()
             task.cancel()
-    
+
         # Do we need to wait for self.ast here ?
 
     # XXX Note for later: what about holes in the subquery chain. Is there a notion

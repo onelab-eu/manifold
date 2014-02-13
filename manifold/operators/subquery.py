@@ -150,6 +150,9 @@ class SubQuery(Node):
         first_record = self.parent_output[0]
         parent_fields = set(first_record.keys())
         
+        print "*" * 80
+        print "parent_fields", parent_fields
+        
         # Optimize child queries according to the fields already retrieved thanks
         # to the parent query.
         useless_children = set()
@@ -214,13 +217,17 @@ class SubQuery(Node):
                 # 1..N
                 # Example: parent has slice_hrn, resource has a reference to slice
                 if relation.get_type() == Relation.types.LINK_1N_BACKWARDS:
+                    print "keys=", self.parent_output[0].keys()
+                    print self.parent_output[0]
                     parent_ids = [record[key] for record in self.parent_output]
                     if len(parent_ids) == 1:
                         parent_id, = parent_ids
                         filter_pred = Predicate(value, eq, parent_id)
                     else:
                         filter_pred = Predicate(value, included, parent_ids)
+                    print "filter_pred", filter_pred
                 else:
+                    print "2"
                     parent_ids = []
                     for parent_record in self.parent_output:
                         record = Record.get_value(parent_record, key)
@@ -248,6 +255,7 @@ class SubQuery(Node):
                         filter_pred = Predicate(value, eq, parent_id)
                     else:
                         filter_pred = Predicate(value, included, parent_ids)
+                    print "filter_pred", filter_pred
 
                 # Injecting predicate
                 old_child_callback= child.get_callback()
@@ -303,10 +311,15 @@ class SubQuery(Node):
                     key, op, value = predicate.get_tuple()
                     
                     if op == eq:
+                        print "done eq"
                         # 1..N
                         # Example: parent has slice_hrn, resource has a reference to slice
                         #            PARENT       CHILD
                         # Predicate: (slice_hrn,) == slice
+                        print "predicate.key=", key
+                        print "predicate.op=", op
+                        print "predicate.value=", value
+                        print "parent record", parent_record
 
                         # Collect in parent all child such as they have a pointer to the parent
                         record = Record.get_value(parent_record, key)
