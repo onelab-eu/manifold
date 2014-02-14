@@ -623,26 +623,40 @@ class SFAGateway(Gateway):
             #rspec_version = 'SFA 1'
         Log.debug(rspec_version)
         rspec = RSpec(rspec_string, version=rspec_version)
+
+        resources = [] 
+# These are all resources 
+# get_resources function can return all resources or a specific type of resource
+        try:
+            resources = rspec.version.get_resources()
+        except Exception, e:
+            Log.warning("Could not retrieve resources in RSpec: %s" % e)
         
         try:
             nodes = rspec.version.get_nodes()
         except Exception, e:
+            nodes = list()
             Log.warning("Could not retrieve nodes in RSpec: %s" % e)
         try:
             leases = rspec.version.get_leases()
         except Exception, e:
+            leases = list()
             Log.warning("Could not retrieve leases in RSpec: %s" % e)
         try:
             links = rspec.version.get_links()
         except Exception, e:
+            links = list()
             Log.warning("Could not retrieve links in RSpec: %s" % e)
         try:
             channels = rspec.version.get_channels()
         except Exception, e:
+            channels = list()
             Log.warning("Could not retrieve channels in RSpec: %s" % e)
 
-        resources = [] 
         # Extend object and Format object field's name
+        for resource in resources:
+            resource['urn'] = resource['component_id']
+
         for node in nodes:
             node['type'] = 'node'
             node['network_hrn'] = Xrn(node['component_id']).authority[0] # network ? XXX
