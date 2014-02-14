@@ -63,7 +63,7 @@ def get_supported_gateway_types():
     A list of String containing the name of each supported Gateway.
     """
     gateways = list()
-    run_command(CMD_GET_GATEWAYS % {"namespace" : STORAGE_NAMESPACE}, gateways)
+    run_command(CMD_GET_GATEWAYS % {"namespace" : STORAGE_NAMESPACE}, False, gateways)
     return [gateway["type"] for gateway in gateways]
 
 @returns(bool)
