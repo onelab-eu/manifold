@@ -62,7 +62,7 @@ class Log(object):
         return cls.color_ansi[color] if color else ''
 
     # To remove duplicate messages
-    seen = dict() 
+    seen = dict()
 
     def __init__(self, name = '(default)'):
         """
@@ -71,14 +71,14 @@ class Log(object):
             name: A String identifying the logger (not yet supported).
         """
         self.log = None # logging.getLogger(name)
-        self.files_to_keep = list() 
+        self.files_to_keep = list()
         self.init_log()
         self.color = True
 
     @staticmethod
     def reset_duplicates():
         Log.seen = dict()
-        
+
     @classmethod
     def init_options(self):
         """
@@ -163,7 +163,7 @@ class Log(object):
         Args:
             rsyslog_host: A String containing rsyslog server's FQDN.
             rsyslog_port: An positive integer equal to the rsyslog server's port.
-            log_level: A value among: 
+            log_level: A value among:
                 {logging.DEBUG, logging.INFO, logging.WARNING,
                  logging.ERROR, logging.CRITICAL}
         Returns:
@@ -175,7 +175,7 @@ class Log(object):
             facility = handlers.SysLogHandler.LOG_DAEMON
         )
 
-        # The log file must remain open while daemonizing 
+        # The log file must remain open while daemonizing
         self.prepare_handler(shandler, log_level)
         return shandler
 
@@ -186,7 +186,7 @@ class Log(object):
         Args:
             log_filename: A String containing the filename of the file
                 in which the logger has to write log messages.
-            log_level: A value among: 
+            log_level: A value among:
                 {logging.DEBUG, logging.INFO, logging.WARNING,
                  logging.ERROR, logging.CRITICAL}
         """
@@ -205,7 +205,7 @@ class Log(object):
             backupCount = 0
         )
 
-        # The log file must remain open while daemonizing 
+        # The log file must remain open while daemonizing
         self.files_to_keep.append(shandler.stream)
         self.prepare_handler(shandler, log_level)
         return shandler
@@ -215,7 +215,7 @@ class Log(object):
         (Internal usage) Prepare the logger's handler.
         Args:
             shandler: Handler used to log information
-            log_level: A value among: 
+            log_level: A value among:
                 {logging.DEBUG, logging.INFO, logging.WARNING,
                  logging.ERROR, logging.CRITICAL}
         """
@@ -224,7 +224,7 @@ class Log(object):
         shandler.setFormatter(formatter)
         self.log.addHandler(shandler)
         self.log.setLevel(getattr(logging, log_level, logging.INFO))
-                      
+
     def get_logger(self):
         return self.log
 
@@ -276,14 +276,14 @@ class Log(object):
             except TypeError, e:
                 # Unhashable types in msg
                 count = 0
-            
+
             if count == 1:
                 if isinstance(msg, StringTypes):
                     msg = (msg,)
                 msg += (" -- REPEATED -- Future similar messages will be silently ignored. Please use the --log_duplicates option to allow for duplicates",)
             elif count > 1:
                 return
-            
+
         if level == 'DEBUG':
             caller = caller_name(skip=3)
             # Eventually remove "" added to the configuration file
@@ -296,7 +296,7 @@ class Log(object):
 
         logger = Log().get_logger()
         msg_str = cls.build_message_string(msg, ctx)
-            
+
         if logger:
             logger_fct = getattr(logger, level.lower())
             logger_fct("%s(): %s" % (inspect.stack()[2][3], msg_str))
@@ -314,7 +314,7 @@ class Log(object):
         sys.exit(0)
 
     @classmethod
-    def error(cls, *msg, **ctx): 
+    def error(cls, *msg, **ctx):
         if not Options().log_level in ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']:
             return
         #cls.log_message('ERROR', "%s" % traceback.format_exc(), ctx)
@@ -322,7 +322,7 @@ class Log(object):
         cls.log_message('ERROR', msg, ctx)
 
     @classmethod
-    def warning(cls, *msg, **ctx): 
+    def warning(cls, *msg, **ctx):
         if not Options().log_level in ['DEBUG', 'INFO', 'WARNING']:
             return
         cls.log_message('WARNING', msg, ctx)
@@ -365,7 +365,7 @@ class Log(object):
 #                if k != "config":
 #                    record2[k] = v
 #                else:
-#                    record2[k] = "<config>" 
+#                    record2[k] = "<config>"
 #            msg = [
 #                "%s :" % (source.format_node()) if source else "",
 #                "%r" % record2,
