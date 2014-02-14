@@ -104,13 +104,29 @@ class PostgreSQLGateway(Gateway):
     #     ccu.column_name AS foreign_column_name 
     #   FROM [...]
 
+
+    # SLOW: prefer the following, postgresql specific one
+    #SQL_TABLE_FOREIGN_KEYS = """
+    #SELECT       kcu.column_name, ccu.table_name AS foreign_table_name
+    #    FROM     information_schema.table_constraints       AS tc 
+    #        JOIN information_schema.key_column_usage        AS kcu ON tc.constraint_name  = kcu.constraint_name
+    #        JOIN information_schema.constraint_column_usage AS ccu ON ccu.constraint_name = tc.constraint_name
+    #    WHERE    constraint_type = 'FOREIGN KEY'
+    #      AND    tc.table_name = %(table_name)s;
+    #"""
+
+    #SELECT c.oid, n.nspname, c.relname, n2.nspname, c2.relname, cons.conname
     SQL_TABLE_FOREIGN_KEYS = """
-    SELECT       kcu.column_name, ccu.table_name AS foreign_table_name
-        FROM     information_schema.table_constraints       AS tc 
-            JOIN information_schema.key_column_usage        AS kcu ON tc.constraint_name  = kcu.constraint_name
-            JOIN information_schema.constraint_column_usage AS ccu ON ccu.constraint_name = tc.constraint_name
-        WHERE    constraint_type = 'FOREIGN KEY'
-          AND    tc.table_name = %(table_name)s;
+    SELECT replace(replace(cons.conname, %(table_name)s || '_', ''), '_fkey', '') AS column_name, c2.relname AS foreign_table_name
+        FROM pg_class c                                          
+            JOIN            pg_namespace n ON n.oid = c.relnamespace
+            LEFT OUTER JOIN pg_constraint cons ON cons.conrelid = c.oid
+            LEFT OUTER JOIN pg_class c2 ON cons.confrelid = c2.oid
+            LEFT OUTER JOIN pg_namespace n2 ON n2.oid = c2.relnamespace
+        WHERE c.relkind = 'r' 
+            AND n.nspname IN ('public') -- any other schemas in here
+            AND (cons.contype = 'f' OR cons.contype IS NULL)
+            AND c.relname = %(table_name)s;
     """
 
     SQL_TABLE_COMMENT = """
