@@ -11,11 +11,12 @@ from manifold.gateways.sqlalchemy.models.platform   import ModelPlatform
 from ..methods.sqla_object                          import SQLA_Object
 
 class Platform(SQLA_Object):
-    def __init__(self, gateway):
+    def __init__(self, gateway, interface):
         """
         Constructor.
         Args:
             gateway: A SQLAlchemyGateway instance.
+            interface: A manifold Interface.
         """
-        super(Platform, self).__init__(gateway, ModelPlatform)
+        super(Platform, self).__init__(gateway, ModelPlatform, interface)
 

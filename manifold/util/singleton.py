@@ -14,6 +14,11 @@ class Singleton(type):
             cls.instance=super(Singleton,cls).__call__(*args,**kw)
         return cls.instance
 
+    def _drop(self):
+        "Drop the instance (for testing purposes)."
+        if self.instance is not None:
+            del self.instance
+            self.instance = None
 
 # See also
 # http://stackoverflow.com/questions/6760685/creating-a-singleton-in-python

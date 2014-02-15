@@ -26,12 +26,36 @@ class Destination(object):
         return self._fields
 
     #---------------------------------------------------------------------------
+    # str repr
+    #---------------------------------------------------------------------------
+
+    def __str__(self):
+        """
+        Returns:
+            The '%s' representation of this Query.
+        """
+        return self.__repr__()
+
+    def __repr__(self):
+        """
+        Returns:
+            The '%r' representation of this Query.
+        """
+        return "%r" % ((self._object, self._filter, self._fields), )
+
+    #---------------------------------------------------------------------------
     # Algebra of operators
     #---------------------------------------------------------------------------
 
     def left_join(self, destination): 
         return Destination(
             object = self.get_object(),
+            filter = self._filter | destination.get_filter(),
+            fields = self._fields | destination.get_fields())
+
+    def right_join(self, destination):
+        return Destination(
+            object = destination.get_object(),
             filter = self._filter | destination.get_filter(),
             fields = self._fields | destination.get_fields())
 
@@ -43,6 +67,6 @@ class Destination(object):
 
     def projection(self, fields):
         return Destination(
-            object = self._object(),
+            object = self._object,
             filter = self._filter,
             fields = self._fields) # equivalent to (self._fields & fields) since (self._fields c fields)

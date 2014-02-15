@@ -68,6 +68,9 @@ class AST(object):
         """
         return self.root
 
+    def set_root(self, root):
+        self.root = root
+
     #---------------------------------------------------------------------------
     # Methods
     #---------------------------------------------------------------------------
@@ -288,17 +291,21 @@ class AST(object):
         """
         return repr(self)
 
-    def optimize(self, query):
+    #---------------------------------------------------------------------------
+    # AST manipulations & optimization
+    #---------------------------------------------------------------------------
+
+    def optimize(self, destination):
         """
         Optimize this AST according to the Query issued by the user.
         For instance, SELECT and WHERE clause allows to fetch less
         information from the data sources involved in the query plan.
         Args:
-            query: The Query issued by the user.
+            destination: The Destination of the Query issued by the user.
         """
         try: # DEBUG
-            self.optimize_selection(query.get_where())
-            self.optimize_projection(query.get_select())
+            self.optimize_selection(destination.get_filter())
+            self.optimize_projection(destination.get_fields())
         except Exception, e:
             Log.error(traceback.format_exc())
 
@@ -329,3 +336,7 @@ class AST(object):
         producer = self.get_root().optimize_projection(fields)
         assert producer, "ast::optimize_projection() has failed: fields = %s" % fields 
         self.root = producer
+
+    def reorganize_create(self):
+        new_root = self.get_root().reorganize_create()
+        self.set_root(new_root)

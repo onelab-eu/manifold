@@ -100,6 +100,14 @@ class Consumer(Node):
         if cascade:
             producer.del_consumer(self, cascade = False)
 
+    def get_parent_producer(self):
+        return self._parent_producer
+
+    def del_parent_producer(self, cascade = True):
+        if cascade:
+            self._parent_producer.del_consumer(self, cascade = False)
+        self._parent_producer = None
+
     @returns(StringTypes)
     def format_producer_ids(self):
         """

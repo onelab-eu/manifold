@@ -56,9 +56,9 @@ class ModelUser(Base):
 
     @staticmethod
     @returns(int)
-    def get_user_id(user_email):
+    def get_user_id(user_email, interface):
         """
-        (CRAPPY)
+#        (CRAPPY)
         This crappy method is used since we do not exploit Manifold
         to perform queries on the Manifold storage, so we manually
         retrieve user_id.
@@ -67,9 +67,15 @@ class ModelUser(Base):
         Returns:
             The user ID related to an ModelUser.
         """
-        db = get_session(self)
-        ret = db.query(ModelUser.user_id).filter(ModelUser.email == user_params).one()
-        return ret[0]
+        try:
+            user, = interface.execute_local_query(Query\
+                .get("user").filter_by("email", "=", user_email))
+        except Exception, e:
+            raise ValueError("No Account found for User %s, Platform %s ignored: %s" % (user_email, platform_name, traceback.format_exc()))
+        return user['user_id']
+#        db = get_session(self)
+#        ret = db.query(ModelUser.user_id).filter(ModelUser.email == user_params).one()
+#        return ret[0]
 
     @staticmethod
     def process_params(params, filters, user):

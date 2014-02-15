@@ -89,6 +89,9 @@ class OperatorGraph(object):
         query.clear_namespace()
 
         if namespace == STORAGE_NAMESPACE:
+            # XXX such exceptions are not shown in commandline scripts such as
+            # addaccount.py
+            #raise Exception
             db_graph = router.get_dbgraph_storage()
             allowed_platforms = list() 
         else:

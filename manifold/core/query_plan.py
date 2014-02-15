@@ -23,6 +23,7 @@ from types                          import StringTypes
 from manifold.core.ast              import AST
 from manifold.core.explore_task     import ExploreTask
 from manifold.core.producer         import Producer
+from manifold.core.query            import ACTION_CREATE
 from manifold.core.stack            import Stack
 from manifold.operators.From        import From 
 from manifold.operators.operator    import Operator
@@ -51,7 +52,10 @@ class QueryPlan(object):
         assert isinstance(ast, AST),\
             "Invalid ast = %s (%s)" % (ast, type(ast))
 
-        ast.optimize(query)
+        destination = query.get_destination()
+        if query.get_action() == ACTION_CREATE:
+            ast.reorganize_create()
+        ast.optimize(destination)
         self.ast = ast
 
 #DEPRECATED|        # So far FROM Node embeds dummy queries having only the
@@ -133,11 +137,13 @@ class QueryPlan(object):
         seen = dict() # path -> set()
 
         missing_fields = set()
-        if query.get_select() == frozenset(): # SELECT * FROM root_table
+        missing_fields |= query.get_select()
+        missing_fields |= query.get_where().get_field_names()
+        missing_fields |= set(query.get_params().keys())
+
+        # XXX ???
+        if query.get_action() == 'get' and query.get_select() == frozenset(): # SELECT * FROM root_table
             missing_fields |= root_table.get_field_names()
-        else:
-            missing_fields |= query.get_select()
-            missing_fields |= query.get_where().get_field_names()
 
         while missing_fields:
             # Explore the next prior ExploreTask

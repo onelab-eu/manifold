@@ -34,18 +34,20 @@ class SQLA_Object(Object):
         types.Boolean : "bool"
     }
 
-    def __init__(self, gateway, model):
+    def __init__(self, gateway, model, interface):
         """
         Constructor.
         Args:
             gateway: A SQLAlchemyGateway instance.
             model: A class provided by manifold.models
+            interface: A manifold Interface
         """
         super(SQLA_Object, self).__init__(gateway)
 
         # self.model corresponds to a class inheriting manifold.models.Base
         # and implemented in manifold/models/.
-        self.model = model 
+        self.model      = model 
+        self._interface = interface
 
     #---------------------------------------------------------------------
     # Internal usage 
@@ -78,7 +80,7 @@ class SQLA_Object(Object):
         session = self.get_gateway().get_session()
 
         if query.get_where():
-            raise RuntimeError("Filters should be empty for a CREATE Query (%s)" % query)
+            raise RuntimeError("Filters should be empty for a CREATE Query (%s): %r" % (query, query.get_where()))
 
         cls = self.get_model()
 
@@ -86,7 +88,7 @@ class SQLA_Object(Object):
         if "password" in params:
             params["password"] = hash_password(params["password"])
         
-        _params = cls.process_params(params, None, user)
+        _params = cls.process_params(params, None, user, self._interface)
         new_obj = cls()
         #from sqlalchemy.orm.attributes import manager_of_class
         #mgr = manager_of_class(cls)
@@ -96,7 +98,6 @@ class SQLA_Object(Object):
             for k, v in params.items():
                 setattr(new_obj, k, v)
         session.add(new_obj)
-
         try:
             session.commit()
         except IntegrityError, e:
@@ -107,7 +108,8 @@ class SQLA_Object(Object):
             session.rollback()
         
         rows = [new_obj]
-        return Records([row2record(row) for row in rows])
+        records = Records([row2record(row) for row in rows])
+        return records
 
     @returns(Records)
     def update(self, query, annotation): 
@@ -278,7 +280,6 @@ class SQLA_Object(Object):
         primary_key = tuple()
 
         for column in model.__table__.columns:
-
             fk = column.foreign_keys
             if fk:
                 fk = iter(column.foreign_keys).next()
@@ -286,9 +287,14 @@ class SQLA_Object(Object):
             else:
                 _type = SQLA_Object._map_types[column.type.__class__]
 
+            # We hardcode that certain fields are local
+            _qualifiers = list() # ['const', 'local']
+            if column.name in ['auth_type', 'config']:
+                _qualifiers.append('local')
+
             # Multiple foreign keys are not handled yet
             table.insert_field(Field(
-                qualifiers  = list(), # nothing ["const"]
+                qualifiers  = _qualifiers, 
                 name        = column.name,
                 type        = _type,
                 is_array    = False,

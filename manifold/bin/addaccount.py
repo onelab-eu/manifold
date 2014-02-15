@@ -10,6 +10,9 @@
 import sys
 
 from manifold.bin.common    import check_option_email, check_option_enum, check_num_arguments, run_command
+from manifold.bin.shell     import Shell
+from manifold.util.log      import Log
+from manifold.util.options  import Options
 from manifold.util.storage  import STORAGE_NAMESPACE 
 
 DOC_ADD_ACCOUNT = """
@@ -40,21 +43,32 @@ usage: %(program_name)s USER_EMAIL PLATFORM_NAME AUTH_TYPE CONFIG
 
 CMD_ADD_ACCOUNT = """
 INSERT INTO %(namespace)s:account
-    SET user      = "%(user_email)s",
-        platform  = "%(platform_name)s",
-        auth_type = "%(auth_type)s",
-        config    = "%(config)s"
+    SET email      = '%(user_email)s',
+        platform  = '%(platform_name)s',
+        auth_type = '%(auth_type)s',
+        config    = '%(config)s'
 """
+# NOTE : we cannot put user in the query otherwise this fields will never get
+# found, and the queryplan fails
 
 VALID_AUTH_TYPE = ["managed", "user", "none"]
 
 def main():
+
+    # XXX This does nothing ???
+    Shell.init_options()
+    Log.init_options()
+    Options().parse()
+
     check_num_arguments(DOC_ADD_ACCOUNT, 5, 5)
     user_email, platform_name, auth_type, config = sys.argv[1:5]
     check_option_email("USER_EMAIL", user_email)
     check_option_enum("AUTH_TYPE", auth_type, VALID_AUTH_TYPE)
     namespace = STORAGE_NAMESPACE
-    return run_command(CMD_ADD_ACCOUNT % locals(), False)
+    ret = run_command(CMD_ADD_ACCOUNT % locals(), False)
+    # XXX raise an exception in the query plan construction, nothing is returned
+    # print "return value", ret
+    return ret
 
 if __name__ == "__main__":
     main()

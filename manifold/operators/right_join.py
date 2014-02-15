@@ -1,0 +1,330 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+# A RightJoin combines Records collect from its left child
+# and its right child and combine them.
+#
+# Copyright (C) UPMC Paris Universitas
+# Authors:
+#   Jordan Augé       <jordan.auge@lip6.fr> 
+#   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
+
+from types                          import StringTypes
+
+from manifold.core.destination      import Destination
+from manifold.core.filter           import Filter
+from manifold.core.packet           import Packet
+from manifold.core.producer         import Producer
+from manifold.core.query            import Query, ACTION_CREATE, ACTION_GET
+from manifold.core.record           import Record
+from manifold.operators.operator    import Operator
+from manifold.operators.projection  import Projection
+from manifold.operators.selection   import Selection
+from manifold.util.predicate        import Predicate, eq, included
+from manifold.util.log              import Log
+from manifold.util.type             import returns
+
+#------------------------------------------------------------------
+# RIGHT JOIN node
+#------------------------------------------------------------------
+
+class RightJoin(Operator):
+    """
+    RIGHT JOIN operator node
+    """
+
+    #---------------------------------------------------------------------------
+    # Constructor
+    #---------------------------------------------------------------------------
+
+    def __init__(self, predicate, parent_producer, producers):
+        """
+        Constructor.
+        Args:
+            left_child:  A Node instance corresponding to left
+                operand of the RIGHT JOIN
+            right_child: A Node instance corresponding to right
+                operand of the RIGHT JOIN
+            predicate: A Predicate instance invoked to determine
+                whether two records of left_child and right_child
+                can be joined.
+        """
+
+        # Check parameters
+        assert isinstance(predicate, Predicate), "Invalid predicate = %r (%r)" % (predicate, type(predicate))
+        assert predicate.op == eq
+        # In fact predicate is always : object.key, ==, VALUE
+
+        # Initialization
+        super(RightJoin, self).__init__(producers, parent_producer = parent_producer, max_producers = 1, has_parent_producer = True)
+        self._predicate = predicate
+
+        self._right_map     = dict() 
+        self._right_done    = False
+        self._right_packet = None
+
+    #---------------------------------------------------------------------------
+    # Internal methods
+    #---------------------------------------------------------------------------
+
+    @returns(StringTypes)
+    def __repr__(self):
+        """
+        Returns:
+            The '%r' representation of this RightJoin Operator.
+        """
+        return "RIGHT JOIN ON (%s %s %s)" % self._predicate.get_str_tuple()
+
+    #---------------------------------------------------------------------------
+    # Helpers
+    #---------------------------------------------------------------------------
+
+    def _get_left(self):
+        return self._parent_producer
+
+    def _get_right(self):
+        return self.get_producer()
+
+    def _update_left(self, function):
+        new_parent = function(self._parent_producer)
+        self._parent_producer = new_parent
+        new_parent.add_consumer(self, cascade = False)
+
+        Log.warning("If the parent producer changes, must update reciprocal link")
+
+    def _update_right(self, function):
+        self.update_producer(function)
+        Log.warning("If the parent producer changes, must update reciprocal link")
+
+    #---------------------------------------------------------------------------
+    # Methods
+    #---------------------------------------------------------------------------
+
+    @returns(Destination)
+    def get_destination(self):
+        """
+        Returns:
+            The Destination corresponding to this Operator. 
+        """
+        dleft  = self._get_left().get_destination()
+        dright = self._get_right().get_destination()
+        return dleft.right_join(dright)
+
+    def _update_and_send_left_packet(self):
+        """
+        # We have all left records
+
+        # NOTE: We used to dynamically change the query plan to
+        # filter on the primary key, which is not efficient. since
+        # the filter will always go deep down to the FROM node.
+        """
+
+        # keys = [2]
+        # keys = [(2,)]
+        keys = self._right_map.keys()
+
+        # We build the predicate to perform the join
+        # uses tuples...
+        ########### OLD #### predicate = Predicate(self._predicate.get_key(), included, self._right_map.keys())
+        param = { self._predicate.get_key(): self._right_map.keys()[0]}
+        self._left_packet.update_query(lambda q: q.set(param))
+
+        # Check whether we are propagating a CREATE QUERY
+        left_action = self._left_packet.get_query().get_action()
+        if left_action and self.right_params:
+            #print "/!\ We need to update the params of the left packet"
+            #print "     . Field set by the user =", self.right_params
+            #print "     . Field to be set in left = primary key", self._predicate.get_key()
+            #print "     . Value to be set", self._right_map.keys()
+            param_key   = self._predicate.get_key()
+            param_value = self._right_map.keys()
+            assert len(param_value) == 1
+            param_value = param_value[0]
+
+            self._left_packet.update_query(lambda q: q.set({param_key: param_value}))
+
+        #print "SENDING LEFT PACKET", self._left_packet
+        self.send_parent(self._left_packet)
+
+    def receive_impl(self, packet):
+        """
+        Handle an incoming Packet.
+        Args:
+            packet: A Packet instance.
+        """
+        # Out of the Query part since it is used for a True Hack !
+        right_fields = self._get_right().get_destination().get_fields()
+
+        if packet.get_protocol() == Packet.PROTOCOL_QUERY:
+            q = packet.get_query()
+            # We forward the query to the left node
+            # TODO : a subquery in fact
+
+            left_key    = self._predicate.get_field_names()
+            right_key    = self._predicate.get_value_names()
+
+            left_fields = self._get_left().get_destination().get_fields()
+            right_object = self._get_right().get_destination().get_object()
+
+            right_packet        = packet.clone()
+            # split filter and fields
+            self.right_params = {k: v for k, v in q.get_params().items() if k in right_fields}
+            left_params = {k: v for k, v in q.get_params().items() if k in left_fields}
+
+            # Right members can never be part of an update,
+            # otherwise, how to know about the existence of the object (SELECT_OR_CREATE)
+            #
+            # We will have to find the key to be updated though !!!!
+            #if q.get_action == ACTION_CREATE and not right_params:
+            right_packet.update_query(lambda q: q.set_action(ACTION_GET))
+            
+            right_packet.update_query(lambda q: q.set_object(right_object))
+            right_packet.update_query(lambda q: q.select(q.get_fields() & right_fields | right_key, clear = True))
+            right_packet.update_query(lambda q: q.filter_by(q.get_filter().split_fields(right_fields, True), clear = True))
+            # We need to transform right params into Filters
+            #right_packet.update_query(lambda q: q.set(self.right_params, clear = True))
+            for k, v in self.right_params.items():
+                right_packet.update_query(lambda q: q.filter_by(k, eq, v))
+
+            left_packet = packet.clone()
+            # We should rewrite the query...
+            left_packet.update_query(lambda q: q.select(q.get_fields() & left_fields | left_key, clear = True))
+            left_packet.update_query(lambda q: q.filter_by(q.get_filter().split_fields(left_fields, True), clear = True))
+            left_packet.update_query(lambda q: q.set(left_params, clear = True))
+            self._left_packet = left_packet
+
+            #print "SENDING RIGHT PACKET FIRST", right_packet
+            self.send(right_packet)
+
+        elif packet.get_protocol() == Packet.PROTOCOL_RECORD:
+            record = packet
+
+            is_last = record.is_last()
+            #if is_last:
+            #    record.unset_last()
+
+            #if packet.get_source() == self._producers.get_producer(): # XXX
+            if not self._right_done:
+
+                # XXX We need primary key in left record (fk in right record)
+                if not record.has_fields(self._predicate.get_field_names()):
+                    Log.warning("Missing RIGHTJOIN predicate %s in left record %r : discarding" % \
+                            (self._predicate, record))
+                    #─self.send(record)
+
+                else:
+                    # Store the result in a hash for joining later
+                    hash_key = record.get_value(self._predicate.get_key())
+                    self._right_map[hash_key] = record
+
+                if is_last:
+                    self._right_done = True
+                    self._update_and_send_left_packet()
+                    return
+                
+
+            else:
+                # formerly right_callback()
+
+                # Skip records missing information necessary to join
+                if not self._predicate.get_value_names() <= set(record.keys()) \
+                or record.has_empty_fields(self._predicate.get_value_names()):
+                    Log.warning("Missing RIGHTJOIN predicate %s in right record %r: ignored" % \
+                            (self._predicate, record))
+                    # We send the right record as is.
+                    self.send(left_record)
+                    return
+                
+                # We expect to receive information about keys we asked, and only these,
+                # so we are confident the key exists in the map
+                # XXX Dangers of duplicates ?
+                key = record.get_value(self._predicate.get_value())
+                #key = record.get_value(self._predicate.get_value_names()) # XXX WHAT IS THE KEY, A SINGLE RECORD OR A LIST LIKE LEFT JOIN ????
+                # XXX XXX XXX A SINGLE !!!
+                
+                # We don't remove the left record since we might have several
+                # right records corresponding to it
+                right_record = self._right_map.get(key)
+                
+                record.update(right_record)
+                self.send(record)
+
+        else: # TYPE_ERROR
+            self.send(packet)
+
+    @returns(Producer)
+    def optimize_selection(self, filter):
+        print "right join optimize selection", filter
+        # RIGHT JOIN
+        # We are pushing selections down as much as possible:
+        # - selection on filters on the left: can push down in the left child
+        # - selection on filters on the right: cannot push down
+        # - selection on filters on the key / common fields ??? TODO
+        # 
+        #                                        +------- ...
+        #                                       /
+        #                    +---+    +---+    /
+        #  FILTER -->    ----| ? |----| ⨝ |--< 
+        #                    +---+    +---+    \
+        #                                       +---+
+        #                 top_filter            | ? |---- ...
+        #                                       +---+
+        #                                    child_filter == parent_producer (sic.)
+        #
+
+        left_filter = self._get_left().get_destination().get_filter()
+
+        # Classify predicates...
+        top_filter, child_filter = Filter(), Filter()
+        for predicate in filter:
+            if predicate.get_field_names() < left_filter:
+                child_filter.add(predicate)
+            else:
+                top_filter.add(predicate)
+
+        # ... then apply child_filter...
+        if child_filter:
+            # XXX update_left !!
+            self.update_parent_producer(lambda p: p.optimize_selection(child_filter))
+
+        # ... and top_filter.
+        if top_filter:
+            s = Selection(self, top_filter)
+            return s 
+        return self
+
+    @returns(Producer)
+    def optimize_projection(self, fields):
+        """
+        query:
+        fields: the set of fields we want after the projection
+
+        Note: We list all the fields we want every time
+        """
+        # Ensure we have keys in left and right children
+        # After RIGHTJOIN, we might keep the left key, but never keep the right key
+
+        # What are the keys needed in the left (resp. right) table/view
+        key_left = self._predicate.get_field_names()
+        key_right = self._predicate.get_value_names()
+
+        # Fields requested on the left side = fields requested belonging in left side
+        left_fields  = fields & self._get_left().get_destination().get_fields()
+        left_fields |= key_left
+
+        right_fields  = fields & self._get_right().get_destination().get_fields()
+        right_fields |= key_right
+
+        self._update_left( lambda l: l.optimize_projection(left_fields))
+        self._update_right(lambda r: r.optimize_projection(right_fields))
+
+        # Do we need a projection on top (= we do not request the join keys)
+        if left_fields | right_fields > fields:
+            return Projection(self, fields)
+        return self
+            
+    @returns(Producer)
+    def reorganize_create(self):
+        self._update_left( lambda l: l.reorganize_create())
+        self._update_right(lambda r: r.reorganize_create())
+        return self

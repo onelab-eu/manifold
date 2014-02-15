@@ -104,7 +104,7 @@ class SQLAlchemyGateway(Gateway):
         # Tables corresponding to a class in manifold.gateways.methods (except
         # sqla_object) (and stored in SQLAlchemy)
         for table_name, cls in self.MAP_OBJECT.items():
-            instance = SQLAlchemyGateway.MAP_OBJECT[table_name](self)
+            instance = SQLAlchemyGateway.MAP_OBJECT[table_name](self, self._interface)
             announces.append(instance.make_announce())
 
         # Virtual tables ("object", "column", ...) 
@@ -136,7 +136,8 @@ class SQLAlchemyGateway(Gateway):
             else:
                 raise RuntimeError("Invalid table '%s::%s'" % (self.get_platform_name(), table_name))
         else:
-            instance = SQLAlchemyGateway.MAP_OBJECT[table_name](self)
+            # We need to pass a pointer to the manifold interface to the objects since they have to make # queries
+            instance = SQLAlchemyGateway.MAP_OBJECT[table_name](self, self._interface)
             annotation = packet.get_annotation()
             if not annotation:
                 annotation = Annotation()

@@ -139,3 +139,7 @@ class Selection(Operator):
             # or add projection that removes fields
             return Projection(self, fields)
         return self
+
+    @returns(Producer)
+    def reorganize_create(self):
+        return self.get_producer().reorganize_create()
