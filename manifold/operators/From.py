@@ -199,6 +199,7 @@ class From(Operator):
             The Destination corresponding to this Operator. 
         """
         q = self.get_query()
+
         return Destination(q.get_from(), q.get_where(), q.get_select())
 
     def receive_impl(self, packet):
@@ -322,3 +323,7 @@ class From(Operator):
                 return Projection(self, fields)
                 #projection.query = self.query.copy().filter_by(filter) # XXX
             return self
+
+    @returns(Operator)
+    def reorganize_create(self):
+        return self

@@ -12,11 +12,19 @@
 import copy, json, uuid, traceback
 
 from types                          import StringTypes
+from manifold.core.destination      import Destination
 from manifold.core.filter           import Filter, Predicate
 from manifold.util.clause           import Clause
 from manifold.util.frozendict       import frozendict
 from manifold.util.log              import Log
 from manifold.util.type             import returns, accepts
+
+ACTION_NONE    = ''
+ACTION_CREATE  = 'create'
+ACTION_GET     = 'get'
+ACTION_UPDATE  = 'update'
+ACTION_DELETE  = 'delete'
+ACTION_EXECUTE = 'execute'
 
 def uniqid (): 
     return uuid.uuid4().hex
@@ -256,6 +264,10 @@ class Query(object):
     def get_action(self):
         return self.action
 
+    def set_action(self, action):
+        self.action = action
+        return self
+
     @returns(frozenset)
     def get_select(self): # DEPRECATED
         return self.get_fields()
@@ -469,14 +481,16 @@ class Query(object):
             return self
 
         for field in fields:
-            if self.fields:
+            if field:
                 self.fields.add(field)
             else:
                 # This is a SELECT * clause, so we've nothing to add.
                 pass
         return self
 
-    def set(self, params):
+    def set(self, params, clear = False):
+        if clear:
+            self.params = dict()
         self.params.update(params)
         return self
 
@@ -551,3 +565,13 @@ class Query(object):
         if ':' in self.get_from():
             namespace, table_name = self.get_from().rsplit(':', 2)
             self.object = table_name
+
+    #--------------------------------------------------------------------------- 
+    # Destination
+    #--------------------------------------------------------------------------- 
+
+    def get_destination(self):
+        fields  = set()
+        fields |= self.fields
+        fields |= set(self.params.keys())
+        return Destination(self.object, self.filters, fields)

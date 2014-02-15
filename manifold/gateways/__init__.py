@@ -51,6 +51,8 @@ class Gateway(Producer):
             force: A boolean set to True enforcing Gateway registration
                 even if already done.
         """
+        # XXX We should not need such test... it's a coding error and should
+        # raise a Fatal exception
         if not Gateway.registered:
             Log.info("Registering gateways")
             current_module = sys.modules[__name__]

@@ -79,7 +79,6 @@ class ModelAccount(Base):
             for user_filter in user_filters:
                 assert user_filter.op.__name__ == "eq", "Only == is supported for convenience filter 'user'" 
                 user_email = user_filter.value
-                print "User.get_user_id(user_email)", ModelUser.get_user_id(user_email)
                 filters.add(Predicate("user_id", "=", ModelUser.get_user_id(user_email)))
             
         # Update predicates involving "platform"
@@ -95,7 +94,7 @@ class ModelAccount(Base):
         
     @staticmethod
     @returns(dict)
-    def process_params(params, filters, user):
+    def process_params(params, filters, user, interface):
         """
         Process "params" clause carried by a Query to abstract Manifold from
         considerations related to the Manifold Storage (for instance json
@@ -109,7 +108,9 @@ class ModelAccount(Base):
         if user_params:
             del params["user"]
             user_email = user_params
-            params["user_id"] = ModelUser.get_user_id(user_email)
+            print "get user id"
+            params["user_id"] = ModelUser.get_user_id(user_email, interface)
+            print "get user id ok", params
 
         platform_params = params.get("platform")
         if platform_params:
@@ -119,20 +120,20 @@ class ModelAccount(Base):
 
         # JSON ENCODED FIELDS are constructed into the json_fields variable
         given = set(params.keys())
-        accepted = set([c.name for c in Account.__table__.columns])
+        accepted = set([c.name for c in ModelAccount.__table__.columns])
         given_json_fields = given - accepted
-        Log.tmp("given_json_fields = %s given = %s accepted = %s" % (given_json_fields, given, accepted))
+        #Log.tmp("given_json_fields = %s given = %s accepted = %s" % (given_json_fields, given, accepted))
         
         if given_json_fields:
             if 'config' in given_json_fields:
                 raise Exception, "Cannot mix full JSON specification & JSON encoded fields"
 
             db = get_session(self)
-            r = db.query(Account.config)
+            r = db.query(ModelAccount.config)
             for filter in filters:
                 r = r.filter(filter)
             if user:
-                r = r.filter(Account.user_id == user['user_id'])
+                r = r.filter(ModelAccount.user_id == user['user_id'])
             #r = r.filter(filters) #Account.platform_id == platform_id)
             r = r.one()
             try:

@@ -20,6 +20,7 @@
 
 from manifold.core.code     import CORE
 from manifold.core.packet   import Packet
+from manifold.core.producer import Producer
 from manifold.core.query    import Query 
 from manifold.core.relay    import Relay
 from manifold.util.log      import Log

@@ -43,11 +43,11 @@ SELECT name
 CMD_ADD_PLATFORM = """
 INSERT INTO %(namespace)s:platform
     SET 
-        platform          = %(platform_name)s,
-        platform_longname = %(platform_longname)s,
-        gateway_type      = %(gateway_type)s,
-        auth_type         = %(auth_type)s,
-        config            = %(config)s,
+        platform          = '%(platform_name)s',
+        platform_longname = '%(platform_longname)s',
+        gateway_type      = '%(gateway_type)s',
+        auth_type         = '%(auth_type)s',
+        config            = '%(config)s',
         disabled          = %(disabled)s
 """
 

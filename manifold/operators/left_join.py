@@ -19,6 +19,7 @@ from manifold.core.query            import Query
 from manifold.core.record           import Record
 from manifold.operators.operator    import Operator
 from manifold.operators.projection  import Projection
+from manifold.operators.right_join  import RightJoin
 from manifold.operators.selection   import Selection
 from manifold.util.predicate        import Predicate, eq, included
 from manifold.util.log              import Log
@@ -91,7 +92,9 @@ class LeftJoin(Operator):
         return self.get_producer()
 
     def _update_left(self, function):
-        self._parent_producer = function(self._parent_producer)
+        new_parent = function(self._parent_producer)
+        self._parent_producer = new_parent
+        new_parent.add_consumer(self, cascade = False)
         Log.warning("If the parent producer changes, must update reciprocal link")
 
     def _update_right(self, function):
@@ -165,6 +168,7 @@ class LeftJoin(Operator):
             right_packet.update_query(lambda q: q.filter_by(q.get_filter().split_fields(right_fields, True), clear = True))
             self._right_packet = right_packet
 
+            print "left packet", left_packet
             self.send_parent(left_packet)
 
         elif packet.get_protocol() == Packet.PROTOCOL_RECORD:
@@ -236,12 +240,17 @@ class LeftJoin(Operator):
         else: # TYPE_ERROR
             self.send(packet)
 
+    #---------------------------------------------------------------------------
+    # AST manipulations & optimization
+    #---------------------------------------------------------------------------
+
     @returns(Producer)
     def optimize_selection(self, filter):
         # LEFT JOIN
         # We are pushing selections down as much as possible:
         # - selection on filters on the left: can push down in the left child
-        # - selection on filters on the right: cannot push down
+        # - selection on filters on the right: cannot push down: in fact right
+        # join is possible
         # - selection on filters on the key / common fields ??? TODO
         # 
         #                                        +------- ...
@@ -255,24 +264,55 @@ class LeftJoin(Operator):
         #                                    child_filter == parent_producer (sic.)
         #
 
-        left_filter = self._get_left().get_destination().get_filter()
+        left_fields  = self._get_left().get_destination().get_fields()
+        right_fields = self._get_right().get_destination().get_fields()
+
+        # We do go for a right_join ?
+        # - no filters on left child => YES
+        # - in case of insert => YES
+        # - on join ? 
+        # - filters on PK are more efficients => YES ?
+        # - note that we might do a partial right join (example: where user_id = # 3 and platform = ple
+        # Maybe as soon as we have filters on the right member since we can keep
+        # filters on the left also
+
+        top_filter, left_filter, right_filter = Filter(), Filter(), Filter()
+
+        right_join = False
+        if right_filter and not left_filter:
+            right_join = True
 
         # Classify predicates...
-        top_filter, child_filter = Filter(), Filter()
         for predicate in filter:
-            if predicate.get_field_names() < left_filter:
-                child_filter.add(predicate)
+            if predicate.get_field_names() < left_fields:
+                left_filter.add(predicate)
+            elif right_join and predicate.get_field_names() < right_fields:
+                right_filter.add(predicate)
             else:
                 top_filter.add(predicate)
 
-        # ... then apply child_filter...
-        if child_filter:
-            self.update_parent_producer(lambda p: p.optimize_selection(child_filter))
+        # ... then apply left_ and right_filter...
+        if left_filter:
+            self.update_parent_producer(lambda p: p.optimize_selection(left_filter))
+        if right_filter:
+            self.update_parent_producer(lambda p: p.optimize_selection(right_filter))
+
+        if right_join:
+            # We need to be sure to have the same producers...
+            # consumers should be handled by the return new_self
+            # XXX We need to delete it !!!
+            parent_producer = self.get_parent_producer()
+            producer        = self.get_producer()
+            self.del_parent_producer()
+            self.clear_producers()
+            new_self = RightJoin(self._predicate, parent_producer, producer) 
+        else:
+            new_self = self
 
         # ... and top_filter.
         if top_filter:
-            return Selection(self, top_filter)
-        return self
+            return Selection(new_self, top_filter)
+        return new_self
 
     @returns(Producer)
     def optimize_projection(self, fields):
@@ -290,6 +330,7 @@ class LeftJoin(Operator):
         key_right = self._predicate.get_value_names()
 
         # Fields requested on the left side = fields requested belonging in left side
+        # XXX faux on perd les champs nécessaires au join bien plus haut
         left_fields  = fields & self._get_left().get_destination().get_fields()
         left_fields |= key_left
 
@@ -303,7 +344,16 @@ class LeftJoin(Operator):
         if left_fields | right_fields > fields:
             return Projection(self, fields)
         return self
-            
+
+    @returns(Producer)
+    def reorganize_create(self):
+        # Transform into a Right Join
+        # XXX we need to delete it !!!
+        parent_producer = self.get_parent_producer().reorganize_create()
+        producer        = self.get_producer().reorganize_create()
+        self.del_parent_producer()
+        self.clear_producers()
+        return RightJoin(self._predicate, parent_producer, producer) 
 
     #---------------------------------------------------------------------------
     # Deprecated code 

@@ -77,6 +77,7 @@ class Interface(object):
         Function called back while entering a "with" statement.
         See http://effbot.org/zone/python-with-statement.htm
         """
+        ReactorThread._drop()
         ReactorThread().start_reactor()
         return self
 

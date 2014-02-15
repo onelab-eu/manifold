@@ -286,7 +286,19 @@ class SFAGatewayCommon(Gateway):
 
         try:
             user_account = self.get_account(user_email)
+        except ValueError, e:
+            # get_account raises ValueError if not account is found
+            # No account => we should ignore this platform
+            # XXX gateways misconfiguratons should not make the whole query
+            # fail, unless they are alone. This is up to the Receiver to
+            # transform gateway errors into query warnings.
+            self.error(packet, "Account related to %s for platform %s not found" % (user_email, self.get_platform_name()))
+            return
+            
         except AttributeError:
+            # XXX what is attribute error. I don't understand how the error is
+            # handled. If we are looking into the annotation, what is inside
+            # should be priority, and not the storage content.
             user_account = annotation["account"]
 
         user_account_config = user_account["config"]

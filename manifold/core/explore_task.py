@@ -16,7 +16,7 @@ from twisted.internet.defer        import Deferred, DeferredList
 
 from manifold.core.ast             import AST
 from manifold.core.filter          import Filter
-from manifold.core.query           import Query
+from manifold.core.query           import Query, ACTION_GET
 from manifold.core.stack           import Stack, TASK_11, TASK_1Nsq, TASK_1N
 from manifold.operators.demux      import Demux
 from manifold.util.log             import Log
@@ -407,7 +407,19 @@ class ExploreTask(Deferred):
 
                 # XXX We lack field pruning
                 # We create 'get' queries by default, this will be overriden in query_plan::fix_froms 
-                query = Query.action('get', method.get_name()).select(fields)
+                # - Here we could keep all fields, but local fields we be
+                # repreented many times in the query plan, that will mess up
+                # when we try to optimize selection/projection
+                # - If we select (fields & self.keep_root_a), then we cannot
+                # know later on where a field needed for a join that has been
+                # injected can be found
+                # - With unique naming, we could adopt the first solution. To
+                # balance both, we will remove local fields.
+                map_field_local = {f.get_name(): f.is_local() for f in table.get_fields()}
+                selected_fields  = set([f for f in fields if not map_field_local[f]])
+                selected_fields |= self.keep_root_a
+                    
+                query = Query.action(ACTION_GET, method.get_name()).select(selected_fields)
 
                 platform = method.get_platform()
                 capabilities = metadata.get_capabilities(platform, query.get_from())

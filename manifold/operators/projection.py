@@ -163,3 +163,7 @@ class Projection(Operator):
     def optimize_projection(self, fields):
         # We only need the intersection of both
         return self.get_producer().optimize_projection(self._fields & fields)
+
+    @returns(Producer)
+    def reorganize_create(self):
+        return self.get_producer().reorganize_create()

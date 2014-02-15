@@ -365,12 +365,18 @@ def run_command(command, load_storage = True, dicts = None):
         >0                : if the command has failed
             See also manifold.core.code
     """
-    Shell.init_options()
+    # XXX pkoi ?
+    #Shell.init_options()
+
+    # XXX Impossible to understand arguments... i don't see why we would pass a
+    # storage to the Shell...
     shell = Shell(False, MANIFOLD_STORAGE, load_storage)
 
     try:
+        # XXX Why isn't it a shell method...
         ret = shell_run_command(shell, command, dicts)
     except Exception, e:
+        print e
         Log.error(format_exc())
         ret = 2 
 
