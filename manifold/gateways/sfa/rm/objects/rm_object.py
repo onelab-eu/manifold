@@ -35,6 +35,8 @@ class RM_Object(DeferredObject):
         # let's just set up callbacks
         gateway = self.get_gateway()
         query = packet.get_query()
+        # NOTE : aucune chance de rattraper les erreurs dans les fonction
+        # asynchrones comme celle-ci (a moins de inlineCallbacks)
         return self._get(user, account_config, query)
         
     @defer.inlineCallbacks
@@ -75,10 +77,11 @@ class RM_Object(DeferredObject):
 
         # Retrieve interface HRN (ex: "ple")
         interface_hrn = yield gateway.get_hrn()
-
         # Recursive: Should be based on jokers, eg. ple.upmc.*
         # Resolve  : True: make resolve instead of list
         if object_hrns:
+            print "We have objects hrns", object_hrns
+            
             # 0) given object name
 
             # If the objects are not part of the hierarchy, let's return [] to

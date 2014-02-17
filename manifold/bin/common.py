@@ -14,7 +14,6 @@ from types               import StringTypes
 from manifold.util.log   import Log 
 from manifold.util.type  import accepts, returns
 from ..bin.shell         import Shell
-from ..bin.config        import MANIFOLD_STORAGE
 
 CODE_SUCCESSFUL         =  0
 
@@ -336,6 +335,7 @@ def shell_run_command(shell, command, dicts):
                 for record in result_value["value"]:
                     dicts.append(record.to_dict())
         else:
+            Log.error(result_value)
             ret = result_value.get_code() 
     except Exception, e:
         Log.error(format_exc())
@@ -365,19 +365,21 @@ def run_command(command, load_storage = True, dicts = None):
         >0                : if the command has failed
             See also manifold.core.code
     """
-    # XXX pkoi ?
-    #Shell.init_options()
+    # This triggers options parsing, hence moved here
+    from ..bin.config        import MANIFOLD_STORAGE
 
     # XXX Impossible to understand arguments... i don't see why we would pass a
     # storage to the Shell...
+
     shell = Shell(False, MANIFOLD_STORAGE, load_storage)
 
     try:
         # XXX Why isn't it a shell method...
         ret = shell_run_command(shell, command, dicts)
     except Exception, e:
-        print e
         Log.error(format_exc())
+        # XXX Here we need to forge a result value, this is an internal
+        # exception
         ret = 2 
 
     shell.terminate()

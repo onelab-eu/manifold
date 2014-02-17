@@ -452,12 +452,28 @@ class Interface(object):
         try:
             root_node = self._operator_graph.build_query_plan(query, annotation)
             root_node.add_consumer(socket)
-            socket.receive(packet)
         except Exception, e:
             error_packet = ErrorPacket(
                 type      = ERROR,
                 code      = BADARGS,
                 message   = "Unable to build a suitable Query Plan (query = %s): %s" % (query, e),
+                traceback = traceback.format_exc()
+            )
+            socket.receive(error_packet)
+
+        # Forwarding requests:
+        # This might raise issues:
+        # - during the forwarding of the query (for all gateways)
+        # - during the forwarding of results (for synchronous gateways).
+        # For async gateways, errors will be handled in errbacks.
+        # XXX We should mutualize this error handling core and the errbacks
+        try:
+            socket.receive(packet)
+        except Exception, e:
+            error_packet = ErrorPacket(
+                type      = ERROR,
+                code      = BADARGS,
+                message   = "Unable to execute Query Plan (query = %s): %s" % (query, e),
                 traceback = traceback.format_exc()
             )
             socket.receive(error_packet)

@@ -18,6 +18,7 @@ STORAGE_CONFIG   = {
     "user" : None
 }
 
+# This trigger Options parsing because Gateway.register_all() uses Logging
 MANIFOLD_STORAGE = SQLAlchemyStorage(
     platform_config = STORAGE_CONFIG 
 )

@@ -14,12 +14,14 @@
 import re
 from twisted.internet                           import defer
 
+from rm_object                                  import RM_Object
+
 from sfa.storage.record                         import Record
 from sfa.util.xrn                               import Xrn, get_authority
 
-from manifold.gateways.sfa.rm.methods.rm_object import RM_Object
 from manifold.util.log                          import Log
 from manifold.util.type                         import accepts, returns 
+
 
 @returns(bool)
 def check_ssh_key(key):
@@ -157,6 +159,7 @@ class Slice(RM_Object):
         try:
             slice_gid = sfa_proxy.Register(record_dict, credential)
         except Exception, e:
+            print "ERROR in sfa register"
             Log.error("%s" % e)
 
         defer.returnValue(list())

@@ -49,10 +49,5 @@ class PoolProducers(set):
         if packet.get_protocol() not in [Packet.PROTOCOL_QUERY]:
             raise ValueError, "Invalid packet type for producer: %s" % Packet.get_protocol_name(packet.get_protocol())
 
-        try:
-            for producer in self:
-                producer.receive(packet)
-        except:
-            # I did this crappy try..except to allow Gateways to close Socket and
-            # removing in cascade parent operators without making crash this loop.
-            pass
+        for producer in self:
+            producer.receive(packet)

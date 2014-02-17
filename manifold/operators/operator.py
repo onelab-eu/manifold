@@ -96,10 +96,7 @@ class Operator(Relay):
         Args:
             packet: A Packet instance.
         """
-        try:
-            self.receive_impl(packet)
-        except Exception, e:
-            self.error("%s" % e)
+        self.receive_impl(packet)
 
     def error(self, description, is_fatal = True):
         """
@@ -111,5 +108,6 @@ class Operator(Relay):
                 must make crash the pending Query.
         """
         # Could be factorized with Gateway::error() by defining Producer::error()
+        print "error packet making"
         error_packet = self.make_error(CORE, description, is_fatal)
         self.send(error_packet)

@@ -71,8 +71,7 @@ class ChildStatus:
             try:
                 self.all_done_cb()
             except Exception, e:
-                print "EXCEPTION IN ChildStatus, calling", self.all_done_cb
-                print e
+                print "EXCEPTION IN ChildStatus", e , "calling", self.all_done_cb
                 import traceback
                 traceback.print_exc()
 

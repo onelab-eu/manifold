@@ -8,7 +8,7 @@
 #
 # Copyright (C) 2013 UPMC-INRIA
 
-from manifold.gateways.sfa.rm.methods.rm_object    import RM_Object
+from rm_object  import RM_Object
 
 class User(RM_Object):
     aliases = {

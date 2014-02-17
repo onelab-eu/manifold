@@ -35,10 +35,14 @@ from manifold.util.type                     import accepts, returns
 class SFA_RMGateway(SFAGatewayCommon):
     __gateway_name__ = "sfa_rm"
 
-    from manifold.gateways.sfa.rm.methods.authority import Authority
-    from manifold.gateways.sfa.rm.methods.slice     import Slice 
-    from manifold.gateways.sfa.rm.methods.user      import User 
+    # Import the objects...
+    from .objects.authority import Authority
+    from .objects.slice     import Slice 
+    from .objects.user      import User 
 
+    # ...and map them to their name 
+    # XXX This should be automatic based on object properties; we might also
+    # have a PluginFactory
     METHOD_MAP = {
         "authority" : Authority,
         "user"      : User,
@@ -101,87 +105,6 @@ class SFA_RMGateway(SFAGatewayCommon):
         """
         Log.debug("Not yet implemented. Run delegation script in the meantime")
     
-    # TODO move in ../__init__
-    def get_object(self, table_name):
-        """
-        Retrieve the Object corresponding to a table_name.
-        See manifold.gateways.sfa.rm.methods
-        Args:
-            table_name: A String among {"user", "slice", "authority"}.
-        Returns:
-            The corresponding RM_Object class. 
-        """
-        assert table_name in SFA_RMGateway.METHOD_MAP.keys(), \
-            "Invalid table_name (%s). It should be in {%s}" % (
-                table_name,
-                ", ".join(SFA_RMGateway.METHOD_MAP.keys())
-            )
-        return SFA_RMGateway.METHOD_MAP[table_name](self) 
-
-    # TODO move in ../__init__
-    def perform_query(self, user, user_account_config, packet):
-        """
-        Perform a Query on this Gateway.
-        Args:
-            user: A dictionnary carrying a description of the User issuing the Query.
-            user_account_config: A dictionnary storing the account configuration related to
-                the User and to the nested Platform managed by this Gateway.
-            packet: A packet query
-        Returns:
-            The list of corresponding Records if any.
-        """
-        query = packet.get_query()
-
-        # Check whether action is set to a valid value.
-        VALID_ACTIONS = ["get", "create", "update", "delete", "execute"]
-        action = query.get_action()
-        if action not in VALID_ACTIONS: 
-            failure = Failure("Invalid action (%s), not in {%s}" % (action, ", ".join(VALID_ACTIONS)))
-            failure.raiseException()
-
-        # Dynamically import the appropriate package.
-        # http://stackoverflow.com/questions/211100/pythons-import-doesnt-work-as-expected
-        table_name  = query.get_from()
-        # XXX This might fail if we send wrong metadata: raise internal error
-        module_name = "%s%s" % ("manifold.gateways.sfa.rm.methods.", table_name)
-        __import__(module_name)
-
-        # Call the appropriate method.
-        # http://stackoverflow.com/questions/3061/calling-a-function-from-a-string-with-the-functions-name-in-python
-        instance = self.get_object(table_name)
-        method = getattr(instance, action)
-
-        # The deferred returned by this methods is being associated a
-        # callback by the parent function
-        return method(user, user_account_config, packet)
-
-    # TODO move in ../__init__
-    @defer.inlineCallbacks
-    @returns(GeneratorType)
-    def handle_error(self, user, user_account):
-        """
-        This function when a Query has failed in its first attemp.
-        """
-        Log.warning("Using anonymous to access Manifold's Storage")
-
-        user_account_config = user_account['config'] if user_account else None
-
-        # Retrieve admin's config
-        admin_account = self.get_account(ADMIN_USER["email"])
-        admin_account_config = admin_account["config"] if admin_account else None
-        assert isinstance(admin_account_config, dict), "Invalid admin_account_config"
-
-        # Managing account
-        user_account_config = yield self.manage(user, user_account_config, admin_account_config)
-
-        # Update the Storage consequently
-        self._interface.execute_local_query(
-            Query.update("account")\
-                .set({"config": json.dumps(user_account_config)})\
-                .filter_by("user_id",     "=", user_account["user_id"])\
-                .filter_by("platform_id", "=", user_account["platform_id"])
-        )
-
     @staticmethod
     @returns(StringTypes)
     def get_credential(user, user_account_config, type, target_hrn = None):

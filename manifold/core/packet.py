@@ -251,7 +251,8 @@ class ErrorPacket(Packet):
             message: A String containing the error message or None.
             traceback: A String containing the traceback or None.
         """
-        assert type in [WARNING, ERROR]
+        # XXX Wrong !! type for error packets has nothing to do with ERROR WARNING
+        # assert type in [WARNING, ERROR]
         assert isinstance(code, int)
         assert not message   or isinstance(message, StringTypes)
         assert not traceback or isinstance(traceback, StringTypes)
@@ -270,8 +271,15 @@ class ErrorPacket(Packet):
     @staticmethod
     def from_exception(e):
         if not isinstance(e, ManifoldException):
+            print "not e m"
             e = ManifoldException(e)
-        return ErrorPacket(e.TYPE, e.CODE, str(e))
+            import traceback
+            traceback.print_exc()
+            print "manifod"
+        print "make error packet"
+        ret = ErrorPacket(e.TYPE, e.CODE, str(e))
+        print "ret=", ret
+        return ret
 
     @returns(StringTypes)
     def get_message(self):

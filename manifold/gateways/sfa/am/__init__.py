@@ -19,6 +19,7 @@ from sfa.rspecs.rspec                   import RSpec
 from sfa.util.xrn                       import hrn_to_urn, urn_to_hrn
 
 from manifold.core.filter               import Filter
+from manifold.core.query                import Query
 from manifold.gateways.sfa              import SFAGatewayCommon, DEMO_HOOKS
 
 from manifold.gateways.sfa.user         import ADMIN_USER, check_user  
@@ -34,6 +35,14 @@ def unique_call_id():
 
 class SFA_AMGateway(SFAGatewayCommon):
     __gateway_name__ = "sfa_am"
+
+    #from ..objects.resource  import Resource
+    #from ..objects.lease     import Lease
+
+    METHOD_MAP = {
+    #    "resource"  : Resource,
+    #    "lease"     : Lease
+    }
 
     def __init__(self, interface, platform, platform_config = None):
         """
@@ -59,27 +68,35 @@ class SFA_AMGateway(SFAGatewayCommon):
             Allow to iterate on a list of dictionnary representing each RM
             related to this AM.
         """
-        platform_names = self.get_config()["rm_platforms"]
+        config = self.get_config()
+        if 'rm_platforms' in config:
+            platform_names = self.get_config()["rm_platforms"]
+        else:
+            # Shall we consider all RMs ? XXX -- jordan
+            platform_names = None
 
         # Check whether this AM refers to at least one RM.
-        if len(platform_names) == 0:
-            raise ValueError("This AM %s must refer to at least one RM!" % self.get_platform_name())
+        # XXX Pourquoi, avec mon changement fait plus haut -- jordan
+        #if len(platform_names) == 0:
+        #    raise ValueError("This AM %s must refer to at least one RM!" % self.get_platform_name())
 
         # Retrieve RM related to this AM by querying the Manifold Storage.
-        platforms = self._interface.execute_local_query(
-            Query.get("platform")\
-                .filter_by("gateway_type", "=", "sfa_rm")\
-                .filter_by("platform",     "{", platform_names),
-        )
+        platform_query = Query.get("platform").filter_by("gateway_type", "=", "sfa_rm")
+        if platform_names:
+            platform_query.filter_by("platform", "{", platform_names)
+        platforms = self._interface.execute_local_query(platform_query)
 
         # Check whether every RM referenced by this AM have been found. 
-        found_platform_names = [platform["platform"] for platform in platforms]
-        if set(found_platform_names) != set(platform_names):
-            Log.warning("%s refers to the following RM {%s}, but only the following ones have been found in the Manifold Storage {%s}" %
-                self.get_platform_name(),
-                ", ".join(platform_names),
-                ", ".join(found_platform_names)
-            )
+        if platform_names: # XXX jordan I had to add this
+            found_platform_names = [platform["platform"] for platform in platforms]
+            print "found_platform_names", found_platform_names
+            print "platform_names", platform_names
+            if set(found_platform_names) != set(platform_names):
+                Log.warning("%s refers to the following RM {%s}, but only the following ones have been found in the Manifold Storage {%s}" %
+                    self.get_platform_name(),
+                    ", ".join(platform_names),
+                    ", ".join(found_platform_names)
+                )
 
         # Return fetched RMs
         for platform in platforms: 
