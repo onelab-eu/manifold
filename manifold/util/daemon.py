@@ -62,7 +62,6 @@ class Daemon(object):
             getattr(daemon, "DaemonContext")
             ret = True
         except AttributeError, e:
-            print e
             # daemon and python-daemon conflict with each other
             Log.critical("Please install python-daemon instead of daemon. Remove daemon first.")
         except ImportError:

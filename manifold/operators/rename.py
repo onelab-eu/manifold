@@ -41,14 +41,17 @@ class Rename(Operator):
         """
         assert isinstance(aliases, dict),\
             "Invalid aliases = %s (%s)" % (aliases, type(aliases))
-        assert set(aliases.keys()) & set(aliases.values()) == set(),\
-            "Invalid aliases = %r (keys and values should be disjoint) (collisions on {%s})" % (
-                aliases,
-                set(aliases.keys()) & set(aliases.values())
-            )
+        # XXX Why ? -- jordan
+        print "Disabled collision check in aliases"
+        #assert set(aliases.keys()) & set(aliases.values()) == set(),\
+        #    "Invalid aliases = %r (keys and values should be disjoint) (collisions on {%s})" % (
+        #        aliases,
+        #        set(aliases.keys()) & set(aliases.values())
+        #    )
 
         Operator.__init__(self, producers = child, max_producers = 1)
         self._aliases = aliases
+        print "ok rename"
 
     @returns(dict)
     def get_aliases(self):

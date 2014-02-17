@@ -68,5 +68,27 @@ class ManagementException(GatewayException):
     CODE = 1
 
 #-------------------------------------------------------------------------------
-# 4. Other types of errors
+# 4. Gateway error
+#-------------------------------------------------------------------------------
+
+class StorageException(ManifoldException):
+    TYPE = 4
+
+class NoUserException(StorageException):
+    CODE = 1
+
+class NoPlatformException(StorageException):
+    CODE = 2
+
+class NoAccountException(StorageException):
+    CODE = 3
+
+class NoAdminUserException(StorageException):
+    CODE = 4
+
+class NoAdminAccountException(StorageException):
+    CODE = 5
+
+#-------------------------------------------------------------------------------
+# 5. Other types of errors
 #-------------------------------------------------------------------------------

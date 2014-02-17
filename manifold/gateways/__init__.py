@@ -505,16 +505,13 @@ class Gateway(Producer):
                 send back more Packet for the current Query, False
                 otherwise.
         """
-        try:
-            self.check_query_packet(packet)
-            if issubclass(type(description), Exception):
-                description = "%s" % description
-            assert isinstance(description, StringTypes),\
-                "Invalid description = %s (%s)" % (description, type(description))
-            assert isinstance(is_fatal, bool),\
-                "Invalid is_fatal = %s (%s)" % (is_fatal, type(is_fatal))
-        except Exception, e:
-            Log.error(e)
+        self.check_query_packet(packet)
+        if issubclass(type(description), Exception):
+            description = "%s" % description
+        assert isinstance(description, StringTypes),\
+            "Invalid description = %s (%s)" % (description, type(description))
+        assert isinstance(is_fatal, bool),\
+            "Invalid is_fatal = %s (%s)" % (is_fatal, type(is_fatal))
 
         # Could be factorized with Operator::error() by defining Producer::error()
         socket = self.get_socket(packet.get_query())
@@ -549,13 +546,11 @@ class Gateway(Producer):
         """
         self.check_receive(packet)
 
-        try:
-            if not self.handle_query_object(packet):
-                # This method must be overloaded on the Gateway
-                # See manifold/gateways/template/__init__.py
-                self.receive_impl(packet) 
-        except Exception, e:
-            self.error(packet, e, True)
+
+        if not self.handle_query_object(packet):
+            # This method must be overloaded on the Gateway
+            # See manifold/gateways/template/__init__.py
+            self.receive_impl(packet) 
 
 # XXX Since this function always return after the query is sent, we need to close after the last receive record or error instead
 

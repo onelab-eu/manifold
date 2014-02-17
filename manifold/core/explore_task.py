@@ -437,7 +437,6 @@ class ExploreTask(Deferred):
 
                 from_ast = AST(self._interface).From(platform, query, capabilities, key)
 #DEPRECATED|                query_plan.add_from(from_ast.get_root())
-
 #DISABLED|                try:
 #DISABLED|                    if method in table.methods_demux:
 #DISABLED|                        from_ast.demux().projection(list(fields))
@@ -446,7 +445,6 @@ class ExploreTask(Deferred):
 #DISABLED|                        map_method_demux[method] = demux_node 
 #DISABLED|                except AttributeError:
 #DISABLED|                    pass
-
             else:
                 # The table announced by the platform doesn't fit with the 3nf schema
                 # Build a FROMTABLE + DUP(best_key) + SELECT(best_key u {fields}) branch

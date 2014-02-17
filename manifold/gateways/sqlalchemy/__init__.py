@@ -31,6 +31,11 @@ from manifold.util.log              import Log
 from manifold.util.type             import accepts, returns
 from manifold.util.storage          import STORAGE_NAMESPACE 
 
+# NOTE
+# This gateway is synchronous! error management is performed a bit differently
+# from async gw
+# -- jordan
+
 class SQLAlchemyGateway(Gateway):
     __gateway_name__ = "sqlalchemy"
 

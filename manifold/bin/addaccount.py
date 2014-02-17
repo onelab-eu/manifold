@@ -54,21 +54,21 @@ INSERT INTO %(namespace)s:account
 VALID_AUTH_TYPE = ["managed", "user", "none"]
 
 def main():
-
-    # XXX This does nothing ???
     Shell.init_options()
     Log.init_options()
     Options().parse()
 
+    # XXX This fails if we pass arguments from options
+    # This should only check positional arguments
     check_num_arguments(DOC_ADD_ACCOUNT, 5, 5)
     user_email, platform_name, auth_type, config = sys.argv[1:5]
-    check_option_email("USER_EMAIL", user_email)
+
+    # XXX Allow admin user
+    #check_option_email("USER_EMAIL", user_email)
+
     check_option_enum("AUTH_TYPE", auth_type, VALID_AUTH_TYPE)
     namespace = STORAGE_NAMESPACE
-    ret = run_command(CMD_ADD_ACCOUNT % locals(), False)
-    # XXX raise an exception in the query plan construction, nothing is returned
-    # print "return value", ret
-    return ret
+    return run_command(CMD_ADD_ACCOUNT % locals(), False)
 
 if __name__ == "__main__":
     main()

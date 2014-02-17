@@ -278,6 +278,7 @@ class Shell(object):
         try:
             self.client.__del__()
         except Exception, e:
+            print "del error"
             Log.error(e)
             pass
 
@@ -475,7 +476,7 @@ class Shell(object):
                     print
                 except RuntimeError, e:
                     # Parse error raised by evaluate()
-                    Log.error(e)
+                    Log.error("Shell runtime error", e)
                 except Exception:
                     # Unhandled Exception raised by this Shell
                     Log.reset_duplicates()
@@ -488,6 +489,7 @@ class Shell(object):
 def main():
     Shell.init_options()
     Log.init_options()
+    print "shell main"
     Options().parse()
     command = Options().execute
 

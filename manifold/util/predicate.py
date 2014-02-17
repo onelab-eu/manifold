@@ -174,11 +174,6 @@ class Predicate:
 
     @returns(bool)
     def match(self, dic, ignore_missing=False):
-        if isinstance(self.key, tuple):
-            print "PREDICATE MATCH", self.key
-            print dic
-            print "-----------------------------"
-        
         # Can we match ?
         if self.key not in dic:
             return ignore_missing
