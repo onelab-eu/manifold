@@ -571,7 +571,11 @@ class Query(object):
     #--------------------------------------------------------------------------- 
 
     def get_destination(self):
-        fields  = set()
-        fields |= self.fields
-        fields |= set(self.params.keys())
+        # If self.fields = None, it means * == we want all fields
+        if self.fields is None:
+            fields = None
+        else:
+            fields  = set()
+            fields |= self.fields
+            fields |= set(self.params.keys())
         return Destination(self.object, self.filters, fields)
