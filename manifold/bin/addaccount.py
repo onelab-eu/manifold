@@ -57,11 +57,13 @@ def main():
     Shell.init_options()
     Log.init_options()
     Options().parse()
+    # Options().positional holds a list of positional arguments
 
     # XXX This fails if we pass arguments from options
     # This should only check positional arguments
-    check_num_arguments(DOC_ADD_ACCOUNT, 5, 5)
-    user_email, platform_name, auth_type, config = sys.argv[1:5]
+    #check_num_arguments(DOC_ADD_ACCOUNT, 5, 5)
+    user_email, platform_name, auth_type, config = Options().positional
+    #sys.argv[1:5]
 
     # XXX Allow admin user
     #check_option_email("USER_EMAIL", user_email)

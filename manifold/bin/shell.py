@@ -112,6 +112,9 @@ class Shell(object):
             help    = 'Choice of the authentication method: auto, anonymous, password, gid',
             default = "auto"
         )
+
+        # XXX While previous options are common to all shells, this one is
+        # specific to the command line program
         opt.add_argument(
             "-e", "--execute", dest = "execute",
             help = "Execute a shell command", 
@@ -489,7 +492,6 @@ class Shell(object):
 def main():
     Shell.init_options()
     Log.init_options()
-    print "shell main"
     Options().parse()
     command = Options().execute
 
