@@ -56,6 +56,8 @@ MSG_INVALID_JSON_DICT = """
 # argc 
 #------------------------------------------------------------------------
 
+# XXX should be replaced by Options()'s positional arguments, and the nargs
+# parameter for the positional arguments
 @returns(bool)
 #@accepts(StringTypes, int, int)
 def check_num_arguments(error_message, argc_min, argc_max = None):
