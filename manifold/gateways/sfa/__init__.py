@@ -18,21 +18,21 @@ from types                             import StringTypes, GeneratorType
 from twisted.internet                  import defer
 from twisted.python.failure            import Failure
 
-from manifold.core.exceptions          import ManifoldException, MissingCredentialException, ManagementException, NoAccountException, NoAdminAccountException, InternalException
+from manifold.core.exceptions          import ManifoldException, MissingCredentialException, ManagementException, NoAccountException, NoAdminAccountException, ManifoldInternalException, MissingSSCertException, MissingGIDException
 from manifold.core.packet              import ErrorPacket # XXX not catching exceptions if we comment this
 from manifold.core.query               import Query 
 from manifold.core.record              import Record, Records
 from manifold.gateways                 import Gateway
 from manifold.gateways.sfa.proxy       import SFAProxy
 from manifold.gateways.sfa.proxy_pool  import SFAProxyPool
-from manifold.gateways.sfa.user        import ADMIN_USER
+from manifold.gateways.sfa.user        import ADMIN_USER, ADMIN_USER_EMAIL
 from manifold.operators.rename         import Rename
 from manifold.util.log                 import Log
 from manifold.util.type                import accepts, returns 
 
 DEFAULT_TIMEOUT = 20
-DEMO_HOOKS = ["demo"]
-
+DEMO_HOOKS      = ["demo"]
+MAX_RETRIES     = 3
 # The following class is not suffixed using "Gateway" to avoid that Manifold
 # consider it as a valid Gateway. This a "virtual" class used to factorize
 # code written in am/__init__.py and rm/__init__.py
@@ -296,29 +296,12 @@ class SFAGatewayCommon(Gateway):
 
     @defer.inlineCallbacks
     @returns(GeneratorType)
-    def handle_error(self, user, user_account):
+    def handle_error(self, user, user_account_config):
         """
         This function when a Query has failed in its first attemp.
         """
         Log.warning("Using anonymous to access Manifold's Storage")
 
-        user_account_config = user_account['config'] if user_account else None
-
-        # Retrieve admin's config
-        admin_account = self.get_account(ADMIN_USER["email"])
-        admin_account_config = admin_account["config"] if admin_account else None
-        assert isinstance(admin_account_config, dict), "Invalid admin_account_config"
-
-        # Managing account
-        user_account_config = yield self.manage(user, user_account_config, admin_account_config)
-
-        # Update the Storage consequently
-        self._interface.execute_local_query(
-            Query.update("account")\
-                .set({"config": json.dumps(user_account_config)})\
-                .filter_by("user_id",     "=", user_account["user_id"])\
-                .filter_by("platform_id", "=", user_account["platform_id"])
-        )
 
 
 
@@ -411,7 +394,7 @@ class SFAGatewayCommon(Gateway):
         # XXX Poourquoi faire perform_query alors qu'on a deja un objet
         d = self.perform_query(user, user_account_config, packet)
         d.addCallback(self.records)
-        d.addErrback(self.on_first_error, user, user_account, packet)
+        d.addErrback(self.on_query_error, user, user_account, packet, MAX_RETRIES)
         print "perform query done"
 
     # This should be merged with the previous function
@@ -467,14 +450,8 @@ class SFAGatewayCommon(Gateway):
         # From what i see where, it is somehow a disguised packet and annotation
         return method(user, user_account_config, packet)
 
-    # XXX We could factor this function with on_first_error
-    def on_next_errors(self, failure, user, user_account, packet):
-        # We send the original error
-        print "on next error"
-        self.send(ErrorPacket.from_exception(e))  
-
     @defer.inlineCallbacks
-    def on_first_error(self, failure, user, user_account, packet):
+    def on_query_error(self, failure, user, user_account, packet, retries):
         """
         This function intercepts error packets caused by a query, when issued for the first time.
         This way, we are able to intercept errors we might solve by running manage.
@@ -489,24 +466,21 @@ class SFAGatewayCommon(Gateway):
         
         # XXX If exceptions are triggered in errbacks like here, they seem not to be catched
         # eg. import missing for ErrorPacket or ManifoldException
-        print "ON FIRST ERROR"
 
-        query = packet.get_query()
+        if retries > 0:
+            # Apply a error handler...
+            ret = yield self.apply_error_handler(packet, failure.value, user, user_account)
+            if ret:
+                # If successful, redo the query...
+                self.perform_query(user, user_account, packet)    \
+                    .addCallback(self.records)                          \
+                    .addErrback(self.on_query_error, user, user_account, packet, retries - 1)
+                # ... and exit the error handler.
+                defer.returnValue(None)
 
-        # Apply a error handler...
-        ret = yield self.apply_error_handler(failure.value, user, user_account)
-        if ret:
-            # ...and exit the error handler.
-            defer.returnValue(None)
-        else:
-            # Forward the error packet
-            print "FW packet"
-            error_packet = ErrorPacket.from_exception(failure.value)
-            self.send(packet, error_packet)
-
-        # We send the original error (last = True)
-        # XXX Ideally this trap should protect the whole function
-        # XXX Protect all error handlers with try:except
+        # The default behaviour is to forward the error packet
+        error_packet = ErrorPacket.from_exception(failure.value)
+        self.send(packet, error_packet)
 
     #--------------------------------------------------------------------------
     # Error handlers
@@ -527,7 +501,7 @@ class SFAGatewayCommon(Gateway):
             admin_hrn     = 'ple.upmc.slicebrowser' # XXX
             user_email    = ADMIN_USER
             platform_name = ''
-            aut_type      = 'managed'
+            auth_type      = 'managed'
             config        = '{"user_hrn": %(admin_hrn)s}'
             query_add_account = CMD_ADD_ACCOUNT % locals()
             ret = self._interface.execute_local_query(query_add_account)
@@ -536,11 +510,41 @@ class SFAGatewayCommon(Gateway):
         defer.returnValue(False)
 
     @defer.inlineCallbacks
-    def handle_missing_credential(self, user, user_account):
-        yield self.handle_error(user, user_account)
-        self.perform_query(user, user_account_config, query)    \
-            .addCallback(self.records)                          \
-            .addErrback(self.on_next_errors, user, user_account, packet)
+    def handle_missing_account_information(self, user, user_account):
+
+        # Managing account
+        user_account_config = user_account.get('config', {})
+        user_account_config = yield self.manage(user, user_account_config)
+
+        # Update the Storage consequently
+        self._interface.execute_local_query(
+            Query.update("account")\
+                .set({"config": json.dumps(user_account_config)})\
+                .filter_by("user_id",     "=", user_account["user_id"])\
+                .filter_by("platform_id", "=", user_account["platform_id"])
+        )
+
+        defer.returnValue(True)
+
+    @defer.inlineCallbacks
+    def handle_missing_admin_account_information(self, user, user_account):
+        """
+        user : NOT USED
+        user_account : NOT USED
+        """
+        admin_account = self.get_account(ADMIN_USER['email'])
+        admin_account_config = admin_account.get('config', {})
+
+        admin_account_config = yield self.manage(ADMIN_USER, admin_account_config)
+
+        # Update the Storage consequently FOR ADMIN !!!!X XXX XXX
+        self._interface.execute_local_query(
+            Query.update("account")\
+                .set({"config": json.dumps(admin_account_config)})\
+                .filter_by("email",     "=", ADMIN_USER_EMAIL)\
+                .filter_by("platform_id", "=", self.get_platform_name())
+        )
+
         defer.returnValue(True)
 
     @defer.inlineCallbacks
@@ -548,42 +552,38 @@ class SFAGatewayCommon(Gateway):
         print "CREATING ACCOUNT FOR USER ADMIN IF IT IS THE CASE"
         defer.returnValue(False)
 
-    EXCEPTION_HANDLERS = {
-        NoAdminAccountException    : handle_no_admin_account,
-    }
-    MANAGED_EXCEPTION_HANDLERS = {
-        MissingCredentialException : handle_missing_credential,
-        NoAccountException         : handle_no_account,
-    }
 
     @defer.inlineCallbacks
-    def apply_error_handler(self, exception, user, user_account):
+    def apply_error_handler(self, packet, exception, user, user_account):
+        EXCEPTION_HANDLERS = {
+            # Errors related to the user account
+            MissingCredentialException : self.handle_missing_account_information,
+            # Other errors
+            # Errors related to the admin account
+            NoAdminAccountException    : self.handle_no_admin_account,
+            MissingSSCertException     : self.handle_missing_admin_account_information,
+            MissingGIDException        : self.handle_missing_admin_account_information,
+            NoAccountException         : self.handle_no_account,
+        }
+
         # Non managed handlers
-        if exception in self.EXCEPTION_HANDLERS:
-            handler = self.EXCEPTION_HANDLERS[exception]
+        exception_class = exception.__class__
+        if exception_class in EXCEPTION_HANDLERS:
+            handler = EXCEPTION_HANDLERS[exception_class]
             try:
+                print "trying handler", handler
                 ret = yield handler(user, user_account)
+                print "   .ret=", ret
                 defer.returnValue(ret)
             except Exception, e:
                 # In case of failure, we also inform the user by adding an
                 # error packet before the original error packet.
-                error_packet = ErrorPacket.from_exception(InternalException)
+                error_packet = ErrorPacket.from_exception(ManifoldInternalException)
                 error_packet.unset_last()
                 self.send(packet, error_packet)
                 defer.returnValue(False)
+        else:
+            print "exception not found"
 
-        # Managed handlers
         if user_account.get('auth_type', None) != "managed":
             defer.returnValue(False)
-        if exception in self.MANAGED_EXCEPTION_HANDLERS:
-            handler = self.MANAGED_EXCEPTION_HANDLERS[exception]
-            try:
-                ret = yield handler(user, user_account)
-                defer.returnValue(ret)
-            except Exception, e:
-                # When management fails, we also inform the user by adding an
-                # error packet before the original error packet.
-                error_packet = ErrorPacket.from_exception(ManagementException)
-                error_packet.unset_last()
-                self.send(packet, error_packet)
-                defer.returnValue(False)

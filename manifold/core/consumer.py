@@ -208,10 +208,21 @@ class Consumer(Node):
 
         self.set_producer(function(self.get_producer()))
 
+    def set_parent_producer(self, parent_producer):
+        if self._parent_producer:
+            if self._parent_producer == parent_producer:
+                return
+            else:
+                # remove former
+                self._parent_producer.del_consumer(self, cascade = False)
+        self._parent_producer = parent_producer
+        self._parent_producer.add_consumer(self, cascade = False)
+        
+
     def update_parent_producer(self, function):
         if not self._has_parent_producer:
             raise Exception, "Cannot call update_parent_producer when _has_parent_producer is False"
-        self._parent_producer = function(self._parent_producer)
+        self.set_parent_producer(function(self._parent_producer))
 
     def release(self):
         """

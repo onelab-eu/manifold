@@ -49,19 +49,19 @@ class Destination(object):
 
     def left_join(self, destination): 
         return Destination(
-            object = self.get_object(),
+            object = self._object,
             filter = self._filter | destination.get_filter(),
             fields = self._fields | destination.get_fields())
 
     def right_join(self, destination):
         return Destination(
-            object = destination.get_object(),
+            object = destination._object,
             filter = self._filter | destination.get_filter(),
             fields = self._fields | destination.get_fields())
 
     def selection(self, filter):
         return Destination(
-            object = self._object(),
+            object = self._object,
             filter = self._filter & filter,
             fields = self._fields)
 
