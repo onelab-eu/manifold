@@ -22,7 +22,7 @@ from sfa.storage.record                     import Record
 from sfa.trust.certificate                  import Keypair, Certificate
 from sfa.util.xrn                           import Xrn, get_authority
 
-from manifold.core.exceptions               import MissingCredentialException
+from manifold.core.exceptions               import MissingCredentialException, ManagementException
 from manifold.core.query                    import Query
 from manifold.gateways                      import Gateway 
 from manifold.gateways.sfa                  import SFAGatewayCommon, DEMO_HOOKS
@@ -158,8 +158,9 @@ class SFA_RMGateway(SFAGatewayCommon):
         else:
             raise Exception("Invalid credential type: %s" % type)
 
+    # delegator delegates its rights to the delegate
     @returns(StringTypes)
-    def delegate(self, user_credential, user_private_key, user_gid, admin_credential):
+    def delegate(self, user_credential, user_private_key, user_gid, delegate_gid):
         """
         This function is used to delegate a user credential to the ADMIN_USER.
         Args:
@@ -169,9 +170,11 @@ class SFA_RMGateway(SFAGatewayCommon):
             admin_credential: A String or a Credential instance containing the admin's credential.
         """
 
-        # If necessary, convert String credential into a Credential object
-        if not isinstance(user_credential, Credential):
-            user_credential = Credential(string = user_credential)
+        # XXX We don't need the admin credential, we need the admin GID... or # HRN (to get the GID)
+
+        assert isinstance(user_credential, StringTypes), "Expected user_credential to be a string"
+
+        user_credential = Credential(string = user_credential)
 
         # XXX 
         # How to set_passphrase of the PEM key if we don't have the user password?
@@ -181,13 +184,10 @@ class SFA_RMGateway(SFAGatewayCommon):
         if not user_credential.get_privileges().get_all_delegate():
             raise Exception("SFA Gateway the user has no right to delegate")
 
-        # If nessecary converting string to Credential object
-        if not isinstance(admin_credential, Credential):
-            admin_credential = Credential(string=admin_credential)
 
         # Get the admin_gid and admin_hrn from the credential
-        admin_gid = admin_credential.get_gid_object()
-        admin_hrn = admin_gid.get_hrn()
+        # XXX useless XXX admin_gid = admin_credential.get_gid_object()
+        # XXX useless XXX admin_hrn = admin_gid.get_hrn()
 
         # Create temporary files for key and certificate in order to use existing code based on httplib 
         pkey_fn = tempfile.NamedTemporaryFile(delete=False) 
@@ -197,7 +197,7 @@ class SFA_RMGateway(SFAGatewayCommon):
         pkey_fn.close() 
         cert_fn.close() 
 
-        delegated_credential = user_credential.delegate(admin_gid, pkey_fn.name, cert_fn.name)
+        delegated_credential = user_credential.delegate(delegate_gid, pkey_fn.name, cert_fn.name)
         delegated_credential_str = delegated_credential.save_to_string(save_parents=True)
 
         os.unlink(pkey_fn.name) 
@@ -275,9 +275,11 @@ class SFA_RMGateway(SFAGatewayCommon):
 
         return credential.get_expiration() < datetime.now()
    
+    # XXX It seems that it does not matter whether we have a user email or a
+    # user dictionary for this function, get_sfa_proxy, etc.
     @defer.inlineCallbacks
     @returns(GeneratorType)
-    def manage(self, user, user_account_config, admin_account_config):
+    def manage(self, user, user_account_config):
         """
         This function is called for "managed" accounts.
         It must be called whenever a slice is created to allow MySlice to get
@@ -299,6 +301,7 @@ class SFA_RMGateway(SFAGatewayCommon):
         Returns:
             A dict containing the managed Account.
         """
+        print "MANAGEMENT OF USER", user
         # The gateway should be able to perform user user_account_config management taks on
         # behalf of MySlice
         #
@@ -322,6 +325,22 @@ class SFA_RMGateway(SFAGatewayCommon):
         # relying on delegated credentials. In this case we won't even have a
         # admin_account_config, and won't need delegation.
         is_admin = is_user_admin(user)
+
+        if not is_admin:
+            # We will have to do credential delegation for users, slices,
+            # authorities.
+            admin_account = self.get_account(ADMIN_USER['email'])
+            admin_account_config = admin_account.get('config')
+            admin_gid = admin_account.get('gid')
+            if not admin_gid:
+                # Let's manage the admin account
+                yield self.manage(ADMIN_USER, admin_account_config)
+                admin_gid = admin_account.get('gid')
+                if not admin_gid:
+                    raise ManagementException("Could not obtain gid for admin after managing account")
+        else:
+            # For admin, we only need to manage authentication tokens
+            pass
 
         # SFA management dependencies:
         #     U <- provided
@@ -411,7 +430,7 @@ class SFA_RMGateway(SFAGatewayCommon):
                     user_account_config["user_hrn"],
                     "user"
                 )
-            except:
+            except Exception, e:
                 # some urns hrns may replace non hierarchy delimiters "." with an "_" instead of escaping the "."
                 hrn = Xrn(user_account_config["user_hrn"]).get_hrn().replace("\.", "_")
                 try:
@@ -450,7 +469,7 @@ class SFA_RMGateway(SFAGatewayCommon):
                 user_account_config["user_credential"],
                 user_account_config["user_private_key"],
                 user_account_config["gid"],
-                admin_account_config["user_credential"]
+                admin_gid
             )
 
         if need_authority_list: #and not "authority_list" in user_account_config:
@@ -492,7 +511,7 @@ class SFA_RMGateway(SFAGatewayCommon):
                     auth_cred,
                     user_account_config["user_private_key"],
                     user_account_config["gid"],
-                    admin_account_config["user_credential"]
+                    admin_gid
                 )
 
         if need_delegated_slice_credentials:
@@ -503,7 +522,7 @@ class SFA_RMGateway(SFAGatewayCommon):
                     slice_cred,
                     user_account_config["user_private_key"],
                     user_account_config["gid"],
-                    admin_account_config["user_credential"]
+                    admin_gid
                 )
 
         # return using asynchronous defer

@@ -437,12 +437,12 @@ class Gateway(Producer):
         # Print debugging information
         # TODO refer properly pending Socket of each Gateway because
         # that's why we do not simply run socket.get_producer().format_uptree()
-        Log.debug(
-            "UP-TREE:\n--------\n%s\n%s" % (
-                socket.get_producer().format_node(),
-                socket.format_uptree()
-            )
-        )
+        #Log.debug(
+        #    "UP-TREE:\n--------\n%s\n%s" % (
+        #        socket.get_producer().format_node(),
+        #        socket.format_uptree()
+        #    )
+        #)
 
         if records:
 # << ORIGINAL IMPLEMENTATION (supports list, but not Generator)

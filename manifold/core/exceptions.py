@@ -25,7 +25,7 @@ class ManifoldException(Exception):
 # 1. Internal error
 #-------------------------------------------------------------------------------
 
-class InternalException(ManifoldException):
+class ManifoldInternalException(ManifoldException):
     """
     This class regroups all exceptions that are due to the Manifold codebase
     itself: bugs, etc. We use it for example in assertions, or to catch
@@ -36,7 +36,7 @@ class InternalException(ManifoldException):
 
 # 1.1. Dummy internal error
 
-class DummyInternalException(InternalException):
+class DummyInternalException(ManifoldInternalException):
     CODE = 1
 
 #-------------------------------------------------------------------------------
@@ -68,7 +68,7 @@ class ManagementException(GatewayException):
     CODE = 1
 
 #-------------------------------------------------------------------------------
-# 4. Gateway error
+# 4. Storage error
 #-------------------------------------------------------------------------------
 
 class StorageException(ManifoldException):
@@ -88,6 +88,12 @@ class NoAdminUserException(StorageException):
 
 class NoAdminAccountException(StorageException):
     CODE = 5
+
+class MissingGIDException(StorageException):
+    CODE = 6
+
+class MissingSSCertException(StorageException):
+    CODE = 7
 
 #-------------------------------------------------------------------------------
 # 5. Other types of errors

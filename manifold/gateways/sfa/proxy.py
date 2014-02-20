@@ -33,6 +33,7 @@ from twisted.internet                       import ssl, defer
 from sfa.util.cache                         import Cache
 from sfa.client.return_value                import ReturnValue
 
+from manifold.core.exceptions               import ManifoldInternalException, MissingGIDException, MissingSSCertException
 from manifold.util.reactor_thread           import ReactorThread
 from manifold.util.log                      import Log
 from manifold.util.singleton                import Singleton
@@ -318,12 +319,9 @@ class SFAProxy(object):
             d = defer.Deferred()
 
             def proxy_success_cb(result):
-#DEPRECATED|                SFATokenMgr().put_token(self.interface)
                 d.callback(result)
             def proxy_error_cb(failure):
-                exception = failure.trap(Exception)
-#DEPRECATED|                SFATokenMgr().put_token(self.interface)
-                d.errback(exception)
+                d.errback(failure.value)
 
             #success_cb = lambda result: d.callback(result)
             #error_cb   = lambda error : d.errback(ValueError("Error in SFA Proxy %s" % error))
@@ -449,8 +447,13 @@ def make_sfa_proxy(interface_url, account_config, cert_type = "gid", timeout = D
         The corresponding SFAProxy.
     """
     Log.info("make_sfa_proxy(%s, %s, %s, %s)" % (interface_url, account_config["user_hrn"], cert_type, timeout))
-    assert cert_type in ["gid", "sscert"],     "Invalid cert_type = %s (%s)"             % (cert_type, type(cert_type))
-    assert cert_type in account_config.keys(), "Invalid account = %s (missing '%s' key)" % (account_config, cert_type)
+    if not cert_type in account_config.keys():
+        if cert_type == "gid":
+            raise MissingGIDException, "Invalid account = %s (missing '%s' key)" % (account_config, cert_type)
+        elif cert_type == "sscert":
+            raise MissingSSCertException, "Invalid account = %s (missing '%s' key)" % (account_config, cert_type)
+        else:
+            raise ManifoldInternalException, "Invalid cert_type = %s (%s)"             % (cert_type, type(cert_type))
 
     private_key = account_config["user_private_key"].encode("latin1")
     # default is gid, if we don't have it (see manage function) we use self signed certificate

@@ -271,14 +271,10 @@ class ErrorPacket(Packet):
     @staticmethod
     def from_exception(e):
         if not isinstance(e, ManifoldException):
-            print "not e m"
             e = ManifoldException(e)
             import traceback
             traceback.print_exc()
-            print "manifod"
-        print "make error packet"
         ret = ErrorPacket(e.TYPE, e.CODE, str(e))
-        print "ret=", ret
         return ret
 
     @returns(StringTypes)

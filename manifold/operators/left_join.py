@@ -92,14 +92,10 @@ class LeftJoin(Operator):
         return self.get_producer()
 
     def _update_left(self, function):
-        new_parent = function(self._parent_producer)
-        self._parent_producer = new_parent
-        new_parent.add_consumer(self, cascade = False)
-        Log.warning("If the parent producer changes, must update reciprocal link")
+        return self.update_parent_producer(function)
 
     def _update_right(self, function):
-        self.update_producer(function)
-        Log.warning("If the parent producer changes, must update reciprocal link")
+        return self.update_producer(function)
 
     #---------------------------------------------------------------------------
     # Methods
@@ -168,7 +164,6 @@ class LeftJoin(Operator):
             right_packet.update_query(lambda q: q.filter_by(q.get_filter().split_fields(right_fields, True), clear = True))
             self._right_packet = right_packet
 
-            print "left packet", left_packet
             self.send_parent(left_packet)
 
         elif packet.get_protocol() == Packet.PROTOCOL_RECORD:
@@ -181,17 +176,18 @@ class LeftJoin(Operator):
             #if packet.get_source() == self._producers.get_parent_producer(): # XXX
             if not self._left_done:
 
-                if not record.has_fields(self._predicate.get_field_names()):
-                    Log.warning("Missing LEFTJOIN predicate %s in left record %r : forwarding" % \
-                            (self._predicate, record))
-                    self.send(record)
+                if not record.is_empty():
+                    if not record.has_fields(self._predicate.get_field_names()):
+                        Log.warning("Missing LEFTJOIN predicate %s in left record %r : forwarding" % \
+                                (self._predicate, record))
+                        self.send(record)
 
-                else:
-                    # Store the result in a hash for joining later
-                    hash_key = record.get_value(self._predicate.get_field_names())
-                    if not hash_key in self._left_map:
-                        self._left_map[hash_key] = []
-                    self._left_map[hash_key].append(record)
+                    else:
+                        # Store the result in a hash for joining later
+                        hash_key = record.get_value(self._predicate.get_field_names())
+                        if not hash_key in self._left_map:
+                            self._left_map[hash_key] = []
+                        self._left_map[hash_key].append(record)
 
                 if is_last:
                     self._left_done = True
@@ -202,37 +198,34 @@ class LeftJoin(Operator):
             else:
                 # formerly right_callback()
 
-                # Skip records missing information necessary to join
-                if not self._predicate.get_value_names() <= set(record.keys()) \
-                or record.has_empty_fields(self._predicate.get_value_names()):
-                    Log.warning("Missing LEFTJOIN predicate %s in right record %r: ignored" % \
-                            (self._predicate, record))
-                    # XXX Shall we send ICMP ?
-                    return
-                
-                # We expect to receive information about keys we asked, and only these,
-                # so we are confident the key exists in the map
-                # XXX Dangers of duplicates ?
-                key = record.get_value(self._predicate.get_value_names())
-                left_records = self._left_map.pop(key)
+                if not record.is_empty():
+                    # Skip records missing information necessary to join
+                    if not self._predicate.get_value_names() <= set(record.keys()) \
+                    or record.has_empty_fields(self._predicate.get_value_names()):
+                        Log.warning("Missing LEFTJOIN predicate %s in right record %r: ignored" % \
+                                (self._predicate, record))
+                        # XXX Shall we send ICMP ?
+                        return
 
-                has_unmapped_records = record.is_last() and self._left_map
+                    # We expect to receive information about keys we asked, and only these,
+                    # so we are confident the key exists in the map
+                    # XXX Dangers of duplicates ?
+                    key = record.get_value(self._predicate.get_value_names())
+                    left_records = self._left_map.pop(key)
 
-                if is_last and not has_unmapped_records:
-                    # Let's mark the last record
-                    left_records[-1].set_last()
-
-                for left_record in left_records:
-                    left_record.update(record)
-                    self.send(left_record)
-
-                if has_unmapped_records:
-                    # Send records in left_results that have not been joined
-                    for left_record_list in self._left_map.values():
-                        for left_record in left_record_list:
-                            self.send(left_record)
+                    for left_record in left_records:
+                        left_record.update(record)
+                    
+                        self.send(left_record)
 
                 if is_last:
+                    # Unmapped records
+                    if self._left_map:
+                        # Send records in left_results that have not been joined
+                        for left_record_list in self._left_map.values():
+                            for left_record in left_record_list:
+                                self.send(left_record)
+                    # LAST MARK
                     self.send(Record(last = True))
                     
 

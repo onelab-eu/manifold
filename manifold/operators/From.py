@@ -208,7 +208,7 @@ class From(Operator):
         Args:
             packet: A Packet instance.
         """
-        Log.debug("[FROM] packet=", packet)
+        #Log.debug("[FROM] packet=", packet)
         if packet.get_protocol() == Packet.PROTOCOL_QUERY:
             # Register this flow in the Gateway
             self.get_gateway().add_flow(packet.get_query(), self)

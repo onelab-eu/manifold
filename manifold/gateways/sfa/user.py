@@ -13,8 +13,10 @@ from types                              import StringTypes
 from manifold.util.log                  import Log 
 from manifold.util.type                 import accepts, returns 
 
+ADMIN_USER_EMAIL = "admin"
+
 ADMIN_USER = {
-    "email" : "admin"
+    "email" : ADMIN_USER_EMAIL
 }
 
 def check_user(user):
