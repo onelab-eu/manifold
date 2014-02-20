@@ -36,11 +36,11 @@ def unique_call_id():
 class SFA_AMGateway(SFAGatewayCommon):
     __gateway_name__ = "sfa_am"
 
-    #from ..objects.resource  import Resource
+    from .objects.resource  import Resource
     #from ..objects.lease     import Lease
 
     METHOD_MAP = {
-    #    "resource"  : Resource,
+        "resource"  : Resource,
     #    "lease"     : Lease
     }
 

@@ -286,10 +286,11 @@ class SFAGatewayCommon(Gateway):
         Returns:
             The corresponding RM_Object class. 
         """
+        print "self class", self.__class__
         assert table_name in self.METHOD_MAP.keys(), \
             "Invalid table_name (%s). It should be in {%s}" % (
                 table_name,
-                ", ".join(SFA_RMGateway.METHOD_MAP.keys())
+                ", ".join(self.METHOD_MAP.keys())
             )
         # XXX SFARMGateway -> self -- jordan
         return self.METHOD_MAP[table_name](self) 
@@ -415,7 +416,6 @@ class SFAGatewayCommon(Gateway):
             The list of corresponding Records if any.
         """
         query = packet.get_query()
-        print "perform query", query
 
         # XXX This would be done on top of the first encountered interface. -- # jordan
         # Check whether action is set to a valid value.
@@ -430,7 +430,6 @@ class SFAGatewayCommon(Gateway):
         table_name  = query.get_from()
         object_name = table_name # XXX let's use object and not table_name to be consistent
 
-        print "object_name", object_name
         # XXX why do we need import when we have METHOD_MAP in AM and RM ? --
         # jordan
         # XXX This might fail if we send wrong metadata: raise internal error
@@ -440,15 +439,13 @@ class SFAGatewayCommon(Gateway):
         # Call the appropriate method.
         # http://stackoverflow.com/questions/3061/calling-a-function-from-a-string-with-the-functions-name-in-python
         instance = self.get_object(object_name)
-        print "instance=", instance
         method = getattr(instance, action)
-        print "method=", method
 
         # The deferred returned by this methods is being associated a
         # callback by the parent function
         # XXX Let's agree on what is passed to the object
         # From what i see where, it is somehow a disguised packet and annotation
-        return method(user, user_account_config, packet)
+        return method(user, user_account_config, query)
 
     @defer.inlineCallbacks
     def on_query_error(self, failure, user, user_account, packet, retries):
