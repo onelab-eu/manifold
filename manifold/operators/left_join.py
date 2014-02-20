@@ -286,9 +286,9 @@ class LeftJoin(Operator):
 
         # ... then apply left_ and right_filter...
         if left_filter:
-            self.update_parent_producer(lambda p: p.optimize_selection(left_filter))
+            self._update_left(lambda p: p.optimize_selection(left_filter))
         if right_filter:
-            self.update_parent_producer(lambda p: p.optimize_selection(right_filter))
+            self._update_right(lambda p: p.optimize_selection(right_filter))
 
         if right_join:
             # We need to be sure to have the same producers...

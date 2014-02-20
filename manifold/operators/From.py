@@ -210,9 +210,15 @@ class From(Operator):
         """
         #Log.debug("[FROM] packet=", packet)
         if packet.get_protocol() == Packet.PROTOCOL_QUERY:
-            # Register this flow in the Gateway
+            
+            # We need to add local filters to the query packet
+            filter = self.get_query().get_filter()
+            packet.update_query(lambda q: q.filter_by(filter))
+
+            # Register this flow in the Gateway (with the updated query)
             self.get_gateway().add_flow(packet.get_query(), self)
             packet.set_receiver(self)
+
             self.get_gateway().receive(packet)
         else: #if packet.get_protocol() == Packet.PROTOCOL_RECORD:
             self.send(packet)
