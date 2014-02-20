@@ -108,9 +108,7 @@ class ModelAccount(Base):
         if user_params:
             del params["user"]
             user_email = user_params
-            print "get user id"
             params["user_id"] = ModelUser.get_user_id(user_email, interface)
-            print "get user id ok", params
 
         platform_params = params.get("platform")
         if platform_params:

@@ -165,7 +165,7 @@ class SQLA_Object(Object):
         # into the local DB as hash 
         if "password" in query.get_params():
             query.params["password"] = hash_password(query.params["password"])
-        _params = cls.process_params(query.params, _filters, user)
+        _params = cls.process_params(query.params, _filters, user, self._interface)
         # only 2.7+ _params = { getattr(cls, k): v for k,v in query.params.items() }
         _params = dict([ (getattr(cls, k), v) for k,v in _params.items() ])
        

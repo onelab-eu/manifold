@@ -23,7 +23,7 @@ from types                          import StringTypes
 from manifold.core.ast              import AST
 from manifold.core.explore_task     import ExploreTask
 from manifold.core.producer         import Producer
-from manifold.core.query            import ACTION_CREATE
+from manifold.core.query            import ACTION_CREATE, ACTION_UPDATE
 from manifold.core.stack            import Stack
 from manifold.operators.From        import From 
 from manifold.operators.operator    import Operator
@@ -53,7 +53,7 @@ class QueryPlan(object):
             "Invalid ast = %s (%s)" % (ast, type(ast))
 
         destination = query.get_destination()
-        if query.get_action() == ACTION_CREATE:
+        if query.get_action() in [ACTION_CREATE, ACTION_UPDATE]:
             ast.reorganize_create()
         ast.optimize(destination)
         self.ast = ast

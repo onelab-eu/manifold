@@ -15,12 +15,12 @@ from manifold.core.destination      import Destination
 from manifold.core.filter           import Filter
 from manifold.core.packet           import Packet
 from manifold.core.producer         import Producer
-from manifold.core.query            import Query, ACTION_CREATE, ACTION_GET
+from manifold.core.query            import Query, ACTION_CREATE, ACTION_UPDATE, ACTION_GET
 from manifold.core.record           import Record
 from manifold.operators.operator    import Operator
 from manifold.operators.projection  import Projection
 from manifold.operators.selection   import Selection
-from manifold.util.predicate        import Predicate, eq, included
+from manifold.util.predicate        import Predicate, eq
 from manifold.util.log              import Log
 from manifold.util.type             import returns
 
@@ -86,15 +86,10 @@ class RightJoin(Operator):
         return self.get_producer()
 
     def _update_left(self, function):
-        new_parent = function(self._parent_producer)
-        self._parent_producer = new_parent
-        new_parent.add_consumer(self, cascade = False)
-
-        Log.warning("If the parent producer changes, must update reciprocal link")
+        return self.update_parent_producer(function)
 
     def _update_right(self, function):
-        self.update_producer(function)
-        Log.warning("If the parent producer changes, must update reciprocal link")
+        return self.update_producer(function)
 
     #---------------------------------------------------------------------------
     # Methods
@@ -126,22 +121,30 @@ class RightJoin(Operator):
         # We build the predicate to perform the join
         # uses tuples...
         ########### OLD #### predicate = Predicate(self._predicate.get_key(), included, self._right_map.keys())
-        param = { self._predicate.get_key(): self._right_map.keys()[0]}
-        self._left_packet.update_query(lambda q: q.set(param))
+        #param = { self._predicate.get_key(): self._right_map.keys()[0]}
+        #self._left_packet.update_query(lambda q: q.set(param))
 
         # Check whether we are propagating a CREATE QUERY
         left_action = self._left_packet.get_query().get_action()
-        if left_action and self.right_params:
-            #print "/!\ We need to update the params of the left packet"
-            #print "     . Field set by the user =", self.right_params
-            #print "     . Field to be set in left = primary key", self._predicate.get_key()
-            #print "     . Value to be set", self._right_map.keys()
+        # XXX why testing left_action
+        if left_action == ACTION_CREATE and self.right_params:
             param_key   = self._predicate.get_key()
             param_value = self._right_map.keys()
-            assert len(param_value) == 1
+            assert len(param_value) == 1 # XXX We can insert one record at a time
             param_value = param_value[0]
 
             self._left_packet.update_query(lambda q: q.set({param_key: param_value}))
+
+        elif left_action == ACTION_UPDATE:
+            param_key   = self._predicate.get_key()
+            param_value = self._right_map.keys()
+            assert len(param_value) == 1 # XXX We can update one record at a time
+            param_value = param_value[0]
+
+            self._left_packet.update_query(lambda q: q.filter_by(param_key, eq, param_value))
+
+        else:
+            raise ManifoldInternalException("Unexpected params for '%s' action" % left_action)
 
         #print "SENDING LEFT PACKET", self._left_packet
         self.send_parent(self._left_packet)
@@ -232,7 +235,7 @@ class RightJoin(Operator):
                     Log.warning("Missing RIGHTJOIN predicate %s in right record %r: ignored" % \
                             (self._predicate, record))
                     # We send the right record as is.
-                    self.send(left_record)
+                    self.send(record)
                     return
                 
                 # We expect to receive information about keys we asked, and only these,
@@ -254,7 +257,6 @@ class RightJoin(Operator):
 
     @returns(Producer)
     def optimize_selection(self, filter):
-        print "right join optimize selection", filter
         # RIGHT JOIN
         # We are pushing selections down as much as possible:
         # - selection on filters on the left: can push down in the left child
@@ -272,25 +274,29 @@ class RightJoin(Operator):
         #                                    child_filter == parent_producer (sic.)
         #
 
-        left_filter = self._get_left().get_destination().get_filter()
+        left_fields  = self._get_left().get_destination().get_fields()
+        right_fields = self._get_right().get_destination().get_fields()
 
         # Classify predicates...
-        top_filter, child_filter = Filter(), Filter()
+        top_filter, left_filter, right_filter = Filter(), Filter(), Filter()
         for predicate in filter:
-            if predicate.get_field_names() < left_filter:
-                child_filter.add(predicate)
+            if predicate.get_field_names() < left_fields:
+                left_filter.add(predicate)
+            elif predicate.get_field_names() < right_fields:
+                right_filter.add(predicate)
             else:
                 top_filter.add(predicate)
 
-        # ... then apply child_filter...
-        if child_filter:
-            # XXX update_left !!
-            self.update_parent_producer(lambda p: p.optimize_selection(child_filter))
+        # ... then apply left_ and right_filter...
+        if left_filter:
+            self._update_left(lambda p: p.optimize_selection(left_filter))
+        if right_filter:
+            self._update_right(lambda p: p.optimize_selection(right_filter))
 
         # ... and top_filter.
         if top_filter:
-            s = Selection(self, top_filter)
-            return s 
+            # XXX This should never occur
+            return Selection(self, top_filter)
         return self
 
     @returns(Producer)
