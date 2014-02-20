@@ -376,6 +376,7 @@ class ExploreTask(Deferred):
             allowed_platforms: A set of String where each String corresponds to a queried platform name.
             query_plan: The QueryPlan instance related to this Query, and that we're updating.
         """
+        print "PERFORM UNION", table
         from_asts = list()
         key = table.get_keys().one()
 
@@ -399,7 +400,10 @@ class ExploreTask(Deferred):
         # For each platform related to the current table, extract the
         # corresponding table and build the corresponding FROM node
         map_method_fields = table.get_annotation()
+        print "map_method_fields", map_method_fields
         for method, fields in map_method_fields.items(): 
+            print "method", method.get_name()
+            print "table", table.get_name()
             if method.get_name() == table.get_name():
                 # The table announced by the platform fits with the 3nf schema
                 # Build the corresponding FROM 

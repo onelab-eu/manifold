@@ -9,16 +9,15 @@
 //   Amine Larabi      <mohamed.larabi@inria.fr>
 
 class lease {
-    const text     urn;
+    const resource resource;
     timestamp      start_time;  /**< Start of the lease */ 
     interval       granularity; 
     interval       duration;
     text           network;
-    const text     hrn;
     const text     lease_type;
     slice          slices[];    /**< Backward reference to sfa_rm::slice */ 
 
-    KEY(urn);
+    KEY(start_time, duration, resource);
     CAPABILITY(retrieve, join);
 };
 

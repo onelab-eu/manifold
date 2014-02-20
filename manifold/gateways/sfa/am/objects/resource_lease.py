@@ -12,6 +12,8 @@
 
 from types                              import StringTypes, GeneratorType
 from twisted.internet                   import defer
+from manifold.util.misc                 import make_list
+from manifold.util.predicate            import included, eq
 from manifold.gateways.deferred_object  import DeferredObject 
 
 class ResourceLease(DeferredObject):
@@ -26,11 +28,13 @@ class ResourceLease(DeferredObject):
                 (see "config" field of the Account table defined in the Manifold Storage)
             query: The Query issued by the User.
         """
+        print "RESOURCE LEASE GET"
+        print "query=", query
         gateway  = self.get_gateway()
         fields   = query.get_select()
         filters  = query.get_where()
         params   = query.get_params()
-        is_debug = "debug" in params and params["debug"]:
+        is_debug = "debug" in params and params["debug"]
 
 #MANDO|        if self.user.email in DEMO_HOOKS:
 #MANDO|            rspec = open('/usr/share/manifold/scripts/nitos.rspec', 'r')
@@ -45,7 +49,7 @@ class ResourceLease(DeferredObject):
         # XXX ONLY ONE AND WITHOUT JOKERS
         slice_hrn = slice_hrns[0] if slice_hrns else None
 
-        slice_api = self.get_sfa_proxy_admin()
+        slice_api = gateway.get_sfa_proxy_admin()
         # no need to check if server accepts the options argument since the options has
         # been a required argument since v1 API
         api_options = dict() 
