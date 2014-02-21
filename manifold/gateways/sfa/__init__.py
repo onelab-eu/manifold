@@ -1097,7 +1097,8 @@ class SFAGateway(Gateway):
             # If the authority is not part of the hierarchy, let's return [] to
             # prevent the registry to forward results to another registry
             # XXX This should be ensured by partitions
-            if not auth_hrn.startswith(interface_hrn):
+            auth_hrn  = [a for a in auth_hrn if a.startswith(interface_hrn)]
+            if not auth_hrn:
                 defer.returnValue([])
 
             resolve   = False
