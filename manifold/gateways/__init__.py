@@ -229,6 +229,7 @@ class Gateway(Producer):
                 self.__class__.__name__,
                 self._pit
             ))
+            import pdb; pdb.set_trace()
             raise e
         return socket
 
@@ -402,7 +403,7 @@ class Gateway(Producer):
             socket: The Socket which has to transport the Record.
             record: The Record we want to send. 
         """
-        socket.receive(record if isinstance(record, Record) else Record(record))
+        socket.receive(record if isinstance(record, Record) else Record.from_dict(record))
 
     def record(self, packet, record):
         """
@@ -423,7 +424,9 @@ class Gateway(Producer):
         socket = self.get_socket(packet.get_query())
         self.record_impl(socket, record)
 
-    def records(self, packet, records):
+    # XXX It is important that the packet is the second argument for
+    # deferred callbacks
+    def records(self, records, packet):
         """
         Helper used in Gateway when a has to send several RECORDS Packet. 
         Args:
@@ -532,7 +535,7 @@ class Gateway(Producer):
                 action = query.get_action()
                 if action != "get":
                     raise ValueError("Invalid action (%s) on %s:%s Table" % (action, self.get_platform_name(), table_name))
-                self.records(packet, [announce.to_dict() for announce in self.get_announces()])
+                self.records([announce.to_dict() for announce in self.get_announces()], packet)
                 ret = True
         return ret
 

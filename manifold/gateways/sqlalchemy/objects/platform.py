@@ -1,16 +1,16 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# ModelSession wrapping
+# ModelsPlatform wrapping
 #
 # Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 #
 # Copyright (C) UPMC 
 
-from manifold.gateways.sqlalchemy.models.session    import ModelSession
-from ..methods.sqla_object                          import SQLA_Object
+from manifold.gateways.sqlalchemy.models.platform   import ModelPlatform
+from ..objects.sqla_object                          import SQLA_Object
 
-class Session(SQLA_Object):
+class Platform(SQLA_Object):
     def __init__(self, gateway, interface):
         """
         Constructor.
@@ -18,5 +18,5 @@ class Session(SQLA_Object):
             gateway: A SQLAlchemyGateway instance.
             interface: A manifold Interface.
         """
-        super(Session, self).__init__(gateway, ModelSession, interface)
+        super(Platform, self).__init__(gateway, ModelPlatform, interface)
 

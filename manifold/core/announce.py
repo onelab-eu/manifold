@@ -134,9 +134,9 @@ def parse_dot_h(iterable, filename = None):
 
                 tables[table_name].insert_field(
                     Field(
-                        qualifiers  =  qualifiers,
                         type        =  m.group(4),
                         name        =  m.group(5),
+                        qualifiers  =  qualifiers,
                         is_array    = (m.group(6) != None), 
                         description =  m.group(7).lstrip("/*< ").rstrip("*/ ")
                     )
@@ -177,7 +177,7 @@ def parse_dot_h(iterable, filename = None):
                     if key_name in cur_class.get_field_names():
                         Log.error("Trying to add implicit key %s which is already in use" % key_name)
                     Log.info("Adding implicit key %s in %s" % (key_name, table_name))
-                    dummy_key_field = Field(["const"], "unsigned", key_name, False, "Dummy key");
+                    dummy_key_field = Field("unsigned", key_name, ["const"], False, "Dummy key");
                     cur_class.insert_field(dummy_key_field)
                     cur_class.insert_key(Key([dummy_key_field]))
                 table_name = None

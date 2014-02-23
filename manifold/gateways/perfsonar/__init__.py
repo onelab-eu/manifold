@@ -79,7 +79,7 @@ class PerfSONARGateway(Gateway):
         # - See Gateway::records()
         # - See Gateway::warning()
         # - See Gateway::error()
-        self.records(packet, records)
+        self.records(records, packet)
 
     #---------------------------------------------------------------------------
     # Metadata 

@@ -16,12 +16,14 @@ from manifold.gateways              import Gateway
 from manifold.core.annotation       import Annotation
 from manifold.core.capabilities     import Capabilities
 from manifold.core.code             import BADARGS, ERROR
-from manifold.core.packet           import ErrorPacket, Packet
+from manifold.core.packet           import QueryPacket, ErrorPacket, Packet
 from manifold.core.query            import Query
-#from manifold.core.result_value     import ResultValue
+from manifold.core.result_value     import ResultValue
 from manifold.core.socket           import Socket
+from manifold.core.sync_receiver    import SyncReceiver
 from manifold.policy                import Policy
 from manifold.util.log              import Log
+from manifold.util.predicate        import eq, included
 from manifold.util.reactor_thread   import ReactorThread
 from manifold.util.type             import accepts, returns
 
@@ -139,17 +141,11 @@ class Interface(object):
 
         # Fetch enabled Platforms from the Storage...
         if not platform_names:
-            platforms_storage = self.execute_local_query(
-                Query()\
-                    .get("platform")\
-                    .filter_by("disabled", "==", False)
-            )
+            query = Query.get('platform').filter_by("disabled", eq, False)
+            platforms_storage = self.execute_local_query(query)
         else:
-            platforms_storage = self.execute_local_query(
-                Query()\
-                    .get("platform")\
-                    .filter_by("platform", "INCLUDED", platform_names)
-            )
+            query = Query.get('platform').filter_by("platform", included, platform_names)
+            platforms_storage = self.execute_local_query(query)
 
             # Check whether if all the requested Platforms have been found in the Storage.
             platform_names_storage = set([platform["platform"] for platform in platforms_storage])
@@ -190,23 +186,6 @@ class Interface(object):
             raise RuntimeError("Unable to connect to the Manifold Storage")
         return self._storage
 
-    @returns(list)
-    def execute_local_query(self, query, annotation = None, error_message = None):
-        """
-        Run a Query on the Manifold Storage embeded by this Router.
-        Args:
-            query: A Query instance.
-            annotation: An Annotation instance passed to the Storage's Gateway.
-            error_message: A String containing the message to print in case of failure.
-        Returns:
-            A list of dict corresponding to the Records resulting from
-            the query.
-        """
-        from manifold.util.storage import STORAGE_NAMESPACE
-
-        if query.get_from().startswith("%s:" % STORAGE_NAMESPACE):
-            query.clear_namespace()
-        return self.get_storage().execute(query, annotation, error_message)
 
     #---------------------------------------------------------------------
     # Platform management.
@@ -445,13 +424,19 @@ class Interface(object):
         socket = Socket(consumer = packet.get_receiver())
         packet.set_receiver(socket)
 
+        self.process_query_packet(packet)
+
+    def process_query_packet(self, packet):
+        """
+        """
         # Build the AST and retrieve the corresponding root_node Operator instance.
-        query = packet.get_query()
+        query      = packet.get_query()
         annotation = packet.get_annotation()
+        receiver   = packet.get_receiver()
 
         try:
             root_node = self._operator_graph.build_query_plan(query, annotation)
-            root_node.add_consumer(socket)
+            root_node.add_consumer(receiver)
         except Exception, e:
             error_packet = ErrorPacket(
                 type      = ERROR,
@@ -459,7 +444,8 @@ class Interface(object):
                 message   = "Unable to build a suitable Query Plan (query = %s): %s" % (query, e),
                 traceback = traceback.format_exc()
             )
-            socket.receive(error_packet)
+            receiver.receive(error_packet)
+            return
 
         # Forwarding requests:
         # This might raise issues:
@@ -468,140 +454,49 @@ class Interface(object):
         # For async gateways, errors will be handled in errbacks.
         # XXX We should mutualize this error handling core and the errbacks
         try:
-            socket.receive(packet)
+            root_node.receive(packet)
         except Exception, e:
             error_packet = ErrorPacket(
                 type      = ERROR,
                 code      = BADARGS,
-                message   = "Unable to execute Query Plan (query = %s): %s" % (query, e),
+                message   = "Unable to execute Query Plan: %s" % (e, ),
+                #message   = "Unable to execute Query Plan (query = %s): %s" % (query, e),
                 traceback = traceback.format_exc()
             )
-            socket.receive(error_packet)
+            receiver.receive(error_packet)
 
-#UNUSED|    @returns(dict)
-#UNUSED|    def get_account_config(self, platform_name, user):
-#UNUSED|        """
-#UNUSED|        Retrieve the Account of a given User on a given Platform.
-#UNUSED|        Args:
-#UNUSED|            platform_name: A String containing the name of the Platform.
-#UNUSED|            user: A dict describing the User who executes the QueryPlan (None if anonymous).
-#UNUSED|        Returns:
-#UNUSED|            The corresponding dictionnary, None if no account found for
-#UNUSED|            this User and this Platform.
-#UNUSED|        """
-#UNUSED|        assert isinstance(platform_name, StringTypes),\
-#UNUSED|            "Invalid platform_name = %s (%s)" % (platform_name, type(platform_name))
-#UNUSED|
-#UNUSED|        if platform_name == STORAGE_NAMESPACE:
-#UNUSED|            return dict()
-#UNUSED|
-#UNUSED|        annotation = Annotation({"user" : self.get_user_storage()})
-#UNUSED|
-#UNUSED|        # Retrieve the Platform having the name "platform_name" in the Storage
-#UNUSED|        try:
-#UNUSED|            platforms = self.execute_local_query(
-#UNUSED|                Query().get("platform").filter_by("platform", "=", platform_name),
-#UNUSED|                annotation,
-#UNUSED|            )
-#UNUSED|            platform_id = platforms[0]["platform_id"]
-#UNUSED|        except IndexError:
-#UNUSED|            Log.error("interface::get_account_config(): platform %s not found" % platform_name)
-#UNUSED|            return None
-#UNUSED|
-#UNUSED|        # Retrieve the first Account having the name "platform_name" in the Storage
-#UNUSED|        try:
-#UNUSED|            accounts = self.execute_local_query(
-#UNUSED|                Query().get("account").filter_by("platform_id", "=", platform_id),
-#UNUSED|                annotation
-#UNUSED|            )
-#UNUSED|        except IndexError:
-#UNUSED|            Log.error("interface::get_account_config(): no account found for platform %s" % platform_name)
-#UNUSED|            return None
-#UNUSED|
-#UNUSED|        #accounts2 = self.execute_local_query(
-#UNUSED|        #    Query()\
-#UNUSED|        #        .get("account")\
-#UNUSED|        #        .select("config")\
-#UNUSED|        #        .filter_by("platform", "=", platform_name)#\
-#UNUSED|        #        .filter_by("email",    "=", user["email"])\
-#UNUSED|        #)
-#UNUSED|
-#UNUSED|        # Convert the json string "config" into a python dictionnary
-#UNUSED|        num_accounts = len(accounts)
-#UNUSED|        if num_accounts > 0:
-#UNUSED|            if num_accounts > 1:
-#UNUSED|                Log.warning("Several accounts found for [%s]@%s: %s" % (user["email"], platform_name, accounts))
-#UNUSED|            account = accounts[0]
-#UNUSED|            account["config"] = json.loads(account["config"])
-#UNUSED|        else:
-#UNUSED|            account = None
-#UNUSED|
-#UNUSED|        return account
-#UNUSED|
-#UNUSED|    @returns(list)
-#UNUSED|    def get_metadata_objects(self):
-#UNUSED|        """
-#UNUSED|        Returns:
-#UNUSED|            A list of dictionnaries describing each 3nf Tables.
-#UNUSED|        """
-#UNUSED|        output = list()
-#UNUSED|        # TODO try to factor using table::to_dict()
-#UNUSED|        for table in self.g_3nf.graph.nodes():
-#UNUSED|            # Ignore non parent tables
-#UNUSED|            if not self.g_3nf.is_parent(table):
-#UNUSED|                continue
-#UNUSED|
-#UNUSED|            table_name = table.get_name()
-#UNUSED|
-#UNUSED|            # We may have several table having the same name but related
-#UNUSED|            # to two different platforms set.
-#UNUSED|            fields = set() | table.get_fields()
-#UNUSED|            for _, child in self.g_3nf.graph.out_edges(table):
-#UNUSED|                if not child.get_name() == table_name:
-#UNUSED|                    continue
-#UNUSED|                fields |= child.get_fields()
-#UNUSED|
-#UNUSED|            # Build columns from fields
-#UNUSED|            columns = list()
-#UNUSED|            for field in fields:
-#UNUSED|                columns.append(field.to_dict())
-#UNUSED|
-#UNUSED|            keys = tuple(table.get_keys().one().get_field_names())
-#UNUSED|
-#UNUSED|            # Add table metadata
-#UNUSED|            output.append({
-#UNUSED|                "table"      : table_name,
-#UNUSED|                "column"     : columns,
-#UNUSED|                "key"        : keys,
-#UNUSED|                "capability" : list(),
-#UNUSED|            })
-#UNUSED|        return output
-#UNUSED|
-#DEPRECATED|    def send_result_value(self, query, result_value, annotation, is_deferred):
-#DEPRECATED|        # if Interface is_deferred
-#DEPRECATED|        d = defer.Deferred() if is_deferred else None
-#DEPRECATED|
-#DEPRECATED|        if not d:
-#DEPRECATED|            return result_value
-#DEPRECATED|        else:
-#DEPRECATED|            d.callback(result_value)
-#DEPRECATED|            return d
-#DEPRECATED|
-#DEPRECATED|    def process_qp_results(self, query, records, annotation, query_plan):
-#DEPRECATED|        # Enforcing policy
-#DEPRECATED|        (decision, data) = self.policy.filter(query, records, annotation)
-#DEPRECATED|        if decision != Policy.ACCEPT:
-#DEPRECATED|            raise Exception, "Unknown decision from policy engine"
-#DEPRECATED|
-#DEPRECATED|        description = query_plan.get_result_value_array()
-#DEPRECATED|        return ResultValue.get_result_value(records, description)
-#DEPRECATED|
-#DEPRECATED|    def execute_query_plan(self, query, annotation, query_plan, is_deferred = False):
-#DEPRECATED|        records = query_plan.execute(is_deferred)
-#DEPRECATED|        if is_deferred:
-#DEPRECATED|            # results is a deferred
-#DEPRECATED|            records.addCallback(lambda records: self.process_qp_results(query, records, annotation, query_plan))
-#DEPRECATED|            return records # will be a result_value after the callback
-#DEPRECATED|        else:
-#DEPRECATED|            return self.process_qp_results(query, records, annotation, query_plan)
-#DEPRECATED|
+    def execute_query(self, query, error_message):
+        """
+        """
+
+        # XXX We should benefit from caching if rules allows for it possible
+        # XXX LOCAL
+
+
+        if error_message:
+            Log.warning("error_message not taken into account")
+
+        # Build a query packet
+        receiver = SyncReceiver()
+        packet = QueryPacket(query, Annotation(), receiver)
+        self.process_query_packet(packet)
+
+        # This code is blocking
+        result_value = receiver.get_result_value()
+        assert isinstance(result_value, ResultValue),\
+            "Invalid result_value = %s (%s)" % (result_value, type(result_value))
+        return result_value.get_all()
+
+    def execute_local_query(self, query, error_message = None):
+        """
+        Run a Query on the Manifold Storage embeded by this Router.
+        Args:
+            query: A Query instance.
+            error_message: A String containing the message to print in case of failure.
+        Returns:
+            A list of dict corresponding to the Records resulting from
+            the query.
+        """
+        from manifold.util.storage import STORAGE_NAMESPACE
+        query.set_namespace(STORAGE_NAMESPACE)
+        return self.execute_query(query, error_message)

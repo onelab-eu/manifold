@@ -166,6 +166,6 @@ class QueryPlan(object):
             task.cancel()
     
         # Do we need to wait for self.ast here ?
-        Log.debug(self)
+        #Log.debug(self)
         return self.ast.get_root() if self.ast else None
 

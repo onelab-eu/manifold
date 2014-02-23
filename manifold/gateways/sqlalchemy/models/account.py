@@ -26,7 +26,7 @@ except:
 from ..models                       import Base
 from ..models.user                  import ModelUser
 from ..models.platform              import ModelPlatform
-from ..models.get_session           import get_session
+#from ..models.get_session           import get_session
 from manifold.util.log              import Log 
 from manifold.util.predicate        import Predicate
 from manifold.util.type             import accepts, returns 
@@ -94,7 +94,7 @@ class ModelAccount(Base):
         
     @staticmethod
     @returns(dict)
-    def process_params(params, filters, user, interface):
+    def process_params(params, filters, user, interface, session):
         """
         Process "params" clause carried by a Query to abstract Manifold from
         considerations related to the Manifold Storage (for instance json
@@ -126,8 +126,7 @@ class ModelAccount(Base):
             if 'config' in given_json_fields:
                 raise Exception, "Cannot mix full JSON specification & JSON encoded fields"
 
-            db = get_session(self)
-            r = db.query(ModelAccount.config)
+            r = session.query(ModelAccount.config)
             for filter in filters:
                 r = r.filter(filter)
             if user:

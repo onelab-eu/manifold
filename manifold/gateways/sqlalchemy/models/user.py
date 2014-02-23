@@ -30,19 +30,19 @@ class ModelUser(Base):
 #UNUSED|        #Log.deprecated()
 #UNUSED|        return self.set_config(value)
         
-    def set_config(self, value):
-        """
-        Update the "config" field of this ModelUser in the
-        Manifold Storage.
-        Args:
-            value: A String encoded in JSON containing
-                the new "config" related to this ModelUser.
-        """
-        db = get_session(self)
-        self.config = json.dumps(value)
-        db.add(self)
-        db.commit()
-        
+#    def set_config(self, value, session):
+#        """
+#        Update the "config" field of this ModelUser in the
+#        Manifold Storage.
+#        Args:
+#            value: A String encoded in JSON containing
+#                the new "config" related to this ModelUser.
+#        """
+#        session = get_session(self)
+#        self.config = json.dumps(value)
+#        session.add(self)
+#        session.commit()
+#        
     @returns(dict)
     def get_config(self):
         """
@@ -73,13 +73,12 @@ class ModelUser(Base):
         except Exception, e:
             raise ValueError("No Account found for User %s, Platform %s ignored: %s" % (user_email, platform_name, traceback.format_exc()))
         return user['user_id']
-#        db = get_session(self)
 #        ret = db.query(ModelUser.user_id).filter(ModelUser.email == user_params).one()
 #        return ret[0]
 
     @staticmethod
-    def process_params(params, filters, user):
-        db = get_session(self)
+    @returns(dict)
+    def process_params(params, filters, user, interface, session):
 
         # JSON ENCODED FIELDS are constructed into the json_fields variable
         given = set(params.keys())
@@ -90,7 +89,7 @@ class ModelUser(Base):
             if "config" in given_json_fields:
                 raise Exception, "Cannot mix full JSON specification & JSON encoded fields"
 
-            r = db.query(ModelUser.config).filter(filters)
+            r = session.query(ModelUser.config).filter(filters)
             if user:
                 r = r.filter(ModelUser.user_id == user["user_id"])
             r = r.filter(filters) #ModelUser.platform_id == platform_id)
@@ -109,24 +108,23 @@ class ModelUser(Base):
 
         return params
 
-    @classmethod
-    def params_ensure_user(cls, params, user):
-        db = get_session(self)
-
-        # A user can only create its own objects
-        if cls.restrict_to_self:
-            params["user_id"] = user["user_id"]
-            return
-
-        if "user_id" in params: return
-        if "user" in params:
-            user_params = params["user"]
-            print "user_params", user_params
-            del params["user"]
-            ret = db.query(ModelUser.user_id)
-            ret = ret.filter(ModelUser.email == user_params)
-            ret = ret.one()
-            params["user_id"] = ret[0]
-            return
-        raise ValueError("User should be specified")
+#    @classmethod
+#    def params_ensure_user(cls, params, user, session):
+#
+#        # A user can only create its own objects
+#        if cls.restrict_to_self:
+#            params["user_id"] = user["user_id"]
+#            return
+#
+#        if "user_id" in params: return
+#        if "user" in params:
+#            user_params = params["user"]
+#            print "user_params", user_params
+#            del params["user"]
+#            ret = session.query(ModelUser.user_id)
+#            ret = ret.filter(ModelUser.email == user_params)
+#            ret = ret.one()
+#            params["user_id"] = ret[0]
+#            return
+#        raise ValueError("User should be specified")
  

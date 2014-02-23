@@ -27,21 +27,9 @@ from manifold.util.misc                         import make_list
 # XXX Clarify what is a deferred object. It's unlikely we need something like this
 class RM_Object(DeferredObject):
 
-    # XXX Shall this be moved to a parent class ?
-
-    def get(self, user, account_config, packet): 
-        # XXX This function should have not return value, its role is only to
-        # forward a query inside the SFA domain. If we need to react, then
-        # let's just set up callbacks
-        gateway = self.get_gateway()
-        query = packet.get_query()
-        # NOTE : aucune chance de rattraper les erreurs dans les fonction
-        # asynchrones comme celle-ci (a moins de inlineCallbacks)
-        return self._get(user, account_config, query)
-        
     @defer.inlineCallbacks
     @returns(GeneratorType)
-    def _get(self, user, account_config, query): 
+    def get(self, user, account_config, packet):
         """
         Retrieve an RM_Object from SFA.
         Args:
@@ -68,6 +56,20 @@ class RM_Object(DeferredObject):
         params     = query.get_params()
         fields     = query.get_select()
         gateway    = self.get_gateway()
+        query = packet.get_query()
+
+        #-----------------------------------------------------------------------
+        # Connection
+        #   . Authentication : admin account thanks to sfa_proxy
+        #   . Authorization  : delegated credentials by user
+        # XXX Other schemes to be taken into account
+        
+        sfa_proxy = yield gateway.get_sfa_proxy_admin()
+        # We need to do the same as is done for AM crendetials
+        credential = gateway.get_credential(user, 'user', None)
+
+        #-----------------------------------------------------------------------
+        # Optimization of results
 
         # Let's find some additional information in filters in order to restrict our research
         # SFA gateways are not supporting Selection operation, however, we can optimize
@@ -103,7 +105,8 @@ class RM_Object(DeferredObject):
             # prevent the registry to forward results to another registry
             # XXX This should be ensured by partitions
             Log.warning("calling startswith on a list ??")
-            if not authority_hrns.startswith(interface_hrn):
+            authority_hrns = [a for a in authority_hrns if a.startswith(interface_hrn)]
+            if not authority_hrns:
                 defer.returnValue(list())
 
             resolve   = False
@@ -141,15 +144,10 @@ class RM_Object(DeferredObject):
             stack     = [interface_hrn]
         
         # TODO: user's objects, use reg-researcher
-        
-        print "-" * 80
-        print "getting credential"
-        print "    > user", user
-        print "    > account_config", account_config
-        credential = gateway.get_credential(user, account_config, 'user', None)
 
-        # Retrieve the registry (= SFA proxy)
-        sfa_proxy = yield gateway.get_sfa_proxy_admin()
+        #-----------------------------------------------------------------------
+        # Result construction
+
         output = list() 
 
         if resolve:

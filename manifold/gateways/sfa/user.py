@@ -36,17 +36,21 @@ def is_user_admin(user):
     Returns:
         True iif this User is admin.
     """
-    check_user(user)
-    return user["email"] == ADMIN_USER["email"]
+    if isinstance(user, StringTypes):
+        return user == ADMIN_USER_EMAIL
+    else:
+        check_user(user)
+        return user["email"] == ADMIN_USER["email"]
 
-@returns(int)
-def get_user_hash(user):
-    """
-    (Internal usage)
-    Compute the hash corresponding to a User.
-    Args:
-        user: A dictionnary describing the User issuing the SFA Query.
-    """
-    check_user(user)
-    return hash(frozenset(user.items()))
+
+#@returns(int)
+#def get_user_hash(user):
+#    """
+#    (Internal usage)
+#    Compute the hash corresponding to a User.
+#    Args:
+#        user: A dictionnary describing the User issuing the SFA Query.
+#    """
+#    check_user(user)
+#    return hash(frozenset(user.items()))
 

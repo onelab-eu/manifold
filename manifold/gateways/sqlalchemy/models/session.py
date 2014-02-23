@@ -16,6 +16,7 @@ from sqlalchemy.orm         import relationship, backref
 
 from ..models               import Base 
 from ..models.user          import ModelUser 
+from manifold.util.type             import accepts, returns 
 
 class ModelSession(Base):
 
@@ -27,8 +28,9 @@ class ModelSession(Base):
 
     user    = relationship("ModelUser", backref = "sessions", uselist = False)
 
-    @classmethod
-    def process_params(cls, params, filters, user):
+    @staticmethod
+    @returns(dict)
+    def process_params(params, filters, user, interface, db_session):
         # Generate session ID
         if not "session" in params:
             bytes = random.sample(xrange(0, 256), 32)
@@ -39,4 +41,4 @@ class ModelSession(Base):
         if not "expires" in params:
             params["expires"] = int(time.time()) + (24 * 60 * 60)
 
-        ModelUser.params_ensure_user(params, user)
+        ModelUser.params_ensure_user(params, user, db_session)

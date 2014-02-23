@@ -26,7 +26,7 @@ from manifold.core.exceptions               import MissingCredentialException, M
 from manifold.core.query                    import Query
 from manifold.gateways                      import Gateway 
 from manifold.gateways.sfa                  import SFAGatewayCommon, DEMO_HOOKS
-from manifold.gateways.sfa.user             import ADMIN_USER, is_user_admin 
+from manifold.gateways.sfa.user             import ADMIN_USER_EMAIL, is_user_admin 
 from manifold.gateways.sfa.proxy            import SFAProxy
 from manifold.gateways.sfa.rm.credential    import Credential 
 from manifold.util.log                      import Log
@@ -47,6 +47,9 @@ class SFA_RMGateway(SFAGatewayCommon):
         "authority" : Authority,
         "user"      : User,
         "slice"     : Slice
+        # "resource": Resource,
+        # "sfa_credential", SFACredential;
+        # ...
     }
 
     def __init__(self, interface, platform, platform_config = None):
@@ -63,6 +66,10 @@ class SFA_RMGateway(SFAGatewayCommon):
 
         if not "registry" in platform_config:
             raise KeyError("'registry' is missing in platform_configuration: %s (%s)" % (platform_config, type(platform_config)))
+
+    @returns(list)
+    def get_rm_names(self):
+        return list(self.get_platform_name())
 
     @returns(GeneratorType)
     def get_rms(self):
@@ -93,6 +100,10 @@ class SFA_RMGateway(SFAGatewayCommon):
         """
         return self.get_config()["registry"]
 
+    #--------------------------------------------------------------------------
+    # Account management (helper functions)
+    #--------------------------------------------------------------------------
+
     @staticmethod
     def generate_slice_credential(slice_hrn, user_account_config):
         """
@@ -105,24 +116,22 @@ class SFA_RMGateway(SFAGatewayCommon):
         """
         Log.debug("Not yet implemented. Run delegation script in the meantime")
     
-    @staticmethod
     @returns(StringTypes)
-    def get_credential(user, user_account_config, type, target_hrn = None):
+    def get_credential(self, user, type, target_hrn = None):
         """
         Retrieve from an user's account config the appropriate credentials.
         Args:
             user: A dictionnary carrying a description of the User issuing the Query.
-            user_account_config: A dictionnary storing the account configuration related to
-                the User and to the nested Platform managed by this Gateway.
             type: A String instance among {"user", "authority", "slice"}
             target_hrn: If type == "slice", this String contains the slice HRN.
                 Otherwise pass None.
         Returns:
             The corresponding Credential String.
         """
-        assert isinstance(user_account_config, dict),  "Invalid user_account_config"
         assert type in ["authority", "user", "slice"], "Invalid credential type: %s" % type
         assert target_hrn == None or type == "slice",  "Invalid parameters" # NOTE: Once this function will be generalized, update this assert
+
+        user_account_config = self.get_account_config(user['email'])
 
         delegated = "delegated_" if not is_user_admin(user) else ""
         key = "%s%s_credential%s" % (
@@ -158,55 +167,6 @@ class SFA_RMGateway(SFAGatewayCommon):
         else:
             raise Exception("Invalid credential type: %s" % type)
 
-    # delegator delegates its rights to the delegate
-    @returns(StringTypes)
-    def delegate(self, user_credential, user_private_key, user_gid, delegate_gid):
-        """
-        This function is used to delegate a user credential to the ADMIN_USER.
-        Args:
-            user_credential: A String or a Credential instance containing the user's credential.
-            user_private_key: A String containing the user's private key.
-            user_gid:
-            admin_credential: A String or a Credential instance containing the admin's credential.
-        """
-
-        # XXX We don't need the admin credential, we need the admin GID... or # HRN (to get the GID)
-
-        assert isinstance(user_credential, StringTypes), "Expected user_credential to be a string"
-
-        user_credential = Credential(string = user_credential)
-
-        # XXX 
-        # How to set_passphrase of the PEM key if we don't have the user password?
-        # For the moment we will use PEM keys without passphrase
-
-        # Does the user has the right to delegate all its privileges?
-        if not user_credential.get_privileges().get_all_delegate():
-            raise Exception("SFA Gateway the user has no right to delegate")
-
-
-        # Get the admin_gid and admin_hrn from the credential
-        # XXX useless XXX admin_gid = admin_credential.get_gid_object()
-        # XXX useless XXX admin_hrn = admin_gid.get_hrn()
-
-        # Create temporary files for key and certificate in order to use existing code based on httplib 
-        pkey_fn = tempfile.NamedTemporaryFile(delete=False) 
-        pkey_fn.write(user_private_key.encode('latin1')) 
-        cert_fn = tempfile.NamedTemporaryFile(delete=False) 
-        cert_fn.write(user_gid) # We always use the GID 
-        pkey_fn.close() 
-        cert_fn.close() 
-
-        delegated_credential = user_credential.delegate(delegate_gid, pkey_fn.name, cert_fn.name)
-        delegated_credential_str = delegated_credential.save_to_string(save_parents=True)
-
-        os.unlink(pkey_fn.name) 
-        os.unlink(cert_fn.name)
-        return delegated_credential_str
-
-    ############################################################################ 
-    # ACCOUNT MANAGEMENT
-    ############################################################################ 
 
     @staticmethod
     @returns(bool)
@@ -260,7 +220,7 @@ class SFA_RMGateway(SFAGatewayCommon):
 
     @staticmethod
     @returns(bool)
-    def credential_expired(credential):
+    def credential_expired(self, credential):
         """
         Tests whether a Credential has expired or not.
         Args:
@@ -274,34 +234,86 @@ class SFA_RMGateway(SFAGatewayCommon):
             credential = Credential(string = credential)
 
         return credential.get_expiration() < datetime.now()
+
+    # delegator delegates its rights to the delegate
+    @returns(StringTypes)
+    def delegate(self, user_credential, user_private_key, user_gid, delegate_gid):
+        """
+        This function is used to delegate a user credential to the ADMIN_USER.
+        Args:
+            user_credential: A String or a Credential instance containing the user's credential.
+            user_private_key: A String containing the user's private key.
+            user_gid:
+            admin_credential: A String or a Credential instance containing the admin's credential.
+        """
+
+        # XXX We don't need the admin credential, we need the admin GID... or # HRN (to get the GID)
+
+        assert isinstance(user_credential, StringTypes), "Expected user_credential to be a string"
+
+        user_credential = Credential(string = user_credential)
+
+        # XXX 
+        # How to set_passphrase of the PEM key if we don't have the user password?
+        # For the moment we will use PEM keys without passphrase
+
+        # Does the user has the right to delegate all its privileges?
+        if not user_credential.get_privileges().get_all_delegate():
+            raise Exception("SFA Gateway the user has no right to delegate")
+
+
+        # Get the admin_gid and admin_hrn from the credential
+        # XXX useless XXX admin_gid = admin_credential.get_gid_object()
+        # XXX useless XXX admin_hrn = admin_gid.get_hrn()
+
+        # Create temporary files for key and certificate in order to use existing code based on httplib 
+        pkey_fn = tempfile.NamedTemporaryFile(delete=False) 
+        pkey_fn.write(user_private_key.encode('latin1')) 
+        cert_fn = tempfile.NamedTemporaryFile(delete=False) 
+        cert_fn.write(user_gid) # We always use the GID 
+        pkey_fn.close() 
+        cert_fn.close() 
+
+        delegated_credential = user_credential.delegate(delegate_gid, pkey_fn.name, cert_fn.name)
+        delegated_credential_str = delegated_credential.save_to_string(save_parents=True)
+
+        os.unlink(pkey_fn.name) 
+        os.unlink(cert_fn.name)
+        return delegated_credential_str
    
-    # XXX It seems that it does not matter whether we have a user email or a
-    # user dictionary for this function, get_sfa_proxy, etc.
+
+    #--------------------------------------------------------------------------
+    # Account management
+    #--------------------------------------------------------------------------
+
+    # Ideally this function should help with account creation and management
+
     @defer.inlineCallbacks
     @returns(GeneratorType)
-    def manage(self, user, user_account_config):
+    def manage(self, user_email):
         """
-        This function is called for "managed" accounts.
-        It must be called whenever a slice is created to allow MySlice to get
-        the credentials related to this new slice, and if the needed credential
-        has expired.
+        This function is called for "managed" accounts. It manages the account
+        of the specified User (user_email) on the current platform.
+
+        NOTE: It must be called whenever a slice is created to allow MySlice to
+        get the credentials related to this new slice, and if the needed
+        credential has expired.
 
         See in the Storage account.auth_type.
 
         Args:
-            user: A dictionnary corresponding to the User.
-                See user table in the Manifold's Storage.
-            user_account_config: A dictionnary corresponding to account.config
-                for 'user' and the Platform on which this Gateway is running.
-                This function manages this Account.
-                See account table in the Manifold's Storage.
-            admin_account_config: A dictionnary corresponding to account.config
-                for the ADMIN_USER user.
-                See account table in the Manifold's Storage.
+            user_email: 
         Returns:
-            A dict containing the managed Account.
+            True is management succeeded
         """
-        print "MANAGEMENT OF USER", user
+        print "MANAGEMENT OF USER", user_email
+
+        user_account = self.get_account(user_email)
+        if not user_account.get('auth_type') == 'managed':
+            defer.returnValue(False)
+
+        user_account_config = user_account['config']
+
         # The gateway should be able to perform user user_account_config management taks on
         # behalf of MySlice
         #
@@ -324,18 +336,18 @@ class SFA_RMGateway(SFAGatewayCommon):
         # NOTE We might want to manage a user account for direct use without
         # relying on delegated credentials. In this case we won't even have a
         # admin_account_config, and won't need delegation.
-        is_admin = is_user_admin(user)
+        is_admin = is_user_admin(user_email)
 
         if not is_admin:
             # We will have to do credential delegation for users, slices,
             # authorities.
-            admin_account = self.get_account(ADMIN_USER['email'])
-            admin_account_config = admin_account.get('config')
-            admin_gid = admin_account.get('gid')
+            admin_account_config = self.get_account_config(ADMIN_USER_EMAIL)
+            admin_gid = admin_account_config.get('gid')
             if not admin_gid:
                 # Let's manage the admin account
-                yield self.manage(ADMIN_USER, admin_account_config)
-                admin_gid = admin_account.get('gid')
+                yield self.manage(ADMIN_USER_EMAIL)
+                admin_account_config = self.get_account_config(ADMIN_USER_EMAIL)
+                admin_gid = admin_account_config.get('gid')
                 if not admin_gid:
                     raise ManagementException("Could not obtain gid for admin after managing account")
         else:
@@ -401,14 +413,14 @@ class SFA_RMGateway(SFAGatewayCommon):
             #return {}
 
         if not "user_private_key" in user_account_config:
-            Log.info("Generating user private key for user '%s'" % user)
+            Log.info("Generating user private key for user '%s'" % user_email)
             k = Keypair(create = True)
             user_account_config["user_public_key"] = k.get_pubkey_string()
             user_account_config["user_private_key"] = k.as_pem()
             new_key = True
 
         if not "sscert" in user_account_config:
-            Log.info("Generating self-signed certificate for user '%s'" % user)
+            Log.info("Generating self-signed certificate for user '%s'" % user_email)
             x = user_account_config["user_private_key"].encode("latin1")
             keypair = Keypair(string = x)
             self_signed = Certificate(subject = user_account_config["user_hrn"])
@@ -421,9 +433,9 @@ class SFA_RMGateway(SFAGatewayCommon):
         
         timeout = self.get_timeout()
         registry_url = self.get_url()
-        registry_proxy = self.get_sfa_proxy(registry_url, user, user_account_config, "sscert", timeout)
+        registry_proxy = self.get_sfa_proxy(user_email, cert_type = 'sscert', config = user_account_config)
         if need_user_credential and SFA_RMGateway.credentials_needed("user_credential", user_account_config):
-            Log.debug("Requesting user credential for user %s" % user)
+            Log.debug("Requesting user credential for user %s" % user_email)
             try:
                 user_account_config["user_credential"] = yield registry_proxy.GetSelfCredential(
                     user_account_config["sscert"],
@@ -444,7 +456,7 @@ class SFA_RMGateway(SFAGatewayCommon):
 
         # SFA call Resolve to get the GID and the slice_list
         if need_gid or need_slice_list:
-            Log.debug("Generating GID for user %s" % user)
+            Log.debug("Generating GID for user %s" % user_email)
             records = yield registry_proxy.Resolve(
                 user_account_config["user_hrn"].encode("latin1"),
                 user_account_config["user_credential"]
@@ -525,59 +537,7 @@ class SFA_RMGateway(SFAGatewayCommon):
                     admin_gid
                 )
 
-        # return using asynchronous defer
-        defer.returnValue(user_account_config)
+        self.set_account_config(user_email, self.get_platform_name(), user_account_config)
 
-# See rm/credential.py
-#OBSOLETE|#---------------------------------------------------------------------------
-#OBSOLETE|# Patch SFA
-#OBSOLETE|#---------------------------------------------------------------------------
-#OBSOLETE|
-#OBSOLETE|def sfa_trust_credential_delegate(self, delegee_gidfile, caller_keyfile, caller_gidfile):
-#OBSOLETE|    """
-#OBSOLETE|    Patch over SFA.
-#OBSOLETE|    This overwrite the Credential.delegate method.
-#OBSOLETE|    Args:
-#OBSOLETE|        admin_gid       : A GID instance
-#OBSOLETE|        delegee_gidfile : A String containing the path of the private key.
-#OBSOLETE|        caller_keyfile  : A String containing the path of certificate key.
-#OBSOLETE|    Returns:
-#OBSOLETE|        A delegated copy of this credential, delegated to the 
-#OBSOLETE|        specified gid's user.    
-#OBSOLETE|    """
-#OBSOLETE|    from sfa.trust.gid               import GID
-#OBSOLETE|
-#OBSOLETE|    Log.warning("Calling an overriden delegate() method, update this once fixed in SFA")
-#OBSOLETE|
-#OBSOLETE|    # Get the gid of the object we are delegating
-#OBSOLETE|    object_gid = self.get_gid_object()
-#OBSOLETE|    object_hrn = object_gid.get_hrn()
-#OBSOLETE|
-#OBSOLETE|    # The HRN of the User who will be delegated to
-#OBSOLETE|    # @loic corrected
-#OBSOLETE|    print "gid type = ",type(delegee_gidfile)
-#OBSOLETE|    print delegee_gidfile.__class__
-#OBSOLETE|    if not isinstance(delegee_gidfile, GID):
-#OBSOLETE|        delegee_gid = GID(filename = delegee_gidfile)
-#OBSOLETE|    else:
-#OBSOLETE|        delegee_gid = delegee_gidfile
-#OBSOLETE|    delegee_hrn = delegee_gid.get_hrn()
-#OBSOLETE|
-#OBSOLETE|    #user_key = Keypair(filename=keyfile)
-#OBSOLETE|    #user_hrn = self.get_gid_caller().get_hrn()
-#OBSOLETE|    subject_string = "%s delegated to %s" % (object_hrn, delegee_hrn)
-#OBSOLETE|    dcred = Credential(subject=subject_string)
-#OBSOLETE|    dcred.set_gid_caller(delegee_gid)
-#OBSOLETE|    dcred.set_gid_object(object_gid)
-#OBSOLETE|    dcred.set_parent(self)
-#OBSOLETE|    dcred.set_expiration(self.get_expiration())
-#OBSOLETE|    dcred.set_privileges(self.get_privileges())
-#OBSOLETE|    dcred.get_privileges().delegate_all_privileges(True)
-#OBSOLETE|    #dcred.set_issuer_keys(keyfile, delegee_gidfile)
-#OBSOLETE|    dcred.set_issuer_keys(caller_keyfile, caller_gidfile)
-#OBSOLETE|    dcred.encode()
-#OBSOLETE|    dcred.sign()
-#OBSOLETE|
-#OBSOLETE|    return dcred
-#OBSOLETE|
-#OBSOLETE|Credential.delegate = sfa_trust_credential_delegate
+        defer.returnValue(True)
+

@@ -15,6 +15,10 @@ from twisted.internet                   import defer
 from manifold.util.misc                 import make_list
 from manifold.util.predicate            import included, eq
 from manifold.gateways.deferred_object  import DeferredObject 
+from ...am                              import unique_call_id
+
+AM_API_v2 = 2
+AM_API_v3 = 3
 
 class ResourceLease(DeferredObject):
     @defer.inlineCallbacks
@@ -28,79 +32,88 @@ class ResourceLease(DeferredObject):
                 (see "config" field of the Account table defined in the Manifold Storage)
             query: The Query issued by the User.
         """
-        print "RESOURCE LEASE GET"
-        print "query=", query
         gateway  = self.get_gateway()
         fields   = query.get_select()
         filters  = query.get_where()
         params   = query.get_params()
         is_debug = "debug" in params and params["debug"]
 
-#MANDO|        if self.user.email in DEMO_HOOKS:
-#MANDO|            rspec = open('/usr/share/manifold/scripts/nitos.rspec', 'r')
-#MANDO|            defer.returnValue(self.parse_sfa_rspec(rspec))
-#MANDO|            return 
-
-        # Do we have a way to find slices, for now we only support explicit slice names
-        # Note that we will have to inject the slice name into the resource object if not done by the parsing.
-        # slice - resource is a NxN relationship, not well managed so far
+        #-----------------------------------------------------------------------
+        # Parameters
+        #
+        # Currently, we need the slice name to be explicitely given
+        # We only keep the first one
 
         slice_hrns = make_list(filters.get_op("slice", (eq, included)))
-        # XXX ONLY ONE AND WITHOUT JOKERS
         slice_hrn = slice_hrns[0] if slice_hrns else None
 
-        slice_api = gateway.get_sfa_proxy_admin()
+        #-----------------------------------------------------------------------
+        # Connection
+
+        rm_name    = gateway.get_first_rm_name()
+        rm_gateway = gateway.get_interface().get_gateway(rm_name)
+
+        # We create an SFA proxy with the authentication tokens from the RM
+        # XXX In general we need to be sure that all we pass is trusted, whether
+        # it is GID or credentials
+        sfa_proxy = gateway.get_sfa_proxy_admin(rm_name)
+        if slice_hrn:
+            cred = rm_gateway.get_credential(user, "slice", slice_hrn)
+        else:
+            cred = rm_gateway.get_credential(user, "user")
+
+        server_version = yield sfa_proxy.get_cached_version()
+        am_api_version = server_version.get('geni_api', AM_API_v3)
+
+        #-----------------------------------------------------------------------
+        # Request : api_options
+
         # no need to check if server accepts the options argument since the options has
         # been a required argument since v1 API
         api_options = dict() 
-
         # always send call_id to v2 servers
         api_options["call_id"] = unique_call_id()
-
         # ask for cached value if available
         api_options["cached"] = True
 
-        # Get server capabilities
-        server_version = gateway.get_cached_server_version(slice_api)
-        type_version = set()
 
-        # Manage Rspec versions
-        if "rspec_type" and "rspec_version" in platform_config:
-            api_options["geni_rspec_version"] = {
-                "type"    : platform_config["rspec_type"],
-                "version" : platform_config["rspec_version"]
-            }
-        else:
-            # For now, lets use SFAv1 as default
-            api_options["geni_rspec_version"] = {
-                "type"    : "SFA",
-                "version" : "1"
-            }  
+        # XXX Cache might cause problems for leases
+        # XXX Include selective choice of resources or leases
+
+        #-----------------------------------------------------------------------
+        # Request : RSpecs preference
+        # 
+        # We would need to implement some sort of autonegociation instead of
+        # setting a default value
+
+        rspec_type, rspec_version, rspec_version_string = gateway.get_rspec_version()
+        api_options["geni_rspec_version"] = {
+            "type"    : rspec_type,
+            "version" : rspec_version
+        }  
  
         if slice_hrn:
-            cred = gateway.get_credential(user, user_account_config, "slice", slice_hrn)
             api_options["geni_slice_urn"] = hrn_to_urn(slice_hrn, "slice")
-        else:
-            cred = gateway.get_credential(user, user_account_config, "user")
 
         # Retrieve "advertisement" rspec
-        if self.version["geni_api"] == 2:
+        # We guess the AM API version from the requested version, that is wrong # !!
+        if am_api_version == 2:
             # AM API v2 
-            result = yield slice_api.ListResources([cred], api_options)
+            result = yield sfa_proxy.ListResources([cred], api_options)
         else:
             # AM API v3
             if slice_hrn:
-               slice_urn = api_options["geni_slice_urn"]
-               result = yield slice_api.Describe([slice_urn], [cred], api_options)
-               result["value"] = result["value"]["geni_rspec"]
+                slice_urn = api_options["geni_slice_urn"]
+                result = yield sfa_proxy.Describe([slice_urn], [cred], api_options)
+                result["value"] = result["value"]["geni_rspec"]
             else:
-               result = yield slice_api.ListResources([cred], api_options)
+                result = yield sfa_proxy.ListResources([cred], api_options)
                 
         if not "value" in result or not result["value"]:
             raise Exception, result["output"]
 
         rspec_string = result["value"]
-        rsrc_slice = self.parse_sfa_rspec(rspec_string)
+        rsrc_slice = gateway.parse_sfa_rspec(rspec_version_string, rspec_string)
 
         if slice_hrn:
             for r in rsrc_slice["resource"]:

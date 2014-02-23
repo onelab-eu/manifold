@@ -77,6 +77,7 @@ class Pit(object):
     
         try:
             query  = self._map_receiver_query[receiver]
+            print "**************************************************del receiver"
             socket = self._map_query_socket[query]
             socket.del_receiver(receiver)
             if socket.is_empty():
@@ -94,7 +95,7 @@ class Pit(object):
         Raises:
             KeyError: if query is not in this Pit.
         """
-        socket = self._map_query_socket[query]
+        print "**************************************************del query"
         for receiver in socket.get_consumers():
             del self._map_receiver_query[receiver]
         del self._map_query_socket[query]

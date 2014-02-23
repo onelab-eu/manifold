@@ -296,9 +296,9 @@ class Shell(object):
         assert isinstance(result_value, ResultValue), "Invalid ResultValue: %s (%s)" % (result_value, type(result_value))
 
         if result_value.is_success():
-            records = result_value["value"]
-#            dicts = [record.to_dict() if isinstance(record, Record) else record for record in records]
-            dicts = [record.to_dict() for record in records]
+            #records = result_value["value"]
+            #dicts = [record.to_dict() for record in records]
+            dicts = result_value.get_all()
             if self.interactive:
                 # Command-line
                 print "===== RESULTS ====="

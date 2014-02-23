@@ -46,7 +46,7 @@ class ManifoldGateway(Gateway):
             packet: A QUERY Packet.
             rows: The corresponding list of dict or Record instances.
         """
-        self.records(packet, rows)
+        self.records(rows, packet)
 
     def callback_error(self, error, packet):
         """

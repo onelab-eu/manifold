@@ -465,7 +465,7 @@ class PostgreSQLGateway(Gateway):
         # By default, we only fetch tables and we ignore views.
         start_time = time.time()
         table_names = self.get_table_names()
-        print "SQL took", time.time() - start_time, "s", "[get_table_names]"
+        #print "SQL took", time.time() - start_time, "s", "[get_table_names]"
 
         announces_pgsql = self.make_announces_from_names(table_names)
         if not announces_pgsql:
@@ -624,7 +624,7 @@ class PostgreSQLGateway(Gateway):
             labels = [column[0] for column in self.description]
             rows = [dict(zip(labels, row)) for row in rows]
 
-        print "SQL took", time.time() - start_time, "s", "[", query, "]"
+        #print "SQL took", time.time() - start_time, "s", "[", query, "]"
 
         if key_field is not None and key_field in labels:
             # Return rows as a dictionary keyed on the specified field
@@ -996,14 +996,14 @@ class PostgreSQLGateway(Gateway):
         cursor.execute(PostgreSQLGateway.SQL_TABLE_FOREIGN_KEYS, param_execute)
         fks = cursor.fetchall()
         foreign_keys = {fk.column_name: fk.foreign_table_name for fk in fks}
-        print "SQL took", time.time() - start_time, "s", "[get_fk]"
+        #print "SQL took", time.time() - start_time, "s", "[get_fk]"
 
         # COMMENTS:
         # We build a comments dictionary associating each field of the table with
         # its comment.
         start_time = time.time()
         comments = self.get_fields_comment(table_name)
-        print "SQL took", time.time() - start_time, "s", "[get_fields_comments]"
+        #print "SQL took", time.time() - start_time, "s", "[get_fields_comments]"
 
         # FIELDS:
         start_time = time.time()
@@ -1012,20 +1012,20 @@ class PostgreSQLGateway(Gateway):
         for field in cursor.fetchall():
             # PostgreSQL types vs base types
             table.insert_field(Field(
-                qualifiers  = [] if field.is_updatable == "YES" else ["const"],
                 type        = foreign_keys[field.column_name] if field.column_name in foreign_keys else PostgreSQLGateway.to_manifold_type(field.data_type),
                 name        = field.column_name,
+                qualifiers  = [] if field.is_updatable == "YES" else ["const"],
                 is_array    = (field.data_type == "ARRAY"),
                 description = comments[field.column_name] if field.column_name in comments else "(null)"
             ))
-        print "SQL took", time.time() - start_time, "s", "[get_fields]"
+        #print "SQL took", time.time() - start_time, "s", "[get_fields]"
     
         # PRIMARY KEYS: XXX simple key ?
         # We build a key dictionary associating each table with its primary key
         start_time = time.time()
         cursor.execute(PostgreSQLGateway.SQL_TABLE_KEYS, param_execute)
         fks = cursor.fetchall()
-        print "SQL took", time.time() - start_time, "s", "[get_pk]"
+        #print "SQL took", time.time() - start_time, "s", "[get_pk]"
 
         primary_keys = dict()
         for fk in fks:
@@ -1089,4 +1089,4 @@ class PostgreSQLGateway(Gateway):
         query = packet.get_query()
         sql = PostgreSQLGateway.to_sql(query)
         rows = self.selectall(sql, None)
-        self.records(packet, rows)
+        self.records(rows, packet)

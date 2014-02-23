@@ -44,6 +44,12 @@ class Record(Packet):
         else:
             self._record = None
 
+    @staticmethod
+    def from_dict(dic):
+        record = Record()
+        record.set_dict(dic)
+        return record
+
     #---------------------------------------------------------------------------
     # Accessors
     #---------------------------------------------------------------------------
@@ -56,6 +62,9 @@ class Record(Packet):
             you should use to_dict() method instead.
         """
         return self._record
+
+    def set_dict(self, dic):
+        self._record = dic
 
     @returns(dict)
     def to_dict(self):
