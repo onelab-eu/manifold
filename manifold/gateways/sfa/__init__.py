@@ -14,21 +14,22 @@
 
 import json, traceback
 
-from types                             import StringTypes, GeneratorType
-from twisted.internet                  import defer
-from twisted.python.failure            import Failure
+from types                              import StringTypes, GeneratorType
+from twisted.internet                   import defer
+from twisted.python.failure             import Failure
 
-from manifold.core.exceptions          import ManifoldException, MissingCredentialException, ManagementException, NoAccountException, NoAdminAccountException, ManifoldInternalException, MissingSSCertException, MissingGIDException
-from manifold.core.packet              import ErrorPacket # XXX not catching exceptions if we comment this
-from manifold.core.query               import Query 
-from manifold.core.record              import Record, Records
-from manifold.gateways                 import Gateway
-from manifold.gateways.sfa.proxy       import SFAProxy
-from manifold.gateways.sfa.proxy_pool  import SFAProxyPool
-from manifold.gateways.sfa.user        import ADMIN_USER, ADMIN_USER_EMAIL
-from manifold.operators.rename         import Rename
-from manifold.util.log                 import Log
-from manifold.util.type                import accepts, returns 
+from manifold.core.exceptions           import ManifoldException, MissingCredentialException, ManagementException, NoAccountException, NoAdminAccountException, ManifoldInternalException, MissingSSCertException, MissingGIDException
+from manifold.core.packet               import ErrorPacket # XXX not catching exceptions if we comment this
+from manifold.core.query                import Query 
+from manifold.core.record               import Record, Records
+from manifold.gateways                  import Gateway
+from manifold.gateways.sfa.proxy        import SFAProxy
+from manifold.gateways.sfa.proxy_pool   import SFAProxyPool
+from manifold.gateways.sfa.user         import ADMIN_USER, ADMIN_USER_EMAIL
+from manifold.operators.rename          import Rename
+from manifold.util.log                  import Log
+from manifold.util.predicate            import eq
+from manifold.util.type                 import accepts, returns 
 
 DEFAULT_TIMEOUT = 20
 DEMO_HOOKS      = ["demo"]
@@ -37,183 +38,14 @@ MAX_RETRIES     = 3
 # consider it as a valid Gateway. This a "virtual" class used to factorize
 # code written in am/__init__.py and rm/__init__.py
 
+# XXX Gateway
+USER_KEY = 'email'
+PLATFORM_KEY = 'platform'
+
 class SFAGatewayCommon(Gateway):
 
     #--------------------------------------------------------------------------
-    # User config
-    #--------------------------------------------------------------------------
-
-    @returns(GeneratorType)
-    def get_rms(self, user):
-        """
-        Retrieve RMs related to this SFA Gateway.
-        Args:
-            user: A dictionnary describing the User issuing the Query.
-        Returns:
-            Allow to iterate on the Platform corresponding this RM.
-        """
-        raise Exception, "This method must be overloaded"
-
-    @returns(list)
-    def get_accounts(self, user_email):
-        """
-        Retrieve Account(s) of a User in the corresponding RM(s).
-        An AM may be related to one more RM. A RM is related to exactly one RM (itself).
-        Args:
-            user_email: A String containing the User's email.
-        Raises:
-            ValueError: if Account is not found in the Manifold Storage.
-            Exception: if the Platform is not found in the Manifold Storage.
-        Returns:
-            The list of corresponding Accounts dictionnaries.
-        """
-        assert isinstance(user_email, StringTypes),\
-            "Invalid user_email = %s (%s)" % (user_email, type(user_email))
-        platform_name = self.get_platform_name()
-
-        Log.warning("Using anonymous to access Manifold's Storage")
-
-        # Get User
-        try:
-            query_user = Query.get("user").filter_by("email", "=", user_email)
-            user, = self._interface.execute_local_query(query_user)
-        except Exception, e:
-            raise ValueError("No Account found for User %s, Platform %s ignored: %s" % (user_email, platform_name, traceback.format_exc()))
-
-        # Get Platform related to this RM/AM
-        try:
-            query_platform = Query.get("platform").filter_by("platform", "=", platform_name)
-            platform, = self._interface.execute_local_query(query_platform)
-        except Exception, e:
-            raise ValueError("Platform %s not found: %s" % (platform_name, traceback.format_exc()))
-
-        # Retrieve RMs (list of dict) related to this Gateway.
-        # - if this is a SFA_RMGateway, this is the RM itself.
-        # - if this is a SFA_AMGateway, this retrieve each RM related to this AM.
-        rm_platforms = self.get_rms()
-
-        # Get Accounts for this user on each related RM
-        try:
-            platform_ids = list([platform["platform_id"] for platform in rm_platforms])
-            query_accounts = Query.get("account")\
-                    .filter_by("user_id",     "=", user["user_id"])\
-                    .filter_by("platform_id", "{", platform_ids)
-            accounts = self._interface.execute_local_query(query_accounts)
-        except Exception, e:
-            if user_email == ADMIN_USER:
-                raise NoAdminAccountException("Account(s) not found for user %s and platform %s: %s" % (user, platform, traceback.format_exc()))
-            else:
-                raise NoAccountException("Account(s) not found for user %s and platform %s: %s" % (user, platform, traceback.format_exc()))
-
-        if len(accounts) == 0:
-            if user_email == ADMIN_USER:
-                raise NoAdminAccountException("No account found for User %s on those RMs: %s" % (
-                    user_email,
-                    [platform["platform"] for platform in rm_platforms])
-                )
-            else:
-                raise NoAccountException("No account found for User %s on those RMs: %s" % (
-                    user_email,
-                    [platform["platform"] for platform in rm_platforms])
-                )
-
-        # Translate the accounts in a convenient format
-        for account in accounts:
-            account["config"] = json.loads(account["config"])
-
-        return accounts
-
-    @returns(dict)
-    def get_account(self, user_email):
-        """
-        Retrieve an Account corresponding to a given user.
-        Args:
-            user_email: A String containing the User's email.
-        Raises:
-            ValueError: if Account is not found in the Manifold Storage.
-            Exception: if the Platform is not found in the Manifold Storage.
-        Returns:
-            The dictionnary reprensenting the User's Account. 
-        """
-        assert isinstance(user_email, StringTypes),\
-            "Invalid user_email = %s (%s)" % (user_email, type(user_email))
-
-        # Let traverse exceptions raised by get_accounts
-        accounts = self.get_accounts(user_email)
-
-        # Ok, we got at least one Account.
-        if len(accounts) > 1:
-            Log.warning("Several Accounts found %s" % accounts)
-        account = accounts[0]
-        Log.debug("Account found: %s" % account["config"]["user_hrn"])
-        return account
-
-    #--------------------------------------------------------------------------
-    # Server 
-    #--------------------------------------------------------------------------
-
-    @returns(StringTypes)
-    def get_url(self):
-        """
-        Returns:
-            The URL of the SFA server related to this SFA Gateway.
-        """
-        raise Exception("This method must be overloaded")
-
-    @returns(SFAProxy)
-    def get_sfa_proxy(self, interface_url, user, account_config, cert_type, timeout, store_in_cached = True):
-        """
-        Retrieve a SFAProxy toward a given SFA interface (RM or AM).
-        Args:
-            interface_url: A String containing the URL of the SFA interface.
-            user: A dictionnary describing the User issuing the SFA Query.
-            account_config: A dictionnary describing the User's Account.
-            cert_type: A String among "gid" and "sscert".
-            timeout: The timeout (in seconds).
-            store_in_cache: A boolean set to True if this SFAProxy must be
-                stored in the SFAProxyPool or only returned by this function.
-        Returns:
-            The requested SFAProxy.
-        """
-        return self.sfa_proxy_pool.get(interface_url, user, account_config, cert_type, timeout, store_in_cached)
-
-    @returns(SFAProxy)
-    def get_sfa_proxy_admin(self):
-        """
-        Returns:
-            The SFAProxy using MySlice Admin account.
-        """
-        admin_config = self.get_account(ADMIN_USER["email"])["config"]
-
-        sfa_proxy = self.get_sfa_proxy(
-            self.get_url(),
-            ADMIN_USER,
-            admin_config,
-            "gid",
-            self.get_timeout()
-        )
-        sfa_proxy.set_network_hrn(sfa_proxy.get_hrn())
-        return sfa_proxy
-
-    @defer.inlineCallbacks
-    @returns(GeneratorType)
-    def get_hrn(self):
-        """
-        Returns:
-            A String instance containing the HRN (Human Readable Name)
-            corresponding to the AM or RM managed by this Gateway.
-        """
-        print "get hrn"
-        sfa_proxy = self.get_sfa_proxy_admin()
-        print "sfa proxy", sfa_proxy
-        assert sfa_proxy and isinstance(sfa_proxy, SFAProxy), "Invalid proxy: %s (%s)" % (sfa_proxy, type(sfa_proxy))
-        print "asking version"
-        sfa_proxy_version = yield sfa_proxy.get_cached_version()    
-        print "version", sfa_proxy_version
-        defer.returnValue(sfa_proxy_version["hrn"])
-
-    #--------------------------------------------------------------------------
-    # Gateway 
+    # Constructor
     #--------------------------------------------------------------------------
 
     def __init__(self, interface, platform, platform_config):
@@ -229,54 +61,24 @@ class SFAGatewayCommon(Gateway):
         super(SFAGatewayCommon, self).__init__(interface, platform, platform_config)
         self.sfa_proxy_pool = SFAProxyPool()
         platform_config = self.get_config()
+
+        # XXX Need to document the fields in platform config
         
-        # platform_config has always ["caller"]
-        # Check the presence of mandatory fields, default others
-        #if not "hashrequest" in platform_config:    
-        #    platform_config["hashrequest"] = False
-        #if not "protocol" in platform_config:
-        #    platform_config["protocol"] = "xmlrpc"
         if not "verbose" in platform_config:
             platform_config["verbose"] = 0
+
         if not "debug" in platform_config:
             platform_config["debug"] = False
+
+        # timeout = The maximum delay (in seconds) before considering that we wont get an answer.
         if not "timeout" in platform_config:
             platform_config["timeout"] = DEFAULT_TIMEOUT
 
-    @returns(int)
-    def get_timeout(self):
-        """
-        Returns:
-            The maximum delay (in seconds) before considering that we wont get an answer.
-        """
-        try:
-            return self.get_config()["timeout"]
-        except KeyError:
-            return DEFAULT_TIMEOUT
+    #--------------------------------------------------------------------------
+    # Gateway 
+    #--------------------------------------------------------------------------
 
-#DEPRECATED|    @defer.inlineCallbacks
-#DEPRECATED|    def forward(self, query, callback, is_deferred = False, execute = True, user = None, user_account_config = None, format = "dict", receiver = None):
-#DEPRECATED|        """
-#DEPRECATED|        Query handler.
-#DEPRECATED|        Args:
-#DEPRECATED|            query: A Query instance, reaching this Gateway.
-#DEPRECATED|            callback: The function called to send this record. This callback is provided
-#DEPRECATED|                most of time by a From Node.
-#DEPRECATED|                Prototype : def callback(record)
-#DEPRECATED|            is_deferred: A boolean set to True if this Query is async.
-#DEPRECATED|            execute: A boolean set to True if the treatement requested in query
-#DEPRECATED|                must be run or simply ignored.
-#DEPRECATED|            user: The User issuing the Query.
-#DEPRECATED|            user_account_config: A dictionnary containing the user's account config.
-#DEPRECATED|                In pratice, this is the result of the following query (run on the Storage)
-#DEPRECATED|                SELECT config FROM local:account WHERE user_id == user.user_id
-#DEPRECATED|            receiver: The From Node running the Query or None. Its ResultValue will
-#DEPRECATED|                be updated once the query has terminated.
-#DEPRECATED|        Returns:
-#DEPRECATED|            forward must NOT return value otherwise we cannot use @defer.inlineCallbacks
-#DEPRECATED|            decorator. 
-#DEPRECATED|        """
-
+    # XXX This should be common to all gateways !!
     def get_object(self, table_name):
         """
         Retrieve the Object corresponding to a table_name.
@@ -286,25 +88,187 @@ class SFAGatewayCommon(Gateway):
         Returns:
             The corresponding RM_Object class. 
         """
-        print "self class", self.__class__
         assert table_name in self.METHOD_MAP.keys(), \
             "Invalid table_name (%s). It should be in {%s}" % (
                 table_name,
                 ", ".join(self.METHOD_MAP.keys())
             )
-        # XXX SFARMGateway -> self -- jordan
         return self.METHOD_MAP[table_name](self) 
+
+    #--------------------------------------------------------------------------
+    # Account management
+    #--------------------------------------------------------------------------
+    #
+    # SFA Gateways uses several accounts:
+    # - accounts on a range of platforms, where the authentication is performed.
+    # This is typically the different RMs an AM trusts (SFA_AM), or the current
+    # RM (SFA_RM)
+    # - accounts from different users
+    #   . the user for retrieving credentials
+    #   . the admin for SSL connection
+    #
+    #--------------------------------------------------------------------------
+
+    # XXX This should be common to all gateways. By default, we return the local
+    # platform only.
+    @returns(GeneratorType)
+    def get_account_platforms(self, user):
+        """
+        Retrieve RMs related to this SFA Gateway.
+        Args:
+            user: A dictionnary describing the User issuing the Query.
+        Returns:
+            Allow to iterate on the Platform corresponding this RM.
+        """
+        raise Exception, "This method must be overloaded"
+
+    # XXX This should be common to all gateways
+    @returns(dict)
+    def get_account(self, user_email, platform_name = None):
+        """
+        Retrieve Account(s) of a User in the corresponding RM(s).
+        An AM may be related to one more RM. A RM is related to exactly one RM (itself).
+        Args:
+            user_email: A String containing the User's email.
+            platform_name : A String containing the Platform's name.
+        Raises:
+            ValueError: if Account is not found in the Manifold Storage.
+            Exception: if the Platform is not found in the Manifold Storage.
+        Returns:
+            The list of corresponding Accounts dictionnaries.
+        """
+
+        if not platform_name:
+            platform_name = self.get_platform_name()
+
+        assert isinstance(user_email, StringTypes),\
+            "Invalid user_email = %s (%s)" % (user_email, type(user_email))
+        assert isinstance(platform_name, StringTypes),\
+            "Invalid platform_name = %s (%s)" % (platform_name, type(platform_name))
+
+        # We need to add the select() clause since those *-query are not # well-managed yet
+        query = Query.get('account')                    \
+            .filter_by(USER_KEY,     eq, user_email)    \
+            .filter_by(PLATFORM_KEY, eq, platform_name) \
+            .select('auth_type', 'config')
+        try:
+            accounts = self._interface.execute_local_query(query)
+        except Exception, e:
+            exception_class = NoAdminAccountException if user_email == ADMIN_USER_EMAIL else NoAccountException
+            raise exception_class("No account found for User %s on Platform %s" % (user_email, platform_name))
+
+        if len(accounts) > 1:
+            Log.warning("Several Accounts found %s" % accounts)
+        account = accounts[0]
+
+        config = account.get('config', None)
+        if config:
+            account['config'] = json.loads(config)
+        else:
+            account['config'] = {}
+
+        return account
+        
+    def get_account_config(self, user_email, platform_name = None):
+        """
+        """
+        admin_account = self.get_account(user_email, platform_name)
+        return admin_account.get('config')
+
+    def set_account_config(self, user_email, platform_name, account_config):
+        """
+        """
+        assert isinstance(user_email, StringTypes),\
+            "Invalid user_email = %s (%s)" % (user_email, type(user_email))
+        assert isinstance(platform_name, StringTypes),\
+            "Invalid platform_name = %s (%s)" % (platform_name, type(platform_name))
+
+        query = Query.update('account')                  \
+            .set({'config': json.dumps(account_config)}) \
+            .filter_by(USER_KEY,     eq, user_email)     \
+            .filter_by(PLATFORM_KEY, eq, platform_name)
+
+        # Update the Storage consequently
+        self._interface.execute_local_query(query)
+
+    #--------------------------------------------------------------------------
+    # SFA specifics
+    #--------------------------------------------------------------------------
+
+    @returns(list)
+    def get_rm_names(self):
+        """
+        """
+        raise Exception("This method must be overloaded")
+
+
+    @returns(StringTypes)
+    def get_first_rm_name(self):
+        rm_names = self.get_rm_names()
+        if not rm_names:
+            raise Exception, "No trusted RM found for this AM"
+        return rm_names[0]
+
+    @returns(StringTypes)
+    def get_url(self):
+        """
+        Returns:
+            The URL of the SFA server related to this SFA Gateway.
+        """
+        raise Exception("This method must be overloaded")
+
+    #@returns(SFAProxy)
+    def get_sfa_proxy(self, user_email, platform_name = None, cert_type = 'gid', config = None):
+        """
+        Returns:
+            The SFAProxy using the account from User identified by its email
+            (user_email) to the Platform platform_name.
+        """
+        if not config:
+            # Can we get rid of this ? this is not compatible with caching
+            # We pass config in manage since it is not stored in the database
+            # each time we add a new token
+            account = self.get_account(user_email, platform_name)
+            config = account['config']
+
+        # XXX Why do we need a pool of proxies
+        sfa_proxy = self.sfa_proxy_pool.get(
+            self.get_url(),
+            user_email,
+            config,
+            cert_type,
+            self.get_timeout(),
+            True
+        )
+        sfa_proxy.set_network_hrn(sfa_proxy.get_hrn())
+        return sfa_proxy
+
+    @returns(SFAProxy)
+    def get_sfa_proxy_admin(self, platform_name = None):
+        """
+        A proxy for user admin on the local platform.
+        """
+        return self.get_sfa_proxy(ADMIN_USER_EMAIL, platform_name)
 
     @defer.inlineCallbacks
     @returns(GeneratorType)
-    def handle_error(self, user, user_account_config):
+    def get_hrn(self):
         """
-        This function when a Query has failed in its first attemp.
+        Returns:
+            A String instance containing the HRN (Human Readable Name)
+            corresponding to the AM or RM managed by this Gateway.
         """
-        Log.warning("Using anonymous to access Manifold's Storage")
+        sfa_proxy = self.get_sfa_proxy_admin()
+        assert sfa_proxy and isinstance(sfa_proxy, SFAProxy), "Invalid proxy: %s (%s)" % (sfa_proxy, type(sfa_proxy))
+        sfa_proxy_version = yield sfa_proxy.get_cached_version()    
+        defer.returnValue(sfa_proxy_version["hrn"])
 
+    def get_timeout(self):
+        return self.get_config().get('timeout', DEFAULT_TIMEOUT)
 
-
+    #--------------------------------------------------------------------------
+    # Packet forwarding 
+    #--------------------------------------------------------------------------
 
     # This is in fact receive_query_impl
     # XXX Maybe this could be common to all gateway except we have callbacks
@@ -368,16 +332,14 @@ class SFAGatewayCommon(Gateway):
             return
 
         # Insert a RENAME Node above this FROM Node if necessary.
-        # XXX This is only for RM, not AM -- jordan
-        if hasattr(self, 'get_object'):
-            instance = self.get_object(query.get_from())
-            aliases  = instance.get_aliases()
-            if aliases:
-                Log.warning("I don't think this properly recables everything")
-                try:
-                    Rename(self, aliases)
-                except Exception, e:
-                    print "EEE:", e
+        instance = self.get_object(query.get_from())
+        aliases  = instance.get_aliases()
+        if aliases:
+            Log.warning("I don't think this properly recables everything")
+            try:
+                Rename(self, aliases)
+            except Exception, e:
+                print "EEE:", e
 
         # We know this function will return either through gw.records() or
         # GW.error() so there is no need to specify callbacks
@@ -390,15 +352,11 @@ class SFAGatewayCommon(Gateway):
         # sfa::receive_impl [CURRENT]
         #    sfa.rm::perform_query            => returns a deferred
         #       sfa.rm.methods.rm_object::get => returns a deferred
-        Log.debug("Perform query", packet)
-        print "perform query", packet
         # XXX Poourquoi faire perform_query alors qu'on a deja un objet
         d = self.perform_query(user, user_account_config, packet)
-        d.addCallback(self.records)
+        d.addCallback(self.records, packet)
         d.addErrback(self.on_query_error, user, user_account, packet, MAX_RETRIES)
-        print "perform query done"
 
-    # This should be merged with the previous function
     # We call twice get_object
     # Only the module import path differs between RM and AM
     # XXX Properly refactored, this is common to all gateways to do the
@@ -447,6 +405,10 @@ class SFAGatewayCommon(Gateway):
         # From what i see where, it is somehow a disguised packet and annotation
         return method(user, user_account_config, query)
 
+    #--------------------------------------------------------------------------
+    # Error handling
+    #--------------------------------------------------------------------------
+
     @defer.inlineCallbacks
     def on_query_error(self, failure, user, user_account, packet, retries):
         """
@@ -479,10 +441,6 @@ class SFAGatewayCommon(Gateway):
         error_packet = ErrorPacket.from_exception(failure.value)
         self.send(packet, error_packet)
 
-    #--------------------------------------------------------------------------
-    # Error handlers
-    #--------------------------------------------------------------------------
-
     CMD_ADD_ACCOUNT = """
     INSERT INTO %(namespace)s:account
         SET email      = '%(user_email)s',
@@ -509,19 +467,11 @@ class SFAGatewayCommon(Gateway):
     @defer.inlineCallbacks
     def handle_missing_account_information(self, user, user_account):
 
-        # Managing account
-        user_account_config = user_account.get('config', {})
-        user_account_config = yield self.manage(user, user_account_config)
-
-        # Update the Storage consequently
-        self._interface.execute_local_query(
-            Query.update("account")\
-                .set({"config": json.dumps(user_account_config)})\
-                .filter_by("user_id",     "=", user_account["user_id"])\
-                .filter_by("platform_id", "=", user_account["platform_id"])
-        )
-
-        defer.returnValue(True)
+        # We need to call manage on the platform used to issue queries
+        platform_name = self.get_first_rm_name()
+        gateway = self._interface.get_gateway(platform_name)
+        ret = yield gateway.manage(user['email'])
+        defer.returnValue(ret)
 
     @defer.inlineCallbacks
     def handle_missing_admin_account_information(self, user, user_account):
@@ -529,20 +479,12 @@ class SFAGatewayCommon(Gateway):
         user : NOT USED
         user_account : NOT USED
         """
-        admin_account = self.get_account(ADMIN_USER['email'])
-        admin_account_config = admin_account.get('config', {})
 
-        admin_account_config = yield self.manage(ADMIN_USER, admin_account_config)
-
-        # Update the Storage consequently FOR ADMIN !!!!X XXX XXX
-        self._interface.execute_local_query(
-            Query.update("account")\
-                .set({"config": json.dumps(admin_account_config)})\
-                .filter_by("email",     "=", ADMIN_USER_EMAIL)\
-                .filter_by("platform_id", "=", self.get_platform_name())
-        )
-
-        defer.returnValue(True)
+        # We need to call manage on the platform used to issue queries
+        platform_name = self.get_first_rm_name()
+        gateway = self._interface.get_gateway(platform_name)
+        ret = yield gateway.manage(ADMIN_USER_EMAIL)
+        defer.returnValue(ret)
 
     @defer.inlineCallbacks
     def handle_no_account(self, user, user_account):
@@ -568,9 +510,7 @@ class SFAGatewayCommon(Gateway):
         if exception_class in EXCEPTION_HANDLERS:
             handler = EXCEPTION_HANDLERS[exception_class]
             try:
-                print "trying handler", handler
                 ret = yield handler(user, user_account)
-                print "   .ret=", ret
                 defer.returnValue(ret)
             except Exception, e:
                 # In case of failure, we also inform the user by adding an
@@ -579,8 +519,7 @@ class SFAGatewayCommon(Gateway):
                 error_packet.unset_last()
                 self.send(packet, error_packet)
                 defer.returnValue(False)
-        else:
-            print "exception not found"
 
-        if user_account.get('auth_type', None) != "managed":
-            defer.returnValue(False)
+        # XXX To be checked in handlers
+        #if user_account.get('auth_type', None) != "managed":
+        #    defer.returnValue(False)

@@ -92,7 +92,7 @@ class CSVGateway(Gateway):
                     row = self.convert(row, field_names, field_types)
                     if not row: continue
                     records.append(row)
-                self.records(records)
+                self.records(records, packet)
 
             except csv.Error as e:
                 message = "CSVGateway::forward(): Error in file %s, line %d: %s" % (filename, reader.line_num, e)
@@ -201,9 +201,9 @@ class CSVGateway(Gateway):
             key_fields = set()
             for name, type in zip(field_names, field_types):
                 field = Field(
-                    qualifiers  = ["const"], # unless we want to update the CSV file
                     type        = type,
                     name        = name,
+                    qualifiers  = ["const"], # unless we want to update the CSV file
                     is_array    = False,
                     description = "(null)"
                 )

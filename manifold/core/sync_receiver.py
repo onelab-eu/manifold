@@ -54,9 +54,9 @@ class SyncReceiver(Consumer):
         """
         if packet.get_protocol() == Packet.PROTOCOL_RECORD:
             if not packet.is_empty():
-                self._records.append(packet)
+                self._records.append(packet.get_dict())
         elif packet.get_protocol() == Packet.PROTOCOL_ERROR:
-            self._errors.append(packet)
+            self._errors.append(packet) # .get_exception()
         else:
             Log.warning(
                 "SyncReceiver::receive(): Invalid Packet type (%s, %s)" % (

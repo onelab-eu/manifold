@@ -198,12 +198,6 @@ class Query(object):
         """
         return self.to_sql()
 
-    def __key(self):
-        return (self.get_action(), self.get_from(), self.get_where(), frozendict(self.get_params()), frozenset(self.get_select()))
-
-    def __hash__(self):
-        return hash(self.__key())
-
     #--------------------------------------------------------------------------- 
     # Conversion
     #--------------------------------------------------------------------------- 
@@ -481,7 +475,7 @@ class Query(object):
             return self
 
         for field in fields:
-            if field:
+            if self.fields is not None:
                 self.fields.add(field)
             else:
                 # This is a SELECT * clause, so we've nothing to add.
@@ -510,7 +504,6 @@ class Query(object):
         return Query.action(self.action, self.object).filter_by(filter).select(fields)
 
     def __and__(self, query):
-        print "Query:__and__"
         assert self.action == query.action
         assert self.object == query.object
         assert self.timestamp == query.timestamp # XXX
@@ -555,10 +548,34 @@ class Query(object):
     def __gt__(self, other):
         return other < self
 
+    def __key(self):
+        return (self.get_action(), self.get_from(), self.get_where(), frozendict(self.get_params()), frozenset(self.get_select()))
+
+    def __hash__(self):
+        #return hash(self.action) ^ \
+        #    hash(self.object) ^ \
+        #    hash(self.timestamp) ^ \
+        #    hash(self.filters) ^ \
+        #        self.params == other.params and \
+        #        self.fields == other.fields
+        return hash(self.__key())
+
+
+    def get_namespace_table(self):
+        l = self.get_from().rsplit(':', 2)
+        return tuple(l) if len(l) == 2 else (None,) + tuple(l)
+
+    def set_namespace_table(self, namespace, table):
+        self.object = "%s:%s" % (namespace, table)
+
     @returns(StringTypes)
     def get_namespace(self):
         l = self.get_from().rsplit(':', 2)
         return l[0] if len(l) == 2 else None  
+
+    def set_namespace(self, namespace):
+        old_namespace, old_table_name = self.get_namespace_table()
+        self.set_namespace_table(namespace, old_table_name)
 
     @returns(StringTypes)
     def clear_namespace(self):

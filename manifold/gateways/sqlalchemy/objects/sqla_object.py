@@ -88,7 +88,7 @@ class SQLA_Object(Object):
         if "password" in params:
             params["password"] = hash_password(params["password"])
         
-        _params = cls.process_params(params, None, user, self._interface)
+        _params = cls.process_params(params, None, user, self._interface, session)
         new_obj = cls()
         #from sqlalchemy.orm.attributes import manager_of_class
         #mgr = manager_of_class(cls)
@@ -165,7 +165,7 @@ class SQLA_Object(Object):
         # into the local DB as hash 
         if "password" in query.get_params():
             query.params["password"] = hash_password(query.params["password"])
-        _params = cls.process_params(query.params, _filters, user, self._interface)
+        _params = cls.process_params(query.params, _filters, user, self._interface, session)
         # only 2.7+ _params = { getattr(cls, k): v for k,v in query.params.items() }
         _params = dict([ (getattr(cls, k), v) for k,v in _params.items() ])
        
@@ -294,9 +294,9 @@ class SQLA_Object(Object):
 
             # Multiple foreign keys are not handled yet
             table.insert_field(Field(
-                qualifiers  = _qualifiers, 
                 name        = column.name,
                 type        = _type,
+                qualifiers  = _qualifiers, 
                 is_array    = False,
                 description = column.description
             ))

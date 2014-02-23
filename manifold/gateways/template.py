@@ -87,7 +87,7 @@ class FooGateway(Gateway): # (TODO) Update this class name
         # - See Gateway::records()
         # - See Gateway::warning()
         # - See Gateway::error()
-        self.records(packet, records)
+        self.records(records, packet)
 
     #---------------------------------------------------------------------------
     # Metadata 

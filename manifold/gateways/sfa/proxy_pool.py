@@ -12,7 +12,6 @@
 from types                              import StringTypes
 from time                               import time
 
-from manifold.gateways.sfa.user         import ADMIN_USER, check_user, get_user_hash
 from manifold.gateways.sfa.proxy        import SFAProxy, make_sfa_proxy, DEFAULT_TIMEOUT
 from manifold.util.log                  import Log 
 from manifold.util.type                 import accepts, returns 
@@ -44,12 +43,12 @@ class SFAProxyPool(object):
                 del self.proxies[key]
 
     @returns(SFAProxy)
-    def get(self, interface_url, user, account_config, cert_type, timeout = DEFAULT_TIMEOUT, store_in_cache = True):
+    def get(self, interface_url, user_email, account_config, cert_type, timeout = DEFAULT_TIMEOUT, store_in_cache = True):
         """
         Create (if required) a SFAProxy toward a given SFA interface (RM or AM).
         Args:
             interface_url: A String containing the URL of the SFA interface.
-            user: A dictionnary describing the User issuing the SFA Query or ADMIN_USER.
+            user_email: 
             account_config: A dictionnary describing the User's Account.
             cert_type: A String among "gid" and "sscert".
             timeout: The timeout (in seconds).
@@ -60,7 +59,8 @@ class SFAProxyPool(object):
         """ 
         assert isinstance(interface_url, StringTypes), \
             "SFAProxyPool::get(): Invalid interface_url: %s (%s)" % (interface_url, type(interface_url))
-        check_user(user)
+        assert isinstance(user_email, StringTypes),\
+            "Invalid user_email = %s (%s)" % (user_email, type(user_email))
         assert isinstance(account_config, dict), \
             "Invalid account_config = %s (%s)" % (account_config, type(account_config))
         assert isinstance(cert_type, StringTypes) and cert_type in ["sscert", "gid"], \
@@ -70,7 +70,7 @@ class SFAProxyPool(object):
         assert isinstance(store_in_cache, bool), \
             "Invalid store_in_cache = %s (%s)" % (store_in_cache, type(store_in_cache))
 
-        key = hash((interface_url, get_user_hash(user)))
+        key = hash((interface_url, user_email))
 
         # Clean the pool to avoid to return an outdated proxy
         self.clean()
@@ -81,7 +81,7 @@ class SFAProxyPool(object):
         except KeyError:
             pass
 
-        Log.info("Adding new proxy %s@%s" % (user["email"], interface_url))
+        Log.info("Adding new proxy %s@%s" % (user_email, interface_url))
         #Log.tmp("interface_url  = %s" % interface_url)
         #Log.tmp("user           = %s" % user)
         #Log.tmp("account_config = %s" % account_config)

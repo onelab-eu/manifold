@@ -1,16 +1,16 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# ModelLinkedAccount wrapping
+# ModelsPolicy wrapping
 #
 # Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 #
 # Copyright (C) UPMC 
 
-from manifold.gateways.sqlalchemy.models.linked_account import ModelLinkedAccount
-from ..methods.sqla_object                              import SQLA_Object
+from manifold.gateways.sqlalchemy.models.policy import ModelPolicy
+from ..objects.sqla_object                      import SQLA_Object
 
-class LinkedAccount(SQLA_Object):
+class Policy(SQLA_Object):
     def __init__(self, gateway, interface):
         """
         Constructor.
@@ -18,5 +18,5 @@ class LinkedAccount(SQLA_Object):
             gateway: A SQLAlchemyGateway instance.
             interface: A manifold Interface.
         """
-        super(LinkedAccount, self).__init__(gateway, ModelLinkedAccount, interface)
+        super(Policy, self).__init__(gateway, ModelPolicy, interface)
 

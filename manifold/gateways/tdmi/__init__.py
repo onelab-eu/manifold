@@ -81,7 +81,7 @@ class TDMIGateway(PostgreSQLGateway):
         # in order to get a class consistent with the underlying ontology.
         self.custom_fields = {
             "agent" : [
-                Field(["const"], "string", "platform", None, "Platform annotation, always equal to 'tdmi'")
+                Field("string", "platform", ["const"], None, "Platform annotation, always equal to 'tdmi'")
             ]
         }
 
@@ -123,7 +123,7 @@ class TDMIGateway(PostgreSQLGateway):
                 Log.warning("TDMI::forward(): Querying a dummy object (%s)" % table_name)
                 rows = list()
 
-            self.records(packet, rows)
+            self.records(rows, packet)
             
         else:
             # Update FROM clause according to postgresql aliases

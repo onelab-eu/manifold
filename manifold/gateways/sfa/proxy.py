@@ -254,6 +254,10 @@ class SFAProxy(object):
         if not interface.startswith('http://') and not interface.startswith('https://'):
             interface = 'http://' + interface
 
+        # To avoid bugs like:
+        # exceptions.TypeError: Must write bytes to a TLS transport, not unicode.
+        interface = interface.encode('latin1')
+
         class Proxy(xmlrpc.Proxy):
             ''' See: http://twistedmatrix.com/projects/web/documentation/howto/xmlrpc.html
                 this is eacly like the xmlrpc.Proxy included in twisted but you can
@@ -379,10 +383,7 @@ class SFAProxy(object):
             version = cache.get(cache_key)
 
         if not version: 
-            try:
-                result = yield self.GetVersion()
-            except Exception, e:
-                raise Exception, "Error in GetVersion"
+            result = yield self.GetVersion()
             code = result.get("code")
             if code:
                 if code.get("geni_code") > 0:
@@ -407,7 +408,8 @@ class SFAProxy(object):
         Returns:
             True iif this SFAProxy supports ??? 
         """
-        server_version = yield server.get_cached_version()
+        # XXX server
+        server_version = yield self.get_cached_version()
         # XXX need to rewrite this 
         # XXX added not server version to handle cases where GetVersion fails (jordan)
         if not server_version or int(server_version.get("geni_api")) >= 2:
@@ -417,12 +419,12 @@ class SFAProxy(object):
         
     @defer.inlineCallbacks
     @returns(bool)
-    def supports_call_id_arg(server):
+    def supports_call_id_arg(self):
         """
         Returns:
             True iif this SFAProxy supports the optional "call_id" arg.
         """
-        server_version = yield server.get_cached_version()
+        server_version = yield self.get_cached_version()
         if "sfa" in server_version and "code_tag" in server_version:
             code_tag = server_version["code_tag"]
             code_tag_parts = code_tag.split("-")

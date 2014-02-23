@@ -61,6 +61,12 @@ class SFA_AMGateway(SFAGatewayCommon):
         if not "sm" in platform_config:
             raise KeyError("'sm' is missing in platform_configuration: %s (%s)" % (platform_config, type(platform_config)))
 
+    @returns(list)
+    def get_rm_names(self):
+        """
+        """
+        return self.get_config().get('rm_platforms', [])
+
     @returns(GeneratorType)
     def get_rms(self):
         """
@@ -68,12 +74,7 @@ class SFA_AMGateway(SFAGatewayCommon):
             Allow to iterate on a list of dictionnary representing each RM
             related to this AM.
         """
-        config = self.get_config()
-        if 'rm_platforms' in config:
-            platform_names = self.get_config()["rm_platforms"]
-        else:
-            # Shall we consider all RMs ? XXX -- jordan
-            platform_names = None
+        platform_names = self.get_rm_names()
 
         # Check whether this AM refers to at least one RM.
         # XXX Pourquoi, avec mon changement fait plus haut -- jordan
@@ -87,16 +88,15 @@ class SFA_AMGateway(SFAGatewayCommon):
         platforms = self._interface.execute_local_query(platform_query)
 
         # Check whether every RM referenced by this AM have been found. 
-        if platform_names: # XXX jordan I had to add this
-            found_platform_names = [platform["platform"] for platform in platforms]
-            print "found_platform_names", found_platform_names
-            print "platform_names", platform_names
-            if set(found_platform_names) != set(platform_names):
-                Log.warning("%s refers to the following RM {%s}, but only the following ones have been found in the Manifold Storage {%s}" %
-                    self.get_platform_name(),
-                    ", ".join(platform_names),
-                    ", ".join(found_platform_names)
-                )
+        found_platform_names = [platform["platform"] for platform in platforms]
+        print "found_platform_names", found_platform_names
+        print "platform_names", platform_names
+        if set(found_platform_names) != set(platform_names):
+            Log.warning("%s refers to the following RM {%s}, but only the following ones have been found in the Manifold Storage {%s}" %
+                self.get_platform_name(),
+                ", ".join(platform_names),
+                ", ".join(found_platform_names)
+            )
 
         # Return fetched RMs
         for platform in platforms: 
@@ -239,8 +239,8 @@ class SFA_AMGateway(SFAGatewayCommon):
         else:
             Log.info("Got manifest from %s" % self.get_platform_name())
         platform_config = self.get_config()
-        rspec_version = SFA_AMGateway.get_rspec_version(platform_config) 
-        rsrc_leases = SFA_AMGateway.parse_sfa_rspec(rspec_version, manifest)
+        rspec_version = self.get_rspec_version()
+        rsrc_leases = self.parse_sfa_rspec(rspec_version, manifest)
 
         slice = {"slice_hrn": filters.get_eq("slice_hrn")}
         slice.update(rsrc_leases)
@@ -285,9 +285,8 @@ class SFA_AMGateway(SFAGatewayCommon):
         parser = SFAv1Parser(resources, leases)
         return parser.to_rspec(slice_urn)
 
-    @staticmethod
-    @returns(StringTypes)
-    def get_rspec_version(platform_config):
+    @returns(tuple)
+    def get_rspec_version(self):
         """
         Retrieve rspec version based on the Plaform config of this Gateway
         (see Manifold's Storage). If the keys 'rspec_type' or 'rspec_version'
@@ -298,19 +297,22 @@ class SFA_AMGateway(SFAGatewayCommon):
         Returns:
             A String containing the rspec version.
         """
+        platform_config = self.get_config()
+
         if "rspec_type" and "rspec_version" in platform_config:
-            rspec_version = "%s %s" % (
-                platform_config["rspec_type"],
-                platform_config["rspec_version"]
-            )
+            rspec_type    = platform_config["rspec_type"]
+            rspec_version = platform_config["rspec_version"]
         else:
             Log.warning("'rspec_type' and 'rspec_version' should be set in Manifold Storage for platform %s" % self.get_platform_name())
-            rspec_version = "SFA 1"
-        return rspec_version
+            rspec_type    = "SFA"
+            rspec_version = "1"
+
+        rspec_version_string = "%s %s" % (rspec_type, rspec_version)
+
+        return (rspec_type, rspec_version, rspec_version_string)
        
-    @staticmethod
     @returns(dict)
-    def parse_sfa_rspec(rspec_version, rspec_string):
+    def parse_sfa_rspec(self, rspec_version, rspec_string):
         """
         Parse an SFA rspec.
         Args:

@@ -17,15 +17,16 @@ from sqlalchemy.orm                 import sessionmaker
 
 from manifold.core.announce         import Announce, make_virtual_announces
 from manifold.core.annotation       import Annotation
+from manifold.core.field            import Field 
 from manifold.core.record           import Records
 from manifold.gateways              import Gateway
 
-from manifold.gateways.sqlalchemy.methods.account        import Account
-from manifold.gateways.sqlalchemy.methods.linked_account import LinkedAccount
-from manifold.gateways.sqlalchemy.methods.platform       import Platform
-from manifold.gateways.sqlalchemy.methods.policy         import Policy
-from manifold.gateways.sqlalchemy.methods.session        import Session
-from manifold.gateways.sqlalchemy.methods.user           import User
+from .objects.account        import Account
+from .objects.linked_account import LinkedAccount
+from .objects.platform       import Platform
+from .objects.policy         import Policy
+from .objects.session        import Session
+from .objects.user           import User
 
 from manifold.util.log              import Log
 from manifold.util.type             import accepts, returns
@@ -110,7 +111,15 @@ class SQLAlchemyGateway(Gateway):
         # sqla_object) (and stored in SQLAlchemy)
         for table_name, cls in self.MAP_OBJECT.items():
             instance = SQLAlchemyGateway.MAP_OBJECT[table_name](self, self._interface)
-            announces.append(instance.make_announce())
+            announce = instance.make_announce()
+            if table_name == 'account':
+                field = Field(
+                    type = 'string',
+                    name = 'credential'
+                )
+                announce.table.insert_field(field)
+
+            announces.append(announce)
 
         # Virtual tables ("object", "column", ...) 
         virtual_announces = make_virtual_announces(STORAGE_NAMESPACE)
@@ -125,6 +134,11 @@ class SQLAlchemyGateway(Gateway):
             packet: A QUERY Packet instance.
         """
         query = packet.get_query()
+
+        # Since the original query will be altered, we are making a copy here,
+        # so that the pit dictionary is not altered
+        new_query = query.clone()
+
         action = query.get_action()
         table_name = query.get_from()
 
@@ -148,6 +162,6 @@ class SQLAlchemyGateway(Gateway):
                 annotation = Annotation()
             if not action in ["create", "update", "delete", "get"]:
                 raise ValueError("Invalid action = %s" % action)
-            records = getattr(instance, action)(query, annotation)
+            records = getattr(instance, action)(new_query, annotation)
 
-        self.records(packet, records)
+        self.records(records, packet)

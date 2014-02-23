@@ -136,7 +136,7 @@ class OMLGateway(PostgreSQLGateway):
             # Missing function = we are querying a measure. eg. get_counter
             records = self.get_measurement_table(query.get_from())()
 
-        self.records(packet, records)
+        self.records(records, packet)
 
         # Hook queries for OML specificities
 
@@ -183,17 +183,17 @@ class OMLGateway(PostgreSQLGateway):
         t = Table(self.get_platform_name(), "slice")
 
         slice_hrn = Field(
-            qualifiers  = ['const'],
             type        = 'text',
             name        = 'slice_hrn',
+            qualifiers  = ['const'],
             is_array    = False,
             description = 'Slice Human Readable Name'
         )
         t.insert_field(slice_hrn)
         t.insert_field(Field(
-            qualifiers  = ['const'],
             type        = 'int',
             name        = 'lease_id',
+            qualifiers  = ['const'],
             is_array    = False,
             description = 'Lease identifier'
         ))
@@ -216,16 +216,16 @@ class OMLGateway(PostgreSQLGateway):
         t = Table(self.get_platform_name(), "application")
 
         lease_id = Field(
-            qualifiers  = ['const'],
             type        = 'int',
             name        = 'lease_id',
+            qualifiers  = ['const'],
             is_array    = False,
             description = 'Lease identifier'
         )
         application = Field(
-            qualifiers  = ['const'],
             type        = 'string',
             name        = 'application',
+            qualifiers  = ['const'],
             is_array    = True,
             description = '(null)'
         )
@@ -255,23 +255,23 @@ class OMLGateway(PostgreSQLGateway):
         t = Table(self.get_platform_name(), "measurement_point")
 
         lease_id = Field(
-            qualifiers  = ['const'],
             type        = 'int',
             name        = 'lease_id',
+            qualifiers  = ['const'],
             is_array    = False,
             description = 'Lease identifier'
         )
         application = Field(
-            qualifiers  = ['const'],
             type        = 'string',
             name        = 'application',
+            qualifiers  = ['const'],
             is_array    = False,
             description = '(null)'
         )
         measurement_point = Field(
-            qualifiers  = ['const'],
             type        = 'string',
             name        = 'measurement_point',
+            qualifiers  = ['const'],
             is_array    = False,
             description = '(null)'
         )
