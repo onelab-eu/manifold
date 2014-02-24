@@ -51,7 +51,6 @@ class Rename(Operator):
 
         Operator.__init__(self, producers = child, max_producers = 1)
         self._aliases = aliases
-        print "ok rename"
 
     @returns(dict)
     def get_aliases(self):

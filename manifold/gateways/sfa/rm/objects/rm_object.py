@@ -29,7 +29,7 @@ class RM_Object(DeferredObject):
 
     @defer.inlineCallbacks
     @returns(GeneratorType)
-    def get(self, user, account_config, packet):
+    def get(self, user, account_config, query):
         """
         Retrieve an RM_Object from SFA.
         Args:
@@ -56,7 +56,6 @@ class RM_Object(DeferredObject):
         params     = query.get_params()
         fields     = query.get_select()
         gateway    = self.get_gateway()
-        query = packet.get_query()
 
         #-----------------------------------------------------------------------
         # Connection
