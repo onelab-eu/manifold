@@ -10,7 +10,10 @@ import platform
 distribution, _, _ = platform.dist()                                       
 
 ROOT_PATH = os.path.abspath(os.path.dirname(__file__))
-long_description = open(os.path.join(ROOT_PATH, 'README.rst')).read()
+
+# The following makes fail: python setup.py bdist_rpm 
+#long_description = open(os.path.join(ROOT_PATH, 'README.rst')).read()
+long_description = ""
 
 setup(
     name        = "manifold",
@@ -40,8 +43,11 @@ setup(
 #        ( [ ('/etc/init.d/manifold', 'manifold/bin/etc_init.d_manifold-debian') ] if distribution == 'debian' else [] ) +
 #        ( [ ('/etc/init.d/manifold', 'manifold/bin/etc_init.d_manifold-fedora') ] if distribution == 'fedora' else [] ) +
 #         [],
-    data_files = [ ('/usr/share/manifold/metadata/', glob('metadata/*.h')), ('/etc/init.d', ['init.d/manifold']) ],
-    scripts= glob("clientbin/*") + ['scripts/manifold-reset-db.sh', 'scripts/manifold-populate-db.sh'],
+    data_files = [
+        ('/usr/share/manifold/metadata/', glob('metadata/*.h')),
+        ('/etc/init.d', glob('init.d/manifold'))
+    ],
+    scripts = glob("clientbin/*") + ['scripts/manifold-reset-db.sh', 'scripts/manifold-populate-db.sh'],
 #    entry_points={
 #        'console_scripts': [
 #            'manifold-shell = manifold.bin.shell:main',
