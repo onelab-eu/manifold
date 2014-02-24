@@ -800,6 +800,7 @@ class SFAGateway(Gateway):
     # get a delegated credential of a given type to a specific target
     # default allows the use of MySlice's own credentials
     def __get_cred(self, type, target=None):
+        cred = None
         delegated='delegated_' if not self.is_admin(self.user) else ''
         Log.debug('Get Credential for %s = %s'% (type,target))           
         if type == 'user':
@@ -1443,7 +1444,22 @@ class SFAGateway(Gateway):
             # XXX not a success, neither a warning !!
             print "I: Not requesting object update on %s for %s" % (server_auth_hrn, object_auth_hrn)
             defer.returnValue([])
-        auth_cred = self._get_cred('authority', object_auth_hrn)
+        # If we update our own user, we only need our user_cred
+        if self.query.object == 'user':
+            try:
+                caller_user_hrn = self.user_config['user_hrn']
+            except Exception, e:
+                raise Exception, "Missing user_hrn in account.config of the user" 
+            if object_hrn == caller_user_hrn:
+                Log.tmp("Need a user credential to update your own user: %s" % object_hrn)
+                auth_cred = self._get_cred('user')
+            # Else we need an authority cred above the object
+            else:
+                Log.tmp("Need an authority credential to update another user: %s" % object_hrn)
+                auth_cred = self._get_cred('authority', object_auth_hrn)
+        else:
+            Log.tmp("Need an authority credential to update: %s" % object_hrn)
+            auth_cred = self._get_cred('authority', object_auth_hrn)
         try:
             object_gid = yield self.registry.Update(params, auth_cred)
         except Exception, e:
