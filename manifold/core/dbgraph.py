@@ -83,7 +83,7 @@ class DBGraph(object):
         if u == v:
             return
 
-        relations = u.get_relations(v)
+        relations = u.get_relations(v, self)
         if relations:
             self.graph.add_edge(u, v, relations=relations)
             Log.debug("NEW EDGE %s" % self.print_arc(u, v))

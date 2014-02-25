@@ -202,16 +202,16 @@ class ExploreTask(Deferred):
 
         if self.depth == MAX_DEPTH:
             self.callback(self.ast)
-            return
+            return foreign_key_fields
 
         # In all cases, we have to list neighbours for returning 1..N relationships. Let's do it now. 
         for neighbour in metadata.graph.successors(self.root):
             for relation in metadata.get_relations(self.root, neighbour):
                 name = relation.get_relation_name()
 
-                if name in seen_set:
+                print "||NAME=", name, relation
+                if name and name in seen_set:
                     continue
-
                 seen_set.add(name)
 
                 if relation.requires_subquery():

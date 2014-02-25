@@ -604,7 +604,7 @@ class Table(object):
             return False
 
     @returns(set)
-    def get_relations(self, table):
+    def get_relations(self, table, dbgraph):
         """
         Compute which Relations connect the "self" Table (source node) to the
         "table" Table (target node). We assume that the graph of table is
@@ -662,6 +662,14 @@ class Table(object):
                                     Log.warning("Hardcoded source, agent, destination and dns_target as 1..1 relationships")
                                     relations.add(Relation(Relation.types.LINK_11, p, name=field.get_name()))
                                 else:
+                                    print "---"
+                                    print "u.get_name()", u.get_name()
+                                    print "v.get_name()", v.get_name()
+                                    print "v.get_platforms()", "_".join(v.get_platforms())
+                                    print "v.is_parent", dbgraph.is_parent(v)
+                                    
+                                    #import sys
+                                    #sys.exit(1)
                                     relations.add(Relation(Relation.types.LINK, p))
             # BAD
             #if v_key.is_composite():

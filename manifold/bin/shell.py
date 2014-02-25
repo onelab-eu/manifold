@@ -388,6 +388,7 @@ class Shell(object):
     def evaluate(self, command, value=False):
         #username, password = Options().username, Options().password
         query = Query(SQLParser().parse(command))
+        print "query", query
         ret = self.client.forward(query)
         if not value:
             return ret 

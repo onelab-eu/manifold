@@ -212,8 +212,8 @@ class LeftJoin(Node):
         # Skip records missing information necessary to join
 #DEPRECATED|        if self.predicate.value not in record or not record[self.predicate.value]:
         #Log.tmp("%s <= %s" %(set(self.predicate.get_value()) , set(record.keys()))) 
-        if not set(self.predicate.get_value()) <= set(record.keys()) \
-        or Record.is_empty_record(record, self.predicate.get_value()):
+        if not set([self.predicate.get_value()]) <= set(record.keys()) \
+        or Record.is_empty_record(record, set([self.predicate.get_value()])):
             Log.warning("Missing LEFTJOIN predicate %s in right record %r: ignored" % \
                     (self.predicate, record))
             return
@@ -222,11 +222,13 @@ class LeftJoin(Node):
         # so we are confident the key exists in the map
         # XXX Dangers of duplicates ?
         key = Record.get_value(record, self.predicate.value)
-        for left_record in self.left_map[key]:
-            left_record.update(record)
-            self.send(left_record)
+        left_records = self.left_map.get(key, None)
+        if left_records:
+            for left_record in self.left_map[key]:
+                left_record.update(record)
+                self.send(left_record)
 
-        del self.left_map[key]
+            del self.left_map[key]
 
     def optimize_selection(self, filter):
         # LEFT JOIN
