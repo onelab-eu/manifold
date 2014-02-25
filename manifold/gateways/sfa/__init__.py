@@ -632,6 +632,7 @@ class SFAGateway(Gateway):
         except Exception, e:
             Log.warning("Could not retrieve resources in RSpec: %s" % e)
         
+        # XXX does not scale... we need get_resources and that's all
         try:
             nodes = rspec.version.get_nodes()
         except Exception, e:
@@ -705,6 +706,7 @@ class SFAGateway(Gateway):
             lease['resource'] = lease.pop('component_id')
             lease['slice']    = lease.pop('slice_id')
 
+        print "resources=", resources
         print "leases=", leases
         return {'resource': resources, 'lease': leases } 
 #               'channel': channels \
@@ -840,6 +842,7 @@ class SFAGateway(Gateway):
         else:
             raise Exception, "Invalid credential type: %s" % type
 
+
     @defer.inlineCallbacks
     def update_slice_am(self, filters, params, fields):
         if not 'resource' in params and not 'lease' in params:
@@ -968,7 +971,14 @@ class SFAGateway(Gateway):
             print "GOT MANIFEST FROM", self.platform
             print "MANIFEST=", manifest
             sys.stdout.flush()
-        rsrc_leases = self.parse_sfa_rspec(manifest)
+
+
+        if self.am_version['geni_api'] == 2:
+            rsrc_leases = self.parse_sfa_rspec(manifest)
+        else:
+            # AM API v3
+            # 
+            rsrc_leases = self.parse_sfa_rspec(manifest['geni_rspec'])
 
         slice = {'slice_hrn': filters.get_eq('slice_hrn')}
         slice.update(rsrc_leases)
@@ -1182,6 +1192,7 @@ class SFAGateway(Gateway):
             defer.returnValue(records)
 
     def get_slice(self, filters, params, fields):
+        # XXX Sometimes we don't need to call for the registry
 
         if self.user['email'] in DEMO_HOOKS:
             defer.returnValue(self.get_slice_demo(filters, params, fields))
@@ -1470,9 +1481,16 @@ class SFAGateway(Gateway):
        return self.update_object(filters, params, fields)
     
     def update_slice(self, filters, params, fields):
-        need_am = bool(set(params.keys()) & AM_SLICE_FIELDS)
-        need_rm = bool(set(params.keys()) - AM_SLICE_FIELDS)
-        if need_am and need_rm:
+        do_update_am = bool(set(params.keys()) & AM_SLICE_FIELDS)
+        do_update_rm = bool(set(params.keys()) - AM_SLICE_FIELDS)
+
+        do_get_am    = fields & AM_SLICE_FIELDS and not do_update_am
+        do_get_rm    = fields - AM_SLICE_FIELDS and not do_update_rm
+
+        do_am        = do_get_am or do_update_am
+        do_rm        = do_get_rm or do_update_rm
+
+        if do_am and do_rm:
             # Part on the RM side, part on the AM side... until AM and RM are
             # two different GW, we need to manually make a left join between
             # the results of both calls
@@ -1486,29 +1504,67 @@ class SFAGateway(Gateway):
             #if not has_key:
             #    fields_rm |= 'slice_urn'
 
-            ret_am = self.update_slice_am(filters, params, fields_am)
-            ret_rm = self.update_object(filters, params, fields_rm)
+            if do_get_am: # then we have do_update_rm (because update_slice)
+                print "do get am"
+                ret_am = self.get_slice(filters, params, fields_am)
+                ret_rm = self.update_object(filters, params, fields_rm)
+            else:
+                print "do get rm"
+                ret_am = self.update_slice_am(filters, params, fields_am)
+                ret_rm = self.get_slice(filters, params, fields_rm)
 
-            # Join (note that we have only one result for the update)
-            ret_am = ret_am[0]
-            ret_rm = ret_rm[0]
-            ret_am.update(ret_rm)
+            print "ret_am", ret_am
+            print "ret_rm", ret_rm
+
+            dl = defer.DeferredList([ret_am, ret_rm])
+            if do_get_am:
+                def cb(result):
+                    assert len(result) == 2
+                    (am_success, am_records), (rm_success, rm_records) = result
+                    # XXX success
+                    am_record = am_records[0]
+                    rm_record = rm_records[0]
+                    rm_record.update(am_record)
+                    return [rm_record]
+                dl.addCallback(cb)
+                return dl
+            else:
+                def cb(result):
+                    assert len(result) == 2
+                    (am_success, am_records), (rm_success, rm_records) = result
+                    # XXX success
+                    am_record = am_records[0]
+                    rm_record = rm_records[0]
+                    am_record.update(rm_record)
+                    return [am_record]
+                dl.addCallback(cb)
+                return dl
 
             # Remove key
             #if not has_key:
             #    del ret['slice_urn']
-            return [ret_am]
 
-        if need_am:
+        if do_update_am:
             return self.update_slice_am(filters, params, fields)
-        else: # need_rm
+        else: # do_update_rm
             return self.update_object(filters, params, fields)
         
-    def update_resource(self, filters, params, fields):
-        return self.update_object(filters, params, fields)
-    
     def update_authority(self, filters, params, fields):
         return self.update_object(filters, params, fields)
+
+    # Let's not have resource in the registry for the time being since it causes conflicts with the AM until AM and RM are separated...
+    #def update_resource(self, filters, params, fields):
+    #    return self.update_object(filters, params, fields)
+
+    # NOTE : The two following subqueries should be sent at the same time
+    # Maintain pending queries ?
+    # This was solved before thanks to update_slice
+
+    def update_resource(self, filters, params, fields): # AM
+        pass
+
+    def update_leases(self, filters, params, fields): # AM
+        pass
 
 
     def sfa_table_networks(self):
@@ -1616,6 +1672,7 @@ class SFAGateway(Gateway):
         result = yield self.get_resource_lease(filters,fields,params)
         defer.returnValue(result['lease'])
 
+    # This get_resource is about the AM only... let's forget about RM for the time being
     @defer.inlineCallbacks
     def get_resource(self, filters, params, fields):
         result = yield self.get_resource_lease(filters, fields, params)
@@ -1633,9 +1690,11 @@ class SFAGateway(Gateway):
         # Note that we will have to inject the slice name into the resource object if not done by the parsing.
         # slice - resource is a NxN relationship, not well managed so far
 
-        slice_hrns = make_list(filters.get_op('slice', (eq, included)))
+        # ROUTERV2
+        slice_urns = make_list(filters.get_op('slice', (eq, included)))
+        slice_urn = slice_urns[0] if slice_urns else None
+        slice_hrn, _ = urn_to_hrn(slice_urn) if slice_urn else (None, None)
         # XXX ONLY ONE AND WITHOUT JOKERS
-        slice_hrn = slice_hrns[0] if slice_hrns else None
 
         # no need to check if server accepts the options argument since the options has
         # been a required argument since v1 API
@@ -1658,7 +1717,7 @@ class SFAGateway(Gateway):
  
         if slice_hrn:
             cred = self._get_cred('slice', slice_hrn, v3 = self.am_version['geni_api'] != 2)
-            api_options['geni_slice_urn'] = hrn_to_urn(slice_hrn, 'slice')
+            api_options['geni_slice_urn'] = slice_urn
         else:
             cred = self._get_cred('user', v3= self.am_version['geni_api'] != 2)
 
@@ -1685,7 +1744,6 @@ class SFAGateway(Gateway):
         else:
             # AM API v3
             if slice_hrn:
-                slice_urn = api_options['geni_slice_urn']
                 result = yield self.sliceapi.Describe([slice_urn], [cred], api_options)
                 result['value'] = result['value']['geni_rspec']
             else:
@@ -1698,10 +1756,10 @@ class SFAGateway(Gateway):
         rsrc_slice = self.parse_sfa_rspec(rspec_string)
   
 
-        if slice_hrn:
+        if slice_urn:
             for r in rsrc_slice['resource']:
                 # XXX We might consider making this a list...
-                r['slice'] = slice_hrn
+                r['slice'] = slice_urn
 
         if self.debug:
             rsrc_slice['debug'] = {'rspec': rspec}

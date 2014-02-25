@@ -147,6 +147,7 @@ class Query(object):
 
     def copy(self):
         return copy.deepcopy(self)
+    #clone = copy
 
     def clear(self):
         self.action = 'get'

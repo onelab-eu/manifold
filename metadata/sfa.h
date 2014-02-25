@@ -9,7 +9,6 @@ class slice {
     const text nodes;
     const text slice_url;
     const authority parent_authority;
-
 # lease       lease[];       /**< List of leases associated to the slice */
     user        user[];        /**< List of users associated to the slice */
 
@@ -143,7 +142,7 @@ class user {
 #    const text roles[];
 #    const text password;
     const authority parent_authority;
-    slice slices[];
+    slice slice[];
 
     KEY(user_hrn);
     CAPABILITY(retrieve, join, fullquery);
