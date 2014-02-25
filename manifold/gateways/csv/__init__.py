@@ -16,6 +16,7 @@ from itertools                          import izip
 from datetime                           import datetime
 
 from manifold.core.announce             import Announce
+from manifold.core.capabilities         import Capabilities
 from manifold.core.field                import Field 
 from manifold.core.key                  import Key
 from manifold.core.record               import Record
@@ -180,6 +181,17 @@ class CSVGateway(Gateway):
             raise Exception, "Missing key in platform configuration"
         return self.config[table]['key'].split(',')
 
+    def get_capabilities(self, table):
+        capabilities = Capabilities()
+        if 'capabilities' in self.config[table]:
+            capabilities_str = self.config[table]['capabilities'].split(',')
+            for capability_str in capabilities_str:
+                setattr(capabilities, capability_str, True)
+        else:
+            capabilities.retrieve   = True
+            capabilities.join       = True
+        return capabilities
+
     @returns(list)
     def make_announces(self):
         """
@@ -214,8 +226,7 @@ class CSVGateway(Gateway):
 
             table.insert_key(key_fields)
 
-            table.capabilities.retrieve   = True
-            table.capabilities.join       = True
+            table.capabilities = self.get_capabilities(table_name) 
 
             announces.append(Announce(table))
 
