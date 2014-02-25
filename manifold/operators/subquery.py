@@ -190,7 +190,11 @@ class SubQuery(Operator):
                         already_fetched_fields = set(first_record[relation_name].keys())
                     else:
                         already_fetched_fields = set()
-            relevant_fields = child_fields - already_fetched_fields
+
+            # we need to keep key used for subquery
+            key_field = relation.get_predicate().get_value()
+            relevant_fields = child_fields - already_fetched_fields | frozenset([key_field])
+
             if not relevant_fields:
                 useless_children.add(i)
                 continue
@@ -362,7 +366,13 @@ class SubQuery(Operator):
                         parent_record[relation.get_relation_name()] = []
                         for child_record in self.child_results[i]:
                             if filter.match(child_record):
+                                # 
+                                # parent_record[relation.get_relation_name()]
+                                # contains a list of children objects, with some
+                                # properties
+                                # their key is relation.get_value_names()
                                 parent_record[relation.get_relation_name()].append(child_record)
+                                
 
                     elif op == contains:
                         # 1..N
