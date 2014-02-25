@@ -2,9 +2,7 @@ class slice {
     const text  slice_urn;   /**< Slice Human Readable name */
     const text  slice_hrn;   /**< Slice Human Readable name */
     const text  slice_type;
-    const text  slice_last_updated;
     const authority parent_authority;
-# lease       lease[];       /**< List of leases associated to the slice */
     user        user[];        /**< List of users associated to the slice */
 
     KEY(slice_hrn);
@@ -12,7 +10,7 @@ class slice {
 };
 
 class lease {
-	slice 		   slices[];
+	slice 		   slice[];
     timestamp      start_time;  /**< Start of the lease */ 
     interval       duration;
     const resource resource;    /**< Resource URN attached to this lease */
@@ -106,7 +104,7 @@ class resource {
     const text          z;
     initscript          initscripts[];         
     tag                 tags[];  
-    slice               slices[];
+    slice               slice[];
 #   sliver              slivers[];
 #   service             services[];
 #   position            position;
@@ -127,17 +125,15 @@ class network {
 };
 
 class user {
-    const text enabled;
-    const text user_first_name;
-    const text user_last_name;
+    const text first_name;
+    const text last_name;
     const text user_email;
     const text user_phone;
     const text user_hrn;
     const text keys;
-#    const text roles[];
 #    const text password;
     const authority parent_authority;
-    slice slices[];
+    slice slice[];
 
     KEY(user_hrn);
     CAPABILITY(retrieve, join, fullquery);
@@ -148,7 +144,7 @@ class authority {
     const text abbreviated_name;
     const text authority_hrn;
     const authority parent_authority;
-    slice      slices[];
+    slice      slice[];
     user       user[];
 
     KEY(authority_hrn);
