@@ -349,6 +349,10 @@ class SubQuery(Node):
                         parent_record[relation.get_relation_name()] = []
                         for child_record in self.child_results[i]:
                             if filter.match(child_record):
+                                print "parent_record[relation.get_relation_name()].append(child_record)"
+                                print "parent_record[relation.get_relation_name()]=", parent_record[relation.get_relation_name()]
+                                print "child_record =", child_record
+
                                 parent_record[relation.get_relation_name()].append(child_record)
 
                     elif op == contains:

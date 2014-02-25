@@ -381,7 +381,7 @@ class ExploreTask(Deferred):
                 # The current platform::table might be ONJOIN (no retrieve capability), but we
                 # might be able to collect the keys, so we have disabled the following code
                 # XXX Improve platform capabilities support
-                # XXX if not capabilities.retrieve: continue
+                if self.relation is None and not capabilities.retrieve: continue
 
                 from_ast = AST(user = user).From(platform, query, capabilities, key)
                 query_plan.add_from(from_ast.get_root())
