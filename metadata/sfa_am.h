@@ -13,8 +13,8 @@ class lease {
     timestamp      start_time;  /**< Start of the lease */ 
     interval       granularity; 
     interval       duration;
-    text           network;
-    const text     lease_type;
+    string           network;
+    const string     lease_type;
     slice          slices[];    /**< Backward reference to sfa_rm::slice */ 
 
     KEY(start_time, duration, resource);
@@ -22,37 +22,37 @@ class lease {
 };
 
 class location {
-    const text     country;
-    const text     longitude;
-    const text     latitude;
+    const string     country;
+    const string     longitude;
+    const string     latitude;
 
     CAPABILITY(retrieve, join);
 };
 
 class hardware_type {
-    const          text name;
+    const          string name;
 
     CAPABILITY(retrieve, join);
 };
 
 class interface {
-    const text     component_id;
+    const string     component_id;
 
     CAPABILITY(retrieve, join);
 };
 
 class resource {
-    const text     urn;
-    const text     hrn;
-    const text     hostname;
-    const text     component_manager_id;
-    const text     component_id;
+    const string     urn;
+    const string     hrn;
+    const string     hostname;
+    const string     component_manager_id;
+    const string     component_id;
     bool           exclusive;
-    const text     component_name;
+    const string     component_name;
     hardware_type  hardware_types[];
     location       location;
     interface      interfaces[];
-    const text     boot_state;
+    const string     boot_state;
     initscript     initscripts[];         
 #    sliver         slivers[];
 #    service        services[];
@@ -65,8 +65,8 @@ class resource {
 };
 
 class network {
-    const text     network_hrn;
-    const text     network_name;
+    const string     network_hrn;
+    const string     network_name;
 
     KEY(network_hrn);
     CAPABILITY(retrieve, join);
