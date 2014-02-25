@@ -150,9 +150,6 @@ class SubQuery(Node):
         first_record = self.parent_output[0]
         parent_fields = set(first_record.keys())
         
-        print "*" * 80
-        print "parent_fields", parent_fields
-        
         # Optimize child queries according to the fields already retrieved thanks
         # to the parent query.
         useless_children = set()
@@ -175,11 +172,17 @@ class SubQuery(Node):
                         already_fetched_fields = set(first_record[relation_name].keys())
                     else:
                         already_fetched_fields = set()
-            relevant_fields = child_fields - already_fetched_fields
+
+            # XXX routerv2: we need to keep key used for subquery
+            key_field = relation.get_predicate().get_value()
+
+            relevant_fields = child_fields - already_fetched_fields | frozenset([key_field])
+
             if not relevant_fields:
                 useless_children.add(i)
                 continue
             elif child_fields != relevant_fields:
+                # XXX This seems to remove the key used for joining 
                 self.children[i] = child.optimize_projection(relevant_fields)
 
         # If every children are useless, this means that we already have full records
@@ -217,17 +220,13 @@ class SubQuery(Node):
                 # 1..N
                 # Example: parent has slice_hrn, resource has a reference to slice
                 if relation.get_type() == Relation.types.LINK_1N_BACKWARDS:
-                    print "keys=", self.parent_output[0].keys()
-                    print self.parent_output[0]
                     parent_ids = [record[key] for record in self.parent_output]
                     if len(parent_ids) == 1:
                         parent_id, = parent_ids
                         filter_pred = Predicate(value, eq, parent_id)
                     else:
                         filter_pred = Predicate(value, included, parent_ids)
-                    print "filter_pred", filter_pred
                 else:
-                    print "2"
                     parent_ids = []
                     for parent_record in self.parent_output:
                         record = Record.get_value(parent_record, key)
@@ -255,7 +254,6 @@ class SubQuery(Node):
                         filter_pred = Predicate(value, eq, parent_id)
                     else:
                         filter_pred = Predicate(value, included, parent_ids)
-                    print "filter_pred", filter_pred
 
                 # Injecting predicate
                 old_child_callback= child.get_callback()
@@ -311,15 +309,10 @@ class SubQuery(Node):
                     key, op, value = predicate.get_tuple()
                     
                     if op == eq:
-                        print "done eq"
                         # 1..N
                         # Example: parent has slice_hrn, resource has a reference to slice
                         #            PARENT       CHILD
                         # Predicate: (slice_hrn,) == slice
-                        print "predicate.key=", key
-                        print "predicate.op=", op
-                        print "predicate.value=", value
-                        print "parent record", parent_record
 
                         # Collect in parent all child such as they have a pointer to the parent
                         record = Record.get_value(parent_record, key)
@@ -339,7 +332,6 @@ class SubQuery(Node):
                             filter = Filter().filter_by(Predicate(value, eq, id))
                         else:
                             filter = Filter().filter_by(Predicate(value, included, ids))
-
                         #if isinstance(key, StringTypes):
                         #    # simple key
                         #    ids = [o[key]] if key in o else []

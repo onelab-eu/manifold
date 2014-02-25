@@ -2,6 +2,7 @@ class slice {
     const text  slice_urn;   /**< Slice Human Readable name */
     const text  slice_hrn;   /**< Slice Human Readable name */
     const text  slice_type;
+    const text  slice_last_updated;
     const authority parent_authority;
 # lease       lease[];       /**< List of leases associated to the slice */
     user        user[];        /**< List of users associated to the slice */
