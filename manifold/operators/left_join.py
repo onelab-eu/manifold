@@ -279,6 +279,8 @@ class LeftJoin(Operator):
         for predicate in filter:
             if predicate.get_field_names() < left_fields:
                 left_filter.add(predicate)
+                if predicate.get_field_names() < right_fields:
+                    right_filter.add(predicate)
             elif right_join and predicate.get_field_names() < right_fields:
                 right_filter.add(predicate)
             else:
