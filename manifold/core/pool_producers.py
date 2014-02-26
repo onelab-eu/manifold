@@ -1,3 +1,6 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
 from manifold.core.packet   import Packet
 from manifold.util.log      import Log 
 from manifold.util.type     import accepts, returns

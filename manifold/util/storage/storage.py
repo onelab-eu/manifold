@@ -35,6 +35,12 @@ class Storage(object):
         assert isinstance(platform_config, dict),\
             "Invalid platform_config = %s (%s)" % (platform_config, type(platform_config))
         
+        self._gateway = None
+
+        # Initialize self._storage_annotation (passed to every query run on this Storage)
+        self._storage_annotation = Annotation()
+
+    def load_gateway(self):
         # Initialize self._gateway
         Gateway.register_all()
         cls_storage = Gateway.get(gateway_type)
@@ -42,15 +48,14 @@ class Storage(object):
             raise Exception, "Cannot find %s Gateway, required to access Manifold Storage" % gateway_type 
         self._gateway = cls_storage(interface, STORAGE_NAMESPACE, platform_config)
 
-        # Initialize self._storage_annotation (passed to every query run on this Storage)
-        self._storage_annotation = Annotation()
-
     @returns(Gateway)
     def get_gateway(self):
         """
         Returns:
             The Gateway nested in this Storage instancec.
         """
+        if not self._gateway:
+            self.load_gateway()
         return self._gateway
 
     @returns(list)
