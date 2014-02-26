@@ -7,7 +7,7 @@
 #
 # base_dir/table_name/field_name/value
 #
-# Jordan Aug√       <jordan.auge@lip6.fr>
+# Jordan Aug√©       <jordan.auge@lip6.fr>
 # Marc-Olivier Buob <marc-olivier.buob@lip6.fr> 
 #
 # Copyright (C) UPMC

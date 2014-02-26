@@ -8,7 +8,7 @@
 # Copyright (C)2009-2012, UPMC Paris Universitas
 # Authors:
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
-#   Jordan Aug√       <jordan.auge@lip6.fr>
+#   Jordan Aug√©       <jordan.auge@lip6.fr>
 
 import os, re, functools
 from types                          import StringTypes

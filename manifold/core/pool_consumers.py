@@ -1,3 +1,6 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
 from manifold.core.packet import Packet
 
 class PoolConsumers(set):

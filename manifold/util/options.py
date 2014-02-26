@@ -100,6 +100,8 @@ class Options(object):
             cfg_options = dict(cfg.items(FAKE_SECTION))
 
         # Load/override options from configuration file and command-line 
+        from manifold.util.debug import print_call_stack
+        print_call_stack()
         args = self._parser.parse_args()
         self.options = dict() 
 
@@ -191,11 +193,17 @@ class Options(object):
         """
         try:
 
+            # We ignore some special keys, since sphinx for example will trigger
+            # this function while inspecting classes 
+            if key.startswith('__'):
+                return
+
             # Handling default values
             parser_method = getattr(self._parser, key)
             self.uptodate = False
             return parser_method
         except Exception, e:
+            print "EXCEPTIONS", e
             if not self.uptodate:
                 self.parse()
             return self.options.get(key, None)
