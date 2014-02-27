@@ -100,8 +100,6 @@ class Options(object):
             cfg_options = dict(cfg.items(FAKE_SECTION))
 
         # Load/override options from configuration file and command-line 
-        from manifold.util.debug import print_call_stack
-        print_call_stack()
         args = self._parser.parse_args()
         self.options = dict() 
 
