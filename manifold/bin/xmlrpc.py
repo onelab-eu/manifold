@@ -264,7 +264,7 @@ class XMLRPCDaemon(Daemon):
                 myContextFactory
             )
 
-            Log.info("Starting XMLRPCDaemon")
+            Log.info("Starting XMLRPCDaemon (https://localhost:%s)" % Options().xmlrpc_port)
             ReactorThread().start_reactor()
         except Exception, e:
             # TODO If database gets disconnected, we can sleep/attempt reconnection
