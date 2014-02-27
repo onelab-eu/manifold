@@ -27,6 +27,7 @@ from manifold.input.sql             import SQLParser
 from manifold.util.colors           import BOLDBLUE, NORMAL
 from manifold.util.log              import Log
 from manifold.util.options          import Options
+from manifold.util.reactor_thread   import ReactorThread
 from manifold.util.type             import accepts, returns
 
 # This could be moved outside of the Shell
@@ -187,7 +188,7 @@ class Shell(object):
                     #Log.tmp("Automatically selected '%s' authentication method" % method)
                     return
                 except Exception, e:
-                    Log.error(format_exc())
+                    #Log.error(format_exc())
                     Log.debug("Failed client authentication '%s': %s" % (method, e))
             raise Exception, "Could not authenticate automatically (tried: local, gid, password)"
 
@@ -243,6 +244,7 @@ class Shell(object):
         self.interactive    = interactive
         self.storage        = storage 
         self.load_storage   = load_storage
+        self.client         = None
         
 # This does not work for shell command like manifold-enable-platform because self.client
 # won't be initialized.
@@ -275,15 +277,7 @@ class Shell(object):
         """
         Leave gracefully the Shell by shutdowning properly the nested ManifoldClient.
         """
-        # XXX Issues with the reference counter
-        #del self.client
-        #self.client = None
-        try:
-            self.client.__del__()
-        except Exception, e:
-            print "del error"
-            Log.error(e)
-            pass
+        self.client.terminate()
 
     def display(self, result_value):
         """
