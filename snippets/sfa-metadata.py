@@ -45,9 +45,34 @@ def make_announce(model):
     # http://docs.sqlalchemy.org/en/rel_0_9/orm/inheritance.html
     for prop in class_mapper(model).iterate_properties:
         # prop is a RelationshipProperty
-        if not isinstance(prop, sqlalchemy.orm.ColumnProperty):
-            continue
-        for column in prop.columns:
+        if isinstance(prop, sqlalchemy.orm.RelationshipProperty):
+            # Complex with N-N mappings
+            #
+            # Example:
+            #
+            #      record                         record
+            #         |                              |
+            #       slice -> slice_researcher -> researcher
+            # 
+            # In fact no: (example of RegSlice.reg_researchers)
+            remote_model = prop.mapper.class_ # eg. RegUser
+            remote_table = prop.mapper.local_table
+
+            # Multiple foreign keys are not handled yet
+            field = Field(
+                name        = prop.key,             # reg_researchers
+                type        = remote_table.name,    # users
+                qualifiers  = list(),
+                is_array    = True,                 # prop.'direction': <symbol 'MANYTOMANY>,
+                description = prop.doc
+            )
+            print "field:", field
+
+        elif isinstance(prop, sqlalchemy.orm.ColumnProperty):
+            # This seems to summarize what we have in prop.columns
+            # (for column in prop.columns:)
+            column = prop.expression
+
             fk = column.foreign_keys
             if fk:
                 fk = iter(column.foreign_keys).next()
@@ -73,6 +98,10 @@ def make_announce(model):
 
             if column.primary_key:
                 primary_key += (column.name, )
+
+        else: # CompositeProperty
+            pass
+
         
     print "pk:", primary_key
     table.insert_key(primary_key)
