@@ -5,6 +5,7 @@ import csv, os.path
 from itertools               import izip
 from datetime                import datetime
 from manifold.gateways       import Gateway
+from manifold.core.capabilities import Capabilities
 from manifold.core.record    import Record, LastRecord
 from manifold.core.table     import Table
 from manifold.core.announce  import Announce
@@ -140,8 +141,18 @@ class CSVGateway(Gateway):
             raise Exception, "Missing key in platform configuration"
         return self.config[table]['key'].split(',')
 
-    def get_metadata(self):
+    def get_capabilities(self, table):
+        capabilities = Capabilities()
+        if 'capabilities' in self.config[table]:
+            capabilities_str = self.config[table]['capabilities'].split(',')
+            for capability_str in capabilities_str:
+                setattr(capabilities, capability_str, True)
+        else:
+            capabilities.retrieve   = True
+            capabilities.join       = True
+        return capabilities
 
+    def get_metadata(self):
 
         announces = []
 
@@ -149,6 +160,7 @@ class CSVGateway(Gateway):
 
             dialect, field_names, field_types = self.get_dialect_and_field_info(table)
             key = self.get_key(table)
+            capabilities = self.get_capabilities(table)
 
             filename = data['filename']
 
@@ -169,9 +181,7 @@ class CSVGateway(Gateway):
                     key_fields.add(f)
 
             t.insert_key(key_fields)
-
-            t.capabilities.retrieve   = True
-            t.capabilities.join       = True
+            t.capabilities = capabilities
 
             announces.append(Announce(t))
 
