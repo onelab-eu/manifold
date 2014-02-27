@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 #
 # Set of functions useful to manage the local filesystem.
-# 
+#
 # Copyright (C) UPMC Paris Universitas
 # Authors:
 #   Jordan Augé       <jordan.auge@lip6.fr
@@ -19,8 +19,17 @@ from ..util.timeout     import time_limit, TimeoutException
 from ..util.type        import accepts, returns
 
 #-------------------------------------------------------------------------------
-# Shell like commands 
+# Shell like commands
 #-------------------------------------------------------------------------------
+
+@returns(StringTypes)
+def hostname():
+    """
+    Returns:
+        The hostname of this machine.
+    """
+    from subprocess import Popen, PIPE
+    return Popen(["uname", "-n"], stdout = PIPE).communicate()[0].strip()
 
 @accepts(StringTypes)
 def mkdir(directory):
@@ -57,7 +66,7 @@ def wget(url, filename_out, overwrite, timeout = 5):
         RuntimeError: in case of failure
         TimeoutException: in case of timeout
     """
-    # Do not the file if not required 
+    # Do not the file if not required
     if not overwrite:
         try:
             check_readable_file(filename_out)
@@ -95,7 +104,7 @@ def gunzip(filename_gz, filename_out, overwrite):
         IOError: if the input file is not a gzip file
         RuntimeError: in case of failure
     """
-    # Do not the file if not required 
+    # Do not the file if not required
     if not overwrite:
         try:
             check_readable_file(filename_out)
@@ -150,7 +159,7 @@ def check_writable_directory(directory):
     Args:
         directory: A String containing an absolute path.
     Raises:
-        RuntimeError: If the directory does not exists or isn't writable. 
+        RuntimeError: If the directory does not exists or isn't writable.
     """
     if not os.path.exists(directory):
         raise RuntimeError("Directory '%s' does not exists" % directory)
@@ -177,12 +186,12 @@ def ensure_writable_directory(directory):
     Args:
         directory: A String containing an absolute path.
     Raises:
-        RuntimeError: If the directory does not exists and cannot be created. 
+        RuntimeError: If the directory does not exists and cannot be created.
     """
     try:
         check_writable_directory(directory)
     except RuntimeError, e:
-        make_writable_directory(directory) 
+        make_writable_directory(directory)
 
 #-------------------------------------------------------------------------------
 # Keypair management
@@ -196,7 +205,7 @@ def check_keypair(filename):
     """
     Tests whether a filename contains a valid Keypair.
     Args:
-        filename: A String containing the absolute path of the private key. 
+        filename: A String containing the absolute path of the private key.
     Raises:
         RuntimeError: If the file does not exists or cannot be loaded.
     """
@@ -215,7 +224,7 @@ def make_keypair(filename):
     """
     Create a Keypair and stores it into a file.
     Args:
-        filename: The absolute path of the output file. 
+        filename: The absolute path of the output file.
     Raises:
         RuntimeError: If the file does not exists or cannot be loaded.
     """
@@ -233,7 +242,7 @@ def ensure_keypair(filename):
         filename: The absolute path of the file containing
             the private key.
     Raises:
-        Exception: In case of failure. 
+        Exception: In case of failure.
     """
     try:
         keypair = Keypair(filename = filename)
@@ -267,7 +276,7 @@ def check_certificate(filename):
         certificate = Certificate(filename = filename)
     except:
         raise RuntimeError("Cannot load certificate '%s' : %s" % (filename, e))
- 
+
     return certificate
 
 #@returns(Certificate)
@@ -277,9 +286,9 @@ def make_certificate(filename, subject, keypair):
     Create a Certificate using the public key stored in a Keypair
     and stores it into a file.
     Args:
-        filename: The absolute path of the output file. 
+        filename: The absolute path of the output file.
         subject: A String encoded in latin1.
-        keypair: A Keypair instance. 
+        keypair: A Keypair instance.
     Returns:
         The corresponding Certificate
     """
@@ -306,9 +315,9 @@ def ensure_certificate(filename, subject, keypair):
     Test whether a file contains a valid Certificate, and if not, try to create it
     in the specified file according to an input Keypair.
     Args:
-        filename: The absolute path of the Keypair file. 
+        filename: The absolute path of the Keypair file.
         subject: A String encoded in latin1.
-        keypair: A Keypair instance. 
+        keypair: A Keypair instance.
     Raises:
         RuntimeError: If the file does not exists or cannot be loaded.
     """
