@@ -201,7 +201,6 @@ class Options(object):
             self.uptodate = False
             return parser_method
         except Exception, e:
-            print "EXCEPTIONS", e
             if not self.uptodate:
                 self.parse()
             return self.options.get(key, None)
