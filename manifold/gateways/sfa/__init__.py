@@ -223,6 +223,7 @@ class SFAGateway(Gateway):
     map_authority_fields = {
         'hrn'               : 'authority_hrn',                  # hrn
         'PI'                : 'pi_users',
+#        'persons'           : 'user',
     }
 
     map_fields = {
@@ -1180,7 +1181,7 @@ class SFAGateway(Gateway):
 
             records = [r for r in records if r['type'] == object]
             record_urns = [hrn_to_urn(record['hrn'], object) for record in records]
-            
+            Log.tmp(record_urns)
             # INSERT ROOT AUTHORITY
             if object == 'authority':
                 record_urns.insert(0,hrn_to_urn(interface_hrn, object))
@@ -1188,7 +1189,7 @@ class SFAGateway(Gateway):
             started = time.time()
             records = yield self.registry.Resolve(record_urns, cred, {'details': True}) 
             print "RESOLVE:", time.time() - started, "s"
-
+            Log.tmp(records[1])
             defer.returnValue(records)
 
     def get_slice(self, filters, params, fields):
@@ -2098,9 +2099,10 @@ class SFAGateway(Gateway):
 
         if need_authority_list: #and not 'authority_list' in config:
             # In case the user is PI on several authorities
-            if 'reg-pi-authorities' in record and record['reg-pi-authorities']:
+            # fix to be applied in ROUTERV2
+            try:
                 config['authority_list'] = record['reg-pi-authorities']
-            else:
+            except Exception:
                 config['authority_list'] = [get_authority(config['user_hrn'])]
  
         # Get Authority credential for each authority of the authority_list
