@@ -28,13 +28,12 @@ class ManifoldXMLRPCClient(ManifoldClient):
         """
         super(ManifoldXMLRPCClient, self).__init__()
         self.url = url
-        ReactorThread().start_reactor()
 
     #--------------------------------------------------------------
     # Overloaded methods 
     #--------------------------------------------------------------
 
-    def __del__(self):
+    def terminate(self):
         """
         Shutdown gracefully self.router 
         """
@@ -65,6 +64,9 @@ class ManifoldXMLRPCClient(ManifoldClient):
         Returns:
             The corresponding ResultValue.
         """
+        if not ReactorThread().isReactorRunning():
+            ReactorThread().start_reactor()
+
         if not annotation:
             annotation = Annotation() 
         annotation.update(self.annotation)
