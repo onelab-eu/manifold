@@ -1567,6 +1567,38 @@ class SFAGateway(Gateway):
     def update_leases(self, filters, params, fields): # AM
         pass
 
+    # DELETE - REMOVE sent to the Registry
+    # XXX TODO: What about Delete sent to the Registry???
+    # To be implemented in ROUTERV2
+
+    @defer.inlineCallbacks
+    def delete_object(self, filters):
+        dict_filters = filters.to_dict()
+        if filters.has(self.query.object+'_hrn'):
+            object_hrn = dict_filters[self.query.object+'_hrn']
+        else:
+            object_hrn = dict_filters['hrn']
+
+        object_type = self.query.object
+        object_auth_hrn = get_authority(object_hrn)
+        Log.tmp("Need an authority credential to Remove: %s" % object_hrn)
+        auth_cred = self._get_cred('authority', object_auth_hrn)
+       
+        try:
+            Log.tmp(object_hrn, auth_cred, object_type)
+            object_gid = yield self.registry.Remove(object_hrn, auth_cred, object_type)
+        except Exception, e:
+            raise Exception, 'Failed to Remove object: %s' % e
+        defer.returnValue([{'hrn': object_hrn, 'gid': object_gid}])
+
+    def delete_user(self, filters, params, fields):
+        return self.delete_object(filters)
+
+    def delete_slice(self, filters, params, fields):
+        return self.delete_object(filters)
+
+    def delete_authority(self, filters, params, fields):
+        return self.delete_object(filters)
 
     def sfa_table_networks(self):
         versions = self.sfa_get_version_rec(self.sm_url)
