@@ -153,12 +153,13 @@ class user {
 };
 
 class authority {
+    const string authority_hrn;
     const string name;
     const string abbreviated_name;
-    const string authority_hrn;
     const authority parent_authority;
-    slice      slice[];
-    user       user[];
+    slice      slices[];
+    user       users[];
+    user       pi_users[];
 
     KEY(authority_hrn);
     CAPABILITY(retrieve, join, fullquery);

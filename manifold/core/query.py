@@ -254,6 +254,8 @@ class Query(object):
 
     @returns(frozenset)
     def get_select(self):
+        if self.fields is None:
+            return None
         return frozenset(self.fields)
 
     @returns(StringTypes)
@@ -411,7 +413,10 @@ class Query(object):
             elif isinstance(tmp, (list, tuple, set, frozenset)):
                 fields = tuple(tmp)
 
-        if not fields:
+        if fields is None:
+            self.fields = None
+            return self
+        elif not fields:
             # Delete all fields
             self.fields = set()
             return self

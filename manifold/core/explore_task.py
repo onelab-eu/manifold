@@ -184,6 +184,7 @@ class ExploreTask(Deferred):
                 missing_path, (missing_field,) = missing_list[:-1], missing_list[-1:]
                 flag, shortcut = is_sublist(missing_path, self.path) #self.path, missing_path)
 
+                print "flag", flag, "missing", missing, "field", field
                 if flag and missing_field == field:
                     #print 'current table provides missing field PATH=', self.path, 'field=', field, 'missing=', missing
                     self.keep_root_a.add(field)
@@ -440,7 +441,7 @@ class ExploreTask(Deferred):
                     all_fields = set([f.get_name() for f in table.get_fields()])
                     # IN 3NF, this is not necessarily all fields
                     print "all fields", all_fields
-                    selected_fields = None # all_fields
+                    selected_fields = all_fields
                 
                 print "selected fields for", method.get_name(), selected_fields
 

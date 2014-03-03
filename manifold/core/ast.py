@@ -156,6 +156,14 @@ class AST(object):
         assert isinstance(predicate, Predicate), "Invalid predicate = %r (%r)" % (predicate, type(Predicate))
         assert not self.is_empty(),              "No left table"
 
+        # In PARENT relationships, we are JOINing two same tables
+        left_query = self.get_root().get_query()
+        right_query = right_child.get_root().get_query()
+        if left_query.object == right_query.object:
+            # XXX Add check on primary keys
+            left_query.fields |= right_query.fields
+            return self
+
         self.root = LeftJoin(self.get_root(), right_child.get_root(), predicate)#, None)
         return self
 

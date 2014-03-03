@@ -55,13 +55,12 @@ class LeftJoin(Node):
         else:
             old_cb = left_child.get_callback()
             self.left_done = False
-            #Log.tmp("Set left_callback on node ", left_child)
             left_child.set_callback(self.left_callback)
             self.set_callback(old_cb)
 
-        #Log.tmp("Set right_callback on node ", right_child)
         right_child.set_callback(self.right_callback)
 
+        # CASE WHERE WE HAVE A LIST
         if isinstance(left_child, list):
             self.query = self.right.get_query().copy()
             # adding left fields: we know left_child is always a dict, since it
@@ -69,20 +68,14 @@ class LeftJoin(Node):
             # injected but only added a filter.
             if left_child:
                 self.query.fields |= left_child[0].keys()
-        else:
-            self.query = self.left.get_query().copy()
-            self.query.filters |= self.right.get_query().filters
+            return
+
+        # CASE WHERE WE HAVE TWO ASTs:
+        self.query = self.left.get_query().copy()
+        self.query.filters |= self.right.get_query().filters
+        if self.query.fields is not None:
             self.query.fields  |= self.right.get_query().fields
         
-
-#        for child in self.get_children():
-#            # XXX can we join on filtered lists ? I'm not sure !!!
-#            # XXX some asserts needed
-#            # XXX NOT WORKING !!!
-#            q.filters |= child.filters
-#            q.fields  |= child.fields
-
-
     @returns(list)
     def get_children(self):
         return [self.left, self.right]

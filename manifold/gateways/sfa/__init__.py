@@ -238,7 +238,7 @@ class SFAGateway(Gateway):
 
     map_authority_fields = {
         'hrn'               : 'authority_hrn',                  # hrn
-        'PI'                : 'pi_users',
+        'reg-pis'           : 'pi_users',
 #        'persons'           : 'user',
     }
 
@@ -1155,6 +1155,8 @@ class SFAGateway(Gateway):
             _results  = yield self.registry.Resolve(stack, cred, {'details': True})
             #_result = _results[0]
 
+            print "RESULTS=", _results
+            print "="*80
             output = []
             for _result in _results:
 

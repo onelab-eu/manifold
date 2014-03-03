@@ -35,7 +35,7 @@ class From(Node):
 
         #self.query, self.table = query, table
         self.platform, self.query, self.capabilities, self.key = platform, query, capabilities, key
-        print "selF.query in from", self.query
+        print "********** selF.query in from", self.query.fields
         self.gateway = None
 
     def add_fields_to_query(self, field_names):
