@@ -66,6 +66,7 @@ class Rename(Node):
         """
         if record.is_last():
             self.send(record)
+            return
 
         for k, v in self.map_fields.items():
             if k in record:

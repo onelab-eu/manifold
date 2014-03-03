@@ -1155,8 +1155,6 @@ class SFAGateway(Gateway):
             _results  = yield self.registry.Resolve(stack, cred, {'details': True})
             #_result = _results[0]
 
-            print "RESULTS=", _results
-            print "="*80
             output = []
             for _result in _results:
 
@@ -1422,7 +1420,17 @@ class SFAGateway(Gateway):
         defer.returnValue([{'hrn': params['hrn'], 'gid': object_gid}])
 
     def create_user(self, filters, params, fields):
-        return self.create_object(filters, params, fields)
+        # Create a reversed map : MANIFOLD -> SFA
+        rmap = { v: k for k, v in self.map_user_fields.items() }
+
+        new_params = dict()
+        for key, value in params.items():
+            if key in rmap:
+                new_params[rmap[key]] = value
+            else:
+                new_params[key] = value
+
+        return self.create_object(filters, new_params, fields)
  
     def create_slice(self, filters, params, fields):
         # Perform some renaming of the fields. In router v2 this will be done by the Rename attribute

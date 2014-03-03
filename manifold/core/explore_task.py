@@ -184,7 +184,6 @@ class ExploreTask(Deferred):
                 missing_path, (missing_field,) = missing_list[:-1], missing_list[-1:]
                 flag, shortcut = is_sublist(missing_path, self.path) #self.path, missing_path)
 
-                print "flag", flag, "missing", missing, "field", field
                 if flag and missing_field == field:
                     #print 'current table provides missing field PATH=', self.path, 'field=', field, 'missing=', missing
                     self.keep_root_a.add(field)
@@ -208,7 +207,6 @@ class ExploreTask(Deferred):
                 #   user.slices.slice_hrn
                 #
                 if len(missing_list) <= 1: continue
-                print "len(missing_list) > 1"
 
                 missing_path, (missing_field, missing_pkey) = missing_list[:-2], missing_list[-2:]
                 # Example here: in user table

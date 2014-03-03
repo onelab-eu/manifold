@@ -135,6 +135,7 @@ class network {
 
 class user {
     const string user_hrn;
+    const string user_urn;
     const string user_type;
     const string user_email;
     const string user_gid;
