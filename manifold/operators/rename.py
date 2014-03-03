@@ -1,5 +1,7 @@
-from manifold.operators import Node
-from manifold.util.type import returns
+from manifold.core.record import Record
+from manifold.operators   import Node
+from manifold.util.type   import returns
+from manifold.util.log    import Log
 
 DUMPSTR_RENAME = "RENAME %r" 
 
@@ -24,7 +26,8 @@ class Rename(Node):
         child.set_callback(self.child_callback)
         self.set_callback(old_cb)
 
-        self.query = None
+        self.query = self.child.get_query().copy()
+        # XXX Need to rename some fields !!
 
     @returns(dict)
     def get_map_fields(self):
@@ -61,30 +64,32 @@ class Rename(Node):
         \brief Processes records received by the child node
         \param record dictionary representing the received record
         """
-        if not record.is_last():
-            #record = { self.map_fields.get(k, k): v for k, v in record.items() }
-            try:
-                for k, v in self.map_fields.items():
-                    if k in record:
-                        if '.' in v: # users.hrn
-                            method, key = v.split('.')
-                            if not method in record:
-                                record[method] = []
-                            for x in record[k]:
-                                record[method].append({key: x})        
-                        else:
-                            record[v] = record.pop(k) #record[k]
-                        #del record[k]
-            except Exception, e:
-                print "EEE RENAME", e
-                import traceback
-                traceback.print_exc()
+        if record.is_last():
+            self.send(record)
+
+        for k, v in self.map_fields.items():
+            if k in record:
+                tmp = record.pop(k)
+                if '.' in v: # users.hrn
+                    method, key = v.split('.')
+                    if not method in record:
+                        record[method] = []
+                    for x in tmp:
+                        record[method].append({key: x})        
+                else:
+                    record[v] = tmp
+            else:
+                record[k] = v
         self.send(record)
 
     def optimize_selection(self, filter):
-        Log.critical('Not implemented')
+        self.child = self.child.optimize_selection(filter)
         return self
 
-    def optimize_rename(self, fields):
-        Log.critical('Not implemented')
+    def optimize_projection(self, fields):
+        rmap = { v : k for k, v in self.map_fields.items() }
+        new_fields = set()
+        for field in fields:
+            new_fields.add(rmap.get(field, field))
+        self.child = self.child.optimize_projection(new_fields)
         return self

@@ -234,12 +234,14 @@ class LeftJoin(Node):
         # LEFT JOIN
         # We are pushing selections down as much as possible:
         # - selection on filters on the left: can push down in the left child
-        # - selection on filters on the right: cannot push down
+        # - selection on filters on the right: cannot push down unless the field is on both sides
         # - selection on filters on the key / common fields ??? TODO
-        parent_filter, left_filter = Filter(), Filter()
+        parent_filter, left_filter, right_filter = Filter(), Filter(), Filter()
         for predicate in filter:
-            if predicate.get_field_names() < self.left.get_query().get_select():
+            if predicate.get_field_names() <= self.left.get_query().get_select():
                 left_filter.add(predicate)
+                if predicate.get_field_names() <= self.right.get_query().get_select():
+                    right_filter.add(predicate)
             else:
                 parent_filter.add(predicate)
 
@@ -249,6 +251,10 @@ class LeftJoin(Node):
             #selection.query = self.left.copy().filter_by(left_filter)
             self.left.set_callback(self.left_callback)
             #self.left = selection
+
+        if right_filter:
+            self.right = self.right.optimize_selection(right_filter)
+            self.right.set_callback(self.right_callback)
 
         if parent_filter:
             old_self_callback = self.get_callback()
@@ -276,6 +282,12 @@ class LeftJoin(Node):
         self.right = self.right.optimize_projection(right_fields)
 
         self.query.fields = fields
+
+        print "left fields", left_fields
+        print "right fields", right_fields
+        print "fields=", fields
+        print "="
+        print "left | right", left_fields|right_fields, ">?",  fields
 
         if left_fields | right_fields > fields:
             old_self_callback = self.get_callback()

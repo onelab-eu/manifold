@@ -95,6 +95,8 @@ class Selection(Node):
         keys = self.filters.keys()
         self.child = self.child.optimize_projection(fields | keys)
         self.query.fields = fields
+        print "keys", keys
+        print "fields", fields
         if not keys <= fields:
             # XXX add projection that removed added_fields
             # or add projection that removes fields

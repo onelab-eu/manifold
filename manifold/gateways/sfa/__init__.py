@@ -165,14 +165,26 @@ class SFAGateway(Gateway):
 # BEGIN SFA CODE
 ################################################################################
 
-    # researcher == person ?
+    # Mapping for slice fields: SFA -> MANIFOLD
     map_slice_fields = {
+        # REGISTRY FIELDS
+        'hrn'               : 'slice_hrn',                  # hrn
+        'urn'               : 'slice_urn',                  # slice_geni_urn ???
+        'type'              : 'slice_type',                 # type ?
+        'reg-researchers'   : 'users',                      # user or users . hrn or user_hrn ?
+                                                            # XXX this is in lowercase when creating a slice !
+        'reg-urn'           : 'slice_urn',
+
+        # TESTBED FIELDS
+        'enabled'           : 'slice_enabled',
+        'researcher'        : 'users',                      # user or users . hrn or user_hrn ?
+        'PI'                : 'pi_users',                   # XXX should be found of type user, has to correspond with metadata
+
+        # UNKNOWN
         'last_updated'      : 'slice_last_updated',         # last_updated != last == checked,
         'geni_creator'      : 'slice_geni_creator',
         'node_ids'          : 'slice_node_ids',             # X This should be 'nodes.id' but we do not want IDs
-        'reg-researchers'   : 'user.user_hrn',              # This should be 'users.hrn'
-        'researchers'       : 'user.user_hrn',              # This should be 'users.hrn'
-        'reg-urn'           : 'slice_urn',                  # slice_geni_urn ???
+#XXX        'reg-urn'           : 'slice_urn',                  # slice_geni_urn ???
         'site_id'           : 'slice_site_id',              # X ID 
         'site'              : 'slice_site',                 # authority.hrn
         'authority'         : 'parent_authority',       # isn't it the same ???
@@ -180,18 +192,15 @@ class SFAGateway(Gateway):
         'instantiation'     : 'slice_instantiation',        # instanciation
         'max_nodes'         : 'slice_max_nodes',            # max nodes
         'person_ids'        : 'slice_person_ids',           # X users.ids
-        'hrn'               : 'slice_hrn',                  # hrn
         'record_id'         : 'slice_record_id',            # X
         'gid'               : 'slice_gid',                  # gid
         'nodes'             : 'nodes',                      # nodes.hrn
         'peer_id'           : 'slice_peer_id',              # X
-        'type'              : 'slice_type',                 # type ?
         'peer_authority'    : 'slice_peer_authority',       # ??
         'description'       : 'slice_description',          # description
         'expires'           : 'slice_expires',              # expires
         'persons'           : 'slice_persons',              # users.hrn
         'creator_person_id' : 'slice_creator_person_id',    # users.creator ?
-        'PI'                : 'slice_pi',                   # users.pi ?
         'name'              : 'slice_name',                 # hrn
         #'slice_id'         : 'slice_id',
         'created'           : 'created',                    # first ?
@@ -199,25 +208,32 @@ class SFAGateway(Gateway):
         'peer_slice_id'     : 'slice_peer_slice_id',        # ?
         'geni_urn'          : 'slice_geni_urn',             # urn/hrn
         'slice_tag_ids'     : 'slice_tag_ids',              # tags
-        'date_created'      : 'slice_date_created'          # first ?
+        'date_created'      : 'slice_date_created',         # first ?
     }
 
+    # Mapping for user fields: SFA -> MANIFOLD
     map_user_fields = {
-        'authority': 'parent_authority',               # authority it belongs to
-        'peer_authority': 'user_peer_authority',    # ?
-        'hrn': 'user_hrn',                          # hrn
-        'gid': 'user_gid',                          # gif
-        'type': 'user_type',                        # type ???
-        'last_updated': 'user_last_updated',        # last_updated
-        'date_created': 'user_date_created',        # first
-        'email':  'user_email',                     # email
-        'first_name': 'user_first_name',            # first_name
-        'last_name': 'user_last_name',              # last_name
-        'phone': 'user_phone',                      # phone
-        #'keys': 'user_keys',                       # OBJ keys !!!
-        'reg-keys': 'keys',                         # OBJ keys !!!
-        'reg-slices': 'slice.slice_hrn',            # OBJ slices
+        # REGISTRY FIELDS
+        'hrn'               : 'user_hrn',
+        'type'              : 'user_type',
+        'email'             : 'user_email',
+        'gid'               : 'user_gid',
+        'authority'         : 'parent_authority',
+        'reg-keys'          : 'keys',
+        'reg-slices'        : 'slices',
         'reg-pi-authorities': 'pi_authorities',
+
+        # TESTBED FIELDS
+        'first_name'        : 'user_first_name',
+        'last_name'         : 'user_last_name',
+        'phone'             : 'user_phone',
+        'enabled'           : 'user_enabled',
+        'keys'              : 'keys',
+
+        # UNKNOWN
+        'peer_authority'    : 'user_peer_authority',
+        'last_updated'      : 'user_last_updated',
+        'date_created'      : 'user_date_created',
     }
 
     map_authority_fields = {
@@ -1370,6 +1386,7 @@ class SFAGateway(Gateway):
 
     @defer.inlineCallbacks
     def create_object(self, filters, params, fields):
+
         # XXX should call create_record_from_params which would rely on mappings
         dict_filters = filters.to_dict()
         if self.query.object + '_hrn' in params:
@@ -1405,7 +1422,26 @@ class SFAGateway(Gateway):
         return self.create_object(filters, params, fields)
  
     def create_slice(self, filters, params, fields):
-        return self.create_object(filters, params, fields)
+        # Perform some renaming of the fields. In router v2 this will be done by the Rename attribute
+        # filters : should not be present unless we want to restrict what we create ?
+        # params : specified in Manifold ontology, need to map in SFA ontology
+        # fields : specified in Manifold terms, they are not used in SFA
+        # queries (maybe in the future for setting the details option to True
+        # or False), and currently just used by the upper level doing a
+        # Rename()
+        assert not filters, "Filters should not be specified for slice creation"
+
+        # Create a reversed map : MANIFOLD -> SFA
+        rmap = { v: k for k, v in self.map_slice_fields.items() }
+
+        new_params = dict()
+        for key, value in params.items():
+            if key in rmap:
+                new_params[rmap[key]] = value
+            else:
+                new_params[key] = value
+
+        return self.create_object(filters, new_params, fields)
 
     def create_resource(self, filters, params, fields):
         return self.create_object(filters, params, fields)
