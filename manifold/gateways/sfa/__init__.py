@@ -239,6 +239,7 @@ class SFAGateway(Gateway):
     map_authority_fields = {
         'hrn'               : 'authority_hrn',                  # hrn
         'PI'                : 'pi_users',
+#        'persons'           : 'user',
     }
 
     map_fields = {
@@ -1196,7 +1197,7 @@ class SFAGateway(Gateway):
 
             records = [r for r in records if r['type'] == object]
             record_urns = [hrn_to_urn(record['hrn'], object) for record in records]
-            
+            Log.tmp(record_urns)
             # INSERT ROOT AUTHORITY
             if object == 'authority':
                 record_urns.insert(0,hrn_to_urn(interface_hrn, object))
@@ -1204,7 +1205,7 @@ class SFAGateway(Gateway):
             started = time.time()
             records = yield self.registry.Resolve(record_urns, cred, {'details': True}) 
             print "RESOLVE:", time.time() - started, "s"
-
+            Log.tmp(records[1])
             defer.returnValue(records)
 
     def get_slice(self, filters, params, fields):
@@ -1602,6 +1603,38 @@ class SFAGateway(Gateway):
     def update_leases(self, filters, params, fields): # AM
         pass
 
+    # DELETE - REMOVE sent to the Registry
+    # XXX TODO: What about Delete sent to the Registry???
+    # To be implemented in ROUTERV2
+
+    @defer.inlineCallbacks
+    def delete_object(self, filters):
+        dict_filters = filters.to_dict()
+        if filters.has(self.query.object+'_hrn'):
+            object_hrn = dict_filters[self.query.object+'_hrn']
+        else:
+            object_hrn = dict_filters['hrn']
+
+        object_type = self.query.object
+        object_auth_hrn = get_authority(object_hrn)
+        Log.tmp("Need an authority credential to Remove: %s" % object_hrn)
+        auth_cred = self._get_cred('authority', object_auth_hrn)
+       
+        try:
+            Log.tmp(object_hrn, auth_cred, object_type)
+            object_gid = yield self.registry.Remove(object_hrn, auth_cred, object_type)
+        except Exception, e:
+            raise Exception, 'Failed to Remove object: %s' % e
+        defer.returnValue([{'hrn': object_hrn, 'gid': object_gid}])
+
+    def delete_user(self, filters, params, fields):
+        return self.delete_object(filters)
+
+    def delete_slice(self, filters, params, fields):
+        return self.delete_object(filters)
+
+    def delete_authority(self, filters, params, fields):
+        return self.delete_object(filters)
 
     def sfa_table_networks(self):
         versions = self.sfa_get_version_rec(self.sm_url)
@@ -2134,9 +2167,10 @@ class SFAGateway(Gateway):
 
         if need_authority_list: #and not 'authority_list' in config:
             # In case the user is PI on several authorities
-            if 'reg-pi-authorities' in record and record['reg-pi-authorities']:
+            # fix to be applied in ROUTERV2
+            try:
                 config['authority_list'] = record['reg-pi-authorities']
-            else:
+            except Exception:
                 config['authority_list'] = [get_authority(config['user_hrn'])]
  
         # Get Authority credential for each authority of the authority_list
