@@ -41,6 +41,69 @@ class Shell(object):
 
     PROMPT = "manifold"
 
+    #---------------------------------------------------------------------------
+    # Constructor
+    #---------------------------------------------------------------------------
+
+    def __init__(self,
+        auth_method     = None,
+        interactive     = False,
+        storage         = None,
+        load_storage    = True
+    ):
+        """
+        Constructor.
+        Args:
+            interactive: A boolean set to True if this Shell is used in command-line,
+                and set to False otherwise (Shell used in a script, etc.).
+            storage: A Storage instance or None. 
+                Example: See MANIFOLD_STORAGE defined in manifold.bin.config
+            load_storage: A boolean set to True if the local Router of this Shell must
+                load this Storage.
+        """
+        self._auth_method   = auth_method
+        self._interactive    = interactive
+        self.storage        = storage 
+        self.load_storage   = load_storage
+        self.client         = None
+        self.bootstrap()
+
+    def terminate(self):
+        """
+        Leave gracefully the Shell by shutdowning properly the nested ManifoldClient.
+        """
+        self.client.terminate()
+
+    #---------------------------------------------------------------------------
+    # Accessors
+    #---------------------------------------------------------------------------
+
+    def set_auth_method(self, auth_method):
+        self._auth_method = auth_method
+        self.select_auth_method(auth_method)
+
+    def is_interactive(self):
+        return self._interactive
+
+    #---------------------------------------------------------------------------
+    # Initialization
+    #---------------------------------------------------------------------------
+
+    def bootstrap(self):
+        if self.is_interactive():
+            if not self._auth_method:
+                self.set_auth_method('local')
+            else:
+                self.select_auth_method(self._auth_method)
+            if not self.client:
+                raise RuntimeError("No client set")
+
+            Log.info(self.client.welcome_message())
+
+    #---------------------------------------------------------------------------
+    # Class methods
+    #---------------------------------------------------------------------------
+
     @classmethod
     def print_error(self, error):
         """
@@ -230,55 +293,6 @@ class Shell(object):
             else:
                 raise Exception, "Authentication method not supported: '%s'" % auth_method
 
-    def __init__(self, interactive = False, storage = None, load_storage = True):
-        """
-        Constructor.
-        Args:
-            interactive: A boolean set to True if this Shell is used in command-line,
-                and set to False otherwise (Shell used in a script, etc.).
-            storage: A Storage instance or None. 
-                Example: See MANIFOLD_STORAGE defined in manifold.bin.config
-            load_storage: A boolean set to True if the local Router of this Shell must
-                load this Storage.
-        """
-        self.interactive    = interactive
-        self.storage        = storage 
-        self.load_storage   = load_storage
-        self.client         = None
-        
-# This does not work for shell command like manifold-enable-platform because self.client
-# won't be initialized.
-#MANDO|        if not interactive:
-#MANDO|            return
-#MANDO|
-#MANDO|        auth_method = Options().auth_method
-#MANDO|        if not auth_method:
-#MANDO|            auth_method = "local"
-#MANDO|
-#MANDO|        self.select_auth_method(auth_method)
-#MANDO|        if self.interactive:
-#MANDO|            Log.info(self.client.welcome_message())
-
-        auth_method = Options().auth_method if interactive else None
-        if not auth_method:
-            auth_method = "local"
-
-        # Initialize self.client
-        self.select_auth_method(auth_method)
-
-        # No client has been set, so we cannot run anything.
-        if not self.client:
-            raise RuntimeError("No client set")
-
-        if self.interactive:
-            Log.info(self.client.welcome_message())
-
-    def terminate(self):
-        """
-        Leave gracefully the Shell by shutdowning properly the nested ManifoldClient.
-        """
-        self.client.terminate()
-
     def display(self, result_value):
         """
         Print the ResultValue of a Query in the standard output.
@@ -293,7 +307,7 @@ class Shell(object):
             #records = result_value["value"]
             #dicts = [record.to_dict() for record in records]
             dicts = result_value.get_all()
-            if self.interactive:
+            if self.is_interactive():
                 # Command-line
                 print "===== RESULTS ====="
                 pprint.pprint(dicts)
