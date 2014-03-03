@@ -55,13 +55,12 @@ class LeftJoin(Node):
         else:
             old_cb = left_child.get_callback()
             self.left_done = False
-            #Log.tmp("Set left_callback on node ", left_child)
             left_child.set_callback(self.left_callback)
             self.set_callback(old_cb)
 
-        #Log.tmp("Set right_callback on node ", right_child)
         right_child.set_callback(self.right_callback)
 
+        # CASE WHERE WE HAVE A LIST
         if isinstance(left_child, list):
             self.query = self.right.get_query().copy()
             # adding left fields: we know left_child is always a dict, since it
@@ -69,20 +68,14 @@ class LeftJoin(Node):
             # injected but only added a filter.
             if left_child:
                 self.query.fields |= left_child[0].keys()
-        else:
-            self.query = self.left.get_query().copy()
-            self.query.filters |= self.right.get_query().filters
+            return
+
+        # CASE WHERE WE HAVE TWO ASTs:
+        self.query = self.left.get_query().copy()
+        self.query.filters |= self.right.get_query().filters
+        if self.query.fields is not None:
             self.query.fields  |= self.right.get_query().fields
         
-
-#        for child in self.get_children():
-#            # XXX can we join on filtered lists ? I'm not sure !!!
-#            # XXX some asserts needed
-#            # XXX NOT WORKING !!!
-#            q.filters |= child.filters
-#            q.fields  |= child.fields
-
-
     @returns(list)
     def get_children(self):
         return [self.left, self.right]
@@ -234,12 +227,14 @@ class LeftJoin(Node):
         # LEFT JOIN
         # We are pushing selections down as much as possible:
         # - selection on filters on the left: can push down in the left child
-        # - selection on filters on the right: cannot push down
+        # - selection on filters on the right: cannot push down unless the field is on both sides
         # - selection on filters on the key / common fields ??? TODO
-        parent_filter, left_filter = Filter(), Filter()
+        parent_filter, left_filter, right_filter = Filter(), Filter(), Filter()
         for predicate in filter:
-            if predicate.get_field_names() < self.left.get_query().get_select():
+            if predicate.get_field_names() <= self.left.get_query().get_select():
                 left_filter.add(predicate)
+                if predicate.get_field_names() <= self.right.get_query().get_select():
+                    right_filter.add(predicate)
             else:
                 parent_filter.add(predicate)
 
@@ -249,6 +244,10 @@ class LeftJoin(Node):
             #selection.query = self.left.copy().filter_by(left_filter)
             self.left.set_callback(self.left_callback)
             #self.left = selection
+
+        if right_filter:
+            self.right = self.right.optimize_selection(right_filter)
+            self.right.set_callback(self.right_callback)
 
         if parent_filter:
             old_self_callback = self.get_callback()
@@ -276,6 +275,12 @@ class LeftJoin(Node):
         self.right = self.right.optimize_projection(right_fields)
 
         self.query.fields = fields
+
+        print "left fields", left_fields
+        print "right fields", right_fields
+        print "fields=", fields
+        print "="
+        print "left | right", left_fields|right_fields, ">?",  fields
 
         if left_fields | right_fields > fields:
             old_self_callback = self.get_callback()

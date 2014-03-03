@@ -349,10 +349,13 @@ class Shell(object):
     def __init__(self, interactive=False):
         self.interactive = interactive
         
-        self.select_auth_method(Options().auth_method)
+        auth_method = Options().auth_method
+        if auth_method:
+            self.select_auth_method(auth_method)
         if self.interactive:
             self.client.log_info()
-        self.whoami()
+        if auth_method:
+            self.whoami()
 
     def terminate(self):
         # XXX Issues with the reference counter
@@ -388,7 +391,6 @@ class Shell(object):
     def evaluate(self, command, value=False):
         #username, password = Options().username, Options().password
         query = Query(SQLParser().parse(command))
-        print "query", query
         ret = self.client.forward(query)
         if not value:
             return ret 

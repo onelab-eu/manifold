@@ -143,7 +143,6 @@ class SFATokenMgr(object):
     def get_token(self, interface):
         #Log.debug("SFATokenMgr::get_token(interface=%r)" % interface)
         # We police queries only on blacklisted interfaces
-        print "interface=", interface
         if not interface or interface not in self.BLACKLIST:
             return True
 
@@ -241,6 +240,7 @@ class SFAProxy(object):
 
         if not interface.startswith('http://') and not interface.startswith('https://'):
             interface = 'http://' + interface
+        interface = interface.encode('latin1')
 
         class Proxy(xmlrpc.Proxy):
             ''' See: http://twistedmatrix.com/projects/web/documentation/howto/xmlrpc.html

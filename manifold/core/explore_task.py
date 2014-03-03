@@ -22,6 +22,8 @@ from manifold.core.relation        import Relation # ROUTERV2
 from manifold.core.stack           import Stack, TASK_11, TASK_1Nsq, TASK_1N
 #DEPRECATED|LOIC|#from manifold.operators.demux      import Demux
 from manifold.operators.From       import From
+from manifold.operators.rename     import Rename
+from manifold.types                import BASE_TYPES
 from manifold.util.log             import Log
 from manifold.util.misc            import is_sublist
 from manifold.util.predicate       import Predicate, eq
@@ -127,6 +129,7 @@ class ExploreTask(Deferred):
         deferred_list = []
 
         foreign_key_fields = dict()
+        rename_dict = dict()
 
         # self.path = X.Y.Z indicates the subqueries we have traversed
         # We are thus able to answer to parts of the query at the root,
@@ -191,6 +194,58 @@ class ExploreTask(Deferred):
                     
                     if not is_onjoin or field not in root_key_fields:
                         missing_fields.remove(missing)
+
+                # ROUTERV2
+                # So far we have search for fields pointing to the current
+                # table, but we might also be interested in relationship to
+                # other tables where only the key is requested. For example,
+                # Get('user', [slices.slice_hrn])
+                #   user.slices is a list of slice_hrn, since slice_hrn is key
+                # of slices, or type slice.
+                #
+                # The missing_list might be problematic in cases such as :
+                #   user.slices.slice_hrn
+                #
+                if len(missing_list) <= 1: continue
+
+                missing_path, (missing_field, missing_pkey) = missing_list[:-2], missing_list[-2:]
+                # Example here: in user table
+                #   missing_path  = []
+                #   missing_field = 'slices'
+                #   missing_pkey  = 'slice_hrn'
+
+                # Additional condition:
+                #   the field is key of the refered table
+                if not missing_field == field: continue
+
+                field_type    = self.root.get_field_type(missing_field)
+                if field_type in BASE_TYPES: continue
+
+
+                refered_table = metadata.find_node(field_type, get_parent = True)
+                if not refered_table: continue
+
+                key = refered_table.get_keys().one()
+                # a key is a set of fields
+                if set([missing_pkey]) != key.get_field_names(): continue
+                
+
+                #print "FOUND", missing, " in ", self.root.get_name()
+                # The rest is the same
+                flag, shortcut = is_sublist(missing_path, self.path)
+                if flag:
+                    #print "we keep field=", field
+                    #print "   . this field should give us", missing_field, "and", missing_pkey
+                    rename_dict[field] = missing
+
+                    self.keep_root_a.add(field)
+                    is_onjoin = self.root.capabilities.is_onjoin()
+                    if not is_onjoin or field not in root_key_fields:
+                        missing_fields.remove(missing)
+                
+                # END ROUTERV2
+                
+
                     
         assert self.depth == 1 or root_key_fields not in missing_fields, "Requesting key fields in child table"
 
@@ -199,6 +254,11 @@ class ExploreTask(Deferred):
             # It might not pose any problem though if they come from the optimization phase
 #OBSOLETE|            self.ast = self.build_union(self.root, self.keep_root_a, allowed_platforms, metadata, user, query_plan)
             self.ast = self.perform_union(self.root, allowed_platforms, metadata, user, query_plan)
+
+            # ROUTERV2
+            if rename_dict:
+                # If we need to rename fields after retrieving content from the table...
+                self.ast.rename(rename_dict)
 
         if self.depth == MAX_DEPTH:
             self.callback(self.ast)
@@ -209,7 +269,6 @@ class ExploreTask(Deferred):
             for relation in metadata.get_relations(self.root, neighbour):
                 name = relation.get_relation_name()
 
-                print "||NAME=", name, relation
                 if name and name in seen_set:
                     continue
                 seen_set.add(name)
@@ -368,12 +427,26 @@ class ExploreTask(Deferred):
                 # Build the corresponding FROM 
                 #sub_table = Table.make_table_from_platform(table, fields, method.get_platform())
 
-                # XXX We lack field pruning
-                # We create 'get' queries by default, this will be overriden in set_ast
-                query = Query.action('get', method.get_name()).select(fields)
-
                 platform = method.get_platform()
-                capabilities = metadata.get_capabilities(platform, query.get_from())
+                capabilities = metadata.get_capabilities(platform, method.get_name())
+
+                map_field_local = {f.get_name(): f.is_local() for f in table.get_fields()}
+                selected_fields  = set([f for f in fields if not map_field_local[f]])
+                selected_fields |= self.keep_root_a
+                
+                print "proj=", capabilities.projection
+                if not capabilities.projection:
+                    all_fields = set([f.get_name() for f in table.get_fields()])
+                    # IN 3NF, this is not necessarily all fields
+                    print "all fields", all_fields
+                    selected_fields = all_fields
+                
+                print "selected fields for", method.get_name(), selected_fields
+
+                # We create 'get' queries by default, this will be overriden in set_ast
+                query = Query.action('get', method.get_name()).select(selected_fields)
+                #query = Query.action('get', method.get_name()).select(fields)
+
 
                 if not platform in allowed_platforms:
                     continue

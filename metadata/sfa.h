@@ -2,6 +2,9 @@ class slice {
     const text slice_urn;   /**< Slice Human Readable name */
     const text slice_hrn;   /**< Slice Human Readable name */
     const text slice_type;
+    user        users[];        /**< List of users associated to the slice */
+    user        pi_users[];        /**< List of users associated to the slice */
+
     const text slice_description;
     const text created;
     const text slice_expires;
@@ -10,7 +13,6 @@ class slice {
     const text slice_url;
     const authority parent_authority;
 # lease       lease[];       /**< List of leases associated to the slice */
-    user        user[];        /**< List of users associated to the slice */
 
     KEY(slice_hrn);
     CAPABILITY(retrieve, join, fullquery);
@@ -132,29 +134,33 @@ class network {
 };
 
 class user {
-    const string enabled;
+    const string user_hrn;
+    const string user_urn;
+    const string user_type;
+    const string user_email;
+    const string user_gid;
+    const authority parent_authority;
+    const string keys;
+    slice slices[];
+    authority pi_authorities[];
+
     const string user_first_name;
     const string user_last_name;
-    const string user_email;
     const string user_phone;
-    const string user_hrn;
-    const string keys;
-#    const string roles[];
-#    const string password;
-    const authority parent_authority;
-    slice slice[];
+    const string user_enabled;
 
     KEY(user_hrn);
     CAPABILITY(retrieve, join, fullquery);
 };
 
 class authority {
+    const string authority_hrn;
     const string name;
     const string abbreviated_name;
-    const string authority_hrn;
     const authority parent_authority;
-    slice      slice[];
-    user       user[];
+    slice      slices[];
+    user       users[];
+    user       pi_users[];
 
     KEY(authority_hrn);
     CAPABILITY(retrieve, join, fullquery);

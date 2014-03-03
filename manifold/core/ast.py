@@ -25,6 +25,7 @@ from manifold.operators.from_table    import FromTable
 from manifold.operators.selection     import Selection
 from manifold.operators.projection    import Projection
 from manifold.operators.left_join     import LeftJoin
+from manifold.operators.rename        import Rename
 from manifold.operators.union         import Union
 from manifold.operators.subquery      import SubQuery
 from manifold.operators.cross_product import CrossProduct
@@ -155,6 +156,14 @@ class AST(object):
         assert isinstance(predicate, Predicate), "Invalid predicate = %r (%r)" % (predicate, type(Predicate))
         assert not self.is_empty(),              "No left table"
 
+        # In PARENT relationships, we are JOINing two same tables
+        left_query = self.get_root().get_query()
+        right_query = right_child.get_root().get_query()
+        if left_query.object == right_query.object:
+            # XXX Add check on primary keys
+            left_query.fields |= right_query.fields
+            return self
+
         self.root = LeftJoin(self.get_root(), right_child.get_root(), predicate)#, None)
         return self
 
@@ -221,6 +230,12 @@ class AST(object):
         if not filters:
             return self
         self.root = Selection(self.get_root(), filters)
+        return self
+
+    def rename(self, rename_dict):
+        if not rename_dict:
+            return self
+        self.root = Rename(self.get_root(), rename_dict)
         return self
 
     #@returns(AST)

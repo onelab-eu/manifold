@@ -662,14 +662,6 @@ class Table(object):
                                     Log.warning("Hardcoded source, agent, destination and dns_target as 1..1 relationships")
                                     relations.add(Relation(Relation.types.LINK_11, p, name=field.get_name()))
                                 else:
-                                    print "---"
-                                    print "u.get_name()", u.get_name()
-                                    print "v.get_name()", v.get_name()
-                                    print "v.get_platforms()", "_".join(v.get_platforms())
-                                    print "v.is_parent", dbgraph.is_parent(v)
-                                    
-                                    #import sys
-                                    #sys.exit(1)
                                     relations.add(Relation(Relation.types.LINK, p))
             # BAD
             #if v_key.is_composite():
