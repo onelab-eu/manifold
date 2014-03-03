@@ -380,7 +380,7 @@ class SFAGateway(Gateway):
     def get_cached_server_version(self, server):
         # check local cache first
         version = None 
-        cache_key = server.get_interface_hrn() + "-version"
+        cache_key = server.get_interface() + "-version"
         cache = Cache()
 
         if cache:
