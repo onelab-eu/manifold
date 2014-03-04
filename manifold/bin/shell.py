@@ -27,18 +27,82 @@ from manifold.input.sql             import SQLParser
 from manifold.util.colors           import BOLDBLUE, NORMAL
 from manifold.util.log              import Log
 from manifold.util.options          import Options
+from manifold.util.reactor_thread   import ReactorThread
 from manifold.util.type             import accepts, returns
 
 # This could be moved outside of the Shell
 DEFAULT_USER      = "demo"
 DEFAULT_PASSWORD  = "demo"
-DEFAULT_PKEY_FILE = "/etc/manifold/keys/client.pkey"
+DEFAULT_PKEY_FILE = "/etc/manifold/keys/client.pkey" 
 DEFAULT_CERT_FILE = "/etc/manifold/keys/client.cert"
 DEFAULT_API_URL   = "https://localhost:7080"
 
 class Shell(object):
 
     PROMPT = "manifold"
+
+    #---------------------------------------------------------------------------
+    # Constructor
+    #---------------------------------------------------------------------------
+
+    def __init__(self,
+        auth_method     = None,
+        interactive     = False,
+        storage         = None,
+        load_storage    = True
+    ):
+        """
+        Constructor.
+        Args:
+            interactive: A boolean set to True if this Shell is used in command-line,
+                and set to False otherwise (Shell used in a script, etc.).
+            storage: A Storage instance or None. 
+                Example: See MANIFOLD_STORAGE defined in manifold.bin.config
+            load_storage: A boolean set to True if the local Router of this Shell must
+                load this Storage.
+        """
+        self._auth_method   = auth_method
+        self._interactive    = interactive
+        self.storage        = storage 
+        self.load_storage   = load_storage
+        self.client         = None
+        self.bootstrap()
+
+    def terminate(self):
+        """
+        Leave gracefully the Shell by shutdowning properly the nested ManifoldClient.
+        """
+        self.client.terminate()
+
+    #---------------------------------------------------------------------------
+    # Accessors
+    #---------------------------------------------------------------------------
+
+    def set_auth_method(self, auth_method):
+        self._auth_method = auth_method
+        self.select_auth_method(auth_method)
+
+    def is_interactive(self):
+        return self._interactive
+
+    #---------------------------------------------------------------------------
+    # Initialization
+    #---------------------------------------------------------------------------
+
+    def bootstrap(self):
+        if self.is_interactive():
+            if not self._auth_method:
+                self.set_auth_method('local')
+            else:
+                self.select_auth_method(self._auth_method)
+            if not self.client:
+                raise RuntimeError("No client set")
+
+            Log.info(self.client.welcome_message())
+
+    #---------------------------------------------------------------------------
+    # Class methods
+    #---------------------------------------------------------------------------
 
     @classmethod
     def print_error(self, error):
@@ -69,27 +133,27 @@ class Shell(object):
         opt = Options()
         opt.add_argument(
             "-C", "--cacert", dest = "xmlrpc_cacert",
-            help = "API SSL certificate",
+            help = "API SSL certificate", 
             default = None
         )
         opt.add_argument(
             "-K", "--insecure", dest = "xmlrpc_insecure",
-            help = "Do not check SSL certificate",
+            help = "Do not check SSL certificate", 
             default = 7080
         )
         opt.add_argument(
             "-U", "--url", dest = "xmlrpc_url",
-            help = "API URL",
-            default = DEFAULT_API_URL
+            help = "API URL", 
+            default = DEFAULT_API_URL 
         )
         opt.add_argument(
             "-u", "--username", dest = "username",
-            help = "API user name",
+            help = "API user name", 
             default = DEFAULT_USER
         )
         opt.add_argument(
             "-p", "--password", dest = "password",
-            help = "API password",
+            help = "API password", 
             default = DEFAULT_PASSWORD
         )
         opt.add_argument(
@@ -104,7 +168,7 @@ class Shell(object):
         )
         opt.add_argument(
             "-x", "--xmlrpc", action="store_true", dest = "xmlrpc",
-            help = "Use XML-RPC interface",
+            help = "Use XML-RPC interface", 
             default = False
         )
         opt.add_argument(
@@ -117,7 +181,7 @@ class Shell(object):
         # specific to the command line program
         opt.add_argument(
             "-e", "--execute", dest = "execute",
-            help = "Execute a shell command",
+            help = "Execute a shell command", 
             default = None
         )
         #parser.add_argument("-m", "--method", help = "API authentication method")
@@ -138,9 +202,9 @@ class Shell(object):
         API using a SSL connection.
         Args:
             url: A String containing the URL of the XMLRPC server.
-                Example: DEFAULT_API_URL
-            username: A String containing the user's login.
-            password: A String containing the user's password.
+                Example: DEFAULT_API_URL 
+            username: A String containing the user's login. 
+            password: A String containing the user's password. 
         """
         from manifold.clients.xmlrpc_ssl_password import ManifoldXMLRPCClientSSLPassword
         self.client = ManifoldXMLRPCClientSSLPassword(url, username, password)
@@ -148,10 +212,10 @@ class Shell(object):
     def authenticate_xmlrpc_gid(self, url, pkey_file, cert_file):
         """
         Prepare a Client to dial with a Manifold Router through a XMLRPC
-        API using a SSL connection using GIT authentication.
+        API using a SSL connection using GIT authentication. 
         Args:
             url: A String containing the URL of the XMLRPC server.
-                Example: DEFAULT_API_URL
+                Example: DEFAULT_API_URL 
             pkey_file: A String containing the absolute path of the user's
                 private key.
                 Example: "/etc/manifold/keys/client.pkey"
@@ -168,7 +232,7 @@ class Shell(object):
         API using a SSL connection using an anonymous account.
         Args:
             url: The URL of the XMLRPC server.
-                Example: DEFAULT_API_URL
+                Example: DEFAULT_API_URL 
         """
         from manifold.clients.xmlrpc_ssl_password import ManifoldXMLRPCClientSSLPassword
         self.client = ManifoldXMLRPCClientSSLPassword(url)
@@ -187,7 +251,7 @@ class Shell(object):
                     #Log.tmp("Automatically selected '%s' authentication method" % method)
                     return
                 except Exception, e:
-                    Log.error(format_exc())
+                    #Log.error(format_exc())
                     Log.debug("Failed client authentication '%s': %s" % (method, e))
             raise Exception, "Could not authenticate automatically (tried: local, gid, password)"
 
@@ -195,7 +259,7 @@ class Shell(object):
             username = Options().username
             self.authenticate_local(username)
 
-        else: # XMLRPC
+        else: # XMLRPC 
             url = Options().xmlrpc_url
 
             if auth_method == 'gid':
@@ -229,62 +293,6 @@ class Shell(object):
             else:
                 raise Exception, "Authentication method not supported: '%s'" % auth_method
 
-    def __init__(self, interactive = False, storage = None, load_storage = True):
-        """
-        Constructor.
-        Args:
-            interactive: A boolean set to True if this Shell is used in command-line,
-                and set to False otherwise (Shell used in a script, etc.).
-            storage: A Storage instance or None.
-                Example: See MANIFOLD_STORAGE defined in manifold.bin.config
-            load_storage: A boolean set to True if the local Router of this Shell must
-                load this Storage.
-        """
-        self.interactive    = interactive
-        self.storage        = storage
-        self.load_storage   = load_storage
-
-# This does not work for shell command like manifold-enable-platform because self.client
-# won't be initialized.
-#MANDO|        if not interactive:
-#MANDO|            return
-#MANDO|
-#MANDO|        auth_method = Options().auth_method
-#MANDO|        if not auth_method:
-#MANDO|            auth_method = "local"
-#MANDO|
-#MANDO|        self.select_auth_method(auth_method)
-#MANDO|        if self.interactive:
-#MANDO|            Log.info(self.client.welcome_message())
-
-        auth_method = Options().auth_method if interactive else None
-        if not auth_method:
-            auth_method = "local"
-
-        # Initialize self.client
-        self.select_auth_method(auth_method)
-
-        # No client has been set, so we cannot run anything.
-        if not self.client:
-            raise RuntimeError("No client set")
-
-        if self.interactive:
-            Log.info(self.client.welcome_message())
-
-    def terminate(self):
-        """
-        Leave gracefully the Shell by shutdowning properly the nested ManifoldClient.
-        """
-        # XXX Issues with the reference counter
-        #del self.client
-        #self.client = None
-        try:
-            self.client.__del__()
-        except Exception, e:
-            print "del error"
-            Log.error(e)
-            pass
-
     def display(self, result_value):
         """
         Print the ResultValue of a Query in the standard output.
@@ -299,7 +307,7 @@ class Shell(object):
             #records = result_value["value"]
             #dicts = [record.to_dict() for record in records]
             dicts = result_value.get_all()
-            if self.interactive:
+            if self.is_interactive():
                 # Command-line
                 print "===== RESULTS ====="
                 pprint.pprint(dicts)
@@ -315,7 +323,7 @@ class Shell(object):
                 # String
                 Log.error(errors)
             elif isinstance(errors, list):
-                # list of ErrorPacket
+                # list of ErrorPacket 
                 i = 0
                 num_errors = len(errors)
                 for error in errors:
@@ -354,7 +362,6 @@ class Shell(object):
             The ResultValue resulting from the Query
         """
         try:
-            Log.tmp("sending %s using %s" % (query, self.client))
             result_value = self.client.forward(query)
         except Exception, e:
             Log.error(traceback.format_exc())
@@ -381,8 +388,8 @@ class Shell(object):
             on the ManifoldClient set for this Shell.
         """
         return self.client.welcome_message()
-
-#    # If called by a script
+        
+#    # If called by a script 
 #    if args:
 #        if not os.path.exists(args[0]):
 #            print 'File %s not found'%args[0]
@@ -395,7 +402,7 @@ class Shell(object):
 #            # use args as sys.argv for the next shell, so our own options get removed for the next script
 #            sys.argv = args
 #            script = sys.argv[0]
-#            # Add of script to sys.path
+#            # Add of script to sys.path 
 #            path = os.path.dirname(os.path.abspath(script))
 #            sys.path.append(path)
 #            execfile(script)

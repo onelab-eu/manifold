@@ -2,3 +2,4 @@
 *.swp
 build
 manifold.egg-info
+dist

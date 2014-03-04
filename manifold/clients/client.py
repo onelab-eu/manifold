@@ -22,7 +22,7 @@ class ManifoldClient(object):
         """
         pass
 
-    def __del__(self):
+    def terminate(self):
         """
         Shutdown gracefully self.router 
         """
