@@ -71,7 +71,7 @@ class XMLRPCAPI(xmlrpc.XMLRPC, object):
             display_args[0]['AuthString'] = "XXXXX"
         return display_args
 
-    
+
     @withRequest
     def xmlrpc_AuthCheck(self, request, annotation = None):
         # We expect to find an authentication token in the annotation
@@ -79,7 +79,7 @@ class XMLRPCAPI(xmlrpc.XMLRPC, object):
             auth = annotation.get('authentication', None)
         else:
             auth = {}
-           
+
         auth['request'] = request
 
         return Auth(auth, self.interface).check()
@@ -90,6 +90,7 @@ class XMLRPCAPI(xmlrpc.XMLRPC, object):
     def xmlrpc_forward(self, request, query, annotation = None):
         """
         """
+        Log.info("xmlrpc_forward")
         Log.info("Incoming XMLRPC request, query = %r, annotation = %r" % (self.display_query(query), annotation))
         if Options().disable_auth:
             Log.info("Authentication disabled by configuration")
@@ -97,15 +98,15 @@ class XMLRPCAPI(xmlrpc.XMLRPC, object):
             if not annotation or not "authentication" in annotation:
                 msg = "You need to specify an authentication token in annotation"
                 return dict(ResultValue.error(msg, FORBIDDEN))
-                
+
             # We expect to find an authentication token in the annotation
             if annotation:
                 auth = annotation.get('authentication', None)
             else:
                 auth = {}
-               
+
             auth['request'] = request
-            
+
             # Check login password
             try:
                 user = Auth(auth, self.interface).check()
@@ -125,6 +126,7 @@ class XMLRPCAPI(xmlrpc.XMLRPC, object):
         return receiver.get_deferred()
 
     def _xmlrpc_action(self, action, *args):
+        Log.info("_xmlrpc_action")
         # The first argument is eventually an authentication token
         if Options().disable_auth:
             query, = args
@@ -137,7 +139,7 @@ class XMLRPCAPI(xmlrpc.XMLRPC, object):
             return self.xmlrpc_forward(query)
         else:
             return self.xmlrpc_forward(auth, query)
-            
+
     def xmlrpc_Get   (self, *args): return self._xmlrpc_action('get',    *args)
     def xmlrpc_Update(self, *args): return self._xmlrpc_action('update', *args)
     def xmlrpc_Create(self, *args): return self._xmlrpc_action('create', *args)

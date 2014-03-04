@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Manage IPv4 and IPv6 addresses in Maxmind 
+# Manage IPv4 and IPv6 addresses in Maxmind
 #   https://code.google.com/p/pygeoip/wiki/Usage
 #
 # Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
@@ -12,10 +12,10 @@ from types                                      import GeneratorType
 
 from manifold.core.announce                     import Announce, announces_from_docstring
 from manifold.gateways.object                   import Object
-from manifold.gateways.maxmind.geoip_database   import MAXMIND_DAT_IPV4_ASN, MAXMIND_DAT_IPV4_CITY, MAXMIND_DAT_IPV4_COUNTRY 
-from manifold.gateways.maxmind.geoip_database   import MAXMIND_DAT_IPV6_ASN, MAXMIND_DAT_IPV6_CITY, MAXMIND_DAT_IPV6_COUNTRY 
+from manifold.gateways.maxmind.geoip_database   import MAXMIND_DAT_IPV4_ASN, MAXMIND_DAT_IPV4_CITY, MAXMIND_DAT_IPV4_COUNTRY
+from manifold.gateways.maxmind.geoip_database   import MAXMIND_DAT_IPV6_ASN, MAXMIND_DAT_IPV6_CITY, MAXMIND_DAT_IPV6_COUNTRY
 from manifold.util.log                          import Log
-from manifold.util.type                         import accepts, returns 
+from manifold.util.type                         import accepts, returns
 
 @returns(int)
 def ip_get_family(ip):
@@ -49,12 +49,12 @@ class Ip(Object):
     aliases = dict()
 
     @returns(GeneratorType)
-    def get(self, query, annotation): 
+    def get(self, query, annotation):
         """
         Retrieve an Ip
         Args:
             query: The Query issued by the User.
-            annotation: The corresponding Annotation (if any, None otherwise). 
+            annotation: The corresponding Annotation (if any, None otherwise).
         Returns:
             A dictionnary containing the requested Object.
         """
@@ -63,16 +63,19 @@ class Ip(Object):
         where = query.get_where()
         predicates = [predicate for predicate in query.get_where().get("ip") if predicate.get_str_op() == "=="]
 
-        if len(predicates) != 1: 
+        if len(predicates) != 1:
             raise RuntimeError(
                 """
                 The WHERE clause (%s) must have exaclty one Predicate '==' involving 'ip' field.
                 Matching Predicate(s): {%s}
-                """ % ', '.join(predicates)
+                """ % (
+                    where,
+                    ', '.join(predicates)
+                )
             )
         ip = predicates[0].get_value()
         ip_family = ip_get_family(ip)
-        record = {"ip" : ip} 
+        record = {"ip" : ip}
         select_all = (not query.get_select())
 
 # I don't know why, those dat file cannot be loaded...
@@ -130,7 +133,7 @@ class Ip(Object):
 
                 CAPABILITY(retrieve, fullquery);
                 KEY(ip);
-            }; 
+            };
             """
         announces = make_announces_impl()
         return announces[0]
