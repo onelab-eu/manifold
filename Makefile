@@ -30,7 +30,7 @@ COVERAGE = $(or $(shell which coverage), $(shell which python-coverage), \
 # Added for convenience during development
 debug: mrpropre clean all install
 
-all:
+all: setup.cfg
 	./setup.py build
 
 mrpropre:
