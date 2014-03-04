@@ -31,7 +31,8 @@ class SQLA_Object(Object):
         types.Integer : "integer",
         types.Enum    : "integer", # XXX
         types.String  : "string",
-        types.Boolean : "bool"
+        types.Boolean : "bool",
+        types.DateTime: "datetime"
     }
 
     def __init__(self, gateway, model, interface):

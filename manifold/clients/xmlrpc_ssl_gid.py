@@ -13,6 +13,7 @@ from types                          import StringTypes
 from twisted.internet               import defer, ssl
 
 from manifold.core.annotation       import Annotation
+from manifold.util.reactor_thread   import ReactorThread
 from manifold.util.xmlrpc_proxy     import XMLRPCProxy
 from manifold.util.type             import accepts, returns 
 from ..clients.xmlrpc               import ManifoldXMLRPCClient

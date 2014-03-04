@@ -29,6 +29,7 @@ class ReactorThread(threading.Thread):
     def __init__(self):
         threading.Thread.__init__(self)
         self._reactorRunning = False
+        self._reactorStarted = False
 
         # Be sure the import is done only at runtime, we keep a reference in the
         # class instance
@@ -60,10 +61,16 @@ class ReactorThread(threading.Thread):
         return self._reactorRunning
        
     def start_reactor(self):
-        if self._reactorRunning:
-            Log.warning("Reactor already running. This is normal, please remove this debug message")
+        if self._reactorStarted:
+            Log.debug("Reactor already started")
             return
-            #raise ReactorException("Reactor Already Running")
+        self._reactorStarted = True
+
+        # Should not occur
+        if self._reactorRunning:
+            Log.debug("Reactor already running: should not occur")
+            return
+
         threading.Thread.start(self)
         cpt = 0
         while not self._reactorRunning:
@@ -83,7 +90,9 @@ class ReactorThread(threading.Thread):
             return#raise ReactorException("Reactor Not Running")
         # done here instead of event until shell.client.__del__ issue is solved
         self._reactorRunning = False
+        self._reactorStarted = False
         self.reactor.callFromThread(self.reactor.stop)
+        ReactorThread._drop()
         #self.reactor.join()
 
     def addReactorEventTrigger(self, phase, eventType, callable):

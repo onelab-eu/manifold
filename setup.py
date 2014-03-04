@@ -17,10 +17,10 @@ long_description = ""
 
 setup(
     name        = "manifold",
-    version     = manifold.__version__,
+    version     = '.'.join(["%s" % x for x in manifold.__version__]),
     description = "MANIFOLD interconnection framework",
     long_description=long_description,
-    author      = "Jordan Augé, Marc-Olivier Buob",
+    author      = "Jordan Aug<C3><A9>, Marc-Olivier Buob",
     url         = "http://www.top-hat.info",
     #setup_requires=['nose>=0.11',],
     #test_requires=['unittest2>=0.5.1',
@@ -38,15 +38,10 @@ setup(
     ],
     license     = "GPLv3",
     packages = find_packages(),
-# Redundant with other contributions ?
-#    data_files = [ ('/usr/share/manifold/metadata/', glob('metadata/*.h')) ] +
-#        ( [ ('/etc/init.d/manifold', 'manifold/bin/etc_init.d_manifold-debian') ] if distribution == 'debian' else [] ) +
-#        ( [ ('/etc/init.d/manifold', 'manifold/bin/etc_init.d_manifold-fedora') ] if distribution == 'fedora' else [] ) +
-#         [],
-    data_files = [
-        ('/usr/share/manifold/metadata/', glob('metadata/*.h')),
-        ('/etc/init.d', glob('init.d/manifold'))
-    ],
+    data_files = [ ('/usr/share/manifold/metadata/', glob('metadata/*.h')) ] +
+        ( [ ('/etc/init.d/manifold', 'manifold/bin/etc_init.d_manifold-fedora') ] if distribution == 'fedora' else [] ) +
+        #( [ ('/etc/init.d/manifold', 'manifold/bin/etc_init.d_manifold-debian') ] if distribution == 'debian' else [] ) +
+         [],
     scripts = glob("clientbin/*") + ['scripts/manifold-reset-db.sh', 'scripts/manifold-populate-db.sh'],
 #    entry_points={
 #        'console_scripts': [
