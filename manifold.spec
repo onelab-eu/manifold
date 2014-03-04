@@ -1,3 +1,5 @@
+# <<<<<<<<<<<<<< DO NOT USE, CONFIGURE setup.cfg INSTEAD >>>>>>>>>>>>>>>>>>>>>>>>>
+
 # this is a VERY ROUGH / DUMMY specfile for manifold
 # in essence it's only here because the PlanetLab build is brain-damaged and
 # expects a specfile to be present first-stage
@@ -36,7 +38,7 @@ BuildRequires: python-setuptools make
 
 Manifold offers an infrastructure for easily mixing various feeds,
 either testbeds, or measurement frameworks, and aggregate the results
-in some unified/consolidated way. Manifold is bhind TopHat and
+in some unified/consolidated way. Manifold is behind TopHat and
 MySlice, but is designed to be re-usable in any similar context.
 
 %prep
