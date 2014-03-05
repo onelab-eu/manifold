@@ -1,3 +1,6 @@
+SELECT source, destination, hops.ip FROM traceroute WHERE source == "127.0.0.1" && destination == "8.8.8.8"
+
+
 DIFFERENCES BETWEEN devel and routerv2
 
 - status field in the local:user database

@@ -22,6 +22,7 @@ from manifold.core.annotation       import Annotation
 from manifold.core.capabilities     import Capabilities
 from manifold.core.destination      import Destination
 from manifold.core.key              import Key
+from manifold.core.operator_slot    import ChildSlotMixin
 from manifold.core.packet           import Packet
 from manifold.core.query            import Query
 from manifold.gateways              import Gateway
@@ -32,7 +33,7 @@ from manifold.operators.selection   import Selection
 from manifold.util.log              import Log
 from manifold.util.type             import returns
 
-class From(Operator):
+class From(Operator, ChildSlotMixin):
     """
     From Operators are responsible to forward Packets between the AST
     and the involved Gateways Nodes. It is mostly used during the
@@ -59,13 +60,15 @@ class From(Operator):
         assert isinstance(key, Key),\
             "Invalid key = %s (%s)" % (key, type(key))
 
+        Operator.__init__(self)
+        ChildSlotMixin.__init__(self)
+
         self._query       = query
         self.capabilities = capabilities
         self.key          = key
         self._gateway     = gateway
 
         # The producer will be set once a QUERY will be received
-        super(From, self).__init__(max_producers = 1)
 
 
 #DEPRECATED|    def add_fields_to_query(self, field_names):
@@ -208,7 +211,7 @@ class From(Operator):
         Args:
             packet: A Packet instance.
         """
-        #Log.debug("[FROM] packet=", packet)
+        Log.debug("[FROM] packet=", packet)
         if packet.get_protocol() == Packet.PROTOCOL_QUERY:
             
             # We need to add local filters to the query packet
@@ -216,7 +219,8 @@ class From(Operator):
             packet.update_query(lambda q: q.filter_by(filter))
 
             # Register this flow in the Gateway (with the updated query)
-            self.get_gateway().add_flow(packet.get_query(), self)
+            socket = self.get_gateway().add_flow(packet.get_query(), self)
+            self._set_child(socket)
             packet.set_receiver(self)
 
             self.get_gateway().receive(packet)
@@ -285,11 +289,7 @@ class From(Operator):
             # XXX New rework just like the previous elif XXX
 
             # Create a new Selection node
-            consumers = self.get_consumers()
-            self.clear_consumers() # XXX We must only unlink consumers involved in the QueryPlan that we're optimizing and create a new From node 
             selection = Selection(self, filter)
-            #selection.query = self.query.copy().filter_by(filter)
-            selection.set_consumers(consumers)
 
             if self.get_capabilities().fullquery:
                 # We also push the filter down into the node

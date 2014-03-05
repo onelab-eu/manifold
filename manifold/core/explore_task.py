@@ -202,7 +202,8 @@ class ExploreTask(Deferred):
                     subpath = self.path[:]
                     subpath.append(name)
                     task = ExploreTask(self._interface, neighbour, relation, subpath, self, self.depth+1)
-                    task.addCallback(self.store_subquery, relation).addErrback(self.default_errback)
+                    task.addCallback(self.store_subquery, relation)
+                    task.addErrback(self.default_errback)
 
                     relation_name = relation.get_relation_name()
 
@@ -216,13 +217,16 @@ class ExploreTask(Deferred):
                     
                 else:
                     task = ExploreTask(self._interface, neighbour, relation, self.path, self.parent, self.depth)
-                    task.addCallback(self.perform_left_join, relation, allowed_platforms, metadata, query_plan).addErrback(self.default_errback)
+                    task.addCallback(self.perform_left_join, relation, allowed_platforms, metadata, query_plan)
+                    task.addErrback(self.default_errback)
                     priority = TASK_11
 
                 deferred_list.append(task)
                 stack.push(task, priority)
 
-        DeferredList(deferred_list).addCallback(self.all_done, allowed_platforms, metadata, query_plan).addErrback(self.default_errback)
+        d = DeferredList(deferred_list)
+        d.addCallback(self.all_done, allowed_platforms, metadata, query_plan)
+        d.addErrback(self.default_errback)
 
     def all_done(self, result, allowed_platforms, metadata, query_plan):
         """
@@ -278,18 +282,18 @@ class ExploreTask(Deferred):
         """
         # We need to build an AST just to collect subqueries
         if not self.ast:
-            print "[perform_subquery] not self.ast"
+#DEPRECATED|            print "[perform_subquery] not self.ast"
             # XXX ?????
             # XXX What is self.root here ?
             self.ast = self.perform_union(self.root, allowed_platforms, metadata, query_plan)
 
-        print "perform subquery"
-        print "="*80
-        print "%r" % self.ast # = FROM tdmi:Traceroute()
-        print "="*80
-        print "subqueries:"
-        print self.subqueries
-        print "="*80
+#DEPRECATED|        print "perform subquery"
+#DEPRECATED|        print "="*80
+#DEPRECATED|        print "%r" % self.ast # = FROM tdmi:Traceroute()
+#DEPRECATED|        print "="*80
+#DEPRECATED|        print "subqueries:"
+#DEPRECATED|        print self.subqueries
+#DEPRECATED|        print "="*80
         if self.root.capabilities.is_onjoin():
             # We need to have all root_key_fields available before running the
             # onjoin query
@@ -323,9 +327,7 @@ class ExploreTask(Deferred):
             # - the ones for the cartesian product
             # - the ones for the subqueries
             for name, ast_relation in self.subqueries.items():
-                print "name=", name, "ast_relation", ast_relation
                 if name in root_key_fields:
-                    print "name in rootkeyfields"
                     ast, relation = ast_relation
                     key, _, value = relation.get_predicate().get_tuple()
                     assert isinstance(key, StringTypes), "Invalid key"
@@ -334,7 +336,6 @@ class ExploreTask(Deferred):
                     xp_value += (key,)
                     xp_ast_relation.append(ast_relation)
                 else:
-                    print "name NOT in rootkeyfields"
                     sq_ast_relation.append(ast_relation)
 
 #DEPRECATED|             ast = self.ast

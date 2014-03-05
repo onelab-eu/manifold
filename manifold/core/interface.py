@@ -420,7 +420,9 @@ class Interface(object):
             "Invalid packet %s (%s) (%s) (invalid type)" % (packet, type(packet))
 
         # Create a Socket holding the connection information and bind it.
-        socket = Socket(consumer = packet.get_receiver())
+        socket = Socket()
+        # XXX !!!!!
+        packet.get_receiver()._set_child(socket)
         packet.set_receiver(socket)
 
         self.process_query_packet(packet)
@@ -435,7 +437,11 @@ class Interface(object):
 
         try:
             root_node = self._operator_graph.build_query_plan(query, annotation)
-            root_node.add_consumer(receiver)
+
+            print "QUERY PLAN:"
+            print root_node.format_downtree()
+
+            receiver._set_child(root_node)
         except Exception, e:
             error_packet = ErrorPacket(
                 type      = ERROR,
@@ -462,6 +468,8 @@ class Interface(object):
                 #message   = "Unable to execute Query Plan (query = %s): %s" % (query, e),
                 traceback = traceback.format_exc()
             )
+            print "ECC"
+            traceback.print_exc()
             receiver.receive(error_packet)
 
     def execute_query(self, query, error_message):

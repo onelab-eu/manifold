@@ -66,7 +66,7 @@ class ManifoldLocalClient(ManifoldClient):
         self.user = None
 
         if not user_email:
-            Log.info("Using anonymous profile" % user_email)
+            Log.info("Using anonymous profile: %s" % user_email)
             return
 
         if not self.router.has_storage():

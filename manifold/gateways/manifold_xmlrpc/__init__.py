@@ -37,7 +37,7 @@ class ManifoldGateway(Gateway):
         Returns:
             The '%s' representation of this ManifoldGateway.
         """
-        return "<ManifoldGateway %s %s>" % (self._platform_config['url'], self.query)
+        return "<ManifoldGateway %s>" % (self._platform_config['url'])
 
     def callback_records(self, rows, packet):
         """
@@ -110,27 +110,13 @@ class ManifoldGateway(Gateway):
         #query = source.query
         auth = {'AuthMethod': 'guest'}
 
-        # DEBUG
-        if self._platform_config['url'] == "https://api2.top-hat.info/API/":
-            print "W: Hardcoding XML RPC call"
-
-            # Where conversion
-            filters = {}
-            for predicate in query.filters:
-                field = "%s%s" % ('' if predicate.get_str_op() == "=" else predicate.op, predicate.key)
-                if field not in filters:
-                    filters[field] = []
-                filters[field].append(predicate.value)
-            for field, value in filters.iteritems():
-                if len(value) == 1:
-                    filters[field] = value[0]
-            query.filters = filters
-
-        proxy.callRemote(
+        d = proxy.callRemote(
             'forward',
             query.to_dict(),
             {'authentication': auth}
-        ).addCallback(self.callback_records, packet).addErrback(self.callback_error, packet)
+        )
+        d.addCallback(self.callback_records, packet)
+        d.addErrback(self.callback_error, packet)
 
             #reactor.callFromThread(wrap, self) # run wrap(self) in the event loop
         #    wrap(self)

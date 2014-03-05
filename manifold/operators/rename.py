@@ -12,8 +12,8 @@
 from types                          import StringTypes
 
 from manifold.core.node             import Node
+from manifold.core.operator_slot    import ChildSlotMixin
 from manifold.core.packet           import Packet
-from manifold.core.producer         import Producer
 from manifold.operators.operator    import Operator
 from manifold.util.log              import Log 
 from manifold.util.type             import returns
@@ -34,7 +34,7 @@ class Rename(Operator):
         """
         Constructor.
         Args:
-            child: The child Producer.
+            child: The child Node.
             aliases: A dict {String : String} which translate field name used
                 in the incoming Records into the corresponding field name
                 in the output Records.
@@ -49,8 +49,11 @@ class Rename(Operator):
         #        set(aliases.keys()) & set(aliases.values())
         #    )
 
-        Operator.__init__(self, producers = child, max_producers = 1)
+        Operator.__init__(self)
+        ChildSlotMixin.__init__(self)
         self._aliases = aliases
+
+        self._set_child(child)
 
     @returns(dict)
     def get_aliases(self):
@@ -135,7 +138,7 @@ class Rename(Operator):
         super(Demux, self).dump(indent)
         self.get_producer().dump(indent + 1)
     
-    @returns(Producer)
+    @returns(Node)
     def optimize_selection(self, filter):
         """
         Propagate Selection Operator through this Operator.
@@ -149,7 +152,7 @@ class Rename(Operator):
         # self.get_producer().optimize_selection(query, updated_filter)
         return self
 
-    @returns(Producer)
+    @returns(Node)
     def optimize_projection(self, fields):
         """
         Propagate Projection Operator through this Operator.

@@ -22,7 +22,7 @@ from types                          import StringTypes
 
 from manifold.core.ast              import AST
 from manifold.core.explore_task     import ExploreTask
-from manifold.core.producer         import Producer
+from manifold.core.node             import Node
 from manifold.core.query            import ACTION_CREATE, ACTION_UPDATE
 from manifold.core.stack            import Stack
 from manifold.operators.From        import From 
@@ -53,6 +53,7 @@ class QueryPlan(object):
             "Invalid ast = %s (%s)" % (ast, type(ast))
 
         destination = query.get_destination()
+        ast.get_root().format_downtree()
         if query.get_action() in [ACTION_CREATE, ACTION_UPDATE]:
             ast.reorganize_create()
         ast.optimize(destination)
@@ -92,7 +93,7 @@ class QueryPlan(object):
         """
         return repr(self)
 
-    @returns(Producer)
+    @returns(Node)
     def build(self, query, router, db_graph, allowed_platforms, user = None):
         """
         Build the QueryPlan involving several Gateways according to a 3nf
@@ -109,7 +110,7 @@ class QueryPlan(object):
                 to the Router configuration.
             user: A User instance or None.
         Returns:
-            The corresponding Producer, None in case of failure
+            The corresponding Node, None in case of failure
         """
         allowed_capabilities = router.get_capabilities()
 

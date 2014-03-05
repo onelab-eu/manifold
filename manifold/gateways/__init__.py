@@ -14,11 +14,9 @@ from types                          import StringTypes
 from manifold.core.announce         import Announces, make_virtual_announces, merge_announces
 from manifold.core.capabilities     import Capabilities
 from manifold.core.code             import GATEWAY
-from manifold.core.consumer         import Consumer
 from manifold.core.node             import Node 
 from manifold.core.packet           import Packet, ErrorPacket
 from manifold.core.pit              import Pit
-from manifold.core.producer         import Producer
 from manifold.core.query            import Query
 from manifold.core.record           import Record, Records
 from manifold.core.result_value     import ResultValue 
@@ -29,11 +27,13 @@ from manifold.util.log              import Log
 from manifold.util.plugin_factory   import PluginFactory
 from manifold.util.type             import accepts, returns
 
+from manifold.core.code             import CORE, ERROR, GATEWAY
+
 #-------------------------------------------------------------------------------
 # Generic Gateway class
 #-------------------------------------------------------------------------------
 
-class Gateway(Producer):
+class Gateway(Node):
     
     __metaclass__ = PluginFactory
     __plugin__name__attribute__ = '__gateway_name__'
@@ -82,7 +82,7 @@ class Gateway(Producer):
         assert isinstance(platform_config, dict) or not platform_config, \
             "Invalid configuration: %s (%s)" % (platform_config, type(platform_config))
 
-        Producer.__init__(self, *args, **kwargs)
+        Node.__init__(self)
         self._interface       = interface       # Router
         self._platform_name   = platform_name   # String
         self._platform_config = platform_config # dict
@@ -240,7 +240,7 @@ class Gateway(Producer):
             query: A Query instance correponding to a pending Query.
             consumer: A Consumer instance (a From instance most of time). 
         """
-        self._pit.add_flow(query, consumer)
+        return self._pit.add_flow(query, consumer)
 
     def del_consumer(self, receiver, cascade = True):
         """
@@ -446,7 +446,6 @@ class Gateway(Producer):
         #        socket.format_uptree()
         #    )
         #)
-
         if records:
 # << ORIGINAL IMPLEMENTATION (supports list, but not Generator)
 #            # Enable LAST_RECORD flag on the last Record 
@@ -603,3 +602,37 @@ class Gateway(Producer):
         raise NotImplementedError, "receive_impl must be overloaded"
 
 
+    # TODO Rename Producer::make_error() into Producer::error()
+    # and retrieve the appropriate consumers and send to them
+    # the ErrorPacket that has been crafted
+    @returns(ErrorPacket)
+    def make_error(self, origin, description, is_fatal):
+        """
+        Craft an ErrorPacket carrying an error message.
+        Args:
+            description: The corresponding error message (String) or
+                Exception.
+            origin: An integer indicated who raised this error.
+                Valid values are {CORE, GATEWAY}
+            description: A String containing the error message.
+            is_fatal: Set to True if this ErrorPacket
+                must make crash the pending Query.
+        Returns:
+            The corresponding ErrorPacket.
+        """
+        assert isinstance(description, StringTypes),\
+            "Invalid description = %s (%s)" % (description, type(description))
+        # Note: 'origin' is ignored for the moment
+        # Note: 'type'   is ignored for the moment
+        assert origin in [CORE, GATEWAY],\
+            "Invalid origin = %s (%s)" % (origin, type(origin))
+        assert isinstance(is_fatal, bool),\
+            "Invalid is_fatal = %s (%s)" % (is_fatal, type(is_fatal))
+
+        if is_fatal:
+            Log.error(description)
+        else:
+            Log.warning(description)
+        error_packet = ErrorPacket(ERROR, origin, description, traceback.format_exc())
+        error_packet.set_last(is_fatal)
+        return error_packet

@@ -19,12 +19,12 @@ long_description = ""
 
 etc_sysconfig = (
     "/etc/sysconfig/manifold-xmlrpc",
-    ["manifold/etc/etc_sysconfig_xmlrpc"] if distribution == "fedora" else []
+#    ["manifold/etc/etc_sysconfig_xmlrpc"] if distribution == "fedora" else []
 )
 
 etc_initd = (
     "/etc/init.d/manifold-xmlrpc",
-    ["manifold/etc/etc_init.d_xmlrpc-%s" % distribution]
+#    ["manifold/etc/etc_init.d_xmlrpc-%s" % distribution]
 )
 
 name             = "manifold"
@@ -52,7 +52,7 @@ setup(
     version          = version,
     description      = "Manifold Interconnection Framework",
     long_description = long_description,
-    author           = "Jordan Aug<C3><A9>, Marc-Olivier Buob",
+    author           = "Jordan Augé, Marc-Olivier Buob",
     url              = "http://www.top-hat.info",
     provides         = provides,
     namespace_packages = ["manifold"],
@@ -69,8 +69,8 @@ setup(
         # Do not use symlinks with setuptool (those files will be ignored)
         # Do not use hardlinks with git (not supported)
         ('/usr/share/manifold/metadata/', glob('metadata/*.h')),
-        etc_initd,
-        etc_sysconfig,
+#        etc_initd,
+#        etc_sysconfig,
     ],
     scripts = [
         'scripts/manifold-reset-db.sh',
@@ -91,5 +91,5 @@ setup(
 #            'manifold-upload-credential = manifold.bin.uploadcredential:main',
 #        ],
 #    },
-    entry_points = entry_points,
+#    entry_points = entry_points,
 )

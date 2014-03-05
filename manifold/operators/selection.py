@@ -16,8 +16,9 @@ from types                          import StringTypes
 
 from manifold.core.destination      import Destination
 from manifold.core.filter           import Filter
+from manifold.core.node             import Node
+from manifold.core.operator_slot    import ChildSlotMixin
 from manifold.core.packet           import Packet
-from manifold.core.producer         import Producer 
 from manifold.core.query            import Query
 from manifold.core.record           import Record
 from manifold.operators.operator    import Operator
@@ -31,7 +32,7 @@ DUMPSTR_SELECTION  = "WHERE %s"
 # Selection Operator (WHERE)
 #------------------------------------------------------------------
 
-class Selection(Operator):
+class Selection(Operator, ChildSlotMixin):
 
     #---------------------------------------------------------------------------
     # Constructor
@@ -44,17 +45,17 @@ class Selection(Operator):
             child: A Node instance (the child of this Node)
             filter: A Filter instance. 
         """
-        assert issubclass(type(child), Producer),\
+        assert issubclass(type(child), Node),\
             "Invalid child = %r (%r)"   % (child, type(child))
         assert isinstance(filter, Filter),\
             "Invalid filter = %r (%r)" % (filter, type(filter))
 
         self._filter = filter
-        Operator.__init__(self, producers = child, max_producers = 1)
+        Operator.__init__(self)
+        ChildSlotMixin.__init__(self)
 
-#DEPRECATED|        self.query = self.get_producer().get_query().copy()
-#DEPRECATED|        self.query.filters |= filter
- 
+        self._set_child(child)
+
     #---------------------------------------------------------------------------
     # Methods
     #---------------------------------------------------------------------------
@@ -65,7 +66,7 @@ class Selection(Operator):
         Returns:
             The Destination corresponding to this Operator. 
         """
-        d = self.get_producer().get_destination()
+        d = self._get_child().get_destination()
         return d.selection(self._filter)
 
     @returns(Filter)
@@ -81,6 +82,7 @@ class Selection(Operator):
         return DUMPSTR_SELECTION % (
             ' AND '.join(["%s %s %s" % f.get_str_tuple() for f in self._filter])
         )
+
 
     def receive_impl(self, packet):
         """
@@ -120,19 +122,19 @@ class Selection(Operator):
         else: # TYPE_ERROR
             self.send(packet)
 
-    @returns(Producer)
+    @returns(Node)
     def optimize_selection(self, filter):
         # Concatenate both selections...
         for predicate in self._filter:
             filter.add(predicate)
-        return self.get_producer().optimize_selection(filter)
+        return self._get_child().optimize_selection(filter)
 
-    @returns(Producer)
+    @returns(Node)
     def optimize_projection(self, fields):
         # Do we have to add fields for filtering, if so, we have to remove them after
         # otherwise we can just swap operators
         keys = self._filter.keys()
-        self.update_producer(lambda p: p.optimize_projection(fields | keys))
+        self._update_child(lambda p, d: p.optimize_projection(fields | keys))
         #self.query.fields = fields
         if not keys <= fields:
             # XXX add projection that removed added_fields
@@ -140,6 +142,6 @@ class Selection(Operator):
             return Projection(self, fields)
         return self
 
-    @returns(Producer)
+    @returns(Node)
     def reorganize_create(self):
-        return self.get_producer().reorganize_create()
+        return self._get_child().reorganize_create()

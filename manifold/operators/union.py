@@ -11,6 +11,11 @@
 
 from types                          import StringTypes
 
+from manifold.core.destination      import Destination
+from manifold.core.exceptions       import ManifoldInternalException
+from manifold.core.node             import Node
+from manifold.core.operator_slot    import ChildrenSlotMixin
+from manifold.core.packet           import Packet
 from manifold.core.query            import Query
 from manifold.core.record           import Record
 from manifold.operators             import ChildStatus, ChildCallback
@@ -19,18 +24,20 @@ from manifold.operators.operator    import Operator
 from manifold.util.log              import Log
 from manifold.util.type             import accepts, returns
 
-DUMPSTR_UNION = "UNION"
-
 #------------------------------------------------------------------
 # UNION node
 #------------------------------------------------------------------
             
-class Union(Operator):
+class Union(Operator, ChildrenSlotMixin):
     """
     UNION operator node.
     """
 
-    def __init__(self, children, key, distinct=True):
+    #---------------------------------------------------------------------------
+    # Constructor
+    #---------------------------------------------------------------------------
+
+    def __init__(self, producers, key, distinct = False):
         """
         Constructor.
         Args:
@@ -39,154 +46,121 @@ class Union(Operator):
             key: A Key instance, corresponding to the key for
                 elements returned from the node.
         """
-        super(Union, self).__init__()
-        # Parameters
-        self.children, self.key = children, key
-        # Member variables
-        #self.child_status = 0
-        #self.child_results = {}
-        # Stores the list of keys already received to implement DISTINCT
-        self.distinct = distinct
-        self.key_list = list() 
-        self.status = ChildStatus(self.all_done)
-        # Set up callbacks
-        for i, child in enumerate(self.children):
-            child.set_callback(ChildCallback(self, i))
-
-        # We suppose all children have the same format...
-        # NOTE: copy is important otherwise we use the same
-        self.query = self.get_producers()[0].get_query().copy()
-
-    @returns(Query)
-    def get_query(self):
-        """
-        Returns:
-            The Query stored in the first child Producer of
-            this Union Operator. We assume that all child
-            queries have the same format, and that we have at
-            least one child.
-        """
-        return self.get_producers()[0].get_query()
+        Operator.__init__(self)
+        ChildrenSlotMixin.__init__(self)
         
+        self._key      = key
+        self._distinct = distinct
+
+        # XXX ???
+        self.key_list = list() 
+
+        for producer in producers:
+            data = {
+            }
+            self._set_child(producer, data)
+        self._remaining_children = self._get_num_children()
+
+    #---------------------------------------------------------------------------
+    # Internal methods
+    #---------------------------------------------------------------------------
+
     @returns(StringTypes)
     def __repr__(self):
         """
         Returns:
             The '%r' representation of this LeftJoin Operator.
         """
-        return DUMPSTR_UNION
+        distinct_str = ' DISTINCT' if self._distinct else ''
+        return "UNION%s" % (distinct_str)
 
-#DEPRECATED|    def start(self):
-#DEPRECATED|        """
-#DEPRECATED|        Propagates a START message through the Node.
-#DEPRECATED|        """
-#DEPRECATED|        # Start all children
-#DEPRECATED|        for i, child in enumerate(self.children):
-#DEPRECATED|            self.status.started(i)
-#DEPRECATED|        for i, child in enumerate(self.children):
-#DEPRECATED|            child.start()
+    #---------------------------------------------------------------------------
+    # Helpers
+    #---------------------------------------------------------------------------
 
-#OBSOLETE|    def inject(self, records, key, query):
-#OBSOLETE|        """
-#OBSOLETE|        Inject Record / record keys into the Node
-#OBSOLETE|        Args:
-#OBSOLETE|            records: A list of dictionaries representing Records,
-#OBSOLETE|                or list of Record keys
-#OBSOLETE|        """
-#OBSOLETE|        for i, child in enumerate(self.children):
-#OBSOLETE|            self.children[i] = child.inject(records, key, query)
-#OBSOLETE|        return self
+    def _get_first(self):
+        for producer, _ in self._iter_slots():
+            return producer
+        raise ManifoldInternalException, "UNION must have at least one producer"
 
-    def all_done(self):
-        #for record in self.child_results.values():
-        #    self.send(record)
-        self.send(Record(last = True))
+    #---------------------------------------------------------------------------
+    # Methods
+    #---------------------------------------------------------------------------
 
-    def child_callback(self, child_id, record):
+    @returns(Destination)
+    def get_destination(self):
         """
-        Processes records received by the child Node.
+        Returns:
+            The Destination corresponding to this Operator. 
+        """
+        return self._get_first().get_destination()
+
+    def receive_impl(self, packet):
+        """
+        Handle an incoming Packet.
         Args:
-            child_id: identifier of the child that received the Record.
-            record: dictionary representing the received Record.
+            packet: A Packet instance.
         """
-        if record.is_last():
-            self.status.completed(child_id)
-            return
-        
-        key = self.key.get_field_names()
 
-        # DISTINCT not implemented, just forward the record
-        if not key:
-            Log.critical("No key associated to UNION operator")
-            self.send(record)
-            return
+        if packet.get_protocol() == Packet.PROTOCOL_QUERY:
+            # We simply forward the query to all children
+            self.send(packet)
 
-        # Ignore records that have no key
-        if not Record.has_fields(record, key):
-            Log.warning("UNION ignored record without key '%(key)s': %(record)r", **locals())
-            return
+        elif packet.get_protocol() == Packet.PROTOCOL_RECORD:
+            record = packet
+            is_last = record.is_last()
+            record.unset_last()
+            do_send = True
 
-        # Ignore duplicate records
-        if self.distinct:
-            key_value = Record.get_value(record, key)
-            if key_value in self.key_list:
-                Log.warning("UNION ignored duplicate record: %r" % record)
-                return
-            self.key_list.append(key_value)
+            if not record.is_empty():
 
-        self.send(record)
+                # Ignore duplicate records
+                if self._distinct:
+                    key = self._key.get_field_names()
+                    if key and record.has_fields(key):
+                        key_value = record.get_value(key)
+                        if key_value in self.key_list:
+                            do_send = False
+                        else:
+                            self.key_list.append(key_value)
 
-        # XXX This code was necessary at some point to merge records... let's
-        # keep it for a while
-        #
-        #    # Merge ! Fields must be the same, subfield sets are joined
-        #    previous = self.child_results[record[self.key]]
-        #    for k,v in record.items():
-        #        if not k in previous:
-        #            previous[k] = v
-        #            continue
-        #        if isinstance(v, list):
-        #            previous[k].extend(v)
-        #        else:
-        #            if not v == previous[k]:
-        #                print "W: ignored conflictual field"
-        #            # else: nothing to do
-        #else:
-        #    self.child_results[record[self.key]] = record
+                record.unset_last()
+                if do_send:
+                    self.send(record)
 
-#DEPRECATED#    def optimize(self):
-#DEPRECATED#        for i, child in enumerate(self.children):
-#DEPRECATED#            self.children[i] = child.optimize()
-#DEPRECATED#        return self
+            if is_last:
+                # In fact we don't care to know which child has completed
+                self._remaining_children -= 1
+                if self._remaining_children == 0:
+                    self.send(Record(last = True))
 
+        else: # TYPE_ERROR
+            self.send(packet)
+
+    #---------------------------------------------------------------------------
+    # AST manipulations & optimization
+    #---------------------------------------------------------------------------
+
+    @returns(Node)
     def optimize_selection(self, filter):
         # UNION: apply selection to all children
-        for i, child in enumerate(self.children):
-            old_child_callback= child.get_callback()
-            self.children[i] = child.optimize_selection(filter)
-            self.children[i].set_callback(old_child_callback)
+        self._update_children_producers(lambda p, d: p.optimize_selection(filter))
         return self
 
     def optimize_projection(self, fields):
         # UNION: apply projection to all children
-        # XXX in case of UNION with duplicate elimination, we need the key
-        # until then, apply projection to all children
-        #self.query.fields = fields
+        # in case of UNION with duplicate elimination, we need the key
         do_parent_projection = False
-        if self.distinct:
-            key = self.key.get_field_names()
+        child_fields  = set()
+        child_fields |= fields
+        if self._distinct:
+            key = self._key.get_field_names()
             if key not in fields: # we are not keeping the key
                 do_parent_projection = True
-                child_fields  = set()
-                child_fields |= fields
                 child_fields |= key
-        for i, child in enumerate(self.children):
-            old_child_callback= child.get_callback()
-            self.children[i] = child.optimize_projection(child_fields)
-            self.children[i].set_callback(old_child_callback)
+
+        self._update_children_producers(lambda p,d : p.optimize_projection(child_fields))
+
         if do_parent_projection:
-            old_self_callback = self.get_callback()
-            projection = Projection(self, fields)
-            projection.set_callback(old_self_callback)
-            return projection
+            return Projection(self, fields)
         return self

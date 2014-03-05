@@ -13,8 +13,9 @@ from types                          import StringTypes
 
 from manifold.core.destination      import Destination
 from manifold.core.filter           import Filter
+from manifold.core.node             import Node
+from manifold.core.operator_slot    import ChildSlotMixin
 from manifold.core.packet           import Packet
-from manifold.core.producer         import Producer
 from manifold.core.query            import Query, ACTION_CREATE, ACTION_UPDATE, ACTION_GET
 from manifold.core.record           import Record
 from manifold.operators.operator    import Operator
@@ -28,7 +29,7 @@ from manifold.util.type             import returns
 # RIGHT JOIN node
 #------------------------------------------------------------------
 
-class RightJoin(Operator):
+class RightJoin(Operator, ChildSlotMixin):
     """
     RIGHT JOIN operator node
     """
@@ -56,7 +57,12 @@ class RightJoin(Operator):
         # In fact predicate is always : object.key, ==, VALUE
 
         # Initialization
-        super(RightJoin, self).__init__(producers, parent_producer = parent_producer, max_producers = 1, has_parent_producer = True)
+        Operator.__init__(self)
+        ChildSlotMixin.__init__(self)
+
+        self._set_left(parent_producer)
+        self._set_right(producers)
+
         self._predicate = predicate
 
         self._right_map     = dict() 
@@ -255,7 +261,7 @@ class RightJoin(Operator):
         else: # TYPE_ERROR
             self.send(packet)
 
-    @returns(Producer)
+    @returns(Node)
     def optimize_selection(self, filter):
         # RIGHT JOIN
         # We are pushing selections down as much as possible:
@@ -299,7 +305,7 @@ class RightJoin(Operator):
             return Selection(self, top_filter)
         return self
 
-    @returns(Producer)
+    @returns(Node)
     def optimize_projection(self, fields):
         """
         query:
@@ -329,7 +335,7 @@ class RightJoin(Operator):
             return Projection(self, fields)
         return self
             
-    @returns(Producer)
+    @returns(Node)
     def reorganize_create(self):
         self._update_left( lambda l: l.reorganize_create())
         self._update_right(lambda r: r.reorganize_create())

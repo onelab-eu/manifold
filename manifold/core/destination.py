@@ -69,4 +69,4 @@ class Destination(object):
         return Destination(
             object = self._object,
             filter = self._filter,
-            fields = self._fields) # equivalent to (self._fields & fields) since (self._fields c fields)
+            fields = self._fields & fields)

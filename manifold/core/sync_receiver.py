@@ -9,16 +9,17 @@
 #   Marc-Olivier Buob   <marc-olivier.buob@lip6.fr>
 
 import threading
-from types                      import StringTypes
+from types                       import StringTypes
 
-from manifold.core.consumer     import Consumer
-from manifold.core.packet       import Packet
-from manifold.core.record       import Records
-from manifold.core.result_value import ResultValue
-from manifold.util.log          import Log
-from manifold.util.type         import accepts, returns
+from manifold.core.operator_slot import ChildSlotMixin
+from manifold.core.node          import Node
+from manifold.core.packet        import Packet
+from manifold.core.record        import Records
+from manifold.core.result_value  import ResultValue
+from manifold.util.log           import Log
+from manifold.util.type          import accepts, returns
 
-class SyncReceiver(Consumer):
+class SyncReceiver(Node, ChildSlotMixin):
 
     #---------------------------------------------------------------------------
     # Constructor
@@ -29,7 +30,8 @@ class SyncReceiver(Consumer):
         Constructor. Lifetime of a SyncReceiver corresponds to the Query
         it transports and the corresponding results retrieval.
         """
-        Consumer.__init__(self)
+        Node.__init__(self)
+        ChildSlotMixin.__init__(self)
         self._records = Records() # Records resulting from a Query
         self._errors = list()     # ResultValue to errors which have occured 
         self._event = threading.Event()

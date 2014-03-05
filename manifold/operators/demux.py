@@ -12,7 +12,7 @@
 
 from types                          import StringTypes
 
-from manifold.core.producer         import Producer
+from manifold.core.node             import Node
 from manifold.core.query            import Query
 from manifold.operators.operator    import Operator 
 from manifold.util.type             import returns
@@ -35,7 +35,7 @@ class Demux(Operator):
         Args:
             child A Node instance, child of this Demux Node.
         """
-        assert issubclass(type(child), Producer),\
+        assert issubclass(type(child), Node),\
             "Invalid child = %r (%r)" % (child, type(child))
 
         super(Demux, self).__init__(self, producers = child, max_producers = 1)
@@ -64,10 +64,10 @@ class Demux(Operator):
             packet: A Packet instance.
         """
         # Demux Operator simply forwards any kind of Packet to its
-        # Consumer(s)/Producer according to the nature of the Packet.
+        # Consumer(s)/Node according to the nature of the Packet.
         self.send(packet)
 
-    @returns(Producer)
+    @returns(Node)
     def optimize_selection(self, query, filter):
         """
         Propagate Selection Operator through this Operator.
@@ -80,7 +80,7 @@ class Demux(Operator):
         self.get_producer().optimize_selection(query, filter)
         return self
 
-    @returns(Producer)
+    @returns(Node)
     def optimize_projection(self, query, fields):
         """
         Propagate Projection Operator through this Operator.

@@ -13,14 +13,14 @@
 
 from types                          import StringTypes
 from manifold.core.capabilities     import Capabilities
-from manifold.core.producer         import Producer
+from manifold.core.node             import Node
 from manifold.core.query            import Query
 from manifold.core.record           import Record, Records
 from manifold.util.type             import returns, accepts
 
 DUMPSTR_FROMTABLE  = "SELECT %s FROM [%r, ...]" 
 
-class FromTable(Producer):
+class FromTable(Node):
     """
     A FromTable Node stores a list of homogeneous records (e.g.
     a list of records that we could store in a same given Table
@@ -37,7 +37,7 @@ class FromTable(Producer):
                 (same fields, same key).
             key: The Key instance related to these Records.
         """
-        Log.warning("FromTable must be updated to inherit Producer instead of Node")
+        Log.warning("FromTable must be updated to inherit Node instead of Node")
         assert isinstance(query,   Query), "Invalid query = %r (%r)"   % (query,   type(query))
         assert isinstance(records, list),  "Invalid records = %r (%r)" % (records, type(records))
 

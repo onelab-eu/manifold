@@ -15,19 +15,20 @@
 
 from types                  import StringTypes
 
-from manifold.core.consumer import Consumer
+from manifold.core.operator_slot import ChildSlotMixin
 from manifold.core.packet   import Packet
-from manifold.core.relay    import Relay
+from manifold.core.node     import Node
 from manifold.util.log      import Log
 from manifold.util.type     import accepts, returns
 
-class Socket(Relay):
-    def __init__(self, consumer):
+class Socket(Node, ChildSlotMixin):
+    def __init__(self):
         """
         Constructor.
         """
         # Stream socket should allow several consumers
-        Relay.__init__(self, consumers = [consumer], max_consumers = 1, max_producers = 1)
+        Node.__init__(self)
+        ChildSlotMixin.__init__(self)
 
     def check_send(self, packet):
         """
