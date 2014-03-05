@@ -14,6 +14,7 @@ import sys
 from types                          import StringTypes
 
 from manifold.core.packet           import Packet
+from manifold.core.pool_consumers   import PoolConsumers
 from manifold.util.type             import accepts, returns
 
 class Node(object):
@@ -22,6 +23,7 @@ class Node(object):
     """
 
     last_identifier = 0
+
 
     #---------------------------------------------------------------------------
     # Constructor
@@ -39,6 +41,7 @@ class Node(object):
 
         Node.last_identifier += 1
         self._identifier = Node.last_identifier
+        self._pool_consumers = PoolConsumers()
 
     #---------------------------------------------------------------------------
     # Accessors
@@ -51,6 +54,90 @@ class Node(object):
             The identifier of this Node.
         """
         return self._identifier
+
+    #---------------------------------------------------------------------------
+    # Helpers
+    #---------------------------------------------------------------------------
+
+    @returns(set)
+    def get_consumers(self):
+        """
+        Retrieve the Consumers linked to this Producer.
+        Returns:
+            A set of Consumer instances.
+        """
+        return set(self._pool_consumers)
+
+    @returns(int)
+    def get_num_consumers(self):
+        """
+        Returns:
+            The number of Consumers related to this Producer.
+        """
+        return len(self.get_consumers())
+
+    @returns(int)
+    def get_max_consumers(self):
+        """
+        Returns:
+            The maximum number of Consumers allowed for this Producer or
+            None if this value is unbounded.
+        """
+        return self._pool_consumers.get_max_consumers()
+
+    def clear_consumers(self, cascade = True):
+        """
+        Unlink this Producer from its Consumers.
+        Args:
+            cascade: A boolean set to true to unlink those
+                Consumers from self.
+        """
+        if cascade:
+            for consumer in self._pool_consumers:
+                consumer.del_producer(self, cascade = False)
+        self._pool_consumers.clear()
+
+    def add_consumer(self, consumer, cascade = True):
+        """
+        Link a Consumer to this Producer.
+        Args:
+            consumer: A Consumer instance.
+            cascade: A boolean set to true to add 'self'
+                to the producers set of 'consumer'. 
+        """
+        self._pool_consumers.add(consumer)
+        if cascade:
+            consumer.add_producer(self, cascade = False)
+
+    @returns(bool)
+    def is_empty(self):
+        """
+        Returns:
+            True iif this Socket has no Consumer.
+        """
+        return len(self._pool_consumers) == 0
+
+    def del_consumer(self, consumer, cascade = True):
+        """
+        Unlink a Consumer from this Producer.
+        Args:
+            consumer: A Consumer instance.
+            cascade: A boolean set to true to remove 'self'
+                to the producers set of 'consumer'.
+        """
+        self._pool_consumers.remove(consumer)
+        if cascade:
+            customer.del_producer(self, cascade = False)
+
+    @returns(StringTypes)
+    def format_consumer_ids(self):
+        """
+        Returns:
+            A String containing the ids of the Consumers of this Producer.
+        """
+        return "{[%s]}" % "], [".join(("%r" % consumer.get_identifier() for consumer in self.get_consumers())) 
+ 
+
 
     #---------------------------------------------------------------------------
     # Methods
@@ -72,14 +159,14 @@ class Node(object):
         """
         self.check_packet(packet)
 
-    def send(self, packet):
-        """
-        (pure virtual method). Send a Packet.
-        Args:
-            packet: A Packet instance. 
-        """
-        self.check_send(packet)
-        raise NotImplementedError("Method 'send' must be overloaded: %s" % self.__class__.__name__)
+#DEPRECATED|    def send(self, packet):
+#DEPRECATED|        """
+#DEPRECATED|        (pure virtual method). Send a Packet.
+#DEPRECATED|        Args:
+#DEPRECATED|            packet: A Packet instance. 
+#DEPRECATED|        """
+#DEPRECATED|        self.check_send(packet)
+#DEPRECATED|        raise NotImplementedError("Method 'send' must be overloaded: %s" % self.__class__.__name__)
         
     def receive(self, packet):
         """
@@ -88,7 +175,14 @@ class Node(object):
             packet: A Packet instance.
         """
         self.check_receive(packet)
-        raise NotImplementedError("Method 'receive' must be overloaded: %s" % self.__class__.__name__)
+
+        if packet.get_protocol() in [Packet.PROTOCOL_QUERY]:
+            for producer, _ in self._iter_slots():
+                producer.receive(packet)
+        elif packet.get_protocol() in [Packet.PROTOCOL_RECORD, Packet.PROTOCOL_ERROR]:
+            self._pool_consumers.receive(packet)
+
+    send = receive
 
     @returns(StringTypes)
     def format_node(self, indent = 0):
@@ -104,48 +198,69 @@ class Node(object):
             "self" : self
         }
 
+ 
     @returns(StringTypes)
-    def format_tree_impl(self, indent, res):
+    def format_downtree_rec(self, indent, res):
         """
-        (Internal usage)
+        (Internal use)
+        Format debug information to test the path(s) from this Consumer 
+        towards the end-Producer(s)
+        Args:
+            ident: An integer corresponding to the current indentation.
+            res: The String we're crafting (rec)
+        Returns:
+            The String containing the corresponding down-tree.
         """
-        # By default stop up-tree recursion since only Producers are
-        # not leaves of the up-tree
-        return "%(res)s%(self)s" % {
+        # XXX maybe "res = ..." are not needed anymore since we are modifying
+        # the string in place: res is a parameter of every function call
+        #res = self.format_downtree_rec(indent, res)
+        res =  "%(res)s%(self)s" % {
             "res"  : "%s\n" % res if res else "",
             "self" : self.format_node(indent + 2)
         }
+        for node, data in self._iter_slots():
+            res = node.format_downtree_rec(indent + 2, res)
+        return res
+
+    @returns(StringTypes)
+    def format_downtree(self):
+        """
+        Format debug information to test the path(s) from this Consumer 
+        towards the end-Producer(s)
+        Returns:
+            The String containing the corresponding down-tree.
+        """
+        res = ""
+        return self.format_downtree_rec(0, res)
 
     @returns(StringTypes)
     def format_uptree_rec(self, indent, res):
         """
+        (Internal use)
         Format debug information to test the path(s) from this Producer
-        towards the end-Consumer(s). This function ends this recursion.
+        towards the end-Consumer(s)
         Args:
             ident: An integer corresponding to the current indentation.
             res: The String we're crafting (rec)
+        Returns:
+            The String containing the corresponding up-tree.
         """
-        return "%(res)s%(self)s" % {
+        res = "%(res)s%(self)s" % {
             "res"  : "%s\n" % res if res else "",
             "self" : self.format_node(indent + 2)
         }
-
-
-        return format_tree_impl(indent, res)
+        for consumer in self.get_consumers():
+            res = consumer.format_uptree_rec(indent + 2, res)
+        return res
 
     @returns(StringTypes)
-    def format_downtree_rec(self, indent, res):
+    def format_uptree(self):
         """
-        Format debug information to test the path(s) from this Consumer
-        towards the end-Producer(s). This function ends this recursion.
-        Args:
-            ident: An integer corresponding to the current indentation.
-            res: The String we're crafting (rec)
+        Format debug information to test the path(s) from this Producer
+        towards the end-Consumer(s)
+        Returns:
+            The String containing the corresponding up-tree.
         """
-        return "%(res)s%(self)s" % {
-            "res"  : "%s\n" % res if res else "",
-            "self" : self.format_node(indent + 2)
-        }
+        res = ""
+        return self.format_uptree_rec(0, res)
 
-
-        return format_tree_impl(indent, res)

@@ -431,9 +431,9 @@ class SFAGatewayCommon(Gateway):
             ret = yield self.apply_error_handler(packet, failure.value, user, user_account)
             if ret:
                 # If successful, redo the query...
-                self.perform_query(user, user_account, packet)    \
-                    .addCallback(self.records)                          \
-                    .addErrback(self.on_query_error, user, user_account, packet, retries - 1)
+                d = self.perform_query(user, user_account, packet)
+                d.addCallback(self.records)
+                d.addErrback(self.on_query_error, user, user_account, packet, retries - 1)
                 # ... and exit the error handler.
                 defer.returnValue(None)
 

@@ -20,36 +20,15 @@
 
 from manifold.core.code     import CORE
 from manifold.core.packet   import Packet
-from manifold.core.producer import Producer
 from manifold.core.query    import Query 
-from manifold.core.relay    import Relay
+from manifold.core.node     import Node
 from manifold.util.log      import Log
 from manifold.util.type     import accepts, returns
 
 # NOTES: it seem we don't need the query anymore in the operators expect From
 # maybe ? Selection, projection ??
 
-class Operator(Relay):
-
-    #---------------------------------------------------------------------------
-    # Constructor
-    #---------------------------------------------------------------------------
-
-    def __init__(self, producers = None, parent_producer = None, consumers = None, max_producers = None, max_consumers = None, has_parent_producer = False):
-        """
-        Constructor.
-        Args:
-            See relay::__init__()
-        """
-        Relay.__init__( \
-            self, \
-            producers = producers, \
-            consumers = consumers, \
-            parent_producer = parent_producer, \
-            max_consumers = max_consumers, \
-            max_producers = max_producers, \
-            has_parent_producer = has_parent_producer \
-        )
+class Operator(Node):
 
     #---------------------------------------------------------------------------
     # Methods
@@ -62,7 +41,7 @@ class Operator(Relay):
             True iif this Operator or at least one of its child uses 
             fullquery Capabilities.
         """
-        for producer in self.get_producers():
+        for producer, _ in self._iter_slots():
             if producer.has_children_with_fullquery():
                 return True
         return False 
@@ -96,6 +75,7 @@ class Operator(Relay):
         Args:
             packet: A Packet instance.
         """
+        packet.set_source(self)
         self.receive_impl(packet)
 
     def error(self, description, is_fatal = True):

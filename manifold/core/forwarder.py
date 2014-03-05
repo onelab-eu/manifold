@@ -26,6 +26,7 @@ class Forwarder(Interface):
         assert isinstance(packet, Packet),\
             "Invalid packet %s (%s) (%s) (invalid type)" % (packet, type(packet))
 
+        raise Exception, "SHould not be used"
         # Create a Socket holding the connection information and bind it.
         socket = Socket(consumer = packet.get_receiver())
         packet.set_receiver(socket)

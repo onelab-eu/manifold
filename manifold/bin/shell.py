@@ -73,6 +73,8 @@ class Shell(object):
         Leave gracefully the Shell by shutdowning properly the nested ManifoldClient.
         """
         self.client.terminate()
+        import sys
+        sys.exit(0)
 
     #---------------------------------------------------------------------------
     # Accessors

@@ -140,6 +140,9 @@ class Record(Packet):
         """
         return dict.__iter__(self._record)
 
+    def get(self, value, default=None):
+        return self._record.get(value, default)
+
     #--------------------------------------------------------------------------- 
     # Class methods
     #--------------------------------------------------------------------------- 

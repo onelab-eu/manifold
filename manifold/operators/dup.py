@@ -13,7 +13,7 @@ from types                          import StringTypes
 
 from manifold.core.key              import Key
 from manifold.core.packet           import Packet
-from manifold.core.producer         import Producer
+from manifold.core.node             import Node
 from manifold.core.query            import Query
 from manifold.core.record           import Record
 from manifold.operators.operator    import Operator
@@ -81,7 +81,7 @@ class Dup(Operator):
             packet: A Packet instance.
         """
         # Demux Operator simply forwards any kind of Packet to its
-        # Consumer(s)/Producer according to the nature of the Packet.
+        # Consumer(s)/Node according to the nature of the Packet.
         if packet.get_protocol() == Packet.PROTOCOL_RECORD:
             record = packet
             if not self.is_duplicate(record):
@@ -94,7 +94,7 @@ class Dup(Operator):
         else:
             self.send(packet)
 
-    @returns(Producer)
+    @returns(Node)
     def optimize_selection(self, query, filter):
         """
         Propagate Selection Operator through this Operator.
@@ -107,7 +107,7 @@ class Dup(Operator):
         self.get_producer().optimize_selection(query, filter)
         return self
 
-    @returns(Producer)
+    @returns(Node)
     def optimize_projection(self, query, fields):
         """
         Propagate Projection Operator through this Operator.

@@ -13,8 +13,9 @@ from types                          import StringTypes
 
 from manifold.core.destination      import Destination
 from manifold.core.filter           import Filter
+from manifold.core.node             import Node
+from manifold.core.operator_slot    import LeftRightSlotMixin
 from manifold.core.packet           import Packet
-from manifold.core.producer         import Producer
 from manifold.core.query            import Query
 from manifold.core.record           import Record
 from manifold.operators.operator    import Operator
@@ -34,7 +35,7 @@ from manifold.util.type             import returns
 # LEFT JOIN node
 #------------------------------------------------------------------
 
-class LeftJoin(Operator):
+class LeftJoin(Operator, LeftRightSlotMixin):
     """
     LEFT JOIN operator node
     """
@@ -62,7 +63,12 @@ class LeftJoin(Operator):
         # In fact predicate is always : object.key, ==, VALUE
 
         # Initialization
-        super(LeftJoin, self).__init__(producers, parent_producer = parent_producer, max_producers = 1, has_parent_producer = True)
+        Operator.__init__(self)
+        LeftRightSlots.__init__(self)
+
+        self._set_left(parent_producer)
+        self._set_right(producers)
+
         self._predicate = predicate
 
         self._left_map     = dict() 
@@ -81,21 +87,21 @@ class LeftJoin(Operator):
         """
         return "LEFT JOIN ON (%s %s %s)" % self._predicate.get_str_tuple()
 
-    #---------------------------------------------------------------------------
-    # Helpers
-    #---------------------------------------------------------------------------
-
-    def _get_left(self):
-        return self._parent_producer
-
-    def _get_right(self):
-        return self.get_producer()
-
-    def _update_left(self, function):
-        return self.update_parent_producer(function)
-
-    def _update_right(self, function):
-        return self.update_producer(function)
+#DEPRECATED|    #---------------------------------------------------------------------------
+#DEPRECATED|    # Helpers
+#DEPRECATED|    #---------------------------------------------------------------------------
+#DEPRECATED|
+#DEPRECATED|    def _get_left(self):
+#DEPRECATED|        return self._parent_producer
+#DEPRECATED|
+#DEPRECATED|    def _get_right(self):
+#DEPRECATED|        return self.get_producer()
+#DEPRECATED|
+#DEPRECATED|    def _update_left(self, function):
+#DEPRECATED|        return self.update_parent_producer(function)
+#DEPRECATED|
+#DEPRECATED|    def _update_right(self, function):
+#DEPRECATED|        return self.update_producer(function)
 
     #---------------------------------------------------------------------------
     # Methods
@@ -237,7 +243,7 @@ class LeftJoin(Operator):
     # AST manipulations & optimization
     #---------------------------------------------------------------------------
 
-    @returns(Producer)
+    @returns(Node)
     def optimize_selection(self, filter):
         # LEFT JOIN
         # We are pushing selections down as much as possible:
@@ -288,19 +294,17 @@ class LeftJoin(Operator):
 
         # ... then apply left_ and right_filter...
         if left_filter:
-            self._update_left(lambda p: p.optimize_selection(left_filter))
+            self._update_left_producer(lambda p: p.optimize_selection(left_filter))
         if right_filter:
-            self._update_right(lambda p: p.optimize_selection(right_filter))
+            self._update_right_producer(lambda p: p.optimize_selection(right_filter))
 
         if right_join:
             # We need to be sure to have the same producers...
             # consumers should be handled by the return new_self
-            # XXX We need to delete it !!!
-            parent_producer = self.get_parent_producer()
-            producer        = self.get_producer()
-            self.del_parent_producer()
-            self.clear_producers()
-            new_self = RightJoin(self._predicate, parent_producer, producer) 
+            left_producer   = self.get_left()
+            right_producer  = self.get_right()
+            self._clear()
+            new_self = RightJoin(self._predicate, left_producer, right_producer)
         else:
             new_self = self
 
@@ -309,7 +313,7 @@ class LeftJoin(Operator):
             return Selection(new_self, top_filter)
         return new_self
 
-    @returns(Producer)
+    @returns(Node)
     def optimize_projection(self, fields):
         """
         query:
@@ -332,125 +336,20 @@ class LeftJoin(Operator):
         right_fields  = fields & self._get_right().get_destination().get_fields()
         right_fields |= key_right
 
-        self._update_left( lambda l: l.optimize_projection(left_fields))
-        self._update_right(lambda r: r.optimize_projection(right_fields))
+        self._update_left_producer( lambda l: l.optimize_projection(left_fields))
+        self._update_right_producer(lambda r: r.optimize_projection(right_fields))
 
         # Do we need a projection on top (= we do not request the join keys)
         if left_fields | right_fields > fields:
             return Projection(self, fields)
         return self
 
-    @returns(Producer)
+    @returns(Node)
     def reorganize_create(self):
         # Transform into a Right Join
         # XXX we need to delete it !!!
-        parent_producer = self.get_parent_producer().reorganize_create()
-        producer        = self.get_producer().reorganize_create()
-        self.del_parent_producer()
-        self.clear_producers()
-        return RightJoin(self._predicate, parent_producer, producer) 
-
-    #---------------------------------------------------------------------------
-    # Deprecated code 
-    #---------------------------------------------------------------------------
-
-#        if isinstance(left_child, list):
-#            self.left_done = True
-#            for r in left_child:
-#                if isinstance(r, dict):
-#                    self.left_map[Record.get_value(r, self.predicate.get_key())] = r
-#                else:
-#                    # r is generally a tuple
-#                    self.left_map[r] = Record.from_key_value(self.predicate.get_key(), r)
-#        else:
-#            old_cb = left_child.get_callback()
-#            #Log.tmp("Set left_callback on node ", left_child)
-#            left_child.set_callback(self.left_callback)
-#            self.set_callback(old_cb)
-#
-#        #Log.tmp("Set right_callback on node ", right_child)
-#        right_child.set_callback(self.right_callback)
-#
-#        if isinstance(left_child, list):
-#            self.query = self.right.get_query().copy()
-#            # adding left fields: we know left_child is always a dict, since it
-#            # holds more than the key only, since otherwise we would not have
-#            # injected but only added a filter.
-#            if left_child:
-#                self.query.fields |= left_child[0].keys()
-#        else:
-#            self.query = self.left.get_query().copy()
-#            self.query.filters |= self.right.get_query().filters
-#            self.query.fields  |= self.right.get_query().fields
-#        
-#
-#        for child in self.get_children():
-#            # XXX can we join on filtered lists ? I'm not sure !!!
-#            # XXX some asserts needed
-#            # XXX NOT WORKING !!!
-#            q.filters |= child.filters
-#            q.fields  |= child.fields
-#
-#
-#    @returns(list)
-#    def get_children(self):
-#        return [self.left, self.right]
-#
-#    @returns(Query)
-#    def get_query(self):
-#        """
-#        \return The query representing AST reprensenting the AST rooted
-#            at this node.
-#        """
-#        print "LeftJoin::get_query()"
-#        q = Query(self.get_children()[0])
-#        for child in self.get_children():
-#            # XXX can we join on filtered lists ? I'm not sure !!!
-#            # XXX some asserts needed
-#            # XXX NOT WORKING !!!
-#            q.filters |= child.filters
-#            q.fields  |= child.fields
-#        return q
-#        
-#    #@returns(LeftJoin)
-#    def inject(self, records, key, query):
-#        """
-#        \brief Inject record / record keys into the node
-#        \param records A list of dictionaries representing records,
-#                       or a list of record keys
-#        \returns This node
-#        """
-#
-#        if not records:
-#            return
-#        record = records[0]
-#
-#        # Are the records a list of full records, or only record keys
-#        is_record = isinstance(record, dict)
-#
-#        if is_record:
-#            records_inj = []
-#            for record in records:
-#                proj = do_projection(record, self.left.query.fields)
-#                records_inj.append(proj)
-#            self.left = self.left.inject(records_inj, key, query) # XXX
-#            # TODO injection in the right branch: only the subset of fields
-#            # of the right branch
-#            return self
-#
-#        # TODO Currently we support injection in the left branch only
-#        # Injection makes sense in the right branch if it has the same key
-#        # as the left branch.
-#        self.left = self.left.inject(records, key, query) # XXX
-#        return self
-#
-#    def start(self):
-#        """
-#        \brief Propagates a START message through the node
-#        """
-#        # If the left child is a list of record, we can run the right child
-#        # right now. Otherwise, we run the right child once every records
-#        # from the left child have been fetched (see left_callback)
-#        node = self.right if self.left_done else self.left
-#        node.start()
+        left_producer   = self.get_left().reorganize_create()
+        right_producer  = self.get_right().reorganize_create()
+        self._clear()
+        return RightJoin(self._predicate, left_producer, right_producer)
 

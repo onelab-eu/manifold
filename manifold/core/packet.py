@@ -80,6 +80,7 @@ class Packet(object):
 
         self._protocol = protocol
         self._last     = last
+        self._source   = None
 
     #---------------------------------------------------------------------------
     # Accessors
@@ -101,6 +102,12 @@ class Packet(object):
 
     def unset_last(self):
         self._last = False
+
+    def set_source(self, source):
+        self._source = source
+
+    def get_source(self):
+        return self._source
 
     #---------------------------------------------------------------------------
     # Methods

@@ -12,14 +12,14 @@ from types                      import StringTypes
 from twisted.internet.defer     import Deferred
 
 # from manifold.core.code        import FORBIDDEN
-from manifold.core.consumer     import Consumer
+from manifold.core.node         import Node
 from manifold.core.packet       import Packet
 from manifold.core.result_value import ResultValue
 from manifold.util.log          import Log
 from manifold.util.type         import accepts, returns
 
 # XXX Do we need receivers to inherit from Consumer ?
-class DeferredReceiver(Consumer):
+class DeferredReceiver(Node):
 
     #---------------------------------------------------------------------------
     # Constructor
@@ -29,7 +29,7 @@ class DeferredReceiver(Consumer):
         """
         Constructor.
         """
-        Consumer.__init__(self)
+        Node.__init__(self)
         self._records  = list()
         self._errors   = list()
         self._deferred = Deferred()

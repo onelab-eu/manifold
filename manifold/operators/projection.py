@@ -14,9 +14,10 @@
 from types                          import StringTypes
 
 from manifold.core.destination      import Destination
+from manifold.core.operator_slot    import ChildSlotMixin
 from manifold.core.packet           import Packet
 from manifold.core.record           import Record
-from manifold.core.producer         import Producer 
+from manifold.core.node             import Node 
 from manifold.operators.operator    import Operator
 from manifold.util.log              import Log
 from manifold.util.type             import returns
@@ -64,7 +65,7 @@ def do_projection(record, fields):
 # Projection Operator (SELECT) 
 #------------------------------------------------------------------
 
-class Projection(Operator):
+class Projection(Operator, ChildSlotMixin):
     """
     Projection Operator Node (cf SELECT clause in SQL)
     """
@@ -77,7 +78,7 @@ class Projection(Operator):
         """
         Constructor.
         Args:
-            child: A Producer instance which will be the child of
+            child: A Node instance which will be the child of
                 this Projection.
             fields: A list of Field instances corresponding to
                 the fields we're selecting.
@@ -85,15 +86,18 @@ class Projection(Operator):
         #for field in fields:
         #    assert isinstance(field, Field), "Invalid field %r (%r)" % (field, type(field))
 
-        assert issubclass(type(child), Producer),\
+        assert issubclass(type(child), Node),\
             "Invalid child = %r (%r)"   % (child, type(child))
         if isinstance(fields, (list, tuple, frozenset)):
             fields = set(fields)
         self._fields = fields
 
-        Operator.__init__(self, producers = child, max_producers = 1)
+        Operator.__init__(self)
+        ChildSlotMixin.__init__(self)
 
-#DEPRECATED|        self.query = self.get_producer().get_query().copy()
+        self._set_child(child)
+
+#DEPRECATED|        self.query = self._get_child().get_query().copy()
 #DEPRECATED|        self.query.fields &= fields
 
     #---------------------------------------------------------------------------
@@ -130,7 +134,7 @@ class Projection(Operator):
         Returns:
             The Destination corresponding to this Operator. 
         """
-        d = self.get_producer().get_destination()
+        d = self._get_child().get_destination()
         return d.projection(self._fields)
 
     def receive_impl(self, packet):
@@ -154,16 +158,16 @@ class Projection(Operator):
         else: # TYPE_ERROR
             self.send(packet)
 
-    @returns(Producer)
+    @returns(Node)
     def optimize_selection(self, filter):
-        self.get_producer().optimize_selection(filter)
+        self._get_child().optimize_selection(filter)
         return self
 
-    @returns(Producer)
+    @returns(Node)
     def optimize_projection(self, fields):
         # We only need the intersection of both
-        return self.get_producer().optimize_projection(self._fields & fields)
+        return self._get_child().optimize_projection(self._fields & fields)
 
-    @returns(Producer)
+    @returns(Node)
     def reorganize_create(self):
-        return self.get_producer().reorganize_create()
+        return self._get_child().reorganize_create()

@@ -17,9 +17,9 @@
 # We currently build on QueryPlan, the idea is in the end to merge the QueryPlan class in this class.
 
 from manifold.core.annotation       import Annotation
+from manifold.core.node             import Node 
 from manifold.core.query            import Query
 from manifold.core.query_plan       import QueryPlan
-from manifold.core.producer         import Producer 
 from manifold.util.lattice          import Lattice
 from manifold.util.log              import Log 
 from manifold.util.storage          import STORAGE_NAMESPACE
@@ -62,7 +62,7 @@ class OperatorGraph(object):
     # Methods
     #---------------------------------------------------------------------------
 
-    @returns(Producer)
+    @returns(Node)
     def build_query_plan(self, query, annotation):
         """
         Build the Query Plan according to a Query and its optionnal Annotation.
@@ -72,7 +72,7 @@ class OperatorGraph(object):
         Raises:
             Exception: if the QueryPlan cannot be built.
         Returns:
-            The Producer corresponding to the root node of the QueryPlan (most
+            The Node corresponding to the root node of the QueryPlan (most
             of time this is the top Operator of the AST). 
         """
         # Check parameters
@@ -101,6 +101,7 @@ class OperatorGraph(object):
                 allowed_platforms = [namespace]
 
         # Build the QueryPlan according to this DBGraph and to the user's Query.
-        # and return the corresponding Producer (if any)
+        # and return the corresponding Node (if any)
         query_plan = QueryPlan()
+
         return query_plan.build(query, router, db_graph, allowed_platforms, user)
