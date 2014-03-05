@@ -11,6 +11,8 @@ PIDFILE=/var/run/$DAEMON.pid
 PIDLOCKFILE=/var/run/$DAEMON.pid.lock
 SCRIPTNAME=/etc/init.d/$NAME
 
+echo "$0 is deprecated, please use 'etc_init.d_xmlrpc-debian' or 'etc_init.d_xmlrpc-fedora' instead" 
+
 case "$1" in
 start)
         printf "%-50s" "Starting $NAME..."
