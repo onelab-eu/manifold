@@ -1,5 +1,5 @@
 include manifold/etc/etc_init.d_xmlrpc-fedora
 include manifold/etc/etc_init.d_xmlrpc-debian
 include manifold/etc/etc_sysconfig_xmlrpc
-include manifold/manifold_manifold.conf
+include manifold/etc/manifold_manifold.conf
 include README.rst

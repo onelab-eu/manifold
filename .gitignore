@@ -1,6 +1,6 @@
 *.pyc
 *.swp
 build
-manifold.egg-info
+manifold*.egg-info
 dist
 MANIFEST
