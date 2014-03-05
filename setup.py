@@ -19,16 +19,17 @@ long_description = ""
 
 etc_sysconfig = (
     "/etc/sysconfig/manifold-xmlrpc",
-#    ["manifold/etc/etc_sysconfig_xmlrpc"] if distribution == "fedora" else []
+    ["manifold/etc/etc_sysconfig_xmlrpc"] if distribution == "fedora" else []
 )
 
 etc_initd = (
     "/etc/init.d/manifold-xmlrpc",
-#    ["manifold/etc/etc_init.d_xmlrpc-%s" % distribution]
+    ["manifold/etc/etc_init.d_xmlrpc-%s" % distribution]
 )
 
 name             = "manifold"
 install_requires = ["cfgparse", "networkx"] if distribution == "Fedora" else ["cfgparse"]
+
 version          = '.'.join(["%s" % x for x in manifold.__version__])
 provides         = ["%(name)s (%(version)s)" % locals()]
 
@@ -69,14 +70,14 @@ setup(
         # Do not use symlinks with setuptool (those files will be ignored)
         # Do not use hardlinks with git (not supported)
         ('/usr/share/manifold/metadata/', glob('metadata/*.h')),
-#        etc_initd,
-#        etc_sysconfig,
+        etc_initd,
+        etc_sysconfig,
     ],
-    scripts = [
-        'scripts/manifold-reset-db.sh',
-        'scripts/manifold-populate-db.sh'
-    ] #OBSOLETE| + glob(("clientbin/*"),
-    ,
+#    scripts = [
+#        'scripts/manifold-reset-db.sh',
+#        'scripts/manifold-populate-db.sh'
+#    ] #OBSOLETE| + glob(("clientbin/*"),
+#    ,
 #    entry_points = {
 #        'console_scripts': [
 #            'manifold-shell = manifold.bin.shell:main',
