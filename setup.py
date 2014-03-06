@@ -34,7 +34,7 @@ etc_initd = (
 )
 
 setup(
-    name               = "manifold-xmlrpc",
+    name               = "manifold",
     version            = ".".join(["%s" % x for x in manifold.__version__]),
     description        = "Manifold Backend",
     long_description   = long_description,
