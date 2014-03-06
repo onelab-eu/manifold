@@ -13,8 +13,9 @@ DESTDIR     = /
 # Entry points will be put in $(PREFIX)/bin.
 # Be careful if you change this path because you might break
 # entry-points (try to run manifold-shell if you do so)
-PREFIX      ?= /usr/local
-#PREFIX      ?= /usr # ok on fedora
+#mando|PREFIX      ?= /usr
+PREFIX = $(shell   test -f /etc/fedora-release && echo "/usr")
+PREFIX = $(shell ! test -f /etc/fedora-release && echo "/usr/local")
 
 # stupid distutils, it's broken in so many ways
 SUBBUILDDIR = $(shell python -c 'import distutils.util, sys; \
@@ -37,6 +38,7 @@ COVERAGE = $(or $(shell which coverage), $(shell which python-coverage), \
 debug: mrpropre clean all install
 
 all: setup.cfg
+	@echo "PREFIX = $(PREFIX)"
 	python setup.py build
 
 mrpropre:
