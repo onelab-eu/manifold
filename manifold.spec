@@ -13,7 +13,8 @@
 # under spec2make...
 # %define version %(python -c "import tophat; print tophat.__version__")
 # so we need to keep both places in sync (tophat/__init__.py)
-%define version 2.0
+#mando:%define version 2.0
+%define version %(python -c 'import manifold; print ".".join(["%s" % x for x in manifold.__version__])')
 %define taglevel 0
 
 %define release %{taglevel}%{?pldistro:.%{pldistro}}%{?date:.%{date}}
