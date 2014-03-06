@@ -153,7 +153,7 @@ class RightJoin(Operator, ChildSlotMixin):
             raise ManifoldInternalException("Unexpected params for '%s' action" % left_action)
 
         #print "SENDING LEFT PACKET", self._left_packet
-        self.send_parent(self._left_packet)
+        self._get_left().receive(self._left_packet)
 
     def receive_impl(self, packet):
         """
@@ -203,7 +203,7 @@ class RightJoin(Operator, ChildSlotMixin):
             self._left_packet = left_packet
 
             #print "SENDING RIGHT PACKET FIRST", right_packet
-            self.send(right_packet)
+            self._get_right().receive(right_packet)
 
         elif packet.get_protocol() == Packet.PROTOCOL_RECORD:
             record = packet
@@ -241,7 +241,7 @@ class RightJoin(Operator, ChildSlotMixin):
                     Log.warning("Missing RIGHTJOIN predicate %s in right record %r: ignored" % \
                             (self._predicate, record))
                     # We send the right record as is.
-                    self.send(record)
+                    self.forward(record)
                     return
                 
                 # We expect to receive information about keys we asked, and only these,
@@ -256,10 +256,10 @@ class RightJoin(Operator, ChildSlotMixin):
                 right_record = self._right_map.get(key)
                 
                 record.update(right_record)
-                self.send(record)
+                self.forward(record)
 
         else: # TYPE_ERROR
-            self.send(packet)
+            self.forward(packet)
 
     @returns(Node)
     def optimize_selection(self, filter):

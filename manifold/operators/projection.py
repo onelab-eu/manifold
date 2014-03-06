@@ -147,16 +147,16 @@ class Projection(Operator, ChildSlotMixin):
             packet: A Packet instance.
         """
         if packet.get_protocol() == Packet.PROTOCOL_QUERY:
-            self.send(packet)
+            self._get_child().receive(packet)
 
         elif packet.get_protocol() == Packet.PROTOCOL_RECORD:
             record = packet
             if not record.is_empty():
                 record = do_projection(record, self._fields)
-            self.send(record)
+            self.forward_upstream(record)
 
         else: # TYPE_ERROR
-            self.send(packet)
+            self.forward_upstream(packet)
 
     @returns(Node)
     def optimize_selection(self, filter):

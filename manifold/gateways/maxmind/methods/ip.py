@@ -16,6 +16,7 @@ from manifold.gateways.maxmind.geoip_database   import MAXMIND_DAT_IPV4_ASN, MAX
 from manifold.gateways.maxmind.geoip_database   import MAXMIND_DAT_IPV6_ASN, MAXMIND_DAT_IPV6_CITY, MAXMIND_DAT_IPV6_COUNTRY
 from manifold.util.log                          import Log
 from manifold.util.type                         import accepts, returns
+from manifold.util.predicate                    import eq, included
 
 @returns(int)
 def ip_get_family(ip):
@@ -58,25 +59,39 @@ class Ip(Object):
         Returns:
             A dictionnary containing the requested Object.
         """
-        ip = None
+        ip_list = []
         gateway = self.get_gateway()
         where = query.get_where()
-        predicates = [predicate for predicate in query.get_where().get("ip") if predicate.get_str_op() == "=="]
 
-        if len(predicates) != 1:
-            raise RuntimeError(
-                """
-                The WHERE clause (%s) must have exaclty one Predicate '==' involving 'ip' field.
-                Matching Predicate(s): {%s}
-                """ % (
-                    where,
-                    ', '.join(predicates)
+        predicate_list = []
+        predicate_list.extend(where.get('ip'))
+        predicate_list.extend(where.get(('ip',)))
+
+        get_value = lambda value: value[0] if isinstance(value, tuple) else value
+
+        for predicate in predicate_list:
+            key, op, value = predicate.get_tuple()
+            if op is eq:
+                ip_list.append(get_value(value))
+            elif op is included:
+                ip_list.extend([get_value(v) for v in value])
+            else:
+                raise RuntimeError(
+                    """
+                    The WHERE clause (%s) must have exaclty one Predicate '==' involving 'ip' field.
+                    Matching Predicate(s): {%s}
+                    """ % (
+                        where,
+                        ', '.join(predicates)
+                    )
                 )
-            )
-        ip = predicates[0].get_value()
-        ip_family = ip_get_family(ip)
-        record = {"ip" : ip}
-        select_all = (not query.get_select())
+
+        for ip in ip_list:
+            if not ip:
+                continue
+            ip_family = ip_get_family(ip)
+            record = {"ip" : ip}
+            select_all = (not query.get_select())
 
 # I don't know why, those dat file cannot be loaded...
 #DISABLED|        # ASN
@@ -95,15 +110,15 @@ class Ip(Object):
 #DISABLED|            except Exception, e:
 #DISABLED|                Log.warning(e)
 
-        # City
-        if select_all or set(["city", "region_name", "area_code", "longitude", "country_code3", "latitude", "postal_code", "dma_code", "country_code", "country_name"]) & query.get_select():
-            try:
-                geoip = gateway.get_geoip(MAXMIND_DAT_IPV4_CITY if ip_family == 4 else MAXMIND_DAT_IPV6_CITY)
-                record.update(geoip.record_by_addr(ip))
-            except Exception, e:
-                Log.warning(e)
+            # City
+            if select_all or set(["city", "region_name", "area_code", "longitude", "country_code3", "latitude", "postal_code", "dma_code", "country_code", "country_name"]) & query.get_select():
+                try:
+                    geoip = gateway.get_geoip(MAXMIND_DAT_IPV4_CITY if ip_family == 4 else MAXMIND_DAT_IPV6_CITY)
+                    record.update(geoip.record_by_addr(ip))
+                except Exception, e:
+                    Log.warning(e)
 
-        yield record
+            yield record
 
     @returns(Announce)
     def make_announce(self):

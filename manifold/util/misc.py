@@ -1,4 +1,4 @@
-import os, glob, inspect
+import os, glob, inspect, collections
 from types import StringTypes
 
 def find_local_modules(filepath):
@@ -64,3 +64,15 @@ def is_sublist(x, y, shortcut=None):
         return is_sublist(x[1:],y[1:], shortcut)
     else:
         return is_sublist(x, y[1:], shortcut + [y[0]])
+
+def is_iterable(x):
+    return isinstance(x, collections.Iterable) and not isinstance(x, StringTypes)
+
+# Simple function that can be used in a lambda ('x = y' is not allowed)
+def dict_set(dic, key, value):
+    dic[key] = value
+    return dic
+
+def dict_append(dic, key,value):
+    dic[key].append(value)
+    return dic

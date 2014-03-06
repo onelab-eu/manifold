@@ -63,15 +63,14 @@ class Socket(Node, ChildSlotMixin):
         self.check_send(packet)
         super(Socket, self).send(packet)
 
-    def receive(self, packet):
+    def receive_impl(self, packet):
         """
         Process and forward an incoming Packet receive by this Socket to
         the appropriate neighbor.
         Args:
             packet: A Packet instance.
         """
-        self.check_receive(packet)
-        super(Socket, self).receive(packet)
+        self.forward_upstream(packet)
     
     def close(self):
         self.release()

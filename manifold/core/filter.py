@@ -14,6 +14,7 @@
 
 from types                      import StringTypes
 
+from manifold.util.misc         import is_iterable
 from manifold.util.predicate    import Predicate, eq
 from manifold.util.type         import accepts, returns 
 
@@ -93,6 +94,17 @@ class Filter(set):
             "Invalid predicate = %s (%s)" % (predicate, type(predicate))
         self.add(predicate)
         return self
+
+    def add(self, predicate_or_filter):
+        """
+        Adds a predicate or a filter (a set of predicate) -- or a list thereof -- to the current filter.
+        """
+        if is_iterable(predicate_or_filter):
+            map(self.add, predicate_or_filter)
+            return
+
+        assert isinstance(predicate_or_filter, Predicate)
+        set.add(self, predicate_or_filter)
 
     @returns(StringTypes)
     def __str__(self):

@@ -148,7 +148,7 @@ class QueryPacket(Packet):
     # Constructor
     #---------------------------------------------------------------------------
 
-    def __init__(self, query, annotation, receiver = None, source = None):
+    def __init__(self, query, annotation, receiver = None, source = None, records = None):
         """
         Constructor
         Args:
@@ -164,10 +164,12 @@ class QueryPacket(Packet):
             "Invalid annotation = %s (%s)" % (annotation, type(annotation))
 
         Packet.__init__(self, Packet.PROTOCOL_QUERY)
-        self._query      = query
-        self._annotation = annotation
-        self._receiver   = receiver
-        self._source     = source
+        #self._destination = query.get_destination()
+        self._query       = query
+        self._annotation  = annotation
+        self._receiver    = receiver
+        self._source      = source
+        self._records     = records
 
     #---------------------------------------------------------------------------
     # Accessors
@@ -220,6 +222,18 @@ class QueryPacket(Packet):
     def get_source(self):
         return self._source
 
+    def get_destination(self):
+        return self._query.get_destination()
+
+    def set_destination(self, destination):
+        self._query.set_destination(destination)
+
+    def set_records(self, records):
+        self._records = records
+
+    def get_records(self):
+        return self._records
+
     #@returns(QueryPacket)
     def clone(self):
         """
@@ -229,7 +243,8 @@ class QueryPacket(Packet):
         query      = self._query.clone()
         annotation = self._annotation
         receiver   = self._receiver
-        return QueryPacket(query, annotation, receiver)
+        records    = copy.deepcopy(self._records)
+        return QueryPacket(query, annotation, receiver, records = records)
 
     @returns(StringTypes)
     def __str__(self):

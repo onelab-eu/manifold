@@ -74,7 +74,7 @@ class MaxMindGateway(Gateway):
         except KeyError:
             # This database is not yet loaded
             dat_filename = os.path.join(MAXMIND_DIR, dat_basename)
-            Log.tmp("dat_filename = %s" % dat_filename)
+            #Log.tmp("dat_filename = %s" % dat_filename)
             geoip = GeoIP.open(dat_filename, GeoIP.GEOIP_STANDARD)
             self.map_dat_geoips[dat_basename] = geoip
         return geoip

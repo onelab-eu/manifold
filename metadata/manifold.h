@@ -1,5 +1,5 @@
 class hop {
-    const inet     ip;             /**< IP discovered */
+    const ip       ip;             /**< IP discovered */
     const unsigned ttl;            /**< TTL value (0: source, 1: 1st hop ...) */
     const unsigned hop_probecount; /**< Identifies the hop among different paths (LB) */
     const unsigned path;           /**< Probe ID */

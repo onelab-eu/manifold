@@ -12,6 +12,7 @@
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
 from types                      import StringTypes
+from manifold.core.fields       import Fields, FIELD_SEPARATOR
 from manifold.util.type         import returns, accepts 
 
 from operator import (
@@ -159,6 +160,11 @@ class Predicate:
     @returns(tuple)
     def get_tuple(self):
         return (self.key, self.op, self.value)
+
+    def get_tuple_ext(self):
+        key, op, value = self.get_tuple()
+        key_field, _, key_subfield = key.partition(FIELD_SEPARATOR)
+        return (key_field, key_subfield, op, value)
 
     def get_str_op(self):
         op_str = [s for s, op in self.operators.iteritems() if op == self.op]

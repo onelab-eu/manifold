@@ -104,7 +104,7 @@ class Rename(Operator):
             # XXX need to remove the filter in the query
             new_packet = packet.clone()
             packet.update_query(Query.unfilter_by, self._filter)
-            self.send(new_packet)
+            self._get_child().send(new_packet)
 
         elif packet.get_protocol() == Packet.PROTOCOL_RECORD:
             record = packet
@@ -121,12 +121,12 @@ class Rename(Operator):
                         else:
                             record[v] = record.pop(k) #record[k]
                         #del record[k]
-                self.send(record)
+                self.forward_upstream(record)
             except Exception, e:
                 self.error("Error in Rename::receive: %s" % e)
 
         else: # TYPE_ERROR
-            self.send(packet)
+            self.forward_upstream(packet)
 
     def dump(self, indent = 0):
         """

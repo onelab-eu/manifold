@@ -18,17 +18,26 @@
 #   Jordan Augé       <jordan.auge@lip6.fr> 
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
-from manifold.core.code     import CORE
-from manifold.core.packet   import Packet
-from manifold.core.query    import Query 
-from manifold.core.node     import Node
-from manifold.util.log      import Log
-from manifold.util.type     import accepts, returns
+from manifold.core.code             import CORE
+from manifold.core.operator_slot    import SlotMixin 
+from manifold.core.packet           import Packet
+from manifold.core.query            import Query 
+from manifold.core.node             import Node
+from manifold.util.log              import Log
+from manifold.util.type             import accepts, returns
 
 # NOTES: it seem we don't need the query anymore in the operators expect From
 # maybe ? Selection, projection ??
 
-class Operator(Node):
+class Operator(Node, SlotMixin):
+
+    def __init__(self):
+        Node.__init__(self)
+
+        # This forces all operators (provided they call the constructor of
+        # Operator), 
+        # to include a Mixin, otherwise an exception will be raised
+        SlotMixin.__init__(self)
 
     #---------------------------------------------------------------------------
     # Methods
@@ -75,7 +84,6 @@ class Operator(Node):
         Args:
             packet: A Packet instance.
         """
-        packet.set_source(self)
         self.receive_impl(packet)
 
     def error(self, description, is_fatal = True):

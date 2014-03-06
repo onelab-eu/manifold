@@ -596,3 +596,9 @@ class Query(object):
             fields |= self.fields
             fields |= set(self.params.keys())
         return Destination(self.object, self.filters, fields)
+
+    def set_destination(self, destination):
+        Log.warning("set_destination is not handling params")
+        self.object  = destination.get_object()
+        self.filters = destination.get_filter()
+        self.fields  = destination.get_fields()

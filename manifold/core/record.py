@@ -15,6 +15,7 @@
 
 from types                  import GeneratorType, StringTypes
 
+from manifold.core.fields   import Fields
 from manifold.core.packet   import Packet
 from manifold.util.log      import Log
 from manifold.util.type     import returns, accepts
@@ -209,6 +210,9 @@ class Record(Packet):
         """
         return dict.keys(self._record) if self._record else list()
 
+    def get_fields(self):
+        return Fields(self.keys())
+
     def update(self, other_record):
         return dict.update(self._record, other_record)
 
@@ -255,3 +259,14 @@ class Records(list):
         """
         return [record.to_dict() for record in self]
 
+    def get_one(self):
+        return self[0]
+
+    def get_fields(self):
+        return self.get_one().get_fields()
+
+    def add_record(self, record):
+        self.append(record)
+
+    def add_records(self, records):
+        self.extend(records)
