@@ -6,4 +6,4 @@ Description to be done.
 """
 
 # please keep this in sync with %{version} in manifold.spec
-__version__ = (2, 0, 0)
+__version__ = (2, 0, 4)
