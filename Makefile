@@ -14,8 +14,7 @@ DESTDIR     = /
 # Be careful if you change this path because you might break
 # entry-points (try to run manifold-shell if you do so)
 #mando|PREFIX      ?= /usr
-PREFIX = $(shell   test -f /etc/fedora-release && echo "/usr")
-PREFIX = $(shell ! test -f /etc/fedora-release && echo "/usr/local")
+PREFIX ?= $(shell if [ -f /etc/fedora-release ] ; then echo "/usr"; else echo "/usr/local"; fi)
 
 # stupid distutils, it's broken in so many ways
 SUBBUILDDIR = $(shell python -c 'import distutils.util, sys; \
