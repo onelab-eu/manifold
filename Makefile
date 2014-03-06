@@ -31,14 +31,15 @@ COVERAGE = $(or $(shell which coverage), $(shell which python-coverage), \
 debug: mrpropre clean all install
 
 all: setup.cfg
-	./setup.py build
+	python setup.py build
 
 mrpropre:
-	rm /usr/lib/python*/site-packages/manifold* -Rf
-	rm /usr/local/lib/python*/dist-packages/manifold* -Rf
+	rm -rf /usr/lib/python*/site-packages/manifold*
+	rm -rf /usr/local/lib/python*/dist-packages/manifold*
 
 install: all
-	./setup.py install --prefix=$(PREFIX) --root=$(DESTDIR)
+	python setup.py install
+#mando:	./setup.py install --prefix=$(PREFIX) --root=$(DESTDIR)
 
 test: all
 	retval=0; \
@@ -58,7 +59,7 @@ coverage: all
 	rm -f .coverage
 
 clean:
-	./setup.py clean
+	python setup.py clean
 	rm -f `find -name \*.pyc` .coverage *.pcap
 	rm -Rf dist deb_dist tophat.egg-info
 
