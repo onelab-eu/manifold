@@ -8,7 +8,13 @@ DISTDIR     = $(CURDIR)/dist
 DESTDIR     = /
 # it's important to keep this ?= form here please
 # as PREFIX gets overridden when calling debuild through an env. variable
+
+# This value must match with the prefix value set in setup.cfg
+# Entry points will be put in $(PREFIX)/bin.
+# Be careful if you change this path because you might break
+# entry-points (try to run manifold-shell if you do so)
 PREFIX      ?= /usr/local
+#PREFIX      ?= /usr # ok on fedora
 
 # stupid distutils, it's broken in so many ways
 SUBBUILDDIR = $(shell python -c 'import distutils.util, sys; \
@@ -38,8 +44,7 @@ mrpropre:
 	rm -rf /usr/local/lib/python*/dist-packages/manifold*
 
 install: all
-	python setup.py install
-#mando:	./setup.py install --prefix=$(PREFIX) --root=$(DESTDIR)
+	python setup.py install --prefix=$(PREFIX) --root=$(DESTDIR)
 
 test: all
 	retval=0; \
