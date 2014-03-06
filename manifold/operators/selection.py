@@ -97,30 +97,30 @@ class Selection(Operator, ChildSlotMixin):
         if packet.get_protocol() == Packet.PROTOCOL_QUERY:
             # If possible, recraft the embeded Query
             if self.has_children_with_fullquery():
-                self.send(packet)
+                self._get_child().receive(packet)
             else:
                 # XXX need to remove the filter in the query
                 new_packet = packet.clone()
                 
                 # We don't need the result to be filtered since we are doing it...
-                new_packet.update_query(Query.unfilter_by, self._filter)
+                #VINT# new_packet.update_query(Query.unfilter_by, self._filter)
 
                 # ... but we need the fields to filter on
                 new_packet.update_query(Query.select, self._filter.get_field_names())
-                self.send(new_packet)
+                self._get_child().receive(new_packet)
 
         elif packet.get_protocol() == Packet.PROTOCOL_RECORD:
             record = packet
             if not record.is_empty() and self._filter.match(record.get_dict()):
-                self.send(packet)
+                self.forward_upstream(packet)
             elif packet.is_last():
                 # This packet doesn't satisfies the Filter, however is has
                 # the LAST_RECORD flag enabled, so we send an empty
                 # RECORD Packet carrying this flag.
-                self.send(Record(last = True))
+                self.forward_upstream(Record(last = True))
 
         else: # TYPE_ERROR
-            self.send(packet)
+            self.forward_upstream(packet)
 
     @returns(Node)
     def optimize_selection(self, filter):

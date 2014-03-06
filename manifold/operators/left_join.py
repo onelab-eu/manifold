@@ -64,7 +64,7 @@ class LeftJoin(Operator, LeftRightSlotMixin):
 
         # Initialization
         Operator.__init__(self)
-        LeftRightSlots.__init__(self)
+        LeftRightSlotMixin.__init__(self)
 
         self._set_left(parent_producer)
         self._set_right(producers)
@@ -134,7 +134,7 @@ class LeftJoin(Operator, LeftRightSlotMixin):
         predicate = Predicate(tuple(self._predicate.get_value_names()), included, self._left_map.keys())
         self._right_packet.update_query(lambda q: q.filter_by(predicate))
 
-        self.send(self._right_packet) # XXX
+        self._get_right().receive(self._right_packet) # XXX
 
     def receive_impl(self, packet):
         """
@@ -170,7 +170,7 @@ class LeftJoin(Operator, LeftRightSlotMixin):
             right_packet.update_query(lambda q: q.filter_by(q.get_filter().split_fields(right_fields, True), clear = True))
             self._right_packet = right_packet
 
-            self.send_parent(left_packet)
+            self._get_left().receive(left_packet)
 
         elif packet.get_protocol() == Packet.PROTOCOL_RECORD:
             record = packet
@@ -186,7 +186,7 @@ class LeftJoin(Operator, LeftRightSlotMixin):
                     if not record.has_fields(self._predicate.get_field_names()):
                         Log.warning("Missing LEFTJOIN predicate %s in left record %r : forwarding" % \
                                 (self._predicate, record))
-                        self.send(record)
+                        self.forward_upstream(record)
 
                     else:
                         # Store the result in a hash for joining later
@@ -222,7 +222,7 @@ class LeftJoin(Operator, LeftRightSlotMixin):
                     for left_record in left_records:
                         left_record.update(record)
                     
-                        self.send(left_record)
+                        self.forward_upstream(left_record)
 
                 if is_last:
                     # Unmapped records
@@ -230,14 +230,15 @@ class LeftJoin(Operator, LeftRightSlotMixin):
                         # Send records in left_results that have not been joined
                         for left_record_list in self._left_map.values():
                             for left_record in left_record_list:
-                                self.send(left_record)
+                                self.forward_upstream(left_record)
                     # LAST MARK
-                    self.send(Record(last = True))
+                    print "." * 80
+                    self.forward_upstream(Record(last = True))
                     
 
 
         else: # TYPE_ERROR
-            self.send(packet)
+            self.forward_upstream(packet)
 
     #---------------------------------------------------------------------------
     # AST manipulations & optimization
@@ -294,9 +295,9 @@ class LeftJoin(Operator, LeftRightSlotMixin):
 
         # ... then apply left_ and right_filter...
         if left_filter:
-            self._update_left_producer(lambda p: p.optimize_selection(left_filter))
+            self._update_left_producer(lambda p, d: p.optimize_selection(left_filter))
         if right_filter:
-            self._update_right_producer(lambda p: p.optimize_selection(right_filter))
+            self._update_right_producer(lambda p, d: p.optimize_selection(right_filter))
 
         if right_join:
             # We need to be sure to have the same producers...
@@ -336,8 +337,8 @@ class LeftJoin(Operator, LeftRightSlotMixin):
         right_fields  = fields & self._get_right().get_destination().get_fields()
         right_fields |= key_right
 
-        self._update_left_producer( lambda l: l.optimize_projection(left_fields))
-        self._update_right_producer(lambda r: r.optimize_projection(right_fields))
+        self._update_left_producer( lambda l, d: l.optimize_projection(left_fields))
+        self._update_right_producer(lambda r, d: r.optimize_projection(right_fields))
 
         # Do we need a projection on top (= we do not request the join keys)
         if left_fields | right_fields > fields:

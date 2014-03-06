@@ -14,7 +14,9 @@ import sys
 from types                          import StringTypes
 
 from manifold.core.packet           import Packet
+from manifold.core.record           import Record
 from manifold.core.pool_consumers   import PoolConsumers
+from manifold.util.log              import Log
 from manifold.util.type             import accepts, returns
 
 class Node(object):
@@ -153,19 +155,18 @@ class Node(object):
         """
         self.check_packet(packet)
 
-    def check_send(self, packet):
-        """
-        Check Node::send() parameters. This method should be overloaded.
-        """
-        self.check_packet(packet)
-
+#DEPRECATED|    def check_send(self, packet):
+#DEPRECATED|        """
+#DEPRECATED|        Check Node::send() parameters. This method should be overloaded.
+#DEPRECATED|        """
+#DEPRECATED|        self.check_packet(packet)
+#DEPRECATED|
 #DEPRECATED|    def send(self, packet):
 #DEPRECATED|        """
 #DEPRECATED|        (pure virtual method). Send a Packet.
 #DEPRECATED|        Args:
 #DEPRECATED|            packet: A Packet instance. 
 #DEPRECATED|        """
-#DEPRECATED|        self.check_send(packet)
 #DEPRECATED|        raise NotImplementedError("Method 'send' must be overloaded: %s" % self.__class__.__name__)
         
     def receive(self, packet):
@@ -175,14 +176,26 @@ class Node(object):
             packet: A Packet instance.
         """
         self.check_receive(packet)
+        Log.record(packet)
+        self.receive_impl(packet)
 
+    def send_to(self, receiver, packet):
         if packet.get_protocol() in [Packet.PROTOCOL_QUERY]:
-            for producer, _ in self._iter_slots():
-                producer.receive(packet)
+            # Optimization, we do not forward empty queries
+            if not packet.get_destination().get_fields():
+                self.forward_upstream(Record(last=True))
+            packet.set_source(self)
+            receiver.receive(packet)
+        else:
+            raise Exception("We don't expect records or errors to go downstream")
+
+    def forward_upstream(self, packet):
+        #self.check_send(packet)
+        packet.set_source(self)
+        if packet.get_protocol() in [Packet.PROTOCOL_QUERY]:
+            raise Exception("A query cannot be forwarded")
         elif packet.get_protocol() in [Packet.PROTOCOL_RECORD, Packet.PROTOCOL_ERROR]:
             self._pool_consumers.receive(packet)
-
-    send = receive
 
     @returns(StringTypes)
     def format_node(self, indent = 0):

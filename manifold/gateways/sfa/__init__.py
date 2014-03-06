@@ -154,6 +154,7 @@ class SFAGatewayCommon(Gateway):
         try:
             accounts = self._interface.execute_local_query(query)
         except Exception, e:
+            print "EEE", e
             exception_class = NoAdminAccountException if user_email == ADMIN_USER_EMAIL else NoAccountException
             raise exception_class("No account found for User %s on Platform %s" % (user_email, platform_name))
 

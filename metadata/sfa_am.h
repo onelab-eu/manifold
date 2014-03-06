@@ -29,11 +29,11 @@ class location {
     CAPABILITY(retrieve, join);
 };
 
-class hardware_type {
-    const          string name;
-
-    CAPABILITY(retrieve, join);
-};
+#class hardware_type {
+#    const          string name;
+#
+#    CAPABILITY(retrieve, join);
+#};
 
 class interface {
     const string     component_id;

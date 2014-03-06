@@ -104,7 +104,8 @@ class Union(Operator, ChildrenSlotMixin):
 
         if packet.get_protocol() == Packet.PROTOCOL_QUERY:
             # We simply forward the query to all children
-            self.send(packet)
+            for _, child, _ in self._iter_children():
+                child.receive(packet)
 
         elif packet.get_protocol() == Packet.PROTOCOL_RECORD:
             record = packet
@@ -126,16 +127,16 @@ class Union(Operator, ChildrenSlotMixin):
 
                 record.unset_last()
                 if do_send:
-                    self.send(record)
+                    self.forward_upstream(record)
 
             if is_last:
                 # In fact we don't care to know which child has completed
                 self._remaining_children -= 1
                 if self._remaining_children == 0:
-                    self.send(Record(last = True))
+                    self.forward_upstream(Record(last = True))
 
         else: # TYPE_ERROR
-            self.send(packet)
+            self.forward_upstream(packet)
 
     #---------------------------------------------------------------------------
     # AST manipulations & optimization

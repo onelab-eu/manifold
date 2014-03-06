@@ -25,6 +25,7 @@ from manifold.core.key              import Key
 from manifold.core.operator_slot    import ChildSlotMixin
 from manifold.core.packet           import Packet
 from manifold.core.query            import Query
+from manifold.core.record           import Record
 from manifold.gateways              import Gateway
 from manifold.operators.from_table  import FromTable
 from manifold.operators.operator    import Operator 
@@ -65,8 +66,11 @@ class From(Operator, ChildSlotMixin):
 
         self._query       = query
         self.capabilities = capabilities
-        self.key          = key
+        self._key          = key
         self._gateway     = gateway
+
+        # Memorize records received from a parent query (injection)
+        self._parent_records = None
 
         # The producer will be set once a QUERY will be received
 
@@ -211,9 +215,34 @@ class From(Operator, ChildSlotMixin):
         Args:
             packet: A Packet instance.
         """
-        Log.debug("[FROM] packet=", packet)
         if packet.get_protocol() == Packet.PROTOCOL_QUERY:
-            
+            query        = packet.get_query()
+            query_fields = query.get_fields()
+
+            # Some fields are already provided in the query
+            records = packet.get_records()
+            if records:
+                parent_fields = records.get_fields()
+
+                needed_fields = query_fields - parent_fields
+                key_fields    = self._key.get_field_names()
+
+                # Let's keep parent records in a dictionary indexed by their key
+                self._parent_records = { r.get_value(key_fields): r for r in records }
+
+                print "PARENT FIELDS", parent_fields
+                print "FROM NEEDED FIELDS", needed_fields
+                print "KEY FIELDS", key_fields
+
+                if not needed_fields:
+                    map(self.forward_upstream, records)
+                    self.forward_upstream(Record(last = True))
+                    return
+
+                # Update query fields
+                fields = needed_fields | key_fields
+                packet.update_query(lambda q:q.select(fields, clear=True))
+
             # We need to add local filters to the query packet
             filter = self.get_query().get_filter()
             packet.update_query(lambda q: q.filter_by(filter))
@@ -223,20 +252,20 @@ class From(Operator, ChildSlotMixin):
             self._set_child(socket)
             packet.set_receiver(self)
 
-            self.get_gateway().receive(packet)
-        else: #if packet.get_protocol() == Packet.PROTOCOL_RECORD:
-            self.send(packet)
-            
-    
-#    def receive_impl(self, packet):
-#        if packet.get_protocol() == Packet.PROTOCOL_QUERY:
-#            query = packet.get_query()
-#            from_select = self.get_query().get_select()
-#            from_where = self.get_where()
-#            if query.get_select() < from_select:
-#                query.fields = from_select
-#            query.filter_by(from_where)
-#        self.send(packet)
+            self.send_to(self.get_gateway(), packet)
+
+        elif packet.get_protocol() == Packet.PROTOCOL_RECORD:
+            if self._parent_records:
+                # If we had parent_records, we only asked (missing_fields +
+                # key_fields), we need to join those results
+                key_fields    = self._key.get_field_names() 
+                # XXX need error checking here
+                packet.update(self._parent_records[packet.get_value(key_fields)])
+
+            self.forward_upstream(packet)
+
+        else:
+            self.forward_upstream(packet)
 
     @returns(Operator)
     def optimize_selection(self, filter):
@@ -249,12 +278,12 @@ class From(Operator, ChildSlotMixin):
         """
         # XXX Simplifications
         for predicate in filter:
-            if predicate.get_field_names() == self.key.get_field_names() and predicate.has_empty_value():
+            if predicate.get_field_names() == self._key.get_field_names() and predicate.has_empty_value():
                 # The result of the request is empty, no need to instanciate any gateway
                 # Replace current node by an empty node
                 consumers = self.get_consumers()
                 self.clear_consumers() # XXX We must only unlink consumers involved in the QueryPlan that we're optimizing
-                from_table = FromTable(self.get_query(), list(), self.key)
+                from_table = FromTable(self.get_query(), list(), self._key)
                 for consumer in consumers:
                     consumer.add_producer(from_table)
                 Log.warning("From: optimize_selection: empty table")
@@ -267,7 +296,7 @@ class From(Operator, ChildSlotMixin):
             #old    self.query.filters.add(predicate)
             return self
         elif self.get_capabilities().join:
-            key_filter, remaining_filter = filter.split_fields(self.key.get_field_names())
+            key_filter, remaining_filter = filter.split_fields(self._key.get_field_names())
 
             if key_filter:
                 # We push only parts related to the key (unless fullquery)

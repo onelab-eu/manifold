@@ -1,6 +1,11 @@
 # -*- coding: utf-8 -*-
 
-class ProducerSlotMixin(object):
+class SlotMixin(object):
+    def __init__(self):
+        # XXX How to force operators to implement MiXins
+        pass#raise Exception("Operator %r is not defining a Mixin" % self.__class__.__name__)
+
+class BaseSlotMixin(SlotMixin):
     def __init__(self):
         self._slot_dict = {}
     
@@ -21,6 +26,9 @@ class ProducerSlotMixin(object):
         if producer:
             producer.add_consumer(self, cascade = False)
         
+    def _get_data(self, slot_id):
+        _, data = self._slot_dict[slot_id]
+        return data
 
     def _set_data(self, slot_id, data):
         prev_producer, prev_data = self._slot_dict[slot_id]
@@ -49,15 +57,15 @@ class ProducerSlotMixin(object):
 LEFT_SLOT   = 0
 RIGHT_SLOT  = 1
 
-class LeftRightSlotMixin(ProducerSlotMixin):
+class LeftRightSlotMixin(BaseSlotMixin):
 
     def __init__(self):
-        ProducerSlotMixin.__init__(self)
+        BaseSlotMixin.__init__(self)
         self._set(LEFT_SLOT)
         self._set(RIGHT_SLOT)
 
     def _get_left(self, get_data = False):
-        return self._get(LEFT_SLOT)
+        return self._get(LEFT_SLOT, get_data)
 
     def _set_left(self, producer, data = None, cascade = True):
         self._set(LEFT_SLOT, producer, data, cascade)
@@ -72,7 +80,7 @@ class LeftRightSlotMixin(ProducerSlotMixin):
         self._update_producer(LEFT_SLOT, function)
 
     def _get_right(self, get_data = False):
-        return self._get(RIGHT_SLOT)
+        return self._get(RIGHT_SLOT, get_data)
 
     def _set_right(self, producer, data = None, cascade = True):
         self._set(RIGHT_SLOT, producer, data, cascade)
@@ -86,19 +94,27 @@ class LeftRightSlotMixin(ProducerSlotMixin):
     def _update_right_producer(self, function):
         self._update_producer(RIGHT_SLOT, function)
 
-DUMMY_STRING = 'xyzzy'
 PARENT = 0
 
-class ChildrenSlotMixin(ProducerSlotMixin):
+DUMMY_STRING = 'xyzzy'
+
+class ChildrenSlotMixin(BaseSlotMixin):
     def __init__(self):
-        ProducerSlotMixin.__init__(self)
+        BaseSlotMixin.__init__(self)
         self._next_child_id = 1
 
     def _set_child(self, producer = None, data = None, child_id = None, cascade = True):
         if not child_id:
             child_id = '%s-%s' % (DUMMY_STRING, self._next_child_id)
             self._next_child_id += 1
+        # XXX ensure uniqueness
         self._set(child_id, producer, data, cascade)
+
+    def _get_child(self, child_id, get_data = False):
+        return self._get(child_id, get_data)
+
+    def _get_child_data(self, child_id):
+        return self._get_data(child_id)
 
     def _update_child_data(self, child_id, function):
         self._set_data(child_id, function(self._get_data(child_id)))
@@ -129,6 +145,14 @@ class ChildrenSlotMixin(ProducerSlotMixin):
                 return id
         return None
 
+    def _get_children(self, get_data = False):
+        children = []
+        for id, producer, data in self._iter_children():
+            if get_data:
+                children.append((producer, data))
+            else:
+                children.append(producer)
+        return children
 
 class ParentChildrenSlotMixin(ChildrenSlotMixin):
 
@@ -149,14 +173,15 @@ class ParentChildrenSlotMixin(ChildrenSlotMixin):
 
     def _get_num_children(self):
         return len(self._slot_dict.keys()) - 1
+        
 
         
 
 CHILD = 0
 
-class ChildSlotMixin(ProducerSlotMixin):
+class ChildSlotMixin(BaseSlotMixin):
     def __init__(self):
-        ProducerSlotMixin.__init__(self)
+        BaseSlotMixin.__init__(self)
         self._set(CHILD)
 
     def _get_child(self, get_data = False):
