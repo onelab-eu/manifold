@@ -16,7 +16,7 @@ from manifold.core.capabilities     import Capabilities
 from manifold.core.code             import GATEWAY
 from manifold.core.node             import Node 
 from manifold.core.packet           import Packet, ErrorPacket
-from manifold.core.pit              import Pit
+#from manifold.core.pit              import Pit
 from manifold.core.query            import Query
 from manifold.core.record           import Record, Records
 from manifold.core.result_value     import ResultValue 
