@@ -33,8 +33,9 @@ FIELD_TYPE_OUTPUT       = 3
 
 FLAG_NONE               = 0
 FLAG_IN_PARAMS          = 1<<0
-FLAG_OUT_ANNOTATIONS    = 1<<1
-FLAG_ADD_FIELD          = 1<<2
+FLAG_IN_ANNOTATION      = 1<<1
+FLAG_OUT_ANNOTATION     = 1<<2
+FLAG_ADD_FIELD          = 1<<3
 
 class ProcessGateway(Gateway):
     __gateway_name__ = 'process'
@@ -120,6 +121,8 @@ class ProcessGateway(Gateway):
                 if flags & FLAG_IN_PARAMS:
                     value = query.get_params().get(name)
                 # ... or as a filter
+                if flags & FLAG_IN_ANNOTATION:
+                    value = annotation.get(name)
                 else:
                     # XXX At the moment we are only supporting eq
                     # XXX We might have tuples

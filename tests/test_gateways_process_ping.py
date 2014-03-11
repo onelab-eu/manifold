@@ -18,6 +18,9 @@ def main():
     query       = Query.get('ping').filter_by('destination', '==', '8.8.8.8')
     annotation  = Annotation()
     receiver    = SyncReceiver()
+
+    annotation['count'] = 3
+
     packet      = QueryPacket(query, annotation, receiver)
     
     ping_gw.receive(packet)

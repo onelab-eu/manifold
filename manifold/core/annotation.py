@@ -18,3 +18,4 @@ class Annotation(dict):
     def __ior__(self, annotation):
         self.update(annotation)
         return self
+
