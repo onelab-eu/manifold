@@ -88,7 +88,7 @@ class Gateway(Node):
         self._platform_config = platform_config # dict
         self._announces       = None            # list(Announces)
         self._capabilities    = Capabilities()  # XXX in the meantime we support all capabilities
-        self._pit             = Pit(self)       # Pit
+#DEPRECATED|        self._pit             = Pit(self)       # Pit
 
     #---------------------------------------------------------------------------  
     # Accessors
@@ -162,13 +162,13 @@ class Gateway(Node):
         capabilities = self._capabilities.get(table_name, None)
         return capabilities if capabilities else Capabilities()
 
-    @returns(Pit)
-    def get_pit(self):
-        """
-        Returns:
-            The PIT of this Gateway.
-        """
-        return self._pit
+#    @returns(Pit)
+#    def get_pit(self):
+#        """
+#        Returns:
+#            The PIT of this Gateway.
+#        """
+#        return self._pit
 
     #@returns(Table)
     def get_table(self, table_name):
@@ -206,32 +206,32 @@ class Gateway(Node):
     # Flow management 
     #---------------------------------------------------------------------------  
 
-    @returns(Socket)
-    def get_socket(self, query):
-        """
-        Retrieve the Socket used to return ERROR and RECORD Packet
-        related to a given Query. A Socket is automatically created
-        if this query is not yet pending.
-        Args:
-            query: A Query instance.
-        Returns:
-            The corresponding Socket (if any)
-        """
-        assert isinstance(query, Query),\
-            "Invalid query = %s (%s)" % (query, type(query))
-
-        try:
-            socket = self._pit.get_socket(query)
-        except KeyError, e:
-            Log.warning(traceback.format_exc())
-            Log.warning("Can't find query = %s in %s's Pit: %s" % (
-                query,
-                self.__class__.__name__,
-                self._pit
-            ))
-            import pdb; pdb.set_trace()
-            raise e
-        return socket
+#DEPRECATED|    @returns(Socket)
+#DEPRECATED|    def get_socket(self, query):
+#DEPRECATED|        """
+#DEPRECATED|        Retrieve the Socket used to return ERROR and RECORD Packet
+#DEPRECATED|        related to a given Query. A Socket is automatically created
+#DEPRECATED|        if this query is not yet pending.
+#DEPRECATED|        Args:
+#DEPRECATED|            query: A Query instance.
+#DEPRECATED|        Returns:
+#DEPRECATED|            The corresponding Socket (if any)
+#DEPRECATED|        """
+#DEPRECATED|        assert isinstance(query, Query),\
+#DEPRECATED|            "Invalid query = %s (%s)" % (query, type(query))
+#DEPRECATED|
+#DEPRECATED|        try:
+#DEPRECATED|            socket = self._pit.get_socket(query)
+#DEPRECATED|        except KeyError, e:
+#DEPRECATED|            Log.warning(traceback.format_exc())
+#DEPRECATED|            Log.warning("Can't find query = %s in %s's Pit: %s" % (
+#DEPRECATED|                query,
+#DEPRECATED|                self.__class__.__name__,
+#DEPRECATED|                self._pit
+#DEPRECATED|            ))
+#DEPRECATED|            import pdb; pdb.set_trace()
+#DEPRECATED|            raise e
+#DEPRECATED|        return socket
 
     def del_consumer(self, receiver, cascade = True):
         """

@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import pyparsing as pp
-from ..             import ProcessGateway, Argument, Parameter, Output, FLAG_IN_PARAMS, FLAG_OUT_ANNOTATIONS, FLAG_ADD_FIELD
+from ..             import ProcessGateway, Argument, Parameter, Output, FLAG_IN_ANNOTATION, FLAG_OUT_ANNOTATION, FLAG_ADD_FIELD
 from ....util.log   import Log
 
 class PingParser(object):
@@ -171,7 +171,7 @@ class PingGateway(ProcessGateway):
             description = '',
             short       = '-c',
             default     = 1,
-            flags       = FLAG_IN_PARAMS | FLAG_OUT_ANNOTATIONS,
+            flags       = FLAG_IN_ANNOTATION | FLAG_OUT_ANNOTATION,
         ),
         Parameter(
             name        = 'hostname', 
