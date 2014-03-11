@@ -19,7 +19,7 @@
 import os, sys, tempfile, time
 from types                        import StringTypes
 from manifold.util.reactor_thread import ReactorThread
-from manifold.util.log            import Log
+#from manifold.util.log            import Log
 from manifold.util.singleton      import Singleton
 from twisted.internet             import ssl
 from OpenSSL.crypto               import TYPE_RSA, FILETYPE_PEM
@@ -305,12 +305,12 @@ class SFAProxy(object):
             def proxy_success_cb(result):
                 #SFATokenMgr().put_token(self.interface)
                 diff = time.time() - self.started
-                Log.debug('SFA CALL %s(%s) - interface = %s - execution time = %s sec.' % (self.arg0, self.arg1, self.interface, round(diff,2)))
+                #Log.debug('SFA CALL %s(%s) - interface = %s - execution time = %s sec.' % (self.arg0, self.arg1, self.interface, round(diff,2)))
                 d.callback(result)
             def proxy_error_cb(error):
                 #SFATokenMgr().put_token(self.interface)
                 diff = time.time() - self.started
-                Log.debug('SFA CALL %s(%s) - interface = %s - execution time = %s sec.' % (self.arg0, self.arg1, self.interface, round(diff,2)))
+                #Log.debug('SFA CALL %s(%s) - interface = %s - execution time = %s sec.' % (self.arg0, self.arg1, self.interface, round(diff,2)))
                 d.errback(ValueError("Error in SFA Proxy %s" % error))
 
             #success_cb = lambda result: d.callback(result)
@@ -341,7 +341,8 @@ class SFAProxy(object):
                 self.started = time.time()
                 self.arg0 = printable_args[0]
                 self.arg1 = printable_args[1:]
-                Log.debug("SFA CALL %s(%s) - interface = %s" % (printable_args[0], printable_args[1:], self.interface))
+                #Log.debug("SFA CALL %s(%s) - interface = %s" % (printable_args[0], printable_args[1:], self.interface))
+                print "SFA CALL %s(%s) - interface = %s" % (printable_args[0], printable_args[1:], self.interface)
                 self.proxy.callRemote(*args).addCallbacks(proxy_success_cb, proxy_error_cb)
                 
             ReactorThread().callInReactor(wrap, self, args)
@@ -363,7 +364,7 @@ if __name__ == '__main__':
     import os, json, pprint
 
     DEFAULT_INTERFACE = 'https://www.planet-lab.eu:12346'
-    DEFAULT_PLATFORM  = 'ple'
+    DEFAULT_PLATFORM  = None
     DEFAULT_PKEY      = '/var/myslice/ple.upmc.slicebrowser.pkey'
     DEFAULT_CERT      = '/var/myslice/ple.upmc.slicebrowser.user.gid'
     DEFAULT_USER      = 'admin'
@@ -374,15 +375,23 @@ if __name__ == '__main__':
         # Find user credentials
         creds = []
 
-        if not 'user_credential' in account_config:
-            raise Exception, "Missing user credential in account config for user '%s' on platform '%s'" % (args.user, args.platform)
-        user_credential = account_config['user_credential']
+        sfa_parameters = list()
 
-        creds.append(user_credential)
+        if command != 'GetVersion':
+            if parameters:
+                sfa_parameters.append(parameters)
 
-        sfa_parameters = [parameters, creds, sfa_options]
+            if not 'user_credential' in account_config:
+                raise Exception, "Missing user credential in account config for user '%s' on platform '%s'" % (args.user, args.platform)
+            user_credential = account_config['user_credential']
+
+            creds.append(user_credential)
+            sfa_parameters.append(creds)
+            sfa_parameters.append(sfa_options)
+
         return getattr(proxy, command)(*sfa_parameters)
 
+    # XXX incompatible with something in Options()
     def init_options():
         usage="""%prog [options] [METHOD] [PARAMETERS]
   Issue an SFA call, using credentials from the manifold database."""
@@ -426,7 +435,10 @@ if __name__ == '__main__':
         parser = init_options()
         args = parser.parse_args()
 
+        print "ARGS=" ,args
+
         # XXX Cannot both specify platform and interface
+        # XXX THIS IS WRONG SINCE WE HAVE DEFAULT VALUES
         interface_specified = not not args.interface
         platform_specified  = not not args.platform
         # We are guaranteed either None or only one will be true
@@ -477,18 +489,22 @@ if __name__ == '__main__':
 
             # Default = interface, only GetVersion() is allowed
 
-            # User & account management
-            users = Storage.execute(Query().get('user').filter_by('email', '==', args.user).select('user_id'))
-            if not users:
-                raise Exception, "User %s not found in Manifold database"
-            user = users[0]
-            user_id = user['user_id']
-            #
-            accounts = Storage.execute(Query().get('account').filter_by('user_id', '==', user_id).filter_by('platform_id', '==', platform_id).select('config'))
-            if not accounts:
-                raise Exception, "Account not found for user '%s' on platform '%s'" % (args.user, args.platform)
-            account = accounts[0]
-            account_config = json.loads(account['config'])
+            # XXX THIS IS CRAP !
+            if command == 'GetVersion':
+                account_config = {} # XXX TEMP HACK
+            else:
+                # User & account management
+                users = Storage.execute(Query().get('user').filter_by('email', '==', args.user).select('user_id'))
+                if not users:
+                    raise Exception, "User %s not found in Manifold database"
+                user = users[0]
+                user_id = user['user_id']
+                #
+                accounts = Storage.execute(Query().get('account').filter_by('user_id', '==', user_id).filter_by('platform_id', '==', platform_id).select('config'))
+                if not accounts:
+                    raise Exception, "Account not found for user '%s' on platform '%s'" % (args.user, args.platform)
+                account = accounts[0]
+                account_config = json.loads(account['config'])
 
             # SFA options
             sfa_options_json =  args.sfa_options
@@ -496,12 +512,12 @@ if __name__ == '__main__':
 
             # XXX interface or platform
             proxy = SFAProxy(interface, open(args.private_key).read(), open(args.certificate).read())
-            print "Issueing SFA call twice: %s(%r)" % (command, parameters)
+            print "Issueing SFA call: %s(%r)" % (command, parameters)
             # NOTE same error would occur with two proxies
             
             count = 0
 
-            import time
+#            import time
             class Callback(object):
                 def __init__(self, callback=None):
                     self._count = 0
@@ -513,21 +529,22 @@ if __name__ == '__main__':
                     if count ==0:
                         self._callback()
                 def __call__(self, result):
-                    print len(result), "results"
+                    #print len(result), "results"
+                    print result
                     self.dec()
 
             cb = Callback(terminate)
-
-            cb.inc()
+#
+#            cb.inc()
             cb.inc()
 
             d1 = execute(proxy, command, parameters, sfa_options, account_config)
             d1.callback = cb
 
-            # XXX It seems different errors are triggered depending on the timing
-            # time.sleep(0.1)
-            d2 = execute(proxy, command, parameters, sfa_options, account_config)
-            d2.callback = cb
+#            # XXX It seems different errors are triggered depending on the timing
+#            # time.sleep(0.1)
+#            d2 = execute(proxy, command, parameters, sfa_options, account_config)
+#            d2.callback = cb
 
         except Exception, e:
             print "Exception:", e
