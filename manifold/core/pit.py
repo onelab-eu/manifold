@@ -46,12 +46,12 @@ class Pit(object):
             "Invalid query = %s (%s)" % (query, type(query))
         assert isinstance(receiver, Node), \
             "Invalid receiver = %s (%s)" % (receiver, type(receiver))
-        socket = Socket()
-        socket._set_child(self._gateway, cascade = False) 
-        self._map_query_socket[query] = socket 
+        #socket = Socket()
+        #socket._set_child(self._gateway, cascade = False) 
+        self._map_query_socket[query] = receiver # socket 
 
         self._map_receiver_query[receiver] = query
-        return socket
+        #return socket
 
     def del_receiver(self, receiver):
         """

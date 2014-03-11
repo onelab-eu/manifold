@@ -251,13 +251,15 @@ class Records(list):
             list.__init__(self)
 
     @returns(list)
-    def to_list(self):
+    def to_dict_list(self):
         """
         Returns:
             The list of Record instance corresponding to this
             Records instance.
         """
         return [record.to_dict() for record in self]
+
+    to_list = to_dict_list
 
     def get_one(self):
         return self[0]

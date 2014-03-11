@@ -193,7 +193,7 @@ class ResultValue(dict):
         records = self.get_all()
         if len(records) > 1:
             raise Exception, "More than 1 record"
-        return records[0]
+        return records.get_one()
 
     @returns(StringTypes)
     def get_error_message(self):

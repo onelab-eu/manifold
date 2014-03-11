@@ -64,7 +64,7 @@ class Gateway(Node):
     # Constructor
     #---------------------------------------------------------------------------  
 
-    def __init__(self, interface, platform_name, platform_config = None, *args, **kwargs):
+    def __init__(self, interface = None, platform_name = None, platform_config = None, *args, **kwargs):
         """
         Constructor
         Args:
@@ -233,15 +233,6 @@ class Gateway(Node):
             raise e
         return socket
 
-    def add_flow(self, query, consumer):
-        """
-        Add a consumer issuing a given Query on this Gateway.
-        Args:
-            query: A Query instance correponding to a pending Query.
-            consumer: A Consumer instance (a From instance most of time). 
-        """
-        return self._pit.add_flow(query, consumer)
-
     def del_consumer(self, receiver, cascade = True):
         """
         Unlink a Consumer from this Gateway. 
@@ -396,16 +387,7 @@ class Gateway(Node):
         """
         return self.get_interface().execute_local_query(query)
 
-    def record_impl(self, socket, record):
-        """
-        (Internal usage) Send a Record in a Socket.
-        Args:
-            socket: The Socket which has to transport the Record.
-            record: The Record we want to send. 
-        """
-        socket.receive(record if isinstance(record, Record) else Record.from_dict(record))
-
-    def record(self, packet, record):
+    def record(self, record, packet):
         """
         Helper used in Gateway when a has to send an ERROR Packet. 
         See also Gateway::records() instead.
@@ -420,9 +402,9 @@ class Gateway(Node):
                     my_record.set_last(True)
                     self.record(my_record)
         """
-        self.check_query_packet(packet)
-        socket = self.get_socket(packet.get_query())
-        self.record_impl(socket, record)
+        if not isinstance(record, Record):
+            record = Record.from_dict(record)
+        packet.get_receiver().receive(record)
 
     # XXX It is important that the packet is the second argument for
     # deferred callbacks
@@ -435,7 +417,7 @@ class Gateway(Node):
             record: A Records or a list of instances that may be
                 casted in Record (e.g. Record or dict instances).
         """
-        socket = self.get_socket(packet.get_query())
+        #socket = self.get_socket(packet.get_query())
 
         # Print debugging information
         # TODO refer properly pending Socket of each Gateway because
@@ -464,7 +446,7 @@ class Gateway(Node):
             prev_record = None
             for record in records:
                 if prev_record:
-                    self.record_impl(socket, prev_record)
+                    self.record(prev_record, packet)
                 prev_record = record
 
             if prev_record:
@@ -472,10 +454,10 @@ class Gateway(Node):
                     prev_record = Record(prev_record, last = True)
                 else:
                     prev_record.set_last()
-                self.record_impl(socket, prev_record)
+                self.record(prev_record, packet)
 # >>
         else:
-            self.record_impl(socket, Record(last = True))
+            self.record(Record(last = True), packet)
 
     def warning(self, packet, description):
         """
@@ -516,13 +498,13 @@ class Gateway(Node):
             "Invalid is_fatal = %s (%s)" % (is_fatal, type(is_fatal))
 
         # Could be factorized with Operator::error() by defining Producer::error()
-        socket = self.get_socket(packet.get_query())
+        #socket = self.get_socket(packet.get_query())
         error_packet = self.make_error(GATEWAY, description, is_fatal)
-        socket.receive(error_packet)
+        packet.get_receiver().receive(error_packet)
 
     def send(self, src_packet, packet):
-        socket = self.get_socket(src_packet.get_query())
-        socket.receive(packet)
+        #socket = self.get_socket(src_packet.get_query())
+        src_packet.get_receiver().receive(packet)
 
     @returns(bool)
     def handle_query_object(self, packet):
@@ -547,7 +529,6 @@ class Gateway(Node):
             packet: A QUERY Packet instance.
         """
         self.check_receive(packet)
-
 
         if not self.handle_query_object(packet):
             # This method must be overloaded on the Gateway
@@ -593,13 +574,30 @@ class Gateway(Node):
         return Announces.from_dot_h(self.get_platform_name(), self.get_gateway_type())
 
     def receive_impl(self, packet):
+#DEPRECATED|        """
+#DEPRECATED|        Handle a incoming QUERY Packet. This callback must
+#DEPRECATED|        be overloaded in each Gateway. See Gateway::receive().
+#DEPRECATED|        Args:
+#DEPRECATED|            packet: A QUERY Packet instance.
+#DEPRECATED|        """
+#DEPRECATED|        raise NotImplementedError, "receive_impl must be overloaded"
         """
-        Handle a incoming QUERY Packet. This callback must
-        be overloaded in each Gateway. See Gateway::receive().
+        Handle a incoming QUERY Packet.
         Args:
             packet: A QUERY Packet instance.
         """
-        raise NotImplementedError, "receive_impl must be overloaded"
+        query = packet.get_query()
+        object = query.get_object()
+
+        records = None 
+        # XXX object map could be populated automatically
+        if object in self.object_map.keys():
+            instance = self.object_map[object](self)
+            records = instance.get(query, packet.get_annotation())
+        else:
+            raise RuntimeError("Invalid object %s" % object) 
+        self.records(records, packet)
+
 
 
     # TODO Rename Producer::make_error() into Producer::error()

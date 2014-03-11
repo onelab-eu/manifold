@@ -492,7 +492,7 @@ class Interface(object):
         result_value = receiver.get_result_value()
         assert isinstance(result_value, ResultValue),\
             "Invalid result_value = %s (%s)" % (result_value, type(result_value))
-        return result_value.get_all()
+        return result_value.get_all().to_dict_list()
 
     def execute_local_query(self, query, error_message = None):
         """
