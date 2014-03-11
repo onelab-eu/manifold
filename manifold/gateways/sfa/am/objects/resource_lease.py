@@ -32,6 +32,7 @@ class ResourceLease(DeferredObject):
                 (see "config" field of the Account table defined in the Manifold Storage)
             query: The Query issued by the User.
         """
+        # XXX it is not clear what are the query fields in such case. Can we determine list_resources and list_leases from them
         gateway  = self.get_gateway()
         fields   = query.get_select()
         filters  = query.get_where()
@@ -73,12 +74,29 @@ class ResourceLease(DeferredObject):
         api_options = dict() 
         # always send call_id to v2 servers
         api_options["call_id"] = unique_call_id()
-        # ask for cached value if available
-        api_options["cached"] = True
 
+        # ask for cached value if available
+        # XXX It seems there is a bug when requesting leases and the cache is
+        # enabled: the reply without leases comes back.
+        api_options["cached"] = False
 
         # XXX Cache might cause problems for leases
         # XXX Include selective choice of resources or leases
+
+        list_resources = True
+        list_leases    = True
+
+        if list_resources:
+            if list_leases:
+                api_options['list_leases'] = 'all'
+            else:
+                api_options['list_leases'] = 'resources'
+        else:
+            if list_leases:
+                api_options['list_leases'] = 'leases'
+            else:
+                raise Exception, "Neither resources nor leases requested in ListResources"
+
 
         #-----------------------------------------------------------------------
         # Request : RSpecs preference

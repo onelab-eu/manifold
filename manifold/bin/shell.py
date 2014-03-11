@@ -308,14 +308,14 @@ class Shell(object):
         if result_value.is_success():
             #records = result_value["value"]
             #dicts = [record.to_dict() for record in records]
-            dicts = result_value.get_all()
+            records = result_value.get_all().to_dict_list()
             if self.is_interactive():
                 # Command-line
                 print "===== RESULTS ====="
-                pprint.pprint(dicts)
+                pprint.pprint(records)
             elif Options().execute:
                 # Used by script to it may be piped.
-                print json.dumps(dicts)
+                print json.dumps(records)
 
         else:
             print "===== ERROR ====="

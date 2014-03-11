@@ -230,10 +230,6 @@ class From(Operator, ChildSlotMixin):
                 # Let's keep parent records in a dictionary indexed by their key
                 self._parent_records = { r.get_value(key_fields): r for r in records }
 
-                print "PARENT FIELDS", parent_fields
-                print "FROM NEEDED FIELDS", needed_fields
-                print "KEY FIELDS", key_fields
-
                 if not needed_fields:
                     map(self.forward_upstream, records)
                     self.forward_upstream(Record(last = True))
@@ -248,10 +244,13 @@ class From(Operator, ChildSlotMixin):
             packet.update_query(lambda q: q.filter_by(filter))
 
             # Register this flow in the Gateway (with the updated query)
-            socket = self.get_gateway().add_flow(packet.get_query(), self)
-            self._set_child(socket)
-            packet.set_receiver(self)
+            # socket = self.get_gateway().add_flow(packet.get_query(), self)
+            # XXX this has been moved to the gateway
+            #self._set_child(socket)
 
+            # XXX source vs. receiver: the pit expects a receiver while the
+            # operator sets a source
+            packet.set_receiver(self)
             self.send_to(self.get_gateway(), packet)
 
         elif packet.get_protocol() == Packet.PROTOCOL_RECORD:

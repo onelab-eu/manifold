@@ -67,15 +67,14 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
                 'relation'  : relation,
                 'packet'    : None,
                 'done'      : False,
-                'records'   : []
+                'records'   : Records()
             }
             # NOTE: all relations in a SubQuery have names
-            print "CHILDREN RELATION", relation
             self._set_child(producer, data, child_id = relation_name)
             self._num_children_started += 1
 
         # Member variables (could be stored in parent data)
-        self.parent_output = []
+        self.parent_output = Records()
         self._parent_done = False
 
         # Dictionary indexed by child_id, storing the packets that will be sent
@@ -292,8 +291,6 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
 
             child_packet.set_records(child_records)
 
-            print "CHILD PACKET", child_packet
-            print "CHILD RECORDS", child_records
             self.send_to(child, child_packet)
 
 #DEPRECATED|        # Inspect the first parent record to deduce which fields have already
@@ -474,7 +471,7 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
                         else:
                             filter = Filter().filter_by(Predicate(value, included, ids))
 
-                        parent_record[relation.get_relation_name()] = []
+                        parent_record[relation.get_relation_name()] = Records()
                         for child_record in self._get_child_records(child_id):
                             if filter.match(child_record):
                                 # 
@@ -482,7 +479,7 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
                                 # contains a list of children objects, with some
                                 # properties
                                 # their key is relation.get_value_names()
-                                parent_record[relation.get_relation_name()].append(child_record)
+                                parent_record[relation.get_relation_name()].add_record(child_record)
                                 
 
                     elif op == contains:
@@ -494,9 +491,11 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
                         # first, replace records by dictionaries. This only works for non-composite keys
                         child_object = child_producer.get_query().get_object()
                         if parent_record[child_object]:
-                            record = parent_record[child_object][0]
-                            if not isinstance(record, dict):
+                            record = parent_record[child_object].get_one()
+                            if not isinstance(record, (dict, Record)):
                                 parent_record[child_object] = [{value: record} for record in parent_record[child_object]]
+                            if isinstance(record, dict):
+                                raise Exception, "DEPRECATED"
 
                         if isinstance(value, StringTypes):
                             for record in parent_record[child_object]:
