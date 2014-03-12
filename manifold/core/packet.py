@@ -25,7 +25,7 @@
 #   Jordan Augé         <jordan.auge@lip6.fr>
 #   Marc-Olivier Buob   <marc-olivier.buob@lip6.fr>
 
-import copy
+import copy, pickle
 from types                      import StringTypes
 
 from manifold.core.annotation   import Annotation
@@ -140,6 +140,12 @@ class Packet(object):
             The '%s' representation of this QUERY Packet.
         """
         return self.__repr__() 
+
+    def serialize(self):
+        return pickle.dumps(self)
+
+    def deserialize(self, string):
+        return pickle.loads(string)
 
 # NOTE: This class will probably disappear and we will use only the Packet class
 class QueryPacket(Packet):
