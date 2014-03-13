@@ -45,7 +45,7 @@ class ProcessGateway(Gateway):
     #---------------------------------------------------------------------------
 
     # XXX Args should be made optional
-    def __init__(self):
+    def __init__(self, interface = None, platform_name = None, platform_config = None):
         """
         Constructor
 
@@ -54,10 +54,10 @@ class ProcessGateway(Gateway):
             platform: A StringValue. You may pass u"dummy" for example
             platform_config: A dictionnary containing information to connect to the postgresql server
         """
+        Gateway.__init__(self, interface, platform_name, platform_config)
+
         self._process = None
         self._is_interrupted = False
-
-        Gateway.__init__(self)
 
     #---------------------------------------------------------------------------
     # Packet processing
@@ -292,12 +292,12 @@ class ProcessGateway(Gateway):
         return field
 
     @returns(Announce)
-    def make_announce(self):
+    def make_announces(self):
         """
         Returns:
             The Announce related to this object.
         """
-        platform_name = 'dummy' #self.get_gateway().get_platform_name()https://code.google.com/p/paris-traceroute/wiki/Git#Push_a_local_branch_to_the_git_server
+        platform_name = 'ping' #self.get_gateway().get_platform_name()https://code.google.com/p/paris-traceroute/wiki/Git#Push_a_local_branch_to_the_git_server
 
         # TABLE NAME
         #
@@ -353,4 +353,4 @@ class ProcessGateway(Gateway):
 
         announce = Announce(t)
 
-        return announce
+        return [announce]

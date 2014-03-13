@@ -138,13 +138,12 @@ class QueryPlan(object):
         seen = dict() # path -> set()
 
         missing_fields = set()
-        missing_fields |= query.get_select()
-        missing_fields |= query.get_where().get_field_names()
-        missing_fields |= set(query.get_params().keys())
-
-        # XXX ???
-        if query.get_action() == 'get' and query.get_select() == frozenset(): # SELECT * FROM root_table
+        if query.get_fields().is_star():
             missing_fields |= root_table.get_field_names()
+        else:
+            missing_fields |= query.get_fields()
+        missing_fields |= query.get_filter().get_field_names()
+        missing_fields |= set(query.get_params().keys())
 
         while missing_fields:
             # Explore the next prior ExploreTask

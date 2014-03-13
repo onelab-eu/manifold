@@ -141,10 +141,17 @@ class Packet(object):
         """
         return self.__repr__() 
 
+    #---------------------------------------------------------------------------
+    # Serialization / deserialization
+    #---------------------------------------------------------------------------
+
     def serialize(self):
+        # XXX
+        self._source = None
         return pickle.dumps(self)
 
-    def deserialize(self, string):
+    @staticmethod
+    def deserialize(string):
         return pickle.loads(string)
 
 # NOTE: This class will probably disappear and we will use only the Packet class

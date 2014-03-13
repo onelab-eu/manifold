@@ -109,3 +109,24 @@ class Router(Interface):
         super(Router, self).update_platforms(platforms_enabled)
         self.g_3nf = to_3nf(self.get_announces())
 
+    #---------------------------------------------------------------------------
+    # Platform management
+    #---------------------------------------------------------------------------
+
+    # This will be the only calls for manipulating router platforms
+    def add_platform(self, platform_name, gateway_type, platform_config = {}):
+
+        gateway = self.make_gateway(platform_name, gateway_type, platform_config)
+        announces = gateway.get_announces()
+
+        # DUP ??
+        self.platforms[platform_name] = gateway
+        self.gateways[platform_name]  = gateway
+        self.announces[platform_name] = announces
+        
+        # Update
+        self.g_3nf = to_3nf(self.get_announces())
+
+    def del_platform(self, platform_name):
+        pass
+

@@ -6,7 +6,7 @@ from manifold.core.packet                   import QueryPacket
 from manifold.core.query                    import Query
 from manifold.core.sync_receiver            import SyncReceiver
 
-from manifold.gateways.process.objects.ping import PingGateway
+from manifold.gateways.process.ping         import PingGateway
 
 
 def main():

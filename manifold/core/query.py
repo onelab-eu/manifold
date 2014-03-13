@@ -14,9 +14,11 @@ import copy, json, uuid, traceback
 from types                          import StringTypes
 from manifold.core.destination      import Destination
 from manifold.core.filter           import Filter, Predicate
+from manifold.core.fields           import Fields
 from manifold.util.clause           import Clause
 from manifold.util.frozendict       import frozendict
 from manifold.util.log              import Log
+from manifold.util.misc             import is_iterable
 from manifold.util.type             import returns, accepts
 
 ACTION_NONE    = ''
@@ -98,10 +100,10 @@ class Query(object):
                 self.filters = Filter()
 
             if "fields" in kwargs:
-                self.fields = set(kwargs["fields"])
+                self.fields = Fields(kwargs["fields"])
                 del kwargs["fields"]
             else:
-                self.fields = set()
+                self.fields = Fields()
 
             # "update table set x = 3" => params == set
             if "params" in kwargs:
@@ -126,7 +128,7 @@ class Query(object):
     def sanitize(self):
         if not self.filters:   self.filters   = Filter()
         if not self.params:    self.params    = {}
-        if not self.fields:    self.fields    = set()
+        if not self.fields:    self.fields    = Fields()
         if not self.timestamp: self.timestamp = "now" 
 
         if isinstance(self.filters, list):
@@ -138,12 +140,8 @@ class Query(object):
         elif isinstance(self.filters, Clause):
             self.filters = Filter.from_clause(self.filters)
 
-        if isinstance(self.fields, list):
-            self.fields = set(self.fields)
-
-        for field in self.fields:
-            if not isinstance(field, StringTypes):
-                raise TypeError("Invalid field name %s (string expected, got %s)" % (field, type(field)))
+        if not isinstance(self.fields, Fields):
+            self.fields = Fields(self.fields)
 
     #--------------------------------------------------------------------------- 
     # Helpers
@@ -158,7 +156,7 @@ class Query(object):
         self.object = None
         self.filters = Filter()
         self.params  = {}
-        self.fields  = set()
+        self.fields  = Fields()
         self.timestamp  = 'now' # ignored for now
 
     def to_sql(self, platform='', multiline=False):
@@ -221,7 +219,7 @@ class Query(object):
         t=self.timestamp
         f=json.dumps (self.filters.to_list())
         p=json.dumps (self.params)
-        c=json.dumps (list(self.fields))
+        c=json.dumps (list(self.fields)) if not self.fields.is_star() else 'null'
         # xxx unique can be removed, but for now we pad the js structure
         unique=0
 
@@ -262,13 +260,13 @@ class Query(object):
         self.action = action
         return self
 
-    @returns(frozenset)
+    @returns(Fields)
     def get_select(self): # DEPRECATED
         return self.get_fields()
 
-    @returns(frozenset)
+    @returns(Fields)
     def get_fields(self):
-        return frozenset(self.fields) if self.fields else frozenset()
+        return self.fields # frozenset(self.fields) if self.fields is not None else None
 
     @returns(StringTypes)
     def get_from(self): # DEPRECATED
@@ -456,30 +454,32 @@ class Query(object):
         return self
             
     def select(self, *fields, **kwargs):
+        """
+        """
         clear = kwargs.get('clear', False)
         # We might raise an Exception for other attributes
-        if clear:
-            self.fields = set()
 
-        # Accept passing iterables
+        # fields is a tuple of arguments
         if len(fields) == 1:
             tmp, = fields
-            if not tmp:
-                fields = None
-            elif isinstance(tmp, (list, tuple, set, frozenset)):
-                fields = tuple(tmp)
-
-        if not fields:
-            # Delete all fields
-            self.fields = set()
+            if tmp is None:
+                # None = '*'
+                Log.warning("select(None)")
+                self.fields = None
+            else:
+                fields = Fields(tmp) if is_iterable(tmp) else Fields([tmp])
+                if clear:
+                    self.fields = fields
+                else:
+                    self.fields |= fields
             return self
 
+        # We have an sequence of fields
+        if clear:
+            self.fields = Fields(star = False)
         for field in fields:
-            if self.fields is not None:
+            if self.fields:
                 self.fields.add(field)
-            else:
-                # This is a SELECT * clause, so we've nothing to add.
-                pass
         return self
 
     def set(self, params, clear = False):
@@ -489,7 +489,6 @@ class Query(object):
         return self
 
     def __or__(self, query):
-        print "Query:__or__"
         assert self.action == query.action
         assert self.object == query.object
         assert self.timestamp == query.timestamp # XXX
@@ -497,10 +496,7 @@ class Query(object):
         # fast dict union
         # http://my.safaribooksonline.com/book/programming/python/0596007973/python-shortcuts/pythoncook2-chp-4-sect-17
         params = dict(self.params, **query.params)
-        if self.fields == '*' or query.fields == '*':
-            fields = '*'
-        else:
-            fields = self.fields | query.fields
+        fields = self.fields | query.fields
         return Query.action(self.action, self.object).filter_by(filter).select(fields)
 
     def __and__(self, query):
@@ -511,12 +507,7 @@ class Query(object):
         # fast dict intersection
         # http://my.safaribooksonline.com/book/programming/python/0596007973/python-shortcuts/pythoncook2-chp-4-sect-17
         params =  dict.fromkeys([x for x in self.params if x in query.params])
-        if self.fields == '*':
-            fields = query.fields
-        elif query.fields == '*':
-            fields = self.fields
-        else:
-            fields = self.fields & query.fields
+        fields = self.fields & query.fields
         return Query.action(self.action, self.object).filter_by(filter).select(fields)
 
     def __eq__(self, other):
@@ -588,14 +579,7 @@ class Query(object):
     #--------------------------------------------------------------------------- 
 
     def get_destination(self):
-        # If self.fields = None, it means * == we want all fields
-        if self.fields is None:
-            fields = None
-        else:
-            fields  = set()
-            fields |= self.fields
-            fields |= set(self.params.keys())
-        return Destination(self.object, self.filters, fields)
+        return Destination(self.object, self.filters, self.fields | Fields(self.params.keys()))
 
     def set_destination(self, destination):
         Log.warning("set_destination is not handling params")

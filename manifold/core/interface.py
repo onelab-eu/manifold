@@ -27,6 +27,8 @@ from manifold.util.predicate        import eq, included
 from manifold.util.reactor_thread   import ReactorThread
 from manifold.util.type             import accepts, returns
 
+DEFAULT_GATEWAY_TYPE = "manifold"
+
 class Interface(object):
 
     #---------------------------------------------------------------------
@@ -112,7 +114,7 @@ class Interface(object):
         return self.allowed_capabilities
 
     #---------------------------------------------------------------------
-    # Storage
+    # Storage XXX THIS SHOULD DISAPPEAR OUTSIDE OF THE Interface/Router classes
     #---------------------------------------------------------------------
 
     def set_storage(self, storage):
@@ -200,6 +202,9 @@ class Interface(object):
         for platform in self.platforms.values():
             yield platform
 
+    def get_platform_names(self):
+        return self.platforms.keys()
+
     @returns(dict)
     def get_platform(self, platform_name):
         """
@@ -274,7 +279,13 @@ class Interface(object):
             raise RuntimeError("Platform %s not yet registered" % platform_name)
 
         # Create Gateway corresponding to the current Platform
-        gateway = self.make_gateway(platform_name)
+        platform = self.get_platform(platform_name)
+        gateway_type    = platform.get('gateway_type', DEFAULT_GATEWAY_TYPE)
+        if not gateway_type:
+            gateway_type = DEFAULT_GATEWAY_TYPE
+        platform_config = json.loads(platform["config"]) if platform["config"] else dict()
+
+        gateway = self.make_gateway(platform_name, gateway_type, platform_config)
 
         # Load Announces related to this Platform
         announces = gateway.get_announces()
@@ -351,12 +362,18 @@ class Interface(object):
         if platform_name not in self.gateways.keys():
             # This Platform is not referenced in the Router, try to create the
             # appropriate Gateway.
+            platform = self.get_platform(platform_name)
+            gateway_type    = platform.get('gateway_type', DEFAULT_GATEWAY_TYPE)
+            if not gateway_type:
+                gateway_type = DEFAULT_GATEWAY_TYPE
+            platform_config = json.loads(platform["config"]) if platform["config"] else dict()
+
             self.make_gateway(platform_name)
 
         return self.gateways[platform_name]
 
     @returns(Gateway)
-    def make_gateway(self, platform_name):
+    def make_gateway(self, platform_name, gateway_type, platform_config):
         """
         Prepare the Gateway instance corresponding to a Platform name.
         Args:
@@ -369,27 +386,10 @@ class Interface(object):
         assert isinstance(platform_name, StringTypes),\
             "Invalid platform_name = %s (%s)" % (platform_name, type(platform_name))
 
-        # Fetch information needed to create the Gateway corresponding to this platform.
-        platform = self.get_platform(platform_name)
-
-        # gateway_type
-        if platform["gateway_type"]:
-            gateway_type = platform["gateway_type"]
-        else:
-            DEFAULT_GATEWAY_TYPE = "manifold"
-            Log.warning("No gateway_type set for platform '%s'. Defaulting to '%s'." % (
-                platform["platform"],
-                DEFAULT_GATEWAY_TYPE
-            ))
-            gateway_type = DEFAULT_GATEWAY_TYPE
-
-        # platform_config
-        platform_config = json.loads(platform["config"]) if platform["config"] else dict()
-
         # Get the Gateway class
         cls_gateway = Gateway.get(gateway_type)
         if not cls_gateway:
-            raise RuntimeError, "Gateway not found: %s" % platform["gateway_type"]
+            raise RuntimeError, "Gateway not found: %s" % gateway_type
 
         # Create the Gateway
         args = [self, platform_name, platform_config]

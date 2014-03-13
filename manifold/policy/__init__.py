@@ -35,6 +35,7 @@ class Policy(object):
         Target.register_plugins()
 
         query_rules = Query.get('policy').select('policy_json')
+        print "query_rules", query_rules
         rules = self.interface.execute_local_query(query_rules)
         
         for rule in rules:
