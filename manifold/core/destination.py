@@ -18,7 +18,7 @@ class Destination(object):
 
         self._object = object 
         self._filter = filter if filter else Filter()   # Partition
-        self._fields = fields if fields else Fields()   # Hyperplan
+        self._fields = fields                           # Hyperplan
 
 
     #---------------------------------------------------------------------------
@@ -45,7 +45,8 @@ class Destination(object):
             map(self.add_fields, fields)
             return
 
-        self._fields.add(fields)
+        if self._fields is not None:
+            self._fields.add(fields)
 
     #---------------------------------------------------------------------------
     # str repr

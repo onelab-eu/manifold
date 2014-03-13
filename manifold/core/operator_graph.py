@@ -96,7 +96,7 @@ class OperatorGraph(object):
             allowed_platforms = list() 
         else:
             db_graph = router.get_dbgraph()
-            allowed_platforms = [platform["platform"] for platform in router.get_platforms()]
+            allowed_platforms = router.get_platform_names()
             if namespace and namespace in allowed_platforms:
                 allowed_platforms = [namespace]
 

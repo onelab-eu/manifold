@@ -64,7 +64,8 @@ class Gateway(Node):
     # Constructor
     #---------------------------------------------------------------------------  
 
-    def __init__(self, interface = None, platform_name = None, platform_config = None, *args, **kwargs):
+    def __init__(self, interface = None, platform_name = None, platform_config = None): 
+    # XXX ??? , *args, **kwargs):
         """
         Constructor
         Args:

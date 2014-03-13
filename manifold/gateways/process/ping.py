@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 
 import pyparsing as pp
-from ..             import ProcessGateway, Argument, Parameter, Output, FLAG_IN_ANNOTATION, FLAG_OUT_ANNOTATION, FLAG_ADD_FIELD
-from ....util.log   import Log
+from .             import ProcessGateway, Argument, Parameter, Output, FLAG_IN_ANNOTATION, FLAG_OUT_ANNOTATION, FLAG_ADD_FIELD
+from ...util.log   import Log
 
 class PingParser(object):
     """
@@ -164,6 +164,8 @@ class PingGateway(ProcessGateway):
     #  OUT_ANNOTATIONS
     #  ADD_FIELD : This flag adds a field to the resulting record
     #  OPTIONAL  : (for arguments only) This argument is optional
+    __gateway_name__ = 'ping_process'
+
     parameters = [
         Parameter(
             name        = 'count',
