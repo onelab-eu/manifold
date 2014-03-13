@@ -40,7 +40,7 @@ all: setup.cfg
 	python setup.py build
 
 mrpropre:
-	rm -rf "/usr/lib/python*/site-packages/manifold*"
+	rm -rf "$(PREFIX)/lib/python*/site-packages/manifold*"
 	rm -rf "$(PREFIX)/lib/python*/dist-packages/manifold*"
 
 install: all
