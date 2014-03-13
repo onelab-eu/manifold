@@ -37,14 +37,14 @@ COVERAGE = $(or $(shell which coverage), $(shell which python-coverage), \
 debug: mrpropre clean all install
 
 all: setup.cfg
-	@echo "PREFIX = $(PREFIX)"
 	python setup.py build
 
 mrpropre:
-	rm -rf /usr/lib/python*/site-packages/manifold*
-	rm -rf /usr/local/lib/python*/dist-packages/manifold*
+	rm -rf "/usr/lib/python*/site-packages/manifold*"
+	rm -rf "$(PREFIX)/lib/python*/dist-packages/manifold*"
 
 install: all
+	@echo "PREFIX = $(PREFIX)"
 	python setup.py install --prefix=$(PREFIX) --root=$(DESTDIR)
 
 test: all
