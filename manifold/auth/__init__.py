@@ -248,16 +248,20 @@ class ManagedAuth(AuthMethod):
     """
 
     def check(self):
-        assert auth.has_key('AuthAdmin')
-        assert auth.has_key('Username')
+        assert self.auth.has_key('AuthAdmin')
+        assert self.auth.has_key('Username')
+        assert self.auth.has_key('AuthString')
 
-        if auth['AuthAdmin'] != ADMIN_USER:
+        # Only the ADMIN_USER can perform such authentication at the moment
+        if self.auth['AuthAdmin'] != ADMIN_USER:
             raise AuthenticationFailure, "Failed authentication as administrator"
 
-        admin_auth = self.auth.copy()
-        admin_auth['Username'] = auth['AuthAdmin']
-        del admin_auth['AuthAdmin']
-
+        # We authenticate the ADMIN_USER thanks to PasswordAuth 
+        admin_auth = {
+            'AuthMethod': 'password',
+            'Username'  : self.auth['AuthAdmin'],
+            'AuthString': self.auth['AuthString']
+        }
         try:
             Auth(admin_auth).check()
         except Exception, e:
