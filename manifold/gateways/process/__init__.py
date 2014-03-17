@@ -297,14 +297,14 @@ class ProcessGateway(Gateway):
         Returns:
             The Announce related to this object.
         """
-        platform_name = 'ping' #self.get_gateway().get_platform_name()https://code.google.com/p/paris-traceroute/wiki/Git#Push_a_local_branch_to_the_git_server
+        platform_name = self.__tool__ #self.get_gateway().get_platform_name()https://code.google.com/p/paris-traceroute/wiki/Git#Push_a_local_branch_to_the_git_server
 
         # TABLE NAME
         #
         # The name of the tool might not be sufficient since some parameters
         # might affect the type of the measurement being performed
 
-        table_name    = 'ping'
+        table_name    = self.__tool__
 
         t = Table(platform_name, table_name)
 
