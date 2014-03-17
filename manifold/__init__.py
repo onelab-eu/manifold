@@ -3,4 +3,4 @@ MANIFOLD
 Licensed under GLPv3
 """
 # Please keep __version__ in sync with %{version} in manifold.spec
-__version__ = (2, 0, 4)
+__version__ = (2, 0, 15)
