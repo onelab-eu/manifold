@@ -2,16 +2,30 @@
 # -*- coding: utf-8 -*-
 
 # Local router process reading on UNIX socket
+#
+# This file is part of the MANIFOLD project
+#
+# Copyright (C), UPMC Paris Universitas
+# Authors:
+#   Jordan Augé       <jordan.auge@lip6.fr>
+#   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
+#   Loïc Baron        <loic.baron@lip6.fr>
 
-import asyncore, socket, os
-from manifold.core.operator_slot import ChildSlotMixin
-from manifold.core.packet import Packet
-from manifold.core.router import Router
-from manifold.core.sync_receiver import SyncReceiver
-from manifold.gateways import Gateway
-import asynchat
+import asynchat, asyncore, os, socket, traceback
+from types                          import StringTypes
 
-class State(object): pass
+from manifold.core.operator_slot    import ChildSlotMixin
+from manifold.core.packet           import Packet
+from manifold.core.router           import Router
+from manifold.core.sync_receiver    import SyncReceiver
+from manifold.gateways              import Gateway
+from manifold.util.daemon           import Daemon
+from manifold.util.log              import Log
+from manifold.util.options          import Options 
+from manifold.util.type             import accepts, returns 
+
+class State(object):
+    pass
 
 class QueryHandler(asynchat.async_chat, ChildSlotMixin):
 
@@ -30,8 +44,7 @@ class QueryHandler(asynchat.async_chat, ChildSlotMixin):
         self._receive_buffer = []
         self.callback = callback
 
-
-    def log (self, *items):
+    def log(self, *items):
         print "log", self.__class__, items
 
     def collect_incoming_data (self, data):
@@ -56,24 +69,35 @@ class QueryHandler(asynchat.async_chat, ChildSlotMixin):
         packet_str = packet.serialize()
         self.push(('%08x' % len(packet_str)) + packet_str)
 
-class RouterDaemon(asyncore.dispatcher):
-
-    path = '/tmp/manifold'
-
-    def __init__ (self):
+class RouterServer(asyncore.dispatcher):
+    def __init__(self, socket_path):
+        """
+        Constructor.
+        Args:
+            socket_path: A String instance containing the absolute
+                path of the socket used by this ManifoldServer. 
+        """
+        self._socket_path = socket_path
         asyncore.dispatcher.__init__(self)
 
         # Router initialization
         self._router = Router()
         self._router.add_platform('ping', 'ping_process')
 
-        self.create_socket (socket.AF_UNIX, socket.SOCK_STREAM)
+        self.create_socket(socket.AF_UNIX, socket.SOCK_STREAM)
         self.set_reuse_addr()
-        self.bind(self.path)
+        self.bind(self._socket_path)
         self.listen(128)
 
+    @returns(StringTypes)
+    def get_socket_path(self):
+        """
+        Returns:
+            The absolute path of the socjet used by this ManifoldServer.
+        """
+        return self._socket_path
 
-    def handle_accept (self):
+    def handle_accept(self):
         conn, addr = self.accept()
         QueryHandler(conn, addr, self.on_received)
 
@@ -81,10 +105,79 @@ class RouterDaemon(asyncore.dispatcher):
         packet.set_receiver(receiver)
         self._router.receive(packet)
 
-Gateway.register_all()
-server = RouterDaemon()
-try:
-    asyncore.loop()
-finally:
-    if os.path.exists(RouterDaemon.path):
-        os.unlink(RouterDaemon.path)
+    def terminate(self):
+        """
+        Stops gracefully this ManifoldServer.
+        """
+        if os.path.exists(self._socket_path):
+            os.unlink(self._socket_path)
+
+class RouterDaemon(Daemon):
+    DEFAULTS = {
+        "socket_path" : "/tmp/manifold" 
+    }
+
+    def __init__(self):
+        """
+        Constructor.
+        """
+        Daemon.__init__(
+            self,
+            self.terminate
+        )
+
+    def main(self):
+        """
+        Run ManifoldServer (called by Daemon::start).
+        """
+        Log.info("Starting RouterServer")
+
+        # Preparing the RouterServer
+        try:
+            self._router_server = RouterServer(Options().socket_path)
+        except Exception, e:
+            Log.error(traceback.format_exc())
+            raise e
+
+        # Running the server
+        try:
+            asyncore.loop()
+        finally:
+            self._router_server.terminate()
+
+    @staticmethod
+    def init_options():
+        """
+        Prepare options supported by RouterDaemon.
+        """
+        options = Options()
+        options.add_argument(
+            "-S", "--socket", dest = "socket_path",
+            help = "Socket that will read the Manifold router.",
+            default = RouterDaemon.DEFAULTS["socket_path"]
+        )
+
+    def terminate(self):
+        """
+        Function called when the RouterDaemon must stops.
+        """
+        Log.info("Stopping RouterServer")
+        self._router_server.terminate()
+
+#DEPRECATED|Gateway.register_all()
+#DEPRECATED|server = RouterServer()
+#DEPRECATED|try:
+#DEPRECATED|    asyncore.loop()
+#DEPRECATED|finally:
+#DEPRECATED|    if os.path.exists(RouterServer.path):
+#DEPRECATED|        os.unlink(RouterServer.path)
+
+def main():
+    RouterDaemon.init_options()
+    Log.init_options()
+    Daemon.init_options()
+    Options().parse()
+    RouterDaemon().start()
+
+if __name__ == "__main__":
+    main()
