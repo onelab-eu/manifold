@@ -99,17 +99,17 @@ setup(
     install_requires = ["cfgparse"],
     entry_points = {
         "console_scripts": [
-            'manifold-shell             = manifold.bin.shell:main',
-            'manifold-xmlrpc            = manifold.bin.xmlrpc:main',
-            'manifold-sfa-delegate      = manifold.bin.delegate:main',
-            'manifold-init-db           = manifold.bin.initdb:main',
-            'manifold-add-user          = manifold.bin.adduser:main',
             'manifold-add-account       = manifold.bin.addaccount:main',
             'manifold-add-platform      = manifold.bin.addplatform:main',
+            'manifold-add-user          = manifold.bin.adduser:main',
             'manifold-disable-platform  = manifold.bin.disableplatform:main',
             'manifold-enable-platform   = manifold.bin.enableplatform:main',
+            'manifold-init-db           = manifold.bin.initdb:main',
+            'manifold-router            = manifold.bin.router:main',
+            'manifold-sfa-delegate      = manifold.bin.delegate:main',
+            'manifold-shell             = manifold.bin.shell:main',
             'manifold-upload-credential = manifold.bin.uploadcredential:main',
-
+            'manifold-xmlrpc            = manifold.bin.xmlrpc:main',
         ],
     },
 )
