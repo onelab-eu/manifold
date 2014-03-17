@@ -483,6 +483,9 @@ class Interface(object):
         if error_message:
             Log.warning("error_message not taken into account")
 
+        print "EXECUTE QUERY", query
+        print "Query.fields", query.fields
+
         # Build a query packet
         receiver = SyncReceiver()
         packet = QueryPacket(query, Annotation(), receiver)

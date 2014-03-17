@@ -196,7 +196,7 @@ class Shell(object):
             username: A String containing the user's email address.
         """
         from manifold.clients.local import ManifoldLocalClient
-        self.client = ManifoldLocalClient(username, self.storage, self.load_storage)
+        self.client = ManifoldLocalClient()
 
     def authenticate_xmlrpc_password(self, url, username, password):
         """
@@ -349,8 +349,8 @@ class Shell(object):
         if not dic:
             raise RuntimeError("Can't parse input command: %s" % command)
         query = Query(dic)
-        if "*" in query.get_select():
-            query.fields = None
+        #if "*" in query.get_select():
+        #    query.fields = None
 
         return self.execute(query)
 

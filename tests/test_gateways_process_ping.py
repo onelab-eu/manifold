@@ -13,7 +13,7 @@ def main():
 
     ping_gw = PingGateway()
 
-    print ping_gw.make_announce()
+    print ping_gw.make_announces()
 
     query       = Query.get('ping').filter_by('destination', '==', '8.8.8.8')
     annotation  = Annotation()

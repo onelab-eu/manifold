@@ -184,6 +184,7 @@ class Node(object):
             # Optimization, we do not forward empty queries
             fields = packet.get_destination().get_fields()
             if fields.is_empty():
+                print "EMPTY"
                 self.forward_upstream(Record(last=True))
                 return
             packet.set_source(self)
