@@ -167,6 +167,7 @@ class PingGateway(ProcessGateway):
     #  ADD_FIELD : This flag adds a field to the resulting record
     #  OPTIONAL  : (for arguments only) This argument is optional
     __gateway_name__ = 'ping_process'
+    __tool__ = 'ping'
 
     parameters = [
         Parameter(
