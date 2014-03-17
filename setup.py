@@ -22,6 +22,7 @@ from manifold   import __version__
 distribution, _, _ = dist()
 ROOT_PATH          = os.path.abspath(os.path.dirname(__file__))
 long_description   = open(os.path.join(ROOT_PATH, "README.rst")).read()
+SERVICES           = ["manifold-router", "manifold-xmlrpc"]
 
 #-----------------------------------------------------------------------
 # Those files are not *py files and must be referenced in MANIFEST.in
@@ -66,20 +67,32 @@ def is_rpm_target():
     return False
 
 is_rpm = is_rpm_target()
-if is_rpm:
-    data_files.append((
-        "/etc/sysconfig/",
-        ["manifold/etc/rpm/sysconfig/manifold-xmlrpc"]
-    ))
-else:
-    data_files.append((
-        "/etc/default/",
-        ["manifold/etc/deb/default/manifold-xmlrpc"]
-    ))
 
+# Directory depending on the target linux distribution
+dedicated_dir = "manifold/etc/%s" % ("rpm" if is_rpm else "deb")
+config_subdir = "sysconfig" if is_rpm else "default"
+
+# Add default configuration files in the package
+data_files.append((
+    "/etc/%s" % config_subdir, # for example: /etc/default 
+    [
+        "%(dedicated_dir)s/%(config_subdir)s/%(service)s" % {
+            "dedicated_dir" : dedicated_dir,
+            "config_subdir" : config_subdir,
+            "service"       : service
+        } for service in SERVICES
+    ]
+))
+
+# Add /etc/init.d scripts in the package
 data_files.append((
     "/etc/init.d/",
-    ["manifold/etc/%s/init.d/manifold-xmlrpc" % ("rpm" if is_rpm else "deb")]
+    [
+        "%(dedicated_dir)s/init.d/%(service)s" % {
+            "dedicated_dir" : dedicated_dir,
+            "service"       : service
+        } for service in SERVICES
+    ]
 ))
 
 setup(

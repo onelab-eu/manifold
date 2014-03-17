@@ -1,6 +1,10 @@
 include README.rst
 include manifold/etc/deb/default/manifold-xmlrpc
+include manifold/etc/deb/default/manifold-router
 include manifold/etc/deb/init.d/manifold-xmlrpc
+include manifold/etc/deb/init.d/manifold-router
 include manifold/etc/rpm/init.d/manifold-xmlrpc
+include manifold/etc/rpm/init.d/manifold-router
 include manifold/etc/rpm/sysconfig/manifold-xmlrpc
+include manifold/etc/rpm/sysconfig/manifold-router
 include manifold/etc/manifold/manifold.conf

@@ -78,8 +78,11 @@ clean:
 	rm -rf /usr/lib/python2.7/dist-packages/manifold*
 	rm -rf /usr/local/lib/python2.7/site-packages/manifold*
 	rm -rf /usr/local/lib/python2.7/dist-packages/manifold*	
-	rm -rf /usr/local/bin/manifold*	
-	rm -rf /usr/bin/manifold*	
+	rm -rf /usr/local/bin/manifold*
+	rm -rf /usr/bin/manifold*
+	rm -rf /etc/init.d/manifold-*
+	rm -rf /etc/default/manifold-*
+	rm -rf /etc/sysconfig/manifold-*
 
 distclean: clean
 	rm -rf "$(DISTDIR)"
