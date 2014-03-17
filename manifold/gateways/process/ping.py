@@ -58,12 +58,14 @@ class PingParser(object):
             +   pp.Literal("bytes of data.").suppress()
         ).setParseAction(lambda t: t.asDict())
 
+        # https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=609853
+        # Some versions of ping use "icmp_req" instead of "icmp_seq"
         probe = (
                 integer.setResultsName('size3')
             +   pp.Literal("bytes from").suppress()
             +   ip.setResultsName('ip2')
             +   pp.Literal(":").suppress()
-            +   pp.Literal("icmp_seq=").suppress() 
+            +   pp.Regex("icmp_(s|r)eq=")
             +   integer.setResultsName('seq')
             +   pp.Literal("ttl=").suppress()
             +   integer.setResultsName('ttl')

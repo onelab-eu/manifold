@@ -50,8 +50,7 @@ install: all
 	@echo "-------------------------------------------------"
 	@echo "PREFIX = $(PREFIX)"
 	@echo "-------------------------------------------------"
-	#python setup.py install --prefix=$(PREFIX) --root=$(DESTDIR)
-	python setup.py install
+	python setup.py install --prefix=$(PREFIX) #--root=$(DESTDIR)
 
 test: all
 	retval=0; \
@@ -73,13 +72,14 @@ coverage: all
 clean:
 	python setup.py clean
 	rm -f `find -name \*.pyc` .coverage *.pcap
-	rm -Rf dist deb_dist tophat.egg-info
+	rm -rf dist deb_dist tophat.egg-info
 	#mando
-	rm -fr /usr/lib/python2.7/site-packages/manifold*
-	rm -fr /usr/lib/python2.7/dist-packages/manifold*
-	rm -fr /usr/local/lib/python2.7/site-packages/manifold*
-	rm -fr /usr/local/lib/python2.7/dist-packages/manifold*
-	
+	rm -rf /usr/lib/python2.7/site-packages/manifold*
+	rm -rf /usr/lib/python2.7/dist-packages/manifold*
+	rm -rf /usr/local/lib/python2.7/site-packages/manifold*
+	rm -rf /usr/local/lib/python2.7/dist-packages/manifold*	
+	rm -rf /usr/local/bin/manifold*	
+	rm -rf /usr/bin/manifold*	
 
 distclean: clean
 	rm -rf "$(DISTDIR)"
