@@ -1,25 +1,12 @@
 #!/usr/bin/env python
-import asyncore, asynchat
-import socket, time
 
-from manifold.core.query        import Query
-from manifold.core.packet       import Packet, QueryPacket, ErrorPacket # XXX
-from manifold.core.annotation   import Annotation
-
-class State(object): pass
 
 class Client(asynchat.async_chat):
-
-    STATE_LENGTH = State()
-    STATE_PACKET = State()
-
-    path = '/tmp/manifold'
 
     def __init__(self):
         asynchat.async_chat.__init__(self)
 
         self.data = ""
-
 
         self.create_socket(socket.AF_UNIX, socket.SOCK_STREAM)
         self._request_fifo = [] # UNUSED ?
@@ -30,13 +17,6 @@ class Client(asynchat.async_chat):
         self.set_terminator (8)
 
         self.connect(self.path)
-
-
-
-    def log (self, *items):
-        print "UNUSED log?"
-        print "log ", self.__class__, items
-
 
     def handle_connect (self):
         # Push a query

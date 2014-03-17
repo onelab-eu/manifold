@@ -377,7 +377,6 @@ class ExploreTask(Deferred):
             allowed_platforms: A set of String where each String corresponds to a queried platform name.
             query_plan: The QueryPlan instance related to this Query, and that we're updating.
         """
-        print "PERFORM UNION", table
         from_asts = list()
         key = table.get_keys().one()
 

@@ -100,8 +100,12 @@ class Query(object):
                 self.filters = Filter()
 
             if "fields" in kwargs:
-                self.fields = Fields(kwargs["fields"])
-                del kwargs["fields"]
+                # '*' Handling
+                fields = kwargs.pop('fields')
+                if '*' in fields:
+                    self.fields = Fields(star = True)
+                else:
+                    self.fields = Fields(fields, star = False)
             else:
                 self.fields = Fields()
 
@@ -465,7 +469,7 @@ class Query(object):
             if tmp is None:
                 # None = '*'
                 Log.warning("select(None)")
-                self.fields = None
+                self.fields = Fields(star = True)
             else:
                 fields = Fields(tmp) if is_iterable(tmp) else Fields([tmp])
                 if clear:

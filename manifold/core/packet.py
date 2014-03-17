@@ -145,9 +145,13 @@ class Packet(object):
     # Serialization / deserialization
     #---------------------------------------------------------------------------
 
+    #def __reduce__(self):
+    #    return (self.__class__, (self.name, self.address))
+
     def serialize(self):
         # XXX
         self._source = None
+        self._receiver = None
         return pickle.dumps(self)
 
     @staticmethod
