@@ -14,6 +14,7 @@ from types                          import StringTypes
 
 from manifold.core.destination      import Destination
 from manifold.core.exceptions       import ManifoldInternalException
+from manifold.core.fields           import Fields
 from manifold.core.filter           import Filter
 from manifold.core.operator_slot    import ParentChildrenSlotMixin, PARENT
 from manifold.core.packet           import Packet
@@ -280,7 +281,7 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
                 _child_records = parent_record.get(child_id)
                 for _child_record in _child_records:
                     child_key = predicate.get_field_names()
-                    child_fields = set(_child_record.keys())
+                    child_fields = Fields(_child_record.keys())
                     for field in child_key - child_fields:
                         _child_record[field] = parent_record.get(field)
                     # ADD KEY IF MISSING
@@ -489,7 +490,7 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
                         # Predicate: user contains (user_hrn, )
 
                         # first, replace records by dictionaries. This only works for non-composite keys
-                        child_object = child_producer.get_query().get_object()
+                        child_object = child_producer.get_destination().get_object()
                         if parent_record[child_object]:
                             record = parent_record[child_object].get_one()
                             if not isinstance(record, (dict, Record)):
@@ -522,7 +523,7 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
                 self.forward_upstream(parent_record)
             self.forward_upstream(Record(last = True))
         except Exception, e:
-            print "EEE", e
+            print "Exception subquery", e
             traceback.print_exc()
 
     #---------------------------------------------------------------------------
@@ -544,19 +545,17 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
         return dparent.subquery(children_destination_relation_list)
 
     def optimize_selection(self, filter):
-        Log.debug("TODO SubQuery::optimize_selection")
-        return self
         parent_filter, top_filter = Filter(), Filter()
         for predicate in filter:
-            if predicate.get_field_names() <= self.parent.get_query().get_select():
+            # XXX We need to know all fields, and not only those that have been # asked !!!
+            if predicate.get_field_names() <= self._get_parent().get_destination().get_fields():
                 parent_filter.add(predicate)
             else:
                 Log.warning("SubQuery::optimize_selection() is only partially implemented : %r" % predicate)
                 top_filter.add(predicate)
 
         if parent_filter:
-            self.parent = self.parent.optimize_selection(parent_filter)
-            self.parent.set_callback(self.parent_callback)
+            self._update_parent_producer(lambda p: p.optimize_selection(parent_filter))
 
         if top_filter:
             return Selection(self, top_filter)
@@ -574,23 +573,24 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
         Returns:
             The optimized AST once this projection has been propagated.
         """
-        parent_fields = set([field for field in fields if not "." in field]) \
-            | set([field.split('.')[0] for field in fields if "." in field])
+        parent_fields = Fields([field for field in fields if not "." in field]) \
+            | Fields([field.split('.')[0] for field in fields if "." in field])
 
 
         # XXX We need data associated with each producer
         def handle_child(child_producer, child_data):
             relation = child_data.get('relation')
 
-            parent_fields = set([field for field in fields if not "." in field]) \
-                | set([field.split('.')[0] for field in fields if "." in field])
+            parent_fields = Fields([field for field in fields if not "." in field]) \
+                | Fields([field.split('.')[0] for field in fields if "." in field])
 
             # 1) If the SELECT clause refers to "a.b", this is a Query related to the
             # child subquery related to "a". If the SELECT clause refers to "b" this
             # is always related to the parent query.
             predicate    = relation.get_predicate()
             child_name   = relation.get_relation_name()
-            child_fields = set([field.split('.', 1)[1] for field in fields if field.startswith("%s." % child_name)])
+            # XXX we have a method for this ?
+            child_fields = Fields([field.split('.', 1)[1] for field in fields if field.startswith("%s." % child_name)])
 
             # 2) Add to child_fields and parent_fields the field names needed to
             # connect the parent to its children. If such fields are added, we will
@@ -607,8 +607,8 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
         self._update_children_producers(handle_child)
 
         require_top_projection = False
-        parent_fields = set([field for field in fields if not "." in field]) \
-            | set([field.split('.')[0] for field in fields if "." in field])
+        parent_fields = Fields([field for field in fields if not "." in field]) \
+            | Fields([field.split('.')[0] for field in fields if "." in field])
         for _, _, data in self._iter_children():
             relation = data.get('relation', None)
             predicate = relation.get_predicate()
@@ -622,7 +622,7 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
         # eg. requested = slice_hrn, resource && parent = slice_hrn users
         real_parent_fields = self._get_parent().get_destination().get_fields()
         if real_parent_fields - parent_fields:
-            opt_parent_fields = parent_fields.intersection(real_parent_fields)
+            opt_parent_fields = parent_fields & real_parent_fields
             self._update_parent_producer(lambda p, d: p.optimize_projection(opt_parent_fields))
 
         # 4) Some fields (used to connect the parent node to its child node) may be not

@@ -17,8 +17,9 @@ from twisted.internet.defer        import Deferred, DeferredList
 from manifold.core.ast             import AST
 from manifold.core.filter          import Filter
 from manifold.core.query           import Query, ACTION_GET
+from manifold.core.relation        import Relation
 from manifold.core.stack           import Stack, TASK_11, TASK_1Nsq, TASK_1N
-from manifold.operators.demux      import Demux
+from manifold.types                import BASE_TYPES
 from manifold.util.log             import Log
 from manifold.util.misc            import is_sublist
 from manifold.util.predicate       import Predicate, eq
@@ -123,10 +124,17 @@ class ExploreTask(Deferred):
                 involved in the Query.
             query_plan: The QueryPlan instance we're recursively building and
                 related to the User Query.
+        Returns:
+            foreign_key_fields
         """
         Log.debug("Search in", self.root.get_name(), "for fields", missing_fields, 'path=', self.path, "SEEN SET =", seen_set)
         relations_11, relations_1N, relations_1Nsq = (), {}, {}
         deferred_list = []
+
+
+        foreign_key_fields = dict()
+        rename_dict = dict()
+
 
         # self.path = X.Y.Z indicates the subqueries we have traversed
         # We are thus able to answer to parts of the query at the root,
@@ -148,6 +156,27 @@ class ExploreTask(Deferred):
 #DEPRECATED|         # process results
 
         root_provided_fields = self.root.get_field_names()
+
+        # We might also query foreign keys of backward links
+        for neighbour in metadata.graph.successors(self.root):
+            for relation in metadata.get_relations(self.root, neighbour):
+                if relation.get_type() == Relation.types.LINK_1N_BACKWARDS:
+                    relation_name = relation.get_relation_name()
+                    if relation_name not in missing_fields:
+                        continue
+
+                    # For backwards links at the moment, the name of the relation is the name/type of the table
+                    # let's add the keys of this relation, since we have not explored children links yet
+                    table = metadata.find_node(relation_name)
+                    key = table.get_keys().one()
+                    _additional_fields = set(["%s.%s" % (relation_name, field.get_name()) for field in key])
+                    missing_fields |= _additional_fields
+
+                    # ... and remove the relation from requested fields
+                    missing_fields.remove(relation_name)
+
+                    foreign_key_fields[relation_name] = _additional_fields
+
         root_key_fields = self.root.keys.one().get_field_names()
 
         # Which fields we are keeping for the current table, and which we are removing from missing_fields
@@ -174,6 +203,58 @@ class ExploreTask(Deferred):
                     if not is_onjoin or field not in root_key_fields:
                         # Set is changing during iteration !!!
                         missing_fields.remove(missing)
+
+
+                # ROUTERV2
+                # So far we have search for fields pointing to the current
+                # table, but we might also be interested in relationship to
+                # other tables where only the key is requested. For example,
+                # Get('user', [slices.slice_hrn])
+                #   user.slices is a list of slice_hrn, since slice_hrn is key
+                # of slices, or type slice.
+                #
+                # The missing_list might be problematic in cases such as :
+                #   user.slices.slice_hrn
+                #
+                if len(missing_list) <= 1: continue
+
+                missing_path, (missing_field, missing_pkey) = missing_list[:-2], missing_list[-2:]
+                # Example here: in user table
+                #   missing_path  = []
+                #   missing_field = 'slices'
+                #   missing_pkey  = 'slice_hrn'
+
+                # Additional condition:
+                #   the field is key of the refered table
+                if not missing_field == field: continue
+
+                field_type    = self.root.get_field_type(missing_field)
+                if field_type in BASE_TYPES: continue
+
+
+                refered_table = metadata.find_node(field_type, get_parent = True)
+                if not refered_table: continue
+
+                key = refered_table.get_keys().one()
+                # a key is a set of fields
+                if set([missing_pkey]) != key.get_field_names(): continue
+
+
+                #print "FOUND", missing, " in ", self.root.get_name()
+                # The rest is the same
+                flag, shortcut = is_sublist(missing_path, self.path)
+                if flag:
+                    #print "we keep field=", field
+                    #print "   . this field should give us", missing_field, "and", missing_pkey
+                    rename_dict[field] = missing
+
+                    self.keep_root_a.add(field)
+                    is_onjoin = self.root.capabilities.is_onjoin()
+                    if not is_onjoin or field not in root_key_fields:
+                        missing_fields.remove(missing)
+
+                # END ROUTERV2
+
                     
         assert self.depth == 1 or root_key_fields not in missing_fields, "Requesting key fields in child table"
 
@@ -183,9 +264,14 @@ class ExploreTask(Deferred):
 #OBSOLETE|            self.ast = self.build_union(self.root, self.keep_root_a, allowed_platforms, metadata, user, query_plan)
             self.ast = self.perform_union(self.root, allowed_platforms, metadata, query_plan)
 
+            # ROUTERV2
+            if rename_dict:
+                # If we need to rename fields after retrieving content from the table...
+                self.ast.rename(rename_dict)
+
         if self.depth == MAX_DEPTH:
             self.callback(self.ast)
-            return
+            return foreign_key_fields
 
         # In all cases, we have to list neighbours for returning 1..N relationships. Let's do it now. 
         for neighbour in metadata.graph.successors(self.root):
@@ -227,6 +313,8 @@ class ExploreTask(Deferred):
         d = DeferredList(deferred_list)
         d.addCallback(self.all_done, allowed_platforms, metadata, query_plan)
         d.addErrback(self.default_errback)
+
+        return foreign_key_fields
 
     def all_done(self, result, allowed_platforms, metadata, query_plan):
         """
@@ -402,8 +490,8 @@ class ExploreTask(Deferred):
         map_method_fields = table.get_annotation()
         ##### print "map_method_fields", map_method_fields
         for method, fields in map_method_fields.items(): 
-            ##### print "method", method.get_name()
-            ##### print "table", table.get_name()
+            #Log.tmp("method", method.get_name())
+            #Log.tmp("table", table.get_name())
             if method.get_name() == table.get_name():
                 # The table announced by the platform fits with the 3nf schema
                 # Build the corresponding FROM 
@@ -422,7 +510,7 @@ class ExploreTask(Deferred):
                 map_field_local = {f.get_name(): f.is_local() for f in table.get_fields()}
                 selected_fields  = set([f for f in fields if not map_field_local[f]])
                 selected_fields |= self.keep_root_a
-                    
+
                 query = Query.action(ACTION_GET, method.get_name()).select(selected_fields)
 
                 platform = method.get_platform()

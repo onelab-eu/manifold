@@ -30,7 +30,6 @@ from manifold.operators.subquery            import SubQuery
 from manifold.operators.union               import Union
 from manifold.util.log                      import Log
 from manifold.util.predicate                import Predicate, eq, contains, included
-from manifold.util.storage                  import STORAGE_NAMESPACE 
 from manifold.util.type                     import returns, accepts
 
 #------------------------------------------------------------------
@@ -104,10 +103,7 @@ class AST(object):
         assert isinstance(key, Key),     "Invalid key = %s (%s)" % (key, type(key))
 
         # Retrieve the appropriate Gateway.
-        if platform_name == STORAGE_NAMESPACE:
-            gateway = self._interface.get_storage().get_gateway()
-        else:
-            gateway = self._interface.get_gateway(platform_name)
+        gateway = self._interface.get_gateway(platform_name)
 
         # Build the corresponding From Operator and connect it to this AST.
         self.root = From(gateway, query, capabilities, key)

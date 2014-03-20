@@ -347,15 +347,13 @@ def shell_run_command(shell, command, dicts):
 
 @returns(int)
 #@accepts(StringTypes, bool, list)
-def run_command(command, load_storage = True, dicts = None):
+def run_command(command, dicts = None):
     """
     Pass a command to a non-interactive Manifold Shell.
     Args:
         command: The command passed to the Manifold Shell 
             Example:
                 'SELECT * FROM foo WHERE foo_id == 1'
-        load_storage: A boolean set to True if the local
-            Router of this Shell must load this Storage.
         dicts: You may either pass None or an empty list.
             - If you pass None, this parameter is ignored
             - If you pass a list, this list is fed with the
@@ -367,13 +365,7 @@ def run_command(command, load_storage = True, dicts = None):
         >0                : if the command has failed
             See also manifold.core.code
     """
-    # This triggers options parsing, hence moved here
-    from ..bin.config        import MANIFOLD_STORAGE
-
-    # XXX Impossible to understand arguments... i don't see why we would pass a
-    # storage to the Shell...
-
-    shell = Shell(False, MANIFOLD_STORAGE, load_storage)
+    shell = Shell(False)
 
     try:
         # XXX Why isn't it a shell method...

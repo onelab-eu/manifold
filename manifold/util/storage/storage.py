@@ -17,6 +17,7 @@ from manifold.core.packet           import QueryPacket
 from manifold.core.sync_receiver    import SyncReceiver
 from manifold.util.type             import accepts, returns
 from manifold.util.storage          import STORAGE_NAMESPACE
+from manifold.core.dbgraph          import DBGraph
 
 class Storage(object):
     def __init__(self, gateway_type, platform_config, interface = None):
@@ -111,5 +112,3 @@ class Storage(object):
 
         # Otherwise, return the corresponding list of dicts.
         return [record.to_dict() for record in result_value["value"]]
-     
-

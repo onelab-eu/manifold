@@ -91,6 +91,9 @@ class Gateway(Node):
         self._capabilities    = Capabilities()  # XXX in the meantime we support all capabilities
 #DEPRECATED|        self._pit             = Pit(self)       # Pit
 
+    def terminate(self):
+        pass
+
     #---------------------------------------------------------------------------  
     # Accessors
     #---------------------------------------------------------------------------  
@@ -133,7 +136,7 @@ class Gateway(Node):
             gateway_type = gateway_type[:-7]
         return gateway_type.lower()
 
-    @returns(list)
+    @returns(Announces)
     def get_announces(self):
         """
         Build metadata by loading header files

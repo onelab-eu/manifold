@@ -181,3 +181,121 @@ class RM_Object(DeferredObject):
 
         defer.returnValue(output)
 
+    @defer.inlineCallbacks
+    @returns(GeneratorType)
+    def create(self, user, account_config, query):
+        filter = query.get_filter()
+        params = query.get_params()
+        fields = query.get_fields()
+
+        # Create a reversed map : MANIFOLD -> SFA
+        rmap = { v: k for k, v in self.map_user_fields.items() }
+
+        new_params = dict()
+        for key, value in params.items():
+            if key in rmap:
+                new_params[rmap[key]] = value
+            else:
+                new_params[key] = value
+
+        # XXX should call create_record_from_new_params which would rely on mappings
+        dict_filters = filter.to_dict()
+        if self.query.object + '_hrn' in new_params:
+            object_hrn = new_params[self.query.object+'_hrn']
+        else:
+            object_hrn = new_params['hrn']
+        if 'hrn' not in new_params:
+            new_params['hrn'] = object_hrn
+        if 'type' not in new_params:
+            new_params['type'] = self.query.object
+            #raise Exception, "Missing type in new_params"
+        object_auth_hrn = get_authority(object_hrn)
+
+        server_version = yield self.get_cached_server_version(self.registry)
+        server_auth_hrn = server_version['hrn']
+
+        if not new_params['hrn'].startswith('%s.' % server_auth_hrn):
+            # XXX not a success, neither a warning !!
+            print "I: Not requesting object creation on %s for %s" % (server_auth_hrn, new_params['hrn'])
+            defer.returnValue([])
+
+        auth_cred = self._get_cred('authority', object_auth_hrn)
+
+        if 'type' not in new_params:
+            raise Exception, "Missing type in new_params"
+        try:
+            object_gid = yield self.registry.Register(new_params, auth_cred)
+        except Exception, e:
+            raise Exception, 'Failed to create object: record possibly already exists: %s' % e
+        defer.returnValue([{'hrn': new_params['hrn'], 'gid': object_gid}])
+
+    @defer.inlineCallbacks
+    @returns(GeneratorType)
+    def update(self, user, account_config, query):
+        filter = query.get_filter()
+        params = query.get_params()
+        fields = query.get_fields()
+
+        # XXX should call create_record_from_params which would rely on mappings
+        dict_filters = filter.to_dict()
+        if filter.has(self.query.object+'_hrn'):
+            object_hrn = dict_filters[self.query.object+'_hrn']
+        else:
+            object_hrn = dict_filters['hrn']
+        if 'hrn' not in params:
+            params['hrn'] = object_hrn
+        if 'type' not in params:
+            params['type'] = self.query.object
+            #raise Exception, "Missing type in params"
+        object_auth_hrn = get_authority(object_hrn)
+        server_version = yield self.get_cached_server_version(self.registry)
+        server_auth_hrn = server_version['hrn']
+        if not object_auth_hrn.startswith('%s.' % server_auth_hrn):
+            # XXX not a success, neither a warning !!
+            print "I: Not requesting object update on %s for %s" % (server_auth_hrn, object_auth_hrn)
+            defer.returnValue([])
+        # If we update our own user, we only need our user_cred
+        if self.query.object == 'user':
+            try:
+                caller_user_hrn = self.user_config['user_hrn']
+            except Exception, e:
+                raise Exception, "Missing user_hrn in account.config of the user"
+            if object_hrn == caller_user_hrn:
+                Log.tmp("Need a user credential to update your own user: %s" % object_hrn)
+                auth_cred = self._get_cred('user')
+            # Else we need an authority cred above the object
+            else:
+                Log.tmp("Need an authority credential to update another user: %s" % object_hrn)
+                auth_cred = self._get_cred('authority', object_auth_hrn)
+        else:
+            Log.tmp("Need an authority credential to update: %s" % object_hrn)
+            auth_cred = self._get_cred('authority', object_auth_hrn)
+        try:
+            object_gid = yield self.registry.Update(params, auth_cred)
+        except Exception, e:
+            raise Exception, 'Failed to Update object: %s' % e
+        defer.returnValue([{'hrn': params['hrn'], 'gid': object_gid}])
+
+    @defer.inlineCallbacks
+    @returns(GeneratorType)
+    def delete(self, user, account_config, query):
+        filter = query.get_filter()
+
+        dict_filters = filter.to_dict()
+        if filter.has(self.query.object+'_hrn'):
+            object_hrn = dict_filters[self.query.object+'_hrn']
+        else:
+            object_hrn = dict_filters['hrn']
+
+        object_type = self.query.object
+        object_auth_hrn = get_authority(object_hrn)
+        Log.tmp("Need an authority credential to Remove: %s" % object_hrn)
+        auth_cred = self._get_cred('authority', object_auth_hrn)
+
+        try:
+            Log.tmp(object_hrn, auth_cred, object_type)
+            object_gid = yield self.registry.Remove(object_hrn, auth_cred, object_type)
+        except Exception, e:
+            raise Exception, 'Failed to Remove object: %s' % e
+        defer.returnValue([{'hrn': object_hrn, 'gid': object_gid}])
+

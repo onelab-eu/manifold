@@ -48,23 +48,19 @@ class Shell(object):
     def __init__(self,
         auth_method     = None,
         interactive     = False,
-        storage         = None,
-        load_storage    = True
     ):
         """
         Constructor.
         Args:
             interactive: A boolean set to True if this Shell is used in command-line,
                 and set to False otherwise (Shell used in a script, etc.).
-            storage: A Storage instance or None. 
-                Example: See MANIFOLD_STORAGE defined in manifold.bin.config
-            load_storage: A boolean set to True if the local Router of this Shell must
-                load this Storage.
+#DEPRECATED|            storage: A Storage instance or None. 
+#DEPRECATED|                Example: See MANIFOLD_STORAGE defined in manifold.bin.config
+#DEPRECATED|            load_storage: A boolean set to True if the local Router of this Shell must
+#DEPRECATED|                load this Storage.
         """
         self._auth_method   = auth_method
         self._interactive    = interactive
-        self.storage        = storage 
-        self.load_storage   = load_storage
         self.client         = None
         self.bootstrap()
 
@@ -73,8 +69,6 @@ class Shell(object):
         Leave gracefully the Shell by shutdowning properly the nested ManifoldClient.
         """
         self.client.terminate()
-        import sys
-        sys.exit(0)
 
     #---------------------------------------------------------------------------
     # Accessors
@@ -94,7 +88,7 @@ class Shell(object):
     def bootstrap(self):
         if self.is_interactive():
             if not self._auth_method:
-                self.set_auth_method('local')
+                self.set_auth_method('router')
             else:
                 self.select_auth_method(self._auth_method)
             if not self.client:
@@ -198,6 +192,15 @@ class Shell(object):
         from manifold.clients.local import ManifoldLocalClient
         self.client = ManifoldLocalClient()
 
+    def authenticate_router(self, username):
+        """
+        Prepare a Client to dial with a local Manifold Router.
+        Args:
+            username: A String containing the user's email address.
+        """
+        from manifold.clients.router import ManifoldRouterClient
+        self.client = ManifoldRouterClient()
+
     def authenticate_xmlrpc_password(self, url, username, password):
         """
         Prepare a Client to dial with a Manifold Router through a XMLRPC
@@ -260,6 +263,11 @@ class Shell(object):
         elif auth_method == 'local':
             username = Options().username
             self.authenticate_local(username)
+
+        elif auth_method == 'router':
+            print" AUTH METHOD = ROUTER"
+            username = Options().username
+            self.authenticate_router(username)
 
         else: # XMLRPC 
             url = Options().xmlrpc_url
@@ -505,20 +513,14 @@ def main():
     Options().parse()
     command = Options().execute
 
-    # Do not import MANIFOLD_STORAGE at the begining of the file, because
-    # it will cascadly include Options() and interrupts its initialization,
-    # breaking Shell options initialization.
-    # Ex: manifold-shell -u michel.bizot@upmc.fr
-    from manifold.bin.config  import MANIFOLD_STORAGE
-
     if command:
         try:
-            shell = Shell(interactive = False, storage = MANIFOLD_STORAGE, load_storage = True)
+            shell = Shell(interactive = False)
             shell.display(shell.evaluate(command))
         except:
             shell.terminate()
     else:
-        shell = Shell(interactive = True, storage = MANIFOLD_STORAGE, load_storage = True).start()
+        shell = Shell(interactive = True).start()
 
 if __name__ == '__main__':
     main()

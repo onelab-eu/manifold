@@ -13,12 +13,14 @@ class Destination(object):
 
     def __init__(self, object = None, filter = None, fields = None):
         # Until all fields have the proper type...
-        if isinstance(fields, set):
+        if fields is None:
+            fields = Fields(star = True)
+        elif not isinstance(fields, Fields):
             fields = Fields(fields)
 
         self._object = object 
         self._filter = filter if filter else Filter()   # Partition
-        self._fields = fields                           # Hyperplan
+        self._fields = fields if fields else Fields()   # Hyperplan
 
 
     #---------------------------------------------------------------------------

@@ -153,9 +153,9 @@ class XMLRPCDaemon(Daemon):
         from manifold.bin.config import MANIFOLD_STORAGE
 
         router = Router(allowed_capabilities)
-        router.set_storage(MANIFOLD_STORAGE)
-        platform_names = set([Options().platform]) if Options().platform else None
-        router.load_storage(platform_names)
+#DEPRECATED|        router.set_storage(MANIFOLD_STORAGE)
+#DEPRECATED|        platform_names = set([Options().platform]) if Options().platform else None
+#DEPRECATED|        router.load_storage(platform_names)
         return router
 
     def main(self):
@@ -171,11 +171,6 @@ class XMLRPCDaemon(Daemon):
         # SSL support
         from OpenSSL                    import SSL
         from twisted.internet           import ssl #, reactor
-        #from twisted.internet.protocol import Factory, Protocol
-
-        #from twisted.internet          import reactor
-        # This also imports manifold.util.reactor_thread that uses reactor
-        from manifold.core.router       import Router
 
         #assert not (Options().platform and Options().gateway), "Both gateway and platform cannot be specified at commandline"
 
@@ -183,6 +178,7 @@ class XMLRPCDaemon(Daemon):
         from manifold.core.xmlrpc_api   import XMLRPCAPI
 
         allowed_capabilities = XMLRPCDaemon.make_capabilities()
+        # XXX This should be replaced by a client
         self.interface = XMLRPCDaemon.make_router(allowed_capabilities)
 
         # SSL support

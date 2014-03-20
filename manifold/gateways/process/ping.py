@@ -194,12 +194,12 @@ class PingGateway(ProcessGateway):
             type        = 'ip'
         ),
     ]
-    output = [
-        Output(
-            name        = 'probes',
-            type        = 'delay'
-        ),
-    ]
+#DEPRECATED|    output = [
+#DEPRECATED|        Output(
+#DEPRECATED|            name        = 'probes',
+#DEPRECATED|            type        = 'delay'
+#DEPRECATED|        ),
+#DEPRECATED|    ]
     path = '/bin/ping'
 
     def parse(self, filename):

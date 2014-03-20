@@ -8,6 +8,7 @@ from copy                           import copy
 #
 # See manifold.operators.subquery
 FIELD_SEPARATOR = '.'
+DEFAULT_IS_STAR = False
 
 class Fields(set):
     """
@@ -18,9 +19,21 @@ class Fields(set):
     #---------------------------------------------------------------------------
 
     def __init__(self, *args, **kwargs):
-        star = kwargs.pop('star', True)
+        star = kwargs.pop('star', DEFAULT_IS_STAR)
         set.__init__(self, *args, **kwargs)
-        self._star = star
+        self._star = False if set(self) else star
+
+    def __repr__(self):
+        if self.is_star():
+            return "<Fields *>"
+        else:
+            return "<Fields %r>" % [x for x in self]
+
+    def __str__(self):
+        if self.is_star():
+            return "<*>"
+        else:
+            return "<%r>" % [x for x in self]
 
     #---------------------------------------------------------------------------
     # Helpers
@@ -31,7 +44,7 @@ class Fields(set):
 
     def set_star(self):
         self._star = True
-        self.clear()
+        set.clear(self)
 
     def unset_star(self, fields = None):
         self._star = False
@@ -40,6 +53,9 @@ class Fields(set):
 
     def is_empty(self):
         return not self.is_star() and not self
+
+    def copy(self):
+        return Fields(set.copy(self))
 
     #---------------------------------------------------------------------------
     # Iterators
@@ -58,11 +74,12 @@ class Fields(set):
         if self.is_star() or fields.is_star():
             return Fields(star = True)
         else:
-            return set.__or__(self, fields)
+            return Fields(set.__or__(self, fields))
 
     def __ior__(self, fields):
         if self.is_star() or fields.is_star():
             self.set_star()
+            return self
         else:
             return set.__ior__(self, fields)
 
@@ -72,7 +89,7 @@ class Fields(set):
         elif fields.is_star():
             return self.copy()
         else:
-            return set.__and__(self, fields)
+            return Fields(set.__and__(self, fields))
 
     def __iand__(self, fields):
         if self.is_star():
@@ -81,6 +98,30 @@ class Fields(set):
             pass
         else:
             set.__iand__(self, fields)
+
+    def __nonzero__(self):
+        return self.is_star() or bool(set(self))
+
+    # Python>=3
+    __bool__ = __nonzero__
+
+    __add__ = __or__
+
+    def __sub__(self, fields):
+        if fields.is_star():
+            return Fields(star = False)
+        else:
+            if self.is_star():
+                # * - x,y,z = ???
+                return Fields(star = True) # XXX NotImplemented
+            else:
+                return Fields(set.__sub__(self, fields))
+
+    def __isub__(self, fields):
+        raise NotImplemented
+
+    def __iadd__(self, fields):
+        raise NotImplemented
 
     #---------------------------------------------------------------------------
     # Overloaded set comparison functions
@@ -101,18 +142,18 @@ class Fields(set):
         return self <= other and self != other
 
     def __ge__(self, other):
-        return other <= self
+        return other.__le__(self) 
 
     def __gt__(self, other):
-        return other < self
+        return other.__lt__(self)
 
     #---------------------------------------------------------------------------
     # Overloaded set functions
     #---------------------------------------------------------------------------
 
     def add(self, field_name):
-        if not isinstance(field, StringTypes):
-            raise TypeError("Invalid field name %s (string expected, got %s)" % (field, type(field)))
+        if not isinstance(field_name, StringTypes):
+            raise TypeError("Invalid field_name name %s (string expected, got %s)" % (field_name, type(field_name)))
 
         if not self.is_star():
             set.add(self, field_name)

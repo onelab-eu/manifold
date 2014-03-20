@@ -23,7 +23,6 @@ AM_API_v3 = 3
 class ResourceLease(DeferredObject):
     @defer.inlineCallbacks
     def get(self, user, user_account_config, query):
-    #def get_resource_lease(self, user, user_config, filters, params, fields):
         """
         (Internal use)
         Args:
@@ -45,8 +44,17 @@ class ResourceLease(DeferredObject):
         # Currently, we need the slice name to be explicitely given
         # We only keep the first one
 
-        slice_hrns = make_list(filters.get_op("slice", (eq, included)))
-        slice_hrn = slice_hrns[0] if slice_hrns else None
+
+        # Do we have a way to find slices, for now we only support explicit slice names
+        # Note that we will have to inject the slice name into the resource object if not done by the parsing.
+        # slice - resource is a NxN relationship, not well managed so far
+
+        slice_urns = make_list(filters.get_op('slice', (eq, included)))
+        slice_urn = slice_urns[0] if slice_urns else None
+        slice_hrn, _ = urn_to_hrn(slice_urn) if slice_urn else (None, None)
+
+#DEPRECATED|        slice_hrns = make_list(filters.get_op("slice", (eq, included)))
+#DEPRECATED|        slice_hrn = slice_hrns[0] if slice_hrns else None
 
         #-----------------------------------------------------------------------
         # Connection
@@ -111,7 +119,7 @@ class ResourceLease(DeferredObject):
         }  
  
         if slice_hrn:
-            api_options["geni_slice_urn"] = hrn_to_urn(slice_hrn, "slice")
+            api_options["geni_slice_urn"] = slice_urn
 
         # Retrieve "advertisement" rspec
         # We guess the AM API version from the requested version, that is wrong # !!

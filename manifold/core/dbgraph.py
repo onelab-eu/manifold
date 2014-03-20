@@ -181,7 +181,7 @@ class DBGraph(object):
         draw_graphviz(self.graph)
         show()
 
-    @returns(Table)
+    #@returns(Table)
     def find_node(self, table_name, get_parent=True):
         """
         Search a Table instance in the DbGraph for a given table name.

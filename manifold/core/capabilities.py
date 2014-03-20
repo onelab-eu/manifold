@@ -71,7 +71,7 @@ class Capabilities(object):
         Returns:
             The corresponding boolean (True iif enabled).
         """
-        assert key in self.KEYS, "Unknown capability '%s'" % key
+
         object.__getattr__(self, key)
 
     @returns(bool)

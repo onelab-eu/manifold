@@ -89,7 +89,7 @@ class Projection(Operator, ChildSlotMixin):
         assert issubclass(type(child), Node),\
             "Invalid child = %r (%r)"   % (child, type(child))
         if isinstance(fields, (list, tuple, frozenset)):
-            fields = set(fields)
+            fields = Fields(fields)
         self._fields = fields
 
         Operator.__init__(self)
