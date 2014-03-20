@@ -103,6 +103,7 @@ class Query(object):
                 # '*' Handling
                 fields = kwargs.pop('fields')
                 if '*' in fields:
+                    print "SET STAR IN KWARGS"
                     self.fields = Fields(star = True)
                 else:
                     self.fields = Fields(fields, star = False)
@@ -165,10 +166,9 @@ class Query(object):
 
     def to_sql(self, platform='', multiline=False):
         get_params_str = lambda : ', '.join(['%s = %r' % (k, v) for k, v in self.get_params().items()])
-        get_select_str = lambda : ', '.join(self.get_select()) 
 
         table  = self.get_from()
-        select = 'SELECT %s' % (get_select_str()    if self.get_select()    else '*')
+        select = 'SELECT %s' % self.get_fields()    if self.get_fields()    else ''
         where  = 'WHERE %s'  % self.get_where()     if self.get_where()     else ''
         at     = 'AT %s'     % self.get_timestamp() if self.get_timestamp() else ''
         params = 'SET %s'    % get_params_str()     if self.get_params()    else ''

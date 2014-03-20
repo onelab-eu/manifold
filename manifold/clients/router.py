@@ -17,12 +17,15 @@ from manifold.core.query            import Query
 from manifold.core.result_value     import ResultValue
 from manifold.core.router           import Router
 from manifold.core.sync_receiver    import SyncReceiver
+from manifold.core.helpers          import execute_query
 from manifold.util.log              import Log 
+from manifold.util.predicate        import eq
 from manifold.util.type             import accepts, returns
 from ..clients.client               import ManifoldClient
 
-class ManifoldLocalClient(ManifoldClient):
+class ManifoldRouterClient(ManifoldClient):
 
+    # XXX remove references to storage
     def __init__(self, user_email = None, storage = None, load_storage = True):
         """
         Constructor.
@@ -39,17 +42,59 @@ class ManifoldLocalClient(ManifoldClient):
         assert isinstance(load_storage, bool),\
             "Invalid load_storage = %s (%s)" % (load_storage, type(load_storage))
 
-        super(ManifoldLocalClient, self).__init__()
+        super(ManifoldRouterClient, self).__init__()
         self.router = Router()
-        self.router.__enter__()
+        #self.router.__enter__()
 
-        if storage:
-            self.router.set_storage(storage)
-
-            if load_storage:
-                self.router.load_storage()
+        if load_storage:
+            self.load_storage()
 
         self.init_user(user_email)
+
+    def terminate(self):
+        self.router.terminate()
+
+    def load_storage(self, platform_names = None):
+        """
+        Load from the Storage a set of Platforms.
+        Args:
+            platform_names: A set/frozenset of String where each String
+                is the name of a Platform. If you pass None,
+                all the Platform not disabled in the Storage
+                are considered.
+        """
+        assert not platform_names or isinstance(platform_names, (frozenset, set)),\
+            "Invalid platform_names = %s (%s)" % (platform_names, type(platform_names))
+
+        from manifold.bin.config import MANIFOLD_STORAGE
+
+        # Fetch enabled Platforms from the Storage...
+        if not platform_names:
+            query = Query.get('platform').filter_by("disabled", eq, False)
+            platforms_storage = execute_query(MANIFOLD_STORAGE.get_gateway(), query, 'Cannot load storage')
+        else:
+            query = Query.get('platform').filter_by("platform", included, platform_names)
+            platforms_storage = execute_query(MANIFOLD_STORAGE.get_gateway(), query, 'Cannot load storage')
+
+            # Check whether if all the requested Platforms have been found in the Storage.
+            platform_names_storage = set([platform["platform"] for platform in platforms_storage])
+            platform_names_missing = platform_names - platform_names_storage 
+            if platform_names_missing:
+                Log.warning("The following platform names are undefined in the Storage: %s" % platform_names_missing)
+
+        # ... and register them in this Router.
+        for platform in platforms_storage:
+            self.router.register_platform(platform)
+
+        # Enabled/disable Platforms related to this Router
+        # according to this new set of Platforms.
+        self.router.update_platforms(platforms_storage)
+
+        # Load policies from Storage
+        query_rules = Query.get('policy').select('policy_json')
+        rules = execute_query(MANIFOLD_STORAGE.get_gateway(), query_rules, 'Cannot load policy from storage')
+        for rule in rules:
+            self.router.policy.add_rule(rule)
 
     #--------------------------------------------------------------
     # Internal methods 
@@ -94,16 +139,16 @@ class ManifoldLocalClient(ManifoldClient):
     # Overloaded methods 
     #--------------------------------------------------------------
 
-    def __del__(self):
-        """
-        Shutdown gracefully self.router 
-        """
-        try:
-            if self.router:
-                self.router.__exit__()
-            self.router = None
-        except:
-            pass
+#DEPRECATED|    def __del__(self):
+#DEPRECATED|        """
+#DEPRECATED|        Shutdown gracefully self.router 
+#DEPRECATED|        """
+#DEPRECATED|        try:
+#DEPRECATED|            if self.router:
+#DEPRECATED|                self.router.__exit__()
+#DEPRECATED|            self.router = None
+#DEPRECATED|        except:
+#DEPRECATED|            pass
 
     @returns(Annotation)
     def get_annotation(self):

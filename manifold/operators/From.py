@@ -21,6 +21,7 @@ from types                          import StringTypes
 from manifold.core.annotation       import Annotation
 from manifold.core.capabilities     import Capabilities
 from manifold.core.destination      import Destination
+from manifold.core.fields           import Fields
 from manifold.core.key              import Key
 from manifold.core.operator_slot    import ChildSlotMixin
 from manifold.core.packet           import Packet
@@ -222,7 +223,7 @@ class From(Operator, ChildSlotMixin):
             # Some fields are already provided in the query
             records = packet.get_records()
             if records:
-                parent_fields = records.get_fields()
+                parent_fields = Fields(records.get_fields())
 
                 needed_fields = query_fields - parent_fields
                 key_fields    = self._key.get_field_names()
@@ -236,7 +237,11 @@ class From(Operator, ChildSlotMixin):
                     return
 
                 # Update query fields
-                fields = needed_fields | key_fields
+                # adding the current query fields allows us to prevent a * to appear when
+                # needed = *, since we know that initially query_fields contains
+                # all fields
+                fields = self.get_query().get_fields() & needed_fields | key_fields 
+
                 packet.update_query(lambda q:q.select(fields, clear=True))
 
             # We need to add local filters to the query packet
@@ -335,13 +340,15 @@ class From(Operator, ChildSlotMixin):
         Returns:
             The updated root Node of the sub-AST.
         """
+        # This should initially contain all fields provided by the table (and not *)
+        provided_fields = self.get_query().get_select()
+
         if self.get_capabilities().projection:
             # Push fields into the From node
-            self._query.select().select(fields)
+            self._query.select().select(provided_fields & fields)
             return self
         else:
             # Provided fields is set to None if it corresponds to SELECT *
-            provided_fields = self.get_query().get_select()
 
             # Test whether this From node can return every queried Fields.
             if provided_fields and fields - provided_fields:

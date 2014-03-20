@@ -2,7 +2,7 @@
 
 import subprocess
 
-from manifold.core.announce     import Announce
+from ...core.announce           import Announce, Announces, import_string_h
 from manifold.core.field        import Field
 from manifold.gateways          import Gateway
 from manifold.core.key          import Key
@@ -24,12 +24,19 @@ class Argument(ProcessField):
 class Parameter(ProcessField):
     pass
 
-class Output(ProcessField):
-    pass
+class Output(object):
+    def __init__(self, parser, announces_str, root):
+        """
+        Args:
+            root (string) : The root class returned by the parser
+        """
+        self._announces_str = announces_str
+        self._parser = parser
+        self._root = root
 
 FIELD_TYPE_ARGUMENT     = 1
 FIELD_TYPE_PARAMETER    = 2
-FIELD_TYPE_OUTPUT       = 3
+#FIELD_TYPE_OUTPUT       = 3
 
 FLAG_NONE               = 0
 FLAG_IN_PARAMS          = 1<<0
@@ -62,6 +69,9 @@ class ProcessGateway(Gateway):
     #---------------------------------------------------------------------------
     # Packet processing
     #---------------------------------------------------------------------------
+
+    def parse(self, filename):
+        return self.output._parser().parse(open(filename).read())
 
     def receive_impl(self, packet): 
         """
@@ -104,8 +114,8 @@ class ProcessGateway(Gateway):
 
         for field_type, field_list in [
             (FIELD_TYPE_PARAMETER,  self.parameters),
-            (FIELD_TYPE_ARGUMENT,   self.arguments),
-            (FIELD_TYPE_OUTPUT,     self.output)]:
+            (FIELD_TYPE_ARGUMENT,   self.arguments)]:
+            #(FIELD_TYPE_OUTPUT,     self.output)]:
 
             for process_field in field_list:
                 if field_type not in [FIELD_TYPE_PARAMETER, FIELD_TYPE_ARGUMENT]:
@@ -291,66 +301,72 @@ class ProcessGateway(Gateway):
         )
         return field
 
-    @returns(Announce)
+    @returns(Announces)
     def make_announces(self):
         """
         Returns:
             The Announce related to this object.
         """
-        platform_name = self.__tool__ #self.get_gateway().get_platform_name()https://code.google.com/p/paris-traceroute/wiki/Git#Push_a_local_branch_to_the_git_server
+        platform_name = self.get_platform_name()
+        announces = import_string_h(self.output._announces_str, platform_name)
 
-        # TABLE NAME
-        #
-        # The name of the tool might not be sufficient since some parameters
-        # might affect the type of the measurement being performed
+        # These announces should be complete, we only need to deal with argument
+        # and parameters to forge the command line corresponding to an incoming
+        # query.
+        return announces
 
-        table_name    = self.__tool__
-
-        t = Table(platform_name, table_name)
-
-        # FIELDS
-        #
-        # Fields are found in parameters, arguments and output
-        for field_type, field_list in [
-            (FIELD_TYPE_ARGUMENT,   self.arguments),
-            (FIELD_TYPE_PARAMETER,  self.parameters),
-            (FIELD_TYPE_OUTPUT,     self.output)]:
-
-            for process_field in field_list:
-                field = self.make_field(process_field, field_type)
-                t.insert_field(field)
-
-        # KEYS
-        #
-        # Keys will be fields that affect the measurement, so of course
-        # arguments, but also some parameters. We will typically have a single
-        # key.
-
-        key = set()
-        for argument in self.arguments:
-            key.add(t.get_field(argument.get_name()))
-        t.insert_key(Key(key))
-
-        # CAPABILITIES
-        #    . PROJECTION == si les champs peuvent etre pilotés par les options
-        #    . SELECTION  == jamais en pratique
-        #    . FULLQUERY == jamais
-        
-        # As tools will generally take parameters (key for the measurement) it
-        # will not be possible to retrieve data from them directly (ON JOIN
-        # tables).
-        t.capabilities.retrieve     = False
-        t.capabilities.join         = True
-
-        # A tool will support almost never support selection
-        t.capabilities.selection    = False
-
-        # A tool will support projection if all fields can be controlled through
-        # options. In general, only partial projection will be supported (since
-        # output will always provide some fields that cannot be removed). Let's
-        # assume False for now for simplicity.
-        t.capabilities.projection   = False
-
-        announce = Announce(t)
-
-        return [announce]
+#DEPRECATED|        # TABLE NAME
+#DEPRECATED|        #
+#DEPRECATED|        # The name of the tool might not be sufficient since some parameters
+#DEPRECATED|        # might affect the type of the measurement being performed
+#DEPRECATED|
+#DEPRECATED|        table_name    = self.__tool__
+#DEPRECATED|
+#DEPRECATED|        t = Table(platform_name, table_name)
+#DEPRECATED|
+#DEPRECATED|        # FIELDS
+#DEPRECATED|        #
+#DEPRECATED|        # Fields are found in parameters, arguments and output
+#DEPRECATED|        for field_type, field_list in [
+#DEPRECATED|            (FIELD_TYPE_ARGUMENT,   self.arguments),
+#DEPRECATED|            (FIELD_TYPE_PARAMETER,  self.parameters),
+#DEPRECATED|            (FIELD_TYPE_OUTPUT,     self.output)]:
+#DEPRECATED|
+#DEPRECATED|            for process_field in field_list:
+#DEPRECATED|                field = self.make_field(process_field, field_type)
+#DEPRECATED|                t.insert_field(field)
+#DEPRECATED|
+#DEPRECATED|        # KEYS
+#DEPRECATED|        #
+#DEPRECATED|        # Keys will be fields that affect the measurement, so of course
+#DEPRECATED|        # arguments, but also some parameters. We will typically have a single
+#DEPRECATED|        # key.
+#DEPRECATED|
+#DEPRECATED|        key = set()
+#DEPRECATED|        for argument in self.arguments:
+#DEPRECATED|            key.add(t.get_field(argument.get_name()))
+#DEPRECATED|        t.insert_key(Key(key))
+#DEPRECATED|
+#DEPRECATED|        # CAPABILITIES
+#DEPRECATED|        #    . PROJECTION == si les champs peuvent etre pilotés par les options
+#DEPRECATED|        #    . SELECTION  == jamais en pratique
+#DEPRECATED|        #    . FULLQUERY == jamais
+#DEPRECATED|        
+#DEPRECATED|        # As tools will generally take parameters (key for the measurement) it
+#DEPRECATED|        # will not be possible to retrieve data from them directly (ON JOIN
+#DEPRECATED|        # tables).
+#DEPRECATED|        t.capabilities.retrieve     = False
+#DEPRECATED|        t.capabilities.join         = True
+#DEPRECATED|
+#DEPRECATED|        # A tool will support almost never support selection
+#DEPRECATED|        t.capabilities.selection    = False
+#DEPRECATED|
+#DEPRECATED|        # A tool will support projection if all fields can be controlled through
+#DEPRECATED|        # options. In general, only partial projection will be supported (since
+#DEPRECATED|        # output will always provide some fields that cannot be removed). Let's
+#DEPRECATED|        # assume False for now for simplicity.
+#DEPRECATED|        t.capabilities.projection   = False
+#DEPRECATED|
+#DEPRECATED|        announce = Announce(t)
+#DEPRECATED|
+#DEPRECATED|        return [announce]

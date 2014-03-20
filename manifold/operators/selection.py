@@ -16,6 +16,7 @@ from types                          import StringTypes
 
 from manifold.core.destination      import Destination
 from manifold.core.filter           import Filter
+from manifold.core.fields           import Fields
 from manifold.core.node             import Node
 from manifold.core.operator_slot    import ChildSlotMixin
 from manifold.core.packet           import Packet
@@ -133,7 +134,7 @@ class Selection(Operator, ChildSlotMixin):
     def optimize_projection(self, fields):
         # Do we have to add fields for filtering, if so, we have to remove them after
         # otherwise we can just swap operators
-        keys = self._filter.keys()
+        keys = Fields(self._filter.keys())
         self._update_child(lambda p, d: p.optimize_projection(fields | keys))
         #self.query.fields = fields
         if not keys <= fields:

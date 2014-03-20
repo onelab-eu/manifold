@@ -268,16 +268,16 @@ class Predicate:
     @returns(set)
     def get_field_names(self):
         if isinstance(self.key, (list, tuple, set, frozenset)):
-            return set(self.key)
+            return Fields(self.key)
         else:
-            return set([self.key])
+            return Fields([self.key])
 
     @returns(set)
     def get_value_names(self):
         if isinstance(self.value, (list, tuple, set, frozenset)):
-            return set(self.value)
+            return Fields(self.value)
         else:
-            return set([self.value])
+            return Fields([self.value])
 
     @returns(bool)
     def has_empty_value(self):

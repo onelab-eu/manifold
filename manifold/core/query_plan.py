@@ -41,6 +41,8 @@ class QueryPlan(object):
         """
         self.ast = None      # AST instance, set later thanks to set_ast()
 
+        self.foreign_key_fields = dict()
+
     def set_ast(self, ast, query):
         """
         Complete an AST in order to take into account SELECT and WHERE clauses
@@ -59,12 +61,6 @@ class QueryPlan(object):
         ast.optimize(destination)
         self.ast = ast
 
-#DEPRECATED|        # So far FROM Node embeds dummy queries having only the
-#DEPRECATED|        # appropriate "destination", we've to update them accordingly
-#DEPRECATED|        # the initial query. This is required to match correctly
-#DEPRECATED|        # PIT's flows in each Gateway.
-#DEPRECATED|        self.fix_from(query)
-   
     @returns(Operator)
     def get_root_operator():
         """
@@ -157,7 +153,13 @@ class QueryPlan(object):
             pathstr = '.'.join(task.path)
             if not pathstr in seen:
                 seen[pathstr] = set()
-            task.explore(stack, missing_fields, db_graph, allowed_platforms, allowed_capabilities, user, seen[pathstr], query_plan = self)
+
+            # foreign_key_fields are fields added because indirectly requested by the user.
+            # For example, he asked for slice.resource, which in fact will contain slice.resource.urn
+
+            foreign_key_fields = task.explore(stack, missing_fields, db_graph, allowed_platforms, allowed_capabilities, user, seen[pathstr], query_plan = self)
+            
+            self.foreign_key_fields.update(foreign_key_fields)
 
         # Cancel every remaining ExploreTasks, we cannot found additional 
         # queried fields.

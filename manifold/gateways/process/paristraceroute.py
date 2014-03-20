@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 
 import pyparsing as pp
-from .             import ProcessGateway, Argument, Parameter, Output, FLAG_IN_ANNOTATION, FLAG_OUT_ANNOTATION, FLAG_ADD_FIELD
-from ...util.log   import Log
+from .                  import ProcessGateway, Argument, Parameter, Output, FLAG_IN_ANNOTATION, FLAG_OUT_ANNOTATION, FLAG_ADD_FIELD
+from ...util.log        import Log
 
 class ParisTracerouteParser(object):
     """
@@ -208,18 +208,18 @@ class ParisTracerouteParser(object):
         return []
 
 class ParisTracerouteGateway(ProcessGateway):
-    __gateway_name__ = 'paris-traceroute_process'
-    __tool__ = 'paris-traceroute'
+    __gateway_name__ = 'paristraceroute_process'
+    __tool__ = 'paristraceroute'
 
     parameters = [
         Parameter(
             name        = 'hostname', 
-            type        = 'string', 
-            description = '',
+            type        = 'string',  # in metadata ?
+            description = '',        # in metadata ?
             short       = '-n',
             action      = '', 
             # METADATA + IN_FIELDS
-            flags       = FLAG_ADD_FIELD
+            flags       = FLAG_ADD_FIELD # deduced from metadata ?
         ),
     ]
     arguments = [
@@ -228,14 +228,48 @@ class ParisTracerouteGateway(ProcessGateway):
             type        = 'ip'
         ),
     ]
-    output = [
-        Output(
-            name        = 'probes',
-            type        = 'delay'
-        ),
-    ]
+    # WE SHOULD EXPLICITELY SET METADATA HERE
+
+    # Parameters and arguments are additional fields that will get added
+    # We need not only static fields that are not piloted by an option, but the
+    # others also
+    # Same for keys, capabilities etc
+    # Keys vs arguments (might not need tags if we have metadata)
+# FOR FUTURE USE|    """
+# FOR FUTURE USE|    class protocol {
+# FOR FUTURE USE|        const inet source;
+# FOR FUTURE USE|        const inet destination;
+# FOR FUTURE USE|        const string protocol;
+# FOR FUTURE USE|    }
+# FOR FUTURE USE|
+# FOR FUTURE USE|    class packet {
+# FOR FUTURE USE|        protocol protocol;
+# FOR FUTURE USE|    };
+# FOR FUTURE USE|
+# FOR FUTURE USE|    class probe {
+# FOR FUTURE USE|        packet packet;
+# FOR FUTURE USE|        timestamp timestamp;
+# FOR FUTURE USE|    };
+    announces = """
+    class probe_traceroute {
+        inet ip;
+        string hostname;
+    };
+
+    class hop {
+        const unsigned ttl;
+        probe probes[];
+    };
+
+    class traceroute {
+        hop hops[];
+    };
+
+    """
+    output = Output(ParisTracerouteParser, announces, 'traceroute')
+    #class Traceroute(Announce):
+    #    Field()
+    #    Field()
+
     #path = '/usr/local/bin/paris-traceroute'
     path = '/bin/paris-traceroute' # fake
-
-    def parse(self, filename):
-        return ParisTracerouteParser().parse(open(filename).read())

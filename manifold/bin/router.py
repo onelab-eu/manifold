@@ -44,9 +44,6 @@ class QueryHandler(asynchat.async_chat, ChildSlotMixin):
         self._receive_buffer = []
         self.callback = callback
 
-    def log(self, *items):
-        print "log", self.__class__, items
-
     def collect_incoming_data (self, data):
         self._receive_buffer.append (data)
 
@@ -82,7 +79,14 @@ class RouterServer(asyncore.dispatcher):
 
         # Router initialization
         self._router = Router()
+
+        # conflict when adding both
         self._router.add_platform('ping', 'ping_process')
+#        self._router.add_platform('paristraceroute', 'paristraceroute_process')
+
+        self._router.add_platform('agent',  'manifold', {'url': 'http://ple2.ipv6.lip6.fr:58000/RPC/'})
+        self._router.add_platform('agent2', 'manifold', {'url': 'http://planetlab2.cs.du.edu:58000/RPC/'})
+        self._router.add_platform('maxmind', 'maxmind')
 
         self.create_socket(socket.AF_UNIX, socket.SOCK_STREAM)
         self.set_reuse_addr()
@@ -109,6 +113,7 @@ class RouterServer(asyncore.dispatcher):
         """
         Stops gracefully this ManifoldServer.
         """
+        self._router.terminate()
         if os.path.exists(self._socket_path):
             os.unlink(self._socket_path)
 

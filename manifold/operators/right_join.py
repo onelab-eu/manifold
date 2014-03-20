@@ -236,7 +236,7 @@ class RightJoin(Operator, ChildSlotMixin):
                 # formerly right_callback()
 
                 # Skip records missing information necessary to join
-                if not self._predicate.get_value_names() <= set(record.keys()) \
+                if not set(self._predicate.get_value_names()) <= set(record.keys()) \
                 or record.has_empty_fields(self._predicate.get_value_names()):
                     Log.warning("Missing RIGHTJOIN predicate %s in right record %r: ignored" % \
                             (self._predicate, record))

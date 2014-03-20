@@ -206,7 +206,7 @@ class LeftJoin(Operator, LeftRightSlotMixin):
 
                 if not record.is_empty():
                     # Skip records missing information necessary to join
-                    if not self._predicate.get_value_names() <= set(record.keys()) \
+                    if not set(self._predicate.get_value_names()) <= set(record.keys()) \
                     or record.has_empty_fields(self._predicate.get_value_names()):
                         Log.warning("Missing LEFTJOIN predicate %s in right record %r: ignored" % \
                                 (self._predicate, record))
@@ -231,8 +231,6 @@ class LeftJoin(Operator, LeftRightSlotMixin):
                         for left_record_list in self._left_map.values():
                             for left_record in left_record_list:
                                 self.forward_upstream(left_record)
-                    # LAST MARK
-                    print "." * 80
                     self.forward_upstream(Record(last = True))
                     
 

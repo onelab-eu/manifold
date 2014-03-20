@@ -29,6 +29,7 @@ from manifold.gateways.sfa.user         import ADMIN_USER, ADMIN_USER_EMAIL
 from manifold.operators.rename          import Rename
 from manifold.util.log                  import Log
 from manifold.util.predicate            import eq
+from manifold.util.reactor_thread       import ReactorThread
 from manifold.util.type                 import accepts, returns 
 
 DEFAULT_TIMEOUT = 20
@@ -73,6 +74,11 @@ class SFAGatewayCommon(Gateway):
         # timeout = The maximum delay (in seconds) before considering that we wont get an answer.
         if not "timeout" in platform_config:
             platform_config["timeout"] = DEFAULT_TIMEOUT
+
+        ReactorThread().start_reactor()
+
+    def terminate(self):
+        ReactorThread().stop_reactor()
 
     #--------------------------------------------------------------------------
     # Gateway 
@@ -524,3 +530,4 @@ class SFAGatewayCommon(Gateway):
         # XXX To be checked in handlers
         #if user_account.get('auth_type', None) != "managed":
         #    defer.returnValue(False)
+

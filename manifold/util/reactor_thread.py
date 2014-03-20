@@ -36,6 +36,8 @@ class ReactorThread(threading.Thread):
         from twisted.internet import reactor
         self.reactor = reactor
 
+        self._num_instances = 0
+
     def run(self):
         if self._reactorRunning:
             raise ReactorException("Reactor Already Running")
@@ -61,6 +63,8 @@ class ReactorThread(threading.Thread):
         return self._reactorRunning
        
     def start_reactor(self):
+        self._num_instances += 1
+
         if self._reactorStarted:
             Log.debug("Reactor already started")
             return
@@ -87,7 +91,12 @@ class ReactorThread(threading.Thread):
         placed in the threads join method. This will require further investigation. 
         """
         if not self._reactorRunning:
-            return#raise ReactorException("Reactor Not Running")
+            raise ReactorException("Reactor Not Running")
+
+        self._num_instances -= 1
+        if self._num_instances > 0:
+            return
+
         # done here instead of event until shell.client.__del__ issue is solved
         self._reactorRunning = False
         self._reactorStarted = False

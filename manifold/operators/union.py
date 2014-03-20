@@ -13,6 +13,7 @@ from types                          import StringTypes
 
 from manifold.core.destination      import Destination
 from manifold.core.exceptions       import ManifoldInternalException
+from manifold.core.fields           import Fields
 from manifold.core.node             import Node
 from manifold.core.operator_slot    import ChildrenSlotMixin
 from manifold.core.packet           import Packet
@@ -152,7 +153,7 @@ class Union(Operator, ChildrenSlotMixin):
         # UNION: apply projection to all children
         # in case of UNION with duplicate elimination, we need the key
         do_parent_projection = False
-        child_fields  = set()
+        child_fields  = Fields()
         child_fields |= fields
         if self._distinct:
             key = self._key.get_field_names()

@@ -145,14 +145,31 @@ class Packet(object):
     # Serialization / deserialization
     #---------------------------------------------------------------------------
 
-    #def __reduce__(self):
-    #    return (self.__class__, (self.name, self.address))
+    def __getstate__(self):
+        # Copy the object's state from self.__dict__ which contains
+        # all our instance attributes. Always use the dict.copy()
+        # method to avoid modifying the original state.
+        state = self.__dict__.copy()
+        # Remove the unpicklable entries.
+        del state['_source']
+        if '_receiver' in state:
+            del state['_receiver']
+        return state
+
+#UNUSED|    def __setstate__(self, state):
+#UNUSED|        # Restore instance attributes (i.e., filename and lineno).
+#UNUSED|        self.__dict__.update(state)
+#UNUSED|        # Restore the previously opened file's state. To do so, we need to
+#UNUSED|        # reopen it and read from it until the line count is restored.
+#UNUSED|        file = open(self.filename)
+#UNUSED|        for _ in range(self.lineno):
+#UNUSED|            file.readline()
+#UNUSED|        # Finally, save the file.
+#UNUSED|        self.file = file
 
     def serialize(self):
-        # XXX
-        self._source = None
-        self._receiver = None
-        return pickle.dumps(self)
+        string = pickle.dumps(self)
+        return string
 
     @staticmethod
     def deserialize(string):

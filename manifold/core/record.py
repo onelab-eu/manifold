@@ -185,9 +185,13 @@ class Record(Packet):
             True iif record carries this set of fields.
         """
         if isinstance(fields, StringTypes):
+            # SHOULD BE DEPRECATED SOON since we are only using the Fields()
+            # class now...
             return fields in self._record
         else:
-            return fields <= set(self._record.keys())
+            # self._record.keys() should have type Fields, otherwise comparison
+            # fails without casting to set
+            return set(fields) <= set(self._record.keys())
    
     @returns(bool)
     def has_empty_fields(self, keys):

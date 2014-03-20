@@ -86,6 +86,175 @@ class MetadataEnum:
         return self.__repr__()
 
 #------------------------------------------------------------------
+# Announce
+#------------------------------------------------------------------
+
+class Announce(object):
+    def __init__(self, table, cost = None):
+        """
+        Constructor.
+        Args:
+            table: A Table instance.
+            cost: The cost we've to pay to query this Table.
+        """
+        assert isinstance(table, Table), \
+            "Invalid table = %s (%s)" % (table, type(table))
+        self.table = table
+        self.cost = cost
+
+    @returns(Table)
+    def get_table(self):
+        """
+        Returns:
+            The Table instance nested in this Announce.
+        """
+        return self.table
+
+    @returns(int)
+    def get_cost(self):
+        """
+        Returns:
+            The cost related to this Announce.
+        """
+        return self.cost
+
+    @returns(StringTypes)
+    def __repr__(self):
+        """
+        Returns:
+            The '%r' representation of this Announce.
+        """
+        return "<Announce %r>" % self.table
+
+    @returns(StringTypes)
+    def __str__(self):
+        """
+        Returns:
+            The '%r' representation of this Announce.
+        """
+        return "Announce: %s" % self.table
+
+
+    @returns(dict)
+    def to_dict(self):
+        """
+        Returns:
+            The dict representation of this Announce.
+        """
+        return self.table.to_dict()
+
+class Announces(list):
+
+    @classmethod
+    @returns(list)
+    def from_dot_h(self, platform_name, gateway_type):
+        return self.import_file_h(STATIC_ROUTES_DIR, platform_name, gateway_type)
+
+    @classmethod
+    @returns(list)
+    def import_file_h(self, directory, platform, gateway_type):
+        """
+        Import a .h file (see manifold.metadata/*.h)
+        Args:
+            directory: A String instance containing directory storing the .h files
+                Example: STATIC_ROUTES_DIR = "/usr/share/manifold/metadata/"
+            platform: A String instance containing the name of the platform
+                Examples: "ple", "senslab", "tdmi", "omf", ...
+            gateway_type: A String instance containing the type of the Gateway.
+                Examples: "sfa", "xmlrpc", "maxmind", "tdmi"
+        Returns:
+            A list of Announce instances, each Announce embeds a Table instance.
+            This list may be empty.
+        """
+        # Check path
+        filename = os.path.join(directory, "%s.h" % gateway_type)
+        if not os.path.exists(filename):
+            filename = os.path.join(directory, "%s-%s.h" % (gateway_type, platform))
+            if not os.path.exists(filename):
+                Log.debug("Metadata file '%s' not found (platform = %r, gateway_type = %r)" % (filename, platform, gateway_type))
+                return list() 
+
+        # Read input file
+        Log.debug("Platform %s: Processing %s" % (platform, filename))
+        return import_file_h(filename, platform)
+
+    @classmethod
+    def get_announces(self, metadata):
+        Log.warning("what about capabilities?")
+        return [Announce(t) for t in metadata.get_announce_tables()]
+
+    @returns(StringTypes)
+    def __repr__(self):
+        """
+        Returns:
+            The '%r' representation of this Announce.
+        """
+        return "<Announces %r>" % self
+
+    def __str__(self):
+        return "\n".join(str(x) for x in self)
+
+@returns(Announces)
+def merge_announces(announces1, announces2):
+    """
+    Merge two set of announces.
+    Args:
+        announces1: A list of Announce instance.
+        announces2: A list of Announce instance.
+    Returns:
+        A list of Announces instances.
+    """
+    s1 = frozenset(announces1)
+    s2 = frozenset(announces2)
+    colliding_announces = s1 & s2 
+    if colliding_announces:
+        Log.warning("Colliding announces: {%s}" % ", ".join([announces.get_table().get_name() for announce in colliding_announces]))
+    return Announces(s1 | s2)
+
+@returns(Announces)
+def make_virtual_announces(platform_name):
+    """
+    Craft a list of virtual Announces corresponding to virtual
+    Table supposed to be supported by any Gateway (including *:object).
+    Args:
+        platform_name: A name of the Storage platform.
+    Returns:
+        The corresponding list of Announces.
+    """
+    @announces_from_docstring(platform_name)
+    def _get_metadata_tables():
+        """
+        class object {
+            string  table;           /**< The name of the object/table.     */
+            column  columns[];       /**< The corresponding fields/columns. */
+            string  capabilities[];  /**< The supported capabilities        */
+
+            CAPABILITY(retrieve);
+            KEY(table);
+        }; 
+
+        class column {
+            string qualifier;
+            string name;
+            string type;
+            string description;
+            bool   is_array;
+
+            KEY(name);
+        };
+
+        class gateway {
+            string type;
+
+            CAPABILITY(retrieve);
+            KEY(type);
+        };
+        """
+    announces = _get_metadata_tables(platform_name)
+    return announces
+
+
+#------------------------------------------------------------------
 # .h file parsing
 #------------------------------------------------------------------
 
@@ -237,7 +406,7 @@ def parse_dot_h(iterable, filename = None):
 
     return (tables, enums)
 
-@returns(list)
+@returns(Announces)
 def make_announces(tables, platform):
     """
     Build a list of Announces instances based on a platform name
@@ -248,7 +417,7 @@ def make_announces(tables, platform):
     Returns:
         The corresponding list of Announces.
     """
-    announces = list() 
+    announces = Announces() 
     for table in tables.values():
         table.set_partitions(platform) # XXX This is weird
         announces.append(Announce(table))
@@ -286,7 +455,7 @@ def import_file_h(filename, platform):
     check_table_consistency(classes)
     return make_announces(classes, platform)
         
-@returns(list)
+@returns(Announces)
 def import_string_h(string, platform):
     """
     Parse a String and produce the corresponding Announces.
@@ -333,153 +502,6 @@ def announces_from_docstring(platform):
         return new
     return decorator
 
-#------------------------------------------------------------------
-# Announce
-#------------------------------------------------------------------
-
-@returns(list)
-def merge_announces(announces1, announces2):
-    """
-    Merge two set of announces.
-    Args:
-        announces1: A list of Announce instance.
-        announces2: A list of Announce instance.
-    Returns:
-        A list of Announces instances.
-    """
-    s1 = frozenset(announces1)
-    s2 = frozenset(announces2)
-    colliding_announces = s1 & s2 
-    if colliding_announces:
-        Log.warning("Colliding announces: {%s}" % ", ".join([announces.get_table().get_name() for announce in colliding_announces]))
-    return list(s1 | s2)
-
-class Announce(object):
-    def __init__(self, table, cost = None):
-        """
-        Constructor.
-        Args:
-            table: A Table instance.
-            cost: The cost we've to pay to query this Table.
-        """
-        assert isinstance(table, Table), \
-            "Invalid table = %s (%s)" % (table, type(table))
-        self.table = table
-        self.cost = cost
-
-    @returns(Table)
-    def get_table(self):
-        """
-        Returns:
-            The Table instance nested in this Announce.
-        """
-        return self.table
-
-    @returns(int)
-    def get_cost(self):
-        """
-        Returns:
-            The cost related to this Announce.
-        """
-        return self.cost
-
-    @returns(StringTypes)
-    def __repr__(self):
-        """
-        Returns:
-            The '%r' representation of this Announce.
-        """
-        return "<Announce %r>" % self.table
-
-    @returns(dict)
-    def to_dict(self):
-        """
-        Returns:
-            The dict representation of this Announce.
-        """
-        return self.table.to_dict()
-
-@returns(list)
-def make_virtual_announces(platform_name):
-    """
-    Craft a list of virtual Announces corresponding to virtual
-    Table supposed to be supported by any Gateway (including *:object).
-    Args:
-        platform_name: A name of the Storage platform.
-    Returns:
-        The corresponding list of Announces.
-    """
-    @announces_from_docstring(platform_name)
-    def _get_metadata_tables():
-        """
-        class object {
-            string  table;           /**< The name of the object/table.     */
-            column  columns[];       /**< The corresponding fields/columns. */
-            string  capabilities[];  /**< The supported capabilities        */
-
-            CAPABILITY(retrieve);
-            KEY(table);
-        }; 
-
-        class column {
-            string qualifier;
-            string name;
-            string type;
-            string description;
-            bool   is_array;
-
-            KEY(name);
-        };
-
-        class gateway {
-            string type;
-
-            CAPABILITY(retrieve);
-            KEY(type);
-        };
-        """
-    announces = _get_metadata_tables(platform_name)
-    return announces
-
-class Announces(object):
-
-    @classmethod
-    @returns(list)
-    def from_dot_h(self, platform_name, gateway_type):
-        return self.import_file_h(STATIC_ROUTES_DIR, platform_name, gateway_type)
-
-    @classmethod
-    @returns(list)
-    def import_file_h(self, directory, platform, gateway_type):
-        """
-        Import a .h file (see manifold.metadata/*.h)
-        Args:
-            directory: A String instance containing directory storing the .h files
-                Example: STATIC_ROUTES_DIR = "/usr/share/manifold/metadata/"
-            platform: A String instance containing the name of the platform
-                Examples: "ple", "senslab", "tdmi", "omf", ...
-            gateway_type: A String instance containing the type of the Gateway.
-                Examples: "sfa", "xmlrpc", "maxmind", "tdmi"
-        Returns:
-            A list of Announce instances, each Announce embeds a Table instance.
-            This list may be empty.
-        """
-        # Check path
-        filename = os.path.join(directory, "%s.h" % gateway_type)
-        if not os.path.exists(filename):
-            filename = os.path.join(directory, "%s-%s.h" % (gateway_type, platform))
-            if not os.path.exists(filename):
-                Log.debug("Metadata file '%s' not found (platform = %r, gateway_type = %r)" % (filename, platform, gateway_type))
-                return list() 
-
-        # Read input file
-        Log.debug("Platform %s: Processing %s" % (platform, filename))
-        return import_file_h(filename, platform)
-
-    @classmethod
-    def get_announces(self, metadata):
-        Log.warning("what about capabilities?")
-        return [Announce(t) for t in metadata.get_announce_tables()]
         
 #------------------------------------------------------------------
 # Tests 

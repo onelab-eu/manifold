@@ -30,6 +30,10 @@ class ManifoldGateway(Gateway):
             platform_config: A dictionnary containing the configuration related to this Gateway.
         """
         super(ManifoldGateway, self).__init__(interface, platform, platform_config)
+        ReactorThread().start_reactor()
+
+    def terminate(self):
+        ReactorThread().stop_reactor()
 
     @returns(StringTypes)
     def __str__(self):

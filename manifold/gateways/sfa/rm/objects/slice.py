@@ -84,38 +84,48 @@ def create_record_from_params(type, params):
 
 class Slice(RM_Object):
     aliases = {
-        "last_updated"       : "slice_last_updated",         # last_updated != last == checked,
-        "geni_creator"       : "slice_geni_creator",
-        "node_ids"           : "slice_node_ids",             # X This should be "nodes.id" but we do not want IDs
-        "reg-researchers"    : "user.user_hrn",              # This should be "users.hrn"
-        "reg-urn"            : "slice_urn",                  # slice_geni_urn ???
-        "site_id"            : "slice_site_id",              # X ID 
-        "site"               : "slice_site",                 # authority.hrn
-        "authority"          : "authority_hrn",              # isn"t it the same ???
-        "pointer"            : "slice_pointer",              # X
-        "instantiation"      : "slice_instantiation",        # instanciation
-        "max_nodes"          : "slice_max_nodes",            # max nodes
-        "person_ids"         : "slice_person_ids",           # X users.ids
-        "hrn"                : "slice_hrn",                  # hrn
-        "record_id"          : "slice_record_id",            # X
-        "gid"                : "slice_gid",                  # gid
-        "nodes"              : "nodes",                      # nodes.hrn
-        "peer_id"            : "slice_peer_id",              # X
-        "type"               : "slice_type",                 # type ?
-        "peer_authority"     : "slice_peer_authority",       # ??
-        "description"        : "slice_description",          # description
-        "expires"            : "slice_expires",              # expires
-        "persons"            : "slice_persons",              # users.hrn
-        "creator_person_id"  : "slice_creator_person_id",    # users.creator ?
-        "PI"                 : "slice_pi",                   # users.pi ?
-        "name"               : "slice_name",                 # hrn
-        #"slice_id"          : "slice_id",
-        "created"            : "created",                    # first ?
-        "url"                : "slice_url",                  # url
-        "peer_slice_id"      : "slice_peer_slice_id",        # ?
-        "geni_urn"           : "slice_geni_urn",             # urn/hrn
-        "slice_tag_ids"      : "slice_tag_ids",              # tags
-        "date_created"       : "slice_date_created"          # first ?
+        # REGISTRY FIELDS
+        'hrn'               : 'slice_hrn',                  # hrn
+        'urn'               : 'slice_urn',                  # slice_geni_urn ???
+        'type'              : 'slice_type',                 # type ?
+        'reg-researchers'   : 'users',                      # user or users . hrn or user_hrn ?
+                                                            # XXX this is in lowercase when creating a slice !
+        'reg-urn'           : 'slice_urn',
+
+        # TESTBED FIELDS
+        'enabled'           : 'slice_enabled',
+        'researcher'        : 'users',                      # user or users . hrn or user_hrn ?
+        'PI'                : 'pi_users',                   # XXX should be found of type user, has to correspond with metadata
+
+        # UNKNOWN
+        'last_updated'      : 'slice_last_updated',         # last_updated != last == checked,
+        'geni_creator'      : 'slice_geni_creator',
+        'node_ids'          : 'slice_node_ids',             # X This should be 'nodes.id' but we do not want IDs
+#XXX        'reg-urn'           : 'slice_urn',                  # slice_geni_urn ???
+        'site_id'           : 'slice_site_id',              # X ID 
+        'site'              : 'slice_site',                 # authority.hrn
+        'authority'         : 'parent_authority',       # isn't it the same ???
+        'pointer'           : 'slice_pointer',              # X
+        'instantiation'     : 'slice_instantiation',        # instanciation
+        'max_nodes'         : 'slice_max_nodes',            # max nodes
+        'person_ids'        : 'slice_person_ids',           # X users.ids
+        'record_id'         : 'slice_record_id',            # X
+        'gid'               : 'slice_gid',                  # gid
+        'nodes'             : 'nodes',                      # nodes.hrn
+        'peer_id'           : 'slice_peer_id',              # X
+        'peer_authority'    : 'slice_peer_authority',       # ??
+        'description'       : 'slice_description',          # description
+        'expires'           : 'slice_expires',              # expires
+        'persons'           : 'slice_persons',              # users.hrn
+        'creator_person_id' : 'slice_creator_person_id',    # users.creator ?
+        'name'              : 'slice_name',                 # hrn
+        #'slice_id'         : 'slice_id',
+        'created'           : 'created',                    # first ?
+        'url'               : 'slice_url',                  # url
+        'peer_slice_id'     : 'slice_peer_slice_id',        # ?
+        'geni_urn'          : 'slice_geni_urn',             # urn/hrn
+        'slice_tag_ids'     : 'slice_tag_ids',              # tags
+        'date_created'      : 'slice_date_created',         # first ?
     }
 
     @defer.inlineCallbacks

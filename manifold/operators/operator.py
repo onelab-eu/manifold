@@ -78,14 +78,6 @@ class Operator(Node, SlotMixin):
 #DEPRECATED|        """
 #DEPRECATED|        return self.query
 
-    def receive(self, packet):
-        """
-        Handle a Packet.
-        Args:
-            packet: A Packet instance.
-        """
-        self.receive_impl(packet)
-
     def error(self, description, is_fatal = True):
         """
         Craft an ErrorPacket carrying an error message.

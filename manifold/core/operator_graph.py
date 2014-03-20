@@ -63,7 +63,7 @@ class OperatorGraph(object):
     #---------------------------------------------------------------------------
 
     @returns(Node)
-    def build_query_plan(self, query, annotation):
+    def build_query_plan(self, query, annotation, dbgraph):
         """
         Build the Query Plan according to a Query and its optionnal Annotation.
         Args:
@@ -87,21 +87,15 @@ class OperatorGraph(object):
         user      = annotation.get("user", None)
         namespace = query.get_namespace()
         query.clear_namespace()
-
-        if namespace == STORAGE_NAMESPACE:
-            # XXX such exceptions are not shown in commandline scripts such as
-            # addaccount.py
-            #raise Exception
-            db_graph = router.get_dbgraph_storage()
-            allowed_platforms = list() 
-        else:
-            db_graph = router.get_dbgraph()
-            allowed_platforms = router.get_platform_names()
-            if namespace and namespace in allowed_platforms:
-                allowed_platforms = [namespace]
+        
+        allowed_platforms = list() 
+        if namespace:
+            allowed_platforms.append(namespace)
 
         # Build the QueryPlan according to this DBGraph and to the user's Query.
         # and return the corresponding Node (if any)
         query_plan = QueryPlan()
 
-        return query_plan.build(query, router, db_graph, allowed_platforms, user)
+        # allowed_platforms can be either an empty_list, meaning all, or a list
+        # of strings
+        return query_plan.build(query, router, dbgraph, allowed_platforms, user)

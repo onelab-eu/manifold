@@ -17,6 +17,7 @@
 import copy
 from types                  import StringTypes
 from manifold.core.field    import Field
+from manifold.core.fields   import Fields
 from manifold.util.type     import returns, accepts
 from manifold.util.log      import Log
 
@@ -71,7 +72,7 @@ class Key(frozenset):
 
     @returns(set)
     def get_field_names(self):
-        return set([x.get_name() for x in self])
+        return Fields([x.get_name() for x in self])
 
     @returns(set)
     def get_names(self):

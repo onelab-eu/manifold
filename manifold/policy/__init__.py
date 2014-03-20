@@ -28,17 +28,14 @@ class Policy(object):
     ERROR   = 4
 
     def __init__(self, interface):
+        Target.register_plugins()
+
         self.interface = interface
         self.rules = list() 
 
-    def load(self):
-        Target.register_plugins()
-
-        query_rules = Query.get('policy').select('policy_json')
-        rules = self.interface.execute_local_query(query_rules)
+    def add_rule(self, rule):
+        self.rules.append(rule)
         
-        for rule in rules:
-            self.rules.append(Rule.from_dict(json.loads(rule['policy_json'])))
 
     def filter(self, query, record, annotation):
         for rule in self.rules:
