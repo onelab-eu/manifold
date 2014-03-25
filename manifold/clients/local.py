@@ -9,8 +9,7 @@
 #   Jordan Augé         <jordan.auge@lip6.fr>
 #   Marc-Olivier Buob   <marc-olivier.buob@lip6.fr>
 
-import asyncore, asynchat, threading
-import socket, time
+import asyncore, asynchat, errno, socket, threading, time, traceback
 from types                          import StringTypes
 
 from manifold.core.annotation       import Annotation
@@ -54,12 +53,17 @@ class ManifoldLocalClient(ManifoldClient, asynchat.async_chat):
         self._pstate = self.STATE_LENGTH
         self.set_terminator (8)
 
-        self.connect(self._path)
+        try:
+            self.connect(self._path)
+        except socket.error, e:
+            error_code = e[0]
+            if error_code == errno.ENOENT:
+                Log.error("Invalid socket: [%s], did you run manifold-router?" % self._path)
+            raise e
 
         # Start asyncore thread
-        self._thread = threading.Thread(target=asyncore.loop,kwargs = {'timeout':1} )
+        self._thread = threading.Thread(target = asyncore.loop, kwargs = {'timeout' : 1})
         self._thread.start()     
-
 
     def terminate(self):
         self.close()
