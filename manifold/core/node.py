@@ -210,7 +210,7 @@ class Node(object):
         """
         return "[%(id)04d]%(tab)s %(self)s" % {
             "id"   : self.get_identifier(),
-            "tab"  : " " * indent,
+            "tab"  : "  " * indent,
             "self" : self
         }
 

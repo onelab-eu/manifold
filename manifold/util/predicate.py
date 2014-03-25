@@ -148,6 +148,9 @@ class Predicate:
         """
         self.key = key
 
+    def update_key(self, function):
+        self.set_key(function(self.get_key()))
+
     def get_op(self):
         return self.op
 
@@ -294,3 +297,9 @@ class Predicate:
             a tuple key (and tuple value).
         """ 
         return isinstance(self.get_key(), tuple)
+    
+    def rename(self, aliases):
+        if self.is_composite():
+            raise NotImplemented
+        if self.key in aliases:
+            self.key = aliases[self.key]

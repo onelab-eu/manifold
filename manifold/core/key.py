@@ -148,6 +148,14 @@ class Keys(set):
         """
         Keys.check_keys(keys)
         set.__init__(self, set(keys))
+        self._local = False
+
+    def get_local(self):
+        return self._local
+
+    def set_local(self, table):
+        print "KEYS SET LOCAL", self, table
+        self._local = table
 
     @returns(StringTypes)
     def __str__(self):

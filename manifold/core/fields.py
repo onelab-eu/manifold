@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 
 from types                          import StringTypes
-from copy                           import copy
 
 # The distinction between parent and children fields is based on the
 # Fields.FIELD_SEPARATOR character.
@@ -161,3 +160,78 @@ class Fields(set):
     def clear(self):
         self._star = False
         set.clear(self)
+
+    def rename(self, aliases):
+        s = self.copy()
+        for element in s:
+            if element in aliases:
+                s.remove(element)
+                s.add(aliases[element])
+        self.clear()
+        self |= s
+        return self
+
+    @staticmethod
+    def join(field, subfield):
+        return "%s%s%s" % (field, FIELD_SEPARATOR, subfield)
+
+    @staticmethod
+    def after_path(field, path, allow_shortcuts = True):
+        """
+        Returns the part of the field after path
+
+        Args:
+            path (list):
+            allow_shortcuts (bool): Default to True.
+        """
+        if not path:
+            return field
+        last = None
+        field_parts = field.split(FIELD_SEPARATOR)
+        for path_element in path[1:]:
+            if path_element == field_parts[0]:
+                field_parts.pop(0)
+                last = None
+            else:
+                last = path_element
+        return (FIELD_SEPARATOR.join(field_parts), last)
+
+    def split_subfields(self, include_parent = True, current_path = None, allow_shortcuts = True):
+        """
+        Returns a tuple of Fields + dictionary { method: sub-Fields() }
+
+        Args:
+            include_parent (bool): is the parent field included in the list of
+                returned Fields (1st part of the tuple).
+            current_path (list): the path of fields that will be skipped at the beginning
+            path_shortcuts (bool): do we allow shortcuts in the path
+
+        Example path = ROOT.A.B
+        split_subfields(A.B.C.D, A.B.C.D', current_path=[ROOT,A,B]) => (Fields(), { C: [D, D'] })
+        split_subfields(A.E.B.C.D, A.E.B.C.D', current_path=[ROOT,A,B]) => (Fields(), { C: [D, D'] })
+        """
+        fields = Fields()
+        map_method_subfields = dict()
+        map_original_field   = dict()
+        rename = dict()
+
+        for original_field in self:
+            # The current_path can be seen as a set of fields that have to be
+            # passed through before we can consider a field
+            field, last = Fields.after_path(original_field, current_path, allow_shortcuts)
+
+            field, _, subfield = field.partition(FIELD_SEPARATOR)
+
+            if not subfield:
+                fields.add(field)
+            else:
+                if include_parent:
+                    fields.add(field)
+                if not field in map_method_subfields:
+                    map_method_subfields[field] = []
+                map_method_subfields[field].append(subfield)
+
+            map_original_field[field] = original_field
+            rename[field] = last
+
+        return (fields, map_method_subfields, map_original_field, rename)

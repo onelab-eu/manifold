@@ -226,15 +226,17 @@ class From(Operator, ChildSlotMixin):
                 parent_fields = Fields(records.get_fields())
 
                 needed_fields = query_fields - parent_fields
+
                 key_fields    = self._key.get_field_names()
 
                 # Let's keep parent records in a dictionary indexed by their key
-                self._parent_records = { r.get_value(key_fields): r for r in records }
 
                 if not needed_fields:
                     map(self.forward_upstream, records)
                     self.forward_upstream(Record(last = True))
                     return
+
+                self._parent_records = { r.get_value(key_fields): r for r in records }
 
                 # Update query fields
                 # adding the current query fields allows us to prevent a * to appear when

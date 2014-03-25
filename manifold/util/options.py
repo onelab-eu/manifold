@@ -113,7 +113,6 @@ class Options(object):
         # Command line
         arg_options = {k: v for k, v in vars(args).items() if v}
         self.options.update(arg_options)
-        print "self.options=", self.options
         self.uptodate = True
         
 # Please use add_argument

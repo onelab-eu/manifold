@@ -14,7 +14,7 @@ from types                          import StringTypes
 
 from manifold.core.destination      import Destination
 from manifold.core.exceptions       import ManifoldInternalException
-from manifold.core.fields           import Fields
+from manifold.core.fields           import Fields, FIELD_SEPARATOR
 from manifold.core.filter           import Filter
 from manifold.core.operator_slot    import ParentChildrenSlotMixin, PARENT
 from manifold.core.packet           import Packet
@@ -27,7 +27,7 @@ from manifold.operators.operator    import Operator
 from manifold.operators.projection  import Projection
 from manifold.operators.selection   import Selection
 from manifold.util.log              import Log
-from manifold.util.misc             import dict_set, dict_append
+from manifold.util.misc             import dict_set, dict_append, is_sublist
 from manifold.util.predicate        import Predicate, eq, contains, included
 from manifold.util.type             import accepts, returns
 
@@ -46,7 +46,7 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
     # Constructor
     #---------------------------------------------------------------------------
 
-    def __init__(self, parent_producer, child_producer_relation_list):
+    def __init__(self, parent_producer, child_producer_relation_list, interface):
         """
         Constructor
         Args:
@@ -57,7 +57,7 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
         # Initialization (passing a tuple as producers stores the second parameter as data)
         Operator.__init__(self)
         ParentChildrenSlotMixin.__init__(self)
-
+        self._interface = interface
         self._set_parent(parent_producer)
         self._num_children_started = 0
         for producer, relation in child_producer_relation_list:
@@ -149,17 +149,52 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
             parent_destination.add_filter(predicate)
 
         # Fields
-        for field, subfield in destination.get_fields().iter_field_subfield():
-            parent_destination.add_fields(field)
-            if subfield:
-                # NOTE : the field should be the identifier of the child
-                # Remember that all relations involved in a SubQuery are named.
-                child_destinations[field].add_fields(subfield)
+#DEPRECATED|        for field, subfield in destination.get_fields().iter_field_subfield():
+#DEPRECATED|            # XXX THIS DOES NOT TAKE SHORTCUTS INTO ACCOUNT
+#DEPRECATED|            parent_destination.add_fields(field)
+#DEPRECATED|            if subfield:
+#DEPRECATED|                # NOTE : the field should be the identifier of the child
+#DEPRECATED|                # Remember that all relations involved in a SubQuery are named.
+#DEPRECATED|                child_destinations[field].add_fields(subfield)
+
+
+        parent_fields = self._get_parent().get_destination().get_fields()
+        parent_destination.add_fields(destination.get_fields() & parent_fields)
+        for child_id, child, child_data in self._iter_children():
+#DEPRECATED|            child_fields = Fields()
+#DEPRECATED|            for field in child.get_destination().get_fields():
+#DEPRECATED|                child_fields.add(Fields.join(child_id, field))
+#DEPRECATED|            print "======", self, "==== split destination"
+#DEPRECATED|            print "destination.get_fields()", destination.get_fields() 
+#DEPRECATED|            print "child_destination_fields", child.get_destination().get_fields()
+#DEPRECATED|            print "child=", child
+#DEPRECATED|            print "child_fields", child_fields
+#DEPRECATED|            print "hcild_id", child_id
+#DEPRECATED|            child_destinations[child_id].add_fields(destination.get_fields() & child_fields)
+#DEPRECATED|
+            child_provided_fields = child.get_destination().get_fields() 
+
+            child_fields = Fields()
+            for f in destination.get_fields():
+                for cf in child_provided_fields:
+                    # f.split(FIELD_SEPARATOR)[1:]      # (hops) ttl    (hops) ip
+                    # cf.split(FIELD_SEPARATOR)         # ttl           probes ip 
+                    f_arr = f.split(FIELD_SEPARATOR)
+                    if len(f_arr) > 1 and f_arr[0] == child_id:
+                        f_arr = f_arr[1:]
+                    cf_arr = cf.split(FIELD_SEPARATOR)
+                    flag, shortcut = is_sublist(f_arr, cf_arr)
+                    if f_arr and flag:
+                        child_fields.add(cf)
+
+            child_destinations[child_id].add_fields(child_fields)
         
         # Keys & child objects
         for child_id, child, child_data in self._iter_children():
             predicate = child_data.get('relation').get_predicate()
             parent_destination.add_fields(predicate.get_field_names())
+            # XXX HOSTILE In fact this is not necessary for local keys... But how will
+            # we assembles subrecords ??????
             child_destinations[child_id].add_fields(predicate.get_value_names())
 
             child_object = self._get_child(child_id).get_destination().get_object()
@@ -185,7 +220,6 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
         child_packets = {}
 
         parent_destination, child_destinations = self.split_destination(packet.get_destination())
-
         parent_packet = packet.clone()
         parent_packet.set_destination(parent_destination)
 
@@ -211,13 +245,20 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
             parent_packet, child_packets = self.split_packet(packet)
             for child_id, child_packet in child_packets.items():
                 self._set_child_packet(child_id, child_packet)
+            print "PARENT PACKET WAS", parent_packet
             self.send_to(self._get_parent(), parent_packet)
 
         elif packet.get_protocol() == Packet.PROTOCOL_RECORD:
             source_id = self._get_source_child_id(packet)
 
-            #if packet.get_source() == self._producers.get_parent_producer(): # XXX
             record = packet
+            print "RECEIVE RECORD", record
+
+            # We will extract subrecords from the packet and store them in the
+            # local cache
+            # XXX How can we easily spot subrecords
+
+            #if packet.get_source() == self._producers.get_parent_producer(): # XXX
             if source_id == PARENT: # if not self._parent_done:
 
                 # Store the record for later...
@@ -272,26 +313,51 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
             self.forward_upstream(Record(last = True))
             return
 
+        # We look at every children
         for child_id, child, child_data in self._iter_children():
+            #print "RELATION=", child_data.get('relation')
             predicate = child_data.get('relation').get_predicate()
             child_packet = child_data.get('packet')
+            child_key = predicate.get_value_names()
+            
+# LOCAL CACHE
+#DEPRECATED|            # Before sending the packet to the child, we inspect the parent
+#DEPRECATED|            # records to check for subfields belonging to the children
+#DEPRECATED|            child_records = Records()
+#DEPRECATED|            for parent_record in self.parent_output:
+#DEPRECATED|                _child_records = parent_record.get(child_id)
+#DEPRECATED|                for _child_record in _child_records:
+#DEPRECATED|                    child_fields = Fields(_child_record.keys())
+#DEPRECATED|
+#DEPRECATED|                    # Sometimes key fields are absent from the child, but we can
+#DEPRECATED|                    # get them from the parent
+#DEPRECATED|                    for field in child_key - child_fields:
+#DEPRECATED|                        _child_record[field] = parent_record.get(field)
+#DEPRECATED|
+#DEPRECATED|                    # ADD KEY IF MISSING
+#DEPRECATED|                    #print "-added to child_records=", _child_record
+#DEPRECATED|                    child_records.add_record(Record(_child_record)) # XXX can be removed if all elements are records...
+#DEPRECATED|
+#DEPRECATED|            # XXX We need to inject something in the child packet
+#DEPRECATED|            # It's possible that those child packets miss the full key
+#DEPRECATED|
+#DEPRECATED|            # XXX XXX XXX XXX XXX It would be better that the records are stored
+#DEPRECATED|            # in a local cache
+#DEPRECATED|            # . Do we have access to the router here ?
+#DEPRECATED|            # XXX NOW YES
+#DEPRECATED|            # but in fact it might be better injected in the From operator...
+#DEPRECATED|            # it might be hard to maintain a cache for all queries that will be
+#DEPRECATED|            # performed in parallel, unless we are sure that the results will
+#DEPRECATED|            # always be the same
+#DEPRECATED|            # The advantage of a local cache is that we don't have to locate the
+#DEPRECATED|            # right FROM
+#DEPRECATED|
+#DEPRECATED|            self._interface.add_to_local_cache(
+#DEPRECATED|            
+#DEPRECATED|            child_packet.set_records(child_records)
+# END LOCAL CACHE
 
-            child_records = Records()
-            for parent_record in self.parent_output:
-                _child_records = parent_record.get(child_id)
-                for _child_record in _child_records:
-                    child_key = predicate.get_field_names()
-                    child_fields = Fields(_child_record.keys())
-                    for field in child_key - child_fields:
-                        _child_record[field] = parent_record.get(field)
-                    # ADD KEY IF MISSING
-                    child_records.add_record(Record(_child_record))
-
-            # XXX We need to inject something in the child packet
-            # It's possible that those child packets miss the full key
-
-            child_packet.set_records(child_records)
-
+            print "CHILD PACKET", child_packet
             self.send_to(child, child_packet)
 
 #DEPRECATED|        # Inspect the first parent record to deduce which fields have already
@@ -576,6 +642,8 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
         parent_fields = Fields([field for field in fields if not "." in field]) \
             | Fields([field.split('.')[0] for field in fields if "." in field])
 
+        print "SQ optimize projection requested fields=", fields
+
 
         # XXX We need data associated with each producer
         def handle_child(child_producer, child_data):
@@ -590,7 +658,29 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
             predicate    = relation.get_predicate()
             child_name   = relation.get_relation_name()
             # XXX we have a method for this ?
-            child_fields = Fields([field.split('.', 1)[1] for field in fields if field.startswith("%s." % child_name)])
+            # XXX THIS IS WRONG IN CASE OF SHORTCUTS
+
+            # requested : hops.ip
+            # in child hop: on a ttl et probes.ip
+
+            child_provided_fields = child_producer.get_destination().get_fields() 
+
+            child_fields = Fields()
+            for f in fields:
+                for cf in child_provided_fields:
+                    # f.split(FIELD_SEPARATOR)[1:]      # (hops) ttl    (hops) ip
+                    # cf.split(FIELD_SEPARATOR)         # ttl           probes ip 
+                    f_arr = f.split(FIELD_SEPARATOR)
+                    if len(f_arr) > 1 and f_arr[0] == child_name:
+                        f_arr = f_arr[1:]
+                    cf_arr = cf.split(FIELD_SEPARATOR)
+                    flag, shortcut = is_sublist(f_arr, cf_arr)
+                    if f_arr and flag:
+                        child_fields.add(cf)
+
+            # XXX For the child, we will search for fields that are not in the
+            # parent, we also suppose there are no conflicts... this should have
+            # been solved during the query plan phase...
 
             # 2) Add to child_fields and parent_fields the field names needed to
             # connect the parent to its children. If such fields are added, we will

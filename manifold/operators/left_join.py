@@ -134,6 +134,7 @@ class LeftJoin(Operator, LeftRightSlotMixin):
         predicate = Predicate(tuple(self._predicate.get_value_names()), included, self._left_map.keys())
         self._right_packet.update_query(lambda q: q.filter_by(predicate))
 
+        print "SENDING RIGHT QUERY", self._right_packet
         self._get_right().receive(self._right_packet) # XXX
 
     def receive_impl(self, packet):
@@ -158,7 +159,9 @@ class LeftJoin(Operator, LeftRightSlotMixin):
 
             left_packet        = packet.clone()
             # split filter and fields
-            left_packet.update_query(lambda q: q.select(q.get_fields() & left_fields | left_key, clear = True))
+            # XXX WHY ADDING LEFT KEY IF NOT USED EVER (for example virtual keys for tables without keys, such as probe_traceroute_id)
+            left_packet.update_query(lambda q: q.select(q.get_fields() & left_fields, clear = True))
+            #left_packet.update_query(lambda q: q.select(q.get_fields() & left_fields | left_key, clear = True))
             left_packet.update_query(lambda q: q.filter_by(q.get_filter().split_fields(left_fields, True), clear = True))
 
             #import sys
@@ -181,7 +184,6 @@ class LeftJoin(Operator, LeftRightSlotMixin):
 
             #if packet.get_source() == self._producers.get_parent_producer(): # XXX
             if not self._left_done:
-
                 if not record.is_empty():
                     if not record.has_fields(self._predicate.get_field_names()):
                         Log.warning("Missing LEFTJOIN predicate %s in left record %r : forwarding" % \
@@ -203,7 +205,6 @@ class LeftJoin(Operator, LeftRightSlotMixin):
 
             else:
                 # formerly right_callback()
-
                 if not record.is_empty():
                     # Skip records missing information necessary to join
                     if not set(self._predicate.get_value_names()) <= set(record.keys()) \

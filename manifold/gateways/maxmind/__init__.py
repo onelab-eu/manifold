@@ -94,6 +94,7 @@ class MaxMindGateway(Gateway):
             records = instance.get(query, packet.get_annotation())
         else:
             raise RuntimeError("Invalid object %s" % table_name) 
+        print "MAXMIND RECORDS", records
         self.records(records, packet)
 
     #---------------------------------------------------------------------------

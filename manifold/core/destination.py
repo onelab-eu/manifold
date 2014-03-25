@@ -4,6 +4,8 @@ from manifold.core.filter import Filter
 from manifold.core.fields import Fields
 from manifold.util.misc   import is_iterable
 
+import copy
+
 class Destination(object):
 
 
@@ -14,7 +16,7 @@ class Destination(object):
     def __init__(self, object = None, filter = None, fields = None):
         # Until all fields have the proper type...
         if fields is None:
-            fields = Fields(star = True)
+            fields = Fields(star = False)
         elif not isinstance(fields, Fields):
             fields = Fields(fields)
 
@@ -98,6 +100,13 @@ class Destination(object):
             filter = self._filter,
             fields = self._fields & fields)
 
+    def rename(self, aliases):
+        return Destination(
+            object = self._object,
+            filter = self._filter.copy().rename(aliases),
+            fields = self._fields.copy().rename(aliases)
+        )
+
     # XXX This is the opposite of split, we name it merge
     def subquery(self, children_destination_relation_list):
         object = self._object
@@ -105,8 +114,9 @@ class Destination(object):
         fields = self._fields
         for destination, relation in children_destination_relation_list:
             # We are sure that all relations triggering a SubQuery have a name
-            name = relation.get_name()
+            name = relation.get_relation_name()
             for predicate in destination.get_filter():
                 key, op, value = predicate.get_tuple()
                 filter.filter_by("%s.%s" % (name, key), op, value)
-            fields |= set(['%s.%s' % (name, f) for f in destination.get_fields()])
+            fields |= Fields(['%s.%s' % (name, f) for f in destination.get_fields()])
+        return Destination(object, filter, fields)

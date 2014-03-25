@@ -13,6 +13,7 @@ from copy                       import deepcopy
 from types                      import StringTypes
 
 from manifold.core.field        import Field
+from manifold.core.fields       import Fields
 from manifold.types             import BASE_TYPES
 from manifold.core.filter       import Filter
 from manifold.core.key          import Key, Keys 
@@ -257,7 +258,7 @@ class Table(object):
         del(self.fields[field_name])
         return ret
 
-    def insert_key(self, key):
+    def insert_key(self, key, local = None):
         """
         Add a Key in this Table.
         Args:
@@ -269,6 +270,11 @@ class Table(object):
         Raises:
             TypeError: if the key argument is not valid. 
         """
+        if local:
+            self.keys.set_local(local)
+        if key is None:
+            return
+
         if isinstance(key, Key):
             self.keys.add(key)
         else:
@@ -363,7 +369,7 @@ class Table(object):
         Returns:
             A set of Strings (one String per field name).
         """
-        return set(self.fields.keys())
+        return Fields(self.fields.keys())
 
     @returns(Keys)
     def get_keys(self):
@@ -372,6 +378,10 @@ class Table(object):
             The Keys instance related to this Table.
         """
         return self.keys
+
+    @returns(Key)
+    def get_key(self):
+        return self.get_keys().one()
 
     @returns(Capabilities)
     def get_capabilities(self):
@@ -639,6 +649,14 @@ class Table(object):
         v = table
 
         relations = set()
+
+        # LOCAL RELATIONSHIPS
+        #print "u.keys.get_local()", u.keys.get_local(), v.get_name()
+        #print "v.keys.get_local()", v.keys.get_local(), u.get_name()
+        if u.keys.get_local() == v.get_name():
+            relations.add(Relation(Relation.types.LINK_1N, p, name=v.get_name()))
+        elif v.keys.get_local() == u.get_name():
+            relations.add(Relation(Relation.types.LINK_1N, p, name=u.get_name()))
 
         u_key = u.keys.one()
         v_key = v.keys.one()

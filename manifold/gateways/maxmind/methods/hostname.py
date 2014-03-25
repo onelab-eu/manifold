@@ -37,7 +37,7 @@ class Hostname(Object):
         platform_name = self.get_gateway().get_platform_name()
 
         @returns(list)
-        @announces_from_docstring("hostname")
+        @announces_from_docstring(platform_name)
         def make_announces_impl():
             """
             // See record_by_name
