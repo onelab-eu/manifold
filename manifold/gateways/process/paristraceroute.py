@@ -4,6 +4,7 @@
 import pyparsing as pp
 from .                  import ProcessGateway, Argument, Parameter, Output, FLAG_IN_ANNOTATION, FLAG_OUT_ANNOTATION, FLAG_ADD_FIELD
 from ...util.log        import Log
+from ...core.record     import Record, Records
 
 class ParisTracerouteParser(object):
     """
@@ -19,7 +20,7 @@ class ParisTracerouteParser(object):
         BRA         = pp.Literal('[').suppress()
         KET         = pp.Literal(']').suppress()
         COMA        = pp.Literal(',').suppress()
-        STAR        = pp.Literal('*').setParseAction( lambda t: None )
+        STAR        = pp.Literal('*').setParseAction(lambda t: [None])
         SHARP       = pp.Literal('#').suppress()
         PPLB_FLAG   = pp.Literal('=').suppress()
         PFLB_FLAG   = pp.Literal('<').suppress()
@@ -86,6 +87,17 @@ class ParisTracerouteParser(object):
         self.a = mpls_ext
 
 
+        def make_probe(t=None):
+            if not t:
+                return {'ip': None}
+            probe = {}
+            if 'ip' in t:
+                probe['ip'] = t['ip']
+            if 'hostname' in t:
+                probe['hostname'] = t['hostname']
+            if 'rtt' in t:
+                probe['rtt'] = t['rtt']
+            return probe
         probe = (
                 STAR.setResultsName('ip') # mpls after * ?
         |       pp.Optional(
@@ -99,7 +111,7 @@ class ParisTracerouteParser(object):
             +   pp.Optional(LCUR + value + RCUR).suppress()
             +   pp.Optional(BRA + value + KET).suppress()
 #            +   pp.Optional(mpls_ext.setResultsName('mpls'))
-        ).setParseAction(lambda t: t.asDict())
+        ).setParseAction(make_probe)#lambda t: t.asDict())
 
         probe_exhaustive = (
                 interface
@@ -111,7 +123,7 @@ class ParisTracerouteParser(object):
         def make_hop(t):
             hop = {
                 'ttl': t['ttl'],
-                'probes': t['probes'].asList(),
+                'probes': Records(t['probes'].asList()),
             }
             return hop
         hop = (
@@ -186,21 +198,42 @@ class ParisTracerouteParser(object):
             +   pp.Literal('s').suppress()
         ).setParseAction(parse_header)# lambda t: t.asDict())
 
+        def make_traceroute(t):
+            traceroute = {
+                'source': {
+                  'ip':   t['header']['src_ip'],
+                  'port': t['header']['sport']
+                },
+                'destination': {
+                  'ip':   t['header']['dst_ip'],
+                  'port': t['header']['dport']
+                },
+                'protocol': t['header']['proto'],
+                'duration': t['header']['duration'],
+                'algo': t['header']['algo'],
+            }
+
+            traceroute['hops'] = Records(t['hops'].asList())
+            if 'ts' in traceroute:
+                traceroute['ts'] = t['ts']
+            return traceroute
+
         text_output = (
                 text_header.setResultsName('header')
             +   pp.Optional(timestamp).setResultsName('ts')
-            +   pp.Group(pp.OneOrMore(hop | hop_exhaustive | error)).setResultsName('hops')
-        )
+            +   pp.Group(pp.OneOrMore(hop | hop_exhaustive | error.suppress())).setResultsName('hops')
+        ).setParseAction(make_traceroute)
 
         self.bnf = pp.Optional(pp.delimitedList(error, delim='')) + (
                 text_output
             |   raw_output
-        ).setParseAction(lambda t: t.asDict())
+        )
 
     def parse(self, string):
         try:
             result = self.bnf.parseString(string, parseAll=True)
-            return result.asList()
+
+            return Records(result.asList())
         except pp.ParseException, e:
             Log.warning("Error line %s, column %s:" % (e.lineno, e.col))
             Log.warning(e.line)
@@ -250,19 +283,30 @@ class ParisTracerouteGateway(ProcessGateway):
 # FOR FUTURE USE|        packet packet;
 # FOR FUTURE USE|        timestamp timestamp;
 # FOR FUTURE USE|    };
+
+    # Ideally we should specify an index for the probe_traceroute, that could
+    # act as a key
     announces = """
     class probe_traceroute {
-        inet ip;
+        ip ip;
         string hostname;
+        CAPABILITY(join);
+        LOCAL KEY(ip);
     };
 
     class hop {
         const unsigned ttl;
-        probe probes[];
+        probe_traceroute probes[];
+        CAPABILITY(join);
+        LOCAL KEY(ttl);
     };
 
     class traceroute {
+        ip source;
+        ip destination;
         hop hops[];
+        CAPABILITY(join);
+        KEY(source, destination);
     };
 
     """

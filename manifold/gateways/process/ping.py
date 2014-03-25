@@ -200,6 +200,21 @@ class PingGateway(ProcessGateway):
 #DEPRECATED|            type        = 'delay'
 #DEPRECATED|        ),
 #DEPRECATED|    ]
+    announces = """
+    class probe_ping {
+        float rtt;
+        CAPABILITY(join);
+    };
+
+    class ping {
+        inet source;
+        inet destination;
+        probe_ping probes[];
+        CAPABILITY(join);
+        KEY(source, destination);
+    };
+    """
+    output = Output(PingParser, announces, 'ping')
     path = '/bin/ping'
 
     def parse(self, filename):

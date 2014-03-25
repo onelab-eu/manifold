@@ -88,9 +88,8 @@ class Shell(object):
     def bootstrap(self):
         if self.is_interactive():
             if not self._auth_method:
-                self.set_auth_method('router')
-            else:
-                self.select_auth_method(self._auth_method)
+                self._auth_method = Options().auth_method
+            self.select_auth_method(self._auth_method)
             if not self.client:
                 raise RuntimeError("No client set")
 
@@ -169,7 +168,7 @@ class Shell(object):
         )
         opt.add_argument(
             "-z", "--auth-method", dest = "auth_method",
-            help    = 'Choice of the authentication method: auto, anonymous, password, gid',
+            help    = 'Choice of the authentication method: auto, password, gid, local, router',
             default = "auto"
         )
 
@@ -265,7 +264,6 @@ class Shell(object):
             self.authenticate_local(username)
 
         elif auth_method == 'router':
-            print" AUTH METHOD = ROUTER"
             username = Options().username
             self.authenticate_router(username)
 

@@ -16,7 +16,7 @@ from types                          import StringTypes
 from manifold.core.destination      import Destination
 from manifold.core.operator_slot    import ChildSlotMixin
 from manifold.core.packet           import Packet
-from manifold.core.record           import Record
+from manifold.core.record           import Record, Records
 from manifold.core.node             import Node 
 from manifold.operators.operator    import Operator
 from manifold.util.log              import Log
@@ -50,7 +50,7 @@ def do_projection(record, fields):
     for method, subfields in subqueries.items():
         # record[method] is an array whose all elements must be
         # filtered according to subfields
-        arr = []
+        arr = Records()
         if not method in record:
             continue
         for x in record[method]:
@@ -160,7 +160,7 @@ class Projection(Operator, ChildSlotMixin):
 
     @returns(Node)
     def optimize_selection(self, filter):
-        self._get_child().optimize_selection(filter)
+        self._update_child(lambda c, d: c.optimize_selection(filter))
         return self
 
     @returns(Node)

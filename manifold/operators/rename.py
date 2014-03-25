@@ -11,9 +11,12 @@
 
 from types                          import StringTypes
 
+from manifold.core.destination      import Destination
 from manifold.core.node             import Node
 from manifold.core.operator_slot    import ChildSlotMixin
 from manifold.core.packet           import Packet
+from manifold.core.query            import Query
+from manifold.core.record           import Records
 from manifold.operators.operator    import Operator
 from manifold.util.log              import Log 
 from manifold.util.type             import returns
@@ -24,7 +27,7 @@ DUMPSTR_RENAME = "RENAME %r"
 # RENAME node
 #------------------------------------------------------------------
 
-class Rename(Operator):
+class Rename(Operator, ChildSlotMixin):
 
     #---------------------------------------------------------------------------
     # Constructor
@@ -64,6 +67,8 @@ class Rename(Operator):
         """
         return self._aliases
 
+
+    # XXX ?
     @returns(StringTypes)
     def get_alias(self, field_name):
         """
@@ -94,6 +99,82 @@ class Rename(Operator):
     # Methods
     #---------------------------------------------------------------------------
 
+    @returns(Destination)
+    def get_destination(self):
+        """
+        Returns:
+            The Destination corresponding to this Operator. 
+        """
+        d = self._get_child().get_destination()
+        rmap = {v: k for k, v in self.get_aliases().items()}
+        return d.rename(self.get_aliases())
+
+    def process_query(self, packet):
+        # Do we really need to clone the packet ? We might modify the query in
+        # place...
+        new_packet = packet.clone()
+
+        # Build a reverse map of renaming aliases. The map is optimized for
+        # translating records, which are supposed to be more numerous.
+        rmap = {v: k for k, v in self.get_aliases().items()}
+
+        # NOTE: Steps 1) and 2) deal with the destination
+
+        destination = packet.get_destination()
+
+        # 1) Process filter
+        destination.get_filter().rename(rmap)
+
+        # 2) Process fields
+        destination.get_fields().rename(rmap)
+
+        packet.set_destination(destination)
+
+        # 3) Process params (move to a Params() class ?)
+        # XXX This is about the "applicative layer"
+        params = packet.get_query().get_params()
+        for key in params.keys():
+            if key in rmap:
+                params[rmap[key]] = params.pop(key)
+
+        # XXX Process records
+        records = packet.get_records()
+        if records:
+            packet.set_records(self.process_records(records))
+
+        return packet
+
+    def process_record(self, record):
+        """
+        This function modifies the record packet in place.
+
+        NOTES:
+         . It might be better to iterate on the record fields
+         . It seems we only handle two levels of hierarchy. This is okay I think
+        since in the query plan, further layers will be broken down across
+        several subqueries.
+        """
+        if record.is_empty():
+            return record
+        for k, v in self.get_aliases().items():
+            if k in record:
+                if '.' in v: # users.hrn
+                    method, key = v.split('.')
+                    # Careful to cases such as hops --renamed--> hops.ttl
+                    if not method in record:
+                        record[method] = Records() 
+                    for x in record[k]:
+                        record[method].append({key: x})        
+                else:
+                    record[v] = record.pop(k)
+        return record
+
+    def process_records(self, records):
+        """
+        This function replaces the list of records in the (query) packet.
+        """
+        return Records([self.process_record(r) for r in records])
+
     def receive_impl(self, packet):
         """
         Handle an incoming Packet instance.
@@ -101,29 +182,12 @@ class Rename(Operator):
             packet: A Packet instance.
         """
         if packet.get_protocol() == Packet.PROTOCOL_QUERY:
-            # XXX need to remove the filter in the query
-            new_packet = packet.clone()
-            packet.update_query(Query.unfilter_by, self._filter)
-            self._get_child().send(new_packet)
+            new_packet = self.process_query(packet)
+            self._get_child().receive(new_packet)
 
         elif packet.get_protocol() == Packet.PROTOCOL_RECORD:
-            record = packet
-            #record = { self._aliases.get(k, k): v for k, v in record.items() }
-            try:
-                for k, v in self._aliases.items():
-                    if k in record:
-                        if '.' in v: # users.hrn
-                            method, key = v.split('.')
-                            if not method in record:
-                                record[method] = list() 
-                            for x in record[k]:
-                                record[method].append({key: x})        
-                        else:
-                            record[v] = record.pop(k) #record[k]
-                        #del record[k]
-                self.forward_upstream(record)
-            except Exception, e:
-                self.error("Error in Rename::receive: %s" % e)
+            new_packet = self.process_record(packet)
+            self.forward_upstream(new_packet)
 
         else: # TYPE_ERROR
             self.forward_upstream(packet)
@@ -137,7 +201,7 @@ class Rename(Operator):
         """
         super(Demux, self).dump(indent)
         self.get_producer().dump(indent + 1)
-    
+
     @returns(Node)
     def optimize_selection(self, filter):
         """
@@ -147,9 +211,9 @@ class Rename(Operator):
         Returns:
             The root Operator of the optimized sub-AST.
         """
-        Log.tmp("Not yet tested")
-        # We must rename fields involved in filter
-        # self.get_producer().optimize_selection(query, updated_filter)
+        rmap = {v: k for k, v in self.get_aliases().items()}
+        new_filter = filter.copy().rename(rmap)
+        self._update_child(lambda c, d: c.optimize_selection(new_filter))
         return self
 
     @returns(Node)
@@ -161,7 +225,11 @@ class Rename(Operator):
         Returns:
             The root Operator of the optimized sub-AST.
         """
-        Log.tmp("Not yet tested")
-        # We must rename fields involved in fields
-        self.get_producer().optimize_projection(query, updated_fields)
+        rmap = {v: k for k, v in self.get_aliases().items()}
+        new_fields = fields.copy().rename(rmap)
+        self._update_child(lambda c, d: c.optimize_projection(new_fields))
         return self
+
+    @returns(Node)
+    def reorganize_create(self):
+        return self._get_child().reorganize_create()

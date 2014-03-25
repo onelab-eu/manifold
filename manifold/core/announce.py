@@ -16,6 +16,7 @@ from types                          import StringTypes
 from manifold.core.capabilities     import Capabilities
 from manifold.core.field            import Field 
 from manifold.core.key              import Key, Keys
+from manifold.core.packet           import Packet
 from manifold.core.table            import Table
 from manifold.util.clause           import Clause
 from manifold.util.log              import Log
@@ -39,7 +40,8 @@ PATTERN_CLASS        = "(class)"
 PATTERN_ARRAY        = "(\[\])?"
 PATTERN_CLASS_BEGIN  = PATTERN_SPACE.join([PATTERN_CLASS, PATTERN_SYMBOL, "{"])
 PATTERN_CLASS_FIELD  = PATTERN_SPACE.join([PATTERN_QUALIFIERS, PATTERN_SYMBOL, PATTERN_OPT_SPACE.join([PATTERN_SYMBOL, PATTERN_ARRAY, ";"])])
-PATTERN_CLASS_KEY    = PATTERN_OPT_SPACE.join(["KEY\((", PATTERN_SYMBOL, "(,", PATTERN_SYMBOL, ")*)\)", ";"])
+PATTERN_CLASS_KEY    = PATTERN_OPT_SPACE.join(["(LOCAL )?KEY\((", PATTERN_SYMBOL, "(,", PATTERN_SYMBOL, ")*)?\)", ";"])
+#PATTERN_CLASS_KEY    = PATTERN_OPT_SPACE.join(["(LOCAL )?KEY\((", PATTERN_SYMBOL, "(,", PATTERN_SYMBOL, ")*)\)", ";"])
 PATTERN_CLASS_CAP    = PATTERN_OPT_SPACE.join(["CAPABILITY\((", PATTERN_SYMBOL, "(,", PATTERN_SYMBOL, ")*)\)", ";"])
 PATTERN_CLASS_CLAUSE = PATTERN_OPT_SPACE.join(["PARTITIONBY\((", PATTERN_CLAUSE, ")\)", ";"])
 PATTERN_CLASS_END    = PATTERN_OPT_SPACE.join(["}", ";"])
@@ -89,7 +91,7 @@ class MetadataEnum:
 # Announce
 #------------------------------------------------------------------
 
-class Announce(object):
+class Announce(Packet):
     def __init__(self, table, cost = None):
         """
         Constructor.
@@ -99,8 +101,8 @@ class Announce(object):
         """
         assert isinstance(table, Table), \
             "Invalid table = %s (%s)" % (table, type(table))
-        self.table = table
-        self.cost = cost
+        self._table = table
+        self._cost = cost
 
     @returns(Table)
     def get_table(self):
@@ -108,7 +110,7 @@ class Announce(object):
         Returns:
             The Table instance nested in this Announce.
         """
-        return self.table
+        return self._table
 
     @returns(int)
     def get_cost(self):
@@ -116,7 +118,7 @@ class Announce(object):
         Returns:
             The cost related to this Announce.
         """
-        return self.cost
+        return self._cost
 
     @returns(StringTypes)
     def __repr__(self):
@@ -124,7 +126,7 @@ class Announce(object):
         Returns:
             The '%r' representation of this Announce.
         """
-        return "<Announce %r>" % self.table
+        return "<Announce %r>" % self._table
 
     @returns(StringTypes)
     def __str__(self):
@@ -132,7 +134,7 @@ class Announce(object):
         Returns:
             The '%r' representation of this Announce.
         """
-        return "Announce: %s" % self.table
+        return "Announce: %s" % self._table
 
 
     @returns(dict)
@@ -141,7 +143,7 @@ class Announce(object):
         Returns:
             The dict representation of this Announce.
         """
-        return self.table.to_dict()
+        return self._table.to_dict()
 
 class Announces(list):
 
@@ -313,11 +315,16 @@ def parse_dot_h(iterable, filename = None):
                 continue
 
             #    KEY(my_field1, my_field2);
+            #    LOCAL KEY(my_field1, my_field2);
             m = REGEXP_CLASS_KEY.match(line)
             if m:
-                key = m.group(1).split(',')
-                key = [key_elt.strip() for key_elt in key]
-                tables[table_name].insert_key(key)
+                local_key_reference = table_name if bool(m.group(1)) else None
+                if m.group(2):
+                    key = m.group(2).split(',')
+                    key = [key_elt.strip() for key_elt in key]
+                else:
+                    key = None
+                tables[table_name].insert_key(key, local_key_reference)
                 # XXX
                 #if key not in tables[table_name].keys:
                 #     tables[table_name].keys.append(key)

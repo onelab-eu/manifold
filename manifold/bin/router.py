@@ -82,10 +82,10 @@ class RouterServer(asyncore.dispatcher):
 
         # conflict when adding both
         self._router.add_platform('ping', 'ping_process')
-#        self._router.add_platform('paristraceroute', 'paristraceroute_process')
+        self._router.add_platform('paristraceroute', 'paristraceroute_process')
 
-        self._router.add_platform('agent',  'manifold', {'url': 'http://ple2.ipv6.lip6.fr:58000/RPC/'})
-        self._router.add_platform('agent2', 'manifold', {'url': 'http://planetlab2.cs.du.edu:58000/RPC/'})
+#DEPRECATED|        self._router.add_platform('agent',  'manifold', {'url': 'http://ple2.ipv6.lip6.fr:58000/RPC/'})
+#DEPRECATED|        self._router.add_platform('agent2', 'manifold', {'url': 'http://planetlab2.cs.du.edu:58000/RPC/'})
         self._router.add_platform('maxmind', 'maxmind')
 
         self.create_socket(socket.AF_UNIX, socket.SOCK_STREAM)

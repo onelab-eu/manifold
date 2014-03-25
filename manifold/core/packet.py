@@ -151,7 +151,8 @@ class Packet(object):
         # method to avoid modifying the original state.
         state = self.__dict__.copy()
         # Remove the unpicklable entries.
-        del state['_source']
+        if '_source' in state:
+            del state['_source']
         if '_receiver' in state:
             del state['_receiver']
         return state
@@ -204,6 +205,17 @@ class QueryPacket(Packet):
         self._receiver    = receiver
         self._source      = source
         self._records     = records
+
+    @returns(StringTypes)
+    def __repr__(self):
+        """
+        Returns:
+            The '%r' representation of this ERROR Packet.
+        """
+        return "<Packet.%s: %s>" % (
+            Packet.get_protocol_name(self.get_protocol()),
+            self._query
+        )
 
     #---------------------------------------------------------------------------
     # Accessors
@@ -277,7 +289,11 @@ class QueryPacket(Packet):
         query      = self._query.clone()
         annotation = self._annotation
         receiver   = self._receiver
-        records    = copy.deepcopy(self._records)
+        try:
+            records    = copy.deepcopy(self._records)
+        except Exception, e:
+            print "exception in clone", e
+            import pdb; pdb.set_trace()
         return QueryPacket(query, annotation, receiver, records = records)
 
     @returns(StringTypes)
@@ -380,7 +396,7 @@ class ErrorPacket(Packet):
     def __repr__(self):
         """
         Returns:
-            The '%r' representation of this QUERY Packet.
+            The '%r' representation of this ERROR Packet.
         """
         return "<Packet.%s: %s>" % (
             Packet.get_protocol_name(self.get_protocol()),
@@ -391,6 +407,6 @@ class ErrorPacket(Packet):
     def __str__(self):
         """
         Returns:
-            The '%s' representation of this QUERY Packet.
+            The '%s' representation of this ERROR Packet.
         """
         return self.__repr__() 

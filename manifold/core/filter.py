@@ -12,10 +12,12 @@
 #   Jordan Augé         <jordan.auge@lip6.fr
 #   Marc-Olivier Buob   <marc-olivier.buob@lip6.fr>
 
+import copy
 from types                      import StringTypes
 
+from manifold.core.fields       import Fields
 from manifold.util.misc         import is_iterable
-from manifold.util.predicate    import Predicate, eq
+from manifold.util.predicate    import Predicate, eq, included
 from manifold.util.type         import accepts, returns 
 
 class Filter(set):
@@ -137,6 +139,10 @@ class Filter(set):
             raise TypeError("Element of class Predicate expected, received %s" % value.__class__.__name__)
         set.__additem__(self, value)
 
+
+    def copy(self):
+        return copy.deepcopy(self)
+
     @returns(set)
     def keys(self):
         """
@@ -239,7 +245,7 @@ class Filter(set):
 
     @returns(set)
     def get_field_names(self):
-        field_names = set()
+        field_names = Fields()
         for predicate in self:
             field_names |= predicate.get_field_names()
         return field_names
@@ -269,6 +275,19 @@ class Filter(set):
 
     def split_fields(self, fields, true_only = False):
         return self.split(lambda predicate: predicate.get_key() in fields, true_only)
+
+    def provides_key_field(self, key_fields):
+        # No support for tuples
+        for field in key_fields:
+            if not self.has_op(field, eq) and not self.has_op(field, included):
+                print "missing key fields", field, "in query filters", self
+                return False
+        return True
+
+    def rename(self, aliases):
+        for predicate in self:
+            predicate.rename(aliases)
+        return self
 
     # __eq__ : similar to set.__eq__   
     # __le__: For now, we are using set equality, but this is wrong per se.

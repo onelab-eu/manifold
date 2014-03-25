@@ -22,6 +22,7 @@ from types                          import StringTypes
 
 from manifold.core.ast              import AST
 from manifold.core.explore_task     import ExploreTask
+from manifold.core.fields           import Fields
 from manifold.core.node             import Node
 from manifold.core.query            import ACTION_CREATE, ACTION_UPDATE
 from manifold.core.stack            import Stack
@@ -43,7 +44,7 @@ class QueryPlan(object):
 
         self.foreign_key_fields = dict()
 
-    def set_ast(self, ast, query):
+    def set_ast(self, ast_sq_rename_dict, query):
         """
         Complete an AST in order to take into account SELECT and WHERE clauses
         involved in a user Query.
@@ -51,11 +52,12 @@ class QueryPlan(object):
             ast: An AST instance is made of Union, LeftJoin, SubQuery [...] Nodes.
             query: The Query issued by the user.
         """
+        ast, sq_rename_dict = ast_sq_rename_dict
         assert isinstance(ast, AST),\
             "Invalid ast = %s (%s)" % (ast, type(ast))
 
         destination = query.get_destination()
-        ast.get_root().format_downtree()
+        #print "QUERY PLAN:", ast.get_root().format_downtree()
         if query.get_action() in [ACTION_CREATE, ACTION_UPDATE]:
             ast.reorganize_create()
         ast.optimize(destination)
@@ -119,13 +121,17 @@ class QueryPlan(object):
                 ", ".join(table_names)
             ))
 
-        if not root_table.get_capabilities().retrieve:
-            raise RuntimeError("Table '%s' hasn't RETRIEVE capability and cannot be used in a FROM clause:\n%s" % (
-                query.get_from(),
-                root_table
-            ))
+#DEPRECATED|        if not root_table.get_capabilities().retrieve:
+#DEPRECATED|            key_fields = root_table.get_key().get_field_names()
+#DEPRECATED|            can_do_join = root_table.get_capabilities().join and \
+#DEPRECATED|                          query.get_filter().provides_key_field(key_fields)
+#DEPRECATED|            if not can_do_join:
+#DEPRECATED|                raise RuntimeError("Table '%s' hasn't RETRIEVE capability and cannot be used in a FROM clause:\n%s" % (
+#DEPRECATED|                    query.get_from(),
+#DEPRECATED|                    root_table
+#DEPRECATED|                ))
        
-        root_task = ExploreTask(router, root_table, relation = None, path = list(), parent = self, depth = 1)
+        root_task = ExploreTask(router, root_table, relation = None, path = [query.get_from()], parent = self, depth = 1)
         if not root_task:
             raise RuntimeError("Unable to build a suitable QueryPlan")
         root_task.addCallback(self.set_ast, query)
@@ -133,13 +139,13 @@ class QueryPlan(object):
         stack = Stack(root_task)
         seen = dict() # path -> set()
 
-        missing_fields = set()
+        missing_fields = Fields()
         if query.get_fields().is_star():
             missing_fields |= root_table.get_field_names()
         else:
             missing_fields |= query.get_fields()
         missing_fields |= query.get_filter().get_field_names()
-        missing_fields |= set(query.get_params().keys())
+        missing_fields |= Fields(query.get_params().keys())
 
         while missing_fields:
             # Explore the next prior ExploreTask
@@ -150,6 +156,7 @@ class QueryPlan(object):
             if not task:
                 raise RuntimeError("Exploration terminated without finding fields: %r" % missing_fields)
 
+            # We keep track of the paths that have been traversed
             pathstr = '.'.join(task.path)
             if not pathstr in seen:
                 seen[pathstr] = set()

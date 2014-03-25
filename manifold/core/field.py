@@ -11,7 +11,6 @@ import copy
 from types              import StringTypes
 
 from manifold.types     import type_by_name, BASE_TYPES
-from manifold.util.log  import Log
 from manifold.util.type import returns, accepts 
 
 class Field(object):

@@ -87,6 +87,7 @@ class ProcessGateway(Gateway):
 
         # Compute process arguments from query
         args = (self.get_fullpath(),) + self.get_argtuple(query, annotation)
+        print "EXECUTING", args
 
         tmp_filename = '/tmp/manifold-process'
         ret = self.execute_process(args, tmp_filename)

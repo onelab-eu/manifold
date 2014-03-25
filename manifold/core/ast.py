@@ -24,6 +24,7 @@ from manifold.operators.From                import From
 from manifold.operators.from_table          import FromTable
 from manifold.operators.left_join           import LeftJoin
 from manifold.operators.operator            import Operator
+from manifold.operators.rename              import Rename
 from manifold.operators.projection          import Projection
 from manifold.operators.selection           import Selection
 from manifold.operators.subquery            import SubQuery
@@ -221,6 +222,13 @@ class AST(object):
         self.root = Selection(self.get_root(), filters)
         return self
 
+    def rename(self, rename_dict):
+        if not rename_dict:
+            return self
+        self.root = Rename(self.get_root(), rename_dict)
+        return self
+
+
     #@returns(AST)
     def subquery(self, children_ast_relation_list):
         """
@@ -236,7 +244,7 @@ class AST(object):
         assert not self.is_empty(), "AST not initialized"
 
         children = map(lambda (ast, relation): (ast.get_root(), relation), children_ast_relation_list)
-        self.root = SubQuery(self.get_root(), children)
+        self.root = SubQuery(self.get_root(), children, self._interface)
         return self
 
     #@returns(AST)

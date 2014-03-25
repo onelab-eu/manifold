@@ -86,6 +86,7 @@ class Ip(Object):
                     )
                 )
 
+        print "MAXMIND", ip_list
         for ip in ip_list:
             if not ip:
                 continue

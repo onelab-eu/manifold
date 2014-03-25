@@ -641,11 +641,15 @@ def to_3nf(metadata):
     """
     # 1) Compute functional dependancies
     tables = list() 
+    local_tables = list()
     map_method_capabilities = dict() 
     for platform, announces in metadata.items():
         for announce in announces:
             table = announce.get_table()
-            tables.append(table)
+            if table.keys.get_local() and not table.keys:
+                local_tables.append(table)
+            else:
+                tables.append(table)
             map_method_capabilities[Method(platform, table.get_name())] = table.get_capabilities()
     fds = make_fd_set(tables)
 
@@ -826,6 +830,9 @@ def to_3nf(metadata):
 #                        table_3nf.set_capability(announce.get_table().get_capabilities()) 
 #                    elif capabilities != announce.get_table().get_capabilities():
 #                        Log.warning("Conflicting capabilities for tables %r and %r" % (table_3nf, announce.get_table()))
+
+    # Adding local tables
+    tables_3nf.extend(local_tables)
                 
     # 7) Building DBgraph
     graph_3nf = DBGraph(tables_3nf, map_method_capabilities)

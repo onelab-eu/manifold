@@ -554,7 +554,6 @@ class Router(Interface):
                 #message   = "Unable to execute Query Plan (query = %s): %s" % (query, e),
                 traceback = traceback.format_exc()
             )
-            print "ECC"
             traceback.print_exc()
             receiver.receive(error_packet)
 
