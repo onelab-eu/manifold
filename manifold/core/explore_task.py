@@ -621,7 +621,7 @@ class ExploreTask(Deferred):
                 # We need to connect the right gateway
                 # XXX
 
-                from_ast = AST(self._interface).From(platform, query, capabilities, key, self._interface)
+                from_ast = AST(self._interface).From(platform, query, capabilities, key)
 #DEPRECATED|                query_plan.add_from(from_ast.get_root())
 #DISABLED|                try:
 #DISABLED|                    if method in table.methods_demux:
