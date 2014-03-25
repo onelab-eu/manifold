@@ -167,7 +167,12 @@ class RouterDaemon(Daemon):
         Function called when the RouterDaemon must stops.
         """
         Log.info("Stopping RouterServer")
-        self._router_server.terminate()
+        try:
+            self._router_server.terminate()
+        except AttributeError:
+            # self._router_server may not exists for instance if the
+            # socket is already in use.
+            pass
 
 #DEPRECATED|Gateway.register_all()
 #DEPRECATED|server = RouterServer()
