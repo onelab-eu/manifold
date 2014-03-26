@@ -132,6 +132,18 @@ class RouterDaemon(Daemon):
             self.terminate_callback
         )
 
+    @staticmethod
+    def init_options():
+        """
+        Prepare options supported by RouterDaemon.
+        """
+        options = Options()
+        options.add_argument(
+            "-S", "--socket", dest = "socket_path",
+            help = "Socket that will read the Manifold router.",
+            default = RouterDaemon.DEFAULTS["socket_path"]
+        )
+
     def main(self):
         """
         Run ManifoldServer (called by Daemon::start).
@@ -150,18 +162,6 @@ class RouterDaemon(Daemon):
             asyncore.loop()
         finally:
             self._router_server.terminate()
-
-    @staticmethod
-    def init_options():
-        """
-        Prepare options supported by RouterDaemon.
-        """
-        options = Options()
-        options.add_argument(
-            "-S", "--socket", dest = "socket_path",
-            help = "Socket that will read the Manifold router.",
-            default = RouterDaemon.DEFAULTS["socket_path"]
-        )
 
     def terminate_callback(self):
         """

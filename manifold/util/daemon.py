@@ -13,6 +13,7 @@
 # named identically...
 from __future__ import absolute_import
 
+import traceback
 from manifold.util.singleton    import Singleton
 from manifold.util.log          import Log
 from manifold.util.options      import Options
@@ -243,6 +244,7 @@ class Daemon(object):
                 self.main()
             except Exception, why:
                 Log.error("Unhandled exception in start: %s" % why)
+                Log.error(traceback.format_exc())
                 self.terminate()
 
     def signal_handler(self, signal_id, frame):
@@ -267,4 +269,10 @@ class Daemon(object):
         if self.terminate_callback:
             self.terminate_callback()
         self.remove_pid_file()
+        self.leave()
+
+    def leave(self):
+        """
+        Overload this method if you use twisted (see xmlrpc.py)
+        """
         sys.exit(0)

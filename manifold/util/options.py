@@ -63,7 +63,7 @@ class Options(object):
         """
         self.options = dict() 
         self.add_argument(
-            "-c", "--config", dest = "cfg_file",
+            "-c", "--config", dest = "cfg_filename",
             help = "Config file to use.", metavar = 'FILE',
             default = self.CONF_FILE
         )
