@@ -21,8 +21,8 @@ from manifold.core.sync_receiver    import SyncReceiver
 from manifold.gateways              import Gateway
 from manifold.util.daemon           import Daemon
 from manifold.util.log              import Log
-from manifold.util.options          import Options 
-from manifold.util.type             import accepts, returns 
+from manifold.util.options          import Options
+from manifold.util.type             import accepts, returns
 
 class State(object):
     pass
@@ -72,7 +72,7 @@ class RouterServer(asyncore.dispatcher):
         Constructor.
         Args:
             socket_path: A String instance containing the absolute
-                path of the socket used by this ManifoldServer. 
+                path of the socket used by this ManifoldServer.
         """
         self._socket_path = socket_path
         asyncore.dispatcher.__init__(self)
@@ -115,11 +115,12 @@ class RouterServer(asyncore.dispatcher):
         """
         self._router.terminate()
         if os.path.exists(self._socket_path):
+            Log.info("Unlinking %s" % self._socket_path)
             os.unlink(self._socket_path)
 
 class RouterDaemon(Daemon):
     DEFAULTS = {
-        "socket_path" : "/tmp/manifold" 
+        "socket_path" : "/tmp/manifold"
     }
 
     def __init__(self):
@@ -128,7 +129,7 @@ class RouterDaemon(Daemon):
         """
         Daemon.__init__(
             self,
-            self.terminate
+            self.terminate_callback
         )
 
     def main(self):
@@ -162,12 +163,12 @@ class RouterDaemon(Daemon):
             default = RouterDaemon.DEFAULTS["socket_path"]
         )
 
-    def terminate(self):
+    def terminate_callback(self):
         """
         Function called when the RouterDaemon must stops.
         """
-        Log.info("Stopping RouterServer")
         try:
+            Log.info("Stopping gracefully RouterServer")
             self._router_server.terminate()
         except AttributeError:
             # self._router_server may not exists for instance if the

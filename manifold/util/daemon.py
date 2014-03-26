@@ -16,7 +16,7 @@ from __future__ import absolute_import
 from manifold.util.singleton    import Singleton
 from manifold.util.log          import Log
 from manifold.util.options      import Options
-from manifold.util.type         import accepts, returns 
+from manifold.util.type         import accepts, returns
 
 import atexit, os, signal, lockfile, logging, sys
 
@@ -88,7 +88,8 @@ class Daemon(object):
         # Reference which file descriptors must remain opened while
         # daemonizing (for instance the file descriptor related to
         # the logger, a socket file created before daemonization etc.)
-        self.files_to_keep = list() 
+        self.files_to_keep = list()
+        self.lock_file = None
 
     @classmethod
     @returns(Options)
@@ -135,20 +136,31 @@ class Daemon(object):
     # Daemon stuff
     #------------------------------------------------------------------------
 
+    @returns(bool)
+    def must_be_detached(self):
+        """
+        Returns:
+            True iif the daemon must run in background.
+        """
+        return (Options().no_daemon != True)
+
     def remove_pid_file(self):
         """
-        Remove the PID file (internal usage)
+        (Internal usage)
+        Remove the PID file
         """
-        # The lock file is implicitely released while removing the pid file
-        Log.debug("Removing %s" % Options().pid_filename)
         if os.path.exists(Options().pid_filename) == True:
+            Log.info("Removing %s" % Options().pid_filename)
             os.remove(Options().pid_filename)
+
+        if self.lock_file and self.lock_file.is_locked():
+            self.lock_file.release()
 
     def make_pid_file(self):
         """
         Create a PID file if required in which we store the PID of the daemon if needed
         """
-        if Options().pid_filename and Options().no_daemon == False:
+        if Options().pid_filename and self.must_be_detached():
             atexit.register(self.remove_pid_file)
             file(Options().pid_filename, "w+").write("%s\n" % str(os.getpid()))
 
@@ -174,20 +186,19 @@ class Daemon(object):
     def make_lock_file(self):
         """
         Prepare the lock file required to manage the pid file.
-        Initialize Options().lock_file
+        Initialize self.lock_file
         Returns:
             True iif successful.
         """
-        if Options().pid_filename and Options().no_daemon == False:
+        if Options().pid_filename and self.must_be_detached():
             Log.debug("Daemonizing using pid file '%s'" % Options().pid_filename)
-            Options().lock_file = lockfile.FileLock(Options().pid_filename)
-            if Options().lock_file.is_locked() == True:
+            self.lock_file = lockfile.FileLock(Options().pid_filename)
+            if self.lock_file.is_locked() == True:
                 Log.error("'%s' is already running ('%s' is locked)." % (Options().get_name(), Options().pid_filename))
-                self.terminate()
                 return False
-            Options().lock_file.acquire()
+            self.lock_file.acquire()
         else:
-            Options().lock_file = None
+            self.lock_file = None
         return True
 
     def start(self):
@@ -199,22 +210,21 @@ class Daemon(object):
             self.terminate()
         import daemon
 
-        # Prepare Options().lock_file
-        self.make_lock_file()
+        # Prepare self.lock_file
+        if not self.make_lock_file():
+            sys.exit(1)
 
         # Prepare the daemon context
-        detach_process = (Options().no_daemon != True)
-        Log.info("detach_process = %s" % detach_process)
         dcontext = daemon.DaemonContext(
-            detach_process     = detach_process, 
-            working_directory  = Options().working_directory,
-            pidfile            = Options().lock_file if detach_process else None,
-            stdin              = sys.stdin,
-            stdout             = sys.stdout,
-            stderr             = sys.stderr,
-            uid                = Options().uid,
-            gid                = Options().gid,
-            files_preserve     = Log().files_to_keep
+            detach_process    = self.must_be_detached(),
+            working_directory = Options().working_directory,
+            pidfile           = Options().pidfile if self.must_be_detached() else None,
+            stdin             = sys.stdin,
+            stdout            = sys.stdout,
+            stderr            = sys.stderr,
+            uid               = Options().uid,
+            gid               = Options().gid,
+            files_preserve    = Log().files_to_keep
         )
 
         # Prepare signal handling to stop properly if the daemon is killed
@@ -239,7 +249,6 @@ class Daemon(object):
         """
         (Internal use)
         Stop the daemon (signal handler)
-        The lockfile is implicitly released by the daemon package
         Args:
             signal_id: The integer identifying the signal
                 (see also "man 7 signal")
@@ -251,9 +260,11 @@ class Daemon(object):
     def terminate(self):
         """
         Stops gracefully the daemon.
+        Note:
+            The lockfile should implicitly released by the daemon package.
         """
-        Log.info("Stopping '%s'" % self.daemon_name)
+        Log.info("Stopping %s" % self.__class__.__name__)
         if self.terminate_callback:
             self.terminate_callback()
-        else:
-            sys.exit(0)
+        self.remove_pid_file()
+        sys.exit(0)
