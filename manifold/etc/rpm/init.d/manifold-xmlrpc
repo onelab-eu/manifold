@@ -18,11 +18,11 @@
 RETVAL=0
 DESC="Manifold XMLRPC daemon"
 NAME=manifold-xmlrpc
-DAEMON=/usr/local/bin/$NAME
-PIDFILE=/var/run/$NAME.pid
+DAEMON=/usr/bin/$NAME
+PIDFILE=/var/run/${NAME}.pid
 SCRIPTNAME=/etc/init.d/$NAME
 MANIFOLD_CONF="/etc/manifold/manifold.conf"
-DAEMON_ARGS="-c $MANIFOLD_CONF"
+DAEMON_ARGS="--config=$MANIFOLD_CONF --pid-file=$PIDFILE"
 
 # Distribution specific paths
 VAR_LOCK_FILE=/var/lock/subsys/$NAME
