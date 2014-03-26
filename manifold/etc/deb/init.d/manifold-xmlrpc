@@ -22,7 +22,6 @@ DESC="Manifold XML-RPC daemon"
 NAME="manifold-xmlrpc"
 DAEMON=/usr/local/bin/$NAME
 PIDFILE=/var/run/${NAME}.pid
-SOCKET=/tmp/manifold
 SCRIPTNAME=/etc/init.d/$NAME
 MANIFOLD_CONF="/etc/manifold/manifold.conf"
 
@@ -43,7 +42,7 @@ fi
 # and status_of_proc is working.
 . /lib/lsb/init-functions
 
-DAEMON_ARGS="--config=$MANIFOLD_CONF --socket=$SOCKET --pid-file=$PIDFILE"
+DAEMON_ARGS="--config=$MANIFOLD_CONF --pid-file=$PIDFILE"
 
 # Return
 #   0 if daemon has been started
@@ -52,7 +51,6 @@ DAEMON_ARGS="--config=$MANIFOLD_CONF --socket=$SOCKET --pid-file=$PIDFILE"
 do_start_cmd()
 {
 	mkdir -p `dirname $PIDFILE`
-	mkdir -p `dirname $SOCKET`
 
 	start-stop-daemon --start --quiet ${PIDFILE:+--pidfile ${PIDFILE}} \
 	    --startas $DAEMON --name $NAME --test > /dev/null \
