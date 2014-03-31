@@ -17,13 +17,12 @@
 # We currently build on QueryPlan, the idea is in the end to merge the QueryPlan class in this class.
 
 from manifold.core.annotation       import Annotation
-from manifold.core.node             import Node 
+from manifold.core.node             import Node
 from manifold.core.query            import Query
 from manifold.core.query_plan       import QueryPlan
 from manifold.util.lattice          import Lattice
-from manifold.util.log              import Log 
-from manifold.util.storage          import STORAGE_NAMESPACE
-from manifold.util.type             import accepts, returns 
+from manifold.util.log              import Log
+from manifold.util.type             import accepts, returns
 
 class OperatorGraph(object):
     """
@@ -45,7 +44,7 @@ class OperatorGraph(object):
 
         # A pointer to the router to which the OperatorGraph belongs
         self._router = router
-        
+
         # A lattice that maps the queries currently contained in the
         # OperatorGraph with the corresponding operators
         self._lattice = Lattice()
@@ -73,7 +72,7 @@ class OperatorGraph(object):
             Exception: if the QueryPlan cannot be built.
         Returns:
             The Node corresponding to the root node of the QueryPlan (most
-            of time this is the top Operator of the AST). 
+            of time this is the top Operator of the AST).
         """
         # Check parameters
         assert isinstance(query, Query),\
@@ -82,13 +81,13 @@ class OperatorGraph(object):
             "Invalid annotation %s (%s)" % (annotation, type(annotation))
 
         # Retrieve the DBGraph to compute a QueryPlan in respect of
-        # namespace explicitly set in the Query and user's grants. 
+        # namespace explicitly set in the Query and user's grants.
         router    = self.get_router()
         user      = annotation.get("user", None)
         namespace = query.get_namespace()
         query.clear_namespace()
-        
-        allowed_platforms = list() 
+
+        allowed_platforms = list()
         if namespace:
             allowed_platforms.append(namespace)
 

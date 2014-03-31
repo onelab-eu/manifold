@@ -13,7 +13,7 @@ from manifold.bin.common    import check_option_email, check_option_enum, check_
 from manifold.bin.shell     import Shell
 from manifold.util.log      import Log
 from manifold.util.options  import Options
-from manifold.util.storage  import STORAGE_NAMESPACE 
+from manifold.core.local    import LOCAL_NAMESPACE
 
 DOC_ADD_ACCOUNT = """
 %(default_message)s
@@ -26,7 +26,7 @@ usage: %(program_name)s USER_EMAIL PLATFORM_NAME AUTH_TYPE CONFIG
     PLATFORM_NAME : A String containing the short name of a platform.
         You can run in 'manifold-shell' the following query to list
         the available platforms:
-            SELECT platform FROM local:platform 
+            SELECT platform FROM local:platform
 
     AUTH_TYPE     : A String containing the type of authentification
         presented to the queried platform.
@@ -69,7 +69,7 @@ def main():
     #check_option_email("USER_EMAIL", user_email)
 
     check_option_enum("AUTH_TYPE", auth_type, VALID_AUTH_TYPE)
-    namespace = STORAGE_NAMESPACE
+    namespace = LOCAL_NAMESPACE
     return run_command(CMD_ADD_ACCOUNT % locals(), False)
 
 if __name__ == "__main__":

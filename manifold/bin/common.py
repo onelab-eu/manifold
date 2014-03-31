@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Functions useful to write manifold scripts. 
+# Functions useful to write manifold scripts.
 #
 # Copyright (C) UPMC Paris Universitas
 # Authors:
@@ -11,7 +11,7 @@ import sys
 from traceback           import format_exc
 
 from types               import StringTypes
-from manifold.util.log   import Log 
+from manifold.util.log   import Log
 from manifold.util.type  import accepts, returns
 from ..bin.shell         import Shell
 
@@ -53,7 +53,7 @@ MSG_INVALID_JSON_DICT = """
 """
 
 #------------------------------------------------------------------------
-# argc 
+# argc
 #------------------------------------------------------------------------
 
 # XXX should be replaced by Options()'s positional arguments, and the nargs
@@ -106,7 +106,7 @@ def check_num_arguments(error_message, argc_min, argc_max = None):
         sys.exit(CODE_ERROR_BAD_NUM_ARGS)
 
 #------------------------------------------------------------------------
-# Generic option 
+# Generic option
 #------------------------------------------------------------------------
 
 #@accepts(StringTypes, int, function, StringTypes)
@@ -122,7 +122,7 @@ def check_option(option_name, option_value, callback_is_valid, message = MSG_INV
                 "1"     corresponds to the integer 1
                 "'foo'" corresponds to the String "foo"
         callback_is_valid: A function called back which returns True
-            if option_value is set to a correct value, False otherwise. 
+            if option_value is set to a correct value, False otherwise.
         message: A format String containing the message to print in case of error.
             Supported format:
                 %(option_name)s  : see option_name
@@ -137,7 +137,7 @@ def check_option(option_name, option_value, callback_is_valid, message = MSG_INV
         sys.exit(CODE_ERROR_INVALID_ARG)
 
 #------------------------------------------------------------------------
-# Enum 
+# Enum
 #------------------------------------------------------------------------
 
 @accepts(StringTypes, StringTypes, list)
@@ -152,7 +152,7 @@ def check_option_enum(option_name, option_value, valid_values):
             Examples:
                 "1"     corresponds to the integer 1
                 "'foo'" corresponds to the String "foo"
-        valid_values : An iterable containing the valid values. 
+        valid_values : An iterable containing the valid values.
     """
     if option_value not in valid_values:
         valid_values = ["%s" % value for value in valid_values]
@@ -195,11 +195,11 @@ def check_option_email(option_name, option_value):
     check_option(option_name, option_value, is_valid_email, MSG_INVALID_EMAIL)
 
 #------------------------------------------------------------------------
-# Bool 
+# Bool
 #------------------------------------------------------------------------
 
 STR_TRUE  = ["True",  "TRUE",  "YES", "1"]
-STR_FALSE = ["False", "FALSE", "NO",  "0"] 
+STR_FALSE = ["False", "FALSE", "NO",  "0"]
 STR_BOOL  = STR_TRUE + STR_FALSE
 
 @accepts(StringTypes, StringTypes)
@@ -211,7 +211,7 @@ def check_option_bool(option_name, option_value):
         option_name  : A String containing the name of the option.
         option_value : A String containing the value set by the user.
     """
-    check_option_enum(option_name, option_value, STR_BOOL) 
+    check_option_enum(option_name, option_value, STR_BOOL)
 
 @returns(bool)
 @accepts(StringTypes)
@@ -227,7 +227,7 @@ def string_to_bool(s):
     """
     if s in STR_TRUE:
         return True
-    elif s in STR_FALSE: 
+    elif s in STR_FALSE:
         return False
     else:
         raise ValueError("string_to_bool: Invalid string %s (not in %s)" % (s, STR_BOOL))
@@ -243,9 +243,9 @@ def is_valid_json_dict(json_dict):
     Test whether a value is a json dict. Leave the program by returning
     CODE_ERROR_INVALID_ARG in case of failure.
     Args:
-        json_dict: A String supposed to contain an json dict. 
+        json_dict: A String supposed to contain an json dict.
     Returns:
-        True iif json_dict is well-formed. 
+        True iif json_dict is well-formed.
     """
     ret = True
 
@@ -273,7 +273,7 @@ def check_option_json_dict(option_name, option_value):
     check_option(option_name, option_value, is_valid_json_dict, MSG_INVALID_JSON_DICT)
 
 #------------------------------------------------------------------------
-# Check platform status 
+# Check platform status
 #------------------------------------------------------------------------
 
 MESSAGE_TO_ADD_PLATFORM = "You must add '%(platform_name)s' Gateway in the Manifold Storage."
@@ -291,7 +291,7 @@ def check_platform(shell, platform_name, message_to_add_platform, message_to_ena
     Check whether a Platform is referenced and enabled in the Manifold Storage.
     If not, print the appropriate message using the Log class.
     Args:
-        platform_name: The platform name 
+        platform_name: The platform name
             ex: "tdmi"
         message_to_add_platform: A String having the format string %(platform_name)s
             ex: "Please add %(platform_name)s in the Manifold Storage"
@@ -319,31 +319,46 @@ def check_platform(shell, platform_name, message_to_add_platform, message_to_ena
     return
 
 #------------------------------------------------------------------------
-# Shell wrapping 
+# Shell wrapping
 #------------------------------------------------------------------------
 
 @returns(int)
 @accepts(Shell, StringTypes, list)
 def shell_run_command(shell, command, dicts):
-    assert isinstance(command, StringTypes)
-
+    """
+    Run a command in a manifold Shell.
+    Args:
+        shell: A Shell instance.
+        command: A String instance containing a Manifold command.
+        dicts: An empty list, in which we will append the resulting
+            records. You may pass None if not needed.
+    Returns:
+        The appropriate execution code. See CODE_* constants.
+    """
     try:
         result_value = shell.evaluate(command)
         is_success = result_value.is_success()
         if is_success:
             Log.info(MSG_SUCCESS % locals())
             ret = CODE_SUCCESSFUL
-            if isinstance(dicts, list): 
+            if isinstance(dicts, list):
                 for record in result_value["value"]:
                     dicts.append(record.to_dict())
         else:
             Log.error(result_value)
-            ret = result_value.get_code() 
+            ret = result_value.get_code()
     except Exception, e:
         Log.error(format_exc())
         ret = CODE_ERROR_PARSING
 
     return ret
+
+@returns(Shell)
+def make_shell():
+    from manifold.bin.config    import STORAGE_CONFIG
+    shell = Shell(interactive = False)
+    shell.authenticate_local(STORAGE_CONFIG["user"])
+    return shell
 
 @returns(int)
 #@accepts(StringTypes, bool, list)
@@ -351,7 +366,7 @@ def run_command(command, dicts = None):
     """
     Pass a command to a non-interactive Manifold Shell.
     Args:
-        command: The command passed to the Manifold Shell 
+        command: The command passed to the Manifold Shell
             Example:
                 'SELECT * FROM foo WHERE foo_id == 1'
         dicts: You may either pass None or an empty list.
@@ -360,12 +375,12 @@ def run_command(command, dicts = None):
               dictionnaries corresponding to each Record
               resulting from the Query corresponding to command.
     Returns:
-        CODE_ERROR_PARSING: if the command is not well-formed 
+        CODE_ERROR_PARSING: if the command is not well-formed
         0                 : iif successful
         >0                : if the command has failed
             See also manifold.core.code
     """
-    shell = Shell(False)
+    shell = make_shell() #Shell(False)
 
     try:
         # XXX Why isn't it a shell method...
@@ -374,10 +389,10 @@ def run_command(command, dicts = None):
         Log.error(format_exc())
         # XXX Here we need to forge a result value, this is an internal
         # exception
-        ret = 2 
+        ret = 2
 
     shell.terminate()
-    return ret 
+    return ret
 
 @returns(int)
 #@accepts(StringTypes|list, list)
@@ -394,5 +409,5 @@ def run_commands(shell, commands):
             Log.error(format_exc())
 
     shell.terminate()
-    return ret 
+    return ret
 
