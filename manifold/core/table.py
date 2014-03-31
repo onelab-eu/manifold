@@ -16,21 +16,19 @@ from manifold.core.field        import Field
 from manifold.core.fields       import Fields
 from manifold.types             import BASE_TYPES
 from manifold.core.filter       import Filter
-from manifold.core.key          import Key, Keys 
-from manifold.core.method       import Method 
+from manifold.core.key          import Key, Keys
+from manifold.core.method       import Method
 from manifold.core.capabilities import Capabilities
 from manifold.core.relation     import Relation
-from manifold.util.type         import returns, accepts 
+from manifold.util.type         import returns, accepts
 from manifold.util.log          import Log
 from manifold.util.predicate    import Predicate, eq
-
-STORAGE_NAMESPACE = "local" # crappy (see manifold.util.storage)
 
 class Table(object):
     """
     Implements a database table schema.
     """
-    
+
     #-----------------------------------------------------------------------
     # Internal usage
     #-----------------------------------------------------------------------
@@ -60,7 +58,7 @@ class Table(object):
         """
         if not keys: return
         if not isinstance(keys, (tuple, list, set, frozenset)):
-            raise TypeError("keys = %r is not of type tuple, list, frozenset" % keys) 
+            raise TypeError("keys = %r is not of type tuple, list, frozenset" % keys)
         for key in keys:
             if not isinstance(key, (tuple, list, set, frozenset)):
                 raise TypeError("In keys = %r: %r is not of type Key (type %r)" % (keys, key, type(key)))
@@ -79,13 +77,13 @@ class Table(object):
             # partitions carries a set of platforms
             for platform in partitions:
                 if not isinstance(platform, StringTypes):
-                   raise TypeError("In partitons = %r: platform = %r is not of type StringTypes" % (partitions, platform)) 
+                   raise TypeError("In partitons = %r: platform = %r is not of type StringTypes" % (partitions, platform))
         elif isinstance(partitions, dict):
             for platforms, clause in partitions.items():
                 if platforms and not isinstance(platforms, frozenset):
-                    return TypeError("platforms = %r is not of type frozenset" % platforms) 
+                    return TypeError("platforms = %r is not of type frozenset" % platforms)
                 if clause and not isinstance(clause, Predicate):
-                    return TypeError("clause = %r is not of type Predicate" % clause) 
+                    return TypeError("clause = %r is not of type Predicate" % clause)
 
     @staticmethod
     def check_init(partitions, name, fields, keys):
@@ -97,7 +95,7 @@ class Table(object):
         Table.check_partitions(partitions)
 
     #-----------------------------------------------------------------------
-    # Constructor 
+    # Constructor
     #-----------------------------------------------------------------------
 
     def __init__(self, partitions, table_name, fields = None, keys = None):
@@ -126,7 +124,7 @@ class Table(object):
                 self.insert_field(field)
         elif isinstance(fields, dict):
             self.fields = fields
-        
+
         # Init self.keys
         self.keys = Keys()
         if keys:
@@ -138,13 +136,13 @@ class Table(object):
 
         # Init default capabilities (none)
         self.capabilities = Capabilities()
- 
+
         # Init self.name.
-        # Enforce unicode encoding to guarantee format consistency among all Table instances. 
+        # Enforce unicode encoding to guarantee format consistency among all Table instances.
         self.name = unicode(table_name)
 
     #-----------------------------------------------------------------------
-    # Outputs 
+    # Outputs
     #-----------------------------------------------------------------------
 
     @returns(StringTypes)
@@ -175,7 +173,7 @@ class Table(object):
             return self.get_name()
 
     #-----------------------------------------------------------------------
-    # Methods 
+    # Methods
     #-----------------------------------------------------------------------
 
     @returns(StringTypes)
@@ -203,15 +201,15 @@ class Table(object):
         """
         Add a field in self.
         Args:
-            field: A Field instance 
+            field: A Field instance
         """
         self.fields[field.get_name()] = field
- 
+
     @returns(set)
     def get_fields(self):
         """
         Returns:
-            The set of Field instances related to this Table. 
+            The set of Field instances related to this Table.
         """
         return set(self.fields.values())
 
@@ -224,14 +222,14 @@ class Table(object):
         Raises:
             KeyError: if the field_name does not refer to a Field of this Table.
         Returns:
-            The Field instance corresponding to this field name. 
+            The Field instance corresponding to this field name.
         """
         return self.fields[field_name]
 
     @returns(StringTypes)
     def get_field_type(self, field_name):
         """
-        Retrieve the type of a Field of this Table. 
+        Retrieve the type of a Field of this Table.
         Args:
             field_name: A String instance containing the field name of a
                 Field contained in this Table.
@@ -262,13 +260,13 @@ class Table(object):
         """
         Add a Key in this Table.
         Args:
-            key: The new key. Supported types are 
+            key: The new key. Supported types are
                 Key
                 Field      (a Field instance belonging to this Table)
                 StringType (a field name, related to a field of this Table)
                 container  (list, set, frozenset, tuple) made of StringType (field names)
         Raises:
-            TypeError: if the key argument is not valid. 
+            TypeError: if the key argument is not valid.
         """
         if local:
             self.keys.set_local(local)
@@ -300,14 +298,14 @@ class Table(object):
             raise TypeError("capability = %r is not of type String or iterable")
         for c in capability:
             setattr(self.capabilities, c, True)
- 
+
     @returns(bool)
     def erase_key(self, key):
         """
-        Remove a Key for this Table. 
+        Remove a Key for this Table.
         Args:
             key: A Key instance.
-                This Key must refer Field instance(s) of this Table. 
+                This Key must refer Field instance(s) of this Table.
         Returns:
             True iif the Key has been found and successfully removed.
         """
@@ -404,7 +402,7 @@ class Table(object):
             frozenset([
                 field.get_name() for field in fields
             ]) for fields in self.get_keys()
-        ]) 
+        ])
 
     @returns(set)
     def get_types_from_keys(self):
@@ -419,7 +417,7 @@ class Table(object):
             frozenset([
                 field.get_type() for field in fields
             ]) for fields in self.get_keys()
-        ]) 
+        ])
 
     @returns(dict)
     def get_partitions(self):
@@ -438,7 +436,7 @@ class Table(object):
         elif isinstance(partitions, StringTypes):
             self.partitions[partitions] = None
         elif isinstance(partitions, dict):
-            self.partitions = partitions 
+            self.partitions = partitions
 
         self.init_platforms()
 
@@ -530,7 +528,7 @@ class Table(object):
 #DEPRECATED|        # Extract the corresponding subtable
 #DEPRECATED|        ret = Table.make_table_from_fields(table, fields)
 #DEPRECATED|
-#DEPRECATED|        # Compute the new map_field_method 
+#DEPRECATED|        # Compute the new map_field_method
 #DEPRECATED|        updated_map_field_methods = dict()
 #DEPRECATED|        for field, methods in table.map_field_methods.items():
 #DEPRECATED|            if field in fields:
@@ -549,21 +547,21 @@ class Table(object):
         """
         Returns:
             A dictionnary which map for each Method (e.g. platform name +
-            method name) the set of Field that can be retrieved 
+            method name) the set of Field that can be retrieved
         """
         try:
             # This is created by dbnorm and used by ExploreTask
             # (Table deduced from several Announces having common Keys and Fields)
-            return self.map_method_fields 
+            return self.map_method_fields
         except AttributeError:
             # ... Otherwise, we can craft it on the fly
-            table_name  = self.get_name() 
+            table_name  = self.get_name()
             field_names = self.get_field_names()
             for platform_name in self.get_platforms():
                 return {Method(platform_name, table_name): field_names}
 
     #-----------------------------------------------------------------------
-    # Relations between two Table instances 
+    # Relations between two Table instances
     # Notations in documentation:
     #   u == self  : the source node
     #   v == table : the target node
@@ -578,12 +576,12 @@ class Table(object):
 #DEPRECATED|    #@returns(set)
 #DEPRECATED|    def get_connecting_fields(self, table):
 #DEPRECATED|        """
-#DEPRECATED|        \brief Find fields verifying: 
+#DEPRECATED|        \brief Find fields verifying:
 #DEPRECATED|            exists f | u.f.t == v.n (P1)
 #DEPRECATED|            u = self
 #DEPRECATED|            v = table
 #DEPRECATED|        \param table The target candidate table
-#DEPRECATED|        \return The set of Field f verifying (P1) 
+#DEPRECATED|        \return The set of Field f verifying (P1)
 #DEPRECATED|        """
 #DEPRECATED|        # For now we will suppose a single connecting field
 #DEPRECATED|        #connecting_fields = set()
@@ -592,7 +590,7 @@ class Table(object):
 #DEPRECATED|                return field
 #DEPRECATED|        return None
 #DEPRECATED|                #connecting_fields.add(field)
-#DEPRECATED|        #return connecting_fields 
+#DEPRECATED|        #return connecting_fields
 #DEPRECATED|
 #DEPRECATED|    @returns(bool)
 #DEPRECATED|    def inherits(self, table):
@@ -709,9 +707,9 @@ class Table(object):
             #    # We should point to the toplevel class, ie. if key field type == platform name
             #    # We are back to the previous case.
             #    # a child class is an instance of the parent class, no it should be ok
-                
+
             # (3) A field point to part of v key (v is thus composite)
-            
+
             if field.get_type() not in BASE_TYPES and set([field.get_type()]) < v_key.get_field_types():
                 # What if several possible combinations
                 # How to consider inheritance ?
@@ -719,7 +717,7 @@ class Table(object):
                 p = Predicate(field.get_name(), eq, vfield.get_name())
                 relations.add(Relation(Relation.types.LINK_1N, p, name=field.get_name() + "_" + v.get_name())) # LINK_1N_FORWARD ?
                 continue
-        
+
 
         # Following relations don't involve a single field
 
@@ -785,7 +783,7 @@ class Table(object):
 #DEPRECATED|            else:
 #DEPRECATED|                return (Relation.types.LINK, set([connecting_fields]))
 #DEPRECATED|
-#DEPRECATED|        # 2) 
+#DEPRECATED|        # 2)
 #DEPRECATED|        connecting_keys = u.keys.intersection(v.keys)
 #DEPRECATED|        if connecting_keys:
 #DEPRECATED|            connecting_keys = iter(connecting_keys).next() # pick one
@@ -810,10 +808,10 @@ class Table(object):
         for key in self.keys:
             key_found = True
             for key_elt in key:
-                key_elt_found = False 
+                key_elt_found = False
                 for field in self.fields.values():
-                    if key_elt == field:#.get_name(): 
-                        key_elt_found = True 
+                    if key_elt == field:#.get_name():
+                        key_elt_found = True
                         break
                 if key_elt_found == False:
                     key_found = False
@@ -830,7 +828,7 @@ class Table(object):
 #UNUSED|        invalid_types = []
 #UNUSED|        for field in self.fields:
 #UNUSED|            cur_type = field.type
-#UNUSED|            if cur_type not in valid_types and cur_type not in BASE_TYPES: 
+#UNUSED|            if cur_type not in valid_types and cur_type not in BASE_TYPES:
 #UNUSED|                print ">> %r: adding invalid type %r (valid_types = %r)" % (self.class_name, cur_type, valid_types)
 #UNUSED|                invalid_types.append(cur_type)
 #UNUSED|        return invalid_types
@@ -841,17 +839,17 @@ class Table(object):
             The dictionnary describing this Table for metadata.
         """
         # Build columns from fields
-        columns = list() 
+        columns = list()
         for field in self.fields.values():
             columns.append(field.to_dict())
-        
+
         keys = tuple(self.get_keys().one().get_field_names())
 
         return {
             "table"        : self.get_name(),
             "columns"      : columns,
             "key"          : keys,
-            "capabilities" : self.get_capabilities().to_list() 
+            "capabilities" : self.get_capabilities().to_list()
             # key
             # default
             # capabilities

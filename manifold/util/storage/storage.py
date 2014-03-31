@@ -14,10 +14,9 @@ from types                          import StringTypes
 from manifold.gateways              import Gateway
 from manifold.core.annotation       import Annotation
 from manifold.core.packet           import QueryPacket
+from manifold.core.local            import LOCAL_NAMESPACE
 from manifold.core.sync_receiver    import SyncReceiver
 from manifold.util.type             import accepts, returns
-from manifold.util.storage          import STORAGE_NAMESPACE
-from manifold.core.dbgraph          import DBGraph
 
 class Storage(object):
     def __init__(self, gateway_type, platform_config, interface = None):
@@ -35,7 +34,7 @@ class Storage(object):
             "Invalid gateway_type = %s (%s)" % (gateway_type, type(gateway_type))
         assert isinstance(platform_config, dict),\
             "Invalid platform_config = %s (%s)" % (platform_config, type(platform_config))
-        
+
         self._gateway         = None
         self._gateway_type    = gateway_type
         self._platform_config = platform_config
@@ -49,8 +48,8 @@ class Storage(object):
         Gateway.register_all()
         cls_storage = Gateway.get(self._gateway_type)
         if not cls_storage:
-            raise Exception, "Cannot find %s Gateway, required to access Manifold Storage" % gateway_type 
-        self._gateway = cls_storage(self._interface, STORAGE_NAMESPACE, self._platform_config)
+            raise Exception, "Cannot find %s Gateway, required to access Manifold Storage" % gateway_type
+        self._gateway = cls_storage(self._interface, LOCAL_NAMESPACE, self._platform_config)
 
     @returns(Gateway)
     def get_gateway(self):
@@ -66,7 +65,7 @@ class Storage(object):
     def execute(self, query, annotation = None, error_message = None):
         """
         Execute a Query related to the Manifold Storage
-        (ie any "STORAGE_NAMESPACE:*" object).
+        (ie any "LOCAL_NAMESPACE:*" object).
         Args:
             gateway: A Gateway instance allowing to query the Manifold Storage.
             query: A Query. query.get_from() should start with "local:".
@@ -76,7 +75,7 @@ class Storage(object):
         Raises:
             Exception: if the Query does not succeed.
         Returns:
-            A list of Records.            
+            A list of Records.
         """
         gateway = self.get_gateway()
 
@@ -85,11 +84,11 @@ class Storage(object):
             "Invalid gateway = %s (%s)" % (gateway, type(gateway))
         assert not annotation or isinstance(annotation, Annotation),\
             "Invalid annotation = %s (%s)" % (annotation, type(annotation))
-        assert not ':' in query.get_from() or query.get_from().startswith(STORAGE_NAMESPACE),\
-            "Invalid namespace: '%s' != '%s'" % (query.get_from(), STORAGE_NAMESPACE)
+        assert not ':' in query.get_from() or query.get_from().startswith(LOCAL_NAMESPACE),\
+            "Invalid namespace: '%s' != '%s'" % (query.get_from(), LOCAL_NAMESPACE)
 
         # Enrich annotation to transport Storage's credentials
-        storage_annotation = self._storage_annotation 
+        storage_annotation = self._storage_annotation
         if annotation:
             annotation |= storage_annotation
         else:

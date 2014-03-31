@@ -14,103 +14,26 @@ from types                          import GeneratorType, StringTypes
 
 from manifold.core.capabilities     import Capabilities
 from manifold.core.code             import BADARGS, ERROR
-from manifold.core.dbnorm           import to_3nf 
+from manifold.core.dbnorm           import to_3nf
 from manifold.core.dbgraph          import DBGraph
 from manifold.core.helpers          import execute_query as execute_query_helper
 from manifold.core.interface        import Interface
-from manifold.core.method           import Method
 from manifold.core.operator_graph   import OperatorGraph
 from manifold.core.packet           import ErrorPacket, Packet
 from manifold.gateways              import Gateway
 from manifold.policy                import Policy
-from manifold.util.log              import Log 
+from manifold.util.log              import Log
 from manifold.util.type             import returns, accepts
 
-################################################################################
-# LOCAL GATEWAY
-################################################################################
-
-# This is used to manipulate the router internal state
-# It should not point to any storage directly unless this is mapped
-from manifold.gateways              import Gateway
-from manifold.core.announce         import Announce, make_virtual_announces
+from manifold.core.local            import LocalGateway, LOCAL_NAMESPACE
 
 DEFAULT_GATEWAY_TYPE = "manifold"
-LOCAL_NAMESPACE = 'local'
-
-class LocalGateway(Gateway):
-    """
-    Handle queries related to local:object, local:gateway, local:platform, etc.
-    """
-
-    def receive_impl(self, packet):
-        """
-        Handle a incoming QUERY Packet.
-        Args:
-            packet: A QUERY Packet instance.
-        """
-        query = packet.get_query()
-
-        # Since the original query will be altered, we are making a copy here,
-        # so that the pit dictionary is not altered
-        new_query = query.clone()
-
-        action = query.get_action()
-        table_name = query.get_from()
-
-        # Note that local:column won't be queried since it has no RETRIEVE capability. 
-        if not action == "get":
-             raise RuntimeError("Invalid action (%s) on '%s::%s' table" % (action, self.get_platform_name(), table_name))
-
-        if table_name == "object":            
-            records = Records([announce.to_dict() for announce in self.get_announces()])
-        elif table_name == "gateway":
-            records = Records([{"type" : gateway_type} for gateway_type in sorted(Gateway.list().keys())])
-        else:
-            raise RuntimeError("Invalid table '%s::%s'" % (self.get_platform_name(), table_name))
-
-        self.records(records, packet)
-
-    def get_announces(self):
-        # Virtual tables ("object", "column", ...) 
-        virtual_announces = make_virtual_announces(STORAGE_NAMESPACE)
-        announces.extend(virtual_announces)
-
-        return announces
-    
-    @returns(DBGraph)                                                                                           
-    def get_dbgraph(self):                                                                              
-        """                                                                                                     
-        Returns:                                                                                                
-            The DBGraph related to the Manifold Storage.                                                        
-        """                                                                                                     
-        # We do not need normalization here, can directly query the Gateway                                     
-                                                                                                                
-        # 1) Fetch the Storage's announces and get the corresponding Tables.                                    
-        local_announces = self.get_announces()                                      
-        local_tables = [announce.get_table() for announce in local_announces]                                   
-                                                                                                                
-        # 2) Build the corresponding map of Capabilities                                                        
-        map_method_capabilities = dict()                                                                        
-        for announce in local_announces:                                                                        
-            table = announce.get_table()                                                                        
-            table_name = table.get_name()                                                                       
-            method = Method(STORAGE_NAMESPACE, table_name)                                                      
-            capabilities = table.get_capabilities()                                                             
-            map_method_capabilities[method] = capabilities                                                      
-                                                                                                                
-        # 3) Build the corresponding DBGraph                                                                    
-        return DBGraph(local_tables, map_method_capabilities)  
-
-################################################################################
-# END LOCAL GATEWAY
-################################################################################
 
 #------------------------------------------------------------------
 # Class Router
 # Router configured only with static/local routes, and which
 # does not handle routing messages
-# Router class is an Interface: 
+# Router class is an Interface:
 # builds the query plan, and execute query plan using deferred if required
 #------------------------------------------------------------------
 
@@ -137,7 +60,7 @@ class Router(Interface):
         assert not allowed_capabilities or isinstance(allowed_capabilities, Capabilities),\
             "Invalid capabilities = %s (%s)" % (allowed_capabilities, type(allowed_capabilities))
 
-        # Manifold Gateways are already initialized in parent class. 
+        # Manifold Gateways are already initialized in parent class.
         self._operator_graph = OperatorGraph(router = self)
 
 
@@ -170,7 +93,7 @@ class Router(Interface):
         self._dbgraph = None
 
         self._local_gateway = LocalGateway()
-        self._local_dbgraph = None
+        self._local_dbgraph = self._local_gateway.get_dbgraph()
 
     def terminate(self):
         for gateway in self.gateways.values():
@@ -198,8 +121,13 @@ class Router(Interface):
         """
         return self.allowed_capabilities
 
-    def get_local_gateway():
-        return self._local_gateway()
+    @returns(LocalGateway)
+    def get_local_gateway(self):
+        """
+        Returns:
+            The LocalGateway attached to this Router/
+        """
+        return self._local_gateway
 
     @returns(DBGraph)
     def get_dbgraph(self):
@@ -210,30 +138,6 @@ class Router(Interface):
         """
         return self._dbgraph
 
-#DEPRECATED|    @returns(DBGraph)
-#DEPRECATED|    def get_dbgraph_storage(self):
-#DEPRECATED|        """
-#DEPRECATED|        Returns:
-#DEPRECATED|            The DBGraph related to the Manifold Storage. 
-#DEPRECATED|        """
-#DEPRECATED|        # We do not need normalization here, can directly query the Gateway
-#DEPRECATED|
-#DEPRECATED|        # 1) Fetch the Storage's announces and get the corresponding Tables.
-#DEPRECATED|        local_announces = self.get_storage().get_gateway().get_announces()
-#DEPRECATED|        local_tables = [announce.get_table() for announce in local_announces]
-#DEPRECATED|
-#DEPRECATED|        # 2) Build the corresponding map of Capabilities
-#DEPRECATED|        map_method_capabilities = dict()
-#DEPRECATED|        for announce in local_announces:
-#DEPRECATED|            table = announce.get_table()
-#DEPRECATED|            table_name = table.get_name()
-#DEPRECATED|            method = Method(STORAGE_NAMESPACE, table_name)
-#DEPRECATED|            capabilities = table.get_capabilities()
-#DEPRECATED|            map_method_capabilities[method] = capabilities 
-#DEPRECATED|
-#DEPRECATED|        # 3) Build the corresponding DBGraph
-#DEPRECATED|        return DBGraph(local_tables, map_method_capabilities)
-
     #---------------------------------------------------------------------------
     # Methods
     #---------------------------------------------------------------------------
@@ -242,7 +146,7 @@ class Router(Interface):
         """
         Boot the Interface (prepare metadata, etc.).
         """
-        self.cache = dict() 
+        self.cache = dict()
         super(Router, self).boot()
 
     def update_platforms(self, platforms_enabled):
@@ -290,7 +194,7 @@ class Router(Interface):
         self.platforms[platform_name] = None # XXX
         self.gateways[platform_name]  = gateway
         self.announces[platform_name] = announces
-        
+
         # Update
         self._dbgraph = to_3nf(self.get_announces())
 
@@ -387,7 +291,7 @@ class Router(Interface):
 
         # Create Gateway corresponding to the current Platform
         platform = self.get_platform(platform_name)
-        gateway_type    = platform.get('gateway_type', DEFAULT_GATEWAY_TYPE)
+        gateway_type = platform.get("gateway_type", DEFAULT_GATEWAY_TYPE)
         if not gateway_type:
             gateway_type = DEFAULT_GATEWAY_TYPE
         platform_config = json.loads(platform["config"]) if platform["config"] else dict()
@@ -438,7 +342,7 @@ class Router(Interface):
             raise ValueError("Invalid platform_name = %s, it must be lower case" % platform_name)
 
         if platform_name == LOCAL_NAMESPACE:
-            return self._interface.get_local_gateway()
+            return self.get_local_gateway()
 
         if platform_name not in self.gateways.keys():
             # This Platform is not referenced in the Router, try to create the
@@ -569,6 +473,5 @@ class Router(Interface):
             A list of dict corresponding to the Records resulting from
             the query.
         """
-        from manifold.util.storage import STORAGE_NAMESPACE
-        query.set_namespace(STORAGE_NAMESPACE)
+        query.set_namespace(LOCAL_NAMESPACE)
         return self.execute_query(query, error_message)
