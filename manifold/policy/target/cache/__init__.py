@@ -32,6 +32,12 @@ class CacheTarget(Target):
         #print "="*40
         if query.object.startswith('local:'):
             return (TargetValue.CONTINUE, None)
+        
+        # If Query action is not get (Create, Update, Delete)
+        # Invalidate the cache and propagate the Query        
+        if query.get_action() != 'get':
+            cache.invalidate_entry(query)
+            return (TargetValue.CONTINUE, None)
 
         records = cache.get_best_records(query, allow_processing=True)
         if not records is None:
