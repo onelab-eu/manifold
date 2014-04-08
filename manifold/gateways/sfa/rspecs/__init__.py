@@ -1,2 +1,2 @@
-class RSpecParser:
+class RSpecParser(object):
     pass

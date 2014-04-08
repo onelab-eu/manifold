@@ -30,11 +30,20 @@ from sfa.util.config                    import Config
 from sfa.util.version                   import version_core
 from sfa.util.cache                     import Cache
 from sfa.storage.record                 import Record
-from sfa.rspecs.rspec                   import RSpec
 from sfa.rspecs.version_manager         import VersionManager
 from sfa.client.client_helper           import pg_users_arg, sfa_users_arg
 from sfa.client.return_value            import ReturnValue
 from xmlrpclib                          import DateTime
+
+################################################################################
+# TESTBED DEPENDENT CODE                                                       #
+################################################################################
+
+from manifold.gateways.sfa.rspecs.nitos_broker  import NITOSBrokerParser
+from manifold.gateways.sfa.rspecs.sfawrap       import SFAWrapParser, PLEParser, WiLabtParser
+from manifold.gateways.sfa.rspecs.loose         import LooseParser
+
+################################################################################
 
 DEFAULT_TIMEOUT = 20
 DEFAULT_TIMEOUT_GETVERSION = 5
@@ -149,6 +158,33 @@ def unique_call_id(): return uuid.uuid4().urn
 
 class SFAGateway(Gateway):
     __gateway_name__ = 'sfa'
+
+################################################################################
+# TESTBED DEPENDENT CODE                                                       #
+################################################################################
+
+    @defer.inlineCallbacks
+    def get_parser(self):
+        # We hardcode a parser for the NITOS testbed
+        server_version = yield self.get_cached_server_version(self.sliceapi)
+
+        print "server_version", server_version.get('hrn')
+        if server_version.get('hrn') == 'nitos':
+            parser = NITOSBrokerParser
+        elif server_version.get('hrn') == 'ple':
+            parser = PLEParser
+        elif 'wilab2' in self.config['sm']:
+            parser = WiLabtParser
+        elif 'nitlab' in self.config['sm']:
+            parser = NITOSParser
+        else:
+            parser = LooseParser
+        defer.returnValue(parser)
+
+################################################################################
+
+
+
 
     config_fields = [
         'user_credential',      # string representing a user_credential
@@ -608,197 +644,6 @@ class SFAGateway(Gateway):
 #     'code_url': 'should-be-redefined-by-specfile',
 #     'hostname': 'adreena'}
 
-
-
-    ############################################################################ 
-    #
-    # RSPEC PARSING
-    #
-    ############################################################################ 
-
-    def make_dict_rec(self, obj):
-        if not obj or isinstance(obj, (StringTypes, bool)):
-            return obj
-        if isinstance(obj, list):
-            objcopy = []
-            for x in obj:
-                objcopy.append(self.make_dict_rec(x))
-            return objcopy
-        # We thus suppose we have a child of dict
-        objcopy = {}
-        for k, v in obj.items():
-            objcopy[k] = self.make_dict_rec(v)
-        return objcopy
-
-    def parse_sfa_rspec(self, rspec_string):
-        # rspec_type and rspec_version should be set in the config of the platform,
-        # we use GENIv3 as default one if not
-        if 'rspec_type' and 'rspec_version' in self.config:
-            rspec_version = self.config['rspec_type'] + ' ' + self.config['rspec_version']
-        else:
-            rspec_version = 'GENI 3'
-            #rspec_version = 'SFA 1'
-        Log.debug(rspec_version)
-        rspec = RSpec(rspec_string, version=rspec_version)
-
-        resources = [] 
-# These are all resources 
-# get_resources function can return all resources or a specific type of resource
-        try:
-            resources = rspec.version.get_resources()
-        except Exception, e:
-            Log.warning("Could not retrieve resources in RSpec: %s" % e)
-        
-        # XXX does not scale... we need get_resources and that's all
-        try:
-            nodes = rspec.version.get_nodes()
-        except Exception, e:
-            nodes = list()
-            Log.warning("Could not retrieve nodes in RSpec: %s" % e)
-        try:
-            leases = rspec.version.get_leases()
-        except Exception, e:
-            leases = list()
-            Log.warning("Could not retrieve leases in RSpec: %s" % e)
-        try:
-            links = rspec.version.get_links()
-        except Exception, e:
-            links = list()
-            Log.warning("Could not retrieve links in RSpec: %s" % e)
-        try:
-            channels = rspec.version.get_channels()
-        except Exception, e:
-            channels = list()
-            Log.warning("Could not retrieve channels in RSpec: %s" % e)
-
-        # Extend object and Format object field's name
-        for resource in resources:
-            resource['urn'] = resource['component_id']
-
-        for node in nodes:
-            node['type'] = 'node'
-            node['network_hrn'] = Xrn(node['component_id']).authority[0] # network ? XXX
-            node['hrn'] = urn_to_hrn(node['component_id'])[0]
-            node['urn'] = node['component_id']
-            node['hostname'] = node['component_name']
-            node['initscripts'] = node.pop('pl_initscripts')
-            if 'exclusive' in node and node['exclusive']:
-                node['exclusive'] = node['exclusive'].lower() == 'true'
-
-            # XXX This should use a MAP as before
-            if 'position' in node: # iotlab
-                node['x'] = node['position']['posx']
-                node['y'] = node['position']['posy']
-                node['z'] = node['position']['posz']
-                del node['position']
-
-            if 'location' in node:
-                if node['location']:
-                    node['latitude'] = node['location']['latitude']
-                    node['longitude'] = node['location']['longitude']
-                del node['location']
-
-            # Flatten tags
-            if 'tags' in node:
-                if node['tags']:
-                    for tag in node['tags']:
-                        node[tag['tagname']] = tag['value']
-                del node['tags']
-
-            
-            # We suppose we have children of dict that cannot be serialized
-            # with xmlrpc, let's make dict
-            resources.append(self.make_dict_rec(node))
-
-        # NOTE a channel is a resource and should not be treated independently
-        #     resource
-        #        |
-        #   +----+------+-------+
-        #   |    |      |       |
-        # node  link  channel  etc.
-        #resources.extend(nodes)
-        #resources.extend(channels)
-
-        for lease in leases:
-            lease['resource'] = lease.pop('component_id')
-            lease['slice']    = lease.pop('slice_id')
-
-        print "resources=", resources
-        print "leases=", leases
-        return {'resource': resources, 'lease': leases } 
-#               'channel': channels \
-#               }
-
-    def manifold_to_sfa_leases(self, leases, slice_id):
-        sfa_leases = []
-        for lease in leases:
-            sfa_lease = dict()
-            # sfa_lease_id = 
-            sfa_lease['component_id'] = lease['resource']
-            sfa_lease['slice_id']     = slice_id
-            sfa_lease['start_time']   = lease['start_time']
-            sfa_lease['duration']   = lease['duration']
-            sfa_leases.append(sfa_lease)
-        return sfa_leases
-    
-
-    def build_sfa_rspec(self, slice_id, resources, leases):
-        #if isinstance(resources, str):
-        #    resources = eval(resources)
-        # rspec_type and rspec_version should be set in the config of the platform,
-        # we use GENIv3 as default one if not
-        if 'rspec_type' and 'rspec_version' in self.config:
-            rspec_version = self.config['rspec_type'] + ' ' + self.config['rspec_version']
-        else:
-            rspec_version = 'GENI 3'
-
-        # extend rspec version with "content_type"
-        rspec_version += ' request'
-        
-        rspec = RSpec(version=rspec_version)
-
-        nodes = []
-        channels = []
-        links = []
-
-        # XXX Here it is only about mappings and hooks between ontologies
-
-        for urn in resources:
-            # XXX TO BE CORRECTED, this handles None values
-            if not urn:
-                continue
-            resource = dict()
-            # TODO: take into account the case where we send a dict of URNs without keys
-            #resource['component_id'] = resource.pop('urn')
-            resource['component_id'] = urn
-            resource_hrn, resource_type = urn_to_hrn(urn) # resource['component_id'])
-            # build component_manager_id
-            top_auth = resource_hrn.split('.')[0]
-            cm = urn.split("+")
-            resource['component_manager_id'] = "%s+%s+authority+cm" % (cm[0],top_auth)
-
-            if resource_type == 'node':
-                # XXX dirty hack WiLab !!!
-                if 'wilab2' in self.config['sm']:
-                    resource['client_id'] = "PC"
-                    resource['sliver_type'] = "raw-pc"
-                nodes.append(resource)
-            elif resource_type == 'link':
-                links.append(resource)
-            elif resource_type == 'channel':
-                channels.append(resource)
-            else:
-                raise Exception, "Not supported type of resource" 
-        
-        rspec.version.add_nodes(nodes, rspec_content_type="request")
-        sfa_leases = self.manifold_to_sfa_leases(leases, slice_id)
-        rspec.version.add_leases(sfa_leases)
-        #rspec.version.add_links(links)
-        #rspec.version.add_channels(channels)
-   
-        Log.warning("request rspec: %s"%rspec.toxml())
-        return rspec.toxml()
-
     ############################################################################ 
     #
     # COMMANDS
@@ -862,8 +707,13 @@ class SFAGateway(Gateway):
 
     @defer.inlineCallbacks
     def update_slice_am(self, filters, params, fields):
+        print "UPDATE SLICE AM", params
         if not 'resource' in params and not 'lease' in params:
             raise Exception, "Update failed: nothing to update"
+
+        server_version = yield self.get_cached_server_version(self.sliceapi)
+
+        # XXX We might need information for resources not provided in the update query, such as the resource granularity, which is required for nitos
         
         # Need to be specified to remain unchanged
         need_resources = not 'resource' in params
@@ -881,6 +731,7 @@ class SFAGateway(Gateway):
                 params['lease'] = resource_lease['lease']
 
         for lease in params['lease']:
+            print" PARAMS LEASE => lease=", lease
             resource_urn = lease['resource']
             # XXX We might have dicts, we need helper functions...
             if not resource_urn in params['resource']:
@@ -902,12 +753,33 @@ class SFAGateway(Gateway):
         user_cred = self._get_cred('user')
         slice_cred = self._get_cred('slice', slice_hrn)
 
-        # We suppose resource
-        print "build rspec"
-        rspec = self.build_sfa_rspec(slice_urn, resources, leases)
-        #print "BUILDING SFA RSPEC", rspec
-        # Sliver attributes (tags) are ignored at the moment
 
+        # We suppose resource
+        try:
+            print "server_version", server_version['hrn']
+            if server_version.get('hrn') == 'nitos':
+                rspec = NITOSBrokerParser.build_rspec(slice_hrn, resources, leases)
+            else: # PLE, IoTLab
+                # rspec_type and rspec_version should be set in the config of the platform,
+                # we use GENIv3 as default one if not
+                if 'rspec_type' and 'rspec_version' in self.config:
+                    rspec_version = self.config['rspec_type'] + ' ' + self.config['rspec_version']
+                else:
+                    rspec_version = 'GENI 3'
+                # extend rspec version with "content_type"
+                rspec_version += ' request'
+
+                parser = yield self.get_parser()
+                rspec = parser.build_rspec(slice_urn, resources, leases, rspec_version)
+
+        except Exception, e:
+            print "EXCEPTION BUILDING RSPEC", e
+            import traceback
+            traceback.print_exc()
+            rspec = ''
+        Log.warning("request rspec: %s" % rspec)
+
+        # Sliver attributes (tags) are ignored at the moment
 
         # We need to pass sufficient information to the aggregate so that it is
         # able to create user records: urn, (email) and keys for each user that
@@ -936,11 +808,11 @@ class SFAGateway(Gateway):
             user_hrns = slice_record['reg-researchers']
             user_urns = [hrn_to_urn(hrn, 'user') for hrn in user_hrns]
             user_records = yield self.registry.Resolve(user_urns, [user_cred])
-            server_version = yield self.get_cached_server_version(self.registry)
+            r_server_version = yield self.get_cached_server_version(self.registry)
 
             geni_users = pg_users_arg(user_records)
             sfa_users = sfa_users_arg(user_records, slice_record)
-            if 'sfa' not in server_version:
+            if 'sfa' not in r_server_version:
                 #print "W: converting to pg rspec"
                 users = geni_users
                 #rspec = RSpec(rspec)
@@ -971,31 +843,82 @@ class SFAGateway(Gateway):
             ois = yield self.ois(self.sliceapi, api_options)
             result = yield self.sliceapi.CreateSliver(slice_urn, [slice_cred], rspec, users, ois)
             Log.warning("CreateSliver Result: %s" %result)
+
+            manifest_rspec = ReturnValue.get_value(result)
         else:
             # AM API v3
+
+            # Typical client work flow:
+            # 
+            # <Experimenter gets a GENI certificate and slice credential, renewing that slice as needed>
+            # GetVersion(): learn RSpec formats supported at this aggregate
+            # ListResources(<user credential>, options): get Ad RSpec describing available resources
+
+            # <Experimenter constructs a request RSpec>
+
+            # Allocate(<slice URN>, <slice credential>, <request RSpec>, {}):
+            #   Aggregate reserves resources
+            #   Return is a manifest RSpec describing the reserved resources
+            #   Optionally Delete some slivers, if you made a mistake, or don't like what the aggregate picked for you.
+            # Provision(<slice URN or sliver URNs>, <slice credential>, <request RSpec>, <users struct>, {}):
+            #   Aggregate instantiates resources
+            #   Return is a manifest RSpec describing the reserved resources, plus any instantiation-specific configuration information
+            # Status(<slice URN or sliver URNs>, <slice credential>, {}) to check that resources are provisioned (e.g. look for operational state geni_notready.
+            # PerformOperationalAction(<slice URN>, <slice credential>, "geni_start", {}):
+            #   Aggregate starts resources
+            # Status(<slice URN or sliver URNs>, <slice credential>, {}) to check that resources have started
+
+            # Renew(<slice URN or sliver URNs>, <slice credential>, <newtime>, {}) to extend reservation
+
+            #   <Experimenter uses resources>
+
+            # Delete(<slice URN or sliver URNs>, <slice credential>, {}) when done
+
             api_options['sfa_users'] = sfa_users
             api_options['geni_users'] = geni_users
 
+            # http://groups.geni.net/geni/wiki/GAPI_AM_API_V3#Allocate
             result = yield self.sliceapi.Allocate(slice_urn, [slice_cred], rspec, api_options)
+
+            print "RESULT=", result
+
+            # http://groups.geni.net/geni/wiki/GAPI_AM_API_V3#Provision
+            # Here we provision all sliver_urns allocated to the slice by indicating the slice_hrn
+
+            api_options ['call_id'] = unique_call_id()
+            # We keep geni_users in the options
             result = yield self.sliceapi.Provision([slice_urn], [slice_cred], api_options)
+            
+            # Status(<slice URN or sliver URNs>, <slice credential>, {}) to check that resources are provisioned (e.g. look for operational state geni_notready.
 
-        manifest = ReturnValue.get_value(result)
+            print "RESULT=", result
+            rspec_sliver_result = ReturnValue.get_value(result)
 
-        if not manifest:
+            # The returned manifest covers only newly provisioned slivers. Use Describe to get a manifest of all provisioned slivers.
+            # XXX IS IT A STRING ?????
+            # Clarify which AM
+            if isinstance(rspec_sliver_result, StringTypes):
+                manifest_rspec = rspec_sliver_result
+            else:
+                manifest_rspec = rspec_sliver_result.get('geni_rspec')
+
+        if not manifest_rspec:
             print "NO MANIFEST FROM", self.platform, result
             defer.returnValue([])
         else:
             print "GOT MANIFEST FROM", self.platform
-            print "MANIFEST=", manifest
             sys.stdout.flush()
 
 
-        if self.am_version['geni_api'] == 2:
-            rsrc_leases = self.parse_sfa_rspec(manifest)
+        # rspec_type and rspec_version should be set in the config of the platform,
+        # we use GENIv3 as default one if not
+        if 'rspec_type' and 'rspec_version' in self.config:
+            rspec_version = self.config['rspec_type'] + ' ' + self.config['rspec_version']
         else:
-            # AM API v3
-            # 
-            rsrc_leases = self.parse_sfa_rspec(manifest['geni_rspec'])
+            rspec_version = 'GENI 3'
+
+        parser = yield self.get_parser()
+        rsrc_leases = parser.parse(manifest_rspec)
 
         slice = {'slice_hrn': filters.get_eq('slice_hrn')}
         slice.update(rsrc_leases)
@@ -1537,6 +1460,14 @@ class SFAGateway(Gateway):
         do_am        = do_get_am or do_update_am
         do_rm        = do_get_rm or do_update_rm
 
+        print "do_update_am", do_update_am
+        print "do_update_rm", do_update_rm
+        print "do_get_am", do_get_am
+        print "do_get_rm", do_get_rm, "for fields", fields - AM_SLICE_FIELDS
+
+        print "do_am", do_am
+        print "do_rm", do_rm
+
         if do_am and do_rm:
             # Part on the RM side, part on the AM side... until AM and RM are
             # two different GW, we need to manually make a left join between
@@ -1556,12 +1487,14 @@ class SFAGateway(Gateway):
                 ret_am = self.get_slice(filters, params, fields_am)
                 ret_rm = self.update_object(filters, params, fields_rm)
             else:
+                # The typical case: update AM and get RM
                 print "do get rm"
                 ret_am = self.update_slice_am(filters, params, fields_am)
                 ret_rm = self.get_slice(filters, params, fields_rm)
 
-            print "ret_am", ret_am
-            print "ret_rm", ret_rm
+            print "This should be two deferred:"
+            print " - ret_am", ret_am
+            print " - ret_rm", ret_rm
 
             dl = defer.DeferredList([ret_am, ret_rm])
             if do_get_am:
@@ -1576,12 +1509,16 @@ class SFAGateway(Gateway):
                 dl.addCallback(cb)
                 return dl
             else:
+                # The typical case
                 def cb(result):
                     assert len(result) == 2
                     (am_success, am_records), (rm_success, rm_records) = result
                     # XXX success
-                    am_record = am_records[0]
-                    rm_record = rm_records[0]
+                    print am_success, rm_success
+                    print am_records, rm_records
+                    # XXX in case of failure, this contains a failure
+                    am_record = am_records[0] if am_records else {} # XXX Why sometimes empty ????
+                    rm_record = rm_records[0] if rm_records else {} # XXX Why sometimes empty ????
                     am_record.update(rm_record)
                     return [am_record]
                 dl.addCallback(cb)
@@ -1759,10 +1696,10 @@ class SFAGateway(Gateway):
 
     @defer.inlineCallbacks
     def get_resource_lease(self, filters, params, fields, list_resources = True, list_leases = True):
-        if self.user['email'] in DEMO_HOOKS:
-            rspec = open('/usr/share/manifold/scripts/nitos.rspec', 'r')
-            defer.returnValue(self.parse_sfa_rspec(rspec))
-            return 
+#DEPRECATED|        if self.user['email'] in DEMO_HOOKS:
+#DEPRECATED|            rspec = open('/usr/share/manifold/scripts/nitos.rspec', 'r')
+#DEPRECATED|            defer.returnValue(self.parse_sfa_rspec(rspec))
+#DEPRECATED|            return 
 
 
         # Do we have a way to find slices, for now we only support explicit slice names
@@ -1816,6 +1753,7 @@ class SFAGateway(Gateway):
                 api_options['list_leases'] = 'leases'
             else:
                 raise Exception, "Neither resources nor leases requested in ListResources"
+        api_options['list_leases'] = 'all' 
             
         if self.am_version['geni_api'] == 2:
             # AM API v2 
@@ -1824,6 +1762,7 @@ class SFAGateway(Gateway):
             # AM API v3
             if slice_hrn:
                 result = yield self.sliceapi.Describe([slice_urn], [cred], api_options)
+                # XXX Weird !
                 result['value'] = result['value']['geni_rspec']
             else:
                 result = yield self.sliceapi.ListResources([cred], api_options)
@@ -1832,8 +1771,9 @@ class SFAGateway(Gateway):
             raise Exception, result['output']
 
         rspec_string = result['value']
-        rsrc_slice = self.parse_sfa_rspec(rspec_string)
-  
+        
+        parser = yield self.get_parser()
+        rsrc_slice = parser.parse(rspec_string)
 
         if slice_urn:
             for r in rsrc_slice['resource']:
@@ -2256,3 +2196,23 @@ def sfa_trust_credential_delegate(self, delegee_gidfile, caller_keyfile, caller_
 
     return dcred
 Credential.delegate = sfa_trust_credential_delegate
+
+def handle_result_value_geni_3(result_value):
+    code = result_value.get('code')
+    if not code:
+        raise Exception, "Missing code in result value"
+
+    geni_code = code.get('geni_code')
+    if geni_code == 0:
+        # Success
+        return result_value.get_value()
+    else:
+        # http://groups.geni.net/geni/wiki/GAPI_AM_API_V3/CommonConcepts#ReturnStruct
+        output = result_value.get('output')
+        raise Exception, output
+                
+def handle_result_value(result_value):
+    geni_api = result_value.get('geni_api')
+    if geni_api != 3:
+        raise NotImplemented
+    return handle_result_value_geni_3(result_value)

@@ -15,7 +15,7 @@ from manifold.core.field    import Field
 from manifold.core.announce import Announce
 from manifold.util.log      import Log
 
-class PerfSONARGateway(Gateway):
+class TemplateGateway(Gateway):
     __gateway_name__ = 'template'
 
     #---------------------------------------------------------------------------

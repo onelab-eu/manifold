@@ -108,6 +108,10 @@ class resource {
     const string          country;
     const string          longitude;
     const string          latitude;
+
+#   only in nitos
+    const string granularity;
+
     const string          x;
     const string          y;
     const string          z;
