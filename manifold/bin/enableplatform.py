@@ -10,7 +10,7 @@
 import sys
 
 from manifold.bin.common    import check_num_arguments, run_command
-from manifold.util.storage  import STORAGE_NAMESPACE 
+from manifold.core.local    import LOCAL_NAMESPACE
 
 DOC_ENABLE_PLATFORM = """
 %(default_message)s
@@ -22,7 +22,7 @@ usage: %(program_name)s PLATFORM_NAME
     PLATFORM_NAME: A String containing the short name of a platform managed by Manifold.
         You can run in 'manifold-shell' the following query to list
         the available platforms:
-            SELECT platform FROM local:platform 
+            SELECT platform FROM local:platform
 """
 
 CMD_ENABLE_PLATFORM = """
@@ -31,14 +31,16 @@ UPDATE    %(namespace)s:platform
     WHERE platform == "%(platform_name)s"
 """
 
+from manifold.util.type import returns
+from manifold.bin.shell     import Shell
+
 def main():
     check_num_arguments(DOC_ENABLE_PLATFORM, 2, 2)
     return run_command(
         CMD_ENABLE_PLATFORM % {
             "platform_name" : sys.argv[1],
-            "namespace"     : STORAGE_NAMESPACE
-        },
-        False
+            "namespace"     : LOCAL_NAMESPACE
+        }
     )
 
 if __name__ == "__main__":

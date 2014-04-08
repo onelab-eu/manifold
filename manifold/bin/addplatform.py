@@ -11,8 +11,8 @@ import sys
 from types                  import StringTypes
 
 from manifold.bin.common    import check_num_arguments, check_option, check_option_bool, check_option_enum, run_command, string_to_bool
-from manifold.util.storage  import STORAGE_NAMESPACE 
-from manifold.util.type     import accepts, returns 
+from manifold.core.local    import LOCAL_NAMESPACE
+from manifold.util.type     import accepts, returns
 
 DOC_ADD_PLATFORM = """
 %(default_message)s
@@ -42,7 +42,7 @@ SELECT name
 
 CMD_ADD_PLATFORM = """
 INSERT INTO %(namespace)s:platform
-    SET 
+    SET
         platform          = '%(platform_name)s',
         platform_longname = '%(platform_longname)s',
         gateway_type      = '%(gateway_type)s',
@@ -63,7 +63,7 @@ def get_supported_gateway_types():
     A list of String containing the name of each supported Gateway.
     """
     gateways = list()
-    run_command(CMD_GET_GATEWAYS % {"namespace" : STORAGE_NAMESPACE}, False, gateways)
+    run_command(CMD_GET_GATEWAYS % {"namespace" : LOCAL_NAMESPACE}, gateways)
     return [gateway["type"] for gateway in gateways]
 
 @returns(bool)
@@ -92,17 +92,17 @@ def main():
     supported_gateway_types = get_supported_gateway_types()
     if supported_gateway_types:
         check_option_enum("GATEWAY_TYPE", gateway_type, supported_gateway_types)
-        
+
     # Check AUTH_TYPE
     check_option_enum("AUTH_TYPE", auth_type, SUPPORTED_AUTH_TYPE)
 
     # Check DISABLED
     if argc == 7:
         check_option_bool("DISABLED", disabled)
-    disabled = string_to_bool(disabled) 
+    disabled = string_to_bool(disabled)
 
-    namespace = STORAGE_NAMESPACE
-    return run_command(CMD_ADD_PLATFORM % locals(), False)
+    namespace = LOCAL_NAMESPACE
+    return run_command(CMD_ADD_PLATFORM % locals())
 
 if __name__ == "__main__":
     main()

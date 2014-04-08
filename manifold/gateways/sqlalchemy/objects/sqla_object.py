@@ -1,15 +1,15 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Factorize SQLAlchemy object implementation 
+# Factorize SQLAlchemy object implementation
 #
 # Jordan Augé       <jordan.auge@lip6.fr>
 # Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 #
-# Copyright (C) UPMC 
+# Copyright (C) UPMC
 
 from sqlalchemy                         import types
-from sqlalchemy.exc                     import IntegrityError 
+from sqlalchemy.exc                     import IntegrityError
 from sqlalchemy.ext.declarative         import declarative_base
 
 from manifold.core.announce             import Announce
@@ -19,8 +19,7 @@ from manifold.core.table                import Table
 from manifold.gateways.object           import Object
 from manifold.gateways.sqlalchemy.util  import xgetattr, row2record
 from manifold.util.log                  import Log
-from manifold.util.password             import hash_password 
-from manifold.util.storage              import STORAGE_NAMESPACE 
+from manifold.util.password             import hash_password
 from manifold.util.type                 import accepts, returns
 
 class SQLA_Object(Object):
@@ -47,17 +46,17 @@ class SQLA_Object(Object):
 
         # self.model corresponds to a class inheriting manifold.models.Base
         # and implemented in manifold/models/.
-        self.model      = model 
+        self.model      = model
         self._interface = interface
 
     #---------------------------------------------------------------------
-    # Internal usage 
+    # Internal usage
     #---------------------------------------------------------------------
 
     def get_model(self):
         """
         Returns:
-            The model class wrapped in this SQLA_Object 
+            The model class wrapped in this SQLA_Object
             This is a sqlalchemy.ext.declarative.DeclarativeMeta instance.
         """
         return self.model
@@ -72,7 +71,7 @@ class SQLA_Object(Object):
         This method must be overloaded if supported in the children class.
         Args:
             query: The Query issued by the User.
-            annotation: The corresponding Annotation (if any, None otherwise). 
+            annotation: The corresponding Annotation (if any, None otherwise).
         Returns:
             The list of created Objects.
         """
@@ -88,7 +87,7 @@ class SQLA_Object(Object):
         params = query.get_params()
         if "password" in params:
             params["password"] = hash_password(params["password"])
-        
+
         _params = cls.process_params(params, None, user, self._interface, session)
         new_obj = cls()
         #from sqlalchemy.orm.attributes import manager_of_class
@@ -107,18 +106,18 @@ class SQLA_Object(Object):
             raise RuntimeError, "Query error: %s" % e
         finally:
             session.rollback()
-        
+
         rows = [new_obj]
         records = Records([row2record(row) for row in rows])
         return records
 
     @returns(Records)
-    def update(self, query, annotation): 
+    def update(self, query, annotation):
         """
         This method must be overloaded if supported in the children class.
         Args:
             query: The Query issued by the User.
-            annotation: The corresponding Annotation (if any, None otherwise). 
+            annotation: The corresponding Annotation (if any, None otherwise).
         Returns:
             The list of updated Objects.
         """
@@ -157,19 +156,19 @@ class SQLA_Object(Object):
         # - convenience fields
         # We refer to the model for transforming the params structure into the
         # final one
-    
+
         # Password update
         #
         # if there is password update in query.params
         # We hash the password
         # As a result from the frontend the edited password will be inserted
-        # into the local DB as hash 
+        # into the local DB as hash
         if "password" in query.get_params():
             query.params["password"] = hash_password(query.params["password"])
         _params = cls.process_params(query.params, _filters, user, self._interface, session)
         # only 2.7+ _params = { getattr(cls, k): v for k,v in query.params.items() }
         _params = dict([ (getattr(cls, k), v) for k,v in _params.items() ])
-       
+
         #session.query(cls).update(_params, synchronize_session=False)
         q = session.query(cls)
         for _filter in _filters:
@@ -187,12 +186,12 @@ class SQLA_Object(Object):
         return Records()
 
     @returns(Records)
-    def delete(self, query, annotation): 
+    def delete(self, query, annotation):
         """
         This method must be overloaded if supported in the children class.
         Args:
             query: The Query issued by the User.
-            annotation: The corresponding Annotation (if any, None otherwise). 
+            annotation: The corresponding Annotation (if any, None otherwise).
         Returns:
             The list of deleted Objects.
         """
@@ -223,12 +222,12 @@ class SQLA_Object(Object):
         return Records()
 
     @returns(Records)
-    def get(self, query, annotation): 
+    def get(self, query, annotation):
         """
         Retrieve an Object from the Gateway.
         Args:
             query: The Query issued by the User.
-            annotation: The corresponding Annotation (if any, None otherwise). 
+            annotation: The corresponding Annotation (if any, None otherwise).
         Returns:
             A dictionnary containing the requested Gateway object.
         """
@@ -252,7 +251,7 @@ class SQLA_Object(Object):
 
         # db.query(cls) seems to return NamedTuples
         res = session.query(*_fields) if _fields else session.query(cls)
-        if _filters: 
+        if _filters:
             for _filter in _filters:
                 res = res.filter(_filter)
 
@@ -276,7 +275,7 @@ class SQLA_Object(Object):
         """
         model = self.get_model()
         table_name = self.__class__.__name__.lower()
-        table = Table(STORAGE_NAMESPACE, table_name)
+        table = Table(self.get_gateway().get_platform_name(), table_name)
 
         primary_key = tuple()
 
@@ -297,17 +296,17 @@ class SQLA_Object(Object):
             table.insert_field(Field(
                 name        = column.name,
                 type        = _type,
-                qualifiers  = _qualifiers, 
+                qualifiers  = _qualifiers,
                 is_array    = False,
                 description = column.description
             ))
 
             if column.primary_key:
                 primary_key += (column.name, )
-            
+
         table.insert_key(primary_key)
-    
-        table.capabilities.retrieve   = True 
+
+        table.capabilities.retrieve   = True
         table.capabilities.join       = True
         table.capabilities.selection  = True
         table.capabilities.projection = True

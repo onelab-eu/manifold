@@ -28,7 +28,7 @@ ACTION_UPDATE  = 'update'
 ACTION_DELETE  = 'delete'
 ACTION_EXECUTE = 'execute'
 
-def uniqid (): 
+def uniqid():
     return uuid.uuid4().hex
 
 class ParameterError(StandardError): pass
@@ -43,9 +43,9 @@ class Query(object):
     2/ The set of fields specifies a AND between OR clauses.
     """
 
-    #--------------------------------------------------------------------------- 
+    #---------------------------------------------------------------------------
     # Constructor
-    #--------------------------------------------------------------------------- 
+    #---------------------------------------------------------------------------
 
     def __init__(self, *args, **kwargs):
 
@@ -53,7 +53,7 @@ class Query(object):
 
         # Initialize optional parameters
         self.clear()
-    
+
         #l = len(kwargs.keys())
         len_args = len(args)
 
@@ -69,13 +69,13 @@ class Query(object):
 
             # XXX UGLY
             if len_args == 3:
-                self.action = 'get'
+                self.action = ACTION_GET
                 self.params = {}
                 self.timestamp     = 'now'
                 self.object, self.filters, self.fields = args
             elif len_args == 4:
                 self.object, self.filters, self.params, self.fields = args
-                self.action = 'get'
+                self.action = ACTION_GET
                 self.timestamp     = 'now'
             else:
                 self.action, self.object, self.filters, self.params, self.fields, self.timestamp = args
@@ -86,8 +86,8 @@ class Query(object):
                 self.action = kwargs["action"]
                 del kwargs["action"]
             else:
-                print "W: defaulting to get action"
-                self.action = "get"
+                Log.warning("query: Defaulting to get action")
+                self.action = ACTION_GET
 
 
             self.object = kwargs["object"]
@@ -103,7 +103,7 @@ class Query(object):
                 # '*' Handling
                 fields = kwargs.pop('fields')
                 if '*' in fields:
-                    print "SET STAR IN KWARGS"
+                    Log.tmp("SET STAR IN KWARGS")
                     self.fields = Fields(star = True)
                 else:
                     self.fields = Fields(fields, star = False)
@@ -121,7 +121,15 @@ class Query(object):
                 self.timestamp = kwargs["timestamp"]
                 del kwargs["timestamp"]
             else:
-                self.timestamp = "now" 
+                self.timestamp = "now"
+
+            # Indicates the key used to store the result of this query in manifold-shell
+            # Ex: $myVariable = SELECT foo FROM bar
+            if "variable" in kwargs:
+                self.variable = kwargs["variable"][0]
+                del kwargs["variable"]
+            else:
+                self.variable = None
 
             if kwargs:
                 raise ParameterError, "Invalid parameter(s) : %r" % kwargs.keys()
@@ -134,7 +142,7 @@ class Query(object):
         if not self.filters:   self.filters   = Filter()
         if not self.params:    self.params    = {}
         if not self.fields:    self.fields    = Fields()
-        if not self.timestamp: self.timestamp = "now" 
+        if not self.timestamp: self.timestamp = "now"
 
         if isinstance(self.filters, list):
             f = self.filters
@@ -148,23 +156,32 @@ class Query(object):
         if not isinstance(self.fields, Fields):
             self.fields = Fields(self.fields)
 
-    #--------------------------------------------------------------------------- 
+    #---------------------------------------------------------------------------
     # Helpers
-    #--------------------------------------------------------------------------- 
+    #---------------------------------------------------------------------------
 
     def copy(self):
         return copy.deepcopy(self)
     clone = copy
 
     def clear(self):
-        self.action = 'get'
+        self.action = ACTION_GET
         self.object = None
         self.filters = Filter()
         self.params  = {}
         self.fields  = Fields()
         self.timestamp  = 'now' # ignored for now
 
-    def to_sql(self, platform='', multiline=False):
+    #@returns(StringTypes)
+    def to_sql(self, platform = '', multiline = False):
+        """
+        Args:
+            platform: A String corresponding to a namespace (or platform name)
+            multiline: A boolean indicating whether the String could contain
+                carriage return.
+        Returns:
+            The String representing this Query.
+        """
         get_params_str = lambda : ', '.join(['%s = %r' % (k, v) for k, v in self.get_params().items()])
 
         table  = self.get_from()
@@ -176,12 +193,13 @@ class Query(object):
         sep = ' ' if not multiline else '\n  '
         if platform: platform = "%s:" % platform
         strmap = {
-            'get'   : '%(select)s%(sep)s%(at)s%(sep)sFROM %(platform)s%(table)s%(sep)s%(where)s',
-            'update': 'UPDATE %(platform)s%(table)s%(sep)s%(params)s%(sep)s%(where)s%(sep)s%(select)s',
-            'create': 'INSERT INTO %(platform)s%(table)s%(sep)s%(params)s',
-            'delete': 'DELETE FROM %(platform)s%(table)s%(sep)s%(where)s'
+            ACTION_GET    : '%(select)s%(sep)s%(at)s%(sep)sFROM %(platform)s%(table)s%(sep)s%(where)s',
+            ACTION_UPDATE : 'UPDATE %(platform)s%(table)s%(sep)s%(params)s%(sep)s%(where)s%(sep)s%(select)s',
+            ACTION_CREATE : 'INSERT INTO %(platform)s%(table)s%(sep)s%(params)s',
+            ACTION_DELETE : 'DELETE FROM %(platform)s%(table)s%(sep)s%(where)s'
         }
 
+        Log.tmp(strmap[self.action] % locals())
         return strmap[self.action] % locals()
 
     @returns(StringTypes)
@@ -200,9 +218,9 @@ class Query(object):
         """
         return self.to_sql()
 
-    #--------------------------------------------------------------------------- 
+    #---------------------------------------------------------------------------
     # Conversion
-    #--------------------------------------------------------------------------- 
+    #---------------------------------------------------------------------------
 
     @returns(dict)
     def to_dict(self):
@@ -232,35 +250,51 @@ class Query(object):
         else:
             aq = analyzed_query.to_json()
         sq="{}"
-        
+
         result= """ new ManifoldQuery('%(a)s', '%(o)s', '%(t)s', %(f)s, %(p)s, %(c)s, %(unique)s, '%(query_uuid)s', %(aq)s, %(sq)s)"""%locals()
-        if debug: print 'ManifoldQuery.to_json:',result
+        if debug: Log.info('ManifoldQuery.to_json:', result)
         return result
-    
-    # this builds a ManifoldQuery object from a dict as received from javascript through its ajax request 
-    # we use a json-encoded string - see manifold.js for the sender part 
+
+    # this builds a ManifoldQuery object from a dict as received from javascript through its ajax request
+    # we use a json-encoded string - see manifold.js for the sender part
     # e.g. here's what I captured from the server's output
     # manifoldproxy.proxy: request.POST <QueryDict: {u'json': [u'{"action":"get","object":"resource","timestamp":"latest","filters":[["slice_hrn","=","ple.inria.omftest"]],"params":[],"fields":["hrn","hostname"],"unique":0,"query_uuid":"436aae70a48141cc826f88e08fbd74b1","analyzed_query":null,"subqueries":{}}']}>
     def fill_from_POST (self, POST_dict):
         try:
             json_string=POST_dict['json']
             dict=json.loads(json_string)
-            for (k,v) in dict.iteritems(): 
+            for (k,v) in dict.iteritems():
                 setattr(self,k,v)
         except:
             Log.warning("Could not decode incoming ajax request as a Query, POST= %s" % POST_dict)
             Log.debug(traceback.print_exc())
         self.sanitize()
 
-    #--------------------------------------------------------------------------- 
+    #---------------------------------------------------------------------------
     # Accessors
-    #--------------------------------------------------------------------------- 
+    #---------------------------------------------------------------------------
+
+    @returns(StringTypes)
+    def get_variable(self):
+        return self.variable
 
     @returns(StringTypes)
     def get_action(self):
+        """
+        Returns:
+            The String related to this Query instance.
+            It's a value among ACTION_CREATE, ACTION_GET, ACTION_UPDATE,
+            ACTION_DELETE, ACTION_EXECUTE.
+        """
         return self.action
 
     def set_action(self, action):
+        """
+        Set the action related to this Query instance.
+        Args:
+            action: A String among ACTION_CREATE, ACTION_GET, ACTION_UPDATE,
+            ACTION_DELETE, ACTION_EXECUTE.
+        """
         self.action = action
         return self
 
@@ -310,18 +344,19 @@ class Query(object):
 #DEPRECATED#        else:
 #DEPRECATED#            raise Exception, "Invalid field specification"
 
-    #--------------------------------------------------------------------------- 
+    #---------------------------------------------------------------------------
     # LINQ-like syntax
-    #--------------------------------------------------------------------------- 
+    #---------------------------------------------------------------------------
 
     @classmethod
     #@returns(Query)
     def action(self, action, object):
         """
-        (Internal usage). Craft a Query according to an action name 
+        (Internal usage). Craft a Query according to an action name
         See methods: get, update, delete, execute.
         Args:
-            action: A String among {"get", "update", "delete", "execute"}
+            action: A String among ACTION_CREATE, ACTION_GET, ACTION_UPDATE,
+            ACTION_DELETE, ACTION_EXECUTE.
             object: The name of the queried object (String)
         Returns:
             The corresponding Query instance
@@ -341,7 +376,7 @@ class Query(object):
         Returns:
             The corresponding Query instance
         """
-        return self.action("get", object)
+        return self.action(ACTION_GET, object)
 
     @classmethod
     #@returns(Query)
@@ -353,8 +388,8 @@ class Query(object):
         Returns:
             The corresponding Query instance
         """
-        return self.action("update", object)
-    
+        return self.action(ACTION_UPDATE, object)
+
     @classmethod
     #@returns(Query)
     def create(self, object):
@@ -365,8 +400,8 @@ class Query(object):
         Returns:
             The corresponding Query instance
         """
-        return self.action("create", object)
-    
+        return self.action(ACTION_CREATE, object)
+
     @classmethod
     #@returns(Query)
     def delete(self, object):
@@ -377,8 +412,8 @@ class Query(object):
         Returns:
             The corresponding Query instance
         """
-        return self.action("delete", object)
-    
+        return self.action(ACTION_DELETE, object)
+
     @classmethod
     #@returns(Query)
     def execute(self, object):
@@ -389,7 +424,7 @@ class Query(object):
         Returns:
             The corresponding Query instance
         """
-        return self.action("execute", object)
+        return self.action(ACTION_EXECUTE, object)
 
     #@returns(Query)
     def at(self, timestamp):
@@ -413,7 +448,7 @@ class Query(object):
                 - a Filter instance
                 - a set/list/tuple of Predicate instances
         """
-        
+
         clear = kwargs.get('clear', False)
         # We might raise an Exception for other attributes
         if clear:
@@ -428,7 +463,7 @@ class Query(object):
                 filters = [filters]
             for predicate in filters:
                 self.filters.add(predicate)
-        elif len(args) == 3: 
+        elif len(args) == 3:
             predicate = Predicate(*args)
             self.filters.add(predicate)
         else:
@@ -447,7 +482,7 @@ class Query(object):
                 filters = [filters]
             for predicate in set(filters):
                 self.filters.remove(predicate)
-        elif len(args) == 3: 
+        elif len(args) == 3:
             predicate = Predicate(*args)
             self.filters.remove(predicate)
         else:
@@ -456,7 +491,7 @@ class Query(object):
         assert isinstance(self.filters, Filter),\
             "Invalid self.filters = %s" % (self.filters, type(self.filters))
         return self
-            
+
     def select(self, *fields, **kwargs):
         """
         """
@@ -566,7 +601,7 @@ class Query(object):
     @returns(StringTypes)
     def get_namespace(self):
         l = self.get_from().rsplit(':', 2)
-        return l[0] if len(l) == 2 else None  
+        return l[0] if len(l) == 2 else None
 
     def set_namespace(self, namespace):
         old_namespace, old_table_name = self.get_namespace_table()
@@ -578,9 +613,9 @@ class Query(object):
             namespace, table_name = self.get_from().rsplit(':', 2)
             self.object = table_name
 
-    #--------------------------------------------------------------------------- 
+    #---------------------------------------------------------------------------
     # Destination
-    #--------------------------------------------------------------------------- 
+    #---------------------------------------------------------------------------
 
     def get_destination(self):
         return Destination(self.object, self.filters, self.fields | Fields(self.params.keys()))
