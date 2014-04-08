@@ -46,7 +46,7 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
     # Constructor
     #---------------------------------------------------------------------------
 
-    def __init__(self, parent_producer, child_producer_relation_list, interface):
+    def __init__(self, parent_producer, child_producer_relation_list):
         """
         Constructor
         Args:
@@ -57,22 +57,10 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
         # Initialization (passing a tuple as producers stores the second parameter as data)
         Operator.__init__(self)
         ParentChildrenSlotMixin.__init__(self)
-        self._interface = interface
         self._set_parent(parent_producer)
         self._num_children_started = 0
         for producer, relation in child_producer_relation_list:
-            relation_name = relation.get_relation_name()
-            if not relation_name:
-                raise ManifoldInternalException, "All children for SubQuery should have named relations"
-            data = {
-                'relation'  : relation,
-                'packet'    : None,
-                'done'      : False,
-                'records'   : Records()
-            }
-            # NOTE: all relations in a SubQuery have names
-            self._set_child(producer, data, child_id = relation_name)
-            self._num_children_started += 1
+            self._add_child(producer, relation)
 
         # Member variables (could be stored in parent data)
         self.parent_output = Records()
@@ -82,6 +70,210 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
         # to the different children.
         # see Subquery.split_packet()
         self._child_packets = None
+
+        # LOCAL ?
+        if len(child_producer_relation_list) == 0:
+            self._local = False
+        else:
+            child, relation = child_producer_relation_list[0]
+            self._local = relation.is_local()
+
+    #---------------------------------------------------------------------------
+    # Class methods
+    #---------------------------------------------------------------------------
+
+    @classmethod
+    def _make(cls, parent, child, relation):
+        """
+        Internal usage.
+        We have decided to build the subquery operator (after checking for
+        local status), we now need to decide whether to insert a cross product
+        or not.
+        """
+        if False: #parent.capabilities.is_onjoin(): #We need more than the test for ONJOIN.. We might have all the needed parameters, because the user expressed them, or from a parent operator
+            # We need to have all root_key_fields available before running the
+            # onjoin query
+            root_key_fields = None # parent.keys.one().get_field_names()
+
+            # We assume for now that if the fields will be either available as a
+            # WHERE condition (not available at this stage), or through a
+            # subquery. We only look into subqueries, if the field is not
+            # present, that means it will be there at execution time. It will
+            # fail otherwise.
+            #
+            # A = onjoin(X,Y)
+            #                   
+            # SQ = A
+            #   |_ X     <=>  SQ  - |X| - x - X
+            #   |_ Y              \     \   \
+            #   |_ Z                Z     A   Y
+            #
+            # We will have:
+            #    |X| if a root key field is given by a subquery == not available #    in a filter
+            #     x  if more than 1 subquery is involved
+            # 
+            # NOTE: x will either return a single record with a list of values,
+            # or multiple records with simple values
+
+            xp_ast_relation, sq_ast_relation = [], []
+            xp_key = ()
+            xp_value = ()
+
+# ??? #            # We go though the set of subqueries to find
+# ??? #            # - the ones for the cartesian product
+# ??? #            # - the ones for the subqueries
+# ??? #            for name, ast_relation in self.subqueries.items():
+# ??? #                if name in root_key_fields:
+# ??? #                    ast, relation = ast_relation
+# ??? #                    key, _, value = relation.get_predicate().get_tuple()
+# ??? #                    assert isinstance(key, StringTypes), "Invalid key"
+# ??? #                    assert not isinstance(value, tuple), "Invalid value"
+# ??? #                    xp_key   += (value,)
+# ??? #                    xp_value += (key,)
+# ??? #                    xp_ast_relation.append(ast_relation)
+# ??? #                else:
+# ??? #                    sq_ast_relation.append(ast_relation)
+
+#DEPRECATED|             ast = self.ast
+#DEPRECATED| 
+#DEPRECATED|             # SUBQUERY
+#DEPRECATED|             if sq_ast_relation:
+#DEPRECATED|                 ast.subquery(sq_ast_relation)
+#DEPRECATED| 
+#DEPRECATED|             # CARTESIAN PRODUCT
+#DEPRECATED|             query = Query.action('get', self.root.get_name()).select(set(xp_key))
+#DEPRECATED|             self.ast = AST(self._interface).cartesian_product(xp_ast_relation, query)
+#DEPRECATED| 
+#DEPRECATED|             # JOIN
+#DEPRECATED|             predicate = Predicate(xp_key, eq, xp_value)
+#DEPRECATED|             self.ast.left_join(ast, predicate)
+
+            # XXX TODO !!!
+            # 1) Cross product
+            if len(xp_ast_relation) > 1:
+                pass
+
+            # 2) Left join
+            if len(xp_ast_relation) > 0:
+                pass
+                
+            # 3) Subquery
+# ??? #            if len(sq_ast_relation) > 0:
+# ??? #                self.ast.subquery
+# ??? #                pass
+        else:
+            return cls(parent, [(child, relation)])
+
+    @classmethod
+    def make(cls, parent, child, relation):
+        """
+        Default construction for a SubQuery operator, handling special cases
+        such as local queries.
+        """
+        if relation.is_local():
+            # here we need to be careful that no Rename of LeftJoin operator is
+            # present in the child. If so, let's pop them out of the child, with
+            # the appropriate treatment.
+            return cls.extract_from_local_child(parent, child, relation, next_operator = None)
+        else:
+            return cls._make(parent, child, relation)
+
+    @classmethod
+    def add_child(cls, parent, child, relation):
+        # assert: we only add local relations to a local subquery
+        # assert: we cannot add children if the operator has already been started 
+
+        if self.is_local():
+            return cls.extract_from_local_child(None, child, relation, next_operator = parent)
+        return parent._add_child(child, relation)
+
+    def _add_child(self, child, relation):
+        relation_name = relation.get_relation_name()
+        if not relation_name:
+            raise ManifoldInternalException, "All children for SubQuery should have named relations"
+        data = {
+            'relation'  : relation,
+            'packet'    : None,
+            'done'      : False,
+            'records'   : Records()
+        }
+        # NOTE: all relations in a SubQuery have names
+        self._set_child(child, data, child_id = relation_name)
+        self._num_children_started += 1
+
+        return self
+
+    @classmethod
+    def extract_from_local_child(cls, parent, child, relation, next_operator = None):
+        """
+        """
+        # To avoid cyclic dependencies
+        from manifold.operators.left_join   import LeftJoin
+        from manifold.operators.rename      import Rename
+        from manifold.operators.right_join  import RightJoin
+
+        # (o)--[SQ]--[PARENT]
+        #          \
+        #           \--(o)  (o)--[XX]--[XX]--(o) (o)--[NEW_CHILD]
+        #                    ^
+        #                  child
+        #                  = top
+        top = child
+        prev = None
+        bottom = child
+
+        while True:
+            # If the current operator has to be migrated...
+            name = relation.get_name()
+            if isinstance(bottom, LeftJoin):
+                # Update the predicate
+                predicate = bottom.get_predicate()
+                predicate.update_key(lambda k: Fields.join(name, k))
+
+                # Get following operator
+                prev = bottom
+                bottom = bottom._get_left()
+
+            elif isinstance(bottom, Rename):
+                # Update names
+                bottom.update_aliases(lambda k, v: (Fields.join(name, k), Fields.join(name, v)))
+
+                # Get following operator
+                prev = bottom
+                bottom = bottom._get_child()
+
+            else:
+                break
+
+        # Plug the children inside a new/an existing SQ
+        if not next_operator:
+            # Create subquery
+            next_operator = cls._make(parent, bottom, relation)
+        else:
+            next_operator._add_child(bottom, relation)
+                
+        if top == bottom:
+            # Nothing has to be migrated
+            return next_operator
+        else:
+            # top -- ... -- bottom is the new root of SQ
+            if isinstance(prev, LeftJoin):
+                prev._set_left(next_operator)
+            elif isinstance(prev, Rename):
+                prev._set_child(next_operator)
+            else:
+                raise NotImplemented
+            return top
+
+    #---------------------------------------------------------------------------
+    # Accessors
+    #---------------------------------------------------------------------------
+
+    def is_local(self):
+        return self._local
+
+    def set_local(self):
+        self._local = True
 
     #---------------------------------------------------------------------------
     # Internal methods
@@ -93,7 +285,7 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
         Returns:
             The '%r' representation of this SubQuery Operator.
         """
-        return '<subqueries>'
+        return '<subqueries%s>' % (' local' if self.is_local() else '')
 
     #---------------------------------------------------------------------------
     # Helpers
@@ -234,6 +426,27 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
     # Methods
     #---------------------------------------------------------------------------
 
+#DEPRECATED|    def split_record(self, record):
+#DEPRECATED|        method_subrecords = dict()
+#DEPRECATED|        for k, v in record.items():
+#DEPRECATED|            if isinstance(v, Records):
+#DEPRECATED|                method_subrecords[k] = v
+#DEPRECATED|            elif isinstance(v, list): # XXX Temporary
+#DEPRECATED|                method_subrecords[k] = Records(v)
+#DEPRECATED|
+#DEPRECATED|        if not method_subrecords:
+#DEPRECATED|            return
+#DEPRECATED|
+#DEPRECATED|        uuid = record.get_uuid()
+#DEPRECATED|        for method, _subrecords in method_subrecords.items():
+#DEPRECATED|            subrecords = list()
+#DEPRECATED|            for subrecord in _subrecords:
+#DEPRECATED|                subrecord = self.split_record(subrecord)
+#DEPRECATED|                subrecord.set_parent_uuid(uuid)
+#DEPRECATED|                subrecords.append(subrecord)
+#DEPRECATED|            self._interface.add_to_local_cache(method, uuid, subrecords)
+#DEPRECATED|        return record
+
     def receive_impl(self, packet):
         """
         Handle an incoming Packet instance.
@@ -245,22 +458,21 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
             parent_packet, child_packets = self.split_packet(packet)
             for child_id, child_packet in child_packets.items():
                 self._set_child_packet(child_id, child_packet)
-            print "PARENT PACKET WAS", parent_packet
             self.send_to(self._get_parent(), parent_packet)
 
         elif packet.get_protocol() == Packet.PROTOCOL_RECORD:
             source_id = self._get_source_child_id(packet)
 
             record = packet
-            print "RECEIVE RECORD", record
 
-            # We will extract subrecords from the packet and store them in the
-            # local cache
-            # XXX How can we easily spot subrecords
+#DEPRECATED|            # We will extract subrecords from the packet and store them in the
+#DEPRECATED|            # local cache
+#DEPRECATED|            # XXX How can we easily spot subrecords
+#DEPRECATED|            # XXX This should disappear
+#DEPRECATED|            record, subrecord_dict = self.split_record(record)
 
             #if packet.get_source() == self._producers.get_parent_producer(): # XXX
             if source_id == PARENT: # if not self._parent_done:
-
                 # Store the record for later...
                 if not record.is_empty():
                     self.parent_output.append(record)
@@ -310,6 +522,12 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
             # so this SubQuery operator is useless and should be replaced by
             # its main query.
             Log.warning("SubQuery::run_children: no child node. The query plan could be improved")
+            map(self.forward_upstream, self.parent_output)
+            self.forward_upstream(Record(last = True))
+            return
+
+        if self.is_local():
+            map(self.forward_upstream, self.parent_output)
             self.forward_upstream(Record(last = True))
             return
 
@@ -357,7 +575,13 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
 #DEPRECATED|            child_packet.set_records(child_records)
 # END LOCAL CACHE
 
-            print "CHILD PACKET", child_packet
+            #uuids = list()
+            #for parent_record in self.parent_output:
+            #    uuid = parent_record.get_uuid()
+            #    if uuid:
+            #        uuids.append(uuid)
+            #child_packet.set_records(uuids)
+            #print "CHILD PACKET", child_packet
             self.send_to(child, child_packet)
 
 #DEPRECATED|        # Inspect the first parent record to deduce which fields have already
@@ -512,7 +736,14 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
                     predicate = relation.get_predicate()
 
                     key, op, value = predicate.get_tuple()
+
+                    # XXX HOW DO WE MANAGE LOCAL QUERIES HERE ?
+                    print "SEARCHING FOR LOCAL QUERIES"
+                    print "  . relation", relation
+                    print "  . predicate", predicate
                     
+                    # The following code is messy... although it is in charge of
+                    # mapping the subrecords with their parent records...
                     if op == eq:
                         # 1..N
                         # Example: parent has slice_hrn, resource has a reference to slice
@@ -611,6 +842,16 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
         return dparent.subquery(children_destination_relation_list)
 
     def optimize_selection(self, filter):
+        if self.is_local():
+            # Don't propagate the selection
+            print "SQ OPT SEL", filter
+            print "self.get_destination().get_filter()", self.get_destination().get_filter()
+            print "filter <= self.get_destination().get_filter()", filter <= self.get_destination().get_filter()
+            #if filter <= self.get_destination().get_filter():
+            return Selection(self, filter)
+            #else:
+            #    return self
+
         parent_filter, top_filter = Filter(), Filter()
         for predicate in filter:
             # XXX We need to know all fields, and not only those that have been # asked !!!
@@ -639,6 +880,18 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
         Returns:
             The optimized AST once this projection has been propagated.
         """
+
+        if self.is_local():
+            # Don't propagate the projection
+            print "SQ opt proj", fields
+            print "self.get_destination().get_fields()", self.get_destination().get_fields()
+            print "fields <= self.get_destination().get_fields()", fields <= self.get_destination().get_fields()
+            if fields <= self.get_destination().get_fields():
+                return Projection(self, fields) 
+            else:
+                return self
+
+
         parent_fields = Fields([field for field in fields if not "." in field]) \
             | Fields([field.split('.')[0] for field in fields if "." in field])
 
@@ -722,4 +975,33 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
             return Projection(self, fields) #jordan
         return self
 
+    #---------------------------------------------------------------------------
+    # Algebraic rules
+    #---------------------------------------------------------------------------
 
+    def subquery(self, ast, relation):
+        """
+        SQ_new o SQ
+
+        Overrides the default behaviour where the SQ operator is added at the
+        top.
+        """
+        if relation.is_local():
+            if self.is_local():
+                # Simple behaviour : since all children can be executed in parallel,
+                # let's add the child ast as a new children of the current SQ node.
+                return self.add_child(ast, relation)
+            else:
+                # forward down
+                self._update_parent_producer(lambda p, d: p.subquery(ast, relation))
+                return self
+
+        else:
+            if self.is_local():
+                # build on top: the default behaviour
+                Operator.subquery(self, ast, relation)
+                return SubQuery.make(self, ast, relation)
+            else:
+                # Simple behaviour : since all children can be executed in parallel,
+                # let's add the child ast as a new children of the current SQ node.
+                return SubQuery.add_child(self, ast, relation)

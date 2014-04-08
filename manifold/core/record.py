@@ -13,9 +13,10 @@
 #   Jordan Augé       <jordan.auge@lip6.fr> 
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
+#import uuid
 from types                  import GeneratorType, StringTypes
 
-from manifold.core.fields   import Fields
+from manifold.core.fields   import Fields, FIELD_SEPARATOR
 from manifold.core.packet   import Packet
 from manifold.util.log      import Log
 from manifold.util.type     import returns, accepts
@@ -44,6 +45,8 @@ class Record(Packet):
                 raise Exception, "Bad initializer for Record"
         else:
             self._record = None
+        #self._parent_uuid = None
+        #self._uuid = None
 
     @staticmethod
     def from_dict(dic):
@@ -160,19 +163,49 @@ class Record(Packet):
     # Methods
     #--------------------------------------------------------------------------- 
 
-    def get_value(self, key):
+    def get_map_entries(self, fields):
+        """
+        Internal use for left_join
+        """
+        if isinstance(fields, Fields):
+            assert len(fields) == 1
+            fields = iter(fields).next()
+
+        # fields is now a string
+        field, _, subfield = fields.partition(FIELD_SEPARATOR)
+
+        if not subfield:
+            if field in self._record:
+                return [(self._record[field], self._record)]
+            else:
+                return []
+        else:
+            ret = list()
+            for record in self._record[field]:
+                tuple_list = record.get_map_entries(subfield)
+                ret.extend(tuple_list)
+            return ret
+
+    def get_value(self, fields):
         """
         Args:
-            key: A String instance (field name), or a set of String instances
+            fields: A String instance (field name), or a set of String instances
                 (field names)
         Returns:
-            If key is a String,  return the corresponding value.
-            If key is a set, return a tuple of corresponding value.
+            If fields is a String,  return the corresponding value.
+            If fields is a set, return a tuple of corresponding value.
         """
-        if isinstance(key, StringTypes):
-            return self._record[key]
-        else:
-            return tuple(map(lambda x: self._record[x], key))
+        if isinstance(fields, Fields):
+            assert len(fields) == 1
+            fields = iter(fields).next()
+
+        if isinstance(fields, StringTypes):
+            return self._record[fields]
+
+        elif isinstance(fields, tuple):
+            # XXX We expect no "." inside XXX 
+            return tuple(map(lambda x: self.get_value(x), fields))
+
 
     @returns(bool)
     def has_fields(self, fields):
@@ -188,11 +221,27 @@ class Record(Packet):
             # SHOULD BE DEPRECATED SOON since we are only using the Fields()
             # class now...
             return fields in self._record
-        else:
-            # self._record.keys() should have type Fields, otherwise comparison
-            # fails without casting to set
-            return set(fields) <= set(self._record.keys())
-   
+
+        fields, map_method_subfields, _, _ = fields.split_subfields()
+        print "RECORD HAS FIELDS:"
+        print "set(fields)", set(fields)
+        print "set(self._record.keys())", set(self._record.keys())
+        if not set(fields) <= set(self._record.keys()):
+            return False
+
+        for method, subfields in map_method_subfields.items():
+            # XXX 1..1 not taken into account here
+            for record in self._record[method]:
+                print "recursive call:"
+                if not record.has_fields(subfields):
+                    return False
+        print "ok"
+        return True
+
+#DEPRECATED|        # self._record.keys() should have type Fields, otherwise comparison
+#DEPRECATED|        # fails without casting to set
+#DEPRECATED|        return set(fields) <= set(self._record.keys())
+
     @returns(bool)
     def has_empty_fields(self, keys):
         for key in keys:
@@ -230,6 +279,15 @@ class Record(Packet):
             Packet.get_protocol_name(self.get_protocol()),
             self.to_dict()
         )
+
+#DEPRECATED|    def get_uuid(self):
+#DEPRECATED|        if not self._uuid:
+#DEPRECATED|            self._uuid = str(uuid.uuid4())
+#DEPRECATED|        return self._uuid
+#DEPRECATED|
+#DEPRECATED|    def set_parent_uuid(self, uuid):
+#DEPRECATED|        self._parent_uuid = uuid
+
 
 #-------------------------------------------------------------------------------
 # Records class

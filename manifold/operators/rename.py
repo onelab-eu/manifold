@@ -18,6 +18,7 @@ from manifold.core.packet           import Packet
 from manifold.core.query            import Query
 from manifold.core.record           import Records
 from manifold.operators.operator    import Operator
+from manifold.operators.subquery    import SubQuery
 from manifold.util.log              import Log 
 from manifold.util.type             import returns
 
@@ -83,6 +84,14 @@ class Rename(Operator, ChildSlotMixin):
         except KeyError:
             return field_name
 
+    def update_aliases(self, function):
+        for k, v in self._aliases.items():
+            new_k, new_v = function(k, v)
+            if new_k:
+                self._aliases.pop(k)
+                self._aliases[new_k] = new_v
+        
+
     #---------------------------------------------------------------------------
     # Internal methods
     #---------------------------------------------------------------------------
@@ -137,10 +146,10 @@ class Rename(Operator, ChildSlotMixin):
             if key in rmap:
                 params[rmap[key]] = params.pop(key)
 
-        # XXX Process records
-        records = packet.get_records()
-        if records:
-            packet.set_records(self.process_records(records))
+        # XXX Process records: uuids now...
+        #records = packet.get_records()
+        #if records:
+        #    packet.set_records(self.process_records(records))
 
         return packet
 
@@ -233,3 +242,20 @@ class Rename(Operator, ChildSlotMixin):
     @returns(Node)
     def reorganize_create(self):
         return self._get_child().reorganize_create()
+
+    #---------------------------------------------------------------------------
+    # Algebraic rules
+    #---------------------------------------------------------------------------
+
+    def subquery(self, ast, relation):
+        """
+        SQ_new o Rename
+        """
+
+        if relation.is_local():
+            # Pass the subquery into the child, no renaming involved
+            self._update_child(lambda l, d: l.subquery(ast, relation))
+            return self
+
+        # Default behaviour : SQ on top
+        return SubQuery.make(self, ast, relation)

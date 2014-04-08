@@ -20,6 +20,7 @@ from manifold.core.packet           import Packet
 from manifold.core.query            import Query
 from manifold.core.record           import Record
 from manifold.operators             import ChildStatus, ChildCallback
+from manifold.operators.subquery    import SubQuery
 from manifold.operators.projection  import Projection
 from manifold.operators.operator    import Operator
 from manifold.util.log              import Log
@@ -166,3 +167,26 @@ class Union(Operator, ChildrenSlotMixin):
         if do_parent_projection:
             return Projection(self, fields)
         return self
+
+    #---------------------------------------------------------------------------
+    # Algebraic rules
+    #---------------------------------------------------------------------------
+
+    def subquery(self, ast, relation):
+        """
+        SQ_new o U
+
+        Overrides the default behaviour where the SQ operator is added at the
+        top.
+        """
+
+        if not relation.is_local():
+            return SubQuery.make(self, ast, relation)
+
+        # XXX Note that it can be partially local... no managed at the moment
+
+        # SQ_new o U  =>  U o SQ_new if SQ_new is local
+        self._update_children_producers(lambda p, d: p.subquery(ast, relation))
+
+        return self
+
