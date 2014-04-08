@@ -1,21 +1,37 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+#
+# Parse a Manifold Query stored in a String.
+# SQLParser class is used by manifold-shell.
+#
+# Tests:
+#   ./sql.py
+#
+# See also:
+#   manifold.bin.shell
+#
+# Authors:
+#   Jordan Augé       <jordan.auge@lip6.fr>
+#   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
+#
+# Copyright (C) UPMC Paris Universitas
 
-import sys
+import re, sys
+import pyparsing as pp
+
 from manifold.core.query     import Query
 from manifold.core.filter    import Filter
-from manifold.util.predicate import Predicate
-from manifold.util.log       import Log
 from manifold.util.clause    import Clause
-import pyparsing as pp
-import re
+from manifold.util.log       import Log
+from manifold.util.predicate import Predicate
+from manifold.util.type      import accepts, returns
 
 #DEBUG = True
 DEBUG = False
 
 def debug(args):
     if DEBUG: print(args)
- 
+
 class SQLParser(object):
 
     def __init__(self):
@@ -26,14 +42,15 @@ class SQLParser(object):
 
         integer = pp.Combine(pp.Optional(pp.oneOf("+ -")) + pp.Word(pp.nums)).setParseAction(lambda t:int(t[0]))
         floatNumber = pp.Regex(r'\d+(\.\d*)?([eE]\d+)?')
-        point = pp.Literal( "." )
-        e     = pp.CaselessLiteral( "E" )
+        point = pp.Literal(".")
+        e     = pp.CaselessLiteral("E")
 
+        kw_store   = pp.CaselessKeyword('=')
         kw_select  = pp.CaselessKeyword('select')
         kw_update  = pp.CaselessKeyword('update')
         kw_insert  = pp.CaselessKeyword('insert')
         kw_delete  = pp.CaselessKeyword('delete')
-        
+
         kw_from    = pp.CaselessKeyword('from')
         kw_into    = pp.CaselessKeyword('into')
         kw_where   = pp.CaselessKeyword('where')
@@ -53,7 +70,7 @@ class SQLParser(object):
 
         obj        = pp.Forward()
         value      = obj | pp.QuotedString('"') | pp.QuotedString("'") | kw_true | kw_false | integer | variable
-            
+
         def handle_value_list(s, l, t):
             t = t.asList()
             new_t = tuple(t)
@@ -65,19 +82,21 @@ class SQLParser(object):
                    | (pp.Literal("[").suppress() + pp.Literal("]").suppress()) \
                         .setParseAction(lambda s, l, t: [[]]) \
                    | pp.Literal("[").suppress() \
-                   + pp.delimitedList(value) \
-                        .setParseAction(handle_value_list) \
-                   + pp.Literal("]") \
+                        + pp.delimitedList(value).setParseAction(handle_value_list) \
+                        + pp.Literal("]") \
                         .suppress()
 
         table      = pp.Word(pp.alphanums + ':_-').setResultsName('object')
         field_list = pp.Literal("*") | pp.delimitedList(field).setParseAction(lambda tokens: set(tokens))
 
         assoc      = (field + pp.Literal(":").suppress() + value_list).setParseAction(lambda tokens: [tokens.asList()])
-        obj        << pp.Literal("{").suppress() + pp.delimitedList(assoc).setParseAction(lambda t: dict(t.asList())) + pp.Literal("}").suppress()
+        obj        << pp.Literal("{").suppress() \
+                    + pp.delimitedList(assoc).setParseAction(lambda t: dict(t.asList())) \
+                    + pp.Literal("}").suppress()
 
         # PARAMETER (SET)
         # X = Y    -->    t=(X, Y)
+        @returns(tuple)
         def handle_param(s, l, t):
             t = t.asList()
             assert len(t) == 2
@@ -91,14 +110,15 @@ class SQLParser(object):
 
         # PARAMETERS (SET)
         # PARAMETER[, PARAMETER[, ...]]    -->    dict()
+        @returns(dict)
         def handle_parameters(s, l, t):
             t = t.asList()
             new_t = dict(t) if t else dict()
             debug("[handle_parameters] s = %(s)s ** l = %(l)s ** t = %(t)s" % locals())
             debug("                    new_t = %(new_t)s" % locals())
             return new_t
-        
-        parameters     = pp.delimitedList(param) \
+
+        parameters = pp.delimitedList(param) \
             .setParseAction(handle_parameters)
 
         predicate  = (field + operator + value_list).setParseAction(self.handlePredicate)
@@ -126,16 +146,26 @@ class SQLParser(object):
 
         timestamp  = pp.CaselessKeyword('now') | datetime
 
+        store_elt  = (variable.setResultsName("variable") + kw_store.suppress())
         select_elt = (kw_select.suppress() + field_list.setResultsName('fields'))
         where_elt  = (kw_where.suppress()  + filter.setResultsName('filters'))
         set_elt    = (kw_set.suppress()    + parameters.setResultsName('params'))
         at_elt     = (kw_at.suppress()     + timestamp.setResultsName('timestamp'))
 
         # SELECT *|field_list [AT timestamp] FROM table [WHERE clause]
+        #    You may also write: myVar = SELECT ...
         # UPDATE table SET parameters [WHERE clause] [SELECT *|field_list]
         # INSERT INTO table SET parameters  [SELECT *|field_list]
         # DELETE FROM table [WHERE clause]
-        select     = (select_elt + pp.Optional(at_elt) + kw_from.suppress() + table + pp.Optional(where_elt)).setParseAction(lambda args: self.action(args, 'get'))
+        select     = (
+              pp.Optional(store_elt)\
+            + select_elt\
+            + pp.Optional(at_elt)\
+            + kw_from.suppress()\
+            + table\
+            + pp.Optional(where_elt)
+        ).setParseAction(lambda args: self.action(args, 'get'))
+
         update     = (kw_update + table + set_elt + pp.Optional(where_elt) + pp.Optional(select_elt)).setParseAction(lambda args: self.action(args, 'update'))
         insert     = (kw_insert + kw_into + table + set_elt + pp.Optional(select_elt)).setParseAction(lambda args: self.action(args, 'create'))
         delete     = (kw_delete + kw_from + table + pp.Optional(where_elt)).setParseAction(lambda args: self.action(args, 'delete'))
@@ -145,12 +175,15 @@ class SQLParser(object):
     def action(self, args, action):
         args['action'] = action
 
+    #@returns(Predicate)
     def handlePredicate(self, args):
         return Predicate(*args)
 
+    @returns(Clause)
     def handleClause(self, args):
         return Clause(*args)
 
+    @returns(dict)
     def parse(self, string):
         result = self.bnf.parseString(string, parseAll=True)
         #print result.dump()
@@ -161,6 +194,7 @@ if __name__ == "__main__":
     STR_QUERIES = [
         'UPDATE slice SET lease = [{resource: "urn:publicid:IDN+ple:certhple+node+iason.inf.uth.gr", start_time: 1392130800, duration: 2}] where slice_hrn == "ple.upmc.myslicedemo"',
         'SELECT ip_id, node_id AT now FROM node WHERE node_id included [8252]',
+        '$myVariable = SELECT ip_id, node_id AT now FROM node WHERE node_id included [8252]',
         'SELECT hops.ip, hops.ttl AT 2012-09-09 14:30:09 FROM traceroute WHERE agent_id == 11824 && destination_id == 1417 && test_field == "test"',
         'SELECT slice_hrn FROM slice',
         'SELECT slice_hrn, slice_description FROM slice WHERE slice_hrn == "ple.upmc.myslicedemo"',
