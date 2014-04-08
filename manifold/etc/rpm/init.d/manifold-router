@@ -18,11 +18,12 @@
 RETVAL=0
 DESC="Manifold router daemon"
 NAME=manifold-router
-DAEMON=/usr/local/bin/$NAME
-PIDFILE=/var/run/$NAME.pid
+DAEMON=/usr/bin/${NAME}
+PIDFILE=/var/run/${NAME}.pid
+SOCKET=/tmp/manifold
 SCRIPTNAME=/etc/init.d/$NAME
 MANIFOLD_CONF="/etc/manifold/manifold.conf"
-DAEMON_ARGS="-c $MANIFOLD_CONF"
+DAEMON_ARGS="--config=$MANIFOLD_CONF --socket=$SOCKET --pid-file=$PIDFILE"
 
 # Distribution specific paths
 VAR_LOCK_FILE=/var/lock/subsys/$NAME
@@ -46,6 +47,9 @@ execute()
 
 start()
 {
+	mkdir -p `dirname $PIDFILE`
+	mkdir -p `dirname $SOCKET`
+
 	execute "$DAEMON $DAEMON_ARGS" "Starting $DESC"
 	RETVAL=$?
 	[ "$RETVAL" = 0 ] && touch $VAR_LOCK_FILE

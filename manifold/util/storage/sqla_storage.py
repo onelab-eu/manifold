@@ -9,8 +9,11 @@
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
 import os
+from types                          import StringTypes
+
 from manifold.core.annotation       import Annotation
 from manifold.util.filesystem       import ensure_writable_directory, check_readable_file
+from manifold.util.type             import returns
 from ..storage.storage              import Storage
 
 class SQLAlchemyStorage(Storage):

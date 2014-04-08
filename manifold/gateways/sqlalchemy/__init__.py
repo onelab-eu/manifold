@@ -7,7 +7,7 @@
 # Jordan Auge       <jordan.auge@lip6.fr>
 # Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 #
-# Copyright (C) 2013 UPMC 
+# Copyright (C) 2013 UPMC
 
 from __future__                     import absolute_import
 
@@ -17,20 +17,19 @@ from sqlalchemy.orm                 import sessionmaker
 
 from manifold.core.announce         import Announce, make_virtual_announces
 from manifold.core.annotation       import Annotation
-from manifold.core.field            import Field 
+from manifold.core.field            import Field
 from manifold.core.record           import Records
 from manifold.gateways              import Gateway
 
-from .objects.account        import Account
-from .objects.linked_account import LinkedAccount
-from .objects.platform       import Platform
-from .objects.policy         import Policy
-from .objects.session        import Session
-from .objects.user           import User
+from .objects.account               import Account
+from .objects.linked_account        import LinkedAccount
+from .objects.platform              import Platform
+from .objects.policy                import Policy
+from .objects.session               import Session
+from .objects.user                  import User
 
 from manifold.util.log              import Log
 from manifold.util.type             import accepts, returns
-from manifold.util.storage          import STORAGE_NAMESPACE 
 
 # NOTE
 # This gateway is synchronous! error management is performed a bit differently
@@ -74,7 +73,7 @@ class SQLAlchemyGateway(Gateway):
     #---------------------------------------------------------------------------
     # Methods
     #---------------------------------------------------------------------------
-        
+
     def get_session(self):
         """
         Returns:
@@ -94,8 +93,9 @@ class SQLAlchemyGateway(Gateway):
         Returns:
             True iif this Table is virtual.
         """
-        virtual_table_names = [announce.get_table().get_name() for announce in make_virtual_announces(STORAGE_NAMESPACE)]
-        return table_name in virtual_table_names 
+        # We don't care about the namespace so we pass None and so this method remains static
+        virtual_table_names = [announce.get_table().get_name() for announce in make_virtual_announces(None)]
+        return table_name in virtual_table_names
 
     @returns(list)
     def make_announces(self):
@@ -117,12 +117,12 @@ class SQLAlchemyGateway(Gateway):
                     type = 'string',
                     name = 'credential'
                 )
-                announce.table.insert_field(field)
+                announce._table.insert_field(field)
 
             announces.append(announce)
 
-        # Virtual tables ("object", "column", ...) 
-        virtual_announces = make_virtual_announces(STORAGE_NAMESPACE)
+        # Virtual tables ("object", "column", ...)
+        virtual_announces = make_virtual_announces(self.get_platform_name())
         announces.extend(virtual_announces)
 
         return announces
@@ -144,11 +144,11 @@ class SQLAlchemyGateway(Gateway):
 
         if SQLAlchemyGateway.is_virtual_table(table_name):
             # Handle queries related to local:object and local:gateway.
-            # Note that local:column won't be queried since it has no RETRIEVE capability. 
+            # Note that local:column won't be queried since it has no RETRIEVE capability.
             if not action == "get":
                  raise RuntimeError("Invalid action (%s) on '%s::%s' table" % (action, self.get_platform_name(), table_name))
- 
-            if table_name == "object":            
+
+            if table_name == "object":
                 records = Records([announce.to_dict() for announce in self.get_announces()])
             elif table_name == "gateway":
                 records = Records([{"type" : gateway_type} for gateway_type in sorted(Gateway.list().keys())])

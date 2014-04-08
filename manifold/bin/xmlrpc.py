@@ -61,7 +61,7 @@ class XMLRPCDaemon(Daemon):
 
         Daemon.__init__(
             self,
-            self.terminate
+            self.terminate_callback
         )
 
     @staticmethod
@@ -162,7 +162,7 @@ class XMLRPCDaemon(Daemon):
         """
         Run a XMLRPC server (called by Daemon::start).
         """
-        Log.info("XMLRPC server daemon (%s) started." % sys.argv[0])
+        Log.info("XML-RPC server daemon (%s) started." % sys.argv[0])
 
         # NOTE it is important to import those files only after daemonization,
         # since they open files we cannot easily preserve
@@ -185,7 +185,7 @@ class XMLRPCDaemon(Daemon):
 
         # XXX - should the directory be passed as an option ?
 
-        manifold_etc_dir  = "/etc/manifold" # XXX
+        manifold_etc_dir           = os.path.dirname(Options().cfg_filename) #"/etc/manifold"
         # XXX should ssl_path be a subdirectory of /etc/manifold ?
         # ssl_path = Options().ssl_path
         manifold_keys_dir          = os.path.join(manifold_etc_dir,  "keys")
@@ -264,14 +264,17 @@ class XMLRPCDaemon(Daemon):
             ReactorThread().start_reactor()
         except Exception, e:
             # TODO If database gets disconnected, we can sleep/attempt reconnection
-            Log.error("Error in XMLRPC API: %s" % str(e))
+            Log.error("XMLRPC API error: %s" % str(e))
 
-    def terminate(self):
+    def terminate_callback(self):
         """
         Stop gracefully this XMLRPCDaemon instance.
         """
-        Log.info("Stopping XMLRPCDaemon")
+        Log.info("Stopping gracefully ReactorThread")
         ReactorThread().stop_reactor()
+
+    def leave(self):
+        pass
 
 def main():
     XMLRPCDaemon.init_options()
