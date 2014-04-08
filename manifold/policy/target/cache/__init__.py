@@ -9,16 +9,37 @@ class CacheTarget(Target):
         # XXX This should be called when the router starts for initializing the
         # cache structure before the first query arrives
         self._cache = Cache()
+        self._cache_user = dict()
+
+    # TODO: ROUTERV2 
+    # this function creates a cache per user if user_id is in annotations
+    # else it provides a global cache for non logged in Queries
+    def get_cache(self, annotations):
+        try:
+            user_id = annotations['user']['user_id']
+            if 'user_id' not in self._cache:
+                self._cache_user[user_id] = Cache()
+            else:
+                return self._cache_user[user_id]
+        except:
+            return self._cache
 
     def process_query(self, query, annotations):
         #Log.tmp("CACHE - Processing query: %r, %r" % (query, annotations))
+        cache = self.get_cache(annotations)
         #print "==== DUMPING CACHE ====="
         #print self._cache.dump()
         #print "="*40
         if query.object.startswith('local:'):
             return (TargetValue.CONTINUE, None)
+        
+        # If Query action is not get (Create, Update, Delete)
+        # Invalidate the cache and propagate the Query        
+        if query.get_action() != 'get':
+            cache.invalidate_entry(query)
+            return (TargetValue.CONTINUE, None)
 
-        records = self._cache.get_best_records(query, allow_processing=True)
+        records = cache.get_best_records(query, allow_processing=True)
         if not records is None:
             return (TargetValue.RECORDS, records)
 
@@ -27,7 +48,8 @@ class CacheTarget(Target):
 
     def process_record(self, query, record, annotations):
         #print "*** CACHE: appending records into cache for query", query
-        self._cache.append_records(query, record, create=True)
+        cache = self.get_cache(annotations)
+        cache.append_records(query, record, create=True)
         #print "==== DUMPING CACHE ====="
         #print self._cache.dump()
         #print "="*40

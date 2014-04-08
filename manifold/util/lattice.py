@@ -302,7 +302,7 @@ class Lattice(object):
             self._delete(le, recursive)
             return
 
-        if not recursively:
+        if not recursive:
             return
 
         # The query is not found, we have to delete recursively

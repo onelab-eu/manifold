@@ -14,7 +14,10 @@ class Cache(object):
 
     def get_entry(self, query):
         return self._lattice.get_data(query)
-
+    
+    def invalidate_entry(self, query):
+        return self._lattice.invalidate(query, recursive=True)
+    
     def add_entry(self, query, entry):
         self._lattice.add(query, entry)
 

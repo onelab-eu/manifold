@@ -136,6 +136,8 @@ def project_select_and_rename_fields(table, pkey, filters, fields, map_fields=No
 
 ################################################################################
 
+# XXX TODO: How is that different from hrn???
+# Loic
 def get_network_name(hostname):
     signal.signal(signal.SIGALRM, timeout_callback)
     signal.alarm(5)
@@ -446,7 +448,9 @@ class SFAGateway(Gateway):
     @defer.inlineCallbacks
     def get_interface_hrn(self, server):
         server_version = yield self.get_cached_server_version(server)    
-        defer.returnValue(server_version['hrn'])
+        # Avoid inconsistent hrn in GetVersion - ROUTERV2
+        hrn = urn_to_hrn(server_version['urn'])
+        defer.returnValue(hrn[0])
         
     ### resurrect this temporarily so we can support V1 aggregates for a while
     @defer.inlineCallbacks
@@ -955,8 +959,10 @@ class SFAGateway(Gateway):
         output = {}
         # add these fields to match MySlice needs
         for k,v in version.items():
-            if k=='hrn':
-                output['network_hrn']=v
+            # Avoid inconsistent hrn in GetVersion - ROUTERV2
+            if k=='urn':
+                hrn = urn_to_hrn(v)
+                output['network_hrn']=hrn[0]
             if k=='testbed':
                 output['network_name']=v
             output['platform']=self.platform
@@ -1587,8 +1593,21 @@ class SFAGateway(Gateway):
         versions = self.sfa_get_version_rec(self.sm_url)
 
         output = []
+
+# XXX TODO: to be tested !!!
         for v in versions:
-            hrn = v['hrn']
+            # We skip networks that do not advertise neitheir urn nor hrn - ROUTERV2
+            # XXX TODO issue warning
+            if 'urn' not in v:
+                if 'hrn' not in v:
+                    continue
+                else:
+                    hrn = v['hrn']
+            else:
+                # Avoid inconsistent hrn in GetVersion - ROUTERV2
+                hrn = urn_to_hrn(v['urn'])
+                hrn = hrn[0]
+
             networks = [x for x in output if x['network_hrn'] == hrn]
             if networks:
                 print "I: %s exists!" % hrn
@@ -1599,14 +1618,9 @@ class SFAGateway(Gateway):
                 print "[FIXME] Hardcoded hrn value for PPK"
                 v['hrn'] = 'ppk'
 
-            # We skip networks that do not advertise their hrn
-            # XXX TODO issue warning
-            if 'hrn' not in v:
-                continue
-
             # Case when hostnames differ
 
-            network = {'network_hrn': v['hrn']}
+            network = {'network_hrn': hrn}
             # Network name
             #name = None
             #if 'hostname' in version:
