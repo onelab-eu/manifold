@@ -199,15 +199,24 @@ class ParisTracerouteParser(object):
         ).setParseAction(parse_header)# lambda t: t.asDict())
 
         def make_traceroute(t):
+#            traceroute = {
+#                'source': {
+#                  'ip':   t['header']['src_ip'],
+#                  'port': t['header']['sport']
+#                },
+#                'destination': {
+#                  'ip':   t['header']['dst_ip'],
+#                  'port': t['header']['dport']
+#                },
+#                'protocol': t['header']['proto'],
+#                'duration': t['header']['duration'],
+#                'algo': t['header']['algo'],
+#            }
             traceroute = {
-                'source': {
-                  'ip':   t['header']['src_ip'],
-                  'port': t['header']['sport']
-                },
-                'destination': {
-                  'ip':   t['header']['dst_ip'],
-                  'port': t['header']['dport']
-                },
+                'source': t['header']['src_ip'],
+                'source_port': t['header']['sport'],
+                'destination': t['header']['dst_ip'],
+                'destination_port': t['header']['dport'],
                 'protocol': t['header']['proto'],
                 'duration': t['header']['duration'],
                 'algo': t['header']['algo'],
@@ -290,6 +299,7 @@ class ParisTracerouteGateway(ProcessGateway):
     class probe_traceroute {
         ip ip;
         string hostname;
+        float rtt;
         CAPABILITY(join);
         LOCAL KEY(ip);
     };
@@ -304,6 +314,8 @@ class ParisTracerouteGateway(ProcessGateway):
     class traceroute {
         ip source;
         ip destination;
+        unsigned source_port;
+        unsigned destination_port;
         hop hops[];
         CAPABILITY(join);
         KEY(source, destination);

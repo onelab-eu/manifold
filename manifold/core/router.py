@@ -172,6 +172,11 @@ class Router(Interface):
         self._local_gateway = LocalGateway()
         self._local_dbgraph = None
 
+        # A dictionary mapping the method to the cache for local subqueries,
+        # which itself will be a dict matching the parent record uuids to the
+        # list of records associated with a subquery
+        self._local_cache = dict()
+
     def terminate(self):
         for gateway in self.gateways.values():
             gateway.terminate()
@@ -572,3 +577,35 @@ class Router(Interface):
         from manifold.util.storage import STORAGE_NAMESPACE
         query.set_namespace(STORAGE_NAMESPACE)
         return self.execute_query(query, error_message)
+
+    # XXX Unless we don't need local cache anymore (+ __init__)
+
+    def add_to_local_cache(self, object, parent_uuid, subrecords):
+        """
+        Args:
+            parent_uuid (uuid) : the UUID of the parent record
+            subrecords (Records) : the list of sub-records corresponding to parent_uuid
+        """
+        if not object in self._local_cache:
+            self._local_cache[object] = dict()
+        self._local_cache[object][parent_uuid] = subrecords
+
+    def get_from_local_cache(self, object, parent_uuids):
+        map_parent_uuid = self._local_cache.get(object)
+        if not map_parent_uuid:
+            return Records()
+
+        if not isinstance(parent_uuids, list):
+            parent_uuids = [parent_uuids]
+
+        # Note: the list of parent uuids is necessary since the local cache is
+        # shared by several concurrent queries.
+        records = Records()
+        for parent_uuid in parent_uuids:
+            subrecords = map_parent_uuid.get(parent_uuid)
+            if subrecords:
+                records.extend(subrecords)
+
+        # Those returned records have a parent_uuid field that will allow them
+        # to be matched with the parent record
+        return records

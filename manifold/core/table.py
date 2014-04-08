@@ -271,11 +271,14 @@ class Table(object):
             TypeError: if the key argument is not valid. 
         """
         if local:
-            self.keys.set_local(local)
+            self.keys.set_local()
+
         if key is None:
             return
 
         if isinstance(key, Key):
+            if local:
+                key.set_local()
             self.keys.add(key)
         else:
             if isinstance(key, Field):
@@ -286,7 +289,7 @@ class Table(object):
                 fields = frozenset([self.get_field(key_elt) for key_elt in key])
             else:
                 raise TypeError("key = %r is not of type Key nor Field nor StringTypes")
-            self.keys.add(Key(fields))
+            self.keys.add(Key(fields, local = local))
 
     def set_capability(self, capability):
         if isinstance(capability, Capabilities):
@@ -650,14 +653,6 @@ class Table(object):
 
         relations = set()
 
-        # LOCAL RELATIONSHIPS
-        #print "u.keys.get_local()", u.keys.get_local(), v.get_name()
-        #print "v.keys.get_local()", v.keys.get_local(), u.get_name()
-        if u.keys.get_local() == v.get_name():
-            relations.add(Relation(Relation.types.LINK_1N, p, name=v.get_name()))
-        elif v.keys.get_local() == u.get_name():
-            relations.add(Relation(Relation.types.LINK_1N, p, name=u.get_name()))
-
         u_key = u.keys.one()
         v_key = v.keys.one()
 
@@ -682,7 +677,7 @@ class Table(object):
                     p = Predicate(field.get_name(), eq, v_key.get_name())
 
                 if field.is_array():
-                    relations.add(Relation(Relation.types.LINK_1N, p, name=field.get_name())) # LINK_1N_FORWARD
+                    relations.add(Relation(Relation.types.LINK_1N, p, name=field.get_name(), local = v.keys.is_local())) # LINK_1N_FORWARD
                 else:
                     if False: # field == key
                         relations.add(Relation(Relation.types.PARENT, p, name=field.get_name())) # in which direction ?????
