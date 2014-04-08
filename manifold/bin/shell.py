@@ -9,9 +9,10 @@
 #   Jordan Augé       <jordan.aue@lip6.fr>
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
-import os, sys, pprint, json, traceback
+import json, os, sys, traceback
 from getpass                        import getpass
 from optparse                       import OptionParser
+from pprint                         import pprint
 from socket                         import gethostname
 from traceback                      import format_exc
 from types                          import StringTypes
@@ -33,7 +34,7 @@ from manifold.util.type             import accepts, returns
 # This could be moved outside of the Shell
 DEFAULT_USER      = "demo"
 DEFAULT_PASSWORD  = "demo"
-DEFAULT_PKEY_FILE = "/etc/manifold/keys/client.pkey" 
+DEFAULT_PKEY_FILE = "/etc/manifold/keys/client.pkey"
 DEFAULT_CERT_FILE = "/etc/manifold/keys/client.cert"
 DEFAULT_API_URL   = "https://localhost:7080"
 
@@ -54,15 +55,17 @@ class Shell(object):
         Args:
             interactive: A boolean set to True if this Shell is used in command-line,
                 and set to False otherwise (Shell used in a script, etc.).
-#DEPRECATED|            storage: A Storage instance or None. 
+#DEPRECATED|            storage: A Storage instance or None.
 #DEPRECATED|                Example: See MANIFOLD_STORAGE defined in manifold.bin.config
 #DEPRECATED|            load_storage: A boolean set to True if the local Router of this Shell must
 #DEPRECATED|                load this Storage.
         """
-        self._auth_method   = auth_method
-        self._interactive    = interactive
-        self.client         = None
+        self._auth_method = auth_method
+        self._interactive = interactive
+        self.client       = None
         self.bootstrap()
+#        self._environment = dict() # {String : list(dict)} : maps a variable name with its the corresponding Records
+        self._environment = {"$USER" : "marc-olivier.buob@lip6.fr"}
 
     def terminate(self):
         """
@@ -78,6 +81,7 @@ class Shell(object):
         self._auth_method = auth_method
         self.select_auth_method(auth_method)
 
+    @returns(bool)
     def is_interactive(self):
         return self._interactive
 
@@ -96,7 +100,83 @@ class Shell(object):
             Log.info(self.client.welcome_message())
 
     #---------------------------------------------------------------------------
-    # Class methods
+    # Environment
+    #---------------------------------------------------------------------------
+
+    @returns(StringTypes)
+    def environment_evaluate(self, command):
+        """
+        Parse a command type by the User, and update each environment variable
+        (let say "$x") by its corresponding value.
+        Args:
+            command: A String instance containing the command typed by the user.
+        Returns:
+            The updated String.
+        """
+        @returns(StringTypes)
+        def value_to_sql(value):
+            if isinstance(value, StringTypes):
+                x = value.replace('"', '\\"')
+                ret = '"%s"' % x
+                return ret
+            elif value == None:
+                return "\"None\""
+            else:
+                return "%s" % value
+
+        @returns(StringTypes)
+        def dict_to_sql(d):
+            values = d.values()
+            if len(values) > 1:
+                # records made of several columns => list(tuple)
+                values = [value_to_sql(value) for value in values]
+                ret = "(%s)" % ", ".join(values)
+                return ret
+            else:
+                # records made only one columns => list(String)
+                return value_to_sql(values[0])
+
+        @returns(StringTypes)
+        def dicts_to_sql(dicts):
+            return "[%s]" % ", ".join([dict_to_sql(d) for d in dicts])
+
+        # Substitute environment variables by their values
+        has_store = command.startswith("$")
+        s = command.split("=", 1)[1] if has_store else command
+        for variable, value in self._environment.items():
+            if isinstance(value, list):
+                dicts = value
+                value = dicts_to_sql(dicts)
+            elif isinstance(value, (int, float, StringTypes)):
+                value = value_to_sql(value)
+            else:
+                raise TypeError("The type of value mapped with %s is not supported (%s)" % (variable, type(value)))
+            s = s.replace(variable, value)
+
+        # Return the updated command
+        if has_store:
+            return " = ".join([command.split("=", 1)[0].strip(), s.strip()])
+        else:
+            return s.strip()
+
+    def environment_store(self, variable, value):
+        """
+        Store in the environment of this Shell the value carried by
+        a ResultValue.
+        Args:
+            variable: A String starting with "$" corresponding to
+                the name of the variable.
+            dicts: A list of dict or a base type (int, float, String)
+        """
+        assert isinstance(variable, StringTypes) and variable.startswith("$"),\
+            "Invalid variable name '%s' (%s)" % (variable, type(variable))
+        assert isinstance(value, (int, float, list)),\
+            "Invalid value = %s (%s)" % (value, type(value))
+
+        self._environment[variable] = value
+
+    #---------------------------------------------------------------------------
+    # Methods
     #---------------------------------------------------------------------------
 
     @classmethod
@@ -128,27 +208,27 @@ class Shell(object):
         opt = Options()
         opt.add_argument(
             "-C", "--cacert", dest = "xmlrpc_cacert",
-            help = "API SSL certificate", 
+            help = "API SSL certificate",
             default = None
         )
         opt.add_argument(
             "-K", "--insecure", dest = "xmlrpc_insecure",
-            help = "Do not check SSL certificate", 
+            help = "Do not check SSL certificate",
             default = 7080
         )
         opt.add_argument(
             "-U", "--url", dest = "xmlrpc_url",
-            help = "API URL", 
-            default = DEFAULT_API_URL 
+            help = "API URL",
+            default = DEFAULT_API_URL
         )
         opt.add_argument(
             "-u", "--username", dest = "username",
-            help = "API user name", 
+            help = "API user name",
             default = DEFAULT_USER
         )
         opt.add_argument(
             "-p", "--password", dest = "password",
-            help = "API password", 
+            help = "API password",
             default = DEFAULT_PASSWORD
         )
         opt.add_argument(
@@ -163,7 +243,7 @@ class Shell(object):
         )
         opt.add_argument(
             "-x", "--xmlrpc", action="store_true", dest = "xmlrpc",
-            help = "Use XML-RPC interface", 
+            help = "Use XML-RPC interface",
             default = False
         )
         opt.add_argument(
@@ -176,7 +256,7 @@ class Shell(object):
         # specific to the command line program
         opt.add_argument(
             "-e", "--execute", dest = "execute",
-            help = "Execute a shell command", 
+            help = "Execute a shell command",
             default = None
         )
         #parser.add_argument("-m", "--method", help = "API authentication method")
@@ -206,9 +286,9 @@ class Shell(object):
         API using a SSL connection.
         Args:
             url: A String containing the URL of the XMLRPC server.
-                Example: DEFAULT_API_URL 
-            username: A String containing the user's login. 
-            password: A String containing the user's password. 
+                Example: DEFAULT_API_URL
+            username: A String containing the user's login.
+            password: A String containing the user's password.
         """
         from manifold.clients.xmlrpc_ssl_password import ManifoldXMLRPCClientSSLPassword
         self.client = ManifoldXMLRPCClientSSLPassword(url, username, password)
@@ -216,10 +296,10 @@ class Shell(object):
     def authenticate_xmlrpc_gid(self, url, pkey_file, cert_file):
         """
         Prepare a Client to dial with a Manifold Router through a XMLRPC
-        API using a SSL connection using GIT authentication. 
+        API using a SSL connection using GIT authentication.
         Args:
             url: A String containing the URL of the XMLRPC server.
-                Example: DEFAULT_API_URL 
+                Example: DEFAULT_API_URL
             pkey_file: A String containing the absolute path of the user's
                 private key.
                 Example: "/etc/manifold/keys/client.pkey"
@@ -236,7 +316,7 @@ class Shell(object):
         API using a SSL connection using an anonymous account.
         Args:
             url: The URL of the XMLRPC server.
-                Example: DEFAULT_API_URL 
+                Example: DEFAULT_API_URL
         """
         from manifold.clients.xmlrpc_ssl_password import ManifoldXMLRPCClientSSLPassword
         self.client = ManifoldXMLRPCClientSSLPassword(url)
@@ -267,7 +347,7 @@ class Shell(object):
             username = Options().username
             self.authenticate_router(username)
 
-        else: # XMLRPC 
+        else: # XMLRPC
             url = Options().xmlrpc_url
 
             if auth_method == 'gid':
@@ -318,7 +398,7 @@ class Shell(object):
             if self.is_interactive():
                 # Command-line
                 print "===== RESULTS ====="
-                pprint.pprint(records)
+                pprint(records)
             elif Options().execute:
                 # Used by script to it may be piped.
                 print json.dumps(records)
@@ -331,7 +411,7 @@ class Shell(object):
                 # String
                 Log.error(errors)
             elif isinstance(errors, list):
-                # list of ErrorPacket 
+                # list of ErrorPacket
                 i = 0
                 num_errors = len(errors)
                 for error in errors:
@@ -342,7 +422,7 @@ class Shell(object):
                 raise RuntimeError("Invalid description type (%s) in result_value = %s" % (errors, result_value))
 
     @returns(ResultValue)
-    def evaluate(self, command, value = False):
+    def evaluate(self, command):
         """
         Parse a command type by the User, and run the corresponding Query.
         Args:
@@ -351,6 +431,11 @@ class Shell(object):
             The ResultValue resulting from the Query
         """
         #username, password = Options().username, Options().password
+        updated_command = self.environment_evaluate(command)
+        if command != updated_command:
+            command = updated_command
+            Log.info("Running:\n%s" % command)
+
         dic = SQLParser().parse(command)
         if not dic:
             raise RuntimeError("Can't parse input command: %s" % command)
@@ -367,10 +452,15 @@ class Shell(object):
         Args:
             query: The Query typed by the user.
         Returns:
-            The ResultValue resulting from the Query
+            The ResultValue resulting from this Query.
         """
         try:
             result_value = self.client.forward(query)
+            if result_value.is_success():
+                variable = query.get_variable()
+                if variable and result_value.is_success():
+                    Log.info("Storing the result into %s" % variable)
+                    self.environment_store(variable, result_value.get_all().to_dict_list())
         except Exception, e:
             Log.error(traceback.format_exc())
             message = "Exception raised while performing this query:\n\n\t%s\n\n\t%s" % (query, e)
@@ -396,8 +486,8 @@ class Shell(object):
             on the ManifoldClient set for this Shell.
         """
         return self.client.welcome_message()
-        
-#    # If called by a script 
+
+#    # If called by a script
 #    if args:
 #        if not os.path.exists(args[0]):
 #            print 'File %s not found'%args[0]
@@ -410,7 +500,7 @@ class Shell(object):
 #            # use args as sys.argv for the next shell, so our own options get removed for the next script
 #            sys.argv = args
 #            script = sys.argv[0]
-#            # Add of script to sys.path 
+#            # Add of script to sys.path
 #            path = os.path.dirname(os.path.abspath(script))
 #            sys.path.append(path)
 #            execfile(script)
@@ -502,7 +592,8 @@ class Shell(object):
                     print "=== UNHANDLED EXCEPTION ==="
                     Log.error(format_exc())
 
-        except EOFError:
+        except EOFError: # Ctrl d
+            print
             self.terminate()
 
 def main():
