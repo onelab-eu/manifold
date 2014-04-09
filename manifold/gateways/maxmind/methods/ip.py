@@ -86,7 +86,6 @@ class Ip(Object):
                     )
                 )
 
-        print "MAXMIND IP LIST", ip_list
         for ip in ip_list:
             if not ip:
                 continue
@@ -150,7 +149,7 @@ class Ip(Object):
                 const string country_code;  /**< Ex: 'US'               */
                 const string country_name;  /**< Ex: 'United States'    */
 
-                CAPABILITY(retrieve, fullquery);
+                CAPABILITY(join);
                 KEY(ip);
             };
             """

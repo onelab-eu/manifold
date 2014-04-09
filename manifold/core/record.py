@@ -190,7 +190,7 @@ class Record(Packet):
         """
         Args:
             fields: A String instance (field name), or a set of String instances
-                (field names)
+                (field names) # XXX tuple !!
         Returns:
             If fields is a String,  return the corresponding value.
             If fields is a set, return a tuple of corresponding value.
@@ -223,19 +223,14 @@ class Record(Packet):
             return fields in self._record
 
         fields, map_method_subfields, _, _ = fields.split_subfields()
-        print "RECORD HAS FIELDS:"
-        print "set(fields)", set(fields)
-        print "set(self._record.keys())", set(self._record.keys())
         if not set(fields) <= set(self._record.keys()):
             return False
 
         for method, subfields in map_method_subfields.items():
             # XXX 1..1 not taken into account here
             for record in self._record[method]:
-                print "recursive call:"
                 if not record.has_fields(subfields):
                     return False
-        print "ok"
         return True
 
 #DEPRECATED|        # self._record.keys() should have type Fields, otherwise comparison
