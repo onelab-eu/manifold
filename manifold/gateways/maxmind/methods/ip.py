@@ -86,7 +86,6 @@ class Ip(Object):
                     )
                 )
 
-        print "MAXMIND", ip_list
         for ip in ip_list:
             if not ip:
                 continue
@@ -112,10 +111,13 @@ class Ip(Object):
 #DISABLED|                Log.warning(e)
 
             # City
+            print "select_all", select_all
+            print "query.get_select()", query.get_select()
             if select_all or set(["city", "region_name", "area_code", "longitude", "country_code3", "latitude", "postal_code", "dma_code", "country_code", "country_name"]) & query.get_select():
                 try:
                     geoip = gateway.get_geoip(MAXMIND_DAT_IPV4_CITY if ip_family == 4 else MAXMIND_DAT_IPV6_CITY)
                     record.update(geoip.record_by_addr(ip))
+                    print "MAXMIND new record=", record
                 except Exception, e:
                     Log.warning(e)
 
@@ -147,7 +149,7 @@ class Ip(Object):
                 const string country_code;  /**< Ex: 'US'               */
                 const string country_name;  /**< Ex: 'United States'    */
 
-                CAPABILITY(retrieve, fullquery);
+                CAPABILITY(join);
                 KEY(ip);
             };
             """

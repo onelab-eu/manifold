@@ -27,6 +27,47 @@ class Key(frozenset):
     A key is a set of (eventually one) Fields.
     """
 
+    #---------------------------------------------------------------------------
+    # Constructor
+    #---------------------------------------------------------------------------
+
+    def __init__(self, fields, local = False):
+        """
+        Constructor.
+        Args:
+            fields: The set of Field instances involved in the Key.
+        """
+        Key.check_fields(fields)
+        frozenset.__init__(fields)
+        self._local = local
+
+    #---------------------------------------------------------------------------
+    # Accessors
+    #---------------------------------------------------------------------------
+
+    def set_local(self):
+        self._local = True
+
+    def is_local(self):
+        return self._local
+
+    #---------------------------------------------------------------------------
+    # Helpers
+    #---------------------------------------------------------------------------
+
+    @returns(bool)
+    def is_composite(self):
+        """
+        Test whether a key is made of more that one field (composite key)
+        Returns:
+            True if the key is composite, False otherwise
+        """
+        return len(list(self)) > 1
+
+    #---------------------------------------------------------------------------
+    # Static methods
+    #---------------------------------------------------------------------------
+
     @staticmethod
     def check_fields(fields):
         """
@@ -37,23 +78,9 @@ class Key(frozenset):
             if not isinstance(field, Field):
                 raise TypeError("field = %r is of type %r (Field expected)" % (field, type(field)))
 
-    def __init__(self, fields):
-        """
-        Constructor.
-        Args:
-            fields: The set of Field instances involved in the Key.
-        """
-        Key.check_fields(fields)
-        frozenset.__init__(fields)
-
-    @returns(bool)
-    def is_composite(self):
-        """
-        Test whether a key is made of more that one field (composite key)
-        Returns:
-            True if the key is composite, False otherwise
-        """
-        return len(list(self)) > 1
+    #---------------------------------------------------------------------------
+    # Methods
+    #---------------------------------------------------------------------------
 
     @returns(Field)
     def get_field(self):
@@ -126,6 +153,34 @@ class Keys(set):
     Implements a set of keys for a table.
     """
 
+    #---------------------------------------------------------------------------
+    # Constructor
+    #---------------------------------------------------------------------------
+
+    def __init__(self, keys = set()):
+        """
+        Constructor
+        Args:
+            keys: A set/frozenset/list of Key instances
+        """
+        Keys.check_keys(keys)
+        set.__init__(self, set(keys))
+        self._local = False
+
+    #---------------------------------------------------------------------------
+    # Accessors
+    #---------------------------------------------------------------------------
+
+    def is_local(self):
+        return self._local
+
+    def set_local(self):
+        self._local = True
+
+    #---------------------------------------------------------------------------
+    # Static methods
+    #---------------------------------------------------------------------------
+
     @staticmethod
     def check_keys(keys):
         """
@@ -140,22 +195,9 @@ class Keys(set):
             if not isinstance(key, Key):
                 raise TypeError("key = %r is of type %r (Key expected)" % (key, type(key)))
 
-    def __init__(self, keys = set()):
-        """
-        Constructor
-        Args:
-            keys: A set/frozenset/list of Key instances
-        """
-        Keys.check_keys(keys)
-        set.__init__(self, set(keys))
-        self._local = False
-
-    def get_local(self):
-        return self._local
-
-    def set_local(self, table):
-        print "KEYS SET LOCAL", self, table
-        self._local = table
+    #---------------------------------------------------------------------------
+    # Internal methods
+    #---------------------------------------------------------------------------
 
     @returns(StringTypes)
     def __str__(self):

@@ -646,7 +646,9 @@ def to_3nf(metadata):
     for platform, announces in metadata.items():
         for announce in announces:
             table = announce.get_table()
-            if table.keys.get_local() and not table.keys:
+            # XXX local aspect is local during normalization, unless we store it
+            # in FD
+            if table.keys.is_local(): # and not table.keys:
                 local_tables.append(table)
             else:
                 tables.append(table)

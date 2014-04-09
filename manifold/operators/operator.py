@@ -91,3 +91,11 @@ class Operator(Node, SlotMixin):
         print "error packet making"
         error_packet = self.make_error(CORE, description, is_fatal)
         self.send(error_packet)
+    
+#---------------------------------------------------------------------------
+# Default operator implementation
+#
+# These are the default methods applied when no more algebraic rule is
+# applicable.
+#---------------------------------------------------------------------------
+

@@ -11,12 +11,12 @@
 #
 # Copyright (C) 2013 UPMC 
 
-from types                          import StringTypes
-#from twisted.internet              import reactor
+from types                              import StringTypes
+#from twisted.internet                  import reactor
 
-from manifold.gateways              import Gateway
-from manifold.util.reactor_thread   import ReactorThread
-from manifold.util.type             import accepts, returns 
+from manifold.gateways                  import Gateway
+from manifold.util.reactor_thread       import ReactorThread
+from manifold.util.type                 import accepts, returns 
 
 class ManifoldGateway(Gateway):
     __gateway_name__ = 'manifold'

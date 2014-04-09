@@ -11,6 +11,7 @@
 #   Jordan Augé       <jordan.auge@lip6.fr>
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
+import copy
 from types                      import StringTypes
 from manifold.core.fields       import Fields, FIELD_SEPARATOR
 from manifold.util.type         import returns, accepts 
@@ -131,6 +132,9 @@ class Predicate:
         if not predicate:
             return False
         return self.get_tuple() == predicate.get_tuple()
+
+    def copy(self):
+        return copy.deepcopy(self)
 
     def get_key(self):
         """

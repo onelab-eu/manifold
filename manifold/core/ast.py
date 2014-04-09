@@ -104,6 +104,7 @@ class AST(object):
         assert isinstance(key, Key),     "Invalid key = %s (%s)" % (key, type(key))
 
         # Retrieve the appropriate Gateway.
+        print "serarch gw for platform", platform_name
         gateway = self._interface.get_gateway(platform_name)
 
         # Build the corresponding From Operator and connect it to this AST.
@@ -230,7 +231,29 @@ class AST(object):
 
 
     #@returns(AST)
-    def subquery(self, children_ast_relation_list):
+    def subquery(self, ast, relation):
+        """
+        Append a SubQuery Node above the current AST, which will be used as the
+        main query of this SubQuery.
+
+        Args:
+            children_ast_relation: A tuple (AST, Relation) corresponding to the
+            subquery (childr) involved in this SubQuery Node)
+
+        Returns:
+            The resulting AST.
+
+        Note:
+            We have a single subquery child here.
+        """
+        assert not self.is_empty(), "AST not initialized"
+
+        self.update_root(lambda root: root.subquery(ast.get_root(), relation))
+
+        return self
+
+    #@returns(AST)
+    def subqueries(self, children_ast_relation_list):
         """
         Append a SubQuery Node above the current AST, which will be used as the
         main query of this SubQuery.
@@ -245,6 +268,7 @@ class AST(object):
 
         children = map(lambda (ast, relation): (ast.get_root(), relation), children_ast_relation_list)
         self.root = SubQuery(self.get_root(), children, self._interface)
+
         return self
 
     #@returns(AST)
@@ -298,6 +322,11 @@ class AST(object):
     #---------------------------------------------------------------------------
     # AST manipulations & optimization
     #---------------------------------------------------------------------------
+
+    def update_root(self, function):
+        new_root = function(self.get_root())
+        if new_root:
+            self.set_root(new_root)
 
     def optimize(self, destination):
         """
