@@ -92,7 +92,7 @@ class Router(Interface):
         # DBGraphs
         self._dbgraph = None
 
-        self._local_gateway = LocalGateway()
+        self._local_gateway = LocalGateway(interface=self)
         self._local_dbgraph = self._local_gateway.get_dbgraph()
 
         # A dictionary mapping the method to the cache for local subqueries,

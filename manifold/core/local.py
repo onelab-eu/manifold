@@ -45,9 +45,9 @@ class LocalGateway(Gateway):
         except:
             self._storage = None
 
-        super(LocalGateway, self).__init__()
+        super(LocalGateway, self).__init__(interface, platform_name, platform_config)
 
-    def receive_impl(self, packet):
+    def receive(self, packet):
         """
         Handle a incoming QUERY Packet.
         Args:
@@ -65,7 +65,8 @@ class LocalGateway(Gateway):
         if table_name == "object":
             if not action == "get":
                  raise RuntimeError("Invalid action (%s) on '%s::%s' table" % (action, self.get_platform_name(), table_name))
-            records = Records([announce.to_dict() for announce in self.get_announces()])
+            records = Records([announce.to_dict() for announce in self._interface.get_dbgraph().get_announce_tables()])
+            # 
         elif table_name == "gateway":
             # Note that local:column won't be queried since it has no RETRIEVE capability.
             if not action == "get":

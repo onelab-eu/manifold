@@ -109,6 +109,9 @@ class LeftJoin(Operator, LeftRightSlotMixin):
         # XXX Composite fields are not taken into account here !
         return (FIELD_SEPARATOR in self._predicate.get_key())
 
+    def has_composite_key(self):
+        return len(self._predicate.get_field_names()) > 1
+
 #DEPRECATED|    #---------------------------------------------------------------------------
 #DEPRECATED|    # Helpers
 #DEPRECATED|    #---------------------------------------------------------------------------
@@ -153,7 +156,7 @@ class LeftJoin(Operator, LeftRightSlotMixin):
         keys = self._left_map.keys()
 
         # We build the predicate to perform the join
-        predicate = Predicate(tuple(self._predicate.get_value_names()), included, self._left_map.keys())
+        predicate = Predicate(self._predicate.get_value(), included, self._left_map.keys())
         self._right_packet.update_query(lambda q: q.filter_by(predicate))
 
         self._get_right().receive(self._right_packet) # XXX
@@ -180,7 +183,9 @@ class LeftJoin(Operator, LeftRightSlotMixin):
             left_packet        = packet.clone()
             # split filter and fields
             # XXX WHY ADDING LEFT KEY IF NOT USED EVER (for example virtual keys for tables without keys, such as probe_traceroute_id)
-            left_packet.update_query(lambda q: q.select(q.get_fields() & left_fields, clear = True))
+            left_fields = q.get_fields() & left_fields
+            left_fields |= left_key
+            left_packet.update_query(lambda q: q.select(left_fields, clear = True))
             #left_packet.update_query(lambda q: q.select(q.get_fields() & left_fields | left_key, clear = True))
             left_packet.update_query(lambda q: q.filter_by(q.get_filter().split_fields(left_fields, True), clear = True))
 
@@ -192,7 +197,7 @@ class LeftJoin(Operator, LeftRightSlotMixin):
 
             # Updating fields
             right_fields = self._get_right().get_destination().get_fields()
-            if self._subrecord_mode:
+            if self._subrecord_mode():
                 # fields of interest in q.get_fields() are prefixed
                 left_prefix, _ = self._predicate.get_key().rsplit(FIELD_SEPARATOR, 1)
                 right_fields = Fields([f for f in right_fields if Fields.join(left_prefix, f) in q.get_fields()])
@@ -219,7 +224,7 @@ class LeftJoin(Operator, LeftRightSlotMixin):
                     # We store the parent records since what will be in left
                     # map is just the subrecords that have to be completed
                     # by 
-                    if self._subrecord_mode:
+                    if self._subrecord_mode():
                         self._parent_records.append(record)
 
                         # Store the result in a hash for joining later:
@@ -240,7 +245,9 @@ class LeftJoin(Operator, LeftRightSlotMixin):
                             # Normal behaviour
                             # Store the result in a hash for joining later: we
                             # know this will be a simple value
-                            hash_key = record.get_value(self._predicate.get_field_names())
+                            # NOTE: we need the fields to remain ordered, so we
+                            # are using a tuple...
+                            hash_key = record.get_value(self._predicate.get_key())
                             # for subfields, we might have a list of values
                             if not hash_key in self._left_map:
                                 self._left_map[hash_key] = []
@@ -274,7 +281,7 @@ class LeftJoin(Operator, LeftRightSlotMixin):
                     for left_record in left_records:
                         left_record.update(record)
                     
-                        if not self._subrecord_mode:
+                        if not self._subrecord_mode():
                             self.forward_upstream(left_record)
 
                 if is_last:
@@ -282,7 +289,7 @@ class LeftJoin(Operator, LeftRightSlotMixin):
                     #  - subrecord mode : all parent records
                     #  - normal mode : all records that had no match on the
                     #  right side (those left in left_map)
-                    if self._subrecord_mode:
+                    if self._subrecord_mode():
                         map(self.forward_upstream, self._parent_records)
                     else:
                         # Send records in left_results that have not been joined
@@ -391,7 +398,7 @@ class LeftJoin(Operator, LeftRightSlotMixin):
         left_fields |= key_left
 
         right_fields = self._get_right().get_destination().get_fields()
-        if self._subrecord_mode:
+        if self._subrecord_mode():
             left_prefix, _ = self._predicate.get_key().rsplit(FIELD_SEPARATOR, 1)
             right_fields = Fields([f for f in right_fields if Fields.join(left_prefix, f) in fields])
                 

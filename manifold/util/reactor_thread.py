@@ -49,6 +49,7 @@ class ReactorThread(threading.Thread):
         #only work on the main thread
         try:
             #signal.signal(signal.SIGINT, signal.default_int_handler)
+            print "REACTOR RUN"
             self.reactor.run(False)
         except Exception, e:
             print "Reactor exception:", e
@@ -63,6 +64,7 @@ class ReactorThread(threading.Thread):
         return self._reactorRunning
        
     def start_reactor(self):
+        print "start reactor"
         self._num_instances += 1
 
         if self._reactorStarted:
