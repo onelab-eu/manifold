@@ -29,7 +29,9 @@ class MaxMindGateway(Gateway):
 
     METHOD_MAP = {
         "ip"       : Ip,
-        "hostname" : Hostname
+# Jordan: I'm disabling the hostname method since it is less accurate than the
+# IP one, and we now have the DNS gateway
+#        "hostname" : Hostname
     }
 
     def __init__(self, interface, platform_name, platform_config): 

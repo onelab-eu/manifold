@@ -1,0 +1,59 @@
+[COMMANDS]
+Whois   Netcat          Action
+        begin           enable bulk input mode          (netcat only)
+        end             exit the whois/netcat client    (netcat only)
+-p      prefix          include matching prefix
+-q      noprefix        disable matching prefix (default)
+-c      countrycode     include matching country code
+-d      nocountrycode   disable country codes (default)
+-n      asname          include asnames (default)
+-o      noasname        disable asnames          
+-r      registry        display matching registry
+-s      noregistry      disable registry display (default)
+-a      allocdate       enable allocation date
+-b      noallocdate     disable allocation date (default)
+-t      truncate        truncate asnames (default)
+-u      notruncate      do not truncate asnames
+-v      verbose         enable all flags (-c -r -p -a -u -a -e -w)
+-e	header		enable column headings (default)
+-f	noheader	disable column headings 
+-w	asnumber	include asnumber column (default)
+-x	noasnumber	disable asnumber column (will not work for IP mappings)
+-h      help            this help message
+
+When using netcat, be sure to only use GNU's version:
+      
+        <http://netcat.sourceforge.net>
+       
+[SYNTAX]
+Each line may have IP syntax that follows any of these standards:
+
+        IP
+        IP      Description
+         
+[EXAMPLES]          
+Whois query:
+
+	$ whois whois.cymru.com 43 " -v 4.2.2.1"
+
+The above will turn on all flags including:
+	countrycode, registry, prefix, asnames, ipdate
+
+Bulk input requires the use of GNU 'netcat'.  The syntax for a bulk
+input session might look as follows:
+
+        $ netcat whois.cymru.com 43 < ./list.txt
+       
+        Where list.txt must follow the following syntax:
+        begin       
+        4.2.2.1  2005-11-24 20:02:01 GMT
+        ...
+        end
+
+* Note: Octal (leading 0's) are NOT supported.
+
+[ABOUT]
+Please refer to the following URL for additional questions:
+
+        <http://www.cymru.com/BGP/whois.html>
+

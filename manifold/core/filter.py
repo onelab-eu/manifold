@@ -289,6 +289,35 @@ class Filter(set):
             predicate.rename(aliases)
         return self
 
+    def get_field_values(self, field):
+        """
+        This function returns the values that are determined by the filters for
+        a given field, or None is the filter is not *setting* determined values.
+        """
+        value_list = list()
+        for predicate in self:
+            key, op, value = predicate.get_tuple()
+
+            if key == field:
+                extract_tuple = False
+            elif key == (field, ):
+                extract_tuple = True
+            else:
+                continue
+
+            if op == eq:
+                if extract_tuple:
+                    value = value[0]
+                value_list.append(value)
+            elif op == included:
+                if extract_tuple:
+                    value = [x[0] for x in value]
+                value_list.extend(value)
+            else:
+                continue
+
+        return list(set(value_list))
+
     # __eq__ : similar to set.__eq__   
     # __le__: For now, we are using set equality, but this is wrong per se.
         
