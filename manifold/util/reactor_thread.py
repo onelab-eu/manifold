@@ -6,7 +6,7 @@ from twisted.internet           import defer
 from twisted.python             import threadable
 
 from manifold.util.singleton    import Singleton
-from manifold.util.log          import Log 
+from manifold.util.log          import Log
 
 __author__ = "Brian Kirsch <bkirsch@osafoundation.org>"
 
@@ -16,16 +16,16 @@ threadable.init()
 class ReactorException(Exception):
       def __init__(self, *args):
             Exception.__init__(self, *args)
-            
 
-class ReactorThread(threading.Thread):    
+
+class ReactorThread(threading.Thread):
     """
-    Run the Reactor in a Thread to prevent blocking the 
+    Run the Reactor in a Thread to prevent blocking the
     Main Thread once reactor.run is called
     """
 
     __metaclass__ = Singleton
-    
+
     def __init__(self):
         threading.Thread.__init__(self)
         self._reactorRunning = False
@@ -41,15 +41,15 @@ class ReactorThread(threading.Thread):
     def run(self):
         if self._reactorRunning:
             raise ReactorException("Reactor Already Running")
-      
+
         self._reactorRunning = True
-      
+
         #call run passing a False flag indicating to the
         #reactor not to install sig handlers since sig handlers
         #only work on the main thread
         try:
             #signal.signal(signal.SIGINT, signal.default_int_handler)
-            print "REACTOR RUN"
+            #print "REACTOR RUN"
             self.reactor.run(False)
         except Exception, e:
             print "Reactor exception:", e
@@ -58,13 +58,13 @@ class ReactorThread(threading.Thread):
         if self._reactorRunning:
             self.reactor.callFromThread(callable, *args, **kw)
         else:
-            callable(*args, **kw)                 
-            
+            callable(*args, **kw)
+
     def isReactorRunning(self):
         return self._reactorRunning
-       
+
     def start_reactor(self):
-        print "start reactor"
+        #print "start reactor"
         self._num_instances += 1
 
         if self._reactorStarted:
@@ -89,8 +89,8 @@ class ReactorThread(threading.Thread):
     def stop_reactor(self):
         """
         may want a way to force thread to join if reactor does not shutdown
-        properly. The reactor can get in to a recursive loop condition if reactor.stop 
-        placed in the threads join method. This will require further investigation. 
+        properly. The reactor can get in to a recursive loop condition if reactor.stop
+        placed in the threads join method. This will require further investigation.
         """
         if not self._reactorRunning:
             raise ReactorException("Reactor Not Running")
