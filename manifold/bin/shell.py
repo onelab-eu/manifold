@@ -381,6 +381,11 @@ class Shell(object):
             else:
                 raise Exception, "Authentication method not supported: '%s'" % auth_method
 
+    def _display(self, records):
+        # Command-line
+        print "===== RESULTS ====="
+        pprint(records)
+
     def display(self, result_value):
         """
         Print the ResultValue of a Query in the standard output.
@@ -396,9 +401,7 @@ class Shell(object):
             #dicts = [record.to_dict() for record in records]
             records = result_value.get_all().to_dict_list()
             if self.is_interactive():
-                # Command-line
-                print "===== RESULTS ====="
-                pprint(records)
+                self._display(records)
             elif Options().execute:
                 # Used by script to it may be piped.
                 print json.dumps(records)
@@ -505,6 +508,66 @@ class Shell(object):
 #            sys.path.append(path)
 #            execfile(script)
 
+    def handle_dump(self, args):
+        if len(args) != 3 or args[1] != 'INTO' or not args[0].startswith('$'):
+            Log.error("Wrong DUMP arguments: %r" % args)
+            Log.error("Usage: DUMP [variable] INTO [filename]")
+            return
+
+        # VARIABLE
+        variable = args[0]
+
+        # . Does it exists ?
+        if not variable in self._environment:
+            Log.error("Variable %s does not exist." % (variable, ))
+            return
+
+        # FILENAME
+        filename = args[2]
+        if (filename[0] == '"' and filename[-1] == '"') or (filename[0] == "'" and filename[-1] == "'"):
+            filename = args[1:-1]
+
+        # . Can we write into it ?
+        try:
+            file = open(filename, "w")
+
+            records = self._environment[variable]
+
+            if not records:
+                # Empty file
+                f.close()
+                return
+
+            fields = records[0].keys()
+
+            # Headers
+            print >>file, ", ".join(fields)
+
+            # Records
+            for record in records:
+                line = ", ".join(['"%s"' % (record[f], ) for f in fields])
+                print >>file, line
+
+            file.close()
+        except Exception, e:
+            Log.error("Error in writing variable content into %r: %s" % (filename, e))
+            import traceback
+            traceback.print_exc()
+            return
+
+    def handle_show(self, args):
+        if len(args) == 0:
+            print "Current variables:", self._environment.keys()
+            return
+        elif len(args) > 1 or not args[0].startswith('$'):
+            Log.error("Wrong SHOW arguments: %r" % args)
+            Log.error("Usage: SHOW [variable]")
+            return
+            
+        variable = args[0]
+
+        self._display(self._environment[variable])
+
     def start(self):
         """
         Start this Shell.
@@ -576,6 +639,15 @@ class Shell(object):
                 # Quit
                 elif command in ["q", "quit", "exit"]:
                     break
+
+                # Shell commands
+                command_tokens = command.split(' ')
+                if command_tokens[0] == 'DUMP':
+                    self.handle_dump(command_tokens[1:])
+                    continue;
+                elif command_tokens[0] == 'SHOW':
+                    self.handle_show(command_tokens[1:])
+                    continue;
 
                 try:
                     self.display(self.evaluate(command))
