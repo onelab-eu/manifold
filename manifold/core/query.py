@@ -199,7 +199,7 @@ class Query(object):
             ACTION_DELETE : 'DELETE FROM %(platform)s%(table)s%(sep)s%(where)s'
         }
 
-        Log.tmp(strmap[self.action] % locals())
+        #Log.tmp(strmap[self.action] % locals())
         return strmap[self.action] % locals()
 
     @returns(StringTypes)
