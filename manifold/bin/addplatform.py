@@ -3,6 +3,14 @@
 #
 # Add a platform in the Manifold Storage.
 #
+# Example:
+#   cd /tmp
+#   wget http://www.ece.gatech.edu/research/labs/MANIACS/as_taxonomy/data/as2attr.tgz
+#   tar xzvf as2attr.txt.tgz
+#   manifold-add-platform georgiatech "Georgia Tech Autonomous System Taxonomy Repository" csv none '{"asn":{"filename": "/tmp/as2attr.txt", "fields": [["asn", "int"], ["as_description", "string"], ["num_providers", "int"], ["num_peers", "int"], ["num_customers", "int"], ["num_prefixes_24", "int"], ["num_prefixes", "int"], ["asn_class", "string"]], "key": "asn"}}' 0
+#   manifold-shell -z router
+#
+#
 # Copyright (C) UPMC Paris Universitas
 # Authors:
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>

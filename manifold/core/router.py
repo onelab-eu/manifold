@@ -425,7 +425,6 @@ class Router(Interface):
         query      = packet.get_query()
         annotation = packet.get_annotation()
         receiver   = packet.get_receiver()
-        Log.tmp("1)")
 
         try:
 
@@ -448,7 +447,6 @@ class Router(Interface):
             receiver.receive(error_packet)
             return
 
-        Log.tmp("2)")
         # Forwarding requests:
         # This might raise issues:
         # - during the forwarding of the query (for all gateways)
