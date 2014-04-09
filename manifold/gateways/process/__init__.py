@@ -73,7 +73,7 @@ class ProcessGateway(Gateway):
     def parse(self, filename):
         return self.output._parser().parse(open(filename).read())
 
-    def receive_impl(self, packet): 
+    def receive_impl(self, packet):
         """
         Handle a incoming QUERY Packet.
         Args:
@@ -87,7 +87,6 @@ class ProcessGateway(Gateway):
 
         # Compute process arguments from query
         args = (self.get_fullpath(),) + self.get_argtuple(query, annotation)
-        print "EXECUTING", args
 
         tmp_filename = '/tmp/manifold-process'
         ret = self.execute_process(args, tmp_filename)
@@ -146,7 +145,7 @@ class ProcessGateway(Gateway):
 
                 # XXX Argument with no value == ERROR
 
-                # XXX We might have a list 
+                # XXX We might have a list
                 if field_type == FIELD_TYPE_PARAMETER:
                     short = process_field.get_short()
                     if value:
@@ -161,6 +160,10 @@ class ProcessGateway(Gateway):
         try:
             f = None
             try:
+                Log.info("Running: %(process)s > %(out)s" % {
+                    "process" : " ".join(args),
+                    "out"     : filename if filename else "/dev/stdout"
+                })
                 f = open(filename, 'w')
                 self._process = subprocess.Popen(args, stdout=f, stderr=None)
                 self._process.wait()
@@ -282,9 +285,9 @@ class ProcessGateway(Gateway):
 #    def check_all(cls):
 #        if need_uid...
 
- 
+
     #---------------------------------------------------------------------------
-    # Metadata 
+    # Metadata
     #---------------------------------------------------------------------------
     # This has to be kept synchronized with the parser and the Argument
     # Arguments could be mapped simply with fields
@@ -352,7 +355,7 @@ class ProcessGateway(Gateway):
 #DEPRECATED|        #    . PROJECTION == si les champs peuvent etre pilotés par les options
 #DEPRECATED|        #    . SELECTION  == jamais en pratique
 #DEPRECATED|        #    . FULLQUERY == jamais
-#DEPRECATED|        
+#DEPRECATED|
 #DEPRECATED|        # As tools will generally take parameters (key for the measurement) it
 #DEPRECATED|        # will not be possible to retrieve data from them directly (ON JOIN
 #DEPRECATED|        # tables).

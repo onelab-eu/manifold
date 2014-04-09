@@ -186,7 +186,7 @@ class Router(Interface):
 
     # This will be the only calls for manipulating router platforms
     def add_platform(self, platform_name, gateway_type, platform_config = {}):
-
+        Log.info("Enabling platform [%s] (type: %s, config: %s)" % (platform_name, gateway_type, platform_config))
         gateway = self.make_gateway(platform_name, gateway_type, platform_config)
         announces = gateway.get_announces()
 
@@ -420,6 +420,7 @@ class Router(Interface):
         query      = packet.get_query()
         annotation = packet.get_annotation()
         receiver   = packet.get_receiver()
+        Log.tmp("1)")
 
         try:
 
@@ -428,8 +429,8 @@ class Router(Interface):
 
             root_node = self._operator_graph.build_query_plan(query, annotation, dbgraph)
 
-            print "QUERY PLAN:"
-            print root_node.format_downtree()
+            Log.info("QUERY PLAN:")
+            Log.info(root_node.format_downtree())
 
             receiver._set_child(root_node)
         except Exception, e:
@@ -442,6 +443,7 @@ class Router(Interface):
             receiver.receive(error_packet)
             return
 
+        Log.tmp("2)")
         # Forwarding requests:
         # This might raise issues:
         # - during the forwarding of the query (for all gateways)

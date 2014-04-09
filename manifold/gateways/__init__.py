@@ -6,7 +6,7 @@
 # Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 # Jordan Auge       <jordan.auge@lip6.fr>
 #
-# Copyright (C) 2013 UPMC 
+# Copyright (C) 2013 UPMC
 
 import json, os, sys, traceback
 from types                          import StringTypes
@@ -14,13 +14,13 @@ from types                          import StringTypes
 from manifold.core.announce         import Announces, make_virtual_announces, merge_announces
 from manifold.core.capabilities     import Capabilities
 from manifold.core.code             import GATEWAY
-from manifold.core.node             import Node 
+from manifold.core.node             import Node
 from manifold.core.packet           import Packet, ErrorPacket
 #from manifold.core.pit              import Pit
 from manifold.core.query            import Query
 from manifold.core.record           import Record, Records
-from manifold.core.result_value     import ResultValue 
-from manifold.core.socket           import Socket 
+from manifold.core.result_value     import ResultValue
+from manifold.core.socket           import Socket
 from manifold.operators.projection  import Projection
 from manifold.operators.selection   import Selection
 from manifold.util.log              import Log
@@ -34,14 +34,14 @@ from manifold.core.code             import CORE, ERROR, GATEWAY
 #-------------------------------------------------------------------------------
 
 class Gateway(Node):
-    
+
     __metaclass__ = PluginFactory
     __plugin__name__attribute__ = '__gateway_name__'
     registered = False # Added to avoid multiple registrations
 
-    #---------------------------------------------------------------------------  
+    #---------------------------------------------------------------------------
     # Static methods
-    #---------------------------------------------------------------------------  
+    #---------------------------------------------------------------------------
 
     @staticmethod
     def register_all(force = False):
@@ -60,11 +60,11 @@ class Gateway(Node):
             Log.info("Registered gateways are: {%s}" % ", ".join(sorted(Gateway.list().keys())))
             Gateway.registered = True
 
-    #---------------------------------------------------------------------------  
+    #---------------------------------------------------------------------------
     # Constructor
-    #---------------------------------------------------------------------------  
+    #---------------------------------------------------------------------------
 
-    def __init__(self, interface = None, platform_name = None, platform_config = None): 
+    def __init__(self, interface = None, platform_name = None, platform_config = None):
     # XXX ??? , *args, **kwargs):
         """
         Constructor
@@ -75,7 +75,7 @@ class Gateway(Node):
             platform_config: A dictionnary containing the configuration related
                 to the Platform managed by this Gateway. In practice, it should
                 correspond to the following value stored in the Storage verifying
-                
+
                     SELECT config FROM local:platform WHERE platform == "platform_name"
         """
         assert isinstance(platform_name, StringTypes) or not platform_name, \
@@ -94,9 +94,9 @@ class Gateway(Node):
     def terminate(self):
         pass
 
-    #---------------------------------------------------------------------------  
+    #---------------------------------------------------------------------------
     # Accessors
-    #---------------------------------------------------------------------------  
+    #---------------------------------------------------------------------------
 
     #@returns(Interface)
     def get_interface(self):
@@ -121,7 +121,7 @@ class Gateway(Node):
         """
         Returns:
             A dictionnary containing the configuration related to
-                the Platform managed by this Gateway. 
+                the Platform managed by this Gateway.
         """
         return self._platform_config
 
@@ -147,7 +147,7 @@ class Gateway(Node):
         # to allow child classes to tweak their metadata.
         if not self._announces:
             virtual_announces  = make_virtual_announces(self.get_platform_name())
-            platform_announces = self.make_announces() 
+            platform_announces = self.make_announces()
             self._announces = merge_announces(virtual_announces, platform_announces)
 
         return self._announces
@@ -191,9 +191,9 @@ class Gateway(Node):
                 return table
         return None
 
-    #---------------------------------------------------------------------------  
-    # Parameter checking (internal usage) 
-    #---------------------------------------------------------------------------  
+    #---------------------------------------------------------------------------
+    # Parameter checking (internal usage)
+    #---------------------------------------------------------------------------
 
     def check_query_packet(self, packet):
         """
@@ -206,9 +206,9 @@ class Gateway(Node):
         assert packet.get_protocol() == Packet.PROTOCOL_QUERY,\
             "Invalid packet type = %s (%s)" % (packet, type(packet))
 
-    #---------------------------------------------------------------------------  
-    # Flow management 
-    #---------------------------------------------------------------------------  
+    #---------------------------------------------------------------------------
+    # Flow management
+    #---------------------------------------------------------------------------
 
 #DEPRECATED|    @returns(Socket)
 #DEPRECATED|    def get_socket(self, query):
@@ -239,7 +239,7 @@ class Gateway(Node):
 
     def del_consumer(self, receiver, cascade = True):
         """
-        Unlink a Consumer from this Gateway. 
+        Unlink a Consumer from this Gateway.
         Args:
             consumer: A Consumer instance.
             cascade: A boolean set to true to remove 'self'
@@ -248,16 +248,16 @@ class Gateway(Node):
         self.get_pit().del_receiver(receiver)
         if cascade:
             receiver.del_producer(self, cascade = False)
- 
+
     def release(self):
         pass
- 
+
     def close(self, packet):
         """
         Close the Socket related to a given Query and update
         the PIT consequently.
         Args:
-            packet: A QUERY Packet instance. 
+            packet: A QUERY Packet instance.
         """
         self.check_query_packet(packet)
         query = packet.get_query()
@@ -266,12 +266,12 @@ class Gateway(Node):
         # Clear PIT
         self.get_pit().del_query(query)
 
-        # Unlink this Socket from its Customers 
+        # Unlink this Socket from its Customers
         socket.close()
-        
-#    #---------------------------------------------------------------------------  
-#    # Query plan optimization. 
-#    #---------------------------------------------------------------------------  
+
+#    #---------------------------------------------------------------------------
+#    # Query plan optimization.
+#    #---------------------------------------------------------------------------
 #
 #    @returns(Node)
 #    def optimize_selection(self, query, filter):
@@ -279,7 +279,7 @@ class Gateway(Node):
 #        Propagate a WHERE clause through a FROM Node.
 #        Args:
 #            query: The Query received by this Gateway.
-#            filter: A Filter instance. 
+#            filter: A Filter instance.
 #        Returns:
 #            The updated root Node of the sub-AST.
 #        """
@@ -337,7 +337,7 @@ class Gateway(Node):
 #                    ", ".join(list(fields - provided_fields)),
 #                    query.get_from(),
 #                    ", ".join(list(provided_fields))
-#                )) 
+#                ))
 #
 #            # If this From node returns more Fields than those explicitely queried
 #            # (because the projection capability is not enabled), create an additional
@@ -349,9 +349,9 @@ class Gateway(Node):
 #                #projection.query = self.query.copy().filter_by(filter) # XXX
 #            return self
 
-    #---------------------------------------------------------------------------  
-    # Helpers for child classes 
-    #---------------------------------------------------------------------------  
+    #---------------------------------------------------------------------------
+    # Helpers for child classes
+    #---------------------------------------------------------------------------
 
     # TODO clean this method and plug it in Router::forward()
     @staticmethod
@@ -366,7 +366,7 @@ class Gateway(Node):
             The corresponding dictionnary.
         """
         #assert isinstance(user, User), "Invalid user : %s (%s)" % (user, type(user))
-        variables = dict() 
+        variables = dict()
 
         # Authenticated user
         variables["user_email"] = user["email"]
@@ -393,7 +393,7 @@ class Gateway(Node):
 
     def record(self, record, packet):
         """
-        Helper used in Gateway when a has to send an ERROR Packet. 
+        Helper used in Gateway when a has to send an ERROR Packet.
         See also Gateway::records() instead.
         Args:
             packet: The QUERY Packet instance which has triggered
@@ -414,7 +414,7 @@ class Gateway(Node):
     # deferred callbacks
     def records(self, records, packet):
         """
-        Helper used in Gateway when a has to send several RECORDS Packet. 
+        Helper used in Gateway when a has to send several RECORDS Packet.
         Args:
             packet: The QUERY Packet instance which has triggered
                 the call to this method.
@@ -434,7 +434,7 @@ class Gateway(Node):
         #)
         if records:
 # << ORIGINAL IMPLEMENTATION (supports list, but not Generator)
-#            # Enable LAST_RECORD flag on the last Record 
+#            # Enable LAST_RECORD flag on the last Record
 #            if isinstance(records[-1], dict):
 #                records[-1] = Record(records[-1], last = True)
 #            else:
@@ -466,7 +466,7 @@ class Gateway(Node):
     def warning(self, packet, description):
         """
         Helper used in Gateway when a has to send an ERROR Packet
-        carrying an Warning. See also Gateway::error() 
+        carrying an Warning. See also Gateway::error()
         Args:
             packet: The QUERY Packet instance which has triggered
                 the call to this method.
@@ -478,11 +478,11 @@ class Gateway(Node):
     def handle_failure(self, failure, query_packet):
         e = failure.trap(Exception)
         self.error(query_packet, str(e))
-        
+
     def error(self, packet, description, is_fatal = True):
         """
         Helper used in Gateway when a has to send an ERROR Packet
-        carrying an Error. See also Gateway::warning() 
+        carrying an Error. See also Gateway::warning()
         Args:
             packet: The QUERY Packet instance which has triggered
                 the call to this method.
@@ -537,7 +537,7 @@ class Gateway(Node):
         if not self.handle_query_object(packet):
             # This method must be overloaded on the Gateway
             # See manifold/gateways/template/__init__.py
-            self.receive_impl(packet) 
+            self.receive_impl(packet)
 
 # XXX Since this function always return after the query is sent, we need to close after the last receive record or error instead
 
@@ -545,9 +545,9 @@ class Gateway(Node):
 #DEPRECATED|            print "finally close"
 #DEPRECATED|            self.close(packet)
 
-    #---------------------------------------------------------------------------  
+    #---------------------------------------------------------------------------
     # Methods that could/must be overloaded/overwritten in the child classes
-    #---------------------------------------------------------------------------  
+    #---------------------------------------------------------------------------
 
     @returns(StringTypes)
     def __str__(self):
@@ -555,7 +555,7 @@ class Gateway(Node):
         Returns:
             The '%s' representation of this Gateway.
         """
-        return repr(self) 
+        return repr(self)
 
     @returns(StringTypes)
     def __repr__(self):
@@ -578,13 +578,6 @@ class Gateway(Node):
         return Announces.from_dot_h(self.get_platform_name(), self.get_gateway_type())
 
     def receive_impl(self, packet):
-#DEPRECATED|        """
-#DEPRECATED|        Handle a incoming QUERY Packet. This callback must
-#DEPRECATED|        be overloaded in each Gateway. See Gateway::receive().
-#DEPRECATED|        Args:
-#DEPRECATED|            packet: A QUERY Packet instance.
-#DEPRECATED|        """
-#DEPRECATED|        raise NotImplementedError, "receive_impl must be overloaded"
         """
         Handle a incoming QUERY Packet.
         Args:
@@ -593,16 +586,14 @@ class Gateway(Node):
         query = packet.get_query()
         object = query.get_object()
 
-        records = None 
+        records = None
         # XXX object map could be populated automatically
         if object in self.object_map.keys():
             instance = self.object_map[object](self)
             records = instance.get(query, packet.get_annotation())
         else:
-            raise RuntimeError("Invalid object %s" % object) 
+            raise RuntimeError("Invalid object %s" % object)
         self.records(records, packet)
-
-
 
     # TODO Rename Producer::make_error() into Producer::error()
     # and retrieve the appropriate consumers and send to them

@@ -4,12 +4,12 @@
 # Convert a 3nf-tree into an AST (e.g. a query plan)
 # See:
 #   manifold/core/ast.py
-# 
+#
 # QueryPlan class builds, process and executes Queries
 #
 # Copyright (C) UPMC Paris Universitas
 # Authors:
-#   Jordan Augé       <jordan.auge@lip6.fr> 
+#   Jordan Augé       <jordan.auge@lip6.fr>
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 #   Loïc Baron        <loic.baron@lip6.fr>
 
@@ -26,7 +26,7 @@ from manifold.core.fields           import Fields
 from manifold.core.node             import Node
 from manifold.core.query            import ACTION_CREATE, ACTION_UPDATE
 from manifold.core.stack            import Stack
-from manifold.operators.From        import From 
+from manifold.operators.From        import From
 from manifold.operators.operator    import Operator
 from manifold.util.log              import Log
 from manifold.util.type             import returns, accepts
@@ -130,7 +130,7 @@ class QueryPlan(object):
 #DEPRECATED|                    query.get_from(),
 #DEPRECATED|                    root_table
 #DEPRECATED|                ))
-       
+
         root_task = ExploreTask(router, root_table, relation = None, path = [query.get_from()], parent = self, depth = 1)
         if not root_task:
             raise RuntimeError("Unable to build a suitable QueryPlan")
@@ -165,15 +165,15 @@ class QueryPlan(object):
             # For example, he asked for slice.resource, which in fact will contain slice.resource.urn
 
             foreign_key_fields = task.explore(stack, missing_fields, db_graph, allowed_platforms, allowed_capabilities, user, seen[pathstr], query_plan = self)
-            
+
             self.foreign_key_fields.update(foreign_key_fields)
 
-        # Cancel every remaining ExploreTasks, we cannot found additional 
+        # Cancel every remaining ExploreTasks, we cannot found additional
         # queried fields.
         while not stack.is_empty():
             task = stack.pop()
             task.cancel()
-    
+
         # Do we need to wait for self.ast here ?
         #Log.debug(self)
         return self.ast.get_root() if self.ast else None

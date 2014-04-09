@@ -60,7 +60,7 @@ class ParisTracerouteParser(object):
         |       (A_FLAG).setParseAction(lambda t: ('a', None, None))
         |       (T_FLAG + value).setParseAction(lambda t: ('t', int(t[1]), None))
         |       (X_FLAG + value).setParseAction(lambda t: ('x', int(t[1]), None))
-        ) 
+        )
 
         interface = (
 	        value
@@ -118,7 +118,7 @@ class ParisTracerouteParser(object):
             +   interface2_exhaustive
             +   pp.Optional(mpls_ext)
         ).setParseAction(lambda t: 'exhaustive')
-        
+
 
         def make_hop(t):
             hop = {
@@ -135,7 +135,7 @@ class ParisTracerouteParser(object):
         hop_exhaustive = (
                 value.setResultsName('ttl')
             +   'P(' + value + ',' + value + pp.Optional(',' + value + ',' + value) + ')'
-            +   pp.delimitedList(probe_exhaustive, delim = '').setResultsName('probes')
+            +   pp.delimitedList(probe_exhaustive, delim = '').setResultsName('probes') # XXX: delim = '' seems to raise warning in pyparsing
         ).setParseAction(lambda t: t.asDict())
 
         header_part = (
@@ -144,14 +144,14 @@ class ParisTracerouteParser(object):
             +   value.setResultsName('src_ip')
             +   pp.Literal(':').suppress()
             +   value.setResultsName('sport')
-            +   RPAR + pp.Literal('->').suppress() + LPAR 
+            +   RPAR + pp.Literal('->').suppress() + LPAR
             +   value.setResultsName('dst_ip')
             +   pp.Literal(':').suppress()
             +   value.setResultsName('dport') + RPAR + KET
-            +   pp.Literal(',').suppress() 
+            +   pp.Literal(',').suppress()
             +   pp.Literal('protocol').suppress()
             +   value.setResultsName('proto')
-            +   pp.Literal(',').suppress() 
+            +   pp.Literal(',').suppress()
             +   pp.Literal('algo').suppress()
             +   value.setResultsName('algo')
         )#.setParseAction(lambda t: t.asDict())
@@ -159,9 +159,9 @@ class ParisTracerouteParser(object):
         raw_header = (
             header_part
         )
-        
+
         raw_probe = (
-                value + value + 'ms' 
+                value + value + 'ms'
             +   pp.Optional(T_FLAG + value)
             +   pp.Optional(LCUR + value + RCUR)
             +   pp.Optional(BRA + value + KET)
@@ -246,11 +246,11 @@ class ParisTracerouteGateway(ProcessGateway):
 
     parameters = [
         Parameter(
-            name        = 'hostname', 
+            name        = 'hostname',
             type        = 'string',  # in metadata ?
             description = '',        # in metadata ?
             short       = '-n',
-            action      = '', 
+            action      = '',
             # METADATA + IN_FIELDS
             flags       = FLAG_ADD_FIELD # deduced from metadata ?
         ),
