@@ -274,9 +274,10 @@ class QueryPacket(Packet):
     def set_destination(self, destination):
         self._query.set_destination(destination)
 
+    # XXX In records, we are storing the parent record uuids. This is currently
+    # used for the local cache until a better solution is found
     def set_records(self, records):
         self._records = records
-
     def get_records(self):
         return self._records
 

@@ -59,7 +59,7 @@ class ExploreTask(Deferred):
         # Result
         self.ast         = None
         self.keep_root_a = Fields()
-        self.subqueries  = dict() 
+#        self.subqueries  = dict() 
         self.sq_rename_dict = dict()
 
         ExploreTask.last_identifier += 1
@@ -100,13 +100,13 @@ class ExploreTask(Deferred):
 #DEPRECATED|            if pred.get_key() not in found_fields:
 #DEPRECATED|                new_filter.add(pred)
 #DEPRECATED|        query.filter_by(None).filter_by(new_filter)
-
-    def store_subquery(self, ast_sq_rename_dict, relation):
-        ast, sq_rename_dict = ast_sq_rename_dict
-        #Log.debug(ast, relation)
-        if not ast: return
-        self.sq_rename_dict.update(sq_rename_dict)
-        self.subqueries[relation.get_relation_name()] = (ast, relation)
+#DEPRECATED|
+#DEPRECATED|    def store_subquery(self, ast_sq_rename_dict, relation):
+#DEPRECATED|        ast, sq_rename_dict = ast_sq_rename_dict
+#DEPRECATED|        #Log.debug(ast, relation)
+#DEPRECATED|        if not ast: return
+#DEPRECATED|        self.sq_rename_dict.update(sq_rename_dict)
+#DEPRECATED|        self.subqueries[relation.get_relation_name()] = (ast, relation)
 
     def explore(self, stack, missing_fields, metadata, allowed_platforms, allowed_capabilities, user, seen_set, query_plan):
         """
@@ -131,7 +131,7 @@ class ExploreTask(Deferred):
         Returns:
             foreign_key_fields
         """
-        #Log.tmp("Search in", self.root.get_name(), "for fields", missing_fields, 'path=', self.path, "SEEN SET =", seen_set, "depth=", self.depth)
+        Log.tmp("Search in", self.root.get_name(), "for fields", missing_fields, 'path=', self.path, "SEEN SET =", seen_set, "depth=", self.depth)
         relations_11, relations_1N, relations_1Nsq = (), {}, {}
         deferred_list = []
 
@@ -199,16 +199,22 @@ class ExploreTask(Deferred):
 
         for f in self.keep_root_a:
             if f in rename and rename[f] is not None:
-                #print "NEED RENAME", Fields.join(rename[f], f), "in", f
                 self.sq_rename_dict[Fields.join(rename[f], f)] = f
 
         for field in self.keep_root_a:
-            # Now if we are requesting as the only subfield the key, we can also
+            # Now if we are requesting has the key as the only subfield, we can also
             # retrieve it from the current table (as a foreign key), at the cost of
             # a Rename operation for the final results (query and record rewriting).
 
+            # for normal fields
+            if field in missing_fields:
+                missing_fields.remove(field)
+
+            # for shortcuts 
             if field not in map_parent_missing_subfields:
-                missing_fields.remove(map_original_field[field])
+                # ..unless already done
+                if map_original_field[field] != field:
+                    missing_fields.remove(map_original_field[field])
 #DEPRECATED|#UNTIL WE EXPLAIN|                    # We won't search those fields in subsequent explorations,
 #DEPRECATED|#UNTIL WE EXPLAIN|                    # unless the belong to the key of an ONJOIN table
 #DEPRECATED|#UNTIL WE EXPLAIN|                    is_onjoin = self.root.capabilities.is_onjoin()
@@ -232,7 +238,7 @@ class ExploreTask(Deferred):
                 if len(subfields) > 1: continue
                 # Note: composite keys not taken into account yet
 
-                subfield = subfields[0]
+                subfield = iter(subfields).next()
 
                 field_type = self.root.get_field_type(field)
                 if field_type in BASE_TYPES: continue # Should not happen
@@ -376,7 +382,7 @@ class ExploreTask(Deferred):
                     subpath = self.path[:]
                     subpath.append(name)
                     task = ExploreTask(self._interface, neighbour, relation, subpath, self, self.depth+1)
-                    task.addCallback(self.store_subquery, relation)
+                    task.addCallback(self.perform_subquery, relation, allowed_platforms, metadata, query_plan)
                     task.addErrback(self.default_errback)
 
                     relation_name = relation.get_relation_name()
@@ -416,17 +422,12 @@ class ExploreTask(Deferred):
             query_plan: The QueryPlan instance related to this Query, and that we're updating.
         """
 
-        #Log.debug("DONE", self, result)
-        #for (success, value) in result:
-        #    if not success:
-        #        raise value.trap(Exception)
-        #        continue
         try:
-            if self.subqueries:
-                self.perform_subquery(allowed_platforms, metadata, query_plan)
-                if self.sq_rename_dict:
-                    self.ast.rename(self.sq_rename_dict)
-                    self.sq_rename_dict = dict()
+#DEPRECATED|            if self.subqueries:
+#DEPRECATED|                self.perform_subquery(allowed_platforms, metadata, query_plan)
+#DEPRECATED|                if self.sq_rename_dict:
+#DEPRECATED|                    self.ast.rename(self.sq_rename_dict)
+#DEPRECATED|                    self.sq_rename_dict = dict()
             self.callback((self.ast, self.sq_rename_dict))
         except Exception, e:
             Log.error("Exception caught in ExploreTask::all_done: %s" % e)
@@ -449,9 +450,9 @@ class ExploreTask(Deferred):
         if not self.ast:
             # This can occur if no interesting field was found in the table, but it is just used to connect children tables
             self.ast = self.perform_union(self.root, allowed_platforms, metadata, query_plan)
-        self.ast.left_join(ast, relation.get_predicate())
+        self.ast.left_join(ast, relation.get_predicate().copy())
 
-    def perform_subquery(self, allowed_platforms, metadata, query_plan):
+    def perform_subquery(self, ast_sq_rename_dict, relation, allowed_platforms, metadata, query_plan):
         """
         Connect a new AST to the current AST using a SubQuery Node.
         If the connected table is "on join", we will use a LeftJoin
@@ -461,94 +462,21 @@ class ExploreTask(Deferred):
             allowed_platforms: A set of String where each String corresponds to a queried platform name.
             query_plan: The QueryPlan instance related to this Query, and that we're updating.
         """
+        ast, sq_rename_dict = ast_sq_rename_dict
+        if not ast: return
+        self.sq_rename_dict.update(sq_rename_dict)
+
         # We need to build an AST just to collect subqueries
         if not self.ast:
-#DEPRECATED|            print "[perform_subquery] not self.ast"
-            # XXX ?????
-            # XXX What is self.root here ?
             self.ast = self.perform_union(self.root, allowed_platforms, metadata, query_plan)
 
-#DEPRECATED|        print "perform subquery"
-#DEPRECATED|        print "="*80
-#DEPRECATED|        print "%r" % self.ast # = FROM tdmi:Traceroute()
-#DEPRECATED|        print "="*80
-#DEPRECATED|        print "subqueries:"
-#DEPRECATED|        print self.subqueries
-#DEPRECATED|        print "="*80
-        if False: # XXX self.root.capabilities.is_onjoin(): We need more than the test for ONJOIN.. We might have all the needed parameters, because the user expressed them, or from a parent operator
-            # We need to have all root_key_fields available before running the
-            # onjoin query
-            root_key_fields = self.root.keys.one().get_field_names()
+        self.ast.subquery(ast, relation)
 
-            # We assume for now that if the fields will be either available as a
-            # WHERE condition (not available at this stage), or through a
-            # subquery. We only look into subqueries, if the field is not
-            # present, that means it will be there at execution time. It will
-            # fail otherwise.
-            #
-            # A = onjoin(X,Y)
-            #                   
-            # SQ = A
-            #   |_ X     <=>  SQ  - |X| - x - X
-            #   |_ Y              \     \   \
-            #   |_ Z                Z     A   Y
-            #
-            # We will have:
-            #    |X| if a root key field is given by a subquery == not available #    in a filter
-            #     x  if more than 1 subquery is involved
-            # 
-            # NOTE: x will either return a single record with a list of values,
-            # or multiple records with simple values
+        # This might be more simple if moved in all_done
+        if self.sq_rename_dict:
+            self.ast.rename(self.sq_rename_dict)
+            self.sq_rename_dict = dict()
 
-            xp_ast_relation, sq_ast_relation = [], []
-            xp_key = ()
-            xp_value = ()
-
-            # We go though the set of subqueries to find
-            # - the ones for the cartesian product
-            # - the ones for the subqueries
-            for name, ast_relation in self.subqueries.items():
-                if name in root_key_fields:
-                    ast, relation = ast_relation
-                    key, _, value = relation.get_predicate().get_tuple()
-                    assert isinstance(key, StringTypes), "Invalid key"
-                    assert not isinstance(value, tuple), "Invalid value"
-                    xp_key   += (value,)
-                    xp_value += (key,)
-                    xp_ast_relation.append(ast_relation)
-                else:
-                    sq_ast_relation.append(ast_relation)
-
-#DEPRECATED|             ast = self.ast
-#DEPRECATED| 
-#DEPRECATED|             # SUBQUERY
-#DEPRECATED|             if sq_ast_relation:
-#DEPRECATED|                 ast.subquery(sq_ast_relation)
-#DEPRECATED| 
-#DEPRECATED|             # CARTESIAN PRODUCT
-#DEPRECATED|             query = Query.action('get', self.root.get_name()).select(set(xp_key))
-#DEPRECATED|             self.ast = AST(self._interface).cartesian_product(xp_ast_relation, query)
-#DEPRECATED| 
-#DEPRECATED|             # JOIN
-#DEPRECATED|             predicate = Predicate(xp_key, eq, xp_value)
-#DEPRECATED|             self.ast.left_join(ast, predicate)
-
-            # XXX TODO !!!
-            # 1) Cross product
-            if len(xp_ast_relation) > 1:
-                pass
-
-            # 2) Left join
-            if len(xp_ast_relation) > 0:
-                pass
-                
-            # 3) Subquery
-            if len(sq_ast_relation) > 0:
-                self.ast.subquery
-                pass
-
-        else:
-            self.ast.subquery(self.subqueries.values())
 
     def perform_union(self, table, allowed_platforms, metadata, query_plan):
         """

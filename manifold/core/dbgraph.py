@@ -266,19 +266,20 @@ class DBGraph(object):
             try:
                 
                 parent, child, data = next(children)
-                relation = data['relations']
-                if child not in visited:
-                    if relation.get_type() in [Relation.types.LINK_1N, Relation.types.LINK_1N_BACKWARDS]:
-                        # Recursive call
-                        #for f in self.get_fields(child, "%s%s." % (prefix, child.get_name())):
-                        #    yield f
-                        pass
-                    else:
-                        # Normal JOINed table
-                        for f in table_fields(child, prefix):
-                            yield f
-                        visited.add(child)
-                        stack.append((child, self.graph.edges_iter(child, data=True), prefix))
+                relations = data['relations']
+                for relation in relations:
+                    if child not in visited:
+                        if relation.get_type() in [Relation.types.LINK_1N, Relation.types.LINK_1N_BACKWARDS]:
+                            # Recursive call
+                            #for f in self.get_fields(child, "%s%s." % (prefix, child.get_name())):
+                            #    yield f
+                            pass
+                        else:
+                            # Normal JOINed table
+                            for f in table_fields(child, prefix):
+                                yield f
+                            visited.add(child)
+                            stack.append((child, self.graph.edges_iter(child, data=True), prefix))
             except StopIteration:
                 stack.pop()
 

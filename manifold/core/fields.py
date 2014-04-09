@@ -185,7 +185,7 @@ class Fields(set):
             allow_shortcuts (bool): Default to True.
         """
         if not path:
-            return field
+            return (field, None)
         last = None
         field_parts = field.split(FIELD_SEPARATOR)
         for path_element in path[1:]:
@@ -228,8 +228,8 @@ class Fields(set):
                 if include_parent:
                     fields.add(field)
                 if not field in map_method_subfields:
-                    map_method_subfields[field] = []
-                map_method_subfields[field].append(subfield)
+                    map_method_subfields[field] = Fields()
+                map_method_subfields[field].add(subfield)
 
             map_original_field[field] = original_field
             rename[field] = last

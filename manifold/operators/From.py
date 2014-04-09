@@ -29,9 +29,10 @@ from manifold.core.query            import Query
 from manifold.core.record           import Record
 from manifold.gateways              import Gateway
 from manifold.operators.from_table  import FromTable
-from manifold.operators.operator    import Operator 
+from manifold.operators.operator    import Operator
 from manifold.operators.projection  import Projection
 from manifold.operators.selection   import Selection 
+from manifold.operators.subquery    import SubQuery
 from manifold.util.log              import Log
 from manifold.util.type             import returns
 
@@ -69,6 +70,7 @@ class From(Operator, ChildSlotMixin):
         self.capabilities = capabilities
         self._key          = key
         self._gateway     = gateway
+        print "FROM GW", gateway
 
         # Memorize records received from a parent query (injection)
         self._parent_records = None
@@ -221,30 +223,39 @@ class From(Operator, ChildSlotMixin):
             query_fields = query.get_fields()
 
             # Some fields are already provided in the query
-            records = packet.get_records()
-            if records:
-                parent_fields = Fields(records.get_fields())
+#DEPRECATED|            records = packet.get_records()
+#DEPRECATED|            if records:
+#DEPRECATED|                parent_fields = Fields(records.get_fields())
+#DEPRECATED|
+#DEPRECATED|                needed_fields = query_fields - parent_fields
+#DEPRECATED|
+#DEPRECATED|                key_fields    = self._key.get_field_names()
+#DEPRECATED|
+#DEPRECATED|                # Let's keep parent records in a dictionary indexed by their key
+#DEPRECATED|
+#DEPRECATED|                if not needed_fields:
+#DEPRECATED|                    map(self.forward_upstream, records)
+#DEPRECATED|                    self.forward_upstream(Record(last = True))
+#DEPRECATED|                    return
+#DEPRECATED|
+#DEPRECATED|                self._parent_records = { r.get_value(key_fields): r for r in records }
+#DEPRECATED|
+#DEPRECATED|                # Update query fields
+#DEPRECATED|                # adding the current query fields allows us to prevent a * to appear when
+#DEPRECATED|                # needed = *, since we know that initially query_fields contains
+#DEPRECATED|                # all fields
+#DEPRECATED|                fields = self.get_query().get_fields() & needed_fields | key_fields 
+#DEPRECATED|
+#DEPRECATED|                packet.update_query(lambda q:q.select(fields, clear=True))
 
-                needed_fields = query_fields - parent_fields
-
-                key_fields    = self._key.get_field_names()
-
-                # Let's keep parent records in a dictionary indexed by their key
-
-                if not needed_fields:
-                    map(self.forward_upstream, records)
-                    self.forward_upstream(Record(last = True))
-                    return
-
-                self._parent_records = { r.get_value(key_fields): r for r in records }
-
-                # Update query fields
-                # adding the current query fields allows us to prevent a * to appear when
-                # needed = *, since we know that initially query_fields contains
-                # all fields
-                fields = self.get_query().get_fields() & needed_fields | key_fields 
-
-                packet.update_query(lambda q:q.select(fields, clear=True))
+            # The presence of UUIDs means the fields are to be provided by the
+            # parent query (query.get_object() has a local key).
+            #uuids = packet.get_records()
+            #if uuids:
+            #    records = self.get_from_local_cache(query.get_object(), uuids)
+            #    map(self.forward_upstream, records)
+            #    self.forward_upstream(Record(last = True))
+            #    return
 
             # We need to add local filters to the query packet
             filter = self.get_query().get_filter()
@@ -258,7 +269,8 @@ class From(Operator, ChildSlotMixin):
             # XXX source vs. receiver: the pit expects a receiver while the
             # operator sets a source
             packet.set_receiver(self)
-            self.send_to(self.get_gateway(), packet)
+            print "sending packet", packet, "to gw", self.get_gateway()
+            self.get_gateway().receive(packet)
 
         elif packet.get_protocol() == Packet.PROTOCOL_RECORD:
             if self._parent_records:
@@ -314,7 +326,7 @@ class From(Operator, ChildSlotMixin):
             if remaining_filter:
                 # FROM (= self) becomes the new producer for Selection
                 selection = Selection(self, remaining_filter)
-                selection.set_producer(self)
+                Log.warning("We removed: selection.set_producer(self)")
                 return selection
 
             else:
@@ -372,3 +384,10 @@ class From(Operator, ChildSlotMixin):
     @returns(Operator)
     def reorganize_create(self):
         return self
+
+    def subquery(self, ast, relation):
+        # This is the only place where local subqueries are created. Here, we
+        # need to inspect what is in the child to be sure no Rename or LeftJoin
+        # is present under a local subquery
+        # NOTE: add_child is also of concern
+        return SubQuery.make(self, ast, relation)

@@ -30,7 +30,7 @@ class Relation(object):
         'LINK_1N_BACKWARDS',   # Link 1..N where children table embeds ID of parent table.
     )
 
-    def __init__(self, type, predicate, name = None):
+    def __init__(self, type, predicate, name = None, local = False):
         """
         Constructor.
         Params:
@@ -41,9 +41,12 @@ class Relation(object):
         assert isinstance(predicate, Predicate), "Invalid predicate = %s (%s)" % (predicate, type(predicate))
         if name:
             assert isinstance(name, StringTypes), "Invalid name = %s (%s)" % (name, type(name))
-        self.type      = type
-        self.predicate = predicate
-        self.name      = name
+        self.type       = type
+        self.predicate  = predicate
+        self.name       = name
+        self._local     = local
+        if local:
+            print "RELATION", self, "IS LOCAL"
 
     def get_type(self):
         """
@@ -67,6 +70,10 @@ class Relation(object):
             The Predicate instance related to this Relation. 
         """
         return self.predicate
+
+    @returns(bool)
+    def is_local(self):
+        return self._local
 
     @returns(StringTypes)
     def __str__(self):
@@ -92,7 +99,7 @@ class Relation(object):
         )
 
     #@returns(StringTypes)
-    def get_relation_name(self):
+    def get_name(self):
         """
         Returns:
             A String instance or None. If this is a String, it contains
@@ -101,7 +108,11 @@ class Relation(object):
             a "bar" Relation stored in an out-edge of "foo" Table.
         """
         return self.name
-        
+
+    # DEPRECATED
+    def get_relation_name(self):
+        return self.get_name()
+
     @returns(bool)
     def requires_subquery(self):
         """
