@@ -39,7 +39,7 @@ class Union(Operator, ChildrenSlotMixin):
     # Constructor
     #---------------------------------------------------------------------------
 
-    def __init__(self, producers, key, distinct = False):
+    def __init__(self, producers, key, distinct = True):
         """
         Constructor.
         Args:

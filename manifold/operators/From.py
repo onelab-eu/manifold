@@ -70,7 +70,6 @@ class From(Operator, ChildSlotMixin):
         self.capabilities = capabilities
         self._key          = key
         self._gateway     = gateway
-        print "FROM GW", gateway
 
         # Memorize records received from a parent query (injection)
         self._parent_records = None
@@ -269,7 +268,6 @@ class From(Operator, ChildSlotMixin):
             # XXX source vs. receiver: the pit expects a receiver while the
             # operator sets a source
             packet.set_receiver(self)
-            print "sending packet", packet, "to gw", self.get_gateway()
             self.get_gateway().receive(packet)
 
         elif packet.get_protocol() == Packet.PROTOCOL_RECORD:

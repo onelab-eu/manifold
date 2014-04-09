@@ -253,7 +253,6 @@ class LeftJoin(Operator, LeftRightSlotMixin):
                                 self._left_map[hash_key] = []
                             self._left_map[hash_key].append(record)
 
-
                 if is_last:
                     self._left_done = True
                     self._update_and_send_right_packet()

@@ -1,0 +1,45 @@
+4130    | 130.49.221.40    | 130.49.0.0/16       | US | arin     | 1988-05-18 | UPITT-AS - University of Pittsburgh
+4130    | 136.142.2.170    | 136.142.0.0/16      | US | arin     | 1989-08-24 | UPITT-AS - University of Pittsburgh
+5050    | 192.88.115.24    | 192.88.115.0/24     | US | arin     | 1990-12-17 | PSC-EXT - Pittsburgh Supercomputing Center
+11537   | 64.57.28.11      | 64.57.16.0/20       | US | arin     | 2006-10-17 | ABILENE - Internet2
+10578   | 192.5.89.222     | 192.5.89.0/24       | US | arin     | 1985-09-16 | GIGAPOP-NE - Harvard University
+10578   | 192.5.89.253     | 192.5.89.0/24       | US | arin     | 1985-09-16 | GIGAPOP-NE - Harvard University
+10578   | 192.5.89.5       | 192.5.89.0/24       | US | arin     | 1985-09-16 | GIGAPOP-NE - Harvard University
+1742    | 192.5.66.5       | 192.5.66.0/24       | US | arin     | 1984-04-17 | HARVARD-UNIV - Harvard University
+11      | 140.247.2.9      | 140.247.0.0/16      | US | arin     | 1992-09-18 | HARVARD - Harvard University
+11      | 140.247.2.61     | 140.247.0.0/16      | US | arin     | 1992-09-18 | HARVARD - Harvard University
+11      | 140.247.60.2     | 140.247.0.0/16      | US | arin     | 1992-09-18 | HARVARD - Harvard University
+786     | 193.63.58.71     | 193.60.0.0/14       | GB | ripencc  | 1993-09-01 | JANET The JANET IP Service
+786     | 193.60.255.130   | 193.60.0.0/14       | GB | ripencc  | 1993-09-01 | JANET The JANET IP Service
+786     | 194.83.100.194   | 194.80.0.0/14       | GB | ripencc  | 1996-02-20 | JANET The JANET IP Service
+786     | 194.83.100.6     | 194.80.0.0/14       | GB | ripencc  | 1996-02-20 | JANET The JANET IP Service
+786     | 146.97.42.62     | 146.97.0.0/16       | EU | ripencc  | 1991-01-31 | JANET The JANET IP Service
+786     | 146.97.33.157    | 146.97.0.0/16       | EU | ripencc  | 1991-01-31 | JANET The JANET IP Service
+20965   | 62.40.124.198    | 62.40.96.0/19       | EU | ripencc  | 2001-07-17 | GEANT The GEANT IP Service
+20965   | 62.40.112.138    | 62.40.96.0/19       | EU | ripencc  | 2001-07-17 | GEANT The GEANT IP Service
+11537   | 198.32.11.51     | 198.32.8.0/22       | US | arin     | 1997-06-09 | ABILENE - Internet2
+10578   | 192.5.89.222     | 192.5.89.0/24       | US | arin     | 1985-09-16 | GIGAPOP-NE - Harvard University
+10578   | 192.5.89.253     | 192.5.89.0/24       | US | arin     | 1985-09-16 | GIGAPOP-NE - Harvard University
+10578   | 192.5.89.5       | 192.5.89.0/24       | US | arin     | 1985-09-16 | GIGAPOP-NE - Harvard University
+1742    | 192.5.66.5       | 192.5.66.0/24       | US | arin     | 1984-04-17 | HARVARD-UNIV - Harvard University
+11      | 140.247.2.9      | 140.247.0.0/16      | US | arin     | 1992-09-18 | HARVARD - Harvard University
+11      | 140.247.2.61     | 140.247.0.0/16      | US | arin     | 1992-09-18 | HARVARD - Harvard University
+11      | 140.247.60.2     | 140.247.0.0/16      | US | arin     | 1992-09-18 | HARVARD - Harvard University
+786     | 193.63.58.70     | 193.60.0.0/14       | GB | ripencc  | 1993-09-01 | JANET The JANET IP Service
+786     | 193.60.255.130   | 193.60.0.0/14       | GB | ripencc  | 1993-09-01 | JANET The JANET IP Service
+786     | 194.83.100.194   | 194.80.0.0/14       | GB | ripencc  | 1996-02-20 | JANET The JANET IP Service
+786     | 194.83.100.6     | 194.80.0.0/14       | GB | ripencc  | 1996-02-20 | JANET The JANET IP Service
+786     | 146.97.42.62     | 146.97.0.0/16       | EU | ripencc  | 1991-01-31 | JANET The JANET IP Service
+786     | 146.97.33.157    | 146.97.0.0/16       | EU | ripencc  | 1991-01-31 | JANET The JANET IP Service
+20965   | 62.40.124.198    | 62.40.96.0/19       | EU | ripencc  | 2001-07-17 | GEANT The GEANT IP Service
+20965   | 62.40.112.138    | 62.40.96.0/19       | EU | ripencc  | 2001-07-17 | GEANT The GEANT IP Service
+11537   | 198.32.11.51     | 198.32.8.0/22       | US | arin     | 1997-06-09 | ABILENE - Internet2
+10578   | 192.5.89.253     | 192.5.89.0/24       | US | arin     | 1985-09-16 | GIGAPOP-NE - Harvard University
+10578   | 192.5.89.5       | 192.5.89.0/24       | US | arin     | 1985-09-16 | GIGAPOP-NE - Harvard University
+1742    | 192.5.66.5       | 192.5.66.0/24       | US | arin     | 1984-04-17 | HARVARD-UNIV - Harvard University
+11      | 140.247.2.9      | 140.247.0.0/16      | US | arin     | 1992-09-18 | HARVARD - Harvard University
+11      | 140.247.2.61     | 140.247.0.0/16      | US | arin     | 1992-09-18 | HARVARD - Harvard University
+11      | 140.247.60.2     | 140.247.0.0/16      | US | arin     | 1992-09-18 | HARVARD - Harvard University
+25      | 169.229.50.3     | 169.229.0.0/16      | US | arin     | 1995-08-04 | UCB - University of California at Berkeley
+25      | 169.229.51.185   | 169.229.0.0/16      | US | arin     | 1995-08-04 | UCB - University of California at Berkeley
+
