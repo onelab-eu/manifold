@@ -215,7 +215,7 @@ class SFAGateway(Gateway):
 
         # TESTBED FIELDS
         'enabled'           : 'slice_enabled',
-        'researcher'        : 'users',                      # user or users . hrn or user_hrn ?
+        #'researcher'        : 'users',                      # user or users . hrn or user_hrn ?
         'PI'                : 'pi_users',                   # XXX should be found of type user, has to correspond with metadata
 
         # UNKNOWN
@@ -450,7 +450,14 @@ class SFAGateway(Gateway):
         server_version = yield self.get_cached_server_version(server)    
         # Avoid inconsistent hrn in GetVersion - ROUTERV2
         hrn = urn_to_hrn(server_version['urn'])
-        defer.returnValue(hrn[0])
+        Log.tmp(hrn)       
+        Log.tmp(hrn[0])       
+        #defer.returnValue(hrn[0])
+        # XXX TMP FIX while URN from ple is 'urn:publicid:IDN++ple' instead of 'urn:publicid:IDN+authority+ple'
+        if hrn[0] =='' and 'hrn' in server_version:
+            defer.returnValue(server_version['hrn'])
+        else:
+            defer.returnValue(hrn[0])
         
     ### resurrect this temporarily so we can support V1 aggregates for a while
     @defer.inlineCallbacks
