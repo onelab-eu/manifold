@@ -219,14 +219,12 @@ class Fields(set):
         Returns:
             True if the both Fields instance matches.
         """
-        if isinstance(other, Fields):
-            return (self.is_star() and other.is_star())\
-                or (not self.is_star() and other.is_star())\
-                or (set.__le__(self, other))
-        #elif isinstance(other, set):
-        #    return (set.__le__(self, other))
-        else:
-            raise TypeError("Invalid type: other = %s (%s)" % (other, type(other)))
+        assert isinstance(other, Fields),\
+            "Invalid other = %s (%s)" % (other, type(other))
+
+        return (self.is_star() and other.is_star())\
+            or (not self.is_star() and other.is_star())\
+            or (set.__le__(self, other))
 
     # Defined with respect of previous functions
 

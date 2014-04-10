@@ -32,7 +32,7 @@ class QueryHandler(asynchat.async_chat, ChildSlotMixin):
     STATE_LENGTH = State()
     STATE_PACKET = State()
 
-    def __init__ (self, conn, addr, callback):
+    def __init__(self, conn, addr, callback):
         asynchat.async_chat.__init__ (self, conn)
         ChildSlotMixin.__init__(self) # XXX
         self.addr = addr
@@ -44,10 +44,10 @@ class QueryHandler(asynchat.async_chat, ChildSlotMixin):
         self._receive_buffer = []
         self.callback = callback
 
-    def collect_incoming_data (self, data):
+    def collect_incoming_data(self, data):
         self._receive_buffer.append (data)
 
-    def found_terminator (self):
+    def found_terminator(self):
         self._receive_buffer, data = [], ''.join(self._receive_buffer)
 
         if self.pstate is self.STATE_LENGTH:
@@ -85,6 +85,7 @@ class RouterServer(asyncore.dispatcher):
         self._router.add_platform('paristraceroute', 'paristraceroute_process')
 
 #DEPRECATED|        self._router.add_platform('agent',  'manifold', {'url': 'http://ple2.ipv6.lip6.fr:58000/RPC/'})
+#        self._router.add_platform('fake',  'manifold', {'url': 'http://fake:58000/RPC/'})
 #DEPRECATED|        self._router.add_platform('agent2', 'manifold', {'url': 'http://planetlab2.cs.du.edu:58000/RPC/'})
         self._router.add_platform('maxmind', 'maxmind')
 

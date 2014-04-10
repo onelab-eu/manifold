@@ -9,14 +9,15 @@
 # Jordan Auge       <jordan.auge@lip6.fr>
 # Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 #
-# Copyright (C) 2013 UPMC 
+# Copyright (C) 2013 UPMC
 
 from types                              import StringTypes
 #from twisted.internet                  import reactor
 
 from manifold.gateways                  import Gateway
-from manifold.util.reactor_thread       import ReactorThread
-from manifold.util.type                 import accepts, returns 
+from manifold.util.log                  import Log
+from manifold.util.reactor_thread       import ReactorThread, ReactorException
+from manifold.util.type                 import accepts, returns
 
 class ManifoldGateway(Gateway):
     __gateway_name__ = 'manifold'
@@ -33,7 +34,11 @@ class ManifoldGateway(Gateway):
         ReactorThread().start_reactor()
 
     def terminate(self):
-        ReactorThread().stop_reactor()
+        try:
+            ReactorThread().stop_reactor()
+        except ReactorException:
+            Log.info("Nothing to do, the reactor was already stopped")
+            pass
 
     @returns(StringTypes)
     def __str__(self):
@@ -57,7 +62,7 @@ class ManifoldGateway(Gateway):
         (Internal usage) See ManifoldGateway::receive_impl.
         Args:
             packet: A QUERY Packet.
-            error: The corresponding error message. 
+            error: The corresponding error message.
         """
         self.error(packet, "Error during Manifold call: %r" % error)
 
@@ -71,7 +76,7 @@ class ManifoldGateway(Gateway):
         annotation = packet.get_annotation()
         receiver = packet.get_receiver()
 
-        from twisted.web import xmlrpc 
+        from twisted.web import xmlrpc
         class Proxy(xmlrpc.Proxy):
             ''' See: http://twistedmatrix.com/projects/web/documentation/howto/xmlrpc.html
                 this is eacly like the xmlrpc.Proxy included in twisted but you can
@@ -125,10 +130,10 @@ class ManifoldGateway(Gateway):
             #reactor.callFromThread(wrap, self) # run wrap(self) in the event loop
         #    wrap(self)
         #    print "done wrap"
-        #    
+        #
         #except Exception, e:
         #    print "Exception in Manifold::start", e
 
-    def get_metadata(self):
-        pass
-        
+#DEPRECATED|    def get_metadata(self):
+#DEPRECATED|        pass
+
