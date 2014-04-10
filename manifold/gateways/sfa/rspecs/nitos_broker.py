@@ -87,6 +87,8 @@ class NITOSBrokerParser(RSpecParser):
         resources   = list()
         leases      = list()
 
+        rspec = RSpec(rspec)
+
         # Parse leases first, so that they can be completed when encountering
         # their ids in resources
         lease_map = dict() # id -> lease_dict

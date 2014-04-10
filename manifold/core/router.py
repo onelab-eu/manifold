@@ -136,7 +136,9 @@ class Router(Interface):
     def process_qp_results(self, query, records, annotations, query_plan):
 
         # Enforcing policy
+        print "RECORDS=", records
         (decision, data) = self.policy.filter(query, records, annotations)
+        print "decision", decision
         if decision != Policy.ACCEPT:
             raise Exception, "Unknown decision from policy engine"
 
