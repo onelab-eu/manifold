@@ -173,7 +173,7 @@ class Query(object):
         self.timestamp  = 'now' # ignored for now
 
     #@returns(StringTypes)
-    def to_sql(self, platform = '', multiline = False):
+    def to_sql(self, platform = "", multiline = False):
         """
         Args:
             platform: A String corresponding to a namespace (or platform name)
@@ -182,21 +182,22 @@ class Query(object):
         Returns:
             The String representing this Query.
         """
-        get_params_str = lambda : ', '.join(['%s = %r' % (k, v) for k, v in self.get_params().items()])
+        get_params_str = lambda : ", ".join(["%s = %r" % (k, v) for k, v in self.get_params().items()])
 
         table  = self.get_from()
-        select = 'SELECT %s' % self.get_fields()    if self.get_fields()    else ''
-        where  = 'WHERE %s'  % self.get_where()     if self.get_where()     else ''
-        at     = 'AT %s'     % self.get_timestamp() if self.get_timestamp() else ''
-        params = 'SET %s'    % get_params_str()     if self.get_params()    else ''
+        fields = self.get_fields()
+        select = "SELECT %s" % ("*" if fields.is_star() else ", ".join([field for field in fields]))
+        where  = "WHERE %s"  % self.get_where()     if self.get_where()     else ""
+        at     = "AT %s"     % self.get_timestamp() if self.get_timestamp() else ""
+        params = "SET %s"    % get_params_str()     if self.get_params()    else ""
 
-        sep = ' ' if not multiline else '\n  '
+        sep = " " if not multiline else "\n  "
         if platform: platform = "%s:" % platform
         strmap = {
-            ACTION_GET    : '%(select)s%(sep)s%(at)s%(sep)sFROM %(platform)s%(table)s%(sep)s%(where)s',
-            ACTION_UPDATE : 'UPDATE %(platform)s%(table)s%(sep)s%(params)s%(sep)s%(where)s%(sep)s%(select)s',
-            ACTION_CREATE : 'INSERT INTO %(platform)s%(table)s%(sep)s%(params)s',
-            ACTION_DELETE : 'DELETE FROM %(platform)s%(table)s%(sep)s%(where)s'
+            ACTION_GET    : "%(select)s%(sep)s%(at)s%(sep)sFROM %(platform)s%(table)s%(sep)s%(where)s",
+            ACTION_UPDATE : "UPDATE %(platform)s%(table)s%(sep)s%(params)s%(sep)s%(where)s%(sep)s%(select)s",
+            ACTION_CREATE : "INSERT INTO %(platform)s%(table)s%(sep)s%(params)s",
+            ACTION_DELETE : "DELETE FROM %(platform)s%(table)s%(sep)s%(where)s"
         }
 
         #Log.tmp(strmap[self.action] % locals())

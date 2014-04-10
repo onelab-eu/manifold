@@ -13,7 +13,7 @@ import json
 from types                      import StringTypes
 
 from manifold.core.query        import Query
-from manifold.util.log          import Log 
+from manifold.util.log          import Log
 from manifold.util.type         import returns, accepts
 
 
@@ -23,7 +23,13 @@ class AnalyzedQuery(Query):
 
     # XXX we might need to propagate special parameters sur as DEBUG, etc.
 
-    def __init__(self, query=None, metadata=None):
+    def __init__(self, query = None, metadata = None):
+        """
+        Constructor.
+        Args:
+            query: A Query instance.
+            metadata: A DBGraph instance.
+        """
         self.clear()
         self.metadata = metadata
         if query:
@@ -34,9 +40,13 @@ class AnalyzedQuery(Query):
 
     @returns(StringTypes)
     def __str__(self):
-        out = []
+        """
+        Returns:
+            The '%s' representation of this AnalyzedQuery.
+        """
+        out = list()
         fields = self.get_select()
-        fields = ", ".join(fields) if fields else '*'
+        fields = "*" if fields.is_star() else ", ".join([for field in fields])
         out.append("SELECT %s FROM %s WHERE %s" % (
             fields,
             self.get_from(),
@@ -49,17 +59,28 @@ class AnalyzedQuery(Query):
 
         return "\n".join(out)
 
+    @returns(StringTypes)
+    def __repr__(self):
+        """
+        Returns:
+            The '%r' representation of this AnalyzedQuery.
+        """
+        return str(self)
+
     def clear(self):
+        """
+        Clear all the attributes of this AnalyzedQuery.
+        """
         super(AnalyzedQuery, self).clear()
-        self._subqueries = {}
+        self._subqueries = dict()
 
     def subquery(self, method):
         # Allows for the construction of a subquery
         if not method in self._subqueries:
-            analyzed_query = AnalyzedQuery(metadata=self.metadata)
-            analyzed_query.action = self.action
+            analyzed_query = AnalyzedQuery(metadata = self.metadata)
+            analyzed_query.action = self.get_action()
             try:
-                type = self.metadata.get_field_type(self.object, method)
+                type = self.metadata.get_field_type(self.get_from(), method)
             except ValueError ,e: # backwards 1..N
                 type = method
             analyzed_query.object = type
@@ -79,10 +100,21 @@ class AnalyzedQuery(Query):
         return self._subqueries
 
     def subqueries(self):
+        """
+        Iterates on the subqueries related to this AnalyzedQuery.
+        """
         for method, subquery in self._subqueries.iteritems():
             yield (method, subquery)
 
+    #@returns(AnalyzedQuery)
     def filter_by(self, filters):
+        """
+        Update this AnalyzedQuery to complete its Filter.
+        Args:
+            filters: A set, list, tuple or Filter instance.
+        Returns:
+            The updated AnalyzedQuery.
+        """
         if not isinstance(filters, (set, list, tuple, Filter)):
             filters = [filters]
         for predicate in filters:
@@ -96,6 +128,7 @@ class AnalyzedQuery(Query):
                 super(AnalyzedQuery, self).filter_by(predicate)
         return self
 
+    #@returns(AnalyzedQuery)
     def select(self, *fields):
 
         # XXX passing None should reset fields in all subqueries
@@ -116,6 +149,7 @@ class AnalyzedQuery(Query):
                 super(AnalyzedQuery, self).select(field)
         return self
 
+    #@returns(AnalyzedQuery)
     def set(self, params):
         for param, value in self.params.items():
             if '.' in param:
@@ -126,31 +160,40 @@ class AnalyzedQuery(Query):
             else:
                 super(AnalyzedQuery, self).set({param: value})
         return self
-        
+
     def analyze(self, query):
+        """
+        Update this AnalyzedQuery according to an input Query.
+        Args:
+            query: A Query instance.
+        """
         self.clear()
-        self.action = query.action
-        self.object = query.object
-        self.filter_by(query.filters)
-        self.set(query.params)
-        self.select(query.fields)
+        self.action = query.get_action()
+        self.object = query.get_from()
+        self.filter_by(query.get_where())
+        self.set(query.get_params())
+        self.select(query.get_select())
 
-    def to_json (self):
-        query_uuid=self.query_uuid
-        a=self.action
-        o=self.object
-        t=self.timestamp
-        f=json.dumps (self.filters.to_list())
-        p=json.dumps (self.params)
-        c=json.dumps (list(self.fields))
+    @returns(StringTypes)
+    def to_json(self):
+        """
+        Returns:
+            The json String corresponding to this AnalyzedQuery.
+        """
+        query_uuid = self.query_uuid
+        a = self.action
+        o = self.object
+        t = self.timestamp
+        f = json.dumps(self.filters.to_list())
+        p = json.dumps(self.params)
+        c = json.dumps(list(self.fields))
         # xxx unique can be removed, but for now we pad the js structure
-        unique=0
+        unique = 0
 
-        aq = 'null'
-        sq=", ".join ( [ "'%s':%s" % (object, subquery.to_json())
-                  for (object, subquery) in self._subqueries.iteritems()])
-        sq="{%s}"%sq
-        
-        result= """ new ManifoldQuery('%(a)s', '%(o)s', '%(t)s', %(f)s, %(p)s, %(c)s, %(unique)s, '%(query_uuid)s', %(aq)s, %(sq)s)"""%locals()
-        if debug: print 'ManifoldQuery.to_json:',result
+        aq = "null"
+        sq = ", ".join(["'%s':%s" % (object, subquery.to_json()) for (object, subquery) in self._subqueries.iteritems()])
+        sq = "{%s}" % sq
+
+        result = " new ManifoldQuery('%(a)s', '%(o)s', '%(t)s', %(f)s, %(p)s, %(c)s, %(unique)s, '%(query_uuid)s', %(aq)s, %(sq)s)" %locals()
+        Log.debug('ManifoldQuery.to_json: %s' % result)
         return result

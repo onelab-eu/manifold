@@ -13,19 +13,19 @@
 from types                      import StringTypes
 from manifold.util.enum         import Enum
 from manifold.util.predicate    import Predicate
-from manifold.util.type         import returns, accepts 
+from manifold.util.type         import returns, accepts
 
 class Relation(object):
 
     types = Enum(
 #UNUSED|        'COLLECTION',
-        # Link 1..1 ------------------------------------------------------ 
+        # Link 1..1 ------------------------------------------------------
         'SPECIALIZATION',      # p1::t is a SPECIALIZATION of {p1, p2}::t
-        'PARENT',              # Inheritance: "vehicle" is a PARENT of "car" 
+        'PARENT',              # Inheritance: "vehicle" is a PARENT of "car"
         'CHILD',               # Inheritance: "car" is a CHILD of "vehicle"
         'LINK',                # Link 1..1 leading to a LeftJoin. Ex: "city" LJ "country" LJ "continent" (continent properties are also city properties)
         'LINK_11',             # Link 1..1 leading to a SubQuery. Ex: "traceroute.source" (source properties does not characterize a traceroute)
-        # Link 1..N ------------------------------------------------------ 
+        # Link 1..N ------------------------------------------------------
         'LINK_1N',             # Link 1..N leading to a SubQuery, where parent table embeds IDs of children table.
         'LINK_1N_BACKWARDS',   # Link 1..N where children table embeds ID of parent table.
     )
@@ -45,8 +45,8 @@ class Relation(object):
         self.predicate  = predicate
         self.name       = name
         self._local     = local
-        if local:
-            print "RELATION", self, "IS LOCAL"
+#        if local:
+#            print "RELATION", self, "IS LOCAL"
 
     def get_type(self):
         """
@@ -67,7 +67,7 @@ class Relation(object):
     def get_predicate(self):
         """
         Returns:
-            The Predicate instance related to this Relation. 
+            The Predicate instance related to this Relation.
         """
         return self.predicate
 
@@ -79,7 +79,7 @@ class Relation(object):
     def __str__(self):
         """
         Returns:
-            The "%s" representation of this Relation. 
+            The "%s" representation of this Relation.
         """
         return "<Relation<%s> %s: %s>" % (
             self.name if self.get_relation_name() else "",
@@ -91,7 +91,7 @@ class Relation(object):
     def __repr__(self):
         """
         Returns:
-            The "%r" representation of this Relation. 
+            The "%r" representation of this Relation.
         """
         return "<%s, %s>" % (
             self.get_str_type(),
@@ -126,7 +126,7 @@ class Relation(object):
     def requires_join(self):
         """
         Returns:
-            True iif using this Relation implies to use a LeftJoin Node 
+            True iif using this Relation implies to use a LeftJoin Node
             in the QueryPlan. See manifold/operators/left_join.py.
         """
         return not self.requires_subquery()

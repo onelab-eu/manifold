@@ -8,7 +8,7 @@
 #
 # Copyright (C) UPMC Paris Universitas
 # Authors:
-#   Jordan Augé       <jordan.auge@lip6.fr> 
+#   Jordan Augé       <jordan.auge@lip6.fr>
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
 from types                          import StringTypes
@@ -18,7 +18,7 @@ from manifold.core.query            import Query
 from manifold.core.record           import Record, Records
 from manifold.util.type             import returns, accepts
 
-DUMPSTR_FROMTABLE  = "SELECT %s FROM [%r, ...]" 
+DUMPSTR_FROMTABLE  = "SELECT %s FROM [%r, ...]"
 
 class FromTable(Node):
     """
@@ -37,7 +37,6 @@ class FromTable(Node):
                 (same fields, same key).
             key: The Key instance related to these Records.
         """
-        Log.warning("FromTable must be updated to inherit Node instead of Node")
         assert isinstance(query,   Query), "Invalid query = %r (%r)"   % (query,   type(query))
         assert isinstance(records, list),  "Invalid records = %r (%r)" % (records, type(records))
 
@@ -51,19 +50,10 @@ class FromTable(Node):
             The "%s" representation of this FromTable Node.
         """
         if self.records:
+            fields = self.get_query().get_select()
             return DUMPSTR_FROMTABLE % (
-                ', '.join(self.get_query().get_select()),
+                "*" if fields.is_star() else ", ".join([field for field in fields]),
                 self.records[0]
             )
         else:
-            return 'EMPTY'
-
-#DEPRECATED|    def start(self):
-#DEPRECATED|        """
-#DEPRECATED|        Propagates a START message through the FromTable Node.
-#DEPRECATED|        """
-#DEPRECATED|        for record in self.records:
-#DEPRECATED|            if not isinstance(record, Record):
-#DEPRECATED|                record = {self.key: record}
-#DEPRECATED|            self.send(record)
-#DEPRECATED|        self.send(LastRecord())
+            return "EMPTY"

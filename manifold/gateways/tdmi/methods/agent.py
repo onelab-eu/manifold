@@ -1,17 +1,17 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Functions for interacting with the agent table 
+# Functions for interacting with the agent table
 #
 # Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 #
-# Copyright (C) 2012-2013 UPMC 
+# Copyright (C) 2012-2013 UPMC
 #
 
 from copy                           import copy
 from types                          import StringTypes
 from manifold.gateways.postgresql   import PostgreSQLGateway
-from manifold.util.type             import accepts, returns 
+from manifold.util.type             import accepts, returns
 
 #-----------------------------------------------------------------------
 # Type related to a set of view_agents records
@@ -25,7 +25,7 @@ class Agent(list):
 
         Args:
             query: The Query instance handled by Manifold
-            agent: A dictionnary corresponding to a fetched Agent record 
+            agent: A dictionnary corresponding to a fetched Agent record
         """
         if "platform" in query.get_select():
             agent["platform"] = "tdmi"
@@ -55,7 +55,7 @@ class Agent(list):
         select_bak = copy(self.query.get_select())
         from_bak   = self.query.get_from()
 
-        # Tweak SELECT 
+        # Tweak SELECT
         if "platform" in self.query.get_select():
             self.query.fields.remove("platform")
 
@@ -65,5 +65,5 @@ class Agent(list):
         # Fix FROM and SELECT
         self.query.fields = select_bak
         self.query.object = from_bak
-        
+
         return sql

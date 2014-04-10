@@ -7,7 +7,7 @@
 # Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 # Jordan Auge       <jordan.auge@lip6.fr>
 #
-# Copyright (C) UPMC 
+# Copyright (C) UPMC
 
 # TODO: it would be nice to periodically re-download GeoIP databases
 # iif updated (e.g. by using "wget -N url")
@@ -18,7 +18,7 @@ import os
 from manifold.gateways.maxmind.geoip_database   import check_filename_dat, get_dat_basenames, install_dat, MAXMIND_DIR
 from manifold.gateways                          import Gateway
 from manifold.util.log                          import Log
-from manifold.util.type                         import returns, accepts 
+from manifold.util.type                         import returns, accepts
 
 class MaxMindGateway(Gateway):
 
@@ -34,7 +34,7 @@ class MaxMindGateway(Gateway):
 #        "hostname" : Hostname
     }
 
-    def __init__(self, interface, platform_name, platform_config): 
+    def __init__(self, interface, platform_name, platform_config):
         """
         Constructor
         Args:
@@ -90,16 +90,16 @@ class MaxMindGateway(Gateway):
         query = packet.get_query()
         table_name = query.get_from()
 
-        records = None 
+        records = None
         if table_name in MaxMindGateway.METHOD_MAP.keys():
             instance = MaxMindGateway.METHOD_MAP[table_name](self)
             records = instance.get(query, packet.get_annotation())
         else:
-            raise RuntimeError("Invalid object %s" % table_name) 
+            raise RuntimeError("Invalid object %s" % table_name)
         self.records(records, packet)
 
     #---------------------------------------------------------------------------
-    # Metadata 
+    # Metadata
     #---------------------------------------------------------------------------
 
     @returns(list)

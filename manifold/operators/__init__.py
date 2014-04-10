@@ -75,7 +75,7 @@ class ChildStatus:
                 import traceback
                 traceback.print_exc()
 
-# see code/node.py
+# see core/node.py
 #OBSOLETE|#------------------------------------------------------------------
 #OBSOLETE|# Node (parent class)
 #OBSOLETE|#------------------------------------------------------------------
@@ -109,7 +109,7 @@ class ChildStatus:
 #OBSOLETE|
 #OBSOLETE|    def get_callback(self):
 #OBSOLETE|        """
-#OBSOLETE|        \brief Return the callback related to this Node 
+#OBSOLETE|        \brief Return the callback related to this Node
 #OBSOLETE|        """
 #OBSOLETE|        return self.callback
 #OBSOLETE|
@@ -156,14 +156,14 @@ class ChildStatus:
 #OBSOLETE|
 #OBSOLETE|    @returns(StringTypes)
 #OBSOLETE|    def __str__(self):
-#OBSOLETE|        return self.__repr__() 
+#OBSOLETE|        return self.__repr__()
 #OBSOLETE|
 #OBSOLETE|    def optimize(self):
 #OBSOLETE|        Log.info("Calling optimize()")
 #OBSOLETE|        tree = self.optimize_selection(Filter())
 #OBSOLETE|        tree = tree.optimize_projection(set())
 #OBSOLETE|        return tree
-#OBSOLETE|    
+#OBSOLETE|
 #OBSOLETE|    #@returns(Node)
 #OBSOLETE|    def optimize_selection(self, filter):
 #OBSOLETE|        Log.warning("optimize_selection() not implemented in" % self.__class__.__name__)
