@@ -41,14 +41,14 @@ class Log(object):
 
     # COLORS
     color_ansi = {
-        'DEBUG'  : colors.MYGREEN,
-        'INFO'   : colors.MYBLUE,
-        'WARNING': colors.MYWARNING,
-        'ERROR'  : colors.MYRED,
-        'HEADER' : colors.MYHEADER,
-        'END'    : colors.MYEND,
-        'RECORD' : colors.MYBLUE,
-        'TMP'    : colors.MYCYAN,
+        "DEBUG"   : colors.MYGREEN,
+        "INFO"    : colors.MYBLUE,
+        "WARNING" : colors.MYWARNING,
+        "ERROR"   : colors.MYRED,
+        "HEADER"  : colors.MYHEADER,
+        "END"     : colors.MYEND,
+        "RECORD"  : colors.MYBLUE,
+        "TMP"     : colors.MYCYAN,
     }
 
     @classmethod
@@ -59,12 +59,12 @@ class Log(object):
         Returns:
             The String changing the color used to write message.
         """
-        return cls.color_ansi[color] if color else ''
+        return cls.color_ansi[color] if color else ""
 
     # To remove duplicate messages
     seen = dict()
 
-    def __init__(self, name = '(default)'):
+    def __init__(self, name = "(default)"):
         """
         Constructor.
         Args:
@@ -242,7 +242,7 @@ class Log(object):
         if caller:
             print "[%30s]" % caller,
         print msg,
-        print cls.color('END')
+        print cls.color("END")
 
     #---------------------------------------------------------------------
     # Log: logger abstraction
@@ -262,7 +262,8 @@ class Log(object):
     @classmethod
     def log_message(cls, level, msg, ctx):
         """
-        Logs an message
+        (Internal usage) Logs a message.
+        Args:
             level: A String corresponding to the Log level.
             msg: A String / tuple of Strings corresponding to the message(s).
             ctx: A dict describing the context for the message strings.
@@ -280,12 +281,12 @@ class Log(object):
             if count == 1:
                 if isinstance(msg, StringTypes):
                     msg = (msg,)
-                msg += (" -- REPEATED -- Future similar messages will be silently ignored. Please use the --log_duplicates option to allow for duplicates",)
+                msg += (" -- REPEATED -- Future similar messages will be silently ignored. Please use the --log-duplicates option to allow for duplicates",)
             elif count > 1:
                 return
 
-        if level == 'DEBUG':
-            caller = caller_name(skip=3)
+        if level == "DEBUG":
+            caller = caller_name(skip = 3)
             # Eventually remove "" added to the configuration file
             try:
                 paths = tuple(s.strip(' \t\n\r') for s in Options().debug.split(','))
@@ -305,9 +306,16 @@ class Log(object):
 
     @classmethod
     def critical(cls, *msg, **ctx):
-        if not Options().log_level in ['CRITICAL']:
+        """
+        Log a critical message.
+        Args:
+            level: A String corresponding to the Log level.
+            msg: A String / tuple of Strings corresponding to the message(s).
+            ctx: A dict describing the context for the message strings.
+        """
+        if not Options().log_level in ["CRITICAL"]:
             return
-        cls.log_message('CRITICAL', msg, ctx)
+        cls.log_message("CRITICAL", msg, ctx)
         logger = Log().get_logger()
         if not Log().get_logger():
             traceback.print_exc()
@@ -315,33 +323,67 @@ class Log(object):
 
     @classmethod
     def error(cls, *msg, **ctx):
-        if not Options().log_level in ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']:
+        """
+        Log an error message.
+        Args:
+            level: A String corresponding to the Log level.
+            msg: A String / tuple of Strings corresponding to the message(s).
+            ctx: A dict describing the context for the message strings.
+        """
+        if not Options().log_level in ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]:
             return
-        #cls.log_message('ERROR', "%s" % traceback.format_exc(), ctx)
+        #cls.log_message("ERROR", "%s" % traceback.format_exc(), ctx)
         #print "%s" % traceback.format_exc()
-        cls.log_message('ERROR', msg, ctx)
+        cls.log_message("ERROR", msg, ctx)
 
     @classmethod
     def warning(cls, *msg, **ctx):
-        if not Options().log_level in ['DEBUG', 'INFO', 'WARNING']:
+        """
+        Log a warning message.
+        Args:
+            level: A String corresponding to the Log level.
+            msg: A String / tuple of Strings corresponding to the message(s).
+            ctx: A dict describing the context for the message strings.
+        """
+        if not Options().log_level in ["DEBUG", "INFO", "WARNING"]:
             return
-        cls.log_message('WARNING', msg, ctx)
+        cls.log_message("WARNING", msg, ctx)
 
     @classmethod
     def info(cls, *msg, **ctx):
-        if not Options().log_level in ['DEBUG', 'INFO']:
+        """
+        Log an info message.
+        Args:
+            level: A String corresponding to the Log level.
+            msg: A String / tuple of Strings corresponding to the message(s).
+            ctx: A dict describing the context for the message strings.
+        """
+        if not Options().log_level in ["DEBUG", "INFO"]:
             return
-        cls.log_message('INFO', msg, ctx)
+        cls.log_message("INFO", msg, ctx)
 
     @classmethod
     def debug(cls, *msg, **ctx):
-        if not Options().log_level in ['DEBUG']:
+        """
+        Log a debug message.
+        Args:
+            level: A String corresponding to the Log level.
+            msg: A String / tuple of Strings corresponding to the message(s).
+            ctx: A dict describing the context for the message strings.
+        """
+        if not Options().log_level in ["DEBUG"]:
             return
-        cls.log_message('DEBUG', msg, ctx)
+        cls.log_message("DEBUG", msg, ctx)
 
     @classmethod
     def tmp(cls, *msg):
-        cls.print_msg(' '.join(map(lambda x: "%r" % x, make_list(msg))), 'TMP', caller_name())
+        """
+        Log a temporary message (used most of time for debug purposes).
+        Args:
+            level: A String corresponding to the Log level.
+            msg: A String / tuple of Strings corresponding to the message(s).
+        """
+        cls.print_msg(" ".join(map(lambda x: "%r" % x, make_list(msg))), "TMP", caller_name())
 
     @classmethod
     def record(cls, packet, source = None):
@@ -370,7 +412,7 @@ class Log(object):
 #                "%s :" % (source.format_node()) if source else "",
 #                "%r" % record2,
 #            ]
-        #cls.print_msg(' '.join(msg), 'RECORD', caller_name())
+        #cls.print_msg(" ".join(msg), "RECORD", caller_name())
 
     @classmethod
     def deprecated(cls, new):

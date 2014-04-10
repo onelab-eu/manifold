@@ -113,11 +113,12 @@ class From(Operator, ChildSlotMixin):
         """
         #return "%s" % self.get_query().to_sql(platform = self.get_platform_name())
         try:
-            return "FROM %s:%s (%s)" % (
-                self.get_platform_name(),
-                self.get_query().get_from(),
-                self.get_query().to_sql(platform = self.get_platform_name())
-            )
+            platform_name = self.get_platform_name()
+            return "FROM %(namespace)s%(table_name)s [%(query)s]" % {
+                "namespace"  : "%s:" % platform_name if platform_name else "",
+                "table_name" : self.get_query().get_from(),
+                "query"      : self.get_query().to_sql(platform = self.get_platform_name())
+            }
         except Exception, e:
             print "Exception in repr: %s" % e
 

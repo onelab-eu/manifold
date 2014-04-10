@@ -19,7 +19,10 @@ try:
         return IPy.IP(ip).strCompressed()
 
 except ImportError as e:
-    import ipaddress # sucks for reverse.
+    try:
+        import ipaddress # sucks for reverse.
+    except ImportError:
+        raise ImportError("Cannot import ipaddress: apt-get install python-ipy")
     def ip_reverse(ip):
         ip = ipaddress.ip_address(ip)
         if ip.version == 4:

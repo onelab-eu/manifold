@@ -192,7 +192,8 @@ class Query(object):
         params = "SET %s"    % get_params_str()     if self.get_params()    else ""
 
         sep = " " if not multiline else "\n  "
-        if platform: platform = "%s:" % platform
+        platform = "%s:" % platform if platform else ""
+
         strmap = {
             ACTION_GET    : "%(select)s%(sep)s%(at)s%(sep)sFROM %(platform)s%(table)s%(sep)s%(where)s",
             ACTION_UPDATE : "UPDATE %(platform)s%(table)s%(sep)s%(params)s%(sep)s%(where)s%(sep)s%(select)s",
