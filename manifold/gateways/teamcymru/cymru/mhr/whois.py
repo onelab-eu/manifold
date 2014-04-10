@@ -9,7 +9,7 @@
 
 import logging
 
-from cymru.core.whois import WhoisClient as WhoisCoreClient
+from manifold.gateways.teamcymru.cymru.core.whois import WhoisClient as WhoisCoreClient
 
 log = logging.getLogger('cymru.mhr.whois')
 
@@ -31,7 +31,7 @@ class WhoisClient(WhoisCoreClient):
   QTYPES=['MW']
   def __init__(self,server='hash.cymru.com',port=43,memcache_host='localhost:11211'):
     WhoisCoreClient.__init__(self,'mhr',server,port,memcache_host)
-    
+
   def _getCB(self,qType):
     if qType == 'MW':
       return self.buildRequest,self.buildRecordMW
@@ -58,4 +58,4 @@ class WhoisClient(WhoisCoreClient):
       self.cache.cache(columns[ind],r,qType)
       records.append(r)
     return records
-  
+

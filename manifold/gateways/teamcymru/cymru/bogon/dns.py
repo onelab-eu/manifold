@@ -8,10 +8,13 @@
 import errno
 import logging,sys
 
-import adns
+try:
+    import adns
+except ImportError, e:
+    raise ImportError("Cannot import adns: apt-get install python-adns")
 
-from cymru import ip_reverse, ip_network
-from cymru.core.dns import DNSClient as DNSCoreClient
+from manifold.gateways.teamcymru.cymru import ip_reverse, ip_network
+from manifold.gateways.teamcymru.cymru.core.dns import DNSClient as DNSCoreClient
 
 log = logging.getLogger('cymru:bogon:dns')
 
@@ -37,7 +40,7 @@ class DNSClient(DNSCoreClient):
   FULLIP6_BOGON = 'FULLIP6'
   FULLIP6RANGE_BOGON = 'FULLIP6RANGE'
   FULLIP6_BOGON_ROOT = '.v6.fullbogons.cymru.com.'
-  
+
   def __init__(self, memcache_host='localhost:11211'):
     DNSCoreClient.__init__(self,'bogon')
     pass
@@ -57,7 +60,7 @@ class DNSClient(DNSCoreClient):
       return self._makeRequestFullIP6Range,self._asyncResolveRange
     else:
       pass
-              
+
   def _makeRequestIP(self,ip):
     return adns.rr.A, '%s%s'%(ip_reverse(ip), self.IP_BOGON_ROOT)
   def _makeRequestFullIP(self,ip):

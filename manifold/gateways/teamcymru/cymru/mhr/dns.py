@@ -5,13 +5,13 @@
 #
 # This module is released under the GPL License v3 or higher
 
-import hashlib 
+import hashlib
 import errno
 import logging,sys
 
 import adns
 
-from cymru.core.dns import DNSClient as DNSCoreClient
+from manifold.gateways.teamcymru.cymru.core.dns import DNSClient as DNSCoreClient
 
 log = logging.getLogger('cymru.mhr.dns')
 
@@ -43,7 +43,7 @@ class DNSClient(DNSCoreClient):
   QTYPES=['MW']
   MALWARE = 'MW'
   __ROOT = 'malware.hash.cymru.com.'
-  
+
   def __init__(self, memcache_host='localhost:11211'):
     DNSCoreClient.__init__(self,'mhr')
     pass
@@ -55,7 +55,7 @@ class DNSClient(DNSCoreClient):
       return self._makeRequestHash,self._asyncResolveHash
     else:
       pass
-  
+
   def _makeRequestHash(self,hashval):
     return adns.rr.TXT,'.'.join([hashval,self.__ROOT])
 
@@ -75,7 +75,7 @@ class DNSClient(DNSCoreClient):
     self.cache.cache(realq,r,qType)
 
   '''
-    #(0, None, 1259120947, (('9003 | 78.155.128.0/19 | FR | ripencc | 2007-07-31',),)) 25.138.155.78.origin.asn.cymru.com. 16 0 None  
+    #(0, None, 1259120947, (('9003 | 78.155.128.0/19 | FR | ripencc | 2007-07-31',),)) 25.138.155.78.origin.asn.cymru.com. 16 0 None
   '''
   def _asyncResolveHash( self, answer, qname, rr, flags, l):
     self._asyncResolve(mhr,answer,qname,rr,flags,l)
