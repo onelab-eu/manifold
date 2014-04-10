@@ -46,7 +46,7 @@ class AnalyzedQuery(Query):
         """
         out = list()
         fields = self.get_select()
-        fields = "*" if fields.is_star() else ", ".join([for field in fields])
+        fields = "*" if fields.is_star() else ", ".join([field for field in fields])
         out.append("SELECT %s FROM %s WHERE %s" % (
             fields,
             self.get_from(),
