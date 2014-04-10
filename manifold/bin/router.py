@@ -11,7 +11,11 @@
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 #   Loïc Baron        <loic.baron@lip6.fr>
 
-import asynchat, asyncore, os, socket, traceback
+import asynchat, os, socket, traceback
+# Bugfix http://hg.python.org/cpython/rev/16bc59d37866 (FC14 or less)
+# On recent linux distros we can directly "import asyncore"
+import manifold.util.asyncore as asyncore
+
 from types                          import StringTypes
 
 from manifold.core.operator_slot    import ChildSlotMixin
