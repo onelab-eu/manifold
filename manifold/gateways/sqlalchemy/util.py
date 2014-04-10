@@ -1,12 +1,12 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Convenient functions to interact with SQLAlchemy 
+# Convenient functions to interact with SQLAlchemy
 #
 # Jordan Auge       <jordan.auge@lip6.fr>
 # Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 #
-# Copyright (C) 2013 UPMC 
+# Copyright (C) 2013 UPMC
 
 from manifold.core.filter           import Filter
 from manifold.core.record           import Record
@@ -41,10 +41,10 @@ def row2record(row):
         The corresponding Record.
     """
     try:
-        from sqlalchemy.util._collections   import NamedTuple
+        from sqlalchemy.util   import NamedTuple
     except ImportError:
         # NamedTuple was renamed in latest sqlalchemy versions
-        from sqlalchemy.util._collections   import KeyedTuple as NamedTuple
+        from sqlalchemy.util   import KeyedTuple as NamedTuple
 
     # http://stackoverflow.com/questions/18110033/getting-first-row-from-sqlalchemy
     # When you ask specifically for a column of a mapped class with
