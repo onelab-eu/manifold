@@ -195,6 +195,33 @@ class Router(Interface):
         gateway = self.make_gateway(platform_name, gateway_type, platform_config)
         announces = gateway.get_announces()
 
+        if platform_name == "fake":
+            from manifold.core.announce import import_string_h
+            s = \
+"""
+class ip {
+        const inet ip;
+        const string region_name;
+        const string country_code;
+        const double latitude;
+        const string country_code3;
+        const int dma_code;
+        const string city;
+        const string country_name;
+        const double longitude;
+        const string postal_code;
+        const int area_code;
+
+        KEY(ip);
+        CAPABILITY(join);
+};
+"""
+            fake_announces = import_string_h(s, 'fake')
+            print "fake_announces:\n%s (type %s)" % (fake_announces, type(fake_announces))
+            announces += fake_announces
+
+        print "Installing the following Announces:\n%s" % announces
+
         # DUP ??
         self.platforms[platform_name] = None # XXX
         self.gateways[platform_name]  = gateway
@@ -433,8 +460,8 @@ class Router(Interface):
 
             root_node = self._operator_graph.build_query_plan(query, annotation, dbgraph)
 
-            #print "QUERY PLAN:"
-            #print root_node.format_downtree()
+            print "QUERY PLAN:"
+            print root_node.format_downtree()
 
             receiver._set_child(root_node)
         except Exception, e:
