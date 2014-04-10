@@ -23,7 +23,7 @@ PIDFILE=/var/run/${NAME}.pid
 SOCKET=/tmp/manifold
 SCRIPTNAME=/etc/init.d/$NAME
 MANIFOLD_CONF="/etc/manifold/manifold.conf"
-DAEMON_ARGS="--config=$MANIFOLD_CONF --socket=$SOCKET --pid-file=$PIDFILE"
+DAEMON_ARGS="--log-duplicates --config=$MANIFOLD_CONF --socket=$SOCKET --pid-file=$PIDFILE"
 
 # Distribution specific paths
 VAR_LOCK_FILE=/var/lock/subsys/$NAME

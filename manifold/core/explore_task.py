@@ -3,12 +3,12 @@
 #
 # An ExploreTask is a Task built when the QueryPlan
 # explores the underlying DBGraph.
-# 
+#
 # QueryPlan class builds, process and executes Queries
 #
 # Copyright (C) UPMC Paris Universitas
 # Authors:
-#   Jordan Augé       <jordan.auge@lip6.fr> 
+#   Jordan Augé       <jordan.auge@lip6.fr>
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
 from types                          import StringTypes
@@ -47,7 +47,7 @@ class ExploreTask(Deferred):
                 none 1..1 args traversed from the root Table to the current
         """
         assert root != None, "ExploreTask::__init__(): invalid root = %s" % root
-        
+
         # Context
         self._interface  = interface
         self.root        = root
@@ -59,11 +59,11 @@ class ExploreTask(Deferred):
         # Result
         self.ast         = None
         self.keep_root_a = Fields()
-#        self.subqueries  = dict() 
+#        self.subqueries  = dict()
         self.sq_rename_dict = dict()
 
         ExploreTask.last_identifier += 1
-        self.identifier  = ExploreTask.last_identifier 
+        self.identifier  = ExploreTask.last_identifier
 
         Deferred.__init__(self)
 
@@ -93,7 +93,7 @@ class ExploreTask(Deferred):
 #DEPRECATED|    def prune_from_query(query, found_fields):
 #DEPRECATED|        new_fields = query.get_select() - found_fields
 #DEPRECATED|        query.select(None).select(new_fields)
-#DEPRECATED|        
+#DEPRECATED|
 #DEPRECATED|        old_filter = query.get_where()
 #DEPRECATED|        new_filter = Filter()
 #DEPRECATED|        for pred in old_filter:
@@ -114,9 +114,9 @@ class ExploreTask(Deferred):
         explore the DBGraph by prior the 1..1 arcs exploration (DFS) by pushing
         one ExploreTask instance in a Stack per 1..1 arc. If some queried
         fields are not yet served, we push in a Stack which 1..N arcs could
-        serve them (BFS) (one ExploreTask per out-going 1..N arc). 
+        serve them (BFS) (one ExploreTask per out-going 1..N arc).
         Args:
-            stack: A Stack instance where we push new ExploreTask instances. 
+            stack: A Stack instance where we push new ExploreTask instances.
             missing_fields: A set of String containing field names (which
                 may be prefixed, such has hops.ttl) involved in the Query.
             metadata: The DBGraph instance related to the 3nf graph.
@@ -131,7 +131,7 @@ class ExploreTask(Deferred):
         Returns:
             foreign_key_fields
         """
-        Log.tmp("Search in", self.root.get_name(), "for fields", missing_fields, 'path=', self.path, "SEEN SET =", seen_set, "depth=", self.depth)
+        #Log.tmp("Search in", self.root.get_name(), "for fields", missing_fields, 'path=', self.path, "SEEN SET =", seen_set, "depth=", self.depth)
         relations_11, relations_1N, relations_1Nsq = (), {}, {}
         deferred_list = []
 
@@ -147,10 +147,10 @@ class ExploreTask(Deferred):
         # and beyond. Since we might have subfields, the first step is to group
         # those subfields according to their method.
         missing_parent_fields, map_parent_missing_subfields, map_original_field, rename\
-            = missing_fields.split_subfields(               \
-                    include_parent = True,                  \
-                    current_path = self.path,               \
-                    allow_shortcuts = True)
+            = missing_fields.split_subfields(True, self.path, True)
+#MANDO|            = missing_fields.split_subfields(include_parent = True,\
+#MANDO|                    current_path = self.path,               \
+#MANDO|                    allow_shortcuts = True)
 
 #DEPRECATED|         # This is to be improved
 #DEPRECATED|         # missing points to unanswered parts of the query
@@ -210,7 +210,7 @@ class ExploreTask(Deferred):
             if field in missing_fields:
                 missing_fields.remove(field)
 
-            # for shortcuts 
+            # for shortcuts
             if field not in map_parent_missing_subfields:
                 # ..unless already done
                 if map_original_field[field] != field:
@@ -266,7 +266,7 @@ class ExploreTask(Deferred):
 #DEPRECATED|
 #DEPRECATED|            # We use a list since the set is changing during iteration
 #DEPRECATED|            #print "list(missing_fields)", list(missing_fields)
-#DEPRECATED|            for missing in list(missing_fields): 
+#DEPRECATED|            for missing in list(missing_fields):
 #DEPRECATED|                # missing has dots inside
 #DEPRECATED|                # hops.ttl --> missing_path == ["hops"] missing_field == ["ttl"]
 #DEPRECATED|                missing_list = missing.split('.')
@@ -346,7 +346,7 @@ class ExploreTask(Deferred):
 #DEPRECATED|
 #DEPRECATED|                # END ROUTERV2
 
-                    
+
         assert self.depth == 1 or root_key_fields not in missing_fields, "Requesting key fields in child table"
 
         if self.keep_root_a:
@@ -364,7 +364,7 @@ class ExploreTask(Deferred):
             self.callback((self.ast, dict()))
             return foreign_key_fields
 
-        # In all cases, we have to list neighbours for returning 1..N relationships. Let's do it now. 
+        # In all cases, we have to list neighbours for returning 1..N relationships. Let's do it now.
         for neighbour in metadata.graph.successors(self.root):
             for relation in metadata.get_relations(self.root, neighbour):
                 name = relation.get_relation_name()
@@ -395,7 +395,7 @@ class ExploreTask(Deferred):
                             priority = TASK_1Nsq
                             break
                     #priority = TASK_1Nsq if relation_name in missing_subqueries else TASK_1N
-                    
+
                 else:
                     task = ExploreTask(self._interface, neighbour, relation, self.path, self.parent, self.depth)
                     task.addCallback(self.perform_left_join, relation, allowed_platforms, metadata, query_plan)
@@ -502,8 +502,8 @@ class ExploreTask(Deferred):
 #DISABLED|        if key:
 #DISABLED|            try:
 #DISABLED|                for method, keys in table.map_method_keys.items():
-#DISABLED|                    if key in table.map_method_keys[method]: 
-#DISABLED|                        map_method_bestkey[method] = key 
+#DISABLED|                    if key in table.map_method_keys[method]:
+#DISABLED|                        map_method_bestkey[method] = key
 #DISABLED|            except AttributeError:
 #DISABLED|                map_method_bestkey[table.name] = key
 
@@ -511,16 +511,16 @@ class ExploreTask(Deferred):
         # corresponding table and build the corresponding FROM node
         map_method_fields = table.get_annotation()
         ##### print "map_method_fields", map_method_fields
-        for method, fields in map_method_fields.items(): 
+        for method, fields in map_method_fields.items():
             #Log.tmp("method", method.get_name())
             #Log.tmp("table", table.get_name())
             if method.get_name() == table.get_name():
                 # The table announced by the platform fits with the 3nf schema
-                # Build the corresponding FROM 
+                # Build the corresponding FROM
                 #sub_table = Table.make_table_from_platform(table, fields, method.get_platform())
 
                 # XXX We lack field pruning
-                # We create 'get' queries by default, this will be overriden in query_plan::fix_froms 
+                # We create 'get' queries by default, this will be overriden in query_plan::fix_froms
                 # - Here we could keep all fields, but local fields we be
                 # repreented many times in the query plan, that will mess up
                 # when we try to optimize selection/projection
@@ -556,7 +556,7 @@ class ExploreTask(Deferred):
 #DISABLED|                        from_ast.demux().projection(list(fields))
 #DISABLED|                        demux_node = from_ast.get_root().get_child()
 #DISABLED|                        assert isinstance(demux_node, Demux), "Bug"
-#DISABLED|                        map_method_demux[method] = demux_node 
+#DISABLED|                        map_method_demux[method] = demux_node
 #DISABLED|                except AttributeError:
 #DISABLED|                    pass
             else:
@@ -570,7 +570,7 @@ class ExploreTask(Deferred):
                 select_fields = list(set(fields) | set(key_dup))
                 from_node.add_fields_to_query(fields)
 
-                print "FROMTABLE -- DUP(%r) -- SELECT(%r) -- %r -- %r" % (key_dup, select_fields, demux_node, from_node) 
+                print "FROMTABLE -- DUP(%r) -- SELECT(%r) -- %r -- %r" % (key_dup, select_fields, demux_node, from_node)
 
                 # Build a new AST (the branch we'll add) above an existing FROM node
 #                from_ast = AST(self._interface, user = user)
@@ -583,10 +583,10 @@ class ExploreTask(Deferred):
 
                 # Add DUP and SELECT to this AST
                 from_ast.dup(key_dup).projection(select_fields)
-                
+
             from_asts.append(from_ast)
 
-        # Add the current table in the query plane 
+        # Add the current table in the query plane
         # Process this table, which is the root of the 3nf tree
         if not from_asts:
             print "#### NONE"

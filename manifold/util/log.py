@@ -128,7 +128,7 @@ class Log(object):
             default = self.DEFAULTS["debug"]
         )
         opt.add_argument(
-            "--log_duplicates", action = "store_true", dest = "log_duplicates",
+            "--log-duplicates", action = "store_true", dest = "log_duplicates",
             help = "Remove duplicate messages in logs",
             default = self.DEFAULTS["log_duplicates"]
         )

@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from types                          import StringTypes
+from manifold.util.type             import accepts, returns
 
 # The distinction between parent and children fields is based on the
 # Fields.FIELD_SEPARATOR character.
@@ -18,17 +19,30 @@ class Fields(set):
     #---------------------------------------------------------------------------
 
     def __init__(self, *args, **kwargs):
+        """
+        Constructor.
+        """
         star = kwargs.pop('star', DEFAULT_IS_STAR)
         set.__init__(self, *args, **kwargs)
         self._star = False if set(self) else star
 
+    @returns(StringTypes)
     def __repr__(self):
+        """
+        Returns:
+            The %r representation of this Fields instance.
+        """
         if self.is_star():
             return "<Fields *>"
         else:
             return "<Fields %r>" % [x for x in self]
 
+    @returns(StringTypes)
     def __str__(self):
+        """
+        Returns:
+            The %s representation of this Fields instance.
+        """
         if self.is_star():
             return "<*>"
         else:
@@ -38,22 +52,46 @@ class Fields(set):
     # Helpers
     #---------------------------------------------------------------------------
 
+    @returns(bool)
     def is_star(self):
+        """
+        Returns:
+            True iif this Fields instance correspond to "any Field" i.e. "*".
+            Example : SELECT * FROM foo
+        """
         return self._star
 
     def set_star(self):
+        """
+        Update this Fields instance to make it corresponds to "*"
+        """
         self._star = True
         set.clear(self)
 
     def unset_star(self, fields = None):
+        """
+        Update this Fields instance to make it corresponds to a set of Fields
+        Args:
+            fields: A Fields instance or a set of Field instances.
+        """
         self._star = False
         if fields:
             self |= fields
 
+    @returns(bool)
     def is_empty(self):
+        """
+        Returns:
+            True iif Fields instance designates contains least one Field.
+        """
         return not self.is_star() and not self
 
+    #@returns(Fields)
     def copy(self):
+        """
+        Returns:
+            A copy of this Fields instance.
+        """
         return Fields(set.copy(self))
 
     #---------------------------------------------------------------------------
@@ -69,20 +107,44 @@ class Fields(set):
     # Overloaded set internal functions
     #---------------------------------------------------------------------------
 
+    #@returns(Fields)
     def __or__(self, fields):
+        """
+        Compute the union of two Fields instances.
+        Args:
+            fields: a set of Field instances or a Fields instance.
+        Returns:
+            The union of the both Fields instance.
+        """
         if self.is_star() or fields.is_star():
             return Fields(star = True)
         else:
             return Fields(set.__or__(self, fields))
 
+    #@returns(Fields)
     def __ior__(self, fields):
+        """
+        Compute the union of two Fields instances.
+        Args:
+            fields: a set of Field instances or a Fields instance.
+        Returns:
+            The updated Fields instance.
+        """
         if self.is_star() or fields.is_star():
             self.set_star()
             return self
         else:
             return set.__ior__(self, fields)
 
+    #@returns(Fields)
     def __and__(self, fields):
+        """
+        Compute the intersection of two Fields instances.
+        Args:
+            fields: a set of Field instances or a Fields instance.
+        Returns:
+            The intersection of the both Fields instances.
+        """
         if self.is_star():
             return fields.copy()
         elif fields.is_star():
@@ -90,7 +152,15 @@ class Fields(set):
         else:
             return Fields(set.__and__(self, fields))
 
+    #@returns(Fields)
     def __iand__(self, fields):
+        """
+        Compute the intersection of two Fields instances.
+        Args:
+            fields: a set of Field instances or a Fields instance.
+        Returns:
+            The updated Fields instance.
+        """
         if self.is_star():
             self.unset_star(fields)
         elif fields.is_star():
@@ -98,6 +168,7 @@ class Fields(set):
         else:
             set.__iand__(self, fields)
 
+    @returns(bool)
     def __nonzero__(self):
         return self.is_star() or bool(set(self))
 
@@ -106,6 +177,7 @@ class Fields(set):
 
     __add__ = __or__
 
+    #@returns(Fields)
     def __sub__(self, fields):
         if fields.is_star():
             return Fields(star = False)
@@ -126,23 +198,66 @@ class Fields(set):
     # Overloaded set comparison functions
     #---------------------------------------------------------------------------
 
+    @returns(bool)
     def __eq__(self, other):
+        """
+        Test whether this Fields instance corresponds to another one.
+        Args:
+            other: The Fields instance compared to self.
+        Returns:
+            True if the both Fields instance matches.
+        """
         return self.is_star() and other.is_star() or set.__eq__(self, other)
 
+    @returns(bool)
     def __le__(self, other):
-        return self.is_star() and other.is_star() or set.__eq__(self, other)
+        """
+        Test whether this Fields instance in included in
+        (or equal to) another one.
+        Args:
+            other: The Fields instance compared to self or
+        Returns:
+            True if the both Fields instance matches.
+        """
+        if isinstance(other, Fields):
+            return (self.is_star() and other.is_star())\
+                or (not self.is_star() and other.is_star())\
+                or (set.__le__(self, other))
+        #elif isinstance(other, set):
+        #    return (set.__le__(self, other))
+        else:
+            raise TypeError("Invalid type: other = %s (%s)" % (other, type(other)))
 
     # Defined with respect of previous functions
 
+    @returns(bool)
     def __ne__(self, other):
+        """
+        Test whether this Fields instance differs to another one.
+        Args:
+            other: The Fields instance compared to self.
+        Returns:
+            True if the both Fields instance differs.
+        """
         return not self == other
 
+    @returns(bool)
     def __lt__(self, other):
+        """
+        Test whether this Fields instance in strictly included in
+        another one.
+        Args:
+            other: The Fields instance compared to self.
+        Returns:
+            True if self is strictly included in other.
+        """
         return self <= other and self != other
 
+    @returns(bool)
     def __ge__(self, other):
-        return other.__le__(self) 
+        return other.__le__(self)
 
+    @returns(bool)
     def __gt__(self, other):
         return other.__lt__(self)
 
@@ -156,7 +271,7 @@ class Fields(set):
 
         if not self.is_star():
             set.add(self, field_name)
-        
+
     def clear(self):
         self._star = False
         set.clear(self)
@@ -172,10 +287,12 @@ class Fields(set):
         return self
 
     @staticmethod
+    @returns(StringTypes)
     def join(field, subfield):
         return "%s%s%s" % (field, FIELD_SEPARATOR, subfield)
 
     @staticmethod
+    @returns(tuple)
     def after_path(field, path, allow_shortcuts = True):
         """
         Returns the part of the field after path
@@ -196,6 +313,7 @@ class Fields(set):
                 last = path_element
         return (FIELD_SEPARATOR.join(field_parts), last)
 
+    @returns(tuple)
     def split_subfields(self, include_parent = True, current_path = None, allow_shortcuts = True):
         """
         Returns a tuple of Fields + dictionary { method: sub-Fields() }
