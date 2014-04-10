@@ -43,7 +43,7 @@ fi
 # and status_of_proc is working.
 . /lib/lsb/init-functions
 
-DAEMON_ARGS="--config=$MANIFOLD_CONF --socket=$SOCKET --pid-file=$PIDFILE"
+DAEMON_ARGS="--log-duplicates --config=$MANIFOLD_CONF --socket=$SOCKET --pid-file=$PIDFILE"
 
 # Return
 #   0 if daemon has been started

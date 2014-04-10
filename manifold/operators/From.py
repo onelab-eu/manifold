@@ -5,7 +5,7 @@
 # of a FromTable Operators.
 #
 # A From Node wraps a dummy Query having SELECT and WHERE
-# clause homogenous to the query issued by the user. 
+# clause homogenous to the query issued by the user.
 # From Nodes are useful until having optimized the QueryPlan.
 # Then, each Operator using a From Node is connected to a Socket
 # plugged on the appropriate Gateway.
@@ -31,7 +31,7 @@ from manifold.gateways              import Gateway
 from manifold.operators.from_table  import FromTable
 from manifold.operators.operator    import Operator
 from manifold.operators.projection  import Projection
-from manifold.operators.selection   import Selection 
+from manifold.operators.selection   import Selection
 from manifold.operators.subquery    import SubQuery
 from manifold.util.log              import Log
 from manifold.util.type             import returns
@@ -52,7 +52,7 @@ class From(Operator, ChildSlotMixin):
             annotation: An Annotation instance.
             capabilities: A Capabilities instance, set according to the metadata related
                 to the Table queried by this From Node.
-            key: A Key instance. 
+            key: A Key instance.
         """
         assert isinstance(gateway, Gateway),\
             "Invalid gateway = %s (%s)" % (gateway, type(gateway))
@@ -153,7 +153,7 @@ class From(Operator, ChildSlotMixin):
 #DEPRECATED|
 #DEPRECATED|        # If the inject only provide keys, add a WHERE, otherwise a WHERE+JOIN
 #DEPRECATED|        if not is_record or provided_fields < set(records[0].keys()):
-#DEPRECATED|            # We will filter the query by inserting a where on 
+#DEPRECATED|            # We will filter the query by inserting a where on
 #DEPRECATED|            list_of_keys = records.keys() if is_record else records
 #DEPRECATED|            predicate = Predicate(key, included, list_of_keys)
 #DEPRECATED|            where = Selection(self, Filter().filter_by(predicate))
@@ -196,7 +196,7 @@ class From(Operator, ChildSlotMixin):
     def has_children_with_fullquery(self):
         """
         Returns:
-            True iif this Operator or at least one of its child uses 
+            True iif this Operator or at least one of its child uses
             fullquery Capabilities.
         """
         return self.get_capabilities().fullquery
@@ -205,7 +205,7 @@ class From(Operator, ChildSlotMixin):
     def get_destination(self):
         """
         Returns:
-            The Destination corresponding to this Operator. 
+            The Destination corresponding to this Operator.
         """
         q = self.get_query()
 
@@ -243,7 +243,7 @@ class From(Operator, ChildSlotMixin):
 #DEPRECATED|                # adding the current query fields allows us to prevent a * to appear when
 #DEPRECATED|                # needed = *, since we know that initially query_fields contains
 #DEPRECATED|                # all fields
-#DEPRECATED|                fields = self.get_query().get_fields() & needed_fields | key_fields 
+#DEPRECATED|                fields = self.get_query().get_fields() & needed_fields | key_fields
 #DEPRECATED|
 #DEPRECATED|                packet.update_query(lambda q:q.select(fields, clear=True))
 
@@ -274,7 +274,7 @@ class From(Operator, ChildSlotMixin):
             if self._parent_records:
                 # If we had parent_records, we only asked (missing_fields +
                 # key_fields), we need to join those results
-                key_fields    = self._key.get_field_names() 
+                key_fields    = self._key.get_field_names()
                 # XXX need error checking here
                 packet.update(self._parent_records[packet.get_value(key_fields)])
 
@@ -286,9 +286,9 @@ class From(Operator, ChildSlotMixin):
     @returns(Operator)
     def optimize_selection(self, filter):
         """
-        Propagate a WHERE clause through this From instance. 
+        Propagate a WHERE clause through this From instance.
         Args:
-            filter: A Filter instance. 
+            filter: A Filter instance.
         Returns:
             The updated root Node of the sub-AST.
         """
@@ -346,7 +346,7 @@ class From(Operator, ChildSlotMixin):
     @returns(Operator)
     def optimize_projection(self, fields):
         """
-        Propagate a SELECT clause through this From instance. 
+        Propagate a SELECT clause through this From instance.
         Args:
             fields: A set of String instances (queried fields).
         Returns:
@@ -363,12 +363,16 @@ class From(Operator, ChildSlotMixin):
             # Provided fields is set to None if it corresponds to SELECT *
 
             # Test whether this From node can return every queried Fields.
-            if provided_fields and fields - provided_fields:
+            if provided_fields and not (provided_fields <= fields):
+                Log.tmp("fields          = %r (type %r)" % (fields, type(fields)))
+                Log.tmp("provided_fields = %r (type %r)" % (provided_fields, type(provided_fields)))
+                Log.tmp("provided_fields <= fields = %s" % (provided_fields <= fields))
                 Log.warning("From::optimize_projection: some requested fields (%s) are not provided by {%s} From node. Available fields are: {%s}" % (
                     ', '.join(list(fields - provided_fields)),
                     self.get_query().get_from(),
                     ', '.join(list(provided_fields))
-                )) 
+                ))
+                raise Exception("prout")
 
             # If this From node returns more Fields than those explicitely queried
             # (because the projection capability is not enabled), create an additional

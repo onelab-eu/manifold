@@ -433,8 +433,8 @@ class Router(Interface):
 
             root_node = self._operator_graph.build_query_plan(query, annotation, dbgraph)
 
-            Log.info("QUERY PLAN:")
-            Log.info(root_node.format_downtree())
+            #print "QUERY PLAN:"
+            #print root_node.format_downtree()
 
             receiver._set_child(root_node)
         except Exception, e:

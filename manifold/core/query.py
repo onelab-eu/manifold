@@ -103,7 +103,7 @@ class Query(object):
                 # '*' Handling
                 fields = kwargs.pop('fields')
                 if '*' in fields:
-                    Log.tmp("SET STAR IN KWARGS")
+                    #Log.tmp("SET STAR IN KWARGS")
                     self.fields = Fields(star = True)
                 else:
                     self.fields = Fields(fields, star = False)

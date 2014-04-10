@@ -89,7 +89,6 @@ class CSVGateway(Gateway):
             packet: A QUERY Packet instance.
         """
         query = packet.get_query()
-        Log.tmp("query = %s" % query)
         table_name = query.get_from()
         platform_config = self.get_config()
 
@@ -236,9 +235,8 @@ class CSVGateway(Gateway):
                 setattr(capabilities, capability_str, True)
         else:
             capabilities.retrieve = True
-            capabilities.join     = True
+            capabilities.join     = False # Since we cannot filter by key, the join Capabilities must be disabled.
 
-        Log.tmp(capabilities)
         return capabilities
 
     @returns(list)

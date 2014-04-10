@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# DBNorm 
+# DBNorm
 # Compute a 3nf schema
 #
 # Copyright (C) UPMC Paris Universitas
@@ -11,7 +11,7 @@
 
 # Hypotheses:
 # - unique naming: columns having the same name in several table have the same semantic
-#   - example: T1.date and T2.date and T1 -> T2, "date" refers to the same date 
+#   - example: T1.date and T2.date and T1 -> T2, "date" refers to the same date
 #   - if not, the both date should be explictely disambiguited (for instance T1_date and T2_date)
 #      - example: traceroute.date (date of the traceroute) and traceroute.agent.date (date of the last boot)
 #        is unallowed since "date" does not have the same meaning in the traceroute and the agent tables.
@@ -26,8 +26,9 @@ from types                      import StringTypes
 from manifold.core.capabilities import Capabilities, merge_capabilities
 from manifold.core.dbgraph      import DBGraph
 from manifold.core.field        import Field, merge_fields
+from manifold.core.fields       import Fields
 from manifold.core.key          import Key, Keys
-from manifold.core.method       import Method 
+from manifold.core.method       import Method
 from manifold.core.table        import Table
 from manifold.util.log          import Log
 from manifold.util.type         import returns, accepts
@@ -39,7 +40,7 @@ class Determinant(object):
     A Determinant models the left operand of a "rule" that allow to retrieve
     one or more field thanks to a key.
 
-    Example: 
+    Example:
 
         Consider a table/method named t provided by a platform P providing
         fields y, z for a key k:
@@ -60,10 +61,10 @@ class Determinant(object):
     def check_init(key, method_name):
         """
         \brief (Internal use)
-            Check whether parameters passed to __init__ are well-formed 
+            Check whether parameters passed to __init__ are well-formed
         """
         assert isinstance(key, Key),                 "Invalid key %r (type = %r)" % (key, type(key))
-        assert isinstance(method_name, StringTypes), "Invalid method_name %r (type = %r)" % (method_name, type(method_name)) 
+        assert isinstance(method_name, StringTypes), "Invalid method_name %r (type = %r)" % (method_name, type(method_name))
 
     def __init__(self, key, method_name):
         """
@@ -99,7 +100,7 @@ class Determinant(object):
 
     def __hash__(self):
         """
-        \returns The hash of a determinant 
+        \returns The hash of a determinant
         """
         return hash(self.get_key())
 
@@ -143,7 +144,7 @@ class Fd(object):
     def check_init(determinant, map_field_methods):
         """
         \brief (Internal use)
-            Check whether parameters passed to __init__ are well-formed 
+            Check whether parameters passed to __init__ are well-formed
         """
         assert isinstance(determinant, Determinant), "Invalid determinant %s (%s)"       % (determinant, type(determinant))
         assert isinstance(map_field_methods, dict),  "Invalid map_field_methods %s (%s)" % (map_field_methods, type(map_field_methods))
@@ -155,15 +156,15 @@ class Fd(object):
 
     def __init__(self, determinant, map_field_methods):
         """
-        \brief Constructor of Fd 
+        \brief Constructor of Fd
         \param determinant A Determinant instance (left operand of the fd)
         \param map_field_methods A dictionnary {Field => {Methods} }
             storing for each field the corresponding methods
             that we can use to retrieve it.
         """
-        Fd.check_init(determinant, map_field_methods) 
+        Fd.check_init(determinant, map_field_methods)
         self.determinant = determinant
-        self.map_field_methods = map_field_methods 
+        self.map_field_methods = map_field_methods
 
     def set_key(self, key):
         """
@@ -176,7 +177,7 @@ class Fd(object):
     @returns(set)
     def get_platforms(self):
         """
-        \returns A set of strings (the platforms able to provide 
+        \returns A set of strings (the platforms able to provide
             every fields involved in the key of this fd)
         """
         platforms = set()
@@ -184,9 +185,9 @@ class Fd(object):
         for field in self.get_determinant().get_key():
             platforms_cur = set([method.get_platform() for method in self.map_field_methods[field]])
             if first:
-                platforms |= platforms_cur 
+                platforms |= platforms_cur
             else:
-                platforms &= platforms_cur 
+                platforms &= platforms_cur
         return platforms
 
     @returns(set)
@@ -243,7 +244,7 @@ class Fd(object):
                 map_field_methods[field] = set()
                 map_field_methods[field].add(method)
                 fds.add(Fd(determinant, map_field_methods))
-        return fds 
+        return fds
 
     @returns(StringTypes)
     def __str__(self):
@@ -258,7 +259,7 @@ class Fd(object):
             cr  = "\n"
             cr1 = "\n"
             cr2 = "\n\t"
-        
+
         return "[%s => {%s%s%s}]" % (
             self.get_determinant(),
             cr1,
@@ -339,7 +340,7 @@ class Fds(set):
             fds: A set or a list of Fd instances
         """
         Fds.check_init(fds)
-        # /!\ Don't call set.__init__(fds), copy explicitly each fd 
+        # /!\ Don't call set.__init__(fds), copy explicitly each fd
         for fd in fds:
             self.add(fd)
 
@@ -349,7 +350,7 @@ class Fds(set):
 #OBSOLETE|        \brief Group a set of Fd stored in this Fds by method
 #OBSOLETE|        \returns A dictionnary {method_name : Fds}
 #OBSOLETE|        """
-#OBSOLETE|        map_method_fds = dict() 
+#OBSOLETE|        map_method_fds = dict()
 #OBSOLETE|        for fd in self:
 #OBSOLETE|            _field, _platforms = fd.map_field_methods.items()[0]
 #OBSOLETE|            method = fd.get_determinant().get_method_name()
@@ -385,12 +386,12 @@ class Fds(set):
         """
         Split a Fds instance.
         Returns:
-            The corresponding Fds instance 
+            The corresponding Fds instance
         """
         fds = Fds()
         for fd in self:
             fds |= fd.split()
-        return fds 
+        return fds
 
     @returns(StringTypes)
     def __str__(self):
@@ -438,9 +439,9 @@ def closure(x, fds):
     \brief Compute the closure of a set of attributes under the
         set of functional dependencies
         \sa http://elm.eeng.dcu.ie/~ee221/EE221-DB-7.pdf p7
-    \param x A set of Field instances 
+    \param x A set of Field instances
     \param fds A Fds instance
-    \return A set of Field instances 
+    \return A set of Field instances
     """
     check_closure(x, fds)
     x_plus = set(x)                              # x+ = x
@@ -461,7 +462,7 @@ def closure_ext(x, fds):
     \brief Compute the closure of a set of attributes under the
         set of functional dependencies
         \sa http://elm.eeng.dcu.ie/~ee221/EE221-DB-7.pdf p7
-    \param x A set of Field instances (usually it should be a Key instance) 
+    \param x A set of Field instances (usually it should be a Key instance)
     \param fds A Fds instance (each fd must have exactly one output field)
     \return A dictionnary {Field => list(Fd)} where
         - key is a Field in the closure x+
@@ -491,7 +492,7 @@ def closure_ext(x, fds):
 
                     # "z" is retrieved thanks to
                     #  - each Fd needed to retrieve "y"
-                    #  - the Fd [y --> z] 
+                    #  - the Fd [y --> z]
                     for y_elt in y:
                         if x_plus_ext[y_elt]:
                             x_plus_ext[z] |= x_plus_ext[y_elt]
@@ -509,7 +510,7 @@ def make_fd_set(tables):
     Returns:
         A Fds instance.
     """
-    fds = Fds() 
+    fds = Fds()
     for table in tables:
         name = table.get_name()
         for key in table.get_keys():
@@ -529,7 +530,7 @@ def fd_minimal_cover(fds):
     Compute the functionnal dependancy minimal cover
         See http://elm.eeng.dcu.ie/~ee221/EE221-DB-7.pdf p11
     Args:
-        fds: A Fds instance 
+        fds: A Fds instance
     Returns:
         A couple made of:
         - a Fds instance (fd kept, e.g. min cover)
@@ -564,7 +565,7 @@ def fd_minimal_cover(fds):
                 if b in x_b_plus:                       #       if b \subseteq (x - b)+:
                     g = g2                              #         replace [x -> a] in g by [(x - b) -> a]
 
-    return (g, fds_removed) 
+    return (g, fds_removed)
 
 @accepts(Fds, Fds)
 def reinject_fds(fds_min_cover, fds_removed):
@@ -598,10 +599,10 @@ def reinject_fds(fds_min_cover, fds_removed):
         method = list(m)[0].get_name()
 
         # (1)
-        if y in x: 
+        if y in x:
             # We cannot simply re-add them since it will cause new relations in the 3nf.
             # fds_min_cover.add(fd_removed)
-            
+
             # We have a single method in each fd
             if not method in key_fd_by_method:
                 key_fd_by_method[method] = list()
@@ -612,9 +613,9 @@ def reinject_fds(fds_min_cover, fds_removed):
         # (2)+(3)
         methods_with_fds.append(method)
 
-        # Compute (if not cached) the underlying 3nf fds allowing to retrieve y from x 
+        # Compute (if not cached) the underlying 3nf fds allowing to retrieve y from x
         if x not in map_key_closure.keys():
-            map_key_closure[x] = closure_ext(set(x), fds_min_cover) 
+            map_key_closure[x] = closure_ext(set(x), fds_min_cover)
 
         # (2)
         for fd in map_key_closure[x][y]:
@@ -640,9 +641,9 @@ def to_3nf(metadata):
         The corresponding 3nf graph (DbGraph instance)
     """
     # 1) Compute functional dependancies
-    tables = list() 
+    tables = list()
     local_tables = list()
-    map_method_capabilities = dict() 
+    map_method_capabilities = dict()
     for platform, announces in metadata.items():
         for announce in announces:
             table = announce.get_table()
@@ -678,10 +679,10 @@ def to_3nf(metadata):
         all_platforms = set()
         common_fields = None
 #        common_keys = None
-        all_keys = set() 
+        all_keys = set()
 
         # Annotations needed for the query plane
-        all_tables = list() 
+        all_tables = list()
 
         for platform, fds in map_platform_fds.items():
             platforms = set()
@@ -696,7 +697,7 @@ def to_3nf(metadata):
                 key = fd.get_determinant().get_key()
                 keys.add(key)
                 fields |= fd.get_fields()
-                
+
                 # We need to add fields from the key
                 for key_field in key:
                     fields.add(key_field) # XXX
@@ -760,10 +761,10 @@ def to_3nf(metadata):
         if cpt_platforms > 1 and len(common_fields) > 0:
             # Retrict common_keys according to common_fields
             common_field_names = set([field.get_name() for field in common_fields])
-            common_keys = Keys([key for key in all_keys if key.get_field_names() <= common_field_names])
+            common_keys = Keys([key for key in all_keys if key.get_field_names() <= Fields(common_field_names)])
 
         # Need to add a parent table if more than two sets of platforms
-        if common_keys: 
+        if common_keys:
 
             # Capabilities will be set later since they must be set for all the Tables.
             table = Table(all_platforms, table_name, common_fields, common_keys)
@@ -819,7 +820,7 @@ def to_3nf(metadata):
                     break
             capabilities = merge_capabilities(capabilities, announce.get_table().get_capabilities())
         table_3nf.set_capability(capabilities)
- 
+
 #    # 6) Inject capabilities
 #    # TODO: capabilities are now in tables, shall they be present in tables_3nf
 #    # instead of relying on map_method_capabilities ?
@@ -829,13 +830,13 @@ def to_3nf(metadata):
 #                if announce.get_table().get_name() == table_3nf.get_name():
 #                    capabilities = table_3nf.get_capabilities()
 #                    if capabilities.is_empty():
-#                        table_3nf.set_capability(announce.get_table().get_capabilities()) 
+#                        table_3nf.set_capability(announce.get_table().get_capabilities())
 #                    elif capabilities != announce.get_table().get_capabilities():
 #                        Log.warning("Conflicting capabilities for tables %r and %r" % (table_3nf, announce.get_table()))
 
     # Adding local tables
     tables_3nf.extend(local_tables)
-                
+
     # 7) Building DBgraph
     graph_3nf = DBGraph(tables_3nf, map_method_capabilities)
 
