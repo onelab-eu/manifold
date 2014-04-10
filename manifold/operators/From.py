@@ -363,16 +363,12 @@ class From(Operator, ChildSlotMixin):
             # Provided fields is set to None if it corresponds to SELECT *
 
             # Test whether this From node can return every queried Fields.
-            if provided_fields and not (provided_fields <= fields):
-                Log.tmp("fields          = %r (type %r)" % (fields, type(fields)))
-                Log.tmp("provided_fields = %r (type %r)" % (provided_fields, type(provided_fields)))
-                Log.tmp("provided_fields <= fields = %s" % (provided_fields <= fields))
+            if provided_fields and not (fields <= provided_fields):
                 Log.warning("From::optimize_projection: some requested fields (%s) are not provided by {%s} From node. Available fields are: {%s}" % (
                     ', '.join(list(fields - provided_fields)),
                     self.get_query().get_from(),
                     ', '.join(list(provided_fields))
                 ))
-                raise Exception("prout")
 
             # If this From node returns more Fields than those explicitely queried
             # (because the projection capability is not enabled), create an additional
