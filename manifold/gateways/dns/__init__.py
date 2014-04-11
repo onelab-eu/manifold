@@ -11,7 +11,7 @@
 
 import socket
 from types                              import StringTypes
-from manifold.core.announce             import Announce, announces_from_docstring
+from manifold.core.announce             import Announces, announces_from_docstring
 from manifold.core.fields               import Fields
 from manifold.gateways                  import Gateway
 from manifold.util.reactor_thread       import ReactorThread
@@ -104,7 +104,7 @@ class DNSGateway(Gateway):
     # Metadata 
     #---------------------------------------------------------------------------
 
-    @returns(Announce)
+    @returns(Announces)
     def make_announces(self):
         """
         Returns:

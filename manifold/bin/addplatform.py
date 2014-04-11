@@ -61,10 +61,10 @@ INSERT INTO %(namespace)s:platform
 """
 
 TIPS = """
-You can now turn on/off '%(namespace)s' by running:
+You can now turn on/off '%(platform_name)s' by running:
 
-    manifold-enable-platform %(namespace)s
-    manifold-disable-platform %(namespace)s
+    manifold-enable-platform %(platform_name)s
+    manifold-disable-platform %(platform_name)s
 
 """
 
@@ -119,9 +119,10 @@ def main():
     disabled = string_to_bool(disabled)
 
     namespace = LOCAL_NAMESPACE
+    print platform_name
     ret = run_command(CMD_ADD_PLATFORM % locals())
     if ret == SUCCESS:
-        print TIPS
+        print TIPS % locals()
     return ret
 
 if __name__ == "__main__":
