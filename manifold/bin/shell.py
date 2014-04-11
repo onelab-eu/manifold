@@ -60,7 +60,8 @@ class Shell(object):
         self._interactive = interactive
         self.client       = None
         self.bootstrap()
-#       self._environment = dict() # {String : list(dict)} : maps a variable name with its the corresponding Records
+        # {String : list(dict)} : maps a variable name with its the corresponding Records
+        self._environment = dict()
 #       self._environment = {"$USER" : "marc-olivier.buob@lip6.fr"}
 
     def terminate(self):
