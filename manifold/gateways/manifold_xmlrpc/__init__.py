@@ -19,6 +19,8 @@ from manifold.util.log                  import Log
 from manifold.util.reactor_thread       import ReactorThread, ReactorException
 from manifold.util.type                 import accepts, returns
 
+TIMEOUT = 3 # in seconds
+
 class ManifoldGateway(Gateway):
     __gateway_name__ = 'manifold'
 
@@ -62,9 +64,14 @@ class ManifoldGateway(Gateway):
         (Internal usage) See ManifoldGateway::receive_impl.
         Args:
             packet: A QUERY Packet.
-            error: The corresponding error message.
+            error: A Failure instance.
         """
-        self.error(packet, "Error during Manifold call: %r" % error)
+        error = ("%s" % error).replace("\n", "")
+        self.error(packet, "while dialing [%(platform_name)s] using %(platform_config)s: %(error)s" % {
+            "platform_name"   : self.get_platform_name(),
+            "platform_config" : self.get_config(),
+            "error"           : error
+        })
 
     def receive_impl(self, packet):
         """
@@ -84,6 +91,7 @@ class ManifoldGateway(Gateway):
             '''
             def setSSLClientContext(self,SSLClientContext):
                 self.SSLClientContext = SSLClientContext
+
             def callRemote(self, method, *args):
                 def cancel(d):
                     factory.deferred = None
@@ -95,6 +103,7 @@ class ManifoldGateway(Gateway):
                 #    self.path, self.host, method, self.user,
                 #    self.password, self.allowNone, args)
 
+                self.connectTimeout = TIMEOUT
                 if self.secure:
                     try:
                         self.SSLClientContext
@@ -119,13 +128,13 @@ class ManifoldGateway(Gateway):
         #query = source.query
         auth = {'AuthMethod': 'guest'}
 
-        d = proxy.callRemote(
+        deferred = proxy.callRemote(
             'forward',
             query.to_dict(),
             {'authentication': auth}
         )
-        d.addCallback(self.callback_records, packet)
-        d.addErrback(self.callback_error, packet)
+        deferred.addCallback(self.callback_records, packet)
+        deferred.addErrback(self.callback_error, packet)
 
             #reactor.callFromThread(wrap, self) # run wrap(self) in the event loop
         #    wrap(self)

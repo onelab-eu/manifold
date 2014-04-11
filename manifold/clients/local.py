@@ -2,23 +2,29 @@
 # -*- coding: utf-8 -*-
 #
 # ManifoldLocalClient is used to perform query on
-# a Manifold Router that we run locally. 
+# a Manifold Router that we run locally.
 #
 # Copyright (C) UPMC Paris Universitas
 # Authors:
 #   Jordan Augé         <jordan.auge@lip6.fr>
 #   Marc-Olivier Buob   <marc-olivier.buob@lip6.fr>
 
-import asyncore, asynchat, errno, socket, threading, time, traceback
+import asynchat, errno, socket, threading, time, traceback
+
+# Bugfix http://hg.python.org/cpython/rev/16bc59d37866 (FC14 or less)
+# On recent linux distros we can directly "import asyncore"
+#import manifold.util.asyncore as asyncore
+import asyncore
+
 from types                          import StringTypes
 
 from manifold.core.annotation       import Annotation
 from manifold.core.packet           import Packet, QueryPacket
-from manifold.core.query            import Query 
+from manifold.core.query            import Query
 from manifold.core.result_value     import ResultValue
 from manifold.core.router           import Router
 from manifold.core.sync_receiver    import SyncReceiver
-from manifold.util.log              import Log 
+from manifold.util.log              import Log
 from manifold.util.type             import accepts, returns
 
 from ..clients.client               import ManifoldClient
@@ -63,14 +69,14 @@ class ManifoldLocalClient(ManifoldClient, asynchat.async_chat):
 
         # Start asyncore thread
         self._thread = threading.Thread(target = asyncore.loop, kwargs = {'timeout' : 1})
-        self._thread.start()     
+        self._thread.start()
 
     def terminate(self):
         self.close()
         self._thread.join()
 
     #--------------------------------------------------------------
-    # Overloaded methods 
+    # Overloaded methods
     #--------------------------------------------------------------
 
     # XXX All authentication related stuff should be handled in the parent class
@@ -82,8 +88,8 @@ class ManifoldLocalClient(ManifoldClient, asynchat.async_chat):
             An additionnal Annotation to pass to the QUERY Packet
             sent to the Router.
         """
-        return Annotation({"user" : self.user}) 
-    
+        return Annotation({"user" : self.user})
+
     def welcome_message(self):
         """
         Method that should be overloaded and used to log
@@ -132,13 +138,13 @@ class ManifoldLocalClient(ManifoldClient, asynchat.async_chat):
         """
         if not annotation:
             annotation = Annotation()
-        annotation |= self.get_annotation() 
+        annotation |= self.get_annotation()
 
         self._receiver = SyncReceiver()
         packet = QueryPacket(query, annotation, receiver = self._receiver)
 
         packet_str = packet.serialize()
-        self.push ('%08x%s' % (len(packet_str), packet_str))
+        self.push('%08x%s' % (len(packet_str), packet_str))
 
         # This code is blocking
         result_value = self._receiver.get_result_value()
@@ -150,7 +156,7 @@ class ManifoldLocalClient(ManifoldClient, asynchat.async_chat):
 #DEPRECATED|        # Push a query
 #DEPRECATED|        query = Query.get('ping').filter_by('destination', '==', '8.8.8.8')
 #DEPRECATED|        annotation = Annotation()
-#DEPRECATED|        
+#DEPRECATED|
 #DEPRECATED|        packet = QueryPacket(query, annotation, None)
 #DEPRECATED|
 #DEPRECATED|        packet_str = packet.serialize()

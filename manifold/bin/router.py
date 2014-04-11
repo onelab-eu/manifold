@@ -12,6 +12,7 @@
 #   Loïc Baron        <loic.baron@lip6.fr>
 
 import asynchat, os, socket, traceback
+
 # Bugfix http://hg.python.org/cpython/rev/16bc59d37866 (FC14 or less)
 # On recent linux distros we can directly "import asyncore"
 import manifold.util.asyncore as asyncore

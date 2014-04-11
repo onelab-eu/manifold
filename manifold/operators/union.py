@@ -6,7 +6,7 @@
 #
 # Copyright (C) UPMC Paris Universitas
 # Authors:
-#   Jordan Augé       <jordan.auge@lip6.fr> 
+#   Jordan Augé       <jordan.auge@lip6.fr>
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
 from types                          import StringTypes
@@ -29,7 +29,7 @@ from manifold.util.type             import accepts, returns
 #------------------------------------------------------------------
 # UNION node
 #------------------------------------------------------------------
-            
+
 class Union(Operator, ChildrenSlotMixin):
     """
     UNION operator node.
@@ -50,12 +50,12 @@ class Union(Operator, ChildrenSlotMixin):
         """
         Operator.__init__(self)
         ChildrenSlotMixin.__init__(self)
-        
+
         self._key      = key
         self._distinct = distinct
 
         # XXX ???
-        self.key_list = list() 
+        self.key_list = list()
 
         for producer in producers:
             data = {
@@ -93,7 +93,7 @@ class Union(Operator, ChildrenSlotMixin):
     def get_destination(self):
         """
         Returns:
-            The Destination corresponding to this Operator. 
+            The Destination corresponding to this Operator.
         """
         return self._get_first().get_destination()
 
