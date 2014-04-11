@@ -33,7 +33,7 @@ class SyncReceiver(Node, ChildSlotMixin):
         Node.__init__(self)
         ChildSlotMixin.__init__(self)
         self._records = Records() # Records resulting from a Query
-        self._errors = list()     # ResultValue to errors which have occured 
+        self._errors = list()     # ResultValue to errors which have occured
         self._event = threading.Event()
 
     #---------------------------------------------------------------------------

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# ResultValue transports Records, code error, and eventual 
+# ResultValue transports Records, code error, and eventual
 # during a QueryPlan execution.
 #
 # Copyright (C) UPMC Paris Universitas
@@ -15,6 +15,7 @@ import pprint, time, traceback
 from types                      import StringTypes
 
 from manifold.core.code         import CORE, GATEWAY, SUCCESS, ERROR, WARNING
+from manifold.core.packet       import ErrorPacket
 from manifold.util.log          import Log
 from manifold.util.type         import accepts, returns
 
@@ -29,19 +30,19 @@ class ResultValue(dict):
             origin: A value among:
                 CORE    : iif the error is raised by manifold/core/*
                 GATEWAY : iif the error is raised by manifold/gateways/*
-            type: An integer describing the status of the query. 
+            type: An integer describing the status of the query.
                 SUCCESS : the Query has succeeded.
                 WARNING : the Query results are not complete.
                 ERROR   : the Query has failed.
             code: An integer value.
             value: - A list of ErrorPacket in case of failure
                    - A list of Records or dicts in case of success.
-            description:
-            traceback: A String containing the traceback.
+            description: A list of ErrorPacket instances.
+            traceback: A non empty String containing the traceback or None.
             ts: A String containing the date when this Query has been issued. By default, this
                 value is set to the current date.
-        """ 
-        
+        """
+
         # Checks
         if args:
             if kwargs:
@@ -49,13 +50,13 @@ class ResultValue(dict):
 
             if len(args) == 1 and isinstance(args[0], dict):
                 kwargs = args[0]
-            
+
         given = set(kwargs.keys())
         cstr_success = set(["code", "origin", "value"]) <= given
         cstr_error   = set(["code", "type", "origin", "description"]) <= given
         assert given <= self.ALLOWED_FIELDS, "Wrong fields in ResultValue constructor: %r" % (given - self.ALLOWED_FIELDS)
         assert cstr_success or cstr_error, "Incomplete set of fields in ResultValue constructor: %r" % given
-        
+
         dict.__init__(self, **kwargs)
 
         # Set missing fields to None
@@ -63,13 +64,13 @@ class ResultValue(dict):
             self[field] = None
         if not "ts" in self:
             self["ts"] = time.time()
-            
+
     # Internal MySlice errors   : return ERROR
     # Internal MySlice warnings : return RESULT WITH WARNINGS
     # Debug                     : add DEBUG INFORMATION
     # Gateway errors            : return RESULT WITH WARNING
     # all Gateways errors       : return ERROR
-    
+
 #DEPRECATED|    @classmethod
 #DEPRECATED|    #@returns(ResultValue)
 #DEPRECATED|    def get_result_value(self, results, result_values):
@@ -78,13 +79,13 @@ class ResultValue(dict):
 #DEPRECATED|        an optionnal list of ResultValues retrieved during the QueryPlan
 #DEPRECATED|        execution.
 #DEPRECATED|        Args:
-#DEPRECATED|            results: A list of Records 
+#DEPRECATED|            results: A list of Records
 #DEPRECATED|            result_values: A list of ResultValue instances.
 #DEPRECATED|        """
 #DEPRECATED|        # let's analyze the results of the query plan
 #DEPRECATED|        # XXX we should inspect all errors to determine whether to return a
 #DEPRECATED|        # result or not
-#DEPRECATED|        
+#DEPRECATED|
 #DEPRECATED|        if not result_values:
 #DEPRECATED|            # No error
 #DEPRECATED|            return ResultValue(code = SUCCESS, origin = [self.CORE, 0], value = results)
@@ -117,6 +118,7 @@ class ResultValue(dict):
     def success(self, result):
         return ResultValue(
             code        = SUCCESS,
+            type        = SUCCESS,
             origin      = [CORE, 0],
             value       = result
         )
@@ -125,11 +127,11 @@ class ResultValue(dict):
     #@returns(ResultValue)
     def warning(result, errors):
         return ResultValue(
-            code        = WARNING,
-            # type
+            code        = ERROR, # XXX this is crappy
+            type        = WARNING,
             origin      = [CORE, 0],
             value       = result,
-            # description
+            description = errors
         )
 
     @staticmethod
@@ -139,7 +141,7 @@ class ResultValue(dict):
         Make a ResultValue corresponding to an error.
         Args:
             description: A String instance.
-            code: An integer (see codes provided by ResultValue). 
+            code: An integer (see codes provided by ResultValue).
         Returns:
             The corresponding ResultValue instance.
         """
@@ -150,9 +152,9 @@ class ResultValue(dict):
 
         return ResultValue(
             type        = ERROR,
-            code        = code, 
+            code        = code,
             origin      = [CORE, 0],
-            description = description 
+            description = [ErrorPacket(type = ERROR, code = code, message = description, traceback = None)]
         )
 
     @staticmethod
@@ -177,15 +179,19 @@ class ResultValue(dict):
         )
 
     @returns(bool)
+    def is_warning(self):
+        return self["type"] == WARNING
+
+    @returns(bool)
     def is_success(self):
-        return self["code"] == SUCCESS
+        return self["type"] == SUCCESS
 
     @returns(list)
     def ok_value(self):
         return self["value"]
 
     def get_all(self):
-        if not self.is_success():
+        if not self.is_success() and not self.is_warning():
             raise Exception, "Error executing query: %s" % self['description']
         return self.ok_value()
 
@@ -295,7 +301,7 @@ class ResultValue(dict):
 # failure)</description>
 # 148   </code>
 # 149 </geni-error-codes>
-# 150 
+# 150
 # <!--
 # || 0    || SUCCESS      || "Success" ||
 # || 1    || BADARGS      || "Bad Arguments: malformed arguments" ||
@@ -322,9 +328,9 @@ class ResultValue(dict):
 # || 22   || CREDENTIAL_MISMATCH   || "Not authorized: Supplied credential # does not match the supplied client certificate or does not match the given slice # URN" ||
 # || 23   || CREDENTIAL_SIGNER_UNTRUSTED   || "Not authorized: Supplied # credential not signed by trusted authority" ||
 # || 24   || VLAN_UNAVAILABLE     || "VLAN tag(s) requested not available # (likely stitching failure)" ||
-# 
+#
 # 18+ not in original ProtoGENI implementation or Error Code proposal.
-# 
+#
 # Maping to SFA Faults:
 # SfaAuthenticationFailure: FORBIDDEN
 # SfaDBErrr: DBERROR

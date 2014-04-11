@@ -47,8 +47,8 @@ class Shell(object):
     #---------------------------------------------------------------------------
 
     def __init__(self,
-        auth_method     = None,
-        interactive     = False,
+        auth_method = None,
+        interactive = False,
     ):
         """
         Constructor.
@@ -75,11 +75,20 @@ class Shell(object):
     #---------------------------------------------------------------------------
 
     def set_auth_method(self, auth_method):
+        """
+        Force this Shell to authenticates using a given method.
+        Args:
+            auth_method: A String among {"local", "router", "gid"}
+        """
         self._auth_method = auth_method
         self.select_auth_method(auth_method)
 
     @returns(bool)
     def is_interactive(self):
+        """
+        Returns:
+            True iif this Shell is interactive (i.e. if it parses command-line).
+        """
         return self._interactive
 
     #---------------------------------------------------------------------------
@@ -193,8 +202,8 @@ class Shell(object):
         if message:
             Log.error(message)
 
-        print "* Traceback:"
-        if traceback:
+        if not traceback.startswith("None"):
+            print "* Traceback:"
             Log.error(traceback)
 
     @staticmethod
@@ -328,9 +337,7 @@ class Shell(object):
             methods = ["gid", "password"] if Options().xmlrpc else ["local"]
             for method in methods:
                 try:
-                    #Log.tmp("Trying client authentication '%s'" % method)
                     self.select_auth_method(method)
-                    #Log.tmp("Automatically selected '%s' authentication method" % method)
                     return
                 except Exception, e:
                     #Log.error(format_exc())
@@ -397,7 +404,7 @@ class Shell(object):
         """
         assert isinstance(result_value, ResultValue), "Invalid ResultValue: %s (%s)" % (result_value, type(result_value))
 
-        if result_value.is_success():
+        if result_value.is_success() or result_value.is_warning():
             #records = result_value["value"]
             #dicts = [record.to_dict() for record in records]
             records = result_value.get_all().to_dict_list()
@@ -407,8 +414,9 @@ class Shell(object):
                 # Used by script to it may be piped.
                 print json.dumps(records)
 
-        else:
-            print "===== ERROR ====="
+        # Some queries have failed, report the errors
+        if not result_value.is_success():
+            print "===== ERRORS ====="
             Log.reset_duplicates()
             errors = result_value["description"]
             if isinstance(errors, StringTypes):
@@ -444,8 +452,8 @@ class Shell(object):
         if not dic:
             raise RuntimeError("Can't parse input command: %s" % command)
         query = Query(dic)
-        #if "*" in query.get_select():
-        #    query.fields = None
+#DEPRECATED|        if "*" in query.get_select():
+#DEPRECATED|            query.fields = None
 
         return self.execute(query)
 

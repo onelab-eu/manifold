@@ -32,7 +32,7 @@ from manifold.core.annotation   import Annotation
 from manifold.core.code         import ERROR, WARNING
 from manifold.core.exceptions   import ManifoldException
 from manifold.core.query        import Query
-from manifold.util.log          import Log 
+from manifold.util.log          import Log
 from manifold.util.type         import accepts, returns
 
 class Packet(object):
@@ -139,7 +139,7 @@ class Packet(object):
         Returns:
             The '%s' representation of this QUERY Packet.
         """
-        return self.__repr__() 
+        return self.__repr__()
 
     #---------------------------------------------------------------------------
     # Serialization / deserialization
@@ -178,7 +178,7 @@ class Packet(object):
 
 # NOTE: This class will probably disappear and we will use only the Packet class
 class QueryPacket(Packet):
-    
+
     #---------------------------------------------------------------------------
     # Constructor
     #---------------------------------------------------------------------------
@@ -190,7 +190,7 @@ class QueryPacket(Packet):
             query: A Query instance.
             annotation: An Annotation instance related to the Query or None.
             receiver: An absolute destination on which RECORD Packet must
-                be uploaded 
+                be uploaded
             source: The issuer of the QueryPacket
         """
         assert isinstance(query, Query), \
@@ -228,7 +228,7 @@ class QueryPacket(Packet):
             The Query nested in this QUERY Packet.
         """
         return self._query
-        
+
     def set_query(self, query):
         """
         Set the Query carried by this QUERY Packet.
@@ -261,7 +261,7 @@ class QueryPacket(Packet):
         """
         Set the next hop which will receive this Packet.
         Args:
-            receiver: A Node instance. 
+            receiver: A Node instance.
         """
         self._receiver = receiver
 
@@ -311,9 +311,9 @@ class ErrorPacket(Packet):
     Analog with ICMP errors packets in IP networks
     """
 
-    #--------------------------------------------------------------------------- 
+    #---------------------------------------------------------------------------
     # Constructor
-    #--------------------------------------------------------------------------- 
+    #---------------------------------------------------------------------------
 
     def __init__(self, type = ERROR, code = ERROR, message = None, traceback = None):
         """
@@ -336,9 +336,9 @@ class ErrorPacket(Packet):
         self._message   = message
         self._traceback = traceback
 
-    #--------------------------------------------------------------------------- 
+    #---------------------------------------------------------------------------
     # Static methods
-    #--------------------------------------------------------------------------- 
+    #---------------------------------------------------------------------------
 
     # XXX This function could take kwargs parameters to set last to False for example
     @staticmethod
@@ -373,7 +373,7 @@ class ErrorPacket(Packet):
             A value among {code::CORE, code::GATEWAY}
             identifying who is the origin of this ErrorPacket.
         """
-        return self._origin 
+        return self._origin
 
     @returns(int)
     def get_code(self):
@@ -410,4 +410,4 @@ class ErrorPacket(Packet):
         Returns:
             The '%s' representation of this ERROR Packet.
         """
-        return self.__repr__() 
+        return self.__repr__()

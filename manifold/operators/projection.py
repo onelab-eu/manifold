@@ -17,12 +17,12 @@ from manifold.core.destination      import Destination
 from manifold.core.operator_slot    import ChildSlotMixin
 from manifold.core.packet           import Packet
 from manifold.core.record           import Record, Records
-from manifold.core.node             import Node 
+from manifold.core.node             import Node
 from manifold.operators.operator    import Operator
 from manifold.util.log              import Log
 from manifold.util.type             import returns
 
-DUMPSTR_PROJECTION = "SELECT %s" 
+DUMPSTR_PROJECTION = "SELECT %s"
 
 def do_projection(record, fields):
     """
@@ -41,7 +41,7 @@ def do_projection(record, fields):
             subqueries[method].append(subfield)
         else:
             local.append(f)
-    
+
     # 2/ process local fields
     for l in local:
         ret[l] = record[l] if l in record else None
@@ -62,7 +62,7 @@ def do_projection(record, fields):
     return ret
 
 #------------------------------------------------------------------
-# Projection Operator (SELECT) 
+# Projection Operator (SELECT)
 #------------------------------------------------------------------
 
 class Projection(Operator, ChildSlotMixin):
@@ -122,7 +122,9 @@ class Projection(Operator, ChildSlotMixin):
         Returns:
             The '%r' representation of this Projection instance.
         """
-        return DUMPSTR_PROJECTION % ", ".join(self.get_fields())
+        fields = self.get_fields()
+        s = "*" if fields.is_star() else ", ".join(self.get_fields())
+        return DUMPSTR_PROJECTION % s
 
     #---------------------------------------------------------------------------
     # Methods
@@ -132,7 +134,7 @@ class Projection(Operator, ChildSlotMixin):
     def get_destination(self):
         """
         Returns:
-            The Destination corresponding to this Operator. 
+            The Destination corresponding to this Operator.
         """
         d = self._get_child().get_destination()
         return d.projection(self._fields)
