@@ -15,7 +15,7 @@ import sys, time
 from socket                             import *
 
 from types                              import StringTypes
-from manifold.core.announce             import Announce, announces_from_docstring
+from manifold.core.announce             import Announces, announces_from_docstring
 from manifold.core.fields               import Fields
 from manifold.core.record               import Record, Records
 from manifold.gateways                  import Gateway
@@ -129,7 +129,7 @@ class TeamCymruGateway(Gateway):
         # We used to work with our own implementation...
         #self.records(self.parse_teamcymru(ip_list))
 
-    @returns(Announce)
+    @returns(Announces)
     def make_announces(self):
         """
         Returns:
@@ -144,7 +144,7 @@ class TeamCymruGateway(Gateway):
             // See record_by_addr
             class ip {
                 const inet   ip;            /**< Ex: '64.233.161.99'    */
-                as asn;           /**< Ex: '5511'             */
+                as           asn;           /**< Ex: '5511'             */
                 const string prefix;        /**< Ex:                    */
                 const string cc;
                 const string lir;

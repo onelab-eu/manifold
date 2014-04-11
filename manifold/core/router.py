@@ -449,7 +449,6 @@ class ip {
 #DEPRECATED|        """
 #DEPRECATED|        """
         # Build the AST and retrieve the corresponding root_node Operator instance.
-        Log.tmp(packet)
         query      = packet.get_query()
         annotation = packet.get_annotation()
         receiver   = packet.get_receiver()

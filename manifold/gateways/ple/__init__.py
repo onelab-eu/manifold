@@ -11,7 +11,7 @@
 
 from types                              import StringTypes
 
-from manifold.core.announce             import Announce, announces_from_docstring
+from manifold.core.announce             import Announces, announces_from_docstring
 from manifold.gateways                  import Gateway
 from manifold.util.log                  import Log
 from manifold.util.predicate            import eq, included
@@ -29,8 +29,8 @@ except ImportError:
     Log.warning("PlanetLab authentification set to defaults: %s" % AUTH)
 
 MAP_METHOD = {
-    'node': 'GetNodes',
-    'site': 'GetSites',
+    "node" : "GetNodes",
+    "site" : "GetSites",
 }
 
 # XXX This could inherit from XMLRPC, like manifold_xmlrpc
@@ -51,7 +51,7 @@ class PLEGateway(Gateway):
         Args:
             interface: The Manifold Interface on which this Gateway is running.
             platform_name: A String storing name of the platform related to this Gateway or None.
-            config: A dictionnary containing the configuration related to this Gateway.
+            platform_config: A dictionnary containing the configuration related to this Gateway.
         """
         super(PLEGateway, self).__init__(interface, platform_name, platform_config)
 
@@ -202,7 +202,7 @@ class PLEGateway(Gateway):
     # Metadata
     #---------------------------------------------------------------------------
 
-    @returns(Announce)
+    @returns(Announces)
     def make_announces(self):
         """
         Returns:
