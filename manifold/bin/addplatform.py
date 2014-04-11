@@ -19,6 +19,7 @@ import sys
 from types                  import StringTypes
 
 from manifold.bin.common    import check_num_arguments, check_option, check_option_bool, check_option_enum, run_command, string_to_bool
+from manifold.core.code     import SUCCESS
 from manifold.core.local    import LOCAL_NAMESPACE
 from manifold.util.type     import accepts, returns
 
@@ -43,7 +44,7 @@ Add a platform to Manifold
         1: disabled
 """
 
-CMD_LIST_GATEWAYS = """
+CMD_GET_GATEWAYS = """
 SELECT name
     FROM %(namespace)s:gateway
 """
@@ -57,6 +58,14 @@ INSERT INTO %(namespace)s:platform
         auth_type         = '%(auth_type)s',
         config            = '%(config)s',
         disabled          = %(disabled)s
+"""
+
+TIPS = """
+You can now turn on/off '%(namespace)s' by running:
+
+    manifold-enable-platform %(namespace)s
+    manifold-disable-platform %(namespace)s
+
 """
 
 CMD_GET_GATEWAYS = """
@@ -97,9 +106,9 @@ def main():
     check_option("PLATFORM_NAME", platform_name, is_lower_case)
 
     # Check GATEWAY
-    supported_gateway_types = get_supported_gateway_types()
-    if supported_gateway_types:
-        check_option_enum("GATEWAY_TYPE", gateway_type, supported_gateway_types)
+#DISABLED    supported_gateway_types = get_supported_gateway_types()
+#DISABLED    if supported_gateway_types:
+#DISABLED        check_option_enum("GATEWAY_TYPE", gateway_type, supported_gateway_types)
 
     # Check AUTH_TYPE
     check_option_enum("AUTH_TYPE", auth_type, SUPPORTED_AUTH_TYPE)
@@ -110,7 +119,10 @@ def main():
     disabled = string_to_bool(disabled)
 
     namespace = LOCAL_NAMESPACE
-    return run_command(CMD_ADD_PLATFORM % locals())
+    ret = run_command(CMD_ADD_PLATFORM % locals())
+    if ret == SUCCESS:
+        print TIPS
+    return ret
 
 if __name__ == "__main__":
     main()

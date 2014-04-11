@@ -312,7 +312,11 @@ class ProcessGateway(Gateway):
             The Announce related to this object.
         """
         platform_name = self.get_platform_name()
-        announces = import_string_h(self.output._announces_str, platform_name)
+        try:
+            announces = import_string_h(self.output._announces_str, platform_name)
+        except AttributeError, e:
+            # self.output not yet initialized
+            raise AttributeError("In platform '%s': %s" % (platform_name, e))
 
         # These announces should be complete, we only need to deal with argument
         # and parameters to forge the command line corresponding to an incoming

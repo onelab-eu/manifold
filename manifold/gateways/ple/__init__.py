@@ -7,20 +7,26 @@
 # Jordan Auge       <jordan.auge@lip6.fr>
 # Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 #
-# Copyright (C) UPMC 
+# Copyright (C) UPMC
 
 from types                              import StringTypes
+
 from manifold.core.announce             import Announce, announces_from_docstring
 from manifold.gateways                  import Gateway
+from manifold.util.log                  import Log
 from manifold.util.predicate            import eq, included
 from manifold.util.reactor_thread       import ReactorThread
-from manifold.util.type                 import accepts, returns 
+from manifold.util.type                 import accepts, returns
 
-API_URL    = "https://www.planet-lab.eu:443/PLCAPI/"
+API_URL = "https://www.planet-lab.eu:443/PLCAPI/"
 
 # Account management in Shell, just like in MySlice, and transport of the l/p in
 # annotations
-from .auth import AUTH
+try:
+    from .auth import AUTH
+except ImportError:
+    AUTH = dict()
+    Log.warning("PlanetLab authentification set to defaults: %s" % AUTH)
 
 MAP_METHOD = {
     'node': 'GetNodes',
@@ -51,7 +57,7 @@ class PLEGateway(Gateway):
 
         # The default xmlrpc.Proxy does not work, we need to use ReactorThread()...
         # XXX Share this code among manifold
-        from twisted.web import xmlrpc 
+        from twisted.web import xmlrpc
         class Proxy(xmlrpc.Proxy):
             ''' See: http://twistedmatrix.com/projects/web/documentation/howto/xmlrpc.html
                 this is eacly like the xmlrpc.Proxy included in twisted but you can
@@ -130,7 +136,7 @@ class PLEGateway(Gateway):
         (Internal usage) See ManifoldGateway::receive_impl.
         Args:
             packet: A QUERY Packet.
-            error: The corresponding error message. 
+            error: The corresponding error message.
         """
         self.error(packet, "Error during Manifold call: %r" % error)
 
@@ -151,7 +157,7 @@ class PLEGateway(Gateway):
                 else:
                     raise NotImplemented
             # tuples ?
-                
+
             myplc_filter["%(op_str)s%(key)s" % locals()] = value
         if not myplc_filter:
             return None
@@ -193,7 +199,7 @@ class PLEGateway(Gateway):
         d.addErrback(self.callback_error, packet)
 
     #---------------------------------------------------------------------------
-    # Metadata 
+    # Metadata
     #---------------------------------------------------------------------------
 
     @returns(Announce)

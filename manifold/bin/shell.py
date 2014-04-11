@@ -55,17 +55,13 @@ class Shell(object):
         Args:
             interactive: A boolean set to True if this Shell is used in command-line,
                 and set to False otherwise (Shell used in a script, etc.).
-#DEPRECATED|            storage: A Storage instance or None.
-#DEPRECATED|                Example: See MANIFOLD_STORAGE defined in manifold.bin.config
-#DEPRECATED|            load_storage: A boolean set to True if the local Router of this Shell must
-#DEPRECATED|                load this Storage.
         """
         self._auth_method = auth_method
         self._interactive = interactive
         self.client       = None
         self.bootstrap()
-#        self._environment = dict() # {String : list(dict)} : maps a variable name with its the corresponding Records
-        self._environment = {"$USER" : "marc-olivier.buob@lip6.fr"}
+#       self._environment = dict() # {String : list(dict)} : maps a variable name with its the corresponding Records
+#       self._environment = {"$USER" : "marc-olivier.buob@lip6.fr"}
 
     def terminate(self):
         """
@@ -264,7 +260,8 @@ class Shell(object):
 
     def authenticate_local(self, username):
         """
-        Prepare a Client to dial with a local Manifold Router.
+        Prepare a Client to dial with a local Manifold Router (run as a demon,
+        using manifold-router).
         Args:
             username: A String containing the user's email address.
         """
@@ -273,7 +270,7 @@ class Shell(object):
 
     def authenticate_router(self, username):
         """
-        Prepare a Client to dial with a local Manifold Router.
+        Prepare a Client to dial with a local Manifold Router (nested in the shell).
         Args:
             username: A String containing the user's email address.
         """
@@ -341,7 +338,10 @@ class Shell(object):
 
         elif auth_method == 'local':
             username = Options().username
-            self.authenticate_local(username)
+            try:
+                self.authenticate_local(username)
+            except Exception, e:
+                Log.error(traceback.format_exc())
 
         elif auth_method == 'router':
             username = Options().username
@@ -563,7 +563,7 @@ class Shell(object):
             Log.error("Wrong SHOW arguments: %r" % args)
             Log.error("Usage: SHOW [variable]")
             return
-            
+
         variable = args[0]
 
         self._display(self._environment[variable])
@@ -669,19 +669,24 @@ class Shell(object):
             self.terminate()
 
 def main():
-    Shell.init_options()
-    Log.init_options()
-    Options().parse()
-    command = Options().execute
+    try:
+        Shell.init_options()
+        Log.init_options()
+        Options().parse()
+        command = Options().execute
 
-    if command:
-        try:
-            shell = Shell(interactive = False)
-            shell.display(shell.evaluate(command))
-        except:
-            shell.terminate()
-    else:
-        shell = Shell(interactive = True).start()
+        if command:
+            try:
+                shell = Shell(interactive = False)
+                shell.display(shell.evaluate(command))
+            except Exception, e:
+                Log.error(traceback.format_exc())
+                shell.terminate()
+        else:
+            shell = Shell(interactive = True).start()
+
+    except Exception, e:
+        Log.error(traceback.format_exc())
 
 if __name__ == '__main__':
     main()

@@ -356,8 +356,10 @@ def shell_run_command(shell, command, dicts):
 @returns(Shell)
 def make_shell():
     from manifold.bin.config    import STORAGE_CONFIG
+    from manifold.util.options  import Options
     shell = Shell(interactive = False)
-    shell.authenticate_local(STORAGE_CONFIG["user"])
+    shell.authenticate_router(STORAGE_CONFIG["user"])
+    #shell.authenticate_local(STORAGE_CONFIG["user"])
     return shell
 
 @returns(int)
