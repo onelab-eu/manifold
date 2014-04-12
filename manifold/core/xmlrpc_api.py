@@ -118,7 +118,7 @@ class XMLRPCAPI(xmlrpc.XMLRPC, object):
         # self.interface is a ManifoldDeferredRouterClient, it returns a deferred
         annotation = Annotation(annotation) if annotation else Annotation()
         annotation['user'] = user
-        return self.interface.forward(query, annotation)
+        return self.interface.forward(Query(query), annotation)
 
 #DEPRECATED|        query = Query(query)
 #DEPRECATED|        annotation = Annotation(annotation) if annotation else Annotation()
