@@ -82,7 +82,11 @@ class ManifoldGateway(Gateway):
                     ReactorThread().connectTCP(self.host, self.port or 80, factory, timeout=self.connectTimeout)
                 return factory.deferred
 
-        self._proxy = Proxy(self._platform_config['url'].encode('latin-1'), allowNone = True)
+        try:
+            self._proxy = Proxy(self._platform_config['url'].encode('latin-1'), allowNone = True)
+        except KeyError, e:
+            Log.error("While loading %s (%s): %s" % (self.get_platform_name(), self.get_config(), e))
+            raise e
         ctx = ssl.ClientContextFactory()
         self._proxy.setSSLClientContext(ctx)
 
