@@ -104,6 +104,42 @@ class Announce(Packet):
         self._table = table
         self._cost = cost
 
+    @classmethod
+    def from_dict(cls, dic, platform_name):
+        t = Table(platform_name, dic['table'])
+
+        key_fields = []
+        for column in dic['columns']:
+            # XXX Move into field
+            _qualifiers = []
+            if column['is_const']:
+                _qualifiers.append('const')
+            if column['is_local']:
+                _qualifiers.append('local')
+            f = Field(
+                type        = column['type'],
+                name        = column['name'],
+                qualifiers  = _qualifiers,
+                is_array    = column['is_array'],
+                description = column['description'],
+                #default     = None
+            )
+            t.insert_field(f)
+            if column['name'] in dic['key']: # What is key
+                key_fields.append(f)
+                
+
+        key = Key(key_fields)
+        t.insert_key(key)
+        #t.insert_key(lease_id)
+
+        t.capabilities.retrieve   = 'retrieve'   in dic['capabilities']
+        t.capabilities.join       = 'join'       in dic['capabilities']
+        t.capabilities.selection  = 'selection'  in dic['capabilities']
+        t.capabilities.projection = 'projection' in dic['capabilities']
+
+        return Announce(t)
+
     @returns(Table)
     def get_table(self):
         """
@@ -146,6 +182,16 @@ class Announce(Packet):
         return self._table.to_dict()
 
 class Announces(list):
+
+    @classmethod
+    def from_dict_list(cls, dict_list, platform_name):
+        announces = cls()
+        
+        for dic in dict_list:
+            announce = Announce.from_dict(dic, platform_name)
+            announces.append(announce)
+
+        return announces
 
     @classmethod
     @returns(list)
@@ -230,7 +276,7 @@ def make_virtual_announces(platform_name):
             string  table;           /**< The name of the object/table.     */
             column  columns[];       /**< The corresponding fields/columns. */
             string  capabilities[];  /**< The supported capabilities        */
-            string  key;
+            string  key[];
 
             CAPABILITY(retrieve);
             KEY(table);

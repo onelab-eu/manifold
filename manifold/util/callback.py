@@ -27,6 +27,11 @@ class Callback:
         self.cache_id = cache_id
 
     def __call__(self, record):
+        if isinstance(record, dict):
+            # as used in manifold_xmlrpc
+            self.results = record
+            self.event.set()
+            return
         # End of the list of records sent by Gateway
         if record.is_last():
             if self.cache_id:
