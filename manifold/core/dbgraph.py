@@ -233,7 +233,15 @@ class DBGraph(object):
                 if parent.get_name() == table.get_name():
                     keep = False
             if keep:
-                tables.append(Table(None, table.get_name(), set(self.get_fields(table)), table.get_keys()))
+                t = Table(None, table.get_name(), set(self.get_fields(table)), table.get_keys())
+                
+                # XXX We hardcode table capabilities
+                t.capabilities.retrieve   = True
+                t.capabilities.join       = True
+                t.capabilities.selection  = True
+                t.capabilities.projection = True
+
+                tables.append(t)
         return tables
 
     # Let's do a DFS by maintaining a prefix
