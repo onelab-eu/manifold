@@ -106,6 +106,9 @@ class Announce(Packet):
 
     @classmethod
     def from_dict(cls, dic, platform_name):
+        if dic['table'] in ['object', 'column', 'gateway']:
+            return None
+
         t = Table(platform_name, dic['table'])
 
         key_fields = []
@@ -189,7 +192,8 @@ class Announces(list):
         
         for dic in dict_list:
             announce = Announce.from_dict(dic, platform_name)
-            announces.append(announce)
+            if announce:
+                announces.append(announce)
 
         return announces
 

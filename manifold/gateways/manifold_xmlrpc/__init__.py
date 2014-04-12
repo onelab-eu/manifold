@@ -151,16 +151,16 @@ class ManifoldGateway(Gateway):
             The Announce related to this object.
         """
         cb = Callback()
-        def errb(failure):
-            print "errb", failure
-            event.set()
 
         # qualifier name type description is_array # XXX missing origin
         query_metadata = Query.get('local:object').select('table', 'columns', 'key', 'capabilities').to_dict()
         deferred = self._proxy.callRemote('forward', query_metadata, {'authentication': GUEST_AUTH})
         deferred.addCallback(cb)
-        deferred.addErrback(errb)
+        deferred.addErrback(lambda failure: cb([]))
 
         result_value = cb.get_results()
-        # XXX Error handling
+        if not 'code' in result_value:
+            raise Exception, "Invalid result value"
+        if result_value['code'] != 0:
+            raise Exception, "Error while repatriating metadata"
         return Announces.from_dict_list(result_value['value'], self.get_platform_name())
