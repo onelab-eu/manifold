@@ -191,44 +191,31 @@ class Router(Interface):
 
     # This will be the only calls for manipulating router platforms
     def add_platform(self, platform_name, gateway_type, platform_config = {}):
-        Log.info("Enabling platform [%s] (type: %s, config: %s)" % (platform_name, gateway_type, platform_config))
-        gateway = self.make_gateway(platform_name, gateway_type, platform_config)
-        announces = gateway.get_announces()
+        """
+        Enable a platform in this Router.
+        Args:
+            platform_name: A String containing the name of the Platform.
+            gateway_type: A String containing the type of Gateway used for this Platform.
+            platform_config: A dictionnary { String : instance } containing the 
+                configuration of this Platform.
+        """
+        try:
+            Log.info("Adding platform [%s] (type: %s, config: %s)" % (platform_name, gateway_type, platform_config))
+            gateway = self.make_gateway(platform_name, gateway_type, platform_config)
+            announces = gateway.get_announces()
 
-        if platform_name == "fake":
-            from manifold.core.announce import import_string_h
-            s = \
-"""
-class ip {
-        const inet ip;
-        const string region_name;
-        const string country_code;
-        const double latitude;
-        const string country_code3;
-        const int dma_code;
-        const string city;
-        const string country_name;
-        const double longitude;
-        const string postal_code;
-        const int area_code;
+            # DUP ??
+            self.platforms[platform_name] = None # XXX
+            self.gateways[platform_name]  = gateway
+            self.announces[platform_name] = announces
 
-        KEY(ip);
-        CAPABILITY(join);
-};
-"""
-            fake_announces = import_string_h(s, 'fake')
-            print "fake_announces:\n%s (type %s)" % (fake_announces, type(fake_announces))
-            announces += fake_announces
-
-        print "Installing the following Announces:\n%s" % announces
-
-        # DUP ??
-        self.platforms[platform_name] = None # XXX
-        self.gateways[platform_name]  = gateway
-        self.announces[platform_name] = announces
-
-        # Update
-        self._dbgraph = to_3nf(self.get_announces())
+            # Update
+            self._dbgraph = to_3nf(self.get_announces())
+        except Exception, e:
+            Log.warning("Error while adding %(platform_name)s[%(platform_config)s] (%(platform_config)s): %(e)s" % locals())
+            if platform_name in self.platforms.keys(): del self.platforms[platform_name]
+            if platform_name in self.gateways.keys():  del self.gateways[platform_name]
+            if platform_name in self.announces.keys(): del self.announces[platform_name]
 
     def del_platform(self, platform_name):
         pass
@@ -332,32 +319,36 @@ class ip {
             "Invalid platform_name = %s (%s)" % (platform_name, type(platform_name))
 
         Log.info("Enabling platform '%s'" % platform_name)
+        try:
+            # Check whether the platform is registered
+            if platform_name not in self.platforms.keys():
+                raise RuntimeError("Platform %s not yet registered" % platform_name)
 
-        # Check whether the platform is registered
-        if platform_name not in self.platforms.keys():
-            raise RuntimeError("Platform %s not yet registered" % platform_name)
+            # Create Gateway corresponding to the current Platform
+            platform = self.get_platform(platform_name)
+            gateway_type = platform.get("gateway_type", DEFAULT_GATEWAY_TYPE)
+            if not gateway_type:
+                gateway_type = DEFAULT_GATEWAY_TYPE
+            platform_config = json.loads(platform["config"]) if platform["config"] else dict()
 
-        # Create Gateway corresponding to the current Platform
-        platform = self.get_platform(platform_name)
-        gateway_type = platform.get("gateway_type", DEFAULT_GATEWAY_TYPE)
-        if not gateway_type:
-            gateway_type = DEFAULT_GATEWAY_TYPE
-        platform_config = json.loads(platform["config"]) if platform["config"] else dict()
+            gateway = self.make_gateway(platform_name, gateway_type, platform_config)
 
-        gateway = self.make_gateway(platform_name, gateway_type, platform_config)
+            # Load Announces related to this Platform
+            announces = gateway.get_announces()
+            assert isinstance(announces, list),\
+                "%s::get_announces() should return a list: %s (%s)" % (
+                    gateway.__class__.__name__,
+                    announces,
+                    type(announces)
+                )
 
-        # Load Announces related to this Platform
-        announces = gateway.get_announces()
-        assert isinstance(announces, list),\
-            "%s::get_announces() should return a list: %s (%s)" % (
-                gateway.__class__.__name__,
-                announces,
-                type(announces)
-            )
-
-        # Reference the Gateway and its Announce related to this Platform in this Router.
-        self.gateways[platform_name]  = gateway
-        self.announces[platform_name] = announces
+            # Install the Gateway and the Announces corresponding to this Platform in this Router.
+            self.gateways[platform_name]  = gateway
+            self.announces[platform_name] = announces
+        except Exception, e:
+            Log.warning("Error while enabling %(platform_name)s[%(platform_config)s] (%(platform_config)s): %(e)s" % locals())
+            if platform_name in self.gateways.keys():  del self.gateways[platform_name]
+            if platform_name in self.announces.keys(): del self.announces[platform_name]
 
     #---------------------------------------------------------------------
     # Gateways management (internal usage)
@@ -484,7 +475,6 @@ class ip {
             # << Hook on local:platform
             if namespace == LOCAL_NAMESPACE and query.get_from() == "platform":
                 try:
-                    Log.tmp("hook local:platform")
                     from query                      import ACTION_UPDATE, ACTION_DELETE, ACTION_CREATE
                     from operator                   import eq
                     from manifold.util.predicate    import included
@@ -521,6 +511,7 @@ class ip {
 
                         # INSERT
                         elif query.get_action() == ACTION_CREATE:
+                            Log.warning("TODO: use self.add_platform")
                             self.register_platform(query.get_params())
                             try:
                                 if query.get_params()["disabled"] == 1:

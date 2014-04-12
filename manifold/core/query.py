@@ -494,8 +494,14 @@ class Query(object):
             "Invalid self.filters = %s" % (self.filters, type(self.filters))
         return self
 
+    #@returns(Query)
     def select(self, *fields, **kwargs):
         """
+        Update the SELECT clause of this Query.
+        Args:
+            fields: A list of String, where each String correspond to a Field name.
+        Returns:
+            The updated Query instance.
         """
         clear = kwargs.get('clear', False)
         # We might raise an Exception for other attributes
