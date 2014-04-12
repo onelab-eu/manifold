@@ -505,7 +505,6 @@ class Query(object):
             tmp, = fields
             if tmp is None:
                 # None = '*'
-                Log.warning("select(None)")
                 self.fields = Fields(star = True)
             else:
                 fields = Fields(tmp) if is_iterable(tmp) else Fields([tmp])
@@ -519,8 +518,7 @@ class Query(object):
         if clear:
             self.fields = Fields(star = False)
         for field in fields:
-            if self.fields:
-                self.fields.add(field)
+            self.fields.add(field)
         return self
 
     def set(self, params, clear = False):

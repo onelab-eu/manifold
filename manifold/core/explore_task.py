@@ -512,8 +512,8 @@ class ExploreTask(Deferred):
         map_method_fields = table.get_annotation()
         ##### print "map_method_fields", map_method_fields
         for method, fields in map_method_fields.items():
-            #Log.tmp("method", method.get_name())
-            #Log.tmp("table", table.get_name())
+            Log.tmp("method", method.get_name())
+            Log.tmp("table", table.get_name())
             if method.get_name() == table.get_name():
                 # The table announced by the platform fits with the 3nf schema
                 # Build the corresponding FROM
