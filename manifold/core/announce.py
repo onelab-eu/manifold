@@ -230,6 +230,7 @@ def make_virtual_announces(platform_name):
             string  table;           /**< The name of the object/table.     */
             column  columns[];       /**< The corresponding fields/columns. */
             string  capabilities[];  /**< The supported capabilities        */
+            string  key;
 
             CAPABILITY(retrieve);
             KEY(table);
