@@ -11,13 +11,20 @@
 #
 # Copyright (C) 2013 UPMC
 
+import threading
 from types                              import StringTypes
 #from twisted.internet                  import reactor
 
+from manifold.core.announce             import Announces
+from manifold.core.fields               import Fields
+from manifold.core.query                import Query
 from manifold.gateways                  import Gateway
+from manifold.util.callback             import Callback
 from manifold.util.log                  import Log
 from manifold.util.reactor_thread       import ReactorThread, ReactorException
 from manifold.util.type                 import accepts, returns
+
+GUEST_AUTH = {'AuthMethod': 'anonymous'}
 
 TIMEOUT = 3 # in seconds
 
@@ -33,6 +40,52 @@ class ManifoldGateway(Gateway):
             platform_config: A dictionnary containing the configuration related to this Gateway.
         """
         super(ManifoldGateway, self).__init__(interface, platform, platform_config)
+
+        from twisted.web import xmlrpc
+        from twisted.internet import ssl
+
+        class Proxy(xmlrpc.Proxy):
+            ''' See: http://twistedmatrix.com/projects/web/documentation/howto/xmlrpc.html
+                this is eacly like the xmlrpc.Proxy included in twisted but you can
+                give it a SSLContext object insted of just accepting the defaults..
+            '''
+            def setSSLClientContext(self,SSLClientContext):
+                self.SSLClientContext = SSLClientContext
+
+            def callRemote(self, method, *args):
+                def cancel(d):
+                    factory.deferred = None
+                    connector.disconnect()
+                factory = self.queryFactory(
+                    self.path, self.host, method, self.user,
+                    self.password, self.allowNone, args, cancel, self.useDateTime)
+                #factory = xmlrpc._QueryFactory(
+                #    self.path, self.host, method, self.user,
+                #    self.password, self.allowNone, args)
+
+                self.connectTimeout = TIMEOUT
+                if self.secure:
+                    try:
+                        self.SSLClientContext
+                    except NameError:
+                        print "Must Set a SSL Context"
+                        print "use self.setSSLClientContext() first"
+                        # Its very bad to connect to ssl without some kind of
+                        # verfication of who your talking to
+                        # Using the default sslcontext without verification
+                        # Can lead to man in the middle attacks
+                    ReactorThread().connectSSL(self.host, self.port or 443,
+                                       factory, self.SSLClientContext,
+                                       timeout=self.connectTimeout)
+
+                else:
+                    ReactorThread().connectTCP(self.host, self.port or 80, factory, timeout=self.connectTimeout)
+                return factory.deferred
+
+        self._proxy = Proxy(self._platform_config['url'].encode('latin-1'), allowNone = True)
+        ctx = ssl.ClientContextFactory()
+        self._proxy.setSSLClientContext(ctx)
+
         ReactorThread().start_reactor()
 
     def terminate(self):
@@ -83,66 +136,31 @@ class ManifoldGateway(Gateway):
         annotation = packet.get_annotation()
         receiver = packet.get_receiver()
 
-        from twisted.web import xmlrpc
-        class Proxy(xmlrpc.Proxy):
-            ''' See: http://twistedmatrix.com/projects/web/documentation/howto/xmlrpc.html
-                this is eacly like the xmlrpc.Proxy included in twisted but you can
-                give it a SSLContext object insted of just accepting the defaults..
-            '''
-            def setSSLClientContext(self,SSLClientContext):
-                self.SSLClientContext = SSLClientContext
-
-            def callRemote(self, method, *args):
-                def cancel(d):
-                    factory.deferred = None
-                    connector.disconnect()
-                factory = self.queryFactory(
-                    self.path, self.host, method, self.user,
-                    self.password, self.allowNone, args, cancel, self.useDateTime)
-                #factory = xmlrpc._QueryFactory(
-                #    self.path, self.host, method, self.user,
-                #    self.password, self.allowNone, args)
-
-                self.connectTimeout = TIMEOUT
-                if self.secure:
-                    try:
-                        self.SSLClientContext
-                    except NameError:
-                        print "Must Set a SSL Context"
-                        print "use self.setSSLClientContext() first"
-                        # Its very bad to connect to ssl without some kind of
-                        # verfication of who your talking to
-                        # Using the default sslcontext without verification
-                        # Can lead to man in the middle attacks
-                    ReactorThread().connectSSL(self.host, self.port or 443,
-                                       factory, self.SSLClientContext,
-                                       timeout=self.connectTimeout)
-
-                else:
-                    ReactorThread().connectTCP(self.host, self.port or 80, factory, timeout=self.connectTimeout)
-                return factory.deferred
-
-        #try:
-        #    def wrap(source):
-        proxy = Proxy(self._platform_config['url'].encode('latin-1'), allowNone = True)
-        #query = source.query
-        auth = {'AuthMethod': 'guest'}
-
-        deferred = proxy.callRemote(
+        deferred = self._proxy.callRemote(
             'forward',
             query.to_dict(),
-            {'authentication': auth}
+            {'authentication': GUEST_AUTH}
         )
         deferred.addCallback(self.callback_records, packet)
         deferred.addErrback(self.callback_error, packet)
 
-            #reactor.callFromThread(wrap, self) # run wrap(self) in the event loop
-        #    wrap(self)
-        #    print "done wrap"
-        #
-        #except Exception, e:
-        #    print "Exception in Manifold::start", e
+    @returns(Announces)
+    def make_announces(self):
+        """
+        Returns:
+            The Announce related to this object.
+        """
+        cb = Callback()
+        def errb(failure):
+            print "errb", failure
+            event.set()
 
-#DEPRECATED|    def get_metadata(self):
-#DEPRECATED|        pass
+        # qualifier name type description is_array # XXX missing origin
+        query_metadata = Query.get('local:object').select('table', 'columns', 'key', 'capabilities').to_dict()
+        deferred = self._proxy.callRemote('forward', query_metadata, {'authentication': GUEST_AUTH})
+        deferred.addCallback(cb)
+        deferred.addErrback(errb)
 
+        result_value = cb.get_results()
+        # XXX Error handling
+        return Announces.from_dict_list(result_value['value'], self.get_platform_name())
