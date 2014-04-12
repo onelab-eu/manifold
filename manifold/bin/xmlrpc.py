@@ -24,7 +24,7 @@ from manifold.util.filesystem       import ensure_writable_directory, ensure_key
 from manifold.util.log              import Log
 from manifold.util.options          import Options
 from manifold.util.type             import returns, accepts
-from manifold.util.reactor_wrapper  import ReactorWrapper as ReactorThread
+from manifold.util.reactor_thread   import ReactorThread # reactor_wrapper  import ReactorWrapper as ReactorThread
 
 # Let's try to load this before twisted
 
