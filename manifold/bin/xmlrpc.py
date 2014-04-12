@@ -178,8 +178,9 @@ class XMLRPCDaemon(Daemon):
         from manifold.core.xmlrpc_api   import XMLRPCAPI
 
         allowed_capabilities = XMLRPCDaemon.make_capabilities()
-        # XXX This should be replaced by a client
-        self.interface = XMLRPCDaemon.make_router(allowed_capabilities)
+
+        from manifold.clients.deferred_router import ManifoldDeferredRouterClient
+        self.interface = ManifoldDeferredRouterClient()
 
         # SSL support
 

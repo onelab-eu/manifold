@@ -115,15 +115,20 @@ class XMLRPCAPI(xmlrpc.XMLRPC, object):
                 msg = "Authentication failed: %s" % e
                 return dict(ResultValue.error(msg, FORBIDDEN))
 
-        query = Query(query)
+        # self.interface is a ManifoldDeferredRouterClient, it returns a deferred
         annotation = Annotation(annotation) if annotation else Annotation()
         annotation['user'] = user
-        receiver = DeferredReceiver()
+        return self.interface.forward(query, annotation)
 
-        packet = QueryPacket(query, annotation, receiver = receiver)
-        self.interface.receive(packet)
-
-        return receiver.get_deferred()
+#DEPRECATED|        query = Query(query)
+#DEPRECATED|        annotation = Annotation(annotation) if annotation else Annotation()
+#DEPRECATED|        annotation['user'] = user
+#DEPRECATED|        receiver = DeferredReceiver()
+#DEPRECATED|
+#DEPRECATED|        packet = QueryPacket(query, annotation, receiver = receiver)
+#DEPRECATED|        self.interface.receive(packet)
+#DEPRECATED|
+#DEPRECATED|        return receiver.get_deferred()
 
     def _xmlrpc_action(self, action, *args):
         Log.info("_xmlrpc_action")
