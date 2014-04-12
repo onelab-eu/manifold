@@ -1,4 +1,5 @@
 import threading
+from manifold.core.record import Record
 
 #------------------------------------------------------------------
 # Class callback
@@ -27,7 +28,7 @@ class Callback:
         self.cache_id = cache_id
 
     def __call__(self, record):
-        if isinstance(record, dict):
+        if not isinstance(record, Record):
             # as used in manifold_xmlrpc
             self.results = record
             self.event.set()

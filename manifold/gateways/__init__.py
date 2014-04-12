@@ -146,9 +146,13 @@ class Gateway(Node):
         # We do not instanciate make_announces in __init__
         # to allow child classes to tweak their metadata.
         if not self._announces:
-            virtual_announces  = make_virtual_announces(self.get_platform_name())
-            platform_announces = self.make_announces()
-            self._announces = merge_announces(virtual_announces, platform_announces)
+            try:
+                virtual_announces  = make_virtual_announces(self.get_platform_name())
+                platform_announces = self.make_announces()
+                self._announces = merge_announces(virtual_announces, platform_announces)
+            except:
+                Log.warning("Could not get announces from platform %s. It won't be active" % self.get_platform_name())
+                self._announces = Announces()
 
         return self._announces
 
