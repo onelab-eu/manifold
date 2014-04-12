@@ -64,7 +64,6 @@ class ReactorThread(threading.Thread):
         return self._reactorRunning
 
     def start_reactor(self):
-        #print "start reactor"
         self._num_instances += 1
 
         if self._reactorStarted:
