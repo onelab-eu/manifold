@@ -107,14 +107,18 @@ class ManifoldGateway(Gateway):
         """
         return "<ManifoldGateway %s>" % (self._platform_config['url'])
 
-    def callback_records(self, rows, packet):
+    def callback_records(self, result_value, packet):
         """
         (Internal usage) See ManifoldGateway::receive_impl.
         Args:
             packet: A QUERY Packet.
             rows: The corresponding list of dict or Record instances.
         """
-        self.records(rows, packet)
+        if not 'code' in result_value:
+            raise Exception, "Invalid result value"
+        if result_value['code'] != 0:
+            raise Exception, "Error while repatriating metadata"
+        self.records(result_value['value'], packet)
 
     def callback_error(self, error, packet):
         """
@@ -158,11 +162,13 @@ class ManifoldGateway(Gateway):
 
         # qualifier name type description is_array # XXX missing origin
         query_metadata = Query.get('local:object').select('table', 'columns', 'key', 'capabilities').to_dict()
-        deferred = self._proxy.callRemote('forward', query_metadata, {'authentication': GUEST_AUTH})
-        deferred.addCallback(cb)
+
         def errb(failure):
             print "failure:", failure
             cb([])
+
+        deferred = self._proxy.callRemote('forward', query_metadata, {'authentication': GUEST_AUTH})
+        deferred.addCallback(cb)
         deferred.addErrback(errb)
 
         result_value = cb.get_results()

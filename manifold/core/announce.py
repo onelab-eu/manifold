@@ -106,7 +106,6 @@ class Announce(Packet):
 
     @classmethod
     def from_dict(cls, dic, platform_name):
-        print "ANNOUNCES FROM DICT", dic
         if dic['table'] in ['object', 'column', 'gateway']:
             return None
 
@@ -189,21 +188,13 @@ class Announces(list):
 
     @classmethod
     def from_dict_list(cls, dict_list, platform_name):
-        announces = cls()
+        announces = Announces()
         
         for dic in dict_list:
             announce = Announce.from_dict(dic, platform_name)
-            print "announce", announce
             if announce:
                 announces.append(announce)
-                print "announces", announces
 
-        try:
-            print "ANNOUNCES"
-            import pprint
-            pprint.pprint(announces)
-        except Exception, e:
-            print "ee", e
         return announces
 
     @classmethod
@@ -250,7 +241,7 @@ class Announces(list):
         Returns:
             The '%r' representation of this Announce.
         """
-        return "<Announces %r>" % self
+        return "<Announces %r>" % list(self)
 
     def __str__(self):
         return "\n".join(str(x) for x in self)

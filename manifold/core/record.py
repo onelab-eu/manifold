@@ -78,13 +78,16 @@ class Record(Packet):
         """
         dic = dict() 
         if self._record:
-            for k, v in self._record.iteritems():
-                if isinstance(v, Record):
-                    dic[k] = v.to_dict()
-                elif isinstance(v, Records):
-                    dic[k] = v.to_list()
-                else:
-                    dic[k] = v
+            try:
+                for k, v in self._record.iteritems():
+                    if isinstance(v, Record):
+                        dic[k] = v.to_dict()
+                    elif isinstance(v, Records):
+                        dic[k] = v.to_list()
+                    else:
+                        dic[k] = v
+            except:
+                import pdb; pdb.set_trace()
         return dic
 
     @returns(bool)

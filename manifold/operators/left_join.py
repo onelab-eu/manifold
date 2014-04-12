@@ -346,9 +346,9 @@ class LeftJoin(Operator, LeftRightSlotMixin):
 
         # Classify predicates...
         for predicate in filter:
-            if predicate.get_field_names() < left_fields:
+            if predicate.get_field_names() <= left_fields:
                 left_filter.add(predicate)
-                if predicate.get_field_names() < right_fields:
+                if predicate.get_field_names() <= right_fields:
                     right_filter.add(predicate)
             elif right_join and predicate.get_field_names() < right_fields:
                 right_filter.add(predicate)

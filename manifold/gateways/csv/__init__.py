@@ -89,7 +89,7 @@ class CSVGateway(Gateway):
             packet: A QUERY Packet instance.
         """
         query = packet.get_query()
-        Log.tmp("query = %s" % query)
+        #Log.tmp("query = %s" % query)
         table_name = query.get_from()
         platform_config = self.get_config()
 
