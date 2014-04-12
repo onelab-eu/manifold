@@ -66,15 +66,23 @@ class ManifoldRouterClient(ManifoldClient):
         assert not platform_names or isinstance(platform_names, (frozenset, set)),\
             "Invalid platform_names = %s (%s)" % (platform_names, type(platform_names))
 
+        ERR_CANNOT_LOAD_STORAGE = "Cannot load storage"
+
         from manifold.bin.config import MANIFOLD_STORAGE
+
+        # Register ALL the platform configured in the Storage. 
+        query = Query.get("platform")
+        platforms_storage = execute_query(MANIFOLD_STORAGE.get_gateway(), query, ERR_CANNOT_LOAD_STORAGE)
+        for platform in platforms_storage:
+            self.router.register_platform(platform)
 
         # Fetch enabled Platforms from the Storage...
         if not platform_names:
-            query = Query.get('platform').filter_by("disabled", eq, False)
-            platforms_storage = execute_query(MANIFOLD_STORAGE.get_gateway(), query, 'Cannot load storage')
+            query = Query.get("platform").select("platform").filter_by("disabled", eq, False)
+            platforms_storage = execute_query(MANIFOLD_STORAGE.get_gateway(), query, ERR_CANNOT_LOAD_STORAGE)
         else:
-            query = Query.get('platform').filter_by("platform", included, platform_names)
-            platforms_storage = execute_query(MANIFOLD_STORAGE.get_gateway(), query, 'Cannot load storage')
+            query = Query.get("platform").select("platform").filter_by("platform", included, platform_names)
+            platforms_storage = execute_query(MANIFOLD_STORAGE.get_gateway(), query, ERR_CANNOT_LOAD_STORAGE)
 
             # Check whether if all the requested Platforms have been found in the Storage.
             platform_names_storage = set([platform["platform"] for platform in platforms_storage])
@@ -82,12 +90,7 @@ class ManifoldRouterClient(ManifoldClient):
             if platform_names_missing:
                 Log.warning("The following platform names are undefined in the Storage: %s" % platform_names_missing)
 
-        # ... and register them in this Router.
-        for platform in platforms_storage:
-            self.router.register_platform(platform)
-
-        # Enabled/disable Platforms related to this Router
-        # according to this new set of Platforms.
+        # Load/unload platforms managed by the router (and their corresponding Gateways) consequently 
         self.router.update_platforms(platforms_storage)
 
         # Load policies from Storage
