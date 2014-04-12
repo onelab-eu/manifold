@@ -512,8 +512,8 @@ class ExploreTask(Deferred):
         map_method_fields = table.get_annotation()
         ##### print "map_method_fields", map_method_fields
         for method, fields in map_method_fields.items():
-            Log.tmp("method", method.get_name())
-            Log.tmp("table", table.get_name())
+            #Log.tmp("method", method.get_name())
+            #Log.tmp("table", table.get_name())
             if method.get_name() == table.get_name():
                 # The table announced by the platform fits with the 3nf schema
                 # Build the corresponding FROM
@@ -560,31 +560,33 @@ class ExploreTask(Deferred):
 #DISABLED|                except AttributeError:
 #DISABLED|                    pass
             else:
-                # The table announced by the platform doesn't fit with the 3nf schema
-                # Build a FROMTABLE + DUP(best_key) + SELECT(best_key u {fields}) branch
-                # and plug it to the above the DEMUX node referenced in map_method_demux
-                # Ask this FROM node for fetching fields
-                demux_node = map_method_demux[method]
-                from_node = demux_node.get_child()
-                key_dup = map_method_bestkey[method]
-                select_fields = list(set(fields) | set(key_dup))
-                from_node.add_fields_to_query(fields)
+#BUG                # The table announced by the platform doesn't fit with the 3nf schema
+#BUG                # Build a FROMTABLE + DUP(best_key) + SELECT(best_key u {fields}) branch
+#BUG                # and plug it to the above the DEMUX node referenced in map_method_demux
+#BUG                # Ask this FROM node for fetching fields
+#BUG                demux_node = map_method_demux[method]
+#BUG                from_node = demux_node.get_child()
+#BUG                key_dup = map_method_bestkey[method]
+#BUG                select_fields = list(set(fields) | set(key_dup))
+#BUG                from_node.add_fields_to_query(fields)
+#BUG
+#BUG                print "FROMTABLE -- DUP(%r) -- SELECT(%r) -- %r -- %r" % (key_dup, select_fields, demux_node, from_node)
+#BUG
+#BUG                # Build a new AST (the branch we'll add) above an existing FROM node
+#BUG#                from_ast = AST(self._interface, user = user)
+#BUG                from_ast = AST(self._interface)
+#BUG                from_ast.root = demux_node
+#BUG                Log.warning("ExploreTask: TODO: plug callback")
+#BUG                #TODO from_node.addCallback(from_ast.callback)
+#BUG
+#BUG#DEPRECATED|                query_plan.add_from(from_ast.get_root())
+#BUG
+#BUG                # Add DUP and SELECT to this AST
+#BUG                from_ast.dup(key_dup).projection(select_fields)
+                    from_ast = None
 
-                print "FROMTABLE -- DUP(%r) -- SELECT(%r) -- %r -- %r" % (key_dup, select_fields, demux_node, from_node)
-
-                # Build a new AST (the branch we'll add) above an existing FROM node
-#                from_ast = AST(self._interface, user = user)
-                from_ast = AST(self._interface)
-                from_ast.root = demux_node
-                Log.warning("ExploreTask: TODO: plug callback")
-                #TODO from_node.addCallback(from_ast.callback)
-
-#DEPRECATED|                query_plan.add_from(from_ast.get_root())
-
-                # Add DUP and SELECT to this AST
-                from_ast.dup(key_dup).projection(select_fields)
-
-            from_asts.append(from_ast)
+            if from_ast:
+                from_asts.append(from_ast)
 
         # Add the current table in the query plane
         # Process this table, which is the root of the 3nf tree
