@@ -169,8 +169,8 @@ class ExploreTask(Deferred):
         root_provided_fields = self.root.get_field_names()
 
         # We might also query foreign keys of backward links
-        for neighbour in metadata.graph.successors(self.root):
-            for relation in metadata.get_relations(self.root, neighbour):
+        for neighbour in sorted(metadata.graph.successors(self.root)):
+            for relation in sorted(metadata.get_relations(self.root, neighbour)):
                 if relation.get_type() == Relation.types.LINK_1N_BACKWARDS:
                     relation_name = relation.get_relation_name()
                     if relation_name not in missing_fields:

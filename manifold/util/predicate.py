@@ -112,7 +112,7 @@ class Predicate:
         key, op, value = self.get_str_tuple()
         if isinstance(value, (tuple, list, set, frozenset)):
             value = [repr(v) for v in value]
-            value = "[%s]" % ", ".join(value)
+            value = "(%s)" % ", ".join(value)
         return "%s %s %r" % (key, op, value) 
 
     def __hash__(self):
