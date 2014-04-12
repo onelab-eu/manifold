@@ -166,7 +166,7 @@ class Router(Interface):
         """
         assert set(self.gateways.keys()) == set(self.announces.keys())
 
-        platform_names_loaded  = set([platform["platform"] for platform in self.gateways.keys()])
+        platform_names_loaded  = set([platform["platform"] for platform in self.get_loaded_platform_names()])
         platform_names_enabled = set([platform["platform"] for platform in platforms_enabled])
 
         platform_names_del     = platform_names_loaded  - platform_names_enabled
@@ -178,7 +178,7 @@ class Router(Interface):
         for platform_name in platform_names_add:
             try:
                 self.enable_platform(platform_name)
-            except Exception, e:
+            except RuntimeError, e:
                 Log.warning(traceback.format_exc())
                 Log.warning("Cannot enable platform '%s': %s" % (platform_name, e))
                 pass
@@ -286,6 +286,22 @@ class ip {
             del self.announces[platform_name]
         except:
             Log.error("Cannot remove %s from %s" % (platform_name, self.announces))
+
+    @returns(set)
+    def get_loaded_platform_names(self):
+        """
+        Returns:
+            A set of String where each String is a platform name.
+        """
+        platform_names1 = set(self.gateways.keys())
+        platform_names2 = set(self.announces.keys())
+        if platform_names1 != platform_names2:
+            raise RuntimeError(
+                "This Router is not in a consistent state: %s != %s",
+                platform_names1,
+                platform_names2
+            )
+        return platform_names1
 
     def register_platform(self, platform):
         """
@@ -449,6 +465,7 @@ class ip {
 #DEPRECATED|        """
 #DEPRECATED|        """
         # Build the AST and retrieve the corresponding root_node Operator instance.
+        Log.warning("why don't we check the type of Packet ?")
         query      = packet.get_query()
         annotation = packet.get_annotation()
         receiver   = packet.get_receiver()
@@ -456,12 +473,70 @@ class ip {
         try:
 
             namespace = query.get_namespace()
+
             dbgraph = self._local_dbgraph if namespace == LOCAL_NAMESPACE else self._dbgraph
 
             root_node = self._operator_graph.build_query_plan(query, annotation, dbgraph)
 
             print "QUERY PLAN:"
             print root_node.format_downtree()
+
+            # << Hook on local:platform
+            if namespace == LOCAL_NAMESPACE and query.get_from() == "platform":
+                try:
+                    Log.tmp("hook local:platform")
+                    from query                      import ACTION_UPDATE, ACTION_DELETE, ACTION_CREATE
+                    from operator                   import eq
+                    from manifold.util.predicate    import included
+                    impacted_platforms = set()
+
+                    # This assumes that we handle WHERE platform == "foo"
+                    for predicate in query.get_where():
+                        if predicate.get_key() == "platform":
+                            value = predicate.get_value()
+                            if predicate.get_op() == eq:
+                                impacted_platforms.add(value)
+                            elif predicate.get_op() == contains:
+                                impacted_platforms |= set(value)
+
+                    if impacted_platforms != set():
+
+                        # UDATE
+                        if query.get_action() == ACTION_UPDATE:
+                            params = query.get_params()
+                            if "disabled" in params.keys():
+                                becomes_disabled = (params["disabled"] == 1)
+                                for platform_name in impacted_platforms:
+                                    if becomes_disabled:
+                                        self.disable_platform(platform_name)
+                                    else:
+                                        try:
+                                            self.enable_platform(platform_name)
+                                        except RuntimeError:
+                                            Log.warning("Cannot enabled %s (probably because it was disabled while booting the router)" % platform_name)
+                        # DELETE
+                        elif query.get_action() == ACTION_DELETE:
+                            for platform_name in impacted_platforms:
+                                self.disable_platform(platform_name)
+
+                        # INSERT
+                        elif query.get_action() == ACTION_CREATE:
+                            self.register_platform(query.get_params())
+                            try:
+                                if query.get_params()["disabled"] == 1:
+                                    self.enable_platform(platform_name)
+                            except:
+                                pass
+
+                        # SELECT, ...
+                        else:
+                            pass
+
+                    Log.info("loaded platforms are now: {%s}" % ", ".join(self.get_loaded_platform_names()))
+                except Exception, e:
+                    Log.error(e)
+                    raise e
+            # >> Hook on local:platform
 
             receiver._set_child(root_node)
         except Exception, e:

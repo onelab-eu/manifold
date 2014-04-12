@@ -38,7 +38,7 @@ Add a platform to Manifold
             "default" :
             "user"    : The platform expect user's credentials.
     CONFIG        : A json encoded dict which may transports additional information
-        related to this platform.
+        related to this platform. Pass "{}" if not needed.
     DISABLED      : Disable this new platform in Manifold (default: 1)
         0: enabled
         1: disabled
@@ -65,7 +65,6 @@ You can now turn on/off '%(platform_name)s' by running:
 
     manifold-enable-platform %(platform_name)s
     manifold-disable-platform %(platform_name)s
-
 """
 
 CMD_GET_GATEWAYS = """

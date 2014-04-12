@@ -164,6 +164,7 @@ class QueryPlan(object):
             # foreign_key_fields are fields added because indirectly requested by the user.
             # For example, he asked for slice.resource, which in fact will contain slice.resource.urn
 
+            Log.tmp("missing_fields = %s task = %s" % (missing_fields, task))
             foreign_key_fields = task.explore(stack, missing_fields, db_graph, allowed_platforms, allowed_capabilities, user, seen[pathstr], query_plan = self)
 
             self.foreign_key_fields.update(foreign_key_fields)
@@ -171,6 +172,7 @@ class QueryPlan(object):
         # Cancel every remaining ExploreTasks, we cannot found additional
         # queried fields.
         while not stack.is_empty():
+            Log.tmp("stack= %s" % stack)
             task = stack.pop()
             task.cancel()
 

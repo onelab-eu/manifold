@@ -656,7 +656,18 @@ class Table(object):
         v_key = v.keys.one()
 
         if u.get_name() == v.get_name():
-            p = Predicate(u_key.get_name(), eq, v_key.get_name())
+            if u_key.is_composite() or v_key.is_composite():
+                Log.warning("@jordan; this allows to run manifold-router, but it should also works for non-composite keys, which is not the case")
+                if u_key.is_composite() != v_key.is_composite():
+                    Log.warning("strange, only one of those keys is composite: u_key == %s  v_key = %s" % (u_key, v_key))
+                p = Predicate(
+                    tuple(sorted(u_key.get_field_names())),
+                    eq,
+                    tuple(sorted(v_key.get_field_names()))
+                )
+            else:
+                p = Predicate(u_key.get_name(), eq, v_key.get_name())
+
             if u.get_platforms() > v.get_platforms():
                 relations.add(Relation(Relation.types.PARENT, p))
             #else:
