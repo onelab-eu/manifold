@@ -106,6 +106,7 @@ class Announce(Packet):
 
     @classmethod
     def from_dict(cls, dic, platform_name):
+        print "ANNOUNCES FROM DICT", dic
         if dic['table'] in ['object', 'column', 'gateway']:
             return None
 
@@ -192,9 +193,17 @@ class Announces(list):
         
         for dic in dict_list:
             announce = Announce.from_dict(dic, platform_name)
+            print "announce", announce
             if announce:
                 announces.append(announce)
+                print "announces", announces
 
+        try:
+            print "ANNOUNCES"
+            import pprint
+            pprint.pprint(announces)
+        except Exception, e:
+            print "ee", e
         return announces
 
     @classmethod

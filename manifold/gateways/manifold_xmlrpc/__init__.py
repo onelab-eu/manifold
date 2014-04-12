@@ -160,7 +160,10 @@ class ManifoldGateway(Gateway):
         query_metadata = Query.get('local:object').select('table', 'columns', 'key', 'capabilities').to_dict()
         deferred = self._proxy.callRemote('forward', query_metadata, {'authentication': GUEST_AUTH})
         deferred.addCallback(cb)
-        deferred.addErrback(lambda failure: cb([]))
+        def errb(failure):
+            print "failure:", failure
+            cb([])
+        deferred.addErrback(errb)
 
         result_value = cb.get_results()
         if not 'code' in result_value:

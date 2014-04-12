@@ -727,6 +727,8 @@ def to_3nf(metadata):
                         platforms.add(method.get_platform())
 
             table = Table(platforms, table_name, fields, keys)
+
+            # XXX Hardcoded capabilities in 3nf tables
             table.capabilities.retrieve   = True
             table.capabilities.join       = True
             table.capabilities.selection  = True
@@ -798,10 +800,13 @@ def to_3nf(metadata):
             # Inject field and key annotation in the Table object
             table.map_method_keys   = dict() #map_common_method_keys
             table.map_method_fields = map_common_method_fields
+
+            # XXX Hardcoded capabilities in 3nf tables
             table.capabilities.retrieve   = True
             table.capabilities.join       = True
             table.capabilities.selection  = True
             table.capabilities.projection = True
+
             tables_3nf.append(table)
             Log.debug("TABLE 3nf:", table, table.get_keys())
             #print "     method fields", map_common_method_fields
