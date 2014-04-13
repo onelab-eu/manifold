@@ -650,7 +650,6 @@ def to_3nf(metadata):
             # XXX local aspect is local during normalization, unless we store it
             # in FD
             if table.keys.is_local(): # and not table.keys:
-                print "LOCAL TABLE",table
                 local_tables.append(table)
             else:
                 tables.append(table)
@@ -666,15 +665,6 @@ def to_3nf(metadata):
     # 4) Grouping fds by method
 #OBOSOLETE|    fdss = fds_min_cover.group_by_method() # Mando
     fdss = fds_min_cover.group_by_tablename_method() # Jordan
-    print "FDSS"
-    for k, v in fdss.items():
-        print k
-        for kk, vv in v.items():
-            print "\t", v
-            for vvv in vv:
-                print "\t\t", vvv
-            print "." * 80
-        print "#" * 80
 
     # 5) Making 3-nf tables
     tables_3nf = list()
