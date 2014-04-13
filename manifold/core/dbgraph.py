@@ -233,7 +233,8 @@ class DBGraph(object):
                 if parent.get_name() == table.get_name():
                     keep = False
             if keep:
-                t = Table(None, table.get_name(), set(self.get_fields(table)), table.get_keys())
+                fields = set(self.get_fields(table))
+                t = Table(None, table.get_name(), fields, table.get_keys())
                 
                 # XXX We hardcode table capabilities
                 t.capabilities.retrieve   = True

@@ -206,6 +206,7 @@ class Table(object):
         """
         if field.get_name() in self.fields:
             Log.warning("duplicate field")
+            return
         self.fields[field.get_name()] = field
 
     @returns(set)
