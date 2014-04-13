@@ -155,7 +155,7 @@ class TeamCymruGateway(Gateway):
             };
 
             class as {
-                const string asn;
+                as asn;
                 const string as_name;
 
                 CAPABILITY(join);
