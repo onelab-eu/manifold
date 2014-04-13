@@ -204,6 +204,8 @@ class Table(object):
         Args:
             field: A Field instance
         """
+        if field.get_name() in self.fields:
+            Log.warning("duplicate field")
         self.fields[field.get_name()] = field
 
     @returns(set)
