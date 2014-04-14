@@ -43,7 +43,6 @@ class QueryHandler(asynchat.async_chat, ChildSlotMixin):
     STATE_PACKET = State()
 
     def __init__(self, conn, addr, callback):
-        print "NEW QUERY HANDLER"
         asynchat.async_chat.__init__ (self, conn)
         ChildSlotMixin.__init__(self) # XXX
         self.addr = addr
@@ -56,29 +55,24 @@ class QueryHandler(asynchat.async_chat, ChildSlotMixin):
         self.callback = callback
 
     def collect_incoming_data(self, data):
-        print "got data", data
         self._receive_buffer.append (data)
 
     def found_terminator(self):
-        print "found term"
         self._receive_buffer, data = [], ''.join(self._receive_buffer)
 
         if self.pstate is self.STATE_LENGTH:
             packet_length = int(data, 16)
             self.set_terminator(packet_length)
             self.pstate = self.STATE_PACKET
-            print "got length"
         else:
             self.set_terminator (8)
             self.pstate = self.STATE_LENGTH
 
             packet = Packet.deserialize(data)
-            print "got packet", packet
 
             self.callback(self.addr, packet, receiver = self) or ""
 
     def receive(self, packet):
-        print "receive", packet
         packet_str = packet.serialize()
         self.push(('%08x' % len(packet_str)) + packet_str)
 
@@ -106,7 +100,6 @@ class RouterServer(asyncore.dispatcher):
 #DEPRECATED|        self._router.add_platform('agent2', 'manifold', {'url': 'http://planetlab2.cs.du.edu:58000/RPC/'})
         self._router.add_platform('maxmind', 'maxmind')
 
-        print "create socket"
         self.create_socket(socket.AF_UNIX, socket.SOCK_STREAM)
         self.set_reuse_addr()
         self.bind(self._socket_path)
@@ -121,9 +114,7 @@ class RouterServer(asyncore.dispatcher):
         return self._socket_path
 
     def handle_accept(self):
-        print "accept"
         conn, addr = self.accept()
-        print "accept 2"
         return QueryHandler(conn, addr, self.on_received)
 
     def on_received(self, addr, packet, receiver):
@@ -180,7 +171,6 @@ class RouterDaemon(Daemon):
 
         # Running the server
         try:
-            print "loop"
             asyncore.loop()
         finally:
             self._router_server.terminate()
