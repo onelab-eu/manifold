@@ -78,6 +78,9 @@ class ProcessGateway(Gateway):
     def parse(self, filename):
         return self.output._parser().parse(open(filename).read())
 
+    def on_receive_query(self, query, annotation):
+        return None
+
     def receive_impl(self, packet):
         """
         Handle a incoming QUERY Packet.
@@ -85,9 +88,14 @@ class ProcessGateway(Gateway):
             packet: A QUERY Packet instance.
         """
         query       = packet.get_query()
-        annotation  = packet.get_annotation()
+        annotation = packet.get_annotation()
 
-        output = list()
+
+        # We leave the process a chance to return records without executing
+        output = self.on_receive_query(query, annotation)
+        if output:
+            self.records(output, packet)
+            return
 
         # We have a single table per tool gateway
         # table_name = query.get_from()
@@ -96,10 +104,12 @@ class ProcessGateway(Gateway):
         # At the moment, we cannot have more than ONE value for each
         # parameter/filter XXX XXX XXX XXX
 
+        output = list()
+
         # ( arg tuples, parameters )
         args_params_list = self.get_argtuples(query, annotation)
         for args_params in args_params_list:
-            args = (self.get_fullpath(),) + arg_tuples
+            args = (self.get_fullpath(),) + args_params[0]
 
             if self.__parser_expects_string__:
                 ret, out = self.execute_process(args)
@@ -109,11 +119,12 @@ class ProcessGateway(Gateway):
                 ret = self.execute_process(args, tmp_filename)
                 rows = self.parse(tmp_filename) if ret >= 0 else None
 
-            for row in rows:
-                record = dict()
-                record.update(params)
-                record.update(row)
-                output.append(row)
+            if rows:
+                for row in rows:
+                    record = dict()
+                    record.update(args_params[1])
+                    record.update(row)
+                    output.append(record)
 
         self.records(output, packet)
 
@@ -150,7 +161,7 @@ class ProcessGateway(Gateway):
                 value = None
 
 
-                # Check whether the field is specified in params (or annotations)...
+                # Check whether the field is specified in params (or annotation)...
                 if flags & FLAG_IN_PARAMS:
                     value = query.get_params().get(name)
                 # ... or as a filter
@@ -173,17 +184,18 @@ class ProcessGateway(Gateway):
                     short = process_field.get_short()
                     if value:
                         value = str(value)
+                        params[name] = value
                         prefix = process_field.get_prefix()
                         if prefix:
                             value = "%s%s" % (prefix, value)
                         args += (short, value)
                 else:
                     prefix = process_field.get_prefix()
+                    params[name] = value
                     if prefix:
                         value = "%s%s" % (prefix, value)
                     args += (value,)
 
-                params[name] = value
 
         return [(args, params)]
 
@@ -204,10 +216,8 @@ class ProcessGateway(Gateway):
                 finally:
                     if f: f.close()
             else:
-                print "PIPE"
                 self._process = subprocess.Popen(args, stdout=subprocess.PIPE, stderr = None)
                 output = self._process.stdout.read()
-                print "OUTPUT=", output
 
             try:
                 ret = self._process.returncode
