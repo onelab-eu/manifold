@@ -131,7 +131,7 @@ class ExploreTask(Deferred):
         Returns:
             foreign_key_fields
         """
-        #Log.tmp("Search in", self.root.get_name(), "for fields", missing_fields, 'path=', self.path, "SEEN SET =", seen_set, "depth=", self.depth)
+        Log.tmp("Search in", self.root.get_name(), "for fields", missing_fields, 'path=', self.path, "SEEN SET =", seen_set, "depth=", self.depth)
         relations_11, relations_1N, relations_1Nsq = (), {}, {}
         deferred_list = []
 
@@ -167,7 +167,7 @@ class ExploreTask(Deferred):
 #DEPRECATED|         # process results
 
         root_provided_fields = self.root.get_field_names()
-
+        print "root_provided_fields", root_provided_fields
         # We might also query foreign keys of backward links
         for neighbour in sorted(metadata.graph.successors(self.root)):
             for relation in sorted(metadata.get_relations(self.root, neighbour)):
@@ -196,6 +196,7 @@ class ExploreTask(Deferred):
         #....... Rewritten
 
         self.keep_root_a |= missing_parent_fields & root_provided_fields
+        print "FOUND", self.keep_root_a
 
         for f in self.keep_root_a:
             if f in rename and rename[f] is not None:

@@ -36,6 +36,14 @@ class PingParser(object):
         rtt min/avg/max/mdev = 26.464/26.464/26.464/0.000 ms
 
         """
+        #(gromit@ns384702)(~)  ping 193.0.6.139
+        #PING 193.0.6.139 (193.0.6.139) 56(84) bytes of data.
+        #From 195.69.144.68 icmp_seq=2 Packet filtered
+        #^C
+        #--- 193.0.6.139 ping statistics ---
+        #8 packets transmitted, 0 received, +1 errors, 100% packet loss, time
+        #7047ms
+
         BPAR = pp.Literal('(')
         EPAR = pp.Literal(')')
 
