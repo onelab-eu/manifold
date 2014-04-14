@@ -16,14 +16,16 @@ class CacheTarget(Target):
     # else it provides a global cache for non logged in Queries
     def get_cache(self, annotations):
         try:
-            #Log.tmp("----------> CACHE PER USER <------------")
+            Log.tmp("----------> CACHE PER USER <------------")
             #Log.tmp(annotations)
             user_id = annotations['user']['user_id']
+            Log.tmp(self._cache_user)
             if 'user_id' not in self._cache_user:
                 self._cache_user[user_id] = Cache()
+            Log.tmp(self._cache_user)
             return self._cache_user[user_id]
         except:
-            #Log.tmp("----------> NO CACHE PER USER <------------")
+            Log.tmp("----------> NO CACHE PER USER <------------")
             import traceback
             traceback.print_exc()
             return self._cache
