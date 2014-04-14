@@ -180,7 +180,8 @@ class SFAGateway(Gateway):
         elif 'nitlab' in self.config['sm']:
             parser = NITOSParser
         else:
-            parser = LooseParser
+            #parser = LooseParser
+            parser = SFAWrapParser
         defer.returnValue(parser)
 
 ################################################################################
