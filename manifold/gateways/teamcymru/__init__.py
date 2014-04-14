@@ -143,20 +143,20 @@ class TeamCymruGateway(Gateway):
             """
             // See record_by_addr
             class ip {
-                const inet   ip;            /**< Ex: '64.233.161.99'    */
-                as           asn;           /**< Ex: '5511'             */
-                const string prefix;        /**< Ex:                    */
-                const string cc;
-                const string lir;
-                const string date;
+                const inet   ip;            /**< Ex: '132.227.1.1'      */
+                as           asn;           /**< Ex: '1307'             */
+                const string prefix;        /**< Ex: '132.227.0.0/16'   */
+                const string cc;            /**< Ex:  'FR'              */
+                const string lir;           /**< Ex: 'ripencc'          */
+                const string date;          /**< Ex: '2003-11-04'       */
 
                 CAPABILITY(join);
                 KEY(ip);
             };
 
             class as {
-                const string asn;
-                const string as_name;
+                const string asn;           /**< Ex: '5511'             */
+                const string as_name;       /**< Ex: 'RENATER'          */
 
                 CAPABILITY(join);
                 KEY(asn);
