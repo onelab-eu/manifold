@@ -16,12 +16,16 @@ class CacheTarget(Target):
     # else it provides a global cache for non logged in Queries
     def get_cache(self, annotations):
         try:
+            #Log.tmp("----------> CACHE PER USER <------------")
+            #Log.tmp(annotations)
             user_id = annotations['user']['user_id']
-            if 'user_id' not in self._cache:
+            if 'user_id' not in self._cache_user:
                 self._cache_user[user_id] = Cache()
-            else:
-                return self._cache_user[user_id]
+            return self._cache_user[user_id]
         except:
+            #Log.tmp("----------> NO CACHE PER USER <------------")
+            import traceback
+            traceback.print_exc()
             return self._cache
 
     def process_query(self, query, annotations):
@@ -35,8 +39,10 @@ class CacheTarget(Target):
         
         # If Query action is not get (Create, Update, Delete)
         # Invalidate the cache and propagate the Query        
+
+        # TODO: cache.invalidate XXX to be implemented
         if query.get_action() != 'get':
-            cache.invalidate_entry(query)
+            #cache.invalidate_entry(query)
             return (TargetValue.CONTINUE, None)
 
         records = cache.get_best_records(query, allow_processing=True)
