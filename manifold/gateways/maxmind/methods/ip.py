@@ -119,6 +119,7 @@ class Ip(Object):
             class ip {
                 const inet   ip;            /**< Ex: '64.233.161.99'    */
                 const string city;          /**< Ex: 'Mountain View'    */
+                const string region;        /**< Ex: 'A8'               */ 
                 const string region_name;   /**< Ex: 'CA'               */
                 const int    area_code;     /**< Ex: 650                */
                 const double longitude;     /**< Ex: -122.0574          */
@@ -128,7 +129,7 @@ class Ip(Object):
                 const int    dma_code;      /**< Ex: 807                */
                 const string country_code;  /**< Ex: 'US'               */
                 const string country_name;  /**< Ex: 'United States'    */
-
+                const string metro_code;    /**< Ex: '0'                */
                 CAPABILITY(join);
                 KEY(ip);
             };
