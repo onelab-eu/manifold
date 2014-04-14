@@ -651,7 +651,8 @@ class Shell(object):
                             sep = ">>> "
                         else:
                             sep = "... "
-                        line = raw_input(BOLDBLUE + Shell.PROMPT + sep + NORMAL)
+                        line = raw_input(Shell.PROMPT + sep)
+                        #line = raw_input(BOLDBLUE + Shell.PROMPT + sep + NORMAL)
                     # Ctrl-C
                     except KeyboardInterrupt:
                         command = ""
