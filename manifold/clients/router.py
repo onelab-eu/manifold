@@ -54,6 +54,9 @@ class ManifoldRouterClient(ManifoldClient):
     def terminate(self):
         self.router.terminate()
 
+    def get_router(self):
+        return self.router
+
     def load_storage(self, platform_names = None):
         """
         Load from the Storage a set of Platforms.

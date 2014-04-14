@@ -61,14 +61,11 @@ class PasswordAuth(AuthMethod):
         assert self.auth.has_key('Username')
         
         # Get record (must be enabled)
-        try:
-            user, = self.interface.execute_local_query(
-                Query\
-                    .get("local:user")\
-                    .filter_by("email", "==", self.auth["Username"].lower())
-            )
-        except Exception, e:
-            raise AuthenticationFailure, "No such account (PW): %s" % e
+        query_users = Query.get("local:user").filter_by("email", "==", self.auth["Username"].lower())
+        users = self.interface.execute_local_query(query_users)
+        if not users:
+            raise AuthenticationFailure, "No such account (PW): %s" % self.auth["Username"]
+        user = users[0]
 
         # Compare encrypted plaintext against encrypted password stored in the DB
         plaintext = self.auth['AuthString'].encode('latin1') # XXX method.api.encoding)
@@ -98,7 +95,7 @@ class GIDAuth(AuthMethod):
         # We need to map the SFA user to the Manifold user... let's search into his accounts
 
         query_user_id = Query.get('local:linked_account').filter_by('identifier', '==', user_hrn).select('user_id')
-        ret_user_ids = self.interface.forward(query_user_id)
+        ret_user_ids = self.interface.execute_local_query(query_user_id)
         if ret_user_ids['code'] != 0:
             raise Exception, "Failure requesting linked accounts for identifier '%s'" % user_hrn
         user_ids = ret_user_ids['value']
@@ -108,13 +105,13 @@ class GIDAuth(AuthMethod):
         user_id = user_ids[0]['user_id']
 
         query_user = Query.get('local:user').filter_by('user_id', '==', user_id)
-        ret_users = self.interface.forward(query_user)
-        if ret_users['code'] != 0:
-            raise Exception, "Failure requesting linked accounts for identifier '%s'" % user_hrn
-        users = ret_users['value']
+        users = self.interface.execute_local_query(query_user)
+        #if ret_users['code'] != 0:
+        #    raise Exception, "Failure requesting linked accounts for identifier '%s'" % user_hrn
+        #users = ret_users['value']
         if not users:
             raise Exception, "Internal error: no user found with user_id = '%d'" % user_id
-        user, = users
+        user = users[0]
 
         print "Linked SFA account '%s' for user: %r" % (user_hrn, user)
 
@@ -129,19 +126,18 @@ class SessionAuth(AuthMethod):
     def check(self):
         assert self.auth.has_key('session')
 
-        try:
-            query_sessions = Query.get('local:session').filter_by('session', '==', self.auth['session'])
-            session, = self.interface.execute_local_query(query_sessions)
-        except Exception, e:
+        query_sessions = Query.get('local:session').filter_by('session', '==', self.auth['session'])
+        sessions = self.interface.execute_local_query(query_sessions)
+        if not sessions:
             raise AuthenticationFailure, "No such session: %s" % e
+        session = sessions[0]
 
         user_id = session['user_id']
-        try:
-            query_users = Query.get('local:user').filter_by('user_id', '==', user_id)
-            user, = self.interface.execute_local_query(query_users)
-        except Exception, e:
+        query_users = Query.get('local:user').filter_by('user_id', '==', user_id)
+        users = self.interface.execute_local_query(query_users)
+        if not users:
             raise AuthenticationFailure, "No such user_id: %s" % e
-        
+        user = users[0]
         if user and session['expires'] > time.time():
             return user
         else:

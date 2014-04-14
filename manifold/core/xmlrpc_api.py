@@ -109,8 +109,11 @@ class XMLRPCAPI(xmlrpc.XMLRPC, object):
 
             # Check login password
             try:
-                user = Auth(auth, self.interface).check()
+                # We get the router to make synchronous queries
+                user = Auth(auth, self.interface.get_router()).check()
             except Exception, e:
+                import traceback
+                traceback.print_exc()
                 Log.warning("XMLRPCAPI::xmlrpc_forward: Authentication failed...: %s" % str(e))
                 msg = "Authentication failed: %s" % e
                 return dict(ResultValue.error(msg, FORBIDDEN))
