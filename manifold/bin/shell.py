@@ -539,7 +539,7 @@ class Shell(object):
         # FILENAME
         filename = args[2]
         if (filename[0] == '"' and filename[-1] == '"') or (filename[0] == "'" and filename[-1] == "'"):
-            filename = args[1:-1]
+            filename = filename[1:-1]
 
         # . Can we write into it ?
         try:
