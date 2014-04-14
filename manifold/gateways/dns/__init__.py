@@ -117,16 +117,16 @@ class DNSGateway(Gateway):
         def make_announces_impl():
             """
             class ip {
-                const inet ip;
-                hostname hostname;
+                const inet   ip;            /**< Ex: '64.233.161.99'    */
+                const hostname hostname;    /**< Ex: 'www.hostname.com' */
     
                 CAPABILITY(join);
                 KEY(ip);
             };
 
             class hostname {
-                const hostname hostname;
-                ip ip;
+                const hostname hostname;    /**< Ex: 'www.hostname.com' */
+                const inet   ip;            /**< Ex: '64.233.161.99'    */
     
                 CAPABILITY(join);
                 KEY(hostname);

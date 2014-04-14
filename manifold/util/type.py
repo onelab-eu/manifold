@@ -70,6 +70,8 @@ def accepts(*types, **kw):
                 # if argtypes != types:
                     msg = info(f.__name__, types, argtypes, 0)
                     if debug is 1:
+                        from manifold.util.debug import print_call_stack
+                        print_call_stack()
                         print >> sys.stderr, 'TypeWarning: ', msg
                     elif debug is 2:
                         raise TypeError, msg
@@ -122,6 +124,8 @@ def returns(ret_type, **kw):
                 # XXX note that this check should be recursive
                     msg = info(f.__name__, (ret_type,), (res_type,), 1)
                     if debug is 1:
+                        from manifold.util.debug import print_call_stack
+                        print_call_stack()
                         print >> sys.stderr, 'TypeWarning: ', msg
                     elif debug is 2:
                         raise TypeError, msg

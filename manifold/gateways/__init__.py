@@ -436,21 +436,12 @@ class Gateway(Node):
         #        socket.format_uptree()
         #    )
         #)
+
+        # Sometimes records is a generator (eg. MaxMind), we cannot directly
+        # test the boolean value of a generator
+        records = Records(records)
+
         if records:
-# << ORIGINAL IMPLEMENTATION (supports list, but not Generator)
-#            # Enable LAST_RECORD flag on the last Record
-#            if isinstance(records[-1], dict):
-#                records[-1] = Record(records[-1], last = True)
-#            else:
-#                records[-1].set_last()
-#
-#            # Send the records
-#            for record in records:
-#                self.record_impl(socket, record)
-# ==
-# It's not very beautiful but it works.
-# The goal is to set the LAST_RECORD flag on the last Record.
-# We assume here that records is a Generator instead of a list.
             prev_record = None
             for record in records:
                 if prev_record:

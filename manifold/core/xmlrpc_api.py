@@ -10,7 +10,12 @@
 
 import copy, traceback
 from twisted.web                        import xmlrpc
-from twisted.web.xmlrpc                 import withRequest
+try:
+    from twisted.web.xmlrpc                 import withRequest
+except:
+    def withRequest(f):
+        f.withRequest = True
+        return f
 
 from manifold.auth                      import Auth
 from manifold.core.annotation           import Annotation

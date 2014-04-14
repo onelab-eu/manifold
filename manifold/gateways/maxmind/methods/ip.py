@@ -64,9 +64,13 @@ class Ip(Object):
         gateway = self.get_gateway()
         ip_list = query.get_filter().get_field_values('ip')
 
+        if not ip_list:
+            return
+
         # We don't really ask something sometimes...
         if query.get_fields() == Fields(['ip']):
             for ip in ip_list:
+                print "yield", ip
                 yield {'ip': ip}
         else:
             for ip in ip_list:

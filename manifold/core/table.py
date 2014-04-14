@@ -672,7 +672,7 @@ class Table(object):
                 p = Predicate(u_key.get_name(), eq, v_key.get_name())
 
             if u.get_platforms() > v.get_platforms():
-                relations.add(Relation(Relation.types.PARENT, p))
+                relations.add(Relation(Relation.types.PARENT, p, name = str(uuid.uuid4())))
             #else:
             #    relations.add(Relation(Relation.types.CHILD, p))
             return relations
