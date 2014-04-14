@@ -54,7 +54,7 @@ def do_projection(record, fields):
         if not method in record:
             continue
         for x in record[method]:
-            arr.append(do_projection(x, subfields))
+            arr.append(do_projection(Record(x), subfields))
         ret[method] = arr
 
     ret.set_last(record.is_last())

@@ -196,6 +196,7 @@ class ExploreTask(Deferred):
         #....... Rewritten
 
         self.keep_root_a |= missing_parent_fields & root_provided_fields
+        print "self.keep_root_a", self.keep_root_a
 
         for f in self.keep_root_a:
             if f in rename and rename[f] is not None:
@@ -234,6 +235,7 @@ class ExploreTask(Deferred):
 
             else:
                 subfields = map_parent_missing_subfields[field]
+                print "subfields", subfields
 
                 if len(subfields) > 1: continue
                 # Note: composite keys not taken into account yet
@@ -241,22 +243,31 @@ class ExploreTask(Deferred):
                 subfield = iter(subfields).next()
 
                 field_type = self.root.get_field_type(field)
+                print "field_type", field_type
                 if field_type in BASE_TYPES: continue # Should not happen
 
                 refered_table = metadata.find_node(field_type, get_parent = True)
+                print "refered table", refered_table
                 if not refered_table: continue
 
                 key = refered_table.get_keys().one()
+                print "key", key
                 # a key is a set of fields
                 if subfields != key.get_field_names(): continue
 
                 # In the record, we will rename field.subfield by field
                 field_before = Fields.join(field, subfield)
+                print "field_before", field_before
                 rename_dict[field_before] = field
 
                 is_onjoin = self.root.capabilities.is_onjoin()
                 if not is_onjoin or field not in root_key_fields:
-                    before_original = Fields.join(map_original_field[field], subfield)
+                    print "field", field
+                    print "map_original_field[field]", map_original_field[field]
+                    if field_before != map_original_field[field]:
+                        before_original = Fields.join(map_original_field[field], subfield)
+                    else:
+                        before_original = map_original_field[field]
                     missing_fields.remove(before_original)
 
         #........ End rewritten
