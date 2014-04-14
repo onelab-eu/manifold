@@ -82,6 +82,12 @@ class TeamCymruGateway(Gateway):
         Args:
             packet: A QUERY Packet instance.
         """
+
+
+        #from manifold.util.log import Log
+        #Log.tmp("TEST tc")
+        #self.records([{'ip': '8.8.8.8', 'asn': 'TEST'}], packet)
+        #return 
         query = packet.get_query()
 
         obj = query.get_object()

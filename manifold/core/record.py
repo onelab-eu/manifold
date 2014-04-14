@@ -86,7 +86,8 @@ class Record(Packet):
                         dic[k] = v.to_list()
                     else:
                         dic[k] = v
-            except:
+            except Exception, e:
+                print "EEEEEE", e
                 import pdb; pdb.set_trace()
         return dic
 

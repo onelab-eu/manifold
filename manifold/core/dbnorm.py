@@ -726,8 +726,6 @@ def to_3nf(metadata):
 
                         platforms.add(method.get_platform())
 
-            print "FIELDS", fields
-            print "KEYS", keys
             table = Table(platforms, table_name, fields, keys)
 
             # XXX Hardcoded capabilities in 3nf tables

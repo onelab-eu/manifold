@@ -283,7 +283,7 @@ class SQLA_Object(Object):
             fk = column.foreign_keys
             if fk:
                 fk = iter(column.foreign_keys).next()
-                _type = fk.column.table.name
+                _type = str(fk.column.table.name)
             else:
                 _type = SQLA_Object._map_types[column.type.__class__]
 

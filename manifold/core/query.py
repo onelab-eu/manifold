@@ -598,7 +598,7 @@ class Query(object):
 
 
     def get_namespace_table(self):
-        l = self.get_from().rsplit(':', 2)
+        l = self.get_from().split(':', 1)
         return tuple(l) if len(l) == 2 else (None,) + tuple(l)
 
     def set_namespace_table(self, namespace, table):
@@ -606,7 +606,7 @@ class Query(object):
 
     @returns(StringTypes)
     def get_namespace(self):
-        l = self.get_from().rsplit(':', 2)
+        l = self.get_from().split(':', 1)
         return l[0] if len(l) == 2 else None
 
     def set_namespace(self, namespace):
@@ -616,7 +616,7 @@ class Query(object):
     @returns(StringTypes)
     def clear_namespace(self):
         if ':' in self.get_from():
-            namespace, table_name = self.get_from().rsplit(':', 2)
+            namespace, table_name = self.get_from().split(':', 1)
             self.object = table_name
 
     #---------------------------------------------------------------------------
