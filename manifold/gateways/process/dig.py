@@ -1,8 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from .             import ProcessGateway, Argument, FixedArgument, Parameter, Output, FLAG_IN_ANNOTATION, FLAG_OUT_ANNOTATION, FLAG_ADD_FIELD
-from ...util.log   import Log
+from .              import ProcessGateway, Argument, FixedArgument, Parameter, Output, FLAG_IN_ANNOTATION, FLAG_OUT_ANNOTATION, FLAG_ADD_FIELD
+from ...util.log    import Log
+from ...core.fields import Fields
 
 class DigParser(object):
 
@@ -14,7 +15,7 @@ class DigParser(object):
             name = string[1:-1]
         else:
             name = None
-        return {'instance_name': name}
+        return [{'instance_name': name}]
 
 class DigGateway(ProcessGateway):
     """
@@ -54,8 +55,17 @@ class DigGateway(ProcessGateway):
         KEY(ip);
     };
     """
-    output = Output(DigParser, announces, 'ping')
+    output = Output(DigParser, announces, 'ip')
     path = '/usr/bin/dig'
+
+    def on_receive_query(self, query, annotations):
+        if query.get_fields() == Fields(['ip']):
+            records = list()
+            ip_list = query.get_filter().get_field_values('ip')
+            for ip in ip_list:
+                records.append({'ip': ip})
+            return records
+        return None
 
     def parse(self, string):
         return DigParser().parse(string)
