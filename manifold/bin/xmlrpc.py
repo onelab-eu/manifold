@@ -264,6 +264,10 @@ class XMLRPCDaemon(Daemon):
 
             Log.info("Starting XMLRPCDaemon (https://localhost:%s)" % Options().xmlrpc_port)
             ReactorThread().start_reactor()
+            while True:
+                ReactorThread().join(timeout=1) 
+                if not ReactorThread().is_alive():
+                    break
         except Exception, e:
             # TODO If database gets disconnected, we can sleep/attempt reconnection
             Log.error("XMLRPC API error: %s" % str(e))
@@ -272,8 +276,8 @@ class XMLRPCDaemon(Daemon):
         """
         Stop gracefully this XMLRPCDaemon instance.
         """
-        Log.info("Stopping gracefully ReactorThread")
-        ReactorThread().stop_reactor()
+        #Log.info("Stopping gracefully ReactorThread")
+        ReactorThread().stop_reactor(force = True)
 
     def leave(self):
         pass

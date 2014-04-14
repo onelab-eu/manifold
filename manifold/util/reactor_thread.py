@@ -1,7 +1,7 @@
 # Borrowed from Chandler
 # http://chandlerproject.org/Projects/ChandlerTwistedInThreadedEnvironment
 
-import threading, time
+import threading, time, signal
 from twisted.internet           import defer
 from twisted.python             import threadable
 
@@ -47,9 +47,8 @@ class ReactorThread(threading.Thread):
         #call run passing a False flag indicating to the
         #reactor not to install sig handlers since sig handlers
         #only work on the main thread
+
         try:
-            #signal.signal(signal.SIGINT, signal.default_int_handler)
-            #print "REACTOR RUN"
             self.reactor.run(False)
         except Exception, e:
             print "Reactor exception:", e
@@ -85,7 +84,7 @@ class ReactorThread(threading.Thread):
                 raise ReactorException, "Reactor thread is too long to start... cancelling"
         self.reactor.addSystemEventTrigger('after', 'shutdown', self.__reactorShutDown)
 
-    def stop_reactor(self):
+    def stop_reactor(self, force = False):
         """
         may want a way to force thread to join if reactor does not shutdown
         properly. The reactor can get in to a recursive loop condition if reactor.stop
@@ -95,9 +94,10 @@ class ReactorThread(threading.Thread):
             raise ReactorException("Reactor Not Running")
 
         self._num_instances -= 1
-        if self._num_instances > 0:
+        if not force and self._num_instances > 0:
             return
 
+        self._num_instances = 0
         # done here instead of event until shell.client.__del__ issue is solved
         self._reactorRunning = False
         self._reactorStarted = False
