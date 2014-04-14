@@ -707,7 +707,7 @@ class Shell(object):
 
         except EOFError: # Ctrl d
             print
-            self.terminate()
+        self.terminate()
 
 def main():
     try:
