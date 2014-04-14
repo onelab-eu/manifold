@@ -66,6 +66,3 @@ class DigGateway(ProcessGateway):
                 records.append({'ip': ip})
             return records
         return None
-
-    def parse(self, string):
-        return DigParser().parse(string)

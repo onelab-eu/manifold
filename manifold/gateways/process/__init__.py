@@ -76,8 +76,8 @@ class ProcessGateway(Gateway):
     # Packet processing
     #---------------------------------------------------------------------------
 
-    def parse(self, filename):
-        return self.output._parser().parse(open(filename).read())
+    def parse(self, string):
+        return self.output._parser().parse(string)
 
     def on_receive_query(self, query, annotation):
         return None
