@@ -200,9 +200,13 @@ def main():
     Log.init_options()
     Daemon.init_options()
     Options().parse()
-    #RouterDaemon().start()
-    RouterServer(Options().socket_path)
-    asyncore.loop()
+    # <<
+    RouterDaemon().start()
+    # --
+    #Log.tmp("debug code in bin/router enabled") 
+    #RouterServer(Options().socket_path)
+    #asyncore.loop()
+    # >>
 
 if __name__ == "__main__":
     main()

@@ -7,7 +7,7 @@
 #   cd /tmp
 #   wget http://www.ece.gatech.edu/research/labs/MANIACS/as_taxonomy/data/as2attr.tgz
 #   tar xzvf as2attr.txt.tgz
-#   manifold-add-platform georgiatech "Georgia Tech Autonomous System Taxonomy Repository" csv none '{"asn":{"filename": "/tmp/as2attr.txt", "fields": [["asn", "int"], ["as_description", "string"], ["num_providers", "int"], ["num_peers", "int"], ["num_customers", "int"], ["num_prefixes_24", "int"], ["num_prefixes", "int"], ["asn_class", "string"]], "key": "asn"}}' 0
+#   manifold-add-platform georgiatech "Georgia Tech Autonomous System Taxonomy Repository" csv none '{"asn":{"filename": "/usr/share/manifold/as2attr.txt", "fields": [["asn", "int"], ["as_description", "string"], ["num_providers", "int"], ["num_peers", "int"], ["num_customers", "int"], ["num_prefixes_24", "int"], ["num_prefixes", "int"], ["asn_class", "string"]], "key": "asn"}}' 0
 #   manifold-shell -z router
 #
 #
