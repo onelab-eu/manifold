@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-import subprocess
+import threading, subprocess, uuid
 
 from ...core.announce           import Announce, Announces, import_string_h
 from manifold.core.field        import Field
@@ -50,7 +50,6 @@ FLAG_ADD_FIELD          = 1<<3
 
 class ProcessGateway(Gateway):
     __gateway_name__ = 'process'
-    __parser_expects_string__ = False
 
     #---------------------------------------------------------------------------
     # Constructor
@@ -68,6 +67,8 @@ class ProcessGateway(Gateway):
         """
         Gateway.__init__(self, interface, platform_name, platform_config)
 
+        self._in_progress = dict()
+        self._records = list()
         self._process = None
         self._is_interrupted = False
 
@@ -108,25 +109,15 @@ class ProcessGateway(Gateway):
 
         # ( arg tuples, parameters )
         args_params_list = self.get_argtuples(query, annotation)
+
+        batch_id = str(uuid.uuid4())
+
+        self._in_progress[batch_id] = len(args_params_list)
+
         for args_params in args_params_list:
             args = (self.get_fullpath(),) + args_params[0]
 
-            if self.__parser_expects_string__:
-                ret, out = self.execute_process(args)
-                rows = self.parse(out)
-            else:
-                tmp_filename = '/tmp/manifold-process-temp'
-                ret = self.execute_process(args, tmp_filename)
-                rows = self.parse(tmp_filename) if ret >= 0 else None
-
-            if rows:
-                for row in rows:
-                    record = dict()
-                    record.update(args_params[1])
-                    record.update(row)
-                    output.append(record)
-
-        self.records(output, packet)
+            self.execute_process(args, args_params[1], packet, batch_id)
 
     #---------------------------------------------------------------------------
     # Specific methods
@@ -199,71 +190,59 @@ class ProcessGateway(Gateway):
 
         return [(args, params)]
 
-    def execute_process(self, args, filename=None):
+    def execute_process(self, args, params, packet, batch_id):
         ret = 0
-        output = None
-        try:
-            if filename:
-                f = None
-                try:
-                    Log.info("Running: %(process)s > %(out)s" % {
-                        "process" : " ".join(args),
-                        "out"     : filename if filename else "/dev/stdout"
-                    })
-                    f = open(filename, 'w')
-                    self._process = subprocess.Popen(args, stdout=f, stderr=None)
-                    self._process.wait()
-                finally:
-                    if f: f.close()
-            else:
-                self._process = subprocess.Popen(args, stdout=subprocess.PIPE, stderr = None)
-                output = self._process.stdout.read()
 
+        def runInThread(args, params, packet, batch_id):
+            process = subprocess.Popen(args, stdout=subprocess.PIPE, stderr = None)
             try:
-                ret = self._process.returncode
-            except:
-                # Process has been killed ?
-                return -1 if filename else (-1, None)
+                output = process.stdout.read()
 
-            self._process = None
-            if (ret != 0):
-                # -2 SIGINT (keyboard interrupt) : occured when I did a Ctrl+C
-                #
-                # -6 SIGABRT
-                # need to change port number... how to change port number and keep the same flow ? XXX
-                # Exception : [ERROR](Server.cc, 65)Can't bind Plab socket
-                # terminate called after throwing an instance of 'TrException'
-                # Aborted
-                #
-                # -11 SIGSEGV (reference mémoire invalide)
-                # ???? maybe two at the same time ?
-                #
-                # -15 SIGTERM
-                # 17  128.112.139.2  121.803 ms !? -> Fixed parser (unk icmp code for pt) !
+                ret = process.returncode
+                if (ret != 0):
+                    # -2 SIGINT (keyboard interrupt) : occured when I did a Ctrl+C
+                    # -6 SIGABRT
+                    # -11 SIGSEGV (reference mémoire invalide)
+                    # -15 SIGTERM
+                    if output:
+                        rows = self.parse(output)
+                    else:
+                        rows = []
+                else:
+                    rows = self.parse(output)
 
-                                # Riad
-                                # Commented since agents send a lot of error messages of types -6 and -11
-                # log.error("paris-traceroute [dest_id=%d] %r returned %d" % (dest_id, args,ret))
-                return -1 if filename else (-1, None)
+                if rows:
+                    for row in rows:
+                        record = dict()
+                        record.update(params)
+                        record.update(row)
+                        self._records.append(record)
 
-        except OSError, e:
-            if e.errno == 10:
-                if not self._is_interrupted:
-                    Log.error("Process has been killed: %s" % e)
-            else:
-                raise
-        except Exception, e:
-            import traceback
-            traceback.print_exc()
-            Log.error("Execution failed: %s" % e)
-            return -1 if filename else (-1, None)
+            except OSError, e:
+                if e.errno == 10:
+                    if not self._is_interrupted:
+                        Log.error("Process has been killed: %s" % e)
+                else:
+                    return # raise # XXX
+            except Exception, e:
+                import traceback
+                traceback.print_exc()
+                Log.error("Execution failed: %s" % e)
+                return
+            finally:
+                self._in_progress[batch_id] -= 1
+                if self._in_progress[batch_id] == 0:
+                    self.records(self._records, packet)
 
-        return ret if filename else ret, output
+        thread = threading.Thread(target=runInThread, args=(args, params, packet, batch_id))
+        thread.start()
+        return thread
 
     def interrupt(self):
         """
         \brief Kill then ParisTraceroute instance
         """
+        return # no more self._process
         self._is_interrupted = True
         try:
             if not self._process: return
