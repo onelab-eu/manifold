@@ -699,15 +699,15 @@ class Table(object):
                             relations.add(Relation(Relation.types.LINK_11, p, name=field.get_name()))
                         else:
                             if v.is_child_of(u):
-                                relations.add(Relation(Relation.types.CHILD, p, name = str(uuid.uuid4))) # XXX
+                                relations.add(Relation(Relation.types.CHILD, p, name = str(uuid.uuid4())))
                             elif u.is_child_of(v):
-                                 relations.add(Relation(Relation.types.PARENT, p, name = str(uuid.uuid4))) # XXX
+                                 relations.add(Relation(Relation.types.PARENT, p, name = str(uuid.uuid())))
                             else:
                                 if field.get_name() in ['source', 'destination', 'agent', 'dns_target']:
                                     Log.warning("Hardcoded source, agent, destination and dns_target as 1..1 relationships")
                                     relations.add(Relation(Relation.types.LINK_11, p, name=field.get_name()))
                                 else:
-                                    relations.add(Relation(Relation.types.LINK, p, name = str(uuid.uuid4))) # XXX 
+                                    relations.add(Relation(Relation.types.LINK, p, name = str(uuid.uuid4())))
             # BAD
             #if v_key.is_composite():
             #    Log.warning("Link (2) unsupported between u=%s and v=%s: v has a composite key" % (u.get_name(), v.get_name()))
