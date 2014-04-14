@@ -78,7 +78,7 @@ class XMLRPCAPI(xmlrpc.XMLRPC, object):
 
 
 #    @withRequest
-    def xmlrpc_AuthCheck(self, request, annotation = None):
+#    def xmlrpc_AuthCheck(self, request, annotation = None):
     def xmlrpc_AuthCheck(self, annotation = None):
         # We expect to find an authentication token in the annotation
         if annotation:
@@ -86,7 +86,7 @@ class XMLRPCAPI(xmlrpc.XMLRPC, object):
         else:
             auth = {}
 
-        auth['request'] = request
+#        auth['request'] = request
 
         return Auth(auth, self.interface).check()
 
@@ -112,7 +112,7 @@ class XMLRPCAPI(xmlrpc.XMLRPC, object):
             else:
                 auth = {}
 
-            auth['request'] = request
+#            auth['request'] = request
 
             # Check login password
             try:
