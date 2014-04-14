@@ -56,6 +56,7 @@ class ManifoldGateway(Gateway):
                 def cancel(d):
                     factory.deferred = None
                     connector.disconnect()
+                Log.tmp("%(args)s" % locals())
                 factory = self.queryFactory(
                     self.path, self.host, method, self.user,
                     self.password, self.allowNone, args, cancel, self.useDateTime)
@@ -164,14 +165,15 @@ class ManifoldGateway(Gateway):
         query_metadata = Query.get('local:object').select('table', 'columns', 'key', 'capabilities').to_dict()
 
         def errb(failure):
-            print "failure:", failure
-            cb([])
+            Log.error("Cannot get announces from %s: %s" % (self.get_platform_name(), failure))
+            cb(ResultValue.success([]))
 
         deferred = self._proxy.callRemote('forward', query_metadata, {'authentication': GUEST_AUTH})
         deferred.addCallback(cb)
         deferred.addErrback(errb)
 
         result_value = cb.get_results()
+        Log.tmp("result_value = %r (type %r)" %(result_value,type(result_value)))
         if not 'code' in result_value:
             raise Exception, "Invalid result value"
         if result_value['code'] != 0:
