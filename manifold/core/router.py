@@ -456,7 +456,7 @@ class Router(Interface):
 #DEPRECATED|        """
 #DEPRECATED|        """
         # Build the AST and retrieve the corresponding root_node Operator instance.
-        Log.warning("why don't we check the type of Packet ?")
+        # XXX Log.warning("why don't we check the type of Packet ?")
         query      = packet.get_query()
         annotation = packet.get_annotation()
         receiver   = packet.get_receiver()

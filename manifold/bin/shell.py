@@ -38,6 +38,9 @@ DEFAULT_PKEY_FILE = "/etc/manifold/keys/client.pkey"
 DEFAULT_CERT_FILE = "/etc/manifold/keys/client.cert"
 DEFAULT_API_URL   = "https://localhost:7080"
 
+TRUE_VALUES  = [1, '1', 'true', 'on', 'yes']
+FALSE_VALUES = [0, '0', 'false', 'off', 'no']
+
 class Shell(object):
 
     PROMPT = "manifold"
@@ -62,6 +65,8 @@ class Shell(object):
         self.bootstrap()
         # {String : list(dict)} : maps a variable name with its the corresponding Records
         self._environment = dict()
+        self._annotations = dict()
+        self._query_plan = False
 #       self._environment = {"$USER" : "marc-olivier.buob@lip6.fr"}
 
     def terminate(self):
@@ -434,7 +439,7 @@ class Shell(object):
                 raise RuntimeError("Invalid description type (%s) in result_value = %s" % (errors, result_value))
 
     @returns(ResultValue)
-    def evaluate(self, command):
+    def evaluate(self, command, annotations = None):
         """
         Parse a command type by the User, and run the corresponding Query.
         Args:
@@ -455,10 +460,10 @@ class Shell(object):
 #DEPRECATED|        if "*" in query.get_select():
 #DEPRECATED|            query.fields = None
 
-        return self.execute(query)
+        return self.execute(query, annotations)
 
     @returns(ResultValue)
-    def execute(self, query):
+    def execute(self, query, annotations = None):
         """
         Execute a Query (used if the Shell is run with option "-e").
         Args:
@@ -467,7 +472,7 @@ class Shell(object):
             The ResultValue resulting from this Query.
         """
         try:
-            result_value = self.client.forward(query)
+            result_value = self.client.forward(query, annotations)
             if result_value.is_success():
                 variable = query.get_variable()
                 if variable and result_value.is_success():
@@ -577,6 +582,26 @@ class Shell(object):
 
         self._display(self._environment[variable])
 
+    def handle_set(self, key, value):
+        if len(args) == 0:
+            print "Current annotations:"
+            for key, value in self._annotations.items():
+                print " - ", key, "=", value
+            return
+        elif len(args) > 2:
+            Log.error("Wrong SET arguments: %r" % args)
+            Log.error("Usage: SET key value")
+            return
+        
+        if key == 'queryplan':
+            if not value.lower() in TRUE_VALUES or value.lower() in FALSE_VALUES:
+                Log.error("Wrong value for queryplan setting")
+                return
+            self._query_plan = value.lower() in TRUE_VALUES
+            return
+
+        self._annotations[key] = value
+
     def start(self):
         """
         Start this Shell.
@@ -657,9 +682,15 @@ class Shell(object):
                 elif command_tokens[0] == 'SHOW':
                     self.handle_show(command_tokens[1:])
                     continue;
+                elif command_tokens[0] == 'SET':
+                    self.handle_set(command_tokens[1:])
+                    continue;
 
                 try:
+                    if self._query_plan:
+                        self._annotations['queryplan'] = True
                     self.display(self.evaluate(command))
+                    self._annotations = dict()
                 except KeyboardInterrupt:
                     # Ctrl c
                     command = ""
@@ -687,7 +718,7 @@ def main():
         if command:
             try:
                 shell = Shell(interactive = False)
-                shell.display(shell.evaluate(command))
+                shell.display(shell.evaluate(command, annotations))
             except Exception, e:
                 Log.error(traceback.format_exc())
                 shell.terminate()

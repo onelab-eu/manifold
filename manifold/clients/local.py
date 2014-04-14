@@ -147,7 +147,9 @@ class ManifoldLocalClient(ManifoldClient, asynchat.async_chat):
         self.push('%08x%s' % (len(packet_str), packet_str))
 
         # This code is blocking
+        print "blocking"
         result_value = self._receiver.get_result_value()
+        print "got rv"
         assert isinstance(result_value, ResultValue),\
             "Invalid result_value = %s (%s)" % (result_value, type(result_value))
         return result_value

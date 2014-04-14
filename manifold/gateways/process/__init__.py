@@ -17,9 +17,13 @@ class ProcessField(dict):
     def get_default(self):      return self.get('default')
     def get_short(self):        return self.get('short')
     def get_flags(self):        return self.get('flags', FLAG_NONE)
+    def get_prefix(self):       return self.get('prefix')
 
 class Argument(ProcessField):
     pass
+
+class FixedArgument(Argument):
+    def get_value(self):        return self.get('value')
 
 class Parameter(ProcessField):
     pass
@@ -46,6 +50,7 @@ FLAG_ADD_FIELD          = 1<<3
 
 class ProcessGateway(Gateway):
     __gateway_name__ = 'process'
+    __parser_expects_string__ = False
 
     #---------------------------------------------------------------------------
     # Constructor
@@ -82,23 +87,35 @@ class ProcessGateway(Gateway):
         query       = packet.get_query()
         annotation  = packet.get_annotation()
 
+        output = list()
+
         # We have a single table per tool gateway
         # table_name = query.get_from()
 
         # Compute process arguments from query
-        args = (self.get_fullpath(),) + self.get_argtuple(query, annotation)
+        # At the moment, we cannot have more than ONE value for each
+        # parameter/filter XXX XXX XXX XXX
 
-        tmp_filename = '/tmp/manifold-process'
-        ret = self.execute_process(args, tmp_filename)
-        rows = self.parse(tmp_filename) if ret >= 0 else None
+        # ( arg tuples, parameters )
+        args_params_list = self.get_argtuples(query, annotation)
+        for args_params in args_params_list:
+            args = (self.get_fullpath(),) + arg_tuples
 
-        #if not out:
-        #    if os.path.exists(filename_raw):
-        #        os.unlink(filename_raw)
-        #    # XXX LOG HERE FOR IMPROVING MODULE
-        #    # XXX Shall we signal we lost track of the IP ?
+            if self.__parser_expects_string__:
+                ret, out = self.execute_process(args)
+                rows = self.parse(out)
+            else:
+                tmp_filename = '/tmp/manifold-process-temp'
+                ret = self.execute_process(args, tmp_filename)
+                rows = self.parse(tmp_filename) if ret >= 0 else None
 
-        self.records(rows, packet)
+            for row in rows:
+                record = dict()
+                record.update(params)
+                record.update(row)
+                output.append(row)
+
+        self.records(output, packet)
 
     #---------------------------------------------------------------------------
     # Specific methods
@@ -109,8 +126,9 @@ class ProcessGateway(Gateway):
     get_min_arguments = get_num_arguments
     get_max_arguments = get_num_arguments
 
-    def get_argtuple(self, query, annotation):
+    def get_argtuples(self, query, annotation):
         args = tuple()
+        params = dict()
 
         for field_type, field_list in [
             (FIELD_TYPE_PARAMETER,  self.parameters),
@@ -119,6 +137,11 @@ class ProcessGateway(Gateway):
 
             for process_field in field_list:
                 if field_type not in [FIELD_TYPE_PARAMETER, FIELD_TYPE_ARGUMENT]:
+                    continue
+
+                # FixedArgument
+                if isinstance(process_field, FixedArgument):
+                    args += (process_field.get_value(), )
                     continue
 
                 name  = process_field.get_name()
@@ -149,32 +172,48 @@ class ProcessGateway(Gateway):
                 if field_type == FIELD_TYPE_PARAMETER:
                     short = process_field.get_short()
                     if value:
-                        args += (short, str(value))
+                        value = str(value)
+                        prefix = process_field.get_prefix()
+                        if prefix:
+                            value = "%s%s" % (prefix, value)
+                        args += (short, value)
                 else:
+                    prefix = process_field.get_prefix()
+                    if prefix:
+                        value = "%s%s" % (prefix, value)
                     args += (value,)
 
-        return args
+                params[name] = value
 
-    def execute_process(self, args, filename):
+        return [(args, params)]
+
+    def execute_process(self, args, filename=None):
         ret = 0
+        output = None
         try:
-            f = None
-            try:
-                Log.info("Running: %(process)s > %(out)s" % {
-                    "process" : " ".join(args),
-                    "out"     : filename if filename else "/dev/stdout"
-                })
-                f = open(filename, 'w')
-                self._process = subprocess.Popen(args, stdout=f, stderr=None)
-                self._process.wait()
-            finally:
-                if f: f.close()
+            if filename:
+                f = None
+                try:
+                    Log.info("Running: %(process)s > %(out)s" % {
+                        "process" : " ".join(args),
+                        "out"     : filename if filename else "/dev/stdout"
+                    })
+                    f = open(filename, 'w')
+                    self._process = subprocess.Popen(args, stdout=f, stderr=None)
+                    self._process.wait()
+                finally:
+                    if f: f.close()
+            else:
+                print "PIPE"
+                self._process = subprocess.Popen(args, stdout=subprocess.PIPE, stderr = None)
+                output = self._process.stdout.read()
+                print "OUTPUT=", output
 
             try:
                 ret = self._process.returncode
             except:
                 # Process has been killed ?
-                return -1
+                return -1 if filename else (-1, None)
 
             self._process = None
             if (ret != 0):
@@ -195,7 +234,7 @@ class ProcessGateway(Gateway):
                                 # Riad
                                 # Commented since agents send a lot of error messages of types -6 and -11
                 # log.error("paris-traceroute [dest_id=%d] %r returned %d" % (dest_id, args,ret))
-                return -1
+                return -1 if filename else (-1, None)
 
         except OSError, e:
             if e.errno == 10:
@@ -207,9 +246,9 @@ class ProcessGateway(Gateway):
             import traceback
             traceback.print_exc()
             Log.error("Execution failed: %s" % e)
-            return -1
+            return -1 if filename else (-1, None)
 
-        return ret
+        return ret if filename else ret, output
 
     def interrupt(self):
         """
