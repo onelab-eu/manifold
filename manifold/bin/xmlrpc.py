@@ -17,7 +17,7 @@
 import sys, xmlrpclib, datetime, os.path
 
 from manifold.core.router           import Router
-from manifold.core.record           import Record
+from manifold.core.record           import Record, Records
 from manifold.core.capabilities     import Capabilities
 from manifold.util.daemon           import Daemon
 from manifold.util.filesystem       import ensure_writable_directory, ensure_keypair, ensure_certificate, mkdir
