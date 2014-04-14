@@ -192,7 +192,7 @@ class Router(Interface):
     # This will be the only calls for manipulating router platforms
     def add_platform(self, platform_name, gateway_type, platform_config = {}):
         """
-        Enable a platform in this Router.
+        Add a platform (register_platform + enable_platform) in this Router.
         Args:
             platform_name: A String containing the name of the Platform.
             gateway_type: A String containing the type of Gateway used for this Platform.
@@ -424,6 +424,75 @@ class Router(Interface):
     # Methods
     #---------------------------------------------------------------------
 
+    def hook_query(self, query):
+        """
+        Hook an Query to alter the current state of this Router.
+        Args:
+            query: A Query instance
+        """
+        namespace = query.get_namespace()
+        Log.tmp("hook 1 %s %s" % (query, namespace))
+
+        if namespace == LOCAL_NAMESPACE and query.get_from() == "platform":
+            Log.tmp("hook 2")
+            try:
+                from query                      import ACTION_UPDATE, ACTION_DELETE, ACTION_CREATE
+                from operator                   import eq
+                from manifold.util.predicate    import included
+                impacted_platforms = set()
+
+                # This assumes that we handle WHERE platform == "foo"
+                for predicate in query.get_where():
+                    if predicate.get_key() == "platform":
+                        value = predicate.get_value()
+                        if predicate.get_op() == eq:
+                            impacted_platforms.add(value)
+                        elif predicate.get_op() == contains:
+                            impacted_platforms |= set(value)
+
+                Log.tmp("impacted_platforms = %s" % impacted_platforms)
+                if impacted_platforms != set():
+
+                    # UDATE
+                    if query.get_action() == ACTION_UPDATE:
+                        params = query.get_params()
+                        if "disabled" in params.keys():
+                            becomes_disabled = (params["disabled"] == 1)
+                            for platform_name in impacted_platforms:
+                                if becomes_disabled:
+                                    self.disable_platform(platform_name)
+                                else:
+                                    try:
+                                        self.enable_platform(platform_name)
+                                    except RuntimeError:
+                                        Log.warning("Cannot enabled %s (probably because it didn't exist while booting the router)" % platform_name)
+                    # DELETE
+                    elif query.get_action() == ACTION_DELETE:
+                        for platform_name in impacted_platforms:
+                            self.disable_platform(platform_name)
+
+                    # INSERT
+                    elif query.get_action() == ACTION_CREATE:
+                        params = query.get_params()
+                        Log.tmp("create: params = %s" % params)
+                        #XXX TODO use self.add_platform ?
+                        self.register_platform(query.get_params())
+                        try:
+                            if query.get_params()["disabled"] == 1:
+                                self.enable_platform(platform_name)
+                        except:
+                            pass
+
+                    # SELECT, ...
+                    else:
+                        pass
+
+                Log.info("Loaded platforms are now: {%s}" % ", ".join(self.get_loaded_platform_names()))
+            except Exception, e:
+                Log.error(e)
+                raise e
+
+
 #DEPRECATED|    def boot(self):
 #DEPRECATED|        """
 #DEPRECATED|        Boot the Interface (prepare metadata, etc.).
@@ -463,72 +532,24 @@ class Router(Interface):
 
         try:
 
+            # Check namespace
             namespace = query.get_namespace()
+            if namespace:
+                valid_namespaces = set(self.get_loaded_platform_names()) | set([LOCAL_NAMESPACE])
+                if namespace not in valid_namespaces:
+                    raise RuntimeError("Invalid namespace '%s': valid namespaces are {'%s'}" % (
+                        namespace,
+                        "', '".join(valid_namespaces)
+                    ))
 
+            # Select the DbGraph answering to the incoming Query and compute the QueryPlan
             dbgraph = self._local_dbgraph if namespace == LOCAL_NAMESPACE else self._dbgraph
-
             root_node = self._operator_graph.build_query_plan(query, annotation, dbgraph)
 
             print "QUERY PLAN:"
             print root_node.format_downtree()
 
-            # << Hook on local:platform
-            if namespace == LOCAL_NAMESPACE and query.get_from() == "platform":
-                try:
-                    from query                      import ACTION_UPDATE, ACTION_DELETE, ACTION_CREATE
-                    from operator                   import eq
-                    from manifold.util.predicate    import included
-                    impacted_platforms = set()
-
-                    # This assumes that we handle WHERE platform == "foo"
-                    for predicate in query.get_where():
-                        if predicate.get_key() == "platform":
-                            value = predicate.get_value()
-                            if predicate.get_op() == eq:
-                                impacted_platforms.add(value)
-                            elif predicate.get_op() == contains:
-                                impacted_platforms |= set(value)
-
-                    if impacted_platforms != set():
-
-                        # UDATE
-                        if query.get_action() == ACTION_UPDATE:
-                            params = query.get_params()
-                            if "disabled" in params.keys():
-                                becomes_disabled = (params["disabled"] == 1)
-                                for platform_name in impacted_platforms:
-                                    if becomes_disabled:
-                                        self.disable_platform(platform_name)
-                                    else:
-                                        try:
-                                            self.enable_platform(platform_name)
-                                        except RuntimeError:
-                                            Log.warning("Cannot enabled %s (probably because it was disabled while booting the router)" % platform_name)
-                        # DELETE
-                        elif query.get_action() == ACTION_DELETE:
-                            for platform_name in impacted_platforms:
-                                self.disable_platform(platform_name)
-
-                        # INSERT
-                        elif query.get_action() == ACTION_CREATE:
-                            Log.warning("TODO: use self.add_platform")
-                            self.register_platform(query.get_params())
-                            try:
-                                if query.get_params()["disabled"] == 1:
-                                    self.enable_platform(platform_name)
-                            except:
-                                pass
-
-                        # SELECT, ...
-                        else:
-                            pass
-
-                    Log.info("loaded platforms are now: {%s}" % ", ".join(self.get_loaded_platform_names()))
-                except Exception, e:
-                    Log.error(e)
-                    raise e
-            # >> Hook on local:platform
-
+            self.hook_query(query)
             receiver._set_child(root_node)
         except Exception, e:
             error_packet = ErrorPacket(

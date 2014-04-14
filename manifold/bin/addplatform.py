@@ -26,11 +26,11 @@ from manifold.util.type     import accepts, returns
 DOC_ADD_PLATFORM = """
 %(default_message)s
 
-usage: %(program_name)s PLATFORM_NAME LONGNAME GATEWAY AUTH_TYPE CONFIG [DISABLED]
+usage: %(program_name)s PLATFORM_NAME LONG_NAME GATEWAY AUTH_TYPE CONFIG [DISABLED]
 
 Add a platform to Manifold
     PLATFORM_NAME : A String containing the short name of the platform (lower case).
-    LONGNAME      : A String containing the long name of the platform.
+    LONG_NAME     : A String containing the long name of the platform.
     GATEWAY_TYPE  : A String containing the type of Gateway.
     AUTH_TYPE     : Authentification type.
         Supported values are:
@@ -118,7 +118,6 @@ def main():
     disabled = string_to_bool(disabled)
 
     namespace = LOCAL_NAMESPACE
-    print platform_name
     ret = run_command(CMD_ADD_PLATFORM % locals())
     if ret == SUCCESS:
         print TIPS % locals()

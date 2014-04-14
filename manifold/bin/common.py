@@ -23,7 +23,7 @@ CODE_ERROR_PARSING      = -1
 CODE_ERROR_INVALID_ARG  = -2
 CODE_ERROR_BAD_NUM_ARGS = -3
 
-MSG_SUCCESS = "Success: %(command)s"
+MSG_SUCCESS = "Success" #"Success: %(command)s"
 
 MSG_INVALID_ARG = """
 Invalid value passed for %(option_name)s (got '%(option_value)s')
