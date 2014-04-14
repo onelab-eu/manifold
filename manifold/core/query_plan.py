@@ -154,7 +154,7 @@ class QueryPlan(object):
             # The Stack is empty, so we have explored the DBGraph
             # without finding the every queried fields.
             if not task:
-                raise RuntimeError("Exploration terminated without finding fields: %r" % missing_fields)
+                raise RuntimeError("Exploration terminated without finding fields: {'%s'}" % "', '".join(missing_fields))
 
             # We keep track of the paths that have been traversed
             pathstr = '.'.join(task.path)
