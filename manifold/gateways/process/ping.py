@@ -224,6 +224,3 @@ class PingGateway(ProcessGateway):
     """
     output = Output(PingParser, announces, 'ping')
     path = '/bin/ping'
-
-    def parse(self, filename):
-        return PingParser().parse(open(filename).read())
