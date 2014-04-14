@@ -293,7 +293,7 @@ def make_virtual_announces(platform_name):
             string description;
             bool   is_array;
 
-            KEY(name);
+            LOCAL KEY(name);
         };
 
         class gateway {
