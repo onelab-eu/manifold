@@ -207,7 +207,7 @@ class Shell(object):
         if message:
             Log.error(message)
 
-        if not traceback.startswith("None"):
+        if traceback and not traceback.startswith("None"):
             print "* Traceback:"
             Log.error(traceback)
 
