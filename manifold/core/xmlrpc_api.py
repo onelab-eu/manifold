@@ -10,12 +10,12 @@
 
 import copy, traceback
 from twisted.web                        import xmlrpc
-try:
-    from twisted.web.xmlrpc                 import withRequest
-except:
-    def withRequest(f):
-        f.withRequest = True
-        return f
+#FEDORABUGS|try:
+#FEDORABUGS|    from twisted.web.xmlrpc                 import withRequest
+#FEDORABUGS|except:
+#FEDORABUGS|    def withRequest(f):
+#FEDORABUGS|        f.withRequest = True
+#FEDORABUGS|        return f
 
 from manifold.auth                      import Auth
 from manifold.core.annotation           import Annotation
@@ -77,8 +77,9 @@ class XMLRPCAPI(xmlrpc.XMLRPC, object):
         return display_args
 
 
-    @withRequest
+#    @withRequest
     def xmlrpc_AuthCheck(self, request, annotation = None):
+    def xmlrpc_AuthCheck(self, annotation = None):
         # We expect to find an authentication token in the annotation
         if annotation:
             auth = annotation.get('authentication', None)
@@ -91,8 +92,9 @@ class XMLRPCAPI(xmlrpc.XMLRPC, object):
 
     # QUERIES
     # xmlrpc_forward function is called by the Query of the user using xmlrpc
-    @withRequest
-    def xmlrpc_forward(self, request, query, annotation = None):
+#    @withRequest
+#    def xmlrpc_forward(self, request, query, annotation = None):
+    def xmlrpc_forward(self, query, annotation = None):
         """
         """
         Log.info("xmlrpc_forward")
