@@ -41,6 +41,7 @@ xmlrpclib.Marshaller.dispatch[inet]     = xmlrpclib.Marshaller.dump_string
 xmlrpclib.Marshaller.dispatch[hostname] = xmlrpclib.Marshaller.dump_string
 xmlrpclib.Marshaller.dispatch[date]     = lambda s: xmlrpclib.Marshaller.dump_string(str(s))
 xmlrpclib.Marshaller.dispatch[Record]   = xmlrpclib.Marshaller.dump_struct
+xmlrpclib.Marshaller.dispatch[Records]  = xmlrpclib.Marshaller.dump_list
 
 #-------------------------------------------------------------------------------
 # Class XMLRPCDaemon
