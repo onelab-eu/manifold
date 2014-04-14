@@ -78,7 +78,7 @@ class XMLRPCAPI(xmlrpc.XMLRPC, object):
 
 
 #    @withRequest
-    def xmlrpc_AuthCheck(self, request, annotation = None):
+#    def xmlrpc_AuthCheck(self, request, annotation = None):
     def xmlrpc_AuthCheck(self, annotation = None):
         # We expect to find an authentication token in the annotation
         if annotation:
