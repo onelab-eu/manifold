@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-import threading, subprocess, uuid
+import threading, subprocess, uuid, os
 
 from ...core.announce           import Announce, Announces, import_string_h
 from manifold.core.field        import Field
