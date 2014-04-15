@@ -115,10 +115,11 @@ class ManifoldGateway(Gateway):
             packet: A QUERY Packet.
             rows: The corresponding list of dict or Record instances.
         """
+        Log.tmp("result_value = %r (type %r)" %(result_value,type(result_value)))
         if not 'code' in result_value:
             raise Exception, "Invalid result value"
         if result_value['code'] != 0:
-            raise Exception, "Error while repatriating metadata"
+            raise Exception, "Error while repatriating records"
         self.records(result_value['value'], packet)
 
     def callback_error(self, error, packet):
