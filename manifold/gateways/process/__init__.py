@@ -88,6 +88,11 @@ class ProcessGateway(Gateway):
         Args:
             packet: A QUERY Packet instance.
         """
+
+        if not os.path.exists(self.get_fullpath()):
+            self.records([], packet)
+            return
+
         query       = packet.get_query()
         annotation = packet.get_annotation()
 
@@ -298,7 +303,7 @@ class ProcessGateway(Gateway):
         \brief Check if paris-traceroute is properly installed
         \return True iif everything is fine
         """
-        return os.path.exists(cls.get_fullpath().split()[0])
+        return os.path.exists(cls.get_fullpath()) #.split()[0])
 
     @classmethod
     def check_uid(cls):
