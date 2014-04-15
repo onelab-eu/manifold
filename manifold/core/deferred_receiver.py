@@ -36,6 +36,9 @@ class DeferredReceiver(Node, ChildSlotMixin):
         self._records  = list()
         self._errors   = list()
         self._deferred = Deferred()
+
+        # BUGFIX
+        self._done = False
         
     #---------------------------------------------------------------------------
     # Methods
@@ -92,8 +95,11 @@ class DeferredReceiver(Node, ChildSlotMixin):
         # TODO this flag should be set to True iif we receive a LastRecord
         # Packet (which could be a RECORD or an ERROR Packet). Each Node
         # should manage the "LAST_RECORD" flag while forwarding its Packets.
-        print "packet is last?", packet
         if packet.is_last():
+            if self._done:
+                Log.warning("LAST RECEIVED TWICE!")
+                return
+            self._done = True
             result_value = ResultValue.get(self._records, self._errors)
             self._deferred.callback(result_value.to_dict())
 
