@@ -151,6 +151,7 @@ class Gateway(Node):
                 platform_announces = self.make_announces()
                 self._announces = merge_announces(virtual_announces, platform_announces)
             except:
+                Log.warning(traceback.format_exc())
                 Log.warning("Could not get announces from platform %s. It won't be active" % self.get_platform_name())
                 self._announces = Announces()
 
