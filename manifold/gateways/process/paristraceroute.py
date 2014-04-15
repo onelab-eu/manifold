@@ -328,4 +328,4 @@ class ParisTracerouteGateway(ProcessGateway):
     #    Field()
 
     #path = '/usr/local/bin/paris-traceroute'
-    path = '/bin/paris-traceroute' # fake
+    path = '/usr/sbin/paris-traceroute' 
