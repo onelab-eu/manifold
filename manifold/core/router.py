@@ -8,18 +8,20 @@
 # Authors:
 #   Jordan Augé       <jordan.auge@lip6.fr>
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
+#   Loïc Baron        <loic.baron@lip6.fr>
 
 import os, sys, json, copy, time, traceback #, threading
-from twisted.internet               import defer
+from twisted.internet                   import defer
 
-from manifold.core.dbnorm           import to_3nf 
-from manifold.core.interface        import Interface
-from manifold.core.query_plan       import QueryPlan
-from manifold.core.result_value     import ResultValue
-from manifold.util.log              import Log
-from manifold.util.type             import returns, accepts
-from manifold.util.reactor_thread   import ReactorThread
-from manifold.policy                import Policy
+from manifold.core.dbnorm               import to_3nf 
+from manifold.core.interface            import Interface
+from manifold.core.query_plan           import QueryPlan
+from manifold.core.result_value         import ResultValue
+from manifold.util.log                  import Log
+from manifold.util.type                 import returns, accepts
+from manifold.util.reactor_thread       import ReactorThread
+from manifold.policy                    import Policy
+from manifold.policy.target.cache.cache import Cache
 # XXX cannot use the wrapper with sample script
 # XXX cannot use the thread with xmlrpc -n
 #from manifold.util.reactor_wrapper  import ReactorWrapper as ReactorThread
@@ -55,6 +57,11 @@ class Router(Interface):
         super(Router, self).boot()
         self.g_3nf = to_3nf(self.metadata)
 
+        # TODO: ROUTERV2
+        # Cache per user
+        self._cache = Cache()
+        self._cache_user = dict()
+
     def __enter__(self):
         """
         Function called back while entering a "with" statement.
@@ -69,6 +76,26 @@ class Router(Interface):
         See http://effbot.org/zone/python-with-statement.htm
         """
         ReactorThread().stop_reactor()
+
+    # TODO: ROUTERV2 
+    # Cache per user
+    # this function creates a cache per user if user_id is in annotations
+    # else it provides a global cache for non logged in Queries
+    def get_cache(self, annotations=None):
+         try:
+             Log.tmp("----------> CACHE PER USER <------------")
+             #Log.tmp(annotations)
+             user_id = annotations['user']['user_id']
+             Log.tmp(self._cache_user)
+             if user_id not in self._cache_user:
+                 self._cache_user[user_id] = Cache()
+             Log.tmp(self._cache_user)
+             return self._cache_user[user_id]
+         except:
+             Log.tmp("----------> NO CACHE PER USER <------------")
+             import traceback
+             traceback.print_exc()
+             return self._cache    
 
     # This function is directly called for a Router
     # Decoupling occurs before for queries received through sockets

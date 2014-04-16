@@ -5,34 +5,13 @@ from manifold.core.record               import Record
 from manifold.util.log                  import Log
 
 class CacheTarget(Target):
-    def __init__(self):
-        # XXX This should be called when the router starts for initializing the
-        # cache structure before the first query arrives
-        self._cache = Cache()
-        self._cache_user = dict()
-
-    # TODO: ROUTERV2 
-    # this function creates a cache per user if user_id is in annotations
-    # else it provides a global cache for non logged in Queries
-    def get_cache(self, annotations):
-        try:
-            Log.tmp("----------> CACHE PER USER <------------")
-            #Log.tmp(annotations)
-            user_id = annotations['user']['user_id']
-            Log.tmp(self._cache_user)
-            if 'user_id' not in self._cache_user:
-                self._cache_user[user_id] = Cache()
-            Log.tmp(self._cache_user)
-            return self._cache_user[user_id]
-        except:
-            Log.tmp("----------> NO CACHE PER USER <------------")
-            import traceback
-            traceback.print_exc()
-            return self._cache
 
     def process_query(self, query, annotations):
         #Log.tmp("CACHE - Processing query: %r, %r" % (query, annotations))
-        cache = self.get_cache(annotations)
+
+        # TODO: ROUTERV2
+        # Cache per user
+        cache = self._interface.get_cache(annotations)
         #print "==== DUMPING CACHE ====="
         #print self._cache.dump()
         #print "="*40
@@ -56,7 +35,10 @@ class CacheTarget(Target):
 
     def process_record(self, query, record, annotations):
         #print "*** CACHE: appending records into cache for query", query
-        cache = self.get_cache(annotations)
+
+        # TODO: ROUTERV2
+        # Cache per user
+        cache = self._interface.get_cache(annotations)
         cache.append_records(query, record, create=True)
         #print "==== DUMPING CACHE ====="
         #print self._cache.dump()

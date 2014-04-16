@@ -48,7 +48,10 @@ class Policy(object):
             if not target:
                 Log.warning("Unknown target %s" % rule.target)
                 continue
-            decision, data = target().process(query, record, annotations)
+            # TODO: ROUTERV2
+            # Cache per user
+            # Adding interface in order to access router.get_cache(annotations)
+            decision, data = target(self.interface).process(query, record, annotations)
             if decision == TargetValue.ACCEPT:
                 return (self.ACCEPT, None)
             elif decision == TargetValue.REWRITE:
