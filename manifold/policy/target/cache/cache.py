@@ -5,7 +5,9 @@ from manifold.core.query_plan           import QueryPlan
 
 class Cache(object):
 
-    __metaclass__ = Singleton
+    # TODO: ROUTERV2
+    # Cache per user
+    #__metaclass__ = Singleton
 
     # Cache = query -> entry
 
