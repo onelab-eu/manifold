@@ -1025,6 +1025,10 @@ class SFAGateway(Gateway):
 
     @defer.inlineCallbacks
     def get_object(self, object, object_hrn, filters, params, fields):
+
+        # DEBUG get_user parent_authority INCLUDED "['p', 'l', 'e', '.', 'u', 'p', 'm', 'c']" 
+        Log.tmp(filters)
+
         # Let's find some additional information in filters in order to restrict our research
         object_name = make_list(filters.get_op(object_hrn, [eq, included]))
         auth_hrn = make_list(filters.get_op('parent_authority', [eq, lt, le]))
@@ -1155,6 +1159,8 @@ class SFAGateway(Gateway):
         return self.get_object('slice', 'slice_hrn', filters, params, fields)
 
     def get_user(self, filters, params, fields):
+        # DEBUG get_user parent_authority INCLUDED "['p', 'l', 'e', '.', 'u', 'p', 'm', 'c']" 
+        Log.tmp(filters)
 
         if self.user['email'] in DEMO_HOOKS:
             Log.tmp(self.user)
@@ -1421,6 +1427,10 @@ class SFAGateway(Gateway):
 
     @defer.inlineCallbacks
     def update_object(self, filters, params, fields):
+
+        # DEBUG
+        Log.tmp("update_object")
+
         # XXX should call create_record_from_params which would rely on mappings
         dict_filters = filters.to_dict()
         if filters.has(self.query.object+'_hrn'):
