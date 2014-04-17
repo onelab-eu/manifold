@@ -1462,6 +1462,11 @@ class SFAGateway(Gateway):
             else:
                 Log.tmp("Need an authority credential to update another user: %s" % object_hrn)
                 auth_cred = self._get_cred('authority', object_auth_hrn)
+        # TODO: ROUTERV2
+        # update slice requires slice_credential not authority
+        elif self.query.object == 'slice':
+            Log.tmp("Need a slice credential to update: %s" % object_hrn)
+            auth_cred = self._get_cred('slice', object_hrn)
         else:
             Log.tmp("Need an authority credential to update: %s" % object_hrn)
             auth_cred = self._get_cred('authority', object_auth_hrn)
