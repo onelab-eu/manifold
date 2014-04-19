@@ -31,15 +31,15 @@ class Key(frozenset):
     # Constructor
     #---------------------------------------------------------------------------
 
-    def __init__(self, fields, local = False):
+    def __new__(self, fields, local = False):
         """
         Constructor.
         Args:
             fields: The set of Field instances involved in the Key.
         """
         Key.check_fields(fields)
-        frozenset.__init__(fields)
         self._local = local
+        return frozenset.__new__(self, fields)
 
     @classmethod
     def from_dict(cls, key_dict, all_fields_dict):
@@ -187,17 +187,20 @@ class Keys(set):
         """
         Keys.check_keys(keys)
         set.__init__(self, set(keys))
-        self._local = False
+
+    @classmethod
+    def from_dict_list(cls, key_dict_list, all_fields_dict):
+        return Keys([Key.from_dict(key_dict, all_fields_dict) for key_dict in key_dict_list])
+
+    def to_dict_list(self):
+        return [key.to_dict() for key in self]
 
     #---------------------------------------------------------------------------
     # Accessors
     #---------------------------------------------------------------------------
 
     def is_local(self):
-        return self._local
-
-    def set_local(self):
-        self._local = True
+        return all(key.is_local() for key in self)
 
     #---------------------------------------------------------------------------
     # Static methods
@@ -297,10 +300,3 @@ class Keys(set):
 
         assert len(fields) == len(key1)
         return Key(fields)
-
-    def to_dict_list(self):
-        return [key.to_dict() for key in self]
-
-    @classmethod
-    def from_dict_list(cls, key_dict_list):
-        return Keys([Key.from_dict(key_dict) for key_dict in key_dict_list])

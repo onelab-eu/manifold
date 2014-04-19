@@ -181,7 +181,7 @@ class Table(object):
     def get_keys(self):
         return self.keys
 
-    @accepts(Keys)
+    @accepts(object, Keys)
     def set_keys(self, keys):
         self.keys = keys
 
@@ -279,7 +279,7 @@ class Table(object):
         return ret
 
     # XXX Local already in key... to remove
-    def insert_key(self, key, local = None):
+    def insert_key(self, key, local = False):
         """
         Add a Key in this Table.
         Args:
@@ -291,12 +291,7 @@ class Table(object):
         Raises:
             TypeError: if the key argument is not valid.
         """
-        if local:
-            self.keys.set_local()
-
-        if key is None:
-            return
-
+        
         if isinstance(key, Key):
             if local:
                 key.set_local()
@@ -905,9 +900,12 @@ class Table(object):
             )
             t.insert_field(f)
         
-        t.set_keys(Keys.from_dict_list(dic['keys']), t.get_fields_dict())
+        keys = Keys.from_dict_list(dic['keys'], t.get_fields_dict())
+        t.set_keys(keys)
 
         t.capabilities.retrieve   = 'retrieve'   in dic['capabilities']
         t.capabilities.join       = 'join'       in dic['capabilities']
         t.capabilities.selection  = 'selection'  in dic['capabilities']
         t.capabilities.projection = 'projection' in dic['capabilities']
+
+        return t
