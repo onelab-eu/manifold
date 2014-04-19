@@ -114,7 +114,7 @@ class Key(object):
 
     @returns(frozenset)
     def get_fields(self):
-        return set(self._fields)
+        return frozenset(self._fields)
 
     @returns(Field)
     def get_field(self):
