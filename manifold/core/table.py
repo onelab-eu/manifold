@@ -177,11 +177,11 @@ class Table(object):
     # Accessors
     #-----------------------------------------------------------------------
 
-    @return(Keys)
+    @returns(Keys)
     def get_keys(self):
         return self.keys
 
-    @accept(Keys)
+    @accepts(Keys)
     def set_keys(self, keys):
         self.keys = keys
 
