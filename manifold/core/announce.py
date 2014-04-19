@@ -104,45 +104,6 @@ class Announce(Packet):
         self._table = table
         self._cost = cost
 
-    @classmethod
-    def from_dict(cls, dic, platform_name):
-        if dic['table'] in ['object', 'column', 'gateway']:
-            return None
-
-        t = Table(platform_name, dic['table'])
-
-        key_fields = []
-        for column in dic['columns']:
-            # XXX Move into field
-            _qualifiers = []
-            if column['is_const']:
-                _qualifiers.append('const')
-            if column['is_local']:
-                _qualifiers.append('local')
-            f = Field(
-                type        = column['type'],
-                name        = column['name'],
-                qualifiers  = _qualifiers,
-                is_array    = column['is_array'],
-                description = column['description'],
-                #default     = None
-            )
-            t.insert_field(f)
-            if column['name'] in dic['key']: # What is key
-                key_fields.append(f)
-                
-
-        key = Key(key_fields)
-        t.insert_key(key)
-        #t.insert_key(lease_id)
-
-        t.capabilities.retrieve   = 'retrieve'   in dic['capabilities']
-        t.capabilities.join       = 'join'       in dic['capabilities']
-        t.capabilities.selection  = 'selection'  in dic['capabilities']
-        t.capabilities.projection = 'projection' in dic['capabilities']
-
-        return Announce(t)
-
     @returns(Table)
     def get_table(self):
         """
@@ -175,7 +136,6 @@ class Announce(Packet):
         """
         return "Announce: %s" % self._table
 
-
     @returns(dict)
     def to_dict(self):
         """
@@ -183,6 +143,14 @@ class Announce(Packet):
             The dict representation of this Announce.
         """
         return self._table.to_dict()
+
+    @classmethod
+    def from_dict(cls, dic, platform_name):
+        if dic['table'] in ['object', 'column', 'gateway']:
+            return None
+
+        return Announce(Table.from_dict(dic, platform_name))
+
 
 class Announces(list):
 

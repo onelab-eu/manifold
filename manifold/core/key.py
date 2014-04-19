@@ -41,6 +41,28 @@ class Key(frozenset):
         frozenset.__init__(fields)
         self._local = local
 
+    @classmethod
+    def from_dict(cls, key_dict, all_fields_dict):
+        """
+        Args:
+            key_dict (dict):
+
+            all_fields_dict (dict) : dictionary mapping field names (string) to
+            their corresponding Field.
+
+        See also:
+            manifold.core.field
+        """
+        field_names = key_dict.get('field_names', [])
+        fields = [all_fields_dict[field_name] for field_name in field_names]
+        return Key(fields, key_dict.get('local', False))
+
+    def to_dict(self):
+        return {
+            'field_names': list(self.get_field_names()),
+            'local': self.is_local()
+        }
+
     #---------------------------------------------------------------------------
     # Accessors
     #---------------------------------------------------------------------------
@@ -276,3 +298,9 @@ class Keys(set):
         assert len(fields) == len(key1)
         return Key(fields)
 
+    def to_dict_list(self):
+        return [key.to_dict() for key in self]
+
+    @classmethod
+    def from_dict_list(cls, key_dict_list):
+        return Keys([Key.from_dict(key_dict) for key_dict in key_dict_list])
