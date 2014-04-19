@@ -420,7 +420,7 @@ class Fds(set):
 # and to_3nf function (and call this function).
 #====================================================================
 
-@accepts(set, Fds)
+@accepts(frozenset, Fds)
 def check_closure(fields, fds):
     """
     (Internal use)
@@ -432,7 +432,7 @@ def check_closure(fields, fds):
     for field in fields:
         assert isinstance(field, Field), "Invalid attribute: type (%r)" % type(field)
 
-@accepts(set, Fds)
+@accepts(frozenset, Fds)
 @returns(set)
 def closure(x, fds):
     """
@@ -456,7 +456,7 @@ def closure(x, fds):
     return x_plus
 
 @returns(dict)
-@accepts(set, Fds)
+@accepts(frozenset, Fds)
 def closure_ext(x, fds):
     """
     \brief Compute the closure of a set of attributes under the
@@ -542,9 +542,9 @@ def fd_minimal_cover(fds):
     g_copy = g.copy()
     for fd in g_copy:                                   # for each fd = [x -> a]:
         g2 = Fds([f for f in g if fd != f])             #   g' = g \ {fd}
-        x  = fd.get_determinant().get_key()
+        x  = fd.get_determinant().get_key().get_fields()
         a  = fd.get_field()
-        x_plus = closure(set(x), g2)                    #   compute x+ according to g'
+        x_plus = closure(x, g2)                    #   compute x+ according to g'
         if a in x_plus:                                 #   if a \in x+:
             #print "rm %s" % fd
             fds_removed.add(fd)
@@ -553,14 +553,15 @@ def fd_minimal_cover(fds):
     for fd in g.copy():                                 # for each fd = [x -> a] in g:
         x = fd.get_determinant().get_key()
         if x.is_composite():                            #   if x has multiple attributes:
-            for b in x:                                 #     for each b in x:
+            for b in x.get_fields():                    #     for each b in x:
 
-                x_b = Key([xi for xi in x if xi != b])  #       x_b = x - b
+                x_b = Key([xi for xi in x.get_fields() if xi != b])  #       x_b = x - b
+                print "x_b", x_b
                 g2  = Fds([f for f in g if fd != f])    #       g'  = g \ {fd} \cup {fd'}
                 fd2 = copy.deepcopy(fd)                 #          with fd' = [(x - b) -> a]
                 fd2.set_key(x_b)
                 g2.add(fd2)
-                x_b_plus = closure(set(x_b), g2)        #       compute (x - b)+ with repect to g'
+                x_b_plus = closure(x_b.get_fields(), g2)        #       compute (x - b)+ with repect to g'
 
                 if b in x_b_plus:                       #       if b \subseteq (x - b)+:
                     g = g2                              #         replace [x -> a] in g by [(x - b) -> a]
@@ -618,7 +619,7 @@ def reinject_fds(fds_min_cover, fds_removed):
             map_key_closure[x] = closure_ext(x.get_fields(), fds_min_cover)
 
         # (2)
-        for fd in map_key_closure[x.get_fields()][y]:
+        for fd in map_key_closure[x][y]:
             #if (fd.get_determinant().get_key() == x and fd.get_field() in set(x)) or fd.get_field() == y:
             fd.add_methods(m)
 
@@ -726,6 +727,7 @@ def to_3nf(metadata):
 
                         platforms.add(method.get_platform())
 
+            print "KEYS=", keys
             table = Table(platforms, table_name, fields, keys)
 
             # XXX Hardcoded capabilities in 3nf tables
@@ -775,6 +777,7 @@ def to_3nf(metadata):
         if common_keys:
 
             # Capabilities will be set later since they must be set for all the Tables.
+            print "OCMMON KEYS", common_keys
             table = Table(all_platforms, table_name, common_fields, common_keys)
 
             # Migrate common fields from children to parents, except keys
