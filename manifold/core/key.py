@@ -112,7 +112,7 @@ class Key(object):
     # Methods
     #---------------------------------------------------------------------------
 
-    @returns(set)
+    @returns(frozenset)
     def get_fields(self):
         return set(self._fields)
 
