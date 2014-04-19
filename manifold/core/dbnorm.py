@@ -449,7 +449,7 @@ def closure(x, fds):
         old_x_plus = x_plus.copy()               #   temp_x+ = x+
         for fd in fds:                           #   for each fd (y -> z)
             key = fd.get_determinant().get_key() #     get y
-            if key <= x_plus:                    #     if y \subseteq x+
+            if key.get_fields() <= x_plus:                    #     if y \subseteq x+
                 x_plus |= fd.get_fields()        #       x+ = x+ \cup z
         if old_x_plus == x_plus:                 # until temp_x+ = x+
             break

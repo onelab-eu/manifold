@@ -883,9 +883,6 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
 
         if self.is_local():
             # Don't propagate the projection
-            print "SQ opt proj", fields
-            print "self.get_destination().get_fields()", self.get_destination().get_fields()
-            print "fields <= self.get_destination().get_fields()", fields <= self.get_destination().get_fields()
             if fields <= self.get_destination().get_fields():
                 return Projection(self, fields) 
             else:
@@ -894,9 +891,6 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
 
         parent_fields = Fields([field for field in fields if not "." in field]) \
             | Fields([field.split('.')[0] for field in fields if "." in field])
-
-        print "SQ optimize projection requested fields=", fields
-
 
         # XXX We need data associated with each producer
         def handle_child(child_producer, child_data):

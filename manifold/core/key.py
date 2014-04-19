@@ -21,7 +21,7 @@ from manifold.core.fields   import Fields
 from manifold.util.type     import returns, accepts
 from manifold.util.log      import Log
 
-class Key(frozenset):
+class Key(object):
     """
     Implements a key for a table.
     A key is a set of (eventually one) Fields.
@@ -31,15 +31,15 @@ class Key(frozenset):
     # Constructor
     #---------------------------------------------------------------------------
 
-    def __new__(self, fields, local = False):
+    def __init__(self, fields, local = False):
         """
         Constructor.
         Args:
             fields: The set of Field instances involved in the Key.
         """
         Key.check_fields(fields)
+        self._fields = frozenset(fields)
         self._local = local
-        return frozenset.__new__(self, fields)
 
     @classmethod
     def from_dict(cls, key_dict, all_fields_dict):
@@ -62,6 +62,14 @@ class Key(frozenset):
             'field_names': list(self.get_field_names()),
             'local': self.is_local()
         }
+
+    #-----------------------------------------------------------------------
+    # Internal methods
+    #-----------------------------------------------------------------------
+
+    def __iter__(self):
+        return iter(self._fields)
+
 
     #---------------------------------------------------------------------------
     # Accessors
@@ -104,11 +112,15 @@ class Key(frozenset):
     # Methods
     #---------------------------------------------------------------------------
 
+    @returns(set)
+    def get_fields(self):
+        return set(self._fields)
+
     @returns(Field)
     def get_field(self):
         if self.is_composite():
             raise ValueError("get_field cannot be called for a composite key")
-        return list(self)[0]
+        return iter(self._fields).next()
 
     @returns(StringTypes)
     def get_name(self):
@@ -121,7 +133,7 @@ class Key(frozenset):
 
     @returns(set)
     def get_field_names(self):
-        return Fields([x.get_name() for x in self])
+        return Fields([x.get_name() for x in self._fields])
 
     @returns(set)
     def get_names(self):
@@ -141,16 +153,17 @@ class Key(frozenset):
         return self.get_field().get_type()
 
     def get_field_types(self):
-        return set([field.get_type() for field in self])
+        return set([field.get_type() for field in self._fields])
 
     @returns(StringTypes)
     def __str__(self):
-        return "KEY(%s)" % (", ".join(["%s" % field for field in self]))
+        local = 'LOCAL ' if self.is_local() else ''
+        return "%sKEY(%s)" % (local, ", ".join(["%s" % field for field in self._fields]))
 
     @returns(StringTypes)
     def __repr__(self):
-        return "KEY(%s)" % (", ".join(["%s" % field for field in self]))
-
+        local = 'LOCAL ' if self.is_local() else ''
+        return "%sKEY(%s)" % (local, ", ".join(["%s" % field for field in self._fields])) 
 # DO NOT UNCOMMENT
     @returns(bool)
     def __eq__(self, x):
@@ -159,16 +172,6 @@ class Key(frozenset):
 #
 #    def __hash__(self):
 #        return hash(tuple([f.get_name() for f in self]))
-
-    @returns(bool)
-    def is_local(self):
-        """
-        Returns:
-            True iif a Key involves at least one local Field/
-        """
-        for field in self:
-            if field.is_local(): return True
-        return False
 
 class Keys(set):
     """
