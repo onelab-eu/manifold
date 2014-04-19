@@ -337,13 +337,12 @@ def parse_dot_h(iterable, filename = None):
             #    LOCAL KEY(my_field1, my_field2);
             m = REGEXP_CLASS_KEY.match(line)
             if m:
-                local_key_reference = table_name if bool(m.group(1)) else None
                 if m.group(2):
                     key = m.group(2).split(',')
                     key = [key_elt.strip() for key_elt in key]
                 else:
-                    key = None
-                tables[table_name].insert_key(key, local_key_reference)
+                    key = []
+                tables[table_name].insert_key(key, local=bool(m.group(1)))
                 # XXX
                 #if key not in tables[table_name].keys:
                 #     tables[table_name].keys.append(key)
