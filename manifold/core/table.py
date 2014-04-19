@@ -58,10 +58,10 @@ class Table(object):
         Check whether keys parameter is well-formed in __init__
         """
         if not keys: return
-        if not isinstance(keys, (tuple, list, set, frozenset)):
+        if not isinstance(keys, (tuple, list, set, frozenset, Keys)):
             raise TypeError("keys = %r is not of type tuple, list, frozenset" % keys)
         for key in keys:
-            if not isinstance(key, (tuple, list, set, frozenset)):
+            if not isinstance(key, (tuple, list, set, frozenset, Key)):
                 raise TypeError("In keys = %r: %r is not of type Key (type %r)" % (keys, key, type(key)))
             for key_elt in key:
                 if not isinstance(key_elt, (StringTypes,Field)):
@@ -115,8 +115,18 @@ class Table(object):
         """
         # Check parameters
         Table.check_init(partitions, table_name, fields, keys)
+
+        # Init self.name.
+        # Enforce unicode encoding to guarantee format consistency among all Table instances.
+        self.name = unicode(table_name)
+
+        # Check parameters
+        # Init default capabilities (none)
+        self.capabilities = Capabilities()
+
         self.set_partitions(partitions)
 
+        # Check parameters
         # Init self.fields
         self.fields = dict()
         if isinstance(fields, (list, set, frozenset)):
@@ -126,21 +136,16 @@ class Table(object):
         elif isinstance(fields, dict):
             self.fields = fields
 
+        # Check parameters
         # Init self.keys
         self.keys = Keys()
         if keys:
             for key in keys:
                 self.insert_key(key)
 
+        # Check parameters
         # Init self.platforms
         self.init_platforms()
-
-        # Init default capabilities (none)
-        self.capabilities = Capabilities()
-
-        # Init self.name.
-        # Enforce unicode encoding to guarantee format consistency among all Table instances.
-        self.name = unicode(table_name)
 
     #-----------------------------------------------------------------------
     # Outputs
