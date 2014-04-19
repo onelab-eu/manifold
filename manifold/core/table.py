@@ -229,7 +229,7 @@ class Table(object):
         """
         return set(self.fields.values())
 
-    @returns(dict):
+    @returns(dict)
     def get_fields_dict(self):
         """
         """
