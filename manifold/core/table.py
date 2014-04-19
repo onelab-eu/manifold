@@ -174,6 +174,18 @@ class Table(object):
             return self.get_name()
 
     #-----------------------------------------------------------------------
+    # Accessors
+    #-----------------------------------------------------------------------
+
+    @return(Keys)
+    def get_keys(self):
+        return self.keys
+
+    @accept(Keys)
+    def set_keys(self, keys):
+        self.keys = keys
+
+    #-----------------------------------------------------------------------
     # Methods
     #-----------------------------------------------------------------------
 
@@ -216,6 +228,12 @@ class Table(object):
             The set of Field instances related to this Table.
         """
         return set(self.fields.values())
+
+    @returns(dict):
+    def get_fields_dict(self):
+        """
+        """
+        return self.fields
 
     @returns(Field)
     def get_field(self, field_name):
@@ -260,6 +278,7 @@ class Table(object):
         del(self.fields[field_name])
         return ret
 
+    # XXX Local already in key... to remove
     def insert_key(self, key, local = None):
         """
         Add a Key in this Table.
@@ -853,14 +872,42 @@ class Table(object):
         for field in self.fields.values():
             columns.append(field.to_dict())
 
-        keys = tuple(self.get_keys().one().get_field_names())
-
         return {
             "table"        : self.get_name(),
             "columns"      : columns,
-            "key"          : keys,
+            "keys"         : self.keys.to_dict_list(),
             "capabilities" : self.get_capabilities().to_list()
             # key
             # default
             # capabilities
         }
+
+    @classmethod
+    def from_dict(cls, dic, platform_name):
+
+        t = Table(platform_name, dic['table'])
+
+        key_fields = []
+        for column in dic['columns']:
+            # XXX Move into field
+            _qualifiers = []
+            if column['is_const']:
+                _qualifiers.append('const')
+            if column['is_local']:
+                _qualifiers.append('local')
+            f = Field(
+                type        = column['type'],
+                name        = column['name'],
+                qualifiers  = _qualifiers,
+                is_array    = column['is_array'],
+                description = column['description'],
+                #default     = None
+            )
+            t.insert_field(f)
+        
+        t.set_keys(Keys.from_dict_list(dic['keys']), t.get_fields_dict())
+
+        t.capabilities.retrieve   = 'retrieve'   in dic['capabilities']
+        t.capabilities.join       = 'join'       in dic['capabilities']
+        t.capabilities.selection  = 'selection'  in dic['capabilities']
+        t.capabilities.projection = 'projection' in dic['capabilities']
