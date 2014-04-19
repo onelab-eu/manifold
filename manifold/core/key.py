@@ -164,14 +164,18 @@ class Key(object):
     def __repr__(self):
         local = 'LOCAL ' if self.is_local() else ''
         return "%sKEY(%s)" % (local, ", ".join(["%s" % field for field in self._fields])) 
-# DO NOT UNCOMMENT
-    @returns(bool)
+
     def __eq__(self, x):
-#        return set([f.get_name() for f in self]) == set(f.get_name() for f in x)
-        return self.__hash__() == x.__hash__()
-#
-#    def __hash__(self):
-#        return hash(tuple([f.get_name() for f in self]))
+        return self.get_fields() == x.get_fields()
+
+#DEPRECATED|# DO NOT UNCOMMENT
+#DEPRECATED|    @returns(bool)
+#DEPRECATED|    def __eq__(self, x):
+#DEPRECATED|#        return set([f.get_name() for f in self]) == set(f.get_name() for f in x)
+#DEPRECATED|        return self.__hash__() == x.__hash__()
+#DEPRECATED|#
+#DEPRECATED|#    def __hash__(self):
+#DEPRECATED|#        return hash(tuple([f.get_name() for f in self]))
 
 class Keys(set):
     """
