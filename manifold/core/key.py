@@ -168,6 +168,9 @@ class Key(object):
     def __eq__(self, x):
         return self.get_fields() == x.get_fields()
 
+    def __hash__(self):
+        return self._fields.__hash__()
+
 #DEPRECATED|# DO NOT UNCOMMENT
 #DEPRECATED|    @returns(bool)
 #DEPRECATED|    def __eq__(self, x):
