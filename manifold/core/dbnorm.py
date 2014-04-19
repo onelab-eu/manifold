@@ -182,7 +182,7 @@ class Fd(object):
         """
         platforms = set()
         first = True
-        for field in self.get_determinant().get_key():
+        for field in self.get_determinant().get_key().get_fields():
             platforms_cur = set([method.get_platform() for method in self.map_field_methods[field]])
             if first:
                 platforms |= platforms_cur
@@ -306,7 +306,7 @@ class Fd(object):
         Returns:
             self
         """
-        if (self.get_determinant().get_key() == fd.get_determinant().get_key()) == False:
+        if (self.get_determinant().get_key().get_fields() == fd.get_determinant().get_key().get_fields()) == False:
             raise ValueError("Cannot call |= with parameters (invalid determinants)\n\tself = %r\n\tfd   = %r" % (self, fd))
         for field, methods in fd.map_field_methods.items():
             if field not in self.map_field_methods.keys():
@@ -484,7 +484,7 @@ def closure_ext(x, fds):
         for fd in fds:                             #   for each fd (y -> z)
             y = fd.get_determinant().get_key()
             x_plus = set(x_plus_ext.keys())
-            if y <= x_plus:                        #     if y in x+
+            if y.get_fields() <= x_plus:                        #     if y in x+
                 z = fd.get_field()
                 if z not in x_plus:                #       if z not in x+
                     added = True                   #          this fd is relevant, let's visit it
@@ -615,10 +615,10 @@ def reinject_fds(fds_min_cover, fds_removed):
 
         # Compute (if not cached) the underlying 3nf fds allowing to retrieve y from x
         if x not in map_key_closure.keys():
-            map_key_closure[x] = closure_ext(set(x), fds_min_cover)
+            map_key_closure[x] = closure_ext(x.get_fields(), fds_min_cover)
 
         # (2)
-        for fd in map_key_closure[x][y]:
+        for fd in map_key_closure[x.get_fields()][y]:
             #if (fd.get_determinant().get_key() == x and fd.get_field() in set(x)) or fd.get_field() == y:
             fd.add_methods(m)
 
