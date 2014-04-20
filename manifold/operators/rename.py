@@ -12,12 +12,14 @@
 from types                          import StringTypes
 
 from manifold.core.destination      import Destination
+from manifold.core.fields           import FIELD_SEPARATOR
 from manifold.core.node             import Node
 from manifold.core.operator_slot    import ChildSlotMixin
 from manifold.core.packet           import Packet
 from manifold.core.query            import Query
-from manifold.core.record           import Records
+from manifold.core.record           import Record, Records
 from manifold.operators.operator    import Operator
+from manifold.operators.projection  import Projection
 from manifold.operators.subquery    import SubQuery
 from manifold.util.log              import Log 
 from manifold.util.type             import returns
@@ -174,95 +176,22 @@ class Rename(Operator, ChildSlotMixin):
         if record.is_empty():
             return record
 
-        # UGLY... can we shorten/simplify this a bit ???
-        def rec(in_, out_, r):
-            """
-            Modifies r in place !
-            """
-            #print "REC(%r, %r, %r)" % (in_, out_, r)
-            if isinstance(r, list):
-                return map(lambda rr: rec(in_, out_, rr), r)
-
-            if len(in_) == 0:
-                if len(out_) == 0:
-                    # / -> /
-                    return r
-
-                elif len(out_) == 1:
-                    # / -> x
-                    x = out_[0]
-                    return r[x]
-
-                else: # len(out_) > 1:
-                    x = out_[0]
-                    r[x] = rec([], out_[1:], old)
-                    return r
-
-            elif len(in_) == 1:
-                if len(out_) == 0:
-                    # a -> /
-                    a = in_[0]
-                    return r.pop(a, None)
-
-                elif len(out_) == 1:
-                    # a -> x
-                    a, x = in_[0], out_[0]
-                    r[x] = r.pop(a, None)
-                    return r
-
-                else: # len(out_) > 1:
-                    # a -> x.y...
-                    a, x = in_[0], out_[0]
-                    old = r.pop(a, None)
-                    r[x] = rec([], out_[1:], old)
-                    return r
-
-            else: # len(in_) > 1:
-                if len(out_) == 0:
-                    # a.b... -> /
-                    a = in_[0]
-                    old = r.pop(a, None)
-                    if insinstance(old, list):
-                        ret = list()
-                        for x in old:
-                            ret.extend(rec(in_[1:], [], x))
-                        return ret
-                    else: # dict
-                        return rec(in_[1:], [], old)
-
-                elif len(out_) == 1:
-                    # a.b... -> x
-                    a, x = in_[0], out_[0]
-                    old = r.pop(a, None)
-                    r[x] = rec(in_[1:], [], old)
-                    return r
-
-                else: # len(out_) > 1:
-                    # a.b... -> x.y...
-                    a, x = in_[0], out_[0]
-
-                    old = r.pop(a, None)
-                    r[x] = rec(in_[1:], out_[1:], old)
-                    return r
-
+        def handle_record(k, v, myrecord):
+            k_head, _, k_tail = k.partition(FIELD_SEPARATOR)
+            v_head, _, v_tail = v.partition(FIELD_SEPARATOR)
+            if k_head == v_head:
+                subrecord = myrecord[k_head]
+                if isinstance(subrecord, Records):
+                    for subrecord_ in subrecord:
+                        handle_record(k_tail, v_tail, subrecord_)
+                else:
+                    handle_record(k_tail, v_tail, subrecord)
+            else:
+                myrecord.set(v, myrecord.pop(k))
 
         for k, v in self.get_aliases().items():
-            in_ = k.split('.')
-            out_ = v.split('.')
+            handle_record(k, v, record)
 
-            qq = rec(in_, out_, record)
-
-#DEPRECATED|            # we can have dots everywhere: eg. hops.probes.ip -> hops.ip
-#DEPRECATED|            if k in record:
-#DEPRECATED|                if '.' in v: # users.hrn
-#DEPRECATED|                    method, key = v.split('.')
-#DEPRECATED|                    # Careful to cases such as hops --renamed--> hops.ttl
-#DEPRECATED|                    if not method in record:
-#DEPRECATED|                        record[method] = Records() 
-#DEPRECATED|                    for x in record[k]:
-#DEPRECATED|                        record[method].append({key: x})        
-#DEPRECATED|                else:
-#DEPRECATED|                    record[v] = record.pop(k)
         return record
 
     def process_records(self, records):
@@ -324,7 +253,7 @@ class Rename(Operator, ChildSlotMixin):
         rmap = {v: k for k, v in self.get_aliases().items()}
         new_fields = fields.copy().rename(rmap)
         self._update_child(lambda c, d: c.optimize_projection(new_fields))
-        return self
+        return Projection(self, fields)
 
     @returns(Node)
     def reorganize_create(self):

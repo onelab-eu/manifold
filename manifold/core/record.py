@@ -25,6 +25,9 @@ from manifold.util.type     import returns, accepts
 # Record class
 #-------------------------------------------------------------------------------
 
+class Unspecified(object):
+    pass
+
 class Record(Packet):
 
     #---------------------------------------------------------------------------
@@ -115,7 +118,7 @@ class Record(Packet):
             ' LAST' if self.is_last() else ''
         )
 
-    def __getitem__(self, key, **kwargs):
+    def __getitem__(self, key):
         """
         Extract from this Record a field value.
         Args:
@@ -126,7 +129,8 @@ class Record(Packet):
         """
         if not self._record:
             raise Exception, "Empty record"
-        return dict.__getitem__(self._record, key, **kwargs)
+        return self.get(key)
+#        return dict.__getitem__(self._record, key, **kwargs)
 
     def __setitem__(self, key, value, **kwargs):
         """
@@ -148,8 +152,8 @@ class Record(Packet):
         """
         return dict.__iter__(self._record)
 
-    def get(self, value, default=None):
-        return self._record.get(value, default)
+#    def get(self, value, default=None):
+#        return self._record.get(value, default)
 
     #--------------------------------------------------------------------------- 
     # Class methods
@@ -167,6 +171,7 @@ class Record(Packet):
     # Methods
     #--------------------------------------------------------------------------- 
 
+    # XXX This should disappear when we have a nice get_value
     def get_map_entries(self, fields):
         """
         Internal use for left_join
@@ -189,6 +194,60 @@ class Record(Packet):
                 tuple_list = record.get_map_entries(subfield)
                 ret.extend(tuple_list)
             return ret
+
+    def _get(self, field_name, default, remove):
+
+        field, _, subfield = field_name.partition(FIELD_SEPARATOR)
+
+        if not subfield:
+            if remove:
+                if default is Unspecified:
+                    return dict.pop(self._record, field)
+                else:
+                    return dict.pop(self._record, field, default)
+            else:
+                if default is Unspecified:
+                    return dict.get(self._record, field)
+                else:
+                    return dict.get(self._record, field, default)
+                    
+        else:
+            if default is Unspecified:
+                subrecord = dict.get(self._record, field)
+            else:
+                subrecord = dict.get(self._record, field, default)
+            if isinstance(subrecord, Records):
+                return map(lambda r: r._get(subfield, default, remove), subrecord)
+            elif isinstance(subrecord, Record):
+                return [subrecord._get(subfield, default, remove)]
+            else:
+                return [default]
+
+    def get(self, field_name, default = Unspecified):
+        return self._get(field_name, default, remove = False)
+
+    def pop(self, field_name, default = Unspecified):
+        return self._get(field_name, default, remove = True)
+
+    def set(self, key, value):
+        key, _, subkey = key.partition(FIELD_SEPARATOR)
+
+        if subkey:
+            if not key in self._record:
+                Log.warning("Strange case 1, should not happen often... To test...")
+                self._record[key] = Record()
+            subrecord = self._record[key]
+            if isinstance(subrecord, Records):
+                Log.warning("Strange case 2, should not happen often... To test...")
+            elif isinstance(subrecord, Record):
+                subrecord.set(subkey, value)
+            else:
+                raise NotImplemented
+        else:
+            self._record[key] = value
+
+        
+        
 
     def get_value(self, fields):
         """
@@ -251,8 +310,8 @@ class Record(Packet):
             if self._record[key]: return False
         return True
 
-    def pop(self, *args, **kwargs):
-        return dict.pop(self._record, *args, **kwargs)
+#DEPRECATED|    def pop(self, *args, **kwargs):
+#DEPRECATED|        return dict.pop(self._record, *args, **kwargs)
 
     def items(self):
         return dict.items(self._record) if self._record else list()
