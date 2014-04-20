@@ -328,4 +328,8 @@ class ParisTracerouteGateway(ProcessGateway):
     #    Field()
 
     #path = '/usr/local/bin/paris-traceroute'
-    path = '/usr/sbin/paris-traceroute' 
+    import os
+    if os.path.exists("/bin/paris-traceroute"):
+        path = "/bin/paris-traceroute"
+    else:
+        path = '/usr/sbin/paris-traceroute' 

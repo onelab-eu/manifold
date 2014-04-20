@@ -202,7 +202,11 @@ class Record(Packet):
         Raises:
             KeyError if at least one of the fields is not found
         """
-        assert isinstance(fields, (StringTypes, tuple))
+        assert isinstance(fields, (StringTypes, Fields))
+
+        if isinstance(fields, Fields):
+            assert len(fields) == 1
+            fields = iter(fields).next()
 
         if isinstance(fields, StringTypes):
             return self._record[fields]

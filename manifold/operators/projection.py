@@ -14,6 +14,7 @@
 from types                          import StringTypes
 
 from manifold.core.destination      import Destination
+from manifold.core.fields           import Fields
 from manifold.core.operator_slot    import ChildSlotMixin
 from manifold.core.packet           import Packet
 from manifold.core.record           import Record, Records
@@ -104,7 +105,7 @@ class Projection(Operator, ChildSlotMixin):
     # Accessors
     #---------------------------------------------------------------------------
 
-    @returns(set)
+    @returns(Fields)
     def get_fields(self):
         """
         Returns:

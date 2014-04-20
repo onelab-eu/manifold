@@ -290,7 +290,7 @@ class ExploreTask(Deferred):
 
         #........ End rewritten
 
-        assert self.depth == 1 or root_key_fields not in missing_fields, "Requesting key fields in child table"
+        #assert self.depth == 1 or root_key_fields not in missing_fields, "Requesting key fields in child table"
 
         if self.keep_root_a:
             # XXX NOTE that we have built an AST here without taking into account fields for the JOINs and SUBQUERIES
@@ -473,7 +473,7 @@ class ExploreTask(Deferred):
                 # - With unique naming, we could adopt the first solution. To
                 # balance both, we will remove local fields.
                 map_field_local = {f.get_name(): f.is_local() for f in table.get_fields()}
-                selected_fields  = set([f for f in fields if not map_field_local[f]])
+                selected_fields  = Fields([f for f in fields if not map_field_local[f]])
                 selected_fields |= self.keep_root_a
 
                 query = Query.action(ACTION_GET, method.get_name()).select(selected_fields)

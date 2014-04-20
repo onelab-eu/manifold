@@ -10,7 +10,7 @@ from manifold.util.type             import accepts, returns
 FIELD_SEPARATOR = '.'
 DEFAULT_IS_STAR = False
 
-class Fields(set):
+class Fields(list):
     """
     """
 
@@ -23,8 +23,8 @@ class Fields(set):
         Constructor.
         """
         star = kwargs.pop('star', DEFAULT_IS_STAR)
-        set.__init__(self, *args, **kwargs)
-        self._star = False if set(self) else star
+        list.__init__(self, *args, **kwargs)
+        self._star = False if list(self) else star
 
     @returns(StringTypes)
     def __repr__(self):
@@ -66,7 +66,7 @@ class Fields(set):
         Update this Fields instance to make it corresponds to "*"
         """
         self._star = True
-        set.clear(self)
+        self.clear()
 
     def unset_star(self, fields = None):
         """
@@ -92,7 +92,7 @@ class Fields(set):
         Returns:
             A copy of this Fields instance.
         """
-        return Fields(set.copy(self))
+        return Fields(self[:])
 
     #---------------------------------------------------------------------------
     # Iterators
@@ -119,7 +119,9 @@ class Fields(set):
         if self.is_star() or fields.is_star():
             return Fields(star = True)
         else:
-            return Fields(set.__or__(self, fields))
+            l = self[:]
+            l.extend([x for x in fields if x not in l])
+            return Fields(l)
 
     #@returns(Fields)
     def __ior__(self, fields):
@@ -134,7 +136,8 @@ class Fields(set):
             self.set_star()
             return self
         else:
-            return set.__ior__(self, fields)
+            self.extend([x for x in fields if x not in self])
+            return self
 
     #@returns(Fields)
     def __and__(self, fields):
@@ -150,7 +153,7 @@ class Fields(set):
         elif fields.is_star():
             return self.copy()
         else:
-            return Fields(set.__and__(self, fields))
+            return Fields([x for x in self if x in fields])
 
     #@returns(Fields)
     def __iand__(self, fields):
@@ -166,11 +169,11 @@ class Fields(set):
         elif fields.is_star():
             pass
         else:
-            set.__iand__(self, fields)
+            self[:] = [x for x in self if x in fields]
 
     @returns(bool)
     def __nonzero__(self):
-        return self.is_star() or bool(set(self))
+        return self.is_star() or bool(list(self))
 
     # Python>=3
     __bool__ = __nonzero__
@@ -186,12 +189,14 @@ class Fields(set):
                 # * - x,y,z = ???
                 return Fields(star = True) # XXX NotImplemented
             else:
-                return Fields(set.__sub__(self, fields))
+                return Fields([x for x in self if x not in fields])
 
     def __isub__(self, fields):
+        print "isub"
         raise NotImplemented
 
     def __iadd__(self, fields):
+        print "iadd"
         raise NotImplemented
 
     #---------------------------------------------------------------------------
@@ -207,7 +212,7 @@ class Fields(set):
         Returns:
             True if the both Fields instance matches.
         """
-        return self.is_star() and other.is_star() or set.__eq__(self, other)
+        return self.is_star() and other.is_star() or list.__eq__(self, other)
 
     @returns(bool)
     def __le__(self, other):
@@ -224,7 +229,7 @@ class Fields(set):
 
         return (self.is_star() and other.is_star())\
             or (not self.is_star() and other.is_star())\
-            or (set.__le__(self, other))
+            or (list.__le__(self, other))
 
     # Defined with respect of previous functions
 
@@ -249,6 +254,7 @@ class Fields(set):
         Returns:
             True if self is strictly included in other.
         """
+        print "other in lt=", other
         return self <= other and self != other
 
     @returns(bool)
@@ -264,15 +270,19 @@ class Fields(set):
     #---------------------------------------------------------------------------
 
     def add(self, field_name):
+        # DEPRECATED
+        self.append(field_name)
+
+    def append(self, field_name):
         if not isinstance(field_name, StringTypes):
             raise TypeError("Invalid field_name name %s (string expected, got %s)" % (field_name, type(field_name)))
 
         if not self.is_star():
-            set.add(self, field_name)
+            list.append(self, field_name)
 
     def clear(self):
         self._star = False
-        set.clear(self)
+        del self[:]
 
     def rename(self, aliases):
         s = self.copy()

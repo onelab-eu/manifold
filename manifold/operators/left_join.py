@@ -72,6 +72,7 @@ class LeftJoin(Operator, LeftRightSlotMixin):
         self._set_right(producers)
 
         self._predicate = predicate
+        print "PREDICATE IN LEFT JOIN SHOULD BE A TUPLE", predicate
 
         self._left_map     = dict() 
         self._left_done    = False
@@ -247,6 +248,7 @@ class LeftJoin(Operator, LeftRightSlotMixin):
                             # know this will be a simple value
                             # NOTE: we need the fields to remain ordered, so we
                             # are using a tuple...
+                            # XXX MACCHA XXX
                             hash_key = record.get_value(self._predicate.get_key())
                             # for subfields, we might have a list of values
                             if not hash_key in self._left_map:
@@ -273,6 +275,7 @@ class LeftJoin(Operator, LeftRightSlotMixin):
                     # We expect to receive information about keys we asked, and only these,
                     # so we are confident the key exists in the map
                     # XXX Dangers of duplicates ?
+                    # XXX MACCHA XXX 
                     key = record.get_value(self._predicate.get_value_names())
                     left_records = self._left_map.pop(key)
 
@@ -416,6 +419,9 @@ class LeftJoin(Operator, LeftRightSlotMixin):
         self._update_right_producer(lambda r, d: r.optimize_projection(right_fields))
 
         # Do we need a projection on top (= we do not request the join keys)
+        print "left_fields", left_fields
+        print "right_fields", right_fields
+        print "field", fields
         if left_fields | right_fields > fields:
             return Projection(self, fields)
         return self
