@@ -118,6 +118,7 @@ class ProcessGateway(Gateway):
         batch_id = str(uuid.uuid4())
 
         self._in_progress[batch_id] = len(args_params_list)
+        print "in progress for ", batch_id, ":", self._in_progress[batch_id]
 
         for args_params in args_params_list:
             args = (self.get_fullpath(),) + args_params[0]
@@ -211,6 +212,7 @@ class ProcessGateway(Gateway):
                     # -11 SIGSEGV (reference mémoire invalide)
                     # -15 SIGTERM
                     if output:
+                        # dig returns something even when return code is != 0
                         rows = self.parse(output)
                     else:
                         rows = []
@@ -228,8 +230,6 @@ class ProcessGateway(Gateway):
                 if e.errno == 10:
                     if not self._is_interrupted:
                         Log.error("Process has been killed: %s" % e)
-                else:
-                    return # raise # XXX
             except Exception, e:
                 import traceback
                 traceback.print_exc()
@@ -238,6 +238,8 @@ class ProcessGateway(Gateway):
             finally:
                 self._in_progress[batch_id] -= 1
                 if self._in_progress[batch_id] == 0:
+                    print "no more in progress, sending records"
+                    print "self._records=", self._records
                     self.records(self._records[batch_id], packet)
                     del self._records[batch_id]
                     del self._in_progress[batch_id]
