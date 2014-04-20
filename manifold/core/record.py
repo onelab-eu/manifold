@@ -199,14 +199,11 @@ class Record(Packet):
             If fields is a String,  return the corresponding value.
             If fields is a set, return a tuple of corresponding value.
         """
-        if isinstance(fields, Fields):
-            assert len(fields) == 1
-            fields = iter(fields).next()
+        assert isinstance(fields, (StringTypes, tuple))
 
         if isinstance(fields, StringTypes):
             return self._record[fields]
-
-        elif isinstance(fields, tuple):
+        else:
             # XXX We expect no "." inside XXX 
             return tuple(map(lambda x: self.get_value(x), fields))
 

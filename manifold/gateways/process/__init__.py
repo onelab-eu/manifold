@@ -68,7 +68,7 @@ class ProcessGateway(Gateway):
         Gateway.__init__(self, interface, platform_name, platform_config)
 
         self._in_progress = dict()
-        self._records = list()
+        self._records = dict()
         self._process = None
         self._is_interrupted = False
 
@@ -221,7 +221,7 @@ class ProcessGateway(Gateway):
                         record = dict()
                         record.update(params)
                         record.update(row)
-                        self._records.append(record)
+                        self._records[batch_id].append(record)
 
             except OSError, e:
                 if e.errno == 10:
@@ -237,7 +237,10 @@ class ProcessGateway(Gateway):
             finally:
                 self._in_progress[batch_id] -= 1
                 if self._in_progress[batch_id] == 0:
-                    self.records(self._records, packet)
+                    self.records(self._records[batch_id], packet)
+                    del self._records[batch_id]
+                    del self._in_progress[batch_id]
+
 
         thread = threading.Thread(target=runInThread, args=(args, params, packet, batch_id))
         thread.start()

@@ -120,6 +120,8 @@ class ManifoldGateway(Gateway):
             raise Exception, "Invalid result value"
         if result_value['code'] != 0:
             raise Exception, "Error while repatriating records"
+        # NOTE Any error in the chain will trigger error callback, and we will
+        # have the last record send twice !!!
         self.records(result_value['value'], packet)
 
     def callback_error(self, error, packet):

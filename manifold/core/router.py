@@ -190,7 +190,7 @@ class Router(Interface):
     #---------------------------------------------------------------------------
 
     # This will be the only calls for manipulating router platforms
-    def add_platform(self, platform_name, gateway_type, platform_config = {}):
+    def add_platform(self, platform_name, gateway_type, platform_config = None):
         """
         Add a platform (register_platform + enable_platform) in this Router.
         Args:
@@ -199,6 +199,9 @@ class Router(Interface):
             platform_config: A dictionnary { String : instance } containing the 
                 configuration of this Platform.
         """
+        if not platform_config:
+            platform_config = dict()
+
         try:
             Log.info("Adding platform [%s] (type: %s, config: %s)" % (platform_name, gateway_type, platform_config))
             gateway = self.make_gateway(platform_name, gateway_type, platform_config)
