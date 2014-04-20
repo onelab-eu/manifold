@@ -254,7 +254,6 @@ class Fields(list):
         Returns:
             True if self is strictly included in other.
         """
-        print "other in lt=", other
         return self <= other and self != other
 
     @returns(bool)
