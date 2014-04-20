@@ -218,6 +218,9 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
     def extract_from_local_child(cls, parent, child, relation, next_operator = None):
         """
         """
+        # XXX This should be done at another moment to avoid a UNION of two AST
+        # with the same RENAME and LEFT JOIN
+
         # To avoid cyclic dependencies
         from manifold.operators.left_join   import LeftJoin
         from manifold.operators.rename      import Rename

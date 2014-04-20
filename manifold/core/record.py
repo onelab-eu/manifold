@@ -246,9 +246,6 @@ class Record(Packet):
         else:
             self._record[key] = value
 
-        
-        
-
     def get_value(self, fields):
         """
         Args:
@@ -262,10 +259,6 @@ class Record(Packet):
             KeyError if at least one of the fields is not found
         """
         assert isinstance(fields, (StringTypes, Fields))
-
-        if isinstance(fields, Fields):
-            assert len(fields) == 1
-            fields = iter(fields).next()
 
         if isinstance(fields, StringTypes):
             return self._record[fields]
