@@ -113,10 +113,8 @@ class Union(Operator, ChildrenSlotMixin):
                 child.receive(packet)
 
         elif packet.get_protocol() == Packet.PROTOCOL_RECORD:
-            print "got record", packet
             record = packet
             is_last = record.is_last()
-            print " . is last", is_last
             record.unset_last()
             do_send = True
 
@@ -153,12 +151,10 @@ class Union(Operator, ChildrenSlotMixin):
             if is_last:
                 # In fact we don't care to know which child has completed
                 self._remaining_children -= 1
-                print "remaining children = ", self._remaining_children
                 if self._remaining_children == 0:
                     # We need to send all stored records
                     for record in self._records_by_key.values():
                         self.forward_upstream(record)
-                    print "sneding last record"
                     self.forward_upstream(Record(last = True))
 
         else: # TYPE_ERROR
