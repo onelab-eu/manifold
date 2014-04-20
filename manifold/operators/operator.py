@@ -18,6 +18,7 @@
 #   Jordan Augé       <jordan.auge@lip6.fr> 
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
+import copy
 from manifold.core.code             import CORE
 from manifold.core.operator_slot    import SlotMixin 
 from manifold.core.packet           import Packet

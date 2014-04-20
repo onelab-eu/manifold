@@ -43,7 +43,7 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
     """
 
     #---------------------------------------------------------------------------
-    # Constructor
+    # Constructors
     #---------------------------------------------------------------------------
 
     def __init__(self, parent_producer, child_producer_relation_list):
@@ -77,6 +77,17 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
         else:
             child, relation = child_producer_relation_list[0]
             self._local = relation.is_local()
+
+    def copy(self):
+        new_parent = self._get_parent().copy()
+        new_child_producer_relation_list = list()
+        for child_id, child, child_data in self._iter_children():
+            relation = child_data.get('relation')
+            new_producer = child.copy()
+            new_relation = relation.copy()
+            new_producer_relation = (new_producer, new_relation)
+            new_child_producer_relation_list.append(new_producer_relation)
+        return SubQuery(new_parent, new_child_producer_relation_list)
 
     #---------------------------------------------------------------------------
     # Class methods
@@ -462,8 +473,9 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
 
         elif packet.get_protocol() == Packet.PROTOCOL_RECORD:
             source_id = self._get_source_child_id(packet)
-
             record = packet
+            is_last = record.is_last()
+            record.unset_last()
 
 #DEPRECATED|            # We will extract subrecords from the packet and store them in the
 #DEPRECATED|            # local cache
@@ -474,8 +486,6 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
             #if packet.get_source() == self._producers.get_parent_producer(): # XXX
             if source_id == PARENT: # if not self._parent_done:
                 # Store the record for later...
-                is_last = record.is_last()
-                record.unset_last()
 
                 if not record.is_empty():
                     self.parent_output.append(record)
@@ -496,7 +506,7 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
                     # Store the results for later...
                     self._add_child_record(source_id, record)
 
-                if record.is_last():
+                if is_last:
                     self._set_child_done(source_id)
 
         else: # TYPE_ERROR
@@ -532,9 +542,7 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
             return
 
         if self.is_local():
-            print "sq run children local"
             map(self.forward_upstream, self.parent_output)
-            print "sending last"
             self.forward_upstream(Record(last = True))
             return
 
@@ -544,189 +552,8 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
             predicate = child_data.get('relation').get_predicate()
             child_packet = child_data.get('packet')
             child_key = predicate.get_value_names()
-            
-# LOCAL CACHE
-#DEPRECATED|            # Before sending the packet to the child, we inspect the parent
-#DEPRECATED|            # records to check for subfields belonging to the children
-#DEPRECATED|            child_records = Records()
-#DEPRECATED|            for parent_record in self.parent_output:
-#DEPRECATED|                _child_records = parent_record.get(child_id)
-#DEPRECATED|                for _child_record in _child_records:
-#DEPRECATED|                    child_fields = Fields(_child_record.keys())
-#DEPRECATED|
-#DEPRECATED|                    # Sometimes key fields are absent from the child, but we can
-#DEPRECATED|                    # get them from the parent
-#DEPRECATED|                    for field in child_key - child_fields:
-#DEPRECATED|                        _child_record[field] = parent_record.get(field)
-#DEPRECATED|
-#DEPRECATED|                    # ADD KEY IF MISSING
-#DEPRECATED|                    #print "-added to child_records=", _child_record
-#DEPRECATED|                    child_records.add_record(Record(_child_record)) # XXX can be removed if all elements are records...
-#DEPRECATED|
-#DEPRECATED|            # XXX We need to inject something in the child packet
-#DEPRECATED|            # It's possible that those child packets miss the full key
-#DEPRECATED|
-#DEPRECATED|            # XXX XXX XXX XXX XXX It would be better that the records are stored
-#DEPRECATED|            # in a local cache
-#DEPRECATED|            # . Do we have access to the router here ?
-#DEPRECATED|            # XXX NOW YES
-#DEPRECATED|            # but in fact it might be better injected in the From operator...
-#DEPRECATED|            # it might be hard to maintain a cache for all queries that will be
-#DEPRECATED|            # performed in parallel, unless we are sure that the results will
-#DEPRECATED|            # always be the same
-#DEPRECATED|            # The advantage of a local cache is that we don't have to locate the
-#DEPRECATED|            # right FROM
-#DEPRECATED|
-#DEPRECATED|            self._interface.add_to_local_cache(
-#DEPRECATED|            
-#DEPRECATED|            child_packet.set_records(child_records)
-# END LOCAL CACHE
 
-            #uuids = list()
-            #for parent_record in self.parent_output:
-            #    uuid = parent_record.get_uuid()
-            #    if uuid:
-            #        uuids.append(uuid)
-            #child_packet.set_records(uuids)
-            #print "CHILD PACKET", child_packet
             self.send_to(child, child_packet)
-
-#DEPRECATED|        # Inspect the first parent record to deduce which fields have already
-#DEPRECATED|        # been fetched 
-#DEPRECATED|        first_record = self.parent_output[0]
-#DEPRECATED|        parent_fields = set(first_record.keys())
-#DEPRECATED|
-#DEPRECATED|        # Optimize child queries according to the fields already retrieved thanks
-#DEPRECATED|        # to the parent query.
-#DEPRECATED|        useless_children = set()
-#DEPRECATED|
-#DEPRECATED|        def handle_child(child_producer, child_data):
-#DEPRECATED|            print "producer", child_producer
-#DEPRECATED|            print "data", child_data
-#DEPRECATED|            relation = child_data.get('relation', None)
-#DEPRECATED|            # Test whether the current child provides relevant fields (e.g.
-#DEPRECATED|            # fields not already fetched in the parent record). If so, reduce
-#DEPRECATED|            # the set of queried field in order to only retrieve relevant fields.
-#DEPRECATED|            child_fields = child_producer.get_destination().get_fields()
-#DEPRECATED|            relation_name = relation.get_relation_name()
-#DEPRECATED|            already_fetched_fields = set()
-#DEPRECATED|            if relation_name in parent_fields:
-#DEPRECATED|                subrecord = first_record.get(relation_name, None)
-#DEPRECATED|                if relation.get_type() in [Relation.types.LINK_1N, Relation.types.LINK_1N_BACKWARDS]:
-#DEPRECATED|                    already_fetched_fields = set(subrecord[0].keys()) if subrecord else set()
-#DEPRECATED|                else:
-#DEPRECATED|                    already_fetched_fields = set(subrecord.keys())
-#DEPRECATED|
-#DEPRECATED|            # we need to keep key used for subquery
-#DEPRECATED|            relevant_fields = child_fields - already_fetched_fields
-#DEPRECATED|
-#DEPRECATED|            if not relevant_fields:
-#DEPRECATED|                useless_children.add(child_producer)
-#DEPRECATED|                return child_producer
-#DEPRECATED|
-#DEPRECATED|            elif child_fields != relevant_fields:
-#DEPRECATED|                # Note we need to keep key
-#DEPRECATED|                key_fields = relation.get_predicate().get_value_names()
-#DEPRECATED|                return child_producer.optimize_projection(relevant_fields | key_fields)
-#DEPRECATED|
-#DEPRECATED|        self._update_children_producers(handle_child)
-#DEPRECATED|
-#DEPRECATED|        # If every children are useless, this means that we already have full records
-#DEPRECATED|        # thanks to the parent query, so we simply forward those records.
-#DEPRECATED|        if self._get_num_children() == len(useless_children):
-#DEPRECATED|            map(self.forward_upstream, self.parent_output)
-#DEPRECATED|            self.forward_upstream(Record(last = True))
-#DEPRECATED|            return
-#DEPRECATED|
-#DEPRECATED|        # Loop through children and inject the appropriate parent results
-#DEPRECATED|        def handle_child(child_producer, child_data):
-#DEPRECATED|            relation = child_data.get('relation')
-#DEPRECATED|            if child_producer in useless_children:
-#DEPRECATED|                return child_producer
-#DEPRECATED|
-#DEPRECATED|            # We have two cases:
-#DEPRECATED|            # (1) either the parent query has subquery fields (a list of child
-#DEPRECATED|            #     ids + eventually some additional information)
-#DEPRECATED|            # (2) either the child has a backreference to the parent
-#DEPRECATED|            #     ... eventually a partial reference in case of a 1..N relationship
-#DEPRECATED|            #
-#DEPRECATED|            # In all cases, we will collect all identifiers to proceed to a
-#DEPRECATED|            # single child query for efficiency purposes, unless it's not
-#DEPRECATED|            # possible (?).
-#DEPRECATED|            #
-#DEPRECATED|            # We have several parent records stored in self.parent_output
-#DEPRECATED|            #
-#DEPRECATED|            # /!\ Can we have a mix of (1) and (2) ? For now, let's suppose NO.
-#DEPRECATED|            #  *  We could expect key information to be stored in the DBGraph
-#DEPRECATED|
-#DEPRECATED|            # The operation to be performed is understood only be looking at the predicate
-#DEPRECATED|            predicate = relation.get_predicate()
-#DEPRECATED|
-#DEPRECATED|            key, op, value = predicate.get_tuple()
-#DEPRECATED|            if op == eq:
-#DEPRECATED|                # 1..N
-#DEPRECATED|                # Example: parent has slice_hrn, resource has a reference to slice
-#DEPRECATED|                if relation.get_type() == Relation.types.LINK_1N_BACKWARDS:
-#DEPRECATED|                    parent_ids = [record[key] for record in self.parent_output]
-#DEPRECATED|                    if len(parent_ids) == 1:
-#DEPRECATED|                        parent_id, = parent_ids
-#DEPRECATED|                        filter_pred = Predicate(value, eq, parent_id)
-#DEPRECATED|                    else:
-#DEPRECATED|                        filter_pred = Predicate(value, included, parent_ids)
-#DEPRECATED|                else:
-#DEPRECATED|                    parent_ids = []
-#DEPRECATED|                    for parent_record in self.parent_output:
-#DEPRECATED|                        record = parent_record.get_value(key)
-#DEPRECATED|                        if not record:
-#DEPRECATED|                            record = []
-#DEPRECATED|                        if relation.get_type() in [Relation.types.LINK_1N, Relation.types.LINK_1N_BACKWARDS]:
-#DEPRECATED|                            # we have a list of elements 
-#DEPRECATED|                            # element = id or dict    : clé simple
-#DEPRECATED|                            #         = tuple or dict : clé multiple
-#DEPRECATED|                            parent_ids.extend([self.get_element_key(r, value) for r in record])
-#DEPRECATED|                        else:
-#DEPRECATED|                            parent_ids.append(self.get_element_key(record, value))
-#DEPRECATED|                        
-#DEPRECATED|                    #if isinstance(key, tuple):
-#DEPRECATED|                    #    parent_ids = [x for record in self.parent_output if key in record for x in record[key]]
-#DEPRECATED|                    #else:
-#DEPRECATED|                    #    ##### record[key] = text, dict, or list of (text, dict) 
-#DEPRECATED|                    #    parent_ids = [record[key] for record in self.parent_output if key in record]
-#DEPRECATED|                    #    
-#DEPRECATED|                    #if parent_ids and isinstance(parent_ids[0], dict):
-#DEPRECATED|                    #    parent_ids = map(lambda x: x[value], parent_ids)
-#DEPRECATED|
-#DEPRECATED|                    if len(parent_ids) == 1:
-#DEPRECATED|                        parent_id, = parent_ids
-#DEPRECATED|                        filter_pred = Predicate(value, eq, parent_id)
-#DEPRECATED|                    else:
-#DEPRECATED|                        filter_pred = Predicate(value, included, parent_ids)
-#DEPRECATED|
-#DEPRECATED|                return child_producer.optimize_selection(Filter().filter_by(filter_pred))
-#DEPRECATED|
-#DEPRECATED|            elif op == contains:
-#DEPRECATED|                raise Exception, "TBD"
-#DEPRECATED|                # 1..N
-#DEPRECATED|                # Example: parent 'slice' has a list of 'user' keys == user_hrn
-#DEPRECATED|                for slice in self.parent_output:
-#DEPRECATED|                    if not child.get_query().object in slice: continue
-#DEPRECATED|                    users = slice[key]
-#DEPRECATED|                    # users est soit une liste d'id, soit une liste de records
-#DEPRECATED|                    user_data = []
-#DEPRECATED|                    for user in users:
-#DEPRECATED|                        if isinstance(user, dict):
-#DEPRECATED|                            user_data.append(user)
-#DEPRECATED|                        else:
-#DEPRECATED|                            # have have a key
-#DEPRECATED|                            # XXX Take multiple keys into account
-#DEPRECATED|                            user_data.append({value: user}) 
-#DEPRECATED|                    # Let's inject user_data in the right child
-#DEPRECATED|                    child.inject(user_data, value, None) 
-#DEPRECATED|
-#DEPRECATED|            else:
-#DEPRECATED|                raise Exception, "No link between parent and child queries"
-#DEPRECATED|
-#DEPRECATED|        self._update_children_producers(handle_child)
 
     def _all_done(self):
         """

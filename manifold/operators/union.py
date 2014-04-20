@@ -36,7 +36,7 @@ class Union(Operator, ChildrenSlotMixin):
     """
 
     #---------------------------------------------------------------------------
-    # Constructor
+    # Constructors
     #---------------------------------------------------------------------------
 
     def __init__(self, producers, key, distinct = True):
@@ -52,8 +52,8 @@ class Union(Operator, ChildrenSlotMixin):
         ChildrenSlotMixin.__init__(self)
 
         # We store key fields in order (tuple)
-        self._key      = key.get_field_names()
-        self._key_tuple = tuple(self._key)
+        self._key      = key
+        self._key_tuple = tuple(self._key.get_field_names())
         self._distinct = distinct
         self._records_by_key = dict()
 
@@ -65,6 +65,12 @@ class Union(Operator, ChildrenSlotMixin):
             }
             self._set_child(producer, data)
         self._remaining_children = self._get_num_children()
+
+    def copy(self):
+        new_producers = list()
+        for _, child, _ in self._iter_children():
+            new_producers.append(child.copy())
+        return Union(new_producers, self._key, self._distinct)
 
     #---------------------------------------------------------------------------
     # Internal methods
@@ -113,6 +119,7 @@ class Union(Operator, ChildrenSlotMixin):
                 child.receive(packet)
 
         elif packet.get_protocol() == Packet.PROTOCOL_RECORD:
+            print "UNION RECEIVES RECORD"
             record = packet
             is_last = record.is_last()
             record.unset_last()
@@ -123,11 +130,11 @@ class Union(Operator, ChildrenSlotMixin):
                 # since they might all be completed by records coming from othr
                 # children
                 # TODO: This might be deduced from the query plan ?
-                record.unset_last()
 
-                if self._key and record.has_fields(self._key):
+                if self._key.get_field_names() and record.has_fields(self._key.get_field_names()):
                     key_value = record.get_value(self._key_tuple)
 
+                print "we store the record"
                 if key_value in self._records_by_key:
                     # XXX What about collisions ?
                     self._records_by_key[key_value].update(record)
@@ -149,13 +156,19 @@ class Union(Operator, ChildrenSlotMixin):
 #DEPRECATED|                    self.forward_upstream(record)
 
             if is_last:
+                print "last record..."
                 # In fact we don't care to know which child has completed
                 self._remaining_children -= 1
                 if self._remaining_children == 0:
                     # We need to send all stored records
+                    print "no more remaining, sendingall stored records"
                     for record in self._records_by_key.values():
+                        print " ** record"
                         self.forward_upstream(record)
+                    print " ** last"
                     self.forward_upstream(Record(last = True))
+                else:
+                    print "not complete do nothing"
 
         else: # TYPE_ERROR
             self.forward_upstream(packet)
@@ -177,9 +190,9 @@ class Union(Operator, ChildrenSlotMixin):
         child_fields  = Fields()
         child_fields |= fields
         if self._distinct:
-            if set(self._key) not in fields: # we are not keeping the key
+            if set(self._key.get_field_names()) not in fields: # we are not keeping the key
                 do_parent_projection = True
-                child_fields |= self._key
+                child_fields |= self._key.get_field_names()
 
         self._update_children_producers(lambda p,d : p.optimize_projection(child_fields))
 
@@ -205,7 +218,7 @@ class Union(Operator, ChildrenSlotMixin):
         # XXX Note that it can be partially local... no managed at the moment
 
         # SQ_new o U  =>  U o SQ_new if SQ_new is local
-        self._update_children_producers(lambda p, d: p.subquery(ast, relation))
+        self._update_children_producers(lambda p, d: p.subquery(ast.copy(), relation))
 
         return self
 

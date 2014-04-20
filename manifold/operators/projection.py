@@ -71,7 +71,7 @@ class Projection(Operator, ChildSlotMixin):
     """
 
     #---------------------------------------------------------------------------
-    # Constructor
+    # Constructors
     #---------------------------------------------------------------------------
 
     def __init__(self, child, fields):
@@ -97,8 +97,8 @@ class Projection(Operator, ChildSlotMixin):
 
         self._set_child(child)
 
-#DEPRECATED|        self.query = self._get_child().get_query().copy()
-#DEPRECATED|        self.query.fields &= fields
+    def copy(self):
+        return Projection(self._get_child().copy(), self._fields.copy())
 
     #---------------------------------------------------------------------------
     # Accessors

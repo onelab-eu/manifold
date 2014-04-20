@@ -31,7 +31,7 @@ DUMPSTR_RENAME = "RENAME %r"
 class Rename(Operator, ChildSlotMixin):
 
     #---------------------------------------------------------------------------
-    # Constructor
+    # Constructors
     #---------------------------------------------------------------------------
 
     def __init__(self, child, aliases):
@@ -58,6 +58,13 @@ class Rename(Operator, ChildSlotMixin):
         self._aliases = aliases
 
         self._set_child(child)
+
+    def copy(self):
+        return Rename(self._get_child().copy(), self._aliases.copy())
+
+    #---------------------------------------------------------------------------
+    # Accessors
+    #---------------------------------------------------------------------------
 
     @returns(dict)
     def get_aliases(self):
@@ -163,19 +170,99 @@ class Rename(Operator, ChildSlotMixin):
         since in the query plan, further layers will be broken down across
         several subqueries.
         """
+
         if record.is_empty():
             return record
+
+        # UGLY... can we shorten/simplify this a bit ???
+        def rec(in_, out_, r):
+            """
+            Modifies r in place !
+            """
+            #print "REC(%r, %r, %r)" % (in_, out_, r)
+            if isinstance(r, list):
+                return map(lambda rr: rec(in_, out_, rr), r)
+
+            if len(in_) == 0:
+                if len(out_) == 0:
+                    # / -> /
+                    return r
+
+                elif len(out_) == 1:
+                    # / -> x
+                    x = out_[0]
+                    return r[x]
+
+                else: # len(out_) > 1:
+                    x = out_[0]
+                    r[x] = rec([], out_[1:], old)
+                    return r
+
+            elif len(in_) == 1:
+                if len(out_) == 0:
+                    # a -> /
+                    a = in_[0]
+                    return r.pop(a, None)
+
+                elif len(out_) == 1:
+                    # a -> x
+                    a, x = in_[0], out_[0]
+                    r[x] = r.pop(a, None)
+                    return r
+
+                else: # len(out_) > 1:
+                    # a -> x.y...
+                    a, x = in_[0], out_[0]
+                    old = r.pop(a, None)
+                    r[x] = rec([], out_[1:], old)
+                    return r
+
+            else: # len(in_) > 1:
+                if len(out_) == 0:
+                    # a.b... -> /
+                    a = in_[0]
+                    old = r.pop(a, None)
+                    if insinstance(old, list):
+                        ret = list()
+                        for x in old:
+                            ret.extend(rec(in_[1:], [], x))
+                        return ret
+                    else: # dict
+                        return rec(in_[1:], [], old)
+
+                elif len(out_) == 1:
+                    # a.b... -> x
+                    a, x = in_[0], out_[0]
+                    old = r.pop(a, None)
+                    r[x] = rec(in_[1:], [], old)
+                    return r
+
+                else: # len(out_) > 1:
+                    # a.b... -> x.y...
+                    a, x = in_[0], out_[0]
+
+                    old = r.pop(a, None)
+                    r[x] = rec(in_[1:], out_[1:], old)
+                    return r
+
+
         for k, v in self.get_aliases().items():
-            if k in record:
-                if '.' in v: # users.hrn
-                    method, key = v.split('.')
-                    # Careful to cases such as hops --renamed--> hops.ttl
-                    if not method in record:
-                        record[method] = Records() 
-                    for x in record[k]:
-                        record[method].append({key: x})        
-                else:
-                    record[v] = record.pop(k)
+            in_ = k.split('.')
+            out_ = v.split('.')
+
+            qq = rec(in_, out_, record)
+
+#DEPRECATED|            # we can have dots everywhere: eg. hops.probes.ip -> hops.ip
+#DEPRECATED|            if k in record:
+#DEPRECATED|                if '.' in v: # users.hrn
+#DEPRECATED|                    method, key = v.split('.')
+#DEPRECATED|                    # Careful to cases such as hops --renamed--> hops.ttl
+#DEPRECATED|                    if not method in record:
+#DEPRECATED|                        record[method] = Records() 
+#DEPRECATED|                    for x in record[k]:
+#DEPRECATED|                        record[method].append({key: x})        
+#DEPRECATED|                else:
+#DEPRECATED|                    record[v] = record.pop(k)
         return record
 
     def process_records(self, records):

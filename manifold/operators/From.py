@@ -44,6 +44,10 @@ class From(Operator, ChildSlotMixin):
     for each Operator of the AST.
     """
 
+    #---------------------------------------------------------------------------
+    # Constructors
+    #---------------------------------------------------------------------------
+
     def __init__(self, gateway, query, capabilities, key):
         """
         Constructor.
@@ -67,26 +71,19 @@ class From(Operator, ChildSlotMixin):
         ChildSlotMixin.__init__(self)
 
         self._query       = query
-        self.capabilities = capabilities
+        self._capabilities = capabilities
         self._key          = key
         self._gateway     = gateway
 
         # Memorize records received from a parent query (injection)
         self._parent_records = None
 
-        # The producer will be set once a QUERY will be received
+    def copy(self):
+        return From(self._gateway, self._query.copy(), self._capabilities, self._key)
 
-
-#DEPRECATED|    def add_fields_to_query(self, field_names):
-#DEPRECATED|        """
-#DEPRECATED|        Add field names (list of String) to the SELECT clause of the embedded query
-#DEPRECATED|        Args:
-#DEPRECATED|            field_names: A list of Strings corresponding to field names present in
-#DEPRECATED|                the table wrapped by this From Node.
-#DEPRECATED|        """
-#DEPRECATED|        for field_name in field_names:
-#DEPRECATED|            assert isinstance(field_name, StringTypes), "Invalid field_name = %r in field_names = %r" % (field_name, field_names)
-#DEPRECATED|        self.query.fields = frozenset(set(self.query.fields) | set(field_names))
+    #---------------------------------------------------------------------------
+    # 
+    #---------------------------------------------------------------------------
 
     @returns(Gateway)
     def get_gateway(self):
@@ -191,7 +188,7 @@ class From(Operator, ChildSlotMixin):
         Returns:
             The Capabilities nested in this From instance.
         """
-        return self.capabilities
+        return self._capabilities
 
     @returns(bool)
     def has_children_with_fullquery(self):

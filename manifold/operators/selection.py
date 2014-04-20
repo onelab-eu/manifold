@@ -36,7 +36,7 @@ DUMPSTR_SELECTION  = "WHERE %s"
 class Selection(Operator, ChildSlotMixin):
 
     #---------------------------------------------------------------------------
-    # Constructor
+    # Constructors
     #---------------------------------------------------------------------------
 
     def __init__(self, child, filter):
@@ -56,6 +56,9 @@ class Selection(Operator, ChildSlotMixin):
         ChildSlotMixin.__init__(self)
 
         self._set_child(child)
+
+    def copy(self):
+        return Selection(self._get_child().copy(), self._filter.copy())
 
     #---------------------------------------------------------------------------
     # Methods
