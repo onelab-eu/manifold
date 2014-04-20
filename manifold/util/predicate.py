@@ -272,14 +272,14 @@ class Predicate:
             # XXX match
             return dic if self.match(dic) else None
 
-    @returns(set)
+    @returns(Fields)
     def get_field_names(self):
         if isinstance(self.key, (list, tuple, set, frozenset)):
             return Fields(self.key)
         else:
             return Fields([self.key])
 
-    @returns(set)
+    @returns(Fields)
     def get_value_names(self):
         if isinstance(self.value, (list, tuple, set, frozenset)):
             return Fields(self.value)

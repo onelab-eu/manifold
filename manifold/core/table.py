@@ -386,7 +386,7 @@ class Table(object):
         except KeyError:
             raise ValueError("get_field: field '%s' not found in '%r'. Available fields: %s" % (field_name, self, self.get_fields()))
 
-    @returns(set)
+    @returns(Fields)
     def get_field_names(self):
         """
         Retrieve the field names of the fields stored in self.

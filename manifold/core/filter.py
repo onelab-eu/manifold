@@ -243,7 +243,7 @@ class Filter(set):
                 output.append(x)
         return output
 
-    @returns(set)
+    @returns(Fields)
     def get_field_names(self):
         field_names = Fields()
         for predicate in self:

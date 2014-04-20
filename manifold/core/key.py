@@ -136,7 +136,7 @@ class Key(object):
             return None
         return field.get_name()
 
-    @returns(set)
+    @returns(Fields)
     def get_field_names(self):
         return Fields([x.get_name() for x in self._fields])
 

@@ -775,7 +775,6 @@ def to_3nf(metadata):
         if common_keys:
 
             # Capabilities will be set later since they must be set for all the Tables.
-            print "OCMMON KEYS", common_keys
             table = Table(all_platforms, table_name, common_fields, common_keys)
 
             # Migrate common fields from children to parents, except keys
