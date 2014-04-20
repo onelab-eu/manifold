@@ -98,12 +98,14 @@ class ParisTracerouteParser(object):
             if 'rtt' in t:
                 probe['rtt'] = t['rtt']
             return probe
+        ip_hostname = (
+                value.setResultsName('hostname') + ~pp.FollowedBy('ms') # we need a lookahead
+            +   LPAR + value.setResultsName('ip') + RPAR
+        |       value.setResultsName('ip') + ~pp.FollowedBy('ms') # we need a lookahead
+        )
         probe = (
                 STAR.setResultsName('ip') # mpls after * ?
-        |       pp.Optional(
-                    value.setResultsName('ip') + ~pp.FollowedBy('ms') # we need a lookahead
-                +   pp.Optional(LPAR + value.setResultsName('hostname') + RPAR)
-                )
+        |       pp.Optional(ip_hostname)
             +   value.setResultsName('rtt')
             +   pp.Literal('ms').suppress()
             +   pp.Optional(icmp_err.setResultsName('icmp'))

@@ -297,6 +297,8 @@ class ExploreTask(Deferred):
             # It might not pose any problem though if they come from the optimization phase
 #OBSOLETE|            self.ast = self.build_union(self.root, self.keep_root_a, allowed_platforms, metadata, user, query_plan)
             self.ast = self.perform_union(self.root, allowed_platforms, metadata, query_plan)
+            print "AST AFTER PERFORM UNION"
+            print self.ast
 
             # ROUTERV2
             if rename_dict:
@@ -394,6 +396,8 @@ class ExploreTask(Deferred):
             # This can occur if no interesting field was found in the table, but it is just used to connect children tables
             self.ast = self.perform_union(self.root, allowed_platforms, metadata, query_plan)
         self.ast.left_join(ast, relation.get_predicate().copy())
+        print "AST AFTER PERFORM LEFT JOIn"
+        print self.ast
 
     def perform_subquery(self, ast_sq_rename_dict, relation, allowed_platforms, metadata, query_plan):
         """
@@ -415,10 +419,15 @@ class ExploreTask(Deferred):
 
         self.ast.subquery(ast, relation)
 
+        print "AST AFTER perform_subq"
+        print self.ast
+
         # This might be more simple if moved in all_done
         if self.sq_rename_dict:
             self.ast.rename(self.sq_rename_dict)
             self.sq_rename_dict = dict()
+            print "AST AFTER RENAME"
+            print self.ast
 
 
     def perform_union(self, table, allowed_platforms, metadata, query_plan):

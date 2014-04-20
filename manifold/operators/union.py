@@ -20,8 +20,10 @@ from manifold.core.packet           import Packet
 from manifold.core.query            import Query
 from manifold.core.record           import Record
 from manifold.operators             import ChildStatus, ChildCallback
+from manifold.operators.left_join   import LeftJoin
 from manifold.operators.subquery    import SubQuery
 from manifold.operators.projection  import Projection
+from manifold.operators.rename      import Rename
 from manifold.operators.operator    import Operator
 from manifold.util.log              import Log
 from manifold.util.type             import accepts, returns
@@ -53,7 +55,7 @@ class Union(Operator, ChildrenSlotMixin):
 
         # We store key fields in order (tuple)
         self._key      = key
-        self._key_tuple = tuple(self._key.get_field_names())
+        self._key_fields = self._key.get_field_names()
         self._distinct = distinct
         self._records_by_key = dict()
 
@@ -131,7 +133,7 @@ class Union(Operator, ChildrenSlotMixin):
                 # TODO: This might be deduced from the query plan ?
 
                 #if self._key.get_field_names() and record.has_fields(self._key.get_field_names()):
-                key_value = record.get_value(self._key_tuple)
+                key_value = record.get_value(self._key_fields)
 
 
                 if key_value in self._records_by_key:
@@ -205,10 +207,33 @@ class Union(Operator, ChildrenSlotMixin):
         top.
         """
 
-        if not relation.is_local():
-            return SubQuery.make(self, ast, relation)
+        # We recursively extract LEFT JOIN and RENAME from subquery children
 
-        # XXX Note that it can be partially local... no managed at the moment
+        name = relation.get_name()
+
+        # Investigate the children first, before the parent
+        if isinstance(ast, LeftJoin):
+            # Update the predicate
+            predicate = ast.get_predicate()
+            predicate.update_key(lambda k: Fields.join(name, k))
+
+            # Get following operator
+            new_ast = ast._get_left()
+            ast._set_left(self.subquery(new_ast, relation))
+            return ast
+
+        elif isinstance(ast, Rename):
+            # Update names
+            ast.update_aliases(lambda k, v: (Fields.join(name, k), Fields.join(name, v)))
+
+            # Get following operator
+            new_ast = ast._get_child()
+            ast._set_child(self.subquery(new_ast, relation))
+            return ast
+
+        if not relation.is_local():
+            # no need for make (extract is already done)
+            return SubQuery._make(self, ast, relation)
 
         # SQ_new o U  =>  U o SQ_new if SQ_new is local
         self._update_children_producers(lambda p, d: p.subquery(ast.copy(), relation))

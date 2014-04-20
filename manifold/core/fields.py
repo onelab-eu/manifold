@@ -24,7 +24,7 @@ class Fields(list):
         """
         star = kwargs.pop('star', DEFAULT_IS_STAR)
         list.__init__(self, *args, **kwargs)
-        self._star = False if list(self) else star
+        self._star = False if args else star
 
     @returns(StringTypes)
     def __repr__(self):
@@ -59,7 +59,17 @@ class Fields(list):
             True iif this Fields instance correspond to "any Field" i.e. "*".
             Example : SELECT * FROM foo
         """
-        return self._star
+        try:
+            return self._star
+        except: 
+            # This is due to a bug in early versions of Python 2.7 which are
+            # present on PlanetLab. During copy.deepcopy(), the object is
+            # reconstructed using append before the state (self.__dict__ is
+            # reconstructed). Hence the object has no _start when append is
+            # called and this raises a crazy Exception:
+            # I could not reproduce in a smaller example
+            # http://pastie.org/private/5nf15jg0qcvd05pbmnrp8g
+            return False
 
     def set_star(self):
         """

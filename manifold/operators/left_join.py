@@ -43,7 +43,7 @@ class LeftJoin(Operator, LeftRightSlotMixin):
     """
 
     #---------------------------------------------------------------------------
-    # Constructor
+    # Constructors
     #---------------------------------------------------------------------------
 
     def __init__(self, predicate, parent_producer, producers):
@@ -77,6 +77,11 @@ class LeftJoin(Operator, LeftRightSlotMixin):
         self._left_done    = False
         self._right_packet = None
         self._parent_records = Records()
+
+    def copy(self):
+        new_left = self._get_left().copy()
+        new_right = self._get_right().copy()
+        return LeftJoin(self._predicate.copy(), new_left, new_right)
 
 
     #---------------------------------------------------------------------------
