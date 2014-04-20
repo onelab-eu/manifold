@@ -844,9 +844,6 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
     def optimize_selection(self, filter):
         if self.is_local():
             # Don't propagate the selection
-            print "SQ OPT SEL", filter
-            print "self.get_destination().get_filter()", self.get_destination().get_filter()
-            print "filter <= self.get_destination().get_filter()", filter <= self.get_destination().get_filter()
             #if filter <= self.get_destination().get_filter():
             return Selection(self, filter)
             #else:

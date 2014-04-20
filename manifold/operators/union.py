@@ -51,7 +51,9 @@ class Union(Operator, ChildrenSlotMixin):
         Operator.__init__(self)
         ChildrenSlotMixin.__init__(self)
 
-        self._key      = key
+        # We store key fields in order (tuple)
+        self._key      = key.get_field_names()
+        self._key_tuple = tuple(self._key)
         self._distinct = distinct
         self._records_by_key = dict()
 
@@ -111,8 +113,10 @@ class Union(Operator, ChildrenSlotMixin):
                 child.receive(packet)
 
         elif packet.get_protocol() == Packet.PROTOCOL_RECORD:
+            print "got record", packet
             record = packet
             is_last = record.is_last()
+            print " . is last", is_last
             record.unset_last()
             do_send = True
 
@@ -123,9 +127,8 @@ class Union(Operator, ChildrenSlotMixin):
                 # TODO: This might be deduced from the query plan ?
                 record.unset_last()
 
-                key = self._key.get_field_names()
-                if key and record.has_fields(key):
-                    key_value = record.get_value(key)
+                if self._key and record.has_fields(self._key):
+                    key_value = record.get_value(self._key_tuple)
 
                 if key_value in self._records_by_key:
                     # XXX What about collisions ?
@@ -150,10 +153,12 @@ class Union(Operator, ChildrenSlotMixin):
             if is_last:
                 # In fact we don't care to know which child has completed
                 self._remaining_children -= 1
+                print "remaining children = ", self._remaining_children
                 if self._remaining_children == 0:
                     # We need to send all stored records
                     for record in self._records_by_key.values():
                         self.forward_upstream(record)
+                    print "sneding last record"
                     self.forward_upstream(Record(last = True))
 
         else: # TYPE_ERROR
@@ -176,10 +181,9 @@ class Union(Operator, ChildrenSlotMixin):
         child_fields  = Fields()
         child_fields |= fields
         if self._distinct:
-            key = self._key.get_field_names()
-            if key not in fields: # we are not keeping the key
+            if set(self._key) not in fields: # we are not keeping the key
                 do_parent_projection = True
-                child_fields |= key
+                child_fields |= self._key
 
         self._update_children_producers(lambda p,d : p.optimize_projection(child_fields))
 

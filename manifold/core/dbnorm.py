@@ -556,7 +556,6 @@ def fd_minimal_cover(fds):
             for b in x.get_fields():                    #     for each b in x:
 
                 x_b = Key([xi for xi in x.get_fields() if xi != b])  #       x_b = x - b
-                print "x_b", x_b
                 g2  = Fds([f for f in g if fd != f])    #       g'  = g \ {fd} \cup {fd'}
                 fd2 = copy.deepcopy(fd)                 #          with fd' = [(x - b) -> a]
                 fd2.set_key(x_b)
@@ -727,7 +726,6 @@ def to_3nf(metadata):
 
                         platforms.add(method.get_platform())
 
-            print "KEYS=", keys
             table = Table(platforms, table_name, fields, keys)
 
             # XXX Hardcoded capabilities in 3nf tables
