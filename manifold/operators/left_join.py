@@ -72,7 +72,6 @@ class LeftJoin(Operator, LeftRightSlotMixin):
         self._set_right(producers)
 
         self._predicate = predicate
-        print "PREDICATE IN LEFT JOIN SHOULD BE A TUPLE", predicate
 
         self._left_map     = dict() 
         self._left_done    = False
@@ -419,9 +418,6 @@ class LeftJoin(Operator, LeftRightSlotMixin):
         self._update_right_producer(lambda r, d: r.optimize_projection(right_fields))
 
         # Do we need a projection on top (= we do not request the join keys)
-        print "left_fields", left_fields
-        print "right_fields", right_fields
-        print "field", fields
         if left_fields | right_fields > fields:
             return Projection(self, fields)
         return self
