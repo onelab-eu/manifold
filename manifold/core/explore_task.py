@@ -163,11 +163,6 @@ class ExploreTask(Deferred):
 #MANDO|                    current_path = self.path,               \
 #MANDO|                    allow_shortcuts = True)
 
-        print "missing_parent_fields=", missing_parent_fields
-        print "map_parent_missing_subfields=", map_parent_missing_subfields
-        print "map_original_field=", map_original_field
-        print "rename=", rename
-
         root_provided_fields = self.root.get_field_names()
 
         # We might also query foreign keys of backward links

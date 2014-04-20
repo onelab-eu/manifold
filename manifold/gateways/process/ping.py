@@ -210,8 +210,9 @@ class PingGateway(ProcessGateway):
 #DEPRECATED|    ]
     announces = """
     class probe_ping {
-        float rtt;
+        float delay;
         CAPABILITY(join);
+        LOCAL KEY();
     };
 
     class ping {

@@ -46,7 +46,7 @@ class Rename(Operator, ChildSlotMixin):
         assert isinstance(aliases, dict),\
             "Invalid aliases = %s (%s)" % (aliases, type(aliases))
         # XXX Why ? -- jordan
-        print "Disabled collision check in aliases"
+        Log.debug("Disabled collision check in aliases")
         #assert set(aliases.keys()) & set(aliases.values()) == set(),\
         #    "Invalid aliases = %r (keys and values should be disjoint) (collisions on {%s})" % (
         #        aliases,
