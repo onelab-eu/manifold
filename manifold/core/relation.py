@@ -48,6 +48,9 @@ class Relation(object):
 #        if local:
 #            print "RELATION", self, "IS LOCAL"
 
+    def copy(self):
+        return Relation(self.type, self.predicate.copy(), self.name, self._local)
+
     def get_type(self):
         """
         Returns:

@@ -13,7 +13,6 @@
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
 import sys, random, traceback
-from copy                                   import copy, deepcopy
 from types                                  import StringTypes
 
 from manifold.core.key                      import Key

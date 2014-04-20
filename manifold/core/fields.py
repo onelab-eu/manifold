@@ -322,6 +322,12 @@ class Fields(set):
             current_path (list): the path of fields that will be skipped at the beginning
             path_shortcuts (bool): do we allow shortcuts in the path
 
+        Returns:
+            fields
+            map_method_subfields
+            map_original_field
+            rename
+
         Example path = ROOT.A.B
         split_subfields(A.B.C.D, A.B.C.D', current_path=[ROOT,A,B]) => (Fields(), { C: [D, D'] })
         split_subfields(A.E.B.C.D, A.E.B.C.D', current_path=[ROOT,A,B]) => (Fields(), { C: [D, D'] })

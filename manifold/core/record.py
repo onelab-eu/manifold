@@ -198,6 +198,9 @@ class Record(Packet):
         Returns:
             If fields is a String,  return the corresponding value.
             If fields is a set, return a tuple of corresponding value.
+
+        Raises:
+            KeyError if at least one of the fields is not found
         """
         assert isinstance(fields, (StringTypes, tuple))
 
@@ -244,8 +247,8 @@ class Record(Packet):
             if self._record[key]: return False
         return True
 
-    def pop(self, key):
-        return dict.pop(self._record, key)
+    def pop(self, *args, **kwargs):
+        return dict.pop(self._record, *args, **kwargs)
 
     def items(self):
         return dict.items(self._record) if self._record else list()
@@ -283,6 +286,9 @@ class Record(Packet):
 #DEPRECATED|
 #DEPRECATED|    def set_parent_uuid(self, uuid):
 #DEPRECATED|        self._parent_uuid = uuid
+
+    def __eq__(self, other):
+        return self._record == other._record and self._last == other._last
 
 
 #-------------------------------------------------------------------------------

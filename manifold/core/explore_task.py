@@ -130,6 +130,10 @@ class ExploreTask(Deferred):
                 related to the User Query.
         Returns:
             foreign_key_fields
+
+        Modifies in place:
+            missing_fields
+            seen_set
         """
         Log.tmp("Search in", self.root.get_name(), "for fields", missing_fields, 'path=', self.path, "SEEN SET =", seen_set, "depth=", self.depth)
         relations_11, relations_1N, relations_1Nsq = (), {}, {}
@@ -146,25 +150,23 @@ class ExploreTask(Deferred):
         # We have a list of missing fields to search for in the current table
         # and beyond. Since we might have subfields, the first step is to group
         # those subfields according to their method.
+        #
+        # missing_parent_fields:
+        #
+        # map_parent_missing_subfields:
+        #
+        # map_original_field:
+        #
         missing_parent_fields, map_parent_missing_subfields, map_original_field, rename\
             = missing_fields.split_subfields(True, self.path, True)
 #MANDO|            = missing_fields.split_subfields(include_parent = True,\
 #MANDO|                    current_path = self.path,               \
 #MANDO|                    allow_shortcuts = True)
 
-#DEPRECATED|         # This is to be improved
-#DEPRECATED|         # missing points to unanswered parts of the query
-#DEPRECATED|         missing_subqueries = []
-#DEPRECATED|         def get_query_parts(local_path, query, shortcut=None):
-#DEPRECATED|             missing_subqueries.append((query, shortcut))
-#DEPRECATED|             for name, sq in query.get_subqueries().items():
-#DEPRECATED|                 new_path = local_path + [name]
-#DEPRECATED|                 flag, shortcut = is_sublist(self.path, new_path)
-#DEPRECATED|                 if flag:
-#DEPRECATED|                     get_query_parts(new_path, sq, shortcut)
-#DEPRECATED|         get_query_parts([], missing)
-#DEPRECATED|         # XXX We could return the shortcut to subquery, to inform on how to
-#DEPRECATED|         # process results
+        print "missing_parent_fields=", missing_parent_fields
+        print "map_parent_missing_subfields=", map_parent_missing_subfields
+        print "map_original_field=", map_original_field
+        print "rename=", rename
 
         root_provided_fields = self.root.get_field_names()
 
@@ -212,7 +214,7 @@ class ExploreTask(Deferred):
 
             # for shortcuts
             if field not in map_parent_missing_subfields:
-                # ..unless already done
+                # ..unless already done # XXX EXPLAIN BOTH LINES
                 if map_original_field[field] != field:
                     missing_fields.remove(map_original_field[field])
 #DEPRECATED|#UNTIL WE EXPLAIN|                    # We won't search those fields in subsequent explorations,
@@ -232,123 +234,66 @@ class ExploreTask(Deferred):
 #DEPRECATED|#UNTIL WE EXPLAIN|                        missing_fields.remove(missing)
 #DEPRECATED|#UNTIL WE EXPLAIN|
 
-            else:
-                subfields = map_parent_missing_subfields[field]
-
-                if len(subfields) > 1: continue
-                # Note: composite keys not taken into account yet
-
-                subfield = iter(subfields).next()
-
-                field_type = self.root.get_field_type(field)
-                if field_type in BASE_TYPES: continue # Should not happen
-
-                refered_table = metadata.find_node(field_type, get_parent = True)
-                if not refered_table: continue
-
-                key = refered_table.get_keys().one()
-                # a key is a set of fields
-                if subfields != key.get_field_names(): continue
-
-                # In the record, we will rename field.subfield by field
-                field_before = Fields.join(field, subfield)
-                rename_dict[field_before] = field
-
-                is_onjoin = self.root.capabilities.is_onjoin()
-                if not is_onjoin or field not in root_key_fields:
-                    if field_before != map_original_field[field]:
-                        before_original = Fields.join(map_original_field[field], subfield)
-                    else:
-                        before_original = map_original_field[field]
-                    missing_fields.remove(before_original)
+#WHATFOR?|            else:
+#WHATFOR?|                # Example: we are in hops and we want 1) hops.probes.ip and 2) # hops.ip
+#WHATFOR?|                # self.keep_root_a has probes, and we suppose:
+#WHATFOR?|                # > field = 'probes'
+#WHATFOR?|                subfields = map_parent_missing_subfields[field]
+#WHATFOR?|                print "field=", field
+#WHATFOR?|                print "subfields=", subfields
+#WHATFOR?|
+#WHATFOR?|                # hence subfields = map_parent_missing_subfields['probes'] = {'ip'}
+#WHATFOR?|
+#WHATFOR?|                if len(subfields) > 1: continue
+#WHATFOR?|                # Note: composite keys not taken into account yet
+#WHATFOR?|
+#WHATFOR?|                subfield = iter(subfields).next()
+#WHATFOR?|
+#WHATFOR?|                # > subfield = 'ip'
+#WHATFOR?|
+#WHATFOR?|                field_type = self.root.get_field_type(field)
+#WHATFOR?|                if field_type in BASE_TYPES: continue # Should not happen
+#WHATFOR?|
+#WHATFOR?|                # > field_type = 'ip' (not a base type)
+#WHATFOR?|
+#WHATFOR?|                refered_table = metadata.find_node(field_type, get_parent = True)
+#WHATFOR?|                if not refered_table: continue
+#WHATFOR?|
+#WHATFOR?|                key = refered_table.get_keys().one()
+#WHATFOR?|                # a key is a set of fields
+#WHATFOR?|                if subfields != key.get_field_names(): continue
+#WHATFOR?|
+#WHATFOR?|                # In the record, we will rename field.subfield by field
+#WHATFOR?|                field_before = Fields.join(field, subfield)
+#WHATFOR?|                print "field", field
+#WHATFOR?|                print "subfield", subfield
+#WHATFOR?|                print "field_before", field_before
+#WHATFOR?|                rename_dict[field_before] = field
+#WHATFOR?|                print "rename_dict[field_before]=", field
+#WHATFOR?|
+#WHATFOR?|                # > field_before = 'probes.ip'
+#WHATFOR?|                # > rename_dict['probes.ip'] = 'ip'
+#WHATFOR?|
+#WHATFOR?|                is_onjoin = self.root.capabilities.is_onjoin()
+#WHATFOR?|                # Explain two conditions:
+#WHATFOR?|                # a) not is_onjoin:
+#WHATFOR?|                # b) field not in root_key_fields:
+#WHATFOR?|                if not is_onjoin or field not in root_key_fields:
+#WHATFOR?|                    # > map_original_field['probes'] = ?????
+#WHATFOR?|#DEPRECATED|                    if field_before != map_original_field[field]:
+#WHATFOR?|#DEPRECATED|                        print "a)"
+#WHATFOR?|#DEPRECATED|                        before_original = Fields.join(map_original_field[field], subfield)
+#WHATFOR?|#DEPRECATED|                        print "before_original=", before_original
+#WHATFOR?|#DEPRECATED|                        print "  . map_original_field[field]", map_original_field[field]
+#WHATFOR?|#DEPRECATED|                        print "  . subfield", subfield
+#WHATFOR?|#DEPRECATED|                    else:
+#WHATFOR?|                    print "b)"
+#WHATFOR?|                    before_original = map_original_field[field]
+#WHATFOR?|                    print "before_original = map_original_field[field] = ", map_original_field[field]
+#WHATFOR?|
+#WHATFOR?|                    missing_fields.remove(before_original)
 
         #........ End rewritten
-
-#DEPRECATED|        # Which fields we are keeping for the current table, and which we are removing from missing_fields
-#DEPRECATED|        for field in root_provided_fields:
-#DEPRECATED|
-#DEPRECATED|            # We use a list since the set is changing during iteration
-#DEPRECATED|            #print "list(missing_fields)", list(missing_fields)
-#DEPRECATED|            for missing in list(missing_fields):
-#DEPRECATED|                # missing has dots inside
-#DEPRECATED|                # hops.ttl --> missing_path == ["hops"] missing_field == ["ttl"]
-#DEPRECATED|                missing_list = missing.split('.')
-#DEPRECATED|                missing_path, (missing_field,) = missing_list[:-1], missing_list[-1:]
-#DEPRECATED|                flag, shortcut = is_sublist(missing_path, self.path) #self.path, missing_path)
-#DEPRECATED|                if flag and missing_field == field:
-#DEPRECATED|                    #print 'current table provides missing field PATH=', self.path, 'field=', field, 'missing=', missing
-#DEPRECATED|                    self.keep_root_a.add(field)
-#DEPRECATED|
-#DEPRECATED|#UNTIL WE EXPLAIN|                    # We won't search those fields in subsequent explorations,
-#DEPRECATED|#UNTIL WE EXPLAIN|                    # unless the belong to the key of an ONJOIN table
-#DEPRECATED|#UNTIL WE EXPLAIN|                    is_onjoin = self.root.capabilities.is_onjoin()
-#DEPRECATED|#UNTIL WE EXPLAIN|                    V
-#DEPRECATED|#UNTIL WE EXPLAIN|                    print "xx"
-#DEPRECATED|#UNTIL WE EXPLAIN|                    print "is_onjoin", is_onjoin
-#DEPRECATED|#UNTIL WE EXPLAIN|                    print "field", field
-#DEPRECATED|#UNTIL WE EXPLAIN|                    print "root_key_fields", root_key_fields
-#DEPRECATED|#UNTIL WE EXPLAIN|                    print "fiend in rkf", field in root_key_fields
-#DEPRECATED|#UNTIL WE EXPLAIN|
-#DEPRECATED|#UNTIL WE EXPLAIN|                    # XXX why ?
-#DEPRECATED|#UNTIL WE EXPLAIN|                    if not is_onjoin or field not in root_key_fields:
-#DEPRECATED|#UNTIL WE EXPLAIN|                        print "yy"
-#DEPRECATED|#UNTIL WE EXPLAIN|                        # Set is changing during iteration !!!
-#DEPRECATED|#UNTIL WE EXPLAIN|                        missing_fields.remove(missing)
-#DEPRECATED|#UNTIL WE EXPLAIN|
-#DEPRECATED|                    missing_fields.remove(missing)
-#DEPRECATED|
-#DEPRECATED|
-#DEPRECATED|                # ROUTERV2
-#DEPRECATED|                # So far we have search for fields pointing to the current
-#DEPRECATED|                # table, but we might also be interested in relationship to
-#DEPRECATED|                # other tables where only the key is requested. For example,
-#DEPRECATED|                # Get('user', [slices.slice_hrn])
-#DEPRECATED|                #   user.slices is a list of slice_hrn, since slice_hrn is key
-#DEPRECATED|                # of slices, or type slice.
-#DEPRECATED|                #
-#DEPRECATED|                # The missing_list might be problematic in cases such as :
-#DEPRECATED|                #   user.slices.slice_hrn
-#DEPRECATED|                #
-#DEPRECATED|                if len(missing_list) <= 1: continue
-#DEPRECATED|
-#DEPRECATED|                missing_path, (missing_field, missing_pkey) = missing_list[:-2], missing_list[-2:]
-#DEPRECATED|                # Example here: in user table
-#DEPRECATED|                #   missing_path  = []
-#DEPRECATED|                #   missing_field = 'slices'
-#DEPRECATED|                #   missing_pkey  = 'slice_hrn'
-#DEPRECATED|
-#DEPRECATED|                # Additional condition:
-#DEPRECATED|                #   the field is key of the refered table
-#DEPRECATED|                if not missing_field == field: continue
-#DEPRECATED|
-#DEPRECATED|                field_type    = self.root.get_field_type(missing_field)
-#DEPRECATED|                if field_type in BASE_TYPES: continue
-#DEPRECATED|
-#DEPRECATED|
-#DEPRECATED|                refered_table = metadata.find_node(field_type, get_parent = True)
-#DEPRECATED|                if not refered_table: continue
-#DEPRECATED|
-#DEPRECATED|                key = refered_table.get_keys().one()
-#DEPRECATED|                # a key is a set of fields
-#DEPRECATED|                if set([missing_pkey]) != key.get_field_names(): continue
-#DEPRECATED|
-#DEPRECATED|
-#DEPRECATED|                #print "FOUND", missing, " in ", self.root.get_name()
-#DEPRECATED|                # The rest is the same
-#DEPRECATED|                flag, shortcut = is_sublist(missing_path, self.path)
-#DEPRECATED|                if flag:
-#DEPRECATED|                    # BUG HERE
-#DEPRECATED|                    print "we keep field=", field
-#DEPRECATED|                    print "   . this field should give us", missing_field, "and", missing_pkey
-#DEPRECATED|                    rename_dict[field] = missing
-#DEPRECATED|
-#DEPRECATED|                    self.keep_root_a.add(field)
-#DEPRECATED|                    is_onjoin = self.root.capabilities.is_onjoin()
-#DEPRECATED|                    if not is_onjoin or field not in root_key_fields:
-#DEPRECATED|                        missing_fields.remove(missing)
-#DEPRECATED|
-#DEPRECATED|                # END ROUTERV2
-
 
         assert self.depth == 1 or root_key_fields not in missing_fields, "Requesting key fields in child table"
 
