@@ -49,7 +49,7 @@ class Destination(object):
             map(self.add_fields, fields)
             return
 
-        if self._fields is not None:
+        if fields and self._fields is not None:
             self._fields.add(fields)
 
     #---------------------------------------------------------------------------

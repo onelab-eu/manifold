@@ -119,7 +119,6 @@ class Union(Operator, ChildrenSlotMixin):
                 child.receive(packet)
 
         elif packet.get_protocol() == Packet.PROTOCOL_RECORD:
-            print "UNION RECEIVES RECORD"
             record = packet
             is_last = record.is_last()
             record.unset_last()
@@ -131,10 +130,10 @@ class Union(Operator, ChildrenSlotMixin):
                 # children
                 # TODO: This might be deduced from the query plan ?
 
-                if self._key.get_field_names() and record.has_fields(self._key.get_field_names()):
-                    key_value = record.get_value(self._key_tuple)
+                #if self._key.get_field_names() and record.has_fields(self._key.get_field_names()):
+                key_value = record.get_value(self._key_tuple)
 
-                print "we store the record"
+
                 if key_value in self._records_by_key:
                     # XXX What about collisions ?
                     self._records_by_key[key_value].update(record)
@@ -156,19 +155,13 @@ class Union(Operator, ChildrenSlotMixin):
 #DEPRECATED|                    self.forward_upstream(record)
 
             if is_last:
-                print "last record..."
                 # In fact we don't care to know which child has completed
                 self._remaining_children -= 1
                 if self._remaining_children == 0:
                     # We need to send all stored records
-                    print "no more remaining, sendingall stored records"
                     for record in self._records_by_key.values():
-                        print " ** record"
                         self.forward_upstream(record)
-                    print " ** last"
                     self.forward_upstream(Record(last = True))
-                else:
-                    print "not complete do nothing"
 
         else: # TYPE_ERROR
             self.forward_upstream(packet)

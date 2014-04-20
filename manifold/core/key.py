@@ -120,6 +120,8 @@ class Key(object):
     def get_field(self):
         if self.is_composite():
             raise ValueError("get_field cannot be called for a composite key")
+        if not self._fields:
+            return None
         return iter(self._fields).next()
 
     @returns(StringTypes)
@@ -129,7 +131,10 @@ class Key(object):
 
     @returns(StringTypes)
     def get_field_name(self):
-        return self.get_field().get_name()
+        field = self.get_field()
+        if not field:
+            return None
+        return field.get_name()
 
     @returns(set)
     def get_field_names(self):
