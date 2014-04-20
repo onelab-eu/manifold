@@ -474,15 +474,20 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
             #if packet.get_source() == self._producers.get_parent_producer(): # XXX
             if source_id == PARENT: # if not self._parent_done:
                 # Store the record for later...
+                is_last = record.is_last()
+                record.unset_last()
+
                 if not record.is_empty():
                     self.parent_output.append(record)
 
                 # formerly parent_callback
-                if record.is_last():
+                if is_last:
                     # When we have received all parent records, we can run children
                     self._parent_done = True
                     if self.parent_output:
                         self._run_children()
+                    else:
+                        self.forward_upstream(Record(last = True))
                     return
 
             else:
@@ -527,7 +532,9 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
             return
 
         if self.is_local():
+            print "sq run children local"
             map(self.forward_upstream, self.parent_output)
+            print "sending last"
             self.forward_upstream(Record(last = True))
             return
 
