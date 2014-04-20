@@ -199,6 +199,7 @@ class ProcessGateway(Gateway):
         ret = 0
 
         def runInThread(args, params, packet, batch_id):
+            self._records[batch_id] = []
             process = subprocess.Popen(args, stdout=subprocess.PIPE, stderr = None)
             try:
                 output = process.stdout.read()
