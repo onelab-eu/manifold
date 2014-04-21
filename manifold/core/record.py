@@ -176,6 +176,7 @@ class Record(Packet):
         """
         Internal use for left_join
         """
+
         if isinstance(fields, Fields):
             assert len(fields) == 1
             fields = iter(fields).next()
@@ -217,7 +218,8 @@ class Record(Packet):
             else:
                 subrecord = dict.get(self._record, field, default)
             if isinstance(subrecord, Records):
-                return map(lambda r: r._get(subfield, default, remove), subrecord)
+                # A list of lists
+                return  map(lambda r: r._get(subfield, default, remove), subrecord)
             elif isinstance(subrecord, Record):
                 return [subrecord._get(subfield, default, remove)]
             else:
@@ -261,9 +263,13 @@ class Record(Packet):
         assert isinstance(fields, (StringTypes, Fields))
 
         if isinstance(fields, StringTypes):
+            # XXX We expect no "." inside XXX 
             return self._record[fields]
         else:
-            # XXX We expect no "." inside XXX 
+            # XXX see. get_map_entries
+            if len(fields) == 1:
+                fields = iter(fields).next()
+                return self.get_value(fields)
             return tuple(map(lambda x: self.get_value(x), fields))
 
 
