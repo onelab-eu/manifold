@@ -79,8 +79,6 @@ class Rename(Node):
                         record[method].append({key: x})        
                 else:
                     record[v] = tmp
-            else:
-                record[k] = v
         self.send(record)
 
     def optimize_selection(self, filter):

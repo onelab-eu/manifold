@@ -215,12 +215,12 @@ class SFAGateway(Gateway):
         'urn'               : 'slice_urn',                  # slice_geni_urn ???
         'type'              : 'slice_type',                 # type ?
         'reg-researchers'   : 'users',                      # user or users . hrn or user_hrn ?
+        #'researchers'   : 'users',                      # user or users . hrn or user_hrn ?
                                                             # XXX this is in lowercase when creating a slice !
         'reg-urn'           : 'slice_urn',
 
         # TESTBED FIELDS
         'enabled'           : 'slice_enabled',
-        #'researcher'        : 'users',                      # user or users . hrn or user_hrn ?
         'PI'                : 'pi_users',                   # XXX should be found of type user, has to correspond with metadata
 
         # UNKNOWN
@@ -262,7 +262,7 @@ class SFAGateway(Gateway):
         'email'             : 'user_email',
         'gid'               : 'user_gid',
         'authority'         : 'parent_authority',
-        'reg-keys'          : 'keys',
+        #'reg-keys'          : 'keys',
         'reg-slices'        : 'slices',
         'reg-pi-authorities': 'pi_authorities',
 
@@ -821,6 +821,8 @@ class SFAGateway(Gateway):
         slice_records = Filter.from_dict({'type': 'slice'}).filter(slice_records)
 
         # slice_records = self.registry.Resolve(slice_urn, [self.my_credential_string], {'details':True})
+
+        # XXX WARNING hardcoded reg-researchers
         if slice_records and 'reg-researchers' in slice_records[0] and slice_records[0]['reg-researchers']:
             slice_record = slice_records[0]
             user_hrns = slice_record['reg-researchers']
@@ -1132,6 +1134,13 @@ class SFAGateway(Gateway):
             output = []
             for _result in _results:
 
+                # XXX ROUTERV2 WARNING: FILTER ON TYPE BECAUSE Registry doesn't 
+                # XXX Due to a bug in SFA Wrap, we need to filter the type of object returned
+                # If 2 different objects have the same hrn, the bug occurs
+                # Ex: ple.upmc.agent (user) & ple.upmc.agent (slice)
+                if _result['type'] != object:
+                    continue
+
                 # XXX How to better handle DateTime XMLRPC types into the answer ?
                 # XXX Shall we type the results like we do in CSV ?
                 result = {}
@@ -1140,9 +1149,9 @@ class SFAGateway(Gateway):
                         result[k] = str(v) # datetime.strptime(str(v), "%Y%m%dT%H:%M:%S") 
                     else:
                         result[k] = v
-
+                
                 output.append(result)
- 
+
             defer.returnValue(output)
         
         print "STACK=", stack
@@ -1171,7 +1180,6 @@ class SFAGateway(Gateway):
 
             records = [r for r in records if r['type'] == object]
             record_urns = [hrn_to_urn(record['hrn'], object) for record in records]
-            Log.tmp(record_urns)
             # INSERT ROOT AUTHORITY
             if object == 'authority':
                 record_urns.insert(0,hrn_to_urn(interface_hrn, object))
@@ -1179,8 +1187,15 @@ class SFAGateway(Gateway):
             started = time.time()
             records = yield self.registry.Resolve(record_urns, cred, {'details': True}) 
             print "RESOLVE:", time.time() - started, "s"
-            Log.tmp(records[1])
-            defer.returnValue(records)
+
+
+            # XXX ROUTERV2 WARNING: FILTER ON TYPE BECAUSE Registry doesn't 
+            # XXX Due to a bug in SFA Wrap, we need to filter the type of object returned
+            # If 2 different objects have the same hrn, the bug occurs
+            # Ex: ple.upmc.agent (user) & ple.upmc.agent (slice)
+            output = []
+            output.extend([r for r in records if r['type'] == object])
+            defer.returnValue(output)
 
     def get_slice(self, filters, params, fields):
         # XXX Sometimes we don't need to call for the registry
@@ -1335,6 +1350,7 @@ class SFAGateway(Gateway):
             record_dict['urn'] = xrn.get_urn()
             record_dict['hrn'] = xrn.get_hrn()
             record_dict['type'] = xrn.get_type()
+        # XXX ???
         if 'key' in params and params['key']:
             #try:
             #    pubkey = open(params['key'], 'r').read()
@@ -1495,6 +1511,11 @@ class SFAGateway(Gateway):
             else:
                 Log.tmp("Need an authority credential to update another user: %s" % object_hrn)
                 auth_cred = self._get_cred('authority', object_auth_hrn)
+        # TODO: ROUTERV2
+        # update slice requires slice_credential not authority
+        elif self.query.object == 'slice':
+            Log.tmp("Need a slice credential to update: %s" % object_hrn)
+            auth_cred = self._get_cred('slice', object_hrn)
         else:
             Log.tmp("Need an authority credential to update: %s" % object_hrn)
             auth_cred = self._get_cred('authority', object_auth_hrn)
@@ -2166,6 +2187,11 @@ class SFAGateway(Gateway):
                 # some urns hrns may replace non hierarchy delimiters '.' with an '_' instead of escaping the '.'
                 hrn = Xrn(config['user_hrn']).get_hrn().replace('\.', '_')
                 try:
+                    Log.tmp('manage get self user credential')
+                    Log.tmp(config['user_hrn'])
+                    Log.tmp(config['sscert'])
+                    Log.tmp(hrn)
+                    Log.tmp(registry_proxy)
                     config['user_credential'] = yield registry_proxy.GetSelfCredential (config['sscert'], hrn, 'user')
                 except Exception, e:
                     raise Exception, "SFA Gateway :: manage() could not retreive user from SFA Registry: %s"%e
