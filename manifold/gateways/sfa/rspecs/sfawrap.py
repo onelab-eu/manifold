@@ -27,6 +27,7 @@ class SFAWrapParser(RSpecParser):
             objcopy[k] = cls.make_dict_rec(v)
         return objcopy
 
+
     @classmethod
     def parse(cls, rspec, rspec_version='GENI 3'):
         resources   = list()
@@ -34,90 +35,20 @@ class SFAWrapParser(RSpecParser):
 
         rspec = RSpec(rspec, version=rspec_version)
 
-        # These are all resources 
-        # get_resources function can return all resources or a specific type of resource
-        try:
-            resources = rspec.version.get_resources()
-        except Exception, e:
-            Log.warning("Could not retrieve resources in RSpec: %s" % e)
+        resources   = cls._get_resources(rspec)
+        nodes       = cls._get_nodes(rspec)
+        channels    = cls._get_channels(rspec)
+        links       = cls._get_links(rspec)
+        leases      = cls._get_leases(rspec)
         
-        # XXX does not scale... we need get_resources and that's all
-        try:
-            nodes = rspec.version.get_nodes()
-        except Exception, e:
-            nodes = list()
-            Log.warning("Could not retrieve nodes in RSpec: %s" % e)
-        try:
-            leases = rspec.version.get_leases()
-        except Exception, e:
-            leases = list()
-            Log.warning("Could not retrieve leases in RSpec: %s" % e)
-        try:
-            links = rspec.version.get_links()
-        except Exception, e:
-            links = list()
-            Log.warning("Could not retrieve links in RSpec: %s" % e)
-        try:
-            channels = rspec.version.get_channels()
-        except Exception, e:
-            channels = list()
-            Log.warning("Could not retrieve channels in RSpec: %s" % e)
+        resources.extend(cls._process_resources(resources))
+        resources.extend(cls._process_nodes(nodes))
+        resources.extend(cls._process_channels(channels))
+        resources.extend(cls._process_links(links))
 
-        # Extend object and Format object field's name
-        for resource in resources:
-            resource['urn'] = resource['component_id']
-
-        for node in nodes:
-            node['type'] = 'node'
-            node['network_hrn'] = Xrn(node['component_id']).authority[0] # network ? XXX
-            node['hrn'] = urn_to_hrn(node['component_id'])[0]
-            node['urn'] = node['component_id']
-            node['hostname'] = node['component_name']
-            node['initscripts'] = node.pop('pl_initscripts')
-            if 'exclusive' in node and node['exclusive']:
-                node['exclusive'] = node['exclusive'].lower() == 'true'
-
-            # XXX This should use a MAP as before
-            if 'position' in node: # iotlab
-                node['x'] = node['position']['posx']
-                node['y'] = node['position']['posy']
-                node['z'] = node['position']['posz']
-                del node['position']
-
-            if 'location' in node:
-                if node['location']:
-                    node['latitude'] = node['location']['latitude']
-                    node['longitude'] = node['location']['longitude']
-                del node['location']
-
-            # Flatten tags
-            if 'tags' in node:
-                if node['tags']:
-                    for tag in node['tags']:
-                        node[tag['tagname']] = tag['value']
-                del node['tags']
-
-            
-            # We suppose we have children of dict that cannot be serialized
-            # with xmlrpc, let's make dict
-            resources.append(cls.make_dict_rec(node))
-
-        # NOTE a channel is a resource and should not be treated independently
-        #     resource
-        #        |
-        #   +----+------+-------+
-        #   |    |      |       |
-        # node  link  channel  etc.
-        #resources.extend(nodes)
-        #resources.extend(channels)
-
-        for lease in leases:
-            lease['resource'] = lease.pop('component_id')
-            lease['slice']    = lease.pop('slice_id')
+        leases = cls._process_leases(leases)
 
         return {'resource': resources, 'lease': leases } 
-#               'channel': channels \
-#               }
 
     #---------------------------------------------------------------------------
     # RSpec construction
@@ -178,12 +109,13 @@ class SFAWrapParser(RSpecParser):
         #rspec.version.add_channels(channels)
 
         sfa_leases = cls.manifold_to_sfa_leases(leases, slice_urn)
+        print "sfa_leases", sfa_leases
         if sfa_leases:
             # SFAWRAP BUG ???
             # rspec.version.add_leases bugs with an empty set of leases
             # slice_id = leases[0]['slice_id']
             # TypeError: list indices must be integers, not str
-            rspec.version.add_leases((sfa_leases, [])) # XXX Empty channels for now
+            rspec.version.add_leases(sfa_leases, []) # XXX Empty channels for now
    
         return rspec.toxml()
 
@@ -191,6 +123,119 @@ class SFAWrapParser(RSpecParser):
     #---------------------------------------------------------------------------
     # RSpec parsing helpers
     #---------------------------------------------------------------------------
+
+    # We split those basic functions so that they can be easily overloaded in children classes
+
+    @classmethod
+    def _get_resources(cls, rspec):
+        # These are all resources 
+        # get_resources function can return all resources or a specific type of resource
+        try:
+            return rspec.version.get_resources()
+        except Exception, e:
+            return list()
+
+    @classmethod
+    def _get_nodes(cls, rspec):
+        # XXX does not scale... we need get_resources and that's all
+        try:
+            return rspec.version.get_nodes()
+        except Exception, e:
+            #Log.warning("Could not retrieve nodes in RSpec: %s" % e)
+            return list()
+
+    @classmethod
+    def _get_leases(cls, rspec):
+        try:
+            return rspec.version.get_leases()
+        except Exception, e:
+            #Log.warning("Could not retrieve leases in RSpec: %s" % e)
+            return list()
+
+    @classmethod
+    def _get_links(cls, rspec):
+        try:
+            return rspec.version.get_links()
+        except Exception, e:
+            #Log.warning("Could not retrieve links in RSpec: %s" % e)
+            return list()
+
+    @classmethod
+    def _get_channels(cls, rspec):
+        try:
+            return rspec.version.get_channels()
+        except Exception, e:
+            #Log.warning("Could not retrieve channels in RSpec: %s" % e)
+            return list()
+
+    @classmethod
+    def _process_resources(cls, resources):
+        ret = list()
+
+        for resource in resources:
+            resource['urn'] = resource['component_id']
+            ret.append(resource)
+        
+        return ret
+
+    @classmethod
+    def _process_nodes(cls, nodes):
+        ret = list()
+
+        for node in nodes:
+            node['type'] = 'node'
+            node['network_hrn'] = Xrn(node['component_id']).authority[0] # network ? XXX
+            node['hrn'] = urn_to_hrn(node['component_id'])[0]
+            node['urn'] = node['component_id']
+            node['hostname'] = node['component_name']
+            node['initscripts'] = node.pop('pl_initscripts')
+            if 'exclusive' in node and node['exclusive']:
+                node['exclusive'] = node['exclusive'].lower() == 'true'
+
+            # XXX This should use a MAP as before
+            if 'position' in node: # iotlab
+                node['x'] = node['position']['posx']
+                node['y'] = node['position']['posy']
+                node['z'] = node['position']['posz']
+                del node['position']
+
+            if 'location' in node:
+                if node['location']:
+                    node['latitude'] = node['location']['latitude']
+                    node['longitude'] = node['location']['longitude']
+                del node['location']
+
+            # Flatten tags
+            if 'tags' in node:
+                if node['tags']:
+                    for tag in node['tags']:
+                        node[tag['tagname']] = tag['value']
+                del node['tags']
+
+            
+            # We suppose we have children of dict that cannot be serialized
+            # with xmlrpc, let's make dict
+            ret.append(cls.make_dict_rec(node))
+        return ret
+
+    @classmethod
+    def _process_channels(cls, channels):
+        return channels
+
+    @classmethod
+    def _process_links(cls, links):
+        return links
+
+    @classmethod
+    def _process_leases(cls, leases):
+        ret = list()
+
+        for lease in leases:
+            lease['resource'] = lease.pop('component_id')
+            lease['slice']    = lease.pop('slice_id')
+            ret.append(lease)
+
+        return ret
 
     #---------------------------------------------------------------------------
     # RSpec construction helpers
@@ -218,9 +263,7 @@ class PLEParser(SFAWrapParser):
     @classmethod
     def on_build_resource_hook(cls, resource):
         # PlanetLab now requires a node to have a list of slivers
-        print resource
         resource['slivers'] = [{'type': 'plab-vnode'}]
-        print "new resource", resource
         return resource
 
 class NITOSParser(SFAWrapParser):
@@ -236,4 +279,12 @@ class WiLabtParser(SFAWrapParser):
     def on_build_resource_hook(cls, resource):
         resource['client_id'] = "PC"
         resource['sliver_type'] = "raw-pc"
+        return resource
+
+class IoTLABParser(SFAWrapParser):
+
+    @classmethod
+    def on_build_resource_hook(cls, resource):
+        # XXX How do we know valid sliver types ?
+        resource['slivers'] = [{'type': 'iotlab-node'}]
         return resource

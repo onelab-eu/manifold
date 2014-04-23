@@ -19,7 +19,7 @@
 import os, sys, tempfile, time
 from types                        import StringTypes
 from manifold.util.reactor_thread import ReactorThread
-#from manifold.util.log            import Log
+from manifold.util.log            import Log
 from manifold.util.singleton      import Singleton
 from twisted.internet             import ssl
 from OpenSSL.crypto               import TYPE_RSA, FILETYPE_PEM
@@ -30,6 +30,9 @@ DEFAULT_TIMEOUT = 20
 
 AGGREGATE_CALLS = ['GetVersion', 'ListResources']
 REGISTRY_CALLS = ['GetVersion', 'Resolve', 'Update', 'Delete', 'Register']
+
+ARG_SNIFF_CRED  = "<?xml version=\"1.0\"?>\n<signed-credential "
+ARG_SNIFF_RSPEC = "<?xml version=\"1.0\"?>\n<rspec "
 
 class CtxFactory(ssl.ClientContextFactory):
 
@@ -305,24 +308,30 @@ class SFAProxy(object):
             def proxy_success_cb(result):
                 #SFATokenMgr().put_token(self.interface)
                 diff = time.time() - self.started
-                #Log.debug('SFA CALL %s(%s) - interface = %s - execution time = %s sec.' % (self.arg0, self.arg1, self.interface, round(diff,2)))
+                Log.tmp('SFA CALL SUCCESS %s(%s) - interface = %s - execution time = %s sec.' % (self.arg0, self.arg1, self.interface, round(diff,2)))
                 d.callback(result)
             def proxy_error_cb(error):
                 #SFATokenMgr().put_token(self.interface)
                 diff = time.time() - self.started
-                #Log.debug('SFA CALL %s(%s) - interface = %s - execution time = %s sec.' % (self.arg0, self.arg1, self.interface, round(diff,2)))
+                Log.tmp('SFA CALL ERROR %s(%s) - interface = %s - execution time = %s sec.' % (self.arg0, self.arg1, self.interface, round(diff,2)))
                 d.errback(ValueError("Error in SFA Proxy %s" % error))
 
             #success_cb = lambda result: d.callback(result)
             #error_cb   = lambda error : d.errback(ValueError("Error in SFA Proxy %s" % error))
 
             def is_credential(cred):
-                is_v2 = isinstance(cred, StringTypes) and cred[:6] == '<?xml '
+                is_v2 = isinstance(cred, StringTypes) and cred.startswith(ARG_SNIFF_CRED)
                 is_v3 = isinstance(cred, dict) and 'geni_type' in cred
                 return is_v2 or is_v3
 
+            def is_rspec(cred):
+                return isinstance(cred, StringTypes) and cred.startswith(ARG_SNIFF_RSPEC)
+
             def is_credential_list(cred):
                 return isinstance(cred, list) and reduce(lambda x, y: x and is_credential(y), cred, True)
+
+            def is_user_list(arg):
+                return isinstance(arg, dict) and 'geni_users' in arg
 
             #@defer.inlineCallbacks
             def wrap(source, args):
@@ -331,10 +340,14 @@ class SFAProxy(object):
                 
                 printable_args = []
                 for arg in args:
-                    if is_credential(arg):
+                    if is_rspec(arg):
+                        printable_args.append('<rspec>')
+                    elif is_credential(arg):
                         printable_args.append('<credential>')
                     elif is_credential_list(arg):
                         printable_args.append('<credentials>')
+                    elif is_user_list(arg):
+                        printable_args.append('<user list>')
                     else:
                         printable_args.append(str(arg))
 
