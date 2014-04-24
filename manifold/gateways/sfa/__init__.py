@@ -272,7 +272,7 @@ class SFAGateway(Gateway):
         'last_name'         : 'user_last_name',
         'phone'             : 'user_phone',
         'enabled'           : 'user_enabled',
-#        'keys'              : 'keys',
+        'keys'              : 'keys',
 
         # UNKNOWN
         'peer_authority'    : 'user_peer_authority',
@@ -1943,26 +1943,26 @@ class SFAGateway(Gateway):
         # Create a reversed map : MANIFOLD -> SFA
         if query.object in self.map_fields:
             map_object = self.map_fields[query.object]   
-        rmap = { v: k for k, v in map_object.items() }
-
-        new_fields = set([rmap[x] for x in query.fields])
- 
-        new_params = dict()
-        for key, value in query.params.items():
-            if key in rmap:
-                new_params[rmap[key]] = value
-            else:
-                new_params[key] = value
-        
-        new_filters = query.filters.rename(rmap)
-
-        Log.tmp("--------------> RENAME QUERY")        
-        Log.tmp(new_fields)
-        Log.tmp(new_params)
-        Log.tmp(new_filters)
-        query.filters = new_filters
-        query.fields = new_fields
-        query.params = new_params
+            rmap = { v: k for k, v in map_object.items() }
+    
+            new_fields = set([rmap[x] for x in query.fields])
+     
+            new_params = dict()
+            for key, value in query.params.items():
+                if key in rmap:
+                    new_params[rmap[key]] = value
+                else:
+                    new_params[key] = value
+            
+            new_filters = query.filters.rename(rmap)
+    
+            Log.tmp("--------------> RENAME QUERY")        
+            Log.tmp(new_fields)
+            Log.tmp(new_params)
+            Log.tmp(new_filters)
+            query.filters = new_filters
+            query.fields = new_fields
+            query.params = new_params
         return query
         
     @defer.inlineCallbacks
