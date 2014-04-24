@@ -1433,7 +1433,7 @@ class SFAGateway(Gateway):
         #    else:
         #        new_params[key] = value
 
-        return self.create_object(filters, new_params, fields)
+        return self.create_object(filters, params, fields)
  
     def create_slice(self, filters, params, fields):
         # Perform some renaming of the fields. In router v2 this will be done by the Rename attribute
@@ -1456,7 +1456,7 @@ class SFAGateway(Gateway):
         #    else:
         #        new_params[key] = value
 
-        return self.create_object(filters, new_params, fields)
+        return self.create_object(filters, params, fields)
 
     def create_resource(self, filters, params, fields):
         return self.create_object(filters, params, fields)
