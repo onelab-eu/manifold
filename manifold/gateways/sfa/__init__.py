@@ -40,7 +40,7 @@ from xmlrpclib                          import DateTime
 ################################################################################
 
 from manifold.gateways.sfa.rspecs.nitos_broker  import NITOSBrokerParser
-from manifold.gateways.sfa.rspecs.sfawrap       import SFAWrapParser, PLEParser, WiLabtParser
+from manifold.gateways.sfa.rspecs.sfawrap       import SFAWrapParser, PLEParser, WiLabtParser, IoTLABParser
 from manifold.gateways.sfa.rspecs.loose         import LooseParser
 
 ################################################################################
@@ -170,9 +170,13 @@ class SFAGateway(Gateway):
         # We hardcode a parser for the NITOS testbed
         server_version = yield self.get_cached_server_version(self.sliceapi)
 
+        hrn = server_version.get('hrn')
         print "server_version", server_version.get('hrn')
-        if server_version.get('hrn') == 'nitos':
+
+        if hrn == 'nitos':
             parser = NITOSBrokerParser
+        elif hrn == 'iotlab':
+            parser = IoTLABParser
         elif server_version.get('hrn') == 'ple':
             parser = PLEParser
         elif 'wilab2' in self.config['sm']:
@@ -268,7 +272,7 @@ class SFAGateway(Gateway):
         'last_name'         : 'user_last_name',
         'phone'             : 'user_phone',
         'enabled'           : 'user_enabled',
-        'keys'              : 'keys',
+#        'keys'              : 'keys',
 
         # UNKNOWN
         'peer_authority'    : 'user_peer_authority',
@@ -711,6 +715,7 @@ class SFAGateway(Gateway):
                         if target.startswith(my_auth):
                             cred=creds[my_auth]
                     if not cred:
+                        # XXX This should not interrupt everything, shall it ?
                         raise Exception , "no cred found of type %s towards %s " % (type, target)
                 else:
                     raise Exception , "no cred found of type %s towards %s " % (type, target)
@@ -791,6 +796,7 @@ class SFAGateway(Gateway):
             import traceback
             traceback.print_exc()
             rspec = ''
+            raise
         Log.warning("request rspec: %s" % rspec)
 
         # Sliver attributes (tags) are ignored at the moment
@@ -863,7 +869,7 @@ class SFAGateway(Gateway):
             manifest_rspec = ReturnValue.get_value(result)
         else:
             # AM API v3
-
+            # ROUTERV2
             # Typical client work flow:
             # 
             # <Experimenter gets a GENI certificate and slice credential, renewing that slice as needed>
@@ -896,6 +902,33 @@ class SFAGateway(Gateway):
             # http://groups.geni.net/geni/wiki/GAPI_AM_API_V3#Allocate
             result = yield self.sliceapi.Allocate(slice_urn, [slice_cred], rspec, api_options)
 
+            if result['code']['geni_code'] != 0:
+                # XXX RESULT= {'output': ': Allocate: Invalid RSpec: No RSpec or version specified. Must specify a valid rspec string or a valid version', 'geni_api': 3, 'code': {'am_type': 'sfa', 'geni_code': 2, 'am_code': 2}, 'value': ''}
+                raise Exception, "Allocate failed"
+            
+            try:
+                value = result['value']
+            except Exception, e:
+                raise Exception, "Invalid result value for Allocate"
+
+            try:
+                # The manifest is a manifest RSpec of only newly allocated slivers, using the schema matching the input request schema (as required on the Common Concepts page).
+                manifest_rspec = value['geni_rspec']
+            except:
+                raise Exception, "Missing Manifest RSpec"
+
+            try:
+                geni_slivers = value['geni_slivers']
+            except Exception, e:
+                geni_slivers = None
+            if not geni_slivers:
+                raise Exception, "Failed Allocating slivers"
+
+            if not value:
+                raise Exception
+
+            # MACCHA
+            Log.warning("We should check whether this call succeeded or not")
             print "RESULT=", result
 
             # http://groups.geni.net/geni/wiki/GAPI_AM_API_V3#Provision
@@ -1571,7 +1604,8 @@ class SFAGateway(Gateway):
                     assert len(result) == 2
                     (am_success, am_records), (rm_success, rm_records) = result
                     # XXX success
-                    print am_success, rm_success
+                    print "AM success false when i raise an exception... handle !!!!" # XXX XXX
+                    print "AM SUCCESS", am_success, "RM SUCCESS", rm_success
                     print am_records, rm_records
                     # XXX in case of failure, this contains a failure
                     am_record = am_records[0] if am_records else {} # XXX Why sometimes empty ????
@@ -1750,13 +1784,13 @@ class SFAGateway(Gateway):
 
     @defer.inlineCallbacks
     def get_lease(self,filters,params,fields):
-        result = yield self.get_resource_lease(filters,fields,params)
+        result = yield self.get_resource_lease(filters,fields,params, list_resources = False, list_leases = True)
         defer.returnValue(result['lease'])
 
     # This get_resource is about the AM only... let's forget about RM for the time being
     @defer.inlineCallbacks
     def get_resource(self, filters, params, fields):
-        result = yield self.get_resource_lease(filters, fields, params)
+        result = yield self.get_resource_lease(filters, fields, params, list_resources = True, list_leases = False)
         defer.returnValue(result['resource'])
 
     @defer.inlineCallbacks
@@ -1765,7 +1799,7 @@ class SFAGateway(Gateway):
 #DEPRECATED|            rspec = open('/usr/share/manifold/scripts/nitos.rspec', 'r')
 #DEPRECATED|            defer.returnValue(self.parse_sfa_rspec(rspec))
 #DEPRECATED|            return 
-
+        rspec_string = None
 
         # Do we have a way to find slices, for now we only support explicit slice names
         # Note that we will have to inject the slice name into the resource object if not done by the parsing.
@@ -1782,8 +1816,6 @@ class SFAGateway(Gateway):
         api_options = {}
         # always send call_id to v2 servers
         api_options ['call_id'] = unique_call_id()
-        # ask for cached value if available
-        api_options ['cached'] = True
         # Get server capabilities
         server_version = yield self.get_cached_server_version(self.sliceapi)
         type_version = set()
@@ -1806,7 +1838,16 @@ class SFAGateway(Gateway):
         # side, otherwise we might not get RSpecs without leases
         # Anyways, caching on the testbed side is not needed since we have more
         # efficient caching on the client side
+        # XXX Listing all resources on senslab is really slow, we need to have caching...
         api_options['cached'] = False
+
+
+        # XXX Hardcoded for SENSLAB
+#        if server_version.get('hrn') == 'iotlab' and not slice_hrn:
+#            api_options['cached'] = True
+#            api_options['list_leases'] = 'all'
+#            Log.tmp("Hardcoded RSpec for IOTLAB")
+#            rspec_string = open("/var/myslice/iotlab.rspec").read()
 
         if list_resources:
             if list_leases:
@@ -1818,24 +1859,25 @@ class SFAGateway(Gateway):
                 api_options['list_leases'] = 'leases'
             else:
                 raise Exception, "Neither resources nor leases requested in ListResources"
-        api_options['list_leases'] = 'all' 
-            
-        if self.am_version['geni_api'] == 2:
-            # AM API v2 
-            result = yield self.sliceapi.ListResources([cred], api_options)
-        else:
-            # AM API v3
-            if slice_hrn:
-                result = yield self.sliceapi.Describe([slice_urn], [cred], api_options)
-                # XXX Weird !
-                result['value'] = result['value']['geni_rspec']
-            else:
-                result = yield self.sliceapi.ListResources([cred], api_options)
-                
-        if not 'value' in result or not result['value']:
-            raise Exception, result['output']
 
-        rspec_string = result['value']
+        # XXX Just because we hardcoded before
+        if not rspec_string:
+            if self.am_version['geni_api'] == 2:
+                # AM API v2 
+                result = yield self.sliceapi.ListResources([cred], api_options)
+            else:
+                # AM API v3
+                if slice_hrn:
+                    result = yield self.sliceapi.Describe([slice_urn], [cred], api_options)
+                    # XXX Weird !
+                    result['value'] = result['value']['geni_rspec']
+                else:
+                    result = yield self.sliceapi.ListResources([cred], api_options)
+                    
+            if not 'value' in result or not result['value']:
+                raise Exception, result['output']
+
+            rspec_string = result['value']
         
         parser = yield self.get_parser()
         rsrc_slice = parser.parse(rspec_string)

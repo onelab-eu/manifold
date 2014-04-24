@@ -21,15 +21,15 @@ class slice {
 class lease {
 	slice 		   slice[];
     timestamp      start_time;  /**< Start of the lease */ 
+	timestamp      end_time;
     interval       duration;
     const resource resource;    /**< Resource URN attached to this lease */
+    const string   lease_type;
 
-    const string     lease_type;
-    const string     network;
     interval       granularity; 
 
-    KEY(start_time, duration, resource);
-    CAPABILITY(retrieve, join);
+    KEY(start_time, end_time, resource);
+    CAPABILITY(retrieve, join, fullquery);
 };
 
 enum boot_state {
