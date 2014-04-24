@@ -86,16 +86,30 @@ class Router(Interface):
              Log.tmp("----------> CACHE PER USER <------------")
              #Log.tmp(annotations)
              user_id = annotations['user']['user_id']
-             Log.tmp(self._cache_user)
              if user_id not in self._cache_user:
                  self._cache_user[user_id] = Cache()
-             Log.tmp(self._cache_user)
              return self._cache_user[user_id]
          except:
-             Log.tmp("----------> NO CACHE PER USER <------------")
+             Log.tmp("----------> GLOBAL CACHE <------------")
              import traceback
              traceback.print_exc()
              return self._cache    
+
+    # TODO: ROUTERV2 
+    # Invalidate Cache per user
+    # XXX this deletes the totally the cache for a user, not only the object in the Latice
+    # this function invalidates the cache of a user if user_id is in annotations
+    # else it provides invalidates the global cache for non logged in Queries
+    def delete_cache(self, annotations=None):
+         try:
+            Log.tmp("----------> DELETE CACHE PER USER <------------")
+            #Log.tmp(annotations)
+            user_id = annotations['user']['user_id']
+            if user_id in self._cache_user:
+                del self._cache_user[user_id]
+         except:
+            import traceback
+            traceback.print_exc()
 
     # This function is directly called for a Router
     # Decoupling occurs before for queries received through sockets
