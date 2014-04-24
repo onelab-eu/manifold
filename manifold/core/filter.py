@@ -16,6 +16,11 @@ class Filter(set):
     """
     A filter is a set of predicates
     """
+    # XXX IMPORTED FROM ROUTERV2
+    def rename(self, aliases):
+        for predicate in self:
+            predicate.rename(aliases)
+        return self
 
     #def __init__(self, s=()):
     #    super(Filter, self).__init__(s)

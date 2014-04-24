@@ -254,6 +254,7 @@ class SFAGateway(Gateway):
     map_user_fields = {
         # REGISTRY FIELDS
         'hrn'               : 'user_hrn',
+        'urn'               : 'user_urn',
         'type'              : 'user_type',
         'email'             : 'user_email',
         'gid'               : 'user_gid',
@@ -277,6 +278,7 @@ class SFAGateway(Gateway):
 
     map_authority_fields = {
         'hrn'               : 'authority_hrn',                  # hrn
+        'urn'               : 'authority_urn',                  # hrn
         'reg-pis'           : 'pi_users',
 #        'persons'           : 'user',
     }
@@ -1029,13 +1031,20 @@ class SFAGateway(Gateway):
     def get_object(self, object, object_hrn, filters, params, fields):
 
         # DEBUG get_user parent_authority INCLUDED "['p', 'l', 'e', '.', 'u', 'p', 'm', 'c']" 
+        Log.tmp("SFA GW :: get_object ")
         Log.tmp(filters)
 
         # Let's find some additional information in filters in order to restrict our research
+        object_hrn = "hrn"
         object_name = make_list(filters.get_op(object_hrn, [eq, included]))
         auth_hrn = make_list(filters.get_op('parent_authority', [eq, lt, le]))
         interface_hrn    = yield self.get_interface_hrn(self.registry)
-        
+ 
+        Log.tmp(object_hrn)
+        Log.tmp(object_name)
+        Log.tmp(auth_hrn)
+        Log.tmp(interface_hrn)
+       
         # XXX Hack for avoiding multiple calls to the same registry...
         # This will be fixed in newer versions where AM and RM have separate gateways
         if self.auth_type == "reference":
@@ -1175,6 +1184,7 @@ class SFAGateway(Gateway):
 
     def get_user(self, filters, params, fields):
         # DEBUG get_user parent_authority INCLUDED "['p', 'l', 'e', '.', 'u', 'p', 'm', 'c']" 
+        Log.tmp("SFA GW :: get_user ")
         Log.tmp(filters)
 
         if self.user['email'] in DEMO_HOOKS:
@@ -1379,15 +1389,16 @@ class SFAGateway(Gateway):
         defer.returnValue([{'hrn': params['hrn'], 'gid': object_gid}])
 
     def create_user(self, filters, params, fields):
-        # Create a reversed map : MANIFOLD -> SFA
-        rmap = { v: k for k, v in self.map_user_fields.items() }
+        # already done in function rename_query
+        ## Create a reversed map : MANIFOLD -> SFA
+        #rmap = { v: k for k, v in self.map_user_fields.items() }
 
-        new_params = dict()
-        for key, value in params.items():
-            if key in rmap:
-                new_params[rmap[key]] = value
-            else:
-                new_params[key] = value
+        #new_params = dict()
+        #for key, value in params.items():
+        #    if key in rmap:
+        #        new_params[rmap[key]] = value
+        #    else:
+        #        new_params[key] = value
 
         return self.create_object(filters, new_params, fields)
  
@@ -1400,16 +1411,17 @@ class SFAGateway(Gateway):
         # or False), and currently just used by the upper level doing a
         # Rename()
         assert not filters, "Filters should not be specified for slice creation"
+        
+        # already done in function rename_query
+        ## Create a reversed map : MANIFOLD -> SFA
+        #rmap = { v: k for k, v in self.map_slice_fields.items() }
 
-        # Create a reversed map : MANIFOLD -> SFA
-        rmap = { v: k for k, v in self.map_slice_fields.items() }
-
-        new_params = dict()
-        for key, value in params.items():
-            if key in rmap:
-                new_params[rmap[key]] = value
-            else:
-                new_params[key] = value
+        #new_params = dict()
+        #for key, value in params.items():
+        #    if key in rmap:
+        #        new_params[rmap[key]] = value
+        #    else:
+        #        new_params[key] = value
 
         return self.create_object(filters, new_params, fields)
 
@@ -1884,6 +1896,33 @@ class SFAGateway(Gateway):
     def __str__(self):
         return "<SFAGateway %r: %s>" % (self.config['sm'], self.query)
 
+    # XXX WIP 
+    def rename_query(self,query):
+        # Create a reversed map : MANIFOLD -> SFA
+        if query.object in self.map_fields:
+            map_object = self.map_fields[query.object]   
+        rmap = { v: k for k, v in map_object.items() }
+
+        new_fields = set([rmap[x] for x in query.fields])
+ 
+        new_params = dict()
+        for key, value in query.params.items():
+            if key in rmap:
+                new_params[rmap[key]] = value
+            else:
+                new_params[key] = value
+        
+        new_filters = query.filters.rename(rmap)
+
+        Log.tmp("--------------> RENAME QUERY")        
+        Log.tmp(new_fields)
+        Log.tmp(new_params)
+        Log.tmp(new_filters)
+        query.filters = new_filters
+        query.fields = new_fields
+        query.params = new_params
+        return query
+        
     @defer.inlineCallbacks
     def start(self):
         super(SFAGateway, self).start()
@@ -1898,6 +1937,12 @@ class SFAGateway(Gateway):
             if not self.user_config:
                 self.send(LastRecord())
                 return
+            
+            # TODO: ROUTERV2 
+            # This will be different in ROUTERV2
+            Log.tmp("================ RENAME QUERY ==============")
+            q = self.rename_query(q)
+            #self.rename_query(q)
 
             fields = q.fields # Metadata.expand_output_fields(q.object, list(q.fields))
             Log.debug("SFA CALL START %s_%s" % (q.action, q.object), q.filters, q.params, fields)
@@ -1905,7 +1950,7 @@ class SFAGateway(Gateway):
 
             if q.object in self.map_fields:
                 Rename(self, self.map_fields[q.object])
-            
+            Log.tmp("================ RENAME RECORDS ==============")
             # Return result
             map(self.send, Records(records))
             self.send(LastRecord())

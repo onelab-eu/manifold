@@ -279,3 +279,20 @@ class Predicate:
             return not any(self.value)
         else:
             return not self.value
+
+    # XXX IMPORTED FROM ROUTERV2
+    @returns(bool)
+    def is_composite(self):
+        """
+        Returns:
+            True iif this Predicate instance involves
+            a tuple key (and tuple value).
+        """ 
+        return isinstance(self.get_key(), tuple)
+
+    # XXX IMPORTED FROM ROUTERV2
+    def rename(self, aliases):
+        if self.is_composite():
+            raise NotImplemented
+        if self.key in aliases:
+            self.key = aliases[self.key]
