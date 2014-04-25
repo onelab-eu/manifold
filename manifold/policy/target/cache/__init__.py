@@ -12,20 +12,27 @@ class CacheTarget(Target):
         # TODO: ROUTERV2
         # Cache per user
         cache = self._interface.get_cache(annotations)
+
+        # If Query action is not get (Create, Update, Delete)
+        # Invalidate the cache and propagate the Query        
+
+        # TODO: cache.invalidate XXX to be implemented
+        Log.tmp("-----------------> ACTION = %s",query.get_action())
+        if query.get_action() != 'get':
+            Log.tmp("--------------> Trying to Invalidate Cache")
+            #cache.invalidate_entry(query)
+            self._interface.delete_cache(annotations)
+            # TODO: ROUTERV2
+            # Cache per user
+            cache = self._interface.get_cache(annotations)
+            return (TargetValue.CONTINUE, None)
+
         #print "==== DUMPING CACHE ====="
         #print self._cache.dump()
         #print "="*40
         if query.object.startswith('local:'):
             return (TargetValue.CONTINUE, None)
         
-        # If Query action is not get (Create, Update, Delete)
-        # Invalidate the cache and propagate the Query        
-
-        # TODO: cache.invalidate XXX to be implemented
-        if query.get_action() != 'get':
-            #cache.invalidate_entry(query)
-            return (TargetValue.CONTINUE, None)
-
         records = cache.get_best_records(query, allow_processing=True)
         if not records is None:
             return (TargetValue.RECORDS, records)
