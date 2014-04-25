@@ -171,7 +171,6 @@ class SFAGateway(Gateway):
         server_version = yield self.get_cached_server_version(self.sliceapi)
 
         hrn = server_version.get('hrn')
-        print "server_version", server_version.get('hrn')
 
         if hrn == 'nitos':
             parser = NITOSBrokerParser
@@ -930,7 +929,7 @@ class SFAGateway(Gateway):
 
             # MACCHA
             Log.warning("We should check whether this call succeeded or not")
-            print "RESULT=", result
+            #print "RESULT=", result
 
             # http://groups.geni.net/geni/wiki/GAPI_AM_API_V3#Provision
             # Here we provision all sliver_urns allocated to the slice by indicating the slice_hrn
@@ -941,7 +940,7 @@ class SFAGateway(Gateway):
             
             # Status(<slice URN or sliver URNs>, <slice credential>, {}) to check that resources are provisioned (e.g. look for operational state geni_notready.
 
-            print "RESULT=", result
+            #print "RESULT=", result
             rspec_sliver_result = ReturnValue.get_value(result)
 
             # The returned manifest covers only newly provisioned slivers. Use Describe to get a manifest of all provisioned slivers.
