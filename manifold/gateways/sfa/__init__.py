@@ -1940,13 +1940,16 @@ class SFAGateway(Gateway):
 
     # XXX WIP 
     def rename_query(self,query):
+        Log.tmp("--------------> BEFORE RENAME QUERY")        
+        Log.tmp(query.filters)
+
         # Create a reversed map : MANIFOLD -> SFA
         if query.object in self.map_fields:
             map_object = self.map_fields[query.object]   
             rmap = { v: k for k, v in map_object.items() }
     
-            new_fields = set([rmap[x] for x in query.fields])
-     
+            new_fields = set([rmap.get(x, x) for x in query.fields])
+                 
             new_params = dict()
             for key, value in query.params.items():
                 if key in rmap:
@@ -1956,7 +1959,7 @@ class SFAGateway(Gateway):
             
             new_filters = query.filters.rename(rmap)
     
-            Log.tmp("--------------> RENAME QUERY")        
+            Log.tmp("--------------> AFTER RENAME QUERY")        
             Log.tmp(new_fields)
             Log.tmp(new_params)
             Log.tmp(new_filters)
