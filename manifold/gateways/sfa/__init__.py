@@ -455,8 +455,8 @@ class SFAGateway(Gateway):
         server_version = yield self.get_cached_server_version(server)    
         # Avoid inconsistent hrn in GetVersion - ROUTERV2
         hrn = urn_to_hrn(server_version['urn'])
-        Log.tmp(hrn)       
-        Log.tmp(hrn[0])       
+        #Log.tmp(hrn)       
+        #Log.tmp(hrn[0])       
         #defer.returnValue(hrn[0])
         # XXX TMP FIX while URN from ple is 'urn:publicid:IDN++ple' instead of 'urn:publicid:IDN+authority+ple'
         if hrn[0] =='' and 'hrn' in server_version:
@@ -760,6 +760,7 @@ class SFAGateway(Gateway):
         # Keys
         if not filters.has_eq('slice_hrn'):
             raise Exception, 'Missing parameter: slice_hrn'
+# XXX add someting with URN
         slice_hrn = filters.get_eq('slice_hrn')
         slice_urn = hrn_to_urn(slice_hrn, 'slice')
 
@@ -1783,6 +1784,7 @@ class SFAGateway(Gateway):
 
     @defer.inlineCallbacks
     def get_resource_lease(self, filters, params, fields, list_resources = True, list_leases = True):
+        print "GET RESOURCE LEASE", filters
 #DEPRECATED|        if self.user['email'] in DEMO_HOOKS:
 #DEPRECATED|            rspec = open('/usr/share/manifold/scripts/nitos.rspec', 'r')
 #DEPRECATED|            defer.returnValue(self.parse_sfa_rspec(rspec))
@@ -1868,6 +1870,7 @@ class SFAGateway(Gateway):
             rspec_string = result['value']
         
         parser = yield self.get_parser()
+        print "rspec_string", rspec_string
         rsrc_slice = parser.parse(rspec_string)
 
         if slice_urn:

@@ -14,7 +14,7 @@ class slice {
     const authority parent_authority;
 # lease       lease[];       /**< List of leases associated to the slice */
 
-    KEY(slice_hrn);
+    KEY(slice_urn);
     CAPABILITY(retrieve, join, fullquery);
 };
 

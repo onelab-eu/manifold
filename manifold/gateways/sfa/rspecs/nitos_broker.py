@@ -2,12 +2,14 @@
 # -*- coding: utf-8 -*-
 
 import sys, time, copy, uuid
+from types import StringTypes
 from manifold.gateways.sfa.rspecs import RSpecParser
 import dateutil.parser
+from datetime import datetime
 
 from sfa.rspecs.rspec import RSpec
 from sfa.util.xml import XpathFilter
-from sfa.util.xrn import Xrn, get_leaf
+from sfa.util.xrn import Xrn, get_leaf, urn_to_hrn
 
 
 RESOURCE_TYPES = {
@@ -17,9 +19,9 @@ RESOURCE_TYPES = {
 }
 
 GRANULARITY = 1800
-LEASE_TAG = '<ol:lease client_id="%(client_id)s" valid_from="%(valid_from)s" valid_until="%(valid_until)s"/>'
+LEASE_TAG = '<ol:lease client_id="%(client_id)s" valid_from="%(valid_from_iso)sZ" valid_until="%(valid_until_iso)sZ"/>'
 LEASE_REF_TAG = '<ol:lease_ref id_ref="%(lease_id)s"/>'
-NODE_TAG = '<node component_id="%(urn)s"' # component_manager_id="urn:publicid:IDN+omf:xxx+authority+am" component_name="node1" exclusive="true" client_id="my_node">'
+NODE_TAG = '<node component_id="%(urn)s">' # component_manager_id="urn:publicid:IDN+omf:xxx+authority+am" component_name="node1" exclusive="true" client_id="my_node">'
 
 NODE_TAG_END = '</node>'
 
@@ -103,7 +105,8 @@ class NITOSBrokerParser(RSpecParser):
             lease = {
                 'lease_id': lease_tmp['id'],
                 'start_time': start,
-                'duration': (end - start) / GRANULARITY
+                'end_time': end,
+                'duration': (end - start) / cls.get_grain()
             }
             lease_map[lease_tmp['id']] = lease
 
@@ -368,43 +371,60 @@ class NITOSBrokerParser(RSpecParser):
         map_interval_lease_id = {}
 
         for lease in leases:
-            interval = (lease['start_time'], lease['duration'])
+            interval = (lease['start_time'], lease['end_time'])
             if not interval in map_interval_lease_id:
                 map_interval_lease_id[interval] = str(uuid.uuid4())
             lease_map[lease['resource']] = map_interval_lease_id[interval]
                 
         for (valid_from, valid_until), client_id in map_interval_lease_id.items():
+            valid_from_iso = datetime.fromtimestamp(int(valid_from)).isoformat()
+            valid_until_iso = datetime.fromtimestamp(int(valid_until)).isoformat()
             rspec.append(LEASE_TAG % locals())
 
         return lease_map
 
+    @classmethod
     def rspec_add_lease_ref(cls, rspec, lease_id):
         if lease_id:
             rspec.append(LEASE_REF_TAG % locals())
 
+    @classmethod
     def rspec_add_node(cls, rspec, node, lease_id):
         rspec.append(NODE_TAG % node)
-        cls.rspec_add_lease_ref(lease_id)
+        if lease_id:
+            cls.rspec_add_lease_ref(rspec, lease_id)
         rspec.append(NODE_TAG_END)
 
+    @classmethod
     def rspec_add_channel(cls, rspec, channel, lease_id):
         pass
 
+    @classmethod
     def rspec_add_link(cls, rspec, link, lease_id):
         pass
 
     @classmethod
     def rspec_add_resources(cls, rspec, resources, lease_map):
+        print "rspec_add_resources", resources, lease_map
         for resource in resources:
+            if isinstance(resource, StringTypes):
+                urn = resource
+                hrn, type = urn_to_hrn(urn)
+
+                resource = {
+                    'urn': urn,
+                    'hrn': hrn,
+                    'type': type,
+                }
             # What information do we need in resources for REQUEST ?
             resource_type = resource.pop('type')
-            lease_id = None if False else None
+            lease_id = lease_map.get(resource['urn'])
             if resource_type == 'node':
-                cls.rspec_add_node(rspec, node, lease_id)
+                cls.rspec_add_node(rspec, resource, lease_id)
             elif resource_type == 'link':
-                cls.rspec_add_link(rspec, node, lease_id)
+                cls.rspec_add_link(rspec, resource, lease_id)
             elif resource_type == 'channel':
-                cls.rspec_add_channel(rspec, node, lease_id)
+                cls.rspec_add_channel(rspec, resource, lease_id)
                 
 
 #rspec = RSpec(open(sys.argv[1]).read())

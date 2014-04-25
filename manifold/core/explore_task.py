@@ -434,15 +434,11 @@ class ExploreTask(Deferred):
                 selected_fields  = set([f for f in fields if not map_field_local[f]])
                 selected_fields |= self.keep_root_a
                 
-                print "proj=", capabilities.projection
                 if not capabilities.projection:
                     all_fields = set([f.get_name() for f in table.get_fields()])
                     # IN 3NF, this is not necessarily all fields
-                    print "all fields", all_fields
                     selected_fields = all_fields
                 
-                print "selected fields for", method.get_name(), selected_fields
-
                 # We create 'get' queries by default, this will be overriden in set_ast
                 query = Query.action('get', method.get_name()).select(selected_fields)
                 #query = Query.action('get', method.get_name()).select(fields)

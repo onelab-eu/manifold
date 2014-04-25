@@ -254,9 +254,37 @@ class SFAWrapParser(RSpecParser):
             sfa_lease['component_id'] = lease['resource']
             sfa_lease['slice_id']     = slice_urn
             sfa_lease['start_time']   = lease['start_time']
-            sfa_lease['duration']   = lease['duration']
+            
+            grain = cls.get_grain() # in seconds
+            min_duration = cls.get_min_duration() # in seconds
+    
+            # We either need end_time or duration
+            # end_time is choosen if both are specified !
+            if 'end_time' in lease:
+                sfa_lease['end_time'] = lease['end_time']
+                duration =  (lease['end_time'] - lease['start_time']) / grain
+                if duration < min_duration:
+                    raise Exception, 'duration < min_duration'
+                sfa_lease['duration'] = duration
+            elif 'duration' in lease:
+                sfa_lease['duration'] = lease['duration']
+                sfa_lease['end_time'] = lease['start_time'] + lease['duration']
+            else:
+                raise Exception, 'Lease not specifying neither end_time nor duration'
             sfa_leases.append(sfa_lease)
         return sfa_leases
+
+    @classmethod
+    def get_grain(cls):
+        """
+        in seconds
+        """
+        return 1800
+
+    @classmethod
+    def get_min_duration(cls):
+        return 0
+        
     
 class PLEParser(SFAWrapParser):
 
@@ -288,3 +316,12 @@ class IoTLABParser(SFAWrapParser):
         # XXX How do we know valid sliver types ?
         resource['slivers'] = [{'type': 'iotlab-node'}]
         return resource
+
+    @classmethod
+    def get_grain(cls):
+        return 60 # s
+
+    @classmethod
+    def get_min_duration(cls):
+        return 10 * cls.get_grain()
+        # XXX BTW, can we do duration = 61 s, or shall it be a multiple of min_duration ???
