@@ -425,6 +425,14 @@ class NITOSBrokerParser(RSpecParser):
                 cls.rspec_add_link(rspec, resource, lease_id)
             elif resource_type == 'channel':
                 cls.rspec_add_channel(rspec, resource, lease_id)
+
+    @classmethod
+    def get_grain(cls):
+        return 1800
+
+    @classmethod
+    def get_min_duration(cls):
+        return 1800
                 
 
 #rspec = RSpec(open(sys.argv[1]).read())

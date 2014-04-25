@@ -233,6 +233,10 @@ class SFAWrapParser(RSpecParser):
         for lease in leases:
             lease['resource'] = lease.pop('component_id')
             lease['slice']    = lease.pop('slice_id')
+            if not 'end_time' in lease and set(lease.keys()) <= set(['start_time', 'duration']):
+                lease['end_time'] = lease['start_time'] + lease['duration'] * cls.get_grain()
+            elif not 'duration' in lease and  set(lease.keys()) <= set(['start_time', 'end_time']):
+                lease['duration'] = (lease['end_time'] - lease['start_time']) / cls.get_grain()
             ret.append(lease)
 
         return ret

@@ -760,10 +760,10 @@ class SFAGateway(Gateway):
         #print "LEASES:", params['lease']
 
         # Keys
-        if not filters.has_eq('slice_hrn'):
-            raise Exception, 'Missing parameter: slice_hrn'
+        if not filters.has_eq('hrn'):
+            raise Exception, 'Missing parameter: hrn'
 # XXX add someting with URN
-        slice_hrn = filters.get_eq('slice_hrn')
+        slice_hrn = filters.get_eq('hrn')
         slice_urn = hrn_to_urn(slice_hrn, 'slice')
 
         resources = params['resource'] if 'resource' in params else []
@@ -1870,10 +1870,13 @@ class SFAGateway(Gateway):
             else:
                 # AM API v3
                 if slice_hrn:
+                    # XX XXXX XXX
                     result = yield self.sliceapi.Describe([slice_urn], [cred], api_options)
                     # XXX Weird !
                     result['value'] = result['value']['geni_rspec']
                 else:
+                    Log.warning("remove me!!!!")
+                    api_options['list_leases'] = 'all'
                     result = yield self.sliceapi.ListResources([cred], api_options)
                     
             if not 'value' in result or not result['value']:
