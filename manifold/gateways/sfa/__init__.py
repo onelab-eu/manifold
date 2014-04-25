@@ -1875,8 +1875,8 @@ class SFAGateway(Gateway):
                     # XXX Weird !
                     result['value'] = result['value']['geni_rspec']
                 else:
-                    Log.warning("remove me!!!!")
-                    api_options['list_leases'] = 'all'
+                    #Log.warning("remove me!!!!")
+                    #api_options['list_leases'] = 'all'
                     result = yield self.sliceapi.ListResources([cred], api_options)
                     
             if not 'value' in result or not result['value']:

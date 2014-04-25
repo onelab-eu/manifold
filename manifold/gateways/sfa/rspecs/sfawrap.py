@@ -229,15 +229,24 @@ class SFAWrapParser(RSpecParser):
     @classmethod
     def _process_leases(cls, leases):
         ret = list()
-
-        for lease in leases:
-            lease['resource'] = lease.pop('component_id')
-            lease['slice']    = lease.pop('slice_id')
-            if not 'end_time' in lease and set(lease.keys()) <= set(['start_time', 'duration']):
-                lease['end_time'] = lease['start_time'] + lease['duration'] * cls.get_grain()
-            elif not 'duration' in lease and  set(lease.keys()) <= set(['start_time', 'end_time']):
-                lease['duration'] = (lease['end_time'] - lease['start_time']) / cls.get_grain()
-            ret.append(lease)
+        print "PROCESS LEASES"
+        try:
+            for lease in leases:
+                lease['resource'] = lease.pop('component_id')
+                lease['slice']    = lease.pop('slice_id')
+                lease['start_time'] = int(lease['start_time'])
+                lease['duration'] = int(lease['duration'])
+                if 'end_time' in lease:
+                    lease['end_time'] = int(lease['end_time'])
+                if not 'end_time' in lease and set(['start_time', 'duration']) <= set(lease.keys()):
+                    lease['end_time'] = lease['start_time'] + lease['duration'] * cls.get_grain()
+                elif not 'duration' in lease and  set(lease.keys()) <= set(['start_time', 'end_time']):
+                    lease['duration'] = (lease['end_time'] - lease['start_time']) / cls.get_grain()
+                ret.append(lease)
+        except Exception, e:
+            print "EEE::", e
+            import traceback
+            traceback.print_exc()
 
         return ret
 
