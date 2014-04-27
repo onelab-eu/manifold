@@ -331,7 +331,13 @@ class SFAProxy(object):
                 return isinstance(cred, list) and reduce(lambda x, y: x and is_credential(y), cred, True)
 
             def is_user_list(arg):
-                return isinstance(arg, dict) and 'geni_users' in arg
+                is_user_list_1 = isinstance(arg, dict) and 'geni_users' in arg
+
+                # For CreateSliver nitosb
+                is_user_list_2 = isinstance(arg, list) and arg and isinstance(arg[0], dict) and 'keys' in arg[0]
+
+                return is_user_list_1 or is_user_list_2
+  
 
             #@defer.inlineCallbacks
             def wrap(source, args):

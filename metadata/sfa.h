@@ -12,6 +12,9 @@ class slice {
     const text nodes;
     const text slice_url;
     const authority parent_authority;
+
+	resource resource[];
+	lease lease[];
 # lease       lease[];       /**< List of leases associated to the slice */
 
     KEY(slice_urn);

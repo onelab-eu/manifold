@@ -1,3 +1,4 @@
+from types                import StringTypes
 from manifold.core.record import Record
 from manifold.operators   import Node
 from manifold.util.type   import returns
@@ -68,6 +69,9 @@ class Rename(Node):
             self.send(record)
             return
 
+        print "GOT RECORD", record
+        print "map", self.map_fields
+
         for k, v in self.map_fields.items():
             if k in record:
                 tmp = record.pop(k)
@@ -75,10 +79,15 @@ class Rename(Node):
                     method, key = v.split('.')
                     if not method in record:
                         record[method] = []
-                    for x in tmp:
-                        record[method].append({key: x})        
+                    # ROUTERV2
+                    if isinstance(tmp, StringTypes):
+                        record[method] = {key: tmp}
+                    else:
+                        for x in tmp:
+                            record[method].append({key: x})        
                 else:
                     record[v] = tmp
+        print "out", record
         self.send(record)
 
     def optimize_selection(self, filter):

@@ -85,7 +85,7 @@ class NITOSBrokerParser(RSpecParser):
     #---------------------------------------------------------------------------
 
     @classmethod
-    def parse(cls, rspec):
+    def parse(cls, rspec, slice_urn = None):
         resources   = list()
         leases      = list()
 
@@ -104,6 +104,7 @@ class NITOSBrokerParser(RSpecParser):
             end   = time.mktime(dateutil.parser.parse(lease_tmp['valid_until']).timetuple())
             lease = {
                 'lease_id': lease_tmp['id'],
+                'slice': slice_urn,
                 'start_time': start,
                 'end_time': end,
                 'duration': (end - start) / cls.get_grain()

@@ -967,10 +967,16 @@ class SFAGateway(Gateway):
             rspec_version = 'GENI 3'
 
         parser = yield self.get_parser()
-        rsrc_leases = parser.parse(manifest_rspec)
+        rsrc_leases = parser.parse(manifest_rspec, slice_urn)
 
-        slice = {'slice_hrn': filters.get_eq('slice_hrn')}
+        slice = {
+            'slice_hrn': slice_hrn,
+            'slice_urn': slice_urn,
+        }
         slice.update(rsrc_leases)
+        print "SLICE AFTER CREATE SLIVER"
+        print slice
+        print "=" * 80
         #print "oK"
         #print "SLICE=", slice
         defer.returnValue([slice])
@@ -1884,8 +1890,8 @@ class SFAGateway(Gateway):
             rspec_string = result['value']
         
         parser = yield self.get_parser()
-        print "rspec_string", rspec_string
-        rsrc_slice = parser.parse(rspec_string)
+        #print "rspec_string", rspec_string
+        rsrc_slice = parser.parse(rspec_string, slice_urn)
 
         if slice_urn:
             for r in rsrc_slice['resource']:
@@ -2000,7 +2006,6 @@ class SFAGateway(Gateway):
 
             if q.object in self.map_fields:
                 Rename(self, self.map_fields[q.object])
-            Log.tmp("================ RENAME RECORDS ==============")
             # Return result
             map(self.send, Records(records))
             self.send(LastRecord())
