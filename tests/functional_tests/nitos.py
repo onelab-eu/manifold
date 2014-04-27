@@ -6,6 +6,13 @@
 #
 # Run a single test
 # ./nitos.py NITOSTests.test_list_resources
+#
+# NOTE:
+# - This test suite could be common to several testbeds, only a few parameters differ
+# - We could define a SchedulerMixin that determines whether the testbed supports leases
+#
+# NOT TESTED YET:
+# - sfa/iotlab/iotlabshell.py:    _MINIMUM_DURATION = 10  # 10 units of granularity 60 s, 10 mins
 
 import unittest
 
@@ -31,7 +38,7 @@ t = time.time()
 START = int(t - (t % GRAIN) + GRAIN) 
 END   =  START + 1800 # 30 min lease
 
-# sfa/iotlab/iotlabshell.py:    _MINIMUM_DURATION = 10  # 10 units of granularity 60 s, 10 mins
+ 
 
 class NITOSTests(ManifoldTestCase):
 
