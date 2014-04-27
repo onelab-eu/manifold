@@ -184,7 +184,7 @@ class ResultValue(dict):
 
     @returns(bool)
     def is_success(self):
-        return self["type"] == SUCCESS
+        return self['type'] == self.SUCCESS and self['code'] == self.SUCCESS
 
     @returns(list)
     def ok_value(self):
