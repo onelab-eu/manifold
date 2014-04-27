@@ -48,7 +48,7 @@ class ManifoldLocalClient(ManifoldClient):
             else:
                 self.user = users[0]
 
-    def __del__(self):
+    def terminate(self):
         try:
             if self.interface:
                 self.interface.__exit__()
@@ -165,7 +165,7 @@ class ManifoldXMLRPCClient(ManifoldClient):
         self.url = url
         ReactorThread().start_reactor()
 
-    def __del__(self):
+    def terminate(self):
         ReactorThread().stop_reactor()
 
     def forward(self, query, annotations = None):
@@ -358,12 +358,7 @@ class Shell(object):
             self.whoami()
 
     def terminate(self):
-        # XXX Issues with the reference counter
-        #del self.client
-        #self.client = None
-        try:
-            self.client.__del__()
-        except: pass
+        self.client.terminate()
 
     def display(self, ret):
         if ret['code'] != 0:

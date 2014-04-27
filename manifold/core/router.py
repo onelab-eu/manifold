@@ -140,12 +140,7 @@ class Router(Interface):
             qp = QueryPlan()
             qp.build(query, self.g_3nf, allowed_platforms, self.allowed_capabilities, user)
 
-            print ""
-            print "QUERY PLAN:"
-            print "-----------"
-            qp.dump()
-            print ""
-            print ""
+            Log.info(qp.dump())
 
             # Note: no hook either for queries that are not executed
             return ResultValue.get_success(None)
@@ -210,7 +205,7 @@ class Router(Interface):
         qp = QueryPlan()
         qp.build(query, self.g_3nf, allowed_platforms, self.allowed_capabilities, user)
         self.instanciate_gateways(qp, user)
-        qp.dump()
+        Log.info(qp.dump())
 
         return self.execute_query_plan(query, annotations, qp, is_deferred)
 

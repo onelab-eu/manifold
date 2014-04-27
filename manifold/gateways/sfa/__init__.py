@@ -725,7 +725,7 @@ class SFAGateway(Gateway):
 
     @defer.inlineCallbacks
     def update_slice_am(self, filters, params, fields):
-        print "UPDATE SLICE AM", params
+        #print "UPDATE SLICE AM", params
         if not 'resource' in params and not 'lease' in params:
             raise Exception, "Update failed: nothing to update"
 
@@ -749,7 +749,7 @@ class SFAGateway(Gateway):
                 params['lease'] = resource_lease['lease']
 
         for lease in params['lease']:
-            print" PARAMS LEASE => lease=", lease
+            #print" PARAMS LEASE => lease=", lease
             resource_urn = lease['resource']
             # XXX We might have dicts, we need helper functions...
             if not resource_urn in params['resource']:
@@ -775,7 +775,7 @@ class SFAGateway(Gateway):
 
         # We suppose resource
         try:
-            print "server_version", server_version['hrn']
+            #print "server_version", server_version['hrn']
             if server_version.get('hrn') == 'nitos':
                 rspec = NITOSBrokerParser.build_rspec(slice_hrn, resources, leases)
             else: # PLE, IoTLab
@@ -952,10 +952,10 @@ class SFAGateway(Gateway):
                 manifest_rspec = rspec_sliver_result.get('geni_rspec')
 
         if not manifest_rspec:
-            print "NO MANIFEST FROM", self.platform, result
+            #print "NO MANIFEST FROM", self.platform, result
             defer.returnValue([])
         else:
-            print "GOT MANIFEST FROM", self.platform
+            #print "GOT MANIFEST FROM", self.platform
             sys.stdout.flush()
 
 
@@ -974,11 +974,6 @@ class SFAGateway(Gateway):
             'slice_urn': slice_urn,
         }
         slice.update(rsrc_leases)
-        print "SLICE AFTER CREATE SLIVER"
-        print slice
-        print "=" * 80
-        #print "oK"
-        #print "SLICE=", slice
         defer.returnValue([slice])
 
     # This function will return information about a given network using SFA GetVersion call
@@ -1070,8 +1065,8 @@ class SFAGateway(Gateway):
     def get_object(self, object, object_hrn, filters, params, fields):
 
         # DEBUG get_user parent_authority INCLUDED "['p', 'l', 'e', '.', 'u', 'p', 'm', 'c']" 
-        Log.tmp("SFA GW :: get_object ")
-        Log.tmp(filters)
+        #Log.tmp("SFA GW :: get_object ")
+        #Log.tmp(filters)
 
         # Let's find some additional information in filters in order to restrict our research
         object_hrn = "hrn"
@@ -1079,10 +1074,10 @@ class SFAGateway(Gateway):
         auth_hrn = make_list(filters.get_op('parent_authority', [eq, lt, le]))
         interface_hrn    = yield self.get_interface_hrn(self.registry)
  
-        Log.tmp(object_hrn)
-        Log.tmp(object_name)
-        Log.tmp(auth_hrn)
-        Log.tmp(interface_hrn)
+        #Log.tmp(object_hrn)
+        #Log.tmp(object_name)
+        #Log.tmp(auth_hrn)
+        #Log.tmp(interface_hrn)
        
         # XXX Hack for avoiding multiple calls to the same registry...
         # This will be fixed in newer versions where AM and RM have separate gateways
@@ -1556,13 +1551,13 @@ class SFAGateway(Gateway):
         do_am        = do_get_am or do_update_am
         do_rm        = do_get_rm or do_update_rm
 
-        print "do_update_am", do_update_am
-        print "do_update_rm", do_update_rm
-        print "do_get_am", do_get_am
-        print "do_get_rm", do_get_rm, "for fields", fields - AM_SLICE_FIELDS
+        #print "do_update_am", do_update_am
+        #print "do_update_rm", do_update_rm
+        #print "do_get_am", do_get_am
+        #print "do_get_rm", do_get_rm, "for fields", fields - AM_SLICE_FIELDS
 
-        print "do_am", do_am
-        print "do_rm", do_rm
+        #print "do_am", do_am
+        #print "do_rm", do_rm
 
         if do_am and do_rm:
             # Part on the RM side, part on the AM side... until AM and RM are
@@ -1579,18 +1574,18 @@ class SFAGateway(Gateway):
             #    fields_rm |= 'slice_urn'
 
             if do_get_am: # then we have do_update_rm (because update_slice)
-                print "do get am"
+                #print "do get am"
                 ret_am = self.get_slice(filters, params, fields_am)
                 ret_rm = self.update_object(filters, params, fields_rm)
             else:
                 # The typical case: update AM and get RM
-                print "do get rm"
+                #print "do get rm"
                 ret_am = self.update_slice_am(filters, params, fields_am)
                 ret_rm = self.get_slice(filters, params, fields_rm)
 
-            print "This should be two deferred:"
-            print " - ret_am", ret_am
-            print " - ret_rm", ret_rm
+            #print "This should be two deferred:"
+            #print " - ret_am", ret_am
+            #print " - ret_rm", ret_rm
 
             dl = defer.DeferredList([ret_am, ret_rm])
             if do_get_am:
@@ -1610,9 +1605,10 @@ class SFAGateway(Gateway):
                     assert len(result) == 2
                     (am_success, am_records), (rm_success, rm_records) = result
                     # XXX success
-                    print "AM success false when i raise an exception... handle !!!!" # XXX XXX
-                    print "AM SUCCESS", am_success, "RM SUCCESS", rm_success
-                    print am_records, rm_records
+                    #print "AM success false when i raise an exception... handle !!!!" # XXX XXX
+                    #print "AM SUCCESS", am_success, "RM SUCCESS", rm_success
+                    #print am_records, rm_records
+                    Log.warning("We should handle exceptions here !")
                     # XXX in case of failure, this contains a failure
                     am_record = am_records[0] if am_records else {} # XXX Why sometimes empty ????
                     rm_record = rm_records[0] if rm_records else {} # XXX Why sometimes empty ????

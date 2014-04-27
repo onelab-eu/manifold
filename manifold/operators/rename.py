@@ -69,9 +69,6 @@ class Rename(Node):
             self.send(record)
             return
 
-        print "GOT RECORD", record
-        print "map", self.map_fields
-
         for k, v in self.map_fields.items():
             if k in record:
                 tmp = record.pop(k)
@@ -87,7 +84,6 @@ class Rename(Node):
                             record[method].append({key: x})        
                 else:
                     record[v] = tmp
-        print "out", record
         self.send(record)
 
     def optimize_selection(self, filter):

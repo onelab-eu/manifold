@@ -99,7 +99,7 @@ class ResultValue(dict):
     def is_success(self):
         return self['code'] == self.SUCCESS #and self['type'] == self.SUCCESS
 
-    @deprecated(get_value)
+    @deprecated('get_value')
     def ok_value(self):
         return self.get_value()
 

@@ -290,9 +290,9 @@ class AST(object):
                 (number of space characters).
         """
         if self.is_empty():
-            print "Empty AST (no root)"
+            return "Empty AST (no root)"
         else:
-            self.root.dump(indent)
+            return self.root.dump(indent)
 
     def start(self):
         """

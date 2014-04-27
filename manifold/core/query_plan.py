@@ -257,7 +257,7 @@ class QueryPlan(object):
         Args:
             deferred: may be set to None.
         Returns:
-            The corresponding ResultValue instance.    
+            The corresponding records instances.
         """
 
 
@@ -278,5 +278,5 @@ class QueryPlan(object):
         """
         Dump this AST to the standard output.
         """
-        self.ast.dump()
+        return self.ast.dump()
 

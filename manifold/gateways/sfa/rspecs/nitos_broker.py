@@ -406,7 +406,6 @@ class NITOSBrokerParser(RSpecParser):
 
     @classmethod
     def rspec_add_resources(cls, rspec, resources, lease_map):
-        print "rspec_add_resources", resources, lease_map
         for resource in resources:
             if isinstance(resource, StringTypes):
                 urn = resource
