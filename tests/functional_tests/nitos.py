@@ -16,7 +16,7 @@ from manifold.util.options  import Options
 
 test_options = {
    'log_level': 'CRITICAL', # DEBUG, INFO, WARNING, ERROR, CRITICAL
-   'verbosity': 2
+   'verbosity': 2, # 0
 }
 
 NAMESPACE = 'nitosb'
@@ -134,7 +134,6 @@ class NITOSTests(ManifoldTestCase):
     def test_clear_slice(self):
         Q = 'UPDATE slice SET resource = [], lease = [] where slice_hrn == "%s"' % (SLICE_HRN, )
         records = self._run(Q)
-        print "RECORDS=", records
 
         assert len(records) == 1
         first_record = records[0]
