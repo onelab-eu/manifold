@@ -97,8 +97,6 @@ class ReactorThread(threading.Thread):
         if not force and self._num_instances > 0:
             return
 
-        print "STOPPING REACTOR !!"
-
         self._num_instances = 0
         # done here instead of event until shell.client.__del__ issue is solved
         self._reactorRunning = False
