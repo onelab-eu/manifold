@@ -308,12 +308,12 @@ class SFAProxy(object):
             def proxy_success_cb(result):
                 #SFATokenMgr().put_token(self.interface)
                 diff = time.time() - self.started
-                Log.tmp('SFA CALL SUCCESS %s(%s) - interface = %s - execution time = %s sec.' % (self.arg0, self.arg1, self.interface, round(diff,2)))
+                Log.debug('SFA CALL SUCCESS %s(%s) - interface = %s - execution time = %s sec.' % (self.arg0, self.arg1, self.interface, round(diff,2)))
                 d.callback(result)
             def proxy_error_cb(error):
                 #SFATokenMgr().put_token(self.interface)
                 diff = time.time() - self.started
-                Log.tmp('SFA CALL ERROR %s(%s) - interface = %s - execution time = %s sec.' % (self.arg0, self.arg1, self.interface, round(diff,2)))
+                Log.debug('SFA CALL ERROR %s(%s) - interface = %s - execution time = %s sec.' % (self.arg0, self.arg1, self.interface, round(diff,2)))
                 d.errback(ValueError("Error in SFA Proxy %s" % error))
 
             #success_cb = lambda result: d.callback(result)
@@ -360,8 +360,7 @@ class SFAProxy(object):
                 self.started = time.time()
                 self.arg0 = printable_args[0]
                 self.arg1 = printable_args[1:]
-                #Log.debug("SFA CALL %s(%s) - interface = %s" % (printable_args[0], printable_args[1:], self.interface))
-                print "SFA CALL %s(%r) - interface = %s" % (printable_args[0], printable_args[1:], self.interface)
+                Log.debug("SFA CALL %s(%s) - interface = %s" % (printable_args[0], printable_args[1:], self.interface))
                 self.proxy.callRemote(*args).addCallbacks(proxy_success_cb, proxy_error_cb)
                 
             ReactorThread().callInReactor(wrap, self, args)

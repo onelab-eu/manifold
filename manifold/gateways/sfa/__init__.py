@@ -1801,7 +1801,6 @@ class SFAGateway(Gateway):
 
     @defer.inlineCallbacks
     def get_resource_lease(self, filters, params, fields, list_resources = True, list_leases = True):
-        print "GET RESOURCE LEASE", filters
 #DEPRECATED|        if self.user['email'] in DEMO_HOOKS:
 #DEPRECATED|            rspec = open('/usr/share/manifold/scripts/nitos.rspec', 'r')
 #DEPRECATED|            defer.returnValue(self.parse_sfa_rspec(rspec))
@@ -1951,8 +1950,8 @@ class SFAGateway(Gateway):
 
     # XXX WIP 
     def rename_query(self,query):
-        Log.tmp("--------------> BEFORE RENAME QUERY")        
-        Log.tmp(query.filters)
+        #Log.tmp("--------------> BEFORE RENAME QUERY")        
+        #Log.tmp(query.filters)
 
         # Create a reversed map : MANIFOLD -> SFA
         if query.object in self.map_fields:
@@ -1970,10 +1969,10 @@ class SFAGateway(Gateway):
             
             new_filters = query.filters.rename(rmap)
     
-            Log.tmp("--------------> AFTER RENAME QUERY")        
-            Log.tmp(new_fields)
-            Log.tmp(new_params)
-            Log.tmp(new_filters)
+            #Log.tmp("--------------> AFTER RENAME QUERY")        
+            #Log.tmp(new_fields)
+            #Log.tmp(new_params)
+            #Log.tmp(new_filters)
             query.filters = new_filters
             query.fields = new_fields
             query.params = new_params
@@ -1996,7 +1995,7 @@ class SFAGateway(Gateway):
             
             # TODO: ROUTERV2 
             # This will be different in ROUTERV2
-            Log.tmp("================ RENAME QUERY ==============")
+            #Log.tmp("================ RENAME QUERY ==============")
             q = self.rename_query(q)
             #self.rename_query(q)
 

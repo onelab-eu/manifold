@@ -125,7 +125,6 @@ class ExploreTask(Deferred):
             foreign_key_fields
         """
         Log.debug("Search in ", self.root.get_name(), "for fields", missing_fields, 'path=', self.path, "SEEN SET =", seen_set)
-        print "Search in ", self.root.get_name(), "for fields", missing_fields, 'path=', self.path, "SEEN SET =", seen_set
         relations_11, relations_1N, relations_1Nsq = (), {}, {}
         deferred_list = []
 
@@ -171,7 +170,6 @@ class ExploreTask(Deferred):
                     # ... and remove the relation from requested fields
                     missing_fields.remove(relation_name)
 
-                    print "ADDING FK FIELDS", _additional_fields
                     foreign_key_fields[relation_name] = _additional_fields
         
         root_key_fields = self.root.keys.one().get_field_names()
@@ -247,9 +245,6 @@ class ExploreTask(Deferred):
                 
                 # END ROUTERV2
                 
-
-        print "keep root a", self.keep_root_a
-                    
         assert self.depth == 1 or root_key_fields not in missing_fields, "Requesting key fields in child table"
 
         if self.keep_root_a:

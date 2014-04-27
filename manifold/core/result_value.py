@@ -3,6 +3,9 @@
 import time
 import pprint
 
+from manifold.util.type import accepts, returns
+from manifold.util.deprecated import deprecated
+
 class ResultValue(dict):
 
     # type
@@ -92,8 +95,16 @@ class ResultValue(dict):
     def get_success(self, result):
         return ResultValue(code=self.SUCCESS, origin=[self.CORE, 0], value=result) 
 
+    @returns(bool)
+    def is_success(self):
+        return self['code'] == self.SUCCESS #and self['type'] == self.SUCCESS
+
+    @deprecated(get_value)
     def ok_value(self):
-        return self['value']
+        return self.get_value()
+
+    def get_value(self):
+        return self.get('value')
 
     def error(self):
         err = "%r" % self['description']
