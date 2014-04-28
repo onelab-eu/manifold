@@ -1878,7 +1878,9 @@ class SFAGateway(Gateway):
                 else:
                     #Log.warning("remove me!!!!")
                     #api_options['list_leases'] = 'all'
+                    print "LIST RESOURCES"
                     result = yield self.sliceapi.ListResources([cred], api_options)
+                    print "RESULT", result
                     
             if not 'value' in result or not result['value']:
                 raise Exception, result['output']
@@ -1886,7 +1888,7 @@ class SFAGateway(Gateway):
             rspec_string = result['value']
         
         parser = yield self.get_parser()
-        #print "rspec_string", rspec_string
+        print "rspec_string", rspec_string
         rsrc_slice = parser.parse(rspec_string, slice_urn)
 
         if slice_urn:
