@@ -175,7 +175,7 @@ class IoTLABTests(TestbedWithReservationTestCase):
 if __name__ == '__main__':
     import sys, inspect
 
-    if sys.argv[1] == 'list':
+    if len(sys.argv) > 1 and sys.argv[1] == 'list':
 
         print sys.argv[0]
         for class_name, class_obj in inspect.getmembers(sys.modules[__name__], inspect.isclass):
