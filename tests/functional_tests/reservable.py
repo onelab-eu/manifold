@@ -177,6 +177,7 @@ if __name__ == '__main__':
 
     if sys.argv[1] == 'list':
 
+        print sys.argv[0]
         for class_name, class_obj in inspect.getmembers(sys.modules[__name__], inspect.isclass):
             if not class_name.endswith('Tests'):
                 continue
