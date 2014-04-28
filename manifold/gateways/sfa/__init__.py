@@ -170,6 +170,7 @@ class SFAGateway(Gateway):
         # We hardcode a parser for the NITOS testbed
         server_version = yield self.get_cached_server_version(self.sliceapi)
 
+        # XXX @Loic make network_hrn consistent everywhere, do we use get_interface_hrn ???
         hrn = server_version.get('hrn')
 
         if hrn == 'nitos':

@@ -95,7 +95,8 @@ class NITOSBrokerParser(RSpecParser):
         # their ids in resources
         lease_map = dict() # id -> lease_dict
         elements = rspec.xml.xpath('//ol:lease')
-        
+ 
+        # XXX @Loic make network_hrn consistent, Hardcoded !!!      
         network = 'omf'
 
         for el in elements:
@@ -123,6 +124,7 @@ class NITOSBrokerParser(RSpecParser):
                 resource = cls.dict_from_elt(network, el.element)
                 if resource_type in MAP:
                     resource = cls.dict_rename(resource, resource_type)
+                resource['network_hrn'] = network
                 resources.append(resource)
 
                 # Leases
@@ -306,7 +308,7 @@ class NITOSBrokerParser(RSpecParser):
                     continue
  
                 rsrc_lease['urn']          = match['urn']
-                rsrc_lease['network']      = Xrn(match['urn']).authority[0]
+                rsrc_lease['network_hrn']  = Xrn(match['urn']).authority[0]
                 rsrc_lease['hrn']          = Xrn(match['urn']).hrn
                 rsrc_lease['type']         = Xrn(match['urn']).type
  
