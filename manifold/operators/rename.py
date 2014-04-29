@@ -70,18 +70,30 @@ class Rename(Node):
             return
 
         for k, v in self.map_fields.items():
+            Log.tmp("k = ",k)
+            Log.tmp("v = ",v)
+            Log.tmp("record = ",record)
+            Log.tmp("map_fields = ",self.map_fields.items())
+
             if k in record:
                 tmp = record.pop(k)
                 if '.' in v: # users.hrn
                     method, key = v.split('.')
+
+                    Log.tmp("method = ",method)
+
                     if not method in record:
                         record[method] = []
                     # ROUTERV2
                     if isinstance(tmp, StringTypes):
                         record[method] = {key: tmp}
-                    else:
+
+                    # XXX WARNING: Not sure if this doesn't have side effects !!!
+                    elif tmp is not None:
                         for x in tmp:
                             record[method].append({key: x})        
+                    else:
+                        Log.tmp("This record has a tmp None record = %s , tmp = %s , v = %s" % (record,tmp,v))
                 else:
                     record[v] = tmp
         self.send(record)
