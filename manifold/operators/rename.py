@@ -70,17 +70,10 @@ class Rename(Node):
             return
 
         for k, v in self.map_fields.items():
-            Log.tmp("k = ",k)
-            Log.tmp("v = ",v)
-            Log.tmp("record = ",record)
-            Log.tmp("map_fields = ",self.map_fields.items())
-
             if k in record:
                 tmp = record.pop(k)
                 if '.' in v: # users.hrn
                     method, key = v.split('.')
-
-                    Log.tmp("method = ",method)
 
                     if not method in record:
                         record[method] = []
