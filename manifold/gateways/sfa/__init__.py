@@ -423,6 +423,8 @@ class SFAGateway(Gateway):
 
     @defer.inlineCallbacks
     def get_cached_server_version(self, server):
+        Log.tmp("get_cached_server_version")
+        Log.tmp(server)
         # check local cache first
         version = None 
         cache_key = server.get_interface() + "-version"
@@ -1072,12 +1074,13 @@ class SFAGateway(Gateway):
         # Let's find some additional information in filters in order to restrict our research
         object_hrn = "hrn"
         object_name = make_list(filters.get_op(object_hrn, [eq, included]))
-        auth_hrn = make_list(filters.get_op('parent_authority', [eq, lt, le]))
+        # ROUTERV2 parent_authority became authority due to rename_query function using map
+        auth_hrn = make_list(filters.get_op('authority', [eq, lt, le]))
         interface_hrn    = yield self.get_interface_hrn(self.registry)
  
         #Log.tmp(object_hrn)
         #Log.tmp(object_name)
-        #Log.tmp(auth_hrn)
+        #Log.tmp("auth_hrn = %s",auth_hrn)
         #Log.tmp(interface_hrn)
        
         # XXX Hack for avoiding multiple calls to the same registry...
@@ -1136,7 +1139,8 @@ class SFAGateway(Gateway):
         
         cred = self._get_cred('user')
 
-
+        #Log.tmp("resolve = %s",resolve)
+        #Log.tmp("stack = %s",stack)
         if resolve:
             stack = map(lambda x: hrn_to_urn(x, object), stack)
             _results  = yield self.registry.Resolve(stack, cred, {'details': True})
