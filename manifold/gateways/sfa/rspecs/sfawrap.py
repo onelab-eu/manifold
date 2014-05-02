@@ -242,6 +242,11 @@ class SFAWrapParser(RSpecParser):
                     lease['end_time'] = lease['start_time'] + lease['duration'] * cls.get_grain()
                 elif not 'duration' in lease and  set(lease.keys()) <= set(['start_time', 'end_time']):
                     lease['duration'] = (lease['end_time'] - lease['start_time']) / cls.get_grain()
+
+                # XXX GRANULARITY Hardcoded for the moment
+                if 'granularity' not in lease:
+                    lease['granularity'] = cls.get_grain() 
+
                 ret.append(lease)
         except Exception, e:
             print "EEE::", e
@@ -270,7 +275,7 @@ class SFAWrapParser(RSpecParser):
             
             grain = cls.get_grain() # in seconds
             min_duration = cls.get_min_duration() # in seconds
-    
+            
             # We either need end_time or duration
             # end_time is choosen if both are specified !
             if 'end_time' in lease:
