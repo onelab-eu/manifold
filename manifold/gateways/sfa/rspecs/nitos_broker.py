@@ -6,7 +6,7 @@ from types import StringTypes
 from manifold.gateways.sfa.rspecs import RSpecParser
 import dateutil.parser
 from datetime import datetime
-
+from manifold.util.log          import Log
 from sfa.rspecs.rspec import RSpec
 from sfa.util.xml import XpathFilter
 from sfa.util.xrn import Xrn, get_leaf, urn_to_hrn
@@ -100,17 +100,23 @@ class NITOSBrokerParser(RSpecParser):
         network = 'omf'
 
         for el in elements:
-            lease_tmp = cls.dict_from_elt(network, el.element)
-            start = time.mktime(dateutil.parser.parse(lease_tmp['valid_from']).timetuple())
-            end   = time.mktime(dateutil.parser.parse(lease_tmp['valid_until']).timetuple())
-            lease = {
-                'lease_id': lease_tmp['id'],
-                'slice': slice_urn,
-                'start_time': start,
-                'end_time': end,
-                'duration': (end - start) / cls.get_grain()
-            }
-            lease_map[lease_tmp['id']] = lease
+            try:
+                lease_tmp = cls.dict_from_elt(network, el.element)
+                start = time.mktime(dateutil.parser.parse(lease_tmp['valid_from']).timetuple())
+                end   = time.mktime(dateutil.parser.parse(lease_tmp['valid_until']).timetuple())
+                lease = {
+                    'lease_id': lease_tmp['id'],
+                    'slice': slice_urn,
+                    'start_time': start,
+                    'end_time': end,
+                    'duration': (end - start) / cls.get_grain(),
+                    'granularity': cls.get_grain()
+                }
+                lease_map[lease_tmp['id']] = lease
+            except:
+                import traceback
+                Log.warning("this lease has not the right format")
+                traceback.print_exc()
 
         # Parse nodes
         for tag, resource_type in RESOURCE_TYPES.items():
@@ -299,7 +305,7 @@ class NITOSBrokerParser(RSpecParser):
                        print "W: lease on a non-reservable node:", filt
  
                 if not 'granularity' in match:
-                    #print "W: Granularity not present in node:", filt
+                    print "W: Granularity not present in node:", filt
                     pass
                 else:
                     rsrc_lease['granularity'] = match['granularity']
