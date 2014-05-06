@@ -97,7 +97,7 @@ class NITOSBrokerParser(RSpecParser):
         elements = rspec.xml.xpath('//ol:lease')
  
         # XXX @Loic make network_hrn consistent, Hardcoded !!!      
-        network = 'omf'
+        network = 'nitos'
 
         for el in elements:
             try:
