@@ -167,21 +167,33 @@ class SFAGateway(Gateway):
 
     @defer.inlineCallbacks
     def get_parser(self):
+        # AM 
+        if self.sliceapi:
+            server = self.sliceapi
+        # Registry
+        else:
+            server = self.registry 
+
+        server_hrn = yield self.get_interface_hrn(server)
+
+        Log.tmp("get_parser server_hrn = %s",server_hrn)
         # We hardcode a parser for the NITOS testbed
-        server_version = yield self.get_cached_server_version(self.sliceapi)
+        #server_version = yield self.get_cached_server_version(self.sliceapi)
 
         # XXX @Loic make network_hrn consistent everywhere, do we use get_interface_hrn ???
-        hrn = server_version.get('hrn')
+        #hrn = server_version.get('hrn')
 
-        if hrn == 'nitos':
+        if server_hrn == 'nitos':
             parser = NITOSBrokerParser
-        elif hrn == 'iotlab':
+        elif server_hrn == 'omf':
+            parser = NITOSBrokerParser
+        elif server_hrn == 'iotlab':
             parser = IoTLABParser
-        elif server_version.get('hrn') == 'ple':
+        elif server_hrn == 'ple':
             parser = PLEParser
-        elif 'wilab2' in self.config['sm']:
+        elif 'wilab2' in server_hrn:
             parser = WiLabtParser
-        elif 'nitlab' in self.config['sm']:
+        elif 'nitlab' in server_hrn:
             parser = NITOSParser
         else:
             #parser = LooseParser
@@ -214,8 +226,8 @@ class SFAGateway(Gateway):
         'hrn'               : 'slice_hrn',                  # hrn
         'urn'               : 'slice_urn',                  # slice_geni_urn ???
         'type'              : 'slice_type',                 # type ?
-        'reg-researchers'   : 'users',                      # user or users . hrn or user_hrn ?
-        #'researchers'   : 'users',                      # user or users . hrn or user_hrn ?
+        #'reg-researchers'   : 'users',                      # user or users . hrn or user_hrn ?
+        'researcher'        : 'users',                      # user or users . hrn or user_hrn ?
                                                             # XXX this is in lowercase when creating a slice !
         'reg-urn'           : 'slice_urn',
 
@@ -401,11 +413,15 @@ class SFAGateway(Gateway):
                 self.registry = self.make_user_proxy(self.config['registry'], self.admin_config)
                 registry_hrn = yield self.get_interface_hrn(self.registry)
                 self.registry.set_network_hrn(registry_hrn)
+            else:
+                self.registry=False
 
             if self.config['sm']:
                 self.sliceapi = self.make_user_proxy(self.config['sm'],       self.admin_config)
                 sm_hrn = yield self.get_interface_hrn(self.sliceapi)
                 self.sliceapi.set_network_hrn(sm_hrn)
+            else:
+                self.sliceapi=False
 
         except Exception, e:
             print "EXC in boostrap", e
@@ -707,6 +723,16 @@ class SFAGateway(Gateway):
                 # with a delegated user credential...
                 if 'user_private_key' in self.user_config and self.user_config['user_private_key'] and type == 'slice':
                     cred = SFAGateway.generate_slice_credential(target, self.user_config)
+                    # If a PI is not in a slice but has an Authority Cred
+                    if cred is None:
+                        creds = self.user_config['%s%s_credentials' % (delegated, 'authority')]
+                        for my_auth in creds:
+                            if target.startswith(my_auth):
+                                cred=creds[my_auth]
+                        if not cred:
+                            # XXX This should not interrupt everything, shall it ?
+                            raise Exception , "no cred found of type %s towards %s " % (type, target)
+                      
                     creds[target] = cred
                 # If user has an authority credential above the one targeted
                 # Example: 
@@ -1068,7 +1094,8 @@ class SFAGateway(Gateway):
     def get_object(self, object, object_hrn, filters, params, fields):
 
         # DEBUG get_user parent_authority INCLUDED "['p', 'l', 'e', '.', 'u', 'p', 'm', 'c']" 
-        #Log.tmp("SFA GW :: get_object ")
+        Log.tmp("SFA GW :: get_object ")
+        Log.tmp("get_object Query = ",self.query)
         #Log.tmp(filters)
 
         # Let's find some additional information in filters in order to restrict our research
@@ -1076,12 +1103,20 @@ class SFAGateway(Gateway):
         object_name = make_list(filters.get_op(object_hrn, [eq, included]))
         # ROUTERV2 parent_authority became authority due to rename_query function using map
         auth_hrn = make_list(filters.get_op('authority', [eq, lt, le]))
-        interface_hrn    = yield self.get_interface_hrn(self.registry)
+
+        # AM 
+        if self.sliceapi:
+            server = self.sliceapi
+        # Registry
+        else:
+            server = self.registry
+        
+        interface_hrn    = yield self.get_interface_hrn(server)
  
         #Log.tmp(object_hrn)
         #Log.tmp(object_name)
         #Log.tmp("auth_hrn = %s",auth_hrn)
-        #Log.tmp(interface_hrn)
+        Log.tmp(interface_hrn)
        
         # XXX Hack for avoiding multiple calls to the same registry...
         # This will be fixed in newer versions where AM and RM have separate gateways
@@ -1147,6 +1182,9 @@ class SFAGateway(Gateway):
             #_result = _results[0]
 
             output = []
+
+            Log.tmp("SFA Resolve results = %s",_results)
+
             for _result in _results:
 
                 # XXX ROUTERV2 WARNING: FILTER ON TYPE BECAUSE Registry doesn't 
@@ -1802,6 +1840,7 @@ class SFAGateway(Gateway):
 
     @defer.inlineCallbacks
     def get_resource_lease(self, filters, params, fields, list_resources = True, list_leases = True):
+        Log.tmp("SFA GW :: get_resource_lease")
 #DEPRECATED|        if self.user['email'] in DEMO_HOOKS:
 #DEPRECATED|            rspec = open('/usr/share/manifold/scripts/nitos.rspec', 'r')
 #DEPRECATED|            defer.returnValue(self.parse_sfa_rspec(rspec))
@@ -1813,6 +1852,7 @@ class SFAGateway(Gateway):
         # slice - resource is a NxN relationship, not well managed so far
 
         # ROUTERV2
+        Log.tmp("get_resource_lease filters = %s",filters)
         slice_urns = make_list(filters.get_op('slice', (eq, included)))
         slice_urn = slice_urns[0] if slice_urns else None
         slice_hrn, _ = urn_to_hrn(slice_urn) if slice_urn else (None, None)
@@ -1824,7 +1864,16 @@ class SFAGateway(Gateway):
         # always send call_id to v2 servers
         api_options ['call_id'] = unique_call_id()
         # Get server capabilities
-        server_version = yield self.get_cached_server_version(self.sliceapi)
+        ## AM 
+        #if self.sliceapi:
+        #    server = self.sliceapi
+        ## Registry
+        #else:
+        #    server = self.registry
+
+        #server_hrn = yield self.get_interface_hrn(server)
+
+        #server_version = yield self.get_cached_server_version(self.sliceapi)
         type_version = set()
 
         # Manage Rspec versions
