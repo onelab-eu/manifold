@@ -90,16 +90,18 @@ class ProcessGateway(Gateway):
         """
 
         if not os.path.exists(self.get_fullpath()):
+            Log.warning("Process does not exist, returning empty")
             self.records([], packet)
             return
 
         query       = packet.get_query()
         annotation = packet.get_annotation()
 
-
+        Log.tmp("[PROCESS GATEWAY] received query", query)
         # We leave the process a chance to return records without executing
         output = self.on_receive_query(query, annotation)
         if output:
+            print "return direct output=", output
             self.records(output, packet)
             return
 
@@ -114,6 +116,7 @@ class ProcessGateway(Gateway):
 
         # ( arg tuples, parameters )
         args_params_list = self.get_argtuples(query, annotation)
+        Log.tmp("[PROCESS GATEWAY] argtuples", args_params_list)
 
         batch_id = str(uuid.uuid4())
 
@@ -122,6 +125,7 @@ class ProcessGateway(Gateway):
         for args_params in args_params_list:
             args = (self.get_fullpath(),) + args_params[0]
 
+            Log.tmp("[PROCESS GATEWAY] execute", args, args_params[1])
             self.execute_process(args, args_params[1], packet, batch_id)
 
     #---------------------------------------------------------------------------
@@ -197,6 +201,7 @@ class ProcessGateway(Gateway):
 
     def execute_process(self, args, params, packet, batch_id):
         ret = 0
+        print "execute process", args, params, packet, batch_id
 
         def runInThread(args, params, packet, batch_id):
             self._records[batch_id] = []

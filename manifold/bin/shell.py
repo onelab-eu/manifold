@@ -582,7 +582,7 @@ class Shell(object):
 
         self._display(self._environment[variable])
 
-    def handle_set(self, key, value):
+    def handle_set(self, args):
         if len(args) == 0:
             print "Current annotations:"
             for key, value in self._annotations.items():
@@ -593,6 +593,7 @@ class Shell(object):
             Log.error("Usage: SET key value")
             return
         
+        key, value = args
         if key == 'queryplan':
             if not value.lower() in TRUE_VALUES or value.lower() in FALSE_VALUES:
                 Log.error("Wrong value for queryplan setting")
