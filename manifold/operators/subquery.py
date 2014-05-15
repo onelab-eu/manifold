@@ -167,7 +167,12 @@ class SubQuery(Node):
             if relation_name in parent_fields:
                 if relation.get_type() in [Relation.types.LINK_1N, Relation.types.LINK_1N_BACKWARDS]:
                     if relation_name in first_record and first_record[relation_name] and len(first_record[relation_name]) > 0:
-                        already_fetched_fields = set(first_record[relation_name][0].keys())
+                        print "FIRST RECORD", first_record
+                        print "relation name", relation_name
+                        if isinstance(first_record[relation_name][0], dict):
+                            already_fetched_fields = set(first_record[relation_name][0].keys())
+                        else:
+                            already_fetched_fields = set()
                     else:
                         already_fetched_fields = set()
                 else:
