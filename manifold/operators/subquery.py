@@ -148,8 +148,6 @@ class SubQuery(Node):
         # Inspect the first parent record to deduce which fields have already
         # been fetched 
         first_record = self.parent_output[0]
-        print "FIRST RECORD", first_record
-        print "." * 80
         parent_fields = set(first_record.keys())
         
         # Optimize child queries according to the fields already retrieved thanks
@@ -163,15 +161,13 @@ class SubQuery(Node):
             relation = self.relations[i]
             relation_name = relation.get_relation_name()
             already_fetched_fields = set()
-            print "PARENT FIELDS", parent_fields
             if relation_name in parent_fields:
                 if relation.get_type() in [Relation.types.LINK_1N, Relation.types.LINK_1N_BACKWARDS]:
                     if relation_name in first_record and first_record[relation_name] and len(first_record[relation_name]) > 0:
-                        print "FIRST RECORD", first_record
-                        print "relation name", relation_name
                         if isinstance(first_record[relation_name][0], dict):
                             already_fetched_fields = set(first_record[relation_name][0].keys())
                         else:
+                            # If we do not have a dict, we have only keys, so it's like we had no field of importance...
                             already_fetched_fields = set()
                     else:
                         already_fetched_fields = set()
@@ -184,10 +180,7 @@ class SubQuery(Node):
             # XXX routerv2: we need to keep key used for subquery
             key_field = relation.get_predicate().get_value()
 
-            print "CHILD FIELDS", child_fields
-            print "ALREADY FETCHED", already_fetched_fields
             relevant_fields = child_fields - already_fetched_fields | frozenset([key_field])
-            print "RELEVANT", relevant_fields
 
             if not relevant_fields:
                 useless_children.add(i)
