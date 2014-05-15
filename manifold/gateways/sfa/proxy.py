@@ -363,7 +363,9 @@ class SFAProxy(object):
                 Log.debug("SFA CALL %s(%s) - interface = %s" % (printable_args[0], printable_args[1:], self.interface))
                 self.proxy.callRemote(*args).addCallbacks(proxy_success_cb, proxy_error_cb)
                 
+            Log.tmp("BEFORE ReactorThread().callInReactor(wrap, self, args)")
             ReactorThread().callInReactor(wrap, self, args)
+            Log.tmp("AFTER ReactorThread().callInReactor(wrap, self, args)")
             return d
         return _missing
 

@@ -10,6 +10,29 @@ DUMPSTR_RENAME = "RENAME %r"
 # RENAME node
 #------------------------------------------------------------------
 
+def do_rename(record, map_fields):
+    for k, v in map_fields.items():
+        if k in record:
+            tmp = record.pop(k)
+            if '.' in v: # users.hrn
+                method, key = v.split('.')
+
+                if not method in record:
+                    record[method] = []
+                # ROUTERV2
+                if isinstance(tmp, StringTypes):
+                    record[method] = {key: tmp}
+
+                # XXX WARNING: Not sure if this doesn't have side effects !!!
+                elif tmp is not None:
+                    for x in tmp:
+                        record[method].append({key: x})        
+                else:
+                    Log.tmp("This record has a tmp None record = %s , tmp = %s , v = %s" % (record,tmp,v))
+            else:
+                record[v] = tmp
+    return record
+
 class Rename(Node):
     """
     RENAME operator node (cf SELECT clause in SQL)
@@ -69,26 +92,7 @@ class Rename(Node):
             self.send(record)
             return
 
-        for k, v in self.map_fields.items():
-            if k in record:
-                tmp = record.pop(k)
-                if '.' in v: # users.hrn
-                    method, key = v.split('.')
-
-                    if not method in record:
-                        record[method] = []
-                    # ROUTERV2
-                    if isinstance(tmp, StringTypes):
-                        record[method] = {key: tmp}
-
-                    # XXX WARNING: Not sure if this doesn't have side effects !!!
-                    elif tmp is not None:
-                        for x in tmp:
-                            record[method].append({key: x})        
-                    else:
-                        Log.tmp("This record has a tmp None record = %s , tmp = %s , v = %s" % (record,tmp,v))
-                else:
-                    record[v] = tmp
+        record = do_rename(record, self.map_fields)
         self.send(record)
 
     def optimize_selection(self, filter):

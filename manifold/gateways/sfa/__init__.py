@@ -10,8 +10,9 @@ from twisted.internet                   import defer
 from manifold.conf                      import ADMIN_USER
 from manifold.core.result_value         import ResultValue
 from manifold.core.filter               import Filter
+from manifold.core.query                import Query 
 from manifold.core.record               import Record, Records, LastRecord
-from manifold.operators.rename          import Rename
+from manifold.operators.rename          import Rename, do_rename
 from manifold.gateways                  import Gateway
 #from manifold.gateways.sfa.rspecs.SFAv1 import SFAv1Parser # as Parser
 from manifold.gateways.sfa.proxy        import SFAProxy
@@ -224,13 +225,15 @@ class SFAGateway(Gateway):
     map_slice_fields = {
         # REGISTRY FIELDS
         'hrn'               : 'slice_hrn',                  # hrn
+
         'urn'               : 'slice_urn',                  # slice_geni_urn ???
+ #XXX   'reg-urn'           : 'slice_urn',                  # slice_geni_urn ???
+        'reg-urn'           : 'slice_urn',
+
         'type'              : 'slice_type',                 # type ?
         #'reg-researchers'   : 'users',                      # user or users . hrn or user_hrn ?
         'researcher'        : 'users',                      # user or users . hrn or user_hrn ?
                                                             # XXX this is in lowercase when creating a slice !
-        'reg-urn'           : 'slice_urn',
-
         # TESTBED FIELDS
         'enabled'           : 'slice_enabled',
         'PI'                : 'pi_users',                   # XXX should be found of type user, has to correspond with metadata
@@ -239,7 +242,6 @@ class SFAGateway(Gateway):
         'last_updated'      : 'slice_last_updated',         # last_updated != last == checked,
         'geni_creator'      : 'slice_geni_creator',
         'node_ids'          : 'slice_node_ids',             # X This should be 'nodes.id' but we do not want IDs
-#XXX        'reg-urn'           : 'slice_urn',                  # slice_geni_urn ???
         'site_id'           : 'slice_site_id',              # X ID 
         'site'              : 'slice_site',                 # authority.hrn
         'authority'         : 'parent_authority',       # isn't it the same ???
@@ -270,7 +272,7 @@ class SFAGateway(Gateway):
     map_user_fields = {
         # REGISTRY FIELDS
         'hrn'               : 'user_hrn',
-        'urn'               : 'user_urn',
+        'reg-urn'           : 'user_urn',
         'type'              : 'user_type',
         'email'             : 'user_email',
         'gid'               : 'user_gid',
@@ -414,14 +416,14 @@ class SFAGateway(Gateway):
                 registry_hrn = yield self.get_interface_hrn(self.registry)
                 self.registry.set_network_hrn(registry_hrn)
             else:
-                self.registry=False
+                self.registry = None
 
             if self.config['sm']:
                 self.sliceapi = self.make_user_proxy(self.config['sm'],       self.admin_config)
                 sm_hrn = yield self.get_interface_hrn(self.sliceapi)
                 self.sliceapi.set_network_hrn(sm_hrn)
             else:
-                self.sliceapi=False
+                self.sliceapi = None
 
         except Exception, e:
             print "EXC in boostrap", e
@@ -450,7 +452,9 @@ class SFAGateway(Gateway):
             version = cache.get(cache_key)
 
         if not version: 
+            Log.tmp("BEFORE GetVersion Call")
             result = yield server.GetVersion()
+            Log.tmp("AFTER GetVersion Call")
             code = result.get('code')
             if code:
                 if code.get('geni_code') > 0:
@@ -840,37 +844,67 @@ class SFAGateway(Gateway):
         #    keys: [<ssh key A>, <ssh key B>]
         #  }]
         users = []
-        # xxx Thierry 2012 sept. 21
-        # contrary to what I was first thinking, calling Resolve with details=False does not yet work properly here
-        # I am turning details=True on again on a - hopefully - temporary basis, just to get this whole thing to work again
-        slice_records = yield self.registry.Resolve(slice_urn, [user_cred])
-        # Due to a bug in the SFA implementation when Resolve requests are
-        # forwarded, records are not filtered (Resolve received a list of xrns,
-        # does not resolve its type, then issue queries to the local database
-        # with the hrn only)
-        #print "W: SFAWrap bug workaround"
-        slice_records = Filter.from_dict({'type': 'slice'}).filter(slice_records)
+#        Log.tmp("Trying to launch Manifold Queries inside the SFA Gateway")
+#        query_users_in_slice = Query.get('myslice:slice').filter_by('slice_hrn','==',slice_hrn).select('users')
+#        slice_records = yield self.interface.forward(query_users_in_slice, {'user':self.user}, is_deferred = True)
+#        Log.tmp("after forward query")
+#        Log.tmp(slice_records)
 
-        # slice_records = self.registry.Resolve(slice_urn, [self.my_credential_string], {'details':True})
+        Log.tmp("Trying to launch Manifold Queries inside the SFA Gateway")
+        query_users_in_slice = Query.get('myslice:slice').filter_by('slice_hrn','==',slice_hrn).select('users.user_urn','users.keys')
+        slice_records = yield self.interface.forward(query_users_in_slice, {'user':self.user}, is_deferred = True)
+        Log.tmp("after forward query")
+        slice_records = slice_records['value']
 
-        # XXX WARNING hardcoded reg-researchers
-        if slice_records and 'reg-researchers' in slice_records[0] and slice_records[0]['reg-researchers']:
+        if slice_records and 'users' in slice_records[0] and slice_records[0]['users']:
             slice_record = slice_records[0]
-            user_hrns = slice_record['reg-researchers']
-            user_urns = [hrn_to_urn(hrn, 'user') for hrn in user_hrns]
-            user_records = yield self.registry.Resolve(user_urns, [user_cred])
-            r_server_version = yield self.get_cached_server_version(self.registry)
+            
+            # XXX TODO: be consistent with urn OR reg-urn 
+            #rmap = { v: k for k, v in self.map_user_fields.items() }
+            # meanwhile, hardcoding map
+            rmap = {'user_urn':'urn'}
+            users = [dict(d) for d in do_rename(slice_record['users'],rmap)]
 
-            geni_users = pg_users_arg(user_records)
-            sfa_users = sfa_users_arg(user_records, slice_record)
-            if 'sfa' not in r_server_version:
-                #print "W: converting to pg rspec"
-                users = geni_users
-                #rspec = RSpec(rspec)
-                #rspec.filter({'component_manager_id': server_version['urn']})
-                #rspec = RSpecConverter.to_pg_rspec(rspec.toxml(), content_type='request')
-            else:
-                users = sfa_users
+# DEPRECATED         # xxx Thierry 2012 sept. 21
+# DEPRECATED         # contrary to what I was first thinking, calling Resolve with details=False does not yet work properly here
+# DEPRECATED         # I am turning details=True on again on a - hopefully - temporary basis, just to get this whole thing to work again
+# DEPRECATED         slice_records = yield self.registry.Resolve(slice_urn, [user_cred])
+# DEPRECATED         # Due to a bug in the SFA implementation when Resolve requests are
+# DEPRECATED         # forwarded, records are not filtered (Resolve received a list of xrns,
+# DEPRECATED         # does not resolve its type, then issue queries to the local database
+# DEPRECATED         # with the hrn only)
+# DEPRECATED         #print "W: SFAWrap bug workaround"
+# DEPRECATED         slice_records = Filter.from_dict({'type': 'slice'}).filter(slice_records)
+# DEPRECATED 
+# DEPRECATED         # slice_records = self.registry.Resolve(slice_urn, [self.my_credential_string], {'details':True})
+
+#        # XXX WARNING hardcoded reg-researchers
+#        if slice_records and 'users' in slice_records['value'] and slice_records['value']['users']:
+#            slice_record = slice_records['value']
+#            user_hrns = slice_record['users']
+#
+#            query_users_info = Query.get('user').filter_by('user_hrn','INCLUDED',user_hrns).select('user_urn','keys')
+#            users_info = yield self.interface.forward(query_users_info, {'user':self.user}, is_deferred = True)
+#            Log.tmp("after forward query")
+#            Log.tmp(users_info)
+            
+#            user_urns = [hrn_to_urn(hrn, 'user') for hrn in user_hrns]
+#            user_records = yield self.registry.Resolve(user_urns, [user_cred])
+#            r_server_version = yield self.get_cached_server_version(self.registry)
+
+#            users = users_info['value']
+#            Log.tmp(users)
+
+#            geni_users = pg_users_arg(user_records)
+#            sfa_users = sfa_users_arg(user_records, slice_record)
+#            if 'sfa' not in r_server_version:
+#                #print "W: converting to pg rspec"
+#                users = geni_users
+#                #rspec = RSpec(rspec)
+#                #rspec.filter({'component_manager_id': server_version['urn']})
+#                #rspec = RSpecConverter.to_pg_rspec(rspec.toxml(), content_type='request')
+#            else:
+#                users = sfa_users
                 
         # do not append users, keys, or slice tags. Anything
         # not contained in this request will be removed from the slice
@@ -925,8 +959,10 @@ class SFAGateway(Gateway):
 
             # Delete(<slice URN or sliver URNs>, <slice credential>, {}) when done
 
-            api_options['sfa_users'] = sfa_users
-            api_options['geni_users'] = geni_users
+#            api_options['sfa_users'] = sfa_users
+#            api_options['geni_users'] = geni_users
+            api_options['sfa_users'] = users
+            api_options['geni_users'] = users
 
             # http://groups.geni.net/geni/wiki/GAPI_AM_API_V3#Allocate
             result = yield self.sliceapi.Allocate(slice_urn, [slice_cred], rspec, api_options)
@@ -1617,12 +1653,13 @@ class SFAGateway(Gateway):
             #    fields_rm |= 'slice_urn'
 
             if do_get_am: # then we have do_update_rm (because update_slice)
-                #print "do get am"
+                print "do get_slice am"
                 ret_am = self.get_slice(filters, params, fields_am)
                 ret_rm = self.update_object(filters, params, fields_rm)
             else:
                 # The typical case: update AM and get RM
                 #print "do get rm"
+                print "do update_slice am"
                 ret_am = self.update_slice_am(filters, params, fields_am)
                 ret_rm = self.get_slice(filters, params, fields_rm)
 
@@ -1649,8 +1686,8 @@ class SFAGateway(Gateway):
                     (am_success, am_records), (rm_success, rm_records) = result
                     # XXX success
                     #print "AM success false when i raise an exception... handle !!!!" # XXX XXX
-                    #print "AM SUCCESS", am_success, "RM SUCCESS", rm_success
-                    #print am_records, rm_records
+                    print "AM SUCCESS", am_success, "RM SUCCESS", rm_success
+                    print am_records, rm_records
                     Log.warning("We should handle exceptions here !")
                     # XXX in case of failure, this contains a failure
                     am_record = am_records[0] if am_records else {} # XXX Why sometimes empty ????
@@ -1976,9 +2013,9 @@ class SFAGateway(Gateway):
 # END SFA CODE
 ################################################################################
 
-    def __init__(self, router, platform, query, config, user_config, user):
+    def __init__(self, interface, platform, query, config, user_config, user):
 #        FromNode.__init__(self, platform, query, config)
-        super(SFAGateway, self).__init__(router, platform, query, config, user_config, user)
+        super(SFAGateway, self).__init__(interface, platform, query, config, user_config, user)
         # self.config has always ['caller']
         # Check the presence of mandatory fields, default others
         #if not 'hashrequest' in self.config:    

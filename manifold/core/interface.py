@@ -176,6 +176,8 @@ class Interface(object):
 
     #@returns(Gateway)
     def make_gateway(self, platform_name, user):
+        Log.tmp("Interface::make_gateway user = ")
+        Log.tmp(user)
         """
         Retrieve the Gateway instance corresponding to a platform name.
         Args:

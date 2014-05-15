@@ -129,6 +129,8 @@ class Router(Interface):
         Log.info("Router::forward: %s" % query)
 
         user = annotations['user'] if annotations and 'user' in annotations else None
+        Log.tmp('annotations')
+        Log.tmp(user)
 
         ret = super(Router, self).forward(query, annotations, is_deferred, execute)
         if ret: 
@@ -189,6 +191,7 @@ class Router(Interface):
             return self.process_qp_results(query, records, annotations, query_plan)
 
     def execute_query(self, query, annotations, is_deferred=False):
+        Log.tmp(annotations)
         if annotations:
             user = annotations.get('user', None)
         else:
@@ -204,6 +207,8 @@ class Router(Interface):
 
         qp = QueryPlan()
         qp.build(query, self.g_3nf, allowed_platforms, self.allowed_capabilities, user)
+        Log.tmp('Router::execute_query')
+        Log.tmp(user)
         self.instanciate_gateways(qp, user)
         Log.info(qp.dump())
 
