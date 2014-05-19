@@ -227,7 +227,7 @@ class SFAGateway(Gateway):
         'hrn'               : 'slice_hrn',                  # hrn
 
         'urn'               : 'slice_urn',                  # slice_geni_urn ???
- #XXX   'reg-urn'           : 'slice_urn',                  # slice_geni_urn ???
+#XXX    'reg-urn'           : 'slice_urn',                  # slice_geni_urn ???
         'reg-urn'           : 'slice_urn',
 
         'type'              : 'slice_type',                 # type ?
@@ -296,9 +296,9 @@ class SFAGateway(Gateway):
 
     map_authority_fields = {
         'hrn'               : 'authority_hrn',                  # hrn
-        'urn'               : 'authority_urn',                  # hrn
+        'reg-urn'           : 'authority_urn',                  # hrn
         'reg-pis'           : 'pi_users',
-#        'persons'           : 'user',
+#       'persons'           : 'user',
     }
 
     map_fields = {
@@ -773,9 +773,12 @@ class SFAGateway(Gateway):
         # XXX We also need to add leases
         #print "begin get rl **", filters, "**"
         if need_resources or need_leases:
+            Log.tmp("Need Resources filters = %s",filters)
+            
             resource_lease = yield self.get_resource_lease(filters, None, fields, list_resources = need_resources, list_leases = need_leases)
             #print "end get rl"
             # XXX Need to handle +=
+
             if need_resources:
                 params['resource'] = [r['urn'] for r in resource_lease['resource']]
             if need_leases:
@@ -809,20 +812,21 @@ class SFAGateway(Gateway):
         # We suppose resource
         try:
             #print "server_version", server_version['hrn']
-            if server_version.get('hrn') == 'nitos':
-                rspec = NITOSBrokerParser.build_rspec(slice_hrn, resources, leases)
-            else: # PLE, IoTLab
-                # rspec_type and rspec_version should be set in the config of the platform,
-                # we use GENIv3 as default one if not
-                if 'rspec_type' and 'rspec_version' in self.config:
-                    rspec_version = self.config['rspec_type'] + ' ' + self.config['rspec_version']
-                else:
-                    rspec_version = 'GENI 3'
-                # extend rspec version with "content_type"
-                rspec_version += ' request'
+            #if server_version.get('hrn') == 'nitos':
+            #    rspec = NITOSBrokerParser.build_rspec(slice_hrn, resources, leases)
+            #else: # PLE, IoTLab
+            # rspec_type and rspec_version should be set in the config of the platform,
+            # we use GENIv3 as default one if not
+            if 'rspec_type' and 'rspec_version' in self.config:
+                rspec_version = self.config['rspec_type'] + ' ' + self.config['rspec_version']
+            else:
+                rspec_version = 'GENI 3'
+            # extend rspec version with "content_type"
+            rspec_version += ' request'
 
-                parser = yield self.get_parser()
-                rspec = parser.build_rspec(slice_urn, resources, leases, rspec_version)
+            parser = yield self.get_parser()
+            Log.tmp(parser.__class__)
+            rspec = parser.build_rspec(slice_urn, resources, leases, rspec_version)
 
         except Exception, e:
             print "EXCEPTION BUILDING RSPEC", e
@@ -863,8 +867,8 @@ class SFAGateway(Gateway):
             #rmap = { v: k for k, v in self.map_user_fields.items() }
             # meanwhile, hardcoding map
             rmap = {'user_urn':'urn'}
-            users = [dict(d) for d in do_rename(slice_record['users'],rmap)]
-
+            users = [dict(do_rename(d, rmap)) for d in slice_record['users']]
+            Log.warning("users before update",users)
 # DEPRECATED         # xxx Thierry 2012 sept. 21
 # DEPRECATED         # contrary to what I was first thinking, calling Resolve with details=False does not yet work properly here
 # DEPRECATED         # I am turning details=True on again on a - hopefully - temporary basis, just to get this whole thing to work again
@@ -1660,6 +1664,7 @@ class SFAGateway(Gateway):
                 # The typical case: update AM and get RM
                 #print "do get rm"
                 print "do update_slice am"
+                Log.tmp(filters)
                 ret_am = self.update_slice_am(filters, params, fields_am)
                 ret_rm = self.get_slice(filters, params, fields_rm)
 

@@ -86,6 +86,8 @@ class NITOSBrokerParser(RSpecParser):
 
     @classmethod
     def parse(cls, rspec, slice_urn = None):
+        Log.warning("NitosBroker Parser parse")
+
         resources   = list()
         leases      = list()
 
@@ -148,7 +150,8 @@ class NITOSBrokerParser(RSpecParser):
     #---------------------------------------------------------------------------
 
     @classmethod
-    def build_rspec(cls, slice_hrn, resources, leases):
+    def build_rspec(cls, slice_hrn, resources, leases, rspec_version = None):
+        Log.warning("NitosBroker Parser build")
         rspec = []
         cls.rspec_add_header(rspec)
         lease_map = cls.rspec_add_leases(rspec, leases)
