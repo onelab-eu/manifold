@@ -29,7 +29,7 @@ class SFAWrapParser(RSpecParser):
 
 
     @classmethod
-    def parse(cls, rspec, rspec_version='GENI 3'):
+    def parse(cls, rspec, rspec_version = 'GENI 3', slice_urn = None):
         resources   = list()
         leases      = list()
 
@@ -45,9 +45,9 @@ class SFAWrapParser(RSpecParser):
         resources.extend(cls._process_nodes(nodes))
         resources.extend(cls._process_channels(channels))
         resources.extend(cls._process_links(links))
-
+        print "before _process_leases"
         leases = cls._process_leases(leases)
-
+        print "after _process_leases - End of parse function"
         return {'resource': resources, 'lease': leases } 
 
     #---------------------------------------------------------------------------
@@ -252,7 +252,7 @@ class SFAWrapParser(RSpecParser):
             print "EEE::", e
             import traceback
             traceback.print_exc()
-
+        print "End of PROCESS LEASES"
         return ret
 
     #---------------------------------------------------------------------------

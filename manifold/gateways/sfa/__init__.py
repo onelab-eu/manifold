@@ -868,7 +868,7 @@ class SFAGateway(Gateway):
             # meanwhile, hardcoding map
             rmap = {'user_urn':'urn'}
             users = [dict(do_rename(d, rmap)) for d in slice_record['users']]
-            Log.warning("users before update",users)
+            #Log.warning("users before update",users)
 # DEPRECATED         # xxx Thierry 2012 sept. 21
 # DEPRECATED         # contrary to what I was first thinking, calling Resolve with details=False does not yet work properly here
 # DEPRECATED         # I am turning details=True on again on a - hopefully - temporary basis, just to get this whole thing to work again
@@ -1036,7 +1036,7 @@ class SFAGateway(Gateway):
             rspec_version = 'GENI 3'
 
         parser = yield self.get_parser()
-        rsrc_leases = parser.parse(manifest_rspec, slice_urn)
+        rsrc_leases = parser.parse(manifest_rspec, rspec_version, slice_urn)
 
         slice = {
             'slice_hrn': slice_hrn,
@@ -1223,7 +1223,7 @@ class SFAGateway(Gateway):
 
             output = []
 
-            Log.tmp("SFA Resolve results = %s",_results)
+            #Log.tmp("SFA Resolve results = %s",_results)
 
             for _result in _results:
 
@@ -1981,10 +1981,19 @@ class SFAGateway(Gateway):
                 raise Exception, result['output']
 
             rspec_string = result['value']
-        
+ 
+        # rspec_type and rspec_version should be set in the config of the platform,
+        # we use GENIv3 as default one if not
+        if 'rspec_type' and 'rspec_version' in self.config:
+            rspec_version = self.config['rspec_type'] + ' ' + self.config['rspec_version']
+        else:
+            rspec_version = 'GENI 3'
+       
         parser = yield self.get_parser()
         print "rspec_string", rspec_string
-        rsrc_slice = parser.parse(rspec_string, slice_urn)
+        rsrc_slice = parser.parse(rspec_string, rspec_version, slice_urn)
+        Log.tmp("RSRC IN SLICE")
+        Log.tmp(rsrc_slice)
 
         if slice_urn:
             for r in rsrc_slice['resource']:

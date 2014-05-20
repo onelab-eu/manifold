@@ -85,7 +85,7 @@ class NITOSBrokerParser(RSpecParser):
     #---------------------------------------------------------------------------
 
     @classmethod
-    def parse(cls, rspec, slice_urn = None):
+    def parse(cls, rspec, rspec_version = None, slice_urn = None):
         Log.warning("NitosBroker Parser parse")
 
         resources   = list()
