@@ -45,9 +45,7 @@ class SFAWrapParser(RSpecParser):
         resources.extend(cls._process_nodes(nodes))
         resources.extend(cls._process_channels(channels))
         resources.extend(cls._process_links(links))
-        print "before _process_leases"
         leases = cls._process_leases(leases)
-        print "after _process_leases - End of parse function"
         return {'resource': resources, 'lease': leases } 
 
     #---------------------------------------------------------------------------
@@ -229,7 +227,7 @@ class SFAWrapParser(RSpecParser):
     @classmethod
     def _process_leases(cls, leases):
         ret = list()
-        print "PROCESS LEASES"
+        #print "PROCESS LEASES"
         try:
             for lease in leases:
                 lease['resource'] = lease.pop('component_id')
@@ -252,7 +250,6 @@ class SFAWrapParser(RSpecParser):
             print "EEE::", e
             import traceback
             traceback.print_exc()
-        print "End of PROCESS LEASES"
         return ret
 
     #---------------------------------------------------------------------------
