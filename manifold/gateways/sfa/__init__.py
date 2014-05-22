@@ -19,6 +19,7 @@ from manifold.gateways.sfa.proxy        import SFAProxy
 from manifold.util.predicate            import contains, eq, lt, le, included
 from manifold.util.log                  import Log
 from manifold.util.misc                 import make_list
+from manifold.util.predicate            import Predicate
 from manifold.models                    import db
 from manifold.models.platform           import Platform 
 from manifold.models.user               import User
@@ -50,6 +51,7 @@ DEFAULT_TIMEOUT = 20
 DEFAULT_TIMEOUT_GETVERSION = 5
 
 AM_SLICE_FIELDS = set(['resource', 'lease'])
+SLICE_KEY = 'slice_urn'
 
 class TimeOutException(Exception):
     pass
@@ -129,8 +131,8 @@ def project_select_and_rename_fields(table, pkey, filters, fields, map_fields=No
                 # if no fields = keep everything
                 if not fields or k in fields: #  or k == pkey:
                     c[k] = v
-            if 'slice_urn' in row and ('slice_hrn' in fields or not fields):
-                c['slice_hrn'] = urn_to_hrn(row['slice_urn'])[0]
+            if SLICE_KEY in row and ('slice_hrn' in fields or not fields):
+                c['slice_hrn'] = urn_to_hrn(row[SLICE_KEY])[0]
             filtered.append(c)
 
     return filtered
@@ -226,9 +228,9 @@ class SFAGateway(Gateway):
         # REGISTRY FIELDS
         'hrn'               : 'slice_hrn',                  # hrn
 
-        'urn'               : 'slice_urn',                  # slice_geni_urn ???
-#XXX    'reg-urn'           : 'slice_urn',                  # slice_geni_urn ???
-        'reg-urn'           : 'slice_urn',
+        'urn'               : SLICE_KEY,                  # slice_geni_urn ???
+#XXX    'reg-urn'           : SLICE_KEY,                  # slice_geni_urn ???
+        'reg-urn'           : SLICE_KEY,
 
         'type'              : 'slice_type',                 # type ?
         #'reg-researchers'   : 'users',                      # user or users . hrn or user_hrn ?
@@ -1040,7 +1042,7 @@ class SFAGateway(Gateway):
 
         slice = {
             'slice_hrn': slice_hrn,
-            'slice_urn': slice_urn,
+            SLICE_KEY: slice_urn,
         }
         slice.update(rsrc_leases)
         defer.returnValue([slice])
@@ -1118,7 +1120,7 @@ class SFAGateway(Gateway):
                 if of == 'user' or of.startswith('user.'):
                     has_users = True
             if has_resources:
-                rsrc_leases = self.get_resource_lease({'slice_hrn': 'ple.upmc.agent'}, subfields)
+                rsrc_leases = self._get_resource_lease({'slice_hrn': 'ple.upmc.agent'}, subfields)
                 if not rsrc_leases:
                     raise Exception, 'get_resources failed!'
                 s['resource'] = rsrc_leases['resource']
@@ -1290,14 +1292,53 @@ class SFAGateway(Gateway):
             output.extend([r for r in records if r['type'] == object])
             defer.returnValue(output)
 
+        
+
+    @defer.inlineCallbacks
     def get_slice(self, filters, params, fields):
-        # XXX Sometimes we don't need to call for the registry
+        # Because slice information is both in RM and AM, we need to manually
+        # do the JOIN like for update_slice This issue causes ugly code, but is
+        # solved in future versions of Manifold.
 
         if self.user['email'] in DEMO_HOOKS:
             defer.returnValue(self.get_slice_demo(filters, params, fields))
             return
 
-        return self.get_object('slice', 'slice_hrn', filters, params, fields)
+        # NOTE: we need key to query the AM
+        # If we don't have the key, we need to query AM after the RM
+
+        fields_am = fields & AM_SLICE_FIELDS
+        fields_rm = fields - AM_SLICE_FIELDS
+
+        if (fields_rm and fields_am) or (fields_am and not SLICE_KEY in filters):
+            # For the same of simplicity, we will query the RM first (if
+            # needed), then the AM, since the AM needs the name of the slice to
+            # get resources
+            if (fields_am and SLICE_KEY not in fields_rm) or (fields_rm > set([SLICE_KEY])):
+                ret_rm = yield self.get_object('slice', 'slice_hrn', filters, params, fields_rm | set([SLICE_KEY]))
+                slice_keys = [s['reg-urn'] for s in ret_rm]
+                filters_am = Filter().filter_by(Predicate('slice', included, slice_keys))
+                ret_am = yield self.get_resource_lease(filters_am, None, fields_am, list_resources = True, list_leases = True)
+                
+                # Merge (we have the SLICE_KEY in results from the AM)
+                resource_lease_by_slice = {}
+                for s in ret_am:
+                    resource_lease_by_slice[s['slice']] = {'resource': s['resource'], 'lease': s['lease']}
+                
+                ret = []
+                for s in ret_rm:
+                    if s['reg-urn'] in resource_lease_by_slice:
+                        s.update(resource_lease_by_slice[s['reg-urn']])
+                    ret.append(s)
+
+        elif fields_rm:
+            ret = yield self.get_object('slice', SLICE_KEY, filters, params, fields)
+
+        else: # fields_am
+            filters = filters.rename({SLICE_KEY, 'slice'})
+            ret = yield self.get_resource_lease(filters, params, fields_am, list_resources = True, list_leases = True)
+
+        defer.returnValue(ret)
 
     def get_user(self, filters, params, fields):
         # DEBUG get_user parent_authority INCLUDED "['p', 'l', 'e', '.', 'u', 'p', 'm', 'c']" 
@@ -1634,13 +1675,13 @@ class SFAGateway(Gateway):
         do_am        = do_get_am or do_update_am
         do_rm        = do_get_rm or do_update_rm
 
-        #print "do_update_am", do_update_am
-        #print "do_update_rm", do_update_rm
-        #print "do_get_am", do_get_am
-        #print "do_get_rm", do_get_rm, "for fields", fields - AM_SLICE_FIELDS
+        print "do_update_am", do_update_am
+        print "do_update_rm", do_update_rm
+        print "do_get_am", do_get_am
+        print "do_get_rm", do_get_rm, "for fields", fields - AM_SLICE_FIELDS
 
-        #print "do_am", do_am
-        #print "do_rm", do_rm
+        print "do_am", do_am
+        print "do_rm", do_rm
 
         if do_am and do_rm:
             # Part on the RM side, part on the AM side... until AM and RM are
@@ -1648,13 +1689,13 @@ class SFAGateway(Gateway):
             # the results of both calls
             
             # Ensure join key in fields (in fact not needed since we filter on pkey)
-            #has_key = 'slice_urn' in fields
+            #has_key = SLICE_KEY in fields
             fields_am = fields & AM_SLICE_FIELDS
             #if not has_key:
-            #     fields_am |= 'slice_urn'
+            #     fields_am |= SLICE_KEY
             fields_rm = fields - AM_SLICE_FIELDS
             #if not has_key:
-            #    fields_rm |= 'slice_urn'
+            #    fields_rm |= SLICE_KEY
 
             if do_get_am: # then we have do_update_rm (because update_slice)
                 print "do get_slice am"
@@ -1704,7 +1745,7 @@ class SFAGateway(Gateway):
 
             # Remove key
             #if not has_key:
-            #    del ret['slice_urn']
+            #    del ret[SLICE_KEY]
 
         if do_update_am:
             return self.update_slice_am(filters, params, fields)
@@ -1871,17 +1912,49 @@ class SFAGateway(Gateway):
 
     @defer.inlineCallbacks
     def get_lease(self,filters,params,fields):
-        result = yield self.get_resource_lease(filters,fields,params, list_resources = False, list_leases = True)
+        result = yield self._get_resource_lease(filters,fields,params, list_resources = False, list_leases = True)
         defer.returnValue(result['lease'])
 
     # This get_resource is about the AM only... let's forget about RM for the time being
     @defer.inlineCallbacks
     def get_resource(self, filters, params, fields):
-        result = yield self.get_resource_lease(filters, fields, params, list_resources = True, list_leases = False)
+        result = yield self._get_resource_lease(filters, fields, params, list_resources = True, list_leases = False)
         defer.returnValue(result['resource'])
 
-    @defer.inlineCallbacks
     def get_resource_lease(self, filters, params, fields, list_resources = True, list_leases = True):
+        """
+        _get_resource_lease only supports querying ONE slice
+        This function is in charge of calling it multiple times in parallel, and sending the aggregated result back.
+        """
+
+        # XXX Can be more selective
+        try:
+            slice_keys = list(filters.get_op('slice', [eq, included]))
+        except Exception, e:
+            raise Exception, "Cannot get slice keys for calling the AM ListResources: %s" %  e
+
+        print "*" * 80
+        print "SLICE KEYS", slice_keys
+
+        deferred_list = []
+        for slice_key in slice_keys:
+            filters_am = Filter().filter_by(Predicate('slice', eq, slice_key))
+            d = self._get_resource_lease(filters_am, params, fields, list_resources, list_leases)
+            deferred_list.append(d)
+        dl = defer.DeferredList(deferred_list)
+        def cb(result):
+            ret = []
+            for (am_success, am_records) in result:
+                if not am_success:
+                    print "Ignored failed call for get_resource_lease", am_records
+                    continue
+                ret.append(am_records)
+            return ret
+        dl.addCallback(cb)
+        return dl
+
+    @defer.inlineCallbacks
+    def _get_resource_lease(self, filters, params, fields, list_resources = True, list_leases = True):
         Log.tmp("SFA GW :: get_resource_lease")
 #DEPRECATED|        if self.user['email'] in DEMO_HOOKS:
 #DEPRECATED|            rspec = open('/usr/share/manifold/scripts/nitos.rspec', 'r')
@@ -1898,6 +1971,7 @@ class SFAGateway(Gateway):
         slice_urns = make_list(filters.get_op('slice', (eq, included)))
         slice_urn = slice_urns[0] if slice_urns else None
         slice_hrn, _ = urn_to_hrn(slice_urn) if slice_urn else (None, None)
+
         # XXX ONLY ONE AND WITHOUT JOKERS
 
         # no need to check if server accepts the options argument since the options has
@@ -1973,9 +2047,7 @@ class SFAGateway(Gateway):
                 else:
                     #Log.warning("remove me!!!!")
                     #api_options['list_leases'] = 'all'
-                    print "LIST RESOURCES"
                     result = yield self.sliceapi.ListResources([cred], api_options)
-                    print "RESULT", result
                     
             if not 'value' in result or not result['value']:
                 raise Exception, result['output']
@@ -1990,15 +2062,15 @@ class SFAGateway(Gateway):
             rspec_version = 'GENI 3'
        
         parser = yield self.get_parser()
-        print "rspec_string", rspec_string
+        #print "rspec_string", rspec_string
         rsrc_slice = parser.parse(rspec_string, rspec_version, slice_urn)
-        Log.tmp("RSRC IN SLICE")
-        Log.tmp(rsrc_slice)
 
         if slice_urn:
+            rsrc_slice['slice'] = slice_urn
             for r in rsrc_slice['resource']:
-                # XXX We might consider making this a list...
-                r['slice'] = slice_urn
+                r['slice'] = slice_hrn
+            for r in rsrc_slice['lease']:
+                r['slice'] = slice_hrn
 
         if self.debug:
             rsrc_slice['debug'] = {'rspec': rspec}

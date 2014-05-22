@@ -136,7 +136,7 @@ class Node(object):
         """
         \brief print _indent_ tabs
         """
-        return "[%04d]" % self.identifier, ' ' * 4 * indent,
+        return "[%04d]%s" % (self.identifier, ' ' * 4 * indent)
         #        sys.stdout.write(' ' * indent * 4)
 
     def dump(self, indent = 0):
@@ -144,7 +144,9 @@ class Node(object):
         \brief Dump the current node
         \param indent current indentation
         """
-        return "%s%r" % (self.tab(indent), self)
+        return "%s%s" % (
+            self.tab(indent), self
+        )
         #print "%r (%r)" % (self, self.query)
         #print "%r (%r)" % (self, self.callback)
 

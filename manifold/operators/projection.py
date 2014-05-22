@@ -107,8 +107,10 @@ class Projection(Node):
         \brief Dump the current node
         \param indent current indentation
         """
-        Node.dump(self, indent)
-        self.child.dump(indent+1)
+        return "%s\n%s" % (
+            Node.dump(self, indent),
+            self.child.dump(indent+1),
+        )
 
     def __repr__(self):
         return DUMPSTR_PROJECTION % ", ".join(self.get_fields())

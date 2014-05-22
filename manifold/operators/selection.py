@@ -52,8 +52,10 @@ class Selection(Node):
         \brief Dump the current child
         \param indent The current indentation
         """
-        Node.dump(self, indent)
-        self.child.dump(indent + 1)
+        return "%s\n%s" % (
+            Node.dump(self, indent),
+            self.child.dump(indent + 1),
+        )
 
     def __repr__(self):
         return DUMPSTR_SELECTION % ' AND '.join(["%s %s %s" % f.get_str_tuple() for f in self.filters])

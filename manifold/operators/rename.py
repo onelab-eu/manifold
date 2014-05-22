@@ -71,8 +71,10 @@ class Rename(Node):
         \brief Dump the current node
         \param indent current indentation
         """
-        Node.dump(self, indent)
-        self.child.dump(indent+1)
+        return "%s\n%s" % (
+            Node.dump(self, indent),
+            self.child.dump(indent+1),
+        )
 
     def __repr__(self):
         return DUMPSTR_RENAME % self.get_map_fields()

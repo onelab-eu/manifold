@@ -143,13 +143,19 @@ class LeftJoin(Node):
         \brief Dump the current node
         \param indent current indentation
         """
-        Node.dump(self, indent)
         if isinstance(self.left, list):
-            self.tab(indent),
-            print '[DATA]', self.left_map.values()
+            return "%s\n%s [DATA] %s\n%s" % (
+                Node.dump(self, indent),
+                self.tab(indent),
+                self.left_map.values(),
+                self.right.dump(indent + 1)
+            )
         else:
-            self.left.dump(indent + 1)
-        self.right.dump(indent + 1)
+            return "%s\n%s\n%s" % (
+                Node.dump(self, indent),
+                self.left.dump(indent + 1),
+                self.right.dump(indent + 1),
+            )
 
     def __repr__(self):
         return "LEFT JOIN %s %s %s" % self.predicate.get_str_tuple()

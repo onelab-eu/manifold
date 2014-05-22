@@ -207,6 +207,9 @@ class Router(Interface):
 
         qp = QueryPlan()
         qp.build(query, self.g_3nf, allowed_platforms, self.allowed_capabilities, user)
+
+        Log.info("QUERY PLAN:\n%s" % (qp.dump()))
+
         Log.tmp('Router::execute_query')
         Log.tmp(user)
         self.instanciate_gateways(qp, user)

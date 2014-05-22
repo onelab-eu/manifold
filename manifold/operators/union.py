@@ -57,9 +57,11 @@ class Union(Node):
         \brief Dump the current node
         \param indent current indentation
         """
-        Node.dump(self, indent)
+        s = []
+        s.append(Node.dump(self, indent))
         for child in self.children:
-            child.dump(indent + 1)
+            s.append(child.dump(indent + 1))
+        return '\n'.join(s)
 
     def __repr__(self):
         return DUMPSTR_UNION
