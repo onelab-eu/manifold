@@ -88,9 +88,9 @@ class SFAWrapParser(RSpecParser):
             cm = urn.split("+")
             resource['component_manager_id'] = "%s+%s+authority+cm" % (cm[0],top_auth)
 
-            print "resource_type", resource_type
+            #print "resource_type", resource_type
             if resource_type == 'node':
-                print "NODE", resource, cls
+                #print "NODE", resource, cls
                 resource = cls.on_build_resource_hook(resource)
                 nodes.append(resource)
             elif resource_type == 'link':
@@ -100,8 +100,8 @@ class SFAWrapParser(RSpecParser):
             else:
                 raise Exception, "Not supported type of resource" 
 
-        for node in nodes:
-            print "NODE:", node
+        #for node in nodes:
+        #    print "NODE:", node
 
         rspec.version.add_nodes(nodes, rspec_content_type="request")
 
@@ -109,7 +109,7 @@ class SFAWrapParser(RSpecParser):
         #rspec.version.add_channels(channels)
 
         sfa_leases = cls.manifold_to_sfa_leases(leases, slice_urn)
-        print "sfa_leases", sfa_leases
+        #print "sfa_leases", sfa_leases
         if sfa_leases:
             # SFAWRAP BUG ???
             # rspec.version.add_leases bugs with an empty set of leases
@@ -229,7 +229,6 @@ class SFAWrapParser(RSpecParser):
     @classmethod
     def _process_leases(cls, leases):
         ret = list()
-        print "PROCESS LEASES"
         try:
             for lease in leases:
                 lease['resource'] = lease.pop('component_id')
@@ -280,7 +279,8 @@ class SFAWrapParser(RSpecParser):
             # end_time is choosen if both are specified !
             if 'end_time' in lease:
                 sfa_lease['end_time'] = lease['end_time']
-                duration =  (lease['end_time'] - lease['start_time']) / grain
+# XXX XXX
+                duration =  (int(lease['end_time']) - int(lease['start_time'])) / grain
                 if duration < min_duration:
                     raise Exception, 'duration < min_duration'
                 sfa_lease['duration'] = duration
@@ -341,5 +341,5 @@ class IoTLABParser(SFAWrapParser):
 
     @classmethod
     def get_min_duration(cls):
-        return 10 * cls.get_grain()
+        return 10 # * cls.get_grain()
         # XXX BTW, can we do duration = 61 s, or shall it be a multiple of min_duration ???
