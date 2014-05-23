@@ -14,7 +14,7 @@ class Union(Node):
     UNION operator node
     """
 
-    def __init__(self, children, key, distinct=True):
+    def __init__(self, children, key):
         """
         \brief Constructor
         \param children A list of Node instances, the children of
@@ -29,8 +29,7 @@ class Union(Node):
         #self.child_status = 0
         #self.child_results = {}
         # Stores the list of keys already received to implement DISTINCT
-        self.distinct = distinct
-        self.key_list = []
+        self.key_map = dict()
         self.status = ChildStatus(self.all_done)
         # Set up callbacks
         for i, child in enumerate(self.children):
@@ -98,6 +97,7 @@ class Union(Node):
         \param record dictionary representing the received record
         """
         if record.is_last():
+            # XXX SEND ALL
             self.status.completed(child_id)
             return
         
@@ -114,38 +114,23 @@ class Union(Node):
             Log.info("UNION ignored record without key '%(key)s': %(record)r", **locals())
             return
 
-        # Ignore duplicate records
-        if self.distinct:
-            key_value = Record.get_value(record, key)
-            if key_value in self.key_list:
-                Log.info("UNION ignored duplicate record: %r" % record)
-                return
-            self.key_list.append(key_value)
-
-        self.send(record)
-
-        # XXX This code was necessary at some point to merge records... let's
-        # keep it for a while
-        #
-        #    # Merge ! Fields must be the same, subfield sets are joined
-        #    previous = self.child_results[record[self.key]]
-        #    for k,v in record.items():
-        #        if not k in previous:
-        #            previous[k] = v
-        #            continue
-        #        if isinstance(v, list):
-        #            previous[k].extend(v)
-        #        else:
-        #            if not v == previous[k]:
-        #                print "W: ignored conflictual field"
-        #            # else: nothing to do
-        #else:
-        #    self.child_results[record[self.key]] = record
-
-#DEPRECATED#    def optimize(self):
-#DEPRECATED#        for i, child in enumerate(self.children):
-#DEPRECATED#            self.children[i] = child.optimize()
-#DEPRECATED#        return self
+        key_value = Record.get_value(record, key)
+        
+        if key_value in self.key_map:
+            Log.info("UNION merged duplicate records: %r" % record)
+            prev_record = self.key_map[key_value]
+            for k, v in record.items:
+                if not k in prev_record:
+                    prev_record[k] = v
+                    continue
+                if isinstance(v, list):
+                    previous[k].extend[v] # DUPLICATES ?
+                #else:
+                #    if not v == previous[k]:
+                #        print "W: ignored conflictual field"
+                #    # else: nothing to do
+        else:
+            self.key_map[key_value] = record
 
     def optimize_selection(self, filter):
         # UNION: apply selection to all children
@@ -161,13 +146,15 @@ class Union(Node):
         # until then, apply projection to all children
         #self.query.fields = fields
         do_parent_projection = False
-        if self.distinct:
-            key = self.key.get_field_names()
-            if key not in fields: # we are not keeping the key
-                do_parent_projection = True
-                child_fields  = set()
-                child_fields |= fields
-                child_fields |= key
+
+        #if self.distinct:
+        key = self.key.get_field_names()
+        if key not in fields: # we are not keeping the key
+            do_parent_projection = True
+            child_fields  = set()
+            child_fields |= fields
+            child_fields |= key
+
         for i, child in enumerate(self.children):
             old_child_callback= child.get_callback()
             self.children[i] = child.optimize_projection(child_fields)
