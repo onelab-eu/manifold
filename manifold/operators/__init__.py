@@ -125,8 +125,10 @@ class Node(object):
         \brief Returns the query representing the data produced by the nodes.
         \return query representing the data produced by the nodes.
         """
-
-        return self.query
+        try:
+            return self.query
+        except:
+            return Query()
 
         # Raise an exception in the base class to force child classes to
         # implement this method
@@ -165,7 +167,8 @@ class Node(object):
         return tree
     
     def optimize_selection(self, filter):
-        raise Exception, "%s::optimize_selection() not implemented" % self.__class__.__name__
+        print "W: %s::optimize_selection() not implemented" % self.__class__.__name__
+        return self
 
     def optimize_projection(self, fields):
         #raise Exception, "%s::optimize_projection() not implemented" % self.__class__.__name__

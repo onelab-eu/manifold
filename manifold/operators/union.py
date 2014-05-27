@@ -96,8 +96,10 @@ class Union(Node):
         \param child_id identifier of the child that received the record
         \param record dictionary representing the received record
         """
+        print "UNION got record", record
         if record.is_last():
             # XXX SEND ALL
+            print "UNION LAST"
             self.status.completed(child_id)
             return
         

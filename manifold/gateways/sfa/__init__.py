@@ -12,10 +12,13 @@ from manifold.core.result_value         import ResultValue
 from manifold.core.filter               import Filter
 from manifold.core.query                import Query 
 from manifold.core.record               import Record, Records, LastRecord
+from manifold.operators                 import Node
+from manifold.operators.left_join       import LeftJoin
 from manifold.operators.rename          import Rename, do_rename
 from manifold.gateways                  import Gateway
 #from manifold.gateways.sfa.rspecs.SFAv1 import SFAv1Parser # as Parser
 from manifold.gateways.sfa.proxy        import SFAProxy
+from manifold.util.callback             import Callback
 from manifold.util.predicate            import contains, eq, lt, le, included
 from manifold.util.log                  import Log
 from manifold.util.misc                 import make_list
@@ -31,7 +34,7 @@ from sfa.util.xrn                       import Xrn, get_leaf, get_authority, hrn
 from sfa.util.config                    import Config
 from sfa.util.version                   import version_core
 from sfa.util.cache                     import Cache
-from sfa.storage.record                 import Record
+from sfa.storage.record                 import Record as SfaRecord
 from sfa.rspecs.version_manager         import VersionManager
 from sfa.client.client_helper           import pg_users_arg, sfa_users_arg
 from sfa.client.return_value            import ReturnValue
@@ -777,7 +780,7 @@ class SFAGateway(Gateway):
         if need_resources or need_leases:
             Log.tmp("Need Resources filters = %s",filters)
             
-            resource_lease = yield self.get_resource_lease(filters, None, fields, list_resources = need_resources, list_leases = need_leases)
+            resource_lease = yield self._get_resource_lease(filters, None, fields, list_resources = need_resources, list_leases = need_leases)
             #print "end get rl"
             # XXX Need to handle +=
 
@@ -1294,51 +1297,96 @@ class SFAGateway(Gateway):
 
         
 
-    @defer.inlineCallbacks
     def get_slice(self, filters, params, fields):
         # Because slice information is both in RM and AM, we need to manually
-        # do the JOIN like for update_slice This issue causes ugly code, but is
-        # solved in future versions of Manifold.
+        # JOIN queries to the RM and the AM.
+        # 
+        # This issue causes ugly code, but is solved in future versions of Manifold.
+        #
+        # See also: update_slice
+
+        print "get slice"
 
         if self.user['email'] in DEMO_HOOKS:
             defer.returnValue(self.get_slice_demo(filters, params, fields))
             return
 
-        # NOTE: we need key to query the AM
-        # If we don't have the key, we need to query AM after the RM
-
         fields_am = fields & AM_SLICE_FIELDS
         fields_rm = fields - AM_SLICE_FIELDS
 
-        if (fields_rm and fields_am) or (fields_am and not SLICE_KEY in filters):
-            # For the same of simplicity, we will query the RM first (if
-            # needed), then the AM, since the AM needs the name of the slice to
-            # get resources
-            if (fields_am and SLICE_KEY not in fields_rm) or (fields_rm > set([SLICE_KEY])):
-                ret_rm = yield self.get_object('slice', 'slice_hrn', filters, params, fields_rm | set([SLICE_KEY]))
-                slice_keys = [s['reg-urn'] for s in ret_rm]
-                filters_am = Filter().filter_by(Predicate('slice', included, slice_keys))
-                ret_am = yield self.get_resource_lease(filters_am, None, fields_am, list_resources = True, list_leases = True)
-                
-                # Merge (we have the SLICE_KEY in results from the AM)
-                resource_lease_by_slice = {}
-                for s in ret_am:
-                    resource_lease_by_slice[s['slice']] = {'resource': s['resource'], 'lease': s['lease']}
-                
-                ret = []
-                for s in ret_rm:
-                    if s['reg-urn'] in resource_lease_by_slice:
-                        s.update(resource_lease_by_slice[s['reg-urn']])
-                    ret.append(s)
+        print "fields_am", fields_am
+        print "fields_rm", fields_rm
 
-        elif fields_rm:
-            ret = yield self.get_object('slice', SLICE_KEY, filters, params, fields)
+        if not fields_am:
+            print "ONLY RM"
+            return self.get_object('slice', SLICE_KEY, filters, params, fields)
 
-        else: # fields_am
-            filters = filters.rename({SLICE_KEY, 'slice'})
-            ret = yield self.get_resource_lease(filters, params, fields_am, list_resources = True, list_leases = True)
+        # If fields from the AM are needed, we can systematically do the RM
+        # expecting the RM query will return if it is not needed
 
-        defer.returnValue(ret)
+        _self = self
+
+
+        class RMSliceRequest(Node):
+            def start(self):
+                def cb(records):
+                    for record in records:
+                        self.callback(Record(record))
+                    self.callback(LastRecord())
+                d = _self.get_object('slice', SLICE_KEY, filters, None, fields_rm)
+                d.addCallback(cb)
+
+        class AMSliceRequest(Node):
+            def start(self):
+                def cb(records):
+                    for record in records:
+                        self.callback(Record(record))
+                    self.callback(LastRecord())
+                print "calling resource lease", self._filters
+                d = _self.get_resource_lease(self._filters, None, fields_am, list_resources = True, list_leases = True)
+                d.addCallback(cb)
+
+            def optimize_selection(self, filter):
+                self._filters = filter
+                return self
+
+        # Join callback
+
+        lj = LeftJoin(RMSliceRequest(), AMSliceRequest(), Predicate('reg-urn', '==', 'slice'))
+        d = defer.Deferred()
+        lj.set_callback(Callback(deferred = d))
+        lj.start()
+        return d
+
+
+#        # XXX DONE XXX # 
+#
+#        if (fields_rm and fields_am) or (fields_am and not SLICE_KEY in filters):
+#            # For the same of simplicity, we will query the RM first (if
+#            # needed), then the AM, since the AM needs the name of the slice to
+#            # get resources
+#            if (fields_am and SLICE_KEY not in fields_rm) or (fields_rm > set([SLICE_KEY])):
+#                ret_rm = yield self.get_object('slice', 'slice_hrn', filters, params, fields_rm | set([SLICE_KEY]))
+#                slice_keys = [s['reg-urn'] for s in ret_rm]
+#                filters_am = Filter().filter_by(Predicate('slice', included, slice_keys))
+#                ret_am = yield self.get_resource_lease(filters_am, None, fields_am, list_resources = True, list_leases = True)
+#                
+#                # Merge (we have the SLICE_KEY in results from the AM)
+#                resource_lease_by_slice = {}
+#                for s in ret_am:
+#                    resource_lease_by_slice[s['slice']] = {'resource': s['resource'], 'lease': s['lease']}
+#                
+#                ret = []
+#                for s in ret_rm:
+#                    if s['reg-urn'] in resource_lease_by_slice:
+#                        s.update(resource_lease_by_slice[s['reg-urn']])
+#                    ret.append(s)
+#
+#
+#        else: # fields_am
+#            filters = filters.rename({SLICE_KEY, 'slice'})
+#
+#        defer.returnValue(ret)
 
     def get_user(self, filters, params, fields):
         # DEBUG get_user parent_authority INCLUDED "['p', 'l', 'e', '.', 'u', 'p', 'm', 'c']" 
@@ -1510,7 +1558,7 @@ class SFAGateway(Gateway):
         # handle extra settings
         #record_dict.update(options.extras)
 
-        return Record(dict=record_dict)
+        return SfaRecord(dict=record_dict)
 
     @defer.inlineCallbacks
     def create_object(self, filters, params, fields):
@@ -1926,6 +1974,7 @@ class SFAGateway(Gateway):
         _get_resource_lease only supports querying ONE slice
         This function is in charge of calling it multiple times in parallel, and sending the aggregated result back.
         """
+        Log.tmp("get_resource_lease", filters, fields)
 
         # XXX Can be more selective
         try:
@@ -1939,6 +1988,7 @@ class SFAGateway(Gateway):
         deferred_list = []
         for slice_key in slice_keys:
             filters_am = Filter().filter_by(Predicate('slice', eq, slice_key))
+            print "filters_am=", filters_am
             d = self._get_resource_lease(filters_am, params, fields, list_resources, list_leases)
             deferred_list.append(d)
         dl = defer.DeferredList(deferred_list)
@@ -2181,6 +2231,7 @@ class SFAGateway(Gateway):
             if q.object in self.map_fields:
                 Rename(self, self.map_fields[q.object])
             # Return result
+            print "SFA RECORDS: ", records
             map(self.send, Records(records))
             self.send(LastRecord())
 

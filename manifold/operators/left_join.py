@@ -165,18 +165,27 @@ class LeftJoin(Node):
         \brief Process records received by the left child
         \param record A dictionary representing the received record 
         """
-        #Log.tmp("left_callback: record = %r" % record)
+        Log.tmp("left_callback: record = %r" % record)
         if record.is_last():
             # left_done. Injection is not the right way to do this.
             # We need to insert a filter on the key in the right member
             predicate = Predicate(self.predicate.get_value(), included, self.left_map.keys())
             
-            self.right = self.right.optimize_selection(Filter().filter_by(predicate))
-            self.right.set_callback(self.right_callback) # already done in __init__ ?
+            try:
+                self.right = self.right.optimize_selection(Filter().filter_by(predicate))
+                print "1"
+                print "self.right_callback", self.right_callback
+                self.right.set_callback(self.right_callback) # already done in __init__ ?
 
-            self.left_done = True
-            #Log.tmp("starting right child", self.right)
-            self.right.start()
+                print "1"
+                self.left_done = True
+                print "1"
+                Log.tmp("starting right child", self.right)
+                print "1 right start"
+                self.right.start()
+            except Exception, e:
+                print "EEE: ",e 
+            print "rifht start done"
             return
 
         # Directly send records missing information necessary to join
@@ -198,6 +207,7 @@ class LeftJoin(Node):
         \brief Process records received from the right child
         \param record A dictionary representing the received record 
         """
+        Log.tmp("right callback", record)
         if record.is_last():
             # Send records in left_results that have not been joined...
             for left_record_list in self.left_map.values():
