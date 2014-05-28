@@ -1,37 +1,131 @@
 from types                import StringTypes
-from manifold.core.record import Record
+from manifold.core.record import Record, Records
 from manifold.operators   import Node
 from manifold.util.type   import returns
 from manifold.util.log    import Log
 
+FIELD_SEPARATOR = '.'
 DUMPSTR_RENAME = "RENAME %r" 
 
 #------------------------------------------------------------------
 # RENAME node
 #------------------------------------------------------------------
 
-def do_rename(record, map_fields):
-    for k, v in map_fields.items():
-        if k in record:
-            tmp = record.pop(k)
-            if '.' in v: # users.hrn
-                method, key = v.split('.')
+def do_rename(record, aliases):
+    """ 
+    This function modifies the record packet in place.
 
-                if not method in record:
-                    record[method] = []
-                # ROUTERV2
-                if isinstance(tmp, StringTypes):
-                    record[method] = {key: tmp}
+    NOTES:
+     . It might be better to iterate on the record fields
+     . It seems we only handle two levels of hierarchy. This is okay I think
+    since in the query plan, further layers will be broken down across
+    several subqueries.
+    """
 
-                # XXX WARNING: Not sure if this doesn't have side effects !!!
-                elif tmp is not None:
-                    for x in tmp:
-                        record[method].append({key: x})        
-                else:
-                    Log.tmp("This record has a tmp None record = %s , tmp = %s , v = %s" % (record,tmp,v))
+    if record.is_empty():
+        return record
+
+    def collect(key, record):
+        if isinstance(subrecord, Records):
+            # 1..N
+            return [collect(key, r) for r in record]
+        elif isinstance(subrecord, Record):
+            key_head, _, key_tail = key.partition(FIELD_SEPARATOR)
+            return collect(key_tail, record[key_head])
+            # 1..1
+        else:
+            assert not key, "Field not found"
+            return record[key_head]
+
+    def handle_record(k, v, myrecord, data = None):
+        """
+        Convert the field name from k to v in myrecord. k and v will eventually
+        have several dots.
+        . cases when field length are not of same length are not handled
+        """
+        k_head, _, k_tail = k.partition(FIELD_SEPARATOR)
+        v_head, _, v_tail = v.partition(FIELD_SEPARATOR)
+
+        if k_tail and v_tail:
+            if not k_head in myrecord:
+                return
+
+            if k_head != v_head:
+                myrecord[v_head] = myrecord.pop(k_head)
+
+            subrecord = myrecord[v_tail]
+            
+            if isinstance(subrecord, Records):
+                # 1..N
+                for _myrecord in subrecord:
+                    handle_record(k_tail, v_tail, _myrecord)
+            elif isinstance(subrecord, Record):
+                # 1..1
+                handle_record(k_tail, v_tail, subrecord)
             else:
-                record[v] = tmp
+                return
+
+        elif not k_tail and not v_tail:
+            # XXX Maybe such cases should never be reached.
+            if k_head and k_head != v_head:
+                myrecord[v_head] = myrecord.pop(k_head)
+            else:
+                myrecord[v_head] = data
+
+        else:
+            # We have either ktail or vtail"
+            if k_tail: # and not v_tail
+                # We will gather everything and put it in v_head
+                my_record[v_head] = collect(k_tail, my_record[v_head]) 
+
+            else: # v_tail and not k_tail
+                # We have some data in subrecord, that needs to be affected to
+                # some dictionaries whose key sequence is specified in v_tail.
+                # This should allow a single level of indirection.
+                # 
+                # for example: users = [A, B, C]   =>    users = [{user_hrn: A}, {...}, {...}]
+                data = myrecord[v_head]
+                # eg. data = [A, B, C]
+
+                if isinstance(data, Records):
+                    raise Exception, "Not implemented"
+                elif isinstance(data, Record):
+                    raise Exception, "Not implemented"
+                elif isinstance(data, list):
+                    myrecord[v_head] = list()
+                    for element in data:
+                        myrecord[v_head].append({v_tail: element})
+                else:
+                    raise Exception, "Not implemented"
+
+    for k, v in aliases.items():
+        handle_record(k, v, record)
+
     return record
+#
+#
+#def do_rename(record, map_fields):
+#    for k, v in map_fields.items():
+#        if k in record:
+#            tmp = record.pop(k)
+#            if '.' in v: # users.hrn
+#                method, key = v.split('.')
+#
+#                if not method in record:
+#                    record[method] = []
+#                # ROUTERV2
+#                if isinstance(tmp, StringTypes):
+#                    record[method] = {key: tmp}
+#
+#                # XXX WARNING: Not sure if this doesn't have side effects !!!
+#                elif tmp is not None:
+#                    for x in tmp:
+#                        record[method].append({key: x})        
+#                else:
+#                    Log.tmp("This record has a tmp None record = %s , tmp = %s , v = %s" % (record,tmp,v))
+#            else:
+#                record[v] = tmp
+#    return record
 
 class Rename(Node):
     """
