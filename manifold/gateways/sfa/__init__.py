@@ -761,9 +761,839 @@ class SFAGateway(Gateway):
             raise Exception, "Invalid credential type: %s" % type
 
 
+    # This function will return information about a given network using SFA GetVersion call
+    # Depending on the object Queried, if object is network then get_network is triggered by
+    # result = getattr(self, "%s_%s" % (q.action, q.object))(local_filters, q.params, fields)
+    @defer.inlineCallbacks
+    def get_network(self, filters = None, params = None, fields = None):
+        Log.debug(self.sliceapi)
+        # Network (AM) 
+        if self.sliceapi:
+            server = self.sliceapi
+        # Network (Registry) 
+        else:
+            server = self.registry 
+
+        version = yield self.get_cached_server_version(server)
+        # Hardcoding the get network call until caching is implemented
+        #if q.action == 'get' and q.object == 'network':
+        #platforms = db.query(Platform).filter(Platform.disabled == False).all()
+        #for p in platforms:
+        #    print "########## platform = %s",p.platform
+        #    result={'network_hrn': p.platform, 'network_name': p.platform_longname}
+        #    #self.send({'network_hrn': p.platform, 'network_name': p.platform_longname})
+        #for r in version:
+        #    print r
+        #Log.tmp(version)
+        # forward what has been retrieved from the SFA GetVersion call
+        #result=version
+        output = {}
+        # add these fields to match MySlice needs
+        for k,v in version.items():
+            # Avoid inconsistent hrn in GetVersion - ROUTERV2
+            if k=='urn':
+                hrn = urn_to_hrn(v)
+                output['network_hrn']=hrn[0]
+            if k=='testbed':
+                output['network_name']=v
+            output['platform']=self.platform
+
+        output['version'] = version
+        #result={'network_hrn': version['hrn'], 'network_name': version['testbed']}
+        defer.returnValue([output])
+
+        #if version is not None:
+        #    # add these fields to match MySlice needs
+        #    for k,v in version.items():
+        #        if k=='hrn':
+        #            result['network_hrn']=v
+        #        if k=='testbed':
+        #            result['network_name']=v
+        #    #result={'network_hrn': version['hrn'], 'network_name': version['testbed']}
+        #    #print "SfaGateway::get_network() =",result
+        #return [result]
+
+# DEPRECATED |    def get_slice_demo(self, filters, params, fields):
+# DEPRECATED |            print "W: Demo hook"
+# DEPRECATED |            s= {}
+# DEPRECATED |            s['slice_hrn'] = "ple.upmc.agent"
+# DEPRECATED |            s['slice_description'] = 'DEMO SLICE'
+# DEPRECATED |
+# DEPRECATED |            if self.platform != 'ple':
+# DEPRECATED |                s['resources'] = []
+# DEPRECATED |                return [s]
+# DEPRECATED |
+# DEPRECATED |            has_resources = False
+# DEPRECATED |            has_users = False
+# DEPRECATED |
+# DEPRECATED |            subfields = []
+# DEPRECATED |            for of in fields:
+# DEPRECATED |                if of == 'resource' or of.startswith('resource.'):
+# DEPRECATED |                    subfields.append(of[9:])
+# DEPRECATED |                    has_resources = True
+# DEPRECATED |                if of == 'user' or of.startswith('user.'):
+# DEPRECATED |                    has_users = True
+# DEPRECATED |            if has_resources:
+# DEPRECATED |                rsrc_leases = self._get_resource_lease({'slice_hrn': 'ple.upmc.agent'}, subfields)
+# DEPRECATED |                if not rsrc_leases:
+# DEPRECATED |                    raise Exception, 'get_resources failed!'
+# DEPRECATED |                s['resource'] = rsrc_leases['resource']
+# DEPRECATED |                s['lease'] = rsrc_leases['lease'] 
+# DEPRECATED |            if has_users:
+# DEPRECATED |                s['user'] = [{'person_hrn': 'myslice.demo'}]
+# DEPRECATED |            if self.debug:
+# DEPRECATED |                s['debug'] = rsrc_leases['debug']
+# DEPRECATED |
+# DEPRECATED |            return [s]
+
+
+
+# WORKING #        if len(stack) > 1:
+# WORKING #            d = defer.Deferred()
+# WORKING #            deferred_list = []
+# WORKING #            while stack:
+# WORKING #                auth_xrn = stack.pop()
+# WORKING #                deferred_list.append(self.registry.List(auth_xrn, cred, {'recursive': recursive}))
+# WORKING #            defer.DeferredList(deferred_list).addCallback(get_slice_callback).chainDeferred(d)
+# WORKING #            return d
+# WORKING #        else:
+# WORKING #            auth_xrn = stack.pop()
+# WORKING #            return self.registry.List(auth_xrn, cred, {'recursive': recursive})
+# WORKING #
+# WORKING #        def get_slice_callback(result):
+# WORKING #            output = []
+# WORKING #            for (success, records) in result:
+# WORKING #                if not success:
+# WORKING #                    print "ERROR in CALLBACK", records
+# WORKING #                    continue
+# WORKING #                output.extend([r for r in records if r['type'] == 'slice'])
+# WORKING #            return output
+
+# REFERENCE # This code is known to crash sfawrap, saved for further reference
+# REFERENCE # 
+# REFERENCE #         def get_slice_callback(result):
+# REFERENCE #             try:
+# REFERENCE #                 from twisted.internet import defer
+# REFERENCE #                 for (success, records) in result:
+# REFERENCE #                     if not success:
+# REFERENCE #                         print "ERROR in CALLBACK", records
+# REFERENCE #                         continue
+# REFERENCE #                     for record in records:
+# REFERENCE #                         if (record['type'] == 'slice'):
+# REFERENCE #                             result.append(record)
+# REFERENCE #                         elif (record['type'] == 'authority'):
+# REFERENCE #                             # "recursion"
+# REFERENCE #                             stack.append(record['hrn'])
+# REFERENCE #                 deferred_list = []
+# REFERENCE #                 if stack:
+# REFERENCE #                     while stack:
+# REFERENCE #                         auth_xrn = stack.pop()
+# REFERENCE #                         deferred_list.append(self.registry.List(auth_xrn, cred, {'recursive': True}))
+# REFERENCE #                     dl = defer.DeferredList(deferred_list).addCallback(get_slice_callback)
+# REFERENCE #             except Exception, e:
+# REFERENCE #                 print "E: get_slice_callback", e
+# REFERENCE #                 import traceback
+# REFERENCE #                 traceback.print_exc()
+
+
+#DEPRECATED#    def get_user(self, filters = None, params = None, fields = None):
+#DEPRECATED#
+#DEPRECATED#        cred = self._get_cred('user')
+#DEPRECATED#
+#DEPRECATED#        # A/ List users
+#DEPRECATED#        if not filters or not (filters.has_eq('user_hrn') or filters.has_eq('authority_hrn')):
+#DEPRECATED#            # no authority specified, we get all users *recursively*
+#DEPRECATED#            raise Exception, "E: Recursive user listing not implemented yet."
+#DEPRECATED#
+#DEPRECATED#        elif filters.has_eq('authority_hrn'):
+#DEPRECATED#            # Get the list of users
+#DEPRECATED#            auths = filters.get_eq('authority_hrn')
+#DEPRECATED#            if not isinstance(auths, list): auths = [auths]
+#DEPRECATED#
+#DEPRECATED#            # Get the list of user_hrn
+#DEPRECATED#            user_list = []
+#DEPRECATED#            for hrn in auths:
+#DEPRECATED#                ul = self.registry.List(hrn, cred)
+#DEPRECATED#                ul = filter_records('user', ul)
+#DEPRECATED#                user_list.extend([r['hrn'] for r in ul])
+#DEPRECATED#
+#DEPRECATED#        else: # named users
+#DEPRECATED#            user_list = filters.get_eq('user_hrn')
+#DEPRECATED#            if not isinstance(user_list, list): user_list = [user_list]
+#DEPRECATED#        
+#DEPRECATED#        if not user_list: return user_list
+#DEPRECATED#
+#DEPRECATED#        # B/ Get user information
+#DEPRECATED#        if filters == set(['user_hrn']): # urn ?
+#DEPRECATED#            return [ {'user_hrn': hrn} for hrn in user_list ]
+#DEPRECATED#
+#DEPRECATED#        else:
+#DEPRECATED#            # Here we could filter by authority if possible
+#DEPRECATED#            if filters.has_eq('authority_hrn'):
+#DEPRECATED#                predicates = filters.get_predicates('authority_hrn')
+#DEPRECATED#                for p in predicates:
+#DEPRECATED#                    user_list = [s for s in user_list if p.match({'authority_hrn': get_authority(s)})]
+#DEPRECATED#
+#DEPRECATED#            if not user_list: return user_list
+#DEPRECATED#
+#DEPRECATED#            users = self.registry.Resolve(user_list, cred)
+#DEPRECATED#            users = filter_records('user', users)
+#DEPRECATED#            filtered = []
+#DEPRECATED#
+#DEPRECATED#            for user in users:
+#DEPRECATED#                # translate field names...
+#DEPRECATED#                for k,v in self.map_user_fields.items():
+#DEPRECATED#                    if k in user:
+#DEPRECATED#                        user[v] = user[k]
+#DEPRECATED#                        del user[k]
+#DEPRECATED#                # apply input_filters XXX TODO sort limit offset
+#DEPRECATED#                if filters.match(user):
+#DEPRECATED#                    # apply output_fields
+#DEPRECATED#                    c = {}
+#DEPRECATED#                    for k,v in user.items():
+#DEPRECATED#                        if k in fields:
+#DEPRECATED#                            c[k] = v
+#DEPRECATED#                    filtered.append(c)
+#DEPRECATED#
+#DEPRECATED#            return filtered
+
+    # minimally check a key argument
+    def check_ssh_key(self, key):
+        good_ssh_key = r'^.*(?:ssh-dss|ssh-rsa)[ ]+[A-Za-z0-9+/=]+(?: .*)?$'
+        return re.match(good_ssh_key, key, re.IGNORECASE)
+
+    def create_record_from_params(self, type, params):
+        record_dict = {}
+        if type == 'slice':
+            # This should be handled beforehand
+            if 'slice_hrn' not in params or not params['slice_hrn']:
+                raise Exception, "Must specify slice_hrn to create a slice"
+            xrn = Xrn(params['slice_hrn'], type)
+            record_dict['urn'] = xrn.get_urn()
+            record_dict['hrn'] = xrn.get_hrn()
+            record_dict['type'] = xrn.get_type()
+        # XXX ???
+        if 'key' in params and params['key']:
+            #try:
+            #    pubkey = open(params['key'], 'r').read()
+            #except IOError:
+            pubkey = params['key']
+            if not self.check_ssh_key(pubkey):
+                raise SfaInvalidArgument(name='key',msg="Wrong key format")
+                #raise SfaInvalidArgument(name='key',msg="Could not find file, or wrong key format")
+            record_dict['keys'] = [pubkey]
+        if 'slices' in params and params['slices']:
+            record_dict['slices'] = params['slices']
+        if 'researchers' in params and params['researchers']:
+            # for slice: expecting a list of hrn
+            record_dict['researcher'] = params['researchers']
+        if 'email' in params and params['email']:
+            record_dict['email'] = params['email']
+        if 'pis' in params and params['pis']:
+            record_dict['pi'] = params['pis']
+
+        #slice: description
+
+        # handle extra settings
+        #record_dict.update(options.extras)
+
+        return SfaRecord(dict=record_dict)
+
+    #--------------------------------------------------------------------------- 
+    # Create
+    #--------------------------------------------------------------------------- 
+
+    @defer.inlineCallbacks
+    def create_object(self, filters, params, fields):
+
+        filters = self.rename_filters(filters)
+        params  = self.rename_params(params)
+        fields  = self.rename_fields(fields)
+
+        # XXX should call create_record_from_params which would rely on mappings
+        dict_filters = filters.to_dict()
+        if self.query.object + '_hrn' in params:
+            object_hrn = params[self.query.object+'_hrn']
+        else:         
+            object_hrn = params['hrn']
+        if 'hrn' not in params:
+            params['hrn'] = object_hrn
+        if 'type' not in params:
+            params['type'] = self.query.object
+            #raise Exception, "Missing type in params"
+        object_auth_hrn = get_authority(object_hrn)
+
+        server_version = yield self.get_cached_server_version(self.registry)    
+        server_auth_hrn = server_version['hrn']
+        
+        if not params['hrn'].startswith('%s.' % server_auth_hrn):
+            # XXX not a success, neither a warning !!
+            print "I: Not requesting object creation on %s for %s" % (server_auth_hrn, params['hrn'])
+            defer.returnValue([])
+
+        auth_cred = self._get_cred('authority', object_auth_hrn)
+
+        if 'type' not in params:
+            raise Exception, "Missing type in params"
+        try:
+            object_gid = yield self.registry.Register(params, auth_cred)
+        except Exception, e:
+            raise Exception, 'Failed to create object: record possibly already exists: %s' % e
+        defer.returnValue([{'hrn': params['hrn'], 'gid': object_gid}])
+
+    create_user      = create_object
+    create_slice     = create_object
+    create_resource  = create_object
+    create_authority = create_object
+
+    #--------------------------------------------------------------------------- 
+    # Get
+    #--------------------------------------------------------------------------- 
+
+    @defer.inlineCallbacks
+    def get_object(self, object, object_hrn, filters, params, fields):
+
+        # Let's find some additional information in filters in order to restrict our research
+        #object_hrn = "hrn"
+        object_name = make_list(filters.get_op(object_hrn, [eq, included]))
+        auth_hrn = make_list(filters.get_op('parent_authority', [eq, lt, le]))
+
+        interface_hrn = yield self.registry.get_interface_hrn(server)
+       
+        # XXX Hack for avoiding multiple calls to the same registry...
+        # This will be fixed in newer versions where AM and RM have separate gateways
+        if self.auth_type == "reference":
+            # We could check for the "reference_platform" entry in
+            # self.user_config but it seems in some configurations it has been
+            # erased by credentials... weird
+            defer.returnValue([])
+
+        # XXX details = True always, only trigger details if needed wrt fields
+
+        # recursive: Should be based on jokers, eg. ple.upmc.*
+        # resolve  : True: make resolve instead of list
+        if object_name:
+            # 0) given object name
+
+            # If the objects are not part of the hierarchy, let's return [] to
+            # prevent the registry to forward results to another registry
+            # XXX This should be ensured by partitions
+            object_name = [ on for on in object_name if on.startswith(interface_hrn)]
+            if not object_name:
+                defer.returnValue([])
+
+            # Check for jokers ?
+            stack     = object_name
+            resolve   = True
+
+        elif auth_hrn:
+            # 2) given authority
+
+            # If the authority is not part of the hierarchy, let's return [] to
+            # prevent the registry to forward results to another registry
+            # XXX This should be ensured by partitions
+            auth_hrn  = [a for a in auth_hrn if a.startswith(interface_hrn)]
+            if not auth_hrn:
+                defer.returnValue([])
+
+            resolve   = False
+            recursive = False
+            stack = []
+            for hrn in auth_hrn:
+                if not '*' in hrn: # jokers ?
+                    stack.append(hrn)
+                else:
+                    stack = [interface_hrn]
+                    break
+
+        else: # Nothing given
+            resolve   = False
+            recursive = True if object != 'authority' else False
+            print "RECURSIVE=", recursive
+            stack = [interface_hrn]
+        
+        # TODO: user's objects, use reg-researcher
+        
+        cred = self._get_cred('user')
+
+        if resolve:
+            stack = map(lambda x: hrn_to_urn(x, object), stack)
+            _results  = yield self.registry.Resolve(stack, cred, {'details': True})
+            #_result = _results[0]
+
+            output = []
+
+            #Log.tmp("SFA Resolve results = %s",_results)
+
+            for _result in _results:
+
+                # XXX ROUTERV2 WARNING: FILTER ON TYPE BECAUSE Registry doesn't 
+                # XXX Due to a bug in SFA Wrap, we need to filter the type of object returned
+                # If 2 different objects have the same hrn, the bug occurs
+                # Ex: ple.upmc.agent (user) & ple.upmc.agent (slice)
+                if _result['type'] != object:
+                    continue
+
+                # XXX How to better handle DateTime XMLRPC types into the answer ?
+                # XXX Shall we type the results like we do in CSV ?
+                result = {}
+                for k, v in _result.items():
+                    if isinstance(v, DateTime):
+                        result[k] = str(v) # datetime.strptime(str(v), "%Y%m%dT%H:%M:%S") 
+                    else:
+                        result[k] = v
+                
+                output.append(result)
+
+            defer.returnValue(output)
+        
+        if len(stack) > 1:
+            deferred_list = []
+            while stack:
+                auth_xrn = stack.pop()
+                d = self.registry.List(auth_xrn, cred, {'recursive': recursive})
+                deferred_list.append(d)
+                    
+            result = yield defer.DeferredList(deferred_list)
+
+            output = []
+            for (success, records) in result:
+                if not success:
+                    continue
+                output.extend([r for r in records if r['type'] == object])
+            defer.returnValue(output)
+
+        else:
+            auth_xrn = stack.pop()
+
+            started = time.time()
+            records = yield self.registry.List(auth_xrn, cred, {'recursive': recursive})
+
+            records = [r for r in records if r['type'] == object]
+            record_urns = [hrn_to_urn(record['hrn'], object) for record in records]
+            # INSERT ROOT AUTHORITY
+            if object == 'authority':
+                record_urns.insert(0,hrn_to_urn(interface_hrn, object))
+
+            started = time.time()
+            records = yield self.registry.Resolve(record_urns, cred, {'details': True}) 
+
+
+            # XXX ROUTERV2 WARNING: FILTER ON TYPE BECAUSE Registry doesn't 
+            # XXX Due to a bug in SFA Wrap, we need to filter the type of object returned
+            # If 2 different objects have the same hrn, the bug occurs
+            # Ex: ple.upmc.agent (user) & ple.upmc.agent (slice)
+            output = []
+            output.extend([r for r in records if r['type'] == object])
+            defer.returnValue(output)
+
+        
+
+    def get_slice(self, filters, params, fields):
+        # Because slice information is both in RM and AM, we need to manually
+        # JOIN queries to the RM and the AM.
+        # 
+        # This issue causes ugly code, but is solved in future versions of Manifold.
+        #
+        # See also: update_slice
+
+# DEPRECATED |        if self.user['email'] in DEMO_HOOKS:
+# DEPRECATED |            defer.returnValue(self.get_slice_demo(filters, params, fields))
+# DEPRECATED |            return
+
+        fields_am = fields & AM_SLICE_FIELDS
+        fields_rm = fields - AM_SLICE_FIELDS
+
+        if not fields_am:
+            return self.get_object('slice', SLICE_KEY, filters, params, fields)
+
+        # If fields from the AM are needed, we can systematically do the RM
+        # expecting the RM query will return if it is not needed
+        _self = self
+
+        class RMSliceRequest(Node):
+            def start(self):
+                def cb(records):
+                    for record in records:
+                        self.callback(Record(record))
+                    self.callback(LastRecord())
+                d = _self.get_object('slice', 'reg-urn', filters, None, fields_rm)
+                d.addCallback(cb)
+
+        class AMSliceRequest(Node):
+            def start(self):
+                def cb(records):
+                    for record in records:
+                        self.callback(Record(record))
+                    self.callback(LastRecord())
+                d = _self.get_resource_lease(self._filters, None, fields_am, list_resources = True, list_leases = True)
+                d.addCallback(cb)
+
+            def optimize_selection(self, filter):
+                self._filters = filter
+                return self
+
+        # Join callback
+        lj = LeftJoin(RMSliceRequest(), AMSliceRequest(), Predicate('reg-urn', '==', 'slice'))
+        d = defer.Deferred()
+        lj.set_callback(Callback(deferred = d))
+        lj.start()
+        return d
+
+    def get_user(self, filters, params, fields):
+        return self.get_object('user', 'user_hrn', filters, params, fields)
+
+    def get_authority(self, filters, params, fields):
+        return self.get_object('authority', 'authority_hrn', filters, params, fields)
+
+        ## Get the slice name
+        #if not 'hrn' in params:
+        #    raise Exception, "Create slice requires a slice name"
+        #hrn = params['hrn']
+        #
+        ## Are we creating the slice on the right authority
+        #slice_auth = get_authority(slice_hrn)
+        #server_version = self.get_cached_server_version(self.registry)
+        #server_auth = server_version['hrn']
+        #if not slice_auth.startswith('%s.' % server_auth):
+        #    print "I: Not requesting slice creation on %s for %s" % (server_auth, slice_hrn)
+        #    return []
+        #print "I: Requesting slice creation on %s for %s" % (server_auth, slice_hrn)
+        #print "W: need to check slice is created under user authority"
+        #cred = self._get_cred('authority')
+        #record_dict = self.create_record_from_params('slice', params)
+        #try:
+        #    slice_gid = self.registry.Register(record_dict, cred)
+        #except Exception, e:
+        #    print "E: %s" % e
+        #return []
+
+    # AGGREGATE MANAGER
+
+    def get_resource_lease(self, filters, params, fields, list_resources = True, list_leases = True):
+        """
+        _get_resource_lease only supports querying ONE slice
+        This function is in charge of calling it multiple times in parallel, and sending the aggregated result back.
+        """
+        Log.tmp("get_resource_lease", filters, fields)
+
+        # XXX Can be more selective
+        try:
+            slice_keys = list(filters.get_op('slice', [eq, included]))
+        except Exception, e:
+            raise Exception, "Cannot get slice keys for calling the AM ListResources: %s" %  e
+
+        print "*" * 80
+        print "SLICE KEYS", slice_keys
+
+        deferred_list = []
+        for slice_key in slice_keys:
+            filters_am = Filter().filter_by(Predicate('slice', eq, slice_key))
+            print "filters_am=", filters_am
+            d = self._get_resource_lease(filters_am, params, fields, list_resources, list_leases)
+            deferred_list.append(d)
+        dl = defer.DeferredList(deferred_list)
+        def cb(result):
+            ret = []
+            for (am_success, am_records) in result:
+                if not am_success:
+                    print "Ignored failed call for get_resource_lease", am_records
+                    continue
+                ret.append(am_records)
+            return ret
+        dl.addCallback(cb)
+        return dl
+
+    @defer.inlineCallbacks
+    def _get_resource_lease(self, filters, params, fields, list_resources = True, list_leases = True):
+        Log.tmp("SFA GW :: get_resource_lease")
+#DEPRECATED|        if self.user['email'] in DEMO_HOOKS:
+#DEPRECATED|            rspec = open('/usr/share/manifold/scripts/nitos.rspec', 'r')
+#DEPRECATED|            defer.returnValue(self.parse_sfa_rspec(rspec))
+#DEPRECATED|            return 
+        rspec_string = None
+
+        # Do we have a way to find slices, for now we only support explicit slice names
+        # Note that we will have to inject the slice name into the resource object if not done by the parsing.
+        # slice - resource is a NxN relationship, not well managed so far
+
+        # ROUTERV2
+        Log.tmp("get_resource_lease filters = %s",filters)
+        slice_urns = make_list(filters.get_op('slice', (eq, included)))
+        slice_urn = slice_urns[0] if slice_urns else None
+        slice_hrn, _ = urn_to_hrn(slice_urn) if slice_urn else (None, None)
+
+        # XXX ONLY ONE AND WITHOUT JOKERS
+
+        # no need to check if server accepts the options argument since the options has
+        # been a required argument since v1 API
+        api_options = {}
+        # always send call_id to v2 servers
+        api_options ['call_id'] = unique_call_id()
+        # Get server capabilities
+        ## AM 
+        #if self.sliceapi:
+        #    server = self.sliceapi
+        ## Registry
+        #else:
+        #    server = self.registry
+
+        #server_hrn = yield self.get_interface_hrn(server)
+
+        #server_version = yield self.get_cached_server_version(self.sliceapi)
+        type_version = set()
+
+        # Manage Rspec versions
+        if 'rspec_type' and 'rspec_version' in self.config:
+            api_options['geni_rspec_version'] = {'type': self.config['rspec_type'], 'version': self.config['rspec_version']}
+        else:
+            # For now, lets use GENIv3 as default
+            api_options['geni_rspec_version'] = {'type': 'GENI', 'version': '3'}
+            #api_options['geni_rspec_version'] = {'type': 'SFA', 'version': '1'}  
+ 
+        if slice_hrn:
+            cred = self._get_cred('slice', slice_hrn, v3 = self.am_version['geni_api'] != 2)
+            api_options['geni_slice_urn'] = slice_urn
+        else:
+            cred = self._get_cred('user', v3= self.am_version['geni_api'] != 2)
+
+        # Due to a bug in sfawrap, we need to disable caching on the testbed
+        # side, otherwise we might not get RSpecs without leases
+        # Anyways, caching on the testbed side is not needed since we have more
+        # efficient caching on the client side
+        # XXX Listing all resources on senslab is really slow, we need to have caching...
+        api_options['cached'] = False
+
+
+        # XXX Hardcoded for SENSLAB
+#        if server_version.get('hrn') == 'iotlab' and not slice_hrn:
+#            api_options['cached'] = True
+#            api_options['list_leases'] = 'all'
+#            Log.tmp("Hardcoded RSpec for IOTLAB")
+#            rspec_string = open("/var/myslice/iotlab.rspec").read()
+
+        if list_resources:
+            if list_leases:
+                api_options['list_leases'] = 'all' 
+            else:
+                api_options['list_leases'] = 'resources'
+        else:
+            if list_leases:
+                api_options['list_leases'] = 'leases'
+            else:
+                raise Exception, "Neither resources nor leases requested in ListResources"
+
+        # XXX Just because we hardcoded before
+        if not rspec_string:
+            if self.am_version['geni_api'] == 2:
+                # AM API v2 
+                result = yield self.sliceapi.ListResources([cred], api_options)
+            else:
+                # AM API v3
+                if slice_hrn:
+                    # XX XXXX XXX
+                    result = yield self.sliceapi.Describe([slice_urn], [cred], api_options)
+                    # XXX Weird !
+                    result['value'] = result['value']['geni_rspec']
+                else:
+                    #Log.warning("remove me!!!!")
+                    #api_options['list_leases'] = 'all'
+                    result = yield self.sliceapi.ListResources([cred], api_options)
+                    
+            if not 'value' in result or not result['value']:
+                raise Exception, result['output']
+
+            rspec_string = result['value']
+ 
+        # rspec_type and rspec_version should be set in the config of the platform,
+        # we use GENIv3 as default one if not
+        if 'rspec_type' and 'rspec_version' in self.config:
+            rspec_version = self.config['rspec_type'] + ' ' + self.config['rspec_version']
+        else:
+            rspec_version = 'GENI 3'
+       
+        parser = yield self.get_parser()
+        #print "rspec_string", rspec_string
+        rsrc_slice = parser.parse(rspec_string, rspec_version, slice_urn)
+
+        if slice_urn:
+            rsrc_slice['slice'] = slice_urn
+            for r in rsrc_slice['resource']:
+                r['slice'] = slice_hrn
+            for r in rsrc_slice['lease']:
+                r['slice'] = slice_hrn
+
+        if self.debug:
+            rsrc_slice['debug'] = {'rspec': rspec}
+        defer.returnValue(rsrc_slice)
+
+    # This get_resource is about the AM only... let's forget about RM for the time being
+    @defer.inlineCallbacks
+    def get_resource(self, filters, params, fields):
+        result = yield self._get_resource_lease(filters, fields, params, list_resources = True, list_leases = False)
+        defer.returnValue(result['resource'])
+
+    @defer.inlineCallbacks
+    def get_lease(self,filters,params,fields):
+        result = yield self._get_resource_lease(filters,fields,params, list_resources = False, list_leases = True)
+        defer.returnValue(result['lease'])
+
+    #--------------------------------------------------------------------------- 
+    # Update
+    #--------------------------------------------------------------------------- 
+
+    @defer.inlineCallbacks
+    def update_object(self, filters, params, fields):
+        filters = self.rename_filters(filters)  # ONLY USED TO GET THE OBJECT HRN
+        params = self.rename_params(params)     # USED TO CALL SFA API
+        fields = self.rename_fields(fields)     # UNUSED
+
+        # XXX should call create_record_from_params which would rely on mappings
+        dict_filters = filters.to_dict()
+        if filters.has(self.query.object+'_hrn'):
+            object_hrn = dict_filters[self.query.object+'_hrn']
+        else:
+            object_hrn = dict_filters['hrn']
+
+        if 'hrn' not in params:
+            params['hrn'] = object_hrn
+        if 'type' not in params:
+            params['type'] = self.query.object
+            #raise Exception, "Missing type in params"
+        object_auth_hrn = get_authority(object_hrn)
+        server_version = yield self.get_cached_server_version(self.registry)
+        server_auth_hrn = server_version['hrn']
+        if not object_auth_hrn.startswith('%s.' % server_auth_hrn):
+            # XXX not a success, neither a warning !!
+            print "I: Not requesting object update on %s for %s" % (server_auth_hrn, object_auth_hrn)
+            defer.returnValue([])
+        # If we update our own user, we only need our user_cred
+        if self.query.object == 'user':
+            try:
+                caller_user_hrn = self.user_config['user_hrn']
+            except Exception, e:
+                raise Exception, "Missing user_hrn in account.config of the user" 
+            if object_hrn == caller_user_hrn:
+                Log.tmp("Need a user credential to update your own user: %s" % object_hrn)
+                auth_cred = self._get_cred('user')
+            # Else we need an authority cred above the object
+            else:
+                Log.tmp("Need an authority credential to update another user: %s" % object_hrn)
+                auth_cred = self._get_cred('authority', object_auth_hrn)
+        # TODO: ROUTERV2
+        # update slice requires slice_credential not authority
+        elif self.query.object == 'slice':
+            Log.tmp("Need a slice credential to update: %s" % object_hrn)
+            auth_cred = self._get_cred('slice', object_hrn)
+        else:
+            Log.tmp("Need an authority credential to update: %s" % object_hrn)
+            auth_cred = self._get_cred('authority', object_auth_hrn)
+        try:
+            object_gid = yield self.registry.Update(params, auth_cred)
+        except Exception, e:
+            raise Exception, 'Failed to Update object: %s' % e
+        defer.returnValue([{'hrn': params['hrn'], 'gid': object_gid}])
+
+    update_user      = update_object
+    update_authority = update_object
+
+    # Let's not have resource in the registry for the time being since it causes conflicts with the AM until AM and RM are separated...
+    # update_resource = update_object
+
+    # update_lease : TODO
+    
+    def update_slice(self, filters, params, fields):
+        do_update_am = bool(set(params.keys()) & AM_SLICE_FIELDS)
+        do_update_rm = bool(set(params.keys()) - AM_SLICE_FIELDS)
+
+        do_get_am    = fields & AM_SLICE_FIELDS and not do_update_am
+        do_get_rm    = fields - AM_SLICE_FIELDS and not do_update_rm
+
+        do_am        = do_get_am or do_update_am
+        do_rm        = do_get_rm or do_update_rm
+
+        print "do_update_am", do_update_am
+        print "do_update_rm", do_update_rm
+        print "do_get_am", do_get_am
+        print "do_get_rm", do_get_rm, "for fields", fields - AM_SLICE_FIELDS
+
+        print "do_am", do_am
+        print "do_rm", do_rm
+
+        if do_am and do_rm:
+            # Part on the RM side, part on the AM side... until AM and RM are
+            # two different GW, we need to manually make a left join between
+            # the results of both calls
+            
+            # Ensure join key in fields (in fact not needed since we filter on pkey)
+            #has_key = SLICE_KEY in fields
+            fields_am = fields & AM_SLICE_FIELDS
+            #if not has_key:
+            #     fields_am |= SLICE_KEY
+            fields_rm = fields - AM_SLICE_FIELDS
+            #if not has_key:
+            #    fields_rm |= SLICE_KEY
+
+            if do_get_am: # then we have do_update_rm (because update_slice)
+                print "do get_slice am"
+                ret_am = self.get_slice(filters, params, fields_am)
+                ret_rm = self.update_object(filters, params, fields_rm)
+            else:
+                # The typical case: update AM and get RM
+                #print "do get rm"
+                print "do update_slice am"
+                Log.tmp(filters)
+                ret_am = self.update_slice_am(filters, params, fields_am)
+                ret_rm = self.get_slice(filters, params, fields_rm)
+
+            #print "This should be two deferred:"
+            #print " - ret_am", ret_am
+            #print " - ret_rm", ret_rm
+
+            dl = defer.DeferredList([ret_am, ret_rm])
+            if do_get_am:
+                def cb(result):
+                    assert len(result) == 2
+                    (am_success, am_records), (rm_success, rm_records) = result
+                    # XXX success
+                    am_record = am_records[0]
+                    rm_record = rm_records[0]
+                    rm_record.update(am_record)
+                    return [rm_record]
+                dl.addCallback(cb)
+                return dl
+            else:
+                # The typical case
+                def cb(result):
+                    assert len(result) == 2
+                    (am_success, am_records), (rm_success, rm_records) = result
+                    # XXX success
+                    #print "AM success false when i raise an exception... handle !!!!" # XXX XXX
+                    print "AM SUCCESS", am_success, "RM SUCCESS", rm_success
+                    print am_records, rm_records
+                    Log.warning("We should handle exceptions here !")
+                    # XXX in case of failure, this contains a failure
+                    am_record = am_records[0] if am_records else {} # XXX Why sometimes empty ????
+                    rm_record = rm_records[0] if rm_records else {} # XXX Why sometimes empty ????
+                    am_record.update(rm_record)
+                    return [am_record]
+                dl.addCallback(cb)
+                return dl
+
+            # Remove key
+            #if not has_key:
+            #    del ret[SLICE_KEY]
+
+        if do_update_am:
+            return self.update_slice_am(filters, params, fields)
+        else: # do_update_rm
+            return self.update_object(filters, params, fields)
+        
+    #--------------------------------------------------------------------------- 
+    # AGGREGATE MANAGER 
+
     @defer.inlineCallbacks
     def update_slice_am(self, filters, params, fields):
-        #print "UPDATE SLICE AM", params
         if not 'resource' in params and not 'lease' in params:
             raise Exception, "Update failed: nothing to update"
 
@@ -1050,766 +1880,7 @@ class SFAGateway(Gateway):
         slice.update(rsrc_leases)
         defer.returnValue([slice])
 
-    # This function will return information about a given network using SFA GetVersion call
-    # Depending on the object Queried, if object is network then get_network is triggered by
-    # result = getattr(self, "%s_%s" % (q.action, q.object))(local_filters, q.params, fields)
-    @defer.inlineCallbacks
-    def get_network(self, filters = None, params = None, fields = None):
-        Log.debug(self.sliceapi)
-        # Network (AM) 
-        if self.sliceapi:
-            server = self.sliceapi
-        # Network (Registry) 
-        else:
-            server = self.registry 
-
-        version = yield self.get_cached_server_version(server)
-        # Hardcoding the get network call until caching is implemented
-        #if q.action == 'get' and q.object == 'network':
-        #platforms = db.query(Platform).filter(Platform.disabled == False).all()
-        #for p in platforms:
-        #    print "########## platform = %s",p.platform
-        #    result={'network_hrn': p.platform, 'network_name': p.platform_longname}
-        #    #self.send({'network_hrn': p.platform, 'network_name': p.platform_longname})
-        #for r in version:
-        #    print r
-        #Log.tmp(version)
-        # forward what has been retrieved from the SFA GetVersion call
-        #result=version
-        output = {}
-        # add these fields to match MySlice needs
-        for k,v in version.items():
-            # Avoid inconsistent hrn in GetVersion - ROUTERV2
-            if k=='urn':
-                hrn = urn_to_hrn(v)
-                output['network_hrn']=hrn[0]
-            if k=='testbed':
-                output['network_name']=v
-            output['platform']=self.platform
-
-        output['version'] = version
-        #result={'network_hrn': version['hrn'], 'network_name': version['testbed']}
-        defer.returnValue([output])
-
-        #if version is not None:
-        #    # add these fields to match MySlice needs
-        #    for k,v in version.items():
-        #        if k=='hrn':
-        #            result['network_hrn']=v
-        #        if k=='testbed':
-        #            result['network_name']=v
-        #    #result={'network_hrn': version['hrn'], 'network_name': version['testbed']}
-        #    #print "SfaGateway::get_network() =",result
-        #return [result]
-
-    def get_slice_demo(self, filters, params, fields):
-            print "W: Demo hook"
-            s= {}
-            s['slice_hrn'] = "ple.upmc.agent"
-            s['slice_description'] = 'DEMO SLICE'
-
-            if self.platform != 'ple':
-                s['resources'] = []
-                return [s]
-
-            has_resources = False
-            has_users = False
-
-            subfields = []
-            for of in fields:
-                if of == 'resource' or of.startswith('resource.'):
-                    subfields.append(of[9:])
-                    has_resources = True
-                if of == 'user' or of.startswith('user.'):
-                    has_users = True
-            if has_resources:
-                rsrc_leases = self._get_resource_lease({'slice_hrn': 'ple.upmc.agent'}, subfields)
-                if not rsrc_leases:
-                    raise Exception, 'get_resources failed!'
-                s['resource'] = rsrc_leases['resource']
-                s['lease'] = rsrc_leases['lease'] 
-            if has_users:
-                s['user'] = [{'person_hrn': 'myslice.demo'}]
-            if self.debug:
-                s['debug'] = rsrc_leases['debug']
-
-            return [s]
-
-    @defer.inlineCallbacks
-    def get_object(self, object, object_hrn, filters, params, fields):
-
-        # DEBUG get_user parent_authority INCLUDED "['p', 'l', 'e', '.', 'u', 'p', 'm', 'c']" 
-        Log.tmp("SFA GW :: get_object ")
-        Log.tmp("get_object Query = ",self.query)
-        #Log.tmp(filters)
-
-        # Let's find some additional information in filters in order to restrict our research
-        object_hrn = "hrn"
-        object_name = make_list(filters.get_op(object_hrn, [eq, included]))
-        # ROUTERV2 parent_authority became authority due to rename_query function using map
-        auth_hrn = make_list(filters.get_op('authority', [eq, lt, le]))
-
-        # AM 
-        if self.sliceapi:
-            server = self.sliceapi
-        # Registry
-        else:
-            server = self.registry
-        
-        interface_hrn    = yield self.get_interface_hrn(server)
- 
-        #Log.tmp(object_hrn)
-        #Log.tmp(object_name)
-        #Log.tmp("auth_hrn = %s",auth_hrn)
-        Log.tmp(interface_hrn)
-       
-        # XXX Hack for avoiding multiple calls to the same registry...
-        # This will be fixed in newer versions where AM and RM have separate gateways
-        if self.auth_type == "reference":
-            # We could check for the "reference_platform" entry in
-            # self.user_config but it seems in some configurations it has been
-            # erased by credentials... weird
-            defer.returnValue([])
-
-        # XXX details = True always, only trigger details if needed wrt fields
-
-        # recursive: Should be based on jokers, eg. ple.upmc.*
-        # resolve  : True: make resolve instead of list
-        if object_name:
-            # 0) given object name
-
-            # If the objects are not part of the hierarchy, let's return [] to
-            # prevent the registry to forward results to another registry
-            # XXX This should be ensured by partitions
-            object_name = [ on for on in object_name if on.startswith(interface_hrn)]
-            if not object_name:
-                defer.returnValue([])
-
-            # Check for jokers ?
-            stack     = object_name
-            resolve   = True
-
-        elif auth_hrn:
-            # 2) given authority
-
-            # If the authority is not part of the hierarchy, let's return [] to
-            # prevent the registry to forward results to another registry
-            # XXX This should be ensured by partitions
-            auth_hrn  = [a for a in auth_hrn if a.startswith(interface_hrn)]
-            if not auth_hrn:
-                defer.returnValue([])
-
-            resolve   = False
-            recursive = False
-            stack = []
-            for hrn in auth_hrn:
-                if not '*' in hrn: # jokers ?
-                    stack.append(hrn)
-                else:
-                    stack = [interface_hrn]
-                    break
-
-        else: # Nothing given
-            resolve   = False
-            recursive = True if object != 'authority' else False
-            print "RECURSIVE=", recursive
-            stack = [interface_hrn]
-        
-        # TODO: user's objects, use reg-researcher
-        
-        cred = self._get_cred('user')
-
-        #Log.tmp("resolve = %s",resolve)
-        #Log.tmp("stack = %s",stack)
-        if resolve:
-            stack = map(lambda x: hrn_to_urn(x, object), stack)
-            _results  = yield self.registry.Resolve(stack, cred, {'details': True})
-            #_result = _results[0]
-
-            output = []
-
-            #Log.tmp("SFA Resolve results = %s",_results)
-
-            for _result in _results:
-
-                # XXX ROUTERV2 WARNING: FILTER ON TYPE BECAUSE Registry doesn't 
-                # XXX Due to a bug in SFA Wrap, we need to filter the type of object returned
-                # If 2 different objects have the same hrn, the bug occurs
-                # Ex: ple.upmc.agent (user) & ple.upmc.agent (slice)
-                if _result['type'] != object:
-                    continue
-
-                # XXX How to better handle DateTime XMLRPC types into the answer ?
-                # XXX Shall we type the results like we do in CSV ?
-                result = {}
-                for k, v in _result.items():
-                    if isinstance(v, DateTime):
-                        result[k] = str(v) # datetime.strptime(str(v), "%Y%m%dT%H:%M:%S") 
-                    else:
-                        result[k] = v
-                
-                output.append(result)
-
-            defer.returnValue(output)
-        
-        print "STACK=", stack
-        if len(stack) > 1:
-            deferred_list = []
-            while stack:
-                auth_xrn = stack.pop()
-                d = self.registry.List(auth_xrn, cred, {'recursive': recursive})
-                deferred_list.append(d)
-                    
-            result = yield defer.DeferredList(deferred_list)
-
-            output = []
-            for (success, records) in result:
-                if not success:
-                    continue
-                output.extend([r for r in records if r['type'] == object])
-            defer.returnValue(output)
-
-        else:
-            auth_xrn = stack.pop()
-
-            started = time.time()
-            records = yield self.registry.List(auth_xrn, cred, {'recursive': recursive})
-            print "LIST:", time.time() - started, "s"
-
-            records = [r for r in records if r['type'] == object]
-            record_urns = [hrn_to_urn(record['hrn'], object) for record in records]
-            # INSERT ROOT AUTHORITY
-            if object == 'authority':
-                record_urns.insert(0,hrn_to_urn(interface_hrn, object))
-
-            started = time.time()
-            records = yield self.registry.Resolve(record_urns, cred, {'details': True}) 
-            print "RESOLVE:", time.time() - started, "s"
-
-
-            # XXX ROUTERV2 WARNING: FILTER ON TYPE BECAUSE Registry doesn't 
-            # XXX Due to a bug in SFA Wrap, we need to filter the type of object returned
-            # If 2 different objects have the same hrn, the bug occurs
-            # Ex: ple.upmc.agent (user) & ple.upmc.agent (slice)
-            output = []
-            output.extend([r for r in records if r['type'] == object])
-            defer.returnValue(output)
-
-        
-
-    def get_slice(self, filters, params, fields):
-        # Because slice information is both in RM and AM, we need to manually
-        # JOIN queries to the RM and the AM.
-        # 
-        # This issue causes ugly code, but is solved in future versions of Manifold.
-        #
-        # See also: update_slice
-
-        print "get slice"
-
-        if self.user['email'] in DEMO_HOOKS:
-            defer.returnValue(self.get_slice_demo(filters, params, fields))
-            return
-
-        fields_am = fields & AM_SLICE_FIELDS
-        fields_rm = fields - AM_SLICE_FIELDS
-
-        print "fields_am", fields_am
-        print "fields_rm", fields_rm
-
-        if not fields_am:
-            print "ONLY RM"
-            return self.get_object('slice', SLICE_KEY, filters, params, fields)
-
-        # If fields from the AM are needed, we can systematically do the RM
-        # expecting the RM query will return if it is not needed
-
-        _self = self
-
-
-        class RMSliceRequest(Node):
-            def start(self):
-                def cb(records):
-                    for record in records:
-                        self.callback(Record(record))
-                    self.callback(LastRecord())
-                d = _self.get_object('slice', SLICE_KEY, filters, None, fields_rm)
-                d.addCallback(cb)
-
-        class AMSliceRequest(Node):
-            def start(self):
-                def cb(records):
-                    for record in records:
-                        self.callback(Record(record))
-                    self.callback(LastRecord())
-                print "calling resource lease", self._filters
-                d = _self.get_resource_lease(self._filters, None, fields_am, list_resources = True, list_leases = True)
-                d.addCallback(cb)
-
-            def optimize_selection(self, filter):
-                self._filters = filter
-                return self
-
-        # Join callback
-
-        lj = LeftJoin(RMSliceRequest(), AMSliceRequest(), Predicate('reg-urn', '==', 'slice'))
-        d = defer.Deferred()
-        lj.set_callback(Callback(deferred = d))
-        lj.start()
-        return d
-
-
-#        # XXX DONE XXX # 
-#
-#        if (fields_rm and fields_am) or (fields_am and not SLICE_KEY in filters):
-#            # For the same of simplicity, we will query the RM first (if
-#            # needed), then the AM, since the AM needs the name of the slice to
-#            # get resources
-#            if (fields_am and SLICE_KEY not in fields_rm) or (fields_rm > set([SLICE_KEY])):
-#                ret_rm = yield self.get_object('slice', 'slice_hrn', filters, params, fields_rm | set([SLICE_KEY]))
-#                slice_keys = [s['reg-urn'] for s in ret_rm]
-#                filters_am = Filter().filter_by(Predicate('slice', included, slice_keys))
-#                ret_am = yield self.get_resource_lease(filters_am, None, fields_am, list_resources = True, list_leases = True)
-#                
-#                # Merge (we have the SLICE_KEY in results from the AM)
-#                resource_lease_by_slice = {}
-#                for s in ret_am:
-#                    resource_lease_by_slice[s['slice']] = {'resource': s['resource'], 'lease': s['lease']}
-#                
-#                ret = []
-#                for s in ret_rm:
-#                    if s['reg-urn'] in resource_lease_by_slice:
-#                        s.update(resource_lease_by_slice[s['reg-urn']])
-#                    ret.append(s)
-#
-#
-#        else: # fields_am
-#            filters = filters.rename({SLICE_KEY, 'slice'})
-#
-#        defer.returnValue(ret)
-
-    def get_user(self, filters, params, fields):
-        # DEBUG get_user parent_authority INCLUDED "['p', 'l', 'e', '.', 'u', 'p', 'm', 'c']" 
-        Log.tmp("SFA GW :: get_user ")
-        Log.tmp(filters)
-
-        if self.user['email'] in DEMO_HOOKS:
-            Log.tmp(self.user)
-        #    defer.returnValue(self.get_user_demo(filters, params, fields))
-        #    return
-
-        return self.get_object('user', 'user_hrn', filters, params, fields)
-
-    def get_authority(self, filters, params, fields):
-
-        #if self.user['email'] in DEMO_HOOKS:
-        #    defer.returnValue(self.get_authority_demo(filters, params, fields))
-        #    return
-
-        return self.get_object('authority', 'authority_hrn', filters, params, fields)
-
-
-# WORKING #        if len(stack) > 1:
-# WORKING #            d = defer.Deferred()
-# WORKING #            deferred_list = []
-# WORKING #            while stack:
-# WORKING #                auth_xrn = stack.pop()
-# WORKING #                deferred_list.append(self.registry.List(auth_xrn, cred, {'recursive': recursive}))
-# WORKING #            defer.DeferredList(deferred_list).addCallback(get_slice_callback).chainDeferred(d)
-# WORKING #            return d
-# WORKING #        else:
-# WORKING #            auth_xrn = stack.pop()
-# WORKING #            return self.registry.List(auth_xrn, cred, {'recursive': recursive})
-# WORKING #
-# WORKING #        def get_slice_callback(result):
-# WORKING #            output = []
-# WORKING #            for (success, records) in result:
-# WORKING #                if not success:
-# WORKING #                    print "ERROR in CALLBACK", records
-# WORKING #                    continue
-# WORKING #                output.extend([r for r in records if r['type'] == 'slice'])
-# WORKING #            return output
-
-# REFERENCE # This code is known to crash sfawrap, saved for further reference
-# REFERENCE # 
-# REFERENCE #         def get_slice_callback(result):
-# REFERENCE #             try:
-# REFERENCE #                 from twisted.internet import defer
-# REFERENCE #                 for (success, records) in result:
-# REFERENCE #                     if not success:
-# REFERENCE #                         print "ERROR in CALLBACK", records
-# REFERENCE #                         continue
-# REFERENCE #                     for record in records:
-# REFERENCE #                         if (record['type'] == 'slice'):
-# REFERENCE #                             result.append(record)
-# REFERENCE #                         elif (record['type'] == 'authority'):
-# REFERENCE #                             # "recursion"
-# REFERENCE #                             stack.append(record['hrn'])
-# REFERENCE #                 deferred_list = []
-# REFERENCE #                 if stack:
-# REFERENCE #                     while stack:
-# REFERENCE #                         auth_xrn = stack.pop()
-# REFERENCE #                         deferred_list.append(self.registry.List(auth_xrn, cred, {'recursive': True}))
-# REFERENCE #                     dl = defer.DeferredList(deferred_list).addCallback(get_slice_callback)
-# REFERENCE #             except Exception, e:
-# REFERENCE #                 print "E: get_slice_callback", e
-# REFERENCE #                 import traceback
-# REFERENCE #                 traceback.print_exc()
-
-
-#DEPRECATED#    def get_user(self, filters = None, params = None, fields = None):
-#DEPRECATED#
-#DEPRECATED#        cred = self._get_cred('user')
-#DEPRECATED#
-#DEPRECATED#        # A/ List users
-#DEPRECATED#        if not filters or not (filters.has_eq('user_hrn') or filters.has_eq('authority_hrn')):
-#DEPRECATED#            # no authority specified, we get all users *recursively*
-#DEPRECATED#            raise Exception, "E: Recursive user listing not implemented yet."
-#DEPRECATED#
-#DEPRECATED#        elif filters.has_eq('authority_hrn'):
-#DEPRECATED#            # Get the list of users
-#DEPRECATED#            auths = filters.get_eq('authority_hrn')
-#DEPRECATED#            if not isinstance(auths, list): auths = [auths]
-#DEPRECATED#
-#DEPRECATED#            # Get the list of user_hrn
-#DEPRECATED#            user_list = []
-#DEPRECATED#            for hrn in auths:
-#DEPRECATED#                ul = self.registry.List(hrn, cred)
-#DEPRECATED#                ul = filter_records('user', ul)
-#DEPRECATED#                user_list.extend([r['hrn'] for r in ul])
-#DEPRECATED#
-#DEPRECATED#        else: # named users
-#DEPRECATED#            user_list = filters.get_eq('user_hrn')
-#DEPRECATED#            if not isinstance(user_list, list): user_list = [user_list]
-#DEPRECATED#        
-#DEPRECATED#        if not user_list: return user_list
-#DEPRECATED#
-#DEPRECATED#        # B/ Get user information
-#DEPRECATED#        if filters == set(['user_hrn']): # urn ?
-#DEPRECATED#            return [ {'user_hrn': hrn} for hrn in user_list ]
-#DEPRECATED#
-#DEPRECATED#        else:
-#DEPRECATED#            # Here we could filter by authority if possible
-#DEPRECATED#            if filters.has_eq('authority_hrn'):
-#DEPRECATED#                predicates = filters.get_predicates('authority_hrn')
-#DEPRECATED#                for p in predicates:
-#DEPRECATED#                    user_list = [s for s in user_list if p.match({'authority_hrn': get_authority(s)})]
-#DEPRECATED#
-#DEPRECATED#            if not user_list: return user_list
-#DEPRECATED#
-#DEPRECATED#            users = self.registry.Resolve(user_list, cred)
-#DEPRECATED#            users = filter_records('user', users)
-#DEPRECATED#            filtered = []
-#DEPRECATED#
-#DEPRECATED#            for user in users:
-#DEPRECATED#                # translate field names...
-#DEPRECATED#                for k,v in self.map_user_fields.items():
-#DEPRECATED#                    if k in user:
-#DEPRECATED#                        user[v] = user[k]
-#DEPRECATED#                        del user[k]
-#DEPRECATED#                # apply input_filters XXX TODO sort limit offset
-#DEPRECATED#                if filters.match(user):
-#DEPRECATED#                    # apply output_fields
-#DEPRECATED#                    c = {}
-#DEPRECATED#                    for k,v in user.items():
-#DEPRECATED#                        if k in fields:
-#DEPRECATED#                            c[k] = v
-#DEPRECATED#                    filtered.append(c)
-#DEPRECATED#
-#DEPRECATED#            return filtered
-
-    # minimally check a key argument
-    def check_ssh_key(self, key):
-        good_ssh_key = r'^.*(?:ssh-dss|ssh-rsa)[ ]+[A-Za-z0-9+/=]+(?: .*)?$'
-        return re.match(good_ssh_key, key, re.IGNORECASE)
-
-    def create_record_from_params(self, type, params):
-        record_dict = {}
-        if type == 'slice':
-            # This should be handled beforehand
-            if 'slice_hrn' not in params or not params['slice_hrn']:
-                raise Exception, "Must specify slice_hrn to create a slice"
-            xrn = Xrn(params['slice_hrn'], type)
-            record_dict['urn'] = xrn.get_urn()
-            record_dict['hrn'] = xrn.get_hrn()
-            record_dict['type'] = xrn.get_type()
-        # XXX ???
-        if 'key' in params and params['key']:
-            #try:
-            #    pubkey = open(params['key'], 'r').read()
-            #except IOError:
-            pubkey = params['key']
-            if not self.check_ssh_key(pubkey):
-                raise SfaInvalidArgument(name='key',msg="Wrong key format")
-                #raise SfaInvalidArgument(name='key',msg="Could not find file, or wrong key format")
-            record_dict['keys'] = [pubkey]
-        if 'slices' in params and params['slices']:
-            record_dict['slices'] = params['slices']
-        if 'researchers' in params and params['researchers']:
-            # for slice: expecting a list of hrn
-            record_dict['researcher'] = params['researchers']
-        if 'email' in params and params['email']:
-            record_dict['email'] = params['email']
-        if 'pis' in params and params['pis']:
-            record_dict['pi'] = params['pis']
-
-        #slice: description
-
-        # handle extra settings
-        #record_dict.update(options.extras)
-
-        return SfaRecord(dict=record_dict)
-
-    @defer.inlineCallbacks
-    def create_object(self, filters, params, fields):
-
-        # XXX should call create_record_from_params which would rely on mappings
-        dict_filters = filters.to_dict()
-        if self.query.object + '_hrn' in params:
-            object_hrn = params[self.query.object+'_hrn']
-        else:         
-            object_hrn = params['hrn']
-        if 'hrn' not in params:
-            params['hrn'] = object_hrn
-        if 'type' not in params:
-            params['type'] = self.query.object
-            #raise Exception, "Missing type in params"
-        object_auth_hrn = get_authority(object_hrn)
-
-        server_version = yield self.get_cached_server_version(self.registry)    
-        server_auth_hrn = server_version['hrn']
-        
-        if not params['hrn'].startswith('%s.' % server_auth_hrn):
-            # XXX not a success, neither a warning !!
-            print "I: Not requesting object creation on %s for %s" % (server_auth_hrn, params['hrn'])
-            defer.returnValue([])
-
-        auth_cred = self._get_cred('authority', object_auth_hrn)
-
-        if 'type' not in params:
-            raise Exception, "Missing type in params"
-        try:
-            object_gid = yield self.registry.Register(params, auth_cred)
-        except Exception, e:
-            raise Exception, 'Failed to create object: record possibly already exists: %s' % e
-        defer.returnValue([{'hrn': params['hrn'], 'gid': object_gid}])
-
-    def create_user(self, filters, params, fields):
-        # already done in function rename_query
-        ## Create a reversed map : MANIFOLD -> SFA
-        #rmap = { v: k for k, v in self.map_user_fields.items() }
-
-        #new_params = dict()
-        #for key, value in params.items():
-        #    if key in rmap:
-        #        new_params[rmap[key]] = value
-        #    else:
-        #        new_params[key] = value
-
-        return self.create_object(filters, params, fields)
- 
-    def create_slice(self, filters, params, fields):
-        # Perform some renaming of the fields. In router v2 this will be done by the Rename attribute
-        # filters : should not be present unless we want to restrict what we create ?
-        # params : specified in Manifold ontology, need to map in SFA ontology
-        # fields : specified in Manifold terms, they are not used in SFA
-        # queries (maybe in the future for setting the details option to True
-        # or False), and currently just used by the upper level doing a
-        # Rename()
-        assert not filters, "Filters should not be specified for slice creation"
-        
-        # already done in function rename_query
-        ## Create a reversed map : MANIFOLD -> SFA
-        #rmap = { v: k for k, v in self.map_slice_fields.items() }
-
-        #new_params = dict()
-        #for key, value in params.items():
-        #    if key in rmap:
-        #        new_params[rmap[key]] = value
-        #    else:
-        #        new_params[key] = value
-
-        return self.create_object(filters, params, fields)
-
-    def create_resource(self, filters, params, fields):
-        return self.create_object(filters, params, fields)
-
-    def create_authority(self, filters, params, fields):
-        return self.create_object(filters, params, fields)
-
-        ## Get the slice name
-        #if not 'hrn' in params:
-        #    raise Exception, "Create slice requires a slice name"
-        #hrn = params['hrn']
-        #
-        ## Are we creating the slice on the right authority
-        #slice_auth = get_authority(slice_hrn)
-        #server_version = self.get_cached_server_version(self.registry)
-        #server_auth = server_version['hrn']
-        #if not slice_auth.startswith('%s.' % server_auth):
-        #    print "I: Not requesting slice creation on %s for %s" % (server_auth, slice_hrn)
-        #    return []
-        #print "I: Requesting slice creation on %s for %s" % (server_auth, slice_hrn)
-        #print "W: need to check slice is created under user authority"
-        #cred = self._get_cred('authority')
-        #record_dict = self.create_record_from_params('slice', params)
-        #try:
-        #    slice_gid = self.registry.Register(record_dict, cred)
-        #except Exception, e:
-        #    print "E: %s" % e
-        #return []
-
-    @defer.inlineCallbacks
-    def update_object(self, filters, params, fields):
-
-        # DEBUG
-        Log.tmp("update_object")
-
-        # XXX should call create_record_from_params which would rely on mappings
-        dict_filters = filters.to_dict()
-        if filters.has(self.query.object+'_hrn'):
-            object_hrn = dict_filters[self.query.object+'_hrn']
-        else:
-            object_hrn = dict_filters['hrn']
-        if 'hrn' not in params:
-            params['hrn'] = object_hrn
-        if 'type' not in params:
-            params['type'] = self.query.object
-            #raise Exception, "Missing type in params"
-        object_auth_hrn = get_authority(object_hrn)
-        server_version = yield self.get_cached_server_version(self.registry)
-        server_auth_hrn = server_version['hrn']
-        if not object_auth_hrn.startswith('%s.' % server_auth_hrn):
-            # XXX not a success, neither a warning !!
-            print "I: Not requesting object update on %s for %s" % (server_auth_hrn, object_auth_hrn)
-            defer.returnValue([])
-        # If we update our own user, we only need our user_cred
-        if self.query.object == 'user':
-            try:
-                caller_user_hrn = self.user_config['user_hrn']
-            except Exception, e:
-                raise Exception, "Missing user_hrn in account.config of the user" 
-            if object_hrn == caller_user_hrn:
-                Log.tmp("Need a user credential to update your own user: %s" % object_hrn)
-                auth_cred = self._get_cred('user')
-            # Else we need an authority cred above the object
-            else:
-                Log.tmp("Need an authority credential to update another user: %s" % object_hrn)
-                auth_cred = self._get_cred('authority', object_auth_hrn)
-        # TODO: ROUTERV2
-        # update slice requires slice_credential not authority
-        elif self.query.object == 'slice':
-            Log.tmp("Need a slice credential to update: %s" % object_hrn)
-            auth_cred = self._get_cred('slice', object_hrn)
-        else:
-            Log.tmp("Need an authority credential to update: %s" % object_hrn)
-            auth_cred = self._get_cred('authority', object_auth_hrn)
-        try:
-            object_gid = yield self.registry.Update(params, auth_cred)
-        except Exception, e:
-            raise Exception, 'Failed to Update object: %s' % e
-        defer.returnValue([{'hrn': params['hrn'], 'gid': object_gid}])
-    
-    def update_user(self, filters, params, fields):
-       return self.update_object(filters, params, fields)
-    
-    def update_slice(self, filters, params, fields):
-        do_update_am = bool(set(params.keys()) & AM_SLICE_FIELDS)
-        do_update_rm = bool(set(params.keys()) - AM_SLICE_FIELDS)
-
-        do_get_am    = fields & AM_SLICE_FIELDS and not do_update_am
-        do_get_rm    = fields - AM_SLICE_FIELDS and not do_update_rm
-
-        do_am        = do_get_am or do_update_am
-        do_rm        = do_get_rm or do_update_rm
-
-        print "do_update_am", do_update_am
-        print "do_update_rm", do_update_rm
-        print "do_get_am", do_get_am
-        print "do_get_rm", do_get_rm, "for fields", fields - AM_SLICE_FIELDS
-
-        print "do_am", do_am
-        print "do_rm", do_rm
-
-        if do_am and do_rm:
-            # Part on the RM side, part on the AM side... until AM and RM are
-            # two different GW, we need to manually make a left join between
-            # the results of both calls
-            
-            # Ensure join key in fields (in fact not needed since we filter on pkey)
-            #has_key = SLICE_KEY in fields
-            fields_am = fields & AM_SLICE_FIELDS
-            #if not has_key:
-            #     fields_am |= SLICE_KEY
-            fields_rm = fields - AM_SLICE_FIELDS
-            #if not has_key:
-            #    fields_rm |= SLICE_KEY
-
-            if do_get_am: # then we have do_update_rm (because update_slice)
-                print "do get_slice am"
-                ret_am = self.get_slice(filters, params, fields_am)
-                ret_rm = self.update_object(filters, params, fields_rm)
-            else:
-                # The typical case: update AM and get RM
-                #print "do get rm"
-                print "do update_slice am"
-                Log.tmp(filters)
-                ret_am = self.update_slice_am(filters, params, fields_am)
-                ret_rm = self.get_slice(filters, params, fields_rm)
-
-            #print "This should be two deferred:"
-            #print " - ret_am", ret_am
-            #print " - ret_rm", ret_rm
-
-            dl = defer.DeferredList([ret_am, ret_rm])
-            if do_get_am:
-                def cb(result):
-                    assert len(result) == 2
-                    (am_success, am_records), (rm_success, rm_records) = result
-                    # XXX success
-                    am_record = am_records[0]
-                    rm_record = rm_records[0]
-                    rm_record.update(am_record)
-                    return [rm_record]
-                dl.addCallback(cb)
-                return dl
-            else:
-                # The typical case
-                def cb(result):
-                    assert len(result) == 2
-                    (am_success, am_records), (rm_success, rm_records) = result
-                    # XXX success
-                    #print "AM success false when i raise an exception... handle !!!!" # XXX XXX
-                    print "AM SUCCESS", am_success, "RM SUCCESS", rm_success
-                    print am_records, rm_records
-                    Log.warning("We should handle exceptions here !")
-                    # XXX in case of failure, this contains a failure
-                    am_record = am_records[0] if am_records else {} # XXX Why sometimes empty ????
-                    rm_record = rm_records[0] if rm_records else {} # XXX Why sometimes empty ????
-                    am_record.update(rm_record)
-                    return [am_record]
-                dl.addCallback(cb)
-                return dl
-
-            # Remove key
-            #if not has_key:
-            #    del ret[SLICE_KEY]
-
-        if do_update_am:
-            return self.update_slice_am(filters, params, fields)
-        else: # do_update_rm
-            return self.update_object(filters, params, fields)
-        
-    def update_authority(self, filters, params, fields):
-        return self.update_object(filters, params, fields)
-
-    # Let's not have resource in the registry for the time being since it causes conflicts with the AM until AM and RM are separated...
-    #def update_resource(self, filters, params, fields):
-    #    return self.update_object(filters, params, fields)
-
-    # NOTE : The two following subqueries should be sent at the same time
-    # Maintain pending queries ?
-    # This was solved before thanks to update_slice
+    # The following functions are currently handled by update_slice_am
 
     def update_resource(self, filters, params, fields): # AM
         pass
@@ -1817,12 +1888,20 @@ class SFAGateway(Gateway):
     def update_leases(self, filters, params, fields): # AM
         pass
 
+    #--------------------------------------------------------------------------- 
+    # Delete
+    #--------------------------------------------------------------------------- 
+
     # DELETE - REMOVE sent to the Registry
     # XXX TODO: What about Delete sent to the Registry???
     # To be implemented in ROUTERV2
 
     @defer.inlineCallbacks
-    def delete_object(self, filters):
+    def delete_object(self, filters, params, fields):
+        filters = self.rename_filters(filters)
+        assert not params
+        assert not fields
+
         dict_filters = filters.to_dict()
         if filters.has(self.query.object+'_hrn'):
             object_hrn = dict_filters[self.query.object+'_hrn']
@@ -1841,14 +1920,14 @@ class SFAGateway(Gateway):
             raise Exception, 'Failed to Remove object: %s' % e
         defer.returnValue([{'hrn': object_hrn, 'gid': object_gid}])
 
-    def delete_user(self, filters, params, fields):
-        return self.delete_object(filters)
+    delete_user      = delete_object
+    delete_slice     = delete_object
+    delete_authority = delete_object
+    delete_resource  = delete_object
 
-    def delete_slice(self, filters, params, fields):
-        return self.delete_object(filters)
-
-    def delete_authority(self, filters, params, fields):
-        return self.delete_object(filters)
+    #--------------------------------------------------------------------------- 
+    # Other functions
+    #--------------------------------------------------------------------------- 
 
     def sfa_table_networks(self):
         versions = self.sfa_get_version_rec(self.sm_url)
@@ -1899,232 +1978,65 @@ class SFAGateway(Gateway):
         networks = self.sfa_table_networks()
         return project_select_and_rename_fields(networks, 'network_hrn', input_filter, output_fields)
 
-    def get_recauth(self, input_filter = None, output_fields = None):
-        user_cred = self.get_user_cred().save_to_string(save_parents=True)
-        records = self.get_networks()
-        todo = [r['network_hrn'] for r in records]
-        while todo:
-            newtodo = []
-            for hrn in todo:
-                try:
-                    records = self.registry.List(hrn, user_cred)
-                except Exception, why:
-                    print "Exception during %s: %s" % (hrn, str(why))
-                    continue
-                records = filter_records('authority', records)
-                newtodo.extend([r['hrn'] for r in records])
-            todo = newtodo
-        
-        records = filter_records('authority', list)
+# UNUSED |    def get_recauth(self, input_filter = None, output_fields = None):
+# UNUSED |        user_cred = self.get_user_cred().save_to_string(save_parents=True)
+# UNUSED |        records = self.get_networks()
+# UNUSED |        todo = [r['network_hrn'] for r in records]
+# UNUSED |        while todo:
+# UNUSED |            newtodo = []
+# UNUSED |            for hrn in todo:
+# UNUSED |                try:
+# UNUSED |                    records = self.registry.List(hrn, user_cred)
+# UNUSED |                except Exception, why:
+# UNUSED |                    print "Exception during %s: %s" % (hrn, str(why))
+# UNUSED |                    continue
+# UNUSED |                records = filter_records('authority', records)
+# UNUSED |                newtodo.extend([r['hrn'] for r in records])
+# UNUSED |            todo = newtodo
+# UNUSED |        
+# UNUSED |        records = filter_records('authority', list)
 
-#    def get_status(self, input_filter, output_fields):
-#
-#        # We should first check we can effectively use the credential
-#
-#        if 'slice_hrn' in input_filter:
-#            slice_hrn = input_filter['slice_hrn']
-#        slice_urn = hrn_to_urn(slice_hrn, 'slice')
-#
-##        slice_cred = self.get_slice_cred(slice_hrn).save_to_string(save_parents=True)
-##        creds = [slice_cred]
-##        if opts.delegate:
-##            delegated_cred = self.delegate_cred(slice_cred, get_authority(self.authority))
-##            creds.append(delegated_cred)
-##        server = self.get_server_from_opts(opts)
-##        return server.SliverStatus(slice_urn, creds)
-#
-#        try:
-#            slice_cred = self.get_slice_cred(slice_hrn).save_to_string(save_parents=True)
-#            creds = [slice_cred]
-#        except:
-#            # Fails if no right on slice, should use delegated credential
-#            #delegated_cred = self.delegate_cred(slice_cred, get_authority(self.authority)) # XXX
-#            #dest_fn = os.path.join(self.config['sfi_dir'], get_leaf(self.user) + "_slice_" + get_leaf(slice_hrn) + ".cred")
-#            #str = file(dest_fn, "r").read()
-#            #delegated_cred = str #Credential(string=str).save_to_string(save_parents=True)
-#            #creds.append(delegated_cred) # XXX
-#            cds = MySliceCredentials(self.api, {'credential_person_id': self.config['caller']['person_id'], 'credential_target': slice_hrn}, ['credential']) # XXX type
-#            if not cds:
-#                raise Exception, 'No credential available'
-#            creds = [cds[0]['credential']]
-#
-#        #server = self.get_server_from_opts(opts)
-#        ## direct connection to an aggregate
-#        #if hasattr(opts, 'aggregate') and opts.aggregate:
-#        #    server = self.get_server(opts.aggregate, opts.port, self.key_file, self.cert_file)
-#        ## direct connection to the nodes component manager interface
-#        #if hasattr(opts, 'component') and opts.component:
-#        #    server = self.get_component_server_from_hrn(opts.component)
-#
-#        return self.sliceapi.SliverStatus(slice_urn, creds)
+# DEPRECATED |    def get_status(self, input_filter, output_fields):
+# DEPRECATED |
+# DEPRECATED |        # We should first check we can effectively use the credential
+# DEPRECATED |
+# DEPRECATED |        if 'slice_hrn' in input_filter:
+# DEPRECATED |            slice_hrn = input_filter['slice_hrn']
+# DEPRECATED |        slice_urn = hrn_to_urn(slice_hrn, 'slice')
+# DEPRECATED |
+# DEPRECATED |#        slice_cred = self.get_slice_cred(slice_hrn).save_to_string(save_parents=True)
+# DEPRECATED |#        creds = [slice_cred]
+# DEPRECATED |#        if opts.delegate:
+# DEPRECATED |#            delegated_cred = self.delegate_cred(slice_cred, get_authority(self.authority))
+# DEPRECATED |#            creds.append(delegated_cred)
+# DEPRECATED |#        server = self.get_server_from_opts(opts)
+# DEPRECATED |#        return server.SliverStatus(slice_urn, creds)
+# DEPRECATED |
+# DEPRECATED |        try:
+# DEPRECATED |            slice_cred = self.get_slice_cred(slice_hrn).save_to_string(save_parents=True)
+# DEPRECATED |            creds = [slice_cred]
+# DEPRECATED |        except:
+# DEPRECATED |            # Fails if no right on slice, should use delegated credential
+# DEPRECATED |            #delegated_cred = self.delegate_cred(slice_cred, get_authority(self.authority)) # XXX
+# DEPRECATED |            #dest_fn = os.path.join(self.config['sfi_dir'], get_leaf(self.user) + "_slice_" + get_leaf(slice_hrn) + ".cred")
+# DEPRECATED |            #str = file(dest_fn, "r").read()
+# DEPRECATED |            #delegated_cred = str #Credential(string=str).save_to_string(save_parents=True)
+# DEPRECATED |            #creds.append(delegated_cred) # XXX
+# DEPRECATED |            cds = MySliceCredentials(self.api, {'credential_person_id': self.config['caller']['person_id'], 'credential_target': slice_hrn}, ['credential']) # XXX type
+# DEPRECATED |            if not cds:
+# DEPRECATED |                raise Exception, 'No credential available'
+# DEPRECATED |            creds = [cds[0]['credential']]
+# DEPRECATED |
+# DEPRECATED |        #server = self.get_server_from_opts(opts)
+# DEPRECATED |        ## direct connection to an aggregate
+# DEPRECATED |        #if hasattr(opts, 'aggregate') and opts.aggregate:
+# DEPRECATED |        #    server = self.get_server(opts.aggregate, opts.port, self.key_file, self.cert_file)
+# DEPRECATED |        ## direct connection to the nodes component manager interface
+# DEPRECATED |        #if hasattr(opts, 'component') and opts.component:
+# DEPRECATED |        #    server = self.get_component_server_from_hrn(opts.component)
+# DEPRECATED |
+# DEPRECATED |        return self.sliceapi.SliverStatus(slice_urn, creds)
 
-    @defer.inlineCallbacks
-    def get_lease(self,filters,params,fields):
-        result = yield self._get_resource_lease(filters,fields,params, list_resources = False, list_leases = True)
-        defer.returnValue(result['lease'])
-
-    # This get_resource is about the AM only... let's forget about RM for the time being
-    @defer.inlineCallbacks
-    def get_resource(self, filters, params, fields):
-        result = yield self._get_resource_lease(filters, fields, params, list_resources = True, list_leases = False)
-        defer.returnValue(result['resource'])
-
-    def get_resource_lease(self, filters, params, fields, list_resources = True, list_leases = True):
-        """
-        _get_resource_lease only supports querying ONE slice
-        This function is in charge of calling it multiple times in parallel, and sending the aggregated result back.
-        """
-        Log.tmp("get_resource_lease", filters, fields)
-
-        # XXX Can be more selective
-        try:
-            slice_keys = list(filters.get_op('slice', [eq, included]))
-        except Exception, e:
-            raise Exception, "Cannot get slice keys for calling the AM ListResources: %s" %  e
-
-        print "*" * 80
-        print "SLICE KEYS", slice_keys
-
-        deferred_list = []
-        for slice_key in slice_keys:
-            filters_am = Filter().filter_by(Predicate('slice', eq, slice_key))
-            print "filters_am=", filters_am
-            d = self._get_resource_lease(filters_am, params, fields, list_resources, list_leases)
-            deferred_list.append(d)
-        dl = defer.DeferredList(deferred_list)
-        def cb(result):
-            ret = []
-            for (am_success, am_records) in result:
-                if not am_success:
-                    print "Ignored failed call for get_resource_lease", am_records
-                    continue
-                ret.append(am_records)
-            return ret
-        dl.addCallback(cb)
-        return dl
-
-    @defer.inlineCallbacks
-    def _get_resource_lease(self, filters, params, fields, list_resources = True, list_leases = True):
-        Log.tmp("SFA GW :: get_resource_lease")
-#DEPRECATED|        if self.user['email'] in DEMO_HOOKS:
-#DEPRECATED|            rspec = open('/usr/share/manifold/scripts/nitos.rspec', 'r')
-#DEPRECATED|            defer.returnValue(self.parse_sfa_rspec(rspec))
-#DEPRECATED|            return 
-        rspec_string = None
-
-        # Do we have a way to find slices, for now we only support explicit slice names
-        # Note that we will have to inject the slice name into the resource object if not done by the parsing.
-        # slice - resource is a NxN relationship, not well managed so far
-
-        # ROUTERV2
-        Log.tmp("get_resource_lease filters = %s",filters)
-        slice_urns = make_list(filters.get_op('slice', (eq, included)))
-        slice_urn = slice_urns[0] if slice_urns else None
-        slice_hrn, _ = urn_to_hrn(slice_urn) if slice_urn else (None, None)
-
-        # XXX ONLY ONE AND WITHOUT JOKERS
-
-        # no need to check if server accepts the options argument since the options has
-        # been a required argument since v1 API
-        api_options = {}
-        # always send call_id to v2 servers
-        api_options ['call_id'] = unique_call_id()
-        # Get server capabilities
-        ## AM 
-        #if self.sliceapi:
-        #    server = self.sliceapi
-        ## Registry
-        #else:
-        #    server = self.registry
-
-        #server_hrn = yield self.get_interface_hrn(server)
-
-        #server_version = yield self.get_cached_server_version(self.sliceapi)
-        type_version = set()
-
-        # Manage Rspec versions
-        if 'rspec_type' and 'rspec_version' in self.config:
-            api_options['geni_rspec_version'] = {'type': self.config['rspec_type'], 'version': self.config['rspec_version']}
-        else:
-            # For now, lets use GENIv3 as default
-            api_options['geni_rspec_version'] = {'type': 'GENI', 'version': '3'}
-            #api_options['geni_rspec_version'] = {'type': 'SFA', 'version': '1'}  
- 
-        if slice_hrn:
-            cred = self._get_cred('slice', slice_hrn, v3 = self.am_version['geni_api'] != 2)
-            api_options['geni_slice_urn'] = slice_urn
-        else:
-            cred = self._get_cred('user', v3= self.am_version['geni_api'] != 2)
-
-        # Due to a bug in sfawrap, we need to disable caching on the testbed
-        # side, otherwise we might not get RSpecs without leases
-        # Anyways, caching on the testbed side is not needed since we have more
-        # efficient caching on the client side
-        # XXX Listing all resources on senslab is really slow, we need to have caching...
-        api_options['cached'] = False
-
-
-        # XXX Hardcoded for SENSLAB
-#        if server_version.get('hrn') == 'iotlab' and not slice_hrn:
-#            api_options['cached'] = True
-#            api_options['list_leases'] = 'all'
-#            Log.tmp("Hardcoded RSpec for IOTLAB")
-#            rspec_string = open("/var/myslice/iotlab.rspec").read()
-
-        if list_resources:
-            if list_leases:
-                api_options['list_leases'] = 'all' 
-            else:
-                api_options['list_leases'] = 'resources'
-        else:
-            if list_leases:
-                api_options['list_leases'] = 'leases'
-            else:
-                raise Exception, "Neither resources nor leases requested in ListResources"
-
-        # XXX Just because we hardcoded before
-        if not rspec_string:
-            if self.am_version['geni_api'] == 2:
-                # AM API v2 
-                result = yield self.sliceapi.ListResources([cred], api_options)
-            else:
-                # AM API v3
-                if slice_hrn:
-                    # XX XXXX XXX
-                    result = yield self.sliceapi.Describe([slice_urn], [cred], api_options)
-                    # XXX Weird !
-                    result['value'] = result['value']['geni_rspec']
-                else:
-                    #Log.warning("remove me!!!!")
-                    #api_options['list_leases'] = 'all'
-                    result = yield self.sliceapi.ListResources([cred], api_options)
-                    
-            if not 'value' in result or not result['value']:
-                raise Exception, result['output']
-
-            rspec_string = result['value']
- 
-        # rspec_type and rspec_version should be set in the config of the platform,
-        # we use GENIv3 as default one if not
-        if 'rspec_type' and 'rspec_version' in self.config:
-            rspec_version = self.config['rspec_type'] + ' ' + self.config['rspec_version']
-        else:
-            rspec_version = 'GENI 3'
-       
-        parser = yield self.get_parser()
-        #print "rspec_string", rspec_string
-        rsrc_slice = parser.parse(rspec_string, rspec_version, slice_urn)
-
-        if slice_urn:
-            rsrc_slice['slice'] = slice_urn
-            for r in rsrc_slice['resource']:
-                r['slice'] = slice_hrn
-            for r in rsrc_slice['lease']:
-                r['slice'] = slice_hrn
-
-        if self.debug:
-            rsrc_slice['debug'] = {'rspec': rspec}
-        defer.returnValue(rsrc_slice)
 
 
     def add_rspec_to_cache(self, slice_hrn, rspec):
@@ -2173,35 +2085,21 @@ class SFAGateway(Gateway):
     def __str__(self):
         return "<SFAGateway %r: %s>" % (self.config['sm'], self.query)
 
-    # XXX WIP 
-    def rename_query(self,query):
-        #Log.tmp("--------------> BEFORE RENAME QUERY")        
-        #Log.tmp(query.filters)
+    def rename_filters(self, filters, aliases):
+        return filters.rename(aliases)
 
-        # Create a reversed map : MANIFOLD -> SFA
-        if query.object in self.map_fields:
-            map_object = self.map_fields[query.object]   
-            rmap = { v: k for k, v in map_object.items() }
-    
-            new_fields = set([rmap.get(x, x) for x in query.fields])
-                 
-            new_params = dict()
-            for key, value in query.params.items():
-                if key in rmap:
-                    new_params[rmap[key]] = value
-                else:
-                    new_params[key] = value
-            
-            new_filters = query.filters.rename(rmap)
-    
-            #Log.tmp("--------------> AFTER RENAME QUERY")        
-            #Log.tmp(new_fields)
-            #Log.tmp(new_params)
-            #Log.tmp(new_filters)
-            query.filters = new_filters
-            query.fields = new_fields
-            query.params = new_params
-        return query
+    def rename_fields(self, fields, aliases):
+        # In routerv2, this will be fields
+        return set([aliases.get(x, x) for x in fields])
+
+    def rename_params(self, params, aliases):
+        new_params = dict()
+        for key, value in params.items():
+            if key in aliases:
+                new_params[aliases[key]] = value
+            else:
+                new_params[key] = value
+        return new_params
         
     @defer.inlineCallbacks
     def start(self):
@@ -2221,8 +2119,12 @@ class SFAGateway(Gateway):
             # TODO: ROUTERV2 
             # This will be different in ROUTERV2
             #Log.tmp("================ RENAME QUERY ==============")
-            q = self.rename_query(q)
-            #self.rename_query(q)
+            # This will be done 
+            # Create a reversed map : MANIFOLD -> SFA
+            #if q.object in self.map_fields:
+            #    map_object = self.map_fields[q.object]   
+            #    aliases = { v: k for k, v in map_object.items() }
+            #    q = self.rename_query(q, aliases)
 
             fields = q.fields # Metadata.expand_output_fields(q.object, list(q.fields))
             Log.debug("SFA CALL START %s_%s" % (q.action, q.object), q.filters, q.params, fields)
