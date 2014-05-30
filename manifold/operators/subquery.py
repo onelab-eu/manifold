@@ -85,14 +85,12 @@ class SubQuery(Node):
         \brief Dump the current node
         \param indent current indentation
         """
-        self.tab(indent)
-        print '<main>'
-        self.parent.dump(indent+1)
-        if not self.children: return
-        self.tab(indent)
-        print '<subqueries>'
+        s = []
+        s.append(self.parent.dump(indent+1))
+        s.append(Node.dump(self, indent))
         for child in self.children:
-            child.dump(indent + 1)
+            s.append(child.dump(indent + 1))
+        return "\n".join(s)
 
     def __repr__(self):
         return DUMPSTR_SUBQUERIES
