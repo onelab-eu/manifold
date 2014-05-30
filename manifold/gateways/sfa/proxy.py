@@ -44,6 +44,33 @@ DEFAULT_TIMEOUT = 20
 AGGREGATE_CALLS = ['GetVersion', 'ListResources']
 REGISTRY_CALLS = ['GetVersion', 'Resolve', 'Update', 'Delete', 'Register']
 
+#-------------------------------------------------------------------------------
+# Pretty print helper functions
+#-------------------------------------------------------------------------------
+
+ARG_SNIFF_CRED  = "<?xml version=\"1.0\"?>\n<signed-credential "
+ARG_SNIFF_RSPEC = "<?xml version=\"1.0\"?>\n<rspec "
+
+def is_credential(cred):
+    is_v2 = isinstance(cred, StringTypes) and cred.startswith(ARG_SNIFF_CRED)
+    is_v3 = isinstance(cred, dict) and 'geni_type' in cred
+    return is_v2 or is_v3
+
+def is_rspec(cred):
+    return isinstance(cred, StringTypes) and cred.startswith(ARG_SNIFF_RSPEC)
+
+def is_credential_list(cred):
+    return isinstance(cred, list) and reduce(lambda x, y: x and is_credential(y), cred, True)
+
+def is_user_list(arg):
+    is_user_list_1 = isinstance(arg, dict) and 'geni_users' in arg
+
+    # For CreateSliver nitosb
+    is_user_list_2 = isinstance(arg, list) and arg and isinstance(arg[0], dict) and 'keys' in arg[0]
+
+    return is_user_list_1 or is_user_list_2
+
+
 class CtxFactory(ssl.ClientContextFactory):
 
     def __init__(self, pkey, cert):
@@ -138,53 +165,6 @@ class CtxFactory(ssl.ClientContextFactory):
         #ctx.set_info_callback(infoCallback)
 
         return ctx
-
-#DEPRECATED|class SFATokenMgr(object):
-#DEPRECATED|    """
-#DEPRECATED|    This singleton class is meant to regulate accesses to the different SFA API
-#DEPRECATED|    since some implementations of SFA such as SFAWrap are suspected to be
-#DEPRECATED|    broken with some configuration of concurrent connections.
-#DEPRECATED|    """
-#DEPRECATED|    __metaclass__ = Singleton
-#DEPRECATED|
-#DEPRECATED|    # XXX This should be URL
-#DEPRECATED|    BLACKLIST = ["ple", "nitos", "iotlab"]
-#DEPRECATED|
-#DEPRECATED|    def __init__(self):
-#DEPRECATED|        self.busy     = dict() # network -> Bool
-#DEPRECATED|        self.deferred = dict() # network -> deferred corresponding to waiting queries
-#DEPRECATED|
-#DEPRECATED|    def get_token(self, interface):
-#DEPRECATED|        # We police queries only on blacklisted interfaces
-#DEPRECATED|        Log.warning("SFATokenMgr::get_token(): TODO: update SFATokenMgr::BLACKLIST")
-#DEPRECATED|        if not interface or interface not in self.BLACKLIST:
-#DEPRECATED|            return True
-#DEPRECATED|
-#DEPRECATED|        # If the interface is not busy, the request can be done immediately
-#DEPRECATED|        if not (interface in self.busy and self.busy[interface]):
-#DEPRECATED|            return True
-#DEPRECATED|
-#DEPRECATED|        # Otherwise we queue the request and return a Deferred that will get
-#DEPRECATED|        # activated when the queries terminates and triggers a put
-#DEPRECATED|        d = defer.Deferred()
-#DEPRECATED|        if not interface in self.deferred:
-#DEPRECATED|            #print "SFATokenMgr::get_token() - Deferring query to %s" % interface
-#DEPRECATED|            self.deferred[interface] = deque()
-#DEPRECATED|        self.deferred[interface].append(d)
-#DEPRECATED|        return d
-#DEPRECATED|
-#DEPRECATED|    def put_token(self, interface):
-#DEPRECATED|        # are there items waiting on queue for the same interface, if so, there are deferred that can be called
-#DEPRECATED|        # remember that the interface is being used for the query == available
-#DEPRECATED|        if not interface:
-#DEPRECATED|            return
-#DEPRECATED|        self.busy[interface] = False
-#DEPRECATED|        if interface in self.deferred and self.deferred[interface]:
-#DEPRECATED|            #print "SFATokenMgr::put_token() - Activating deferred query to %s" % interface
-#DEPRECATED|            d = self.deferred[interface].popleft()
-#DEPRECATED|            d.callback(True)
-#DEPRECATED|        pass
-    
 
 class SFAProxy(object):
     # Twisted HTTPS/XMLRPC inspired from
@@ -323,28 +303,42 @@ class SFAProxy(object):
             d = defer.Deferred()
 
             def proxy_success_cb(result):
+                diff = time.time() - self.started
+                Log.debug('SFA CALL SUCCESS %s(%s) - interface = %s - execution time = %s sec.' % (self.arg0, self.arg1, self.interface, round(diff,2)))
                 d.callback(result)
-            def proxy_error_cb(failure):
-                d.errback(failure.value)
+            def proxy_error_cb(error):
+                diff = time.time() - self.started
+                Log.debug('SFA CALL ERROR %s(%s) - interface = %s - execution time = %s sec.' % (self.arg0, self.arg1, self.interface, round(diff,2)))
+                d.errback(ValueError("Error in SFA Proxy %s" % error))
 
             #success_cb = lambda result: d.callback(result)
             #error_cb   = lambda error : d.errback(ValueError("Error in SFA Proxy %s" % error))
             
             #@defer.inlineCallbacks
             def wrap(source, args):
-#DEPRECATED|                token = yield SFATokenMgr().get_token(self.interface)
                 args = (name,) + args
                 
+                # Pretty print
+                # XXX Need helper functions
                 printable_args = []
                 for arg in args:
-                    if arg and isinstance(arg, list) and arg[0][:6] == '<?xml ':
-                        printable_args.append('<credentials>')
-                    elif isinstance(arg, StringTypes) and arg[:6] == '<?xml ':
+                    if is_rspec(arg):
+                        printable_args.append('<rspec>')
+                    elif is_credential(arg):
                         printable_args.append('<credential>')
+                    elif is_credential_list(arg):
+                        printable_args.append('<credentials>')
+                    elif is_user_list(arg):
+                        printable_args.append('<user list>')
                     else:
                         printable_args.append(str(arg))
+                Log.debug("SFA CALL %s(%s) - interface = %s" % (printable_args[0], printable_args[1:], self.interface))
 
-                Log.debug("SFA CALL: %s(%s)" % (printable_args[0], printable_args[1:]))
+                # XXX For logging, can we do better ?
+                self.started = time.time()
+                self.arg0 = printable_args[0]
+                self.arg1 = printable_args[1:]
+
                 self.proxy.callRemote(*args).addCallbacks(proxy_success_cb, proxy_error_cb)
             
             ReactorThread().callInReactor(wrap, self, args)
@@ -481,14 +475,22 @@ if __name__ == '__main__':
     DEFAULT_OPTIONS   = '{}'
 
     def execute(proxy, command, parameters, sfa_options, account_config):
-        # Find user credentials
-        creds = []
 
-        if not 'user_credential' in account_config:
-            raise Exception, "Missing user credential in account config for user '%s' on platform '%s'" % (args.user, args.platform)
-        user_credential = account_config['user_credential']
+        sfa_parameters = list()
+        if command != 'GetVersion':
 
-        creds.append(user_credential)
+            # Find user credentials
+            creds = []
+            if not 'user_credential' in account_config:
+                raise Exception, "Missing user credential in account config for user '%s' on platform '%s'" % (args.user, args.platform)
+            user_credential = account_config['user_credential']
+            creds.append(user_credential)
+
+            # Build parameter list
+            if parameters:
+                sfa_parameters.append(parameters)
+            sfa_parameters.append(creds)
+            sfa_parameters.append(sfa_options)
 
         sfa_parameters = [parameters, creds, sfa_options]
         return getattr(proxy, command)(*sfa_parameters)
@@ -537,6 +539,7 @@ if __name__ == '__main__':
         args = parser.parse_args()
 
         # XXX Cannot both specify platform and interface
+        # XXX THIS IS WRONG SINCE WE HAVE DEFAULT VALUES
         interface_specified = not not args.interface
         platform_specified  = not not args.platform
         # We are guaranteed either None or only one will be true
@@ -561,8 +564,11 @@ if __name__ == '__main__':
         from manifold.bin.config    import MANIFOLD_STORAGE
         storage = MANIFOLD_STORAGE 
 
+        # XXX Should we register gateways here ??
+
         try:
             if platform_specified:
+
                 platforms = storage.execute(Query().get('platform').filter_by('platform', '==', args.platform).select('platform_id', 'config'))
                 if not platforms:
                     raise Exception, "Platform '%s' not found" % args.platform
@@ -575,7 +581,7 @@ if __name__ == '__main__':
                     interface = platform_config['sm']
                 elif command in REGISTRY_CALLS:
                     if not 'registry' in platform_config:
-                        raise Exception, "AM interface not found into platform '%s' configuration" % args.platform
+                        raise Exception, "Registry interface not found into platform '%s' configuration" % args.platform
                     interface = platform_config['registry']
                 else:
                     raise Exception, "Unknown interface"
@@ -588,18 +594,22 @@ if __name__ == '__main__':
 
             # Default = interface, only GetVersion() is allowed
 
-            # User & account management
-            users = Storage.execute(Query().get('user').filter_by('email', '==', args.user).select('user_id'))
-            if not users:
-                raise Exception, "User %s not found in Manifold database"
-            user = users[0]
-            user_id = user['user_id']
-            #
-            accounts = Storage.execute(Query().get('account').filter_by('user_id', '==', user_id).filter_by('platform_id', '==', platform_id).select('config'))
-            if not accounts:
-                raise Exception, "Account not found for user '%s' on platform '%s'" % (args.user, args.platform)
-            account = accounts[0]
-            account_config = json.loads(account['config'])
+            # XXX THIS IS CRAP !
+            if command == 'GetVersion':
+                account_config = {} # XXX TEMP HACK
+            else:
+                # User & account management
+                users = Storage.execute(Query().get('user').filter_by('email', '==', args.user).select('user_id'))
+                if not users:
+                    raise Exception, "User %s not found in Manifold database"
+                user = users[0]
+                user_id = user['user_id']
+                #
+                accounts = Storage.execute(Query().get('account').filter_by('user_id', '==', user_id).filter_by('platform_id', '==', platform_id).select('config'))
+                if not accounts:
+                    raise Exception, "Account not found for user '%s' on platform '%s'" % (args.user, args.platform)
+                account = accounts[0]
+                account_config = json.loads(account['config'])
 
             # SFA options
             sfa_options_json =  args.sfa_options
@@ -607,12 +617,12 @@ if __name__ == '__main__':
 
             # XXX interface or platform
             proxy = SFAProxy(interface, open(args.private_key).read(), open(args.certificate).read())
-            print "Issueing SFA call twice: %s(%r)" % (command, parameters)
+            print "Issueing SFA call: %s(%r)" % (command, parameters)
             # NOTE same error would occur with two proxies
             
             count = 0
 
-            import time
+            #import time
             class Callback(object):
                 def __init__(self, callback=None):
                     self._count = 0
@@ -629,7 +639,7 @@ if __name__ == '__main__':
 
             cb = Callback(terminate)
 
-            cb.inc()
+            #cb.inc()
             cb.inc()
 
             d1 = execute(proxy, command, parameters, sfa_options, account_config)
@@ -637,8 +647,8 @@ if __name__ == '__main__':
 
             # XXX It seems different errors are triggered depending on the timing
             # time.sleep(0.1)
-            d2 = execute(proxy, command, parameters, sfa_options, account_config)
-            d2.callback = cb
+            #d2 = execute(proxy, command, parameters, sfa_options, account_config)
+            #d2.callback = cb
 
         except Exception, e:
             import traceback
