@@ -264,7 +264,7 @@ class SFAGateway(Gateway):
         'persons'           : 'slice_persons',              # users.hrn
         'creator_person_id' : 'slice_creator_person_id',    # users.creator ?
         'name'              : 'slice_name',                 # hrn
-        #'slice_id'         : 'slice_id',
+        'slice_id'          : 'slice_id',
         'created'           : 'created',                    # first ?
         'url'               : 'slice_url',                  # url
         'peer_slice_id'     : 'slice_peer_slice_id',        # ?
@@ -853,14 +853,8 @@ class SFAGateway(Gateway):
         #    keys: [<ssh key A>, <ssh key B>]
         #  }]
         users = []
-#        Log.tmp("Trying to launch Manifold Queries inside the SFA Gateway")
-#        query_users_in_slice = Query.get('myslice:slice').filter_by('slice_hrn','==',slice_hrn).select('users')
-#        slice_records = yield self.interface.forward(query_users_in_slice, {'user':self.user}, is_deferred = True)
-#        Log.tmp("after forward query")
-#        Log.tmp(slice_records)
-
         Log.tmp("Trying to launch Manifold Queries inside the SFA Gateway")
-        query_users_in_slice = Query.get('myslice:slice').filter_by('slice_hrn','==',slice_hrn).select('users.user_urn','users.keys')
+        query_users_in_slice = Query.get('myslice:slice').filter_by('slice_hrn','==',slice_hrn).select('users.user_urn','users.keys','users.user_email','slice_hrn','slice_urn','slice_type','slice_id','parent_authority','slice_gid')
         slice_records = yield self.interface.forward(query_users_in_slice, {'user':self.user}, is_deferred = True)
         Log.tmp("after forward query")
         slice_records = slice_records['value']
@@ -871,50 +865,50 @@ class SFAGateway(Gateway):
             # XXX TODO: be consistent with urn OR reg-urn 
             #rmap = { v: k for k, v in self.map_user_fields.items() }
             # meanwhile, hardcoding map
-            rmap = {'user_urn':'urn'}
-            users = [dict(do_rename(d, rmap)) for d in slice_record['users']]
-            #Log.warning("users before update",users)
-# DEPRECATED         # xxx Thierry 2012 sept. 21
-# DEPRECATED         # contrary to what I was first thinking, calling Resolve with details=False does not yet work properly here
-# DEPRECATED         # I am turning details=True on again on a - hopefully - temporary basis, just to get this whole thing to work again
-# DEPRECATED         slice_records = yield self.registry.Resolve(slice_urn, [user_cred])
-# DEPRECATED         # Due to a bug in the SFA implementation when Resolve requests are
-# DEPRECATED         # forwarded, records are not filtered (Resolve received a list of xrns,
-# DEPRECATED         # does not resolve its type, then issue queries to the local database
-# DEPRECATED         # with the hrn only)
-# DEPRECATED         #print "W: SFAWrap bug workaround"
-# DEPRECATED         slice_records = Filter.from_dict({'type': 'slice'}).filter(slice_records)
-# DEPRECATED 
-# DEPRECATED         # slice_records = self.registry.Resolve(slice_urn, [self.my_credential_string], {'details':True})
+            rmap = {'user_urn':'urn','user_email':'email','slice_hrn':'hrn','slice_urn':'urn','slice_type':'type','parent_authority':'authority','slice_gid':'gid'}
 
-#        # XXX WARNING hardcoded reg-researchers
-#        if slice_records and 'users' in slice_records['value'] and slice_records['value']['users']:
-#            slice_record = slice_records['value']
-#            user_hrns = slice_record['users']
-#
-#            query_users_info = Query.get('user').filter_by('user_hrn','INCLUDED',user_hrns).select('user_urn','keys')
-#            users_info = yield self.interface.forward(query_users_info, {'user':self.user}, is_deferred = True)
-#            Log.tmp("after forward query")
-#            Log.tmp(users_info)
-            
-#            user_urns = [hrn_to_urn(hrn, 'user') for hrn in user_hrns]
-#            user_records = yield self.registry.Resolve(user_urns, [user_cred])
-#            r_server_version = yield self.get_cached_server_version(self.registry)
+            # XXX TODO: waiting for reccurcive do_rename function
+            users = [do_rename(d, rmap).to_dict() for d in slice_record.pop('users')]
+            slice_record = do_rename(slice_record, rmap).to_dict()
 
-#            users = users_info['value']
-#            Log.tmp(users)
+            # XXX TODO: This is totally wrong but it's like that in sfa/client/client_helper.py
+            for user in users:
+                user['slice_record'] = slice_record
+            sfa_users = users
 
-#            geni_users = pg_users_arg(user_records)
-#            sfa_users = sfa_users_arg(user_records, slice_record)
-#            if 'sfa' not in r_server_version:
-#                #print "W: converting to pg rspec"
-#                users = geni_users
-#                #rspec = RSpec(rspec)
-#                #rspec.filter({'component_manager_id': server_version['urn']})
-#                #rspec = RSpecConverter.to_pg_rspec(rspec.toxml(), content_type='request')
-#            else:
-#                users = sfa_users
-                
+# Resolve call has to be sent to a Registry and we are currently talking to an AM
+# Therefore, we use the Manifold Query to find the data in the right Registry           
+# DEPRECATED        # xxx Thierry 2012 sept. 21
+# DEPRECATED        # contrary to what I was first thinking, calling Resolve with details=False does not yet work properly here
+# DEPRECATED        # I am turning details=True on again on a - hopefully - temporary basis, just to get this whole thing to work again
+# DEPRECATED        slice_records = yield self.registry.Resolve(slice_urn, [user_cred])
+# DEPRECATED        # Due to a bug in the SFA implementation when Resolve requests are
+# DEPRECATED        # forwarded, records are not filtered (Resolve received a list of xrns,
+# DEPRECATED        # does not resolve its type, then issue queries to the local database
+# DEPRECATED        # with the hrn only)
+# DEPRECATED        #print "W: SFAWrap bug workaround"
+# DEPRECATED        slice_records = Filter.from_dict({'type': 'slice'}).filter(slice_records)
+# DEPRECATED        Log.tmp("slice_records = ",slice_records)
+# DEPRECATED        # XXX WARNING hardcoded reg-researchers
+# DEPRECATED        # XXX WARNING hardcoded reg-researchers
+# DEPRECATED        if slice_records and 'reg-researchers' in slice_records[0] and slice_records[0]['reg-researchers']:
+# DEPRECATED            slice_record = slice_records[0]
+# DEPRECATED            user_hrns = slice_record['reg-researchers']
+# DEPRECATED            user_urns = [hrn_to_urn(hrn, 'user') for hrn in user_hrns]
+# DEPRECATED            user_records = yield self.registry.Resolve(user_urns, [user_cred])
+# DEPRECATED            r_server_version = yield self.get_cached_server_version(self.registry)
+# DEPRECATED
+# DEPRECATED            geni_users = pg_users_arg(user_records)
+# DEPRECATED            sfa_users = sfa_users_arg(user_records, slice_record)
+# DEPRECATED            if 'sfa' not in r_server_version:
+# DEPRECATED                #print "W: converting to pg rspec"
+# DEPRECATED                users = geni_users
+# DEPRECATED                #rspec = RSpec(rspec)
+# DEPRECATED                #rspec.filter({'component_manager_id': server_version['urn']})
+# DEPRECATED                #rspec = RSpecConverter.to_pg_rspec(rspec.toxml(), content_type='request')
+# DEPRECATED            else:
+# DEPRECATED                users = sfa_users
+
         # do not append users, keys, or slice tags. Anything
         # not contained in this request will be removed from the slice
 
@@ -968,14 +962,13 @@ class SFAGateway(Gateway):
 
             # Delete(<slice URN or sliver URNs>, <slice credential>, {}) when done
 
-#            api_options['sfa_users'] = sfa_users
 #            api_options['geni_users'] = geni_users
-            api_options['sfa_users'] = users
+            api_options['sfa_users'] = sfa_users
             api_options['geni_users'] = users
 
             # http://groups.geni.net/geni/wiki/GAPI_AM_API_V3#Allocate
             result = yield self.sliceapi.Allocate(slice_urn, [slice_cred], rspec, api_options)
-
+            Log.tmp(result)
             if result['code']['geni_code'] != 0:
                 # XXX RESULT= {'output': ': Allocate: Invalid RSpec: No RSpec or version specified. Must specify a valid rspec string or a valid version', 'geni_api': 3, 'code': {'am_type': 'sfa', 'geni_code': 2, 'am_code': 2}, 'value': ''}
                 raise Exception, "Allocate failed"
@@ -1228,7 +1221,7 @@ class SFAGateway(Gateway):
 
             output = []
 
-            #Log.tmp("SFA Resolve results = %s",_results)
+            Log.tmp("SFA Resolve results = %s",_results)
 
             for _result in _results:
 
