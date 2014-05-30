@@ -1057,7 +1057,7 @@ class SFAGateway(Gateway):
         object_name = make_list(filters.get_op(object_hrn, [eq, included]))
         auth_hrn = make_list(filters.get_op('parent_authority', [eq, lt, le]))
 
-        interface_hrn = yield self.registry.get_interface_hrn(server)
+        interface_hrn = yield self.get_interface_hrn(self.registry)
        
         # XXX Hack for avoiding multiple calls to the same registry...
         # This will be fixed in newer versions where AM and RM have separate gateways
@@ -1598,59 +1598,52 @@ class SFAGateway(Gateway):
 
         server_version = yield self.get_cached_server_version(self.sliceapi)
 
-        # XXX We might need information for resources not provided in the update query, such as the resource granularity, which is required for nitos
-        
-        # Need to be specified to remain unchanged
+        # All API calls need to have both resources and leases. If one field is
+        # missing, we are issueing a ListResources/Describe query to get the
+        # missing content.
         need_resources = not 'resource' in params
         need_leases    = not 'lease'    in params
-
-        # XXX We also need to add leases
-        #print "begin get rl **", filters, "**"
         if need_resources or need_leases:
-            Log.tmp("Need Resources filters = %s",filters)
-            
             resource_lease = yield self._get_resource_lease(filters, None, fields, list_resources = need_resources, list_leases = need_leases)
-            #print "end get rl"
-            # XXX Need to handle +=
-
             if need_resources:
                 params['resource'] = [r['urn'] for r in resource_lease['resource']]
             if need_leases:
                 params['lease'] = resource_lease['lease']
 
+        # Automatically add resources that have leases as slivers
         for lease in params['lease']:
-            #print" PARAMS LEASE => lease=", lease
             resource_urn = lease['resource']
             # XXX We might have dicts, we need helper functions...
             if not resource_urn in params['resource']:
                 params['resource'].append(lease['resource'])
 
-        #print "RESOURCES", len(params['resource'])
-        #print "LEASES:", params['lease']
-
-        # Keys
-        if not filters.has_eq('hrn'):
-            raise Exception, 'Missing parameter: hrn'
-# XXX add someting with URN
-        slice_hrn = filters.get_eq('hrn')
-        slice_urn = hrn_to_urn(slice_hrn, 'slice')
+        # The slice we are updating should be given as a filter, either though
+        # its HRN or URN. We will build a list of XRNs.
+        slice_hrn = filters.get_eq('slice_hrn')
+        # TODO check_valid_slice_hrn(slice_hrn)
+        slice_urn = filters.get_eq('slice_urn')
+        # TODO check_valid_slice_urn(slice_urn)
+        slice_hrn_to_urn = hrn_to_urn(slice_hrn, 'slice')
+        if slice_hrn and slice_urn:
+            if slice_hrn_to_urn != slice_urn:
+                raise Exception, "Conflicting URNs given for update_slice"
+        elif slice_hrn:
+            slice_urn = slice_hrn_to_urn
+        else: # slice_urn
+            slice_hrn, _ = urn_to_hrn(slice_urn)
+        
+        print "slice_hrn", slice_hrn
+        print "slice_urn", slice_urn
 
         resources = params['resource'] if 'resource' in params else []
         leases = params['lease'] if 'lease' in params else []
 
-        # Credentials
+        # Get appropriate credentials
         user_cred = self._get_cred('user')
         slice_cred = self._get_cred('slice', slice_hrn)
 
-
-        # We suppose resource
+        # Build RSpec
         try:
-            #print "server_version", server_version['hrn']
-            #if server_version.get('hrn') == 'nitos':
-            #    rspec = NITOSBrokerParser.build_rspec(slice_hrn, resources, leases)
-            #else: # PLE, IoTLab
-            # rspec_type and rspec_version should be set in the config of the platform,
-            # we use GENIv3 as default one if not
             if 'rspec_type' and 'rspec_version' in self.config:
                 rspec_version = self.config['rspec_type'] + ' ' + self.config['rspec_version']
             else:
@@ -1659,7 +1652,6 @@ class SFAGateway(Gateway):
             rspec_version += ' request'
 
             parser = yield self.get_parser()
-            Log.tmp(parser.__class__)
             rspec = parser.build_rspec(slice_urn, resources, leases, rspec_version)
 
         except Exception, e:
@@ -1753,7 +1745,7 @@ class SFAGateway(Gateway):
         api_options ['append'] = False
         api_options ['call_id'] = unique_call_id()
 
-        # Manage Rspec versions
+        # Manage Rspec versions (XXX tests on RSpec versions partly done before)
         if 'rspec_type' and 'rspec_version' in self.config:
             api_options['geni_rspec_version'] = {'type': self.config['rspec_type'], 'version': self.config['rspec_version']}
         else:
