@@ -264,7 +264,7 @@ class SFAGateway(Gateway):
         'persons'           : 'slice_persons',              # users.hrn
         'creator_person_id' : 'slice_creator_person_id',    # users.creator ?
         'name'              : 'slice_name',                 # hrn
-        #'slice_id'         : 'slice_id',
+        'slice_id'          : 'slice_id',
         'created'           : 'created',                    # first ?
         'url'               : 'slice_url',                  # url
         'peer_slice_id'     : 'slice_peer_slice_id',        # ?
@@ -760,7 +760,6 @@ class SFAGateway(Gateway):
         else:
             raise Exception, "Invalid credential type: %s" % type
 
-
     # This function will return information about a given network using SFA GetVersion call
     # Depending on the object Queried, if object is network then get_network is triggered by
     # result = getattr(self, "%s_%s" % (q.action, q.object))(local_filters, q.params, fields)
@@ -1123,7 +1122,7 @@ class SFAGateway(Gateway):
 
             output = []
 
-            #Log.tmp("SFA Resolve results = %s",_results)
+            Log.tmp("SFA Resolve results = %s",_results)
 
             for _result in _results:
 
@@ -2118,7 +2117,6 @@ class SFAGateway(Gateway):
             
             # TODO: ROUTERV2 
             # This will be different in ROUTERV2
-            #Log.tmp("================ RENAME QUERY ==============")
             # This will be done 
             # Create a reversed map : MANIFOLD -> SFA
             #if q.object in self.map_fields:
