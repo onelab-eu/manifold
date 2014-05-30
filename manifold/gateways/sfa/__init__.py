@@ -1681,7 +1681,7 @@ class SFAGateway(Gateway):
 #        Log.tmp(slice_records)
 
         Log.tmp("Trying to launch Manifold Queries inside the SFA Gateway")
-        query_users_in_slice = Query.get('myslice:slice').filter_by('slice_hrn','==',slice_hrn).select('users.user_urn','users.keys')
+        query_users_in_slice = Query.get('myslice:slice').filter_by('slice_hrn','==',slice_hrn).select('users.user_urn','users.keys','users.user_email','slice_hrn','slice_urn','slice_type','slice_id','parent_authority','slice_gid')
         slice_records = yield self.interface.forward(query_users_in_slice, {'user':self.user}, is_deferred = True)
         Log.tmp("after forward query")
         slice_records = slice_records['value']
@@ -1692,9 +1692,18 @@ class SFAGateway(Gateway):
             # XXX TODO: be consistent with urn OR reg-urn 
             #rmap = { v: k for k, v in self.map_user_fields.items() }
             # meanwhile, hardcoding map
-            rmap = {'user_urn':'urn'}
-            users = [dict(do_rename(d, rmap)) for d in slice_record['users']]
-            #Log.warning("users before update",users)
+            rmap = {'user_urn':'urn','user_email':'email','slice_hrn':'hrn','slice_urn':'urn','slice_type':'type','parent_authority':'authority','slice_gid':'gid'}
+            #users = [dict(do_rename(d, rmap)) for d in slice_record['users']]
+            users = [do_rename(d, rmap).to_dict() for d in slice_record.pop('users')]
+            slice_record = do_rename(slice_record, rmap).to_dict()
+
+            # XXX TODO: This is totally wrong but it's like that in sfa/client/client_helper.py
+            for user in users:
+                user['slice_record'] = slice_record
+            sfa_users = users
+
+# Resolve call has to be sent to a Registry and we are currently talking to an AM
+# Therefore, we use the Manifold Query to find the data in the right Registry
 # DEPRECATED         # xxx Thierry 2012 sept. 21
 # DEPRECATED         # contrary to what I was first thinking, calling Resolve with details=False does not yet work properly here
 # DEPRECATED         # I am turning details=True on again on a - hopefully - temporary basis, just to get this whole thing to work again
@@ -1789,9 +1798,7 @@ class SFAGateway(Gateway):
 
             # Delete(<slice URN or sliver URNs>, <slice credential>, {}) when done
 
-#            api_options['sfa_users'] = sfa_users
-#            api_options['geni_users'] = geni_users
-            api_options['sfa_users'] = users
+            api_options['sfa_users'] = sfa_users
             api_options['geni_users'] = users
 
             # http://groups.geni.net/geni/wiki/GAPI_AM_API_V3#Allocate
