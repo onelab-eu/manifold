@@ -455,8 +455,6 @@ if __name__ == '__main__':
         parser = init_options()
         args = parser.parse_args()
 
-        print "ARGS=" ,args
-
         # XXX Cannot both specify platform and interface
         # XXX THIS IS WRONG SINCE WE HAVE DEFAULT VALUES
         interface_specified = not not args.interface
