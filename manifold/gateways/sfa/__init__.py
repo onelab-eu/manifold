@@ -812,41 +812,6 @@ class SFAGateway(Gateway):
         #    #print "SfaGateway::get_network() =",result
         #return [result]
 
-# DEPRECATED |    def get_slice_demo(self, filters, params, fields):
-# DEPRECATED |            print "W: Demo hook"
-# DEPRECATED |            s= {}
-# DEPRECATED |            s['slice_hrn'] = "ple.upmc.agent"
-# DEPRECATED |            s['slice_description'] = 'DEMO SLICE'
-# DEPRECATED |
-# DEPRECATED |            if self.platform != 'ple':
-# DEPRECATED |                s['resources'] = []
-# DEPRECATED |                return [s]
-# DEPRECATED |
-# DEPRECATED |            has_resources = False
-# DEPRECATED |            has_users = False
-# DEPRECATED |
-# DEPRECATED |            subfields = []
-# DEPRECATED |            for of in fields:
-# DEPRECATED |                if of == 'resource' or of.startswith('resource.'):
-# DEPRECATED |                    subfields.append(of[9:])
-# DEPRECATED |                    has_resources = True
-# DEPRECATED |                if of == 'user' or of.startswith('user.'):
-# DEPRECATED |                    has_users = True
-# DEPRECATED |            if has_resources:
-# DEPRECATED |                rsrc_leases = self._get_resource_lease({'slice_hrn': 'ple.upmc.agent'}, subfields)
-# DEPRECATED |                if not rsrc_leases:
-# DEPRECATED |                    raise Exception, 'get_resources failed!'
-# DEPRECATED |                s['resource'] = rsrc_leases['resource']
-# DEPRECATED |                s['lease'] = rsrc_leases['lease'] 
-# DEPRECATED |            if has_users:
-# DEPRECATED |                s['user'] = [{'person_hrn': 'myslice.demo'}]
-# DEPRECATED |            if self.debug:
-# DEPRECATED |                s['debug'] = rsrc_leases['debug']
-# DEPRECATED |
-# DEPRECATED |            return [s]
-
-
-
 # WORKING #        if len(stack) > 1:
 # WORKING #            d = defer.Deferred()
 # WORKING #            deferred_list = []
@@ -893,68 +858,6 @@ class SFAGateway(Gateway):
 # REFERENCE #                 print "E: get_slice_callback", e
 # REFERENCE #                 import traceback
 # REFERENCE #                 traceback.print_exc()
-
-
-#DEPRECATED#    def get_user(self, filters = None, params = None, fields = None):
-#DEPRECATED#
-#DEPRECATED#        cred = self._get_cred('user')
-#DEPRECATED#
-#DEPRECATED#        # A/ List users
-#DEPRECATED#        if not filters or not (filters.has_eq('user_hrn') or filters.has_eq('authority_hrn')):
-#DEPRECATED#            # no authority specified, we get all users *recursively*
-#DEPRECATED#            raise Exception, "E: Recursive user listing not implemented yet."
-#DEPRECATED#
-#DEPRECATED#        elif filters.has_eq('authority_hrn'):
-#DEPRECATED#            # Get the list of users
-#DEPRECATED#            auths = filters.get_eq('authority_hrn')
-#DEPRECATED#            if not isinstance(auths, list): auths = [auths]
-#DEPRECATED#
-#DEPRECATED#            # Get the list of user_hrn
-#DEPRECATED#            user_list = []
-#DEPRECATED#            for hrn in auths:
-#DEPRECATED#                ul = self.registry.List(hrn, cred)
-#DEPRECATED#                ul = filter_records('user', ul)
-#DEPRECATED#                user_list.extend([r['hrn'] for r in ul])
-#DEPRECATED#
-#DEPRECATED#        else: # named users
-#DEPRECATED#            user_list = filters.get_eq('user_hrn')
-#DEPRECATED#            if not isinstance(user_list, list): user_list = [user_list]
-#DEPRECATED#        
-#DEPRECATED#        if not user_list: return user_list
-#DEPRECATED#
-#DEPRECATED#        # B/ Get user information
-#DEPRECATED#        if filters == set(['user_hrn']): # urn ?
-#DEPRECATED#            return [ {'user_hrn': hrn} for hrn in user_list ]
-#DEPRECATED#
-#DEPRECATED#        else:
-#DEPRECATED#            # Here we could filter by authority if possible
-#DEPRECATED#            if filters.has_eq('authority_hrn'):
-#DEPRECATED#                predicates = filters.get_predicates('authority_hrn')
-#DEPRECATED#                for p in predicates:
-#DEPRECATED#                    user_list = [s for s in user_list if p.match({'authority_hrn': get_authority(s)})]
-#DEPRECATED#
-#DEPRECATED#            if not user_list: return user_list
-#DEPRECATED#
-#DEPRECATED#            users = self.registry.Resolve(user_list, cred)
-#DEPRECATED#            users = filter_records('user', users)
-#DEPRECATED#            filtered = []
-#DEPRECATED#
-#DEPRECATED#            for user in users:
-#DEPRECATED#                # translate field names...
-#DEPRECATED#                for k,v in self.map_user_fields.items():
-#DEPRECATED#                    if k in user:
-#DEPRECATED#                        user[v] = user[k]
-#DEPRECATED#                        del user[k]
-#DEPRECATED#                # apply input_filters XXX TODO sort limit offset
-#DEPRECATED#                if filters.match(user):
-#DEPRECATED#                    # apply output_fields
-#DEPRECATED#                    c = {}
-#DEPRECATED#                    for k,v in user.items():
-#DEPRECATED#                        if k in fields:
-#DEPRECATED#                            c[k] = v
-#DEPRECATED#                    filtered.append(c)
-#DEPRECATED#
-#DEPRECATED#            return filtered
 
     # minimally check a key argument
     def check_ssh_key(self, key):
@@ -1051,14 +954,14 @@ class SFAGateway(Gateway):
 
     @defer.inlineCallbacks
     def get_object(self, object, object_hrn, filters, params, fields):
-
-        # Let's find some additional information in filters in order to restrict our research
-        #object_hrn = "hrn"
-        object_name = make_list(filters.get_op(object_hrn, [eq, included]))
-        auth_hrn = make_list(filters.get_op('parent_authority', [eq, lt, le]))
-
-        interface_hrn = yield self.get_interface_hrn(self.registry)
-       
+        """
+        Arguments:
+            object (string): the name of the object (eg. user, slice, authority, resource)
+            object_hrn: UNUSED
+            filters:
+            params:
+            fields:
+        """
         # XXX Hack for avoiding multiple calls to the same registry...
         # This will be fixed in newer versions where AM and RM have separate gateways
         if self.auth_type == "reference":
@@ -1067,27 +970,42 @@ class SFAGateway(Gateway):
             # erased by credentials... weird
             defer.returnValue([])
 
-        # XXX details = True always, only trigger details if needed wrt fields
+        # 1. The best case is when objects are given by name, which allows a
+        # direct lookup.  We will accept both HRNs and URNs in filters.
+        # object_hrn property is currently unused and the HRN/URN field name
+        # will be supposed equal to OBJECT_hrn and OBJECT_urn.  Let's keep
+        # HRNs.
+        object_hrns = make_list(filters.get_op('%s_hrn' % object, [eq, included]))
+        object_urns = make_list(filters.get_op('%s_urn' % object, [eq, included]))
+        for urn in object_urns:
+            hrn, _ = hrn_to_urn(urn, object)
+            object_hrns.append(hrn)
+        # 2. Otherwise, we run a recursive search from the most precise known
+        # authority.
+        auth_hrn = make_list(filters.get_op('parent_authority', [eq, lt, le]))
+        # 3. In the worst case, we search from the root authority.
+        interface_hrn = yield self.get_interface_hrn(self.registry)
 
-        # recursive: Should be based on jokers, eg. ple.upmc.*
-        # resolve  : True: make resolve instead of list
-        if object_name:
-            # 0) given object name
+        # Based on cases 1, 2 or 3, we build the stack of objects to
+        # List/Resolve, and set the 3 following properties:
+        #   - recursive: Should be based on jokers, eg. ple.upmc.*
+        #   - resolve  : True: make resolve instead of list
+        #   - details  : always set to True, should depend on needed fields
+        details   = True
 
+        if object_hrns: # CASE 1
             # If the objects are not part of the hierarchy, let's return [] to
             # prevent the registry to forward results to another registry
             # XXX This should be ensured by partitions
-            object_name = [ on for on in object_name if on.startswith(interface_hrn)]
-            if not object_name:
+            object_hrns = [ hrn for hrn in object_hrns if hrn.startswith(interface_hrn)]
+            if not object_hrns:
                 defer.returnValue([])
 
             # Check for jokers ?
-            stack     = object_name
+            stack     = object_hrns
             resolve   = True
 
-        elif auth_hrn:
-            # 2) given authority
-
+        elif auth_hrn: # CASE 2
             # If the authority is not part of the hierarchy, let's return [] to
             # prevent the registry to forward results to another registry
             # XXX This should be ensured by partitions
@@ -1105,20 +1023,17 @@ class SFAGateway(Gateway):
                     stack = [interface_hrn]
                     break
 
-        else: # Nothing given
+        else: # CASE 3
             resolve   = False
             recursive = True if object != 'authority' else False
-            print "RECURSIVE=", recursive
             stack = [interface_hrn]
         
-        # TODO: user's objects, use reg-researcher
-        
+        # All queries will involve used credentials
         cred = self._get_cred('user')
 
         if resolve:
             stack = map(lambda x: hrn_to_urn(x, object), stack)
             _results  = yield self.registry.Resolve(stack, cred, {'details': True})
-            #_result = _results[0]
 
             output = []
 
@@ -1196,12 +1111,14 @@ class SFAGateway(Gateway):
         #
         # See also: update_slice
 
-# DEPRECATED |        if self.user['email'] in DEMO_HOOKS:
-# DEPRECATED |            defer.returnValue(self.get_slice_demo(filters, params, fields))
-# DEPRECATED |            return
+        print "*" * 80
+        print "get slice : fields = ", fields
 
         fields_am = fields & AM_SLICE_FIELDS
         fields_rm = fields - AM_SLICE_FIELDS
+
+        print "FIELDS AM", fields_am
+        print "FIELDS RM", fields_rm
 
         if not fields_am:
             return self.get_object('slice', SLICE_KEY, filters, params, fields)
@@ -1681,7 +1598,10 @@ class SFAGateway(Gateway):
 #        Log.tmp(slice_records)
 
         Log.tmp("Trying to launch Manifold Queries inside the SFA Gateway")
-        query_users_in_slice = Query.get('myslice:slice').filter_by('slice_hrn','==',slice_hrn).select('users.user_urn','users.keys')
+        Log.tmp("Filter = slice_hrn=%s" % slice_hrn)
+        #query_users_in_slice = Query.get('myslice:slice').filter_by('slice_hrn','==',slice_hrn).select('users.user_urn','users.keys')
+        query_users_in_slice = Query.get('slice').filter_by('slice_hrn','==',slice_hrn).select('users.user_urn','users.keys')
+        Log.tmp("QUERY USERS IN SLICE %r" % query_users_in_slice)
         slice_records = yield self.interface.forward(query_users_in_slice, {'user':self.user}, is_deferred = True)
         Log.tmp("after forward query")
         slice_records = slice_records['value']
@@ -2123,7 +2043,6 @@ class SFAGateway(Gateway):
             if q.object in self.map_fields:
                 Rename(self, self.map_fields[q.object])
             # Return result
-            print "SFA RECORDS: ", records
             map(self.send, Records(records))
             self.send(LastRecord())
 

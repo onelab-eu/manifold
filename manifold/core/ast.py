@@ -292,7 +292,6 @@ class AST(object):
         if self.is_empty():
             return "Empty AST (no root)"
         else:
-            print "self.root=", self.root
             return self.root.dump(indent)
 
     def start(self):
