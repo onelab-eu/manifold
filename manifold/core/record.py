@@ -73,6 +73,9 @@ class Record(dict):
             if record[key]: return False
         return True
 
+    def is_empty(self):
+        return not self
+
     def to_dict(self):
         dic = {}
         for k, v in self.iteritems():

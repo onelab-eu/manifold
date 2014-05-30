@@ -231,7 +231,7 @@ class SFAGateway(Gateway):
         # REGISTRY FIELDS
         'hrn'               : 'slice_hrn',                  # hrn
 
-        'urn'               : SLICE_KEY,                  # slice_geni_urn ???
+#        'urn'               : SLICE_KEY,                  # slice_geni_urn ???
 #XXX    'reg-urn'           : SLICE_KEY,                  # slice_geni_urn ???
         'reg-urn'           : SLICE_KEY,
 
@@ -240,7 +240,7 @@ class SFAGateway(Gateway):
         'researcher'        : 'users',                      # user or users . hrn or user_hrn ?
                                                             # XXX this is in lowercase when creating a slice !
         # TESTBED FIELDS
-        'enabled'           : 'slice_enabled',
+#        'enabled'           : 'slice_enabled',
         'PI'                : 'pi_users',                   # XXX should be found of type user, has to correspond with metadata
 
         # UNKNOWN
