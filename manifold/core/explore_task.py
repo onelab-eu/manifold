@@ -286,10 +286,20 @@ class ExploreTask(Deferred):
                             priority = TASK_1Nsq
                             break
                     #priority = TASK_1Nsq if relation_name in missing_subqueries else TASK_1N
+
+
                     
                 else:
                     task = ExploreTask(neighbour, relation, self.path, self.parent, self.depth)
-                    task.addCallback(self.perform_left_join, relation, allowed_platforms, metadata, user, query_plan)
+
+                    if relation.get_type() == Relation.types.PARENT:
+                        # HERE, instead of doing a left join between a PARENT
+                        # and a CHILD table, we will do a UNION
+                        operation = self.perform_union
+                    else:
+                        operation = self.perform_left_join
+                    task.addCallback(operation, relation, allowed_platforms, metadata, user, query_plan)
+
                     priority = TASK_11
 
                 deferred_list.append(task)

@@ -24,21 +24,30 @@ class Union(Node):
         """
         super(Union, self).__init__()
         # Parameters
-        self.children, self.key = children, key
+        self.children = list()
+        self.key = key
         # Member variables
         #self.child_status = 0
         #self.child_results = {}
         # Stores the list of keys already received to implement DISTINCT
         self.key_map = dict()
         self.status = ChildStatus(self.all_done)
-        # Set up callbacks
-        for i, child in enumerate(self.children):
-            child.set_callback(ChildCallback(self, i))
+
+        self.add_children(children)
 
         # We suppose all children have the same format...
         # NOTE: copy is important otherwise we use the same
         self.query = self.children[0].get_query().copy()
 
+    def add_children(self, children):
+        num_children = len(self.children)
+
+        self.children.extend(children)
+        # callbacks
+        # Set up callbacks
+        for i, child in enumerate(children):
+            child.set_callback(ChildCallback(self, num_children + i))
+        
 
 #    @returns(Query)
 #    def get_query(self):

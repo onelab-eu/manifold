@@ -120,6 +120,15 @@ class AST(object):
         assert isinstance(children_ast, list),  "Invalid children_ast %r (type %r)" % (children_ast, type(children_ast))
         assert len(children_ast) != 0,          "Invalid UNION (no child)"
 
+        # If the root node a UNION, in this case we extend it with the set of children_ast
+        if isinstance(self.get_root(), Union):
+            # From the query plan construction, we are assured both UNION have the same key
+            union = self.get_root()
+            union.add_children([ast.get_root() for ast in children_ast])
+            return self
+
+        # otherwise, the root node becomes a child of the newly created UNION.
+
         # If the current AST has already a root node, this node become a child
         # of this Union node ...
         old_root = None
