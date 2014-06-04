@@ -1104,6 +1104,7 @@ class SFAGateway(Gateway):
         
 
     def get_slice(self, filters, params, fields):
+        Log.tmp("get_slice filters = ",filters)
         # Because slice information is both in RM and AM, we need to manually
         # JOIN queries to the RM and the AM.
         # 
