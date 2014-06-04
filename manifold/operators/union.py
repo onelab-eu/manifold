@@ -95,8 +95,8 @@ class Union(Node):
         return self
 
     def all_done(self):
-        #for record in self.child_results.values():
-        #    self.send(record)
+        for record in self.key_map.values():
+            self.send(record)
         self.send(LastRecord())
 
     def child_callback(self, child_id, record):
@@ -105,10 +105,10 @@ class Union(Node):
         \param child_id identifier of the child that received the record
         \param record dictionary representing the received record
         """
-        print "UNION got record", record
+        print "UNION::child_callback got record", record
         if record.is_last():
             # XXX SEND ALL
-            print "UNION LAST"
+            print "UNION::child_callback LAST"
             self.status.completed(child_id)
             return
         
@@ -122,13 +122,13 @@ class Union(Node):
 
         # Ignore records that have no key
         if not Record.has_fields(record, key):
-            Log.info("UNION ignored record without key '%(key)s': %(record)r", **locals())
+            Log.info("UNION::child_callback ignored record without key '%(key)s': %(record)r", **locals())
             return
 
         key_value = Record.get_value(record, key)
         
         if key_value in self.key_map:
-            Log.info("UNION merged duplicate records: %r" % record)
+            Log.info("UNION::child_callback merged duplicate records: %r" % record)
             prev_record = self.key_map[key_value]
             for k, v in record.items:
                 if not k in prev_record:
