@@ -22,7 +22,7 @@ class slice {
 };
 
 class lease {
-	slice 		   slice[];
+	slice 		   slice;
     timestamp      start_time;  /**< Start of the lease */ 
 	timestamp      end_time;
     interval       duration;
