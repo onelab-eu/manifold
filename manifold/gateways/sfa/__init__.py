@@ -975,8 +975,13 @@ class SFAGateway(Gateway):
         # object_hrn property is currently unused and the HRN/URN field name
         # will be supposed equal to OBJECT_hrn and OBJECT_urn.  Let's keep
         # HRNs.
+        Log.warning("SFA GW::get_object filters = ",filters)
+        Log.warning("SFA GW::get_object object = ",object)
         object_hrns = make_list(filters.get_op('%s_hrn' % object, [eq, included]))
         object_urns = make_list(filters.get_op('%s_urn' % object, [eq, included]))
+        Log.warning("SFA GW::get_object object_hrns = ",object_hrns)
+        Log.warning("SFA GW::get_object object_urns = ",object_urns)
+
         for urn in object_urns:
             hrn, _ = hrn_to_urn(urn, object)
             object_hrns.append(hrn)
@@ -1134,6 +1139,7 @@ class SFAGateway(Gateway):
                     for record in records:
                         self.callback(Record(record))
                     self.callback(LastRecord())
+
                 d = _self.get_object('slice', 'reg-urn', filters, None, fields_rm)
                 d.addCallback(cb)
 
@@ -1143,6 +1149,7 @@ class SFAGateway(Gateway):
                     for record in records:
                         self.callback(Record(record))
                     self.callback(LastRecord())
+
                 d = _self.get_resource_lease(self._filters, None, fields_am, list_resources = True, list_leases = True)
                 d.addCallback(cb)
 
@@ -1332,13 +1339,12 @@ class SFAGateway(Gateway):
         parser = yield self.get_parser()
         #print "rspec_string", rspec_string
         rsrc_slice = parser.parse(rspec_string, rspec_version, slice_urn)
-
         if slice_urn:
             rsrc_slice['slice'] = slice_urn
             for r in rsrc_slice['resource']:
-                r['slice'] = slice_hrn
+                r['slice'] = slice_urn
             for r in rsrc_slice['lease']:
-                r['slice'] = slice_hrn
+                r['slice'] = slice_urn
 
         if self.debug:
             rsrc_slice['debug'] = {'rspec': rspec}
