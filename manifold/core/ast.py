@@ -117,36 +117,33 @@ class AST(object):
         """
         # We only need a key for UNION distinct, not supported yet
         assert not key or isinstance(key, Key), "Invalid key %r (type %r)"          % (key, type(key))
-        assert isinstance(children_ast, list),  "Invalid children_ast %r (type %r)" % (children_ast, type(children_ast))
-        assert len(children_ast) != 0,          "Invalid UNION (no child)"
+        assert children_ast is not None, "Invalid children AST for UNION"
+
+        # We treat the general case when we are provided with a list of children_ast
+        if not isinstance(children_ast, list):
+            children_ast = [children_ast]
+        children = [ast.get_root() for ast in children_ast]
+
+        # If the ast is empty
+        if self.is_empty():
+            self.root = children[0] if len(children) == 1 else Union(children, key)
+            return self
 
         # If the root node a UNION, in this case we extend it with the set of children_ast
         if isinstance(self.get_root(), Union):
             # From the query plan construction, we are assured both UNION have the same key
             union = self.get_root()
             union.add_children([ast.get_root() for ast in children_ast])
-            return self
-
-        # otherwise, the root node becomes a child of the newly created UNION.
-
-        # If the current AST has already a root node, this node become a child
-        # of this Union node ...
-        old_root = None
-        if not self.is_empty():
-            # # old_root = self.get_root()
-            children = [self.root]
-            old_cb = self.root.get_callback()
         else:
-            children = []
-            old_cb = None
+            # We insert the current root to the list of children
+            new_first_child = self.get_root()
+            old_cb = self.root.get_callback()
 
-        # ... as the other children
-        children.extend([ast.get_root() for ast in children_ast])
-
-        self.root = children[0] if len(children) == 1 else Union(children, key)
-        if old_cb:
+            children.insert(0, new_first_child)
+            # We have at least 2 children
+            self.root = Union(children, key)
             self.root.set_callback(old_cb)
-
+            
         return self
 
     #@returns(AST)

@@ -401,11 +401,14 @@ class ExploreTask(Deferred):
         """
         """
         # The relation parameter is only present for ensuring a uniform interface to perform_* functions
-        assert relation_dummy is None
+        if not ast:
+            return
+        if not self.ast:
+            self.ast = AST()
         self.ast.union(ast, key)
 
     # TODO rename: perform_union and remove needed_fields parameter
-    def perform_all_union(self, table, allowed_platforms, metadata, user, query_plan):
+    def perform_union_all(self, table, allowed_platforms, metadata, user, query_plan):
 #OBSOLETE|    def build_union(self, table, needed_fields, allowed_platforms, metadata, user, query_plan):
         """
         Complete a QueryPlan instance by adding an Union of From Node related
