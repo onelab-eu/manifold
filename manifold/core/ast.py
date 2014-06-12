@@ -107,6 +107,17 @@ class AST(object):
 
         # Build the corresponding From Operator and connect it to this AST.
         self.root = From(gateway, query, capabilities, key)
+
+        # Eventually add a rename operator to translate between domains
+        try:
+            instance = gateway.get_object(query.get_from())
+            aliases  = instance.get_aliases()
+            if aliases:
+                self.root = Rename(self.get_root(), aliases)
+        except:
+            # XXX No method get_object
+            pass
+
         return self
 
     #@returns(AST)
@@ -140,19 +151,32 @@ class AST(object):
         """
         # We only need a key for UNION distinct, not supported yet
         assert not key or isinstance(key, Key), "Invalid key %r (type %r)"          % (key, type(key))
-        assert isinstance(children_ast, list),  "Invalid children_ast %r (type %r)" % (children_ast, type(children_ast))
-        assert len(children_ast) != 0,          "Invalid UNION (no child)"
+        assert children_ast is not None, "Invalid children AST for UNION"
 
-        # If the current AST has already a root node, this node become a child
-        # of this Union node ...
-        children = list() if self.is_empty() else [self.get_root()] 
+        # We treat the general case when we are provided with a list of children_ast
+        if not isinstance(children_ast, list):
+            children_ast = [children_ast]
+        children = [ast.get_root() for ast in children_ast]
 
-        # ... as the other children
-        children.extend([child_ast.get_root() for child_ast in children_ast])
+        # If the ast is empty
+        if self.is_empty():
+            self.root = children[0] if len(children) == 1 else Union(children, key)
+            return self
 
-        # If there are several children, we require an Union Operator
-        self.root = children[0] if len(children) == 1 else Union(children, key)
+        # If the root node a UNION, in this case we extend it with the set of children_ast
+        if isinstance(self.get_root(), Union):
+            # From the query plan construction, we are assured both UNION have the same key
+            union = self.get_root()
+            union.add_children([ast.get_root() for ast in children_ast])
+        else:
+            # We insert the current root to the list of children
+            children.insert(0, self.get_root())
+
+            # We have at least 2 children, let's do Union
+            self.root = Union(children, key)
+
         return self
+
 
     #@returns(AST)
     def left_join(self, right_child, predicate):

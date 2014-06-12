@@ -164,6 +164,7 @@ class ExploreTask(Deferred):
 #MANDO|                    allow_shortcuts = True)
 
         root_provided_fields = self.root.get_field_names()
+        print "ROOT PROVIDED FIELDS", root_provided_fields
 
         # We might also query foreign keys of backward links
         for neighbour in sorted(metadata.graph.successors(self.root)):
@@ -185,7 +186,8 @@ class ExploreTask(Deferred):
 
                     foreign_key_fields[relation_name] = _additional_fields
 
-        root_key_fields = self.root.keys.one().get_field_names()
+        root_key = self.root.keys.one()
+        root_key_fields = root_key.get_field_names()
 
         # We store in self.keep_root_a the field of interest in the current
         # root_table, that will be removed from missing_fields
@@ -296,7 +298,7 @@ class ExploreTask(Deferred):
             # XXX NOTE that we have built an AST here without taking into account fields for the JOINs and SUBQUERIES
             # It might not pose any problem though if they come from the optimization phase
 #OBSOLETE|            self.ast = self.build_union(self.root, self.keep_root_a, allowed_platforms, metadata, user, query_plan)
-            self.ast = self.perform_union(self.root, allowed_platforms, metadata, query_plan)
+            self.perform_union_all(self.root, allowed_platforms, metadata, query_plan)
 
             # ROUTERV2
             if rename_dict:
@@ -341,7 +343,12 @@ class ExploreTask(Deferred):
 
                 else:
                     task = ExploreTask(self._interface, neighbour, relation, self.path, self.parent, self.depth)
-                    task.addCallback(self.perform_left_join, relation, allowed_platforms, metadata, query_plan)
+                    if relation.get_type() == Relation.types.PARENT:
+                        # HERE, instead of doing a left join between a PARENT
+                        # and a CHILD table, we will do a UNION
+                        task.addCallback(self.perform_union, root_key, allowed_platforms, metadata, user, query_plan)
+                    else:
+                        task.addCallback(self.perform_left_join, relation, allowed_platforms, metadata, query_plan)
                     task.addErrback(self.default_errback)
                     priority = TASK_11
 
@@ -392,7 +399,7 @@ class ExploreTask(Deferred):
         self.sq_rename_dict.update(sq_rename_dict)
         if not self.ast:
             # This can occur if no interesting field was found in the table, but it is just used to connect children tables
-            self.ast = self.perform_union(self.root, allowed_platforms, metadata, query_plan)
+            self.perform_union_all(self.root, allowed_platforms, metadata, query_plan)
         self.ast.left_join(ast, relation.get_predicate().copy())
 
     def perform_subquery(self, ast_sq_rename_dict, relation, allowed_platforms, metadata, query_plan):
@@ -411,7 +418,7 @@ class ExploreTask(Deferred):
 
         # We need to build an AST just to collect subqueries
         if not self.ast:
-            self.ast = self.perform_union(self.root, allowed_platforms, metadata, query_plan)
+            self.perform_union_all(self.root, allowed_platforms, metadata, query_plan)
 
         self.ast.subquery(ast, relation)
 
@@ -420,7 +427,16 @@ class ExploreTask(Deferred):
             self.ast.rename(self.sq_rename_dict)
             self.sq_rename_dict = dict()
 
-    def perform_union(self, table, allowed_platforms, metadata, query_plan):
+    def perform_union(self, ast, key, allowed_platforms, metadata, user, query_plan):
+        """
+        """
+        if not ast:
+            return
+        if not self.ast:
+            self.ast = AST()
+        self.ast.union(ast, key)
+
+    def perform_union_all(self, table, allowed_platforms, metadata, query_plan):
         """
         Complete a QueryPlan instance by adding an Union of From Node related
         to a same Table.
@@ -432,23 +448,6 @@ class ExploreTask(Deferred):
         from_asts = list()
         key = table.get_keys().one()
 
-        # TO BE REMOVED ?
-        # Exploring this tree according to a DFS algorithm leads to a table
-        # ordering leading to feasible successive joins
-        map_method_bestkey = dict()
-        map_method_demux   = dict()
-
-#DISABLED|        # XXX I don't understand this -- Jordan
-#DISABLED|        # Update the key used by a given method
-#DISABLED|        # The more we iterate, the best the key is
-#DISABLED|        if key:
-#DISABLED|            try:
-#DISABLED|                for method, keys in table.map_method_keys.items():
-#DISABLED|                    if key in table.map_method_keys[method]:
-#DISABLED|                        map_method_bestkey[method] = key
-#DISABLED|            except AttributeError:
-#DISABLED|                map_method_bestkey[table.name] = key
-
         # For each platform related to the current table, extract the
         # corresponding table and build the corresponding FROM node
         map_method_fields = table.get_annotation()
@@ -456,85 +455,41 @@ class ExploreTask(Deferred):
         for method, fields in map_method_fields.items():
             #Log.tmp("method", method.get_name())
             #Log.tmp("table", table.get_name())
-            if method.get_name() == table.get_name():
-                # The table announced by the platform fits with the 3nf schema
-                # Build the corresponding FROM
-                #sub_table = Table.make_table_from_platform(table, fields, method.get_platform())
+            # The table announced by the platform fits with the 3nf schema
+            # Build the corresponding FROM
+            #sub_table = Table.make_table_from_platform(table, fields, method.get_platform())
 
-                # XXX We lack field pruning
-                # We create 'get' queries by default, this will be overriden in query_plan::fix_froms
-                # - Here we could keep all fields, but local fields we be
-                # repreented many times in the query plan, that will mess up
-                # when we try to optimize selection/projection
-                # - If we select (fields & self.keep_root_a), then we cannot
-                # know later on where a field needed for a join that has been
-                # injected can be found
-                # - With unique naming, we could adopt the first solution. To
-                # balance both, we will remove local fields.
-                map_field_local = {f.get_name(): f.is_local() for f in table.get_fields()}
-                selected_fields  = Fields([f for f in fields if not map_field_local[f]])
-                selected_fields |= self.keep_root_a
+            # XXX We lack field pruning
+            # We create 'get' queries by default, this will be overriden in query_plan::fix_froms
+            # - Here we could keep all fields, but local fields we be
+            # repreented many times in the query plan, that will mess up
+            # when we try to optimize selection/projection
+            # - If we select (fields & self.keep_root_a), then we cannot
+            # know later on where a field needed for a join that has been
+            # injected can be found
+            # - With unique naming, we could adopt the first solution. To
+            # balance both, we will remove local fields.
+            map_field_local = {f.get_name(): f.is_local() for f in table.get_fields()}
+            selected_fields  = Fields([f for f in fields if not map_field_local[f]])
+            selected_fields |= self.keep_root_a
 
-                query = Query.action(ACTION_GET, method.get_name()).select(selected_fields)
+            query = Query.action(ACTION_GET, method.get_name()).select(selected_fields)
 
-                platform = method.get_platform()
-                capabilities = metadata.get_capabilities(platform, query.get_from())
+            platform = method.get_platform()
+            capabilities = metadata.get_capabilities(platform, query.get_from())
 
-                if allowed_platforms and not platform in allowed_platforms:
-                    continue
+            if allowed_platforms and not platform in allowed_platforms:
+                continue
 
-                # The current platform::table might be ONJOIN (no retrieve capability), but we
-                # might be able to collect the keys, so we have disabled the following code
-                # XXX Improve platform capabilities support
-                # XXX if not capabilities.retrieve: continue
+            # The current platform::table might be ONJOIN (no retrieve capability), but we
+            # might be able to collect the keys, so we have disabled the following code
+            # XXX Improve platform capabilities support
+            # XXX if not capabilities.retrieve: continue
 
-                # We need to connect the right gateway
-                # XXX
+            # We need to connect the right gateway
+            # XXX
 
-                from_ast = AST(self._interface).From(platform, query, capabilities, key)
-#DEPRECATED|                query_plan.add_from(from_ast.get_root())
-#DISABLED|                try:
-#DISABLED|                    if method in table.methods_demux:
-#DISABLED|                        from_ast.demux().projection(list(fields))
-#DISABLED|                        demux_node = from_ast.get_root().get_child()
-#DISABLED|                        assert isinstance(demux_node, Demux), "Bug"
-#DISABLED|                        map_method_demux[method] = demux_node
-#DISABLED|                except AttributeError:
-#DISABLED|                    pass
-            else:
-#BUG                # The table announced by the platform doesn't fit with the 3nf schema
-#BUG                # Build a FROMTABLE + DUP(best_key) + SELECT(best_key u {fields}) branch
-#BUG                # and plug it to the above the DEMUX node referenced in map_method_demux
-#BUG                # Ask this FROM node for fetching fields
-#BUG                demux_node = map_method_demux[method]
-#BUG                from_node = demux_node.get_child()
-#BUG                key_dup = map_method_bestkey[method]
-#BUG                select_fields = list(set(fields) | set(key_dup))
-#BUG                from_node.add_fields_to_query(fields)
-#BUG
-#BUG                print "FROMTABLE -- DUP(%r) -- SELECT(%r) -- %r -- %r" % (key_dup, select_fields, demux_node, from_node)
-#BUG
-#BUG                # Build a new AST (the branch we'll add) above an existing FROM node
-#BUG#                from_ast = AST(self._interface, user = user)
-#BUG                from_ast = AST(self._interface)
-#BUG                from_ast.root = demux_node
-#BUG                Log.warning("ExploreTask: TODO: plug callback")
-#BUG                #TODO from_node.addCallback(from_ast.callback)
-#BUG
-#BUG#DEPRECATED|                query_plan.add_from(from_ast.get_root())
-#BUG
-#BUG                # Add DUP and SELECT to this AST
-#BUG                from_ast.dup(key_dup).projection(select_fields)
-                    from_ast = None
+            from_ast = AST(self._interface).From(platform, query, capabilities, key)
 
             if from_ast:
-                from_asts.append(from_ast)
-
-        # Add the current table in the query plane
-        # Process this table, which is the root of the 3nf tree
-        if not from_asts:
-            print "#### NONE"
-            return None
-        return AST(self._interface).union(from_asts, key)
-
-
+                self.perform_union(from_ast, key, allowed_platforms, metadata, user, query_plan)
