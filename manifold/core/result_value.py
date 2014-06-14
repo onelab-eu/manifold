@@ -103,8 +103,8 @@ class ResultValue(dict):
     def ok_value(self):
         return self.get_value()
 
-    def get_value(self):
-        return self.get('value')
+    def get_value(self, default = None):
+        return self.get('value', default)
 
     def error(self):
         err = "%r" % self['description']

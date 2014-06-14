@@ -102,7 +102,7 @@ class ReactorThread(threading.Thread):
         self._reactorRunning = False
         self._reactorStarted = False
         self.reactor.callFromThread(self.reactor.stop)
-        ReactorThread._drop()
+        # XXX ? # ReactorThread._drop()
         #self.reactor.join()
 
     def addReactorEventTrigger(self, phase, eventType, callable):

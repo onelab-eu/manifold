@@ -130,12 +130,12 @@ class Union(Node):
         if key_value in self.key_map:
             Log.info("UNION::child_callback merged duplicate records: %r" % record)
             prev_record = self.key_map[key_value]
-            for k, v in record.items:
+            for k, v in record.items():
                 if not k in prev_record:
                     prev_record[k] = v
                     continue
                 if isinstance(v, list):
-                    previous[k].extend[v] # DUPLICATES ?
+                    prev_record[k].extend(v) # DUPLICATES ?
                 #else:
                 #    if not v == previous[k]:
                 #        print "W: ignored conflictual field"

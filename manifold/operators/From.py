@@ -179,9 +179,11 @@ class From(Node):
         Args:
             fields: A set of String instances (queried fields).
         """
+        if self.capabilities.projection or self.capabilities.fullquery:
+            self.query.select().select(fields)
+
         if self.capabilities.projection:
             # Push fields into the From node
-            self.query.select().select(fields)
             return self
         else:
             # Provided fields is set to None if it corresponds to SELECT *
