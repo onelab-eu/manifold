@@ -11,100 +11,119 @@ DUMPSTR_RENAME = "RENAME %r"
 # RENAME node
 #------------------------------------------------------------------
 
-#NEW|def do_rename(record, aliases):
-#NEW|    """ 
-#NEW|    This function modifies the record packet in place.
-#NEW|
-#NEW|    NOTES:
-#NEW|     . It might be better to iterate on the record fields
-#NEW|     . It seems we only handle two levels of hierarchy. This is okay I think
-#NEW|    since in the query plan, further layers will be broken down across
-#NEW|    several subqueries.
-#NEW|    """
-#NEW|
-#NEW|    if record.is_empty():
-#NEW|        return record
-#NEW|
-#NEW|    def collect(key, record):
-#NEW|        if isinstance(subrecord, Records):
-#NEW|            # 1..N
-#NEW|            return [collect(key, r) for r in record]
-#NEW|        elif isinstance(subrecord, Record):
-#NEW|            key_head, _, key_tail = key.partition(FIELD_SEPARATOR)
-#NEW|            return collect(key_tail, record[key_head])
-#NEW|            # 1..1
-#NEW|        else:
-#NEW|            assert not key, "Field not found"
-#NEW|            return record[key_head]
-#NEW|
-#NEW|    def handle_record(k, v, myrecord, data = None):
-#NEW|        """
-#NEW|        Convert the field name from k to v in myrecord. k and v will eventually
-#NEW|        have several dots.
-#NEW|        . cases when field length are not of same length are not handled
-#NEW|        """
-#NEW|        k_head, _, k_tail = k.partition(FIELD_SEPARATOR)
-#NEW|        v_head, _, v_tail = v.partition(FIELD_SEPARATOR)
-#NEW|
-#NEW|        if k_tail and v_tail:
-#NEW|            if not k_head in myrecord:
-#NEW|                return
-#NEW|
-#NEW|            if k_head != v_head:
-#NEW|                myrecord[v_head] = myrecord.pop(k_head)
-#NEW|
-#NEW|            subrecord = myrecord[v_tail]
-#NEW|            
-#NEW|            if isinstance(subrecord, Records):
-#NEW|                # 1..N
-#NEW|                for _myrecord in subrecord:
-#NEW|                    handle_record(k_tail, v_tail, _myrecord)
-#NEW|            elif isinstance(subrecord, Record):
-#NEW|                # 1..1
-#NEW|                handle_record(k_tail, v_tail, subrecord)
-#NEW|            else:
-#NEW|                return
-#NEW|
-#NEW|        elif not k_tail and not v_tail:
-#NEW|            # XXX Maybe such cases should never be reached.
-#NEW|            if k_head and k_head != v_head:
-#NEW|                myrecord[v_head] = myrecord.pop(k_head)
-#NEW|            else:
-#NEW|                myrecord[v_head] = data
-#NEW|
-#NEW|        else:
-#NEW|            # We have either ktail or vtail"
-#NEW|            if k_tail: # and not v_tail
-#NEW|                # We will gather everything and put it in v_head
-#NEW|                my_record[v_head] = collect(k_tail, my_record[v_head]) 
-#NEW|
-#NEW|            else: # v_tail and not k_tail
-#NEW|                # We have some data in subrecord, that needs to be affected to
-#NEW|                # some dictionaries whose key sequence is specified in v_tail.
-#NEW|                # This should allow a single level of indirection.
-#NEW|                # 
-#NEW|                # for example: users = [A, B, C]   =>    users = [{user_hrn: A}, {...}, {...}]
-#NEW|                data = myrecord[v_head]
-#NEW|                # eg. data = [A, B, C]
-#NEW|
-#NEW|                if isinstance(data, Records):
-#NEW|                    raise Exception, "Not implemented"
-#NEW|                elif isinstance(data, Record):
-#NEW|                    raise Exception, "Not implemented"
-#NEW|                elif isinstance(data, list):
-#NEW|                    myrecord[v_head] = list()
-#NEW|                    for element in data:
-#NEW|                        myrecord[v_head].append({v_tail: element})
-#NEW|                else:
-#NEW|                    raise Exception, "Not implemented"
-#NEW|
-#NEW|    for k, v in aliases.items():
-#NEW|        handle_record(k, v, record)
-#NEW|
-#NEW|    return record
+def do_rename(record, aliases):
+    """ 
+    This function modifies the record packet in place.
+
+    NOTES:
+     . It might be better to iterate on the record fields
+     . It seems we only handle two levels of hierarchy. This is okay I think
+    since in the query plan, further layers will be broken down across
+    several subqueries.
+    """
+
+    if record.is_empty():
+        return record
+
+    def collect(key, record):
+        if isinstance(record, (list, Records)):
+            # 1..N
+            return [collect(key, r) for r in record]
+        elif isinstance(record, Record):
+            key_head, _, key_tail = key.partition(FIELD_SEPARATOR)
+            return collect(key_tail, record[key_head])
+            # 1..1
+        else:
+            print record.__class__
+            assert not key, "Field not found"
+            return record
+
+    def handle_record(k, v, myrecord, data = None):
+        """
+        Convert the field name from k to v in myrecord. k and v will eventually
+        have several dots.
+        . cases when field length are not of same length are not handled
+        """
+        k_head, _, k_tail = k.partition(FIELD_SEPARATOR)
+        v_head, _, v_tail = v.partition(FIELD_SEPARATOR)
+
+        print "-"*80
+        print "k_head", k_head, " - k_tail", k_tail
+        print "v_head", v_head, " - v_tail", v_tail
+
+        if not k_head in myrecord:
+            return
+
+        if k_tail and v_tail:
+
+            if k_head != v_head:
+                myrecord[v_head] = myrecord.pop(k_head)
+
+            subrecord = myrecord[v_tail]
+            
+            if isinstance(subrecord, Records):
+                # 1..N
+                for _myrecord in subrecord:
+                    handle_record(k_tail, v_tail, _myrecord)
+            elif isinstance(subrecord, Record):
+                # 1..1
+                handle_record(k_tail, v_tail, subrecord)
+            else:
+                return
+
+        elif not k_tail and not v_tail:
+            # XXX Maybe such cases should never be reached.
+            if k_head and k_head != v_head:
+                print "RECORD", myrecord
+                print "vhead", v_head, "khead", k_head
+                myrecord[v_head] = myrecord.pop(k_head)
+            else:
+                myrecord[v_head] = data
+
+        else:
+            # We have either ktail or vtail"
+            if k_tail: # and not v_tail
+                # We will gather everything and put it in v_head
+                print "collect(ktail=", k_tail, "from myrecord[k_head]", k_head
+                print "COLLECT IN SUBRECORD", myrecord[k_head]
+                myrecord[k_head] = collect(k_tail, myrecord[k_head]) 
+                print "collected values=", myrecord[k_head]
+                print "stored in myrecord[" ,v_head, "]", myrecord
+                print "." * 80
+
+            else: # v_tail and not k_tail
+                # We have some data in subrecord, that needs to be affected to
+                # some dictionaries whose key sequence is specified in v_tail.
+                # This should allow a single level of indirection.
+                # 
+                # for example: users = [A, B, C]   =>    users = [{user_hrn: A}, {...}, {...}]
+                data = myrecord[v_head]
+                # eg. data = [A, B, C]
+
+                if isinstance(data, Records):
+                    raise Exception, "Not implemented"
+                elif isinstance(data, Record):
+                    raise Exception, "Not implemented"
+                elif isinstance(data, list):
+                    myrecord[v_head] = list()
+                    for element in data:
+                        myrecord[v_head].append({v_tail: element})
+                else:
+                    raise Exception, "Not implemented"
+
+    for k, v in aliases.items():
+        # Rename fields in place in the record
+        print "#" * 80
+        print "#" * 80
+        handle_record(k, v, record)
+
+    return record
 
 
-def do_rename(record, map_fields):
+def do_rename_old(record, map_fields):
+    print "*" * 80
+    Log.debug("BEFORE do_rename record = ",record)
+    Log.debug("do_rename map_fields = ",map_fields)
     for k, v in map_fields.items():
         if k in record:
             tmp = record.pop(k)
@@ -125,6 +144,7 @@ def do_rename(record, map_fields):
                     Log.tmp("This record has a tmp None record = %s , tmp = %s , v = %s" % (record,tmp,v))
             else:
                 record[v] = tmp
+    Log.debug("AFTER do_rename record = ",record)
     return record
 
 class Rename(Node):
@@ -188,7 +208,12 @@ class Rename(Node):
             self.send(record)
             return
 
-        record = do_rename(record, self.map_fields)
+        try:
+            record = do_rename(record, self.map_fields)
+        except Exception, e:
+            print "EEE:", e
+            import traceback
+            traceback.print_exc()
         self.send(record)
 
     def optimize_selection(self, filter):

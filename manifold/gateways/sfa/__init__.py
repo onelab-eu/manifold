@@ -14,6 +14,7 @@ from manifold.core.query                import Query
 from manifold.core.record               import Record, Records, LastRecord
 from manifold.operators                 import Node
 from manifold.operators.left_join       import LeftJoin
+from manifold.operators.projection      import Projection
 from manifold.operators.rename          import Rename, do_rename
 from manifold.gateways                  import Gateway
 #from manifold.gateways.sfa.rspecs.SFAv1 import SFAv1Parser # as Parser
@@ -207,10 +208,24 @@ class SFAGateway(Gateway):
         defer.returnValue(parser)
 
 ################################################################################
+# Information about the current instance of the SFA Gateway, does the platform has AM or Registry?    
+    def has_am(self):
+        # AM 
+        if self.sliceapi:
+            Log.debug("has_am = True for platform = ",self.sliceapi)
+            return True
+        else:
+            return False
 
+    def has_rm(self):
+        # Registry
+        if self.registry:
+            Log.debug("has_rm = True for platform = ",self.registry)
+            return True
+        else:
+            return False
 
-
-
+################################################################################
     config_fields = [
         'user_credential',      # string representing a user_credential
         'slice_credentials',    # dictionary mapping a slice_hrn to the
@@ -1107,7 +1122,6 @@ class SFAGateway(Gateway):
             defer.returnValue(output)
 
         
-
     def get_slice(self, filters, params, fields):
         Log.tmp("get_slice filters = ",filters)
         # Because slice information is both in RM and AM, we need to manually
@@ -1123,11 +1137,23 @@ class SFAGateway(Gateway):
         fields_am = fields & AM_SLICE_FIELDS
         fields_rm = fields - AM_SLICE_FIELDS
 
+        print "FIELDS = ", fields
         print "FIELDS AM", fields_am
         print "FIELDS RM", fields_rm
-
+        
+        # Only RM fields
         if not fields_am:
-            return self.get_object('slice', SLICE_KEY, filters, params, fields)
+            Log.debug("Only RM fields")
+            # The platform has an RM, avoid loop in recurcive call
+            if not self.has_rm():
+                Log.debug("This platform has NO RM configured")
+                return defer.succeed([])
+
+            return self.get_object('slice', SLICE_KEY, filters, params, fields_rm)
+
+        if not self.has_am():
+            # Talking to the Registry
+            return defer.succeed([])
 
         # If fields from the AM are needed, we can systematically do the RM
         # expecting the RM query will return if it is not needed
@@ -1135,33 +1161,71 @@ class SFAGateway(Gateway):
 
         class RMSliceRequest(Node):
             def start(self):
-                def cb(records):
-                    for record in records:
-                        self.callback(Record(record))
+                def cb(result_value):
+                    Log.debug("RMSliceRequest result_value=", result_value)
+                    try:
+                        records = result_value.get_value([])
+                        for record in records:
+                            Log.debug("RMSliceRequest record = ",record)
+                            self.callback(Record(record))
+                        Log.debug("RMSliceRequest callback")
+                    except Exception,e:
+                        print e
                     self.callback(LastRecord())
 
-                d = _self.get_object('slice', 'reg-urn', filters, None, fields_rm)
+                #d = _self.get_object('slice', 'reg-urn', filters, None, fields_rm)
+                # filters = rename SFA -> Manifold
+                #rmap_slice_fields = {v:k for k, v in _self.map_slice_fields.items()}
+                #manifold_fields_rm = []
+                Log.debug("fields_rm before rmap = ",fields_rm)
+                #for field in fields_rm:
+                #    manifold_fields_rm.append(_self.map_slice_fields[field])
+                #Log.debug("MANIFOLD FIELDS = ",manifold_fields_rm)    
+                # Manifold Query to get the data only for RM fields
+                query_rm_fields = Query.get('slice').filter_by(filters).select(fields_rm)
+                try:
+                    d = _self.interface.forward(query_rm_fields, {'user':_self.user}, is_deferred = True)
+                except Exception, e:
+                    print e
                 d.addCallback(cb)
 
         class AMSliceRequest(Node):
             def start(self):
+                Log.debug("AMSliceRequest start")
                 def cb(records):
                     for record in records:
+                        Log.debug("AMSliceRequest record = ",record)
+                        
                         self.callback(Record(record))
                     self.callback(LastRecord())
-
+                
                 d = _self.get_resource_lease(self._filters, None, fields_am, list_resources = True, list_leases = True)
                 d.addCallback(cb)
 
             def optimize_selection(self, filter):
+                Log.debug("AMSliceRequest filter = ",filter)
                 self._filters = filter
                 return self
 
-        # Join callback
-        lj = LeftJoin(RMSliceRequest(), AMSliceRequest(), Predicate('reg-urn', '==', 'slice'))
+
         d = defer.Deferred()
-        lj.set_callback(Callback(deferred = d))
-        lj.start()
+
+# loic        # XXX Using Projection get_slice should return list of resource keys not the full object
+# loic        pj = Projection(lj,['resource.urn'])
+# loic        pj.set_callback(Callback(deferred = d))
+# loic        lj.set_callback(pj.child_callback)
+# loic        pj.start()
+
+        # XXX Using Rename get_slice should return list of resource keys not the full object
+
+        # Join callback
+        lj = LeftJoin(RMSliceRequest(), AMSliceRequest(), Predicate(SLICE_KEY, '==', 'slice'))
+        r = Rename(lj, {'resource.urn': 'urn'})
+        lj.set_callback(r.child_callback)
+        r.set_callback(Callback(deferred = d))
+
+        r.start()
+
         return d
 
     def get_user(self, filters, params, fields):
@@ -1339,6 +1403,11 @@ class SFAGateway(Gateway):
         parser = yield self.get_parser()
         #print "rspec_string", rspec_string
         rsrc_slice = parser.parse(rspec_string, rspec_version, slice_urn)
+
+        # Make records
+        rsrc_slice['resource'] = Records(rsrc_slice['resource'])
+        rsrc_slice['lease'] = Records(rsrc_slice['lease'])
+
         if slice_urn:
             rsrc_slice['slice'] = slice_urn
             for r in rsrc_slice['resource']:
