@@ -25,7 +25,7 @@
 #twisted.protocols.tls.TLSMemoryBIOProtocol = _TLSMemoryBIOProtocol
 ##/bugfix
 
-import os, sys, tempfile
+import os, sys, time, tempfile
 from types                                  import GeneratorType, StringTypes
 from OpenSSL.crypto                         import TYPE_RSA, FILETYPE_PEM, load_certificate, load_privatekey
 from twisted.internet                       import ssl, defer

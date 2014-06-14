@@ -187,8 +187,8 @@ class ResultValue(dict):
         return self['type'] == SUCCESS and self['code'] == SUCCESS
 
     @returns(list)
-    def ok_value(self):
-        return self["value"]
+    def ok_value(self, default):
+        return self.get('value', default)
 
     def get_all(self):
         if not self.is_success() and not self.is_warning():

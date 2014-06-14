@@ -47,6 +47,7 @@ class Record(Packet):
             else:
                 raise Exception, "Bad initializer for Record"
         else:
+            # We need None to test whether the record is empty
             self._record = None
         #self._parent_uuid = None
         #self._uuid = None
@@ -150,6 +151,8 @@ class Record(Packet):
             A dictionary-keyiterator allowing to iterate on fields
             of this Record.
         """
+        if self._record is None:
+            return dict.__iter__({})
         return dict.__iter__(self._record)
 
 #    def get(self, value, default=None):

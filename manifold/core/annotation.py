@@ -16,6 +16,11 @@ class Annotation(dict):
 
     #@returns(Annotation)
     def __ior__(self, annotation):
-        self.update(annotation)
+        # Update would erase existing keys...
+        #self.update(annotation)
+        for key, value in annotation.items():
+            if key in self:
+                continue
+            self[key] = value
         return self
 

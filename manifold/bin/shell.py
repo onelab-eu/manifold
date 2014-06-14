@@ -281,7 +281,7 @@ class Shell(object):
             username: A String containing the user's email address.
         """
         from manifold.clients.local import ManifoldLocalClient
-        self.client = ManifoldLocalClient()
+        self.client = ManifoldLocalClient(username)
 
     def authenticate_router(self, username):
         """
@@ -290,7 +290,7 @@ class Shell(object):
             username: A String containing the user's email address.
         """
         from manifold.clients.router import ManifoldRouterClient
-        self.client = ManifoldRouterClient()
+        self.client = ManifoldRouterClient(username)
 
     def authenticate_xmlrpc_password(self, url, username, password):
         """
@@ -358,6 +358,7 @@ class Shell(object):
 
         elif auth_method == 'router':
             username = Options().username
+            print "username", username
             self.authenticate_router(username)
 
         else: # XMLRPC
@@ -471,6 +472,7 @@ class Shell(object):
         Returns:
             The ResultValue resulting from this Query.
         """
+
         try:
             result_value = self.client.forward(query, annotations)
             if result_value.is_success():
@@ -716,6 +718,7 @@ def main():
         Log.init_options()
         Options().parse()
         command = Options().execute
+        annotations = None # XXX undefined
 
         if command:
             try:

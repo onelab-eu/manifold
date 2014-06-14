@@ -86,12 +86,10 @@ class Slice(RM_Object):
     aliases = {
         # REGISTRY FIELDS
         'hrn'               : 'slice_hrn',                  # hrn
-        'urn'               : 'slice_urn',                  # slice_geni_urn ???
-        'type'              : 'slice_type',                 # type ?
-        'reg-researchers'   : 'users',                      # user or users . hrn or user_hrn ?
-                                                            # XXX this is in lowercase when creating a slice !
         'reg-urn'           : 'slice_urn',
-
+        'type'              : 'slice_type',                 # type ?
+        'researcher'        : 'users',                      # user or users . hrn or user_hrn ?
+                                                            # XXX this is in lowercase when creating a slice !
         # TESTBED FIELDS
         'enabled'           : 'slice_enabled',
         'researcher'        : 'users',                      # user or users . hrn or user_hrn ?

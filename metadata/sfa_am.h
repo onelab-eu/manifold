@@ -71,5 +71,3 @@ class network {
     KEY(network_hrn);
     CAPABILITY(retrieve, join);
 };
-
-

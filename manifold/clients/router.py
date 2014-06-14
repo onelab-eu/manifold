@@ -120,15 +120,12 @@ class ManifoldRouterClient(ManifoldClient):
             Log.info("Using anonymous profile: %s" % user_email)
             return
 
-        if not self.router.has_storage():
-            Log.warning("Storage disabled, using anonymous profile instead of '%s' profile" % user_email)
-            return
-
         try:
             users = self.router.execute_local_query(
                 Query.get("user").filter_by("email", "==", user_email)
             )
-        except:
+        except Exception, e:
+            print "eee=", e
             users = list()
 
         if not len(users) >= 1:

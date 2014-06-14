@@ -122,6 +122,7 @@ class SQLA_Object(Object):
             The list of updated Objects.
         """
         super(SQLA_Object, self).check(query, annotation)
+        print "UPDATE ANNOTATION=", annotation
         user = annotation.get("user", None)
         session = self.get_gateway().get_session()
 

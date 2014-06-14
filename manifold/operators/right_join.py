@@ -14,7 +14,7 @@ from types                          import StringTypes
 from manifold.core.destination      import Destination
 from manifold.core.filter           import Filter
 from manifold.core.node             import Node
-from manifold.core.operator_slot    import ChildSlotMixin
+from manifold.core.operator_slot    import LeftRightSlotMixin
 from manifold.core.packet           import Packet
 from manifold.core.query            import Query, ACTION_CREATE, ACTION_UPDATE, ACTION_GET
 from manifold.core.record           import Record
@@ -29,7 +29,7 @@ from manifold.util.type             import returns
 # RIGHT JOIN node
 #------------------------------------------------------------------
 
-class RightJoin(Operator, ChildSlotMixin):
+class RightJoin(Operator, LeftRightSlotMixin):
     """
     RIGHT JOIN operator node
     """
@@ -58,7 +58,7 @@ class RightJoin(Operator, ChildSlotMixin):
 
         # Initialization
         Operator.__init__(self)
-        ChildSlotMixin.__init__(self)
+        LeftRightSlotMixin.__init__(self)
 
         self._set_left(parent_producer)
         self._set_right(producers)
@@ -80,22 +80,6 @@ class RightJoin(Operator, ChildSlotMixin):
             The '%r' representation of this RightJoin Operator.
         """
         return "RIGHT JOIN ON (%s %s %s)" % self._predicate.get_str_tuple()
-
-    #---------------------------------------------------------------------------
-    # Helpers
-    #---------------------------------------------------------------------------
-
-    def _get_left(self):
-        return self._parent_producer
-
-    def _get_right(self):
-        return self.get_producer()
-
-    def _update_left(self, function):
-        return self.update_parent_producer(function)
-
-    def _update_right(self, function):
-        return self.update_producer(function)
 
     #---------------------------------------------------------------------------
     # Methods
@@ -241,7 +225,7 @@ class RightJoin(Operator, ChildSlotMixin):
                     Log.warning("Missing RIGHTJOIN predicate %s in right record %r: ignored" % \
                             (self._predicate, record))
                     # We send the right record as is.
-                    self.forward(record)
+                    self.forward_upstream(record)
                     return
                 
                 # We expect to receive information about keys we asked, and only these,
@@ -256,10 +240,10 @@ class RightJoin(Operator, ChildSlotMixin):
                 right_record = self._right_map.get(key)
                 
                 record.update(right_record)
-                self.forward(record)
+                self.forward_upstream(record)
 
         else: # TYPE_ERROR
-            self.forward(packet)
+            self.forward_upstream(packet)
 
     @returns(Node)
     def optimize_selection(self, filter):
@@ -295,9 +279,9 @@ class RightJoin(Operator, ChildSlotMixin):
 
         # ... then apply left_ and right_filter...
         if left_filter:
-            self._update_left(lambda p: p.optimize_selection(left_filter))
+            self._update_left_producer(lambda p, d: p.optimize_selection(left_filter))
         if right_filter:
-            self._update_right(lambda p: p.optimize_selection(right_filter))
+            self._update_right_producer(lambda p, d: p.optimize_selection(right_filter))
 
         # ... and top_filter.
         if top_filter:
@@ -327,8 +311,8 @@ class RightJoin(Operator, ChildSlotMixin):
         right_fields  = fields & self._get_right().get_destination().get_fields()
         right_fields |= key_right
 
-        self._update_left( lambda l: l.optimize_projection(left_fields))
-        self._update_right(lambda r: r.optimize_projection(right_fields))
+        self._update_left_producer(lambda p, d: p.optimize_projection(left_fields))
+        self._update_right_producer(lambda p, d: p.optimize_projection(right_fields))
 
         # Do we need a projection on top (= we do not request the join keys)
         if left_fields | right_fields > fields:

@@ -137,8 +137,22 @@ class Union(Operator, ChildrenSlotMixin):
 
 
                 if key_value in self._records_by_key:
-                    # XXX What about collisions ?
-                    self._records_by_key[key_value].update(record)
+                    prev_record = self._records_by_key[key_value]
+                    for k, v in record.items():
+                        if not k in prev_record:
+                            prev_record[k] = v
+                            continue
+                        if isinstance(v, Records):
+                            previous[k].extend(v) # DUPLICATES ?
+                        elif isinstance(v, list):
+                            Log.warning("Should be a record")
+                        #else:
+                        #    if not v == previous[k]:
+                        #        print "W: ignored conflictual field"
+                        #    # else: nothing to do
+                    
+                    # OLD CODE: 
+                    # self._records_by_key[key_value].update(record)
                 else:
                     self._records_by_key[key_value] = record
 
