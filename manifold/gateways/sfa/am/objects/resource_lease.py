@@ -141,9 +141,16 @@ class ResourceLease(DeferredObject):
         rspec_string = result["value"]
         rsrc_slice = gateway.parse_sfa_rspec(rspec_version_string, rspec_string)
 
+        # Make records
+        rsrc_slice['resource'] = Records(rsrc_slice['resource'])
+        rsrc_slice['lease'] = Records(rsrc_slice['lease'])
+
         if slice_hrn:
-            for r in rsrc_slice["resource"]:
+            rsrc['slice'] = slice_hrn
+            for r in rsrc_slice['resource']:
                 r["slice"] = slice_hrn
+            for r in rsrc_slice['lease']:
+                r['slice'] = slice_hrn
 
         if is_debug:
             rsrc_slice["debug"] = {"rspec" : rspec}

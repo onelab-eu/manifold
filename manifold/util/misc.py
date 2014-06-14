@@ -10,7 +10,9 @@ def find_local_modules(filepath):
     return modules 
 
 def make_list(elt):
-    if not elt or isinstance(elt, list):
+    if not elt:
+        return []
+    if isinstance(elt, list):
         return elt
     if isinstance(elt, StringTypes):
         return [elt]

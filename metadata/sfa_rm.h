@@ -42,42 +42,63 @@ class gid {
 // User
 //---------------------------------------------------------------------------
 
-enum role {
-    "user",
-    "admin",
-    "tech",
-    "pi"
-};
-
-// See sfi.py show ple.upmc.john_doe to expose more fields.
+//enum role {
+//    "user",
+//    "admin",
+//    "tech",
+//    "pi"
+//};
 
 class user {
-    const string     first_name;     /**< First name.    */
-    const string     last_name;      /**< Last name.     */
-    const string     email;          /**< Email address. */
-    const string     authority_hrn;
-    const gid      gid;
-    const string     user_hrn;
-    string           public_keys[];
-    slice          slices[];       /**< User's slices. */
-    const string     phone;          /**< Phone number.  */
-    const string     site;
-    const role     roles[];        /**< User's roles.  */
+    /* SFA FIELDS */
+    const string user_hrn;              /**< User Human Readable Name   */
+    const string user_urn;              /**< User Unique Resource Name  */
+    const string user_type;             /**< Object type == user        */
+    const string user_email;            /**< Email address              */
+    const string user_gid;              /**< User GID                   */
+    const authority parent_authority;   /**< User's authority           */
+    const string keys;                  /**< user's keys                */
+    slice slices[];                     /**< User's slices              */
+    authority pi_authorities[];         /**< User's PI authorities      */
+
+    /* TESTBED FIELDS */
+
+    /* UNCLASSIFIED */
+    const string user_first_name;       /**< First name                 */
+    const string user_last_name;        /**< Last name                  */
+    const string user_phone;            /**< Phone number               */
+    const string user_enabled;
+    /* roles, site ? */
 
     KEY(user_hrn);
     CAPABILITY(retrieve, join, fullquery);
 };
+
 
 //---------------------------------------------------------------------------
 // Slice 
 //---------------------------------------------------------------------------
 
 class slice {
-    const string     slice_hrn;  /**< Slice Human Readable name (ex: ple.upmc.myslice_demo). */
-    const string     slice_type; /**< Slice type (ex: "slice"). */
-    user           user[];     /**< List of users associated to the slice (see SFA::resolve). */
+    /* SFA FIELDS */
+    const text slice_urn;               /**< Slice Human Readable name  */
+    const text slice_hrn;               /**< Slice Human Readable name  */
+    const text slice_type;              /**< Object type == slice       */
+    user        users[];                /**< Slice's users              */
+    user        pi_users[];             /**< Slice's PIs                */
 
-    KEY(slice_hrn);
+    /* TESTBED FIELDS */
+
+    /* UNCLASSIFIED */
+    const text slice_description;
+    const text created;
+    const text slice_expires;
+    const text slice_last_updated;
+    const text nodes;
+    const text slice_url;
+    const authority parent_authority;
+
+    KEY(slice_urn);
     CAPABILITY(retrieve, join, fullquery);
 };
 
@@ -86,11 +107,16 @@ class slice {
 //---------------------------------------------------------------------------
 
 class authority {
-    const string     name;
-    const string     abbreviated_name;
-    const string     authority_hrn;
-    slice          slice[];
-    user           user[];
+    /* SFA FIELDS */
+    const string authority_hrn;         /**< Authority Human Readable Name  */
+    const authority parent_authority;   /**< Authority's parent authority   */
+    slice      slices[];                /**< Authority's slices             */
+    user       users[];                 /**< Authority's users              */
+    user       pi_users[];              /**< Authority's PI users           */
+
+    /* TESTBED FIELDS */
+    const string name;
+    const string abbreviated_name;
 
     KEY(authority_hrn);
     CAPABILITY(retrieve, join, fullquery);

@@ -44,7 +44,7 @@ class BaseSlotMixin(SlotMixin):
 
     def _clear(self):
         for slot_id, (prev_producer, prev_data) in self._slot_dict.items():
-            prev_producer.del_consumer(self, cascade)
+            prev_producer.del_consumer(self, cascade=True)
             self._set(slot_id)
 
     def _iter_slots(self):

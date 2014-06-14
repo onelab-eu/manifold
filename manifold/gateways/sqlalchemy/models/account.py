@@ -104,6 +104,8 @@ class ModelAccount(Base):
             filters: A list of Predicate instances.
             user: a ModelUser instance
         """
+        print "="*80
+        print "USER=", user
         user_params = params.get("user")
         if user_params:
             del params["user"]

@@ -1,24 +1,38 @@
-
 class slice {
-    const string  slice_hrn;   /**< Slice Human Readable name */
-    const string  slice_type;
-    lease       lease[];       /**< List of leases associated to the slice */
-    user        user[];        /**< List of users associated to the slice */
+    const text slice_urn;   /**< Slice Human Readable name */
+    const text slice_hrn;   /**< Slice Human Readable name */
+    const text slice_type;
+    user        users[];        /**< List of users associated to the slice */
+    user        pi_users[];        /**< List of users associated to the slice */
 
-    KEY(slice_hrn);
+    const text slice_description;
+    const text created;
+    const text slice_expires;
+    const text slice_last_updated;
+    const text nodes;
+    const text slice_url;
+    const authority parent_authority;
+
+	resource resource[];
+	lease lease[];
+# lease       lease[];       /**< List of leases associated to the slice */
+
+    KEY(slice_urn);
     CAPABILITY(retrieve, join, fullquery);
 };
 
 class lease {
-    const resource resource;    /**< Resource URN attached to this lease */
-    const string     lease_type;
-    const string     network;
+	slice 		   slice[];
     timestamp      start_time;  /**< Start of the lease */ 
-    interval       granularity; 
+	timestamp      end_time;
     interval       duration;
+    const resource resource;    /**< Resource URN attached to this lease */
+    const string   lease_type;
 
-    KEY(start_time, duration, resource);
-    CAPABILITY(retrieve, join);
+    interval       granularity; 
+
+    KEY(start_time, end_time, resource);
+    CAPABILITY(retrieve, join, fullquery);
 };
 
 enum boot_state {
@@ -97,6 +111,10 @@ class resource {
     const string          country;
     const string          longitude;
     const string          latitude;
+
+#   only in nitos
+    const string granularity;
+
     const string          x;
     const string          y;
     const string          z;
@@ -116,31 +134,40 @@ class network {
     const string network_hrn;
     const string network_name;
     const string platform;
+    const string version;
 
     KEY(network_hrn);
     CAPABILITY(retrieve, join);
 };
 
 class user {
-    const string first_name;
-    const string last_name;
-    const string email;
-    const string telephone;
     const string user_hrn;
-    const string password;
-    const string site;
-    slice slice[];
+    const string user_urn;
+    const string user_type;
+    const string user_email;
+    const string user_gid;
+    const authority parent_authority;
+    const string keys;
+    slice slices[];
+    authority pi_authorities[];
+
+    const string user_first_name;
+    const string user_last_name;
+    const string user_phone;
+    const string user_enabled;
 
     KEY(user_hrn);
     CAPABILITY(retrieve, join, fullquery);
 };
 
 class authority {
+    const string authority_hrn;
     const string name;
     const string abbreviated_name;
-    const string authority_hrn;
-    slice      slice[];
-    user       user[];
+    const authority parent_authority;
+    slice      slices[];
+    user       users[];
+    user       pi_users[];
 
     KEY(authority_hrn);
     CAPABILITY(retrieve, join, fullquery);

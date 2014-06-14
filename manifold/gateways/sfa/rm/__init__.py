@@ -39,6 +39,7 @@ class SFA_RMGateway(SFAGatewayCommon):
     from .objects.authority import Authority
     from .objects.slice     import Slice 
     from .objects.user      import User 
+    # We currently ignore 'resource' objects in the RM
 
     # ...and map them to their name 
     # XXX This should be automatic based on object properties; we might also

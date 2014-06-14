@@ -353,9 +353,11 @@ class From(Operator, ChildSlotMixin):
         # This should initially contain all fields provided by the table (and not *)
         provided_fields = self.get_query().get_select()
 
+        if self.get_capabilities().projection or self.get_capabilities.fullquery:
+            self._query.select().select(provided_fields & fields)
+
         if self.get_capabilities().projection:
             # Push fields into the From node
-            self._query.select().select(provided_fields & fields)
             return self
         else:
             # Provided fields is set to None if it corresponds to SELECT *

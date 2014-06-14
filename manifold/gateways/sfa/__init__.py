@@ -289,7 +289,7 @@ class SFAGatewayCommon(Gateway):
         query = packet.get_query()
         annotation = packet.get_annotation()
         user = annotation.get("user", None)
-        user_email = user["email"]
+        user_email = user.get('email') if user else None
 
         if not user:
             self.error(packet, "No user specified, aborting")
@@ -338,15 +338,17 @@ class SFAGatewayCommon(Gateway):
             self.error(packet, "Account related to %s for platform %s not found" % (user_email, self.get_platform_name()))
             return
 
-        # Insert a RENAME Node above this FROM Node if necessary.
-        instance = self.get_object(query.get_from())
-        aliases  = instance.get_aliases()
-        if aliases:
-            Log.warning("I don't think this properly recables everything")
-            try:
-                Rename(self, aliases)
-            except Exception, e:
-                print "EEE:", e
+# DEPRECATED |        # Insert a RENAME Node above this FROM Node if necessary.
+# DEPRECATED |        instance = self.get_object(query.get_from())
+# DEPRECATED |        aliases  = instance.get_aliases()
+# DEPRECATED |        if aliases:
+# DEPRECATED |            Log.warning("I don't think this properly recables everything")
+# DEPRECATED |            try:
+# DEPRECATED |                print "****** RENAME", aliases
+# DEPRECATED |                Rename(self, aliases)
+# DEPRECATED |            except Exception, e:
+# DEPRECATED |                print "EEE:", e
+# DEPRECATED |
 
         # We know this function will return either through gw.records() or
         # GW.error() so there is no need to specify callbacks

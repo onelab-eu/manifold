@@ -222,7 +222,7 @@ class Fields(list):
         Returns:
             True if the both Fields instance matches.
         """
-        return self.is_star() and other.is_star() or list.__eq__(self, other)
+        return self.is_star() and other.is_star() or set(self) == set(other) # list.__eq__(self, other)
 
     @returns(bool)
     def __le__(self, other):
@@ -239,7 +239,7 @@ class Fields(list):
 
         return (self.is_star() and other.is_star())\
             or (not self.is_star() and other.is_star())\
-            or (list.__le__(self, other))
+            or (set(self) <= set(other)) # list.__le__(self, other)
 
     # Defined with respect of previous functions
 

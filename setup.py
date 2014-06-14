@@ -10,10 +10,12 @@
 #
 # Authors:
 #    Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
+#    Jordan Augé <jordan.auge@lip6.fr>
 #
 # Copyright UPMC Paris Universitas
 
 import os
+from glob import glob
 from platform   import dist
 from setuptools import find_packages, setup
 
@@ -94,6 +96,11 @@ data_files.append((
         } for service in SERVICES
     ]
 ))
+
+# Add metadata 
+data_files.append(
+    ('/usr/share/manifold/metadata/', glob('metadata/*.h'))
+)
 
 setup(
     name             = "manifold",

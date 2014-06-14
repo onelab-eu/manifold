@@ -64,6 +64,8 @@ class LeftJoin(Operator, LeftRightSlotMixin):
         assert predicate.op == eq
         # In fact predicate is always : object.key, ==, VALUE
 
+        self._predicate = predicate
+
         # Initialization
         Operator.__init__(self)
         LeftRightSlotMixin.__init__(self)
@@ -71,7 +73,6 @@ class LeftJoin(Operator, LeftRightSlotMixin):
         self._set_left(parent_producer)
         self._set_right(producers)
 
-        self._predicate = predicate
 
         self._left_map     = dict() 
         self._left_done    = False
@@ -191,11 +192,10 @@ class LeftJoin(Operator, LeftRightSlotMixin):
             left_fields = q.get_fields() & left_fields
             left_fields |= left_key
             left_packet.update_query(lambda q: q.select(left_fields, clear = True))
-            #left_packet.update_query(lambda q: q.select(q.get_fields() & left_fields | left_key, clear = True))
+
+            # left_packet.update_query(lambda q: q.select(q.get_fields() & left_fields | left_key, clear = True))
             left_packet.update_query(lambda q: q.filter_by(q.get_filter().split_fields(left_fields, True), clear = True))
 
-            #import sys
-            #sys.exit(0)
             right_packet = packet.clone()
             # We should rewrite the query...
             right_packet.update_query(lambda q: q.set_object(right_object))
@@ -371,8 +371,8 @@ class LeftJoin(Operator, LeftRightSlotMixin):
         if right_join:
             # We need to be sure to have the same producers...
             # consumers should be handled by the return new_self
-            left_producer   = self.get_left()
-            right_producer  = self.get_right()
+            left_producer   = self._get_left()
+            right_producer  = self._get_right()
             self._clear()
             new_self = RightJoin(self._predicate, left_producer, right_producer)
         else:
@@ -431,8 +431,8 @@ class LeftJoin(Operator, LeftRightSlotMixin):
     def reorganize_create(self):
         # Transform into a Right Join
         # XXX we need to delete it !!!
-        left_producer   = self.get_left().reorganize_create()
-        right_producer  = self.get_right().reorganize_create()
+        left_producer   = self._get_left().reorganize_create()
+        right_producer  = self._get_right().reorganize_create()
         self._clear()
         return RightJoin(self._predicate, left_producer, right_producer)
 

@@ -109,7 +109,8 @@ class Node(object):
         """
         self._pool_consumers.add(consumer)
         if cascade:
-            consumer.add_producer(self, cascade = False)
+            Log.warning("Cascade not implemented")
+        #    consumer.add_producer(self, cascade = False)
 
     @returns(bool)
     def is_empty(self):
@@ -127,9 +128,13 @@ class Node(object):
             cascade: A boolean set to true to remove 'self'
                 to the producers set of 'consumer'.
         """
-        self._pool_consumers.remove(consumer)
+        try:
+            self._pool_consumers.remove(consumer)
+        except Exception, e:
+            Log.warning("Exception in del_consumer: %s" % str(e))
         if cascade:
-            customer.del_producer(self, cascade = False)
+            Log.warning("Cascade not implemented")
+        #    consumer.del_producer(self, cascade = False)
 
     @returns(StringTypes)
     def format_consumer_ids(self):

@@ -15,7 +15,7 @@ from types                                      import GeneratorType
 from xmlrpclib                                  import DateTime
 from twisted.internet                           import defer
 
-from sfa.util.xrn                               import hrn_to_urn 
+from sfa.util.xrn                               import urn_to_hrn, hrn_to_urn 
 
 from manifold.core.record                       import Record
 from manifold.gateways.deferred_object          import DeferredObject
@@ -57,6 +57,8 @@ class RM_Object(DeferredObject):
         fields     = query.get_select()
         gateway    = self.get_gateway()
 
+        print "FIELDS", fields
+
         #-----------------------------------------------------------------------
         # Connection
         #   . Authentication : admin account thanks to sfa_proxy
@@ -67,50 +69,47 @@ class RM_Object(DeferredObject):
         # We need to do the same as is done for AM crendetials
         credential = gateway.get_credential(user, 'user', None)
 
-        #-----------------------------------------------------------------------
-        # Optimization of results
-
-        # Let's find some additional information in filters in order to restrict our research
-        # SFA gateways are not supporting Selection operation, however, we can optimize
-        # the SFA query if it involves filters restricting the query to a given authority etc.
-        authority_hrns = make_list(filters.get_op("authority_hrn", [eq, lt, le])) # TODO this should be specific to Authority object ?
-        object_hrns    = make_list(filters.get_op(object_hrn,      [eq, included]))
-
-        # Retrieve interface HRN (ex: "ple")
+        # 1. The best case is when objects are given by name, which allows a
+        # direct lookup.  We will accept both HRNs and URNs in filters.
+        # object_hrn property is currently unused.
+        # hrn and urn fields are in the sfa naming scheme.
+        object_hrns = make_list(filters.get_op('hrn', [eq, included]))
+        object_urns = make_list(filters.get_op('reg-urn', [eq, included]))
+        for urn in object_urns:
+            hrn, _ = hrn_to_urn(urn, object)
+            object_hrns.append(hrn)
+        # 2. Otherwise, we run a recursive search from the most precise known
+        # authority.
+        authority_hrns = make_list(filters.get_op('parent_authority', [eq, lt, le]))
+        # 3. In the worst case, we search from the root authority, eg. 'ple'
         interface_hrn = yield gateway.get_hrn()
-        # Recursive: Should be based on jokers, eg. ple.upmc.*
-        # Resolve  : True: make resolve instead of list
-        if object_hrns:
-            print "We have objects hrns", object_hrns
-            
-            # 0) given object name
 
+        # Based on cases 1, 2 or 3, we build the stack of objects to
+        # List/Resolve.
+        details   = True
+
+        if object_hrns: # CASE 1
             # If the objects are not part of the hierarchy, let's return [] to
             # prevent the registry to forward results to another registry
             # XXX This should be ensured by partitions
-            object_hrns = [object_hrn for object_hrn in object_hrns if object_hrn.startswith(interface_hrn)]
+            object_hrns = [ hrn for hrn in object_hrns if hrn.startswith(interface_hrn)]
             if not object_hrns:
                 defer.returnValue(list())
 
             # Check for jokers ?
-            # 'recursive' won't be evaluated in the rest of the function
             stack   = object_hrns
-            resolve = True
+            do_list = False
 
-        elif authority_hrns:
-            # 2) given authority
-
+        elif authority_hrns: # CASE 2
             # If the authority is not part of the hierarchy, let's return [] to
             # prevent the registry to forward results to another registry
             # XXX This should be ensured by partitions
-            Log.warning("calling startswith on a list ??")
-            authority_hrns = [a for a in authority_hrns if a.startswith(interface_hrn)]
-            if not authority_hrns:
+            authority_hrns  = [a for a in authority_hrns if a.startswith(interface_hrn)]
+            if not auth_hrn:
                 defer.returnValue(list())
 
-            resolve   = False
-            recursive = False
-            stack     = list() 
+            recursive = False # XXX We are supposing only two levels of hierarchy
+            stack = list()
 
             ####################
             # TODO
@@ -130,54 +129,103 @@ class RM_Object(DeferredObject):
                     Log.warning("get_object: the next loop may have a non-deterministic result")
             ####################
 
-            for authority_hrn in authority_hrns:
-                if not '*' in authority_hrn: # jokers ?
-                    stack.append(authority_hrn)
+            for hrn in authority_hrns:
+                if not '*' in hrn: # jokers ?
+                    stack.append(hrn)
                 else:
                     stack = [interface_hrn]
                     break
+            do_list = True
 
-        else: # Nothing given
-            resolve   = False
-            recursive = True
-            stack     = [interface_hrn]
-        
-        # TODO: user's objects, use reg-researcher
+        else: # CASE 3
+            recursive = True #if object != 'authority' else False
+            stack = [interface_hrn]
+            do_list = True
+
 
         #-----------------------------------------------------------------------
         # Result construction
 
-        output = list() 
+        # First we eventually perform the List...
+        # Even if the stack is reduced to a single element, let's suppose it has
+        # multiple... Let's loop on the authorities on which to make a list
 
-        if resolve:
-            # stack = ['ple.upmc.loic_baron'] --> ['urn:publicid:IDN+ple:upmc+user+loic_baron']
-            stack = map(lambda x: hrn_to_urn(x, object), stack)
-            _result, = yield sfa_proxy.Resolve(stack, credential, {'details': True})
+        output = list()
 
-            # XXX How to better handle DateTime XMLRPC types into the answer ?
-            # XXX Shall we type the results like we do in CSV ?
-            result = dict()
-            for k, v in _result.items():
-                if isinstance(v, DateTime):
-                    result[k] = str(v) # datetime.strptime(str(v), "%Y%m%dT%H:%M:%S") 
-                else:
-                    result[k] = v
+        if do_list: 
+            # The aim of List is the get the list of object urns
+            object_urns = list()
 
-            output.append(result)
-        else:
-            # Build a list of deferred tasks (one per queried SFA object)
-            deferreds = list() 
+            deferred_list = list()
             while stack:
-                auth_xrn = stack.pop()
-                deferred = sfa_proxy.List(auth_xrn, credential, {'recursive': recursive})
-                deferreds.append(deferred)
-                    
-            result = yield defer.DeferredList(deferreds)
+                auth_hrn = stack.pop()
+                d = sfa_proxy.List(auth_hrn, credential, {'recursive': recursive}) # XXX
+                deferred_list.append(d)
+
+                # Insert root authority (if needed, NOTE order is not preserved)
+                if object == 'authority':
+                    object_urns.append(hrn_to_urn(auth_hrn, object))
+
+            result = yield defer.DeferredList(deferred_list)
 
             for (success, records) in result:
-                if not success:
+                if not success: # XXX
                     continue
-                output.extend([r for r in records if r['type'] == object])
+                # We have a list of records with hrn/type.
+                for record in records:
+                    # We only keep records of the right type
+                    # This is needed if we pass hrns, or because of bugs in
+                    # SFAWrap (is it that a list of urns is not properly taken into
+                    # account ?)
+                    if record['type'] != object:
+                        continue
+                    object_urns.append(hrn_to_urn(record['hrn'], object))
+
+        else:
+            # We make the list of object_urns from the stack of hrns
+            object_urns = [hrn_to_urn(hrn, object) for hrn in stack]
+
+        print "OBJECT URNS", object_urns
+
+        # ... then the Resolve
+        #
+        # We need to call Resolve if we ask more than hrn/urn/type
+        do_resolve = bool(set(fields) - set(['reg-urn', 'hrn', 'type']))
+        if do_resolve:
+            print "resolve"
+            
+            records = yield sfa_proxy.Resolve(object_urns, credential, {'details': details})
+            for _record in records:
+                # XXX Due to a bug in SFA Wrap, we need to filter the type of object returned
+                # If 2 different objects have the same hrn, the bug occurs
+                # Ex: ple.upmc.agent (user) & ple.upmc.agent (slice)
+                if _record['type'] != object:
+                    continue
+
+                record = dict()
+                for k, v in _record.items():
+                    if isinstance(v, DateTime):
+                        record[k] = str(v) # datetime.strptime(str(v), "%Y%m%dT%H:%M:%S") 
+                    else:
+                        record[k] = v
+
+                output.append(record)
+        else:
+            print "no resolve"
+            # Build final record from URN
+            for urn in object_urns:
+                hrn, type = urn_to_hrn(urn)
+
+                record = dict()
+                if 'reg-urn' in fields:
+                    record['reg-urn'] = urn
+                if 'hrn' in fields:
+                    record['hrn'] = hrn
+                if 'type' in fields:
+                    record['type'] = type
+                output.append(record)
+
+        print "output=", output
 
         defer.returnValue(output)
 
