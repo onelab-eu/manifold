@@ -922,7 +922,7 @@ class SFAGateway(Gateway):
 
     @defer.inlineCallbacks
     def create_object(self, filters, params, fields):
-        aliases = self.map_fields[self.query.object]
+        aliases = {v:k for k, v in self.map_fields[self.query.object].items()}
         filters = self.rename_filters(filters,aliases)
         params  = self.rename_params(params,aliases)
         fields  = self.rename_fields(fields,aliases)
@@ -1436,7 +1436,7 @@ class SFAGateway(Gateway):
 
     @defer.inlineCallbacks
     def update_object(self, filters, params, fields):
-        aliases = self.map_fields[self.query.object]
+        aliases = {v:k for k, v in self.map_fields[self.query.object].items()}
         filters = self.rename_filters(filters,aliases) # ONLY USED TO GET THE OBJECT HRN
         params  = self.rename_params(params,aliases)   # USED TO CALL SFA API
         fields  = self.rename_fields(fields,aliases)   # UNUSED
@@ -1891,7 +1891,7 @@ class SFAGateway(Gateway):
 
     @defer.inlineCallbacks
     def delete_object(self, filters, params, fields):
-        aliases = self.map_fields[self.query.object]
+        aliases = {v:k for k, v in self.map_fields[self.query.object].items()}
         filters = self.rename_filters(filters,aliases) # ONLY USED TO GET THE OBJECT HRN
 
         assert not params
