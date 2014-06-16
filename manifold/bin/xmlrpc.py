@@ -18,7 +18,8 @@ import sys, xmlrpclib, datetime, os.path
 from manifold.core.query            import Query
 from manifold.core.forwarder        import Forwarder
 from manifold.core.router           import Router
-from manifold.core.record           import Record
+from manifold.core.record           import Record, Records
+from manifold.core.result_value     import ResultValue
 from manifold.core.capabilities     import Capabilities
 from manifold.models.platform       import Platform
 from manifold.util.log              import Log
@@ -43,6 +44,8 @@ xmlrpclib.Marshaller.dispatch[inet]     = xmlrpclib.Marshaller.dump_string
 xmlrpclib.Marshaller.dispatch[hostname] = xmlrpclib.Marshaller.dump_string
 xmlrpclib.Marshaller.dispatch[date]     = lambda s: xmlrpclib.Marshaller.dump_string(str(s))
 xmlrpclib.Marshaller.dispatch[Record]   = xmlrpclib.Marshaller.dump_struct
+xmlrpclib.Marshaller.dispatch[Records]  = xmlrpclib.Marshaller.dump_array
+xmlrpclib.Marshaller.dispatch[ResultValue]   = xmlrpclib.Marshaller.dump_struct
 
 #-------------------------------------------------------------------------------
 # Class XMLRPCDaemon

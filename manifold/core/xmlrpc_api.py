@@ -3,6 +3,7 @@ from twisted.web                import xmlrpc
 from twisted.web.xmlrpc         import withRequest
 from manifold.auth              import Auth
 from manifold.core.query        import Query
+from manifold.core.record       import Record
 from manifold.core.result_value import ResultValue
 from manifold.util.options      import Options
 from manifold.util.log          import Log
@@ -108,23 +109,29 @@ class XMLRPCAPI(xmlrpc.XMLRPC, object):
         annotations['user'] = user
         deferred = self.interface.forward(query, annotations, is_deferred=True)
 
-        def process_results(rv):
-            if 'description' in rv and isinstance(rv['description'], list):
-                rv['description'] = [dict(x) for x in rv['description']]
-            # Print Results
-            return dict(rv)
-
-        def handle_exceptions(failure):
-            e = failure.trap(Exception)
-
-            Log.warning("XMLRPCAPI::xmlrpc_forward: Authentication failed: %s" % failure)
-
-            msg ="XMLRPC error : %s" % e
-            return dict(ResultValue.get_error(ResultValue.FORBIDDEN, msg))
-
-        # deferred receives results asynchronously
-        # Callbacks are triggered process_results if success and handle_exceptions if errors
-        deferred.addCallbacks(process_results, handle_exceptions)
+#DEPRECATED|        def process_results(rv):
+#DEPRECATED|            if 'description' in rv and isinstance(rv['description'], list):
+#DEPRECATED|                rv['description'] = [dict(x) for x in rv['description']]
+#DEPRECATED|            # Print Results
+#DEPRECATED|#            # If some values are Records send it back as dict
+#DEPRECATED|#            # in order to be handled in json on the client side
+#DEPRECATED|#            if 'value' in rv and len(rv['value'])>1:
+#DEPRECATED|#                for k,v in rv['value']:
+#DEPRECATED|#                    if isinstance(v, Record):
+#DEPRECATED|#                        v = v.to_dict()
+#DEPRECATED|            return dict(rv)
+#DEPRECATED|
+#DEPRECATED|        def handle_exceptions(failure):
+#DEPRECATED|            e = failure.trap(Exception)
+#DEPRECATED|
+#DEPRECATED|            Log.warning("XMLRPCAPI::xmlrpc_forward: Authentication failed: %s" % failure)
+#DEPRECATED|
+#DEPRECATED|            msg ="XMLRPC error : %s" % e
+#DEPRECATED|            return dict(ResultValue.get_error(ResultValue.FORBIDDEN, msg))
+#DEPRECATED|
+#DEPRECATED|        # deferred receives results asynchronously
+#DEPRECATED|        # Callbacks are triggered process_results if success and handle_exceptions if errors
+#DEPRECATED|        deferred.addCallbacks(process_results, handle_exceptions)
         return deferred
 
     def _xmlrpc_action(self, action, *args):
