@@ -194,6 +194,8 @@ class SFAGateway(Gateway):
             parser = NITOSBrokerParser
         elif server_hrn == 'omf':
             parser = NITOSBrokerParser
+        elif server_hrn == 'netmode':
+            parser = NITOSBrokerParser
         elif server_hrn == 'iotlab':
             parser = IoTLABParser
         elif server_hrn == 'ple':
