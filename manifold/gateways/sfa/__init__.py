@@ -194,8 +194,6 @@ class SFAGateway(Gateway):
             parser = NITOSBrokerParser
         elif server_hrn == 'omf':
             parser = NITOSBrokerParser
-        elif server_hrn == 'netmode':
-            parser = NITOSBrokerParser
         elif server_hrn == 'iotlab':
             parser = IoTLABParser
         elif server_hrn == 'ple':
@@ -924,10 +922,10 @@ class SFAGateway(Gateway):
 
     @defer.inlineCallbacks
     def create_object(self, filters, params, fields):
-
-        filters = self.rename_filters(filters)
-        params  = self.rename_params(params)
-        fields  = self.rename_fields(fields)
+        aliases = self.map_fields[self.query.object]
+        filters = self.rename_filters(filters,aliases)
+        params  = self.rename_params(params,aliases)
+        fields  = self.rename_fields(fields,aliases)
 
         # XXX should call create_record_from_params which would rely on mappings
         dict_filters = filters.to_dict()
@@ -1438,9 +1436,10 @@ class SFAGateway(Gateway):
 
     @defer.inlineCallbacks
     def update_object(self, filters, params, fields):
-        filters = self.rename_filters(filters)  # ONLY USED TO GET THE OBJECT HRN
-        params = self.rename_params(params)     # USED TO CALL SFA API
-        fields = self.rename_fields(fields)     # UNUSED
+        aliases = self.map_fields[self.query.object]
+        filters = self.rename_filters(filters,aliases) # ONLY USED TO GET THE OBJECT HRN
+        params  = self.rename_params(params,aliases)   # USED TO CALL SFA API
+        fields  = self.rename_fields(fields,aliases)   # UNUSED
 
         # XXX should call create_record_from_params which would rely on mappings
         dict_filters = filters.to_dict()
@@ -1892,7 +1891,9 @@ class SFAGateway(Gateway):
 
     @defer.inlineCallbacks
     def delete_object(self, filters, params, fields):
-        filters = self.rename_filters(filters)
+        aliases = self.map_fields[self.query.object]
+        filters = self.rename_filters(filters,aliases) # ONLY USED TO GET THE OBJECT HRN
+
         assert not params
         assert not fields
 
