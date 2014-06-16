@@ -238,7 +238,6 @@ class SubQuery(Node):
                             # we have a list of elements 
                             # element = id or dict    : cle simple
                             #         = tuple or dict : cle multiple
-                            for r in record:
                             parent_ids.extend([self.get_element_key(r, value) for r in record])
                         else:
                             parent_ids.append(self.get_element_key(record, value))
