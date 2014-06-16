@@ -363,9 +363,7 @@ class SFAProxy(object):
                 Log.debug("SFA CALL %s(%s) - interface = %s" % (printable_args[0], printable_args[1:], self.interface))
                 self.proxy.callRemote(*args).addCallbacks(proxy_success_cb, proxy_error_cb)
                 
-            Log.tmp("BEFORE ReactorThread().callInReactor(wrap, self, args)")
             ReactorThread().callInReactor(wrap, self, args)
-            Log.tmp("AFTER ReactorThread().callInReactor(wrap, self, args)")
             return d
         return _missing
 
@@ -530,7 +528,7 @@ if __name__ == '__main__':
 
             # XXX interface or platform
             proxy = SFAProxy(interface, open(args.private_key).read(), open(args.certificate).read())
-            print "Issueing SFA call: %s(%r)" % (command, parameters)
+            #print "Issueing SFA call: %s(%r)" % (command, parameters)
             # NOTE same error would occur with two proxies
             
             count = 0

@@ -22,7 +22,7 @@ from manifold.core.relation        import Relation # ROUTERV2
 from manifold.core.stack           import Stack, TASK_11, TASK_1Nsq, TASK_1N
 #DEPRECATED|LOIC|#from manifold.operators.demux      import Demux
 from manifold.operators.From       import From
-from manifold.operators.rename     import Rename
+#from manifold.operators.rename     import Rename
 from manifold.types                import BASE_TYPES
 from manifold.util.log             import Log
 from manifold.util.misc            import is_sublist
@@ -57,9 +57,10 @@ class ExploreTask(Deferred):
         self.depth       = depth
 
         # Result
-        self.ast         = None
-        self.keep_root_a = set()
-        self.subqueries  = dict() 
+        self.ast            = None
+        self.sq_rename_dict = dict()
+        self.keep_root_a    = set()
+        self.subqueries     = dict() 
 
         self.identifier  = random.randint(0, 9999)
 
@@ -82,7 +83,7 @@ class ExploreTask(Deferred):
         return self.__repr__()
 
     def cancel(self):
-        self.callback(None)
+        self.callback((None, dict()))
 
     @staticmethod
     def prune_from_query(query, found_fields):
@@ -96,9 +97,13 @@ class ExploreTask(Deferred):
                 new_filter.add(pred)
         query.filter_by(None).filter_by(new_filter)
 
-    def store_subquery(self, ast, relation):
+    def store_subquery(self, ast_sq_rename_dict, relation):
+        ast, sq_rename_dict = ast_sq_rename_dict
         #Log.debug(ast, relation)
         if not ast: return
+
+        self.sq_rename_dict.update(sq_rename_dict)
+
         self.subqueries[relation.get_relation_name()] = (ast, relation)
 
     def explore(self, stack, missing_fields, metadata, allowed_platforms, allowed_capabilities, user, seen_set, query_plan):
@@ -129,7 +134,7 @@ class ExploreTask(Deferred):
         deferred_list = []
 
         foreign_key_fields = dict()
-        rename_dict = dict()
+        #rename_dict = dict()
 
         # self.path = X.Y.Z indicates the subqueries we have traversed
         # We are thus able to answer to parts of the query at the root,
@@ -231,13 +236,9 @@ class ExploreTask(Deferred):
                 if set([missing_pkey]) != key.get_field_names(): continue
                 
 
-                #print "FOUND", missing, " in ", self.root.get_name()
-                # The rest is the same
                 flag, shortcut = is_sublist(missing_path, self.path)
                 if flag:
-                    #print "we keep field=", field
-                    #print "   . this field should give us", missing_field, "and", missing_pkey
-                    rename_dict[field] = missing
+                    self.sq_rename_dict[field] = missing
 
                     self.keep_root_a.add(field)
                     is_onjoin = self.root.capabilities.is_onjoin()
@@ -254,10 +255,6 @@ class ExploreTask(Deferred):
 #OBSOLETE|            self.ast = self.build_union(self.root, self.keep_root_a, allowed_platforms, metadata, user, query_plan)
             self.perform_union_all(self.root, allowed_platforms, metadata, user, query_plan)
 
-            # ROUTERV2
-            if rename_dict:
-                # If we need to rename fields after retrieving content from the table...
-                self.ast.rename(rename_dict)
 
         if self.depth == MAX_DEPTH:
             self.callback(self.ast)
@@ -286,10 +283,7 @@ class ExploreTask(Deferred):
                         if missing.startswith("%s.%s." % (self.path, relation.get_relation_name())):
                             priority = TASK_1Nsq
                             break
-                    #priority = TASK_1Nsq if relation_name in missing_subqueries else TASK_1N
 
-
-                    
                 else:
                     task = ExploreTask(neighbour, relation, self.path, self.parent, self.depth)
 
@@ -320,16 +314,11 @@ class ExploreTask(Deferred):
             query_plan: The QueryPlan instance related to this Query, and that we're updating.
         """
 
-        #Log.debug("DONE", self, result)
-        #for (success, value) in result:
-        #    if not success:
-        #        raise value.trap(Exception)
-        #        continue
         if self.subqueries:
             self.perform_subquery(allowed_platforms, metadata, user, query_plan)
-        self.callback(self.ast)
+        self.callback((self.ast, self.sq_rename_dict))
 
-    def perform_left_join(self, ast, relation, allowed_platforms, metadata, user, query_plan):
+    def perform_left_join(self, ast_sq_rename_dict, relation, allowed_platforms, metadata, user, query_plan):
         """
         Connect a new AST to the current AST using a LeftJoin Node.
         Args:
@@ -339,11 +328,14 @@ class ExploreTask(Deferred):
             user: The User issuing the Query.
             query_plan: The QueryPlan instance related to this Query, and that we're updating.
         """
-        #Log.debug(ast, relation)
+        ast, sq_rename_dict = ast_sq_rename_dict
+
         if not ast: return
+
+        self.sq_rename_dict.update(sq_rename_dict)
+
         if not self.ast:
-#OBSOLETE|            # XXX not sure about fields
-#OBSOLETE|            self.ast = self.build_union(self.root, self.root.keys.one().get_field_names(), allowed_platforms, metadata, user, query_plan)
+            # This can occur if no interesting field was found in the table, but it is just used to connect children tables
             self.perform_union_all(self.root, allowed_platforms, metadata, user, query_plan)
         self.ast.left_join(ast, relation.get_predicate())
 
@@ -397,9 +389,11 @@ class ExploreTask(Deferred):
         else:
             self.ast.subquery(self.subqueries.values())
 
-    def perform_union(self, ast, key, allowed_platforms, metadata, user, query_plan):
+    def perform_union(self, ast_sq_rename_dict, key, allowed_platforms, metadata, user, query_plan):
         """
         """
+        ast, sq_rename_dict = ast_sq_rename_dict
+
         # The relation parameter is only present for ensuring a uniform interface to perform_* functions
         if not ast:
             return
@@ -471,4 +465,4 @@ class ExploreTask(Deferred):
             from_ast = AST(user = user).From(platform, query, capabilities, key)
             if from_ast:
                 query_plan.add_from(from_ast.get_root())
-                self.perform_union(from_ast, key, allowed_platforms, metadata, user, query_plan)
+                self.perform_union((from_ast, dict()), key, allowed_platforms, metadata, user, query_plan)

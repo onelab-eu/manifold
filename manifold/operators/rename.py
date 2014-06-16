@@ -107,8 +107,6 @@ def do_rename(record, aliases):
 
 
 def do_rename_old(record, map_fields):
-    Log.debug("BEFORE do_rename record = ",record)
-    Log.debug("do_rename map_fields = ",map_fields)
     for k, v in map_fields.items():
         if k in record:
             tmp = record.pop(k)
@@ -125,11 +123,10 @@ def do_rename_old(record, map_fields):
                 elif tmp is not None:
                     for x in tmp:
                         record[method].append({key: x})        
-                else:
-                    Log.tmp("This record has a tmp None record = %s , tmp = %s , v = %s" % (record,tmp,v))
+                #else:
+                    #Log.tmp("This record has a tmp None record = %s , tmp = %s , v = %s" % (record,tmp,v))
             else:
                 record[v] = tmp
-    Log.debug("AFTER do_rename record = ",record)
     return record
 
 class Rename(Node):

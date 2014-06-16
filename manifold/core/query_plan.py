@@ -76,7 +76,7 @@ class QueryPlan(object):
         for from_node in self.froms:
             from_node.query.timestamp = query.get_timestamp()
 
-    def set_ast(self, ast, query):
+    def set_ast(self, ast_sq_rename_dict, query):
         """
         Complete an AST in order to take into account SELECT and WHERE clauses
         involved in a user Query.
@@ -84,9 +84,15 @@ class QueryPlan(object):
             ast: An AST instance made of Union, LeftJoin, SubQuery and From Nodes.
             query: The Query issued by the user.
         """
+
+        ast, sq_rename_dict = ast_sq_rename_dict
         #print "QUERY PLAN (before optimization):"
         #ast.dump()
         new_query = query.copy()
+
+        # Final rename
+        if sq_rename_dict:
+            ast.rename(sq_rename_dict)
 
         removed_fields    = set(self.foreign_key_fields.keys())
         additional_fields = reduce(lambda x, y: x | y, self.foreign_key_fields.values(), set())

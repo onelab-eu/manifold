@@ -183,7 +183,7 @@ class SFAGateway(Gateway):
 
         server_hrn = yield self.get_interface_hrn(server)
 
-        Log.tmp("get_parser server_hrn = %s",server_hrn)
+        #Log.tmp("get_parser server_hrn = %s",server_hrn)
         # We hardcode a parser for the NITOS testbed
         #server_version = yield self.get_cached_server_version(self.sliceapi)
 
@@ -463,8 +463,6 @@ class SFAGateway(Gateway):
 
     @defer.inlineCallbacks
     def get_cached_server_version(self, server):
-        Log.tmp("get_cached_server_version")
-        Log.tmp(server)
         # check local cache first
         version = None 
         cache_key = server.get_interface() + "-version"
@@ -474,9 +472,7 @@ class SFAGateway(Gateway):
             version = cache.get(cache_key)
 
         if not version: 
-            Log.tmp("BEFORE GetVersion Call")
             result = yield server.GetVersion()
-            Log.tmp("AFTER GetVersion Call")
             code = result.get('code')
             if code:
                 if code.get('geni_code') > 0:
@@ -501,9 +497,7 @@ class SFAGateway(Gateway):
         server_version = yield self.get_cached_server_version(server)    
         # Avoid inconsistent hrn in GetVersion - ROUTERV2
         hrn = urn_to_hrn(server_version['urn'])
-        #Log.tmp(hrn)       
-        #Log.tmp(hrn[0])       
-        #defer.returnValue(hrn[0])
+
         # XXX TMP FIX while URN from ple is 'urn:publicid:IDN++ple' instead of 'urn:publicid:IDN+authority+ple'
         if hrn[0] =='' and 'hrn' in server_version:
             defer.returnValue(server_version['hrn'])
@@ -1059,8 +1053,6 @@ class SFAGateway(Gateway):
 
             output = []
 
-            Log.tmp("SFA Resolve results = %s",_results)
-
             for _result in _results:
 
                 # XXX ROUTERV2 WARNING: FILTER ON TYPE BECAUSE Registry doesn't 
@@ -1125,7 +1117,6 @@ class SFAGateway(Gateway):
 
         
     def get_slice(self, filters, params, fields):
-        Log.tmp("get_slice filters = ",filters)
         # Because slice information is both in RM and AM, we need to manually
         # JOIN queries to the RM and the AM.
         # 
@@ -1133,22 +1124,13 @@ class SFAGateway(Gateway):
         #
         # See also: update_slice
 
-        print "*" * 80
-        print "get slice : fields = ", fields
-
         fields_am = fields & AM_SLICE_FIELDS
         fields_rm = fields - AM_SLICE_FIELDS
 
-        print "FIELDS = ", fields
-        print "FIELDS AM", fields_am
-        print "FIELDS RM", fields_rm
-        
         # Only RM fields
         if not fields_am:
-            Log.debug("Only RM fields")
             # The platform has an RM, avoid loop in recurcive call
             if not self.has_rm():
-                Log.debug("This platform has NO RM configured")
                 return defer.succeed([])
 
             return self.get_object('slice', SLICE_KEY, filters, params, fields_rm)
@@ -1164,25 +1146,14 @@ class SFAGateway(Gateway):
         class RMSliceRequest(Node):
             def start(self):
                 def cb(result_value):
-                    Log.debug("RMSliceRequest result_value=", result_value)
                     try:
                         records = result_value.get_value([])
                         for record in records:
-                            Log.debug("RMSliceRequest record = ",record)
                             self.callback(Record(record))
-                        Log.debug("RMSliceRequest callback")
                     except Exception,e:
                         print e
                     self.callback(LastRecord())
 
-                #d = _self.get_object('slice', 'reg-urn', filters, None, fields_rm)
-                # filters = rename SFA -> Manifold
-                #rmap_slice_fields = {v:k for k, v in _self.map_slice_fields.items()}
-                #manifold_fields_rm = []
-                Log.debug("fields_rm before rmap = ",fields_rm)
-                #for field in fields_rm:
-                #    manifold_fields_rm.append(_self.map_slice_fields[field])
-                #Log.debug("MANIFOLD FIELDS = ",manifold_fields_rm)    
                 # Manifold Query to get the data only for RM fields
                 query_rm_fields = Query.get('slice').filter_by(filters).select(fields_rm)
                 try:
@@ -1193,11 +1164,8 @@ class SFAGateway(Gateway):
 
         class AMSliceRequest(Node):
             def start(self):
-                Log.debug("AMSliceRequest start")
                 def cb(records):
                     for record in records:
-                        Log.debug("AMSliceRequest record = ",record)
-                        
                         self.callback(Record(record))
                     self.callback(LastRecord())
                 
@@ -1205,22 +1173,12 @@ class SFAGateway(Gateway):
                 d.addCallback(cb)
 
             def optimize_selection(self, filter):
-                Log.debug("AMSliceRequest filter = ",filter)
                 self._filters = filter
                 return self
 
-
         d = defer.Deferred()
 
-# loic        # XXX Using Projection get_slice should return list of resource keys not the full object
-# loic        pj = Projection(lj,['resource.urn'])
-# loic        pj.set_callback(Callback(deferred = d))
-# loic        lj.set_callback(pj.child_callback)
-# loic        pj.start()
-
         # XXX Using Rename get_slice should return list of resource keys not the full object
-
-        # Join callback
         lj = LeftJoin(RMSliceRequest(), AMSliceRequest(), Predicate(SLICE_KEY, '==', 'slice'))
         r = Rename(lj, {'resource.urn': 'urn'})
         lj.set_callback(r.child_callback)
@@ -1265,21 +1223,15 @@ class SFAGateway(Gateway):
         _get_resource_lease only supports querying ONE slice
         This function is in charge of calling it multiple times in parallel, and sending the aggregated result back.
         """
-        Log.tmp("get_resource_lease", filters, fields)
-
         # XXX Can be more selective
         try:
             slice_keys = list(filters.get_op('slice', [eq, included]))
         except Exception, e:
             raise Exception, "Cannot get slice keys for calling the AM ListResources: %s" %  e
 
-        print "*" * 80
-        print "SLICE KEYS", slice_keys
-
         deferred_list = []
         for slice_key in slice_keys:
             filters_am = Filter().filter_by(Predicate('slice', eq, slice_key))
-            print "filters_am=", filters_am
             d = self._get_resource_lease(filters_am, params, fields, list_resources, list_leases)
             deferred_list.append(d)
         dl = defer.DeferredList(deferred_list)
@@ -1296,7 +1248,6 @@ class SFAGateway(Gateway):
 
     @defer.inlineCallbacks
     def _get_resource_lease(self, filters, params, fields, list_resources = True, list_leases = True):
-        Log.tmp("SFA GW :: get_resource_lease")
 #DEPRECATED|        if self.user['email'] in DEMO_HOOKS:
 #DEPRECATED|            rspec = open('/usr/share/manifold/scripts/nitos.rspec', 'r')
 #DEPRECATED|            defer.returnValue(self.parse_sfa_rspec(rspec))
@@ -1308,7 +1259,6 @@ class SFAGateway(Gateway):
         # slice - resource is a NxN relationship, not well managed so far
 
         # ROUTERV2
-        Log.tmp("get_resource_lease filters = %s",filters)
         slice_urns = make_list(filters.get_op('slice', (eq, included)))
         slice_urn = slice_urns[0] if slice_urns else None
         slice_hrn, _ = urn_to_hrn(slice_urn) if slice_urn else (None, None)
@@ -1507,14 +1457,6 @@ class SFAGateway(Gateway):
         do_am        = do_get_am or do_update_am
         do_rm        = do_get_rm or do_update_rm
 
-        print "do_update_am", do_update_am
-        print "do_update_rm", do_update_rm
-        print "do_get_am", do_get_am
-        print "do_get_rm", do_get_rm, "for fields", fields - AM_SLICE_FIELDS
-
-        print "do_am", do_am
-        print "do_rm", do_rm
-
         if do_am and do_rm:
             # Part on the RM side, part on the AM side... until AM and RM are
             # two different GW, we need to manually make a left join between
@@ -1530,14 +1472,11 @@ class SFAGateway(Gateway):
             #    fields_rm |= SLICE_KEY
 
             if do_get_am: # then we have do_update_rm (because update_slice)
-                print "do get_slice am"
                 ret_am = self.get_slice(filters, params, fields_am)
                 ret_rm = self.update_object(filters, params, fields_rm)
             else:
                 # The typical case: update AM and get RM
                 #print "do get rm"
-                print "do update_slice am"
-                Log.tmp(filters)
                 ret_am = self.update_slice_am(filters, params, fields_am)
                 ret_rm = self.get_slice(filters, params, fields_rm)
 
@@ -1564,8 +1503,6 @@ class SFAGateway(Gateway):
                     (am_success, am_records), (rm_success, rm_records) = result
                     # XXX success
                     #print "AM success false when i raise an exception... handle !!!!" # XXX XXX
-                    print "AM SUCCESS", am_success, "RM SUCCESS", rm_success
-                    print am_records, rm_records
                     Log.warning("We should handle exceptions here !")
                     # XXX in case of failure, this contains a failure
                     am_record = am_records[0] if am_records else {} # XXX Why sometimes empty ????
@@ -1676,11 +1613,8 @@ class SFAGateway(Gateway):
 #        Log.tmp("after forward query")
 #        Log.tmp(slice_records)
 
-        Log.tmp("Trying to launch Manifold Queries inside the SFA Gateway")
         query_users_in_slice = Query.get('myslice:slice').filter_by('slice_hrn','==',slice_hrn).select('users.user_urn','users.keys','users.user_email','slice_hrn','slice_urn','slice_type','slice_id','parent_authority','slice_gid')
-        Log.tmp("QUERY USERS IN SLICE %r" % query_users_in_slice)
         slice_records = yield self.interface.forward(query_users_in_slice, {'user':self.user}, is_deferred = True)
-        Log.tmp("after forward query")
         slice_records = slice_records['value']
 
         if slice_records and 'users' in slice_records[0] and slice_records[0]['users']:
