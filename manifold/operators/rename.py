@@ -34,7 +34,6 @@ def do_rename(record, aliases):
             return collect(key_tail, record[key_head])
             # 1..1
         else:
-            print record.__class__
             assert not key, "Field not found"
             return record
 
@@ -46,10 +45,6 @@ def do_rename(record, aliases):
         """
         k_head, _, k_tail = k.partition(FIELD_SEPARATOR)
         v_head, _, v_tail = v.partition(FIELD_SEPARATOR)
-
-        print "-"*80
-        print "k_head", k_head, " - k_tail", k_tail
-        print "v_head", v_head, " - v_tail", v_tail
 
         if not k_head in myrecord:
             return
@@ -74,8 +69,6 @@ def do_rename(record, aliases):
         elif not k_tail and not v_tail:
             # XXX Maybe such cases should never be reached.
             if k_head and k_head != v_head:
-                print "RECORD", myrecord
-                print "vhead", v_head, "khead", k_head
                 myrecord[v_head] = myrecord.pop(k_head)
             else:
                 myrecord[v_head] = data
@@ -84,12 +77,7 @@ def do_rename(record, aliases):
             # We have either ktail or vtail"
             if k_tail: # and not v_tail
                 # We will gather everything and put it in v_head
-                print "collect(ktail=", k_tail, "from myrecord[k_head]", k_head
-                print "COLLECT IN SUBRECORD", myrecord[k_head]
                 myrecord[k_head] = collect(k_tail, myrecord[k_head]) 
-                print "collected values=", myrecord[k_head]
-                print "stored in myrecord[" ,v_head, "]", myrecord
-                print "." * 80
 
             else: # v_tail and not k_tail
                 # We have some data in subrecord, that needs to be affected to
@@ -113,17 +101,12 @@ def do_rename(record, aliases):
 
     for k, v in aliases.items():
         # Rename fields in place in the record
-        print "#" * 80
-        print "#" * 80
         handle_record(k, v, record)
 
     return record
 
 
 def do_rename_old(record, map_fields):
-    print "*" * 80
-    Log.debug("BEFORE do_rename record = ",record)
-    Log.debug("do_rename map_fields = ",map_fields)
     for k, v in map_fields.items():
         if k in record:
             tmp = record.pop(k)
@@ -140,11 +123,10 @@ def do_rename_old(record, map_fields):
                 elif tmp is not None:
                     for x in tmp:
                         record[method].append({key: x})        
-                else:
-                    Log.tmp("This record has a tmp None record = %s , tmp = %s , v = %s" % (record,tmp,v))
+                #else:
+                    #Log.tmp("This record has a tmp None record = %s , tmp = %s , v = %s" % (record,tmp,v))
             else:
                 record[v] = tmp
-    Log.debug("AFTER do_rename record = ",record)
     return record
 
 class Rename(Node):
