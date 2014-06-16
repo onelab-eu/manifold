@@ -165,33 +165,21 @@ class LeftJoin(Node):
         \brief Process records received by the left child
         \param record A dictionary representing the received record 
         """
-        Log.tmp("left_callback: record = %r" % record)
         if record.is_last():
             # left_done. Injection is not the right way to do this.
             # We need to insert a filter on the key in the right member
             predicate = Predicate(self.predicate.get_value(), included, self.left_map.keys())
             
-            try:
-                self.right = self.right.optimize_selection(Filter().filter_by(predicate))
-                print "1"
-                print "self.right_callback", self.right_callback
-                self.right.set_callback(self.right_callback) # already done in __init__ ?
+            self.right = self.right.optimize_selection(Filter().filter_by(predicate))
+            self.right.set_callback(self.right_callback) # already done in __init__ ?
 
-                print "1"
-                self.left_done = True
-                print "1"
-                Log.tmp("starting right child", self.right)
-                print "1 right start"
-                self.right.start()
-            except Exception, e:
-                print "EEE: ",e 
-            print "rifht start done"
+            self.left_done = True
+            self.right.start()
             return
 
         # Directly send records missing information necessary to join
         # XXXX !!! XXX XXX XXX
         if not Record.has_fields(record, self.predicate.get_field_names()):
-            Log.tmp("toto %s" % self.predicate.get_field_names())
             Log.warning("toto Missing LEFTJOIN predicate %s in left record %r : forwarding" % \
                     (self.predicate, record))
             self.send(record)
@@ -207,7 +195,6 @@ class LeftJoin(Node):
         \brief Process records received from the right child
         \param record A dictionary representing the received record 
         """
-        Log.tmp("right callback", record)
         if record.is_last():
             # Send records in left_results that have not been joined...
             for left_record_list in self.left_map.values():
@@ -291,12 +278,6 @@ class LeftJoin(Node):
         self.right = self.right.optimize_projection(right_fields)
 
         self.query.fields = fields
-
-        print "left fields", left_fields
-        print "right fields", right_fields
-        print "fields=", fields
-        print "="
-        print "left | right", left_fields|right_fields, ">?",  fields
 
         if left_fields | right_fields > fields:
             old_self_callback = self.get_callback()
