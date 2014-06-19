@@ -87,6 +87,7 @@ class Router(Interface):
 
         if not user_id:
             # Use global cache
+            Log.warning("Use of global cache for query, annotations=%r" % (annotations,))
             return self._cache    
 
         # Use per-user cache
