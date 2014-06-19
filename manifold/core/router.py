@@ -83,8 +83,6 @@ class Router(Interface):
     # else it provides a global cache for non logged in Queries
     def get_cache(self, annotations=None):
          try:
-             Log.tmp("----------> CACHE PER USER <------------")
-             #Log.tmp(annotations)
              user_id = annotations['user']['user_id']
              if user_id not in self._cache_user:
                  self._cache_user[user_id] = Cache()
@@ -126,23 +124,63 @@ class Router(Interface):
             A ResultValue in case of success.
             None in case of failure.
         """
+        print "router fw", query
         Log.info("Router::forward: %s" % query)
 
         user = annotations['user'] if annotations and 'user' in annotations else None
-        Log.tmp('annotations')
-        Log.tmp(user)
 
         ret = super(Router, self).forward(query, annotations, is_deferred, execute)
         if ret: 
             # Note: we do not run hooks at the moment for local queries
             return ret
 
+
+        # Previously, cache etc had nothing to do. We now enforce policy, and
+        # eventually this will give us a new query plan
+        print "POLICY ENFORCEMENT IN ROUTER", query
+        query_plan = None
+        
+
+        # Enforcing policy
+        #
+        # Possible results and related actions:
+        # - ACCEPT : the query passes and will trigger a new query plan
+        # - CACHED : ill named, the cache is taking care of everything, no new query plan to do
+        #    This will handle multiple scenarios such as buffered (a mixed of
+        #    cached and real time records), and multicast (real time records).
+        # - DENIED
+        # - ERROR
+        (decision, data) = self.policy.filter(query, None, annotations)
+        print "decision=", decision, "data=", data
+        if decision == Policy.ACCEPT:
+            pass
+        elif decision == Policy.REWRITE:
+            _query, _annotations = data
+            if _query:
+                query = _query
+            if _annotations:
+                annotations = _annotations
+
+        elif decision == Policy.CACHE_HIT:
+            query_plan = data
+            #return self.send(query, data, annotations, is_deferred)
+
+        elif decision in [Policy.DENIED, Policy.ERROR]:
+            if decision == Policy.DENIED:
+                data = ResultValue.get_error(ResultValue.FORBIDDEN)
+            return self.send_result_value(query, data, annotations, is_deferred)
+
+        else:
+            raise Exception, "Unknown decision from policy engine"
+        
+
         # We suppose we have no namespace from here
         if not execute: 
-            qp = QueryPlan()
-            qp.build(query, self.g_3nf, allowed_platforms, self.allowed_capabilities, user)
+            if not query_plan:
+                query_plan = QueryPlan()
+                query_plan.build(query, self.g_3nf, allowed_platforms, self.allowed_capabilities, user)
 
-            Log.info(qp.dump())
+            Log.info(query_plan.dump())
 
             # Note: no hook either for queries that are not executed
             return ResultValue.get_success(None)
@@ -169,29 +207,52 @@ class Router(Interface):
         # Execute query plan
         # the deferred object is sent to execute function of the query_plan
         # This might be a deferred, we cannot put any hook here...
-        return self.execute_query(query, annotations, is_deferred)
 
-    def process_qp_results(self, query, records, annotations, query_plan):
+        if query_plan:
+            print "CACHE HIT => WE EXECUTE QUERY PLAN DIRECTLY. is deferred=", is_deferred
+            return self.execute_query_plan(query, annotations, query_plan, is_deferred, policy = False)
+        else:
+            return self.execute_query(query, annotations, is_deferred)
 
-        # Enforcing policy
-        (decision, data) = self.policy.filter(query, records, annotations)
-        if decision != Policy.ACCEPT:
-            raise Exception, "Unknown decision from policy engine"
+    def process_qp_results(self, query, records, annotations, query_plan, policy = True):
+
+        if policy:
+            print "policy on records"
+            (decision, data) = self.policy.filter(query, records, annotations)
+            print "decision=", decision, "data=", data
+            if decision == Policy.ACCEPT:
+                pass
+            elif decision == Policy.REWRITE:
+                _query, _annotations = data
+                if _query:
+                    query = _query
+                if _annotations:
+                    annotations = _annotations
+
+            elif decision in [Policy.DENIED, Policy.ERROR]:
+                if decision == Policy.DENIED:
+                    data = ResultValue.get_error(ResultValue.FORBIDDEN)
+                return self.send_result_value(query, data, annotations, is_deferred)
+
+            else:
+                raise Exception, "Unknown decision from policy engine"
 
         description = query_plan.get_result_value_array()
+
+        print "%" * 80
         return ResultValue.get_result_value(records, description)
 
-    def execute_query_plan(self, query, annotations, query_plan, is_deferred = False):
+    def execute_query_plan(self, query, annotations, query_plan, is_deferred = False, policy = True):
         records = query_plan.execute(is_deferred)
         if is_deferred:
+            print "query plan execute returns a deferred", records
             # results is a deferred
-            records.addCallback(lambda records: self.process_qp_results(query, records, annotations, query_plan))
+            records.addCallback(lambda records: self.process_qp_results(query, records, annotations, query_plan, policy))
             return records # will be a result_value after the callback
         else:
             return self.process_qp_results(query, records, annotations, query_plan)
 
     def execute_query(self, query, annotations, is_deferred=False):
-        Log.tmp(annotations)
         if annotations:
             user = annotations.get('user', None)
         else:
@@ -208,12 +269,9 @@ class Router(Interface):
         qp = QueryPlan()
         qp.build(query, self.g_3nf, allowed_platforms, self.allowed_capabilities, user)
 
-        Log.info("QUERY PLAN:\n%s" % (qp.dump()))
 
-        Log.tmp('Router::execute_query')
-        Log.tmp(user)
         self.instanciate_gateways(qp, user)
-        Log.info(qp.dump())
+        Log.info("QUERY PLAN:\n%s" % (qp.dump()))
 
         return self.execute_query_plan(query, annotations, qp, is_deferred)
 

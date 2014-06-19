@@ -1143,6 +1143,10 @@ class SFAGateway(Gateway):
         # expecting the RM query will return if it is not needed
         _self = self
 
+        print "%" * 80
+        print "starting sub manifold query"
+        print "%" * 80
+
         class RMSliceRequest(Node):
             def start(self):
                 def cb(result_value):
@@ -1157,9 +1161,13 @@ class SFAGateway(Gateway):
                 # Manifold Query to get the data only for RM fields
                 query_rm_fields = Query.get('slice').filter_by(filters).select(fields_rm)
                 try:
-                    d = _self.interface.forward(query_rm_fields, {'user':_self.user}, is_deferred = True)
+                    # To avoid loops due to caching, we only look for exact same queries in cache
+                    # Otherwise, it will want to hook on the parent query, which is depending on this one.
+                    d = _self.interface.forward(query_rm_fields, {'user':_self.user, 'cache': 'exact'}, is_deferred = True)
                 except Exception, e:
                     print e
+                    import traceback
+                    traceback.print_exc()
                 d.addCallback(cb)
 
         class AMSliceRequest(Node):
@@ -1353,7 +1361,7 @@ class SFAGateway(Gateway):
             rspec_version = 'GENI 3'
        
         parser = yield self.get_parser()
-        Log.warning("rspec_string = ", rspec_string)
+        #Log.warning("rspec_string = ", rspec_string)
         rsrc_slice = parser.parse(rspec_string, rspec_version, slice_urn)
 
         # Make records

@@ -69,6 +69,7 @@ class SubQuery(Node):
         for i, child in enumerate(self.children):
             child.set_callback(ChildCallback(self, i))
             self.child_results.append([])
+        print "init done"
 
 
 #    @returns(Query)
@@ -108,8 +109,10 @@ class SubQuery(Node):
         Args:
             record: A dictionary representing the received record
         """
+        print "SQ parent cb", record
         if record.is_last():
             # When we have received all parent records, we can run children
+            print "SQ got last parent record, run children"
             if self.parent_output:
                 self.run_children()
             return
@@ -130,6 +133,7 @@ class SubQuery(Node):
         Run children queries (subqueries) assuming the parent query (main query)
         has successfully ended.
         """
+        print "run children"
         if not self.parent_output:
             # No parent record, this is useless to run children queries.
             self.send(LastRecord())
@@ -234,6 +238,7 @@ class SubQuery(Node):
                         record = Record.get_value(parent_record, key)
                         if not record:
                             record = []
+                        # XXX Nothing to do for the case where the list of keys in the parent is empty
                         if relation.get_type() in [Relation.types.LINK_1N, Relation.types.LINK_1N_BACKWARDS]:
                             # we have a list of elements 
                             # element = id or dict    : cle simple
@@ -255,6 +260,7 @@ class SubQuery(Node):
                         parent_id, = parent_ids
                         filter_pred = Predicate(value, eq, parent_id)
                     else:
+                        print "case 2: VALUE", value, "included in parent_ids", parent_ids
                         filter_pred = Predicate(value, included, parent_ids)
 
                 # Injecting predicate
@@ -306,7 +312,9 @@ class SubQuery(Node):
                 for i, child in enumerate(self.children):
 
                     relation = self.relations[i]
+                    print "RELATION=", relation
                     predicate = relation.get_predicate()
+                    print "PREDICATE=", predicate
 
                     key, op, value = predicate.get_tuple()
                     
@@ -331,8 +339,11 @@ class SubQuery(Node):
                             ids = [SubQuery.get_element_key(record, value)]
                         if len(ids) == 1:
                             id, = ids
+                            print "IDS=", ids, "hence id=", id
+                            print "predicate value", value, "eq id=", id
                             filter = Filter().filter_by(Predicate(value, eq, id))
                         else:
+                            print "predicate value", value, "included ids=", ids
                             filter = Filter().filter_by(Predicate(value, included, ids))
                         #if isinstance(key, StringTypes):
                         #    # simple key

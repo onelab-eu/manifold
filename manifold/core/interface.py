@@ -176,8 +176,6 @@ class Interface(object):
 
     #@returns(Gateway)
     def make_gateway(self, platform_name, user):
-        Log.tmp("Interface::make_gateway user = ")
-        Log.tmp(user)
         """
         Retrieve the Gateway instance corresponding to a platform name.
         Args:
@@ -302,28 +300,6 @@ class Interface(object):
 
         user = annotations['user'] if annotations and 'user' in annotations else None
 
-        # Enforcing policy
-        (decision, data) = self.policy.filter(query, None, annotations)
-        if decision == Policy.ACCEPT:
-            pass
-        elif decision == Policy.REWRITE:
-            _query, _annotations = data
-            if _query:
-                query = _query
-            if _annotations:
-                annotations = _annotations
-
-        elif decision == Policy.RECORDS:
-            return self.send(query, data, annotations, is_deferred)
-
-        elif decision in [Policy.DENIED, Policy.ERROR]:
-            if decision == Policy.DENIED:
-                data = ResultValue.get_error(ResultValue.FORBIDDEN)
-            return self.send_result_value(query, data, annotations, is_deferred)
-
-        else:
-            raise Exception, "Unknown decision from policy engine"
-        
         # Implements common functionalities = local queries, etc.
         namespace = None
 

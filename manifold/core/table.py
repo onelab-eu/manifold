@@ -640,12 +640,19 @@ class Table(object):
                     # We assume that u (for ex: traceroute) provides in the current field (ex: hops)
                     # a record containing at least the v's key (for ex: (agent, destination, first, ttl))
                     intersecting_fields = tuple(u.get_field_names() & v_key.get_field_names())
-                    p = Predicate(intersecting_fields, eq, intersecting_fields)
+                    key_fields = list(v_key.get_field_names())
+                    prefixed_key_fields = ["%s.%s" % (field.get_name(), kf) for kf in key_fields]
+
+                    # Plain wrong 
+                    # p = Predicate(intersecting_fields, eq, intersecting_fields)
+
+                    p = Predicate(prefixed_key_fields, eq, key_fields)
                 else:
                     p = Predicate(field.get_name(), eq, v_key.get_name())
 
                 if field.is_array():
                     relations.add(Relation(Relation.types.LINK_1N, p, name=field.get_name())) # LINK_1N_FORWARD
+                    
                 else:
                     if False: # field == key
                         relations.add(Relation(Relation.types.PARENT, p, name=field.get_name())) # in which direction ?????
@@ -679,6 +686,9 @@ class Table(object):
                 # What if several possible combinations
                 # How to consider inheritance ?
                 vfield = [f for f in v_key if f.get_type() == field.get_type()][0]
+                # XXX This case is not well supported, let's skip for now
+                if v.get_name() == "lease":
+                    continue
                 p = Predicate(field.get_name(), eq, vfield.get_name())
                 relations.add(Relation(Relation.types.LINK_1N, p, name=field.get_name())) # LINK_1N_FORWARD ?
                 continue

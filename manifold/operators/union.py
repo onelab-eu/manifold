@@ -95,8 +95,10 @@ class Union(Node):
         return self
 
     def all_done(self):
+        print "union all done"
         for record in self.key_map.values():
             self.send(record)
+        print "union send last"
         self.send(LastRecord())
 
     def child_callback(self, child_id, record):

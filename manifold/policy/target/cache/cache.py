@@ -29,27 +29,37 @@ class Cache(object):
         entry = self.get_entry(query)
         if not entry:
             if not create:
+                print "excpetion no entry"
                 raise Exception, "Query not found in cache: %r" % query
-            entry = Entry()
-            self.add_entry(query, entry)
+            self.add_entry(query, Entry())
+        print "appending records"
         entry.set_records(records)
 
-    def get_best_records(self, query, allow_processing = False):
+    def get_best_query_plan(self, query, allow_processing = False):
+        """
+        Returns:
+            A tuple status, records according to the state of queries in progress.
+
+            status: cached, buffered, multicast, none
+        """
         best_query_entry_tuple = self._lattice.get_best(query)
         if not best_query_entry_tuple:
             return None
+
+        # We found a best entry. In all cases, we plug a query plan on top of the cache entry
         best_query, best_entry = best_query_entry_tuple
-        records = best_entry.get_records()
-        if best_query == query:
-            return records
-        else:
+
+        query_plan = QueryPlan()
+        query_plan.ast.from_cache(query, best_entry)
+        if best_query != query:
+            if not allow_processing:
+                return None
             # We need to add processing
-            # XXX This could be optimized and made into a function into QueryPlan
-            #print "** Building records from bigger query"
-            qp = QueryPlan()
-            qp.ast.from_table(query, records, key = None).selection(query.get_where()).projection(query.get_select())
-            return qp.execute()
-    
+            query_plan.ast.selection(query.get_where()).projection(query.get_select())
+            # XXX Shall we create a new entry for this query ? and all
+            # intermediate steps ? see operator graph
+
+        return query_plan
 
     def dump(self):
         return self._lattice.dump()

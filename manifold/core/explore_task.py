@@ -214,6 +214,9 @@ class ExploreTask(Deferred):
                 #
                 if len(missing_list) <= 1: continue
 
+                # XXX We should be sure that we do this only if we need the key of the table
+                continue
+
                 missing_path, (missing_field, missing_pkey) = missing_list[:-2], missing_list[-2:]
                 # Example here: in user table
                 #   missing_path  = []
@@ -238,10 +241,13 @@ class ExploreTask(Deferred):
 
                 flag, shortcut = is_sublist(missing_path, self.path)
                 if flag:
+                    print "#" * 80
+                    print "rename field=", field, "missing=", missing
                     self.sq_rename_dict[field] = missing
 
                     self.keep_root_a.add(field)
                     is_onjoin = self.root.capabilities.is_onjoin()
+                    print "missing fields.remove", missing
                     if not is_onjoin or field not in root_key_fields:
                         missing_fields.remove(missing)
                 
@@ -257,7 +263,7 @@ class ExploreTask(Deferred):
 
 
         if self.depth == MAX_DEPTH:
-            self.callback(self.ast)
+            self.callback((self.ast, dict()))
             return foreign_key_fields
 
         # In all cases, we have to list neighbours for returning 1..N relationships. Let's do it now. 

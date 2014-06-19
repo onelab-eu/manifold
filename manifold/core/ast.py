@@ -21,6 +21,7 @@ from manifold.core.field              import Field
 from manifold.core.key                import Key
 from manifold.core.capabilities       import Capabilities
 from manifold.operators.From          import From
+from manifold.operators.from_cache    import FromCache
 from manifold.operators.from_table    import FromTable
 from manifold.operators.selection     import Selection
 from manifold.operators.projection    import Projection
@@ -89,6 +90,15 @@ class AST(object):
         self.root = From(platform, query, capabilities, key)
         self.root.set_callback(self.get_callback())
 
+        return self
+
+    def from_cache(self, query, cache_entry):
+        """
+        Append a FromCache Node to this AST.
+        """
+        self.root = FromCache(query, cache_entry)
+        print "##################### FROM CACHE CALLBACK [", self, ']',  self.get_callback()
+        self.root.set_callback(self.get_callback())
         return self
 
     #@returns(AST)

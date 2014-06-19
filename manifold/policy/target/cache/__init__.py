@@ -9,7 +9,9 @@ class CacheTarget(Target):
     def process_query(self, query, annotations):
         #Log.tmp("CACHE - Processing query: %r, %r" % (query, annotations))
 
-        # TODO: ROUTERV2
+        if query.object.startswith('local:'):
+            return (TargetValue.CONTINUE, None)
+
         # Cache per user
         cache = self._interface.get_cache(annotations)
 
@@ -17,12 +19,11 @@ class CacheTarget(Target):
         # Invalidate the cache and propagate the Query        
 
         # TODO: cache.invalidate XXX to be implemented
-        Log.tmp("-----------------> ACTION = %s",query.get_action())
+        #Log.tmp("-----------------> ACTION = %s",query.get_action())
         if query.get_action() != 'get':
-            Log.tmp("--------------> Trying to Invalidate Cache")
+            #Log.tmp("--------------> Trying to Invalidate Cache")
             #cache.invalidate_entry(query)
             self._interface.delete_cache(annotations)
-            # TODO: ROUTERV2
             # Cache per user
             cache = self._interface.get_cache(annotations)
             return (TargetValue.CONTINUE, None)
@@ -30,12 +31,12 @@ class CacheTarget(Target):
         #print "==== DUMPING CACHE ====="
         #print self._cache.dump()
         #print "="*40
-        if query.object.startswith('local:'):
-            return (TargetValue.CONTINUE, None)
-        
-        records = cache.get_best_records(query, allow_processing=True)
-        if not records is None:
-            return (TargetValue.RECORDS, records)
+
+        # This will return a query plan in fact... not records
+        allow_processing = annotations.get('cache') != 'exact'
+        query_plan = cache.get_best_query_plan(query, allow_processing)
+        if query_plan:
+            return (TargetValue.CACHE_HIT, query_plan)
 
         # Continue with the normal processing
         return (TargetValue.CONTINUE, None)
@@ -46,7 +47,10 @@ class CacheTarget(Target):
         # TODO: ROUTERV2
         # Cache per user
         cache = self._interface.get_cache(annotations)
-        cache.append_records(query, record, create=True)
+        # No need to create an entry, since the entry is created when query arrives
+        cache.append_records(query, record) 
+        #, create=True)
+
         #print "==== DUMPING CACHE ====="
         #print self._cache.dump()
         #print "="*40

@@ -16,12 +16,12 @@ class TargetValue(object):
     # This is inspired from Netfilter
 
     # Continue evaluating rules
-    ACCEPT   = 0
-    REWRITE  = 1
-    RECORDS  = 2
-    DENIED   = 3
-    ERROR    = 4
-    CONTINUE = 5
+    ACCEPT      = 0
+    REWRITE     = 1
+    CACHE_HIT   = 2
+    DENIED      = 3
+    ERROR       = 4
+    CONTINUE    = 5
 
 class Target(object):
     """

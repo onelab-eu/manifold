@@ -23,23 +23,86 @@ from types                         import StringTypes
 from manifold.util.log             import Log
 from manifold.util.type            import returns, accepts
 
+FIELD_SEPARATOR = '.'
+
 class Record(dict):
 
-    @classmethod
-    def get_value(self, record, key):
+#old#     @classmethod
+#old#     def get_value(self, record, key):
+#old#         """
+#old#         Args:
+#old#             record: A Record instance.
+#old#             key: A String instance (field name), or a set of String instances
+#old#                 (field names)
+#old#         Returns:
+#old#             If key is a String,  return the corresponding value.
+#old#             If key is a set, return a tuple of corresponding value.
+#old#         """
+#old#         if isinstance(key, StringTypes):
+#old#             return record[key]
+#old#         else:
+#old#             return tuple(map(lambda x: record[x], key))
+    def get_value(self, fields):
         """
         Args:
-            record: A Record instance.
-            key: A String instance (field name), or a set of String instances
-                (field names)
+            fields: A String instance (field name), or a set of String instances
+                (field names) # XXX tuple !!
         Returns:
-            If key is a String,  return the corresponding value.
-            If key is a set, return a tuple of corresponding value.
+            If fields is a String,  return the corresponding value.
+            If fields is a set, return a tuple of corresponding value.
+
+        Raises:
+            KeyError if at least one of the fields is not found
         """
-        if isinstance(key, StringTypes):
-            return record[key]
-        else:
-            return tuple(map(lambda x: record[x], key))
+        record = self
+
+        if not fields:
+            return None
+
+        if isinstance(fields, StringTypes):
+            if FIELD_SEPARATOR in fields:
+                key, _, subkey = fields.partition(FIELD_SEPARATOR)
+                if not key in record:
+                    return None
+                if isinstance(record[key], Records):
+                    return [subrecord.get_value(sukey) for subrecord in record[key]]
+                elif isinstance(record[key], Record):
+                    return record[key].get_value(subkey)
+                else:
+                    raise Exception, "Unknown fields"
+            else:
+                return record[fields]
+        else: # We have an iterable
+
+            first_field = iter(fields).next()
+
+            # XXX see. get_map_entries
+            if len(fields) == 1:
+                return self.get_value(first_field)
+
+            # In the general case, we have multiple keys
+            # HYPOTHESE: Let's assume all the subfields are from the same
+            # table. This is the case when we retrieve the key of a 1..N
+            # relation.
+            
+            if FIELD_SEPARATOR in first_field:
+                subfields = list()
+                for field in fields:
+                    key, _, subkey = field.partition(FIELD_SEPARATOR)
+                    subfields.append(subkey)
+
+                if not key in record:
+                    return None
+                if isinstance(record[key], Records):
+                    return [subrecord.get_value(subfields) for subrecord in record[key]]
+                elif isinstance(record[key], Record):
+                    return record[key].get_value(subfields)
+                else:
+                    raise Exception, "Unknown fields"
+            
+            else:
+                return tuple(map(lambda x: self.get_value(x), fields))
+
 
     @classmethod
     @returns(dict)

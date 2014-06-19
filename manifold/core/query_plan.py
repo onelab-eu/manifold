@@ -270,6 +270,7 @@ class QueryPlan(object):
         # create a Callback object with deferred object as arg
         # manifold/util/callback.py 
         d = Deferred() if is_deferred else None
+        print "Creating new callback for query execution..."
         cb = Callback(d)
 
         # Start AST = Abstract Syntax Tree 
