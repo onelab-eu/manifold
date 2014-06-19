@@ -82,16 +82,17 @@ class Router(Interface):
     # this function creates a cache per user if user_id is in annotations
     # else it provides a global cache for non logged in Queries
     def get_cache(self, annotations=None):
-         try:
-             user_id = annotations['user']['user_id']
-             if user_id not in self._cache_user:
-                 self._cache_user[user_id] = Cache()
-             return self._cache_user[user_id]
-         except:
-             Log.tmp("----------> GLOBAL CACHE <------------")
-             import traceback
-             traceback.print_exc()
-             return self._cache    
+        user = annotations.get('user')
+        user_id = user.get('user_id') if user else None
+
+        if not user_id:
+            # Use global cache
+            return self._cache    
+
+        # Use per-user cache
+        if user_id not in self._cache_user:
+            self._cache_user[user_id] = Cache()
+        return self._cache_user[user_id]
 
     # TODO: ROUTERV2 
     # Invalidate Cache per user

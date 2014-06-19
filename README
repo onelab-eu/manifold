@@ -1,3 +1,6 @@
+Use caching for everything
+manifold-tables -A -o \* -f\ * -j CACHE
+
 QUERIES A TESTER
 
 manifold>>> select slice_last_updated from slice where slice_hrn == "ple.upmc.jordan_auge"
