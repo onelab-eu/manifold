@@ -140,6 +140,10 @@ class Router(Interface):
         
 
         # Enforcing policy
+        # XXX This issues after a check (in interface) that we are not
+        # considering local or object tables... and we need to do the proper
+        # check when records are received, otherwise the query is absent from
+        # the cache. This is sources of errors, and should be fixed.
         #
         # Possible results and related actions:
         # - ACCEPT : the query passes and will trigger a new query plan
@@ -212,7 +216,17 @@ class Router(Interface):
 
     def process_qp_results(self, query, records, annotations, query_plan, policy = True):
 
-        if policy:
+        # Implements common functionalities = local queries, etc.
+        namespace = None
+
+        # Handling internal queries
+        if ":" in query.get_from():
+            namespace, table_name = query.get_from().rsplit(":", 2)
+
+        is_local = (namespace == self.LOCAL_NAMESPACE)
+        is_metadata = (namespace and table_name == "object")
+
+        if policy and not is_local and not is_metadata:
             (decision, data) = self.policy.filter(query, records, annotations)
             if decision == Policy.ACCEPT:
                 pass
