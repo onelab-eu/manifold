@@ -174,7 +174,7 @@ class Router(Interface):
             return self.send_result_value(query, data, annotations, is_deferred)
 
         else:
-            raise Exception, "Unknown decision from policy engine"
+            raise Exception, "Unknown QUERY decision from policy engine: %s" % Policy.map_decision[decision]
         
 
         # We suppose we have no namespace from here
@@ -229,7 +229,7 @@ class Router(Interface):
         is_metadata = (namespace and table_name == "object")
 
         if policy and not is_local and not is_metadata:
-            (decision, data) = self.policy.filter(query, records, annotations)
+            (decision, data) = self.policy.filter(query, records, annotations, is_query = False)
             if decision == Policy.ACCEPT:
                 pass
             elif decision == Policy.REWRITE:
@@ -245,7 +245,7 @@ class Router(Interface):
                 return self.send_result_value(query, data, annotations, is_deferred)
 
             else:
-                raise Exception, "Unknown decision from policy engine"
+                raise Exception, "Unknown RECORD decision from policy engine: %s" % Policy.map_decision[decision]
 
         description = query_plan.get_result_value_array()
 

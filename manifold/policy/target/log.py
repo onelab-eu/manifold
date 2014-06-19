@@ -3,7 +3,7 @@ from manifold.util.log      import Log
 
 class LogTarget(Target):
     
-    def process(self, query, record, annotation):
+    def process(self, query, record, annotation, is_query):
         if not record:
             Log.tmp("LOG TARGET: %s %r" % (query, annotation))
         else:

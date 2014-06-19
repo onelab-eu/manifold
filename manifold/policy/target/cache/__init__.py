@@ -58,8 +58,11 @@ class CacheTarget(Target):
         cache = self._interface.get_cache(annotations)
 
         # No need to create an entry, since the entry is created when query arrives
-        first_record = record[0] if isinstance(record, list) else record
-        if not 'cache' in first_record.get_annotation():
+        if not record:
+            first_record = None
+        else:
+            first_record = record[0] if isinstance(record, list) else record
+        if not first_record or not 'cache' in first_record.get_annotation():
             cache.append_records(query, record)  # one or several records at once
 
         #print "==== DUMPING CACHE ====="
@@ -68,8 +71,8 @@ class CacheTarget(Target):
         # A cache target is a termination ! (no other choice)
         return (TargetValue.ACCEPT, None)
 
-    def process(self, query, record, annotations):
-        if not record:
+    def process(self, query, record, annotations, is_query):
+        if is_query:
             return self.process_query(query, annotations)
         else:
             return self.process_record(query, record, annotations)

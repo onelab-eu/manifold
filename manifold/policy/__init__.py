@@ -28,6 +28,14 @@ class Policy(object):
     DENIED      = 3
     ERROR       = 4
 
+    map_decision = {
+        0: 'ACCEPT',
+        1: 'REWRITE',
+        2: 'CACHE_HIT',
+        3: 'DENIED',
+        4: 'ERROR',
+    }
+
     def __init__(self, interface):
         self._interface = interface
         self.rules = []
@@ -41,7 +49,7 @@ class Policy(object):
         for rule in rules:
             self.rules.append(Rule.from_dict(json.loads(rule['policy_json'])))
 
-    def filter(self, query, record, annotations):
+    def filter(self, query, record, annotations, is_query = True):
         for rule in self.rules:
             if not rule.match(query, annotations):
                 continue
@@ -52,7 +60,7 @@ class Policy(object):
             # TODO: ROUTERV2
             # Cache per user
             # Adding interface in order to access router.get_cache(annotations)
-            decision, data = target(self._interface).process(query, record, annotations)
+            decision, data = target(self._interface).process(query, record, annotations, is_query)
             if decision == TargetValue.ACCEPT:
                 return (self.ACCEPT, None)
             elif decision == TargetValue.REWRITE:
@@ -67,11 +75,10 @@ class Policy(object):
                 continue
 
         # Let's create a cache entry
-        if record is None:
+        if is_query:
             # We are dealing with queries
             cache = self._interface.get_cache(annotations)
             cache.add_entry(query, Entry())
         
         # Default decision : ACCEPT
         return (self.ACCEPT, None)
-            
