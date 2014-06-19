@@ -1143,10 +1143,6 @@ class SFAGateway(Gateway):
         # expecting the RM query will return if it is not needed
         _self = self
 
-        print "%" * 80
-        print "starting sub manifold query"
-        print "%" * 80
-
         class RMSliceRequest(Node):
             def start(self):
                 def cb(result_value):

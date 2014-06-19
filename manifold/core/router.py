@@ -124,7 +124,6 @@ class Router(Interface):
             A ResultValue in case of success.
             None in case of failure.
         """
-        print "router fw", query
         Log.info("Router::forward: %s" % query)
 
         user = annotations['user'] if annotations and 'user' in annotations else None
@@ -137,7 +136,6 @@ class Router(Interface):
 
         # Previously, cache etc had nothing to do. We now enforce policy, and
         # eventually this will give us a new query plan
-        print "POLICY ENFORCEMENT IN ROUTER", query
         query_plan = None
         
 
@@ -151,7 +149,6 @@ class Router(Interface):
         # - DENIED
         # - ERROR
         (decision, data) = self.policy.filter(query, None, annotations)
-        print "decision=", decision, "data=", data
         if decision == Policy.ACCEPT:
             pass
         elif decision == Policy.REWRITE:
@@ -209,7 +206,6 @@ class Router(Interface):
         # This might be a deferred, we cannot put any hook here...
 
         if query_plan:
-            print "CACHE HIT => WE EXECUTE QUERY PLAN DIRECTLY. is deferred=", is_deferred
             return self.execute_query_plan(query, annotations, query_plan, is_deferred, policy = False)
         else:
             return self.execute_query(query, annotations, is_deferred)
@@ -217,9 +213,7 @@ class Router(Interface):
     def process_qp_results(self, query, records, annotations, query_plan, policy = True):
 
         if policy:
-            print "policy on records"
             (decision, data) = self.policy.filter(query, records, annotations)
-            print "decision=", decision, "data=", data
             if decision == Policy.ACCEPT:
                 pass
             elif decision == Policy.REWRITE:
@@ -239,13 +233,11 @@ class Router(Interface):
 
         description = query_plan.get_result_value_array()
 
-        print "%" * 80
         return ResultValue.get_result_value(records, description)
 
     def execute_query_plan(self, query, annotations, query_plan, is_deferred = False, policy = True):
         records = query_plan.execute(is_deferred)
         if is_deferred:
-            print "query plan execute returns a deferred", records
             # results is a deferred
             records.addCallback(lambda records: self.process_qp_results(query, records, annotations, query_plan, policy))
             return records # will be a result_value after the callback

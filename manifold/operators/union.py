@@ -95,10 +95,8 @@ class Union(Node):
         return self
 
     def all_done(self):
-        print "union all done"
         for record in self.key_map.values():
             self.send(record)
-        print "union send last"
         self.send(LastRecord())
 
     def child_callback(self, child_id, record):
@@ -107,10 +105,8 @@ class Union(Node):
         \param child_id identifier of the child that received the record
         \param record dictionary representing the received record
         """
-        print "UNION::child_callback got record", record
         if record.is_last():
             # XXX SEND ALL
-            print "UNION::child_callback LAST"
             self.status.completed(child_id)
             return
         

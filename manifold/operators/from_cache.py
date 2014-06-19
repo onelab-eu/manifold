@@ -43,34 +43,29 @@ class FromCache(Node):
 
         # Will receive a start when executed == when the source is ready to receive records
         # That's when we make the difference between different modes (cached, buffered, multicast)
-        print "CACHE ENTRY STARTED"
 
         if self._cache_entry.has_query_in_progress():
-            print "pending reocrds", self._cache_entry._pending_records
             if self._cache_entry.has_pending_records():
                 # Let's first return all pending records, then wait for
                 # set_records to receive further records
-                print " >>> buffered multicast"
                 for record in self._cache_entry._pending_records:
+                    record.set_annotation('cache', 'buffered multicast')
                     self.send(record)
 
             else:
                 # Query did not started, just return new incoming records
                 # Nothing to do, let's wait for set_records
                 pass
-                print " >>> multicast"
 
             # Inform the cache entry we are interested in its records
             self._cache_entry.add_operator(self)
-            print "="*80
-            print "self.cache_entry.operators=", self._cache_entry._operators
 
         else:
             # If we reached here, we _have_ records in cache
             # otherwise, we would have a cache entry and no query in progress,
             # and no query ever done == INCONSISTENT
-            print " >>> cache"
             for record in self._cache_entry.get_records():
+                record.set_annotation('cache', 'cache')
                 self.send(record)
             self.send(LastRecord())
 
@@ -79,14 +74,11 @@ class FromCache(Node):
         Returns:
             The "%s" representation of this FromTable Node.
         """
-        return DUMPSTR_FROMCACHE % (self.get_query(),)
+        return DUMPSTR_FROMCACHE % (self.get_query(), )
 
     # This is equivalent to the child_callback
     def child_callback(self, record):
-        print "FROM CACHE RECEIVED RECORD", record,
-        print " . sent to", self.callback
-        if record.is_last():
-            print "     LAST!"
+        record.set_annotation('cache', 'multicast')
         self.send(record)
 
     # This should not be needed

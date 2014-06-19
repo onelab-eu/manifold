@@ -109,10 +109,8 @@ class SubQuery(Node):
         Args:
             record: A dictionary representing the received record
         """
-        print "SQ parent cb", record
         if record.is_last():
             # When we have received all parent records, we can run children
-            print "SQ got last parent record, run children"
             if self.parent_output:
                 self.run_children()
             return
@@ -133,7 +131,6 @@ class SubQuery(Node):
         Run children queries (subqueries) assuming the parent query (main query)
         has successfully ended.
         """
-        print "run children"
         if not self.parent_output:
             # No parent record, this is useless to run children queries.
             self.send(LastRecord())
@@ -260,7 +257,6 @@ class SubQuery(Node):
                         parent_id, = parent_ids
                         filter_pred = Predicate(value, eq, parent_id)
                     else:
-                        print "case 2: VALUE", value, "included in parent_ids", parent_ids
                         filter_pred = Predicate(value, included, parent_ids)
 
                 # Injecting predicate
@@ -312,9 +308,7 @@ class SubQuery(Node):
                 for i, child in enumerate(self.children):
 
                     relation = self.relations[i]
-                    print "RELATION=", relation
                     predicate = relation.get_predicate()
-                    print "PREDICATE=", predicate
 
                     key, op, value = predicate.get_tuple()
                     
@@ -339,11 +333,8 @@ class SubQuery(Node):
                             ids = [SubQuery.get_element_key(record, value)]
                         if len(ids) == 1:
                             id, = ids
-                            print "IDS=", ids, "hence id=", id
-                            print "predicate value", value, "eq id=", id
                             filter = Filter().filter_by(Predicate(value, eq, id))
                         else:
-                            print "predicate value", value, "included ids=", ids
                             filter = Filter().filter_by(Predicate(value, included, ids))
                         #if isinstance(key, StringTypes):
                         #    # simple key
@@ -482,9 +473,6 @@ class SubQuery(Node):
             relation = self.relations[i]
             predicate = relation.get_predicate()
             child_name = relation.get_relation_name()
-            print "Do we need top projection in subquery ?"
-            print "predicate.get_field_names()", predicate.get_field_names()
-            print "parent_fields", parent_fields
             if not predicate.get_field_names() <= parent_fields:
                 parent_fields |= predicate.get_field_names() # XXX jordan i don't understand this 
                 require_top_projection = True 
@@ -511,7 +499,6 @@ class SubQuery(Node):
         # queried by the user. In this case, we ve to add a Projection
         # node which will filter those fields.
         if require_top_projection:
-            print "fields", fields
             return Projection(self, fields) #jordan
         return self
 

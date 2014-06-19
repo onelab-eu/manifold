@@ -29,10 +29,8 @@ class Cache(object):
         entry = self.get_entry(query)
         if not entry:
             if not create:
-                print "excpetion no entry"
                 raise Exception, "Query not found in cache: %r" % query
             self.add_entry(query, Entry())
-        print "appending records"
         entry.set_records(records)
 
     def get_best_query_plan(self, query, allow_processing = False):

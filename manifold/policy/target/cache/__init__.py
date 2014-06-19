@@ -42,19 +42,31 @@ class CacheTarget(Target):
         return (TargetValue.CONTINUE, None)
 
     def process_record(self, query, record, annotations):
-        #print "*** CACHE: appending records into cache for query", query
+        """
+        Arguments:
+        record:  can be one or several records
+        """
+        # We don't want to store records coming from cache in cache
+        # -> let's be sure that records from cache are properly annotated by from_cache
+        #
+        # We don't want to store records mutiple times if process_records
+        # is called from several matching cache targets.
+        # -> returns ACCEPT and not CONTINUE
 
         # TODO: ROUTERV2
         # Cache per user
         cache = self._interface.get_cache(annotations)
+
         # No need to create an entry, since the entry is created when query arrives
-        cache.append_records(query, record) 
-        #, create=True)
+        first_record = record[0] if isinstance(record, list) else record
+        if not 'cache' in first_record.get_annotation():
+            cache.append_records(query, record)  # one or several records at once
 
         #print "==== DUMPING CACHE ====="
         #print self._cache.dump()
         #print "="*40
-        return (TargetValue.CONTINUE, None)
+        # A cache target is a termination ! (no other choice)
+        return (TargetValue.ACCEPT, None)
 
     def process(self, query, record, annotations):
         if not record:

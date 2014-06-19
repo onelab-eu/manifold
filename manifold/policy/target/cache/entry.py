@@ -42,19 +42,10 @@ class Entry(object):
         self._pending_records = None
         self._records = records
         self._updated = time.time()
-        print "!!! pushing to operators", self._operators
-        try:
-            for operator in self._operators:
-                print "operator", operator, "len records=", len(records)
-                for record in records:
-                    operator.child_callback(record)
-                operator.child_callback(LastRecord())
-                print  "pushed last"
-            print "done pushing to ops"
-        except Exception, e:
-            print 'EEE', e
-            import traceback
-            traceback.print_exc()
+        for operator in self._operators:
+            for record in records:
+                operator.child_callback(record)
+            operator.child_callback(LastRecord())
     def has_query_in_progress(self):
         return self._pending_records is not None
 
@@ -67,7 +58,6 @@ class Entry(object):
 
         for record in records:
             if record.is_last():
-                print "received last record, pending => none"
                 # Move all pending records to records...
                 self._records = self._pending_records
                 self._pending_records = None # None means no query started

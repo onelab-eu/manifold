@@ -19,13 +19,46 @@
 # operations, and faster processing. Hence, consider the current code as a
 # transition towards this new class.
 
+import collections
 from types                         import StringTypes
 from manifold.util.log             import Log
 from manifold.util.type            import returns, accepts
 
 FIELD_SEPARATOR = '.'
 
-class Record(dict):
+class Record(collections.MutableMapping):
+    def __init__(self, *args, **kwargs):
+        self.store = dict()
+        self.update(dict(*args, **kwargs))  # use the free update to set keys
+        self._annotations = dict()
+
+    def set_annotation(self, key, value):
+        self._annotations[key] = value
+
+    def get_annotation(self, key = None):
+        if key:
+            return self._annotations.get(key)
+        return self._annotations
+
+    def __iter__(self):
+        return iter(self.store)
+
+    def __len__(self):
+        return len(self.store)
+
+    def __getitem__(self, key):
+        return self.store[key]
+
+    def __setitem__(self, key, value):
+        self.store[key] = value
+
+    def __delitem__(self, key):
+        del self.store[key]
+
+    def __repr__(self):
+        return self.store.__repr__()
+    def __str__(self):
+        return self.store.__str__()
 
 #old#     @classmethod
 #old#     def get_value(self, record, key):

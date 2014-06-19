@@ -58,7 +58,6 @@ class ChildStatus:
         \param child_id The integer identifying a given child node
         """
         self.counter += child_id + 1
-        print "############## start, counter=", self, self.counter
 
     def completed(self, child_id):
         """
@@ -67,7 +66,6 @@ class ChildStatus:
         """
         self.counter -= child_id + 1
         assert self.counter >= 0, "Child status error: %d" % self.counter
-        print "child completed, counter=", self, self.counter
         if self.counter == 0:
             try:
                 self.all_done_cb()
@@ -119,7 +117,6 @@ class Node(object):
         \brief calls the parent callback with the record passed in parameter
         """
         Log.record("[#%04d] SEND %r [ %r ]" % (self.identifier, self.__class__.__name__, record))
-        print "self.callback=", self.callback
         self.callback(record)
 
     @returns(Query)

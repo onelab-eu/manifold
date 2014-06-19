@@ -97,7 +97,6 @@ class AST(object):
         Append a FromCache Node to this AST.
         """
         self.root = FromCache(query, cache_entry)
-        print "##################### FROM CACHE CALLBACK [", self, ']',  self.get_callback()
         self.root.set_callback(self.get_callback())
         return self
 
