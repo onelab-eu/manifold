@@ -56,6 +56,10 @@ class QueryPlan(object):
         assert isinstance(ast, AST),\
             "Invalid ast = %s (%s)" % (ast, type(ast))
 
+        # Final rename
+        if sq_rename_dict:
+            ast.rename(sq_rename_dict)
+
         destination = query.get_destination()
         #print "QUERY PLAN:", ast.get_root().format_downtree()
         if query.get_action() in [ACTION_CREATE, ACTION_UPDATE]:
