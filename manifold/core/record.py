@@ -266,8 +266,18 @@ class Record(Packet):
         assert isinstance(fields, (StringTypes, Fields))
 
         if isinstance(fields, StringTypes):
-            # XXX We expect no "." inside XXX 
-            return self._record[fields]
+            if '.' in fields:
+                key, _, subkey = key.partition(FIELD_SEPARATOR)
+                if not key in self._record:
+                    return None
+                if isinstance(self._record[key], Records):
+                    return [subrecord.get_value(subkey) for subrecord in self._record[key]]
+                elif isinstance(self._record[key], Record):
+                    return self._record[key].get_value(subkey)
+                else:
+                    raise Exception, "Unknown field"
+            else:
+                return self._record[fields]
         else:
             # XXX see. get_map_entries
             if len(fields) == 1:

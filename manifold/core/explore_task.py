@@ -89,25 +89,6 @@ class ExploreTask(Deferred):
     def cancel(self):
         self.callback((None, dict()))
 
-#DEPRECATED|    @staticmethod
-#DEPRECATED|    def prune_from_query(query, found_fields):
-#DEPRECATED|        new_fields = query.get_select() - found_fields
-#DEPRECATED|        query.select(None).select(new_fields)
-#DEPRECATED|
-#DEPRECATED|        old_filter = query.get_where()
-#DEPRECATED|        new_filter = Filter()
-#DEPRECATED|        for pred in old_filter:
-#DEPRECATED|            if pred.get_key() not in found_fields:
-#DEPRECATED|                new_filter.add(pred)
-#DEPRECATED|        query.filter_by(None).filter_by(new_filter)
-#DEPRECATED|
-#DEPRECATED|    def store_subquery(self, ast_sq_rename_dict, relation):
-#DEPRECATED|        ast, sq_rename_dict = ast_sq_rename_dict
-#DEPRECATED|        #Log.debug(ast, relation)
-#DEPRECATED|        if not ast: return
-#DEPRECATED|        self.sq_rename_dict.update(sq_rename_dict)
-#DEPRECATED|        self.subqueries[relation.get_relation_name()] = (ast, relation)
-
     def explore(self, stack, missing_fields, metadata, allowed_platforms, allowed_capabilities, user, seen_set, query_plan):
         """
         Explore the metadata graph to find how to serve each queried fields. We
@@ -140,7 +121,7 @@ class ExploreTask(Deferred):
         deferred_list = []
 
         foreign_key_fields = dict()
-        rename_dict = dict()
+        #rename_dict = dict()
 
         # self.path = X.Y.Z indicates the subqueries we have traversed
         # We are thus able to answer to parts of the query at the root,
@@ -164,7 +145,6 @@ class ExploreTask(Deferred):
 #MANDO|                    allow_shortcuts = True)
 
         root_provided_fields = self.root.get_field_names()
-        print "ROOT PROVIDED FIELDS", root_provided_fields
 
         # We might also query foreign keys of backward links
         for neighbour in sorted(metadata.graph.successors(self.root)):
@@ -301,9 +281,9 @@ class ExploreTask(Deferred):
             self.perform_union_all(self.root, allowed_platforms, metadata, query_plan)
 
             # ROUTERV2
-            if rename_dict:
-                # If we need to rename fields after retrieving content from the table...
-                self.ast.rename(rename_dict)
+            #if rename_dict:
+            #    # If we need to rename fields after retrieving content from the table...
+            #    self.ast.rename(rename_dict)
 
         if self.depth == MAX_DEPTH:
             self.callback((self.ast, dict()))
@@ -373,11 +353,6 @@ class ExploreTask(Deferred):
         """
 
         try:
-#DEPRECATED|            if self.subqueries:
-#DEPRECATED|                self.perform_subquery(allowed_platforms, metadata, query_plan)
-#DEPRECATED|                if self.sq_rename_dict:
-#DEPRECATED|                    self.ast.rename(self.sq_rename_dict)
-#DEPRECATED|                    self.sq_rename_dict = dict()
             self.callback((self.ast, self.sq_rename_dict))
         except Exception, e:
             Log.error("Exception caught in ExploreTask::all_done: %s" % e)
@@ -402,6 +377,7 @@ class ExploreTask(Deferred):
             self.perform_union_all(self.root, allowed_platforms, metadata, query_plan)
         self.ast.left_join(ast, relation.get_predicate().copy())
 
+    # XXX sq_rename_dict ?????? really ????
     def perform_subquery(self, ast_sq_rename_dict, relation, allowed_platforms, metadata, query_plan):
         """
         Connect a new AST to the current AST using a SubQuery Node.
@@ -422,10 +398,10 @@ class ExploreTask(Deferred):
 
         self.ast.subquery(ast, relation)
 
-        # This might be more simple if moved in all_done
-        if self.sq_rename_dict:
-            self.ast.rename(self.sq_rename_dict)
-            self.sq_rename_dict = dict()
+#        # This might be more simple if moved in all_done
+#        if self.sq_rename_dict:
+#            self.ast.rename(self.sq_rename_dict)
+#            self.sq_rename_dict = dict()
 
     def perform_union(self, ast, key, allowed_platforms, metadata, user, query_plan):
         """

@@ -18,6 +18,7 @@ import sys, xmlrpclib, datetime, os.path
 
 from manifold.core.router           import Router
 from manifold.core.record           import Record, Records
+from manifold.core.result_value     import ResultValue
 from manifold.core.capabilities     import Capabilities
 from manifold.util.daemon           import Daemon
 from manifold.util.filesystem       import ensure_writable_directory, ensure_keypair, ensure_certificate, mkdir
@@ -35,13 +36,14 @@ from manifold.types.hostname        import hostname
 from manifold.types.date            import date
 import datetime
 
-xmlrpclib.Marshaller.dispatch[string]   = xmlrpclib.Marshaller.dump_string
-xmlrpclib.Marshaller.dispatch[int]      = xmlrpclib.Marshaller.dump_int
-xmlrpclib.Marshaller.dispatch[inet]     = xmlrpclib.Marshaller.dump_string
-xmlrpclib.Marshaller.dispatch[hostname] = xmlrpclib.Marshaller.dump_string
-xmlrpclib.Marshaller.dispatch[date]     = lambda s: xmlrpclib.Marshaller.dump_string(str(s))
-xmlrpclib.Marshaller.dispatch[Record]   = xmlrpclib.Marshaller.dump_struct
-xmlrpclib.Marshaller.dispatch[Records]  = xmlrpclib.Marshaller.dump_array
+xmlrpclib.Marshaller.dispatch[string]       = xmlrpclib.Marshaller.dump_string
+xmlrpclib.Marshaller.dispatch[int]          = xmlrpclib.Marshaller.dump_int
+xmlrpclib.Marshaller.dispatch[inet]         = xmlrpclib.Marshaller.dump_string
+xmlrpclib.Marshaller.dispatch[hostname]     = xmlrpclib.Marshaller.dump_string
+xmlrpclib.Marshaller.dispatch[date]         = lambda s: xmlrpclib.Marshaller.dump_string(str(s))
+xmlrpclib.Marshaller.dispatch[Record]       = xmlrpclib.Marshaller.dump_struct
+xmlrpclib.Marshaller.dispatch[Records]      = xmlrpclib.Marshaller.dump_array
+xmlrpclib.Marshaller.dispatch[ResultValue]  = xmlrpclib.Marshaller.dump_struct
 
 #-------------------------------------------------------------------------------
 # Class XMLRPCDaemon
