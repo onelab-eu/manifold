@@ -30,22 +30,21 @@ class SFAWrapParser(RSpecParser):
 
     @classmethod
     def parse(cls, rspec, rspec_version = 'GENI 3', slice_urn = None):
-        resources   = list()
-        leases      = list()
 
         rspec = RSpec(rspec, version=rspec_version)
 
-        resources   = cls._get_resources(rspec)
-        nodes       = cls._get_nodes(rspec)
-        channels    = cls._get_channels(rspec)
-        links       = cls._get_links(rspec)
-        leases      = cls._get_leases(rspec)
+        _resources   = cls._get_resources(rspec)
+        _nodes       = cls._get_nodes(rspec)
+        _channels    = cls._get_channels(rspec)
+        _links       = cls._get_links(rspec)
+        _leases      = cls._get_leases(rspec)
         
-        resources.extend(cls._process_resources(resources))
-        resources.extend(cls._process_nodes(nodes))
-        resources.extend(cls._process_channels(channels))
-        resources.extend(cls._process_links(links))
-        leases = cls._process_leases(leases)
+        resources = list()
+        resources.extend(cls._process_resources(_resources))
+        resources.extend(cls._process_nodes(_nodes))
+        resources.extend(cls._process_channels(_channels))
+        resources.extend(cls._process_links(_links))
+        leases = cls._process_leases(_leases)
         return {'resource': resources, 'lease': leases } 
 
     #---------------------------------------------------------------------------
@@ -189,6 +188,8 @@ class SFAWrapParser(RSpecParser):
             node['initscripts'] = node.pop('pl_initscripts')
             if 'exclusive' in node and node['exclusive']:
                 node['exclusive'] = node['exclusive'].lower() == 'true'
+            if 'granularity' in node:
+                node['granularity'] = node['granularity']['grain']
 
             # XXX This should use a MAP as before
             if 'position' in node: # iotlab
@@ -226,6 +227,7 @@ class SFAWrapParser(RSpecParser):
 
     @classmethod
     def _process_leases(cls, leases):
+        print "SFA WRAP PARSER PROCESS LEASES"
         ret = list()
         try:
             for lease in leases:
@@ -304,10 +306,75 @@ class SFAWrapParser(RSpecParser):
 class PLEParser(SFAWrapParser):
 
     @classmethod
+    def get_grain(cls):
+        """
+        in seconds
+        """
+        # On PLE the granularity is 1h
+        return 3600 # s
+
+    @classmethod
     def on_build_resource_hook(cls, resource):
         # PlanetLab now requires a node to have a list of slivers
         resource['slivers'] = [{'type': 'plab-vnode'}]
         return resource
+
+    @classmethod
+    def _process_leases(cls, leases):
+        ret = list()
+        try:
+            for lease in leases:
+                lease['resource'] = lease.pop('component_id')
+                lease['slice']    = lease.pop('slice_id')
+                lease['start_time'] = int(lease['start_time']) - 7200 # BUG GMT+2
+                lease['duration'] = int(lease['duration'])
+                if 'end_time' in lease:
+                    lease['end_time'] = int(lease['end_time']) - 7200
+                if not 'end_time' in lease and set(['start_time', 'duration']) <= set(lease.keys()):
+                    lease['end_time'] = lease['start_time'] + lease['duration'] * cls.get_grain()
+                elif not 'duration' in lease and  set(lease.keys()) <= set(['start_time', 'end_time']):
+                    lease['duration'] = (lease['end_time'] - lease['start_time']) / cls.get_grain()
+
+                # XXX GRANULARITY Hardcoded for the moment
+                if 'granularity' not in lease:
+                    lease['granularity'] = cls.get_grain() 
+
+                ret.append(lease)
+        except Exception, e:
+            print "EEE::", e
+            import traceback
+            traceback.print_exc()
+        return ret
+
+    @classmethod
+    def manifold_to_sfa_leases(cls, leases, slice_urn):
+        sfa_leases = []
+        for lease in leases:
+            sfa_lease = dict()
+            # sfa_lease_id = 
+            sfa_lease['component_id'] = lease['resource']
+            sfa_lease['slice_id']     = slice_urn
+            sfa_lease['start_time']   = lease['start_time'] + 7200
+            
+            grain = cls.get_grain() # in seconds
+            min_duration = cls.get_min_duration() # in seconds
+            
+            # We either need end_time or duration
+            # end_time is choosen if both are specified !
+            if 'end_time' in lease:
+                sfa_lease['end_time'] = lease['end_time']  + 7200
+# XXX XXX
+                duration =  (int(lease['end_time']) - int(lease['start_time'])) / grain
+                if duration < min_duration:
+                    raise Exception, 'duration < min_duration'
+                sfa_lease['duration'] = duration
+            elif 'duration' in lease:
+                sfa_lease['duration'] = lease['duration']
+                sfa_lease['end_time'] = lease['start_time'] + lease['duration']
+            else:
+                raise Exception, 'Lease not specifying neither end_time nor duration'
+            sfa_leases.append(sfa_lease)
+        return sfa_leases
 
 class NITOSParser(SFAWrapParser):
 
