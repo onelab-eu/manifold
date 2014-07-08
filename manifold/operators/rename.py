@@ -22,6 +22,10 @@ def do_rename(record, aliases):
     several subqueries.
     """
 
+    print "*" * 80
+    print "DO RENAME", record
+    print "aliases", aliases
+    print "-" * 80
     if record.is_empty():
         return record
 
@@ -49,6 +53,9 @@ def do_rename(record, aliases):
         if not k_head in myrecord:
             return
 
+        if k== "keys":
+            import pdb; pdb.set_trace()
+
         if k_tail and v_tail:
 
             if k_head != v_head:
@@ -68,7 +75,7 @@ def do_rename(record, aliases):
 
         elif not k_tail and not v_tail:
             # XXX Maybe such cases should never be reached.
-            if k_head and k_head != v_head:
+            if k_head:# and k_head != v_head:
                 myrecord[v_head] = myrecord.pop(k_head)
             else:
                 myrecord[v_head] = data
@@ -103,6 +110,7 @@ def do_rename(record, aliases):
         # Rename fields in place in the record
         handle_record(k, v, record)
 
+    print "OUTPUT", record
     return record
 
 

@@ -986,12 +986,8 @@ class SFAGateway(Gateway):
         # object_hrn property is currently unused and the HRN/URN field name
         # will be supposed equal to OBJECT_hrn and OBJECT_urn.  Let's keep
         # HRNs.
-        Log.warning("SFA GW::get_object filters = ",filters)
-        Log.warning("SFA GW::get_object object = ",object)
         object_hrns = make_list(filters.get_op('%s_hrn' % object, [eq, included]))
         object_urns = make_list(filters.get_op('%s_urn' % object, [eq, included]))
-        Log.warning("SFA GW::get_object object_hrns = ",object_hrns)
-        Log.warning("SFA GW::get_object object_urns = ",object_urns)
 
         for urn in object_urns:
             hrn, _ = hrn_to_urn(urn, object)
@@ -1073,6 +1069,7 @@ class SFAGateway(Gateway):
                 
                 output.append(result)
 
+            print "GET OBJECT RETURNED", output
             defer.returnValue(output)
         
         if len(stack) > 1:
@@ -1338,14 +1335,15 @@ class SFAGateway(Gateway):
                     # XX XXXX XXX
                     result = yield self.sliceapi.Describe([slice_urn], [cred], api_options)
                     # XXX Weird !
-                    result['value'] = result['value']['geni_rspec']
+                    if 'value' in result and 'geni_rspec' in result['value']:
+                        result['value'] = result['value']['geni_rspec']
                 else:
                     #Log.warning("remove me!!!!")
                     #api_options['list_leases'] = 'all'
                     result = yield self.sliceapi.ListResources([cred], api_options)
                     
             if not 'value' in result or not result['value']:
-                raise Exception, result['output']
+                raise Exception, result
 
             rspec_string = result['value']
  
@@ -1504,6 +1502,7 @@ class SFAGateway(Gateway):
                 # The typical case
                 def cb(result):
                     assert len(result) == 2
+                    print "RESULT", result
                     (am_success, am_records), (rm_success, rm_records) = result
                     # XXX success
                     #print "AM success false when i raise an exception... handle !!!!" # XXX XXX
@@ -1569,9 +1568,6 @@ class SFAGateway(Gateway):
         else: # slice_urn
             slice_hrn, _ = urn_to_hrn(slice_urn)
         
-        print "slice_hrn", slice_hrn
-        print "slice_urn", slice_urn
-
         resources = params['resource'] if 'resource' in params else []
         leases = params['lease'] if 'lease' in params else []
 
@@ -1597,6 +1593,7 @@ class SFAGateway(Gateway):
             traceback.print_exc()
             rspec = ''
             raise
+        Log.warning("Contacting platform %s" % self.platform)
         Log.warning("request rspec: %s" % rspec)
 
         # Sliver attributes (tags) are ignored at the moment
@@ -1623,7 +1620,8 @@ class SFAGateway(Gateway):
 
         if slice_records and 'users' in slice_records[0] and slice_records[0]['users']:
             slice_record = slice_records[0]
-            
+           
+            print "SLICE RECORD", slice_record 
             # XXX TODO: be consistent with urn OR reg-urn 
             #rmap = { v: k for k, v in self.map_user_fields.items() }
             # meanwhile, hardcoding map
@@ -1732,6 +1730,8 @@ class SFAGateway(Gateway):
             #   <Experimenter uses resources>
 
             # Delete(<slice URN or sliver URNs>, <slice credential>, {}) when done
+            print "*** sfa_users", sfa_users
+            print "*** users", users
 
             api_options['sfa_users'] = sfa_users
             api_options['geni_users'] = users
@@ -1753,6 +1753,10 @@ class SFAGateway(Gateway):
                 manifest_rspec = value['geni_rspec']
             except:
                 raise Exception, "Missing Manifest RSpec"
+
+            print "VALUE FROM PLATFORM", self.platform, "VALUE=", value
+            print "*" * 80
+            print "MANIFEST RSPEC", manifest_rspec
 
             try:
                 geni_slivers = value['geni_slivers']
@@ -1804,13 +1808,17 @@ class SFAGateway(Gateway):
             rspec_version = 'GENI 3'
 
         parser = yield self.get_parser()
-        rsrc_leases = parser.parse(manifest_rspec, rspec_version, slice_urn)
+        rsrc_slice = parser.parse(manifest_rspec, rspec_version, slice_urn)
+
+        # Make records
+        rsrc_slice['resource'] = Records(rsrc_slice['resource'])
+        rsrc_slice['lease'] = Records(rsrc_slice['lease'])
 
         slice = {
             'slice_hrn': slice_hrn,
             SLICE_KEY: slice_urn,
         }
-        slice.update(rsrc_leases)
+        slice.update(rsrc_slice)
         defer.returnValue([slice])
 
     # The following functions are currently handled by update_slice_am

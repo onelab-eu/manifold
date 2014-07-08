@@ -165,10 +165,10 @@ class authority {
     const string name;
     const string abbreviated_name;
     const authority parent_authority;
-    slice      slices[];
-    user       users[];
     user       pi_users[];
 
     KEY(authority_hrn);
     CAPABILITY(retrieve, join, fullquery);
 };
+#slice      slices[];
+#user       users[];
