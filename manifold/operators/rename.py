@@ -53,9 +53,6 @@ def do_rename(record, aliases):
         if not k_head in myrecord:
             return
 
-        if k== "keys":
-            import pdb; pdb.set_trace()
-
         if k_tail and v_tail:
 
             if k_head != v_head:
