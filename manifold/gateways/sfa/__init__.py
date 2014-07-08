@@ -1069,7 +1069,6 @@ class SFAGateway(Gateway):
                 
                 output.append(result)
 
-            print "GET OBJECT RETURNED", output
             defer.returnValue(output)
         
         if len(stack) > 1:
@@ -1621,7 +1620,6 @@ class SFAGateway(Gateway):
         if slice_records and 'users' in slice_records[0] and slice_records[0]['users']:
             slice_record = slice_records[0]
            
-            print "SLICE RECORD", slice_record 
             # XXX TODO: be consistent with urn OR reg-urn 
             #rmap = { v: k for k, v in self.map_user_fields.items() }
             # meanwhile, hardcoding map
@@ -1730,8 +1728,6 @@ class SFAGateway(Gateway):
             #   <Experimenter uses resources>
 
             # Delete(<slice URN or sliver URNs>, <slice credential>, {}) when done
-            print "*** sfa_users", sfa_users
-            print "*** users", users
 
             api_options['sfa_users'] = sfa_users
             api_options['geni_users'] = users

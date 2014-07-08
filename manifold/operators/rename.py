@@ -22,10 +22,6 @@ def do_rename(record, aliases):
     several subqueries.
     """
 
-    print "*" * 80
-    print "DO RENAME", record
-    print "aliases", aliases
-    print "-" * 80
     if record.is_empty():
         return record
 
@@ -107,7 +103,6 @@ def do_rename(record, aliases):
         # Rename fields in place in the record
         handle_record(k, v, record)
 
-    print "OUTPUT", record
     return record
 
 

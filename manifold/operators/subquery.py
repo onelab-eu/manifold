@@ -117,9 +117,12 @@ class SubQuery(Node):
         # Store the record for later...
         self.parent_output.append(record)
 
+    # This method until everything is a record... XXX set up warnings
     @staticmethod
     def get_element_key(element, key):
-        if isinstance(element, dict):
+        if isinstance(element, Record):
+            return element.get_value(key)
+        elif isinstance(element, dict):
             # record
             return Record.get_value(element, key)
         else:
@@ -233,15 +236,19 @@ class SubQuery(Node):
                     parent_ids = []
                     for parent_record in self.parent_output:
                         record = Record.get_value(parent_record, key)
+                        print "record", record
                         if not record:
                             record = []
                         # XXX Nothing to do for the case where the list of keys in the parent is empty
                         if relation.get_type() in [Relation.types.LINK_1N, Relation.types.LINK_1N_BACKWARDS]:
+                            print "x"
+                            print "value", value
                             # we have a list of elements 
                             # element = id or dict    : cle simple
                             #         = tuple or dict : cle multiple
                             parent_ids.extend([self.get_element_key(r, value) for r in record])
                         else:
+                            print "y"
                             parent_ids.append(self.get_element_key(record, value))
                         
                     #if isinstance(key, tuple):
@@ -258,6 +265,7 @@ class SubQuery(Node):
                         filter_pred = Predicate(value, eq, parent_id)
                     else:
                         filter_pred = Predicate(value, included, parent_ids)
+                    print "filter_pred", filter_pred
 
                 # Injecting predicate
                 old_child_callback= child.get_callback()
