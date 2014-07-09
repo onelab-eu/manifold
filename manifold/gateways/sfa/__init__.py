@@ -1324,6 +1324,8 @@ class SFAGateway(Gateway):
                 result = yield self.sliceapi.ListResources([cred], api_options)
             else:
                 # AM API v3
+                Log.warning("remove me!!!!")
+                api_options['list_leases'] = 'all'
                 if slice_hrn:
                     # XX XXXX XXX
                     result = yield self.sliceapi.Describe([slice_urn], [cred], api_options)
@@ -1331,8 +1333,6 @@ class SFAGateway(Gateway):
                     if 'value' in result and 'geni_rspec' in result['value']:
                         result['value'] = result['value']['geni_rspec']
                 else:
-                    #Log.warning("remove me!!!!")
-                    #api_options['list_leases'] = 'all'
                     result = yield self.sliceapi.ListResources([cred], api_options)
                     
             if not 'value' in result or not result['value']:
@@ -1348,7 +1348,7 @@ class SFAGateway(Gateway):
             rspec_version = 'GENI 3'
        
         parser = yield self.get_parser()
-        Log.warning("rspec_string = ", rspec_string)
+        #Log.warning("rspec_string = ", rspec_string)
         rsrc_slice = parser.parse(rspec_string, rspec_version, slice_urn)
 
         # Make records
@@ -1586,8 +1586,8 @@ class SFAGateway(Gateway):
             traceback.print_exc()
             rspec = ''
             raise
-        Log.warning("Contacting platform %s" % self.platform)
-        Log.warning("request rspec: %s" % rspec)
+        #Log.warning("Contacting platform %s" % self.platform)
+        #Log.warning("request rspec: %s" % rspec)
 
         # Sliver attributes (tags) are ignored at the moment
 
@@ -1691,7 +1691,7 @@ class SFAGateway(Gateway):
             # AM API v2
             ois = yield self.ois(self.sliceapi, api_options)
             result = yield self.sliceapi.CreateSliver(slice_urn, [slice_cred], rspec, users, ois)
-            Log.warning("CreateSliver Result: %s" %result)
+            #Log.warning("CreateSliver Result: %s" %result)
 
             manifest_rspec = ReturnValue.get_value(result)
         else:

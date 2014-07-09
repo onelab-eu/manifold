@@ -164,7 +164,9 @@ class Filter(set):
 #        return dic
 
     def match(self, dic, ignore_missing=True):
+        print "FILTER MATCH"
         for predicate in self:
+            print "***pred", predicate, "match ?"
             if not predicate.match(dic, ignore_missing):
                 return False
         return True

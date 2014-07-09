@@ -236,19 +236,15 @@ class SubQuery(Node):
                     parent_ids = []
                     for parent_record in self.parent_output:
                         record = Record.get_value(parent_record, key)
-                        print "record", record
                         if not record:
                             record = []
                         # XXX Nothing to do for the case where the list of keys in the parent is empty
                         if relation.get_type() in [Relation.types.LINK_1N, Relation.types.LINK_1N_BACKWARDS]:
-                            print "x"
-                            print "value", value
                             # we have a list of elements 
                             # element = id or dict    : cle simple
                             #         = tuple or dict : cle multiple
                             parent_ids.extend([self.get_element_key(r, value) for r in record])
                         else:
-                            print "y"
                             parent_ids.append(self.get_element_key(record, value))
                         
                     #if isinstance(key, tuple):
@@ -265,8 +261,8 @@ class SubQuery(Node):
                         filter_pred = Predicate(value, eq, parent_id)
                     else:
                         filter_pred = Predicate(value, included, parent_ids)
-                    print "filter_pred", filter_pred
 
+                print "SUBQUERY PREDICATE", filter_pred
                 # Injecting predicate
                 old_child_callback= child.get_callback()
                 self.children[i] = child.optimize_selection(Filter().filter_by(filter_pred))
@@ -359,8 +355,12 @@ class SubQuery(Node):
                         #        filter = filter.filter_by(Predicate(field, included, o[value][field])) # o[value] might be multiple
 
                         parent_record[relation.get_relation_name()] = []
+                        print "*" * 80
+                        print "filter", filter
                         for child_record in self.child_results[i]:
+                            print "CHILD RECORD", child_record
                             if filter.match(child_record):
+                                print "> match : ADDED"
                                 parent_record[relation.get_relation_name()].append(child_record)
 
                     elif op == contains:

@@ -170,20 +170,27 @@ class Predicate:
         return list(self.get_str_tuple())
 
     def match(self, dic, ignore_missing=False):
-        if isinstance(self.key, tuple):
-            print "PREDICATE MATCH", self.key
-            print dic
-            print "-----------------------------"
         
         # Can we match ?
-        if self.key not in dic:
-            return ignore_missing
+        if not isinstance(self.key, tuple) and self.key not in dic:
+            return not ignore_missing
 
         if self.op == eq:
-            if isinstance(self.value, list):
-                return (dic[self.key] in self.value) # array ?
+            if isinstance(self.key, tuple):
+                print "self.value", self.value.__class__, self.value
+                key_list = list(self.key)
+                value_list = list(self.value)
+                
+                for i, k in enumerate(key_list):
+                    if dic.get(k) != value_list[i]:
+                        return False
+                return True
+                
             else:
-                return (dic[self.key] == self.value)
+                if isinstance(self.value, list):
+                    return (dic[self.key] in self.value) # array ?
+                else:
+                    return (dic[self.key] == self.value)
         elif self.op == ne:
             if isinstance(self.value, list):
                 return (dic[self.key] not in self.value) # array ?
