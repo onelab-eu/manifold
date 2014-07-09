@@ -183,18 +183,14 @@ class SFAGateway(Gateway):
 
         server_hrn = yield self.get_interface_hrn(server)
 
-        #Log.tmp("get_parser server_hrn = %s",server_hrn)
+        Log.tmp("get_parser server_hrn = %s",server_hrn)
         # We hardcode a parser for the NITOS testbed
         #server_version = yield self.get_cached_server_version(self.sliceapi)
 
         # XXX @Loic make network_hrn consistent everywhere, do we use get_interface_hrn ???
         #hrn = server_version.get('hrn')
-
-        if server_hrn == 'nitos':
-            parser = NITOSBrokerParser
-        elif server_hrn == 'omf':
-            parser = NITOSBrokerParser
-        elif server_hrn == 'netmode':
+        
+        if server_hrn in ['nitos','omf','omf.nitos','omf.netmode','netmode']:
             parser = NITOSBrokerParser
         elif server_hrn == 'iotlab':
             parser = IoTLABParser
@@ -202,8 +198,6 @@ class SFAGateway(Gateway):
             parser = PLEParser
         elif 'wilab2' in server_hrn:
             parser = WiLabtParser
-        elif 'nitlab' in server_hrn:
-            parser = NITOSParser
         else:
             #parser = LooseParser
             parser = SFAWrapParser
@@ -1354,7 +1348,7 @@ class SFAGateway(Gateway):
             rspec_version = 'GENI 3'
        
         parser = yield self.get_parser()
-        #Log.warning("rspec_string = ", rspec_string)
+        Log.warning("rspec_string = ", rspec_string)
         rsrc_slice = parser.parse(rspec_string, rspec_version, slice_urn)
 
         # Make records
