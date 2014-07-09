@@ -170,6 +170,16 @@ class Predicate:
         return list(self.get_str_tuple())
 
     def match(self, dic, ignore_missing=False):
+
+        def _tuple_match(key, value):
+            key_list = list(key)
+            value_list = list(value)
+            
+            for i, k in enumerate(key_list):
+                if dic.get(k) != value_list[i]:
+                    return False
+            return True
+            
         
         # Can we match ?
         if not isinstance(self.key, tuple) and self.key not in dic:
@@ -177,15 +187,7 @@ class Predicate:
 
         if self.op == eq:
             if isinstance(self.key, tuple):
-                print "self.value", self.value.__class__, self.value
-                key_list = list(self.key)
-                value_list = list(self.value)
-                
-                for i, k in enumerate(key_list):
-                    if dic.get(k) != value_list[i]:
-                        return False
-                return True
-                
+                return _tuple_match(self.key, self.value)
             else:
                 if isinstance(self.value, list):
                     return (dic[self.key] in self.value) # array ?
@@ -227,7 +229,14 @@ class Predicate:
             method, subfield = self.key.split('.', 1)
             return not not [ x for x in dic[method] if x[subfield] == self.value] 
         elif self.op == included:
-            return dic[self.key] in self.value
+            if isinstance(self.key, tuple):
+                # The dic needs to match at least one value
+                for v in self.value:
+                    if _tuple_match(self.key, v):
+                        return True
+                return False
+            else:
+                return dic[self.key] in self.value
         else:
             raise Exception, "Unexpected table format: %r" % dic
 
