@@ -775,7 +775,9 @@ class SFAGateway(Gateway):
         if self.sliceapi:
             server = self.sliceapi
         # Network (Registry) 
+        # We return NO network for Registry
         else:
+            defer.returnValue([])
             server = self.registry 
 
         version = yield self.get_cached_server_version(server)
@@ -1349,7 +1351,7 @@ class SFAGateway(Gateway):
             rspec_version = 'GENI 3'
        
         parser = yield self.get_parser()
-        #Log.warning("rspec_string = ", rspec_string)
+        Log.warning("MANIFEST RSPEC FROM ListResources/Describe from %r : %r" % (self.platform, rspec_string))
         rsrc_slice = parser.parse(rspec_string, rspec_version, slice_urn)
 
         # Make records
@@ -1523,6 +1525,10 @@ class SFAGateway(Gateway):
 
     @defer.inlineCallbacks
     def update_slice_am(self, filters, params, fields):
+        # If No AM return
+        if not self.sliceapi:
+            defer.returnValue([])
+
         if not 'resource' in params and not 'lease' in params:
             raise Exception, "Update failed: nothing to update"
 
