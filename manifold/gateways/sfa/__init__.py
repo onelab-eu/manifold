@@ -2179,6 +2179,13 @@ class SFAGateway(Gateway):
     # using defer to have an asynchronous results management in functions prefixed by yield
     @defer.inlineCallbacks
     def manage(self, user, platform, config):
+        # XXX TMP FIX: this works fine if the Registry (myslice platform) is queried 1st
+        # If it's not queried 1st, then the calls will fail untill we get the Credentials from the Registry
+        # This might cause a PB while using Manifold Cache
+        if not self.config['registry']:
+            # return using asynchronous defer
+            defer.returnValue(config)
+            
         if isinstance(platform, Platform):
             platform = platform.platform           
         Log.debug("Managing %r account on %s..." % (user, platform))
