@@ -22,8 +22,14 @@ GRANULARITY = 1800
 LEASE_TAG = '<ol:lease client_id="%(client_id)s" valid_from="%(valid_from_iso)sZ" valid_until="%(valid_until_iso)sZ"/>'
 LEASE_REF_TAG = '<ol:lease_ref id_ref="%(lease_id)s"/>'
 NODE_TAG = '<node component_id="%(urn)s">' # component_manager_id="urn:publicid:IDN+omf:xxx+authority+am" component_name="node1" exclusive="true" client_id="my_node">'
-
 NODE_TAG_END = '</node>'
+CHANNEL_TAG = '<ol:channel component_id="%(urn)s">'
+CHANNEL_TAG_END = '</ol:channel>'
+
+# XXX Not tested:
+LINK_TAG = '<link component_id="%(urn)s">'
+LINK_TAG_END = '</link>'
+
 
 # Maps properties within an element of a RSpec to entries in the returned
 # dictionary
@@ -52,7 +58,7 @@ def channel_urn_hrn_exclusive(value):
     output = {}
     # XXX HARDCODED FOR NITOS
     xrn = Xrn('%(network)s.nitos.channel.%(component_name)s' % value, type='channel')
-    return {'urn': xrn.urn, 'hrn': xrn.hrn, 'exclusive': True}
+    return {'urn': xrn.urn, 'hrn': xrn.hrn, 'exclusive': True, 'hostname': xrn.hrn} # hostname TEMP FIX XXX
 
 #   RSPEC_ELEMENT
 #       rspec_property -> dictionary that is merged when we encounter this
@@ -62,7 +68,7 @@ def channel_urn_hrn_exclusive(value):
 #              passed as an argument)
 HOOKS = {
     'node': {
-        'component_id': lambda value : {'hrn': Xrn(value).get_hrn(), 'urn': value}
+        'component_id': lambda value : {'hrn': Xrn(value).get_hrn(), 'urn': value,'hostname':  Xrn(value).get_hrn()} # hostname TEMP FIX XXX
     },
     'link': {
         'component_id': lambda value : {'hrn': Xrn(value).get_hrn(), 'urn': value}
@@ -104,8 +110,8 @@ class NITOSBrokerParser(RSpecParser):
         for el in elements:
             try:
                 lease_tmp = cls.dict_from_elt(network, el.element)
-                start = time.mktime(dateutil.parser.parse(lease_tmp['valid_from']).timetuple())
-                end   = time.mktime(dateutil.parser.parse(lease_tmp['valid_until']).timetuple())
+                start = time.mktime(dateutil.parser.parse(lease_tmp['valid_from']).utctimetuple())
+                end   = time.mktime(dateutil.parser.parse(lease_tmp['valid_until']).utctimetuple())
                 lease = {
                     'lease_id': lease_tmp['id'],
                     'slice': slice_urn,
@@ -389,8 +395,8 @@ class NITOSBrokerParser(RSpecParser):
             lease_map[lease['resource']] = map_interval_lease_id[interval]
                 
         for (valid_from, valid_until), client_id in map_interval_lease_id.items():
-            valid_from_iso = datetime.fromtimestamp(int(valid_from)).isoformat()
-            valid_until_iso = datetime.fromtimestamp(int(valid_until)).isoformat()
+            valid_from_iso = datetime.utcfromtimestamp(int(valid_from)).isoformat()
+            valid_until_iso = datetime.utcfromtimestamp(int(valid_until)).isoformat()
             rspec.append(LEASE_TAG % locals())
 
         return lease_map
@@ -409,11 +415,17 @@ class NITOSBrokerParser(RSpecParser):
 
     @classmethod
     def rspec_add_channel(cls, rspec, channel, lease_id):
-        pass
+        rspec.append(CHANNEL_TAG % channel)
+        if lease_id:
+            cls.rspec_add_lease_ref(rspec, lease_id)
+        rspec.append(CHANNEL_TAG_END)
 
     @classmethod
     def rspec_add_link(cls, rspec, link, lease_id):
-        pass
+        rspec.append(LINK_TAG % link)
+        if lease_id:
+            cls.rspec_add_lease_ref(rspec, lease_id)
+        rspec.append(LINK_TAG_END)
 
     @classmethod
     def rspec_add_resources(cls, rspec, resources, lease_map):
