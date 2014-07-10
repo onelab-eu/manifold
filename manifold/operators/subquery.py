@@ -262,7 +262,6 @@ class SubQuery(Node):
                     else:
                         filter_pred = Predicate(value, included, parent_ids)
 
-                print "SUBQUERY PREDICATE", filter_pred
                 # Injecting predicate
                 old_child_callback= child.get_callback()
                 self.children[i] = child.optimize_selection(Filter().filter_by(filter_pred))

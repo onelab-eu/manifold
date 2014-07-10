@@ -164,12 +164,19 @@ class Filter(set):
 #        return dic
 
     def match(self, dic, ignore_missing=True):
-        print "FILTER MATCH"
-        for predicate in self:
-            print "***pred", predicate, "match ?"
-            if not predicate.match(dic, ignore_missing):
-                return False
-        return True
+        try:
+            for predicate in self:
+                if not predicate.match(dic, ignore_missing):
+                    return False
+            return True
+        except Exception, e:
+            print "!!!!"
+            print "!!!!"
+            print "!!!!"
+            print "MACCHA FILTER MATCH", e
+            print "!!!!"
+            print "!!!!"
+            print "!!!!"
 
     def filter(self, l):
         output = []
