@@ -1329,6 +1329,7 @@ class SFAGateway(Gateway):
                 if slice_hrn:
                     # XX XXXX XXX
                     result = yield self.sliceapi.Describe([slice_urn], [cred], api_options)
+                    print "DESCRIBE RESULT", result
                     # XXX Weird !
                     if 'value' in result and 'geni_rspec' in result['value']:
                         result['value'] = result['value']['geni_rspec']
@@ -1586,8 +1587,8 @@ class SFAGateway(Gateway):
             traceback.print_exc()
             rspec = ''
             raise
-        #Log.warning("Contacting platform %s" % self.platform)
-        #Log.warning("request rspec: %s" % rspec)
+        Log.warning("Contacting platform %s" % self.platform)
+        Log.warning("request rspec: %s" % rspec)
 
         # Sliver attributes (tags) are ignored at the moment
 
@@ -1691,7 +1692,7 @@ class SFAGateway(Gateway):
             # AM API v2
             ois = yield self.ois(self.sliceapi, api_options)
             result = yield self.sliceapi.CreateSliver(slice_urn, [slice_cred], rspec, users, ois)
-            #Log.warning("CreateSliver Result: %s" %result)
+            Log.warning("CreateSliver Result: %s" %result)
 
             manifest_rspec = ReturnValue.get_value(result)
         else:
