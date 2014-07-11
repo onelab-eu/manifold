@@ -78,7 +78,11 @@ class Policy(object):
         if is_query:
             # We are dealing with queries
             cache = self._interface.get_cache(annotations)
-            cache.add_entry(query, Entry())
-        
+            # XXX TEMP HACK
+            try:
+                cache.add_entry(query, Entry())
+            except Exception,e: 
+                Log.warning(e)
+
         # Default decision : ACCEPT
         return (self.ACCEPT, None)
