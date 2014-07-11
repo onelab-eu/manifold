@@ -1463,8 +1463,8 @@ class SFAGateway(Gateway):
         do_update_am = bool(set(params.keys()) & AM_SLICE_FIELDS)
         do_update_rm = bool(set(params.keys()) - AM_SLICE_FIELDS)
 
-        do_get_am    = fields & AM_SLICE_FIELDS and not do_update_am
-        do_get_rm    = fields - AM_SLICE_FIELDS and not do_update_rm
+        do_get_am    = bool(fields & AM_SLICE_FIELDS) and not do_update_am
+        do_get_rm    = bool(fields - AM_SLICE_FIELDS) and not do_update_rm
 
         do_am        = do_get_am or do_update_am
         do_rm        = do_get_rm or do_update_rm
