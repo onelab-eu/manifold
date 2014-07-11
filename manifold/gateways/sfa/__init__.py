@@ -247,8 +247,8 @@ class SFAGateway(Gateway):
         'reg-urn'           : SLICE_KEY,
 
         'type'              : 'slice_type',                 # type ?
-        #'reg-researchers'   : 'users',                      # user or users . hrn or user_hrn ?
-        'researcher'        : 'users',                      # user or users . hrn or user_hrn ?
+        'reg-researchers'   : 'users',                      # user or users . hrn or user_hrn ?
+        #'researcher'        : 'users',                      # user or users . hrn or user_hrn ?
                                                             # XXX this is in lowercase when creating a slice !
         # TESTBED FIELDS
 #        'enabled'           : 'slice_enabled',
