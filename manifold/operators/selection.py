@@ -24,7 +24,7 @@ class Selection(Node):
 
         super(Selection, self).__init__()
 
-        self.child, self.filters = child, filters
+        self.child, self.filters = child, filters.copy()
 
         old_cb = child.get_callback()
         child.set_callback(self.child_callback)
@@ -64,6 +64,7 @@ class Selection(Node):
         """
         \brief Propagates a START message through the child
         """
+        print "start self.filters = ",self.filters
         self.child.start()
 
     #@returns(Selection)
@@ -82,6 +83,8 @@ class Selection(Node):
         \brief Processes records received by the child node 
         \param record dictionary representing the received record
         """
+
+        print "child_callback self.filters = ",self.filters
         if record.is_last() or (self.filters and self.filters.match(record)):
             self.send(record)
 

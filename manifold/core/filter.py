@@ -6,6 +6,7 @@ except NameError:
     from sets import Set
     set = Set
 
+import copy
 import time
 import datetime # Jordan
 #from manifold.util.parameter import Parameter, Mixed, python_type
@@ -16,6 +17,9 @@ class Filter(set):
     """
     A filter is a set of predicates
     """
+    def copy(self):
+        return copy.deepcopy(self)
+
     # XXX IMPORTED FROM ROUTERV2
     def rename(self, aliases):
         for predicate in self:
@@ -165,6 +169,7 @@ class Filter(set):
 
     def match(self, dic, ignore_missing=True):
         try:
+            print "match self = ",self
             for predicate in self:
                 if not predicate.match(dic, ignore_missing):
                     return False
