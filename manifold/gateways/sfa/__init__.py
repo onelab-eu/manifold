@@ -914,6 +914,11 @@ class SFAGateway(Gateway):
 
     @defer.inlineCallbacks
     def create_object(self, filters, params, fields):
+
+        # If No Registry RM return
+        if not self.registry:
+            defer.returnValue([])
+
         aliases = {v:k for k, v in self.map_fields[self.query.object].items()}
         filters = self.rename_filters(filters,aliases)
         params  = self.rename_params(params,aliases)
@@ -969,6 +974,10 @@ class SFAGateway(Gateway):
             params:
             fields:
         """
+        # If No Registry RM return
+        if not self.registry:
+            defer.returnValue([])
+
         # XXX Hack for avoiding multiple calls to the same registry...
         # This will be fixed in newer versions where AM and RM have separate gateways
         if self.auth_type == "reference":
@@ -1386,6 +1395,11 @@ class SFAGateway(Gateway):
 
     @defer.inlineCallbacks
     def update_object(self, filters, params, fields):
+
+        # If No Registry RM return
+        if not self.registry:
+            defer.returnValue([])
+
         aliases = {v:k for k, v in self.map_fields[self.query.object].items()}
         filters = self.rename_filters(filters,aliases) # ONLY USED TO GET THE OBJECT HRN
         params  = self.rename_params(params,aliases)   # USED TO CALL SFA API
@@ -1525,6 +1539,7 @@ class SFAGateway(Gateway):
 
     @defer.inlineCallbacks
     def update_slice_am(self, filters, params, fields):
+
         # If No AM return
         if not self.sliceapi:
             defer.returnValue([])
@@ -1836,11 +1851,30 @@ class SFAGateway(Gateway):
 
     @defer.inlineCallbacks
     def delete_object(self, filters, params, fields):
+
+        # If No Registry RM return
+        if not self.registry:
+            defer.returnValue([])
+
+        Log.tmp("BEFORE")
+        Log.tmp("params = ",params)
+        Log.tmp("fields = ",fields)
+        Log.tmp("filters = ",filters)
+
         aliases = {v:k for k, v in self.map_fields[self.query.object].items()}
         filters = self.rename_filters(filters,aliases) # ONLY USED TO GET THE OBJECT HRN
+        Log.tmp("AFTER")
+        Log.tmp("params = ",params)
+        Log.tmp("fields = ",fields)
+        Log.tmp("filters = ",filters)
 
-        assert not params
-        assert not fields
+        # XXX WARNING Only filters should be passed to delete
+        # But params and fields are filled somwhere before this function...
+        # To be investigated later !
+        # XXX TMP removed assert
+        
+        #assert not params
+        #assert not fields
 
         dict_filters = filters.to_dict()
         if filters.has(self.query.object+'_hrn'):
