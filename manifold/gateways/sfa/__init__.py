@@ -482,7 +482,6 @@ class SFAGateway(Gateway):
         if 'interface' in version and version['interface'] == 'registry':
             self.registry_version = version
         else:
-            print "self.am_version set"
             self.am_version = version
 
         defer.returnValue(version)

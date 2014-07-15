@@ -64,7 +64,6 @@ class Selection(Node):
         """
         \brief Propagates a START message through the child
         """
-        print "start self.filters = ",self.filters
         self.child.start()
 
     #@returns(Selection)
@@ -84,10 +83,7 @@ class Selection(Node):
         \param record dictionary representing the received record
         """
 
-        print "child_callback self.filters = ",self.filters
-        print "record = ", record
         if record.is_last() or (self.filters and self.filters.match(record)):
-            print "record is matching the filter"
             self.send(record)
 
     def optimize_selection(self, filter):
