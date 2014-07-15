@@ -113,6 +113,9 @@ class Gateway(object):
                     var = value[1:]
                     if var in variables and isinstance(variables[var], StringTypes):
                         params[k] = variables[var]
+
+            # copy of the query to keep original field names before rename in SFA 
+            self.query = self.query.copy()
         except Exception, e:
             print "Exception in start", e
             traceback.print_exc()

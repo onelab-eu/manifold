@@ -118,9 +118,10 @@ class Union(Node):
             self.send(record)
             return
 
-        # Ignore records that have no key
+        # Send records that have no key
         if not Record.has_fields(record, key):
-            Log.info("UNION::child_callback ignored record without key '%(key)s': %(record)r", **locals())
+            Log.info("UNION::child_callback sent record without key '%(key)s': %(record)r", **locals())
+            self.send(record)
             return
 
         key_value = Record.get_value(record, key)
