@@ -24,7 +24,7 @@ class Selection(Node):
 
         super(Selection, self).__init__()
 
-        self.child, self.filters = child, filters.copy()
+        self.child, self.filters = child, filters
 
         old_cb = child.get_callback()
         child.set_callback(self.child_callback)
@@ -85,7 +85,9 @@ class Selection(Node):
         """
 
         print "child_callback self.filters = ",self.filters
+        print "record = ", record
         if record.is_last() or (self.filters and self.filters.match(record)):
+            print "record is matching the filter"
             self.send(record)
 
     def optimize_selection(self, filter):

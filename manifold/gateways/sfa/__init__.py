@@ -2105,6 +2105,9 @@ class SFAGateway(Gateway):
 
             if q.object in self.map_fields:
                 Rename(self, self.map_fields[q.object])
+
+            self.query = self.query.copy()
+
             # Return result
             map(self.send, Records(records))
             self.send(LastRecord())
