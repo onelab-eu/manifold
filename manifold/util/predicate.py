@@ -170,7 +170,6 @@ class Predicate:
         return list(self.get_str_tuple())
 
     def match(self, dic, ignore_missing=False):
-
         def _tuple_match(key, value):
             key_list = list(key)
             value_list = list(value)

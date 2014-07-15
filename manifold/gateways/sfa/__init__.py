@@ -247,8 +247,8 @@ class SFAGateway(Gateway):
         'reg-urn'           : SLICE_KEY,
 
         'type'              : 'slice_type',                 # type ?
-        #'reg-researchers'   : 'users',                      # user or users . hrn or user_hrn ?
-        'researcher'        : 'users',                      # user or users . hrn or user_hrn ?
+        'reg-researchers'   : 'users',                      # user or users . hrn or user_hrn ?
+        #'researcher'        : 'users',                      # user or users . hrn or user_hrn ?
                                                             # XXX this is in lowercase when creating a slice !
         # TESTBED FIELDS
 #        'enabled'           : 'slice_enabled',
@@ -2125,6 +2125,9 @@ class SFAGateway(Gateway):
 
             if q.object in self.map_fields:
                 Rename(self, self.map_fields[q.object])
+
+            self.query = self.query.copy()
+
             # Return result
             map(self.send, Records(records))
             self.send(LastRecord())
