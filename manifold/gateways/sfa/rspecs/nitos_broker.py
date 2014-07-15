@@ -19,7 +19,8 @@ RESOURCE_TYPES = {
 }
 
 GRANULARITY = 1800
-LEASE_TAG = '<ol:lease client_id="%(client_id)s" valid_from="%(valid_from_iso)sZ" valid_until="%(valid_until_iso)sZ"/>'
+NEW_LEASE_TAG = '<ol:lease client_id="%(client_id)s" valid_from="%(valid_from_iso)sZ" valid_until="%(valid_until_iso)sZ"/>'
+OLD_LEASE_TAG = '<ol:lease lease_id="%(lease_id)s" valid_from="%(valid_from_iso)sZ" valid_until="%(valid_until_iso)sZ"/>'
 LEASE_REF_TAG = '<ol:lease_ref id_ref="%(lease_id)s"/>'
 NODE_TAG = '<node component_id="%(urn)s">' # component_manager_id="urn:publicid:IDN+omf:xxx+authority+am" component_name="node1" exclusive="true" client_id="my_node">'
 NODE_TAG_END = '</node>'
@@ -391,13 +392,16 @@ class NITOSBrokerParser(RSpecParser):
         for lease in leases:
             interval = (lease['start_time'], lease['end_time'])
             if not interval in map_interval_lease_id:
-                map_interval_lease_id[interval] = str(uuid.uuid4())
+                map_interval_lease_id[interval] = {'client_id': str(uuid.uuid4()), 'lease_id': lease['lease_id']}
             lease_map[lease['resource']] = map_interval_lease_id[interval]
                 
         for (valid_from, valid_until), client_id in map_interval_lease_id.items():
             valid_from_iso = datetime.utcfromtimestamp(int(valid_from)).isoformat()
             valid_until_iso = datetime.utcfromtimestamp(int(valid_until)).isoformat()
-            rspec.append(LEASE_TAG % locals())
+            if leases.get('lease_id'):
+                rspec.append(OLD_LEASE_TAG % locals())
+            else:
+                rspec.append(NEW_LEASE_TAG % locals())
 
         return lease_map
 
@@ -441,7 +445,12 @@ class NITOSBrokerParser(RSpecParser):
                 }
             # What information do we need in resources for REQUEST ?
             resource_type = resource.pop('type')
-            lease_id = lease_map.get(resource['urn'])
+
+            lease_id_client_id = lease_map.get(resource['urn'])
+            lease_id = lease_id_client_id.get('lease_id')
+            if not lease_id:
+                lease_id = lease_id_client_id.get('client_id')
+
             if resource_type == 'node':
                 cls.rspec_add_node(rspec, resource, lease_id)
             elif resource_type == 'link':
