@@ -28,6 +28,7 @@ class lease {
     interval       duration;
     const resource resource;    /**< Resource URN attached to this lease */
     const string   lease_type;
+	const string lease_id;
 
     interval       granularity; 
 

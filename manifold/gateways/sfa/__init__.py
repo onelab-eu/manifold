@@ -1259,14 +1259,14 @@ class SFAGateway(Gateway):
 #DEPRECATED|            return 
         # If No AM return
         if not self.sliceapi:
-            defer.returnValue([])
+            defer.returnValue({})
 
         # If get_version failed, then self.am_version not initialized
         try:
             self.am_version
         except:
             Log.warning('self.am_version not set, ignoring call to get_resource_lease')
-            defer.returnValue([])
+            defer.returnValue({})
 
         rspec_string = None
 
@@ -1370,7 +1370,8 @@ class SFAGateway(Gateway):
             rspec_version = 'GENI 3'
        
         parser = yield self.get_parser()
-        #Log.warning("MANIFEST RSPEC FROM ListResources/Describe from %r : %r" % (self.platform, rspec_string))
+        if slice_hrn:
+            Log.warning("MANIFEST RSPEC FROM ListResources/Describe from %r : %r" % (self.platform, rspec_string))
         rsrc_slice = parser.parse(rspec_string, rspec_version, slice_urn)
 
         # Make records
@@ -1393,18 +1394,22 @@ class SFAGateway(Gateway):
     def get_resource(self, filters, params, fields):
         try:
             result = yield self._get_resource_lease(filters, fields, params, list_resources = True, list_leases = False)
-            defer.returnValue(result['resource'])
+            defer.returnValue(result.get('resource', dict()))
         except Exception, e: # TIMEOUT
             Log.warning("Exception in get_resource: %s" % e)
+            import traceback
+            traceback.print_exc()
             defer.returnValue(list())
 
     @defer.inlineCallbacks
     def get_lease(self,filters,params,fields):
         try:
             result = yield self._get_resource_lease(filters,fields,params, list_resources = False, list_leases = True)
-            defer.returnValue(result['lease'])
+            defer.returnValue(result.get('lease', dict()))
         except Exception, e: # TIMEOUT
             Log.warning("Exception in get_lease: %s" % e)
+            import traceback
+            traceback.print_exc()
             defer.returnValue(list())
 
     #--------------------------------------------------------------------------- 
@@ -1565,7 +1570,7 @@ class SFAGateway(Gateway):
 
         # If No AM return
         if not self.sliceapi:
-            defer.returnValue([])
+            defer.returnValue({})
 
         if not 'resource' in params and not 'lease' in params:
             raise Exception, "Update failed: nothing to update"
@@ -1739,6 +1744,7 @@ class SFAGateway(Gateway):
             Log.warning("CreateSliver Result: %s" %result)
 
             manifest_rspec = ReturnValue.get_value(result)
+            Log.warning("%s MANIFEST RSPEC %s" % (self.platform, manifest_rspec))
         else:
             # AM API v3
             # ROUTERV2
