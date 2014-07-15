@@ -293,7 +293,7 @@ class SFAGateway(Gateway):
         'email'             : 'user_email',
         'gid'               : 'user_gid',
         'authority'         : 'parent_authority',
-        #'reg-keys'          : 'keys',
+        'reg-keys'          : 'keys',
         'reg-slices'        : 'slices',
         'reg-pi-authorities': 'pi_authorities',
 
@@ -302,7 +302,7 @@ class SFAGateway(Gateway):
         'last_name'         : 'user_last_name',
         'phone'             : 'user_phone',
         'enabled'           : 'user_enabled',
-        'keys'              : 'keys',
+        #'keys'              : 'keys',
 
         # UNKNOWN
         'peer_authority'    : 'user_peer_authority',
@@ -1770,7 +1770,7 @@ class SFAGateway(Gateway):
 
             api_options['sfa_users'] = sfa_users
             api_options['geni_users'] = users
-
+            
             # http://groups.geni.net/geni/wiki/GAPI_AM_API_V3#Allocate
             result = yield self.sliceapi.Allocate(slice_urn, [slice_cred], rspec, api_options)
 
