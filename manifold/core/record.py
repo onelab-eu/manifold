@@ -126,6 +126,8 @@ class Record(collections.MutableMapping):
 
                 if not key in record:
                     return None
+                if not record[key]:
+                    return None
                 if isinstance(record[key], (Records, list)):
                     return [subrecord.get_value(subfields) for subrecord in record[key]]
                 elif isinstance(record[key], Record):

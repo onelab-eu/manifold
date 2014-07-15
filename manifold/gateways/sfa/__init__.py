@@ -1351,7 +1351,6 @@ class SFAGateway(Gateway):
                 if slice_hrn:
                     # XX XXXX XXX
                     result = yield self.sliceapi.Describe([slice_urn], [cred], api_options)
-                    print "DESCRIBE RESULT", result
                     # XXX Weird !
                     if 'value' in result and 'geni_rspec' in result['value']:
                         result['value'] = result['value']['geni_rspec']
@@ -1371,7 +1370,7 @@ class SFAGateway(Gateway):
             rspec_version = 'GENI 3'
        
         parser = yield self.get_parser()
-        Log.warning("MANIFEST RSPEC FROM ListResources/Describe from %r : %r" % (self.platform, rspec_string))
+        #Log.warning("MANIFEST RSPEC FROM ListResources/Describe from %r : %r" % (self.platform, rspec_string))
         rsrc_slice = parser.parse(rspec_string, rspec_version, slice_urn)
 
         # Make records
@@ -1521,8 +1520,8 @@ class SFAGateway(Gateway):
                     assert len(result) == 2
                     (am_success, am_records), (rm_success, rm_records) = result
                     # XXX success
-                    am_record = am_records[0]
-                    rm_record = rm_records[0]
+                    am_record = am_records[0] if am_success else {}
+                    rm_record = rm_records[0] if rm_success else {}
                     rm_record.update(am_record)
                     return [rm_record]
                 dl.addCallback(cb)
@@ -1531,14 +1530,19 @@ class SFAGateway(Gateway):
                 # The typical case
                 def cb(result):
                     assert len(result) == 2
-                    print "RESULT", result
                     (am_success, am_records), (rm_success, rm_records) = result
                     # XXX success
                     #print "AM success false when i raise an exception... handle !!!!" # XXX XXX
                     Log.warning("We should handle exceptions here !")
                     # XXX in case of failure, this contains a failure
-                    am_record = am_records[0] if am_records else {} # XXX Why sometimes empty ????
-                    rm_record = rm_records[0] if rm_records else {} # XXX Why sometimes empty ????
+                    if am_success:
+                        am_record = am_records[0] if am_records else {} # XXX Why sometimes empty ????
+                    else:
+                        am_record = {}
+                    if rm_success:
+                        rm_record = rm_records[0] if rm_records else {} # XXX Why sometimes empty ????
+                    else:
+                        rm_record = {}
                     am_record.update(rm_record)
                     return [am_record]
                 dl.addCallback(cb)
@@ -1772,7 +1776,8 @@ class SFAGateway(Gateway):
 
             if result['code']['geni_code'] != 0:
                 # XXX RESULT= {'output': ': Allocate: Invalid RSpec: No RSpec or version specified. Must specify a valid rspec string or a valid version', 'geni_api': 3, 'code': {'am_type': 'sfa', 'geni_code': 2, 'am_code': 2}, 'value': ''}
-                raise Exception, "Allocate failed"
+                Log.warning("%s: Allocate failed" % self.platform)
+                defer.returnValue([])
             
             try:
                 value = result['value']
@@ -1783,7 +1788,8 @@ class SFAGateway(Gateway):
                 # The manifest is a manifest RSpec of only newly allocated slivers, using the schema matching the input request schema (as required on the Common Concepts page).
                 manifest_rspec = value['geni_rspec']
             except:
-                raise Exception, "Missing Manifest RSpec"
+                Log.warning("%s: Missing manifest rspec" % self.platform)
+                defer.returnValue([])
 
             print "VALUE FROM PLATFORM", self.platform, "VALUE=", value
             print "*" * 80
@@ -1794,7 +1800,8 @@ class SFAGateway(Gateway):
             except Exception, e:
                 geni_slivers = None
             if not geni_slivers:
-                raise Exception, "Failed Allocating slivers"
+                Log.warning("%s: Failed Allocating slivers" % self.platform)
+                defer.returnValue([])
 
             if not value:
                 raise Exception

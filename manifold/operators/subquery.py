@@ -354,12 +354,8 @@ class SubQuery(Node):
                         #        filter = filter.filter_by(Predicate(field, included, o[value][field])) # o[value] might be multiple
 
                         parent_record[relation.get_relation_name()] = []
-                        print "*" * 80
-                        print "filter", filter
                         for child_record in self.child_results[i]:
-                            print "CHILD RECORD", child_record
                             if filter.match(child_record):
-                                print "> match : ADDED"
                                 parent_record[relation.get_relation_name()].append(child_record)
 
                     elif op == contains:
