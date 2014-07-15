@@ -133,6 +133,8 @@ class Union(Node):
                     prev_record[k] = v
                     continue
                 if isinstance(v, list):
+                    if not prev_record[k]:
+                        prev_record[k] = list() # with failures it can occur that this is None
                     prev_record[k].extend(v) # DUPLICATES ?
                 #else:
                 #    if not v == previous[k]:

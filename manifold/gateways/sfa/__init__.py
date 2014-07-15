@@ -482,6 +482,7 @@ class SFAGateway(Gateway):
         if 'interface' in version and version['interface'] == 'registry':
             self.registry_version = version
         else:
+            print "self.am_version set"
             self.am_version = version
 
         defer.returnValue(version)
@@ -1257,6 +1258,17 @@ class SFAGateway(Gateway):
 #DEPRECATED|            rspec = open('/usr/share/manifold/scripts/nitos.rspec', 'r')
 #DEPRECATED|            defer.returnValue(self.parse_sfa_rspec(rspec))
 #DEPRECATED|            return 
+        # If No AM return
+        if not self.sliceapi:
+            defer.returnValue([])
+
+        # If get_version failed, then self.am_version not initialized
+        try:
+            self.am_version
+        except:
+            Log.warning('self.am_version not set, ignoring call to get_resource_lease')
+            defer.returnValue([])
+
         rspec_string = None
 
         # Do we have a way to find slices, for now we only support explicit slice names
@@ -1381,13 +1393,21 @@ class SFAGateway(Gateway):
     # This get_resource is about the AM only... let's forget about RM for the time being
     @defer.inlineCallbacks
     def get_resource(self, filters, params, fields):
-        result = yield self._get_resource_lease(filters, fields, params, list_resources = True, list_leases = False)
-        defer.returnValue(result['resource'])
+        try:
+            result = yield self._get_resource_lease(filters, fields, params, list_resources = True, list_leases = False)
+            defer.returnValue(result['resource'])
+        except Exception, e: # TIMEOUT
+            Log.warning("Exception in get_resource: %s" % e)
+            defer.returnValue(list())
 
     @defer.inlineCallbacks
     def get_lease(self,filters,params,fields):
-        result = yield self._get_resource_lease(filters,fields,params, list_resources = False, list_leases = True)
-        defer.returnValue(result['lease'])
+        try:
+            result = yield self._get_resource_lease(filters,fields,params, list_resources = False, list_leases = True)
+            defer.returnValue(result['lease'])
+        except Exception, e: # TIMEOUT
+            Log.warning("Exception in get_lease: %s" % e)
+            defer.returnValue(list())
 
     #--------------------------------------------------------------------------- 
     # Update
