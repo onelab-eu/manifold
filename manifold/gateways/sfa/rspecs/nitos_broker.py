@@ -5,6 +5,7 @@ import sys, time, copy, uuid
 from types import StringTypes
 from manifold.gateways.sfa.rspecs import RSpecParser
 import dateutil.parser
+import calendar
 from datetime import datetime
 from manifold.util.log          import Log
 from sfa.rspecs.rspec import RSpec
@@ -16,6 +17,10 @@ RESOURCE_TYPES = {
     'node': 'node',
     'link': 'link',
     'ol:channel': 'channel',
+}
+
+LIST_ELEMENTS = {
+    'node': ['lease_ref']
 }
 
 GRANULARITY = 1800
@@ -111,8 +116,8 @@ class NITOSBrokerParser(RSpecParser):
         for el in elements:
             try:
                 lease_tmp = cls.dict_from_elt(network, el.element)
-                start = time.mktime(dateutil.parser.parse(lease_tmp['valid_from']).utctimetuple())
-                end   = time.mktime(dateutil.parser.parse(lease_tmp['valid_until']).utctimetuple())
+                start = calendar.timegm(dateutil.parser.parse(lease_tmp['valid_from']).utctimetuple())
+                end   = calendar.timegm(dateutil.parser.parse(lease_tmp['valid_until']).utctimetuple())
                 lease = {
                     'lease_id': lease_tmp['id'],
                     'slice': slice_urn,
@@ -181,18 +186,25 @@ class NITOSBrokerParser(RSpecParser):
         return tag
 
     @classmethod
-    def prop_from_elt(self, element, prefix = ''):
+    def prop_from_elt(self, element, prefix = '', list_elements = None):
         """
         Returns a property or a set of properties
         {key: value} or {key: (value, unit)}
         """
+        Log.warning("LIST ELEMENTS FOR NITOS LEASE REF")
         ret = {}
         if prefix: prefix = "%s." % prefix
         tag = self.get_element_tag(element)
  
         # Analysing attributes
         for k, v in element.attrib.items():
-            ret["%s%s.%s" % (prefix, tag, k)] = v
+            key = "%s%s.%s" % (prefix, tag, k)
+            if list_elements and key in list_elements:
+                if not key in ret:
+                    ret[key] = list()
+                ret[key].append(v)
+            else:
+                ret[key] = v
  
         # Analysing the tag itself
         if element.text:
@@ -210,7 +222,7 @@ class NITOSBrokerParser(RSpecParser):
         return ret
  
     @classmethod
-    def dict_from_elt(self, network, element):
+    def dict_from_elt(self, network, element, list_elements = None):
         """
         Returns an object
         """
@@ -222,7 +234,7 @@ class NITOSBrokerParser(RSpecParser):
             ret[k] = v
  
         for c in element.getchildren():
-            ret.update(self.prop_from_elt(c))
+            ret.update(self.prop_from_elt(c, '', list_elements))
  
         return ret
  
@@ -247,7 +259,7 @@ class NITOSBrokerParser(RSpecParser):
         return ret
  
     @classmethod
-    def parse_element(self, resource_type, network=None):
+    def parse_element(self, resource_type, network=None, list_elements = None):
         if network is None:
             # TODO: use SFA Wrapper library
             # self.rspec.version.get_nodes()
@@ -255,11 +267,11 @@ class NITOSBrokerParser(RSpecParser):
             XPATH_RESOURCE = "//default:%(resource_type)s | //%(resource_type)s"
             elements = self.rspec.xml.xpath(XPATH_RESOURCE % locals()) 
             if self.network is not None:
-                elements = [self.dict_from_elt(self.network, n.element) for n in elements]
+                elements = [self.dict_from_elt(self.network, n.element, list_elements) for n in elements]
         else:
             XPATH_RESOURCE = "/RSpec/network[@name='%(network)s']/%(resource_type)s"
             elements = self.rspec.xml.xpath(XPATH_RESOURCE % locals())
-            elements = [self.dict_from_elt(network, n.element) for n in elements]
+            elements = [self.dict_from_elt(network, n.element, list_elements) for n in elements]
  
         # XXX if network == self.network == None, we might not have a dict here !!!
         if resource_type in MAP:
@@ -276,7 +288,7 @@ class NITOSBrokerParser(RSpecParser):
  
         # NODES / CHANNELS / LINKS
         for type in RESOURCE_TYPES:
-            result.extend(self.parse_element(type, network))
+            result.extend(self.parse_element(type, network, LIST_ELEMENTS.get('type')))
  
         return result
  
@@ -383,22 +395,32 @@ class NITOSBrokerParser(RSpecParser):
 
     @classmethod
     def rspec_add_leases(cls, rspec, leases):
-        # A map (resource key) -> (lease_id)
+        # A map (resource key) -> [ { client_id: UUID, lease_id: ID_or_None }, ... ]
         lease_map = {}
 
-        # A map (interval) -> (lease_id) to group leases by interval
+        # A map (interval) -> (lease_id) to group reservations by interval == 1 RSPEC LEASE
         map_interval_lease_id = {}
 
         for lease in leases:
             interval = (lease['start_time'], lease['end_time'])
             if not interval in map_interval_lease_id:
-                map_interval_lease_id[interval] = {'client_id': str(uuid.uuid4()), 'lease_id': lease['lease_id']}
-            lease_map[lease['resource']] = map_interval_lease_id[interval]
+                map_interval_lease_id[interval] = {'lease_id': None, 'client_id': str(uuid.uuid4()) }
+            lease_id = lease.get('lease_id')
+            if lease_id:
+                # If grouped, all leases will have the same ID, so we can update it each time
+                map_interval_lease_id[interval]['lease_id'] = lease_id
+
+            if not lease['resource'] in lease_map:
+                lease_map[lease['resource']] = list()
+            lease_map[lease['resource']].append(map_interval_lease_id[interval])
                 
-        for (valid_from, valid_until), client_id in map_interval_lease_id.items():
+        for (valid_from, valid_until), lease_dict in map_interval_lease_id.items():
             valid_from_iso = datetime.utcfromtimestamp(int(valid_from)).isoformat()
             valid_until_iso = datetime.utcfromtimestamp(int(valid_until)).isoformat()
-            if leases.get('lease_id'):
+            lease_id = lease_dict['lease_id']
+            client_id = lease_dict['client_id']
+
+            if lease_id:
                 rspec.append(OLD_LEASE_TAG % locals())
             else:
                 rspec.append(NEW_LEASE_TAG % locals())
@@ -411,23 +433,23 @@ class NITOSBrokerParser(RSpecParser):
             rspec.append(LEASE_REF_TAG % locals())
 
     @classmethod
-    def rspec_add_node(cls, rspec, node, lease_id):
+    def rspec_add_node(cls, rspec, node, lease_ids):
         rspec.append(NODE_TAG % node)
-        if lease_id:
+        for lease_id in lease_ids:
             cls.rspec_add_lease_ref(rspec, lease_id)
         rspec.append(NODE_TAG_END)
 
     @classmethod
-    def rspec_add_channel(cls, rspec, channel, lease_id):
+    def rspec_add_channel(cls, rspec, channel, lease_ids):
         rspec.append(CHANNEL_TAG % channel)
-        if lease_id:
+        for lease_id in lease_ids:
             cls.rspec_add_lease_ref(rspec, lease_id)
         rspec.append(CHANNEL_TAG_END)
 
     @classmethod
-    def rspec_add_link(cls, rspec, link, lease_id):
+    def rspec_add_link(cls, rspec, link, lease_ids):
         rspec.append(LINK_TAG % link)
-        if lease_id:
+        for lease_id in lease_ids:
             cls.rspec_add_lease_ref(rspec, lease_id)
         rspec.append(LINK_TAG_END)
 
@@ -446,17 +468,21 @@ class NITOSBrokerParser(RSpecParser):
             # What information do we need in resources for REQUEST ?
             resource_type = resource.pop('type')
 
-            lease_id_client_id = lease_map.get(resource['urn'])
-            lease_id = lease_id_client_id.get('lease_id')
-            if not lease_id:
-                lease_id = lease_id_client_id.get('client_id')
+            # We add lease_ref wrt to each lease_id (old leases) and each client_id (new leases)
+            lease_dicts = lease_map.get(resource['urn'])
+            lease_ids = list()
+            for lease_dict in lease_dicts:
+                lease_id = lease_dict.get('lease_id')
+                if not lease_id:
+                    lease_id = lease_dict.get('client_id')
+                lease_ids.append(lease_id)
 
             if resource_type == 'node':
-                cls.rspec_add_node(rspec, resource, lease_id)
+                cls.rspec_add_node(rspec, resource, lease_ids)
             elif resource_type == 'link':
-                cls.rspec_add_link(rspec, resource, lease_id)
+                cls.rspec_add_link(rspec, resource, lease_ids)
             elif resource_type == 'channel':
-                cls.rspec_add_channel(rspec, resource, lease_id)
+                cls.rspec_add_channel(rspec, resource, lease_ids)
 
     @classmethod
     def get_grain(cls):

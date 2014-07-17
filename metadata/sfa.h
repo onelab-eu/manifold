@@ -32,7 +32,7 @@ class lease {
 
     interval       granularity; 
 
-    KEY(start_time, end_time, resource);
+    KEY(lease_id, start_time, end_time, resource);
     CAPABILITY(retrieve, join, fullquery);
 };
 

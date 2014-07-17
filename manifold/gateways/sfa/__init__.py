@@ -1538,7 +1538,6 @@ class SFAGateway(Gateway):
                     (am_success, am_records), (rm_success, rm_records) = result
                     # XXX success
                     #print "AM success false when i raise an exception... handle !!!!" # XXX XXX
-                    Log.warning("We should handle exceptions here !")
                     # XXX in case of failure, this contains a failure
                     if am_success:
                         am_record = am_records[0] if am_records else {} # XXX Why sometimes empty ????
@@ -1782,7 +1781,7 @@ class SFAGateway(Gateway):
 
             if result['code']['geni_code'] != 0:
                 # XXX RESULT= {'output': ': Allocate: Invalid RSpec: No RSpec or version specified. Must specify a valid rspec string or a valid version', 'geni_api': 3, 'code': {'am_type': 'sfa', 'geni_code': 2, 'am_code': 2}, 'value': ''}
-                Log.warning("%s: Allocate failed" % self.platform)
+                Log.warning("%s: Allocate failed. Result= %r" % (self.platform, result))
                 defer.returnValue([])
             
             try:
