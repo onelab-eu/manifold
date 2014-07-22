@@ -181,6 +181,8 @@ class SFAWrapParser(RSpecParser):
 
         for node in nodes:
             node['type'] = 'node'
+            Log.tmp("node component_id = ",Xrn(node['component_id']))
+            Log.tmp("node authority = ", Xrn(node['component_id']).authority)
             node['network_hrn'] = Xrn(node['component_id']).authority[0] # network ? XXX
             node['hrn'] = urn_to_hrn(node['component_id'])[0]
             node['urn'] = node['component_id']
