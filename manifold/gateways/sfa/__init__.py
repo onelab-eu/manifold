@@ -1372,8 +1372,8 @@ class SFAGateway(Gateway):
             rspec_version = 'GENI 3'
        
         parser = yield self.get_parser()
-        if slice_hrn:
-            Log.warning("MANIFEST RSPEC FROM ListResources/Describe from %r : %r" % (self.platform, rspec_string))
+        #if slice_hrn:
+        Log.warning("MANIFEST RSPEC FROM ListResources/Describe from %r : %r" % (self.platform, rspec_string))
         rsrc_slice = parser.parse(rspec_string, rspec_version, slice_urn)
 
         # Make records

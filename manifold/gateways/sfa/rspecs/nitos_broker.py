@@ -20,7 +20,9 @@ RESOURCE_TYPES = {
 }
 
 LIST_ELEMENTS = {
-    'node': ['id_ref', 'lease_ref.id_ref']
+    'node'      : ['id_ref', 'lease_ref.id_ref'],
+    'link'      : ['id_ref', 'lease_ref.id_ref'],
+    'channel'   : ['id_ref', 'lease_ref.id_ref']
 }
 
 GRANULARITY = 1800
@@ -65,8 +67,9 @@ RESOURCE_KEY = 'urn' # 'resource_hrn'
 def channel_urn_hrn_exclusive(value):
     output = {}
     # XXX HARDCODED FOR NITOS
-    xrn = Xrn('%(network)s.nitos.channel.%(component_name)s' % value, type='channel')
+    xrn = Xrn('%(network)s.%(component_name)s' % value, type='channel')
     return {'urn': xrn.urn, 'hrn': xrn.hrn, 'exclusive': True, 'hostname': xrn.hrn} # hostname TEMP FIX XXX
+    return {'exclusive': True, 'hostname': xrn.hrn} # hostname TEMP FIX XXX
 
 #   RSPEC_ELEMENT
 #       rspec_property -> dictionary that is merged when we encounter this
