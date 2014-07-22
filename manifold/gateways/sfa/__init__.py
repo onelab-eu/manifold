@@ -46,7 +46,7 @@ from xmlrpclib                          import DateTime
 ################################################################################
 
 from manifold.gateways.sfa.rspecs.nitos_broker  import NITOSBrokerParser
-from manifold.gateways.sfa.rspecs.sfawrap       import SFAWrapParser, PLEParser, WiLabtParser, IoTLABParser
+from manifold.gateways.sfa.rspecs.sfawrap       import SFAWrapParser, PLEParser, WiLabtParser, IoTLABParser, LaboraParser
 from manifold.gateways.sfa.rspecs.loose         import LooseParser
 
 ################################################################################
@@ -196,6 +196,8 @@ class SFAGateway(Gateway):
             parser = IoTLABParser
         elif server_hrn == 'ple':
             parser = PLEParser
+        elif '-omf' in server_hrn:
+            parser = LaboraParser
         elif 'wilab2' in server_hrn:
             parser = WiLabtParser
         else:
