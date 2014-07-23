@@ -1783,7 +1783,10 @@ class SFAGateway(Gateway):
 
             api_options['sfa_users'] = sfa_users
             api_options['geni_users'] = users
-            
+
+            # XXX TODO: struct_credential is supported by PLE and WiLab, but NOT SUPPORTED by IOTLAB
+            #struct_credential = {'geni_type': 'geni_sfa', 'geni_version': 2, 'geni_value': slice_cred}           
+            #result = yield self.sliceapi.Allocate(slice_urn, [struct_credential], rspec, api_options)
             # http://groups.geni.net/geni/wiki/GAPI_AM_API_V3#Allocate
             result = yield self.sliceapi.Allocate(slice_urn, [slice_cred], rspec, api_options)
 
@@ -1828,8 +1831,10 @@ class SFAGateway(Gateway):
 
             api_options ['call_id'] = unique_call_id()
             # We keep geni_users in the options
+            # XXX TODO: struct_credential is supported by PLE and WiLab, but NOT SUPPORTED by IOTLAB
+            #result = yield self.sliceapi.Provision([slice_urn], [struct_credential], api_options)
             result = yield self.sliceapi.Provision([slice_urn], [slice_cred], api_options)
-            
+            Log.warning("%s: Provision Result = %r" % (self.platform, result))
             # Status(<slice URN or sliver URNs>, <slice credential>, {}) to check that resources are provisioned (e.g. look for operational state geni_notready.
 
             #print "RESULT=", result
@@ -1873,6 +1878,13 @@ class SFAGateway(Gateway):
         slice.update(rsrc_slice)
         print "=========="
         print "UPDATE SLICE AM RETURNS", slice
+
+        # XXX TODO: After starting the node, we need to monitor the status and inform the user when it's ready
+        # This is required for WiLab !!!
+        #perform_action = yield self.sliceapi.PerformOperationalAction([slice_urn], [struct_credential], 'geni_start' , api_options)
+        #start_result = ReturnValue.get_value(perform_action)
+        #Log.warning("%s: PerformOperationalAction geni_start Result = %r" % (self.platform, perform_action))
+
         defer.returnValue([slice])
 
     # The following functions are currently handled by update_slice_am
