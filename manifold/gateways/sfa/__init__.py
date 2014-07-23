@@ -1372,8 +1372,8 @@ class SFAGateway(Gateway):
             rspec_version = 'GENI 3'
        
         parser = yield self.get_parser()
-        #if slice_hrn:
-        Log.warning("MANIFEST RSPEC FROM ListResources/Describe from %r : %r" % (self.platform, rspec_string))
+        if slice_hrn:
+            Log.warning("MANIFEST RSPEC FROM ListResources/Describe from %r : %r" % (self.platform, rspec_string))
         rsrc_slice = parser.parse(rspec_string, rspec_version, slice_urn)
 
         # Make records
@@ -1864,6 +1864,8 @@ class SFAGateway(Gateway):
             SLICE_KEY: slice_urn,
         }
         slice.update(rsrc_slice)
+        print "=========="
+        print "UPDATE SLICE AM RETURNS", slice
         defer.returnValue([slice])
 
     # The following functions are currently handled by update_slice_am
