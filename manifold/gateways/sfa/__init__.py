@@ -1748,6 +1748,10 @@ class SFAGateway(Gateway):
 
             manifest_rspec = ReturnValue.get_value(result)
             Log.warning("%s MANIFEST RSPEC %s" % (self.platform, manifest_rspec))
+            Log.tmp("manifest_rspec type = ",type(manifest_rspec))
+            if (manifest_rspec == 0) or (manifest_rspec == '0'):
+                Log.tmp("yes manifest is 0")
+                defer.returnValue([])
         else:
             # AM API v3
             # ROUTERV2
@@ -1841,6 +1845,7 @@ class SFAGateway(Gateway):
 
         if not manifest_rspec:
             #print "NO MANIFEST FROM", self.platform, result
+            Log.tmp("manifest is empty")
             defer.returnValue([])
         else:
             #print "GOT MANIFEST FROM", self.platform

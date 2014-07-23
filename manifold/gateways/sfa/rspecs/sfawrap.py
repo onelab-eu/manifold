@@ -165,100 +165,135 @@ class SFAWrapParser(RSpecParser):
             #Log.warning("Could not retrieve channels in RSpec: %s" % e)
             return list()
 
+
+    @classmethod
+    def _process_resource(cls, resource):
+        resource['urn'] = resource['component_id']
+        return resource
+
     @classmethod
     def _process_resources(cls, resources):
         ret = list()
 
         for resource in resources:
-            resource['urn'] = resource['component_id']
-            ret.append(resource)
-        
+            new_resource = cls._process_resource(resource)
+            if not new_resource:
+                continue
+            ret.append(new_resource)
         return ret
+            
+    @classmethod
+    def _process_node(cls, node):
+        node['type'] = 'node'
+        #Log.tmp("node component_id = ",Xrn(node['component_id']))
+        #Log.tmp("node authority = ", Xrn(node['component_id']).authority)
+        node['network_hrn'] = Xrn(node['component_id']).authority[0] # network ? XXX
+        node['hrn'] = urn_to_hrn(node['component_id'])[0]
+        node['urn'] = node['component_id']
+        node['hostname'] = node['component_name']
+        node['initscripts'] = node.pop('pl_initscripts')
+        if 'exclusive' in node and node['exclusive']:
+            node['exclusive'] = node['exclusive'].lower() == 'true'
+        if 'granularity' in node:
+            node['granularity'] = node['granularity']['grain']
+
+        # XXX This should use a MAP as before
+        if 'position' in node: # iotlab
+            node['x'] = node['position']['posx']
+            node['y'] = node['position']['posy']
+            node['z'] = node['position']['posz']
+            del node['position']
+
+        if 'location' in node:
+            if node['location']:
+                node['latitude'] = node['location']['latitude']
+                node['longitude'] = node['location']['longitude']
+            del node['location']
+
+        # Flatten tags
+        if 'tags' in node:
+            if node['tags']:
+                for tag in node['tags']:
+                    node[tag['tagname']] = tag['value']
+            del node['tags']
+        return node
 
     @classmethod
     def _process_nodes(cls, nodes):
         ret = list()
 
         for node in nodes:
-            node['type'] = 'node'
-            Log.tmp("node component_id = ",Xrn(node['component_id']))
-            Log.tmp("node authority = ", Xrn(node['component_id']).authority)
-            node['network_hrn'] = Xrn(node['component_id']).authority[0] # network ? XXX
-            node['hrn'] = urn_to_hrn(node['component_id'])[0]
-            node['urn'] = node['component_id']
-            node['hostname'] = node['component_name']
-            node['initscripts'] = node.pop('pl_initscripts')
-            if 'exclusive' in node and node['exclusive']:
-                node['exclusive'] = node['exclusive'].lower() == 'true'
-            if 'granularity' in node:
-                node['granularity'] = node['granularity']['grain']
-
-            # XXX This should use a MAP as before
-            if 'position' in node: # iotlab
-                node['x'] = node['position']['posx']
-                node['y'] = node['position']['posy']
-                node['z'] = node['position']['posz']
-                del node['position']
-
-            if 'location' in node:
-                if node['location']:
-                    node['latitude'] = node['location']['latitude']
-                    node['longitude'] = node['location']['longitude']
-                del node['location']
-
-            # Flatten tags
-            if 'tags' in node:
-                if node['tags']:
-                    for tag in node['tags']:
-                        node[tag['tagname']] = tag['value']
-                del node['tags']
-
+            new_node = cls._process_node(node)
+            if not new_node:
+                continue
             
             # We suppose we have children of dict that cannot be serialized
             # with xmlrpc, let's make dict
-            ret.append(cls.make_dict_rec(node))
+            ret.append(cls.make_dict_rec(new_node))
         return ret
 
     @classmethod
+    def _process_channel(cls, channel):
+        channel['type'] = 'channel'
+        return channel
+
+    @classmethod
     def _process_channels(cls, channels):
+        ret = list()
         for channel in channels:
-            channel['type'] = 'channel'
-        return channels
+            new_channel = cls._process_channel(channel)
+            if not new_channel:
+                continue
+            ret.append(new_channel)
+        return ret
+
+    @classmethod
+    def _process_link(cls, link):
+        link['urn'] = link['component_id']
+        #if not 'type' in link: # XXX Overrides
+        link['type'] = 'link'
+        return link
 
     @classmethod
     def _process_links(cls, links):
+        ret = list()
         for link in links:
-            link['urn'] = link['component_id']
-            #if not 'type' in link: # XXX Overrides
-            link['type'] = 'link'
-        return links
+            new_link = cls._process_link(link)
+            if not new_link:
+                continue
+            ret.append(new_link)
+        return ret
+
+    @classmethod
+    def _process_lease(cls, lease):
+        print "new lease", lease
+        lease['resource'] = lease.pop('component_id')
+        lease['slice']    = lease.pop('slice_id')
+        lease['start_time'] = int(lease['start_time'])
+        lease['duration'] = int(lease['duration'])
+        if 'end_time' in lease:
+            lease['end_time'] = int(lease['end_time'])
+        if not 'end_time' in lease and set(['start_time', 'duration']) <= set(lease.keys()):
+            lease['end_time'] = lease['start_time'] + lease['duration'] * cls.get_grain()
+        elif not 'duration' in lease and  set(lease.keys()) <= set(['start_time', 'end_time']):
+            lease['duration'] = (lease['end_time'] - lease['start_time']) / cls.get_grain()
+
+        # XXX GRANULARITY Hardcoded for the moment
+        if 'granularity' not in lease:
+            lease['granularity'] = cls.get_grain() 
+        return lease
 
     @classmethod
     def _process_leases(cls, leases):
-        print "SFA WRAP PARSER PROCESS LEASES"
         ret = list()
-        try:
-            for lease in leases:
-                lease['resource'] = lease.pop('component_id')
-                lease['slice']    = lease.pop('slice_id')
-                lease['start_time'] = int(lease['start_time'])
-                lease['duration'] = int(lease['duration'])
-                if 'end_time' in lease:
-                    lease['end_time'] = int(lease['end_time'])
-                if not 'end_time' in lease and set(['start_time', 'duration']) <= set(lease.keys()):
-                    lease['end_time'] = lease['start_time'] + lease['duration'] * cls.get_grain()
-                elif not 'duration' in lease and  set(lease.keys()) <= set(['start_time', 'end_time']):
-                    lease['duration'] = (lease['end_time'] - lease['start_time']) / cls.get_grain()
-
-                # XXX GRANULARITY Hardcoded for the moment
-                if 'granularity' not in lease:
-                    lease['granularity'] = cls.get_grain() 
-
-                ret.append(lease)
-        except Exception, e:
-            print "EEE::", e
-            import traceback
-            traceback.print_exc()
+        for lease in leases:
+            new_lease = cls._process_lease(lease)
+            print "LEASE", lease
+            print "new lease", new_lease
+            if not new_lease:
+                continue
+            ret.append(new_lease)
+        print "LEASES", ret
         return ret
 
     #---------------------------------------------------------------------------
@@ -322,7 +357,7 @@ class PLEParser(SFAWrapParser):
         return 3600 # s
 
     @classmethod
-    def on_build_resource_hook(cls, resource):
+    def on_build_resource_mook(cls, resource):
         # PlanetLab now requires a node to have a list of slivers
         resource['slivers'] = [{'type': 'plab-vnode'}]
         return resource
@@ -424,7 +459,6 @@ class LaboraParser(SFAWrapParser):
     def _process_leases(cls, leases):
         from datetime import datetime
         import time
-        print "SFA WRAP PARSER PROCESS LEASES"
         ret = list()
         try:
             for lease in leases:
@@ -462,10 +496,120 @@ class NITOSParser(SFAWrapParser):
 class WiLabtParser(SFAWrapParser):
 
     @classmethod
+    def _process_node(cls, node):
+        if node['component_id'] != 'urn:publicid:IDN+wilab2.ilabt.iminds.be+authority+cm':
+            return None
+        return SFAWrapParser._process_node(cls, node)
+
+    @classmethod
+    def _process_link(cls, link):
+        if link['component_id'] != 'urn:publicid:IDN+wilab2.ilabt.iminds.be+authority+cm':
+            return None
+        return SFAWrapParser._process_link(cls, link)
+
+    @classmethod
+    def _process_channel(cls, channel):
+        if channel['component_id'] != 'urn:publicid:IDN+wilab2.ilabt.iminds.be+authority+cm':
+            return None
+        return SFAWrapParser._process_channel(cls, channel)
+
+    @classmethod
+    def _process_lease(cls, lease):
+        if lease['component_id'] != 'urn:publicid:IDN+wilab2.ilabt.iminds.be+authority+cm':
+            print "ignored wilab lease"
+            return None
+        return SFAWrapParser._process_lease(cls, lease)
+
+    @classmethod
     def on_build_resource_hook(cls, resource):
         resource['client_id'] = "PC"
         resource['sliver_type'] = "raw-pc"
         return resource
+
+    @classmethod
+    def build_rspec(cls, slice_urn, resources, leases, rspec_version='GENI 3 request'):
+        """
+        Builds a RSpecs based on the specified resources and leases.
+
+        Args:
+            slice_urn (string) : the urn of the slice [UNUSED] [HRN in NITOS ?]
+
+        Returns:
+            string : the string version of the created RSpec.
+        """
+        import time
+        end_time = time.time()
+        start_time = None
+
+        # Default duration for WiLab is 2 hours
+        duration = 120
+        for lease in leases:
+            if 'end_time' in lease:
+                if lease['end_time'] > end_time:
+                    end_time = lease['end_time']
+                    start_time = lease['start_time']
+        if start_time is not None:
+            # duration in seconds from now till end_time
+            duration = end_time - time.time()
+            # duration in minutes
+            duration = duration / 60
+        Log.tmp("end_time = ",end_time)
+        Log.tmp("duration = ",duration)
+        # RSpec will have expires date = now + duration
+        rspec = RSpec(version=rspec_version, ttl=duration)
+
+        nodes = []
+        channels = []
+        links = []
+
+        # XXX Here it is only about mappings and hooks between ontologies
+
+        for urn in resources:
+            # XXX TO BE CORRECTED, this handles None values
+            if not urn:
+                continue
+            resource = dict()
+            # TODO: take into account the case where we send a dict of URNs without keys
+            #resource['component_id'] = resource.pop('urn')
+            resource['component_id'] = urn
+            resource_hrn, resource_type = urn_to_hrn(urn) # resource['component_id'])
+            # build component_manager_id
+
+            # The only change for WiLab compared to Generic SFAWrapParser
+            cm = urn.split("+")
+            resource['component_manager_id'] = "%s+%s+authority+cm" % (cm[0],cm[1])
+
+            #print "resource_type", resource_type
+            if resource_type == 'node':
+                #print "NODE", resource, cls
+                resource = cls.on_build_resource_hook(resource)
+                nodes.append(resource)
+            elif resource_type == 'link':
+                links.append(resource)
+            elif resource_type == 'channel':
+                channels.append(resource)
+            else:
+                raise Exception, "Not supported type of resource" 
+
+        #for node in nodes:
+        #    print "NODE:", node
+
+        rspec.version.add_nodes(nodes, rspec_content_type="request")
+
+        #rspec.version.add_links(links)
+        #rspec.version.add_channels(channels)
+
+        #sfa_leases = cls.manifold_to_sfa_leases(leases, slice_urn)
+        ##print "sfa_leases", sfa_leases
+        #if sfa_leases:
+        #    # SFAWRAP BUG ???
+        #    # rspec.version.add_leases bugs with an empty set of leases
+        #    # slice_id = leases[0]['slice_id']
+        #    # TypeError: list indices must be integers, not str
+        #    rspec.version.add_leases(sfa_leases, []) # XXX Empty channels for now
+   
+        return rspec.toxml()
+
 
 class IoTLABParser(SFAWrapParser):
 

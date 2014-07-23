@@ -185,6 +185,11 @@ class SubQuery(Node):
             relevant_fields = child_fields - already_fetched_fields
 
             if not relevant_fields:
+                tmp = list()
+                for pr in self.parent_output:
+                    tmp.extend(pr[relation_name])
+                self.child_results[i] = tmp # Records
+
                 useless_children.add(i)
                 continue
             else:
@@ -311,7 +316,6 @@ class SubQuery(Node):
             for parent_record in self.parent_output:
                 # Dispatching child results
                 for i, child in enumerate(self.children):
-
                     relation = self.relations[i]
                     predicate = relation.get_predicate()
 
