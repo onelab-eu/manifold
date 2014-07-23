@@ -288,12 +288,9 @@ class SFAWrapParser(RSpecParser):
         ret = list()
         for lease in leases:
             new_lease = cls._process_lease(lease)
-            print "LEASE", lease
-            print "new lease", new_lease
             if not new_lease:
                 continue
             ret.append(new_lease)
-        print "LEASES", ret
         return ret
 
     #---------------------------------------------------------------------------
