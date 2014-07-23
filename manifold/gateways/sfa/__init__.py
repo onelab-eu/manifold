@@ -198,7 +198,8 @@ class SFAGateway(Gateway):
             parser = PLEParser
         elif '-omf' in server_hrn:
             parser = LaboraParser
-        elif 'wilab2' in server_hrn:
+        elif server_hrn.startswith('wilab2'):
+            server_hrn = "wilab2.ilabt.iminds.be"
             parser = WiLabtParser
         else:
             #parser = LooseParser
@@ -1360,7 +1361,8 @@ class SFAGateway(Gateway):
                     result = yield self.sliceapi.ListResources([cred], api_options)
                     
             if not 'value' in result or not result['value']:
-                raise Exception, result
+                Log.warning("Exception in result: %r" % result)
+                defer.returnValue({})
 
             rspec_string = result['value']
  

@@ -27,9 +27,9 @@ LIST_ELEMENTS = {
 
 GRANULARITY = 1800
 NEW_LEASE_TAG = '<ol:lease client_id="%(client_id)s" valid_from="%(valid_from_iso)sZ" valid_until="%(valid_until_iso)sZ"/>'
-OLD_LEASE_TAG = '<ol:lease lease_id="%(lease_id)s" valid_from="%(valid_from_iso)sZ" valid_until="%(valid_until_iso)sZ"/>'
+OLD_LEASE_TAG = '<ol:lease id="%(lease_id)s" valid_from="%(valid_from_iso)sZ" valid_until="%(valid_until_iso)sZ"/>'
 #NEW_LEASE_TAG = '<ol:lease client_id="%(client_id)s" valid_from="%(valid_from_iso)s" valid_until="%(valid_until_iso)s"/>'
-#OLD_LEASE_TAG = '<ol:lease lease_id="%(lease_id)s" valid_from="%(valid_from_iso)s" valid_until="%(valid_until_iso)s"/>'
+#OLD_LEASE_TAG = '<ol:lease id="%(lease_id)s" valid_from="%(valid_from_iso)s" valid_until="%(valid_until_iso)s"/>'
 LEASE_REF_TAG = '<ol:lease_ref id_ref="%(lease_id)s"/>'
 NODE_TAG = '<node component_id="%(urn)s">' # component_manager_id="urn:publicid:IDN+omf:xxx+authority+am" component_name="node1" exclusive="true" client_id="my_node">'
 NODE_TAG_END = '</node>'

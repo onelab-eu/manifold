@@ -221,10 +221,16 @@ class SFAWrapParser(RSpecParser):
 
     @classmethod
     def _process_channels(cls, channels):
+        for channel in channels:
+            channel['type'] = 'channel'
         return channels
 
     @classmethod
     def _process_links(cls, links):
+        for link in links:
+            link['urn'] = link['component_id']
+            #if not 'type' in link: # XXX Overrides
+            link['type'] = 'link'
         return links
 
     @classmethod
