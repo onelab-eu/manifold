@@ -1354,7 +1354,10 @@ class SFAGateway(Gateway):
                 if slice_hrn:
                     # XX XXXX XXX
                     result = yield self.sliceapi.Describe([slice_urn], [cred], api_options)
+                    print "result", result
                     # XXX Weird !
+                    #result {'output': 'Slice credential not provided', 'code': {'am_type': 'protogeni', 'protogeni_error_log': 'urn:publicid:IDN+wilab2.ilabt.iminds.be+log+39cf85696c0862184eb9704bf3cf837b', 'geni_code': 7, 'am_code': 7, 'protogeni_error_url': 'https://www.wilab2.ilabt.iminds.be/spewlogfile.php3?logfile=39cf85696c0862184eb9704bf3cf837b'}, 'value': 0}
+
                     if 'value' in result and 'geni_rspec' in result['value']:
                         result['value'] = result['value']['geni_rspec']
                 else:
@@ -1806,6 +1809,10 @@ class SFAGateway(Gateway):
             #struct_credential = {'geni_type': 'geni_sfa', 'geni_version': 2, 'geni_value': slice_cred}           
             #result = yield self.sliceapi.Allocate(slice_urn, [struct_credential], rspec, api_options)
             # http://groups.geni.net/geni/wiki/GAPI_AM_API_V3#Allocate
+            print "-"*80
+            print "REQUEST"
+            print rspec
+            print "-"*80
             result = yield self.sliceapi.Allocate(slice_urn, [slice_cred], rspec, api_options)
 
             if result['code']['geni_code'] != 0:

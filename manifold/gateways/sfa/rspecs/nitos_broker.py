@@ -160,7 +160,6 @@ class NITOSBrokerParser(RSpecParser):
 
                         leases.append(lease)
 
-        print "NITOS LEASES", leases
         return {'resource': resources, 'lease': leases}
 
     #---------------------------------------------------------------------------
