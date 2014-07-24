@@ -1614,8 +1614,25 @@ class SFAGateway(Gateway):
         else: # slice_urn
             slice_hrn, _ = urn_to_hrn(slice_urn)
         
-        resources = params['resource'] if 'resource' in params else []
-        leases = params['lease'] if 'lease' in params else []
+        all_resources = params['resource'] if 'resource' in params else []
+        all_leases = params['lease'] if 'lease' in params else []
+
+
+        # XXX Need to filter resources from each testbed
+
+        resources = list()
+        leases = list()
+        interface_hrn = yield self.get_interface_hrn(self.sliceapi)
+        for resource in all_resources:
+            hrn = urn_to_hrn(resource)[0]
+            if Xrn.hrn_auth_list(hrn) != interface_hrn:
+                continue
+            resources.append(resource)
+        for lease in all_leases:
+            hrn = urn_to_hrn(resource)[0]
+            if Xrn.hrn_auth_list(hrn) != interface_hrn:
+                continue
+            leases.append(lease)
 
         # Get appropriate credentials
         user_cred = self._get_cred('user')
