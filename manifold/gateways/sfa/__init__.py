@@ -1616,10 +1616,8 @@ class SFAGateway(Gateway):
         
         all_resources = params['resource'] if 'resource' in params else []
         all_leases = params['lease'] if 'lease' in params else []
-        print "ALL LEASES", all_leases
 
-
-        # XXX Need to filter resources from each testbed
+        # Need to filter resources from each testbed
 
         resources = list()
         leases = list()
