@@ -38,7 +38,7 @@ class SFAWrapParser(RSpecParser):
         _channels    = cls._get_channels(rspec)
         _links       = cls._get_links(rspec)
         _leases      = cls._get_leases(rspec)
-        
+        Log.tmp("_nodes = ",_nodes)       
         resources = list()
         resources.extend(cls._process_resources(_resources))
         resources.extend(cls._process_nodes(_nodes))
@@ -211,7 +211,6 @@ class SFAWrapParser(RSpecParser):
                         node[tag['tagname']] = tag['value']
                 del node['tags']
 
-            
             # We suppose we have children of dict that cannot be serialized
             # with xmlrpc, let's make dict
             ret.append(cls.make_dict_rec(node))
@@ -375,6 +374,120 @@ class PLEParser(SFAWrapParser):
                 raise Exception, 'Lease not specifying neither end_time nor duration'
             sfa_leases.append(sfa_lease)
         return sfa_leases
+
+class LaboraParser(SFAWrapParser):
+
+    # The only change for Labora is the tag exclusive which is a tag inside the node tag and not a property
+    @classmethod
+    def _process_nodes(cls, nodes):
+        ret = list()
+
+        for node in nodes:
+            node['type'] = 'node'
+            node['network_hrn'] = Xrn(node['component_id']).authority[0] # network ? XXX
+            node['hrn'] = urn_to_hrn(node['component_id'])[0]
+            node['urn'] = node['component_id']
+            node['hostname'] = node['component_name']
+            node['initscripts'] = node.pop('pl_initscripts')
+
+            # All Labora nodes are exclusive = true
+            node['exclusive'] = 'true'
+
+            if 'granularity' in node:
+                node['granularity'] = node['granularity']['grain']
+
+            # XXX This should use a MAP as before
+            if 'position' in node: # iotlab
+                node['x'] = node['position']['posx']
+                node['y'] = node['position']['posy']
+                node['z'] = node['position']['posz']
+                del node['position']
+
+            if 'location' in node:
+                if node['location']:
+                    node['latitude'] = node['location']['latitude']
+                    node['longitude'] = node['location']['longitude']
+                del node['location']
+
+            # Flatten tags
+            if 'tags' in node:
+                if node['tags']:
+                    for tag in node['tags']:
+                        node[tag['tagname']] = tag['value']
+                del node['tags']
+
+            # We suppose we have children of dict that cannot be serialized
+            # with xmlrpc, let's make dict
+            ret.append(cls.make_dict_rec(node))
+        return ret
+
+
+    # The only change for Labora is the date format which is "yyyy-mm-dd hh:mm:ss" and not a timestamp
+    @classmethod
+    def manifold_to_sfa_leases(cls, leases, slice_urn):
+        from datetime import datetime
+        sfa_leases = []
+        for lease in leases:
+            sfa_lease = dict()
+            # sfa_lease_id = 
+            sfa_lease['component_id'] = lease['resource']
+            sfa_lease['slice_id']     = slice_urn
+            sfa_lease['start_time']   = lease['start_time'] + 7200
+            
+            grain = cls.get_grain() # in seconds
+            min_duration = cls.get_min_duration() # in seconds
+            
+            # We either need end_time or duration
+            # end_time is choosen if both are specified !
+            if 'end_time' in lease:
+                sfa_lease['end_time'] = lease['end_time']  + 7200
+# XXX XXX
+                duration =  (int(lease['end_time']) - int(lease['start_time'])) / grain
+                if duration < min_duration:
+                    raise Exception, 'duration < min_duration'
+                sfa_lease['duration'] = duration
+            elif 'duration' in lease:
+                sfa_lease['duration'] = lease['duration']
+                sfa_lease['end_time'] = lease['start_time'] + lease['duration']
+            else:
+                raise Exception, 'Lease not specifying neither end_time nor duration'
+
+            sfa_lease['start_time'] = datetime.fromtimestamp(int(sfa_lease['start_time'])).strftime('%Y-%m-%d %H:%M:%S')
+            sfa_lease['end_time'] = datetime.fromtimestamp(int(sfa_lease['end_time'])).strftime('%Y-%m-%d %H:%M:%S')
+            sfa_leases.append(sfa_lease)
+        return sfa_leases
+
+    @classmethod
+    def _process_leases(cls, leases):
+        from datetime import datetime
+        import time
+        print "SFA WRAP PARSER PROCESS LEASES"
+        ret = list()
+        try:
+            for lease in leases:
+                lease['resource'] = lease.pop('component_id')
+                lease['slice']    = lease.pop('slice_id')
+                lease['start_time'] = int(time.mktime(datetime.strptime(lease['start_time'], "%Y-%m-%d %H:%M:%S").timetuple()))
+                lease['duration'] = int(lease['duration'])
+                if 'end_time' in lease:
+                    lease['end_time'] = int(lease['end_time'])
+                if not 'end_time' in lease and set(['start_time', 'duration']) <= set(lease.keys()):
+                    lease['end_time'] = lease['start_time'] + lease['duration'] * cls.get_grain()
+                elif not 'duration' in lease and  set(lease.keys()) <= set(['start_time', 'end_time']):
+                    lease['duration'] = (lease['end_time'] - lease['start_time']) / cls.get_grain()
+
+                # XXX GRANULARITY Hardcoded for the moment
+                if 'granularity' not in lease:
+                    lease['granularity'] = cls.get_grain() 
+
+                ret.append(lease)
+        except Exception, e:
+            print "EEE::", e
+            import traceback
+            traceback.print_exc()
+        return ret
+
+
 
 class NITOSParser(SFAWrapParser):
 
