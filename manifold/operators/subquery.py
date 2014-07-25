@@ -166,7 +166,7 @@ class SubQuery(Node):
             if relation_name in parent_fields:
                 if relation.get_type() in [Relation.types.LINK_1N, Relation.types.LINK_1N_BACKWARDS]:
                     if relation_name in first_record and first_record[relation_name] and len(first_record[relation_name]) > 0:
-                        if isinstance(first_record[relation_name][0], dict):
+                        if isinstance(first_record[relation_name][0], Record):
                             already_fetched_fields = set(first_record[relation_name][0].keys())
                         else:
                             # If we do not have a dict, we have only keys, so it's like we had no field of importance...
@@ -182,14 +182,21 @@ class SubQuery(Node):
             # XXX routerv2: we need to keep key used for subquery
             key_field = relation.get_predicate().get_value()
 
-            relevant_fields = child_fields - already_fetched_fields | frozenset([key_field])
+            relevant_fields = child_fields - already_fetched_fields
 
             if not relevant_fields:
+                tmp = list()
+                for pr in self.parent_output:
+                    tmp.extend(pr[relation_name])
+                self.child_results[i] = tmp # Records
+
                 useless_children.add(i)
                 continue
-            elif child_fields != relevant_fields:
-                # XXX This seems to remove the key used for joining 
-                self.children[i] = child.optimize_projection(relevant_fields)
+            else:
+                relevant_fields |= frozenset([key_field]) # necessary ?
+                if child_fields != relevant_fields:
+                    # XXX This seems to remove the key used for joining 
+                    self.children[i] = child.optimize_projection(relevant_fields)
 
         # If every children are useless, this means that we already have full records
         # thanks to the parent query, so we simply forward those records.
@@ -309,7 +316,6 @@ class SubQuery(Node):
             for parent_record in self.parent_output:
                 # Dispatching child results
                 for i, child in enumerate(self.children):
-
                     relation = self.relations[i]
                     predicate = relation.get_predicate()
 

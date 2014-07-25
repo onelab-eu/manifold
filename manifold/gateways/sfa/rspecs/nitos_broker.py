@@ -6,7 +6,7 @@ from types import StringTypes
 from manifold.gateways.sfa.rspecs import RSpecParser
 import dateutil.parser
 import calendar
-from datetime import datetime
+from datetime import datetime, timedelta
 from manifold.util.log          import Log
 from sfa.rspecs.rspec import RSpec
 from sfa.util.xml import XpathFilter
@@ -20,12 +20,16 @@ RESOURCE_TYPES = {
 }
 
 LIST_ELEMENTS = {
-    'node': ['lease_ref']
+    'node'      : ['id_ref', 'lease_ref.id_ref'],
+    'link'      : ['id_ref', 'lease_ref.id_ref'],
+    'channel'   : ['id_ref', 'lease_ref.id_ref']
 }
 
 GRANULARITY = 1800
 NEW_LEASE_TAG = '<ol:lease client_id="%(client_id)s" valid_from="%(valid_from_iso)sZ" valid_until="%(valid_until_iso)sZ"/>'
-OLD_LEASE_TAG = '<ol:lease lease_id="%(lease_id)s" valid_from="%(valid_from_iso)sZ" valid_until="%(valid_until_iso)sZ"/>'
+OLD_LEASE_TAG = '<ol:lease id="%(lease_id)s" valid_from="%(valid_from_iso)sZ" valid_until="%(valid_until_iso)sZ"/>'
+#NEW_LEASE_TAG = '<ol:lease client_id="%(client_id)s" valid_from="%(valid_from_iso)s" valid_until="%(valid_until_iso)s"/>'
+#OLD_LEASE_TAG = '<ol:lease id="%(lease_id)s" valid_from="%(valid_from_iso)s" valid_until="%(valid_until_iso)s"/>'
 LEASE_REF_TAG = '<ol:lease_ref id_ref="%(lease_id)s"/>'
 NODE_TAG = '<node component_id="%(urn)s">' # component_manager_id="urn:publicid:IDN+omf:xxx+authority+am" component_name="node1" exclusive="true" client_id="my_node">'
 NODE_TAG_END = '</node>'
@@ -63,8 +67,9 @@ RESOURCE_KEY = 'urn' # 'resource_hrn'
 def channel_urn_hrn_exclusive(value):
     output = {}
     # XXX HARDCODED FOR NITOS
-    xrn = Xrn('%(network)s.nitos.channel.%(component_name)s' % value, type='channel')
+    xrn = Xrn('%(network)s.%(component_name)s' % value, type='channel')
     return {'urn': xrn.urn, 'hrn': xrn.hrn, 'exclusive': True, 'hostname': xrn.hrn} # hostname TEMP FIX XXX
+    return {'exclusive': True, 'hostname': xrn.hrn} # hostname TEMP FIX XXX
 
 #   RSPEC_ELEMENT
 #       rspec_property -> dictionary that is merged when we encounter this
@@ -98,7 +103,6 @@ class NITOSBrokerParser(RSpecParser):
 
     @classmethod
     def parse(cls, rspec, rspec_version = None, slice_urn = None):
-        Log.warning("NitosBroker Parser parse slice_urn = ",slice_urn)
 
         resources   = list()
         leases      = list()
@@ -141,7 +145,7 @@ class NITOSBrokerParser(RSpecParser):
                 XPATH_RESOURCE = "//default:%(tag)s | //%(tag)s"
             elements = rspec.xml.xpath(XPATH_RESOURCE % locals()) 
             for el in elements:
-                resource = cls.dict_from_elt(network, el.element)
+                resource = cls.dict_from_elt(network, el.element, LIST_ELEMENTS.get(resource_type))
                 if resource_type in MAP:
                     resource = cls.dict_rename(resource, resource_type)
                 resource['network_hrn'] = network
@@ -149,11 +153,12 @@ class NITOSBrokerParser(RSpecParser):
 
                 # Leases
                 if 'lease_ref.id_ref' in resource:
-                    lease_id_ref = resource.pop('lease_ref.id_ref')
-                    lease = copy.deepcopy(lease_map[lease_id_ref])
-                    lease['resource'] = resource['urn']
+                    lease_id_refs = resource.pop('lease_ref.id_ref')
+                    for lease_id_ref in lease_id_refs:
+                        lease = copy.deepcopy(lease_map[lease_id_ref])
+                        lease['resource'] = resource['urn']
 
-                    leases.append(lease)
+                        leases.append(lease)
 
         return {'resource': resources, 'lease': leases}
 
@@ -191,7 +196,6 @@ class NITOSBrokerParser(RSpecParser):
         Returns a property or a set of properties
         {key: value} or {key: (value, unit)}
         """
-        Log.warning("LIST ELEMENTS FOR NITOS LEASE REF")
         ret = {}
         if prefix: prefix = "%s." % prefix
         tag = self.get_element_tag(element)
@@ -200,9 +204,7 @@ class NITOSBrokerParser(RSpecParser):
         for k, v in element.attrib.items():
             key = "%s%s.%s" % (prefix, tag, k)
             if list_elements and key in list_elements:
-                if not key in ret:
-                    ret[key] = list()
-                ret[key].append(v)
+                ret[key] = [v]
             else:
                 ret[key] = v
  
@@ -212,7 +214,8 @@ class NITOSBrokerParser(RSpecParser):
  
         # Analysing subtags
         for c in element.getchildren():
-            ret.update(self.prop_from_elt(c, prefix=tag))
+            # NOTE When merging fields that are in list_elements, we need to be sure to merge lists correctly
+            ret.update(self.prop_from_elt(c, prefix=tag, list_elements=list_elements))
  
         # XXX special cases:
         # - tags
@@ -234,7 +237,14 @@ class NITOSBrokerParser(RSpecParser):
             ret[k] = v
  
         for c in element.getchildren():
-            ret.update(self.prop_from_elt(c, '', list_elements))
+            c_dict = self.prop_from_elt(c, '', list_elements)
+            for k, v in c_dict.items():
+                if list_elements and k in list_elements:
+                    if not k in ret:
+                        ret[k] = list()
+                    ret[k].extend(v)
+                else:
+                    ret[k] = v
  
         return ret
  
@@ -258,128 +268,6 @@ class NITOSBrokerParser(RSpecParser):
             ret.update(HOOKS[name]['*'](ret))
         return ret
  
-    @classmethod
-    def parse_element(self, resource_type, network=None, list_elements = None):
-        if network is None:
-            # TODO: use SFA Wrapper library
-            # self.rspec.version.get_nodes()
-            # self.rspec.version.get_links()
-            XPATH_RESOURCE = "//default:%(resource_type)s | //%(resource_type)s"
-            elements = self.rspec.xml.xpath(XPATH_RESOURCE % locals()) 
-            if self.network is not None:
-                elements = [self.dict_from_elt(self.network, n.element, list_elements) for n in elements]
-        else:
-            XPATH_RESOURCE = "/RSpec/network[@name='%(network)s']/%(resource_type)s"
-            elements = self.rspec.xml.xpath(XPATH_RESOURCE % locals())
-            elements = [self.dict_from_elt(network, n.element, list_elements) for n in elements]
- 
-        # XXX if network == self.network == None, we might not have a dict here !!!
-        if resource_type in MAP:
-            elements = [self.dict_rename(n, resource_type) for n in elements]
- 
-        return elements
- 
-    @classmethod
-    def dict_resources(self, network=None):
-        """
-        \brief Returns a list of resources from the specified network (eventually None)
-        """
-        result=[]
- 
-        # NODES / CHANNELS / LINKS
-        for type in RESOURCE_TYPES:
-            result.extend(self.parse_element(type, network, LIST_ELEMENTS.get('type')))
- 
-        return result
- 
-    @classmethod
-    def dict_leases(self, resources, network=""):
-        """
-        \brief Returns a list of leases from the specified network (eventually None)
-        """
-        result=[]
- 
-        # XXX All testbeds that have leases have networks XXX
-        XPATH_LEASE = "/RSpec/network[@name='%(network)s']/lease"
-        lease_elems = self.rspec.xml.xpath(XPATH_LEASE % locals())
- 
-        for l in lease_elems:
-           lease = dict(l.element.attrib)
-           for resource_elem in l.element.getchildren():
-                rsrc_lease = lease.copy()
-                filt = self.dict_from_elt(network, resource_elem)
-                match = Filter.from_dict(filt).filter(resources)
-                if len(match) == 0:
-                   #print "E: Ignored lease with no match:", filt
-                   continue
-                if len(match) > 1:
-                   #print "E: Ignored lease with multiple matches:", filt
-                   continue
-                match = match[0]
- 
-                # Check whether the node is reservable
-                # Check whether the node has some granularity
-                if not 'exclusive' in match:
-                    #print "W: No information about reservation capabilities of the node:", filt
-                    pass
-                else:
-                    if not match['exclusive']:
-                       print "W: lease on a non-reservable node:", filt
- 
-                if not 'granularity' in match:
-                    print "W: Granularity not present in node:", filt
-                    pass
-                else:
-                    rsrc_lease['granularity'] = match['granularity']
-                if not 'urn' in match:
-                    #print "E: Ignored lease with missing 'resource_urn' key:", filt
-                    continue
- 
-                rsrc_lease['urn']          = match['urn']
-                rsrc_lease['network_hrn']  = Xrn(match['urn']).authority[0]
-                rsrc_lease['hrn']          = Xrn(match['urn']).hrn
-                rsrc_lease['type']         = Xrn(match['urn']).type
- 
-                result.append(rsrc_lease)
-        return result
- 
-    @classmethod
-    def to_dict(self, version):
-        """
-        \brief Converts a RSpec to two lists of resources and leases.
-        \param version Output of the GetVersion() call holding the hrn of the
-        authority. This will be used for testbeds not adding this hrn inside
-        the RSpecs.
- 
-        This function is the entry point for resource parsing. 
-        """
-        Log.tmp("TO DICT")
-        networks = self.rspec.xml.xpath('/RSpec/network/@name')
-        networks = [str(n.element) for n in networks]
- 
-        if not networks:
-            # NOTE: GENI aggregate for example do not add the network alongside
-            # the resources
-            networks = []
-            # We might retrieve the network from GetVersion() if it is not
-            # explicit in the RSpec
- 
-            # XXX Jordan: do we really need to store it in self ? I would pass it as a parameter
-            # I found the answer: it's because the XPATH expression is different if the RSpec has
-            # the network or not
-            self.network = version.get('hrn')
- 
-            resources = self.dict_resources()
-            leases    = self.dict_leases(resources)
- 
-        else:
-            # NOTE: A resource might have several networks (eg. from a SM)
-            for network in networks:
-                resources = self.dict_resources(network)
-                leases    = self.dict_leases(resources,network)
- 
-        return {'resource': resources, 'lease': leases}
-
     #---------------------------------------------------------------------------
     # RSpec construction helpers
     #---------------------------------------------------------------------------
@@ -417,6 +305,11 @@ class NITOSBrokerParser(RSpecParser):
         for (valid_from, valid_until), lease_dict in map_interval_lease_id.items():
             valid_from_iso = datetime.utcfromtimestamp(int(valid_from)).isoformat()
             valid_until_iso = datetime.utcfromtimestamp(int(valid_until)).isoformat()
+
+            # NITOS Broker not supporting timezones
+            #valid_from_iso = "%s%+02d:%02d" %  ((datetime.utcfromtimestamp(int(valid_from))  + timedelta(hours=3)).isoformat(), 3, 00)
+            #valid_until_iso = "%s%+02d:%02d" % ((datetime.utcfromtimestamp(int(valid_until)) + timedelta(hours=3)).isoformat(), 3, 00)
+
             lease_id = lease_dict['lease_id']
             client_id = lease_dict['client_id']
 
@@ -470,12 +363,15 @@ class NITOSBrokerParser(RSpecParser):
 
             # We add lease_ref wrt to each lease_id (old leases) and each client_id (new leases)
             lease_dicts = lease_map.get(resource['urn'])
+
+            # NOTE : Shall we ignore reservation of resources without leases ?
             lease_ids = list()
-            for lease_dict in lease_dicts:
-                lease_id = lease_dict.get('lease_id')
-                if not lease_id:
-                    lease_id = lease_dict.get('client_id')
-                lease_ids.append(lease_id)
+            if lease_dicts:
+                for lease_dict in lease_dicts:
+                    lease_id = lease_dict.get('lease_id')
+                    if not lease_id:
+                        lease_id = lease_dict.get('client_id')
+                    lease_ids.append(lease_id)
 
             if resource_type == 'node':
                 cls.rspec_add_node(rspec, resource, lease_ids)

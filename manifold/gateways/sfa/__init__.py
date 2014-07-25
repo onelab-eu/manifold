@@ -198,7 +198,8 @@ class SFAGateway(Gateway):
             parser = PLEParser
         elif '-omf' in server_hrn:
             parser = LaboraParser
-        elif 'wilab2' in server_hrn:
+        elif server_hrn.startswith('wilab2'):
+            server_hrn = "wilab2.ilabt.iminds.be"
             parser = WiLabtParser
         else:
             #parser = LooseParser
@@ -1353,14 +1354,18 @@ class SFAGateway(Gateway):
                 if slice_hrn:
                     # XX XXXX XXX
                     result = yield self.sliceapi.Describe([slice_urn], [cred], api_options)
+                    print "result", result
                     # XXX Weird !
+                    #result {'output': 'Slice credential not provided', 'code': {'am_type': 'protogeni', 'protogeni_error_log': 'urn:publicid:IDN+wilab2.ilabt.iminds.be+log+39cf85696c0862184eb9704bf3cf837b', 'geni_code': 7, 'am_code': 7, 'protogeni_error_url': 'https://www.wilab2.ilabt.iminds.be/spewlogfile.php3?logfile=39cf85696c0862184eb9704bf3cf837b'}, 'value': 0}
+
                     if 'value' in result and 'geni_rspec' in result['value']:
                         result['value'] = result['value']['geni_rspec']
                 else:
                     result = yield self.sliceapi.ListResources([cred], api_options)
                     
             if not 'value' in result or not result['value']:
-                raise Exception, result
+                Log.warning("Exception in result: %r" % result)
+                defer.returnValue({})
 
             rspec_string = result['value']
  
@@ -1613,8 +1618,26 @@ class SFAGateway(Gateway):
         else: # slice_urn
             slice_hrn, _ = urn_to_hrn(slice_urn)
         
-        resources = params['resource'] if 'resource' in params else []
-        leases = params['lease'] if 'lease' in params else []
+        all_resources = params['resource'] if 'resource' in params else []
+        all_leases = params['lease'] if 'lease' in params else []
+
+        # Need to filter resources from each testbed
+
+        resources = list()
+        leases = list()
+        interface_hrn = yield self.get_interface_hrn(self.sliceapi)
+        for resource in all_resources:
+            hrn = urn_to_hrn(resource)[0]
+            if not hrn.startswith(interface_hrn):
+                print "FILTER RESOURCE expected auth", interface_hrn, ":", hrn
+                continue
+            resources.append(resource)
+        for lease in all_leases:
+            hrn = urn_to_hrn(lease['resource'])[0]
+            if not hrn.startswith(interface_hrn):
+                print "FILTER LEASE expected auth", interface_hrn, ":", hrn
+                continue
+            leases.append(lease)
 
         # Get appropriate credentials
         user_cred = self._get_cred('user')
@@ -1747,6 +1770,10 @@ class SFAGateway(Gateway):
 
             manifest_rspec = ReturnValue.get_value(result)
             Log.warning("%s MANIFEST RSPEC %s" % (self.platform, manifest_rspec))
+            Log.tmp("manifest_rspec type = ",type(manifest_rspec))
+            if (manifest_rspec == 0) or (manifest_rspec == '0'):
+                Log.tmp("yes manifest is 0")
+                defer.returnValue([])
         else:
             # AM API v3
             # ROUTERV2
@@ -1778,8 +1805,15 @@ class SFAGateway(Gateway):
 
             api_options['sfa_users'] = sfa_users
             api_options['geni_users'] = users
-            
+
+            # XXX TODO: struct_credential is supported by PLE and WiLab, but NOT SUPPORTED by IOTLAB
+            #struct_credential = {'geni_type': 'geni_sfa', 'geni_version': 2, 'geni_value': slice_cred}           
+            #result = yield self.sliceapi.Allocate(slice_urn, [struct_credential], rspec, api_options)
             # http://groups.geni.net/geni/wiki/GAPI_AM_API_V3#Allocate
+            print "-"*80
+            print "REQUEST"
+            print rspec
+            print "-"*80
             result = yield self.sliceapi.Allocate(slice_urn, [slice_cred], rspec, api_options)
 
             if result['code']['geni_code'] != 0:
@@ -1823,8 +1857,10 @@ class SFAGateway(Gateway):
 
             api_options ['call_id'] = unique_call_id()
             # We keep geni_users in the options
+            # XXX TODO: struct_credential is supported by PLE and WiLab, but NOT SUPPORTED by IOTLAB
+            #result = yield self.sliceapi.Provision([slice_urn], [struct_credential], api_options)
             result = yield self.sliceapi.Provision([slice_urn], [slice_cred], api_options)
-            
+            Log.warning("%s: Provision Result = %r" % (self.platform, result))
             # Status(<slice URN or sliver URNs>, <slice credential>, {}) to check that resources are provisioned (e.g. look for operational state geni_notready.
 
             #print "RESULT=", result
@@ -1840,6 +1876,7 @@ class SFAGateway(Gateway):
 
         if not manifest_rspec:
             #print "NO MANIFEST FROM", self.platform, result
+            Log.tmp("manifest is empty")
             defer.returnValue([])
         else:
             #print "GOT MANIFEST FROM", self.platform
@@ -1865,6 +1902,15 @@ class SFAGateway(Gateway):
             SLICE_KEY: slice_urn,
         }
         slice.update(rsrc_slice)
+        print "=========="
+        print "UPDATE SLICE AM RETURNS", slice
+
+        # XXX TODO: After starting the node, we need to monitor the status and inform the user when it's ready
+        # This is required for WiLab !!!
+        #perform_action = yield self.sliceapi.PerformOperationalAction([slice_urn], [struct_credential], 'geni_start' , api_options)
+        #start_result = ReturnValue.get_value(perform_action)
+        #Log.warning("%s: PerformOperationalAction geni_start Result = %r" % (self.platform, perform_action))
+
         defer.returnValue([slice])
 
     # The following functions are currently handled by update_slice_am
