@@ -476,7 +476,7 @@ class LaboraParser(SFAWrapParser):
             # sfa_lease_id = 
             sfa_lease['component_id'] = lease['resource']
             sfa_lease['slice_id']     = slice_urn
-            sfa_lease['start_time']   = lease['start_time'] + 7200
+            sfa_lease['start_time']   = lease['start_time']
             
             grain = cls.get_grain() # in seconds
             min_duration = cls.get_min_duration() # in seconds
@@ -484,8 +484,8 @@ class LaboraParser(SFAWrapParser):
             # We either need end_time or duration
             # end_time is choosen if both are specified !
             if 'end_time' in lease:
-                sfa_lease['end_time'] = lease['end_time']  + 7200
-# XXX XXX
+                sfa_lease['end_time'] = lease['end_time']
+
                 duration =  (int(lease['end_time']) - int(lease['start_time'])) / grain
                 if duration < min_duration:
                     raise Exception, 'duration < min_duration'
@@ -496,7 +496,9 @@ class LaboraParser(SFAWrapParser):
             else:
                 raise Exception, 'Lease not specifying neither end_time nor duration'
             # timestamp -> UTC YYYY-MM-DD hh:mm:ss
+            Log.tmp("manifold to sfa - convert timestamp %s to UTC", sfa_lease['start_time'])
             sfa_lease['start_time'] = datetime.utcfromtimestamp(int(sfa_lease['start_time'])).strftime('%Y-%m-%d %H:%M:%S')
+            Log.tmp("manifold to sfa - convert timestamp to UTC %s", sfa_lease['start_time'])
             sfa_lease['end_time'] = datetime.utcfromtimestamp(int(sfa_lease['end_time'])).strftime('%Y-%m-%d %H:%M:%S')
             sfa_leases.append(sfa_lease)
         return sfa_leases
@@ -514,7 +516,9 @@ class LaboraParser(SFAWrapParser):
                 lease['slice']    = lease.pop('slice_id')
 
                 # UTC YYYY-MM-DD hh:mm:ss -> timestamp
+                Log.tmp("PARSING - convert UTC %s to timestamp", lease['start_time'])
                 lease['start_time'] = calendar.timegm(dateutil.parser.parse(lease['start_time']).utctimetuple())
+                Log.tmp("PARSING - convert UTC to timestamp %s", lease['start_time'])
                 lease['duration'] = int(lease['duration'])
                 if 'end_time' in lease:
                     lease['end_time'] = int(lease['end_time'])
