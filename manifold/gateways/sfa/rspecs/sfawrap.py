@@ -6,6 +6,9 @@ from manifold.util.log                  import Log
 from sfa.rspecs.rspec                   import RSpec
 from types                              import StringTypes
 
+import dateutil.parser
+import calendar
+
 class SFAWrapParser(RSpecParser):
 
     #---------------------------------------------------------------------------
@@ -492,9 +495,9 @@ class LaboraParser(SFAWrapParser):
                 sfa_lease['end_time'] = lease['start_time'] + lease['duration']
             else:
                 raise Exception, 'Lease not specifying neither end_time nor duration'
-
-            sfa_lease['start_time'] = datetime.fromtimestamp(int(sfa_lease['start_time'])).strftime('%Y-%m-%d %H:%M:%S')
-            sfa_lease['end_time'] = datetime.fromtimestamp(int(sfa_lease['end_time'])).strftime('%Y-%m-%d %H:%M:%S')
+            # timestamp -> UTC YYYY-MM-DD hh:mm:ss
+            sfa_lease['start_time'] = datetime.utcfromtimestamp(int(sfa_lease['start_time'])).strftime('%Y-%m-%d %H:%M:%S')
+            sfa_lease['end_time'] = datetime.utcfromtimestamp(int(sfa_lease['end_time'])).strftime('%Y-%m-%d %H:%M:%S')
             sfa_leases.append(sfa_lease)
         return sfa_leases
 
@@ -502,12 +505,16 @@ class LaboraParser(SFAWrapParser):
     def _process_leases(cls, leases):
         from datetime import datetime
         import time
+        import dateutil.parser 
+        import calendar
         ret = list()
         try:
             for lease in leases:
                 lease['resource'] = lease.pop('component_id')
                 lease['slice']    = lease.pop('slice_id')
-                lease['start_time'] = int(time.mktime(datetime.strptime(lease['start_time'], "%Y-%m-%d %H:%M:%S").timetuple()))
+
+                # UTC YYYY-MM-DD hh:mm:ss -> timestamp
+                lease['start_time'] = calendar.timegm(dateutil.parser.parse(lease['start_time']).utctimetuple())
                 lease['duration'] = int(lease['duration'])
                 if 'end_time' in lease:
                     lease['end_time'] = int(lease['end_time'])
