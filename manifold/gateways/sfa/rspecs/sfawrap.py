@@ -179,10 +179,13 @@ class SFAWrapParser(RSpecParser):
         ret = list()
 
         for resource in resources:
+            Log.tmp("LOIC - SFAWrap parser type = %s , resource = %r" % (type(resource),resource))
             new_resource = cls._process_resource(resource)
             if not new_resource:
                 continue
-            ret.append(new_resource)
+            # We suppose we have children of dict that cannot be serialized
+            # with xmlrpc, let's make dict
+            ret.append(cls.make_dict_rec(new_resource))
         return ret
             
     @classmethod
@@ -423,47 +426,41 @@ class LaboraParser(SFAWrapParser):
 
     # The only change for Labora is the tag exclusive which is a tag inside the node tag and not a property
     @classmethod
-    def _process_nodes(cls, nodes):
-        ret = list()
+    def _process_node(cls, node):
+        node['type'] = 'node'
+        node['network_hrn'] = Xrn(node['component_id']).authority[0] # network ? XXX
+        node['hrn'] = urn_to_hrn(node['component_id'])[0]
+        node['urn'] = node['component_id']
+        node['hostname'] = node['component_name']
+        node['initscripts'] = node.pop('pl_initscripts')
 
-        for node in nodes:
-            node['type'] = 'node'
-            node['network_hrn'] = Xrn(node['component_id']).authority[0] # network ? XXX
-            node['hrn'] = urn_to_hrn(node['component_id'])[0]
-            node['urn'] = node['component_id']
-            node['hostname'] = node['component_name']
-            node['initscripts'] = node.pop('pl_initscripts')
+        # All Labora nodes are exclusive = true
+        node['exclusive'] = 'true'
 
-            # All Labora nodes are exclusive = true
-            node['exclusive'] = 'true'
+        if 'granularity' in node:
+            node['granularity'] = node['granularity']['grain']
 
-            if 'granularity' in node:
-                node['granularity'] = node['granularity']['grain']
+        # XXX This should use a MAP as before
+        if 'position' in node: # iotlab
+            node['x'] = node['position']['posx']
+            node['y'] = node['position']['posy']
+            node['z'] = node['position']['posz']
+            del node['position']
 
-            # XXX This should use a MAP as before
-            if 'position' in node: # iotlab
-                node['x'] = node['position']['posx']
-                node['y'] = node['position']['posy']
-                node['z'] = node['position']['posz']
-                del node['position']
+        if 'location' in node:
+            if node['location']:
+                node['latitude'] = node['location']['latitude']
+                node['longitude'] = node['location']['longitude']
+            del node['location']
 
-            if 'location' in node:
-                if node['location']:
-                    node['latitude'] = node['location']['latitude']
-                    node['longitude'] = node['location']['longitude']
-                del node['location']
+        # Flatten tags
+        if 'tags' in node:
+            if node['tags']:
+                for tag in node['tags']:
+                    node[tag['tagname']] = tag['value']
+            del node['tags']
 
-            # Flatten tags
-            if 'tags' in node:
-                if node['tags']:
-                    for tag in node['tags']:
-                        node[tag['tagname']] = tag['value']
-                del node['tags']
-
-            # We suppose we have children of dict that cannot be serialized
-            # with xmlrpc, let's make dict
-            ret.append(cls.make_dict_rec(node))
-        return ret
+        return node
 
 
     # The only change for Labora is the date format which is "yyyy-mm-dd hh:mm:ss" and not a timestamp
