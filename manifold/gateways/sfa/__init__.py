@@ -184,11 +184,10 @@ class SFAGateway(Gateway):
         server_hrn = yield self.get_interface_hrn(server)
 
         Log.tmp("get_parser server_hrn = %s",server_hrn)
-        # We hardcode a parser for the NITOS testbed
-        #server_version = yield self.get_cached_server_version(self.sliceapi)
+        server_version = yield self.get_cached_server_version(server)
 
         # XXX @Loic make network_hrn consistent everywhere, do we use get_interface_hrn ???
-        #hrn = server_version.get('hrn')
+        hostname = server_version.get('hostname')
         
         if server_hrn in ['nitos','omf','omf.nitos','omf.netmode','netmode']:
             parser = NITOSBrokerParser
@@ -196,7 +195,7 @@ class SFAGateway(Gateway):
             parser = IoTLABParser
         elif server_hrn == 'ple':
             parser = PLEParser
-        elif '-omf' in server_hrn:
+        elif ('omf-' in hostname) or ('-omf' in server_hrn):
             parser = LaboraParser
         elif server_hrn.startswith('wilab2'):
             server_hrn = "wilab2.ilabt.iminds.be"
@@ -327,6 +326,26 @@ class SFAGateway(Gateway):
         'authority': map_authority_fields
     }
 
+    def _get_user_account(self, user_email, platform_name):
+        """
+        Returns the user configuration for a given platform.
+        This function does not resolve references.
+        """
+        user = db.query(User).filter(User.email == user_email).one()
+        platform = db.query(Platform).filter(Platform.platform == platform_name).one()
+        accounts = [a for a in user.accounts if a.platform == platform]
+        if not accounts:
+            raise Exception, "reference account does not exist"
+        return accounts[0]
+
+    def _get_user_config(self, user_email, platform_name):
+        account = self._get_user_account(user_email, platform_name)
+        return json.loads(account.config) if account.config else {}
+
+    def _get_platform_config(self, platform_name):
+        platform = db.query(Platform).filter(Platform.platform == platform_name).one()
+        return json.loads(platform.config) if platform.config else {}
+
     #
     # Get various credential and spec files
     #
@@ -340,65 +359,38 @@ class SFAGateway(Gateway):
     #   - bootstrap slice credential from user credential
     #
     @defer.inlineCallbacks
-    def get_user_config(self, user_email):
+    def get_user_config(self, user_email, platform_name):
+        print "********** GET USER CONFIG **********"
         try:
-            user = db.query(User).filter(User.email == user_email).one()
+            account = self._get_user_account(user_email, platform_name)
         except Exception, e:
-            raise Exception, 'Missing user %s: %s' % (user_email, str(e))
-        # Get platform
-        platform = db.query(Platform).filter(Platform.platform == self.platform).one()
-        
-# XXX DEL #         # Get Admin config
-# XXX DEL #         new_admin_config=self.get_user_config(admin,platform)
-# XXX DEL #         self.admin_config=json.loads(new_admin_config)
-
-        # Get account
-        accounts = [a for a in user.accounts if a.platform == platform]
-        if not accounts:
-            Log.info("No account for user %s. Ignoring platform %s" % (user_email, platform.platform))
+            print e
+            Log.info("No account for user %s. Ignoring platform %s" % (user_email, platform_name))
             defer.returnValue((None, None))
-        else:
-            account = accounts[0]
 
-        new_user_config = None
+        print "account", account
+        user_config = None
         if account.auth_type == 'reference':
-            ref_platform = json.loads(account.config)['reference_platform']
-            ref_platform = db.query(Platform).filter(Platform.platform == ref_platform).one()
-            ref_accounts = [a for a in user.accounts if a.platform == ref_platform]
-            if not ref_accounts:
-                raise Exception, "reference account does not exist"
-            ref_account = ref_accounts[0]
+            ref_platform_name = json.loads(account.config)['reference_platform']
+            ref_account = self._get_user_account(user_email, ref_platform_name)
+
             if ref_account.auth_type == 'managed':
                 # call manage function for this managed user account to update it 
                 # if the managed user account has only a private key, the credential will be retrieved 
-                res_manage = yield self.manage(user.email, ref_platform, json.loads(ref_account.config))
-                new_user_config = json.dumps(res_manage)
-                # if the config retrieved is different from the config stored, we need to update it
-                if new_user_config != ref_account.config:
-                    ref_account.config = new_user_config # jo
-                    db.add(ref_account)
-                    db.commit()
-            # if account is not managed, just add the config of the refered account
+                user_config = yield self.manage(user_email, ref_platform_name) #, json.loads(ref_account.config))
             else:
-                new_user_config = ref_account.config
+                user_config = ref_account.config
                 
         elif account.auth_type == 'managed':
             # call manage function for a managed user account to update it 
             # if the managed user account has only a private key, the credential will be retrieved 
-            res_manage = yield self.manage(user_email, self.platform, json.loads(account.config))
-            new_user_config = json.dumps(res_manage)
-            if account.config != new_user_config:
-                account.config = new_user_config
-                db.add(account)
-                db.commit()
-        # return using defer async
-        if new_user_config:
-            defer.returnValue((account.auth_type, json.loads(new_user_config)))
+            user_config = yield self.manage(user_email, platform_name)
         else:
-            defer.returnValue((account.auth_type, json.loads(account.config)))
-        #return json.loads(new_user_config) if new_user_config else None
+            user_config = json.loads(account.config)
 
-    def make_user_proxy(self, interface_url, user_config, cert_type='gid'):
+        defer.returnValue((account.auth_type, user_config))
+
+    def make_user_proxy(self, interface_url, user_config, cert_type='gid', timeout=DEFAULT_TIMEOUT):
         """
         interface (string): 'registry', 'sm' or URL
         user_config (dict): user configuration
@@ -407,7 +399,7 @@ class SFAGateway(Gateway):
         pkey    = user_config['user_private_key'].encode('latin1')
         # default is gid, if we don't have it (see manage function) we use self signed certificate
         cert    = user_config[cert_type]
-        timeout = self.config['timeout']
+        timeout = timeout
 
         if not interface_url.startswith('http://') and not interface_url.startswith('https://'):
             interface_url = 'http://' + interface_url
@@ -418,11 +410,11 @@ class SFAGateway(Gateway):
     @defer.inlineCallbacks
     def bootstrap (self):
         # Cache admin config
-        _, self.admin_config = yield self.get_user_config(ADMIN_USER)
+        _, self.admin_config = yield self.get_user_config(ADMIN_USER, self.platform)
         assert self.admin_config, "Could not retrieve admin config"
 
         # Overwrite user config (reference & managed acccounts)
-        new_auth_type, new_user_config = yield self.get_user_config(self.user['email'])
+        new_auth_type, new_user_config = yield self.get_user_config(self.user['email'], self.platform)
         if new_user_config:
             self.auth_type   = new_auth_type
             self.user_config = new_user_config
@@ -432,14 +424,14 @@ class SFAGateway(Gateway):
         # Initialize manager proxies using MySlice Admin account
         try:
             if self.config['registry']:
-                self.registry = self.make_user_proxy(self.config['registry'], self.admin_config)
+                self.registry = self.make_user_proxy(self.config['registry'], self.admin_config, timeout=self.config.get('timeout', DEFAULT_TIMEOUT))
                 registry_hrn = yield self.get_interface_hrn(self.registry)
                 self.registry.set_network_hrn(registry_hrn)
             else:
                 self.registry = None
 
             if self.config['sm']:
-                self.sliceapi = self.make_user_proxy(self.config['sm'],       self.admin_config)
+                self.sliceapi = self.make_user_proxy(self.config['sm'],       self.admin_config, timeout=self.config.get('timeout', DEFAULT_TIMEOUT))
                 sm_hrn = yield self.get_interface_hrn(self.sliceapi)
                 self.sliceapi.set_network_hrn(sm_hrn)
             else:
@@ -449,11 +441,10 @@ class SFAGateway(Gateway):
             print "EXC in boostrap", e
             import traceback
             traceback.print_exc()
-            
 
 
-
-    def is_admin(self, user):
+    @staticmethod
+    def is_admin(user):
         if isinstance(user, StringTypes):
             return user == ADMIN_USER
         else:
@@ -611,7 +602,7 @@ class SFAGateway(Gateway):
 
                 # performing xmlrpc call
                 print "D: Connecting to interface", interface
-                server = self.make_user_proxy(interface, self.user_config)
+                server = self.make_user_proxy(interface, self.user_config, timeout=self.config.get('timeout', DEFAULT_TIMEOUT))
                 try:
                     version = ReturnValue.get_value(server.GetVersion(timeout=DEFAULT_TIMEOUT_GETVERSION))
                 except Exception, why:
@@ -719,7 +710,7 @@ class SFAGateway(Gateway):
     # default allows the use of MySlice's own credentials
     def __get_cred(self, type, target=None):
         cred = None
-        delegated='delegated_' if not self.is_admin(self.user) else ''
+        delegated='delegated_' if not SFAGateway.is_admin(self.user) else ''
         Log.debug('Get Credential for %s = %s'% (type,target))           
         if type == 'user':
             if target:
@@ -733,30 +724,14 @@ class SFAGateway(Gateway):
                 self.user_config['%s%s_credentials' % (delegated, type)] = {}
 
             creds = self.user_config['%s%s_credentials' % (delegated, type)]
-            if target in creds:
-                cred = creds[target]
-            else:
-                # Can we generate them : only if we have the user private key
-                # Currently it is not possible to request for a slice/authority credential
-                # with a delegated user credential...
-                if 'user_private_key' in self.user_config and self.user_config['user_private_key'] and type == 'slice':
-                    cred = SFAGateway.generate_slice_credential(target, self.user_config)
-                    # If a PI is not in a slice but has an Authority Cred
-                    if cred is None:
-                        creds = self.user_config['%s%s_credentials' % (delegated, 'authority')]
-                        for my_auth in creds:
-                            if target.startswith(my_auth):
-                                cred=creds[my_auth]
-                        if not cred:
-                            # XXX This should not interrupt everything, shall it ?
-                            raise Exception , "no cred found of type %s towards %s " % (type, target)
-                      
-                    creds[target] = cred
-                # If user has an authority credential above the one targeted
-                # Example: 
-                # target = ple.inria / user is a PLE Admin and has creds = [ple.upmc , ple]
-                # if ple.inria starts with ple then let's use the ple credential
-                elif type == 'authority':
+            cred = creds.get(target)
+
+            if not cred:
+                if type == 'authority':
+                    # If user has an authority credential above the one targeted
+                    # Example: 
+                    # target = ple.inria / user is a PLE Admin and has creds = [ple.upmc , ple]
+                    # if ple.inria starts with ple then let's use the ple credential
                     for my_auth in creds:
                         if target.startswith(my_auth):
                             cred=creds[my_auth]
@@ -764,7 +739,10 @@ class SFAGateway(Gateway):
                         # XXX This should not interrupt everything, shall it ?
                         raise Exception , "no cred found of type %s towards %s " % (type, target)
                 else:
+                    # XXX Not handled
+                    Log.warning("No cred found")
                     raise Exception , "no cred found of type %s towards %s " % (type, target)
+
             return cred
         else:
             raise Exception, "Invalid credential type: %s" % type
@@ -1359,7 +1337,6 @@ class SFAGateway(Gateway):
                 if slice_hrn:
                     # XX XXXX XXX
                     result = yield self.sliceapi.Describe([slice_urn], [cred], api_options)
-                    print "result", result
                     # XXX Weird !
                     #result {'output': 'Slice credential not provided', 'code': {'am_type': 'protogeni', 'protogeni_error_log': 'urn:publicid:IDN+wilab2.ilabt.iminds.be+log+39cf85696c0862184eb9704bf3cf837b', 'geni_code': 7, 'am_code': 7, 'protogeni_error_url': 'https://www.wilab2.ilabt.iminds.be/spewlogfile.php3?logfile=39cf85696c0862184eb9704bf3cf837b'}, 'value': 0}
 
@@ -1383,6 +1360,7 @@ class SFAGateway(Gateway):
        
         parser = yield self.get_parser()
 
+        Log.warning("MANIFEST RSPEC FROM ListResources/Describe from %r : %r" % (self.platform, rspec_string))
         if slice_hrn:
             Log.warning("MANIFEST RSPEC FROM ListResources/Describe from %r : %r" % (self.platform, rspec_string))
         rsrc_slice = parser.parse(rspec_string, rspec_version, slice_urn)
@@ -1634,13 +1612,13 @@ class SFAGateway(Gateway):
         for resource in all_resources:
             hrn = urn_to_hrn(resource)[0]
             if not hrn.startswith(interface_hrn):
-                print "FILTER RESOURCE expected auth", interface_hrn, ":", hrn
+                #print "FILTER RESOURCE expected auth", interface_hrn, ":", hrn
                 continue
             resources.append(resource)
         for lease in all_leases:
             hrn = urn_to_hrn(lease['resource'])[0]
             if not hrn.startswith(interface_hrn):
-                print "FILTER LEASE expected auth", interface_hrn, ":", hrn
+                #print "FILTER LEASE expected auth", interface_hrn, ":", hrn
                 continue
             leases.append(lease)
 
@@ -1811,9 +1789,13 @@ class SFAGateway(Gateway):
             api_options['sfa_users'] = sfa_users
             api_options['geni_users'] = users
 
-            # XXX TODO: struct_credential is supported by PLE and WiLab, but NOT SUPPORTED by IOTLAB
             struct_credential = {'geni_type': 'geni_sfa', 'geni_version': 2, 'geni_value': slice_cred}           
-            result = yield self.sliceapi.Allocate(slice_urn, [struct_credential], rspec, api_options)
+            # XXX TODO: struct_credential is supported by PLE and WiLab, but NOT SUPPORTED by IOTLAB
+            if parser in [IoTLABParser]: # XXX This should be handled by _get_cred
+                print "IOTLAB, using slice_cred"
+                result = yield self.sliceapi.Allocate(slice_urn, [slice_cred], rspec, api_options)
+            else:
+                result = yield self.sliceapi.Allocate(slice_urn, [struct_credential], rspec, api_options)
             # http://groups.geni.net/geni/wiki/GAPI_AM_API_V3#Allocate
             print "-"*80
             print "REQUEST"
@@ -1863,7 +1845,10 @@ class SFAGateway(Gateway):
             api_options ['call_id'] = unique_call_id()
             # We keep geni_users in the options
             # XXX TODO: struct_credential is supported by PLE and WiLab, but NOT SUPPORTED by IOTLAB
-            result = yield self.sliceapi.Provision([slice_urn], [struct_credential], api_options)
+            if parser.__class__ in [IoTLABParser]:
+                result = yield self.sliceapi.Provision([slice_urn], [slice_cred], api_options)
+            else:
+                result = yield self.sliceapi.Provision([slice_urn], [struct_credential], api_options)
             #result = yield self.sliceapi.Provision([slice_urn], [slice_cred], api_options)
             Log.warning("%s: Provision Result = %r" % (self.platform, result))
             # Status(<slice URN or sliver URNs>, <slice credential>, {}) to check that resources are provisioned (e.g. look for operational state geni_notready.
@@ -1942,17 +1927,9 @@ class SFAGateway(Gateway):
         if not self.registry:
             defer.returnValue([])
 
-        Log.tmp("BEFORE")
-        Log.tmp("params = ",params)
-        Log.tmp("fields = ",fields)
-        Log.tmp("filters = ",filters)
 
         aliases = {v:k for k, v in self.map_fields[self.query.object].items()}
         filters = self.rename_filters(filters,aliases) # ONLY USED TO GET THE OBJECT HRN
-        Log.tmp("AFTER")
-        Log.tmp("params = ",params)
-        Log.tmp("fields = ",fields)
-        Log.tmp("filters = ",filters)
 
         # XXX WARNING Only filters should be passed to delete
         # But params and fields are filled somwhere before this function...
@@ -1970,11 +1947,9 @@ class SFAGateway(Gateway):
 
         object_type = self.query.object
         object_auth_hrn = get_authority(object_hrn)
-        Log.tmp("Need an authority credential to Remove: %s" % object_hrn)
         auth_cred = self._get_cred('authority', object_auth_hrn)
        
         try:
-            Log.tmp(object_hrn, auth_cred, object_type)
             object_gid = yield self.registry.Remove(object_hrn, auth_cred, object_type)
         except Exception, e:
             raise Exception, 'Failed to Remove object: %s' % e
@@ -2211,13 +2186,9 @@ class SFAGateway(Gateway):
             self.send(LastRecord())
 
 
-    @staticmethod
-    def generate_slice_credential(target, config):
-        Log.debug("Not implemented. Run delegation script in the meantime")
-        #raise Exception, "Not implemented. Run delegation script in the meantime"
-    
     # @loic delegate function is used to delegate a user credential to the ADMIN_USER
-    def delegate(self, user_credential, user_private_key, user_gid, admin_credential):
+    @staticmethod
+    def delegate(user_credential, user_private_key, user_gid, admin_credential):
 
        # if nessecary converting string to Credential object
         print "type of user cred = ",type(user_credential)
@@ -2260,7 +2231,8 @@ class SFAGateway(Gateway):
         return delegated_credential_str
 
     # TEST = PRESENT and NOT EXPIRED
-    def credentials_needed(self, cred_name, config):
+    @staticmethod
+    def credentials_needed(cred_name, config):
         # TODO: optimize this function in the case that the user has no authority_credential and no slice_credential, it's executed each time !!!
         # Initialize
         need_credential = None
@@ -2279,20 +2251,21 @@ class SFAGateway(Gateway):
                     # check expiration of each credential
                     for cred in config[cred_name].values():
                         # if one of the credentials is expired, we need to get a new one from SFA Registry
-                        if self.credential_expired(cred):
+                        if SFAGateway.credential_expired(cred):
                             need_credential = True
                             #return True
                         else:
                             need_credential = False
                 else:
                     # check expiration of the credential
-                    need_credential = self.credential_expired(config[cred_name])
+                    need_credential = SFAGateway.credential_expired(config[cred_name])
         # TODO: check all cases instead of tweaking like that
         if need_credential is None:
             need_credential = True
         return need_credential
 
-    def credential_expired(self, cred):
+    @staticmethod
+    def credential_expired(cred):
         # if the cred passed as argument is not an object
         if not isinstance (cred, Credential):
             # from a string to a credential object to check expiration
@@ -2306,17 +2279,32 @@ class SFAGateway(Gateway):
     ############################################################################ 
     # using defer to have an asynchronous results management in functions prefixed by yield
     @defer.inlineCallbacks
-    def manage(self, user, platform, config):
+    def manage(self, user_email, platform_name):
+        """
+        Parameters:
+            user (str) : user email
+            platform: string
+        """
         # XXX TMP FIX: this works fine if the Registry (myslice platform) is queried 1st
         # If it's not queried 1st, then the calls will fail untill we get the Credentials from the Registry
         # This might cause a PB while using Manifold Cache
-        if not self.config['registry']:
+        
+        platform_config = self._get_platform_config(platform_name)
+
+        if not platform_config['registry']:
             # return using asynchronous defer
+            print "Not managing since no registry"
             defer.returnValue(config)
-            
-        if isinstance(platform, Platform):
-            platform = platform.platform           
-        Log.debug("Managing %r account on %s..." % (user, platform))
+
+        Log.debug("Managing %r account on %s..." % (user_email, platform_name))
+        print "Managing %r account on %s..." % (user_email, platform_name)
+
+        config   = self._get_user_config(user_email, platform_name)
+        old_config = config
+
+        # admin_user_config['user_credential'] is needed for delegation... why ?
+        admin_config = self._get_user_config(ADMIN_USER, platform_name)
+
         # The gateway should be able to perform user config management taks on
         # behalf of MySlice
         #
@@ -2343,7 +2331,7 @@ class SFAGateway(Gateway):
         # NOTE We might want to manage a user account for direct use without
         # relying on delegated credentials. In this case we won't even have a
         # admin_config, and won't need delegation.
-        is_admin = self.is_admin(user)
+        is_admin = SFAGateway.is_admin(user_email)
 
         # SFA management dependencies:
         #     U <- provided
@@ -2370,25 +2358,28 @@ class SFAGateway(Gateway):
         # 
         # The order can be found using a reverse topological sort (tsort)
         # 
-        need_delegated_slice_credentials = not is_admin and self.credentials_needed('delegated_slice_credentials', config)
-        need_delegated_authority_credentials = not is_admin and self.credentials_needed('delegated_authority_credentials', config)
+        need_delegated_slice_credentials = not is_admin and SFAGateway.credentials_needed('delegated_slice_credentials', config)
+        need_delegated_authority_credentials = not is_admin and SFAGateway.credentials_needed('delegated_authority_credentials', config)
         need_slice_credentials = need_delegated_slice_credentials
         # Why do we need slice credentials for admin user???
         #need_slice_credentials = is_admin or need_delegated_slice_credentials
-        need_slice_list = need_slice_credentials
+
+        # XXX We always need the slice_list since a slice could have been
+        # created anytime... we could though optimize this if we know for sure
+        # we already have the slice we need. Such considerations disappear in
+        # routerv2.
+        need_slice_list = True # need_slice_credentials
+
         # Why do we need authority credentials for admin user???
         #need_authority_credentials = is_admin or need_delegated_authority_credentials
         need_authority_credentials = need_delegated_authority_credentials
         need_authority_list = need_authority_credentials
-        need_delegated_user_credential = not is_admin and self.credentials_needed('delegated_user_credential', config)
-        if need_slice_list:
-            pass
-            #Log.tmp('is admin = need slice credentials')
-            #Log.tmp('need slice list')
+        need_delegated_user_credential = not is_admin and SFAGateway.credentials_needed('delegated_user_credential', config)
+
         need_gid = not 'gid' in config
         need_user_credential = is_admin or need_authority_credentials or need_slice_list or need_slice_credentials or need_delegated_user_credential or need_gid
 
-        if self.is_admin(self.user):
+        if SFAGateway.is_admin(user_email):
             need_delegated_user_credential      = False
             need_delegated_slice_credential     = False
             need_delegated_authority_credential = False
@@ -2412,14 +2403,14 @@ class SFAGateway(Gateway):
             #return {}
 
         if not 'user_private_key' in config:
-            print "I: SFA::manage: Generating user private key for user", user
+            print "I: SFA::manage: Generating user private key for user", user_email
             k = Keypair(create=True)
             config['user_public_key'] = k.get_pubkey_string()
             config['user_private_key'] = k.as_pem()
             new_key = True
 
         if not 'sscert' in config:
-            print "I: Generating self-signed certificate for user", user
+            print "I: Generating self-signed certificate for user", user_email
             x = config['user_private_key'].encode('latin1')
             keypair = Keypair(string=x)
             self_signed = Certificate(subject = config['user_hrn'])
@@ -2429,9 +2420,9 @@ class SFAGateway(Gateway):
             config['sscert'] = self_signed.save_to_string()
 
         # create an SFA connexion to Registry, using user config
-        registry_proxy = self.make_user_proxy(self.config['registry'], config, 'sscert')
-        if need_user_credential and self.credentials_needed('user_credential', config):
-            Log.debug("Requesting user credential for user %s" % user)
+        registry_proxy = self.make_user_proxy(platform_config['registry'], config, 'sscert', timeout=platform_config.get('timeout', DEFAULT_TIMEOUT))
+        if need_user_credential and SFAGateway.credentials_needed('user_credential', config):
+            Log.debug("Requesting user credential for user %s" % user_email)
             try:
                 config['user_credential'] = yield registry_proxy.GetSelfCredential (config['sscert'], config['user_hrn'], 'user')
             except:
@@ -2449,22 +2440,33 @@ class SFAGateway(Gateway):
 
         # SFA call Reslove to get the GID and the slice_list
         if need_gid or need_slice_list:
-            Log.debug("Generating GID for user %s" % user)
+            if need_gid:
+                Log.debug("Generating GID for user %s" % user_email)
+                print "Generating GID for user %s" % user_email
+            if need_slice_list:
+                Log.debug("Generating slice list for user %s" % user_email)
+                print "Generating slice list for user %s" % user_email
+
             records = yield registry_proxy.Resolve(config['user_hrn'].encode('latin1'), config['user_credential'])
             if not records:
                 raise RecordNotFound, "hrn %s (%s) unknown to registry %s"%(config['user_hrn'],'user',registry_url)
             records = [record for record in records if record['type']=='user']
             record = records[0]
-            config['gid'] = record['gid']
-            try:
-                config['slice_list'] = record['reg-slices']
-            except Exception, e:
-                Log.warning("User %s has no slices" % str(config['user_hrn']))
+
+            if need_gid:
+                config['gid'] = record['gid']
+
+            if need_slice_list:
+                try:
+                    config['slice_list'] = record['reg-slices']
+                    print "SLICES = ", config['slice_list']
+                except Exception, e:
+                    Log.warning("User %s has no slices" % str(config['user_hrn']))
 
         # delegate user_credential
         if need_delegated_user_credential:
             Log.debug("I: SFA delegate user cred %s" % config['user_hrn'])
-            config['delegated_user_credential'] = self.delegate(config['user_credential'], config['user_private_key'], config['gid'], self.admin_config['user_credential'])
+            config['delegated_user_credential'] = SFAGateway.delegate(config['user_credential'], config['user_private_key'], config['gid'], admin_config['user_credential'])
 
         if need_authority_list: #and not 'authority_list' in config:
             # In case the user is PI on several authorities
@@ -2498,15 +2500,21 @@ class SFAGateway(Gateway):
             Log.debug("Delegating authority credentials")
             config['delegated_authority_credentials'] = {}           
             for auth_name,auth_cred in config['authority_credentials'].items():
-                delegated_auth_cred = self.delegate(auth_cred, config['user_private_key'], config['gid'], self.admin_config['user_credential'])                   
+                delegated_auth_cred = SFAGateway.delegate(auth_cred, config['user_private_key'], config['gid'], admin_config['user_credential'])                   
                 config['delegated_authority_credentials'][auth_name] = delegated_auth_cred
 
         if need_delegated_slice_credentials:
             Log.debug("Delegating slice credentials")
             config['delegated_slice_credentials'] = {}
             for slice_hrn,slice_cred in config['slice_credentials'].items():
-                delegated_slice_cred = self.delegate(slice_cred, config['user_private_key'], config['gid'], self.admin_config['user_credential'])      
+                delegated_slice_cred = SFAGateway.delegate(slice_cred, config['user_private_key'], config['gid'], admin_config['user_credential'])      
                 config['delegated_slice_credentials'][slice_hrn] = delegated_slice_cred
+
+        if config != old_config:
+            account = self._get_user_account(user_email, platform_name)
+            account.config = json.dumps(config)
+            db.add(account)
+            db.commit()
 
         # return using asynchronous defer
         defer.returnValue(config)
