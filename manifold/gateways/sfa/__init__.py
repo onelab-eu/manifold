@@ -1579,12 +1579,13 @@ class SFAGateway(Gateway):
             if need_leases:
                 params['lease'] = resource_lease['lease']
 
-        # Automatically add resources that have leases as slivers
-        for lease in params['lease']:
-            resource_urn = lease['resource']
-            # XXX We might have dicts, we need helper functions...
-            if not resource_urn in params['resource']:
-                params['resource'].append(lease['resource'])
+# We don't do it anymore because its make the portal not to behave consistently
+#        # Automatically add resources that have leases as slivers
+#        for lease in params['lease']:
+#            resource_urn = lease['resource']
+#            # XXX We might have dicts, we need helper functions...
+#            if not resource_urn in params['resource']:
+#                params['resource'].append(lease['resource'])
 
         # The slice we are updating should be given as a filter, either though
         # its HRN or URN. We will build a list of XRNs.
