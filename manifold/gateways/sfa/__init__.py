@@ -4,7 +4,7 @@ import json, signal, traceback, time
 from datetime                           import datetime
 from lxml                               import etree
 from StringIO                           import StringIO
-from types                              import StringTypes, ListType
+from types                              import StringTypes, ListType, InstanceType
 from twisted.internet                   import defer
 
 from manifold.conf                      import ADMIN_USER
@@ -204,6 +204,7 @@ class SFAGateway(Gateway):
         else:
             #parser = LooseParser
             parser = SFAWrapParser
+
         defer.returnValue(parser)
 
 ################################################################################
@@ -979,8 +980,10 @@ class SFAGateway(Gateway):
         """
         # If No Registry RM return
         if not self.registry:
+            Log.tmp("No Registry !")
             defer.returnValue([])
-
+        else:
+            Log.tmp("Yes Registry = ",self.registry)
         # XXX Hack for avoiding multiple calls to the same registry...
         # This will be fixed in newer versions where AM and RM have separate gateways
         if self.auth_type == "reference":
@@ -1005,7 +1008,7 @@ class SFAGateway(Gateway):
         auth_hrn = make_list(filters.get_op('parent_authority', [eq, lt, le]))
         # 3. In the worst case, we search from the root authority.
         interface_hrn = yield self.get_interface_hrn(self.registry)
-
+        Log.tmp("interface_hrn = ",interface_hrn)
         # Based on cases 1, 2 or 3, we build the stack of objects to
         # List/Resolve, and set the 3 following properties:
         #   - recursive: Should be based on jokers, eg. ple.upmc.*
@@ -1014,10 +1017,12 @@ class SFAGateway(Gateway):
         details   = True
 
         if object_hrns: # CASE 1
+            Log.tmp("object_hrns = ",object_hrns)
             # If the objects are not part of the hierarchy, let's return [] to
             # prevent the registry to forward results to another registry
             # XXX This should be ensured by partitions
             object_hrns = [ hrn for hrn in object_hrns if hrn.startswith(interface_hrn)]
+            Log.tmp("filtered object_hrns = ",object_hrns)
             if not object_hrns:
                 defer.returnValue([])
 
@@ -1377,6 +1382,7 @@ class SFAGateway(Gateway):
             rspec_version = 'GENI 3'
        
         parser = yield self.get_parser()
+
         if slice_hrn:
             Log.warning("MANIFEST RSPEC FROM ListResources/Describe from %r : %r" % (self.platform, rspec_string))
         rsrc_slice = parser.parse(rspec_string, rspec_version, slice_urn)
@@ -1806,14 +1812,14 @@ class SFAGateway(Gateway):
             api_options['geni_users'] = users
 
             # XXX TODO: struct_credential is supported by PLE and WiLab, but NOT SUPPORTED by IOTLAB
-            #struct_credential = {'geni_type': 'geni_sfa', 'geni_version': 2, 'geni_value': slice_cred}           
-            #result = yield self.sliceapi.Allocate(slice_urn, [struct_credential], rspec, api_options)
+            struct_credential = {'geni_type': 'geni_sfa', 'geni_version': 2, 'geni_value': slice_cred}           
+            result = yield self.sliceapi.Allocate(slice_urn, [struct_credential], rspec, api_options)
             # http://groups.geni.net/geni/wiki/GAPI_AM_API_V3#Allocate
             print "-"*80
             print "REQUEST"
             print rspec
             print "-"*80
-            result = yield self.sliceapi.Allocate(slice_urn, [slice_cred], rspec, api_options)
+            #result = yield self.sliceapi.Allocate(slice_urn, [slice_cred], rspec, api_options)
 
             if result['code']['geni_code'] != 0:
                 # XXX RESULT= {'output': ': Allocate: Invalid RSpec: No RSpec or version specified. Must specify a valid rspec string or a valid version', 'geni_api': 3, 'code': {'am_type': 'sfa', 'geni_code': 2, 'am_code': 2}, 'value': ''}
@@ -1857,8 +1863,8 @@ class SFAGateway(Gateway):
             api_options ['call_id'] = unique_call_id()
             # We keep geni_users in the options
             # XXX TODO: struct_credential is supported by PLE and WiLab, but NOT SUPPORTED by IOTLAB
-            #result = yield self.sliceapi.Provision([slice_urn], [struct_credential], api_options)
-            result = yield self.sliceapi.Provision([slice_urn], [slice_cred], api_options)
+            result = yield self.sliceapi.Provision([slice_urn], [struct_credential], api_options)
+            #result = yield self.sliceapi.Provision([slice_urn], [slice_cred], api_options)
             Log.warning("%s: Provision Result = %r" % (self.platform, result))
             # Status(<slice URN or sliver URNs>, <slice credential>, {}) to check that resources are provisioned (e.g. look for operational state geni_notready.
 
@@ -1906,9 +1912,10 @@ class SFAGateway(Gateway):
 
         # XXX TODO: After starting the node, we need to monitor the status and inform the user when it's ready
         # This is required for WiLab !!!
-        #perform_action = yield self.sliceapi.PerformOperationalAction([slice_urn], [struct_credential], 'geni_start' , api_options)
-        #start_result = ReturnValue.get_value(perform_action)
-        #Log.warning("%s: PerformOperationalAction geni_start Result = %r" % (self.platform, perform_action))
+        if parser.__name__ == "WiLabtParser":
+            perform_action = yield self.sliceapi.PerformOperationalAction([slice_urn], [struct_credential], 'geni_start' , api_options)
+            start_result = ReturnValue.get_value(perform_action)
+            Log.warning("%s: PerformOperationalAction geni_start Result = %r" % (self.platform, perform_action))
 
         defer.returnValue([slice])
 
