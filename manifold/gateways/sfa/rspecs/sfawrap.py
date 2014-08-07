@@ -743,7 +743,7 @@ class IoTLABParser(SFAWrapParser):
     @classmethod
     def get_resource_testbed_name(cls, urn):
         if 'devgrenoble' in urn:
-            return 'Grenoble (dev)':
+            return 'Grenoble (dev)'
         elif 'grenoble' in urn:
             return 'Grenoble'
 
