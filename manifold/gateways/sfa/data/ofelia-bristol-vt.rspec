@@ -1,0 +1,77 @@
+<?xml version="1.0"?>
+<rspec xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" type="advertisement" xsi:schemaLocation="http://www.protogeni.net/resources/rspec/2 https://github.com/fp7-ofelia/ocf/blob/ocf.rspecs/server_schema.xsd http://www.protogeni.net/resources/rspec/2/ad.xsd" expires="2014-07-18T10:51:18Z" generated="2014-07-18T09:51:18Z">
+  <network name="univbris">
+    <node component_manager_id="urn:publicid:IDN+univbris:vtam+cm" component_id="urn:publicid:IDN+univbris:vtam+node+cseedurham" exclusive="false" component_name="urn:publicid:IDN+univbris:vtam+node+cseedurham">
+      <hostname>cseedurham.univbris.ac.uk</hostname>
+      <name>cseedurham</name>
+      <operating_system_type>GNU/Linux</operating_system_type>
+      <operating_system_distribution>Debian</operating_system_distribution>
+      <operating_system_version>6.0</operating_system_version>
+      <virtualization_technology>xen</virtualization_technology>
+      <cpus_number>None</cpus_number>
+      <cpu_frequency>None</cpu_frequency>
+      <memory>None</memory>
+      <hdd_space_GB>None</hdd_space_GB>
+      <agent_url>https://10.216.22.250:9229/</agent_url>
+      <service type="Range">
+        <type>IP_Range</type>
+        <name>fed4fire</name>
+        <start_value>10.216.22.51</start_value>
+        <end_value>10.216.22.150</end_value>
+      </service>
+      <service type="Range">
+        <type>MAC_Range</type>
+        <name>vm mac range2</name>
+        <start_value>02:06:00:00:00:00</start_value>
+        <end_value>02:06:FF:FF:FF:FF</end_value>
+      </service>
+      <service type="NetworkInterface">
+        <from_server_interface_name>eth1.2</from_server_interface_name>
+        <to_network_interface_port>None</to_network_interface_port>
+      </service>
+      <service type="NetworkInterface">
+        <from_server_interface_name>eth2.4000</from_server_interface_name>
+        <to_network_interface_id>05:00:00:00:00:00:00:04</to_network_interface_id>
+        <to_network_interface_port>8</to_network_interface_port>
+      </service>
+      <free_vms>0</free_vms>
+    </node>
+    <node component_manager_id="urn:publicid:IDN+univbris:vtam+cm" component_id="urn:publicid:IDN+univbris:vtam+node+cseedelphi" exclusive="false" component_name="urn:publicid:IDN+univbris:vtam+node+cseedelphi">
+      <hostname>cseedelphi.univbris.ac.uk</hostname>
+      <name>cseedelphi</name>
+      <operating_system_type>GNU/Linux</operating_system_type>
+      <operating_system_distribution>Debian</operating_system_distribution>
+      <operating_system_version>6.0</operating_system_version>
+      <virtualization_technology>xen</virtualization_technology>
+      <cpus_number>None</cpus_number>
+      <cpu_frequency>None</cpu_frequency>
+      <memory>None</memory>
+      <hdd_space_GB>None</hdd_space_GB>
+      <agent_url>https://10.216.22.251:9229/</agent_url>
+      <service type="Range">
+        <type>IP_Range</type>
+        <name>fed4fire</name>
+        <start_value>10.216.22.51</start_value>
+        <end_value>10.216.22.150</end_value>
+      </service>
+      <service type="Range">
+        <type>MAC_Range</type>
+        <name>vm mac range2</name>
+        <start_value>02:06:00:00:00:00</start_value>
+        <end_value>02:06:FF:FF:FF:FF</end_value>
+      </service>
+      <service type="NetworkInterface">
+        <from_server_interface_name>eth1.2</from_server_interface_name>
+        <to_network_interface_port>None</to_network_interface_port>
+      </service>
+      <service type="NetworkInterface">
+        <from_server_interface_name>eth2.4000</from_server_interface_name>
+        <to_network_interface_id>05:00:00:00:00:00:00:01</to_network_interface_id>
+        <to_network_interface_port>6</to_network_interface_port>
+      </service>
+      <free_vms>0</free_vms>
+    </node>
+    <total_free_vms>0</total_free_vms>
+  </network>
+</rspec>
+

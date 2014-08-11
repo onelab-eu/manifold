@@ -1,0 +1,46 @@
+<?xml version="1.1" encoding="UTF-8"?>
+<rspec  xmlns="http://www.geni.net/resources/rspec/3"
+        xmlns:xs="http://www.w3.org/2001/XMLSchema-instance"
+        xmlns:openflow="/opt/ofelia/ofam/local/schemas"
+        xs:schemaLocation="http://www.geni.net/resources/rspec/3
+              http://www.geni.net/resources/rspec/3/request.xsd
+              http://www.geni.net/resources/rspec/ext/openflow/3
+              http://www.geni.net/resources/rspec/ext/openflow/3/of-resv.xsd"
+    type="request">
+   <openflow:sliver email="f.francois@bristol.ac.uk" description="OF request example">
+      <openflow:controller url="tcp:10.216.22.51:6633" type="primary"/>
+       <openflow:group name="fs1">
+          <openflow:datapath component_manager_id="urn:publicid:IDN+openflow:ofam:univbris+authority+cm" 
+                             component_id="urn:publicid:IDN+openflow:ofam:univbris+datapath+00:00:00:00:0c:21:00:0a" 
+                             dpid="00:00:00:00:0c:21:00:0a">
+             <openflow:port name="GBE0/11" num="11"/> 
+	     <openflow:port name="GBE0/24" num="24"/>
+          </openflow:datapath>
+	   <openflow:datapath component_id="urn:publicid:IDN+openflow:ofam:univbris+datapath+05:00:00:00:00:00:00:02" 
+                             component_manager_id="urn:publicid:IDN+openflow:ofam:univbris+authority+cm" 
+                             dpid="05:00:00:00:00:00:00:02">
+             <openflow:port name="GBE0/23" num="23"/> 
+	     <openflow:port name="GBE0/24" num="24"/>
+          </openflow:datapath>
+	   <openflow:datapath component_id="urn:publicid:IDN+openflow:ofam:univbris+datapath+05:00:00:00:00:00:00:03" 
+                             component_manager_id="urn:publicid:IDN+openflow:ofam:univbris+authority+cm" 
+                             dpid="05:00:00:00:00:00:00:03">
+             <openflow:port name="GBE0/23" num="23"/> 
+	     <openflow:port name="GBE0/24" num="24"/>
+          </openflow:datapath>
+	  <openflow:datapath component_id="urn:publicid:IDN+openflow:ofam:univbris+datapath+05:00:00:00:00:00:00:04" 
+                             component_manager_id="urn:publicid:IDN+openflow:ofam:univbris+authority+cm" 
+                             dpid="05:00:00:00:00:00:00:04">
+             <openflow:port name="GBE0/23" num="23"/> 
+	     <openflow:port name="GBE0/7" num="7"/>  
+          </openflow:datapath>
+       </openflow:group>
+       <openflow:match>
+          <openflow:use-group name="fs1" />
+          <openflow:packet>
+             <openflow:dl_type value="0x800"/>
+             <openflow:dl_vlan value= "56"/>
+          </openflow:packet>
+       </openflow:match>
+   </openflow:sliver>
+</rspec>

@@ -1,0 +1,128 @@
+<?xml version="1.0"?>
+<rspec xmlns="https://github.com/fp7-ofelia/ocf/tree/ocf.rspecs/openflow/schemas" xmlns:xs="http://www.w3.org/2001/XMLSchema-instance" xmlns:openflow="https://github.com/fp7-ofelia/ocf/blob/ocf.rspecs/openflow/schemas" type="advertisement" xs:schemaLocation="https://github.com/fp7-ofelia/ocf/blob/ocf.rspecs/openflow/schemas/ https://github.com/fp7-ofelia/ocf/blob/ocf.rspecs/openflow/schemas/ad.xsd  http://www.geni.net/resources/rspec/3/ad.xsd https://github.com/fp7-ofelia/ocf/blob/ocf.rspecs/openflow/schemas/ad.xsd http://www.geni.net/resources/rspec/ext/openflow/3/of-ad.xsd https://github.com/fp7-ofelia/ocf/blob/ocf.rspecs/openflow/schemas/network_schema.xsd" expires="2014-03-12T12:28:12Z" generated="2014-03-12T11:28:12Z">
+  <openflow:datapath component_id="urn:publicid:IDN+openflow:i2cat:ofam+datapath+00:00:00:00:00:00:00:09" component_manager_id="urn:publicid:IDN+openflow:i2cat:ofam+cm" dpid="00:00:00:00:00:00:00:09">
+    <openflow:port num="65534" name="dp0"/>
+    <openflow:port num="1" name="s9-eth1"/>
+    <openflow:port num="2" name="s9-eth2"/>
+  </openflow:datapath>
+  <openflow:datapath component_id="urn:publicid:IDN+openflow:i2cat:ofam+datapath+00:00:00:00:00:00:00:0a" component_manager_id="urn:publicid:IDN+openflow:i2cat:ofam+cm" dpid="00:00:00:00:00:00:00:0a">
+    <openflow:port num="3" name="s10-eth3"/>
+    <openflow:port num="2" name="s10-eth2"/>
+    <openflow:port num="65534" name="dp1"/>
+    <openflow:port num="1" name="s10-eth1"/>
+  </openflow:datapath>
+  <openflow:datapath component_id="urn:publicid:IDN+openflow:i2cat:ofam+datapath+00:00:00:00:00:00:00:0d" component_manager_id="urn:publicid:IDN+openflow:i2cat:ofam+cm" dpid="00:00:00:00:00:00:00:0d">
+    <openflow:port num="3" name="s13-eth3"/>
+    <openflow:port num="2" name="s13-eth2"/>
+    <openflow:port num="65534" name="dp4"/>
+    <openflow:port num="1" name="s13-eth1"/>
+  </openflow:datapath>
+  <openflow:datapath component_id="urn:publicid:IDN+openflow:i2cat:ofam+datapath+00:00:00:00:00:00:00:0e" component_manager_id="urn:publicid:IDN+openflow:i2cat:ofam+cm" dpid="00:00:00:00:00:00:00:0e">
+    <openflow:port num="3" name="s14-eth3"/>
+    <openflow:port num="2" name="s14-eth2"/>
+    <openflow:port num="65534" name="dp5"/>
+    <openflow:port num="1" name="s14-eth1"/>
+  </openflow:datapath>
+  <openflow:datapath component_id="urn:publicid:IDN+openflow:i2cat:ofam+datapath+00:00:00:00:00:00:00:0f" component_manager_id="urn:publicid:IDN+openflow:i2cat:ofam+cm" dpid="00:00:00:00:00:00:00:0f">
+    <openflow:port num="3" name="s15-eth3"/>
+    <openflow:port num="2" name="s15-eth2"/>
+    <openflow:port num="65534" name="dp6"/>
+    <openflow:port num="1" name="s15-eth1"/>
+  </openflow:datapath>
+  <openflow:datapath component_id="urn:publicid:IDN+openflow:i2cat:ofam+datapath+00:00:00:00:00:00:00:0b" component_manager_id="urn:publicid:IDN+openflow:i2cat:ofam+cm" dpid="00:00:00:00:00:00:00:0b">
+    <openflow:port num="3" name="s11-eth3"/>
+    <openflow:port num="2" name="s11-eth2"/>
+    <openflow:port num="65534" name="dp2"/>
+    <openflow:port num="1" name="s11-eth1"/>
+  </openflow:datapath>
+  <openflow:datapath component_id="urn:publicid:IDN+openflow:i2cat:ofam+datapath+00:00:00:00:00:00:00:0c" component_manager_id="urn:publicid:IDN+openflow:i2cat:ofam+cm" dpid="00:00:00:00:00:00:00:0c">
+    <openflow:port num="3" name="s12-eth3"/>
+    <openflow:port num="2" name="s12-eth2"/>
+    <openflow:port num="65534" name="dp3"/>
+    <openflow:port num="1" name="s12-eth1"/>
+  </openflow:datapath>
+  <openflow:link srcDPID="00:00:00:00:00:00:00:0d" srcPort="3" dstDPID="00:00:00:00:00:00:00:09" dstPort="2"/>
+  <openflow:link srcDPID="00:00:00:00:00:00:00:0a" srcPort="2" dstDPID="00:00:00:00:00:00:00:0c" dstPort="3"/>
+  <openflow:link srcDPID="00:00:00:00:00:00:00:0f" srcPort="3" dstDPID="00:00:00:00:00:00:00:0d" dstPort="2"/>
+  <openflow:link srcDPID="00:00:00:00:00:00:00:0a" srcPort="3" dstDPID="00:00:00:00:00:00:00:09" dstPort="1"/>
+  <openflow:link srcDPID="00:00:00:00:00:00:00:0a" srcPort="1" dstDPID="00:00:00:00:00:00:00:0b" dstPort="3"/>
+  <openflow:link srcDPID="00:00:00:00:00:00:00:0d" srcPort="2" dstDPID="00:00:00:00:00:00:00:0f" dstPort="3"/>
+  <openflow:link srcDPID="00:00:00:00:00:00:00:0d" srcPort="1" dstDPID="00:00:00:00:00:00:00:0e" dstPort="3"/>
+  <openflow:link srcDPID="00:00:00:00:00:00:00:09" srcPort="1" dstDPID="00:00:00:00:00:00:00:0a" dstPort="3"/>
+  <openflow:link srcDPID="00:00:00:00:00:00:00:09" srcPort="2" dstDPID="00:00:00:00:00:00:00:0d" dstPort="3"/>
+  <openflow:link srcDPID="00:00:00:00:00:00:00:0c" srcPort="3" dstDPID="00:00:00:00:00:00:00:0a" dstPort="2"/>
+  <openflow:link srcDPID="00:00:00:00:00:00:00:0b" srcPort="3" dstDPID="00:00:00:00:00:00:00:0a" dstPort="1"/>
+  <openflow:link srcDPID="00:00:00:00:00:00:00:0e" srcPort="3" dstDPID="00:00:00:00:00:00:00:0d" dstPort="1"/>
+  <openflow:link component_id="urn:publicid:IDN+openflow:i2cat:ofam+link+00:00:00:00:00:00:00:0d_3_00:00:00:00:00:00:00:09_2">
+    <openflow:datapath component_id="urn:publicid:IDN+openflow:i2cat:ofam+datapath+00:00:00:00:00:00:00:0d" component_manager_id="urn:publicid:IDN+openflow:i2cat:ofam+cm" dpid="00:00:00:00:00:00:00:0d"/>
+    <openflow:port port_num="3"/>
+    <openflow:datapath component_id="urn:publicid:IDN+openflow:i2cat:ofam+datapath+00:00:00:00:00:00:00:09" component_manager_id="urn:publicid:IDN+openflow:i2cat:ofam+cm" dpid="00:00:00:00:00:00:00:09"/>
+    <openflow:datapath component_id="urn:publicid:IDN+openflow:i2cat:ofam+datapath+2" component_manager_id="urn:publicid:IDN+openflow:i2cat:ofam+cm" dpid="2"/>
+  </openflow:link>
+  <openflow:link component_id="urn:publicid:IDN+openflow:i2cat:ofam+link+00:00:00:00:00:00:00:0a_2_00:00:00:00:00:00:00:0c_3">
+    <openflow:datapath component_id="urn:publicid:IDN+openflow:i2cat:ofam+datapath+00:00:00:00:00:00:00:0a" component_manager_id="urn:publicid:IDN+openflow:i2cat:ofam+cm" dpid="00:00:00:00:00:00:00:0a"/>
+    <openflow:port port_num="2"/>
+    <openflow:datapath component_id="urn:publicid:IDN+openflow:i2cat:ofam+datapath+00:00:00:00:00:00:00:0c" component_manager_id="urn:publicid:IDN+openflow:i2cat:ofam+cm" dpid="00:00:00:00:00:00:00:0c"/>
+    <openflow:datapath component_id="urn:publicid:IDN+openflow:i2cat:ofam+datapath+3" component_manager_id="urn:publicid:IDN+openflow:i2cat:ofam+cm" dpid="3"/>
+  </openflow:link>
+  <openflow:link component_id="urn:publicid:IDN+openflow:i2cat:ofam+link+00:00:00:00:00:00:00:0f_3_00:00:00:00:00:00:00:0d_2">
+    <openflow:datapath component_id="urn:publicid:IDN+openflow:i2cat:ofam+datapath+00:00:00:00:00:00:00:0f" component_manager_id="urn:publicid:IDN+openflow:i2cat:ofam+cm" dpid="00:00:00:00:00:00:00:0f"/>
+    <openflow:port port_num="3"/>
+    <openflow:datapath component_id="urn:publicid:IDN+openflow:i2cat:ofam+datapath+00:00:00:00:00:00:00:0d" component_manager_id="urn:publicid:IDN+openflow:i2cat:ofam+cm" dpid="00:00:00:00:00:00:00:0d"/>
+    <openflow:datapath component_id="urn:publicid:IDN+openflow:i2cat:ofam+datapath+2" component_manager_id="urn:publicid:IDN+openflow:i2cat:ofam+cm" dpid="2"/>
+  </openflow:link>
+  <openflow:link component_id="urn:publicid:IDN+openflow:i2cat:ofam+link+00:00:00:00:00:00:00:0a_3_00:00:00:00:00:00:00:09_1">
+    <openflow:datapath component_id="urn:publicid:IDN+openflow:i2cat:ofam+datapath+00:00:00:00:00:00:00:0a" component_manager_id="urn:publicid:IDN+openflow:i2cat:ofam+cm" dpid="00:00:00:00:00:00:00:0a"/>
+    <openflow:port port_num="3"/>
+    <openflow:datapath component_id="urn:publicid:IDN+openflow:i2cat:ofam+datapath+00:00:00:00:00:00:00:09" component_manager_id="urn:publicid:IDN+openflow:i2cat:ofam+cm" dpid="00:00:00:00:00:00:00:09"/>
+    <openflow:datapath component_id="urn:publicid:IDN+openflow:i2cat:ofam+datapath+1" component_manager_id="urn:publicid:IDN+openflow:i2cat:ofam+cm" dpid="1"/>
+  </openflow:link>
+  <openflow:link component_id="urn:publicid:IDN+openflow:i2cat:ofam+link+00:00:00:00:00:00:00:0a_1_00:00:00:00:00:00:00:0b_3">
+    <openflow:datapath component_id="urn:publicid:IDN+openflow:i2cat:ofam+datapath+00:00:00:00:00:00:00:0a" component_manager_id="urn:publicid:IDN+openflow:i2cat:ofam+cm" dpid="00:00:00:00:00:00:00:0a"/>
+    <openflow:port port_num="1"/>
+    <openflow:datapath component_id="urn:publicid:IDN+openflow:i2cat:ofam+datapath+00:00:00:00:00:00:00:0b" component_manager_id="urn:publicid:IDN+openflow:i2cat:ofam+cm" dpid="00:00:00:00:00:00:00:0b"/>
+    <openflow:datapath component_id="urn:publicid:IDN+openflow:i2cat:ofam+datapath+3" component_manager_id="urn:publicid:IDN+openflow:i2cat:ofam+cm" dpid="3"/>
+  </openflow:link>
+  <openflow:link component_id="urn:publicid:IDN+openflow:i2cat:ofam+link+00:00:00:00:00:00:00:0d_2_00:00:00:00:00:00:00:0f_3">
+    <openflow:datapath component_id="urn:publicid:IDN+openflow:i2cat:ofam+datapath+00:00:00:00:00:00:00:0d" component_manager_id="urn:publicid:IDN+openflow:i2cat:ofam+cm" dpid="00:00:00:00:00:00:00:0d"/>
+    <openflow:port port_num="2"/>
+    <openflow:datapath component_id="urn:publicid:IDN+openflow:i2cat:ofam+datapath+00:00:00:00:00:00:00:0f" component_manager_id="urn:publicid:IDN+openflow:i2cat:ofam+cm" dpid="00:00:00:00:00:00:00:0f"/>
+    <openflow:datapath component_id="urn:publicid:IDN+openflow:i2cat:ofam+datapath+3" component_manager_id="urn:publicid:IDN+openflow:i2cat:ofam+cm" dpid="3"/>
+  </openflow:link>
+  <openflow:link component_id="urn:publicid:IDN+openflow:i2cat:ofam+link+00:00:00:00:00:00:00:0d_1_00:00:00:00:00:00:00:0e_3">
+    <openflow:datapath component_id="urn:publicid:IDN+openflow:i2cat:ofam+datapath+00:00:00:00:00:00:00:0d" component_manager_id="urn:publicid:IDN+openflow:i2cat:ofam+cm" dpid="00:00:00:00:00:00:00:0d"/>
+    <openflow:port port_num="1"/>
+    <openflow:datapath component_id="urn:publicid:IDN+openflow:i2cat:ofam+datapath+00:00:00:00:00:00:00:0e" component_manager_id="urn:publicid:IDN+openflow:i2cat:ofam+cm" dpid="00:00:00:00:00:00:00:0e"/>
+    <openflow:datapath component_id="urn:publicid:IDN+openflow:i2cat:ofam+datapath+3" component_manager_id="urn:publicid:IDN+openflow:i2cat:ofam+cm" dpid="3"/>
+  </openflow:link>
+  <openflow:link component_id="urn:publicid:IDN+openflow:i2cat:ofam+link+00:00:00:00:00:00:00:09_1_00:00:00:00:00:00:00:0a_3">
+    <openflow:datapath component_id="urn:publicid:IDN+openflow:i2cat:ofam+datapath+00:00:00:00:00:00:00:09" component_manager_id="urn:publicid:IDN+openflow:i2cat:ofam+cm" dpid="00:00:00:00:00:00:00:09"/>
+    <openflow:port port_num="1"/>
+    <openflow:datapath component_id="urn:publicid:IDN+openflow:i2cat:ofam+datapath+00:00:00:00:00:00:00:0a" component_manager_id="urn:publicid:IDN+openflow:i2cat:ofam+cm" dpid="00:00:00:00:00:00:00:0a"/>
+    <openflow:datapath component_id="urn:publicid:IDN+openflow:i2cat:ofam+datapath+3" component_manager_id="urn:publicid:IDN+openflow:i2cat:ofam+cm" dpid="3"/>
+  </openflow:link>
+  <openflow:link component_id="urn:publicid:IDN+openflow:i2cat:ofam+link+00:00:00:00:00:00:00:09_2_00:00:00:00:00:00:00:0d_3">
+    <openflow:datapath component_id="urn:publicid:IDN+openflow:i2cat:ofam+datapath+00:00:00:00:00:00:00:09" component_manager_id="urn:publicid:IDN+openflow:i2cat:ofam+cm" dpid="00:00:00:00:00:00:00:09"/>
+    <openflow:port port_num="2"/>
+    <openflow:datapath component_id="urn:publicid:IDN+openflow:i2cat:ofam+datapath+00:00:00:00:00:00:00:0d" component_manager_id="urn:publicid:IDN+openflow:i2cat:ofam+cm" dpid="00:00:00:00:00:00:00:0d"/>
+    <openflow:datapath component_id="urn:publicid:IDN+openflow:i2cat:ofam+datapath+3" component_manager_id="urn:publicid:IDN+openflow:i2cat:ofam+cm" dpid="3"/>
+  </openflow:link>
+  <openflow:link component_id="urn:publicid:IDN+openflow:i2cat:ofam+link+00:00:00:00:00:00:00:0c_3_00:00:00:00:00:00:00:0a_2">
+    <openflow:datapath component_id="urn:publicid:IDN+openflow:i2cat:ofam+datapath+00:00:00:00:00:00:00:0c" component_manager_id="urn:publicid:IDN+openflow:i2cat:ofam+cm" dpid="00:00:00:00:00:00:00:0c"/>
+    <openflow:port port_num="3"/>
+    <openflow:datapath component_id="urn:publicid:IDN+openflow:i2cat:ofam+datapath+00:00:00:00:00:00:00:0a" component_manager_id="urn:publicid:IDN+openflow:i2cat:ofam+cm" dpid="00:00:00:00:00:00:00:0a"/>
+    <openflow:datapath component_id="urn:publicid:IDN+openflow:i2cat:ofam+datapath+2" component_manager_id="urn:publicid:IDN+openflow:i2cat:ofam+cm" dpid="2"/>
+  </openflow:link>
+  <openflow:link component_id="urn:publicid:IDN+openflow:i2cat:ofam+link+00:00:00:00:00:00:00:0b_3_00:00:00:00:00:00:00:0a_1">
+    <openflow:datapath component_id="urn:publicid:IDN+openflow:i2cat:ofam+datapath+00:00:00:00:00:00:00:0b" component_manager_id="urn:publicid:IDN+openflow:i2cat:ofam+cm" dpid="00:00:00:00:00:00:00:0b"/>
+    <openflow:port port_num="3"/>
+    <openflow:datapath component_id="urn:publicid:IDN+openflow:i2cat:ofam+datapath+00:00:00:00:00:00:00:0a" component_manager_id="urn:publicid:IDN+openflow:i2cat:ofam+cm" dpid="00:00:00:00:00:00:00:0a"/>
+    <openflow:datapath component_id="urn:publicid:IDN+openflow:i2cat:ofam+datapath+1" component_manager_id="urn:publicid:IDN+openflow:i2cat:ofam+cm" dpid="1"/>
+  </openflow:link>
+  <openflow:link component_id="urn:publicid:IDN+openflow:i2cat:ofam+link+00:00:00:00:00:00:00:0e_3_00:00:00:00:00:00:00:0d_1">
+    <openflow:datapath component_id="urn:publicid:IDN+openflow:i2cat:ofam+datapath+00:00:00:00:00:00:00:0e" component_manager_id="urn:publicid:IDN+openflow:i2cat:ofam+cm" dpid="00:00:00:00:00:00:00:0e"/>
+    <openflow:port port_num="3"/>
+    <openflow:datapath component_id="urn:publicid:IDN+openflow:i2cat:ofam+datapath+00:00:00:00:00:00:00:0d" component_manager_id="urn:publicid:IDN+openflow:i2cat:ofam+cm" dpid="00:00:00:00:00:00:00:0d"/>
+    <openflow:datapath component_id="urn:publicid:IDN+openflow:i2cat:ofam+datapath+1" component_manager_id="urn:publicid:IDN+openflow:i2cat:ofam+cm" dpid="1"/>
+  </openflow:link>
+</rspec>

@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<rspec xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" type="manifest" xsi:schemaLocation="http://www.protogeni.net/resources/rspec/2 https://github.com/fp7-ofelia/ocf/blob/ocf.rspecs/openflow/schemas/manifest.xsd http://www.protogeni.net/resources/rspec/2/ad.xsd https://github.com/fp7-ofelia/ocf/blob/ocf.rspecs/openflow/schemas/network_schema.xsd" expires="2013-07-10T08:27:13Z" generated="2013-07-10T07:27:13Z">
+  <statistics call="CreateSliver">
+    <aggregate status="success" name="topdomain" elapsed="0.13917183876"/>
+    <aggregate status="success" name="ocf.ofam" elapsed="1.05959510803"/>
+  </statistics>
+  <network name="ocf.ofam">
+    <sliver slice="slice2" description="OF request example" email="a@b.com" status="Pending to approval"/>
+  </network>
+</rspec>

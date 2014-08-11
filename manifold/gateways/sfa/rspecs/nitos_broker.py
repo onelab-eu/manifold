@@ -41,61 +41,62 @@ LINK_TAG = '<link component_id="%(urn)s">'
 LINK_TAG_END = '</link>'
 
 
-# Maps properties within an element of a RSpec to entries in the returned
-# dictionary
-#    RSPEC_ELEMENT
-#        rspec_property -> dictionary_property
-MAP = {
-    'node': {
-        'location.country': 'country',
-        'location.latitude': 'latitude',
-        'location.longitude': 'longitude',
-        'sliver.name': 'sliver',
-        'position_3d.x': 'x',
-        'position_3d.y': 'y',
-        'position_3d.z': 'z',
-        'granularity.grain': 'granularity', # harmonize between ple and nitos
-    },
-    'channel': {
-    }
-}
-
-# The key for resources, used for leases
-RESOURCE_KEY = 'urn' # 'resource_hrn'
-
-# HOOKS TO RUN OPERATIONS ON GIVEN FIELDS
-def channel_urn_hrn_exclusive(value):
-    output = {}
-    # XXX HARDCODED FOR NITOS
-    xrn = Xrn('%(network)s.%(component_name)s' % value, type='channel')
-    return {'urn': xrn.urn, 'hrn': xrn.hrn, 'exclusive': True, 'hostname': xrn.hrn} # hostname TEMP FIX XXX
-    return {'exclusive': True, 'hostname': xrn.hrn} # hostname TEMP FIX XXX
-
-#   RSPEC_ELEMENT
-#       rspec_property -> dictionary that is merged when we encounter this
-#                         property (the property value is passed as an argument)
-#       '*' -> dictionary merged at the end, useful to add some properties made
-#              from the combination of several others (the full dictionary is
-#              passed as an argument)
-HOOKS = {
-    'node': {
-        'component_id': lambda value : {'hrn': Xrn(value).get_hrn(), 'urn': value,'hostname':  Xrn(value).get_hrn()} # hostname TEMP FIX XXX
-    },
-    'link': {
-        'component_id': lambda value : {'hrn': Xrn(value).get_hrn(), 'urn': value}
-    },
-    'channel': {
-        '*': lambda value: channel_urn_hrn_exclusive(value)
-    },
-    '*': {
-        'exclusive': lambda value: {'exclusive': value.lower() not in ['false']}
-    }
-}
-
-# END HOOKS
 
 
 class NITOSBrokerParser(RSpecParser):
+
+    # Maps properties within an element of a RSpec to entries in the returned
+    # dictionary
+    #    RSPEC_ELEMENT
+    #        rspec_property -> dictionary_property
+    MAP = {
+        'node': {
+            'location.country': 'country',
+            'location.latitude': 'latitude',
+            'location.longitude': 'longitude',
+            'sliver.name': 'sliver',
+            'position_3d.x': 'x',
+            'position_3d.y': 'y',
+            'position_3d.z': 'z',
+            'granularity.grain': 'granularity', # harmonize between ple and nitos
+        },
+        'channel': {
+        }
+    }
+
+    # The key for resources, used for leases
+    RESOURCE_KEY = 'urn' # 'resource_hrn'
+
+    # HOOKS TO RUN OPERATIONS ON GIVEN FIELDS
+    def channel_urn_hrn_exclusive(value):
+        output = {}
+        # XXX HARDCODED FOR NITOS
+        xrn = Xrn('%(network)s.%(component_name)s' % value, type='channel')
+        return {'urn': xrn.urn, 'hrn': xrn.hrn, 'exclusive': True, 'hostname': xrn.hrn} # hostname TEMP FIX XXX
+        return {'exclusive': True, 'hostname': xrn.hrn} # hostname TEMP FIX XXX
+
+    #   RSPEC_ELEMENT
+    #       rspec_property -> dictionary that is merged when we encounter this
+    #                         property (the property value is passed as an argument)
+    #       '*' -> dictionary merged at the end, useful to add some properties made
+    #              from the combination of several others (the full dictionary is
+    #              passed as an argument)
+    HOOKS = {
+        'node': {
+            'component_id': lambda value : {'hrn': Xrn(value).get_hrn(), 'urn': value,'hostname':  Xrn(value).get_hrn()} # hostname TEMP FIX XXX
+        },
+        'link': {
+            'component_id': lambda value : {'hrn': Xrn(value).get_hrn(), 'urn': value}
+        },
+        'channel': {
+            '*': lambda value: channel_urn_hrn_exclusive(value)
+        },
+        '*': {
+            'exclusive': lambda value: {'exclusive': value.lower() not in ['false']}
+        }
+    }
+
+    # END HOOKS
 
     #---------------------------------------------------------------------------
     # RSpec parsing
@@ -146,7 +147,7 @@ class NITOSBrokerParser(RSpecParser):
             elements = rspec.xml.xpath(XPATH_RESOURCE % locals()) 
             for el in elements:
                 resource = cls.dict_from_elt(network, el.element, LIST_ELEMENTS.get(resource_type))
-                if resource_type in MAP:
+                if resource_type in cls.MAP:
                     resource = cls.dict_rename(resource, resource_type)
                 resource['network_hrn'] = network
                 resources.append(resource)
@@ -176,98 +177,6 @@ class NITOSBrokerParser(RSpecParser):
         cls.rspec_add_footer(rspec)
         return "\n".join(rspec)
 
-    #---------------------------------------------------------------------------
-    # RSpec parsing helpers
-    #---------------------------------------------------------------------------
-
-    @classmethod
-    def get_element_tag(self, element):
-        tag = element.tag
-        if element.prefix in element.nsmap:
-            # NOTE: None is a prefix that can be in the map (default ns)
-            start = len(element.nsmap[element.prefix]) + 2 # {ns}tag
-            tag = tag[start:]
-        
-        return tag
-
-    @classmethod
-    def prop_from_elt(self, element, prefix = '', list_elements = None):
-        """
-        Returns a property or a set of properties
-        {key: value} or {key: (value, unit)}
-        """
-        ret = {}
-        if prefix: prefix = "%s." % prefix
-        tag = self.get_element_tag(element)
- 
-        # Analysing attributes
-        for k, v in element.attrib.items():
-            key = "%s%s.%s" % (prefix, tag, k)
-            if list_elements and key in list_elements:
-                ret[key] = [v]
-            else:
-                ret[key] = v
- 
-        # Analysing the tag itself
-        if element.text:
-            ret["%s%s" % (prefix, tag)] = element.text
- 
-        # Analysing subtags
-        for c in element.getchildren():
-            # NOTE When merging fields that are in list_elements, we need to be sure to merge lists correctly
-            ret.update(self.prop_from_elt(c, prefix=tag, list_elements=list_elements))
- 
-        # XXX special cases:
-        # - tags
-        # - units
-        # - lists
- 
-        return ret
- 
-    @classmethod
-    def dict_from_elt(self, network, element, list_elements = None):
-        """
-        Returns an object
-        """
-        ret            = {}
-        ret['network'] = network
-        ret['type']    = self.get_element_tag(element)
- 
-        for k, v in element.attrib.items():
-            ret[k] = v
- 
-        for c in element.getchildren():
-            c_dict = self.prop_from_elt(c, '', list_elements)
-            for k, v in c_dict.items():
-                if list_elements and k in list_elements:
-                    if not k in ret:
-                        ret[k] = list()
-                    ret[k].extend(v)
-                else:
-                    ret[k] = v
- 
-        return ret
- 
-    @classmethod
-    def dict_rename(self, dic, name):
-        """
-        Apply map and hooks
-        """
-        # XXX We might create substructures if the map has '.'
-        ret = {}
-        for k, v in dic.items():
-            if name in MAP and k in MAP[name]:
-                ret[MAP[name][k]] = v
-            else:
-                ret[k] = v
-            if name in HOOKS and k in HOOKS[name]:
-                ret.update(HOOKS[name][k](v))
-            if '*' in HOOKS and k in HOOKS['*']:
-                ret.update(HOOKS['*'][k](v))
-        if name in HOOKS and '*' in HOOKS[name]:
-            ret.update(HOOKS[name]['*'](ret))
-        return ret
- 
     #---------------------------------------------------------------------------
     # RSpec construction helpers
     #---------------------------------------------------------------------------

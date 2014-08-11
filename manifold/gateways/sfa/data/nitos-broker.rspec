@@ -1,0 +1,257 @@
+<?xml version="1.0"?>
+<rspec xmlns="http://www.geni.net/resources/rspec/3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:ol="http://nitlab.inf.uth.gr/schema/sfa/rspec/1" xmlns:omf="http://schema.mytestbed.net/sfa/rspec/1" xsi:schemaLocation="http://www.geni.net/resources/rspec/3 http://www.geni.net/resources/rspec/3/ad.xsd http://nitlab.inf.uth.gr/schema/sfa/rspec/1 http://nitlab.inf.uth.gr/schema/sfa/rspec/1/ad-reservation.xsd" type="advertisement" generated="2013-10-03T11:17:15+03:00" expires="2013-10-03T11:27:15+03:00">
+  <node client_id="omf.nitos.node002" component_id="urn:publicid:IDN+omf:nitos+node+omf.nitos.node002" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="omf.nitos.node002" exclusive="true">
+    <available now="true"/>
+    <interface component_id="urn:publicid:IDN+omf:nitos+interface+control" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="control">
+      <ip id="953b8d7c-d665-469c-b06e-c858c7571dfd" address="10.0.1.2"/>
+    </interface>
+  </node>
+  <node client_id="omf.nitos.node001" component_id="urn:publicid:IDN+omf:nitos+node+omf.nitos.node001" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="omf.nitos.node001" exclusive="true">
+    <available now="true"/>
+    <interface component_id="urn:publicid:IDN+omf:nitos+interface+control" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="control">
+      <ip id="a5432a64-ece7-4b49-902c-fb18fd3c87f2" address="10.0.1.1"/>
+    </interface>
+  </node>
+  <node client_id="omf.nitos.node003" component_id="urn:publicid:IDN+omf:nitos+node+omf.nitos.node003" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="omf.nitos.node003" exclusive="true">
+    <available now="true"/>
+    <interface component_id="urn:publicid:IDN+omf:nitos+interface+control" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="control">
+      <ip id="63644464-2dd2-4bf3-ab4a-1d2d2e799b27" address="10.0.1.3"/>
+    </interface>
+  </node>
+  <node client_id="omf.nitos.node004" component_id="urn:publicid:IDN+omf:nitos+node+omf.nitos.node004" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="omf.nitos.node004" exclusive="true">
+    <available now="true"/>
+    <interface component_id="urn:publicid:IDN+omf:nitos+interface+control" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="control">
+      <ip id="f51bd3b5-f51f-49c6-b962-daf2378e529a" address="10.0.1.4"/>
+    </interface>
+  </node>
+  <node client_id="omf.nitos.node005" component_id="urn:publicid:IDN+omf:nitos+node+omf.nitos.node005" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="omf.nitos.node005" exclusive="true">
+    <available now="true"/>
+    <interface component_id="urn:publicid:IDN+omf:nitos+interface+control" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="control">
+      <ip id="bf9c0aa4-ebc4-42c2-b1b5-509dc24ea0c8" address="10.0.1.5"/>
+    </interface>
+  </node>
+  <node client_id="omf.nitos.node006" component_id="urn:publicid:IDN+omf:nitos+node+omf.nitos.node006" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="omf.nitos.node006" exclusive="true">
+    <available now="true"/>
+    <interface component_id="urn:publicid:IDN+omf:nitos+interface+control" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="control">
+      <ip id="426902e8-7b42-4a8b-a50a-5d68ed2688ad" address="10.0.1.6"/>
+    </interface>
+  </node>
+  <node client_id="omf.nitos.node019" component_id="urn:publicid:IDN+omf:nitos+node+omf.nitos.node019" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="omf.nitos.node019" exclusive="true">
+    <available now="true"/>
+    <interface component_id="urn:publicid:IDN+omf:nitos+interface+control" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="control">
+      <ip id="55839f69-33e7-4398-87e8-d5aaf9c4ad47" address="10.0.1.19"/>
+    </interface>
+  </node>
+  <node client_id="omf.nitos.node020" component_id="urn:publicid:IDN+omf:nitos+node+omf.nitos.node020" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="omf.nitos.node020" exclusive="true">
+    <available now="true"/>
+    <interface component_id="urn:publicid:IDN+omf:nitos+interface+control" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="control">
+      <ip id="bf308c33-711b-44a5-a9e9-0289e429270b" address="10.0.1.20"/>
+    </interface>
+  </node>
+  <node client_id="omf.nitos.node007" component_id="urn:publicid:IDN+omf:nitos+node+omf.nitos.node007" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="omf.nitos.node007" exclusive="true">
+    <available now="true"/>
+    <interface component_id="urn:publicid:IDN+omf:nitos+interface+control" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="control">
+      <ip id="4e9c9e25-fcfe-4139-849c-91166d8b532f" address="10.0.1.7"/>
+    </interface>
+  </node>
+  <node client_id="omf.nitos.node008" component_id="urn:publicid:IDN+omf:nitos+node+omf.nitos.node008" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="omf.nitos.node008" exclusive="true">
+    <available now="true"/>
+    <interface component_id="urn:publicid:IDN+omf:nitos+interface+control" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="control">
+      <ip id="354f9a3d-426f-440b-916c-1c924aa11e36" address="10.0.1.8"/>
+    </interface>
+  </node>
+  <node client_id="omf.nitos.node009" component_id="urn:publicid:IDN+omf:nitos+node+omf.nitos.node009" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="omf.nitos.node009" exclusive="true">
+    <available now="true"/>
+    <interface component_id="urn:publicid:IDN+omf:nitos+interface+control" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="control">
+      <ip id="e5b79381-2784-425a-9fa1-705579cc6be2" address="10.0.1.9"/>
+    </interface>
+  </node>
+  <node client_id="omf.nitos.node010" component_id="urn:publicid:IDN+omf:nitos+node+omf.nitos.node010" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="omf.nitos.node010" exclusive="true">
+    <available now="true"/>
+    <interface component_id="urn:publicid:IDN+omf:nitos+interface+control" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="control">
+      <ip id="acd24912-06c5-4686-9f66-4907dfb7f254" address="10.0.1.10"/>
+    </interface>
+  </node>
+  <node client_id="omf.nitos.node017" component_id="urn:publicid:IDN+omf:nitos+node+omf.nitos.node017" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="omf.nitos.node017" exclusive="true">
+    <available now="true"/>
+    <interface component_id="urn:publicid:IDN+omf:nitos+interface+control" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="control">
+      <ip id="ad3d0c09-7d3e-4abf-a739-6424572d2638" address="10.0.1.17"/>
+    </interface>
+  </node>
+  <node client_id="omf.nitos.node016" component_id="urn:publicid:IDN+omf:nitos+node+omf.nitos.node016" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="omf.nitos.node016" exclusive="true">
+    <available now="true"/>
+    <interface component_id="urn:publicid:IDN+omf:nitos+interface+control" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="control">
+      <ip id="2e29250d-915e-402d-9046-da1489601d5e" address="10.0.1.16"/>
+    </interface>
+  </node>
+  <node client_id="omf.nitos.node018" component_id="urn:publicid:IDN+omf:nitos+node+omf.nitos.node018" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="omf.nitos.node018" exclusive="true">
+    <available now="true"/>
+    <interface component_id="urn:publicid:IDN+omf:nitos+interface+control" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="control">
+      <ip id="e02aec46-7d9b-48e7-b182-35e8fa50cd83" address="10.0.1.18"/>
+    </interface>
+  </node>
+  <node client_id="omf.nitos.node021" component_id="urn:publicid:IDN+omf:nitos+node+omf.nitos.node021" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="omf.nitos.node021" exclusive="true">
+    <available now="true"/>
+    <interface component_id="urn:publicid:IDN+omf:nitos+interface+control" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="control">
+      <ip id="24888ebd-4242-462b-b1f7-f2986ee28f6d" address="10.0.1.21"/>
+    </interface>
+  </node>
+  <node client_id="omf.nitos.node022" component_id="urn:publicid:IDN+omf:nitos+node+omf.nitos.node022" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="omf.nitos.node022" exclusive="true">
+    <available now="true"/>
+    <interface component_id="urn:publicid:IDN+omf:nitos+interface+control" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="control">
+      <ip id="07f3c231-b689-4a2e-90fb-33d131af77e0" address="10.0.1.22"/>
+    </interface>
+  </node>
+  <node client_id="omf.nitos.node023" component_id="urn:publicid:IDN+omf:nitos+node+omf.nitos.node023" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="omf.nitos.node023" exclusive="true">
+    <available now="true"/>
+    <interface component_id="urn:publicid:IDN+omf:nitos+interface+control" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="control">
+      <ip id="b5b1847e-a716-4ebb-9b1f-eda343bfb9c9" address="10.0.1.23"/>
+    </interface>
+  </node>
+  <node client_id="omf.nitos.node024" component_id="urn:publicid:IDN+omf:nitos+node+omf.nitos.node024" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="omf.nitos.node024" exclusive="true">
+    <available now="true"/>
+    <interface component_id="urn:publicid:IDN+omf:nitos+interface+control" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="control">
+      <ip id="92be2ec5-ed01-4c26-8336-d9e4ee2dcc5a" address="10.0.1.24"/>
+    </interface>
+  </node>
+  <node client_id="omf.nitos.node025" component_id="urn:publicid:IDN+omf:nitos+node+omf.nitos.node025" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="omf.nitos.node025" exclusive="true">
+    <available now="true"/>
+    <interface component_id="urn:publicid:IDN+omf:nitos+interface+control" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="control">
+      <ip id="ce347689-5367-4291-b032-abe17139edd5" address="10.0.1.25"/>
+    </interface>
+  </node>
+  <node client_id="omf.nitos.node026" component_id="urn:publicid:IDN+omf:nitos+node+omf.nitos.node026" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="omf.nitos.node026" exclusive="true">
+    <available now="true"/>
+    <interface component_id="urn:publicid:IDN+omf:nitos+interface+control" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="control">
+      <ip id="a0179a07-7056-4518-81db-5c1756db9892" address="10.0.1.26"/>
+    </interface>
+  </node>
+  <node client_id="omf.nitos.node028" component_id="urn:publicid:IDN+omf:nitos+node+omf.nitos.node028" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="omf.nitos.node028" exclusive="true">
+    <available now="true"/>
+    <interface component_id="urn:publicid:IDN+omf:nitos+interface+control" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="control">
+      <ip id="032105e6-3e89-43f4-be03-fb625bf0e093" address="10.0.1.28"/>
+    </interface>
+  </node>
+  <node client_id="omf.nitos.node027" component_id="urn:publicid:IDN+omf:nitos+node+omf.nitos.node027" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="omf.nitos.node027" exclusive="true">
+    <available now="true"/>
+    <interface component_id="urn:publicid:IDN+omf:nitos+interface+control" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="control">
+      <ip id="3de0843e-1d2c-4e23-8fa8-362490f10f88" address="10.0.1.27"/>
+    </interface>
+  </node>
+  <node client_id="omf.nitos.node029" component_id="urn:publicid:IDN+omf:nitos+node+omf.nitos.node029" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="omf.nitos.node029" exclusive="true">
+    <available now="true"/>
+    <interface component_id="urn:publicid:IDN+omf:nitos+interface+control" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="control">
+      <ip id="bde48982-a507-4df0-9226-6aa7272eb344" address="10.0.1.29"/>
+    </interface>
+  </node>
+  <node client_id="omf.nitos.node030" component_id="urn:publicid:IDN+omf:nitos+node+omf.nitos.node030" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="omf.nitos.node030" exclusive="true">
+    <available now="true"/>
+    <interface component_id="urn:publicid:IDN+omf:nitos+interface+control" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="control">
+      <ip id="f2d04bbe-be72-449b-92b7-17252b743215" address="10.0.1.30"/>
+    </interface>
+  </node>
+  <node client_id="omf.nitos.node031" component_id="urn:publicid:IDN+omf:nitos+node+omf.nitos.node031" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="omf.nitos.node031" exclusive="true">
+    <available now="true"/>
+    <interface component_id="urn:publicid:IDN+omf:nitos+interface+control" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="control">
+      <ip id="bc15f793-b793-4f0d-9c37-e4518e19be88" address="10.0.1.31"/>
+    </interface>
+  </node>
+  <node client_id="omf.nitos.node032" component_id="urn:publicid:IDN+omf:nitos+node+omf.nitos.node032" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="omf.nitos.node032" exclusive="true">
+    <available now="true"/>
+    <interface component_id="urn:publicid:IDN+omf:nitos+interface+control" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="control">
+      <ip id="c8c0c393-96fc-4d02-84dd-e5d6c9f4448e" address="10.0.1.32"/>
+    </interface>
+  </node>
+  <node client_id="omf.nitos.node033" component_id="urn:publicid:IDN+omf:nitos+node+omf.nitos.node033" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="omf.nitos.node033" exclusive="true">
+    <available now="true"/>
+    <interface component_id="urn:publicid:IDN+omf:nitos+interface+control" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="control">
+      <ip id="75590750-1d46-4a21-9c52-7a1dbe13f675" address="10.0.1.33"/>
+    </interface>
+  </node>
+  <node client_id="omf.nitos.node034" component_id="urn:publicid:IDN+omf:nitos+node+omf.nitos.node034" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="omf.nitos.node034" exclusive="true">
+    <available now="true"/>
+    <interface component_id="urn:publicid:IDN+omf:nitos+interface+control" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="control">
+      <ip id="0b4d3c50-f729-485f-983a-c40f3c2a0ccd" address="10.0.1.34"/>
+    </interface>
+  </node>
+  <node client_id="omf.nitos.node035" component_id="urn:publicid:IDN+omf:nitos+node+omf.nitos.node035" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="omf.nitos.node035" exclusive="true">
+    <available now="true"/>
+    <interface component_id="urn:publicid:IDN+omf:nitos+interface+control" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="control">
+      <ip id="864efe3f-ff33-4403-9996-634fc6db437c" address="10.0.1.35"/>
+    </interface>
+  </node>
+  <node client_id="omf.nitos.node060" component_id="urn:publicid:IDN+omf:nitos+node+omf.nitos.node060" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="omf.nitos.node060" exclusive="true">
+    <available now="true"/>
+    <interface component_id="urn:publicid:IDN+omf:nitos+interface+control" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="control">
+      <ip id="c93b3406-80fd-4374-99d7-6be8a22355c2" address="10.0.1.60"/>
+    </interface>
+  </node>
+  <ol:channel component_id="urn:publicid:IDN+omf:nitos+channel+4" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="4" frequency="2.427GHz"/>
+  <ol:channel component_id="urn:publicid:IDN+omf:nitos+channel+5" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="5" frequency="2.432GHz"/>
+  <ol:channel component_id="urn:publicid:IDN+omf:nitos+channel+3" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="3" frequency="2.422GHz"/>
+  <ol:channel component_id="urn:publicid:IDN+omf:nitos+channel+2" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="2" frequency="2.417GHz"/>
+  <ol:channel component_id="urn:publicid:IDN+omf:nitos+channel+1" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="1" frequency="2.412GHz"/>
+  <ol:channel component_id="urn:publicid:IDN+omf:nitos+channel+7" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="7" frequency="2.442GHz"/>
+  <ol:channel component_id="urn:publicid:IDN+omf:nitos+channel+6" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="6" frequency="2.437GHz"/>
+  <ol:channel component_id="urn:publicid:IDN+omf:nitos+channel+8" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="8" frequency="2.447GHz"/>
+  <ol:channel component_id="urn:publicid:IDN+omf:nitos+channel+10" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="10" frequency="2.457GHz"/>
+  <ol:channel component_id="urn:publicid:IDN+omf:nitos+channel+9" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="9" frequency="2.452GHz"/>
+  <ol:channel component_id="urn:publicid:IDN+omf:nitos+channel+11" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="11" frequency="2.462GHz"/>
+  <ol:channel component_id="urn:publicid:IDN+omf:nitos+channel+12" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="12" frequency="2.467GHz"/>
+  <ol:channel component_id="urn:publicid:IDN+omf:nitos+channel+13" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="13" frequency="2.472GHz"/>
+  <ol:channel component_id="urn:publicid:IDN+omf:nitos+channel+40" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="40" frequency="5.200GHz"/>
+  <ol:channel component_id="urn:publicid:IDN+omf:nitos+channel+40" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="40" frequency="5.200GHz"/>
+  <ol:channel component_id="urn:publicid:IDN+omf:nitos+channel+44" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="44" frequency="5.220GHz"/>
+  <ol:channel component_id="urn:publicid:IDN+omf:nitos+channel+48" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="48" frequency="5.240GHz"/>
+  <ol:channel component_id="urn:publicid:IDN+omf:nitos+channel+52" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="52" frequency="5.260GHz"/>
+  <ol:channel component_id="urn:publicid:IDN+omf:nitos+channel+56" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="56" frequency="5.280GHz"/>
+  <ol:channel component_id="urn:publicid:IDN+omf:nitos+channel+60" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="60" frequency="5.300GHz"/>
+  <ol:channel component_id="urn:publicid:IDN+omf:nitos+channel+64" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="64" frequency="5.320GHz"/>
+  <ol:channel component_id="urn:publicid:IDN+omf:nitos+channel+100" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="100" frequency="5.500GHz"/>
+  <ol:channel component_id="urn:publicid:IDN+omf:nitos+channel+104" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="104" frequency="5.520GHz"/>
+  <ol:channel component_id="urn:publicid:IDN+omf:nitos+channel+108" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="108" frequency="5.540GHz"/>
+  <ol:channel component_id="urn:publicid:IDN+omf:nitos+channel+112" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="112" frequency="5.560GHz"/>
+  <ol:channel component_id="urn:publicid:IDN+omf:nitos+channel+116" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="116" frequency="5.580GHz"/>
+  <ol:channel component_id="urn:publicid:IDN+omf:nitos+channel+120" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="120" frequency="5.600GHz"/>
+  <ol:channel component_id="urn:publicid:IDN+omf:nitos+channel+124" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="124" frequency="5.620GHz"/>
+  <ol:channel component_id="urn:publicid:IDN+omf:nitos+channel+128" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="128" frequency="5.640GHz"/>
+  <ol:channel component_id="urn:publicid:IDN+omf:nitos+channel+136" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="136" frequency="5.680GHz"/>
+  <ol:channel component_id="urn:publicid:IDN+omf:nitos+channel+132" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="132" frequency="5.660GHz"/>
+  <ol:channel component_id="urn:publicid:IDN+omf:nitos+channel+140" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="140" frequency="5.700GHz"/>
+  <node client_id="omf.nitos.node038" component_id="urn:publicid:IDN+omf:nitos+node+omf.nitos.node038" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="omf.nitos.node038" exclusive="true">
+    <available now="true"/>
+    <interface component_id="urn:publicid:IDN+omf:nitos+interface+control" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="control">
+      <ip id="8b630f56-a0ed-42b4-956a-9fe2b0f086d4" address="10.0.1.38"/>
+    </interface>
+  </node>
+  <node client_id="omf.nitos.node037" component_id="urn:publicid:IDN+omf:nitos+node+omf.nitos.node037" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="omf.nitos.node037" exclusive="true">
+    <available now="true"/>
+    <interface_ref component_id="urn:publicid:IDN+omf:nitos+interface+control"/>
+  </node>
+  <node client_id="omf.nitos.node036" component_id="urn:publicid:IDN+omf:nitos+node+omf.nitos.node036" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="omf.nitos.node036" exclusive="true">
+    <available now="true"/>
+    <interface component_id="urn:publicid:IDN+omf:nitos+interface+control" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="control">
+      <ip id="5e79c6e8-9a2d-4eca-81a4-86ba0de901b4" address="10.0.1.36"/>
+    </interface>
+  </node>
+  <node client_id="omf.nitos.node037" component_id="urn:publicid:IDN+omf:nitos+node+omf.nitos.node037" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="omf.nitos.node037" exclusive="true">
+    <available now="true"/>
+    <interface component_id="urn:publicid:IDN+omf:nitos+interface+control" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="control">
+      <ip id="adad59ea-8f4f-47fb-8758-c89b051c19ab" address="10.0.1.37"/>
+    </interface>
+  </node>
+  <node client_id="omf.nitos.node039" component_id="urn:publicid:IDN+omf:nitos+node+omf.nitos.node039" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="omf.nitos.node039" exclusive="true">
+    <available now="true"/>
+    <interface_ref component_id="urn:publicid:IDN+omf:nitos+interface+control"/>
+  </node>
+  <node client_id="omf.nitos.node038" component_id="urn:publicid:IDN+omf:nitos+node+omf.nitos.node038" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="omf.nitos.node038" exclusive="true">
+    <available now="true"/>
+    <interface_ref component_id="urn:publicid:IDN+omf:nitos+interface+control"/>
+  </node>
+  <node client_id="omf.nitos.node040" component_id="urn:publicid:IDN+omf:nitos+node+omf.nitos.node040" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="omf.nitos.node040" exclusive="true">
+    <available now="true"/>
+    <interface component_id="urn:publicid:IDN+omf:nitos+interface+control" component_manager_id="urn:publicid:IDN+omf:nitos+authority+am" component_name="control">
+      <ip id="be39d59b-5a23-49d2-a38f-8570764b0da9" address="10.0.1.40"/>
+    </interface>
+  </node>
+</rspec>

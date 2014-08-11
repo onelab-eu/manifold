@@ -1,0 +1,338 @@
+<?xml version="1.0"?>
+<rspec xmlns="https://github.com/fp7-ofelia/ocf/tree/ocf.rspecs/openflow/schemas" xmlns:xs="http://www.w3.org/2001/XMLSchema-instance" xmlns:openflow="https://github.com/fp7-ofelia/ocf/blob/ocf.rspecs/openflow/schemas" type="advertisement" xs:schemaLocation="https://github.com/fp7-ofelia/ocf/blob/ocf.rspecs/openflow/schemas/ https://github.com/fp7-ofelia/ocf/blob/ocf.rspecs/openflow/schemas/ad.xsd  http://www.geni.net/resources/rspec/3/ad.xsd https://github.com/fp7-ofelia/ocf/blob/ocf.rspecs/openflow/schemas/ad.xsd http://www.geni.net/resources/rspec/ext/openflow/3/of-ad.xsd https://github.com/fp7-ofelia/ocf/blob/ocf.rspecs/openflow/schemas/network_schema.xsd" expires="2014-07-18T10:48:48Z" generated="2014-07-18T09:48:48Z">
+  <openflow:datapath component_id="urn:publicid:IDN+openflow:ofam:univbris+datapath+05:00:00:00:00:00:00:01" component_manager_id="urn:publicid:IDN+openflow:ofam:univbris+authority+cm" dpid="05:00:00:00:00:00:00:01">
+    <openflow:port num="5" name="GBE0/5"/>
+    <openflow:port num="6" name="GBE0/6"/>
+    <openflow:port num="20" name="GBE0/20"/>
+    <openflow:port num="22" name="GBE0/22"/>
+  </openflow:datapath>
+  <openflow:datapath component_id="urn:publicid:IDN+openflow:ofam:univbris+datapath+05:00:00:00:00:00:00:02" component_manager_id="urn:publicid:IDN+openflow:ofam:univbris+authority+cm" dpid="05:00:00:00:00:00:00:02">
+    <openflow:port num="5" name="GBE0/5"/>
+    <openflow:port num="16" name="GBE0/16"/>
+    <openflow:port num="17" name="GBE0/17"/>
+  </openflow:datapath>
+  <openflow:datapath component_id="urn:publicid:IDN+openflow:ofam:univbris+datapath+05:00:00:00:00:00:00:03" component_manager_id="urn:publicid:IDN+openflow:ofam:univbris+authority+cm" dpid="05:00:00:00:00:00:00:03">
+    <openflow:port num="7" name="GBE0/7"/>
+    <openflow:port num="15" name="GBE0/15"/>
+    <openflow:port num="16" name="GBE0/16"/>
+    <openflow:port num="18" name="GBE0/18"/>
+    <openflow:port num="25" name="10GBE0/25"/>
+    <openflow:port num="26" name="10GBE0/26"/>
+  </openflow:datapath>
+  <openflow:datapath component_id="urn:publicid:IDN+openflow:ofam:univbris+datapath+05:00:00:00:00:00:00:04" component_manager_id="urn:publicid:IDN+openflow:ofam:univbris+authority+cm" dpid="05:00:00:00:00:00:00:04">
+    <openflow:port num="6" name="GBE0/6"/>
+    <openflow:port num="8" name="GBE0/8"/>
+    <openflow:port num="11" name="GBE0/11"/>
+    <openflow:port num="16" name="GBE0/16"/>
+    <openflow:port num="25" name="10GBE0/25"/>
+    <openflow:port num="26" name="10GBE0/26"/>
+  </openflow:datapath>
+  <openflow:datapath component_id="urn:publicid:IDN+optical:openflow:ofam:univbris+datapath+00:00:00:00:0a:21:00:0a" component_manager_id="urn:publicid:IDN+optical:openflow:ofam:univbris+authority+cm" dpid="00:00:00:00:0a:21:00:0a">
+    <openflow:port num="1001" name="MOD-5-1"/>
+    <openflow:port num="1002" name="MOD-5-2"/>
+    <openflow:port num="1003" name="MOD-5-3"/>
+    <openflow:port num="1004" name="MOD-5-4"/>
+    <openflow:port num="1005" name="MOD-5-5"/>
+    <openflow:port num="1006" name="MOD-5-6"/>
+    <openflow:port num="1007" name="MOD-5-7"/>
+    <openflow:port num="1008" name="MOD-5-8"/>
+    <openflow:port num="1009" name="MOD-5-9"/>
+    <openflow:port num="1010" name="MOD-5-16"/>
+    <openflow:port num="1011" name="MOD-5-17"/>
+    <openflow:port num="1012" name="MOD-5-18"/>
+    <openflow:port num="1" name="OL-1"/>
+    <openflow:port num="2" name="OL-2"/>
+  </openflow:datapath>
+  <openflow:datapath component_id="urn:publicid:IDN+optical:openflow:ofam:univbris+datapath+00:00:00:00:0b:21:00:0a" component_manager_id="urn:publicid:IDN+optical:openflow:ofam:univbris+authority+cm" dpid="00:00:00:00:0b:21:00:0a">
+    <openflow:port num="1001" name="MOD-10-10"/>
+    <openflow:port num="1002" name="MOD-10-11"/>
+    <openflow:port num="1003" name="MOD-10-14"/>
+    <openflow:port num="1004" name="MOD-10-15"/>
+    <openflow:port num="1005" name="MOD-10-16"/>
+    <openflow:port num="1" name="OL-1"/>
+    <openflow:port num="2" name="OL-2"/>
+    <openflow:port num="3" name="OL-3"/>
+    <openflow:port num="4" name="OL-4"/>
+  </openflow:datapath>
+  <openflow:datapath component_id="urn:publicid:IDN+optical:openflow:ofam:univbris+datapath+00:00:00:00:0c:21:00:0a" component_manager_id="urn:publicid:IDN+optical:openflow:ofam:univbris+authority+cm" dpid="00:00:00:00:0c:21:00:0a">
+    <openflow:port num="1001" name="MOD-10-9"/>
+    <openflow:port num="1002" name="MOD-10-10"/>
+    <openflow:port num="1003" name="MOD-10-11"/>
+    <openflow:port num="1004" name="MOD-10-12"/>
+    <openflow:port num="1005" name="MOD-10-13"/>
+    <openflow:port num="1006" name="MOD-10-14"/>
+    <openflow:port num="1007" name="MOD-10-15"/>
+    <openflow:port num="1008" name="MOD-10-17"/>
+    <openflow:port num="1009" name="MOD-10-18"/>
+    <openflow:port num="1010" name="MOD-10-19"/>
+    <openflow:port num="1" name="OL-1"/>
+    <openflow:port num="2" name="OL-2"/>
+  </openflow:datapath>
+  <openflow:link component_id="urn:publicid:IDN+openflow:ofam:univbris+link+05:00:00:00:00:00:00:04_11_05:00:00:00:00:00:00:01_22">
+    <openflow:source_datapath>
+      <openflow:datapath component_id="urn:publicid:IDN+openflow:ofam:univbris+datapath+05:00:00:00:00:00:00:04" component_manager="urn:publicid:IDN+openflow:ofam:univbris+authority+cm" dpid="05:00:00:00:00:00:00:04"/>
+      <openflow:port port_num="11"/>
+    </openflow:source_datapath>
+    <openflow:destination_datapath>
+      <openflow:datapath component_id="urn:publicid:IDN+openflow:ofam:univbris+datapath+05:00:00:00:00:00:00:01" component_manager="urn:publicid:IDN+openflow:ofam:univbris+authority+cm" dpid="05:00:00:00:00:00:00:01"/>
+      <openflow:port port_num="22"/>
+    </openflow:destination_datapath>
+  </openflow:link>
+  <openflow:link component_id="urn:publicid:IDN+openflow:ofam:univbris+link+05:00:00:00:00:00:00:04_16_05:00:00:00:00:00:00:03_15">
+    <openflow:source_datapath>
+      <openflow:datapath component_id="urn:publicid:IDN+openflow:ofam:univbris+datapath+05:00:00:00:00:00:00:04" component_manager="urn:publicid:IDN+openflow:ofam:univbris+authority+cm" dpid="05:00:00:00:00:00:00:04"/>
+      <openflow:port port_num="16"/>
+    </openflow:source_datapath>
+    <openflow:destination_datapath>
+      <openflow:datapath component_id="urn:publicid:IDN+openflow:ofam:univbris+datapath+05:00:00:00:00:00:00:03" component_manager="urn:publicid:IDN+openflow:ofam:univbris+authority+cm" dpid="05:00:00:00:00:00:00:03"/>
+      <openflow:port port_num="15"/>
+    </openflow:destination_datapath>
+  </openflow:link>
+  <openflow:link component_id="urn:publicid:IDN+openflow:ofam:univbris+link+05:00:00:00:00:00:00:01_20_05:00:00:00:00:00:00:02_16">
+    <openflow:source_datapath>
+      <openflow:datapath component_id="urn:publicid:IDN+openflow:ofam:univbris+datapath+05:00:00:00:00:00:00:01" component_manager="urn:publicid:IDN+openflow:ofam:univbris+authority+cm" dpid="05:00:00:00:00:00:00:01"/>
+      <openflow:port port_num="20"/>
+    </openflow:source_datapath>
+    <openflow:destination_datapath>
+      <openflow:datapath component_id="urn:publicid:IDN+openflow:ofam:univbris+datapath+05:00:00:00:00:00:00:02" component_manager="urn:publicid:IDN+openflow:ofam:univbris+authority+cm" dpid="05:00:00:00:00:00:00:02"/>
+      <openflow:port port_num="16"/>
+    </openflow:destination_datapath>
+  </openflow:link>
+  <openflow:link component_id="urn:publicid:IDN+openflow:ofam:univbris+link+05:00:00:00:00:00:00:01_22_05:00:00:00:00:00:00:04_11">
+    <openflow:source_datapath>
+      <openflow:datapath component_id="urn:publicid:IDN+openflow:ofam:univbris+datapath+05:00:00:00:00:00:00:01" component_manager="urn:publicid:IDN+openflow:ofam:univbris+authority+cm" dpid="05:00:00:00:00:00:00:01"/>
+      <openflow:port port_num="22"/>
+    </openflow:source_datapath>
+    <openflow:destination_datapath>
+      <openflow:datapath component_id="urn:publicid:IDN+openflow:ofam:univbris+datapath+05:00:00:00:00:00:00:04" component_manager="urn:publicid:IDN+openflow:ofam:univbris+authority+cm" dpid="05:00:00:00:00:00:00:04"/>
+      <openflow:port port_num="11"/>
+    </openflow:destination_datapath>
+  </openflow:link>
+  <openflow:link component_id="urn:publicid:IDN+openflow:ofam:univbris+link+05:00:00:00:00:00:00:04_6_05:00:00:00:00:00:00:02_17">
+    <openflow:source_datapath>
+      <openflow:datapath component_id="urn:publicid:IDN+openflow:ofam:univbris+datapath+05:00:00:00:00:00:00:04" component_manager="urn:publicid:IDN+openflow:ofam:univbris+authority+cm" dpid="05:00:00:00:00:00:00:04"/>
+      <openflow:port port_num="6"/>
+    </openflow:source_datapath>
+    <openflow:destination_datapath>
+      <openflow:datapath component_id="urn:publicid:IDN+openflow:ofam:univbris+datapath+05:00:00:00:00:00:00:02" component_manager="urn:publicid:IDN+openflow:ofam:univbris+authority+cm" dpid="05:00:00:00:00:00:00:02"/>
+      <openflow:port port_num="17"/>
+    </openflow:destination_datapath>
+  </openflow:link>
+  <openflow:link component_id="urn:publicid:IDN+openflow:ofam:univbris+link+05:00:00:00:00:00:00:02_5_05:00:00:00:00:00:00:03_16">
+    <openflow:source_datapath>
+      <openflow:datapath component_id="urn:publicid:IDN+openflow:ofam:univbris+datapath+05:00:00:00:00:00:00:02" component_manager="urn:publicid:IDN+openflow:ofam:univbris+authority+cm" dpid="05:00:00:00:00:00:00:02"/>
+      <openflow:port port_num="5"/>
+    </openflow:source_datapath>
+    <openflow:destination_datapath>
+      <openflow:datapath component_id="urn:publicid:IDN+openflow:ofam:univbris+datapath+05:00:00:00:00:00:00:03" component_manager="urn:publicid:IDN+openflow:ofam:univbris+authority+cm" dpid="05:00:00:00:00:00:00:03"/>
+      <openflow:port port_num="16"/>
+    </openflow:destination_datapath>
+  </openflow:link>
+  <openflow:link component_id="urn:publicid:IDN+openflow:ofam:univbris+link+05:00:00:00:00:00:00:01_5_05:00:00:00:00:00:00:03_18">
+    <openflow:source_datapath>
+      <openflow:datapath component_id="urn:publicid:IDN+openflow:ofam:univbris+datapath+05:00:00:00:00:00:00:01" component_manager="urn:publicid:IDN+openflow:ofam:univbris+authority+cm" dpid="05:00:00:00:00:00:00:01"/>
+      <openflow:port port_num="5"/>
+    </openflow:source_datapath>
+    <openflow:destination_datapath>
+      <openflow:datapath component_id="urn:publicid:IDN+openflow:ofam:univbris+datapath+05:00:00:00:00:00:00:03" component_manager="urn:publicid:IDN+openflow:ofam:univbris+authority+cm" dpid="05:00:00:00:00:00:00:03"/>
+      <openflow:port port_num="18"/>
+    </openflow:destination_datapath>
+  </openflow:link>
+  <openflow:link component_id="urn:publicid:IDN+openflow:ofam:univbris+link+05:00:00:00:00:00:00:03_16_05:00:00:00:00:00:00:02_5">
+    <openflow:source_datapath>
+      <openflow:datapath component_id="urn:publicid:IDN+openflow:ofam:univbris+datapath+05:00:00:00:00:00:00:03" component_manager="urn:publicid:IDN+openflow:ofam:univbris+authority+cm" dpid="05:00:00:00:00:00:00:03"/>
+      <openflow:port port_num="16"/>
+    </openflow:source_datapath>
+    <openflow:destination_datapath>
+      <openflow:datapath component_id="urn:publicid:IDN+openflow:ofam:univbris+datapath+05:00:00:00:00:00:00:02" component_manager="urn:publicid:IDN+openflow:ofam:univbris+authority+cm" dpid="05:00:00:00:00:00:00:02"/>
+      <openflow:port port_num="5"/>
+    </openflow:destination_datapath>
+  </openflow:link>
+  <openflow:link component_id="urn:publicid:IDN+openflow:ofam:univbris+link+05:00:00:00:00:00:00:03_15_05:00:00:00:00:00:00:04_16">
+    <openflow:source_datapath>
+      <openflow:datapath component_id="urn:publicid:IDN+openflow:ofam:univbris+datapath+05:00:00:00:00:00:00:03" component_manager="urn:publicid:IDN+openflow:ofam:univbris+authority+cm" dpid="05:00:00:00:00:00:00:03"/>
+      <openflow:port port_num="15"/>
+    </openflow:source_datapath>
+    <openflow:destination_datapath>
+      <openflow:datapath component_id="urn:publicid:IDN+openflow:ofam:univbris+datapath+05:00:00:00:00:00:00:04" component_manager="urn:publicid:IDN+openflow:ofam:univbris+authority+cm" dpid="05:00:00:00:00:00:00:04"/>
+      <openflow:port port_num="16"/>
+    </openflow:destination_datapath>
+  </openflow:link>
+  <openflow:link component_id="urn:publicid:IDN+federation:openflow:ofam:univbris+link+00:10:00:00:00:00:00:03_9_05:00:00:00:00:00:00:03_7">
+    <openflow:source_datapath>
+      <openflow:datapath component_id="urn:publicid:IDN+openflow:i2cat:ofam+datapath+00:10:00:00:00:00:00:03" component_manager="urn:publicid:IDN+openflow:i2cat:ofam+cm" dpid="00:10:00:00:00:00:00:03"/>
+      <openflow:port port_num="9"/>
+    </openflow:source_datapath>
+    <openflow:destination_datapath>
+      <openflow:datapath component_id="urn:publicid:IDN+openflow:ofam:univbris+datapath+05:00:00:00:00:00:00:03" component_manager="urn:publicid:IDN+openflow:ofam:univbris+authority+cm" dpid="05:00:00:00:00:00:00:03"/>
+      <openflow:port port_num="7"/>
+    </openflow:destination_datapath>
+  </openflow:link>
+  <openflow:link component_id="urn:publicid:IDN+openflow:ofam:univbris+link+05:00:00:00:00:00:00:03_18_05:00:00:00:00:00:00:01_5">
+    <openflow:source_datapath>
+      <openflow:datapath component_id="urn:publicid:IDN+openflow:ofam:univbris+datapath+05:00:00:00:00:00:00:03" component_manager="urn:publicid:IDN+openflow:ofam:univbris+authority+cm" dpid="05:00:00:00:00:00:00:03"/>
+      <openflow:port port_num="18"/>
+    </openflow:source_datapath>
+    <openflow:destination_datapath>
+      <openflow:datapath component_id="urn:publicid:IDN+openflow:ofam:univbris+datapath+05:00:00:00:00:00:00:01" component_manager="urn:publicid:IDN+openflow:ofam:univbris+authority+cm" dpid="05:00:00:00:00:00:00:01"/>
+      <openflow:port port_num="5"/>
+    </openflow:destination_datapath>
+  </openflow:link>
+  <openflow:link component_id="urn:publicid:IDN+openflow:ofam:univbris+link+05:00:00:00:00:00:00:02_16_05:00:00:00:00:00:00:01_20">
+    <openflow:source_datapath>
+      <openflow:datapath component_id="urn:publicid:IDN+openflow:ofam:univbris+datapath+05:00:00:00:00:00:00:02" component_manager="urn:publicid:IDN+openflow:ofam:univbris+authority+cm" dpid="05:00:00:00:00:00:00:02"/>
+      <openflow:port port_num="16"/>
+    </openflow:source_datapath>
+    <openflow:destination_datapath>
+      <openflow:datapath component_id="urn:publicid:IDN+openflow:ofam:univbris+datapath+05:00:00:00:00:00:00:01" component_manager="urn:publicid:IDN+openflow:ofam:univbris+authority+cm" dpid="05:00:00:00:00:00:00:01"/>
+      <openflow:port port_num="20"/>
+    </openflow:destination_datapath>
+  </openflow:link>
+  <openflow:link component_id="urn:publicid:IDN+openflow:ofam:univbris+link+05:00:00:00:00:00:00:02_17_05:00:00:00:00:00:00:04_6">
+    <openflow:source_datapath>
+      <openflow:datapath component_id="urn:publicid:IDN+openflow:ofam:univbris+datapath+05:00:00:00:00:00:00:02" component_manager="urn:publicid:IDN+openflow:ofam:univbris+authority+cm" dpid="05:00:00:00:00:00:00:02"/>
+      <openflow:port port_num="17"/>
+    </openflow:source_datapath>
+    <openflow:destination_datapath>
+      <openflow:datapath component_id="urn:publicid:IDN+openflow:ofam:univbris+datapath+05:00:00:00:00:00:00:04" component_manager="urn:publicid:IDN+openflow:ofam:univbris+authority+cm" dpid="05:00:00:00:00:00:00:04"/>
+      <openflow:port port_num="6"/>
+    </openflow:destination_datapath>
+  </openflow:link>
+  <openflow:link component_id="urn:publicid:IDN+optical:openflow:ofam:univbris+link+00:00:00:00:0b:21:00:0a_1_00:00:00:00:0a:21:00:0a_2">
+    <openflow:source_datapath>
+      <openflow:datapath component_id="urn:publicid:IDN+optical:openflow:ofam:univbris+datapath+00:00:00:00:0b:21:00:0a" component_manager="urn:publicid:IDN+optical:openflow:ofam:univbris+authority+cm" dpid="00:00:00:00:0b:21:00:0a"/>
+      <openflow:port port_num="1"/>
+    </openflow:source_datapath>
+    <openflow:destination_datapath>
+      <openflow:datapath component_id="urn:publicid:IDN+optical:openflow:ofam:univbris+datapath+00:00:00:00:0a:21:00:0a" component_manager="urn:publicid:IDN+optical:openflow:ofam:univbris+authority+cm" dpid="00:00:00:00:0a:21:00:0a"/>
+      <openflow:port port_num="2"/>
+    </openflow:destination_datapath>
+    <openflow:wavelength value="193.8"/>
+    <openflow:wavelength value="193.9"/>
+  </openflow:link>
+  <openflow:link component_id="urn:publicid:IDN+optical:openflow:ofam:univbris+link+00:00:00:00:0b:21:00:0a_3_00:00:00:00:0c:21:00:0a_1">
+    <openflow:source_datapath>
+      <openflow:datapath component_id="urn:publicid:IDN+optical:openflow:ofam:univbris+datapath+00:00:00:00:0b:21:00:0a" component_manager="urn:publicid:IDN+optical:openflow:ofam:univbris+authority+cm" dpid="00:00:00:00:0b:21:00:0a"/>
+      <openflow:port port_num="3"/>
+    </openflow:source_datapath>
+    <openflow:destination_datapath>
+      <openflow:datapath component_id="urn:publicid:IDN+optical:openflow:ofam:univbris+datapath+00:00:00:00:0c:21:00:0a" component_manager="urn:publicid:IDN+optical:openflow:ofam:univbris+authority+cm" dpid="00:00:00:00:0c:21:00:0a"/>
+      <openflow:port port_num="1"/>
+    </openflow:destination_datapath>
+    <openflow:wavelength value="193.8"/>
+    <openflow:wavelength value="193.9"/>
+  </openflow:link>
+  <openflow:link component_id="urn:publicid:IDN+optical:openflow:ofam:univbris+link+00:00:00:00:0c:21:00:0a_1002_05:00:00:00:00:00:00:03_25">
+    <openflow:source_datapath>
+      <openflow:datapath component_id="urn:publicid:IDN+optical:openflow:ofam:univbris+datapath+00:00:00:00:0c:21:00:0a" component_manager="urn:publicid:IDN+optical:openflow:ofam:univbris+authority+cm" dpid="00:00:00:00:0c:21:00:0a"/>
+      <openflow:port port_num="1002"/>
+    </openflow:source_datapath>
+    <openflow:destination_datapath>
+      <openflow:datapath component_id="urn:publicid:IDN+optical:openflow:ofam:univbris+datapath+05:00:00:00:00:00:00:03" component_manager="urn:publicid:IDN+optical:openflow:ofam:univbris+authority+cm" dpid="05:00:00:00:00:00:00:03"/>
+      <openflow:port port_num="25"/>
+    </openflow:destination_datapath>
+    <openflow:wavelength value="193.8"/>
+  </openflow:link>
+  <openflow:link component_id="urn:publicid:IDN+optical:openflow:ofam:univbris+link+00:00:00:00:0c:21:00:0a_1009_05:00:00:00:00:00:00:03_26">
+    <openflow:source_datapath>
+      <openflow:datapath component_id="urn:publicid:IDN+optical:openflow:ofam:univbris+datapath+00:00:00:00:0c:21:00:0a" component_manager="urn:publicid:IDN+optical:openflow:ofam:univbris+authority+cm" dpid="00:00:00:00:0c:21:00:0a"/>
+      <openflow:port port_num="1009"/>
+    </openflow:source_datapath>
+    <openflow:destination_datapath>
+      <openflow:datapath component_id="urn:publicid:IDN+optical:openflow:ofam:univbris+datapath+05:00:00:00:00:00:00:03" component_manager="urn:publicid:IDN+optical:openflow:ofam:univbris+authority+cm" dpid="05:00:00:00:00:00:00:03"/>
+      <openflow:port port_num="26"/>
+    </openflow:destination_datapath>
+    <openflow:wavelength value="193.9"/>
+  </openflow:link>
+  <openflow:link component_id="urn:publicid:IDN+optical:openflow:ofam:univbris+link+00:00:00:00:0c:21:00:0a_1_00:00:00:00:0b:21:00:0a_3">
+    <openflow:source_datapath>
+      <openflow:datapath component_id="urn:publicid:IDN+optical:openflow:ofam:univbris+datapath+00:00:00:00:0c:21:00:0a" component_manager="urn:publicid:IDN+optical:openflow:ofam:univbris+authority+cm" dpid="00:00:00:00:0c:21:00:0a"/>
+      <openflow:port port_num="1"/>
+    </openflow:source_datapath>
+    <openflow:destination_datapath>
+      <openflow:datapath component_id="urn:publicid:IDN+optical:openflow:ofam:univbris+datapath+00:00:00:00:0b:21:00:0a" component_manager="urn:publicid:IDN+optical:openflow:ofam:univbris+authority+cm" dpid="00:00:00:00:0b:21:00:0a"/>
+      <openflow:port port_num="3"/>
+    </openflow:destination_datapath>
+    <openflow:wavelength value="193.8"/>
+    <openflow:wavelength value="193.9"/>
+  </openflow:link>
+  <openflow:link component_id="urn:publicid:IDN+optical:openflow:ofam:univbris+link+00:00:00:00:0c:21:00:0a_2_00:00:00:00:0a:21:00:0a_1">
+    <openflow:source_datapath>
+      <openflow:datapath component_id="urn:publicid:IDN+optical:openflow:ofam:univbris+datapath+00:00:00:00:0c:21:00:0a" component_manager="urn:publicid:IDN+optical:openflow:ofam:univbris+authority+cm" dpid="00:00:00:00:0c:21:00:0a"/>
+      <openflow:port port_num="2"/>
+    </openflow:source_datapath>
+    <openflow:destination_datapath>
+      <openflow:datapath component_id="urn:publicid:IDN+optical:openflow:ofam:univbris+datapath+00:00:00:00:0a:21:00:0a" component_manager="urn:publicid:IDN+optical:openflow:ofam:univbris+authority+cm" dpid="00:00:00:00:0a:21:00:0a"/>
+      <openflow:port port_num="1"/>
+    </openflow:destination_datapath>
+    <openflow:wavelength value="193.8"/>
+    <openflow:wavelength value="193.9"/>
+  </openflow:link>
+  <openflow:link component_id="urn:publicid:IDN+optical:openflow:ofam:univbris+link+00:00:00:00:0a:21:00:0a_1008_05:00:00:00:00:00:00:04_25">
+    <openflow:source_datapath>
+      <openflow:datapath component_id="urn:publicid:IDN+optical:openflow:ofam:univbris+datapath+00:00:00:00:0a:21:00:0a" component_manager="urn:publicid:IDN+optical:openflow:ofam:univbris+authority+cm" dpid="00:00:00:00:0a:21:00:0a"/>
+      <openflow:port port_num="1008"/>
+    </openflow:source_datapath>
+    <openflow:destination_datapath>
+      <openflow:datapath component_id="urn:publicid:IDN+optical:openflow:ofam:univbris+datapath+05:00:00:00:00:00:00:04" component_manager="urn:publicid:IDN+optical:openflow:ofam:univbris+authority+cm" dpid="05:00:00:00:00:00:00:04"/>
+      <openflow:port port_num="25"/>
+    </openflow:destination_datapath>
+    <openflow:wavelength value="193.8"/>
+  </openflow:link>
+  <openflow:link component_id="urn:publicid:IDN+optical:openflow:ofam:univbris+link+00:00:00:00:0a:21:00:0a_1012_05:00:00:00:00:00:00:04_26">
+    <openflow:source_datapath>
+      <openflow:datapath component_id="urn:publicid:IDN+optical:openflow:ofam:univbris+datapath+00:00:00:00:0a:21:00:0a" component_manager="urn:publicid:IDN+optical:openflow:ofam:univbris+authority+cm" dpid="00:00:00:00:0a:21:00:0a"/>
+      <openflow:port port_num="1012"/>
+    </openflow:source_datapath>
+    <openflow:destination_datapath>
+      <openflow:datapath component_id="urn:publicid:IDN+optical:openflow:ofam:univbris+datapath+05:00:00:00:00:00:00:04" component_manager="urn:publicid:IDN+optical:openflow:ofam:univbris+authority+cm" dpid="05:00:00:00:00:00:00:04"/>
+      <openflow:port port_num="26"/>
+    </openflow:destination_datapath>
+    <openflow:wavelength value="193.9"/>
+  </openflow:link>
+  <openflow:link component_id="urn:publicid:IDN+optical:openflow:ofam:univbris+link+00:00:00:00:0a:21:00:0a_1_00:00:00:00:0c:21:00:0a_2">
+    <openflow:source_datapath>
+      <openflow:datapath component_id="urn:publicid:IDN+optical:openflow:ofam:univbris+datapath+00:00:00:00:0a:21:00:0a" component_manager="urn:publicid:IDN+optical:openflow:ofam:univbris+authority+cm" dpid="00:00:00:00:0a:21:00:0a"/>
+      <openflow:port port_num="1"/>
+    </openflow:source_datapath>
+    <openflow:destination_datapath>
+      <openflow:datapath component_id="urn:publicid:IDN+optical:openflow:ofam:univbris+datapath+00:00:00:00:0c:21:00:0a" component_manager="urn:publicid:IDN+optical:openflow:ofam:univbris+authority+cm" dpid="00:00:00:00:0c:21:00:0a"/>
+      <openflow:port port_num="2"/>
+    </openflow:destination_datapath>
+    <openflow:wavelength value="193.8"/>
+    <openflow:wavelength value="193.9"/>
+  </openflow:link>
+  <openflow:link component_id="urn:publicid:IDN+optical:openflow:ofam:univbris+link+00:00:00:00:0a:21:00:0a_2_00:00:00:00:0b:21:00:0a_1">
+    <openflow:source_datapath>
+      <openflow:datapath component_id="urn:publicid:IDN+optical:openflow:ofam:univbris+datapath+00:00:00:00:0a:21:00:0a" component_manager="urn:publicid:IDN+optical:openflow:ofam:univbris+authority+cm" dpid="00:00:00:00:0a:21:00:0a"/>
+      <openflow:port port_num="2"/>
+    </openflow:source_datapath>
+    <openflow:destination_datapath>
+      <openflow:datapath component_id="urn:publicid:IDN+optical:openflow:ofam:univbris+datapath+00:00:00:00:0b:21:00:0a" component_manager="urn:publicid:IDN+optical:openflow:ofam:univbris+authority+cm" dpid="00:00:00:00:0b:21:00:0a"/>
+      <openflow:port port_num="1"/>
+    </openflow:destination_datapath>
+    <openflow:wavelength value="193.8"/>
+    <openflow:wavelength value="193.9"/>
+  </openflow:link>
+  <openflow:link component_id="urn:publicid:IDN+compute:openflow:ofam:univbris+link+05:00:00:00:00:00:00:01_6_cseedelphi_eth2.4000">
+    <openflow:source_datapath>
+      <openflow:datapath component_id="urn:publicid:IDN+openflow:ofam:univbris+datapath+05:00:00:00:00:00:00:01" component_manager="urn:publicid:IDN+openflow:ofam:univbris+authority+cm" dpid="05:00:00:00:00:00:00:01"/>
+      <openflow:port port_num="6"/>
+    </openflow:source_datapath>
+    <openflow:destination_datapath>
+      <openflow:node component_id="urn:publicid:IDN+univbris:vtam+node+cseedelphi" component_manager="urn:publicid:IDN+univbris:vtam+cm"/>
+      <openflow:interface interface_name="eth2.4000"/>
+    </openflow:destination_datapath>
+  </openflow:link>
+  <openflow:link component_id="urn:publicid:IDN+compute:openflow:ofam:univbris+link+05:00:00:00:00:00:00:04_8_cseedurham_eth2.4000">
+    <openflow:source_datapath>
+      <openflow:datapath component_id="urn:publicid:IDN+openflow:ofam:univbris+datapath+05:00:00:00:00:00:00:04" component_manager="urn:publicid:IDN+openflow:ofam:univbris+authority+cm" dpid="05:00:00:00:00:00:00:04"/>
+      <openflow:port port_num="8"/>
+    </openflow:source_datapath>
+    <openflow:destination_datapath>
+      <openflow:node component_id="urn:publicid:IDN+univbris:vtam+node+cseedurham" component_manager="urn:publicid:IDN+univbris:vtam+cm"/>
+      <openflow:interface interface_name="eth2.4000"/>
+    </openflow:destination_datapath>
+  </openflow:link>
+  <free_vlans>4086</free_vlans>
+</rspec>
