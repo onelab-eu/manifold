@@ -100,6 +100,9 @@ class resource {
     const string          hrn;
     const string          type;
     const string          network_hrn;
+	const string          facility_name;
+	const string          testbed_name;
+
     const string          hostname;
     const string          component_manager_id;
     const string          component_id;

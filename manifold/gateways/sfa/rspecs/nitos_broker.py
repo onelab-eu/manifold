@@ -263,9 +263,11 @@ class NITOSBrokerParser(RSpecParser):
                 hrn, type = urn_to_hrn(urn)
 
                 resource = {
-                    'urn': urn,
-                    'hrn': hrn,
-                    'type': type,
+                    'urn'           : urn,
+                    'hrn'           : hrn,
+                    'type'          : type,
+                    'facility_name' : 'NITOS',
+                    'testbed_name'  : 'NITOS',
                 }
             # What information do we need in resources for REQUEST ?
             resource_type = resource.pop('type')

@@ -41,7 +41,7 @@ class SFAWrapParser(RSpecParser):
         _channels    = cls._get_channels(rspec)
         _links       = cls._get_links(rspec)
         _leases      = cls._get_leases(rspec)
-        Log.tmp("_nodes = ",_nodes)       
+
         resources = list()
         resources.extend(cls._process_resources(_resources))
         resources.extend(cls._process_nodes(_nodes))
@@ -168,10 +168,42 @@ class SFAWrapParser(RSpecParser):
             #Log.warning("Could not retrieve channels in RSpec: %s" % e)
             return list()
 
+    @classmethod
+    def get_resource_facility_name(cls, urn):
+        """
+        Returns the resource facility name.
+        This is useful for filtering resources in the portal.
+        Should be overloaded in child classes to be effective.
+        """
+        return None
+
+    @classmethod
+    def get_resource_testbed_name(cls, urn):
+        """
+        Returns the resource testbed name.
+        This is useful for filtering resources in the portal.
+        Should be overloaded in child classes to be effective.
+        """
+        return None
 
     @classmethod
     def _process_resource(cls, resource):
-        resource['urn'] = resource['component_id']
+        """
+        Postprocess resources read from the RSpec. This applies to nodes, channels and links.
+        In particular, it sets the urn, hrn, network_hrn, facility_name and testbed_name fields.
+        """
+        urn = resource['component_id']
+        hrn, type = urn_to_hrn(resource['component_id'])
+
+        resource['urn'] = urn
+        resource['hrn'] = hrn
+
+        resource['network_hrn'] = Xrn(resource['component_id']).authority[0] # network ? XXX
+
+        # We also add 'facility' and 'testbed' fields
+        resource['facility_name'] = cls.get_resource_facility_name(urn)
+        resource['testbed_name']  = cls.get_resource_testbed_name(urn)
+
         return resource
 
     @classmethod
@@ -193,9 +225,6 @@ class SFAWrapParser(RSpecParser):
         node['type'] = 'node'
         #Log.tmp("node component_id = ",Xrn(node['component_id']))
         #Log.tmp("node authority = ", Xrn(node['component_id']).authority)
-        node['network_hrn'] = Xrn(node['component_id']).authority[0] # network ? XXX
-        node['hrn'] = urn_to_hrn(node['component_id'])[0]
-        node['urn'] = node['component_id']
         node['hostname'] = node['component_name']
         node['initscripts'] = node.pop('pl_initscripts')
         if 'exclusive' in node and node['exclusive']:
@@ -229,13 +258,15 @@ class SFAWrapParser(RSpecParser):
         ret = list()
 
         for node in nodes:
-            new_node = cls._process_node(node)
-            if not new_node:
-                continue
+            node = cls._process_node(node)
+            if not node: continue
+
+            node = cls._process_resource(node)
+            if not node: continue
             
             # We suppose we have children of dict that cannot be serialized
             # with xmlrpc, let's make dict
-            ret.append(cls.make_dict_rec(new_node))
+            ret.append(cls.make_dict_rec(node))
         return ret
 
     @classmethod
@@ -247,16 +278,18 @@ class SFAWrapParser(RSpecParser):
     def _process_channels(cls, channels):
         ret = list()
         for channel in channels:
-            new_channel = cls._process_channel(channel)
-            if not new_channel:
-                continue
-            ret.append(new_channel)
+            channel = cls._process_channel(channel)
+            if not channel: continue
+
+            channel = cls._process_resource(channel)
+            if not channel: continue
+
+            ret.append(channel)
+
         return ret
 
     @classmethod
     def _process_link(cls, link):
-        link['urn'] = link['component_id']
-        #if not 'type' in link: # XXX Overrides
         link['type'] = 'link'
         return link
 
@@ -264,10 +297,13 @@ class SFAWrapParser(RSpecParser):
     def _process_links(cls, links):
         ret = list()
         for link in links:
-            new_link = cls._process_link(link)
-            if not new_link:
-                continue
-            ret.append(new_link)
+            link = cls._process_link(link)
+            if not link: continue
+
+            link = cls._process_resource(link)
+            if not link: continue
+
+            ret.append(link)
         return ret
 
     @classmethod
@@ -360,6 +396,14 @@ class PLEParser(SFAWrapParser):
         return 3600 # s
 
     @classmethod
+    def get_resource_facility_name(cls, urn):
+        return "PlanetLab"
+
+    @classmethod
+    def get_resource_testbed_name(cls, urn):
+        return "PLE"
+
+    @classmethod
     def on_build_resource_mook(cls, resource):
         # PlanetLab now requires a node to have a list of slivers
         resource['slivers'] = [{'type': 'plab-vnode'}]
@@ -423,6 +467,14 @@ class PLEParser(SFAWrapParser):
         return sfa_leases
 
 class LaboraParser(SFAWrapParser):
+
+    @classmethod
+    def get_resource_facility_name(cls, urn):
+        return "Labora"
+
+    @classmethod
+    def get_resource_testbed_name(cls, urn):
+        return "Labora"
 
     # The only change for Labora is the tag exclusive which is a tag inside the node tag and not a property
     @classmethod
@@ -540,6 +592,14 @@ class LaboraParser(SFAWrapParser):
 class NITOSParser(SFAWrapParser):
 
     @classmethod
+    def get_resource_facility_name(cls, urn):
+        return "NITOS"
+
+    @classmethod
+    def get_resource_testbed_name(cls, urn):
+        return "NITOS"
+
+    @classmethod
     def on_build_resource_hook(cls, resource):
         resource['granularity'] = {'grain': 1800}
         return resource
@@ -547,27 +607,39 @@ class NITOSParser(SFAWrapParser):
 class WiLabtParser(SFAWrapParser):
 
     @classmethod
+    def get_resource_facility_name(cls, urn):
+        return "w-iLab.t"
+
+    @classmethod
+    def get_resource_testbed_name(cls, urn):
+        # TODO w-iLab.t (a facility with two individual testbeds).
+        return "w-iLab.t"
+
+    @classmethod
     def _process_node(cls, node):
         if node['component_id'] != 'urn:publicid:IDN+wilab2.ilabt.iminds.be+authority+cm':
+            Log.warning("Ignore WiLabt node... Explain ?")
             return None
         return SFAWrapParser._process_node(cls, node)
 
     @classmethod
     def _process_link(cls, link):
         if link['component_id'] != 'urn:publicid:IDN+wilab2.ilabt.iminds.be+authority+cm':
+            Log.warning("Ignore WiLabt link... Explain ?")
             return None
         return SFAWrapParser._process_link(cls, link)
 
     @classmethod
     def _process_channel(cls, channel):
         if channel['component_id'] != 'urn:publicid:IDN+wilab2.ilabt.iminds.be+authority+cm':
+            Log.warning("Ignore WiLabt channel... Explain ?")
             return None
         return SFAWrapParser._process_channel(cls, channel)
 
     @classmethod
     def _process_lease(cls, lease):
         if lease['component_id'] != 'urn:publicid:IDN+wilab2.ilabt.iminds.be+authority+cm':
-            print "ignored wilab lease"
+            Log.warning("Ignore WiLabt lease... Explain ?")
             return None
         return SFAWrapParser._process_lease(cls, lease)
 
@@ -663,6 +735,35 @@ class WiLabtParser(SFAWrapParser):
 
 
 class IoTLABParser(SFAWrapParser):
+
+    @classmethod
+    def get_resource_facility_name(cls, urn):
+        return "IoTLAB"
+
+    @classmethod
+    def get_resource_testbed_name(cls, urn):
+        if 'devgrenoble' in urn:
+            return 'Grenoble (dev)'
+        elif 'grenoble' in urn:
+            return 'Grenoble'
+
+        elif 'devrocquencourt' in urn:
+            return 'Rocquencourt (dev)'
+        elif 'rocquencourt' in urn:
+            return 'Rocquencourt'
+
+        elif 'devstras' in urn:
+            return 'Strasbourg (dev)'
+        elif 'stras' in urn:
+            return 'Strasbourg'
+
+        elif 'devlille' in urn:
+            return 'Lille (dev)'
+        elif 'lille' in urn:
+            return 'Lille'
+
+        else:
+            return 'N/A'
 
     @classmethod
     def on_build_resource_hook(cls, resource):
