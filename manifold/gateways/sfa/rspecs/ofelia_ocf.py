@@ -106,7 +106,12 @@ class OfeliaOcfParser(RSpecParser):
 
     @classmethod
     def build_rspec_impl(cls, slice_hrn, resources, leases):
+        """
+        Returns a dict used to build the request RSpec with xmltodict.
 
+        NOTE: since ad/request/manifest are all different, it is difficult to
+        automate translation between Manifold and RSpecs.
+        """
         # Groups
         groups = list()
         for group in resources['groups']:
@@ -138,13 +143,13 @@ class OfeliaOcfParser(RSpecParser):
                     # u'@component_manager_id': u'urn:publicid:IDN+openflow:ofam:univbris+authority+cm', 
                     u'@component_id': _datapath, # Example: u'urn:publicid:IDN+openflow:ofam:univbris+datapath+00:00:00:00:0c:21:00:0a',
                     #u'@dpid': u'00:00:00:00:0c:21:00:0a', 
-                    u'port': ports,
+                    u'openflow:port': ports,
                 }
                 datapaths.append(datapath_dict)
 
             group_dict = {
                 '@name': group['name'],
-                'datapath': datapaths,
+                'openflow:datapath': datapaths,
             }
             groups.append(group_dict)
 
@@ -165,25 +170,25 @@ class OfeliaOcfParser(RSpecParser):
                 packet_dict[k] = {'@value': v}
 
             match_dict = {
-                'use-group': groups,
-                'packet': packet_dict,
+                'openflow:use-group': groups,
+                'openflow:packet': packet_dict,
             }
             matches.append(match_dict)
 
         sliver = {
             '@email': 'support@myslice.info',       # XXX used ?
             '@description': 'TBD',                  # XXX used ?
-            'controller': {
+            'openflow:controller': {
                 '@url': resources['controller'],    # Example: 'tcp:10.216.22.51:6633'
                 '@type': 'primary',                 # TODO: support other controller types
             },
-            'group': groups,
-            'match': matches,
+            'openflow:group': groups,
+            'openflow:match': matches,
         }
             
 
         rspec_dict = cls.__rspec_request_base_dict__.copy()
-        rspec_dict['rspec']['sliver'] = sliver
+        rspec_dict['rspec']['openflow:sliver'] = sliver
 
         return rspec_dict
 

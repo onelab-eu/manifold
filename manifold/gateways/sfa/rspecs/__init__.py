@@ -1,4 +1,5 @@
 import xmltodict
+# Documentation: https://github.com/martinblech/xmltodict
 
 from types                          import FunctionType
 
