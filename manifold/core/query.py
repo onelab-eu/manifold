@@ -19,6 +19,13 @@ import copy
 import json
 import uuid
 
+ACTION_NONE    = ''
+ACTION_CREATE  = 'create'
+ACTION_GET     = 'get'
+ACTION_UPDATE  = 'update'
+ACTION_DELETE  = 'delete'
+ACTION_EXECUTE = 'execute'
+
 def uniqid (): 
     return uuid.uuid4().hex
 
@@ -150,7 +157,7 @@ class Query(object):
     #clone = copy
 
     def clear(self):
-        self.action = 'get'
+        self.action = ACTION_GET
         self.object = None
         self.filters = Filter()
         self.params  = {}

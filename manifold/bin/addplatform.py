@@ -51,20 +51,20 @@ def main():
         # Check NAME
         if name != name.lower():
             print >> sys.stderr, "%s: Invalid NAME parameter (is '%s', should be '%s')" % (program_name, name, name.lower())
-            usage()
+            usage(supported_gateways)
             sys.exit(1)
 
         # Check GATEWAY
         if supported_gateways and gateway not in supported_gateways:
             print >> sys.stderr, "%s: Invalid GATEWAY parameter (is '%s', should be in '%s')" % (program_name, gateway, "', '".join(supported_gateways))
-            usage()
+            usage(supported_gateways)
             sys.exit(1)
             
         # Check AUTH_TYPE
         supported_auth_type = ["none", "default", "user"]
         if auth_type not in supported_auth_type:
             print >> sys.stderr, "%s: Invalid AUTH_TYPE parameter (is '%s', should be in '%s')" % (program_name, auth_type, "', '".join(supported_auth_type))
-            usage()
+            usage(supported_gateways)
             sys.exit(1)
 
         # Check DISABLED
@@ -72,7 +72,7 @@ def main():
             supported_disabled = ["False", "FALSE", "NO", "0", "True", "TRUE", "YES", "1"]
             if str(sys.argv[6]) not in supported_disabled:
                 print >> sys.stderr, "%s: Invalid DISABLED parameter (is '%s', should be in '%s')" % (program_name, disabled, "', '".join(supported_disabled))
-                usage()
+                usage(supported_gateways)
                 sys.exit(1)
 
         disabled = str(sys.argv[6]) in ["False", "FALSE", "NO", "0"]

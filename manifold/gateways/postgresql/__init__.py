@@ -8,6 +8,29 @@
 #
 # Copyright (C) 2013 UPMC 
 
+# For tests:
+# $ psql -U postgres
+# postgres=# CREATE DATABASE test;
+# $ psql -U postgres -d test
+# CREATE AGGREGATE array_accum (anyelement)
+# (
+#     sfunc = array_append,
+#     stype = anyarray,
+#     initcond = '{}'
+# );
+# test=# CREATE TABLE test (
+#          id integer PRIMARY KEY,
+#          name text
+#        );
+# INSERT INTO test (id, name) VALUES (1, 'un');
+# manifold-add-platform psql psql postgresql none '{"db_user": "postgres", "db_name": "test"}' 0 
+# manifold-enable-platform psql
+# manifold-shell -z local
+# manifold>>> SELECT id, name FROM test
+# manifold>>> INSERT INTO test SET id=2, name='deux'
+# manifold>>> UPDATE test SET name="Deux" WHERE id == 2
+# manifold>>> DELETE FROM test WHERE id == 2
+
 # Some code borrowed from MyPLC PostgreSQL code
 import psycopg2
 import psycopg2.extensions
@@ -25,6 +48,7 @@ from manifold.gateways        import Gateway
 from manifold.core.announce   import Announce, Announces
 from manifold.core.table      import Table
 from manifold.core.field      import Field
+from manifold.core.query      import ACTION_CREATE, ACTION_GET, ACTION_UPDATE, ACTION_DELETE
 from manifold.core.record     import Record, Records, LastRecord
 from manifold.util.log        import Log
 from manifold.util.predicate  import and_, or_, inv, add, mul, sub, mod, truediv, lt, le, ne, gt, ge, eq, neg, contains
@@ -33,18 +57,63 @@ from manifold.util.type       import accepts, returns
 class PostgreSQLGateway(Gateway):
     __gateway_name__ = 'postgresql'
 
-    DEFAULT_DB_NAME = "postgres" 
-    DEFAULT_PORT    = 5432
+    DEFAULT_DB_NAME     = "postgres"
+    DEFAULT_DB_HOST     = "localhost"
+    DEFAULT_DB_PORT     = 5432
+    DEFAULT_DB_USER     = "postgres"
+    DEFAULT_DB_PASSWORD = ""
 
-    SQL_STR = """
+    SQL_SELECT_STR = """
     SELECT %(fields)s
         FROM %(table_name)s
         %(where)s
-    """;
+        ;
+    """
+
+    SQL_INSERT_STR = """
+    INSERT INTO %(table_name)s
+        (%(fields)s)
+        VALUES (%(values)s)
+        ;
+    """
+
+    SQL_DELETE_STR = """
+    DELETE FROM %(table_name)s
+        %(where)s
+        ;
+    """
+
+    SQL_UPDATE_STR = """
+    UPDATE %(table_name)s
+        SET %(params)s
+        %(where)s
+        ;
+    """
 
     SQL_OPERATORS = {
         eq: "="
     }
+
+    SQL_CREATE_DATABASE = """
+        CREATE DATABASE %(database_name)s;
+    """
+
+    SQL_CHECK_TABLE_EXISTS = """
+    SELECT EXISTS(
+        SELECT 1 
+        FROM   pg_catalog.pg_class c
+        JOIN   pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+        WHERE  n.nspname = 'public'
+        AND    c.relname = %(table_name)s
+    );
+    """
+    # 'public' was 'schema_name'
+
+    SQL_CREATE_TABLE = """
+        CREATE TABLE %(table_name)s (
+            %(columns)s
+        );
+    """
 
     #-------------------------------------------------------------------------------
     # Metadata 
@@ -306,11 +375,11 @@ class PostgreSQLGateway(Gateway):
             The corresponding psycopg2-compliant dictionnary
         """
         return {
-            "user"     : self.config["db_user"],
-            "password" : self.config["db_password"],
-            "database" : self.config["db_name"] if "db_name" in self.config else self.DEFAULT_DB_NAME,
-            "host"     : self.config["db_host"],
-            "port"     : self.config["db_port"] if "db_port" in self.config else self.DEFAULT_PORT 
+            "user"     : self.config.get("db_user",     self.DEFAULT_DB_USER),
+            "password" : self.config.get("db_password", self.DEFAULT_DB_PASSWORD),
+            "database" : self.config.get("db_name",     self.DEFAULT_DB_NAME),
+            "host"     : self.config.get("db_host",     self.DEFAULT_DB_HOST),
+            "port"     : self.config.get("db_port",     self.DEFAULT_DB_PORT),
         }
 
     @returns(bool)
@@ -440,7 +509,19 @@ class PostgreSQLGateway(Gateway):
         Fetch records stored in the postgresql database according to self.query
         """
         sql = PostgreSQLGateway.to_sql(self.query)
-        rows = self.selectall(sql, None)
+        if self.query.get_action() in [ACTION_GET]:
+            rows = self.selectall(sql)
+        else:
+            count = self.do(sql)
+            if self.query.get_select():
+                select_query = self.query.copy()
+                select_query.action = ACTION_GET
+                if self.query.get_action() == ACTION_DELETE:
+                    select_query.filter_by(None)
+                select_sql = PostgreSQLGateway.to_sql(select_query)
+                rows = self.selectall(select_sql)
+            else:
+                rows = list()
 
         map(self.send, Records(rows))
         self.send(LastRecord())
@@ -899,6 +980,35 @@ class PostgreSQLGateway(Gateway):
         return (PostgreSQLGateway.get_ts(ts_min), PostgreSQLGateway.get_ts(ts_max))
 
     @staticmethod
+    def to_sql_values(fields, params):
+        param_list = list()
+        for field in fields:
+            # What is the type of field ??
+            param = params.get(field)
+            if param is None:
+                param = 'NULL';
+            elif isinstance(param, StringTypes):
+                param = str(PostgreSQLGateway.quote(param))
+            else:
+                param = str(param)
+
+            param_list.append(param)
+        return ", ".join(param_list)
+
+    @staticmethod
+    def to_sql_params(params):
+        param_list = list()
+        for k, v in params.items():
+            if v is None:
+                v = 'NULL'
+            elif isinstance(v, StringTypes):
+                v = str(PostgreSQLGateway.quote(v))
+            else:
+                v = str(v)
+            param_list.append("%s = %s" % (k, v))
+        return ", ".join(param_list)
+
+    @staticmethod
     def to_sql(query):
         """
         Translate self.query in the corresponding postgresql command
@@ -908,12 +1018,33 @@ class PostgreSQLGateway(Gateway):
             A String containing a postgresql command 
         """
         where = PostgreSQLGateway.to_sql_where(query.get_where())
-        params = {
-            "fields"     : ", ".join(query.get_select()),
-            "table_name" : query.get_from(),
-            "where"      : "WHERE %s" % where if where else ""
+        action = query.get_action()
+        params = query.get_params()
+        fields = query.get_select()
+        sql_params = {
+            # all
+            "table_name": query.get_from(),
+            # SELECT, INSERT
+            "fields"    : ", ".join(fields),
+            # INSERT
+            "values"    : PostgreSQLGateway.to_sql_values(fields, params),
+            # SELECT, DELETE, UPDATE
+            "where"     : "WHERE %s" % where if where else "",
+            # UPDATE
+            "params"    : PostgreSQLGateway.to_sql_params(params),
         }
-        sql = PostgreSQLGateway.SQL_STR % params
+
+        if action == ACTION_CREATE:
+            sql = PostgreSQLGateway.SQL_INSERT_STR % sql_params
+        elif action == ACTION_GET:
+            sql = PostgreSQLGateway.SQL_SELECT_STR % sql_params
+        elif action == ACTION_UPDATE:
+            sql = PostgreSQLGateway.SQL_UPDATE_STR % sql_params
+        elif action == ACTION_DELETE:
+            sql = PostgreSQLGateway.SQL_DELETE_STR % sql_params
+        else:
+            raise Exception, "Not implemented"
+
         return sql
 
     @staticmethod
@@ -1082,3 +1213,7 @@ class PostgreSQLGateway(Gateway):
         announces_pgsql = self.tweak_announces(announces_pgsql)
         return announces_pgsql
 
+    def table_exists(self, table_name):
+        ret, = self.selectall(PostgreSQLGateway.SQL_CHECK_TABLE_EXISTS % (table_name,))
+        print "table exists", ret
+        return ret
