@@ -363,7 +363,6 @@ class SFAGateway(Gateway):
         try:
             account = self._get_user_account(user_email, platform_name)
         except Exception, e:
-            print e
             Log.info("No account for user %s. Ignoring platform %s" % (user_email, platform_name))
             defer.returnValue((None, None))
 
@@ -1358,7 +1357,6 @@ class SFAGateway(Gateway):
        
         parser = yield self.get_parser()
 
-        Log.warning("MANIFEST RSPEC FROM ListResources/Describe from %r : %r" % (self.platform, rspec_string))
         if slice_hrn:
             Log.warning("MANIFEST RSPEC FROM ListResources/Describe from %r : %r" % (self.platform, rspec_string))
         rsrc_slice = parser.parse(rspec_string, rspec_version, slice_urn)
@@ -2296,7 +2294,6 @@ class SFAGateway(Gateway):
             defer.returnValue(config)
 
         Log.debug("Managing %r account on %s..." % (user_email, platform_name))
-        print "Managing %r account on %s..." % (user_email, platform_name)
 
         config   = self._get_user_config(user_email, platform_name)
         old_config = config
@@ -2402,7 +2399,7 @@ class SFAGateway(Gateway):
             #return {}
 
         if not 'user_private_key' in config:
-            print "I: SFA::manage: Generating user private key for user", user_email
+            Log.debug("I: SFA::manage: Generating user private key for user %s" % (user_email,))
             k = Keypair(create=True)
             config['user_public_key'] = k.get_pubkey_string()
             config['user_private_key'] = k.as_pem()
@@ -2441,10 +2438,8 @@ class SFAGateway(Gateway):
         if need_gid or need_slice_list:
             if need_gid:
                 Log.debug("Generating GID for user %s" % user_email)
-                print "Generating GID for user %s" % user_email
             if need_slice_list:
                 Log.debug("Generating slice list for user %s" % user_email)
-                print "Generating slice list for user %s" % user_email
 
             records = yield registry_proxy.Resolve(config['user_hrn'].encode('latin1'), config['user_credential'])
             if not records:
@@ -2458,7 +2453,6 @@ class SFAGateway(Gateway):
             if need_slice_list:
                 try:
                     config['slice_list'] = record['reg-slices']
-                    print "SLICES = ", config['slice_list']
                 except Exception, e:
                     Log.warning("User %s has no slices" % str(config['user_hrn']))
 
@@ -2529,8 +2523,8 @@ def sfa_trust_credential_delegate(self, delegee_gidfile, caller_keyfile, caller_
 
     # the hrn of the user who will be delegated to
     # @loic corrected
-    print "gid type = ",type(delegee_gidfile)
-    print delegee_gidfile.__class__
+    #print "gid type = ",type(delegee_gidfile)
+    #print delegee_gidfile.__class__
     if not isinstance(delegee_gidfile,GID):
         delegee_gid = GID(filename=delegee_gidfile)
     else:

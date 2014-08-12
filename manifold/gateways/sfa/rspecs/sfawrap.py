@@ -308,7 +308,6 @@ class SFAWrapParser(RSpecParser):
 
     @classmethod
     def _process_lease(cls, lease):
-        print "new lease", lease
         lease['resource'] = lease.pop('component_id')
         lease['slice']    = lease.pop('slice_id')
         lease['start_time'] = int(lease['start_time'])

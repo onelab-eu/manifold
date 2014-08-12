@@ -68,6 +68,7 @@ class NITOSBrokerParser(RSpecParser):
     RESOURCE_KEY = 'urn' # 'resource_hrn'
 
     # HOOKS TO RUN OPERATIONS ON GIVEN FIELDS
+    @staticmethod
     def channel_urn_hrn_exclusive(value):
         output = {}
         # XXX HARDCODED FOR NITOS
@@ -89,7 +90,7 @@ class NITOSBrokerParser(RSpecParser):
             'component_id': lambda value : {'hrn': Xrn(value).get_hrn(), 'urn': value}
         },
         'channel': {
-            '*': lambda value: channel_urn_hrn_exclusive(value)
+            '*': lambda value: NITOSBrokerParser.channel_urn_hrn_exclusive(value)
         },
         '*': {
             'exclusive': lambda value: {'exclusive': value.lower() not in ['false']}

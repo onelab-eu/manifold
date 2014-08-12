@@ -109,7 +109,6 @@ class RSpecParser(object):
         Returns a property or a set of properties
         {key: value} or {key: (value, unit)}
         """
-        Log.tmp("prop_from_elt(element=%r, prefix=%r, list_elements=%r)" % (element, prefix, list_elements))
         ret = {}
         if prefix: prefix = "%s." % prefix
         tag = self.get_element_tag(element)
@@ -157,8 +156,6 @@ class RSpecParser(object):
         # - units
         # - lists
  
-        Log.tmp("  > RETURN: %r" % ret)
-
         return ret
  
     @classmethod
@@ -166,7 +163,6 @@ class RSpecParser(object):
         """
         Returns an object
         """
-        Log.tmp("dict_from_elt(network=%r, element=%r, list_elements=%r)" % (network, element, list_elements))
         ret            = {}
         ret['network'] = network
         ret['type']    = self.get_element_tag(element)
@@ -184,7 +180,6 @@ class RSpecParser(object):
                 else:
                     ret[k] = v
  
-        Log.tmp("  > RETURN: %r" % ret)
         return ret
  
     # XXX MIGHT NOT WORK AS IS
