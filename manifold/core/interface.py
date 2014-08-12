@@ -81,7 +81,13 @@ class Interface(object):
             platform_name = platform['platform']
             args = [None, platform_name, None, platform_config, {}, None]
             gateway = Gateway.get(platform['gateway_type'])(*args)
-            announces = gateway.get_metadata()
+            try:
+                announces = gateway.get_metadata()
+            except Exception, e:
+                # ROUTERV2
+                Log.warning("Cannot get metadata for platform %s: %s" % (platform_name, e))
+                # XXX Disable platform ?
+                announces = list()
             self.metadata[platform_name] = list() 
             for announce in announces:
                 self.metadata[platform_name].append(announce)

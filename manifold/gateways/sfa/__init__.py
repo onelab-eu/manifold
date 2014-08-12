@@ -360,7 +360,6 @@ class SFAGateway(Gateway):
     #
     @defer.inlineCallbacks
     def get_user_config(self, user_email, platform_name):
-        print "********** GET USER CONFIG **********"
         try:
             account = self._get_user_account(user_email, platform_name)
         except Exception, e:
@@ -368,7 +367,6 @@ class SFAGateway(Gateway):
             Log.info("No account for user %s. Ignoring platform %s" % (user_email, platform_name))
             defer.returnValue((None, None))
 
-        print "account", account
         user_config = None
         if account.auth_type == 'reference':
             ref_platform_name = json.loads(account.config)['reference_platform']

@@ -695,7 +695,6 @@ class Table(object):
                 if v.get_name() == "lease":
                     continue
                 p = Predicate(field.get_name(), eq, vfield.get_name())
-                print "(a)"
                 relations.add(Relation(Relation.types.LINK_1N, p, name=field.get_name())) # LINK_1N_FORWARD ?
                 continue
         
@@ -718,7 +717,6 @@ class Table(object):
                 intersection = intersection[0]
             p = Predicate(intersection, eq, intersection)
 
-            print "(b)"
             relations.add(Relation(Relation.types.LINK_1N, p, name=v.get_name())) # LINK_1N_FORWARD # Name ?
             # we don't continue otherwise we will find subsets of this set
             # note: this code might replace following code operating on a single field
@@ -745,7 +743,6 @@ class Table(object):
                     elif u.is_child_of(v):
                          relations.add(Relation(Relation.types.PARENT, p))
                     else:
-                        print "(c)"
                         relations.add(Relation(Relation.types.LINK_1N, p, name=v.get_name())) # LINK_1N_BACKWARDS
 
         return relations
