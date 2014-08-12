@@ -18,18 +18,54 @@
 #     stype = anyarray,
 #     initcond = '{}'
 # );
-# test=# CREATE TABLE test (
-#          id integer PRIMARY KEY,
-#          name text
-#        );
-# INSERT INTO test (id, name) VALUES (1, 'un');
+# CREATE SEQUENCE test_seq START 1;
+# CREATE TABLE test (
+#     test_id integer PRIMARY KEY DEFAULT nextval('test_seq'),
+#     name text
+# );
+# CREATE TABLE trans (
+#     trans_id integer PRIMARY KEY REFERENCES test,
+#     en_name text 
+# );
+
+# NOTE: A table should have a primary key, and references to other tables
+#
+# Single table queries:
+#
+# INSERT INTO test (test_id, name) VALUES (1, 'un');
 # manifold-add-platform psql psql postgresql none '{"db_user": "postgres", "db_name": "test"}' 0 
 # manifold-enable-platform psql
 # manifold-shell -z local
-# manifold>>> SELECT id, name FROM test
+# manifold>>> SELECT test_id, name FROM test
 # manifold>>> INSERT INTO test SET id=2, name='deux'
-# manifold>>> UPDATE test SET name="Deux" WHERE id == 2
-# manifold>>> DELETE FROM test WHERE id == 2
+# manifold>>> UPDATE test SET name="Deux" WHERE test_id == 2
+# manifold>>> DELETE FROM test WHERE test_id == 2
+#
+# Multiple table queries:
+
+# insert into test SET name = "quatre", en_name = "four" SELECT name, en_name
+#   [{'en_name': u'four', 'name': u'quatre'}]
+# manifold>>> select name, en_name from test where name == "quatre"
+#   [{'en_name': u'four', 'name': u'quatre'}]
+#
+# BUGS:
+#
+# [ ] Infinite loop when doing a SELECT id...
+#
+#
+# SFA related tests
+#
+# CREATE TABLE slice (
+#     slice_urn text PRIMARY KEY,
+#     authority_hrn text
+# );
+# CREATE TABLE slice_ext (
+#     slice_hrn text PRIMARY KEY REFERENCES slice,
+#     description text
+# );
+#
+
+
 
 # Some code borrowed from MyPLC PostgreSQL code
 import psycopg2
@@ -72,8 +108,9 @@ class PostgreSQLGateway(Gateway):
 
     SQL_INSERT_STR = """
     INSERT INTO %(table_name)s
-        (%(fields)s)
-        VALUES (%(values)s)
+        (%(param_fields)s)
+        VALUES (%(param_values)s)
+        %(returning)s
         ;
     """
 
@@ -509,7 +546,7 @@ class PostgreSQLGateway(Gateway):
         Fetch records stored in the postgresql database according to self.query
         """
         sql = PostgreSQLGateway.to_sql(self.query)
-        if self.query.get_action() in [ACTION_GET]:
+        if self.query.get_action() in [ACTION_GET, ACTION_CREATE]:
             rows = self.selectall(sql)
         else:
             count = self.do(sql)
@@ -980,20 +1017,23 @@ class PostgreSQLGateway(Gateway):
         return (PostgreSQLGateway.get_ts(ts_min), PostgreSQLGateway.get_ts(ts_max))
 
     @staticmethod
-    def to_sql_values(fields, params):
-        param_list = list()
-        for field in fields:
-            # What is the type of field ??
-            param = params.get(field)
-            if param is None:
-                param = 'NULL';
-            elif isinstance(param, StringTypes):
-                param = str(PostgreSQLGateway.quote(param))
-            else:
-                param = str(param)
+    def to_sql_params_tuple(params):
+        """
+        Returns the parameters keys in the field order
+        """
+        field_list = list()
+        value_list = list()
+        for k, v in params.items():
+            field_list.append(k)
 
-            param_list.append(param)
-        return ", ".join(param_list)
+            if v is None:
+                v = 'NULL'
+            elif isinstance(v, StringTypes):
+                v = str(PostgreSQLGateway.quote(v))
+            else:
+                v = str(v)
+            value_list.append(v)
+        return ", ".join(field_list), ", ".join(value_list)
 
     @staticmethod
     def to_sql_params(params):
@@ -1021,17 +1061,20 @@ class PostgreSQLGateway(Gateway):
         action = query.get_action()
         params = query.get_params()
         fields = query.get_select()
+        param_fields, param_values = PostgreSQLGateway.to_sql_params_tuple(params)
         sql_params = {
             # all
             "table_name": query.get_from(),
+            "fields": ", ".join(fields),
             # SELECT, INSERT
-            "fields"    : ", ".join(fields),
+            "param_fields"    : param_fields,
             # INSERT
-            "values"    : PostgreSQLGateway.to_sql_values(fields, params),
+            "param_values"    : param_values,
             # SELECT, DELETE, UPDATE
             "where"     : "WHERE %s" % where if where else "",
             # UPDATE
             "params"    : PostgreSQLGateway.to_sql_params(params),
+            "returning" : "RETURNING %s" % ", ".join(fields) if fields else "",
         }
 
         if action == ACTION_CREATE:

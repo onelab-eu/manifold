@@ -71,6 +71,13 @@ class AST(object):
         """
         return self.get_root() == None
 
+    def inject_insert(self, params):
+        """
+        Transform a SELECT query plan in an INSERT query plan (=
+        route params).
+        """
+        self.root.inject_insert(params)
+
     #@returns(AST)
     def From(self, platform, query, capabilities, key):
         """

@@ -1,5 +1,5 @@
 from types                         import StringTypes
-from manifold.core.query           import Query
+from manifold.core.query           import Query, ACTION_CREATE
 from manifold.operators            import Node
 from manifold.operators.selection  import Selection   # XXX
 from manifold.operators.projection import Projection  # XXX
@@ -64,6 +64,11 @@ class From(Node):
         #    self.get_query().get_from(),
         #    self.get_query().get_where()
         #)
+
+    def inject_insert(self, params):
+        query = self.get_query()
+        query.action = ACTION_CREATE
+        query.params = params
 
     #@returns(From)
     def inject(self, records, key, query):

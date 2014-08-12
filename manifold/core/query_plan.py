@@ -17,20 +17,21 @@
 # adjacency_iter(), but the edges() method is often more convenient.
 
 import copy, random
-from types                         import StringTypes
-from twisted.internet.defer        import Deferred, DeferredList
+from types                          import StringTypes
+from twisted.internet.defer         import Deferred, DeferredList
 
-from manifold.core.stack           import Stack
-from manifold.core.explore_task    import ExploreTask
+from manifold.core.stack            import Stack
+from manifold.core.explore_task     import ExploreTask
 
-from manifold.core.ast             import AST
-from manifold.core.filter          import Filter
-from manifold.core.result_value    import ResultValue
-from manifold.core.table           import Table 
-from manifold.operators.From       import From
-from manifold.util.callback        import Callback
-from manifold.util.log             import Log
-from manifold.util.type            import returns, accepts
+from manifold.core.ast              import AST
+from manifold.core.filter           import Filter
+from manifold.core.query            import ACTION_CREATE
+from manifold.core.result_value     import ResultValue
+from manifold.core.table            import Table 
+from manifold.operators.From        import From
+from manifold.util.callback         import Callback
+from manifold.util.log              import Log
+from manifold.util.type             import returns, accepts
 
 class QueryPlan(object):
     """
@@ -87,7 +88,7 @@ class QueryPlan(object):
 
         ast, sq_rename_dict = ast_sq_rename_dict
         #print "QUERY PLAN (before optimization):"
-        #ast.dump()
+        #print ast.dump()
         new_query = query.copy()
 
         # Final rename
@@ -100,20 +101,20 @@ class QueryPlan(object):
         new_query.fields |= additional_fields
         new_query.fields -= removed_fields
 
-        ast.optimize(new_query)
+        if query.get_action() == ACTION_CREATE:
+            ast.inject_insert(query.get_params())
         self.inject_at(new_query)
+        ast.optimize(new_query)
         self.ast = ast
     
         # Update the main query to add applicative information such as action and params
-        # Update the main query to add applicative information such as action and params
+        # XXX THIS IS WRONG !! XXX
         # NOTE: I suppose params cannot have '.' inside
-        for from_node in self.froms:
-            q = from_node.get_query()
-            if q.get_from() == query.get_from():
-                q.action = query.get_action()
-                q.params = query.get_params()
-
-
+        #for from_node in self.froms:
+        #    q = from_node.get_query()
+        #    if q.get_from() == query.get_from():
+        #        q.action = query.get_action()
+        #        q.params = query.get_params()
 
         # For example "UPDATE slice SET resource", since we have a backwards relation, we need update in the children query
         # This should be done when the query is forwarded through the query plan (routerv2)

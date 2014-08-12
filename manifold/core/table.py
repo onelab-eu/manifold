@@ -599,7 +599,12 @@ class Table(object):
         u = self
         v = table
         try:
-            return u.keys.one().get_type() == v.keys.one().get_type() and u.get_name() == u.keys.one().get_field_name()
+            # CONDITION 1: ?
+            condition_1 = u.keys.one().get_type() == v.keys.one().get_type() and u.get_name() == u.keys.one().get_field_name()
+            # CONDITION 2: u is child of v  <=>  u references v from a field which is key
+            condition_2 = u.keys.one().get_type() == v.get_name()
+
+            return condition_1 or condition_2
         except:
             return False
 
@@ -690,6 +695,7 @@ class Table(object):
                 if v.get_name() == "lease":
                     continue
                 p = Predicate(field.get_name(), eq, vfield.get_name())
+                print "(a)"
                 relations.add(Relation(Relation.types.LINK_1N, p, name=field.get_name())) # LINK_1N_FORWARD ?
                 continue
         
@@ -712,6 +718,7 @@ class Table(object):
                 intersection = intersection[0]
             p = Predicate(intersection, eq, intersection)
 
+            print "(b)"
             relations.add(Relation(Relation.types.LINK_1N, p, name=v.get_name())) # LINK_1N_FORWARD # Name ?
             # we don't continue otherwise we will find subsets of this set
             # note: this code might replace following code operating on a single field
@@ -738,6 +745,7 @@ class Table(object):
                     elif u.is_child_of(v):
                          relations.add(Relation(Relation.types.PARENT, p))
                     else:
+                        print "(c)"
                         relations.add(Relation(Relation.types.LINK_1N, p, name=v.get_name())) # LINK_1N_BACKWARDS
 
         return relations

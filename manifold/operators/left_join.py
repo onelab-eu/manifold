@@ -1,11 +1,12 @@
-from manifold.core.filter          import Filter
-from manifold.core.record          import Record, LastRecord
-from manifold.operators            import Node
-from manifold.operators.selection  import Selection
-from manifold.operators.projection import Projection
-from manifold.util.predicate       import Predicate, eq, included
-from manifold.util.type            import returns
-from manifold.util.log             import Log
+from manifold.core.filter           import Filter
+from manifold.core.query            import ACTION_CREATE
+from manifold.core.record           import Record, LastRecord
+from manifold.operators             import Node
+from manifold.operators.selection   import Selection
+from manifold.operators.projection  import Projection
+from manifold.util.predicate        import Predicate, eq, included
+from manifold.util.type             import returns
+from manifold.util.log              import Log
 
 #------------------------------------------------------------------
 # LEFT JOIN node
@@ -95,6 +96,26 @@ class LeftJoin(Node):
 #            q.filters |= child.filters
 #            q.fields  |= child.fields
 #        return q
+
+    def inject_insert(self, params):
+        # In routerv2, this is performed by routing the query 
+        left_fields = self.left.get_query().get_select()
+        right_fields = self.right.get_query().get_select()
+        left_params = dict()
+        right_params = dict()
+        for k, v in params.items():
+            if k in left_fields:
+                left_params[k] = v
+            elif k in right_fields:
+                right_params[k] = v
+            else:
+                raise Exception, "Field not found"
+
+        if left_params:
+            self.left.inject_insert(left_params)
+        if right_params:
+            self.right.inject_insert(right_params)
+
         
     #@returns(LeftJoin)
     def inject(self, records, key, query):
@@ -170,8 +191,19 @@ class LeftJoin(Node):
             # We need to insert a filter on the key in the right member
             predicate = Predicate(self.predicate.get_value(), included, self.left_map.keys())
             
-            self.right = self.right.optimize_selection(Filter().filter_by(predicate))
-            self.right.set_callback(self.right_callback) # already done in __init__ ?
+            if self.right.get_query().action == ACTION_CREATE:
+                # XXX If multiple insert, we need to match the right ID with the
+                # right inserted items
+                if len(self.left_map.keys()) > 1:
+                    raise NotImplemented
+
+                # Pass the id as a param
+                key = self.left_map.keys()[0]
+                query = self.right.get_query()
+                query.params[self.predicate.get_value()] = key
+            else: # pass the id as a filter which is the normal behaviour
+                self.right = self.right.optimize_selection(Filter().filter_by(predicate))
+                self.right.set_callback(self.right_callback) # already done in __init__ ?
 
             self.left_done = True
             self.right.start()
