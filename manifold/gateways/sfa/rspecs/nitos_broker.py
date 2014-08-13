@@ -151,6 +151,8 @@ class NITOSBrokerParser(RSpecParser):
                 if resource_type in cls.MAP:
                     resource = cls.dict_rename(resource, resource_type)
                 resource['network_hrn'] = network
+                resource['facility_name'] = 'NITOS'
+                resource['testbed_name'] = 'NITOS'
                 resources.append(resource)
 
                 # Leases
@@ -267,8 +269,6 @@ class NITOSBrokerParser(RSpecParser):
                     'urn'           : urn,
                     'hrn'           : hrn,
                     'type'          : type,
-                    'facility_name' : 'NITOS',
-                    'testbed_name'  : 'NITOS',
                 }
             # What information do we need in resources for REQUEST ?
             resource_type = resource.pop('type')
