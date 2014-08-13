@@ -88,10 +88,10 @@ class MyPLCGateway(Gateway):
         from twisted.internet import ssl
         self._proxy.setSSLClientContext(ssl.ClientContextFactory())
 
-        ReactorThread().start_reactor()
-
-    def terminate(self):
-        ReactorThread().stop_reactor()
+#         ReactorThread().start_reactor()
+# 
+#     def terminate(self):
+#         ReactorThread().stop_reactor()
 
     #---------------------------------------------------------------------------
     # Internal methods
