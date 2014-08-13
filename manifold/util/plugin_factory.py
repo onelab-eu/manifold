@@ -52,4 +52,3 @@ class PluginFactory(type):
                 module = __import__(modname, fromlist="dummy")
             except Exception, e:
                 Log.info("Could not load %s : %s" % (modname, e))
-                print "Could not load %s : %s" % (modname, e)
