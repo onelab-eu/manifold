@@ -68,7 +68,7 @@
 # references to the SFA classes. Without these declarations, the gateway relies
 # on REFERENCES, which in our case does not exist in the database.
 
-class authority {
+class authority_data {
     authority authority_hrn;
 
     string name;
@@ -90,7 +90,7 @@ class authority {
     CAPABILITY(join, selection, projection);
 };
 
-class slice {
+class slice_data {
     slice slice_urn;   /**< Slice Unique Resource Name */
 
 	string url;
@@ -100,7 +100,7 @@ class slice {
     CAPABILITY(join, selection, projection);
 };
 
-class user {
+class user_data {
     user user_hrn;
 
 	string first_name;

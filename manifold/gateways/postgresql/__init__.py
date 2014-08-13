@@ -574,7 +574,16 @@ class PostgreSQLGateway(Gateway):
         s = PostgreSQLGateway.get_colliding_announces(announces_pgsql, announces_h)
         if s:
             Log.warning("merge_announces: colliding announces for table(s): {%s}" % ", ".join(s))
-        announces = announces_pgsql + announces_h
+
+        announces  = list()
+        announces.extend(announces_h)
+        table_names = [announce.get_table().get_name() for announce in announces_h]
+        for announce_pgsql in announces_pgsql:
+            table_name = announce_pgsql.get_table().get_name()
+            if table_name not in table_names:
+                announces.append(announces_pgsql)
+                table_names.append(table_name)
+        
         return announces
 
     @returns(list)
