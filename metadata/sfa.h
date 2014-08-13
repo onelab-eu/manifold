@@ -1,5 +1,5 @@
 class slice {
-    const text slice_urn;   /**< Slice Human Readable name */
+    const text slice_urn;   /**< Slice Unique Resource Name */
     const text slice_hrn;   /**< Slice Human Readable name */
     const text slice_type;
     user        users[];        /**< List of users associated to the slice */
