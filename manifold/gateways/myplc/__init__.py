@@ -10,7 +10,9 @@
 # Copyright (C) UPMC
 
 # Example:
-# manifold-add-platform ple-myplc ple-myplc myplc none '{"username": "XXX", "password": "XXX"}' 0
+# manifold-add-platform ple-myplc ple-myplc myplc none '{}' 0
+# manifold-enable-platform ple-myplc
+# manifold-add-account admin ple-myplc user '{"username": "XXX", "password": "XXX"}'
 
 from types                              import StringTypes
 
@@ -158,8 +160,8 @@ class MyPLCGateway(Gateway):
     def _get_auth(self):
         return {
             'AuthMethod': 'password',
-            'Username'  : self.config['username'],
-            'AuthString': self.config['password'],
+            'Username'  : self.user_config['username'],
+            'AuthString': self.user_config['password'],
         }
 
     def start(self):
