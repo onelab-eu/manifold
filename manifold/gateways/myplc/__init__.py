@@ -1,13 +1,16 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Gateway managing MyPLC / MyPLC
+# Gateway managing MyPLC 
 #   http://www.planet-lab.eu
 #
 # Jordan Auge       <jordan.auge@lip6.fr>
 # Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 #
 # Copyright (C) UPMC
+
+# Example:
+# manifold-add-platform ple-myplc ple-myplc myplc none '{"username": "XXX", "password": "XXX"}' 0
 
 from types                              import StringTypes
 
