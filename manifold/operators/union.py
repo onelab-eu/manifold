@@ -127,7 +127,7 @@ class Union(Node):
         key_value = Record.get_value(record, key)
         
         if key_value in self.key_map:
-            Log.info("UNION::child_callback merged duplicate records: %r" % record)
+            Log.debug("UNION::child_callback merged duplicate records: %r" % record)
             prev_record = self.key_map[key_value]
             for k, v in record.items():
                 if not k in prev_record:
