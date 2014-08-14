@@ -436,7 +436,6 @@ class SFAGateway(Gateway):
 
         except Exception, e:
             print "EXC in boostrap", e
-            import traceback
             traceback.print_exc()
 
 
@@ -605,7 +604,7 @@ class SFAGateway(Gateway):
                 except Exception, why:
                     print "E: ", why
                     version = None
-                    print traceback.print_exc()
+                    traceback.print_exc()
 
                 if version:
                     output.append(version)
@@ -894,6 +893,8 @@ class SFAGateway(Gateway):
     @defer.inlineCallbacks
     def create_object(self, filters, params, fields):
 
+        # XXX does not support object creation with URNs
+
         # If No Registry RM return
         if not self.registry:
             defer.returnValue([])
@@ -932,7 +933,13 @@ class SFAGateway(Gateway):
             object_gid = yield self.registry.Register(params, auth_cred)
         except Exception, e:
             raise Exception, 'Failed to create object: record possibly already exists: %s' % e
-        defer.returnValue([{'hrn': params['hrn'], 'gid': object_gid}])
+
+        # We need URN which is the key... until we support better fields
+        hrn = params['hrn']
+        urn = hrn_to_urn(hrn, self.query.object)
+        
+        # We have to send back reg-urn as would have SFA
+        defer.returnValue([{'hrn': hrn, 'reg-urn': urn, 'gid': object_gid}])
 
     create_user      = create_object
     create_slice     = create_object
@@ -1146,7 +1153,6 @@ class SFAGateway(Gateway):
                     d = _self.interface.forward(query_rm_fields, {'user':_self.user, 'cache': 'exact'}, is_deferred = True)
                 except Exception, e:
                     print e
-                    import traceback
                     traceback.print_exc()
                 d.addCallback(cb)
 
@@ -1384,7 +1390,6 @@ class SFAGateway(Gateway):
             defer.returnValue(result.get('resource', dict()))
         except Exception, e: # TIMEOUT
             Log.warning("Exception in get_resource: %s" % e)
-            import traceback
             traceback.print_exc()
             defer.returnValue(list())
 
@@ -1395,7 +1400,6 @@ class SFAGateway(Gateway):
             defer.returnValue(result.get('lease', dict()))
         except Exception, e: # TIMEOUT
             Log.warning("Exception in get_lease: %s" % e)
-            import traceback
             traceback.print_exc()
             defer.returnValue(list())
 
@@ -1637,7 +1641,6 @@ class SFAGateway(Gateway):
 
         except Exception, e:
             print "EXCEPTION BUILDING RSPEC", e
-            import traceback
             traceback.print_exc()
             rspec = ''
             raise
@@ -1936,6 +1939,8 @@ class SFAGateway(Gateway):
         #assert not params
         #assert not fields
 
+        # XXX does not work with urns
+
         dict_filters = filters.to_dict()
         if filters.has(self.query.object+'_hrn'):
             object_hrn = dict_filters[self.query.object+'_hrn']
@@ -2159,6 +2164,7 @@ class SFAGateway(Gateway):
 
             fields = q.fields # Metadata.expand_output_fields(q.object, list(q.fields))
             Log.debug("SFA CALL START %s_%s" % (q.action, q.object), q.filters, q.params, fields)
+
             records = yield getattr(self, "%s_%s" % (q.action, q.object))(q.filters, q.params, fields)
 
             if q.object in self.map_fields:
