@@ -84,6 +84,10 @@ class Union(Node):
         for i, child in enumerate(self.children):
             child.start()
 
+    def inject_insert(self, params):
+        for i, child in enumerate(self.children):
+            self.children[i] = child.inject_insert(params)
+
     def inject(self, records, key, query):
         """
         \brief Inject record / record keys into the node
