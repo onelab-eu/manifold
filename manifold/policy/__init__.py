@@ -13,7 +13,6 @@ import json
 from manifold.core.query    import Query
 from manifold.policy.target import Target, TargetValue
 from manifold.policy.rule   import Rule
-from manifold.policy.target.cache.entry import Entry
 from manifold.util.log      import Log
 
 class Policy(object):
@@ -80,7 +79,7 @@ class Policy(object):
             cache = self._interface.get_cache(annotations)
             # XXX TEMP HACK
             try:
-                cache.add_entry(query, Entry())
+                cache.new_entry(query)
             except Exception,e: 
                 Log.warning(e)
 

@@ -26,4 +26,5 @@ class DBStorage(Storage):
         cb = Callback()
         gw.set_callback(cb)
         gw.start()
+        print "storage get results !!!!!!!!!"
         return cb.get_results()

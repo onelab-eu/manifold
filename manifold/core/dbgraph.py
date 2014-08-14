@@ -89,7 +89,9 @@ class DBGraph(object):
             Log.debug("NEW EDGE %s" % self.print_arc(u, v))
 
             relations_str = [ r.get_str_type() for r in relations]
-            print '%s -> %s [ label="%s" ]' % (u.get_name(), v.get_name(), relations_str)
+
+# DOT FORMAT FOR plot_metadata snippet
+#            print '%s -> %s [ label="%s" ]' % (u.get_name(), v.get_name(), relations_str)
 
 #        if relation_uv:
 #            (type, fields_u) = relation_uv

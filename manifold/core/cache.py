@@ -1,6 +1,6 @@
 from manifold.util.singleton            import Singleton
 from manifold.util.lattice              import Lattice
-from manifold.policy.target.cache.entry import Entry
+from manifold.core.cache_entry          import Entry
 from manifold.core.query_plan           import QueryPlan
 
 class Cache(object):
@@ -19,19 +19,36 @@ class Cache(object):
     
     def invalidate_entry(self, query):
         return self._lattice.invalidate(query, recursive=True)
+
+    def new_entry(self, query):
+        self.add_entry(query, Entry())
     
     def add_entry(self, query, entry):
         self._lattice.add(query, entry)
 
+    def last_record(self, query):
+        entry = self.get_entry(query)
+        if not entry:
+            if not create:
+                raise Exception, "Query not found in cache: %r" % query
+            self.add_entry(query, Entry())
+        entry.set_last_record()
+
     def append_records(self, query, records, create=False):
-        if not isinstance(records, list):
-            records = [records]
         entry = self.get_entry(query)
         if not entry:
             if not create:
                 raise Exception, "Query not found in cache: %r" % query
             self.add_entry(query, Entry())
         entry.set_records(records)
+
+    def append_record(self, query, record, create=False):
+        entry = self.get_entry(query)
+        if not entry:
+            if not create:
+                raise Exception, "Query not found in cache: %r" % query
+            self.add_entry(query, Entry())
+        entry.append_record(record)
 
     def get_best_query_plan(self, query, allow_processing = False):
         """

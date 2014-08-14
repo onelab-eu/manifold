@@ -35,9 +35,13 @@ class Record(collections.MutableMapping):
     def set_annotation(self, key, value):
         self._annotations[key] = value
 
-    def get_annotation(self, key = None):
-        if key:
-            return self._annotations.get(key)
+    def set_annotations(self, annotations):
+        self._annotations = annotations
+
+    def get_annotation(self, key):
+        return self._annotations.get(key)
+
+    def get_annotations(self):
         return self._annotations
 
     def __iter__(self):

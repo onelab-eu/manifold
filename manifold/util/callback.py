@@ -5,8 +5,7 @@ import threading
 #------------------------------------------------------------------
 
 class Callback:
-    def __init__(self, deferred=None, router=None, cache_id=None):
-    #def __init__(self, deferred=None, event=None, router=None, cache_id=None):
+    def __init__(self, deferred=None, router=None, cache_id=None, store_empty=False):
         self.results = []
         self._deferred = deferred
 
@@ -18,13 +17,19 @@ class Callback:
         # Used for caching...
         self.router = router
         self.cache_id = cache_id
+        self.store_empty = store_empty
 
     def __call__(self, record):
         # End of the list of records sent by Gateway
+        # XXX routerv2 : add last record to results
+
+        if self.store_empty or not record.is_last():
+            # In routerv2, just avoid empty record
+            self.results.append(record)
+
         if record.is_last():
             if self.cache_id:
                 # Add query results to cache (expires in 30min)
-                #print "Result added to cached under id", self.cache_id
                 self.router.cache[self.cache_id] = (self.results, time.time() + CACHE_LIFETIME)
 
             if self._deferred:
@@ -35,8 +40,6 @@ class Callback:
                 self.event.set()
             return self.event
 
-        # Not LAST_RECORD add the value to the results
-        self.results.append(record)
 
     def wait(self):
         self.event.wait()

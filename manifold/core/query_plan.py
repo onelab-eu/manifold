@@ -271,7 +271,9 @@ class QueryPlan(object):
         # create a Callback object with deferred object as arg
         # manifold/util/callback.py 
         d = Deferred() if is_deferred else None
-        cb = Callback(d)
+        # We explicitely ask the callback to store the last record because it
+        # can have interesting annotations, such as for the cache.
+        cb = Callback(d, store_empty = True)
 
         # Start AST = Abstract Syntax Tree 
         # An AST represents a query plan

@@ -27,6 +27,10 @@ class Entry(object):
     back to 3.
     """
 
+    # XXX What happends in case of error
+    # XXX How to distinguish from query with no record
+    # XXX What about incomplete queries
+
     def __init__(self, records=None):
         self._created  = time.time()
         self._updated  = self._created
@@ -46,29 +50,26 @@ class Entry(object):
             for record in records:
                 operator.child_callback(record)
             operator.child_callback(LastRecord())
+
     def has_query_in_progress(self):
         return self._pending_records is not None
 
     def has_pending_records(self):
         return self._pending_records
 
-    def append_records(self, records):
-        if not isinstance(records, list):
-            records = [records]
+    def append_record(self, record):
+        if record.is_last():
+            # Move all pending records to records...
+            self._records = self._pending_records
+            self._pending_records = None # None means no query started
+            # ... and inform interested operators
+        else:
+            # Add the records in the pending list...
+            self._pending_records.append(record)
+            # ... and inform interested operators
 
-        for record in records:
-            if record.is_last():
-                # Move all pending records to records...
-                self._records = self._pending_records
-                self._pending_records = None # None means no query started
-                # ... and inform interested operators
-            else:
-                # Add the records in the pending list...
-                self._pending_records.append(record)
-                # ... and inform interested operators
-
-            for operator in self._operators:
-                operator.child_callback(record)
+        for operator in self._operators:
+            operator.child_callback(record)
 
         self._updated = time.time()
 

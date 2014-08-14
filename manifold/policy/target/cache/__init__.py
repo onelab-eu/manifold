@@ -1,5 +1,4 @@
 from manifold.policy.target             import Target, TargetValue
-from manifold.policy.target.cache.cache import Cache
 from manifold.core.query                import Query
 from manifold.core.record               import Record
 from manifold.util.log                  import Log
@@ -19,9 +18,7 @@ class CacheTarget(Target):
         # Invalidate the cache and propagate the Query        
 
         # TODO: cache.invalidate XXX to be implemented
-        #Log.tmp("-----------------> ACTION = %s",query.get_action())
         if query.get_action() != 'get':
-            #Log.tmp("--------------> Trying to Invalidate Cache")
             #cache.invalidate_entry(query)
             self._interface.delete_cache(annotations)
             # Cache per user
@@ -42,10 +39,6 @@ class CacheTarget(Target):
         return (TargetValue.CONTINUE, None)
 
     def process_record(self, query, record, annotations):
-        """
-        Arguments:
-        record:  can be one or several records
-        """
         # We don't want to store records coming from cache in cache
         # -> let's be sure that records from cache are properly annotated by from_cache
         #
@@ -58,12 +51,10 @@ class CacheTarget(Target):
         cache = self._interface.get_cache(annotations)
 
         # No need to create an entry, since the entry is created when query arrives
-        if not record:
-            first_record = None
-        else:
-            first_record = record[0] if isinstance(record, list) else record
-        if not first_record or not 'cache' in first_record.get_annotation():
-            cache.append_records(query, record)  # one or several records at once
+
+        # We don't cache records whose origin is the cache
+        if not 'cache' in record.get_annotations():
+            cache.append_record(query, record)  # one or several records at once
 
         #print "==== DUMPING CACHE ====="
         #print self._cache.dump()

@@ -43,11 +43,13 @@ class FromCache(Node):
 
         # Will receive a start when executed == when the source is ready to receive records
         # That's when we make the difference between different modes (cached, buffered, multicast)
-
         if self._cache_entry.has_query_in_progress():
+            print "query in progress"
             if self._cache_entry.has_pending_records():
+                print "has pending records"
                 # Let's first return all pending records, then wait for
                 # set_records to receive further records
+                print "pending records = ", self._cache_entry._pending_records
                 for record in self._cache_entry._pending_records:
                     record.set_annotation('cache', 'buffered multicast')
                     self.send(record)
@@ -67,7 +69,9 @@ class FromCache(Node):
             for record in self._cache_entry.get_records():
                 record.set_annotation('cache', 'cache')
                 self.send(record)
-            self.send(LastRecord())
+            record = LastRecord()
+            record.set_annotation('cache', 'cache')
+            self.send(record)
 
     def __repr__(self, indent = 0):
         """

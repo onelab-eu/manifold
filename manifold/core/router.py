@@ -13,15 +13,16 @@
 import os, sys, json, copy, time, traceback #, threading
 from twisted.internet                   import defer
 
+from manifold.core.cache                import Cache
 from manifold.core.dbnorm               import to_3nf 
 from manifold.core.interface            import Interface
 from manifold.core.query_plan           import QueryPlan
+from manifold.core.record               import LastRecord
 from manifold.core.result_value         import ResultValue
 from manifold.util.log                  import Log
 from manifold.util.type                 import returns, accepts
 from manifold.util.reactor_thread       import ReactorThread
 from manifold.policy                    import Policy
-from manifold.policy.target.cache.cache import Cache
 # XXX cannot use the wrapper with sample script
 # XXX cannot use the thread with xmlrpc -n
 #from manifold.util.reactor_wrapper  import ReactorWrapper as ReactorThread
@@ -229,23 +230,28 @@ class Router(Interface):
         is_metadata = (namespace and table_name == "object")
 
         if policy and not is_local and not is_metadata:
-            (decision, data) = self.policy.filter(query, records, annotations, is_query = False)
-            if decision == Policy.ACCEPT:
-                pass
-            elif decision == Policy.REWRITE:
-                _query, _annotations = data
-                if _query:
-                    query = _query
-                if _annotations:
-                    annotations = _annotations
+            # XXX What to do in case of errors, and records is []
+            for record in records:
+                # We process records one by one...
+                (decision, data) = self.policy.filter(query, record, annotations, is_query = False)
+                if decision == Policy.ACCEPT:
+                    pass
+                elif decision == Policy.REWRITE:
+                    print "WEIRD CASE: maybe it should be changed since here we are not replacing a query but a record"
+                    _query, _annotations = data
+                    if _query:
+                        query = _query
+                    if _annotations:
+                        annotations = _annotations
 
-            elif decision in [Policy.DENIED, Policy.ERROR]:
-                if decision == Policy.DENIED:
-                    data = ResultValue.get_error(ResultValue.FORBIDDEN)
-                return self.send_result_value(query, data, annotations, is_deferred)
+                elif decision in [Policy.DENIED, Policy.ERROR]:
+                    print "WEIRD CASE also for records"
+                    if decision == Policy.DENIED:
+                        data = ResultValue.get_error(ResultValue.FORBIDDEN)
+                    return self.send_result_value(query, data, annotations, is_deferred)
 
-            else:
-                raise Exception, "Unknown RECORD decision from policy engine: %s" % Policy.map_decision[decision]
+                else:
+                    raise Exception, "Unknown RECORD decision from policy engine: %s" % Policy.map_decision[decision]
 
         description = query_plan.get_result_value_array()
 

@@ -78,6 +78,10 @@ class ResultValue(dict):
         # let's analyze the results of the query plan
         # XXX we should inspect all errors to determine whether to return a
         # result or not
+
+        # Since the callback has the last record, we remove it
+        results = results[:-1]
+
         if not result_value_array:
             # No error
             return ResultValue(code=self.SUCCESS, origin=[self.CORE, 0], value=results)

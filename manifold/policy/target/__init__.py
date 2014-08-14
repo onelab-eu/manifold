@@ -30,12 +30,8 @@ class Target(object):
 
     map_targets = {}
 
-    # TODO: ROUTERV2
-    # Cache per user
-    # Adding interface in order to access router.get_cache(annotations)
     def __init__(self, interface):
         self._interface = interface
-        Log.tmp("-------------------> Cache - init class Target <-----------------")
 
     @staticmethod
     def register(name, cls):

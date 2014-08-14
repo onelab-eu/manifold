@@ -13,6 +13,8 @@ def do_projection(record, fields):
     Take the necessary fields in dic
     """
     ret = Record()
+    # Preserve annotations !
+    ret.set_annotations(record.get_annotations())
 
     # 1/ split subqueries
     local = []
