@@ -2282,6 +2282,9 @@ class SFAGateway(Gateway):
             user (str) : user email
             platform: string
         """
+        
+        # TODO Avoid to call Manage multiple times !
+
         # XXX TMP FIX: this works fine if the Registry (myslice platform) is queried 1st
         # If it's not queried 1st, then the calls will fail untill we get the Credentials from the Registry
         # This might cause a PB while using Manifold Cache
@@ -2296,7 +2299,7 @@ class SFAGateway(Gateway):
         Log.debug("Managing %r account on %s..." % (user_email, platform_name))
 
         config   = self._get_user_config(user_email, platform_name)
-        old_config = config
+        old_config = config.copy()
 
         # admin_user_config['user_credential'] is needed for delegation... why ?
         admin_config = self._get_user_config(ADMIN_USER, platform_name)
@@ -2367,8 +2370,10 @@ class SFAGateway(Gateway):
         need_slice_list = True # need_slice_credentials
 
         # Why do we need authority credentials for admin user???
-        #need_authority_credentials = is_admin or need_delegated_authority_credentials
-        need_authority_credentials = need_delegated_authority_credentials
+        # We need authority credentials for admin user in order to auto-validate PLE users 
+        # If a user register and is enabled in PLE, then Auto Validation is done when he validates its email in MySlice
+        need_authority_credentials = is_admin or need_delegated_authority_credentials
+        #need_authority_credentials = need_delegated_authority_credentials
         need_authority_list = need_authority_credentials
         need_delegated_user_credential = not is_admin and SFAGateway.credentials_needed('delegated_user_credential', config)
 
@@ -2391,7 +2396,7 @@ class SFAGateway(Gateway):
         # As need_user_private_key is always True, need_user_hrn will be True
         #need_user_hrn = need_user_private_key or need_auth_list or need_slice_list
         need_user_hrn = True
-        
+      
         if not 'user_hrn' in config:
             print "E: hrn needed to manage authentication"
             # return using asynchronous defer
