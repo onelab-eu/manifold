@@ -293,12 +293,12 @@ class ExploreTask(Deferred):
                 else:
                     task = ExploreTask(neighbour, relation, self.path, self.parent, self.depth)
 
-                    if relation.get_type() == Relation.types.PARENT:
-                        # HERE, instead of doing a left join between a PARENT
-                        # and a CHILD table, we will do a UNION
-                        task.addCallback(self.perform_union, root_key, allowed_platforms, metadata, user, query_plan)
-                    else:
-                        task.addCallback(self.perform_left_join, relation, allowed_platforms, metadata, user, query_plan)
+                    #if relation.get_type() == Relation.types.PARENT:
+                    #    # HERE, instead of doing a left join between a PARENT
+                    #    # and a CHILD table, we will do a UNION
+                    #    task.addCallback(self.perform_union, root_key, allowed_platforms, metadata, user, query_plan)
+                    #else:
+                    task.addCallback(self.perform_left_join, relation, allowed_platforms, metadata, user, query_plan)
 
                     priority = TASK_11
 
