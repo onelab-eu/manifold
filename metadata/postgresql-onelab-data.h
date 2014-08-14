@@ -61,6 +61,17 @@
 # manifold-shell -z local
 #
 #
+# Importing institutions.csv
+# --------------------------
+#
+# ALTER TABLE authority_data ALTER COLUMN enabled TYPE text;
+# COPY authority_data FROM '/tmp/institutions.csv' USING DELIMITERS ',' CSV;
+# ALTER TABLE authority_data ALTER COLUMN enabled TYPE bool USING CASE WHEN enabled='enabled' THEN 't'::boolean ELSE 'f'::boolean END;
+#
+# Dump:     pg_dump -U postgres onelab > onelab.sql
+# Restore:  psql onelab < onelab.sql
+#
+#
 # Metadata
 # --------
 #
