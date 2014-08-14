@@ -129,7 +129,7 @@ class ExploreTask(Deferred):
         Returns:
             foreign_key_fields
         """
-        Log.debug("Search in ", self.root.get_name(), "for fields", missing_fields, 'path=', self.path, "SEEN SET =", seen_set)
+        #Log.debug("Search in ", self.root.get_name(), "for fields", missing_fields, 'path=', self.path, "SEEN SET =", seen_set)
         relations_11, relations_1N, relations_1Nsq = (), {}, {}
         deferred_list = []
 
