@@ -1,6 +1,7 @@
-from manifold.core.record import Record
-from manifold.operators import Node
-from manifold.util.type import returns
+from manifold.core.record   import Record
+from manifold.operators     import Node
+from manifold.util.type     import returns
+from manifold.util.log      import Log
 
 DUMPSTR_PROJECTION = "SELECT %s" 
 
@@ -14,7 +15,9 @@ def do_projection(record, fields):
     """
     ret = Record()
     # Preserve annotations !
-    ret.set_annotations(record.get_annotations())
+    # Not for Last Record which is of dict type
+    if isinstance(record,Record):
+        ret.set_annotations(record.get_annotations())
 
     # 1/ split subqueries
     local = []
