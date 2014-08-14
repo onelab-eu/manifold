@@ -88,6 +88,9 @@ class DBGraph(object):
             self.graph.add_edge(u, v, relations=relations)
             Log.debug("NEW EDGE %s" % self.print_arc(u, v))
 
+            relations_str = [ r.get_str_type() for r in relations]
+            print '%s -> %s [ label="%s" ]' % (u.get_name(), v.get_name(), relations_str)
+
 #        if relation_uv:
 #            (type, fields_u) = relation_uv
 #            key_v = list(v.get_keys())[0] if len(v.get_keys()) > 0 else None

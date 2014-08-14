@@ -27,9 +27,9 @@ import sys
 from manifold.bin.shell  import Shell
 
 def usage():
-    print "Usage: %s [NAME]" % sys.argv[0]
+    print "Usage: %s OUTPUT [NAME]" % sys.argv[0]
     print ""
-    print "Enable a platform"
+    print "Plots the metadata as a graphviz file"
 
 def gv_header():
     return """
@@ -75,11 +75,11 @@ def metadata_to_graphviz(objects):
 
 def main():
     argc = len(sys.argv)
-    if argc not in [1,2]:
+    if argc not in [2,3]:
         usage()
         sys.exit(1)
 
-    name = sys.argv[1] if argc == 2 else 'local'
+    name = sys.argv[2] if argc == 3 else 'local'
     
     Shell.init_options()
     shell = Shell(interactive=False)
@@ -87,8 +87,9 @@ def main():
     objects = shell.evaluate(command % locals())
     shell.terminate()
 
-    print metadata_to_graphviz(objects['value'])
-
+    f = open(sys.argv[1], 'w')
+    print >>f, metadata_to_graphviz(objects['value'])
+    f.close()
 
 if __name__ == '__main__':
     main()

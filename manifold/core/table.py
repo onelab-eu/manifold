@@ -602,7 +602,7 @@ class Table(object):
             # CONDITION 1: ?
             condition_1 = u.keys.one().get_type() == v.keys.one().get_type() and u.get_name() == u.keys.one().get_field_name()
             # CONDITION 2: u is child of v  <=>  u references v from a field which is key
-            condition_2 = u.keys.one().get_type() == v.get_name()
+            condition_2 = v.keys.one().get_type() == u.get_name()
 
             return condition_1 or condition_2
         except:
