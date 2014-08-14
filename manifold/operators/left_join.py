@@ -198,6 +198,12 @@ class LeftJoin(Node):
                     raise NotImplemented
 
                 # Pass the id as a param
+                keys = self.left_map.keys()
+                if not keys:
+                    # No JOIN possible
+                    self.left_done = True
+                    self._on_right_done()
+                    return
                 key = self.left_map.keys()[0]
                 query = self.right.get_query()
                 query.params[self.predicate.get_value()] = key
@@ -212,7 +218,7 @@ class LeftJoin(Node):
         # Directly send records missing information necessary to join
         # XXXX !!! XXX XXX XXX
         if not Record.has_fields(record, self.predicate.get_field_names()):
-            Log.warning("toto Missing LEFTJOIN predicate %s in left record %r : forwarding" % \
+            Log.warning("Missing LEFTJOIN predicate %s in left record %r : forwarding" % \
                     (self.predicate, record))
             self.send(record)
 
@@ -222,19 +228,22 @@ class LeftJoin(Node):
             self.left_map[hash_key] = []
         self.left_map[hash_key].append(record)
 
+    def _on_right_done(self):
+        # Send records in left_results that have not been joined...
+        for left_record_list in self.left_map.values():
+            for left_record in left_record_list:
+                self.send(left_record)
+
+        # ... and terminates
+        self.send(LastRecord())
+
     def right_callback(self, record):
         """
         \brief Process records received from the right child
         \param record A dictionary representing the received record 
         """
         if record.is_last():
-            # Send records in left_results that have not been joined...
-            for left_record_list in self.left_map.values():
-                for left_record in left_record_list:
-                    self.send(left_record)
-
-            # ... and terminates
-            self.send(LastRecord())
+            self._on_right_done()
             return
 
         # Skip records missing information necessary to join
@@ -297,6 +306,7 @@ class LeftJoin(Node):
         
         # Ensure we have keys in left and right children
         # After LEFTJOIN, we might keep the left key, but never keep the right key
+        print "LEFTJOIN optimize projection", fields
 
         key_left = self.predicate.get_field_names()
         key_right = self.predicate.get_value_names()
@@ -306,6 +316,8 @@ class LeftJoin(Node):
         left_fields   |= key_left
         right_fields  |= key_right
 
+        print "   > left fields", left_fields
+        print "   > right fields", right_fields
         self.left  = self.left.optimize_projection(left_fields)
         self.right = self.right.optimize_projection(right_fields)
 
