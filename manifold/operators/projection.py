@@ -123,6 +123,9 @@ class Projection(Node):
         """
         self.child.start()
 
+    def inject_insert(self, params):
+        self.child.inject_insert(params)
+
     #@returns(Projection)
     def inject(self, records, key, query):
         """
