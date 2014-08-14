@@ -1,8 +1,8 @@
 class slice {
-    const text slice_urn;   /**< Slice Unique Resource Name */
-    const text slice_hrn;   /**< Slice Human Readable name */
+    const text slice_urn;          /**< Slice Unique Resource Name */
+    const text slice_hrn;          /**< Slice Human Readable name */
     const text slice_type;
-    user        users[];        /**< List of users associated to the slice */
+    user        users[];           /**< List of users associated to the slice */
     user        pi_users[];        /**< List of users associated to the slice */
 
     const text slice_description;
@@ -11,11 +11,11 @@ class slice {
     const text slice_last_updated;
     const text nodes;
     const text slice_url;
+    const text slice_enabled;     /**< MyPLC field slice_enabled >**/
     const authority parent_authority;
 
 	resource resource[];
-	lease lease[];
-# lease       lease[];       /**< List of leases associated to the slice */
+	lease lease[];                /**< List of leases associated to the slice */
 
     KEY(slice_urn);
     CAPABILITY(retrieve, join, fullquery);
