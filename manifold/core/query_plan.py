@@ -25,7 +25,7 @@ from manifold.core.explore_task     import ExploreTask
 
 from manifold.core.ast              import AST
 from manifold.core.filter           import Filter
-from manifold.core.query            import ACTION_CREATE, ACTION_DELETE
+from manifold.core.query            import ACTION_CREATE, ACTION_DELETE, ACTION_UPDATE
 from manifold.core.result_value     import ResultValue
 from manifold.core.table            import Table 
 from manifold.operators.From        import From
@@ -110,7 +110,7 @@ class QueryPlan(object):
         # Update the main query to add applicative information such as action and params
         # XXX THIS IS WRONG !! XXX
         # NOTE: I suppose params cannot have '.' inside
-        if query.get_action() in [ACTION_CREATE, ACTION_DELETE]:
+        if query.get_action() in [ACTION_UPDATE, ACTION_DELETE]:
             for from_node in self.froms:
                 q = from_node.get_query()
                 if q.get_from() == query.get_from():
