@@ -22,13 +22,15 @@
 
 import sys, copy
 from types                 import StringTypes
-from manifold.core.table   import Table
-from manifold.core.key     import Key, Keys 
-from manifold.core.field   import Field
-from manifold.core.method  import Method 
+
 from manifold.core.dbgraph import DBGraph
-from manifold.util.type    import returns, accepts
+from manifold.core.field   import Field
+from manifold.core.fields  import Fields
+from manifold.core.key     import Key, Keys
+from manifold.core.method  import Method 
+from manifold.core.table   import Table
 from manifold.util.log     import Log
+from manifold.util.type    import returns, accepts
 
 #------------------------------------------------------------------------------
 
@@ -782,15 +784,15 @@ def to_3nf(metadata):
     for table_name, map_platform_fds in fdss.items():
         # For the potential parent table
         # Stores the number of distinct platforms set
-        cpt_platforms = 0
+        num_platforms = 0
 
         # Stores the set of platforms
         all_platforms = set()
-        common_fields = None
-        common_keys = None
+        common_fields = Fields()
+        common_key_names = set()
 
-        # Annotations needed for the query plane
-        all_tables = []
+        # Annotations needed for the query plan
+        child_tables = list()
 
         for platform, fds in map_platform_fds.items():
             platforms         = set()
@@ -840,57 +842,64 @@ def to_3nf(metadata):
             table.map_method_keys   = map_method_keys
             table.map_method_fields = map_method_fields
             tables_3nf.append(table)
-            all_tables.append(table)
+            child_tables.append(table)
             Log.debug("TABLE 3nf:", table, table.keys)
             #print "     method fields", map_method_fields
 
-            cpt_platforms += 1
+            num_platforms += 1
             all_platforms |= platforms
-            if not common_fields:
-                common_fields = fields
+            if common_fields.is_empty():
+                common_fields = Fields(fields)
             else:
-                common_fields &= fields
+                common_fields &= Fields(fields)
 
-            if not common_keys:
-                common_keys = keys
-            else:
-                common_keys &= keys
+            keys_names = frozenset([field.get_name() for field in key for key in keys])
+            common_key_names.add(keys_names)
 
+        # Convert common_key_names into Keys() according to common_fields
+        common_keys = set()
+        map_name_fields = dict()
+        for field in common_fields:
+            map_name_fields[field.get_name()] = field
+        for key_names in common_key_names:
+            common_keys.add(Key(frozenset([map_name_fields[field_name] for field_name in key_names])))
 
-        # Need to add a parent table if more than two sets of platforms
-        if cpt_platforms > 1:
-            table = Table(all_platforms, None, table_name, common_fields, common_keys)
+        # Several platforms provide the same object, so we've to build a parent table
+        if num_platforms > 1:
+            parent_table = Table(all_platforms, None, table_name, common_fields, common_keys)
 
             # Migrate common fields from children to parents, except keys
-            ##map_common_method_keys   = dict()
-            map_common_method_fields = dict()
+            parent_map_method_fields = dict()
+            names_in_common_keys = key.get_field_names()
 
             for field in common_fields:
                 methods = set()
-                for child_table in all_tables:
+                field_name = field.get_name()
+                for child_table in child_tables:
                     # Objective = remove the field from child table
                     # Several methods can have it
                     for _method, _fields in child_table.map_method_fields.items():
-                        if field.get_name() in _fields:
+                        if field_name in _fields:
                             methods.add(_method)
-                            if not common_keys.has_field(field):
+                            if field_name not in names_in_common_keys:
                                 _fields.remove(field.get_name())
 
-                if not common_keys.has_field(field):
-                    del child_table.fields[field.get_name()]
-                # Add the field with all methods to parent table
-                for method in methods:
-                    if not method in map_common_method_fields: map_common_method_fields[method] = set()
-                    map_common_method_fields[method].add(field.get_name())
+                if field_name not in names_in_common_keys:
+                    child_table.erase_field(field_name)
 
-            map_common_method_fields[method].add(field.get_name())
+                # Add the field with all methods to parent_table
+                for method in methods:
+                    if not method in parent_map_method_fields: parent_map_method_fields[method] = set()
+                    parent_map_method_fields[method].add(field.get_name())
+
+            #MANDO|parent_map_method_fields[method].add(field.get_name())
 
             # inject field and key annotation in the Table object
-            table.map_method_keys   = dict() #map_common_method_keys
-            table.map_method_fields = map_common_method_fields
-            tables_3nf.append(table)
-            Log.debug("TABLE 3nf:", table, table.keys)
-            #print "     method fields", map_common_method_fields
+#MANDO|DEPRECATED|            parent_table.map_method_keys   = dict() #map_common_method_keys
+            parent_table.map_method_fields = parent_map_method_fields
+            tables_3nf.append(parent_table)
+            Log.debug("Parent table TABLE 3nf:", parent_table, table.get_keys())
+            #print "     method fields", parent_map_method_fields
 
         # XXX we already know about the links between those two platforms
         # but we can find them easily (cf dbgraph)
@@ -912,11 +921,18 @@ def to_3nf(metadata):
                     capabilities = table.get_capabilities()
                     if capabilities.is_empty():
                         table.set_capability(announce.get_table().get_capabilities()) 
-                    elif capabilities != announce.get_table().get_capabilities():
-                        Log.warning("Conflicting capabilities for tables %r and %r" % (table, announce.get_table()))
+                    elif not capabilities == announce.get_table().get_capabilities():
+                        Log.warning("Conflicting capabilities for tables %r (%r) and %r (%r)" % (
+                            table,
+                            capabilities,
+                            announce.get_table(),
+                            announce.get_table().get_capabilities()
+                        ))
                 
     # 7) Building DBgraph
     graph_3nf = DBGraph(tables_3nf, map_method_capabilities)
 
+    for table in tables_3nf:
+        Log.info("%s" % table)
     return graph_3nf
 

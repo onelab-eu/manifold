@@ -186,7 +186,7 @@ class AST(object):
         #    left_query.fields |= right_query.fields
         #    return self
 
-        self.root = LeftJoin(self.get_root(), right_child.get_root(), predicate)#, None)
+        self.root = LeftJoin(self.get_root(), right_child.get_root(), predicate)
         return self
 
     #@returns(AST)

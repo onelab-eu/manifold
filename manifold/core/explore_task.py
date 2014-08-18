@@ -33,7 +33,7 @@ MAX_DEPTH = 3
 
 class ExploreTask(Deferred):
     """
-    A pending exploration of the metadata graph
+    A pending exploration of the dbgraph graph
     """
 
     def __init__(self, root, relation, path, parent, depth):
@@ -106,9 +106,9 @@ class ExploreTask(Deferred):
 
         self.subqueries[relation.get_relation_name()] = (ast, relation)
 
-    def explore(self, stack, missing_fields, metadata, allowed_platforms, allowed_capabilities, user, seen_set, query_plan):
+    def explore(self, stack, missing_fields, dbgraph, allowed_platforms, allowed_capabilities, user, seen_set, query_plan):
         """
-        Explore the metadata graph to find how to serve each queried fields. We
+        Explore the dbgraph graph to find how to serve each queried fields. We
         explore the DBGraph by prior the 1..1 arcs exploration (DFS) by pushing
         one ExploreTask instance in a Stack per 1..1 arc. If some queried
         fields are not yet served, we push in a Stack which 1..N arcs could
@@ -117,7 +117,7 @@ class ExploreTask(Deferred):
             stack: A Stack instance where we push new ExploreTask instances. 
             missing_fields: A set of String containing field names (which
                 may be prefixed, such has hops.ttl) involved in the Query.
-            metadata: The DBGraph instance related to the 3nf graph.
+            dbgraph: The DBGraph instance related to the 3nf graph.
             allowed_platforms: A set of String where each String correponds
                 to a queried platform name.
             allowed_platforms: A Capabilities instance.
@@ -158,8 +158,8 @@ class ExploreTask(Deferred):
         root_provided_fields = self.root.get_field_names()
         
         # ROUTERV2 We might also query foreign keys of backward links
-        for neighbour in metadata.graph.successors(self.root):
-            for relation in metadata.get_relations(self.root, neighbour):
+        for neighbour in dbgraph.graph.successors(self.root):
+            for relation in dbgraph.get_relations(self.root, neighbour):
                 if relation.get_type() == Relation.types.LINK_1N_BACKWARDS:
                     relation_name = relation.get_relation_name()
                     if relation_name not in missing_fields:
@@ -167,7 +167,7 @@ class ExploreTask(Deferred):
 
                     # For backwards links at the moment, the name of the relation is the name/type of the table
                     # let's add the keys of this relation, since we have not explored children links yet
-                    table = metadata.find_node(relation_name)
+                    table = dbgraph.find_node(relation_name)
                     key = table.get_keys().one()
                     _additional_fields = set(["%s.%s" % (relation_name, field.get_name()) for field in key])
                     missing_fields |= _additional_fields
@@ -231,7 +231,7 @@ class ExploreTask(Deferred):
                 if field_type in BASE_TYPES: continue
 
 
-                refered_table = metadata.find_node(field_type, get_parent = True)
+                refered_table = dbgraph.find_node(field_type, get_parent = True)
                 if not refered_table: continue
 
                 key = refered_table.get_keys().one()
@@ -258,8 +258,8 @@ class ExploreTask(Deferred):
         if self.keep_root_a:
             # XXX NOTE that we have built an AST here without taking into account fields for the JOINs and SUBQUERIES
             # It might not pose any problem though if they come from the optimization phase
-#OBSOLETE|            self.ast = self.build_union(self.root, self.keep_root_a, allowed_platforms, metadata, user, query_plan)
-            self.perform_union_all(self.root, allowed_platforms, metadata, user, query_plan)
+#OBSOLETE|            self.ast = self.build_union(self.root, self.keep_root_a, allowed_platforms, dbgraph, user, query_plan)
+            self.perform_union_all(self.root, allowed_platforms, dbgraph, user, query_plan)
 
 
         if self.depth == MAX_DEPTH:
@@ -267,8 +267,8 @@ class ExploreTask(Deferred):
             return foreign_key_fields
 
         # In all cases, we have to list neighbours for returning 1..N relationships. Let's do it now. 
-        for neighbour in metadata.graph.successors(self.root):
-            for relation in metadata.get_relations(self.root, neighbour):
+        for neighbour in dbgraph.graph.successors(self.root):
+            for relation in dbgraph.get_relations(self.root, neighbour):
                 name = relation.get_relation_name()
 
                 if name and name in seen_set:
@@ -296,41 +296,41 @@ class ExploreTask(Deferred):
                     #if relation.get_type() == Relation.types.PARENT:
                     #    # HERE, instead of doing a left join between a PARENT
                     #    # and a CHILD table, we will do a UNION
-                    #    task.addCallback(self.perform_union, root_key, allowed_platforms, metadata, user, query_plan)
+                    #    task.addCallback(self.perform_union, root_key, allowed_platforms, dbgraph, user, query_plan)
                     #else:
-                    task.addCallback(self.perform_left_join, relation, allowed_platforms, metadata, user, query_plan)
+                    task.addCallback(self.perform_left_join, relation, allowed_platforms, dbgraph, user, query_plan)
 
                     priority = TASK_11
 
                 deferred_list.append(task)
                 stack.push(task, priority)
 
-        DeferredList(deferred_list).addCallback(self.all_done, allowed_platforms, metadata, user, query_plan)
+        DeferredList(deferred_list).addCallback(self.all_done, allowed_platforms, dbgraph, user, query_plan)
 
         return foreign_key_fields
 
-    def all_done(self, result, allowed_platforms, metadata, user, query_plan):
+    def all_done(self, result, allowed_platforms, dbgraph, user, query_plan):
         """
 
         Args:
             result:
             allowed_platforms: A set of String where each String correponds to a queried platform name.
-            metadata: The DBGraph instance related to the 3nf graph.
+            dbgraph: The DBGraph instance related to the 3nf graph.
             user: The User issuing the Query.
             query_plan: The QueryPlan instance related to this Query, and that we're updating.
         """
 
         if self.subqueries:
-            self.perform_subquery(allowed_platforms, metadata, user, query_plan)
+            self.perform_subquery(allowed_platforms, dbgraph, user, query_plan)
         self.callback((self.ast, self.sq_rename_dict))
 
-    def perform_left_join(self, ast_sq_rename_dict, relation, allowed_platforms, metadata, user, query_plan):
+    def perform_left_join(self, ast_sq_rename_dict, relation, allowed_platforms, dbgraph, user, query_plan):
         """
         Connect a new AST to the current AST using a LeftJoin Node.
         Args:
             ast: A child AST that must be connected to self.ast using LEFT JOIN .
             relation: The Relation connecting the child Table and the parent Table involved in this LEFT jOIN.
-            metadata: The DBGraph instance related to the 3nf graph.
+            dbgraph: The DBGraph instance related to the 3nf graph.
             user: The User issuing the Query.
             query_plan: The QueryPlan instance related to this Query, and that we're updating.
         """
@@ -342,30 +342,30 @@ class ExploreTask(Deferred):
 
         if not self.ast:
             # This can occur if no interesting field was found in the table, but it is just used to connect children tables
-            self.perform_union_all(self.root, allowed_platforms, metadata, user, query_plan)
+            self.perform_union_all(self.root, allowed_platforms, dbgraph, user, query_plan)
         self.ast.left_join(ast, relation.get_predicate())
 
-    def perform_subquery(self, allowed_platforms, metadata, user, query_plan):
+    def perform_subquery(self, allowed_platforms, dbgraph, user, query_plan):
         """
         Connect a new AST to the current AST using a SubQuery Node.
         If the connected table is "on join", we will use a LeftJoin and a CrossProduct Node instead.
         Args:
-            metadata: The DBGraph instance related to the 3nf graph.
+            dbgraph: The DBGraph instance related to the 3nf graph.
             allowed_platforms: A set of String where each String correponds to a queried platform name.
             user: The User issuing the Query.
             query_plan: The QueryPlan instance related to this Query, and that we're updating.
         """
         # We need to build an AST just to collect subqueries
-#OBSOLETE|        # XXX metadata not defined
+#OBSOLETE|        # XXX dbgraph not defined
 #OBSOLETE|        #if not self.ast:
-#OBSOLETE|        #    self.ast = self.build_union(self.root, self.keep_root_a, metadata, user)
+#OBSOLETE|        #    self.ast = self.build_union(self.root, self.keep_root_a, dbgraph, user)
 #OBSOLETE|        if not self.ast:
 #OBSOLETE|            fields = set()
 #OBSOLETE|            for _, (_, relation) in self.subqueries.items():
 #OBSOLETE|                fields |= relation.get_predicate().get_field_names()
-#OBSOLETE|            self.ast = self.build_union(self.root, fields, allowed_platforms, metadata, user, query_plan)
+#OBSOLETE|            self.ast = self.build_union(self.root, fields, allowed_platforms, dbgraph, user, query_plan)
         if not self.ast:
-            self.perform_union_all(self.root, allowed_platforms, metadata, user, query_plan)
+            self.perform_union_all(self.root, allowed_platforms, dbgraph, user, query_plan)
         
         if self.root.capabilities.is_onjoin():
             # Let's identify tables involved in the key
@@ -395,7 +395,7 @@ class ExploreTask(Deferred):
         else:
             self.ast.subquery(self.subqueries.values())
 
-    def perform_union(self, ast_sq_rename_dict, key, allowed_platforms, metadata, user, query_plan):
+    def perform_union(self, ast_sq_rename_dict, key, allowed_platforms, dbgraph, user, query_plan):
         """
         """
         ast, sq_rename_dict = ast_sq_rename_dict
@@ -408,8 +408,8 @@ class ExploreTask(Deferred):
         self.ast.union(ast, key)
 
     # TODO rename: perform_union and remove needed_fields parameter
-    def perform_union_all(self, table, allowed_platforms, metadata, user, query_plan):
-#OBSOLETE|    def build_union(self, table, needed_fields, allowed_platforms, metadata, user, query_plan):
+    def perform_union_all(self, table, allowed_platforms, dbgraph, user, query_plan):
+#OBSOLETE|    def build_union(self, table, needed_fields, allowed_platforms, dbgraph, user, query_plan):
         """
         Complete a QueryPlan instance by adding an Union of From Node related
         to a same Table.
@@ -422,19 +422,19 @@ class ExploreTask(Deferred):
         from_asts = list()
         key = table.get_keys().one()
 
-        # TO BE REMOVED ?
-        # Exploring this tree according to a DFS algorithm leads to a table
-        # ordering leading to feasible successive joins
-        map_method_bestkey = dict()
-#DEPRECATED|LOIC|        map_method_demux   = dict()
-
-        # XXX I don't understand this -- Jordan
-        # Update the key used by a given method
-        # The more we iterate, the best the key is
-        if key:
-            for method, keys in table.map_method_keys.items():
-                if key in table.map_method_keys[method]: 
-                    map_method_bestkey[method] = key 
+#MANDO|DEPRECATED|        # TO BE REMOVED ?
+#MANDO|DEPRECATED|        # Exploring this tree according to a DFS algorithm leads to a table
+#MANDO|DEPRECATED|        # ordering leading to feasible successive joins
+#MANDO|DEPRECATED|        map_method_bestkey = dict()
+#MANDO|DEPRECATED|#DEPRECATED|LOIC|        map_method_demux   = dict()
+#MANDO|DEPRECATED|
+#MANDO|DEPRECATED|        # XXX I don't understand this -- Jordan
+#MANDO|DEPRECATED|        # Update the key used by a given method
+#MANDO|DEPRECATED|        # The more we iterate, the best the key is
+#MANDO|DEPRECATED|        if key:
+#MANDO|DEPRECATED|            for method, keys in table.map_method_keys.items():
+#MANDO|DEPRECATED|                if key in table.map_method_keys[method]: 
+#MANDO|DEPRECATED|                    map_method_bestkey[method] = key 
 
         # For each platform related to the current table, extract the
         # corresponding table and build the corresponding FROM node
@@ -445,7 +445,7 @@ class ExploreTask(Deferred):
             #sub_table = Table.make_table_from_platform(table, fields, method.get_platform())
 
             platform = method.get_platform()
-            capabilities = metadata.get_capabilities(platform, method.get_name())
+            capabilities = dbgraph.get_capabilities(platform, method.get_name())
 
             map_field_local = {f.get_name(): f.is_local() for f in table.get_fields()}
             selected_fields  = set([f for f in fields if not map_field_local[f]])
@@ -471,4 +471,4 @@ class ExploreTask(Deferred):
             from_ast = AST(user = user).From(platform, query, capabilities, key)
             if from_ast:
                 query_plan.add_from(from_ast.get_root())
-                self.perform_union((from_ast, dict()), key, allowed_platforms, metadata, user, query_plan)
+                self.perform_union((from_ast, dict()), key, allowed_platforms, dbgraph, user, query_plan)

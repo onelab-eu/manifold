@@ -59,11 +59,11 @@ class Field(object):
     @returns(bool)
     def __eq__(self, x):
         """
-        Compare two Field
+        Compare two Field instances
         Args:
             x: The Field instance compared to self
         Return:
-            True iif x == y
+            True iif self == x
         """
         if not isinstance(x, Field):
             raise TypeError("Invalid type: %r is of type %s" % (x, type(x)))
@@ -174,4 +174,61 @@ class Field(object):
             # ? category == dimension
         }
         return column
+
+@returns(Field)
+def merge_field(field1, field2):
+    """
+    Merge two Field instances.
+    Args:
+        field1: A Field instance.
+        field2: A Field instance.
+    Raises:
+        ValueError: raised if field1 and field2 share the same name
+            but are contradictory.
+    Returns:
+        None if field1 and field2 cannot be merged (not same name)
+        The resulting merged Field otherwise.
+    """
+    if field1 == field2:
+        return field2
+
+    if field1.get_name() != field2.get_name():
+        # field1 and field2 cannot be merged
+        return None
+
+    # If we're here field1 and field2 should merge.
+    # We now compute what would be the result of this merging.
+
+    # Check consistency
+    if     field1.get_type() != field2.get_type()\
+        or field1.is_array() != field2.is_array()\
+        or field1.is_local() != field2.is_local():
+        raise ValueError("%(field1)s and %(field2)s have inconsistent types" % locals())
+
+    # Craft qualifiers
+    qualifiers = list()
+    if field1.is_const() and field2.is_const():
+        qualifiers.append("const")
+    if field1.is_local() and field2.is_local():
+        qualifiers.append("local")
+
+    # Craft description
+    desc1 = field1.get_description().strip()
+    desc2 = field2.get_description().strip()
+    desc  = None
+    if not desc1 and desc1:
+        desc = desc1
+    if not desc1 and desc2:
+        desc = desc2
+    if desc1 and desc2 and desc1 != desc2:
+        raise ValueError("%(field1)s and %(field2)s have inconsistent description (%(desc1)s) (%(desc2)s)" % locals())
+
+    # Ok, the merge has succeed: override field1 by "field1 merge field2"
+    return Field(
+        qualifiers  = qualifiers,
+        type        = field1.get_type(),
+        name        = field1.get_name(),
+        is_array    = field1.is_array(),
+        description = desc 
+    )
 

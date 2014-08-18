@@ -33,6 +33,8 @@ class LeftJoin(Node):
         \param callback The callback invoked when the LeftJoin instance returns records. 
         """
         assert predicate.op == eq
+        assert predicate.get_key()
+        assert predicate.get_value()
 
         super(LeftJoin, self).__init__()
 
@@ -275,6 +277,9 @@ class LeftJoin(Node):
         # - selection on filters on the key / common fields ??? TODO
         parent_filter, left_filter, right_filter = Filter(), Filter(), Filter()
         for predicate in filter:
+            Log.tmp("1) predicate.get_field_names() = %s" % predicate.get_field_names())
+            Log.tmp("2) self.left.get_query().get_select() = %s" % self.left.get_query().get_select())
+            Log.tmp("3) lquery = %s" % self.left.get_query())
             if predicate.get_field_names() <= self.left.get_query().get_select():
                 left_filter.add(predicate)
                 if predicate.get_field_names() <= self.right.get_query().get_select():

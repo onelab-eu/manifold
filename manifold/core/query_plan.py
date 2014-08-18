@@ -154,7 +154,10 @@ class QueryPlan(object):
         """
         root = metadata.find_node(query.get_from())
         if not root:
-            Log.error("query_plan::build(): Cannot find %s in metadata, known tables are %s" % (query.get_from(), metadata.get_table_names()))
+            raise RuntimeError("query_plan::build(): Cannot find %s in metadata, known tables are %s" % (
+                query.get_from(),
+                sorted(set(metadata.get_table_names()))
+            ))
         
         root_task = ExploreTask(root, relation=None, path=[], parent=self, depth=1)
         root_task.addCallback(self.set_ast, query)
@@ -166,7 +169,6 @@ class QueryPlan(object):
         missing_fields |= query.get_select()
         missing_fields |= query.get_where().get_field_names()
         missing_fields |= set(query.get_params().keys())
-
 
         while missing_fields:
             task = stack.pop()
@@ -249,6 +251,7 @@ class QueryPlan(object):
 
         if not self.root:
             return
+
         if add_selection:
             self.ast.optimize_selection(add_selection)
         if add_projection:

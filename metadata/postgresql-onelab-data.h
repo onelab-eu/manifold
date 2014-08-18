@@ -103,9 +103,8 @@ class authority_data {
 
 class slice_data {
     slice slice_urn;   /**< Slice Unique Resource Name */
-
-	string url;
-	string purpose;
+    string url;
+    string purpose;
 
     KEY(slice_urn);
     CAPABILITY(join, selection, projection);
@@ -113,9 +112,8 @@ class slice_data {
 
 class user_data {
     user user_hrn;
-
-	string first_name;
-	string last_name;
+    string first_name;
+    string last_name;
 
     KEY(user_hrn);
     CAPABILITY(join, selection, projection);

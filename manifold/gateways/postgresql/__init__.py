@@ -99,15 +99,20 @@ class PostgreSQLGateway(Gateway):
     DEFAULT_DB_USER     = "postgres"
     DEFAULT_DB_PASSWORD = ""
 
+    # Note: escaping %(table_name)s with double quotes is required
+    # to manage "user" table. We can query "user" but not user
+    # (which concerns the internal pgsql table)
+    # http://stackoverflow.com/questions/4350874/unable-to-use-table-named-user-in-postgresql-hibernate
+
     SQL_SELECT_STR = """
     SELECT %(fields)s
-        FROM %(table_name)s
+        FROM "%(table_name)s"
         %(where)s
         ;
     """
 
     SQL_INSERT_STR = """
-    INSERT INTO %(table_name)s
+    INSERT INTO "%(table_name)s"
         (%(param_fields)s)
         VALUES (%(param_values)s)
         %(returning)s
@@ -115,13 +120,13 @@ class PostgreSQLGateway(Gateway):
     """
 
     SQL_DELETE_STR = """
-    DELETE FROM %(table_name)s
+    DELETE FROM "%(table_name)s"
         %(where)s
         ;
     """
 
     SQL_UPDATE_STR = """
-    UPDATE %(table_name)s
+    UPDATE "%(table_name)s"
         SET %(params)s
         %(where)s
         ;
@@ -546,6 +551,7 @@ class PostgreSQLGateway(Gateway):
         Fetch records stored in the postgresql database according to self.query
         """
         sql = PostgreSQLGateway.to_sql(self.query)
+        Log.tmp(sql)
         if self.query.get_action() in [ACTION_GET, ACTION_CREATE]:
             rows = self.selectall(sql)
         else:

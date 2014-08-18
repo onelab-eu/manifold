@@ -316,6 +316,7 @@ def announces_from_docstring(platform):
 # Announce
 #------------------------------------------------------------------
 
+# TODO Announce should have a platform attribute
 class Announce(object):
     def __init__(self, table, cost = None):
         """

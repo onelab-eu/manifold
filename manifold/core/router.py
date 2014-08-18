@@ -212,10 +212,13 @@ class Router(Interface):
         # the deferred object is sent to execute function of the query_plan
         # This might be a deferred, we cannot put any hook here...
 
-        if query_plan:
-            return self.execute_query_plan(query, annotations, query_plan, is_deferred, policy = False)
-        else:
-            return self.execute_query(query, annotations, is_deferred)
+        try:
+            if query_plan:
+                return self.execute_query_plan(query, annotations, query_plan, is_deferred, policy = False)
+            else:
+                return self.execute_query(query, annotations, is_deferred)
+        except Exception, e:
+            return ResultValue.get_error(e, traceback.format_exc())
 
     def process_qp_results(self, query, records, annotations, query_plan, policy = True):
 
@@ -282,14 +285,10 @@ class Router(Interface):
 
         qp = QueryPlan()
         qp.build(query, self.g_3nf, allowed_platforms, self.allowed_capabilities, user)
-
+        Log.tmp("QUERY PLAN")
+        qp.dump()
 
         self.instanciate_gateways(qp, user)
         Log.info("QUERY PLAN:\n%s" % (qp.dump()))
 
         return self.execute_query_plan(query, annotations, qp, is_deferred)
-
-            
-
-            
-            

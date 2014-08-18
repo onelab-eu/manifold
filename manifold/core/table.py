@@ -37,7 +37,7 @@ class Table(object):
         """
         Check whether fields parameter is well-formed in __init__
         """
-        if fields == None:
+        if not fields:
             return False
         elif isinstance(fields, (set, frozenset, list, tuple)):
             for field in fields:

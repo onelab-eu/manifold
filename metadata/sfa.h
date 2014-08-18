@@ -1,17 +1,17 @@
 class slice {
-    const text slice_urn;          /**< Slice Unique Resource Name */
-    const text slice_hrn;          /**< Slice Human Readable name */
-    const text slice_type;
+    const string slice_urn;          /**< Slice Unique Resource Name */
+    const string slice_hrn;          /**< Slice Human Readable name */
+    const string slice_type;
     user        users[];           /**< List of users associated to the slice */
     user        pi_users[];        /**< List of users associated to the slice */
 
-    const text slice_description;
-    const text created;
-    const text slice_expires;
-    const text slice_last_updated;
-    const text nodes;
-    const text slice_url;
-    const text slice_enabled;     /**< MyPLC field slice_enabled >**/
+    const string slice_description;
+    const string created;
+    const string slice_expires;
+    const string slice_last_updated;
+    const string nodes;
+    const string slice_url;
+    const string slice_enabled;     /**< MyPLC field slice_enabled >**/
     const authority parent_authority;
 
 	resource resource[];

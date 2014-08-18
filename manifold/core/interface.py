@@ -49,9 +49,7 @@ class Interface(object):
 
         # self.platforms is list(dict) where each dict describes a platform.
         # See platform table in the Storage.
-        print "="*80
         self.platforms = Storage.execute(Query().get("platform").filter_by("disabled", "=", False)) #, format = "object")
-        print "self.platforms=", self.platforms
 
         # self.allowed_capabilities is a Capabilities instance (or None)
         self.allowed_capabilities = allowed_capabilities
