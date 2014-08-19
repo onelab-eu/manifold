@@ -186,7 +186,6 @@ class SQLParser(object):
     @returns(dict)
     def parse(self, string):
         result = self.bnf.parseString(string, parseAll=True)
-        #print result.dump()
         return dict(result.items())
 
 if __name__ == "__main__":

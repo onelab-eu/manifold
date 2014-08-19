@@ -189,14 +189,27 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
         else:
             return cls._make(parent, child, relation)
 
-    @classmethod
-    def add_child(cls, parent, child, relation):
+# MANDO: this function uses both cls and self!
+# MANDO: you can't call is_local inside a classmethod
+#MANDO|    @classmethod
+#MANDO|    def add_child(cls, parent, child, relation):
+#MANDO|        # assert: we only add local relations to a local subquery
+#MANDO|        # assert: we cannot add children if the operator has already been started 
+#MANDO|
+#MANDO|        if self.is_local():
+#MANDO|            return cls.extract_from_local_child(None, child, relation, next_operator = parent)
+#MANDO|        return parent._add_child(child, relation)
+
+# MANDO: you can't call is_local inside a classmethod
+#MANDO|    @classmethod
+    def add_child(self, parent, child, relation):
         # assert: we only add local relations to a local subquery
         # assert: we cannot add children if the operator has already been started 
 
         if self.is_local():
-            return cls.extract_from_local_child(None, child, relation, next_operator = parent)
+            return self.extract_from_local_child(None, child, relation, next_operator = parent)
         return parent._add_child(child, relation)
+
 
     def _add_child(self, child, relation):
         relation_name = relation.get_relation_name()
@@ -832,4 +845,5 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
             else:
                 # Simple behaviour : since all children can be executed in parallel,
                 # let's add the child ast as a new children of the current SQ node.
-                return SubQuery.add_child(self, ast, relation)
+                #MANDO|return SubQuery.add_child(self, ast, relation)
+                return self.add_child(self, ast, relation)

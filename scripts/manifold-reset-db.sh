@@ -1,13 +1,16 @@
 #!/bin/bash
 
+# See ./manifold/bin/constants.py
+STORAGE_FILENAME="/var/lib/manifold/storage.sqlite"
+
 # Delete the former DB
-rm -f /var/myslice/db.sqlite
+rm -f $STORAGE_FILENAME
 
 # Initialize the DB...
 manifold-init-db
 
 # ...and insert dummy records
-sqlite3 /var/myslice/db.sqlite < $1
+sqlite3 $STORAGE_FILENAME < $1
 
 # Delegation information
 echo <<EOF
@@ -18,6 +21,6 @@ provide a script for PlanetLab Europe users:"
 $ myslice-sfa-delegate PL_USERNAME PRIVATE_KEY SFI_DIR
 
 Example:
-$ myslice-sfa-delegate jordan.auge@lip6.fr ~/.ssh/id_rsa ~/.sfi
+$ myslice-sfa-delegate john.doe@foo.fr ~/.ssh/id_rsa ~/.sfi
 
 EOF

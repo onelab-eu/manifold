@@ -116,7 +116,7 @@ class ExploreTask(Deferred):
             missing_fields
             seen_set
         """
-        Log.tmp("Search in", self.root.get_name(), "for fields", missing_fields, 'path=', self.path, "SEEN SET =", seen_set, "depth=", self.depth)
+        #Log.tmp("Search in", self.root.get_name(), "for fields", missing_fields, 'path=', self.path, "SEEN SET =", seen_set, "depth=", self.depth)
         relations_11, relations_1N, relations_1Nsq = (), {}, {}
         deferred_list = []
 
@@ -278,7 +278,7 @@ class ExploreTask(Deferred):
             # XXX NOTE that we have built an AST here without taking into account fields for the JOINs and SUBQUERIES
             # It might not pose any problem though if they come from the optimization phase
 #OBSOLETE|            self.ast = self.build_union(self.root, self.keep_root_a, allowed_platforms, metadata, user, query_plan)
-            self.perform_union_all(self.root, allowed_platforms, metadata, query_plan)
+            self.perform_union_all(self.root, allowed_platforms, metadata, user, query_plan)
 
             # ROUTERV2
             #if rename_dict:
@@ -307,7 +307,7 @@ class ExploreTask(Deferred):
                     subpath = self.path[:]
                     subpath.append(name)
                     task = ExploreTask(self._interface, neighbour, relation, subpath, self, self.depth+1)
-                    task.addCallback(self.perform_subquery, relation, allowed_platforms, metadata, query_plan)
+                    task.addCallback(self.perform_subquery, relation, allowed_platforms, metadata, user, query_plan)
                     task.addErrback(self.default_errback)
 
                     relation_name = relation.get_relation_name()
@@ -328,7 +328,7 @@ class ExploreTask(Deferred):
                         # and a CHILD table, we will do a UNION
                         task.addCallback(self.perform_union, root_key, allowed_platforms, metadata, user, query_plan)
                     else:
-                        task.addCallback(self.perform_left_join, relation, allowed_platforms, metadata, query_plan)
+                        task.addCallback(self.perform_left_join, relation, allowed_platforms, metadata, user, query_plan)
                     task.addErrback(self.default_errback)
                     priority = TASK_11
 
@@ -359,7 +359,7 @@ class ExploreTask(Deferred):
             self.cancel()
             raise e
 
-    def perform_left_join(self, ast_sq_rename_dict, relation, allowed_platforms, metadata, query_plan):
+    def perform_left_join(self, ast_sq_rename_dict, relation, allowed_platforms, metadata, user, query_plan):
         """
         Connect a new AST to the current AST using a LeftJoin Node.
         Args:
@@ -374,18 +374,19 @@ class ExploreTask(Deferred):
         self.sq_rename_dict.update(sq_rename_dict)
         if not self.ast:
             # This can occur if no interesting field was found in the table, but it is just used to connect children tables
-            self.perform_union_all(self.root, allowed_platforms, metadata, query_plan)
+            self.perform_union_all(self.root, allowed_platforms, metadata, user, query_plan)
         self.ast.left_join(ast, relation.get_predicate().copy())
 
     # XXX sq_rename_dict ?????? really ????
-    def perform_subquery(self, ast_sq_rename_dict, relation, allowed_platforms, metadata, query_plan):
+    def perform_subquery(self, ast_sq_rename_dict, relation, allowed_platforms, metadata, user, query_plan):
         """
         Connect a new AST to the current AST using a SubQuery Node.
         If the connected table is "on join", we will use a LeftJoin
         and a CartesianProduct Node instead.
         Args:
-            metadata: The DBGraph instance related to the 3nf graph.
             allowed_platforms: A set of String where each String corresponds to a queried platform name.
+            metadata: The DBGraph instance related to the 3nf graph.
+            user: The User issuing the Query.
             query_plan: The QueryPlan instance related to this Query, and that we're updating.
         """
         ast, sq_rename_dict = ast_sq_rename_dict
@@ -394,7 +395,7 @@ class ExploreTask(Deferred):
 
         # We need to build an AST just to collect subqueries
         if not self.ast:
-            self.perform_union_all(self.root, allowed_platforms, metadata, query_plan)
+            self.perform_union_all(self.root, allowed_platforms, metadata, user, query_plan)
 
         self.ast.subquery(ast, relation)
 
@@ -405,20 +406,29 @@ class ExploreTask(Deferred):
 
     def perform_union(self, ast, key, allowed_platforms, metadata, user, query_plan):
         """
+        Args:
+            ast:
+            key:
+            allowed_platforms: A set of String where each String corresponds to a queried platform name.
+            metadata: The DBGraph instance related to the 3nf graph.
+            user: The User issuing the Query.
+            query_plan: The QueryPlan instance related to this Query, and that we're updating.
         """
         if not ast:
             return
         if not self.ast:
-            self.ast = AST()
+            self.ast = AST(self._interface)
         self.ast.union(ast, key)
 
-    def perform_union_all(self, table, allowed_platforms, metadata, query_plan):
+    def perform_union_all(self, table, allowed_platforms, metadata, user, query_plan):
         """
         Complete a QueryPlan instance by adding an Union of From Node related
         to a same Table.
         Args:
             table: The 3nf Table, potentially provided by several platforms.
             allowed_platforms: A set of String where each String corresponds to a queried platform name.
+            metadata: The DBGraph instance related to the 3nf graph.
+            user: The User issuing the Query.
             query_plan: The QueryPlan instance related to this Query, and that we're updating.
         """
         from_asts = list()

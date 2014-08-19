@@ -531,7 +531,6 @@ class Router(Interface):
         # XXX Log.warning("why don't we check the type of Packet ?")
         query      = packet.get_query()
         annotation = packet.get_annotation()
-        print "ANNOTATION OF RECEIVED PACKET", annotation
         receiver   = packet.get_receiver()
 
         try:

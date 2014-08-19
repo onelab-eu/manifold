@@ -29,6 +29,7 @@ from manifold.core.packet           import Packet
 from manifold.core.router           import Router
 from manifold.core.sync_receiver    import SyncReceiver
 from manifold.gateways              import Gateway
+from manifold.util.constants        import SOCKET_PATH
 from manifold.util.daemon           import Daemon
 from manifold.util.log              import Log
 from manifold.util.options          import Options
@@ -132,7 +133,7 @@ class RouterServer(asyncore.dispatcher):
 
 class RouterDaemon(Daemon):
     DEFAULTS = {
-        "socket_path" : "/tmp/manifold"
+        "socket_path" : SOCKET_PATH
     }
 
     def __init__(self):
