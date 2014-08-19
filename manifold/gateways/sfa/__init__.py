@@ -376,7 +376,7 @@ class SFAGateway(Gateway):
                 # if the managed user account has only a private key, the credential will be retrieved 
                 user_config = yield self.manage(user_email, ref_platform_name) #, json.loads(ref_account.config))
             else:
-                user_config = ref_account.config
+                user_config = json.loads(ref_account.config)
                 
         elif account.auth_type == 'managed':
             # call manage function for a managed user account to update it 
@@ -704,22 +704,22 @@ class SFAGateway(Gateway):
 
     # get a delegated credential of a given type to a specific target
     # default allows the use of MySlice's own credentials
-    def __get_cred(self, type, target=None):
+    def __get_cred(self, object_type, target=None):
         cred = None
         delegated='delegated_' if not SFAGateway.is_admin(self.user) else ''
-        Log.debug('Get Credential for %s = %s'% (type,target))           
-        if type == 'user':
+        Log.debug('Get Credential for %s = %s'% (object_type,target))           
+        if object_type == 'user':
             if target:
                 raise Exception, "Cannot retrieve specific user credential for now"
             try:
                 return self.user_config['%suser_credential'%delegated]
             except TypeError, e:
                 raise Exception, "Missing user credential %s" %  str(e)
-        elif type in ['authority', 'slice']:
-            if not '%s%s_credentials' % (delegated, type) in self.user_config:
-                self.user_config['%s%s_credentials' % (delegated, type)] = {}
+        elif object_type in ['authority', 'slice']:
+            if not '%s%s_credentials' % (delegated, object_type) in self.user_config:
+                self.user_config['%s%s_credentials' % (delegated, object_type)] = {}
 
-            creds = self.user_config['%s%s_credentials' % (delegated, type)]
+            creds = self.user_config['%s%s_credentials' % (delegated, object_type)]
             cred = creds.get(target)
 
             if not cred:
