@@ -6,7 +6,9 @@ from manifold.core.packet           import QueryPacket
 from manifold.core.result_value     import ResultValue
 from manifold.core.sync_receiver    import SyncReceiver
 from manifold.util.log              import Log
+from manifold.util.type             import accepts, returns
 
+@returns(list)
 def execute_query(destination, query, error_message):
     """
     """

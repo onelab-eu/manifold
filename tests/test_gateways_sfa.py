@@ -20,7 +20,7 @@ class GatewaysSFATests(ManifoldTestCase):
             raise AssertionError, "Expected ResultValue"
         print ret
         try:
-            records = ret.ok_value()
+            records = ret.get_all()
         except Exception, e:
             raise AssertionError, str(e)
         if not isinstance(records, list):
@@ -28,7 +28,7 @@ class GatewaysSFATests(ManifoldTestCase):
 
     def assertSuccessNotEmpty(self, ret):
         self.assertSuccess(ret)
-        records = ret.ok_value()
+        records = ret.get_all()
         if not records:
             raise AssertionError, "Empty list of records"
         record = records[0]
@@ -37,7 +37,7 @@ class GatewaysSFATests(ManifoldTestCase):
     
     def assertRecordKeyExists(self, ret, key):
         self.assertSuccessNotEmpty(ret)
-        records = ret.ok_value()
+        records = ret.get_all()
         record = records[0]
         if not key in ret:
             raise AssertionError, "Missing key %s in record" % (key, )

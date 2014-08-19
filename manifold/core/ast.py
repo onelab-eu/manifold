@@ -167,7 +167,10 @@ class AST(object):
         if isinstance(self.get_root(), Union):
             # From the query plan construction, we are assured both UNION have the same key
             union = self.get_root()
-            union.add_children([ast.get_root() for ast in children_ast])
+            #MANDO|union.add_children([ast.get_root() for ast in children_ast])
+            Log.tmp("mando a verifier")
+            for ast in children_ast:
+                ast.get_root().add_consumer(union)
         else:
             # We insert the current root to the list of children
             children.insert(0, self.get_root())

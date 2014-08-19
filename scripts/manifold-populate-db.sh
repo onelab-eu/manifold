@@ -1,7 +1,12 @@
 #!/bin/bash
 
-[ -d /var/myslice ] || mkdir -p /var/myslice
-[ -f /var/myslice/db.sqlite ] || manifold-init-db 
+# See ./manifold/bin/constants.py
+STORAGE_FILENAME="/var/lib/manifold/storage.sqlite"
+
+STORAGE_DIR=$(dirname "$STORAGE_FILENAME")
+
+[ -d $STORAGE_DIR ]      || mkdir -p $STORAGE_DIR
+[ -f $STORAGE_FILENAME ] || manifold-init-db
 
 echo "I: Creating platforms"
 

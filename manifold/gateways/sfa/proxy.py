@@ -33,6 +33,7 @@ from twisted.internet                       import ssl, defer
 from sfa.util.cache                         import Cache
 from sfa.client.return_value                import ReturnValue
 
+from manifold.util.constants                import STORAGE_FILENAME
 from manifold.core.exceptions               import ManifoldInternalException, MissingGIDException, MissingSSCertException
 from manifold.util.reactor_thread           import ReactorThread
 from manifold.util.log                      import Log

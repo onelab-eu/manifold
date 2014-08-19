@@ -108,7 +108,7 @@ class Query(object):
                 else:
                     self.fields = Fields(fields, star = False)
             else:
-                self.fields = Fields()
+                self.fields = Fields(star = True)
 
             # "update table set x = 3" => params == set
             if "params" in kwargs:
@@ -350,9 +350,9 @@ class Query(object):
     # LINQ-like syntax
     #---------------------------------------------------------------------------
 
-    @classmethod
+    @staticmethod
     #@returns(Query)
-    def action(self, action, object):
+    def action(action, object):
         """
         (Internal usage). Craft a Query according to an action name
         See methods: get, update, delete, execute.
@@ -368,9 +368,9 @@ class Query(object):
         query.object = object
         return query
 
-    @classmethod
+    @staticmethod
     #@returns(Query)
-    def get(self, object):
+    def get(object):
         """
         Craft the Query which fetches the records related to a given object
         Args:
@@ -378,11 +378,11 @@ class Query(object):
         Returns:
             The corresponding Query instance
         """
-        return self.action(ACTION_GET, object)
+        return Query.action(ACTION_GET, object)
 
-    @classmethod
+    @staticmethod
     #@returns(Query)
-    def update(self, object):
+    def update(object):
         """
         Craft the Query which updates the records related to a given object
         Args:
@@ -390,11 +390,11 @@ class Query(object):
         Returns:
             The corresponding Query instance
         """
-        return self.action(ACTION_UPDATE, object)
+        return Query.action(ACTION_UPDATE, object)
 
-    @classmethod
+    @staticmethod
     #@returns(Query)
-    def create(self, object):
+    def create(object):
         """
         Craft the Query which create the records related to a given object
         Args:
@@ -402,11 +402,11 @@ class Query(object):
         Returns:
             The corresponding Query instance
         """
-        return self.action(ACTION_CREATE, object)
+        return Query.action(ACTION_CREATE, object)
 
-    @classmethod
+    @staticmethod
     #@returns(Query)
-    def delete(self, object):
+    def delete(object):
         """
         Craft the Query which delete the records related to a given object
         Args:
@@ -414,11 +414,11 @@ class Query(object):
         Returns:
             The corresponding Query instance
         """
-        return self.action(ACTION_DELETE, object)
+        return Query.action(ACTION_DELETE, object)
 
-    @classmethod
+    @staticmethod
     #@returns(Query)
-    def execute(self, object):
+    def execute(object):
         """
         Craft the Query which execute a processing related to a given object
         Args:
@@ -426,7 +426,7 @@ class Query(object):
         Returns:
             The corresponding Query instance
         """
-        return self.action(ACTION_EXECUTE, object)
+        return Query.action(ACTION_EXECUTE, object)
 
     #@returns(Query)
     def at(self, timestamp):

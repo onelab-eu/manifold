@@ -9,11 +9,11 @@
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
 import traceback
+from ..util.constants   import STORAGE_FILENAME
 
 try:
     from manifold.util.storage.sqla_storage import SQLAlchemyStorage
 
-    STORAGE_FILENAME = "/var/myslice/db.sqlite"
     STORAGE_URL      = "sqlite:///%s?check_same_thread=False" % STORAGE_FILENAME
 
     STORAGE_CONFIG   = {
