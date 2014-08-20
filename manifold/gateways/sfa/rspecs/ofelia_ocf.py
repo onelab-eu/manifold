@@ -112,83 +112,87 @@ class OfeliaOcfParser(RSpecParser):
         NOTE: since ad/request/manifest are all different, it is difficult to
         automate translation between Manifold and RSpecs.
         """
+        rspec_dict = cls.__rspec_request_base_dict__.copy()
         # Groups
         groups = list()
-        for group in resources['groups']:
-            # in group['ports'], we have a list of dict with datapath and port
-            # properties. We need a listof ports groupes by datapaths in the
-            # rspec.
-            ports_by_datapath = dict()
-            for port in group['ports']:
-                _datapath = port['datapath']
-                _port = port['port']
-                if _datapath not in ports_by_datapath:
-                    ports_by_datapath[_datapath] = list()
-                ports_by_datapath[_datapath].append(_port)
 
-            # Datapaths
-            datapaths = list()
-            for _datapath, _ports in ports_by_datapath.items():
+        # We are expect only 1 Ofelia resource in the Query
+        for resource in resources:
+            if 'groups' in resource:
+                for group in resource['groups']:
+                    # in group['ports'], we have a list of dict with datapath and port
+                    # properties. We need a listof ports groupes by datapaths in the
+                    # rspec.
+                    ports_by_datapath = dict()
+                    for port in group['ports']:
+                        _datapath = port['datapath']
+                        _port = port['port']
+                        if _datapath not in ports_by_datapath:
+                            ports_by_datapath[_datapath] = list()
+                        ports_by_datapath[_datapath].append(_port)
 
-                # Ports for this datapath
-                ports = list()
-                for _port in _ports:
-                    port_dict = {
-                        '@num': _port,          # Example: '11'
-                        #'@name': None          # Example: 'GBE0/24'
+                    # Datapaths
+                    datapaths = list()
+                    for _datapath, _ports in ports_by_datapath.items():
+
+                        # Ports for this datapath
+                        ports = list()
+                        for _port in _ports:
+                            port_dict = {
+                                '@num': _port,          # Example: '11'
+                                #'@name': None          # Example: 'GBE0/24'
+                            }
+                            ports.append(port_dict)
+
+                        datapath_dict = {
+                            # u'@component_manager_id': u'urn:publicid:IDN+openflow:ofam:univbris+authority+cm', 
+                            u'@component_id': _datapath, # Example: u'urn:publicid:IDN+openflow:ofam:univbris+datapath+00:00:00:00:0c:21:00:0a',
+                            #u'@dpid': u'00:00:00:00:0c:21:00:0a', 
+                            u'openflow:port': ports,
+                        }
+                        datapaths.append(datapath_dict)
+
+                    group_dict = {
+                        '@name': group['name'],
+                        'openflow:datapath': datapaths,
                     }
-                    ports.append(port_dict)
+                    groups.append(group_dict)
 
-                datapath_dict = {
-                    # u'@component_manager_id': u'urn:publicid:IDN+openflow:ofam:univbris+authority+cm', 
-                    u'@component_id': _datapath, # Example: u'urn:publicid:IDN+openflow:ofam:univbris+datapath+00:00:00:00:0c:21:00:0a',
-                    #u'@dpid': u'00:00:00:00:0c:21:00:0a', 
-                    u'openflow:port': ports,
+                # MATCH
+                matches = list()
+                for match in resource['matches']:
+                    # Groups
+                    groups = list()
+                    for group in match['groups']:
+                        group_dict = {
+                            '@name': group,
+                        }
+                        groups.append(group_dict)
+                    
+                    # Packet description
+                    packet_dict = dict()
+                    for k, v in match['packet'].items():
+                        packet_dict[k] = {'@value': v}
+
+                    match_dict = {
+                        'openflow:use-group': groups,
+                        'openflow:packet': packet_dict,
+                    }
+                    matches.append(match_dict)
+
+                sliver = {
+                    '@email': 'support@myslice.info',       # XXX used ?
+                    '@description': 'TBD',                  # XXX used ?
+                    'openflow:controller': {
+                        '@url': resource['controller'],    # Example: 'tcp:10.216.22.51:6633'
+                        '@type': 'primary',                 # TODO: support other controller types
+                    },
+                    'openflow:group': groups,
+                    'openflow:match': matches,
                 }
-                datapaths.append(datapath_dict)
 
-            group_dict = {
-                '@name': group['name'],
-                'openflow:datapath': datapaths,
-            }
-            groups.append(group_dict)
-
-        # MATCH
-        matches = list()
-        for match in resources['matches']:
-            # Groups
-            groups = list()
-            for group in match['groups']:
-                group_dict = {
-                    '@name': group,
-                }
-                groups.append(group_dict)
-            
-            # Packet description
-            packet_dict = dict()
-            for k, v in match['packet'].items():
-                packet_dict[k] = {'@value': v}
-
-            match_dict = {
-                'openflow:use-group': groups,
-                'openflow:packet': packet_dict,
-            }
-            matches.append(match_dict)
-
-        sliver = {
-            '@email': 'support@myslice.info',       # XXX used ?
-            '@description': 'TBD',                  # XXX used ?
-            'openflow:controller': {
-                '@url': resources['controller'],    # Example: 'tcp:10.216.22.51:6633'
-                '@type': 'primary',                 # TODO: support other controller types
-            },
-            'openflow:group': groups,
-            'openflow:match': matches,
-        }
-            
-
-        rspec_dict = cls.__rspec_request_base_dict__.copy()
-        rspec_dict['rspec']['openflow:sliver'] = sliver
+                # XXX There is currently only 1 sliver per slice 
+                rspec_dict['rspec']['openflow:sliver'] = sliver
 
         return rspec_dict
 

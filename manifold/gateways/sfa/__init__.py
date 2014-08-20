@@ -46,6 +46,8 @@ from xmlrpclib                          import DateTime
 ################################################################################
 
 from manifold.gateways.sfa.rspecs.nitos_broker  import NITOSBrokerParser
+from manifold.gateways.sfa.rspecs.ofelia_ocf    import OfeliaOcfParser
+
 from manifold.gateways.sfa.rspecs.sfawrap       import SFAWrapParser, PLEParser, WiLabtParser, IoTLABParser, LaboraParser
 from manifold.gateways.sfa.rspecs.loose         import LooseParser
 
@@ -200,6 +202,8 @@ class SFAGateway(Gateway):
         elif server_hrn.startswith('wilab2'):
             server_hrn = "wilab2.ilabt.iminds.be"
             parser = WiLabtParser
+        elif server_hrn.startswith('ofelia') or server_hrn.startswith('openflow'):
+            parser = OfeliaOcfParser
         else:
             #parser = LooseParser
             parser = SFAWrapParser
@@ -1611,10 +1615,21 @@ class SFAGateway(Gateway):
         leases = list()
         interface_hrn = yield self.get_interface_hrn(self.sliceapi)
         for resource in all_resources:
-            hrn = urn_to_hrn(resource)[0]
-            if not hrn.startswith(interface_hrn):
-                #print "FILTER RESOURCE expected auth", interface_hrn, ":", hrn
-                continue
+            # XXX | LOIC - Handling Ofelia OCF resources which have a complex struct
+            if 'groups' in resource:
+                # XXX | LOIC - Bypassing the Query format pb in the Shell
+                resource_type = type(resource)
+                if isinstance(resource, str):
+                    import ast as python_ast
+                    resource = python_ast.literal_eval(resource)
+                    resource_type = type(resource)
+
+            # General case, resources have hrn
+            else:
+                hrn = urn_to_hrn(resource)[0]
+                if not hrn.startswith(interface_hrn):
+                    #print "FILTER RESOURCE expected auth", interface_hrn, ":", hrn
+                    continue
             resources.append(resource)
         for lease in all_leases:
             hrn = urn_to_hrn(lease['resource'])[0]

@@ -71,10 +71,9 @@ class RSpecParser(object):
     def parse(cls, rspec, rspec_version = None, slice_urn = None):
         resources   = list()
         leases      = list()
-
         # XXX Use OrderedDict for Record ? we might also need functions to
         # reorder
-        d = xmltodict.parse(open(rspec).read(),             \
+        d = xmltodict.parse(rspec,             \
                 postprocessor    = cls.get_postprocessor(), \
                 namespaces       = cls.__namespace_map__,   \
                 dict_constructor = Record)
@@ -83,6 +82,7 @@ class RSpecParser(object):
 
         return {'resource': resources, 'lease': leases}
 
+    @classmethod
     def build_rspec(cls, slice_hrn, resources, leases, rspec_version = None):
         rspec_dict = cls.build_rspec_impl(slice_hrn, resources, leases)
         return xmltodict.unparse(rspec_dict, pretty=True)
