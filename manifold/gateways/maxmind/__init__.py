@@ -88,7 +88,7 @@ class MaxMindGateway(Gateway):
             packet: A QUERY Packet instance.
         """
         query = packet.get_query()
-        table_name = query.get_from()
+        table_name = query.get_table_name()
 
         records = None
         if table_name in MaxMindGateway.METHOD_MAP.keys():

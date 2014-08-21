@@ -184,7 +184,7 @@ class Query(object):
         """
         get_params_str = lambda : ", ".join(["%s = %r" % (k, v) for k, v in self.get_params().items()])
 
-        table  = self.get_from()
+        table  = self.get_from() # it may be a string like "namespace:table_name" or not
         fields = self.get_fields()
         select = "SELECT %s" % ("*" if fields.is_star() else ", ".join([field for field in fields]))
         where  = "WHERE %s"  % self.get_where()     if self.get_where()     else ""
@@ -310,10 +310,28 @@ class Query(object):
 
     @returns(StringTypes)
     def get_from(self): # DEPRECATED
+        """
+        Extracts the FROM clause of this Query.
+        You should use get_table_name() or get_namespace().
+        Returns:
+            A String "namespace:table_name" or "table_name" (if the
+            namespace is unset), where 'namespace' is the result of
+            self.get_namespace() and 'table_name' is the result of
+            self.get_table_name()
+        """
         return self.get_object()
 
     @returns(StringTypes)
     def get_object(self):
+        """
+        Extracts the FROM clause of this Query.
+        You should use get_table_name() or get_namespace().
+        Returns:
+            A String "namespace:table_name" or "table_name" (if the
+            namespace is unset), where 'namespace' is the result of
+            self.get_namespace() and 'table_name' is the result of
+            self.get_table_name()
+        """
         return self.object
 
     def set_object(self, object):
@@ -597,33 +615,84 @@ class Query(object):
         return hash(self.__key())
 
 
+    @returns(tuple)
     def get_namespace_table(self):
+        """
+        Retrieve the namespace and the table name related to
+        this Query.
+        Returns:
+            A (String, String) tuple containing respectively
+            the namespace and the table name of the FROM clause.
+            If the namespace is unset, the first operand is
+            set to None.
+        """
         l = self.get_from().split(':', 1)
         return tuple(l) if len(l) == 2 else (None,) + tuple(l)
 
-    def set_namespace_table(self, namespace, table):
-        self.object = "%s:%s" % (namespace, table)
+    def set_namespace_table(self, namespace, table_name):
+        """
+        Set the namespace and the table name of this Query.
+        Args:
+            namespace: A String instance.
+            table_name: A String instance.
+        """
+        self.object = "%s:%s" % (namespace, table_name)
 
     @returns(StringTypes)
-    def get_namespace(self):
+    def get_table_name(self):
+        """
+        Returns:
+            The namespace corresponding to this Query (None if unset).
+        """
         l = self.get_from().split(':', 1)
         return l[0] if len(l) == 2 else None
 
+
+    @returns(StringTypes)
+    def get_namespace(self):
+        """
+        Returns:
+            The namespace corresponding to this Query (None if unset).
+        """
+        l = self.get_from().split(':', 1)
+        return l[0] if len(l) == 2 else None
+
+    @returns(StringTypes)
+    def get_table_name(self):
+        """
+        Returns:
+            The table_name corresponding to this Query (None if unset).
+        """
+        return self.get_from().split(':')[-1]
+
     def set_namespace(self, namespace):
+        """
+        Set the namespace and the table name of this Query.
+        Args:
+            namespace: A String instance.
+        """
         old_namespace, old_table_name = self.get_namespace_table()
         self.set_namespace_table(namespace, old_table_name)
 
     @returns(StringTypes)
     def clear_namespace(self):
-        if ':' in self.get_from():
-            namespace, table_name = self.get_from().split(':', 1)
-            self.object = table_name
+        """
+        Unset the namespace set to this Query.
+        """
+        if self.get_namespace():
+            self.object = self.get_table_name()
 
     #---------------------------------------------------------------------------
     # Destination
     #---------------------------------------------------------------------------
 
+    @returns(Destination)
     def get_destination(self):
+        """
+        Craft the Destination corresponding to this Query.
+        Returns:
+            The corresponding Destination.
+        """
         return Destination(self.object, self.filters, self.fields | Fields(self.params.keys()))
 
     def set_destination(self, destination):

@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from types                          import StringTypes
+from manifold.util.log              import Log
 from manifold.util.type             import accepts, returns
 
 # The distinction between parent and children fields is based on the
@@ -24,7 +25,12 @@ class Fields(list):
         """
         star = kwargs.pop('star', DEFAULT_IS_STAR)
         list.__init__(self, *args, **kwargs)
-        self._star = False if args else star
+        size = len(self)
+        if star and size != 0:
+            raise ValueError("Inconsistent parameter (star = %s size = %s)" % (star, size))
+        # self._star == False and len(self) == 0 occurs when we create Fields() (to use later |=)
+        # and must behaves as Fields(star = False)
+        self._star = star
 
     @returns(StringTypes)
     def __repr__(self):
@@ -65,7 +71,7 @@ class Fields(list):
             # This is due to a bug in early versions of Python 2.7 which are
             # present on PlanetLab. During copy.deepcopy(), the object is
             # reconstructed using append before the state (self.__dict__ is
-            # reconstructed). Hence the object has no _start when append is
+            # reconstructed). Hence the object has no _star when append is
             # called and this raises a crazy Exception:
             # I could not reproduce in a smaller example
             # http://pastie.org/private/5nf15jg0qcvd05pbmnrp8g
@@ -78,12 +84,13 @@ class Fields(list):
         self._star = True
         self.clear()
 
-    def unset_star(self, fields = None):
+    def unset_star(self, fields):
         """
         Update this Fields instance to make it corresponds to a set of Fields
         Args:
             fields: A Fields instance or a set of Field instances.
         """
+        assert len(fields) > 1
         self._star = False
         if fields:
             self |= fields
@@ -142,7 +149,7 @@ class Fields(list):
         Returns:
             The updated Fields instance.
         """
-        if self.is_star() or fields.is_star():
+        if fields.is_star():
             self.set_star()
             return self
         else:
@@ -180,6 +187,7 @@ class Fields(list):
             pass
         else:
             self[:] = [x for x in self if x in fields]
+        return self
 
     @returns(bool)
     def __nonzero__(self):
@@ -290,7 +298,7 @@ class Fields(list):
             list.append(self, field_name)
 
     def clear(self):
-        self._star = False
+        self._star = True
         del self[:]
 
     def rename(self, aliases):

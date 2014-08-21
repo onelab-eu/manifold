@@ -48,7 +48,7 @@ class Storage(object):
         Gateway.register_all()
         cls_storage = Gateway.get(self._gateway_type)
         if not cls_storage:
-            raise Exception, "Cannot find %s Gateway, required to access Manifold Storage" % gateway_type
+            raise RuntimeError("Cannot find %s Gateway, required to access Manifold Storage" % gateway_type)
         self._gateway = cls_storage(self._interface, LOCAL_NAMESPACE, self._platform_config)
 
     @returns(Gateway)
@@ -78,13 +78,14 @@ class Storage(object):
             A list of Records.
         """
         gateway = self.get_gateway()
+        namespace = query.get_namespace()
 
         # Check parameters
         assert gateway and isinstance(gateway, Gateway),\
             "Invalid gateway = %s (%s)" % (gateway, type(gateway))
         assert not annotation or isinstance(annotation, Annotation),\
             "Invalid annotation = %s (%s)" % (annotation, type(annotation))
-        assert not ':' in query.get_from() or query.get_from().startswith(LOCAL_NAMESPACE),\
+        assert namespace in [None, LOCAL_NAMESPACE],\
             "Invalid namespace: '%s' != '%s'" % (query.get_from(), LOCAL_NAMESPACE)
 
         # Enrich annotation to transport Storage's credentials

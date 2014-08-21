@@ -39,6 +39,7 @@ class Dup(Operator):
             key: A Key instance which describes which fields of
                 incoming Records allows to detect duplicates.
         """
+        raise Exception("Dup: uses obsolete get_producer()")
         #assert isinstance(key, Key),\
         #    "Invalid key %r (%r)" % (key, type(key))
 

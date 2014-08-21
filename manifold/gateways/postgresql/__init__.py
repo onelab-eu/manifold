@@ -562,43 +562,43 @@ class PostgreSQLGateway(Gateway):
         Log.debug(query)
 
         cursor = self.connect(cursor_factory)
-        try:
-            # psycopg2 requires %()s format for all parameters,
-            # regardless of type.
-            # this needs to be done carefully though as with pattern-based filters
-            # we might have percents embedded in the query
-            # so e.g. GetPersons({"email":"*fake*"}) was resulting in .. LIKE "%sake%"
-            if psycopg2:
-                query = re.sub(r"(%\([^)]*\)|%)[df]", r"\1s", query)
-            # rewrite wildcards set by Filter.py as "***" into "%"
-            query = query.replace("***", "%")
+#        try:
+        # psycopg2 requires %()s format for all parameters,
+        # regardless of type.
+        # this needs to be done carefully though as with pattern-based filters
+        # we might have percents embedded in the query
+        # so e.g. GetPersons({"email":"*fake*"}) was resulting in .. LIKE "%sake%"
+        if psycopg2:
+            query = re.sub(r"(%\([^)]*\)|%)[df]", r"\1s", query)
+        # rewrite wildcards set by Filter.py as "***" into "%"
+        query = query.replace("***", "%")
 
-            if not params:
-                cursor.execute(query)
-            elif isinstance(params, StringValue):
-                cursor.execute(query, params)
-            elif isinstance(params, dict):
-                cursor.execute(query, params)
-            elif isinstance(params, tuple) and len(params) == 1:
-                cursor.execute(query, params[0])
-            else:
-                param_seq = params
-                cursor.executemany(query, param_seq)
-            (self.rowcount, self.description, self.lastrowid) = \
-                            (cursor.rowcount, cursor.description, cursor.lastrowid)
-        except Exception, e:
-            try:
-                self.rollback()
-            except:
-                pass
-            uuid = uuid4() #commands.getoutput("uuidgen")
-            Log.debug("Database error %s:" % uuid)
-            Log.debug(e)
-            Log.debug("Query:")
-            Log.debug(query)
-            Log.debug("Params:")
-            Log.debug(pformat(params))
-            raise Exception(str(e).rstrip())
+        if not params:
+            cursor.execute(query)
+        elif isinstance(params, StringValue):
+            cursor.execute(query, params)
+        elif isinstance(params, dict):
+            cursor.execute(query, params)
+        elif isinstance(params, tuple) and len(params) == 1:
+            cursor.execute(query, params[0])
+        else:
+            param_seq = params
+            cursor.executemany(query, param_seq)
+        (self.rowcount, self.description, self.lastrowid) = \
+                        (cursor.rowcount, cursor.description, cursor.lastrowid)
+#        except Exception, e:
+#            try:
+#                self.rollback()
+#            except:
+#                pass
+#            uuid = uuid4() #commands.getoutput("uuidgen")
+#            Log.error("Database error %s:" % uuid)
+#            Log.error(e)
+#            Log.error("Query:")
+#            Log.error(query)
+#            Log.error("Params:")
+#            Log.error(pformat(params))
+#            raise Exception(str(e).rstrip())
 
         return cursor
 
@@ -892,13 +892,14 @@ class PostgreSQLGateway(Gateway):
         Returns:
             A String containing a postgresql command 
         """
-        if not query.get_from(): Log.error("PostgreSQLGateway::to_sql(): Invalid query: %s" % query) 
+        table_name = query.get_table_name()
+        if not table_name: Log.error("PostgreSQLGateway::to_sql(): Invalid query: %s" % query)
 
         select = query.get_select()
         where  = PostgreSQLGateway.to_sql_where(query.get_where())
         params = {
             "fields"     : ", ".join(select) if select else "*",
-            "table_name" : query.get_from(),
+            "table_name" : table_name,
             "where"      : "WHERE %s" % where if where else ""
         }
 

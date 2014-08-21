@@ -15,7 +15,7 @@ from sqlalchemy                     import create_engine
 from sqlalchemy.ext.declarative     import declarative_base
 from sqlalchemy.orm                 import sessionmaker
 
-from manifold.core.announce         import Announce, make_virtual_announces
+from manifold.core.announce         import Announce
 from manifold.core.annotation       import Annotation
 from manifold.core.field            import Field
 from manifold.core.record           import Records
@@ -82,21 +82,6 @@ class SQLAlchemyGateway(Gateway):
         """
         return self._session
 
-    @staticmethod
-    @returns(bool)
-    def is_virtual_table(table_name):
-        """
-        Tests whether a Table is virtual or not. A Table is said to be
-        the Manifold object do not rely to a SQLAlchemy table.
-        Args:
-            table_name: A String instance.
-        Returns:
-            True iif this Table is virtual.
-        """
-        # We don't care about the namespace so we pass None and so this method remains static
-        virtual_table_names = [announce.get_table().get_name() for announce in make_virtual_announces(None)]
-        return table_name in virtual_table_names
-
     @returns(list)
     def make_announces(self):
         """
@@ -112,18 +97,14 @@ class SQLAlchemyGateway(Gateway):
         for table_name, cls in self.MAP_OBJECT.items():
             instance = SQLAlchemyGateway.MAP_OBJECT[table_name](self, self._interface)
             announce = instance.make_announce()
-            if table_name == 'account':
+            if table_name == "account":
+                Log.warning("sqla::__init__(): HACK: adding 'string credential' field in 'account'")
                 field = Field(
-                    type = 'string',
-                    name = 'credential'
+                    type = "string",
+                    name = "credential"
                 )
                 announce._table.insert_field(field)
-
             announces.append(announce)
-
-        # Virtual tables ("object", "column", ...)
-        virtual_announces = make_virtual_announces(self.get_platform_name())
-        announces.extend(virtual_announces)
 
         return announces
 
@@ -140,28 +121,38 @@ class SQLAlchemyGateway(Gateway):
         new_query = query.clone()
 
         action = query.get_action()
-        table_name = query.get_from()
+        table_name = query.get_table_name()
 
-        if SQLAlchemyGateway.is_virtual_table(table_name):
-            # Handle queries related to local:object and local:gateway.
-            # Note that local:column won't be queried since it has no RETRIEVE capability.
-            if not action == "get":
-                 raise RuntimeError("Invalid action (%s) on '%s::%s' table" % (action, self.get_platform_name(), table_name))
+# Mando: virtual announces are now in manifold.core.local
+#DEPRECATED|        if SQLAlchemyGateway.is_virtual_table(table_name):
+#DEPRECATED|            # Handle queries related to local:object and local:gateway.
+#DEPRECATED|            # Note that local:column won't be queried since it has no RETRIEVE capability.
+#DEPRECATED|            if not action == "get":
+#DEPRECATED|                 raise RuntimeError("Invalid action (%s) on '%s::%s' table" % (action, self.get_platform_name(), table_name))
+#DEPRECATED|
+#DEPRECATED|            if table_name == "object":
+#DEPRECATED|                records = Records([announce.to_dict() for announce in self.get_announces()])
+#DEPRECATED|            elif table_name == "gateway":
+#DEPRECATED|                records = Records([{"type" : gateway_type} for gateway_type in sorted(Gateway.list().keys())])
+#DEPRECATED|            else:
+#DEPRECATED|                raise RuntimeError("Invalid table '%s::%s'" % (self.get_platform_name(), table_name))
+#DEPRECATED|        else:
+#DEPRECATED|            # We need to pass a pointer to the manifold interface to the objects since they have to make # queries
+#DEPRECATED|            instance = SQLAlchemyGateway.MAP_OBJECT[table_name](self, self._interface)
+#DEPRECATED|            annotation = packet.get_annotation()
+#DEPRECATED|            if not annotation:
+#DEPRECATED|                annotation = Annotation()
+#DEPRECATED|            if not action in ["create", "update", "delete", "get"]:
+#DEPRECATED|                raise ValueError("Invalid action = %s" % action)
+#DEPRECATED|            records = getattr(instance, action)(new_query, annotation)
 
-            if table_name == "object":
-                records = Records([announce.to_dict() for announce in self.get_announces()])
-            elif table_name == "gateway":
-                records = Records([{"type" : gateway_type} for gateway_type in sorted(Gateway.list().keys())])
-            else:
-                raise RuntimeError("Invalid table '%s::%s'" % (self.get_platform_name(), table_name))
-        else:
-            # We need to pass a pointer to the manifold interface to the objects since they have to make # queries
-            instance = SQLAlchemyGateway.MAP_OBJECT[table_name](self, self._interface)
-            annotation = packet.get_annotation()
-            if not annotation:
-                annotation = Annotation()
-            if not action in ["create", "update", "delete", "get"]:
-                raise ValueError("Invalid action = %s" % action)
-            records = getattr(instance, action)(new_query, annotation)
+        # We need to pass a pointer to the manifold interface to the objects since they have to make # queries
+        instance = SQLAlchemyGateway.MAP_OBJECT[table_name](self, self._interface)
+        annotation = packet.get_annotation()
+        if not annotation:
+            annotation = Annotation()
+        if not action in ["create", "update", "delete", "get"]:
+            raise ValueError("Invalid action = %s" % action)
+        records = getattr(instance, action)(new_query, annotation)
 
         self.records(records, packet)

@@ -122,7 +122,6 @@ class SQLA_Object(Object):
             The list of updated Objects.
         """
         super(SQLA_Object, self).check(query, annotation)
-        print "UPDATE ANNOTATION=", annotation
         user = annotation.get("user", None)
         session = self.get_gateway().get_session()
 
@@ -133,7 +132,8 @@ class SQLA_Object(Object):
 
         # XXX What about filters on such fields
         # filter works with account and platform table only
-        if query.get_from() == "account" or query.get_from() == "platform":
+        table_name = query.get_table_name()
+        if table_name == "account" or table_name == "platform":
             if not query.get_where().has_eq("platform_id") and not query.get_where().has_eq("platform"):
                 raise Exception, "Cannot update JSON fields on multiple platforms"
 

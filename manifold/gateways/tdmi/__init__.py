@@ -101,7 +101,7 @@ class TDMIGateway(PostgreSQLGateway):
             packet: A QUERY Packet instance.
         """
         query = packet.get_query()
-        table_name = query.get_from()
+        table_name = query.get_table_name()
 
         if table_name in TDMIGateway.METHOD_MAP.keys():
             if TDMIGateway.METHOD_MAP[table_name]:

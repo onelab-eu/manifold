@@ -35,6 +35,7 @@ class Demux(Operator):
         Args:
             child A Node instance, child of this Demux Node.
         """
+        raise Exception("Demux: uses obsolete get_producer()")
         assert issubclass(type(child), Node),\
             "Invalid child = %r (%r)" % (child, type(child))
 

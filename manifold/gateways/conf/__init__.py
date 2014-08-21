@@ -45,7 +45,8 @@ class ConfGateway(Gateway):
         query = packet.get_query()
         # XXX ensure query parameters are non empty for create
         parser = PatternParser(query, BASEDIR)
-        rows = parser.parse(self.MAP_PATTERN[query.get_from()])
+        table_name = query.get_table_name()
+        rows = parser.parse(self.MAP_PATTERN[table_name])
         self.records(rows, packet)
 
     @announces_from_docstring(LOCAL_NAMESPACE)

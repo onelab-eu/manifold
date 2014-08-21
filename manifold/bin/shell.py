@@ -358,7 +358,6 @@ class Shell(object):
 
         elif auth_method == 'router':
             username = Options().username
-            print "username", username
             self.authenticate_router(username)
 
         else: # XMLRPC

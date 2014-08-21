@@ -9,6 +9,7 @@
 #   Jordan Augé         <jordan.auge@lip6.fr>
 #   Marc-Olivier Buob   <marc-olivier.buob@lip6.fr>
 
+import traceback
 from types                          import StringTypes
 
 from manifold.core.annotation       import Annotation
@@ -17,11 +18,13 @@ from manifold.core.query            import Query
 from manifold.core.result_value     import ResultValue
 from manifold.core.router           import Router
 from manifold.core.sync_receiver    import SyncReceiver
-from manifold.core.helpers          import execute_query
+from manifold.core.helpers          import execute_local_query
 from manifold.util.log              import Log 
 from manifold.util.predicate        import eq
 from manifold.util.type             import accepts, returns
 from ..clients.client               import ManifoldClient
+
+ERR_CANNOT_LOAD_STORAGE = "While executing %(query)s: Cannot load storage."
 
 class ManifoldRouterClient(ManifoldClient):
 
@@ -49,6 +52,7 @@ class ManifoldRouterClient(ManifoldClient):
         if load_storage:
             self.load_storage()
 
+        # self.user is a dict or None
         self.init_user(user_email)
 
     def terminate(self):
@@ -69,23 +73,20 @@ class ManifoldRouterClient(ManifoldClient):
         assert not platform_names or isinstance(platform_names, (frozenset, set)),\
             "Invalid platform_names = %s (%s)" % (platform_names, type(platform_names))
 
-        ERR_CANNOT_LOAD_STORAGE = "Cannot load storage"
-
-        from manifold.bin.config import MANIFOLD_STORAGE
 
         # Register ALL the platform configured in the Storage. 
         query = Query.get("platform")
-        platforms_storage = execute_query(MANIFOLD_STORAGE.get_gateway(), query, ERR_CANNOT_LOAD_STORAGE)
+        platforms_storage = execute_local_query(query, ERR_CANNOT_LOAD_STORAGE)
         for platform in platforms_storage:
             self.router.register_platform(platform)
 
         # Fetch enabled Platforms from the Storage...
         if not platform_names:
             query = Query.get("platform").select("platform").filter_by("disabled", eq, False)
-            platforms_storage = execute_query(MANIFOLD_STORAGE.get_gateway(), query, ERR_CANNOT_LOAD_STORAGE)
+            platforms_storage = execute_local_query(query, ERR_CANNOT_LOAD_STORAGE)
         else:
             query = Query.get("platform").select("platform").filter_by("platform", included, platform_names)
-            platforms_storage = execute_query(MANIFOLD_STORAGE.get_gateway(), query, ERR_CANNOT_LOAD_STORAGE)
+            platforms_storage = execute_local_query(query, ERR_CANNOT_LOAD_STORAGE)
 
             # Check whether if all the requested Platforms have been found in the Storage.
             platform_names_storage = set([platform["platform"] for platform in platforms_storage])
@@ -97,8 +98,8 @@ class ManifoldRouterClient(ManifoldClient):
         self.router.update_platforms(platforms_storage)
 
         # Load policies from Storage
-        query_rules = Query.get('policy').select('policy_json')
-        rules = execute_query(MANIFOLD_STORAGE.get_gateway(), query_rules, 'Cannot load policy from storage')
+        query_rules = Query.get("policy").select("policy_json")
+        rules = execute_local_query(query_rules, "Cannot load policy from storage")
         for rule in rules:
             self.router.policy.add_rule(rule)
 
@@ -121,11 +122,10 @@ class ManifoldRouterClient(ManifoldClient):
             return
 
         try:
-            users = self.router.execute_local_query(
-                Query.get("user").filter_by("email", "==", user_email)
-            )
+            query_users = Query.get("user").filter_by("email", "==", user_email)
+            users = execute_local_query(query_users, ERR_CANNOT_LOAD_STORAGE)
         except Exception, e:
-            print "eee=", e
+            Log.warning("ManifoldRouterClient::init_user: Cannot initialize user: %s" % e)
             users = list()
 
         if not len(users) >= 1:
