@@ -147,6 +147,38 @@ class Table(object):
         # Init self.platforms
         self.init_platforms()
 
+    @returns(StringTypes)
+    def get_from_name(self):
+        """
+        Returns:
+            A String containing the namespace of this Table and its name.
+        """
+        platforms = sorted(self.get_platforms())
+        if platforms:
+            return "{%s}::%s" % (', '.join([p for p in sorted(platforms)]), self.get_name())
+        else:
+            return self.get_name()
+
+    @returns(bool)
+    def __eq__(self, table):
+        """
+        Tests whether self and 'table' corresponds to the same Table.
+        Args:
+            table: A Table instance.
+        Returns:
+            True iif self == table.
+        """
+        assert isinstance(table, Table)
+        self_platforms = self.get_platforms()
+        table_platforms = table.get_platforms()
+        assert isinstance(self_platforms, frozenset)
+        assert isinstance(table_platforms, frozenset)
+        return self.get_name() == table.get_name() \
+            and self_platforms == table_platforms
+
+    def __hash__(self):
+        return hash((self.get_name(), self.get_platforms()))
+
     #-----------------------------------------------------------------------
     # Outputs
     #-----------------------------------------------------------------------
@@ -157,9 +189,8 @@ class Table(object):
         Returns:
             The '%s' representation of this Table.
         """
-        return "{%s}::%s {\n\t%s;\n\n\t%s;\n\t%s\n};" % (
-            ', '.join([p          for p in sorted(self.get_platforms())]),
-            self.get_name(),
+        return "%s {\n\t%s;\n\n\t%s;\n\t%s\n};" % (
+            self.get_from_name(),
             ';\r\n    '.join(["%s%s" % (f, "[]" if f.is_array() else "") for f in sorted(self.get_fields())]),
 #            '\n\t'.join(["%s;\t// via %r" % (field, methods) for field, methods in self.map_field_methods.items()]),
             '\r\n    ;'.join(["%s" % k for k in self.get_keys()]),
@@ -172,11 +203,7 @@ class Table(object):
         Returns:
             The '%r' representation of this Table.
         """
-        platforms = self.get_platforms()
-        if platforms:
-            return "<{%s}::%s>" % (', '.join([p for p in sorted(platforms)]), self.get_name())
-        else:
-            return self.get_name()
+        return "<%s>" % self.get_from_name()
 
     #-----------------------------------------------------------------------
     # Accessors
@@ -467,9 +494,10 @@ class Table(object):
         self.init_platforms()
 
     def init_platforms(self):
-        self.platforms = set(self.partitions.keys())
+        # frozenset is needed since self.platforms is used in Table::__hash__
+        self.platforms = frozenset(self.partitions.keys())
 
-    @returns(set)
+    @returns(frozenset)
     def get_platforms(self):
         """
         Returns:

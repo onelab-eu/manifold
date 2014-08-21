@@ -50,7 +50,7 @@ class RM_Object(DeferredObject):
                 geni_urn: a String containing the GENI URN (ex: "urn:publicid:IDN+ple:upmc+user+john_doe")
                 date_created: an integer (timestamp)
         """
-        object     = query.get_from()
+        object     = query.get_table_name()
         object_hrn = "%s_hrn" % object
         filters    = query.get_where()
         params     = query.get_params()

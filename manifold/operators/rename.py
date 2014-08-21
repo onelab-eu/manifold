@@ -141,6 +141,7 @@ class Rename(Operator, ChildSlotMixin):
                 in the incoming Records into the corresponding field name
                 in the output Records.
         """
+        raise Exception("Rename: uses obsolete get_producer()")
         assert isinstance(aliases, dict),\
             "Invalid aliases = %s (%s)" % (aliases, type(aliases))
         # XXX Why ? -- jordan

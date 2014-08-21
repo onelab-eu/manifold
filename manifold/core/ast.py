@@ -110,7 +110,7 @@ class AST(object):
 
         # Eventually add a rename operator to translate between domains
         try:
-            instance = gateway.get_object(query.get_from())
+            instance = gateway.get_object(query.get_table_name())
             aliases  = instance.get_aliases()
             if aliases:
                 self.root = Rename(self.get_root(), aliases)
@@ -140,43 +140,41 @@ class AST(object):
         return self
 
     #@returns(AST)
-    def union(self, children_ast, key):
+    def union(self, child_asts, key):
         """
-        Make an AST which is the UNION of self (left operand) and children_ast (right operand)
+        Make an AST which is the UNION of self (left operand) and child_asts (right operand)
         Args:
-            children_ast: A list of AST gathered by this Union operator.
+            child_asts: A list of AST gathered by this Union operator.
             key: A Key instance which can be used to identify each Records.
         Returns:
             The AST corresponding to the UNION.
         """
         # We only need a key for UNION distinct, not supported yet
-        assert not key or isinstance(key, Key), "Invalid key %r (type %r)"          % (key, type(key))
-        assert children_ast is not None, "Invalid children AST for UNION"
+        assert isinstance(child_asts, list),\
+            "Invalid children AST for UNION: %s (%s)" % (child_asts, type(child_asts))
+        assert not key or isinstance(key, Key),\
+            "Invalid key %r (type %r)" % (key, type(key))
 
-        # We treat the general case when we are provided with a list of children_ast
-        if not isinstance(children_ast, list):
-            children_ast = [children_ast]
-        children = [ast.get_root() for ast in children_ast]
+        child_roots = [ast.get_root() for ast in child_asts]
 
         # If the ast is empty
         if self.is_empty():
-            self.root = children[0] if len(children) == 1 else Union(children, key)
+            self.root = child_roots[0] if len(child_roots) == 1 else Union(child_roots, key)
             return self
 
-        # If the root node a UNION, in this case we extend it with the set of children_ast
+        # If the root node a UNION, in this case we extend it with the set of child_asts
         if isinstance(self.get_root(), Union):
             # From the query plan construction, we are assured both UNION have the same key
             union = self.get_root()
-            #MANDO|union.add_children([ast.get_root() for ast in children_ast])
-            Log.tmp("mando a verifier")
-            for ast in children_ast:
+            #MANDO|union.add_child_roots([ast.get_root() for ast in child_asts])
+            for ast in child_asts:
                 ast.get_root().add_consumer(union)
         else:
-            # We insert the current root to the list of children
-            children.insert(0, self.get_root())
+            # We insert the current root to the list of child_roots
+            child_roots.insert(0, self.get_root())
 
-            # We have at least 2 children, let's do Union
-            self.root = Union(children, key)
+            # We have at least 2 child_roots, let's do Union
+            self.root = Union(child_roots, key)
 
         return self
 
@@ -256,45 +254,58 @@ class AST(object):
 
 
     #@returns(AST)
-    def subquery(self, ast, relation):
-        """
-        Append a SubQuery Node above the current AST, which will be used as the
-        main query of this SubQuery.
-
-        Args:
-            children_ast_relation: A tuple (AST, Relation) corresponding to the
-            subquery (childr) involved in this SubQuery Node)
-
-        Returns:
-            The resulting AST.
-
-        Note:
-            We have a single subquery child here.
-        """
-        assert not self.is_empty(), "AST not initialized"
-
-        self.update_root(lambda root: root.subquery(ast.get_root(), relation))
-
+    def subquery(self, producer, relation):
+        self.root = SubQuery(self.get_root(), [(producer, relation)])
         return self
 
-    #@returns(AST)
-    def subqueries(self, children_ast_relation_list):
-        """
-        Append a SubQuery Node above the current AST, which will be used as the
-        main query of this SubQuery.
-        Args:
-            children_ast_relation_list: A list of (AST, Relation) tuples
-            corresponding to each subquery (children) involved in this
-            SubQuery Node)
-        Returns:
-            The resulting AST.
-        """
-        assert not self.is_empty(), "AST not initialized"
+#MANDO|    #@returns(AST)
+#MANDO|    def subquery(self, ast, relation):
+#MANDO|        """
+#MANDO|        Append a SubQuery Node above the current AST, which will be used as the
+#MANDO|        main query of this SubQuery.
+#MANDO|
+#MANDO|        Args:
+#MANDO|            ast:
+#MANDO|            relation:
+#MANDO|
+#MANDO|        Returns:
+#MANDO|            The resulting AST.
+#MANDO|
+#MANDO|        Note:
+#MANDO|            We have a single subquery child here.
+#MANDO|        """
+#MANDO|        assert not self.is_empty(), "AST not initialized"
+#MANDO|
+#MANDO|#MANDO|        self.update_root(lambda root: root.subquery(ast.get_root(), relation))
+#MANDO|#MANDO|        return self
+#MANDO|
+#MANDO|        self.root = SubQuery(self.get_root(), [(ast.get_root(), relation)])
+#MANDO|        return self
 
-        children = map(lambda (ast, relation): (ast.get_root(), relation), children_ast_relation_list)
-        self.root = SubQuery(self.get_root(), children, self._interface)
-
-        return self
+#UNUSED|    #@returns(AST)
+#UNUSED|    def subqueries(self, children_ast_relation_list):
+#UNUSED|        """
+#UNUSED|        Append a SubQuery Node above the current AST, which will be used as the
+#UNUSED|        main query of this SubQuery.
+#UNUSED|        Args:
+#UNUSED|            children_ast_relation_list: A list of (AST, Relation) tuples
+#UNUSED|            corresponding to each subquery (children) involved in this
+#UNUSED|            SubQuery Node)
+#UNUSED|        Returns:
+#UNUSED|            The resulting AST.
+#UNUSED|        """
+#UNUSED|        assert not self.is_empty(), "AST not initialized"
+#UNUSED|
+#UNUSED|        children = map(lambda (ast, relation): (ast.get_root(), relation), children_ast_relation_list)
+#UNUSED|
+#UNUSED|        # children is a list of (Producer, Relation) tuples
+#UNUSED|#MANDO|        self.root = SubQuery(self.get_root(), children, self._interface)
+#UNUSED|#MANDO|        return self
+#UNUSED|
+#UNUSED|        Log.warning("mando: a verifier")
+#UNUSED|        self.root = SubQuery(self.get_root(), children)
+#UNUSED|        return self
+#UNUSED|
 
     #@returns(AST)
     def cartesian_product(self, children_ast_relation_list, query):
@@ -306,6 +317,7 @@ class AST(object):
         Returns:
             The resulting AST.
         """
+        Log.tmp("mando: I guess that AST::cartesian_product() should conform to AST::subqueries() prototype")
         assert self.is_empty(), "Cartesian product should be done on an empty AST"
 
         if len(children_ast_relation_list) == 1:
@@ -349,6 +361,12 @@ class AST(object):
     #---------------------------------------------------------------------------
 
     def update_root(self, function):
+        """
+        Apply a callback function on this AST.
+        Args:
+            function: A callback receiving in parameter the AST self.get_root()
+                and returning the resulting AST.
+        """
         new_root = function(self.get_root())
         if new_root:
             self.set_root(new_root)

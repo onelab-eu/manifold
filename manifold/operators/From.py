@@ -113,7 +113,7 @@ class From(Operator, ChildSlotMixin):
             platform_name = self.get_platform_name()
             return "FROM %(namespace)s%(table_name)s [%(query)s]" % {
                 "namespace"  : "%s:" % platform_name if platform_name else "",
-                "table_name" : self.get_query().get_from(),
+                "table_name" : self.get_query().get_table_name(),
                 "query"      : self.get_query().to_sql(platform = self.get_platform_name())
             }
         except Exception, e:
@@ -298,8 +298,11 @@ class From(Operator, ChildSlotMixin):
                 consumers = self.get_consumers()
                 self.clear_consumers() # XXX We must only unlink consumers involved in the QueryPlan that we're optimizing
                 from_table = FromTable(self.get_query(), list(), self._key)
-                for consumer in consumers:
-                    consumer.add_producer(from_table)
+#MANDO|                for consumer in consumers:
+#MANDO|                    consumer.add_producer(from_table)
+                Log.tmp("mando: a verifier")
+                from_table.add_consumers(consumers)
+#MANDO|
                 Log.warning("From: optimize_selection: empty table")
                 return from_table
 
@@ -353,7 +356,7 @@ class From(Operator, ChildSlotMixin):
         # This should initially contain all fields provided by the table (and not *)
         provided_fields = self.get_query().get_select()
 
-        if self.get_capabilities().projection or self.get_capabilities.fullquery:
+        if self.get_capabilities().projection or self.get_capabilities().fullquery:
             self._query.select().select(provided_fields & fields)
 
         if self.get_capabilities().projection:

@@ -170,13 +170,13 @@ class PLEGateway(Gateway):
             packet: A QUERY Packet instance.
         """
         query = packet.get_query()
-        table_name = query.get_from()
+        table_name = query.get_table_name()
 
         # Need to transform manifold fields into query fields, and then back in
         # callback_records
 
         ## Insert a RENAME Node above this FROM Node if necessary.
-        #instance = self.get_object(query.get_from())
+        #instance = self.get_object(query.get_table_name())
         #aliases  = instance.get_aliases()
         #if aliases:
         #    Log.warning("I don't think this properly recables everything")

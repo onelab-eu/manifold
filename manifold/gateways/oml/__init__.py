@@ -127,14 +127,15 @@ class OMLGateway(PostgreSQLGateway):
         """
         self.check_receive(packet)
         query = packet.get_query()
+        table_name = query.get_table_name()
 
         try:
             # Announced objects: slice, application, measurement_point
             #print "QUERY", query.object, " -- FILTER=", query.filters
-            records = getattr(self, "get_%s" % query.get_from())(query)
+            records = getattr(self, "get_%s" % table_name)(query)
         except Exception, e:
             # Missing function = we are querying a measure. eg. get_counter
-            records = self.get_measurement_table(query.get_from())()
+            records = self.get_measurement_table(table_name)()
 
         self.records(records, packet)
 

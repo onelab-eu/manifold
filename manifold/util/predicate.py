@@ -101,7 +101,7 @@ class Predicate:
         Returns:
             The '%s' representation of this Predicate.
         """
-        return "Predicate(%r)" % self 
+        return repr(self)
 
     @returns(StringTypes)
     def __repr__(self):

@@ -339,7 +339,7 @@ class SFAGatewayCommon(Gateway):
             return
 
 # DEPRECATED |        # Insert a RENAME Node above this FROM Node if necessary.
-# DEPRECATED |        instance = self.get_object(query.get_from())
+# DEPRECATED |        instance = self.get_object(query.get_table_name())
 # DEPRECATED |        aliases  = instance.get_aliases()
 # DEPRECATED |        if aliases:
 # DEPRECATED |            Log.warning("I don't think this properly recables everything")
@@ -394,7 +394,7 @@ class SFAGatewayCommon(Gateway):
 
         # Dynamically import the appropriate package.
         # http://stackoverflow.com/questions/211100/pythons-import-doesnt-work-as-expected
-        table_name  = query.get_from()
+        table_name  = query.get_table_name()
         object_name = table_name # XXX let's use object and not table_name to be consistent
 
         # XXX why do we need import when we have METHOD_MAP in AM and RM ? --

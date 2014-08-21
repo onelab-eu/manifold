@@ -106,7 +106,7 @@ class ProcessGateway(Gateway):
             return
 
         # We have a single table per tool gateway
-        # table_name = query.get_from()
+        # table_name = query.get_table_name()
 
         # Compute process arguments from query
         # At the moment, we cannot have more than ONE value for each

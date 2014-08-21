@@ -26,11 +26,11 @@ class LocalGateway(Gateway):
     Handle queries related to local:object, local:gateway, local:platform, etc.
     """
 
-    def __init__(self, interface = None, platform_name = None, platform_config = None):
+    def __init__(self, router = None, platform_name = None, platform_config = None):
         """
         Constructor.
         Args:
-            interface: The Manifold Interface on which this Gateway is running.
+            router: The Router on which this LocalGateway is running.
             platform_name: A String storing name of the Platform related to this
                 Gateway or None.
             platform_config: A dictionnary containing the configuration related
@@ -45,7 +45,7 @@ class LocalGateway(Gateway):
         except:
             self._storage = None
 
-        super(LocalGateway, self).__init__(interface, platform_name, platform_config)
+        super(LocalGateway, self).__init__(router, platform_name, platform_config)
 
     def receive(self, packet):
         """
@@ -60,7 +60,7 @@ class LocalGateway(Gateway):
         new_query = query.clone()
 
         action = query.get_action()
-        table_name = query.get_from()
+        table_name = query.get_table_name()
 
         if table_name == "object":
             if not action == "get":
@@ -87,17 +87,7 @@ class LocalGateway(Gateway):
         Returns:
             The list of corresponding Announces instances.
         """
-        announces = list()
-
-        # Objects embedded in the Storage
-        if self._storage:
-            announces.extend(self._storage.get_gateway().get_announces())
-
-        # Virtual tables ("object", "column", ...)
-        virtual_announces = make_virtual_announces(LOCAL_NAMESPACE)
-        announces.extend(virtual_announces)
-
-        return announces
+        return self._storage.get_gateway().get_announces()
 
     @returns(DBGraph)
     def get_dbgraph(self):
@@ -109,7 +99,8 @@ class LocalGateway(Gateway):
 
         # 1) Fetch the Storage's announces and get the corresponding Tables.
         local_announces = self.get_announces()
-        local_tables = [announce.get_table() for announce in local_announces]
+        local_tables = frozenset([announce.get_table() for announce in local_announces])
+        Log.tmp("local_tables = %s" % local_tables)
 
         # 2) Build the corresponding map of Capabilities
         map_method_capabilities = dict()

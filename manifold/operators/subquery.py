@@ -50,8 +50,9 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
         """
         Constructor
         Args:
-            parent: The main query (AST instance ?)
-            children_ast_relation_list: A list of (AST , Relation) tuples
+            parent: The parent Operator instance.
+            child_producer_relation_list: A list of (Producer, Relation) tuples
+                where each tuple correspond to a sub query.
         """
             
         # Initialization (passing a tuple as producers stores the second parameter as data)

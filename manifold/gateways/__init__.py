@@ -297,7 +297,8 @@ class Gateway(Node):
 ##FIXME|            # XXX Note that such issues could be detected beforehand
 #
 #        Log.tmp("optimize_selection: query = %s filter = %s" % (query, filter))
-#        capabilities = self.get_capabilities(query.get_from())
+#        table_name = query.get_table_name()
+#        capabilities = self.get_capabilities(table_name)
 #
 #        if capabilities.selection:
 #            # Push filters into the From node
@@ -328,13 +329,15 @@ class Gateway(Node):
 #            The updated root Node of the sub-AST.
 #        """
 #        Log.tmp("optimize_projection: query = %s fields = %s" % (query, fields))
-#        capabilities = self.get_capabilities(query.get_from())
+#        table_name = query.get_table_name()
+#        capabilities = self.get_capabilities(table_name)
+#
 #        if capabilities.projection:
 #            # Push fields into the From node
 #            self.query.select().select(fields)
 #            return self
 #        else:
-#            provided_fields = self.get_table(query.get_from()).get_field_names()
+#            provided_fields = self.get_table(table_name).get_field_names()
 #
 #            # Test whether this From node can return every queried Fields.
 #            if fields - provided_fields:
@@ -511,7 +514,7 @@ class Gateway(Node):
         ret = False
         if packet.get_protocol() == Packet.PROTOCOL_QUERY:
             query = packet.get_query()
-            table_name = query.get_from()
+            table_name = query.get_table_name()
             if table_name == "object":
                 action = query.get_action()
                 if action != "get":

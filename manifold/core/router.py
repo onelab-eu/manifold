@@ -75,7 +75,7 @@ class Router(Interface):
         # self.allowed_capabilities is a Capabilities instance (or None)
         self.allowed_capabilities = allowed_capabilities
         if self.allowed_capabilities:
-            Log.warning("Interface::__init__(): 'allowed_capabilities' parameter not yet supported")
+            Log.warning("Router::__init__(): 'allowed_capabilities' parameter not yet supported")
 
         # self.data is {String : list(Announce)} dictionnary mapping each
         # platform name (= namespace) with its corresponding Announces.
@@ -92,7 +92,7 @@ class Router(Interface):
         # DBGraphs
         self._dbgraph = None
 
-        self._local_gateway = LocalGateway(interface=self)
+        self._local_gateway = LocalGateway(router = self)
         self._local_dbgraph = self._local_gateway.get_dbgraph()
 
         # A dictionary mapping the method to the cache for local subqueries,
@@ -434,10 +434,8 @@ class Router(Interface):
             query: A Query instance
         """
         namespace = query.get_namespace()
-        Log.tmp("hook 1 %s %s" % (query, namespace))
 
-        if namespace == LOCAL_NAMESPACE and query.get_from() == "platform":
-            Log.tmp("hook 2")
+        if namespace == LOCAL_NAMESPACE and query.get_table_name() == "platform":
             try:
                 from query                      import ACTION_UPDATE, ACTION_DELETE, ACTION_CREATE
                 from operator                   import eq
@@ -453,7 +451,6 @@ class Router(Interface):
                         elif predicate.get_op() == contains:
                             impacted_platforms |= set(value)
 
-                Log.tmp("impacted_platforms = %s" % impacted_platforms)
                 if impacted_platforms != set():
 
                     # UDATE
@@ -477,7 +474,6 @@ class Router(Interface):
                     # INSERT
                     elif query.get_action() == ACTION_CREATE:
                         params = query.get_params()
-                        Log.tmp("create: params = %s" % params)
                         #XXX TODO use self.add_platform ?
                         self.register_platform(query.get_params())
                         try:

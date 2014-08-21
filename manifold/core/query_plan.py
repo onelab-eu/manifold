@@ -105,7 +105,7 @@ class QueryPlan(object):
         Args:
             query: The Query issued by the user.
             db_graph: The 3nf graph (DBGraph instance).
-            allowed_platforms: A list of platform names (list of String).
+            allowed_platforms: A set of platform names (list of String).
                 Which platforms the router is allowed to query.
                 Could be used to restrict the Query to a limited set of platforms
                 either because it is specified by the user Query or either due
@@ -114,8 +114,9 @@ class QueryPlan(object):
         Returns:
             The corresponding Node, None in case of failure
         """
-        allowed_capabilities = router.get_capabilities()
+        assert isinstance(allowed_platforms, set)
 
+        allowed_capabilities = router.get_capabilities()
         root_table = db_graph.find_node(query.get_from())
         if not root_table:
             table_names = list(db_graph.get_table_names())
@@ -131,11 +132,11 @@ class QueryPlan(object):
 #DEPRECATED|                          query.get_filter().provides_key_field(key_fields)
 #DEPRECATED|            if not can_do_join:
 #DEPRECATED|                raise RuntimeError("Table '%s' hasn't RETRIEVE capability and cannot be used in a FROM clause:\n%s" % (
-#DEPRECATED|                    query.get_from(),
+#DEPRECATED|                    query.get_table_name(),
 #DEPRECATED|                    root_table
 #DEPRECATED|                ))
 
-        root_task = ExploreTask(router, root_table, relation = None, path = [query.get_from()], parent = self, depth = 1)
+        root_task = ExploreTask(router, root_table, relation = None, path = [root_table.get_name()], parent = self, depth = 1)
         if not root_task:
             raise RuntimeError("Unable to build a suitable QueryPlan")
         root_task.addCallback(self.set_ast, query)
@@ -169,7 +170,10 @@ class QueryPlan(object):
             # For example, he asked for slice.resource, which in fact will contain slice.resource.urn
 
             #Log.tmp("missing_fields = %s task = %s" % (missing_fields, task))
-            foreign_key_fields = task.explore(stack, missing_fields, db_graph, allowed_platforms, allowed_capabilities, user, seen[pathstr], query_plan = self)
+            foreign_key_fields = task.explore(
+                stack, missing_fields, db_graph, allowed_platforms,
+                allowed_capabilities, user, seen[pathstr], query_plan = self
+            )
 
             self.foreign_key_fields.update(foreign_key_fields)
 

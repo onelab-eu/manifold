@@ -90,7 +90,7 @@ class CSVGateway(Gateway):
         """
         query = packet.get_query()
         #Log.tmp("query = %s" % query)
-        table_name = query.get_from()
+        table_name = query.get_table_name()
         platform_config = self.get_config()
 
         dialect, field_names, field_types = self.get_dialect_and_field_info(table_name)

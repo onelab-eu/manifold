@@ -853,7 +853,7 @@ def to_3nf(metadata):
     tables_3nf.extend(local_tables)
 
     # 7) Building DBgraph
-    graph_3nf = DBGraph(tables_3nf, map_method_capabilities)
+    graph_3nf = DBGraph(frozenset(tables_3nf), map_method_capabilities)
 
     return graph_3nf
 
