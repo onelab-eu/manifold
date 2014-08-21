@@ -543,15 +543,15 @@ class PostgreSQLGateway(Gateway):
 #OBSOLETE|
 #OBSOLETE|        return None
 
-    def execute(self, query, params = None, cursor_factory = None):
+    def execute(self, sql, params = None, cursor_factory = None):
         """
-        Execute a SQL query on PostgreSQL 
+        Execute a SQL query on PostgreSQL.
         Args:
-            query: a String containing a SQL query 
-            params: a dictionnary or None if unused 
+            sql: a String containing a SQL query.
+            params: a dictionnary or None if unused.
             cursor_factory: see http://initd.org/psycopg/docs/extras.html
         Returns:
-            The corresponding cursor
+            The corresponding cursor.
         """
         # modified for psycopg2-2.0.7 
         # executemany is undefined for SELECT's
@@ -559,7 +559,7 @@ class PostgreSQLGateway(Gateway):
         # accepts either None, a single dict, a tuple of single dict - in which case it execute's
         # or a tuple of several dicts, in which case it executemany's
 
-        Log.debug(query)
+        Log.tmp("1) sql = %s" % sql)
 
         cursor = self.connect(cursor_factory)
 #        try:
@@ -569,21 +569,22 @@ class PostgreSQLGateway(Gateway):
         # we might have percents embedded in the query
         # so e.g. GetPersons({"email":"*fake*"}) was resulting in .. LIKE "%sake%"
         if psycopg2:
-            query = re.sub(r"(%\([^)]*\)|%)[df]", r"\1s", query)
+            sql = re.sub(r"(%\([^)]*\)|%)[df]", r"\1s", sql)
+        Log.tmp("2) sql = %s" % sql)
         # rewrite wildcards set by Filter.py as "***" into "%"
-        query = query.replace("***", "%")
+        sql = sql.replace("***", "%")
 
         if not params:
-            cursor.execute(query)
+            cursor.execute(sql)
         elif isinstance(params, StringValue):
-            cursor.execute(query, params)
+            cursor.execute(sql, params)
         elif isinstance(params, dict):
-            cursor.execute(query, params)
+            cursor.execute(sql, params)
         elif isinstance(params, tuple) and len(params) == 1:
-            cursor.execute(query, params[0])
+            cursor.execute(sql, params[0])
         else:
             param_seq = params
-            cursor.executemany(query, param_seq)
+            cursor.executemany(sql, param_seq)
         (self.rowcount, self.description, self.lastrowid) = \
                         (cursor.rowcount, cursor.description, cursor.lastrowid)
 #        except Exception, e:
@@ -595,7 +596,7 @@ class PostgreSQLGateway(Gateway):
 #            Log.error("Database error %s:" % uuid)
 #            Log.error(e)
 #            Log.error("Query:")
-#            Log.error(query)
+#            Log.error(sql)
 #            Log.error("Params:")
 #            Log.error(pformat(params))
 #            raise Exception(str(e).rstrip())
@@ -603,6 +604,7 @@ class PostgreSQLGateway(Gateway):
         return cursor
 
     # see instead: psycopg2.extras.NamedTupleCursor
+    @returns(list)
     def selectall(self, query, params = None, hashref = True, key_field = None):
         """
         Return each row as a dictionary keyed on field name (like DBI
@@ -612,6 +614,14 @@ class PostgreSQLGateway(Gateway):
 
         If params is specified, the specified parameters will be bound
         to the query.
+
+        Args:
+            sql: a String containing a SQL query.
+            params:
+            hashref:
+            key_field:
+        Returns:
+            Returns a list of dict corresponding to fetched records.
         """
         start_time = time.time()
         cursor = self.execute(query, params)
@@ -898,7 +908,7 @@ class PostgreSQLGateway(Gateway):
         select = query.get_select()
         where  = PostgreSQLGateway.to_sql_where(query.get_where())
         params = {
-            "fields"     : ", ".join(select) if select else "*",
+            "fields"     : "*" if select.is_star() else ", ".join(select),
             "table_name" : table_name,
             "where"      : "WHERE %s" % where if where else ""
         }
@@ -1088,6 +1098,7 @@ class PostgreSQLGateway(Gateway):
             packet: A QUERY Packet instance.
         """
         query = packet.get_query()
+        Log.tmp("query = %s" % query)
         sql = PostgreSQLGateway.to_sql(query)
         rows = self.selectall(sql, None)
         self.records(rows, packet)
