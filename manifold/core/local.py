@@ -11,6 +11,7 @@
 
 # This is used to manipulate the router internal state
 # It should not point to any storage directly unless this is mapped
+import traceback
 from manifold.gateways              import Gateway
 from manifold.core.announce         import Announce, make_virtual_announces
 from manifold.core.dbgraph          import DBGraph
@@ -42,7 +43,9 @@ class LocalGateway(Gateway):
         try:
             from manifold.bin.config import MANIFOLD_STORAGE
             self._storage = MANIFOLD_STORAGE
-        except:
+        except Exception, e:
+            Log.warning(traceback.format_exc())
+            Log.warning("LocalGateway: cannot load Storage.")
             self._storage = None
 
         super(LocalGateway, self).__init__(router, platform_name, platform_config)
@@ -87,7 +90,8 @@ class LocalGateway(Gateway):
         Returns:
             The list of corresponding Announces instances.
         """
-        return self._storage.get_gateway().get_announces()
+        gateway_storage = self._storage.get_gateway()
+        return gateway_storage.get_announces() if gateway_storage else list()
 
     @returns(DBGraph)
     def get_dbgraph(self):
@@ -100,7 +104,6 @@ class LocalGateway(Gateway):
         # 1) Fetch the Storage's announces and get the corresponding Tables.
         local_announces = self.get_announces()
         local_tables = frozenset([announce.get_table() for announce in local_announces])
-        Log.tmp("local_tables = %s" % local_tables)
 
         # 2) Build the corresponding map of Capabilities
         map_method_capabilities = dict()

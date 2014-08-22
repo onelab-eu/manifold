@@ -559,8 +559,6 @@ class PostgreSQLGateway(Gateway):
         # accepts either None, a single dict, a tuple of single dict - in which case it execute's
         # or a tuple of several dicts, in which case it executemany's
 
-        Log.tmp("1) sql = %s" % sql)
-
         cursor = self.connect(cursor_factory)
 #        try:
         # psycopg2 requires %()s format for all parameters,
@@ -570,7 +568,6 @@ class PostgreSQLGateway(Gateway):
         # so e.g. GetPersons({"email":"*fake*"}) was resulting in .. LIKE "%sake%"
         if psycopg2:
             sql = re.sub(r"(%\([^)]*\)|%)[df]", r"\1s", sql)
-        Log.tmp("2) sql = %s" % sql)
         # rewrite wildcards set by Filter.py as "***" into "%"
         sql = sql.replace("***", "%")
 
@@ -1081,7 +1078,6 @@ class PostgreSQLGateway(Gateway):
             if self.is_ignored_table(table_name): continue
             table = self.make_table(table_name)
             table = self.tweak_table(table)
-            #Log.tmp(table)
             announce = Announce(table)
             announces_pgsql.append(announce)
 
@@ -1098,7 +1094,6 @@ class PostgreSQLGateway(Gateway):
             packet: A QUERY Packet instance.
         """
         query = packet.get_query()
-        Log.tmp("query = %s" % query)
         sql = PostgreSQLGateway.to_sql(query)
         rows = self.selectall(sql, None)
         self.records(rows, packet)
