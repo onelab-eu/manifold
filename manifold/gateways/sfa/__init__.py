@@ -105,10 +105,10 @@ transform=etree.XSLT(xslt_doc)
 # Helper functions
 ################################################################################
 
-def filter_records(type, records):
+def filter_records(record_type, records):
     filtered_records = []
     for record in records:
-        if (record['type'] == type) or (type == "all"):
+        if (record['type'] == record_type) or (record_type == "all"):
             filtered_records.append(record)
     return filtered_records
 
@@ -566,15 +566,15 @@ class SFAGateway(Gateway):
     # All commands should take a registry/sliceapi as a parameter to allow for
     # more than one
 
-    # type IN (aggregate, registry, local)
-    def sfa_get_version(self, type='aggregate', url=None):
+    # server_type IN (aggregate, registry, local)
+    def sfa_get_version(self, server_type='aggregate', url=None):
         if url:
             return {}
 
-        if type == 'local':
+        if server_type == 'local':
             version=version_core()
         else:
-            if type == 'registry':
+            if server_type == 'registry':
                 server = self.registry
             else:
                 server = self.sliceapi
@@ -694,15 +694,15 @@ class SFAGateway(Gateway):
     #
     ############################################################################ 
 
-    def _get_cred(self, type, target = None, v3 = False):
+    def _get_cred(self, obj_type, target = None, v3 = False):
         if v3:
             return {
                 'geni_version': '3',
                 'geni_type': 'geni_sfa',
-                'geni_value': self.__get_cred(type, target) #.encode('latin-1')
+                'geni_value': self.__get_cred(obj_type, target) #.encode('latin-1')
             }
         else:
-            return self.__get_cred(type, target)
+            return self.__get_cred(obj_type, target)
 
 
     # get a delegated credential of a given type to a specific target
@@ -746,7 +746,7 @@ class SFAGateway(Gateway):
 
             return cred
         else:
-            raise Exception, "Invalid credential type: %s" % type
+            raise Exception, "Invalid credential object_type: %s" % object_type
 
     # This function will return information about a given network using SFA GetVersion call
     # Depending on the object Queried, if object is network then get_network is triggered by
@@ -854,13 +854,13 @@ class SFAGateway(Gateway):
         good_ssh_key = r'^.*(?:ssh-dss|ssh-rsa)[ ]+[A-Za-z0-9+/=]+(?: .*)?$'
         return re.match(good_ssh_key, key, re.IGNORECASE)
 
-    def create_record_from_params(self, type, params):
+    def create_record_from_params(self, record_type, params):
         record_dict = {}
-        if type == 'slice':
+        if record_type == 'slice':
             # This should be handled beforehand
             if 'slice_hrn' not in params or not params['slice_hrn']:
                 raise Exception, "Must specify slice_hrn to create a slice"
-            xrn = Xrn(params['slice_hrn'], type)
+            xrn = Xrn(params['slice_hrn'], record_type)
             record_dict['urn'] = xrn.get_urn()
             record_dict['hrn'] = xrn.get_hrn()
             record_dict['type'] = xrn.get_type()
