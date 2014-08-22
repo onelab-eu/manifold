@@ -283,7 +283,6 @@ class SFAGateway(Gateway):
         'creator_person_id' : 'slice_creator_person_id',    # users.creator ?
         'name'              : 'slice_name',                 # hrn
         'slice_id'          : 'slice_id',
-        'created'           : 'created',                    # first ?
         'url'               : 'slice_url',                  # url
         'peer_slice_id'     : 'slice_peer_slice_id',        # ?
         'geni_urn'          : 'slice_geni_urn',             # urn/hrn

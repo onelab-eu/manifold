@@ -6,7 +6,7 @@ class slice {
     user        pi_users[];        /**< List of users associated to the slice */
 
     const string slice_description;
-    const string created;
+    const string slice_date_created;
     const string slice_expires;
     const string slice_last_updated;
     const string nodes;
