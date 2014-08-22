@@ -19,9 +19,10 @@ from manifold.core.dbgraph          import DBGraph
 from manifold.core.helpers          import execute_query as execute_query_helper
 from manifold.core.interface        import Interface
 from manifold.core.operator_graph   import OperatorGraph
-from manifold.core.packet           import ErrorPacket, Packet
+from manifold.core.packet           import ErrorPacket, Packet, QueryPacket
 from manifold.gateways              import Gateway
 from manifold.policy                import Policy
+from manifold.util.constants        import DEFAULT_PEER_URL, DEFAULT_PEER_PORT
 from manifold.util.log              import Log
 from manifold.util.type             import returns, accepts
 
@@ -31,10 +32,6 @@ DEFAULT_GATEWAY_TYPE = "manifold"
 
 #------------------------------------------------------------------
 # Class Router
-# Router configured only with static/local routes, and which
-# does not handle routing messages
-# Router class is an Interface:
-# builds the query plan, and execute query plan using deferred if required
 #------------------------------------------------------------------
 
 # TODO remove Interface inheritance
@@ -166,7 +163,7 @@ class Router(Interface):
         """
         assert set(self.gateways.keys()) == set(self.announces.keys())
 
-        platform_names_loaded  = set([platform["platform"] for platform in self.get_loaded_platform_names()])
+        platform_names_loaded  = self.get_loaded_platform_names()
         platform_names_enabled = set([platform["platform"] for platform in platforms_enabled])
 
         platform_names_del     = platform_names_loaded  - platform_names_enabled
@@ -189,16 +186,45 @@ class Router(Interface):
     # Platform management
     #---------------------------------------------------------------------------
 
+    @returns(bool)
+    def add_peer(self, platform_name, hostname, port = DEFAULT_PEER_PORT):
+        """
+        Connect this router to another Manifold Router and fetch the
+        corresponding Announces.
+        Args:
+            platform_name: A String containing the platform_name (= namespace)
+                corresponding to this peer.
+            hostname: A String containing the IP address or the hostname
+                of the Manifold peer.
+            port: An integer value on which the Manifold peer listen for
+                Manifold query. It typically runs a manifold-router process
+                listening on this port.
+        Returns:
+            True iif successful.
+        """
+        assert isinstance(platform_name, StringTypes) and platform_name
+        assert isinstance(hostname,      StringTypes) and hostname
+        assert isinstance(port,          int)
+
+        url = DEFAULT_PEER_URL % locals()
+        return self.add_platform(platform_name, "manifold", {"url": url})
+
     # This will be the only calls for manipulating router platforms
+    @returns(bool)
     def add_platform(self, platform_name, gateway_type, platform_config = None):
         """
-        Add a platform (register_platform + enable_platform) in this Router.
+        Add a platform (register_platform + enable_platform) in this Router
+        and fetch the corresponding Announces.
         Args:
             platform_name: A String containing the name of the Platform.
             gateway_type: A String containing the type of Gateway used for this Platform.
             platform_config: A dictionnary { String : instance } containing the 
                 configuration of this Platform.
+        Returns:
+            True iif successful.
         """
+        ret = True
+
         if not platform_config:
             platform_config = dict()
 
@@ -215,13 +241,19 @@ class Router(Interface):
             # Update
             self._dbgraph = to_3nf(self.get_announces())
         except Exception, e:
+            Log.warning(traceback.format_exc())
             Log.warning("Error while adding %(platform_name)s[%(platform_config)s] (%(platform_config)s): %(e)s" % locals())
             if platform_name in self.platforms.keys(): del self.platforms[platform_name]
             if platform_name in self.gateways.keys():  del self.gateways[platform_name]
             if platform_name in self.announces.keys(): del self.announces[platform_name]
+            ret = False
 
+        return ret
+
+    @returns(bool)
     def del_platform(self, platform_name):
-        pass
+        Log.warning("router::del_platform(): not yet implemented")
+        return False
 
     # OLD ####
 
@@ -491,40 +523,15 @@ class Router(Interface):
                 Log.error(e)
                 raise e
 
-
-#DEPRECATED|    def boot(self):
-#DEPRECATED|        """
-#DEPRECATED|        Boot the Interface (prepare metadata, etc.).
-#DEPRECATED|        """
-#DEPRECATED|        # The Storage must be explicitely installed if needed.
-#DEPRECATED|        # See example in manifold.clients.local
-#DEPRECATED|        if self.has_storage():
-#DEPRECATED|            Log.tmp("Loading Manifold Storage...")
-#DEPRECATED|            self.load_storage()
-
     def receive(self, packet):
         """
         Process an incoming Packet instance.
         Args:
-            packet: A QUERY Packet instance.
+            packet: A QueryPacket instance.
         """
-        assert isinstance(packet, Packet),\
+        assert isinstance(packet, QueryPacket),\
             "Invalid packet %s (%s) (%s) (invalid type)" % (packet, type(packet))
 
-        # Create a Socket holding the connection information and bind it.
-        # XXX This might not be useful since it only add a level of indirection
-        # Let's try removing it
-#DEPRECATED|        socket = Socket()
-#DEPRECATED|        packet.get_receiver()._set_child(socket)
-#DEPRECATED|        packet.set_receiver(socket)
-
-#DEPRECATED|        self.process_query_packet(packet)
-#DEPRECATED|
-#DEPRECATED|    def process_query_packet(self, packet):
-#DEPRECATED|        """
-#DEPRECATED|        """
-        # Build the AST and retrieve the corresponding root_node Operator instance.
-        # XXX Log.warning("why don't we check the type of Packet ?")
         query      = packet.get_query()
         annotation = packet.get_annotation()
         receiver   = packet.get_receiver()
