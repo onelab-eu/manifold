@@ -172,8 +172,7 @@ class OfeliaOcfParser(RSpecParser):
                     # Packet description
                     packet_dict = dict()
                     for k, v in match['packet'].items():
-                        packet_dict[k] = {'@value': v}
-
+                        packet_dict['openflow:'+k] = {'@value': v}
                     match_dict = {
                         'openflow:use-group': groups,
                         'openflow:packet': packet_dict,
