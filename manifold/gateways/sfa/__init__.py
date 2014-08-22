@@ -726,21 +726,23 @@ class SFAGateway(Gateway):
             cred = creds.get(target)
 
             if not cred:
-                if type == 'authority':
+                if object_type == 'authority':
                     # If user has an authority credential above the one targeted
                     # Example: 
                     # target = ple.inria / user is a PLE Admin and has creds = [ple.upmc , ple]
                     # if ple.inria starts with ple then let's use the ple credential
                     for my_auth in creds:
+                        Log.tmp("credential my_auth = ",my_auth)
+                        Log.tmp("credential target = ",target)
                         if target.startswith(my_auth):
                             cred=creds[my_auth]
                     if not cred:
                         # XXX This should not interrupt everything, shall it ?
-                        raise Exception , "no cred found of type %s towards %s " % (type, target)
+                        raise Exception , "no cred found of type %s towards %s " % (object_type, target)
                 else:
                     # XXX Not handled
                     Log.warning("No cred found")
-                    raise Exception , "no cred found of type %s towards %s " % (type, target)
+                    raise Exception , "no cred found of type %s towards %s " % (object_type, target)
 
             return cred
         else:
