@@ -200,10 +200,10 @@ class RightJoin(Operator, LeftRightSlotMixin):
             if not self._right_done:
 
                 # XXX We need primary key in left record (fk in right record)
-                if not record.has_fields(self._predicate.get_field_names()):
+                if not record.has_field_names(self._predicate.get_field_names()):
                     Log.warning("Missing RIGHTJOIN predicate %s in left record %r : discarding" % \
                             (self._predicate, record))
-                    #─self.send(record)
+                    #self.send(record)
 
                 else:
                     # Store the result in a hash for joining later

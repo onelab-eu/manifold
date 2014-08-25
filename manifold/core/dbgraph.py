@@ -20,7 +20,8 @@ from types                      import StringTypes
 
 from manifold.core.capabilities import Capabilities
 from manifold.core.method       import Method
-from manifold.core.key          import Key, Keys
+from manifold.core.key          import Key
+from manifold.core.keys         import Keys
 from manifold.core.relation     import Relation
 from manifold.core.table        import Table 
 from manifold.util.predicate    import Predicate 
@@ -134,6 +135,7 @@ class DBGraph(object):
 
         relations = u.get_relations(v)
         if relations:
+            #Log.tmp("%s --> %s (%s)" % (u.get_name() , v.get_name(), relations))
             self.graph.add_edge(u, v, relations=relations)
             Log.debug("NEW EDGE %s" % self.format_arc(u, v))
 

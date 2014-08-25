@@ -21,7 +21,7 @@ from types                          import StringTypes
 from manifold.core.annotation       import Annotation
 from manifold.core.capabilities     import Capabilities
 from manifold.core.destination      import Destination
-from manifold.core.fields           import Fields
+from manifold.core.field_names      import FieldNames
 from manifold.core.key              import Key
 from manifold.core.operator_slot    import ChildSlotMixin
 from manifold.core.packet           import Packet
@@ -222,7 +222,7 @@ class From(Operator, ChildSlotMixin):
             # Some fields are already provided in the query
 #DEPRECATED|            records = packet.get_records()
 #DEPRECATED|            if records:
-#DEPRECATED|                parent_fields = Fields(records.get_fields())
+#DEPRECATED|                parent_fields = FieldNames(records.get_field_names())
 #DEPRECATED|
 #DEPRECATED|                needed_fields = query_fields - parent_fields
 #DEPRECATED|
@@ -272,9 +272,9 @@ class From(Operator, ChildSlotMixin):
             if self._parent_records:
                 # If we had parent_records, we only asked (missing_fields +
                 # key_fields), we need to join those results
-                key_fields    = self._key.get_field_names()
+                key_field_names    = self._key.get_field_names()
                 # XXX need error checking here
-                packet.update(self._parent_records[packet.get_value(key_fields)])
+                packet.update(self._parent_records[packet.get_value(key_field_names)])
 
             self.forward_upstream(packet)
 
@@ -365,7 +365,7 @@ class From(Operator, ChildSlotMixin):
         else:
             # Provided fields is set to None if it corresponds to SELECT *
 
-            # Test whether this From node can return every queried Fields.
+            # Test whether this From node can return every queried FieldNames.
             if provided_fields and not (fields <= provided_fields):
                 Log.warning("From::optimize_projection: some requested fields (%s) are not provided by {%s} From node. Available fields are: {%s}" % (
                     ', '.join(list(fields - provided_fields)),
@@ -373,7 +373,7 @@ class From(Operator, ChildSlotMixin):
                     ', '.join(list(provided_fields))
                 ))
 
-            # If this From node returns more Fields than those explicitely queried
+            # If this From node returns more FieldNames than those explicitely queried
             # (because the projection capability is not enabled), create an additional
             # Projection Node above this From Node in order to guarantee that
             # we only return queried fields

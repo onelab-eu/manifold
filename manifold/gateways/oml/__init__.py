@@ -12,7 +12,8 @@
 from manifold.core.table                import Table
 from manifold.gateways.postgresql       import PostgreSQLGateway
 from manifold.core.announce             import Announce
-from manifold.core.key                  import Key, Keys
+from manifold.core.key                  import Key
+from manifold.core.keys                 import Keys
 from manifold.core.field                import Field 
 from manifold.core.record               import Record
 from manifold.util.log                  import Log 

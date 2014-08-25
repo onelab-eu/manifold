@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Projection Operator remove from Records the fields that
+# Projection Operator remove from Records the field_names that
 # are not queried.
 #
 # It acts like the SELECT Clause in SQL.
@@ -14,7 +14,7 @@
 from types                          import StringTypes
 
 from manifold.core.destination      import Destination
-from manifold.core.fields           import Fields
+from manifold.core.field_names           import FieldNames
 from manifold.core.operator_slot    import ChildSlotMixin
 from manifold.core.packet           import Packet
 from manifold.core.record           import Record, Records
@@ -25,16 +25,16 @@ from manifold.util.type             import returns
 
 DUMPSTR_PROJECTION = "SELECT %s"
 
-def do_projection(record, fields):
+def do_projection(record, field_names):
     """
-    Take the necessary fields in dic
+    Take the necessary field_names in dic
     """
     ret = Record()
 
     # 1/ split subqueries
     local = []
     subqueries = {}
-    for f in fields:
+    for f in field_names:
         if '.' in f:
             method, subfield = f.split('.', 1)
             if not method in subqueries:
@@ -43,19 +43,19 @@ def do_projection(record, fields):
         else:
             local.append(f)
 
-    # 2/ process local fields
+    # 2/ process local field_names
     for l in local:
         ret[l] = record[l] if l in record else None
 
     # 3/ recursively process subqueries
-    for method, subfields in subqueries.items():
+    for method, subfield_names in subqueries.items():
         # record[method] is an array whose all elements must be
-        # filtered according to subfields
+        # filtered according to subfield_names
         arr = Records()
         if not method in record:
             continue
         for x in record[method]:
-            arr.append(do_projection(Record(x), subfields))
+            arr.append(do_projection(Record(x), subfield_names))
         ret[method] = arr
 
     ret.set_last(record.is_last())
@@ -75,23 +75,23 @@ class Projection(Operator, ChildSlotMixin):
     # Constructors
     #---------------------------------------------------------------------------
 
-    def __init__(self, child, fields):
+    def __init__(self, child, field_names):
         """
         Constructor.
         Args:
             child: A Node instance which will be the child of
                 this Projection.
-            fields: A list of Field instances corresponding to
-                the fields we're selecting.
+            field_names: A list of Field instances corresponding to
+                the field_names we're selecting.
         """
-        #for field in fields:
+        #for field in field_names:
         #    assert isinstance(field, Field), "Invalid field %r (%r)" % (field, type(field))
 
         assert issubclass(type(child), Node),\
             "Invalid child = %r (%r)"   % (child, type(child))
-        if isinstance(fields, (list, tuple, frozenset)):
-            fields = Fields(fields)
-        self._fields = fields
+        if isinstance(field_names, (list, tuple, frozenset)):
+            field_names = FieldNames(field_names)
+        self._field_names = field_names
 
         Operator.__init__(self)
         ChildSlotMixin.__init__(self)
@@ -99,19 +99,19 @@ class Projection(Operator, ChildSlotMixin):
         self._set_child(child)
 
     def copy(self):
-        return Projection(self._get_child().copy(), self._fields.copy())
+        return Projection(self._get_child().copy(), self._field_names.copy())
 
     #---------------------------------------------------------------------------
     # Accessors
     #---------------------------------------------------------------------------
 
-    @returns(Fields)
-    def get_fields(self):
+    @returns(FieldNames)
+    def get_field_names(self):
         """
         Returns:
             The set of Field instances selected in this Projection instance.
         """
-        return self._fields
+        return self._field_names
 
     #---------------------------------------------------------------------------
     # Internal methods
@@ -123,8 +123,8 @@ class Projection(Operator, ChildSlotMixin):
         Returns:
             The '%r' representation of this Projection instance.
         """
-        fields = self.get_fields()
-        s = "*" if fields.is_star() else ", ".join(self.get_fields())
+        field_names = self.get_field_names()
+        s = "*" if field_names.is_star() else ", ".join(self.get_field_names())
         return DUMPSTR_PROJECTION % s
 
     #---------------------------------------------------------------------------
@@ -138,12 +138,12 @@ class Projection(Operator, ChildSlotMixin):
             The Destination corresponding to this Operator.
         """
         d = self._get_child().get_destination()
-        return d.projection(self._fields)
+        return d.projection(self._field_names)
 
     def receive_impl(self, packet):
         """
         Process an incoming Packet instance.
-          - If this is a RECORD Packet, remove every fields that are
+          - If this is a RECORD Packet, remove every field_names that are
             not SELECTed by this Operator.
           - If this is an ERROR Packet, forward this Packet.
         Args:
@@ -154,8 +154,8 @@ class Projection(Operator, ChildSlotMixin):
 
         elif packet.get_protocol() == Packet.PROTOCOL_RECORD:
             record = packet
-            if not record.is_empty() and not self._fields.is_star():
-                record = do_projection(record, self._fields)
+            if not record.is_empty() and not self._field_names.is_star():
+                record = do_projection(record, self._field_names)
             self.forward_upstream(record)
 
         else: # TYPE_ERROR
@@ -167,9 +167,9 @@ class Projection(Operator, ChildSlotMixin):
         return self
 
     @returns(Node)
-    def optimize_projection(self, fields):
+    def optimize_projection(self, field_names):
         # We only need the intersection of both
-        return self._get_child().optimize_projection(self._fields & fields)
+        return self._get_child().optimize_projection(self._field_names & field_names)
 
     @returns(Node)
     def reorganize_create(self):

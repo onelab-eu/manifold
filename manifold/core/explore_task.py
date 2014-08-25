@@ -11,12 +11,13 @@
 #   Jordan Augé       <jordan.auge@lip6.fr>
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
+import traceback
 from types                          import StringTypes
 from twisted.internet.defer         import Deferred, DeferredList
 
 from manifold.core.ast              import AST
 from manifold.core.filter           import Filter
-from manifold.core.fields           import Fields
+from manifold.core.field_names      import FieldNames
 from manifold.core.key              import Key
 from manifold.core.query            import Query, ACTION_GET
 from manifold.core.relation         import Relation
@@ -60,7 +61,7 @@ class ExploreTask(Deferred):
 
         # Result
         self.ast         = None
-        self.keep_root_a = Fields()
+        self.keep_root_a = FieldNames()
 #        self.subqueries  = dict()
         self.sq_rename_dict = dict()
 
@@ -91,9 +92,10 @@ class ExploreTask(Deferred):
         print "DEFAULT ERRBACK", failure
 
     def cancel(self):
+        Log.warning("ExploreTask::cancel() - task has been canceled = %s" % self)
         self.callback((None, dict()))
 
-    def explore(self, stack, missing_fields, dbgraph, allowed_platforms, allowed_capabilities, user, seen_set, query_plan):
+    def explore(self, stack, missing_field_names, dbgraph, allowed_platforms, allowed_capabilities, user, seen_set, query_plan):
         """
         Explore the dbgraph graph to find how to serve each queried fields. We
         explore the DBGraph by prior the 1..1 arcs exploration (DFS) by pushing
@@ -102,7 +104,7 @@ class ExploreTask(Deferred):
         serve them (BFS) (one ExploreTask per out-going 1..N arc).
         Args:
             stack: A Stack instance where we push new ExploreTask instances.
-            missing_fields: A set of String containing field names (which
+            missing_field_names: A set of String containing field names (which
                 may be prefixed, such has hops.ttl) involved in the Query.
             dbgraph: The DBGraph instance related to the 3nf graph.
             allowed_platforms: A set of String where each String corresponds
@@ -117,10 +119,10 @@ class ExploreTask(Deferred):
             foreign_key_fields
 
         Modifies in place:
-            missing_fields
+            missing_field_anmes
             seen_set
         """
-        #Log.tmp("ExploreTask::explore Search in", self.root.get_name(), "for fields", missing_fields, 'path=', self.path, "SEEN SET =", seen_set, "depth=", self.depth)
+        #Log.tmp("ExploreTask::explore Search in", self.root.get_name(), "for fields", missing_field_names, 'path=', self.path, "SEEN SET =", seen_set, "depth=", self.depth)
 
         relations_11, relations_1N, relations_1Nsq = (), {}, {}
         deferred_list = []
@@ -144,8 +146,8 @@ class ExploreTask(Deferred):
         # map_original_field:
         #
         missing_parent_fields, map_parent_missing_subfields, map_original_field, rename\
-            = missing_fields.split_subfields(True, self.path, True)
-#MANDO|            = missing_fields.split_subfields(include_parent = True,\
+            = missing_field_names.split_subfields(True, self.path, True)
+#MANDO|            = missing_field_names.split_subfields(include_parent = True,\
 #MANDO|                    current_path = self.path,               \
 #MANDO|                    allow_shortcuts = True)
 
@@ -156,7 +158,7 @@ class ExploreTask(Deferred):
             for relation in sorted(dbgraph.get_relations(self.root, neighbour)):
                 if relation.get_type() == Relation.types.LINK_1N_BACKWARDS:
                     relation_name = relation.get_relation_name()
-                    if relation_name not in missing_fields:
+                    if relation_name not in missing_field_names:
                         continue
 
                     # For backwards links at the moment, the name of the relation is the name/type of the table
@@ -164,10 +166,10 @@ class ExploreTask(Deferred):
                     table = dbgraph.find_node(relation_name)
                     key = table.get_keys().one()
                     _additional_fields = set(["%s.%s" % (relation_name, field.get_name()) for field in key])
-                    missing_fields |= _additional_fields
+                    missing_field_names |= _additional_fields
 
                     # ... and remove the relation from requested fields
-                    missing_fields.remove(relation_name)
+                    missing_field_names.remove(relation_name)
 
                     foreign_key_fields[relation_name] = _additional_fields
 
@@ -175,7 +177,7 @@ class ExploreTask(Deferred):
         root_key_fields = root_key.get_field_names()
 
         # We store in self.keep_root_a the field of interest in the current
-        # root_table, that will be removed from missing_fields
+        # root_table, that will be removed from missing_field_names
 
         #....... Rewritten
 
@@ -183,7 +185,7 @@ class ExploreTask(Deferred):
 
         for f in self.keep_root_a:
             if f in rename and rename[f] is not None:
-                self.sq_rename_dict[Fields.join(rename[f], f)] = f
+                self.sq_rename_dict[FieldNames.join(rename[f], f)] = f
 
         for field in self.keep_root_a:
             # Now if we are requesting has the key as the only subfield, we can also
@@ -191,14 +193,14 @@ class ExploreTask(Deferred):
             # a Rename operation for the final results (query and record rewriting).
 
             # for normal fields
-            if field in missing_fields:
-                missing_fields.remove(field)
+            if field in missing_field_names:
+                missing_field_names.remove(field)
 
             # for shortcuts
             if field not in map_parent_missing_subfields:
                 # ..unless already done # XXX EXPLAIN BOTH LINES
                 if map_original_field[field] != field:
-                    missing_fields.remove(map_original_field[field])
+                    missing_field_names.remove(map_original_field[field])
 #DEPRECATED|#UNTIL WE EXPLAIN|                    # We won't search those fields in subsequent explorations,
 #DEPRECATED|#UNTIL WE EXPLAIN|                    # unless the belong to the key of an ONJOIN table
 #DEPRECATED|#UNTIL WE EXPLAIN|                    is_onjoin = self.root.capabilities.is_onjoin()
@@ -213,7 +215,7 @@ class ExploreTask(Deferred):
 #DEPRECATED|#UNTIL WE EXPLAIN|                    if not is_onjoin or field not in root_key_fields:
 #DEPRECATED|#UNTIL WE EXPLAIN|                        print "yy"
 #DEPRECATED|#UNTIL WE EXPLAIN|                        # Set is changing during iteration !!!
-#DEPRECATED|#UNTIL WE EXPLAIN|                        missing_fields.remove(missing)
+#DEPRECATED|#UNTIL WE EXPLAIN|                        missing_field_names.remove(missing)
 #DEPRECATED|#UNTIL WE EXPLAIN|
 
 #WHATFOR?|            else:
@@ -246,7 +248,7 @@ class ExploreTask(Deferred):
 #WHATFOR?|                if subfields != key.get_field_names(): continue
 #WHATFOR?|
 #WHATFOR?|                # In the record, we will rename field.subfield by field
-#WHATFOR?|                field_before = Fields.join(field, subfield)
+#WHATFOR?|                field_before = FieldNames.join(field, subfield)
 #WHATFOR?|                print "field", field
 #WHATFOR?|                print "subfield", subfield
 #WHATFOR?|                print "field_before", field_before
@@ -264,7 +266,7 @@ class ExploreTask(Deferred):
 #WHATFOR?|                    # > map_original_field['probes'] = ?????
 #WHATFOR?|#DEPRECATED|                    if field_before != map_original_field[field]:
 #WHATFOR?|#DEPRECATED|                        print "a)"
-#WHATFOR?|#DEPRECATED|                        before_original = Fields.join(map_original_field[field], subfield)
+#WHATFOR?|#DEPRECATED|                        before_original = FieldNames.join(map_original_field[field], subfield)
 #WHATFOR?|#DEPRECATED|                        print "before_original=", before_original
 #WHATFOR?|#DEPRECATED|                        print "  . map_original_field[field]", map_original_field[field]
 #WHATFOR?|#DEPRECATED|                        print "  . subfield", subfield
@@ -273,11 +275,11 @@ class ExploreTask(Deferred):
 #WHATFOR?|                    before_original = map_original_field[field]
 #WHATFOR?|                    print "before_original = map_original_field[field] = ", map_original_field[field]
 #WHATFOR?|
-#WHATFOR?|                    missing_fields.remove(before_original)
+#WHATFOR?|                    missing_field_names.remove(before_original)
 
         #........ End rewritten
 
-        #assert self.depth == 1 or root_key_fields not in missing_fields, "Requesting key fields in child table"
+        #assert self.depth == 1 or root_key_fields not in missing_field_names, "Requesting key fields in child table"
 
         if self.keep_root_a:
             # XXX NOTE that we have built an AST here without taking into account fields for the JOINs and SUBQUERIES
@@ -319,7 +321,7 @@ class ExploreTask(Deferred):
 
                     # The relation has priority if at least one field is like PATH.relation.xxx
                     priority = TASK_1N
-                    for missing in missing_fields:
+                    for missing in missing_field_names:
                         # XXX self.path is a list !!!!XXX
                         if missing.startswith("%s.%s." % (self.path, relation.get_relation_name())):
                             priority = TASK_1Nsq
@@ -420,14 +422,21 @@ class ExploreTask(Deferred):
             user: The User issuing the Query.
             query_plan: The QueryPlan instance related to this Query, and that we're updating.
         """
-        assert isinstance(ast, AST), "Invalid ast = %s (%s)" % (ast, type(ast))
+        # ast = None when task.cancel()
+        if not isinstance(ast, AST):
+            Log.warning(traceback.format_exc())
+            Log.warning("Not an AST!")
+        #    traceback.print_stack()
+        #assert isinstance(ast, AST), "Invalid ast = %s (%s)" % (ast, type(ast))
         assert isinstance(key, Key), "Invalid key = %s (%s)" % (key, type(key))
         assert isinstance(allowed_platforms, set),\
             "Invalid allowed_platforms = %s (%s)" % (allowed_platforms, type(allowed_platforms))
 
         if not self.ast:
             self.ast = AST(self._router)
-        self.ast.union([ast], key)
+
+        if isinstance(ast, AST): # XXX ast should always be an AST?
+            self.ast.union([ast], key)
 
     def perform_union_all(self, table, allowed_platforms, dbgraph, user, query_plan):
         """
@@ -445,14 +454,13 @@ class ExploreTask(Deferred):
 
         # For each platform related to the current table, extract the
         # corresponding table and build the corresponding FROM node
-        map_method_fields = table.get_annotation()
-        ##### print "map_method_fields", map_method_fields
-        for method, fields in map_method_fields.items():
+        map_method_fieldnames = table.get_annotation()
+        for method, field_names in map_method_fieldnames.items():
             #Log.tmp("method", method.get_name())
             #Log.tmp("table", table.get_name())
             # The table announced by the platform fits with the 3nf schema
             # Build the corresponding FROM
-            #sub_table = Table.make_table_from_platform(table, fields, method.get_platform())
+            #sub_table = Table.make_table_from_platform(table, field_names, method.get_platform())
 
             # XXX We lack field pruning
             # We create 'get' queries by default, this will be overriden in query_plan::fix_froms
@@ -464,11 +472,11 @@ class ExploreTask(Deferred):
             # injected can be found
             # - With unique naming, we could adopt the first solution. To
             # balance both, we will remove local fields.
-            map_field_local = {f.get_name(): f.is_local() for f in table.get_fields()}
-            selected_fields  = Fields([f for f in fields if not map_field_local[f]])
-            selected_fields |= self.keep_root_a
+            map_fieldname_local = {f.get_name(): f.is_local() for f in table.get_fields()}
+            selected_field_names  = FieldNames([field_name for field_name in field_names if not map_fieldname_local[field_name]])
+            selected_field_names |= self.keep_root_a
 
-            query = Query.action(ACTION_GET, method.get_name()).select(selected_fields)
+            query = Query.action(ACTION_GET, method.get_name()).select(selected_field_names)
 
             platform = method.get_platform()
             capabilities = dbgraph.get_capabilities(platform, query.get_from())
@@ -485,6 +493,7 @@ class ExploreTask(Deferred):
             # XXX
 
             from_ast = AST(self._router).From(platform, query, capabilities, key)
-
-            if from_ast:
+            type_ast = type(from_ast)
+            Log.tmp("ExploreTask::perform_union_all type ast = ", type_ast)
+            if isinstance(from_ast, AST): # XXX from_ast should always be an ast or be renamed
                 self.perform_union(from_ast, key, allowed_platforms, dbgraph, user, query_plan)

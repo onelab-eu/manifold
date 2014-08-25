@@ -14,12 +14,12 @@
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
 #import uuid
-from types                  import GeneratorType, StringTypes
+from types                      import GeneratorType, StringTypes
 
-from manifold.core.fields   import Fields, FIELD_SEPARATOR
-from manifold.core.packet   import Packet
-from manifold.util.log      import Log
-from manifold.util.type     import returns, accepts
+from manifold.core.field_names  import FieldNames, FIELD_SEPARATOR
+from manifold.core.packet       import Packet
+from manifold.util.log          import Log
+from manifold.util.type         import returns, accepts
 
 #-------------------------------------------------------------------------------
 # Record class
@@ -175,51 +175,52 @@ class Record(Packet):
     #--------------------------------------------------------------------------- 
 
     # XXX This should disappear when we have a nice get_value
-    def get_map_entries(self, fields):
+    @returns(list)
+    def get_map_entries(self, field_names):
         """
         Internal use for left_join
         """
 
-        if isinstance(fields, Fields):
-            assert len(fields) == 1
-            fields = iter(fields).next()
+        if isinstance(field_names, FieldNames):
+            assert len(field_names) == 1
+            field_names = iter(field_names).next()
 
-        # fields is now a string
-        field, _, subfield = fields.partition(FIELD_SEPARATOR)
+        # field_names is now a string
+        field_name, _, subfield = field_names.partition(FIELD_SEPARATOR)
 
         if not subfield:
-            if field in self._record:
-                return [(self._record[field], self._record)]
+            if field_name in self._record:
+                return [(self._record[field_name], self._record)]
             else:
-                return []
+                return list() 
         else:
             ret = list()
-            for record in self._record[field]:
+            for record in self._record[field_name]:
                 tuple_list = record.get_map_entries(subfield)
                 ret.extend(tuple_list)
             return ret
 
     def _get(self, field_name, default, remove):
 
-        field, _, subfield = field_name.partition(FIELD_SEPARATOR)
+        field_name, _, subfield = field_name.partition(FIELD_SEPARATOR)
 
         if not subfield:
             if remove:
                 if default is Unspecified:
-                    return dict.pop(self._record, field)
+                    return dict.pop(self._record, field_name)
                 else:
-                    return dict.pop(self._record, field, default)
+                    return dict.pop(self._record, field_name, default)
             else:
                 if default is Unspecified:
-                    return dict.get(self._record, field)
+                    return dict.get(self._record, field_name)
                 else:
-                    return dict.get(self._record, field, default)
+                    return dict.get(self._record, field_name, default)
                     
         else:
             if default is Unspecified:
-                subrecord = dict.get(self._record, field)
+                subrecord = dict.get(self._record, field_name)
             else:
-                subrecord = dict.get(self._record, field, default)
+                subrecord = dict.get(self._record, field_name, default)
             if isinstance(subrecord, Records):
                 # A list of lists
                 return  map(lambda r: r._get(subfield, default, remove), subrecord)
@@ -251,22 +252,23 @@ class Record(Packet):
         else:
             self._record[key] = value
 
-    def get_value(self, fields):
+    def get_value(self, field_names):
         """
         Args:
             fields: A String instance (field name), or a set of String instances
                 (field names) # XXX tuple !!
         Returns:
             If fields is a String,  return the corresponding value.
-            If fields is a set, return a tuple of corresponding value.
+            If fields is a FieldNames, return a tuple of corresponding value.
 
         Raises:
             KeyError if at least one of the fields is not found
         """
-        assert isinstance(fields, (StringTypes, Fields))
+        assert isinstance(field_names, (StringTypes, FieldNames)),\
+            "Invalid field_names = %s (%s)" % (field_names, type(field_names))
 
-        if isinstance(fields, StringTypes):
-            if '.' in fields:
+        if isinstance(field_names, StringTypes):
+            if '.' in field_names:
                 key, _, subkey = key.partition(FIELD_SEPARATOR)
                 if not key in self._record:
                     return None
@@ -277,38 +279,38 @@ class Record(Packet):
                 else:
                     raise Exception, "Unknown field"
             else:
-                return self._record[fields]
+                return self._record[field_names]
         else:
             # XXX see. get_map_entries
-            if len(fields) == 1:
-                fields = iter(fields).next()
-                return self.get_value(fields)
-            return tuple(map(lambda x: self.get_value(x), fields))
+            if len(field_names) == 1:
+                field_names = iter(field_names).next()
+                return self.get_value(field_names)
+            return tuple(map(lambda x: self.get_value(x), field_names))
 
 
     @returns(bool)
-    def has_fields(self, fields):
+    def has_field_names(self, field_names):
         """
-        Test whether a Record carries a set of fields.
+        Test whether a Record carries a set of field names.
         Args:
-            fields: A String instance (field name) or
-                    a set of String instances (field names)
+            field_names: A FieldNames instance.
         Returns:
-            True iif record carries this set of fields.
+            True iif record carries this set of field names.
         """
-        if isinstance(fields, StringTypes):
-            # SHOULD BE DEPRECATED SOON since we are only using the Fields()
-            # class now...
-            return fields in self._record
+#DEPRECATED|        if isinstance(fields, StringTypes):
+#DEPRECATED|            # SHOULD BE DEPRECATED SOON since we are only using the FieldNames()
+#DEPRECATED|            # class now...
+#DEPRECATED|            return fields in self._record
+        assert isinstance(field_names, FieldNames)
 
-        fields, map_method_subfields, _, _ = fields.split_subfields()
-        if not set(fields) <= set(self._record.keys()):
+        field_names, map_method_subfields, _, _ = field_names.split_subfields()
+        if not set(field_names) <= set(self._record.keys()):
             return False
 
-        for method, subfields in map_method_subfields.items():
+        for method, sub_field_names in map_method_subfields.items():
             # XXX 1..1 not taken into account here
             for record in self._record[method]:
-                if not record.has_fields(subfields):
+                if not record.has_field_names(sub_field_names):
                     return False
         return True
 
@@ -318,6 +320,13 @@ class Record(Packet):
 
     @returns(bool)
     def has_empty_fields(self, keys):
+        """
+        Tests whether a Record contains a whole set of field names.
+        Args:
+            keys: A set of String (corresponding to field names).
+        Returns:
+            True iif self does not contain all the field names.
+        """
         for key in keys:
             if self._record[key]: return False
         return True
@@ -337,8 +346,9 @@ class Record(Packet):
         """
         return dict.keys(self._record) if self._record else list()
 
-    def get_fields(self):
-        return Fields(self.keys())
+    @returns(FieldNames)
+    def get_field_names(self):
+        return FieldNames(self.keys())
 
     def update(self, other_record):
         return dict.update(self._record, other_record)
@@ -403,8 +413,8 @@ class Records(list):
     def get_one(self):
         return self[0]
 
-    def get_fields(self):
-        return self.get_one().get_fields()
+    def get_field_names(self):
+        return self.get_one().get_field_names()
 
     def add_record(self, record):
         self.append(record)

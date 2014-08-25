@@ -15,7 +15,7 @@
 import copy
 from types                      import StringTypes
 
-from manifold.core.fields       import Fields
+from manifold.core.field_names  import FieldNames
 from manifold.util.misc         import is_iterable
 from manifold.util.predicate    import Predicate, eq, included
 from manifold.util.type         import accepts, returns 
@@ -243,9 +243,9 @@ class Filter(set):
                 output.append(x)
         return output
 
-    @returns(Fields)
+    @returns(FieldNames)
     def get_field_names(self):
-        field_names = Fields()
+        field_names = FieldNames()
         for predicate in self:
             field_names |= predicate.get_field_names()
         return field_names

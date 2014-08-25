@@ -381,7 +381,7 @@ class AST(object):
         """
         try: # DEBUG
             self.optimize_selection(destination.get_filter())
-            self.optimize_projection(destination.get_fields())
+            self.optimize_projection(destination.get_field_names())
         except Exception, e:
             Log.error(traceback.format_exc())
 
