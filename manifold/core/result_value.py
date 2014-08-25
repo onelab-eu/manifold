@@ -142,7 +142,7 @@ class ResultValue(dict):
         Make a ResultValue corresponding to an error.
         Args:
             description: A String instance.
-            code: An integer (see codes provided by ResultValue).
+            code: An integer (see manifold.core.code)
         Returns:
             The corresponding ResultValue instance.
         """

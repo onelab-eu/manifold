@@ -8,22 +8,31 @@
 # Authors:
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
-import traceback
-from ..util.constants   import STORAGE_FILENAME
+import json, traceback
+from ..util.constants   import STORAGE_DEFAULT_GATEWAY, STORAGE_DEFAULT_CONFIG
+
+def make_storage(storage_gateway, storage_config):
+    """
+    Args:
+        storage_gateway: The Gateway used to contact the Storage.
+        storage_config: A json-ed String containing the Gateway configuration.
+    Returns:
+        The corresponding Storage.
+    """
+    if STORAGE_DEFAULT_GATEWAY == "sqlalchemy":
+        from manifold.util.storage.sqla_storage import SQLAlchemyStorage
+
+        # This trigger Options parsing because Gateway.register_all() uses Logging
+        return SQLAlchemyStorage(
+            platform_config = storage_config
+        )
+    else:
+        raise ValueError("Invalid STORAGE_DEFAULT_GATEWAY constant (%s)" % STORAGE_DEFAULT_GATEWAY)
 
 try:
-    from manifold.util.storage.sqla_storage import SQLAlchemyStorage
-
-    STORAGE_URL      = "sqlite:///%s?check_same_thread=False" % STORAGE_FILENAME
-
-    STORAGE_CONFIG   = {
-        "url"  : STORAGE_URL,
-        "user" : None
-    }
-
-    # This trigger Options parsing because Gateway.register_all() uses Logging
-    MANIFOLD_STORAGE = SQLAlchemyStorage(
-        platform_config = STORAGE_CONFIG 
+    MANIFOLD_STORAGE = make_storage(
+        STORAGE_DEFAULT_GATEWAY,
+        json.loads(STORAGE_DEFAULT_CONFIG)
     )
 except Exception, e:
     from manifold.util.log import Log
