@@ -88,11 +88,13 @@ class TDMIGateway(PostgreSQLGateway):
         # The following keys are not deduced from the PostgreSQL schema, so we
         # inject them manually since they will be needed to perform joins
         # among the TDMI's tables
+        Log.tmp("Setting custom_keys")
         self.custom_keys = {
+            "ip" : ["ip"]
         #    "agent" : [["ip", "platform"]]
         }
 
-        super(TDMIGateway, self).__init__(router, platform, platform_config, re_ignored_tables, re_allowed_tables)
+        super(TDMIGateway, self).__init__(router, platform, platform_config, re_ignored_tables, re_allowed_tables,None,self.custom_keys,self.custom_fields)
 
     def receive_impl(self, packet): 
         """

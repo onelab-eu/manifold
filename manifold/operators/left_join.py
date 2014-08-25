@@ -12,7 +12,7 @@
 from types                          import StringTypes
 
 from manifold.core.destination      import Destination
-from manifold.core.fields           import Fields, FIELD_SEPARATOR
+from manifold.core.field_names      import FieldNames, FIELD_SEPARATOR
 from manifold.core.filter           import Filter
 from manifold.core.node             import Node
 from manifold.core.operator_slot    import LeftRightSlotMixin
@@ -144,8 +144,12 @@ class LeftJoin(Operator, LeftRightSlotMixin):
         Returns:
             The Destination corresponding to this Operator. 
         """
+        Log.tmp('left = ',type(self._get_left()))
+        Log.tmp('right = ',type(self._get_right()))
         dleft  = self._get_left().get_destination()
+        Log.tmp("dleft = ",dleft)
         dright = self._get_right().get_destination()
+        Log.tmp("dright = ",dright)
         return dleft.left_join(dright)
 
     def _update_and_send_right_packet(self):
@@ -205,7 +209,7 @@ class LeftJoin(Operator, LeftRightSlotMixin):
             if self._subrecord_mode():
                 # fields of interest in q.get_fields() are prefixed
                 left_prefix, _ = self._predicate.get_key().rsplit(FIELD_SEPARATOR, 1)
-                right_fields = Fields([f for f in right_fields if Fields.join(left_prefix, f) in q.get_fields()])
+                right_fields = FieldNames([f for f in right_fields if FieldNames.join(left_prefix, f) in q.get_fields()])
             else:
                 right_fields = q.get_fields() & right_fields
             right_fields |= right_key
@@ -241,7 +245,7 @@ class LeftJoin(Operator, LeftRightSlotMixin):
                             self._left_map[key_field].append(subrecord)
 
                     else:
-                        if not record.has_fields(self._predicate.get_field_names()):
+                        if not record.has_field_names(self._predicate.get_field_names()):
                             Log.warning("Missing LEFTJOIN predicate %s in left record %r : forwarding" % \
                                     (self._predicate, record))
                             self.forward_upstream(record)
@@ -398,7 +402,7 @@ class LeftJoin(Operator, LeftRightSlotMixin):
         key_left = self._predicate.get_field_names()
         key_right = self._predicate.get_value_names()
 
-        # Fields requested on the left side = fields requested belonging in left side
+        # FieldNames requested on the left side = fields requested belonging in left side
         # XXX faux on perd les champs nécessaires au join bien plus haut
         left_fields  = fields & self._get_left().get_destination().get_fields()
         left_fields |= key_left
@@ -406,7 +410,7 @@ class LeftJoin(Operator, LeftRightSlotMixin):
         right_fields = self._get_right().get_destination().get_fields()
         if self._subrecord_mode():
             left_prefix, _ = self._predicate.get_key().rsplit(FIELD_SEPARATOR, 1)
-            right_fields = Fields([f for f in right_fields if Fields.join(left_prefix, f) in fields])
+            right_fields = FieldNames([f for f in right_fields if FieldNames.join(left_prefix, f) in fields])
                 
 #DEPRECATED|            # We need to adapt the right destination
 #DEPRECATED|            # eg. PREDICATE = hops.probes.ip == ip
@@ -414,7 +418,7 @@ class LeftJoin(Operator, LeftRightSlotMixin):
 #DEPRECATED|            # be the result of the join
 #DEPRECATED|            left_prefix, _ = self._predicate.get_key().rsplit(FIELD_SEPARATOR, 1)
 #DEPRECATED|            # update right_fields
-#DEPRECATED|            right_fields = Fields([Fields.join(left_prefix, f) for f in right_fields])
+#DEPRECATED|            right_fields = FieldNames([FieldNames.join(left_prefix, f) for f in right_fields])
         else:
             right_fields  = fields & right_fields
         right_fields |= key_right

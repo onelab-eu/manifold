@@ -5,14 +5,16 @@ from manifold.util.log              import Log
 from manifold.util.type             import accepts, returns
 
 # The distinction between parent and children fields is based on the
-# Fields.FIELD_SEPARATOR character.
+# FieldNames.FIELD_SEPARATOR character.
 #
 # See manifold.operators.subquery
 FIELD_SEPARATOR = '.'
 DEFAULT_IS_STAR = False
 
-class Fields(list):
+class FieldNames(list):
     """
+    A FieldNames instance gather a set of field_names or represents *.
+    THIS IS NOT a set(Field).
     """
 
     #---------------------------------------------------------------------------
@@ -28,26 +30,26 @@ class Fields(list):
         size = len(self)
         if star and size != 0:
             raise ValueError("Inconsistent parameter (star = %s size = %s)" % (star, size))
-        # self._star == False and len(self) == 0 occurs when we create Fields() (to use later |=)
-        # and must behaves as Fields(star = False)
+        # self._star == False and len(self) == 0 occurs when we create FieldNames() (to use later |=)
+        # and must behaves as FieldNames(star = False)
         self._star = star
 
     @returns(StringTypes)
     def __repr__(self):
         """
         Returns:
-            The %r representation of this Fields instance.
+            The %r representation of this FieldNames instance.
         """
         if self.is_star():
-            return "<Fields *>"
+            return "<FieldNames *>"
         else:
-            return "<Fields %r>" % [x for x in self]
+            return "<FieldNames %r>" % [x for x in self]
 
     @returns(StringTypes)
     def __str__(self):
         """
         Returns:
-            The %s representation of this Fields instance.
+            The %s representation of this FieldNames instance.
         """
         if self.is_star():
             return "<*>"
@@ -62,7 +64,7 @@ class Fields(list):
     def is_star(self):
         """
         Returns:
-            True iif this Fields instance correspond to "any Field" i.e. "*".
+            True iif this FieldNames instance correspond to "*".
             Example : SELECT * FROM foo
         """
         try:
@@ -79,37 +81,37 @@ class Fields(list):
 
     def set_star(self):
         """
-        Update this Fields instance to make it corresponds to "*"
+        Update this FieldNames instance to make it corresponds to "*"
         """
         self._star = True
         self.clear()
 
-    def unset_star(self, fields):
+    def unset_star(self, field_names):
         """
-        Update this Fields instance to make it corresponds to a set of Fields
+        Update this FieldNames instance to make it corresponds to a set of FieldNames
         Args:
-            fields: A Fields instance or a set of Field instances.
+            field_names: A FieldNames instance or a set of String instances (field names)
         """
-        assert len(fields) > 1
+        assert len(field_names) > 1
         self._star = False
-        if fields:
-            self |= fields
+        if field_names:
+            self |= field_names
 
     @returns(bool)
     def is_empty(self):
         """
         Returns:
-            True iif Fields instance designates contains least one Field.
+            True iif FieldNames instance designates contains least one field name.
         """
         return not self.is_star() and not self
 
-    #@returns(Fields)
+    #@returns(FieldNames)
     def copy(self):
         """
         Returns:
-            A copy of this Fields instance.
+            A copy of this FieldNames instance.
         """
-        return Fields(self[:])
+        return FieldNames(self[:])
 
     #---------------------------------------------------------------------------
     # Iterators
@@ -124,30 +126,30 @@ class Fields(list):
     # Overloaded set internal functions
     #---------------------------------------------------------------------------
 
-    #@returns(Fields)
+    #@returns(FieldNames)
     def __or__(self, fields):
         """
-        Compute the union of two Fields instances.
+        Compute the union of two FieldNames instances.
         Args:
-            fields: a set of Field instances or a Fields instance.
+            fields: a set of String (corresponding to field names) or a FieldNames instance.
         Returns:
-            The union of the both Fields instance.
+            The union of the both FieldNames instance.
         """
         if self.is_star() or fields.is_star():
-            return Fields(star = True)
+            return FieldNames(star = True)
         else:
             l = self[:]
             l.extend([x for x in fields if x not in l])
-            return Fields(l)
+            return FieldNames(l)
 
-    #@returns(Fields)
+    #@returns(FieldNames)
     def __ior__(self, fields):
         """
-        Compute the union of two Fields instances.
+        Compute the union of two FieldNames instances.
         Args:
-            fields: a set of Field instances or a Fields instance.
+            fields: a set of Field instances or a FieldNames instance.
         Returns:
-            The updated Fields instance.
+            The updated FieldNames instance.
         """
         if fields.is_star():
             self.set_star()
@@ -156,30 +158,30 @@ class Fields(list):
             self.extend([x for x in fields if x not in self])
             return self
 
-    #@returns(Fields)
+    #@returns(FieldNames)
     def __and__(self, fields):
         """
-        Compute the intersection of two Fields instances.
+        Compute the intersection of two FieldNames instances.
         Args:
-            fields: a set of Field instances or a Fields instance.
+            fields: a set of Field instances or a FieldNames instance.
         Returns:
-            The intersection of the both Fields instances.
+            The intersection of the both FieldNames instances.
         """
         if self.is_star():
             return fields.copy()
-        elif fields.is_star():
+        elif isinstance(fields, FieldNames) and fields.is_star():
             return self.copy()
         else:
-            return Fields([x for x in self if x in fields])
+            return FieldNames([x for x in self if x in fields])
 
-    #@returns(Fields)
+    #@returns(FieldNames)
     def __iand__(self, fields):
         """
-        Compute the intersection of two Fields instances.
+        Compute the intersection of two FieldNames instances.
         Args:
-            fields: a set of Field instances or a Fields instance.
+            fields: a set of Field instances or a FieldNames instance.
         Returns:
-            The updated Fields instance.
+            The updated FieldNames instance.
         """
         if self.is_star():
             self.unset_star(fields)
@@ -198,16 +200,16 @@ class Fields(list):
 
     __add__ = __or__
 
-    #@returns(Fields)
+    #@returns(FieldNames)
     def __sub__(self, fields):
         if fields.is_star():
-            return Fields(star = False)
+            return FieldNames(star = False)
         else:
             if self.is_star():
                 # * - x,y,z = ???
-                return Fields(star = True) # XXX NotImplemented
+                return FieldNames(star = True) # XXX NotImplemented
             else:
-                return Fields([x for x in self if x not in fields])
+                return FieldNames([x for x in self if x not in fields])
 
     def __isub__(self, fields):
         print "isub"
@@ -224,25 +226,25 @@ class Fields(list):
     @returns(bool)
     def __eq__(self, other):
         """
-        Test whether this Fields instance corresponds to another one.
+        Test whether this FieldNames instance corresponds to another one.
         Args:
-            other: The Fields instance compared to self.
+            other: The FieldNames instance compared to self.
         Returns:
-            True if the both Fields instance matches.
+            True if the both FieldNames instance matches.
         """
         return self.is_star() and other.is_star() or set(self) == set(other) # list.__eq__(self, other)
 
     @returns(bool)
     def __le__(self, other):
         """
-        Test whether this Fields instance in included in
+        Test whether this FieldNames instance in included in
         (or equal to) another one.
         Args:
-            other: The Fields instance compared to self or
+            other: The FieldNames instance compared to self or
         Returns:
-            True if the both Fields instance matches.
+            True if the both FieldNames instance matches.
         """
-        assert isinstance(other, Fields),\
+        assert isinstance(other, FieldNames),\
             "Invalid other = %s (%s)" % (other, type(other))
 
         return (self.is_star() and other.is_star())\
@@ -254,21 +256,21 @@ class Fields(list):
     @returns(bool)
     def __ne__(self, other):
         """
-        Test whether this Fields instance differs to another one.
+        Test whether this FieldNames instance differs to another one.
         Args:
-            other: The Fields instance compared to self.
+            other: The FieldNames instance compared to self.
         Returns:
-            True if the both Fields instance differs.
+            True if the both FieldNames instance differs.
         """
         return not self == other
 
     @returns(bool)
     def __lt__(self, other):
         """
-        Test whether this Fields instance in strictly included in
+        Test whether this FieldNames instance in strictly included in
         another one.
         Args:
-            other: The Fields instance compared to self.
+            other: The FieldNames instance compared to self.
         Returns:
             True if self is strictly included in other.
         """
@@ -288,6 +290,7 @@ class Fields(list):
 
     def add(self, field_name):
         # DEPRECATED
+        assert isinstance(field_name, StringTypes)
         self.append(field_name)
 
     def append(self, field_name):
@@ -341,25 +344,23 @@ class Fields(list):
     @returns(tuple)
     def split_subfields(self, include_parent = True, current_path = None, allow_shortcuts = True):
         """
-        Returns a tuple of Fields + dictionary { method: sub-Fields() }
-
         Args:
             include_parent (bool): is the parent field included in the list of
-                returned Fields (1st part of the tuple).
+                returned FieldNames (1st part of the tuple).
             current_path (list): the path of fields that will be skipped at the beginning
             path_shortcuts (bool): do we allow shortcuts in the path
 
-        Returns:
-            fields
-            map_method_subfields
-            map_original_field
-            rename
+        Returns: A tuple made of 4 operands:
+            fields:
+            map_method_subfields:
+            map_original_field:
+            rename:
 
         Example path = ROOT.A.B
-        split_subfields(A.B.C.D, A.B.C.D', current_path=[ROOT,A,B]) => (Fields(), { C: [D, D'] })
-        split_subfields(A.E.B.C.D, A.E.B.C.D', current_path=[ROOT,A,B]) => (Fields(), { C: [D, D'] })
+        split_subfields(A.B.C.D, A.B.C.D', current_path=[ROOT,A,B]) => (FieldNames(), { C: [D, D'] })
+        split_subfields(A.E.B.C.D, A.E.B.C.D', current_path=[ROOT,A,B]) => (FieldNames(), { C: [D, D'] })
         """
-        fields = Fields()
+        field_names = FieldNames()
         map_method_subfields = dict()
         map_original_field   = dict()
         rename = dict()
@@ -367,20 +368,20 @@ class Fields(list):
         for original_field in self:
             # The current_path can be seen as a set of fields that have to be
             # passed through before we can consider a field
-            field, last = Fields.after_path(original_field, current_path, allow_shortcuts)
+            field, last = FieldNames.after_path(original_field, current_path, allow_shortcuts)
 
-            field, _, subfield = field.partition(FIELD_SEPARATOR)
+            field_name, _, subfield = field.partition(FIELD_SEPARATOR)
 
             if not subfield:
-                fields.add(field)
+                field_names.add(field_name)
             else:
                 if include_parent:
-                    fields.add(field)
-                if not field in map_method_subfields:
-                    map_method_subfields[field] = Fields()
-                map_method_subfields[field].add(subfield)
+                    field_names.add(field_name)
+                if not field_name in map_method_subfields:
+                    map_method_subfields[field_name] = FieldNames()
+                map_method_subfields[field_name].add(subfield)
 
-            map_original_field[field] = original_field
-            rename[field] = last
+            map_original_field[field_name] = original_field
+            rename[field_name] = last
 
-        return (fields, map_method_subfields, map_original_field, rename)
+        return (field_names, map_method_subfields, map_original_field, rename)

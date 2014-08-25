@@ -16,7 +16,6 @@ from types                              import StringTypes
 #from twisted.internet                  import reactor
 
 from manifold.core.announce             import Announces
-from manifold.core.fields               import Fields
 from manifold.core.query                import Query
 from manifold.gateways                  import Gateway
 from manifold.util.callback             import Callback

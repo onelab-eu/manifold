@@ -15,16 +15,16 @@
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
 import copy
-from types                  import StringTypes
-from manifold.core.field    import Field
-from manifold.core.fields   import Fields
-from manifold.util.type     import returns, accepts
-from manifold.util.log      import Log
+from types                      import StringTypes
+
+from manifold.core.field        import Field
+from manifold.core.field_names  import FieldNames
+from manifold.util.type         import returns, accepts
+from manifold.util.log          import Log
 
 class Key(object):
     """
     Implements a key for a table.
-    A key is a set of (eventually one) Fields.
     """
 
     #---------------------------------------------------------------------------
@@ -38,6 +38,8 @@ class Key(object):
             fields: The set of Field instances involved in the Key.
         """
         Key.check_fields(fields)
+        for field in fields:
+            assert isinstance(field, Field)
         self._fields = frozenset(fields)
         self._local = local
 
@@ -53,14 +55,15 @@ class Key(object):
         See also:
             manifold.core.field
         """
-        field_names = key_dict.get('field_names', [])
+        field_names = key_dict.get("field_names", list())
         fields = [all_fields_dict[field_name] for field_name in field_names]
-        return Key(fields, key_dict.get('local', False))
+        return Key(fields, key_dict.get("local", False))
 
+    @returns(dict)
     def to_dict(self):
         return {
-            'field_names': list(self.get_field_names()),
-            'local': self.is_local()
+            "field_names" : list(self.get_field_names()),
+            "local"       : self.is_local()
         }
 
     #-----------------------------------------------------------------------
@@ -70,7 +73,6 @@ class Key(object):
     def __iter__(self):
         return iter(self._fields)
 
-
     #---------------------------------------------------------------------------
     # Accessors
     #---------------------------------------------------------------------------
@@ -78,6 +80,7 @@ class Key(object):
     def set_local(self):
         self._local = True
 
+    @returns(bool)
     def is_local(self):
         return self._local
 
@@ -114,20 +117,47 @@ class Key(object):
 
     @returns(frozenset)
     def get_fields(self):
+        """
+        Returns:
+            A frozenset of Field instances.
+        """
         return frozenset(self._fields)
 
     @returns(Field)
-    def get_field(self):
-        if self.is_composite():
-            raise ValueError("get_field cannot be called for a composite key")
-        if not self._fields:
-            return None
-        return iter(self._fields).next()
+    def get_field(self, field_name = None):
+        """
+        Retrieve a Field involved in this Key.
+        Args:
+            field_name: A String corresponding to the name of Field contained in this Key.
+                If the Key is made of only one Field, you can pass None.
+        Raises:
+            ValueError: if field_name is omitted and self is composite.
+            KeyError: if self does not contains such a Field.
+            RuntimeError: if self is empty.
+        Returns:
+            The corresponding Field instance.
+        """
+        assert not field_name or isinstance(field_name, StringTypes)
+        if self.is_composite() and not field_name:
+            raise ValueError("get_field cannot be called for a composite key without precising the field name")
+        if field_name:
+            # field_name is precised, explore this Key
+            for field in self:
+                if field.get_name() == field_name:
+                    return field
+            raise KeyError("%s does not contain a field with name = %s" % (self, field_name))
+        elif not self._fields:
+            # This Key is empty, nothing to return
+            #return None
+            raise RuntimeError("%s is empty, you cannot call get_field on such a Key" % self)
+        else:
+            # Returns the unique Field contained in this Key
+            return iter(self._fields).next()
 
-    @returns(StringTypes)
-    def get_name(self):
-        Log.deprecated('get_field_name')
-        return self.get_field_name()
+#DEPRECATED|    @returns(StringTypes)
+#DEPRECATED|    def get_name(self):
+#DEPRECATED|        Log.deprecated('get_field_name')
+#DEPRECATED|        return self.get_field_name()
 
     @returns(StringTypes)
     def get_field_name(self):
@@ -136,14 +166,14 @@ class Key(object):
             return None
         return field.get_name()
 
-    @returns(Fields)
+    @returns(FieldNames)
     def get_field_names(self):
-        return Fields([x.get_name() for x in self._fields])
+        return FieldNames([field.get_name() for field in self._fields])
 
-    @returns(set)
-    def get_names(self):
-        Log.deprecated('get_field_names')
-        return self.get_field_names()
+#DEPRECATED|    @returns(set)
+#DEPRECATED|    def get_names(self):
+#DEPRECATED|        Log.deprecated('get_field_names')
+#DEPRECATED|        return self.get_field_names()
 
     def get_minimal_names(self):
         return self.get_field_names() if self.is_composite() else self.get_name()
@@ -185,133 +215,3 @@ class Key(object):
 #DEPRECATED|#    def __hash__(self):
 #DEPRECATED|#        return hash(tuple([f.get_name() for f in self]))
 
-class Keys(set):
-    """
-    Implements a set of keys for a table.
-    """
-
-    #---------------------------------------------------------------------------
-    # Constructor
-    #---------------------------------------------------------------------------
-
-    def __init__(self, keys = set()):
-        """
-        Constructor
-        Args:
-            keys: A set/frozenset/list of Key instances
-        """
-        Keys.check_keys(keys)
-        set.__init__(self, set(keys))
-
-    @classmethod
-    def from_dict_list(cls, key_dict_list, all_fields_dict):
-        return Keys([Key.from_dict(key_dict, all_fields_dict) for key_dict in key_dict_list])
-
-    def to_dict_list(self):
-        return [key.to_dict() for key in self]
-
-    #---------------------------------------------------------------------------
-    # Accessors
-    #---------------------------------------------------------------------------
-
-    def is_local(self):
-        return all(key.is_local() for key in self)
-
-    #---------------------------------------------------------------------------
-    # Static methods
-    #---------------------------------------------------------------------------
-
-    @staticmethod
-    def check_keys(keys):
-        """
-        (Internal use)
-        Test whether the keys parameter of the constructor is well-formed
-        Args:
-            keys: The keys parameter passed to __init__
-        """
-        if not isinstance(keys, (frozenset, set, list)):
-            raise TypeError("keys = %r is of type %r (set or frozenset expected)" % (keys, type(keys)))
-        for key in keys:
-            if not isinstance(key, Key):
-                raise TypeError("key = %r is of type %r (Key expected)" % (key, type(key)))
-
-    #---------------------------------------------------------------------------
-    # Internal methods
-    #---------------------------------------------------------------------------
-
-    @returns(StringTypes)
-    def __str__(self):
-        """
-        Returns:
-            The '%s' representation of this Keys instance.
-        """
-        return "Keys(%s)" % (", ".join(["%s" % key for key in self]))
-
-    @returns(StringTypes)
-    def __repr__(self):
-        """
-        Returns:
-            The '%r' representation of this Keys instance.
-        """
-        return str(self) 
-
-    @returns(bool)
-    def has_field(self, field):
-        """
-        Test whether a Field is involved in at least one Key
-        of this Keys instance.
-        Args:
-            field: A Field instance.
-        Returns:
-            True iif 'field' is involved in this Keys instance.
-        """
-        for key in self:
-            if field in key:
-                return True
-        return False
-
-    @returns(Key)
-    def one(self):
-        """
-        Returns:
-            The first Key instance contained in this Keys instance.
-        """
-        assert len(self) == 1, "Cannot call one() when not exactly 1 keys (self = %s)" % self
-        # XXX Note we might need to prevent multiple key cases
-        return iter(self).next()
-
-#    def get_field_names(self):
-#        """
-#        \brief Returns a set of fields making up one key. If multiple possible
-#        keys exist, a unique one is returned, having a minimal size.
-#        """
-#        return min(self, key=len)
-
-    def __hash__(self):
-        return hash(frozenset(self))
-
-    #@returns(Key)
-    def __or__(self, key2):
-        assert len(key1) == len(key2)
-
-        key1 = self
-        fields = set()
-
-        for field1 in key1:
-            merged = False
-
-            for field2 in key2:
-                # Merge matching fields 
-                try:
-                    fields.add(field1 | field2)
-                    merged = True
-                    break
-                except ValueError:
-                    continue
-
-            if not merged:
-                # No matching Field, the both Key cannot be merged 
-                raise ValueError("Cannot %s | %s" % (self, key2))
-
-        assert len(fields) == len(key1)
-        return Key(fields)

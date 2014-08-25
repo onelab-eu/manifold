@@ -22,7 +22,7 @@ from types                          import StringTypes
 
 from manifold.core.ast              import AST
 from manifold.core.explore_task     import ExploreTask
-from manifold.core.fields           import Fields
+from manifold.core.field_names      import FieldNames
 from manifold.core.node             import Node
 from manifold.core.query            import ACTION_CREATE, ACTION_UPDATE
 from manifold.core.stack            import Stack
@@ -144,13 +144,13 @@ class QueryPlan(object):
         stack = Stack(root_task)
         seen = dict() # path -> set()
 
-        missing_fields = Fields()
+        missing_fields = FieldNames()
         if query.get_fields().is_star():
             missing_fields |= root_table.get_field_names()
         else:
             missing_fields |= query.get_fields()
         missing_fields |= query.get_filter().get_field_names()
-        missing_fields |= Fields(query.get_params().keys())
+        missing_fields |= FieldNames(query.get_params().keys())
 
         while missing_fields:
             # Explore the next prior ExploreTask

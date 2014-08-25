@@ -15,7 +15,8 @@ from types                          import StringTypes
 
 from manifold.core.capabilities     import Capabilities
 from manifold.core.field            import Field 
-from manifold.core.key              import Key, Keys
+from manifold.core.key              import Key
+from manifold.core.keys             import Keys
 from manifold.core.packet           import Packet
 from manifold.core.table            import Table
 from manifold.util.clause           import Clause

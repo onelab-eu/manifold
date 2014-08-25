@@ -98,7 +98,8 @@ class Relation(object):
         """
         return "<%s, %s>" % (
             self.get_str_type(),
-            self.name if self.get_relation_name() else ""
+            #self.name if self.get_relation_name() else ""
+            self.get_predicate()
         )
 
     #@returns(StringTypes)

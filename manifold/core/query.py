@@ -14,7 +14,7 @@ import copy, json, uuid, traceback
 from types                          import StringTypes
 from manifold.core.destination      import Destination
 from manifold.core.filter           import Filter, Predicate
-from manifold.core.fields           import Fields
+from manifold.core.field_names      import FieldNames
 from manifold.util.clause           import Clause
 from manifold.util.frozendict       import frozendict
 from manifold.util.log              import Log
@@ -104,11 +104,11 @@ class Query(object):
                 fields = kwargs.pop('fields')
                 if '*' in fields:
                     #Log.tmp("SET STAR IN KWARGS")
-                    self.fields = Fields(star = True)
+                    self.fields = FieldNames(star = True)
                 else:
-                    self.fields = Fields(fields, star = False)
+                    self.fields = FieldNames(fields, star = False)
             else:
-                self.fields = Fields(star = True)
+                self.fields = FieldNames(star = True)
 
             # "update table set x = 3" => params == set
             if "params" in kwargs:
@@ -141,7 +141,7 @@ class Query(object):
     def sanitize(self):
         if not self.filters:   self.filters   = Filter()
         if not self.params:    self.params    = {}
-        if not self.fields:    self.fields    = Fields()
+        if not self.fields:    self.fields    = FieldNames()
         if not self.timestamp: self.timestamp = "now"
 
         if isinstance(self.filters, list):
@@ -153,8 +153,8 @@ class Query(object):
         elif isinstance(self.filters, Clause):
             self.filters = Filter.from_clause(self.filters)
 
-        if not isinstance(self.fields, Fields):
-            self.fields = Fields(self.fields)
+        if not isinstance(self.fields, FieldNames):
+            self.fields = FieldNames(self.fields)
 
     #---------------------------------------------------------------------------
     # Helpers
@@ -169,7 +169,7 @@ class Query(object):
         self.object = None
         self.filters = Filter()
         self.params  = {}
-        self.fields  = Fields()
+        self.fields  = FieldNames()
         self.timestamp  = 'now' # ignored for now
 
     #@returns(StringTypes)
@@ -185,7 +185,7 @@ class Query(object):
         get_params_str = lambda : ", ".join(["%s = %r" % (k, v) for k, v in self.get_params().items()])
 
         table  = self.get_from() # it may be a string like "namespace:table_name" or not
-        fields = self.get_fields()
+        fields = self.get_field_names()
         select = "SELECT %s" % ("*" if fields.is_star() else ", ".join([field for field in fields]))
         where  = "WHERE %s"  % self.get_where()     if self.get_where()     else ""
         at     = "AT %s"     % self.get_timestamp() if self.get_timestamp() else ""
@@ -300,12 +300,17 @@ class Query(object):
         self.action = action
         return self
 
-    @returns(Fields)
+    @returns(FieldNames)
     def get_select(self): # DEPRECATED
-        return self.get_fields()
+        return self.get_field_names()
 
-    @returns(Fields)
+    @returns(FieldNames)
+    def get_field_names(self):
+        return self.fields
+
+    @returns(FieldNames)
     def get_fields(self):
+        Log.warning("Query::get_fields returns FieldNames not fields!")
         return self.fields # frozenset(self.fields) if self.fields is not None else None
 
     @returns(StringTypes)
@@ -529,9 +534,9 @@ class Query(object):
             tmp, = fields
             if tmp is None:
                 # None = '*'
-                self.fields = Fields(star = True)
+                self.fields = FieldNames(star = True)
             else:
-                fields = Fields(tmp) if is_iterable(tmp) else Fields([tmp])
+                fields = FieldNames(tmp) if is_iterable(tmp) else FieldNames([tmp])
                 if clear:
                     self.fields = fields
                 else:
@@ -540,7 +545,7 @@ class Query(object):
 
         # We have an sequence of fields
         if clear:
-            self.fields = Fields(star = False)
+            self.fields = FieldNames(star = False)
         for field in fields:
             self.fields.add(field)
         return self
@@ -693,10 +698,10 @@ class Query(object):
         Returns:
             The corresponding Destination.
         """
-        return Destination(self.object, self.filters, self.fields | Fields(self.params.keys()))
+        return Destination(self.object, self.filters, self.fields | FieldNames(self.params.keys()))
 
     def set_destination(self, destination):
         Log.warning("set_destination is not handling params")
         self.object  = destination.get_object()
         self.filters = destination.get_filter()
-        self.fields  = destination.get_fields()
+        self.fields  = destination.get_field_names()

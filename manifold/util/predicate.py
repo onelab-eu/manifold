@@ -13,7 +13,7 @@
 
 import copy
 from types                      import StringTypes
-from manifold.core.fields       import Fields, FIELD_SEPARATOR
+from manifold.core.field_names  import FieldNames, FIELD_SEPARATOR
 from manifold.util.type         import returns, accepts 
 
 from operator import (
@@ -272,19 +272,19 @@ class Predicate:
             # XXX match
             return dic if self.match(dic) else None
 
-    @returns(Fields)
+    @returns(FieldNames)
     def get_field_names(self):
         if isinstance(self.key, (list, tuple, set, frozenset)):
-            return Fields(self.key)
+            return FieldNames(self.key)
         else:
-            return Fields([self.key])
+            return FieldNames([self.key])
 
-    @returns(Fields)
+    @returns(FieldNames)
     def get_value_names(self):
         if isinstance(self.value, (list, tuple, set, frozenset)):
-            return Fields(self.value)
+            return FieldNames(self.value)
         else:
-            return Fields([self.value])
+            return FieldNames([self.value])
 
     @returns(bool)
     def has_empty_value(self):

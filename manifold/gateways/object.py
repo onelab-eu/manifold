@@ -31,6 +31,7 @@ class Object(object):
             A dictionnary {String : String} mapping a Gateway field name
             with the corresponding MANIFOLD field name.
         """
+        Log.tmp("gateway object aliases = ",cls.aliases)
         return cls.aliases
 
     #@returns(Gateway)

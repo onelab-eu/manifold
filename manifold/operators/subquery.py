@@ -14,7 +14,7 @@ from types                          import StringTypes
 
 from manifold.core.destination      import Destination
 from manifold.core.exceptions       import ManifoldInternalException
-from manifold.core.fields           import Fields, FIELD_SEPARATOR
+from manifold.core.field_names      import FieldNames, FIELD_SEPARATOR
 from manifold.core.filter           import Filter
 from manifold.core.operator_slot    import ParentChildrenSlotMixin, PARENT
 from manifold.core.packet           import Packet
@@ -103,11 +103,11 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
         or not.
         """
         if False: #parent.capabilities.is_onjoin(): #We need more than the test for ONJOIN.. We might have all the needed parameters, because the user expressed them, or from a parent operator
-            # We need to have all root_key_fields available before running the
+            # We need to have all root_key_field_names available before running the
             # onjoin query
-            root_key_fields = None # parent.keys.one().get_field_names()
+            root_key_field_names = None # parent.keys.one().get_field_names()
 
-            # We assume for now that if the fields will be either available as a
+            # We assume for now that if the field_names will be either available as a
             # WHERE condition (not available at this stage), or through a
             # subquery. We only look into subqueries, if the field is not
             # present, that means it will be there at execution time. It will
@@ -135,7 +135,7 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
 # ??? #            # - the ones for the cartesian product
 # ??? #            # - the ones for the subqueries
 # ??? #            for name, ast_relation in self.subqueries.items():
-# ??? #                if name in root_key_fields:
+# ??? #                if name in root_key_field_names:
 # ??? #                    ast, relation = ast_relation
 # ??? #                    key, _, value = relation.get_predicate().get_tuple()
 # ??? #                    assert isinstance(key, StringTypes), "Invalid key"
@@ -256,7 +256,7 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
             if isinstance(bottom, LeftJoin):
                 # Update the predicate
                 predicate = bottom.get_predicate()
-                predicate.update_key(lambda k: Fields.join(name, k))
+                predicate.update_key(lambda k: FieldNames.join(name, k))
 
                 # Get following operator
                 prev = bottom
@@ -264,7 +264,7 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
 
             elif isinstance(bottom, Rename):
                 # Update names
-                bottom.update_aliases(lambda k, v: (Fields.join(name, k), Fields.join(name, v)))
+                bottom.update_aliases(lambda k, v: (FieldNames.join(name, k), FieldNames.join(name, v)))
 
                 # Get following operator
                 prev = bottom
@@ -360,43 +360,45 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
         # Filter
         #
         # Until further work, all filters are applied to the parent, filters on
-        # child fields should not reach the operator
+        # child field_names should not reach the operator
         for predicate in destination.get_filter():
-            # What about Filter.split_fields() ?
+            # What about Filter.split_field_names() ?
             key_field, key_subfield, op, value = predicate.get_tuple_ext()
             if key_subfield:
-                raise ManifoldInternalException('Filters involving children should not reach SubQuery')
+                #raise ManifoldInternalException('Filters involving children should not reach SubQuery')
+                #destination.remove_filter(predicate)
+                Log.warning('Filters involving children should not reach SubQuery')
             parent_destination.add_filter(predicate)
 
-        # Fields
-#DEPRECATED|        for field, subfield in destination.get_fields().iter_field_subfield():
+        # FieldNames
+#DEPRECATED|        for field, subfield in destination.get_field_names().iter_field_subfield():
 #DEPRECATED|            # XXX THIS DOES NOT TAKE SHORTCUTS INTO ACCOUNT
-#DEPRECATED|            parent_destination.add_fields(field)
+#DEPRECATED|            parent_destination.add_field_names(field)
 #DEPRECATED|            if subfield:
 #DEPRECATED|                # NOTE : the field should be the identifier of the child
 #DEPRECATED|                # Remember that all relations involved in a SubQuery are named.
-#DEPRECATED|                child_destinations[field].add_fields(subfield)
+#DEPRECATED|                child_destinations[field].add_field_names(subfield)
 
 
-        parent_fields = self._get_parent().get_destination().get_fields()
-        parent_destination.add_fields(destination.get_fields() & parent_fields)
+        parent_field_names = self._get_parent().get_destination().get_field_names()
+        parent_destination.add_field_names(destination.get_field_names() & parent_field_names)
         for child_id, child, child_data in self._iter_children():
-#DEPRECATED|            child_fields = Fields()
-#DEPRECATED|            for field in child.get_destination().get_fields():
-#DEPRECATED|                child_fields.add(Fields.join(child_id, field))
+#DEPRECATED|            child_field_names = FieldNames()
+#DEPRECATED|            for field in child.get_destination().get_field_names():
+#DEPRECATED|                child_field_names.add(FieldNames.join(child_id, field))
 #DEPRECATED|            print "======", self, "==== split destination"
-#DEPRECATED|            print "destination.get_fields()", destination.get_fields() 
-#DEPRECATED|            print "child_destination_fields", child.get_destination().get_fields()
+#DEPRECATED|            print "destination.get_field_names()", destination.get_field_names() 
+#DEPRECATED|            print "child_destination_field_names", child.get_destination().get_field_names()
 #DEPRECATED|            print "child=", child
-#DEPRECATED|            print "child_fields", child_fields
+#DEPRECATED|            print "child_field_names", child_field_names
 #DEPRECATED|            print "hcild_id", child_id
-#DEPRECATED|            child_destinations[child_id].add_fields(destination.get_fields() & child_fields)
+#DEPRECATED|            child_destinations[child_id].add_field_names(destination.get_field_names() & child_field_names)
 #DEPRECATED|
-            child_provided_fields = child.get_destination().get_fields() 
+            child_provided_field_names = child.get_destination().get_field_names()
 
-            child_fields = Fields()
-            for f in destination.get_fields():
-                for cf in child_provided_fields:
+            child_field_names = FieldNames()
+            for f in destination.get_field_names():
+                for cf in child_provided_field_names:
                     # f.split(FIELD_SEPARATOR)[1:]      # (hops) ttl    (hops) ip
                     # cf.split(FIELD_SEPARATOR)         # ttl           probes ip 
                     f_arr = f.split(FIELD_SEPARATOR)
@@ -405,17 +407,17 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
                     cf_arr = cf.split(FIELD_SEPARATOR)
                     flag, shortcut = is_sublist(f_arr, cf_arr)
                     if f_arr and flag:
-                        child_fields.add(cf)
+                        child_field_names.add(cf)
 
-            child_destinations[child_id].add_fields(child_fields)
+            child_destinations[child_id].add_field_names(child_field_names)
         
         # Keys & child objects
         for child_id, child, child_data in self._iter_children():
             predicate = child_data.get('relation').get_predicate()
-            parent_destination.add_fields(predicate.get_field_names())
+            parent_destination.add_field_names(predicate.get_field_names())
             # XXX HOSTILE In fact this is not necessary for local keys... But how will
             # we assembles subrecords ??????
-            child_destinations[child_id].add_fields(predicate.get_value_names())
+            child_destinations[child_id].add_field_names(predicate.get_value_names())
 
             child_object = self._get_child(child_id).get_destination().get_object()
             child_destinations[child_id].set_object(child_object)
@@ -702,8 +704,8 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
 
         parent_filter, top_filter = Filter(), Filter()
         for predicate in filter:
-            # XXX We need to know all fields, and not only those that have been # asked !!!
-            if predicate.get_field_names() <= self._get_parent().get_destination().get_fields():
+            # XXX We need to know all field_names, and not only those that have been # asked !!!
+            if predicate.get_field_names() <= self._get_parent().get_destination().get_field_names():
                 parent_filter.add(predicate)
             else:
                 Log.warning("SubQuery::optimize_selection() is only partially implemented : %r" % predicate)
@@ -717,35 +719,35 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
 
         return self
 
-    def optimize_projection(self, fields):
+    def optimize_projection(self, field_names):
         """
         Propagates projection (SELECT) through a SubQuery node.
         A field is relevant if:
             - it is explicitely queried (i.e. it is a field involved in the projection)
             - it is needed to perform the SubQuery (i.e. it is involved in a Predicate)
         Args:
-            fields: A frozenset of String containing the fields involved in the projection.
+            field_names: A frozenset of String containing the field_names involved in the projection.
         Returns:
             The optimized AST once this projection has been propagated.
         """
 
         if self.is_local():
             # Don't propagate the projection
-            if fields <= self.get_destination().get_fields():
-                return Projection(self, fields) 
+            if field_names <= self.get_destination().get_field_names():
+                return Projection(self, field_names)
             else:
                 return self
 
 
-        parent_fields = Fields([field for field in fields if not "." in field]) \
-            | Fields([field.split('.')[0] for field in fields if "." in field])
+        parent_field_names = FieldNames([field for field in field_names if not "." in field]) \
+            | FieldNames([field.split('.')[0] for field in field_names if "." in field])
 
         # XXX We need data associated with each producer
         def handle_child(child_producer, child_data):
             relation = child_data.get('relation')
 
-            parent_fields = Fields([field for field in fields if not "." in field]) \
-                | Fields([field.split('.')[0] for field in fields if "." in field])
+            parent_field_names = FieldNames([field for field in field_names if not "." in field]) \
+                | FieldNames([field.split('.')[0] for field in field_names if "." in field])
 
             # 1) If the SELECT clause refers to "a.b", this is a Query related to the
             # child subquery related to "a". If the SELECT clause refers to "b" this
@@ -758,11 +760,11 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
             # requested : hops.ip
             # in child hop: on a ttl et probes.ip
 
-            child_provided_fields = child_producer.get_destination().get_fields() 
+            child_provided_field_names = child_producer.get_destination().get_field_names() 
 
-            child_fields = Fields()
-            for f in fields:
-                for cf in child_provided_fields:
+            child_field_names = FieldNames()
+            for f in field_names:
+                for cf in child_provided_field_names:
                     # f.split(FIELD_SEPARATOR)[1:]      # (hops) ttl    (hops) ip
                     # cf.split(FIELD_SEPARATOR)         # ttl           probes ip 
                     f_arr = f.split(FIELD_SEPARATOR)
@@ -771,50 +773,50 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
                     cf_arr = cf.split(FIELD_SEPARATOR)
                     flag, shortcut = is_sublist(f_arr, cf_arr)
                     if f_arr and flag:
-                        child_fields.add(cf)
+                        child_field_names.add(cf)
 
-            # XXX For the child, we will search for fields that are not in the
+            # XXX For the child, we will search for field_names that are not in the
             # parent, we also suppose there are no conflicts... this should have
             # been solved during the query plan phase...
 
-            # 2) Add to child_fields and parent_fields the field names needed to
-            # connect the parent to its children. If such fields are added, we will
+            # 2) Add to child_field_names and parent_field_names the field names needed to
+            # connect the parent to its children. If such field_names are added, we will
             # filter them in step (4). Once we have deduced for each child its
-            # queried fields (see (1)) and the fields needed to connect it to the
+            # queried field_names (see (1)) and the field_names needed to connect it to the
             # parent query (2), we can start the to optimize the projection (3).
-            if not predicate.get_value_names() <= parent_fields:
+            if not predicate.get_value_names() <= parent_field_names:
                 require_top_projection = True 
-            child_fields |= predicate.get_value_names()
+            child_field_names |= predicate.get_value_names()
 
             # 3) Optimize the main query (parent) and its subqueries (children)
-            return child_producer.optimize_projection(child_fields)
+            return child_producer.optimize_projection(child_field_names)
 
         self._update_children_producers(handle_child)
 
         require_top_projection = False
-        parent_fields = Fields([field for field in fields if not "." in field]) \
-            | Fields([field.split('.')[0] for field in fields if "." in field])
+        parent_field_names = FieldNames([field for field in field_names if not "." in field]) \
+            | FieldNames([field.split('.')[0] for field in field_names if "." in field])
         for _, _, data in self._iter_children():
             relation = data.get('relation', None)
             predicate = relation.get_predicate()
-            if not predicate.get_field_names() <= parent_fields:
-                parent_fields |= predicate.get_field_names() # XXX jordan i don't understand this 
+            if not predicate.get_field_names() <= parent_field_names:
+                parent_field_names |= predicate.get_field_names() # XXX jordan i don't understand this 
                 require_top_projection = True 
 
         # Note:
-        # if parent_fields < self.parent.get_query().get_select():
-        # This is not working if the parent has fields not in the subquery:
+        # if parent_field_names < self.parent.get_query().get_select():
+        # This is not working if the parent has field_names not in the subquery:
         # eg. requested = slice_hrn, resource && parent = slice_hrn users
-        real_parent_fields = self._get_parent().get_destination().get_fields()
-        if real_parent_fields - parent_fields:
-            opt_parent_fields = parent_fields & real_parent_fields
-            self._update_parent_producer(lambda p, d: p.optimize_projection(opt_parent_fields))
+        real_parent_field_names = self._get_parent().get_destination().get_field_names()
+        if real_parent_field_names - parent_field_names:
+            opt_parent_field_names = parent_field_names & real_parent_field_names
+            self._update_parent_producer(lambda p, d: p.optimize_projection(opt_parent_field_names))
 
-        # 4) Some fields (used to connect the parent node to its child node) may be not
+        # 4) Some field_names (used to connect the parent node to its child node) may be not
         # queried by the user. In this case, we ve to add a Projection
-        # node which will filter those fields.
+        # node which will filter those field_names.
         if require_top_projection:
-            return Projection(self, fields) #jordan
+            return Projection(self, field_names) #jordan
         return self
 
     #---------------------------------------------------------------------------

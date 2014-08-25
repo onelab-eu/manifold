@@ -14,10 +14,11 @@ from types                      import StringTypes
 import uuid
 
 from manifold.core.field        import Field
-from manifold.core.fields       import Fields
+from manifold.core.field_names  import FieldNames
 from manifold.types             import BASE_TYPES
 from manifold.core.filter       import Filter
-from manifold.core.key          import Key, Keys
+from manifold.core.key          import Key
+from manifold.core.keys         import Keys
 from manifold.core.method       import Method
 from manifold.core.capabilities import Capabilities
 from manifold.core.relation     import Relation
@@ -110,7 +111,7 @@ class Table(object):
                 that the condition is always True.
                 - a set/list of platform names
             table_name: The name of the table
-            fields: A set/list of Fields involved in the table or None
+            fields: A set/list of FieldNames involved in the table or None
             keys: A set of Key instances or None
         """
         # Check parameters
@@ -413,14 +414,14 @@ class Table(object):
         except KeyError:
             raise ValueError("get_field: field '%s' not found in '%r'. Available fields: %s" % (field_name, self, self.get_fields()))
 
-    @returns(Fields)
+    @returns(FieldNames)
     def get_field_names(self):
         """
         Retrieve the field names of the fields stored in self.
         Returns:
-            A set of Strings (one String per field name).
+            The corresponding FieldNames instance. 
         """
-        return Fields(self.fields.keys())
+        return FieldNames(self.fields.keys())
 
     @returns(Keys)
     def get_keys(self):
@@ -533,7 +534,7 @@ class Table(object):
 #UNUSED|        """
 #UNUSED|        \brief Build a sub Table according to a given u Table such as
 #UNUSED|            - each field of the sub Table is in relevant_fields
-#UNUSED|            - each key only involve Fields of relevant_fields
+#UNUSED|            - each key only involve FieldNames of relevant_fields
 #UNUSED|        \param u A Table instance
 #UNUSED|        \param relevant_fields A set of field names belonging to table
 #UNUSED|        \return The corresponding subtable
@@ -550,7 +551,7 @@ class Table(object):
 #UNUSED|        copy_u.erase_keys()
 #UNUSED|
 #UNUSED|        # We rebuild each Key having a sense in the reduced Table,
-#UNUSED|        # e.g. those involving only remaining Fields
+#UNUSED|        # e.g. those involving only remaining FieldNames
 #UNUSED|        for key in u.get_keys():
 #UNUSED|            # We don't always have a key
 #UNUSED|            # eg in a pruned tree, we do not need a key for the root unless we want to remove duplicates
@@ -561,7 +562,7 @@ class Table(object):
 #UNUSED|                copy_u.insert_key(Key(key_copy))
 #UNUSED|
 #UNUSED|        # We need to update map_method_fields
-#UNUSED|        for method, fields in copy_u.map_method_fields.items():
+#UNUSED|        for method, fields in copy_u.map_method_fieldnames.items():
 #UNUSED|            fields &= relevant_fields
 #UNUSED|
 #UNUSED|        return copy_u
@@ -575,7 +576,7 @@ class Table(object):
 #DEPRECATED|            related to a given platform name to make another Table
 #DEPRECATED|            instance related to this platform
 #DEPRECATED|        \param table A Table instance
-#DEPRECATED|        \param fields A set of Fields (those we're extracting)
+#DEPRECATED|        \param fields A set of FieldNames (those we're extracting)
 #DEPRECATED|        \param platform A String value (the name of the platform)
 #DEPRECATED|        \return The corresponding Table
 #DEPRECATED|        """
@@ -605,8 +606,8 @@ class Table(object):
         """
         try:
             # This is created by dbnorm and used by ExploreTask
-            # (Table deduced from several Announces having common Keys and Fields)
-            return self.map_method_fields
+            # (Table deduced from several Announces having common Keys and FieldNames)
+            return self.map_method_fieldnames
         except AttributeError:
             # ... Otherwise, we can craft it on the fly
             table_name  = self.get_name()
@@ -710,18 +711,18 @@ class Table(object):
                 Log.warning("@jordan; this allows to run manifold-router, but it should also works for non-composite keys, which is not the case")
                 if u_key.is_composite() != v_key.is_composite():
                     Log.warning("strange, only one of those keys is composite: u_key == %s  v_key = %s" % (u_key, v_key))
-                p = Predicate(
+                predicate = Predicate(
                     tuple(sorted(u_key.get_field_names())),
                     eq,
                     tuple(sorted(v_key.get_field_names()))
                 )
             else:
-                p = Predicate(u_key.get_name(), eq, v_key.get_name())
+                predicate = Predicate(u_key.get_field_name(), eq, v_key.get_field_name())
 
             if u.get_platforms() > v.get_platforms():
-                relations.add(Relation(Relation.types.PARENT, p, name = str(uuid.uuid4())))
+                relations.add(Relation(Relation.types.PARENT, predicate, name = str(uuid.uuid4())))
             #else:
-            #    relations.add(Relation(Relation.types.CHILD, p))
+            #    relations.add(Relation(Relation.types.CHILD, predicate))
             return relations
 
         # Detect explicit Relation from u to v
@@ -732,29 +733,29 @@ class Table(object):
                     # We assume that u (for ex: traceroute) provides in the current field (ex: hops)
                     # a record containing at least the v's key (for ex: (agent, destination, first, ttl))
                     intersecting_fields = tuple(u.get_field_names() & v_key.get_field_names())
-                    p = Predicate(intersecting_fields, eq, intersecting_fields)
+                    predicate = Predicate(intersecting_fields, eq, intersecting_fields)
                 else:
-                    p = Predicate(field.get_name(), eq, v_key.get_name())
+                    predicate = Predicate(field.get_name(), eq, v_key.get_field_name())
 
                 if field.is_array():
-                    relations.add(Relation(Relation.types.LINK_1N, p, name=field.get_name(), local = v.keys.is_local())) # LINK_1N_FORWARD
+                    relations.add(Relation(Relation.types.LINK_1N, predicate, name=field.get_name(), local = v.keys.is_local())) # LINK_1N_FORWARD
                 else:
                     if False: # field == key
-                        relations.add(Relation(Relation.types.PARENT, p, name=field.get_name())) # in which direction ?????
+                        relations.add(Relation(Relation.types.PARENT, predicate, name=field.get_name())) # in which direction ?????
                     else:
                         if field.is_local():
-                            relations.add(Relation(Relation.types.LINK_11, p, name=field.get_name()))
+                            relations.add(Relation(Relation.types.LINK_11, predicate, name=field.get_name()))
                         else:
                             if v.is_child_of(u):
-                                relations.add(Relation(Relation.types.CHILD, p, name = str(uuid.uuid4())))
+                                relations.add(Relation(Relation.types.CHILD, predicate, name = str(uuid.uuid4())))
                             elif u.is_child_of(v):
-                                 relations.add(Relation(Relation.types.PARENT, p, name = str(uuid.uuid())))
+                                 relations.add(Relation(Relation.types.PARENT, predicate, name = str(uuid.uuid())))
                             else:
                                 if field.get_name() in ['source', 'destination', 'agent', 'dns_target']:
                                     Log.warning("Hardcoded source, agent, destination and dns_target as 1..1 relationships")
-                                    relations.add(Relation(Relation.types.LINK_11, p, name=field.get_name()))
+                                    relations.add(Relation(Relation.types.LINK_11, predicate, name=field.get_name()))
                                 else:
-                                    relations.add(Relation(Relation.types.LINK, p, name = str(uuid.uuid4())))
+                                    relations.add(Relation(Relation.types.LINK, predicate, name = str(uuid.uuid4())))
             # BAD
             #if v_key.is_composite():
             #    Log.warning("Link (2) unsupported between u=%s and v=%s: v has a composite key" % (u.get_name(), v.get_name()))
@@ -771,8 +772,8 @@ class Table(object):
                 # What if several possible combinations
                 # How to consider inheritance ?
                 vfield = [f for f in v_key if f.get_type() == field.get_type()][0]
-                p = Predicate(field.get_name(), eq, vfield.get_name())
-                relations.add(Relation(Relation.types.LINK_1N, p, name=field.get_name() + "_" + v.get_name())) # LINK_1N_FORWARD ?
+                predicate = Predicate(field.get_name(), eq, vfield.get_name())
+                relations.add(Relation(Relation.types.LINK_1N, predicate, name=field.get_name() + "_" + v.get_name())) # LINK_1N_FORWARD ?
                 continue
 
 
@@ -792,9 +793,9 @@ class Table(object):
             intersection = tuple(intersection)
             if len(intersection) == 1:
                 intersection = intersection[0]
-            p = Predicate(intersection, eq, intersection)
+            predicate = Predicate(intersection, eq, intersection)
 
-            relations.add(Relation(Relation.types.LINK_1N, p, name=v.get_name())) # LINK_1N_FORWARD # Name ?
+            relations.add(Relation(Relation.types.LINK_1N, predicate, name=v.get_name())) # LINK_1N_FORWARD # Name ?
             # we don't continue otherwise we will find subsets of this set
             # note: this code might replace following code operating on a single field
             return relations
@@ -808,19 +809,19 @@ class Table(object):
                 if u_key.is_composite():
                     Log.warning("Link (6) unsupported between u=%s and v=%s: u has a composite key" % (u.get_name(), v.get_name()))
                     continue
-                p = Predicate(u_key.get_name(), eq, field.get_name())
+                predicate = Predicate(u_key.get_field_name(), eq, field.get_name())
                 if field.is_array():
-                    relations.add(Relation(Relation.types.LINK_1N_BACKWARDS, p, name = v.get_name()))
-                    ### was: COLLECTION, p)) # a u is many v ? approve this type
-                    #relations.add(Relation(Relation.types.COLLECTION, p)) # a u is many v ? approve this type
+                    relations.add(Relation(Relation.types.LINK_1N_BACKWARDS, predicate, name = v.get_name()))
+                    ### was: COLLECTION, predicate)) # a u is many v ? approve this type
+                    #relations.add(Relation(Relation.types.COLLECTION, predicate)) # a u is many v ? approve this type
                 else:
                     # if u parent
                     if v.is_child_of(u):
-                        relations.add(Relation(Relation.types.CHILD, p))
+                        relations.add(Relation(Relation.types.CHILD, predicate))
                     elif u.is_child_of(v):
-                         relations.add(Relation(Relation.types.PARENT, p))
+                        relations.add(Relation(Relation.types.PARENT, predicate))
                     else:
-                        relations.add(Relation(Relation.types.LINK_1N, p, name=v.get_name())) # LINK_1N_BACKWARDS
+                        relations.add(Relation(Relation.types.LINK_1N, predicate, name=v.get_name())) # LINK_1N_BACKWARDS
 
         return relations
 
