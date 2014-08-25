@@ -187,7 +187,7 @@ class Node(object):
     def send_to(self, receiver, packet):
         if packet.get_protocol() in [Packet.PROTOCOL_QUERY]:
             # Optimization, we do not forward empty queries
-            fields = packet.get_destination().get_fields()
+            fields = packet.get_destination().get_field_names()
             if fields.is_empty():
                 self.forward_upstream(Record(last=True))
                 return

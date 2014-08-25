@@ -14,7 +14,7 @@
 from types                          import StringTypes
 
 from manifold.core.destination      import Destination
-from manifold.core.field_names           import FieldNames
+from manifold.core.field_names      import FieldNames
 from manifold.core.operator_slot    import ChildSlotMixin
 from manifold.core.packet           import Packet
 from manifold.core.record           import Record, Records

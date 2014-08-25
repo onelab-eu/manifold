@@ -307,7 +307,12 @@ class FieldNames(list):
     #@returns(FieldNames)
     def rename(self, aliases):
         """
+        Rename all the field names involved in self according to a dict.
         Args:
+            aliases: A {String : String} mapping the old field name and
+                the new field name. 
+        Returns:
+            The updated FieldNames instance.
         """
         s = self.copy()
         for element in s:

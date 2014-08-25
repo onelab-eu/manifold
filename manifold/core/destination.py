@@ -14,7 +14,7 @@ from manifold.core.filter       import Filter
 from manifold.core.field_names  import FieldNames
 from manifold.util.misc         import is_iterable
 from manifold.util.predicate    import Predicate
-from manifold.util.types        import accepts, returns
+from manifold.util.type        import accepts, returns
 
 import copy
 

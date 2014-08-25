@@ -61,7 +61,7 @@ class LeftJoin(Operator, LeftRightSlotMixin):
 
         # Check parameters
         assert isinstance(predicate, Predicate), "Invalid predicate = %r (%r)" % (predicate, type(predicate))
-        assert predicate.op == eq
+        assert predicate.get_op() == eq
         # In fact predicate is always : object.key, ==, VALUE
 
         self._predicate = predicate
@@ -178,7 +178,7 @@ class LeftJoin(Operator, LeftRightSlotMixin):
             packet: A Packet instance.
         """
         # Out of the Query part since it is used for a True Hack !
-        left_fields = self._get_left().get_destination().get_fields()
+        left_field_names = self._get_left().get_destination().get_field_names()
 
         if packet.get_protocol() == Packet.PROTOCOL_QUERY:
             q = packet.get_query()
@@ -193,29 +193,29 @@ class LeftJoin(Operator, LeftRightSlotMixin):
             left_packet        = packet.clone()
             # split filter and fields
             # XXX WHY ADDING LEFT KEY IF NOT USED EVER (for example virtual keys for tables without keys, such as probe_traceroute_id)
-            left_fields = q.get_fields() & left_fields
-            left_fields |= left_key
-            left_packet.update_query(lambda q: q.select(left_fields, clear = True))
+            left_field_names = q.get_select() & left_field_names
+            left_field_names |= left_key
+            left_packet.update_query(lambda q: q.select(left_field_names, clear = True))
 
-            # left_packet.update_query(lambda q: q.select(q.get_fields() & left_fields | left_key, clear = True))
-            left_packet.update_query(lambda q: q.filter_by(q.get_filter().split_fields(left_fields, True), clear = True))
+            # left_packet.update_query(lambda q: q.select(q.get_select() & left_field_names | left_key, clear = True))
+            left_packet.update_query(lambda q: q.filter_by(q.get_filter().split_fields(left_field_names, True), clear = True))
 
             right_packet = packet.clone()
             # We should rewrite the query...
             right_packet.update_query(lambda q: q.set_object(right_object))
 
             # Updating fields
-            right_fields = self._get_right().get_destination().get_fields()
+            right_field_names = self._get_right().get_destination().get_field_names()
             if self._subrecord_mode():
-                # fields of interest in q.get_fields() are prefixed
+                # fields of interest in q.get_select() are prefixed
                 left_prefix, _ = self._predicate.get_key().rsplit(FIELD_SEPARATOR, 1)
-                right_fields = FieldNames([f for f in right_fields if FieldNames.join(left_prefix, f) in q.get_fields()])
+                right_field_names = FieldNames([f for f in right_field_names if FieldNames.join(left_prefix, f) in q.get_select()])
             else:
-                right_fields = q.get_fields() & right_fields
-            right_fields |= right_key
-            right_packet.update_query(lambda q: q.select(right_fields, clear = True))
+                right_field_names = q.get_select() & right_field_names
+            right_field_names |= right_key
+            right_packet.update_query(lambda q: q.select(right_field_names, clear = True))
 
-            right_packet.update_query(lambda q: q.filter_by(q.get_filter().split_fields(right_fields, True), clear = True))
+            right_packet.update_query(lambda q: q.filter_by(q.get_filter().split_fields(right_field_names, True), clear = True))
             self._right_packet = right_packet
 
             self._get_left().receive(left_packet)
@@ -337,8 +337,8 @@ class LeftJoin(Operator, LeftRightSlotMixin):
         #                                    child_filter == parent_producer (sic.)
         #
 
-        left_fields  = self._get_left().get_destination().get_fields()
-        right_fields = self._get_right().get_destination().get_fields()
+        left_field_names  = self._get_left().get_destination().get_field_names()
+        right_field_names = self._get_right().get_destination().get_field_names()
 
         # We do go for a right_join ?
         # - no filters on left child => YES
@@ -357,11 +357,11 @@ class LeftJoin(Operator, LeftRightSlotMixin):
 
         # Classify predicates...
         for predicate in filter:
-            if predicate.get_field_names() <= left_fields:
+            if predicate.get_field_names() <= left_field_names:
                 left_filter.add(predicate)
-                if predicate.get_field_names() <= right_fields:
+                if predicate.get_field_names() <= right_field_names:
                     right_filter.add(predicate)
-            elif right_join and predicate.get_field_names() < right_fields:
+            elif right_join and predicate.get_field_names() < right_field_names:
                 right_filter.add(predicate)
             else:
                 top_filter.add(predicate)
@@ -404,30 +404,30 @@ class LeftJoin(Operator, LeftRightSlotMixin):
 
         # FieldNames requested on the left side = fields requested belonging in left side
         # XXX faux on perd les champs nécessaires au join bien plus haut
-        left_fields  = fields & self._get_left().get_destination().get_fields()
-        left_fields |= key_left
+        left_field_names  = fields & self._get_left().get_destination().get_field_names()
+        left_field_names |= key_left
 
-        right_fields = self._get_right().get_destination().get_fields()
+        right_field_names = self._get_right().get_destination().get_field_names()
         if self._subrecord_mode():
             left_prefix, _ = self._predicate.get_key().rsplit(FIELD_SEPARATOR, 1)
-            right_fields = FieldNames([f for f in right_fields if FieldNames.join(left_prefix, f) in fields])
+            right_field_names = FieldNames([f for f in right_field_names if FieldNames.join(left_prefix, f) in fields])
                 
 #DEPRECATED|            # We need to adapt the right destination
 #DEPRECATED|            # eg. PREDICATE = hops.probes.ip == ip
 #DEPRECATED|            # right_destination should be prefixed by hops.probes since it will
 #DEPRECATED|            # be the result of the join
 #DEPRECATED|            left_prefix, _ = self._predicate.get_key().rsplit(FIELD_SEPARATOR, 1)
-#DEPRECATED|            # update right_fields
-#DEPRECATED|            right_fields = FieldNames([FieldNames.join(left_prefix, f) for f in right_fields])
+#DEPRECATED|            # update right_field_names
+#DEPRECATED|            right_field_names = FieldNames([FieldNames.join(left_prefix, f) for f in right_field_names])
         else:
-            right_fields  = fields & right_fields
-        right_fields |= key_right
+            right_field_names  = fields & right_field_names
+        right_field_names |= key_right
 
-        self._update_left_producer( lambda l, d: l.optimize_projection(left_fields))
-        self._update_right_producer(lambda r, d: r.optimize_projection(right_fields))
+        self._update_left_producer( lambda l, d: l.optimize_projection(left_field_names))
+        self._update_right_producer(lambda r, d: r.optimize_projection(right_field_names))
 
         # Do we need a projection on top (= we do not request the join keys)
-        if left_fields | right_fields > fields:
+        if left_field_names | right_field_names > fields:
             return Projection(self, fields)
         return self
 

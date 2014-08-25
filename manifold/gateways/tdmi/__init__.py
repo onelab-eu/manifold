@@ -88,9 +88,9 @@ class TDMIGateway(PostgreSQLGateway):
         # The following keys are not deduced from the PostgreSQL schema, so we
         # inject them manually since they will be needed to perform joins
         # among the TDMI's tables
-        Log.tmp("Setting custom_keys")
+        #Log.tmp("Setting custom_keys")
         self.custom_keys = {
-            "ip" : ["ip"]
+        #    "ip" : ["ip"]
         #    "agent" : [["ip", "platform"]]
         }
 
