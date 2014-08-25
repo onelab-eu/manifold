@@ -47,7 +47,6 @@ def main():
     Log.init_options()
     Options().parse()
     shell = make_shell()
-    #shell = Shell(interactive = False)
 
     try:
         # Check whether tdmi is configured and enabled in Manifold

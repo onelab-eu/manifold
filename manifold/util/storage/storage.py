@@ -14,6 +14,7 @@ from types                          import StringTypes
 from manifold.gateways              import Gateway
 from manifold.core.annotation       import Annotation
 from manifold.core.packet           import QueryPacket
+from manifold.core.query            import Query
 from manifold.core.local            import LOCAL_NAMESPACE
 from manifold.core.sync_receiver    import SyncReceiver
 from manifold.util.type             import accepts, returns
@@ -39,9 +40,6 @@ class Storage(object):
         self._gateway_type    = gateway_type
         self._platform_config = platform_config
         self._interface       = interface
-
-        # Initialize self._storage_annotation (passed to every query run on this Storage)
-        self._storage_annotation = Annotation()
 
     def load_gateway(self):
         # Initialize self._gateway
@@ -88,19 +86,11 @@ class Storage(object):
         assert namespace in [None, LOCAL_NAMESPACE],\
             "Invalid namespace: '%s' != '%s'" % (query.get_from(), LOCAL_NAMESPACE)
 
-        # Enrich annotation to transport Storage's credentials
-        storage_annotation = self._storage_annotation
-        if annotation:
-            annotation |= storage_annotation
-        else:
-            annotation  = storage_annotation
-
         # Prepare the Receiver and the QUERY Packet
         receiver = SyncReceiver()
         packet   = QueryPacket(query, annotation, receiver)
 
         # Send the Packet and collect the corresponding RECORD Packets.
-        gateway.add_flow(query, receiver)
         gateway.receive(packet)
         result_value = receiver.get_result_value()
 
@@ -112,3 +102,86 @@ class Storage(object):
 
         # Otherwise, return the corresponding list of dicts.
         return [record.to_dict() for record in result_value["value"]]
+
+    def update_router_state(self, router, annotation, platform_names = None):
+        """
+        Update the router state in respect with the Storage content.
+        Args:
+            router: A Router instance able to contact the Storage.
+            annotation: An Annotation instance, which typically transports
+                credential to access to the Storage.
+            platform_names: A set/frozenset of String where each String
+                is the name of a Platform. If you pass None,
+                all the Platform not disabled in the Storage
+                are considered.
+        """
+        ERR_CANNOT_LOAD_STORAGE = "While executing %(query)s: Cannot load storage."
+
+        assert isinstance(annotation, Annotation),\
+            "Invalid annotation = %s (%s)" % (annotation, type(annotation))
+        assert not platform_names or isinstance(platform_names, (frozenset, set)),\
+            "Invalid platform_names = %s (%s)" % (platform_names, type(platform_names))
+
+        # Register ALL the platform configured in the Storage.
+        query = Query.get("platform")
+        platforms_storage = self.execute(query, annotation, ERR_CANNOT_LOAD_STORAGE)
+        for platform in platforms_storage:
+            router.register_platform(platform)
+
+        # Fetch enabled Platforms from the Storage...
+        if not platform_names:
+            query = Query.get("platform")\
+                .select("platform")\
+                .filter_by("disabled", "==", False)
+            platforms_storage = self.execute(query, annotation, ERR_CANNOT_LOAD_STORAGE)
+        else:
+            query = Query.get("platform")\
+                .select("platform")\
+                .filter_by("platform", "INCLUDED", platform_names)
+            platforms_storage = self.execute(query, annotation, ERR_CANNOT_LOAD_STORAGE)
+
+            # Check whether if all the requested Platforms have been found in the Storage.
+            platform_names_storage = set([platform["platform"] for platform in platforms_storage])
+            platform_names_missing = platform_names - platform_names_storage
+            if platform_names_missing:
+                Log.warning("The following platform names are undefined in the Storage: %s" % platform_names_missing)
+
+        # Load/unload platforms managed by the router (and their corresponding Gateways) consequently
+        router.update_platforms(platforms_storage)
+
+        # Load policies from Storage
+        query_rules = Query.get("policy")\
+            .select("policy_json")
+        rules = self.execute(query_rules, annotation, "Cannot load policy from storage")
+        for rule in rules:
+            router.policy.add_rule(rule)
+
+def install_default_storage(router):
+    """
+    Install the default Storage on a router.
+    Args:
+        router: A Router instance.
+    Raises:
+        Exception in case of failure.
+    """
+    import json
+    from manifold.bin.config     import MANIFOLD_STORAGE
+    from manifold.core.local     import LOCAL_NAMESPACE
+    from manifold.util.constants import STORAGE_DEFAULT_ANNOTATION, STORAGE_DEFAULT_CONFIG, STORAGE_DEFAULT_GATEWAY
+
+    # Install storage on the Router
+    storage_config = json.loads(STORAGE_DEFAULT_CONFIG)
+    ok = router.add_platform(LOCAL_NAMESPACE, STORAGE_DEFAULT_GATEWAY, storage_config)
+
+    if not ok:
+        raise RuntimeError("Unable to install the default Storage (%s) (%s)" % (
+            STORAGE_DEFAULT_GATEWAY,
+            STORAGE_DEFAULT_CONFIG
+        ))
+
+    # Configure the Router in respect with the Storage content
+    MANIFOLD_STORAGE.update_router_state(
+        router,
+        Annotation(STORAGE_DEFAULT_ANNOTATION),
+        None
+    )

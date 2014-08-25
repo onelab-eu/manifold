@@ -7,7 +7,8 @@
 #
 # Copyright (C)2009-2013, UPMC Paris Universitas
 # Authors:
-#   Jordan Augé <jordan.auge@lip6.fr>
+#   Jordan Augé      <jordan.auge@lip6.fr>
+#   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
 class TargetValue(object):
     # This is inspired from Netfilter
@@ -25,10 +26,16 @@ class Target(object):
     Base object for implementing targets.
     """
 
-    map_targets = {}
+    map_targets = dict()
 
     @staticmethod
     def register(name, cls):
+        """
+        Register a Target in Manifold.
+        Args:
+            name: A String corresponding to a Target.
+            cls:  A Target class (which shoud be in manifold/policy/target)
+        """
         Target.map_targets[name] = cls
 
     @staticmethod
@@ -37,9 +44,9 @@ class Target(object):
 
     @staticmethod
     def register_plugins():
-        from manifold.policy.target.drop  import DropTarget
-        from manifold.policy.target.log   import LogTarget
-        from manifold.policy.target.cache import CacheTarget
-        Target.register('DROP', DropTarget)
-        Target.register('LOG',  LogTarget)
-        Target.register('CACHE',  CacheTarget)
+        from ..target.drop  import DropTarget
+        from ..target.log   import LogTarget
+        from ..target.cache import CacheTarget
+        Target.register("DROP",  DropTarget)
+        Target.register("LOG",   LogTarget)
+        Target.register("CACHE", CacheTarget)

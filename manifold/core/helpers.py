@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 
 from manifold.core.annotation       import Annotation
-from manifold.core.local            import LOCAL_NAMESPACE
 from manifold.core.packet           import QueryPacket
 from manifold.core.result_value     import ResultValue
 from manifold.core.sync_receiver    import SyncReceiver
@@ -10,11 +9,12 @@ from manifold.util.log              import Log
 from manifold.util.type             import accepts, returns
 
 @returns(list)
-def execute_query(destination, query, error_message):
+def execute_query(destination, query, annotation, error_message):
     """
     Forward a Query to a given destination.
     Args:
         destination: For instance a Gateway.
+        annotation: An Annotation instance.
         query: A Query instance
         error_message: A String instance
     Returns:
@@ -40,15 +40,17 @@ def execute_query(destination, query, error_message):
 ERR_STORAGE = "Failed to execute this local query: %(query)s"
 
 @returns(list)
-def execute_local_query(query, error_message = ERR_STORAGE):
+def execute_local_query(query, annotation, error_message = ERR_STORAGE):
     """
     Forward a Query to the Manifold Storage.
     Args:
         query: A Query instance.
+        annotation: An Annotation instance.
         error_message: A String instance.
     Returns:
         The corresponding list of Record.
     """
     from manifold.bin.config import MANIFOLD_STORAGE
+    from manifold.core.local import LOCAL_NAMESPACE
     query.set_namespace(LOCAL_NAMESPACE)
-    return execute_query(MANIFOLD_STORAGE.get_gateway(), query, error_message % locals())
+    return execute_query(MANIFOLD_STORAGE.get_gateway(), query, Annotation(), error_message % locals())

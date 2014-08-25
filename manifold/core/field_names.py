@@ -304,7 +304,11 @@ class FieldNames(list):
         self._star = True
         del self[:]
 
+    #@returns(FieldNames)
     def rename(self, aliases):
+        """
+        Args:
+        """
         s = self.copy()
         for element in s:
             if element in aliases:
