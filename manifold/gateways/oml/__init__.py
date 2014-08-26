@@ -48,6 +48,7 @@ class OMLGateway(PostgreSQLGateway):
 #    def get_application(self, filter=None, params = None, fields = None):
     @returns(list)
     def get_application(self, query):
+        Log.tmp("oml::get_application")
         fields = query.get_select()
         filter = query.get_where()
         params = query.get_params()
@@ -66,7 +67,8 @@ class OMLGateway(PostgreSQLGateway):
         self.db_name = lease_id
 
         # List applications
-        out = self.selectall("SELECT value from _experiment_metadata where key != 'start_time';")
+        #out = self.selectall("SELECT value from _experiment_metadata where key != 'start_time';")
+        out = self.selectall("SELECT value FROM _experiment_metadata WHERE key ~ 'table_[a-zA-Z]';")
         #map_app_mps = {}
         #for app_dict in out:
         #    _, app_mp, fields = app_dict['value'].split(' ', 3)
@@ -81,7 +83,7 @@ class OMLGateway(PostgreSQLGateway):
         #    ret.append({'lease_id': lease_id, 'application': application, 'measurement_point': mps})
 
         ret = []
-        for app_dict in out:
+        for app_dict in out.values():
             _, app_mp, fields = app_dict['value'].split(' ', 3)
             application, mp = app_mp.split('_', 2)
             #fields = [field.split(':', 2) for field in fields]
@@ -105,7 +107,7 @@ class OMLGateway(PostgreSQLGateway):
 # TODO move into oml/methods/measurement_table.py
     @returns(list)
 #    def get_measurement_table(measure, filter=None, params=None, fields=None):
-    def get_measurement_table(measure, query): 
+    def get_measurement_table(self, measure, query): 
         # We should be connected to the right database
         #print "OMLGateway::application"#, application
         #print "OMLGateway::measure", measure
@@ -130,13 +132,18 @@ class OMLGateway(PostgreSQLGateway):
         query = packet.get_query()
         table_name = query.get_table_name()
 
+        Log.tmp("Query = ",query)
+        Log.tmp("table_name = ",table_name)
         try:
             # Announced objects: slice, application, measurement_point
             #print "QUERY", query.object, " -- FILTER=", query.filters
             records = getattr(self, "get_%s" % table_name)(query)
         except Exception, e:
+            import traceback
+            Log.error("Exception in oml::receive_impl e = ",e)
+            Log.error(traceback.format_exc())
             # Missing function = we are querying a measure. eg. get_counter
-            records = self.get_measurement_table(table_name)()
+            records = self.get_measurement_table(table_name, query)()
 
         self.records(records, packet)
 
@@ -167,7 +174,8 @@ class OMLGateway(PostgreSQLGateway):
             The list of corresponding Announce instances
         """
         announces = list() 
-
+        announces = super(OMLGateway, self).make_announces()
+        Log.tmp(announces)
         # We will forge metadata manually
         # ANNOUNCE - HARDCODED 
         #
@@ -292,5 +300,6 @@ class OMLGateway(PostgreSQLGateway):
         t.capabilities.projection = True
 
         announces.append(Announce(t))
+        Log.tmp(announces)
 
         return announces
