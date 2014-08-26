@@ -88,11 +88,20 @@ class PostgreSQLGateway(Gateway):
 
     SQL_TABLE_KEYS = """
     SELECT       tc.table_name                        AS table_name,
-                 array_accum(kcu.column_name::text)   AS column_names
+                 array_agg(kcu.column_name::text)   AS column_names
         FROM     information_schema.table_constraints AS tc   
             JOIN information_schema.key_column_usage  AS kcu ON tc.constraint_name = kcu.constraint_name
         WHERE    constraint_type = 'PRIMARY KEY' AND tc.table_name = %(table_name)s
         GROUP BY tc.table_name;
+    """
+
+    # in case of failure of SQL_TABLE_KEYS execute SQL_TABLE_KEYS_2
+    SQL_TABLE_KEYS_2 = """
+    SELECT      table_name AS table_name, array_agg(column_name::text) AS column_names 
+        FROM information_schema.key_column_usage 
+        WHERE table_name = %(table_name)s 
+        AND constraint_name LIKE '%%_pkey'
+        GROUP BY table_name;
     """
 
     # Full request:
@@ -466,10 +475,11 @@ class PostgreSQLGateway(Gateway):
         start_time = time.time()
         table_names = self.get_table_names()
         #print "SQL took", time.time() - start_time, "s", "[get_table_names]"
-
+        Log.tmp(table_names)
+        Log.tmp("PostgreSQLGateway::make_announces()")
         announces_pgsql = self.make_announces_from_names(table_names)
         if not announces_pgsql:
-            Log.warning("Cannot find metadata for platform %s: %s" % (self.get_platform_name(), e))
+            Log.warning("Cannot find metadata for platform %s" % self.get_platform_name())
         else:
             Log.info("Tables imported from pgsql schema: %s" % [announce.get_table() for announce in announces_pgsql])
 
@@ -932,14 +942,14 @@ class PostgreSQLGateway(Gateway):
         elif sql_type == "array":
             # TODO we need to infer the right type 
             return "string"
-        elif sql_type == "real":
+        elif sql_type in ["real","double precision"]:
             return "double"
         elif sql_type in ["inet", "cidr", "text", "interval"]:
             return sql_type
         elif re_timestamp.match(sql_type):
             return "timestamp"
         else:
-            print "to_manifold_type: %r is not supported" % sql_type
+            print "PostgreSQLGateway to_manifold_type: %r is not supported" % sql_type
 
     #---------------------------------------------------------------------------
     # Metadata 
@@ -1031,24 +1041,35 @@ class PostgreSQLGateway(Gateway):
         # PRIMARY KEYS: XXX simple key ?
         # We build a key dictionary associating each table with its primary key
         start_time = time.time()
-        cursor.execute(PostgreSQLGateway.SQL_TABLE_KEYS, param_execute)
-        fks = cursor.fetchall()
-        #print "SQL took", time.time() - start_time, "s", "[get_pk]"
 
+        Log.tmp(param_execute)
+        cursor.execute(PostgreSQLGateway.SQL_TABLE_KEYS, param_execute)
+        pks = cursor.fetchall()
+        #print "SQL took", time.time() - start_time, "s", "[get_pk]"
+        if len(pks) == 0:
+            #param_execute['constraint_name'] = '_pkey'
+            Log.tmp("PostgreSQLGateway.SQL_TABLE_KEYS_2 = ",PostgreSQLGateway.SQL_TABLE_KEYS_2)
+            Log.tmp(param_execute)
+            cursor.execute(PostgreSQLGateway.SQL_TABLE_KEYS_2, param_execute)
+            pks = cursor.fetchall()
+
+        Log.tmp("PostgreSQLGateway::make_table() pks = ",pks) 
+           
         primary_keys = dict()
-        for fk in fks:
-            foreign_key = tuple(fk.column_names)
+        for pk in pks:
+            primary_key = tuple(pk.column_names)
             if table_name not in primary_keys.keys():
                 primary_keys[table_name] = set()
-            primary_keys[table_name].add(foreign_key)
+            primary_keys[table_name].add(primary_key)
         
+        Log.tmp("PostgreSQLGateway::make_table() primary_keys = ",primary_keys) 
         if table_name in primary_keys.keys():
-            for k in primary_keys[table_name]:
-                table.insert_key(k)
+            for key in primary_keys[table_name]:
+                table.insert_key(key)
    
         # PARTITIONS:
         # TODO
-    
+        Log.tmp("PostgreSQLGateway::make_table() primary_keys = ",primary_keys) 
         #mc = MetadataClass('class', table_name)
         #mc.fields = fields
         #mc.keys.append(primary_keys[table_name])
