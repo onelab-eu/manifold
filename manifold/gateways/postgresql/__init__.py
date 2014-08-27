@@ -289,6 +289,7 @@ class PostgreSQLGateway(Gateway):
             A bool equal to True iif this table must be ignored
         """
         for re_ignored_table in self.re_ignored_tables:
+            Log.tmp(re_ignored_table)
             if re_ignored_table.match(table_name):
                 for re_allowed_table in self.re_allowed_tables:
                     if re_allowed_table.match(table_name):
@@ -1096,6 +1097,7 @@ class PostgreSQLGateway(Gateway):
         announces_pgsql = list() 
         
         for table_name in table_names:
+            Log.tmp("Postgresql table_name = ",table_name)
             if self.is_ignored_table(table_name): continue
             table = self.make_table(table_name)
             table = self.tweak_table(table)
