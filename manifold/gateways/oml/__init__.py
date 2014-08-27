@@ -9,6 +9,8 @@
 #
 # Copyright (C) 2013 UPMC 
 
+import re
+
 from manifold.core.table                import Table
 from manifold.gateways.postgresql       import PostgreSQLGateway
 from manifold.core.announce             import Announce
@@ -32,7 +34,18 @@ class OMLGateway(PostgreSQLGateway):
             platform_config: A dictionnary containing the configuration related to the
                 Platform which instantiates this Gateway.
         """
-        super(OMLGateway, self).__init__(interface, platform, platform_config)
+        # ignore tables starting with _ Ex: '_experiment_metadata'
+        ignore = list()
+        ignore.append(re.compile('^_'))
+        allowed = list()
+
+        # XXX LOIC !
+        # TODO: List of tables in _experiment_metadata that should be added to allowed
+
+        # out = self.selectall("SELECT value FROM _experiment_metadata WHERE key ~ 'table_[a-zA-Z]';")
+        # The rest should be ignored 
+
+        super(OMLGateway, self).__init__(interface, platform, platform_config,ignore,allowed)
 
     @returns(list)
     def get_slice(self, query):
@@ -122,30 +135,30 @@ class OMLGateway(PostgreSQLGateway):
         sql = 'SELECT * FROM "%s_%s";' % (application, measure)
         out = self.selectall(sql)
         
-    def receive_impl(self, packet):
-        """
-        Handle a incoming QUERY Packet.
-        Args:
-            packet: A QUERY Packet instance.
-        """
-        self.check_receive(packet)
-        query = packet.get_query()
-        table_name = query.get_table_name()
-
-        Log.tmp("Query = ",query)
-        Log.tmp("table_name = ",table_name)
-        try:
-            # Announced objects: slice, application, measurement_point
-            #print "QUERY", query.object, " -- FILTER=", query.filters
-            records = getattr(self, "get_%s" % table_name)(query)
-        except Exception, e:
-            import traceback
-            Log.error("Exception in oml::receive_impl e = ",e)
-            Log.error(traceback.format_exc())
-            # Missing function = we are querying a measure. eg. get_counter
-            records = self.get_measurement_table(table_name, query)()
-
-        self.records(records, packet)
+#    def receive_impl(self, packet):
+#        """
+#        Handle a incoming QUERY Packet.
+#        Args:
+#            packet: A QUERY Packet instance.
+#        """
+#        self.check_receive(packet)
+#        query = packet.get_query()
+#        table_name = query.get_table_name()
+#
+#        Log.tmp("Query = ",query)
+#        Log.tmp("table_name = ",table_name)
+#        try:
+#            # Announced objects: slice, application, measurement_point
+#            #print "QUERY", query.object, " -- FILTER=", query.filters
+#            records = getattr(self, "get_%s" % table_name)(query)
+#        except Exception, e:
+#            import traceback
+#            Log.error("Exception in oml::receive_impl e = ",e)
+#            Log.error(traceback.format_exc())
+#            # Missing function = we are querying a measure. eg. get_counter
+#            records = self.get_measurement_table(table_name, query)()
+#
+#        self.records(records, packet)
 
         # Hook queries for OML specificities
 
@@ -167,139 +180,139 @@ class OMLGateway(PostgreSQLGateway):
         #super(OMLGateway, self).start()
         #print "DATABASES", self.get_databases()
 
-    @returns(list)
-    def make_announces(self):
-        """
-        Returns:
-            The list of corresponding Announce instances
-        """
-        announces = list() 
-        announces = super(OMLGateway, self).make_announces()
-        Log.tmp(announces)
-        # We will forge metadata manually
-        # ANNOUNCE - HARDCODED 
-        #
-        # TABLE slice (
-        #   slice_hrn
-        #   job_id
-        #   KEY slice_hrn
-        # )
-        #
-        # - Note the 'const' field specification since all measurements are
-        # read only
-        # - Here we have an example of a gateway that might not support the
-        # same operators on the different tables
-
-        t = Table(self.get_platform_name(), "slice")
-
-        slice_hrn = Field(
-            type        = 'text',
-            name        = 'slice_hrn',
-            qualifiers  = ['const'],
-            is_array    = False,
-            description = 'Slice Human Readable Name'
-        )
-        t.insert_field(slice_hrn)
-        t.insert_field(Field(
-            type        = 'int',
-            name        = 'lease_id',
-            qualifiers  = ['const'],
-            is_array    = False,
-            description = 'Lease identifier'
-        ))
-        t.insert_key(slice_hrn)
-
-        t.capabilities.join       = True
-        t.capabilities.selection  = True
-        t.capabilities.projection = True
-
-        announces.append(Announce(t))
-
-        # ANNOUNCE
-        #
-        # TABLE application (
-        #   lease_id
-        #   application
-        #  
-        # )
-
-        t = Table(self.get_platform_name(), "application")
-
-        lease_id = Field(
-            type        = 'int',
-            name        = 'lease_id',
-            qualifiers  = ['const'],
-            is_array    = False,
-            description = 'Lease identifier'
-        )
-        application = Field(
-            type        = 'string',
-            name        = 'application',
-            qualifiers  = ['const'],
-            is_array    = True,
-            description = '(null)'
-        )
-
-        t.insert_field(lease_id)
-        t.insert_field(application)
-
-        key = Key([lease_id, application])
-        t.insert_key(key)
-        #t.insert_key(lease_id)
-
-        t.capabilities.retrieve   = True
-        t.capabilities.join       = True
-        t.capabilities.selection  = True
-        t.capabilities.projection = True
-
-        announces.append(Announce(t))
-
-
-        # ANNOUNCE
-        #
-        # TABLE measurement_point (
-        #   measurement_point
-        #  
-        # )
-
-        t = Table(self.get_platform_name(), "measurement_point")
-
-        lease_id = Field(
-            type        = 'int',
-            name        = 'lease_id',
-            qualifiers  = ['const'],
-            is_array    = False,
-            description = 'Lease identifier'
-        )
-        application = Field(
-            type        = 'string',
-            name        = 'application',
-            qualifiers  = ['const'],
-            is_array    = False,
-            description = '(null)'
-        )
-        measurement_point = Field(
-            type        = 'string',
-            name        = 'measurement_point',
-            qualifiers  = ['const'],
-            is_array    = False,
-            description = '(null)'
-        )
-        
-        t.insert_field(lease_id)
-        t.insert_field(application)
-        t.insert_field(measurement_point)
-
-        key = Key([lease_id, application, measurement_point])
-        t.insert_key(key)
-        #t.insert_key(application)
-
-        t.capabilities.retrieve   = True
-        t.capabilities.join       = True
-        t.capabilities.selection  = True
-        t.capabilities.projection = True
-
-        announces.append(Announce(t))
-        Log.tmp(announces)
-
-        return announces
+#    @returns(list)
+#    def make_announces(self):
+#        """
+#        Returns:
+#            The list of corresponding Announce instances
+#        """
+#        announces = list() 
+#        announces = super(OMLGateway, self).make_announces()
+#        Log.tmp(announces)
+#        # We will forge metadata manually
+#        # ANNOUNCE - HARDCODED 
+#        #
+#        # TABLE slice (
+#        #   slice_hrn
+#        #   job_id
+#        #   KEY slice_hrn
+#        # )
+#        #
+#        # - Note the 'const' field specification since all measurements are
+#        # read only
+#        # - Here we have an example of a gateway that might not support the
+#        # same operators on the different tables
+#
+#        t = Table(self.get_platform_name(), "slice")
+#
+#        slice_hrn = Field(
+#            type        = 'text',
+#            name        = 'slice_hrn',
+#            qualifiers  = ['const'],
+#            is_array    = False,
+#            description = 'Slice Human Readable Name'
+#        )
+#        t.insert_field(slice_hrn)
+#        t.insert_field(Field(
+#            type        = 'int',
+#            name        = 'lease_id',
+#            qualifiers  = ['const'],
+#            is_array    = False,
+#            description = 'Lease identifier'
+#        ))
+#        t.insert_key(slice_hrn)
+#
+#        t.capabilities.join       = True
+#        t.capabilities.selection  = True
+#        t.capabilities.projection = True
+#
+#        announces.append(Announce(t))
+#
+#        # ANNOUNCE
+#        #
+#        # TABLE application (
+#        #   lease_id
+#        #   application
+#        #  
+#        # )
+#
+#        t = Table(self.get_platform_name(), "application")
+#
+#        lease_id = Field(
+#            type        = 'int',
+#            name        = 'lease_id',
+#            qualifiers  = ['const'],
+#            is_array    = False,
+#            description = 'Lease identifier'
+#        )
+#        application = Field(
+#            type        = 'string',
+#            name        = 'application',
+#            qualifiers  = ['const'],
+#            is_array    = True,
+#            description = '(null)'
+#        )
+#
+#        t.insert_field(lease_id)
+#        t.insert_field(application)
+#
+#        key = Key([lease_id, application])
+#        t.insert_key(key)
+#        #t.insert_key(lease_id)
+#
+#        t.capabilities.retrieve   = True
+#        t.capabilities.join       = True
+#        t.capabilities.selection  = True
+#        t.capabilities.projection = True
+#
+#        announces.append(Announce(t))
+#
+#
+#        # ANNOUNCE
+#        #
+#        # TABLE measurement_point (
+#        #   measurement_point
+#        #  
+#        # )
+#
+#        t = Table(self.get_platform_name(), "measurement_point")
+#
+#        lease_id = Field(
+#            type        = 'int',
+#            name        = 'lease_id',
+#            qualifiers  = ['const'],
+#            is_array    = False,
+#            description = 'Lease identifier'
+#        )
+#        application = Field(
+#            type        = 'string',
+#            name        = 'application',
+#            qualifiers  = ['const'],
+#            is_array    = False,
+#            description = '(null)'
+#        )
+#        measurement_point = Field(
+#            type        = 'string',
+#            name        = 'measurement_point',
+#            qualifiers  = ['const'],
+#            is_array    = False,
+#            description = '(null)'
+#        )
+#        
+#        t.insert_field(lease_id)
+#        t.insert_field(application)
+#        t.insert_field(measurement_point)
+#
+#        key = Key([lease_id, application, measurement_point])
+#        t.insert_key(key)
+#        #t.insert_key(application)
+#
+#        t.capabilities.retrieve   = True
+#        t.capabilities.join       = True
+#        t.capabilities.selection  = True
+#        t.capabilities.projection = True
+#
+#        announces.append(Announce(t))
+#        Log.tmp(announces)
+#
+#        return announces
