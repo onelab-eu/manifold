@@ -13,7 +13,7 @@ import re
 
 from manifold.core.table                import Table
 from manifold.gateways.postgresql       import PostgreSQLGateway
-from manifold.core.announce             import Announce
+from manifold.core.announce             import Announces, announces_from_docstring, merge_announces
 from manifold.core.key                  import Key
 from manifold.core.keys                 import Keys
 from manifold.core.field                import Field 
@@ -36,16 +36,23 @@ class OMLGateway(PostgreSQLGateway):
         """
         # ignore tables starting with _ Ex: '_experiment_metadata'
         ignore = list()
-        ignore.append(re.compile('^_'))
+        #ignore.append(re.compile('^_'))
         allowed = list()
 
         # XXX LOIC !
         # TODO: List of tables in _experiment_metadata that should be added to allowed
 
-        # out = self.selectall("SELECT value FROM _experiment_metadata WHERE key ~ 'table_[a-zA-Z]';")
         # The rest should be ignored 
 
         super(OMLGateway, self).__init__(interface, platform, platform_config,ignore,allowed)
+        ignore_tables = super(OMLGateway, self).selectall("SELECT key FROM _experiment_metadata WHERE key !~ 'table_[a-zA-Z]';")
+        Log.tmp("OML SQL = ",ignore_tables)
+        for table_dict in ignore_tables: 
+            table = table_dict["key"].replace("table_","")
+            ignore.append(re.compile(table))
+         
+        self.re_ignored_tables = ignore
+        self.re_allowed_tables = allowed
 
     @returns(list)
     def get_slice(self, query):
@@ -176,9 +183,31 @@ class OMLGateway(PostgreSQLGateway):
         # databases with tables whose schemas are based on the measurement
         # points you identified in your original code.
 
-
-        #super(OMLGateway, self).start()
+    @returns(Announces)
+    def make_announces(self):
+        """
+        Returns:
+            The Announce related to this object.
+        """
+        announces_pgsql = super(OMLGateway, self).make_announces()
         #print "DATABASES", self.get_databases()
+        platform_name = self.get_platform_name()
+    
+        @returns(list)
+        @announces_from_docstring(platform_name)
+        def make_announces_impl():
+            """
+            // See record_by_addr
+            class oml_sender {
+                const int id;               /**< Ex: 'netmode.ntua.gr'  */
+                const string name;          /**< Ex: 'netmode.ntua.gr'  */
+    
+                CAPABILITY(join);
+                KEY(id);
+            };
+            """
+        announces_oml = make_announces_impl()
+        return merge_announces(announces_pgsql, announces_oml) if announces_oml else announces_pgsql
 
 #    @returns(list)
 #    def make_announces(self):
