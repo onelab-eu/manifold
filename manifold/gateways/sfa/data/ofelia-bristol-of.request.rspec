@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rspec xmlns="http://www.geni.net/resources/rspec/3" xmlns:openflow="/opt/ofelia/ofam/local/schemas" xs:schemaLocation="http://www.geni.net/resources/rspec/3 http://www.geni.net/resources/rspec/3/request.xsd http://www.geni.net/resources/rspec/ext/openflow/3 http://www.geni.net/resources/rspec/ext/openflow/3/of-resv.xsd" xmlns:xs="http://www.w3.org/2001/XMLSchema-instance" type="request">
+    <openflow:sliver description="TBD" email="support@myslice.info">
+        <openflow:controller type="primary" url="tcp:10.216.22.51:6633"></openflow:controller>
+        <openflow:match>
+            <openflow:packet>
+                <openflow:dl_type value="0x800,0x806"></openflow:dl_type>
+                <openflow:dl_vlan value="56"></openflow:dl_vlan>
+            </openflow:packet>
+            <openflow:use-group name="mygroup1"></openflow:use-group>
+        </openflow:match>
+        <openflow:group name="mygroup1"></openflow:group>
+    </openflow:sliver>
+</rspec>

@@ -1,10 +1,10 @@
 import xmltodict
 # Documentation: https://github.com/martinblech/xmltodict
 
-from types                          import FunctionType
-
+from types                          import FunctionType, StringTypes
 from manifold.core.record           import Record
 from manifold.operators.rename      import do_rename
+from manifold.util.type             import accepts, returns
 from manifold.util.log              import Log
 
 from sfa.util.xrn import urn_to_hrn
@@ -203,4 +203,11 @@ class RSpecParser(object):
             ret.update(cls.HOOKS[name]['*'](ret))
         return ret
  
+    @returns(StringTypes)
+    def __repr__(self):
+        return "<%s>" % self.__class__.__name__
+
+    @returns(StringTypes)
+    def __str__(self):
+        return repr(self) 
 

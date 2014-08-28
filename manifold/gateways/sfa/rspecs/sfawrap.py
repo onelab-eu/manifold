@@ -604,6 +604,7 @@ class NITOSParser(SFAWrapParser):
         return resource
 
 class WiLabtParser(SFAWrapParser):
+    
 
     @classmethod
     def get_resource_facility_name(cls, urn):
@@ -614,33 +615,56 @@ class WiLabtParser(SFAWrapParser):
         # TODO w-iLab.t (a facility with two individual testbeds).
         return "w-iLab.t"
 
-    @classmethod
-    def _process_node(cls, node):
-        if node['component_id'] != 'urn:publicid:IDN+wilab2.ilabt.iminds.be+authority+cm':
-            Log.warning("Ignore WiLabt node... Explain ?")
-            return None
-        return SFAWrapParser._process_node(cls, node)
+    # WiLab AM returns a Manifest with nodes that are reserved in WiLab
+    # But also the nodes that are not under its Authority
+    #
+    # Ex: A request for nodes 1 & 2 of WiLab, but also some nitos nodes, channels and leases
+    #     WiLab answer that node 1 has been reserved 
+    #
+    # Request RSpec  = <node5 nitos> <channel nitos> <lease nitos> <node1 wilab> <node2 wilab>
+    # Manifest RSpec = <node5 nitos> <channel nitos> <lease nitos> <node1 wilab> 
+    #
+    # Therefore, we have to filter out the resources that are not managed by WiLab authority
+    # But that are announced in the WiLab Manifest
+
+
+    # XXX Why nodes have component_manager_id and links have component_manager ???
+
+    # node uses component_manager_id
 
     @classmethod
-    def _process_link(cls, link):
-        if link['component_id'] != 'urn:publicid:IDN+wilab2.ilabt.iminds.be+authority+cm':
-            Log.warning("Ignore WiLabt link... Explain ?")
+    def _process_node(cls, node):
+        authority = 'urn:publicid:IDN+wilab2.ilabt.iminds.be+authority+cm'
+        if (not 'component_manager_id' in node) or (node['component_manager_id'] != authority):
+            Log.warning("Authority is not WiLab - Ignore node = ",node)
             return None
-        return SFAWrapParser._process_link(cls, link)
+        return super(WiLabtParser, cls)._process_node(node) 
+
+    # link uses component_manager
+    
+    @classmethod
+    def _process_link(cls, link):
+        authority = 'urn:publicid:IDN+wilab2.ilabt.iminds.be+authority+cm'
+        if (not 'component_manager' in link) or (link['component_manager'] != authority):
+            Log.warning("Authority is not WiLab - Ignore link = ",link)
+            return None
+        return super(WiLabtParser, cls)._process_link(link) 
 
     @classmethod
     def _process_channel(cls, channel):
-        if channel['component_id'] != 'urn:publicid:IDN+wilab2.ilabt.iminds.be+authority+cm':
-            Log.warning("Ignore WiLabt channel... Explain ?")
+        authority = 'urn:publicid:IDN+wilab2.ilabt.iminds.be+authority+cm'
+        if (not 'component_manager_id' in channel) or (channel['component_manager_id'] != authority):
+            Log.warning("Authority is not WiLab - Ignore channel = ",channel)
             return None
-        return SFAWrapParser._process_channel(cls, channel)
+        return super(WiLabtParser, cls)._process_channel(channel) 
 
     @classmethod
     def _process_lease(cls, lease):
-        if lease['component_id'] != 'urn:publicid:IDN+wilab2.ilabt.iminds.be+authority+cm':
-            Log.warning("Ignore WiLabt lease... Explain ?")
+        authority = 'urn:publicid:IDN+wilab2.ilabt.iminds.be+authority+cm'
+        if (not 'component_manager_id' in lease) or (lease['component_manager_id'] != authority):
+            Log.warning("Authority is not WiLab - Ignore lease = ",lease)
             return None
-        return SFAWrapParser._process_lease(cls, lease)
+        return super(WiLabtParser, cls)._process_lease(lease) 
 
     @classmethod
     def on_build_resource_hook(cls, resource):
@@ -717,7 +741,6 @@ class WiLabtParser(SFAWrapParser):
         #    print "NODE:", node
 
         rspec.version.add_nodes(nodes, rspec_content_type="request")
-
         #rspec.version.add_links(links)
         #rspec.version.add_channels(channels)
 
