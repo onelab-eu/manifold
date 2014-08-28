@@ -90,7 +90,8 @@ class Projection(Operator, ChildSlotMixin):
         assert issubclass(type(child), Node),\
             "Invalid child = %r (%r)"   % (child, type(child))
         if isinstance(field_names, (list, tuple, frozenset)):
-            field_names = FieldNames(field_names)
+            is_star = (len(field_names) == 0)
+            field_names = FieldNames(star = True) if is_star else FieldNames(field_names)
         self._field_names = field_names
 
         Operator.__init__(self)
@@ -158,7 +159,7 @@ class Projection(Operator, ChildSlotMixin):
                 record = do_projection(record, self._field_names)
             self.forward_upstream(record)
 
-        else: # TYPE_ERROR
+        else: # ErrorPacket
             self.forward_upstream(packet)
 
     @returns(Node)

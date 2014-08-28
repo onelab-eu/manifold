@@ -70,10 +70,10 @@ class From(Operator, ChildSlotMixin):
         Operator.__init__(self)
         ChildSlotMixin.__init__(self)
 
-        self._query       = query
+        self._query        = query
         self._capabilities = capabilities
         self._key          = key
-        self._gateway     = gateway
+        self._gateway      = gateway
 
         # Memorize records received from a parent query (injection)
         self._parent_records = None
