@@ -15,7 +15,7 @@ from sqlalchemy                     import create_engine
 from sqlalchemy.ext.declarative     import declarative_base
 from sqlalchemy.orm                 import sessionmaker
 
-from manifold.core.announce         import Announce
+from manifold.core.announce         import Announce, Announces
 from manifold.core.annotation       import Annotation
 from manifold.core.field            import Field
 from manifold.core.record           import Records
@@ -82,7 +82,7 @@ class SQLAlchemyGateway(Gateway):
         """
         return self._session
 
-    @returns(list)
+    @returns(Announces)
     def make_announces(self):
         """
         Produce Announces corresponding to the table store in
@@ -90,7 +90,7 @@ class SQLAlchemyGateway(Gateway):
         Returns:
             A list of Announce instances.
         """
-        announces = list()
+        announces = Announces()
 
         # Tables corresponding to a class in manifold.gateways.methods (except
         # sqla_object) (and stored in SQLAlchemy)
@@ -115,6 +115,7 @@ class SQLAlchemyGateway(Gateway):
             packet: A QUERY Packet instance.
         """
         query = packet.get_query()
+        Log.tmp(query)
 
         # Since the original query will be altered, we are making a copy here,
         # so that the pit dictionary is not altered

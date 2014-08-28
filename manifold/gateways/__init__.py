@@ -11,18 +11,18 @@
 import json, os, sys, traceback
 from types                          import StringTypes
 
-from manifold.core.announce         import Announces, make_virtual_announces, merge_announces
+from manifold.core.announce         import Announces
 from manifold.core.capabilities     import Capabilities
 from manifold.core.code             import GATEWAY
 from manifold.core.node             import Node
 from manifold.core.packet           import Packet, ErrorPacket
-#from manifold.core.pit              import Pit
 from manifold.core.query            import Query
 from manifold.core.record           import Record, Records
 from manifold.core.result_value     import ResultValue
 from manifold.core.socket           import Socket
 from manifold.operators.projection  import Projection
 from manifold.operators.selection   import Selection
+from manifold.util.constants        import STATIC_ROUTES_DIR
 from manifold.util.log              import Log
 from manifold.util.plugin_factory   import PluginFactory
 from manifold.util.type             import accepts, returns
@@ -89,7 +89,9 @@ class Gateway(Node):
         self._platform_config = platform_config # dict
         self._announces       = None            # list(Announces)
         self._capabilities    = Capabilities()  # XXX in the meantime we support all capabilities
-#DEPRECATED|        self._pit             = Pit(self)       # Pit
+
+    def get_router(self):
+        return self._interface
 
     def terminate(self):
         pass
@@ -139,17 +141,17 @@ class Gateway(Node):
     @returns(Announces)
     def get_announces(self):
         """
-        Build metadata by loading header files
+        Retrieve the Announces corresponding to the Table exposed
+        by this Gateway. They are typically used to populate the global
+        DBGraph of the Router.
         Returns:
-            The list of corresponding Announce instances
+            The corresponding Announces instance.
         """
         # We do not instanciate make_announces in __init__
         # to allow child classes to tweak their metadata.
         if not self._announces:
             try:
-                virtual_announces  = make_virtual_announces(self.get_platform_name())
-                platform_announces = self.make_announces()
-                self._announces = merge_announces(virtual_announces, platform_announces)
+                self._announces = self.make_announces()
             except:
                 Log.warning(traceback.format_exc())
                 Log.warning("Could not get announces from platform %s. It won't be active" % self.get_platform_name())
@@ -170,14 +172,6 @@ class Gateway(Node):
         """
         capabilities = self._capabilities.get(table_name, None)
         return capabilities if capabilities else Capabilities()
-
-#    @returns(Pit)
-#    def get_pit(self):
-#        """
-#        Returns:
-#            The PIT of this Gateway.
-#        """
-#        return self._pit
 
     #@returns(Table)
     def get_table(self, table_name):
@@ -567,14 +561,15 @@ class Gateway(Node):
             self.get_gateway_type()
         )
 
-    @returns(list)
+    @returns(Announces)
     def make_announces(self):
         """
-        Build the list of Announces corresponding to this Gateway.
-        This method should be overloaded/overwritten if the Gateway
-        announces Tables not referenced in a dedicated .h file/docstring.
+        Returns:
+            The Announces instance corresponding to this Gateway.
+            This method should be overloaded/overwritten if the Gateway
+            announces Tables not referenced in a dedicated .h file/docstring.
         """
-        return Announces.from_dot_h(self.get_platform_name(), self.get_gateway_type())
+        return Announces.parse_static_routes(STATIC_ROUTES_DIR, self.get_platform_name(), self.get_gateway_type())
 
     def receive_impl(self, packet):
         """

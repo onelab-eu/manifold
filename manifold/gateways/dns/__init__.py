@@ -118,7 +118,7 @@ class DNSGateway(Gateway):
         """
         platform_name = self.get_platform_name()
 
-        @returns(list)
+        @returns(Announces)
         @announces_from_docstring(platform_name)
         def make_announces_impl():
             """

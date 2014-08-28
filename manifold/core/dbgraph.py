@@ -244,6 +244,11 @@ class DBGraph(object):
         
     @returns(list)
     def get_announce_tables(self):
+        """
+        The Table instances stored in this DBGraph that should be announced.
+        Returns:
+            A list of Table instances.
+        """
         tables = list()
         for table in self.graph.nodes(False):
             # Ignore child tables with the same name as parents
@@ -253,7 +258,7 @@ class DBGraph(object):
                     keep = False
             if keep:
                 fields = set(self.get_fields(table))
-                t = Table(None, table.get_name(), fields, table.get_keys())
+                t = Table(table.get_platforms(), table.get_name(), fields, table.get_keys())
                 
                 # XXX We hardcode table capabilities
                 t.capabilities.retrieve   = True

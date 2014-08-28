@@ -449,15 +449,16 @@ class ExploreTask(Deferred):
             user: The User issuing the Query.
             query_plan: The QueryPlan instance related to this Query, and that we're updating.
         """
-        from_asts = list()
         key = table.get_keys().one()
 
         # For each platform related to the current table, extract the
         # corresponding table and build the corresponding FROM node
         map_method_fieldnames = table.get_annotation()
+
+        if not map_method_fieldnames:
+            map_method_fieldnames = table.make_default_annotation()
+
         for method, field_names in map_method_fieldnames.items():
-            #Log.tmp("method", method.get_name())
-            #Log.tmp("table", table.get_name())
             # The table announced by the platform fits with the 3nf schema
             # Build the corresponding FROM
             #sub_table = Table.make_table_from_platform(table, field_names, method.get_platform())
@@ -472,8 +473,13 @@ class ExploreTask(Deferred):
             # injected can be found
             # - With unique naming, we could adopt the first solution. To
             # balance both, we will remove local fields.
-            map_fieldname_local = {f.get_name(): f.is_local() for f in table.get_fields()}
-            selected_field_names  = FieldNames([field_name for field_name in field_names if not map_fieldname_local[field_name]])
+
+# <<
+#            map_fieldname_local = {f.get_name() : f.is_local() for f in table.get_fields()}
+#            selected_field_names  = FieldNames([field_name for field_name in field_names if not map_fieldname_local[field_name]])
+# ==
+            selected_field_names  = FieldNames([field.get_name() for field in table.get_fields() if not field.is_local()])
+# >>
             selected_field_names |= self.keep_root_a
 
             query = Query.action(ACTION_GET, method.get_name()).select(selected_field_names)

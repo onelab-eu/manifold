@@ -216,10 +216,10 @@ class From(Operator, ChildSlotMixin):
             packet: A Packet instance.
         """
         if packet.get_protocol() == Packet.PROTOCOL_QUERY:
-            query        = packet.get_query()
-            query_fields = query.get_fields()
-
-            # Some fields are already provided in the query
+#DEPRECATED|            query        = packet.get_query()
+#DEPRECATED|            query_fields = query.get_fields()
+#DEPRECATED|
+#DEPRECATED|            # Some fields are already provided in the query
 #DEPRECATED|            records = packet.get_records()
 #DEPRECATED|            if records:
 #DEPRECATED|                parent_fields = FieldNames(records.get_field_names())

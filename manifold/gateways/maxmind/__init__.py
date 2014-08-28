@@ -15,6 +15,7 @@
 
 import os
 
+from manifold.core.announce                     import Announces
 from manifold.gateways.maxmind.geoip_database   import check_filename_dat, get_dat_basenames, install_dat, MAXMIND_DIR
 from manifold.gateways                          import Gateway
 from manifold.util.log                          import Log
@@ -102,7 +103,7 @@ class MaxMindGateway(Gateway):
     # Metadata
     #---------------------------------------------------------------------------
 
-    @returns(list)
+    @returns(Announces)
     def make_announces(self):
         """
         Build announces by querying postgresql's information schema
@@ -111,7 +112,7 @@ class MaxMindGateway(Gateway):
         """
         # Ex:  https://code.google.com/p/pygeoip/wiki/Usage
         # Doc: https://code.google.com/p/pygeoip/downloads/list
-        announces = list()
+        announces = Announces()
         for instance in MaxMindGateway.METHOD_MAP.values():
             announces.append(instance(self).make_announce())
         return announces

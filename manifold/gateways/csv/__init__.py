@@ -15,7 +15,7 @@ from itertools                          import izip
 from datetime                           import datetime
 from types                              import StringTypes
 
-from manifold.core.announce             import Announce
+from manifold.core.announce             import Announce, Announces
 from manifold.core.capabilities         import Capabilities
 from manifold.core.field                import Field
 from manifold.core.record               import Record
@@ -240,14 +240,14 @@ class CSVGateway(Gateway):
 
         return capabilities
 
-    @returns(list)
+    @returns(Announces)
     def make_announces(self):
         """
         Build a list of Announces by loading header files.
         Returns:
-            The list of corresponding Announce instances.
+            The corresponding Announceis instances.
         """
-        announces = list()
+        announces = Announces()
         platform_config = self.get_config()
 
         for table_name, data in self.get_config().items():

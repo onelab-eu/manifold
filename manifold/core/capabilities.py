@@ -113,7 +113,7 @@ class Capabilities(object):
         """
         list_capabilities = map(lambda x: x if getattr(self, x, False) else '', self.KEYS)
         list_capabilities = ', '.join(self.to_list())
-        return '<Capabilities: %s>' % list_capabilities
+        return 'CAPABILITY(%s)' % list_capabilities
 
     @returns(StringTypes)
     def __repr__(self):
