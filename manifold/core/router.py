@@ -12,6 +12,7 @@
 import json, traceback
 from types                          import GeneratorType, StringTypes
 
+from manifold.core.announce         import Announces
 from manifold.core.capabilities     import Capabilities
 from manifold.core.code             import BADARGS, ERROR
 from manifold.core.dbnorm           import to_3nf
@@ -64,10 +65,10 @@ class Router(Interface):
         # Register the Gateways
         self.register_gateways()
 
-        # self.platforms is {String : dict} mapping each platform_name with
-        # a dictionnary describing the corresponding Platform.
-        # See "platform" table in the Manifold Storage.
-        self.platforms = dict()
+#DEPRECATED|        # self.platforms is {String : dict} mapping each platform_name with
+#DEPRECATED|        # a dictionnary describing the corresponding Platform.
+#DEPRECATED|        # See "platform" table in the Manifold Storage.
+#DEPRECATED|        self.platforms = dict()
 
         # self.allowed_capabilities is a Capabilities instance (or None)
         self.allowed_capabilities = allowed_capabilities
@@ -90,7 +91,7 @@ class Router(Interface):
         self._dbgraph = None
 
         self._local_gateway = LocalGateway(router = self)
-        self._local_dbgraph = self._local_gateway.get_dbgraph()
+        self._local_dbgraph = self.get_local_gateway().make_dbgraph()
 
         # A dictionary mapping the method to the cache for local subqueries,
         # which itself will be a dict matching the parent record uuids to the
@@ -151,36 +152,13 @@ class Router(Interface):
         self.cache = dict()
         super(Router, self).boot()
 
-    def update_platforms(self, platforms_enabled):
+    def rebuild_dbgraph(self):
         """
-        Update the Gateways and Announces loaded by this Router according
-        to a list of platforms. This function should be called whenever
-        a Platform is enabled/disabled without explictely call
-        {dis|en}able_platform.
-        Args:
-            platforms_enabled: The list of platforms which must be enabled. All
-                the other platforms are automaticaly disabled.
+        Internal usage, should be called when self.announces is altered.
+        Recompute the global DbGraph.
         """
-        assert set(self.gateways.keys()) == set(self.announces.keys())
-
-        platform_names_loaded  = self.get_loaded_platform_names()
-        platform_names_enabled = set([platform["platform"] for platform in platforms_enabled])
-
-        platform_names_del     = platform_names_loaded  - platform_names_enabled
-        platform_names_add     = platform_names_enabled - platform_names_loaded
-
-        for platform_name in platform_names_del:
-            self.disable_platform(platform_name)
-
-        for platform_name in platform_names_add:
-            try:
-                self.enable_platform(platform_name)
-            except RuntimeError, e:
-                Log.warning(traceback.format_exc())
-                Log.warning("Cannot enable platform '%s': %s" % (platform_name, e))
-                pass
-
         self._dbgraph = to_3nf(self.get_announces())
+        self._local_dbgraph = self.get_local_gateway().make_dbgraph()
 
     #---------------------------------------------------------------------------
     # Platform management
@@ -207,7 +185,7 @@ class Router(Interface):
         assert isinstance(port,          int)
 
         url = DEFAULT_PEER_URL % locals()
-        return self.add_platform(platform_name, "manifold", {"url": url})
+        return self.add_platform(platform_name, "manifold", {"url" : url})
 
     # This will be the only calls for manipulating router platforms
     @returns(bool)
@@ -218,11 +196,12 @@ class Router(Interface):
         Args:
             platform_name: A String containing the name of the Platform.
             gateway_type: A String containing the type of Gateway used for this Platform.
-            platform_config: A dictionnary { String : instance } containing the 
+            platform_config: A dictionnary { String : instance } containing the
                 configuration of this Platform.
         Returns:
             True iif successful.
         """
+        Log.warning("add_platform should call register_platform (if required) + enable_platform")
         ret = True
 
         if not platform_config:
@@ -233,17 +212,14 @@ class Router(Interface):
             gateway = self.make_gateway(platform_name, gateway_type, platform_config)
             announces = gateway.get_announces()
 
-            # DUP ??
-            self.platforms[platform_name] = None # XXX
-            self.gateways[platform_name]  = gateway
-            self.announces[platform_name] = announces
-
-            # Update
-            self._dbgraph = to_3nf(self.get_announces())
+            self.gateways[platform_name] = gateway
+            if platform_name != LOCAL_NAMESPACE:
+                Log.warning("Local Announces are not stored in the Router")
+                self.announces[platform_name] = announces
+            self.rebuild_dbgraph()
         except Exception, e:
             Log.warning(traceback.format_exc())
             Log.warning("Error while adding %(platform_name)s[%(platform_config)s] (%(platform_config)s): %(e)s" % locals())
-            if platform_name in self.platforms.keys(): del self.platforms[platform_name]
             if platform_name in self.gateways.keys():  del self.gateways[platform_name]
             if platform_name in self.announces.keys(): del self.announces[platform_name]
             ret = False
@@ -251,11 +227,25 @@ class Router(Interface):
         return ret
 
     @returns(bool)
-    def del_platform(self, platform_name):
-        Log.warning("router::del_platform(): not yet implemented")
-        return False
+    def del_platform(self, platform_name, rebuild = True):
+        """
+        Remove a platform from this Router. This platform is no more
+        registered. The corresponding Announces are also removed.
+        Args:
+            platform_name: A String containing a platform name.
+            rebuild: True if the DbGraph must be rebuild.
+        Returns:
+            True if it altered this Router.
+        """
+        ret = False
+        try:
+            del self.gateways[platform_name]
+            ret = True
+        except KeyError:
+            pass
 
-    # OLD ####
+        self.disable_platform(platform_name, rebuild)
+        return ret
 
     @returns(GeneratorType)
     def get_platforms(self):
@@ -264,11 +254,10 @@ class Router(Interface):
             A Generator allowing to iterate on list of dict where each
             dict represents a Platform managed by this Interface.
         """
-        for platform in self.platforms.values():
-            yield platform
-
-    def get_platform_names(self):
-        return self.platforms.keys()
+#DEPRECATED|        for platform in self.platforms.values():
+#DEPRECATED|            yield platform
+        for platform_name, gateway in self.gateways.items():
+            yield gateway.get_config()
 
     @returns(dict)
     def get_platform(self, platform_name):
@@ -285,105 +274,157 @@ class Router(Interface):
         assert isinstance(platform_name, StringTypes),\
             "Invalid platform_name = %s (%s)" % (platform_name, type(platform_name))
 
-        return self.platforms[platform_name]
+#DEPRECATED|        return self.platforms[platform_name]
+        return self.gateways[platform_name].get_config()
 
-    def disable_platform(self, platform_name):
+    @returns(set)
+    def get_registered_platform_names(self):
+        """
+        Returns:
+            A set of String where each String is a platform name having
+            a Gateway configured in this Router. It is not necessarily
+            enabled.
+        """
+        return set(self.gateways.keys())
+
+    @returns(set)
+    def get_enabled_platform_names(self):
+        """
+        Returns:
+            A set of String where each String is the name of an enabled
+            (and registered) platform.
+        """
+        return set(self.announces.keys())
+
+    @returns(bool)
+    def register_platform(self, platform):
+        """
+        Register a platform in this Router.
+        Args:
+            platform: A dict describing a Platform.
+        Returns:
+            True iif successful
+        """
+        assert isinstance(platform, dict),\
+            "Invalid platform = %s (%s)" % (platform, type(platform))
+
+        ret = False
+        platform_name   = platform["platform"]
+        gateway_type    = platform["gateway_type"]
+        platform_config = platform["config"]
+
+        try:
+            Log.info("Registering platform [%s] (type: %s, config: %s)" % (platform_name, gateway_type, platform_config))
+            gateway = self.make_gateway(platform_name, gateway_type, platform_config)
+            self.gateways[platform_name] = gateway
+            ret = True
+        except Exception:
+            Log.warning(traceback.format_exc())
+
+        return ret
+
+    def update_platforms(self, new_platforms_enabled):
+        """
+        Update the Gateways and Announces loaded by this Router according
+        to a list of platforms. This function should be called whenever
+        a Platform is enabled/disabled without explictely call
+        {dis|en}able_platform.
+        Args:
+            new_platforms_enabled: The list of platforms which must be enabled. All
+                the other platforms are automaticaly disabled.
+        """
+        assert set(self.gateways.keys()) >= set(self.announces.keys())
+
+        old_platform_names_enabled  = self.get_enabled_platform_names()
+        new_platform_names_enabled = set([platform["platform"] for platform in new_platforms_enabled])
+
+        platform_names_del = old_platform_names_enabled - new_platform_names_enabled
+        platform_names_add = new_platform_names_enabled - old_platform_names_enabled
+
+        router_altered = False
+
+        for platform_name in platform_names_del:
+            router_altered |= self.disable_platform(platform_name, False)
+
+        for platform_name in platform_names_add:
+            try:
+                router_altered |= self.enable_platform(platform_name, False)
+            except RuntimeError, e:
+                Log.warning(traceback.format_exc())
+                Log.warning("Cannot enable platform '%s': %s" % (platform_name, e))
+                pass
+
+        if router_altered:
+            self.rebuild_dbgraph()
+
+    @returns(bool)
+    def disable_platform(self, platform_name, rebuild = True):
         """
         Unload a platform (e.g its correponding Gateway and Announces).
         Args:
             platform_name: A String containing a platform supported by this Router.
                 Most of time, platform names corresponds to contents in "platform"
                 column of "platform" table of the Manifold Storage.
-        """
-        Log.info("Disabling platform '%s'" % platform_name)
-
-        # Unload the corresponding Gateway
-        try:
-            del self.gateways[platform_name]
-        except:
-            Log.error("Cannot remove %s from %s" % (platform_name, self.gateways))
-
-        # Unload the corresponding Announces
-        try:
-            del self.announces[platform_name]
-        except:
-            Log.error("Cannot remove %s from %s" % (platform_name, self.announces))
-
-    @returns(set)
-    def get_loaded_platform_names(self):
-        """
+            rebuild: True if the DbGraph must be rebuild.
         Returns:
-            A set of String where each String is a platform name.
+            True iif it altered the state of this Router.
         """
-        platform_names1 = set(self.gateways.keys())
-        platform_names2 = set(self.announces.keys())
-        if platform_names1 != platform_names2:
-            raise RuntimeError(
-                "This Router is not in a consistent state: %s != %s",
-                platform_names1,
-                platform_names2
-            )
-        return platform_names1
+        if platform_name == LOCAL_NAMESPACE:
+            # The LocalGateway is always enabled.
+            return False
 
-    def register_platform(self, platform):
-        """
-        Register a platform in this Router.
-        Args:
-            platform: A dict describing a Platform.
-        """
-        assert isinstance(platform, dict),\
-            "Invalid platform = %s (%s)" % (platform, type(platform))
+        Log.info("Disabling platform '%s'" % platform_name)
+        ret = False
 
-        platform_name = platform["platform"]
-        self.platforms[platform_name] = platform
+        if platform_name in self.announces.keys():
+            del self.announces[platform_name]
+            if rebuild: self.rebuild_dbgraph()
+            ret = True
+        else:
+            Log.warning("Cannot disable %s (not enabled)"  % platform_name)
 
-    def enable_platform(self, platform_name):
+        return ret
+
+    @returns(bool)
+    def enable_platform(self, platform_name, rebuild = True):
         """
-        Enable a platform (e.g its correponding Gateway and Announces).
-        This platform must be previously registered. See also:
-            Interface::register_platform
-            Interface::register_platforms_from_storage
-        Raises:
-            RuntimeError: in case of failure while instantiating the corresponding
-                Gateway.
+        Enable a platform (e.g. pull the Announces from the corresponding Gateway).
+        This platform must be previously registered (see self.gateways).
         Args:
             platform_name: A String containing a platform supported by this Router.
                 Example: See in Manifold Storage table "platform", column "platform".
+            rebuild: True if the DbGraph must be rebuild.
+        Returns:
+            True iif it altered the state of this Router.
         """
         assert isinstance(platform_name, StringTypes),\
             "Invalid platform_name = %s (%s)" % (platform_name, type(platform_name))
 
         Log.info("Enabling platform '%s'" % platform_name)
+        ret = False
+
         try:
-            # Check whether the platform is registered
-            if platform_name not in self.platforms.keys():
-                raise RuntimeError("Platform %s not yet registered" % platform_name)
-
-            # Create Gateway corresponding to the current Platform
-            platform = self.get_platform(platform_name)
-            gateway_type = platform.get("gateway_type", DEFAULT_GATEWAY_TYPE)
-            if not gateway_type:
-                gateway_type = DEFAULT_GATEWAY_TYPE
-            platform_config = json.loads(platform["config"]) if platform["config"] else dict()
-
-            gateway = self.make_gateway(platform_name, gateway_type, platform_config)
+            gateway = self.get_gateway(platform_name)
 
             # Load Announces related to this Platform
             announces = gateway.get_announces()
-            assert isinstance(announces, list),\
-                "%s::get_announces() should return a list: %s (%s)" % (
+            assert isinstance(announces, Announces),\
+                "%s::get_announces() should return an Announces: %s (%s)" % (
                     gateway.__class__.__name__,
                     announces,
                     type(announces)
                 )
 
-            # Install the Gateway and the Announces corresponding to this Platform in this Router.
-            self.gateways[platform_name]  = gateway
+            # Install the Announces corresponding to this Platform in this Router.
             self.announces[platform_name] = announces
+            if rebuild: self.rebuild_dbgraph()
+            ret = True
         except Exception, e:
-            Log.warning("Error while enabling %(platform_name)s[%(platform_config)s] (%(platform_config)s): %(e)s" % locals())
-            if platform_name in self.gateways.keys():  del self.gateways[platform_name]
+            Log.warning(traceback.format_exc())
+            Log.warning("Error while enabling %(platform_name)s: %(e)s" % locals())
             if platform_name in self.announces.keys(): del self.announces[platform_name]
+
+        return ret
 
     #---------------------------------------------------------------------
     # Gateways management (internal usage)
@@ -415,19 +456,20 @@ class Router(Interface):
         if platform_name.lower() != platform_name:
             raise ValueError("Invalid platform_name = %s, it must be lower case" % platform_name)
 
-        if platform_name == LOCAL_NAMESPACE:
+        elif platform_name == LOCAL_NAMESPACE:
             return self.get_local_gateway()
 
-        if platform_name not in self.gateways.keys():
-            # This Platform is not referenced in the Router, try to create the
-            # appropriate Gateway.
-            platform = self.get_platform(platform_name)
-            gateway_type    = platform.get('gateway_type', DEFAULT_GATEWAY_TYPE)
-            if not gateway_type:
-                gateway_type = DEFAULT_GATEWAY_TYPE
-            platform_config = json.loads(platform["config"]) if platform["config"] else dict()
-
-            self.make_gateway(platform_name)
+        elif platform_name not in self.gateways.keys():
+#DEPRECATED|            # This Platform is not referenced in the Router, try to create the
+#DEPRECATED|            # appropriate Gateway.
+#DEPRECATED|            platform = self.get_platform(platform_name)
+#DEPRECATED|            gateway_type = platform.get("gateway_type", DEFAULT_GATEWAY_TYPE)
+#DEPRECATED|            if not gateway_type:
+#DEPRECATED|                gateway_type = DEFAULT_GATEWAY_TYPE
+#DEPRECATED|            platform_config = json.loads(platform["config"]) if platform["config"] else dict()
+#DEPRECATED|
+#DEPRECATED|            self.make_gateway(platform_name)
+            raise RuntimeError("%s is not yet registered" % platform_name)
 
         return self.gateways[platform_name]
 
@@ -451,8 +493,7 @@ class Router(Interface):
             raise RuntimeError, "Gateway not found: %s" % gateway_type
 
         # Create the Gateway
-        args = [self, platform_name, platform_config]
-        gateway = cls_gateway(*args)
+        gateway = cls_gateway(self, platform_name, platform_config)
         return gateway
 
     #---------------------------------------------------------------------
@@ -467,6 +508,7 @@ class Router(Interface):
         """
         namespace = query.get_namespace()
 
+        # FROM local:platform
         if namespace == LOCAL_NAMESPACE and query.get_table_name() == "platform":
             try:
                 from query                      import ACTION_UPDATE, ACTION_DELETE, ACTION_CREATE
@@ -490,23 +532,27 @@ class Router(Interface):
                         params = query.get_params()
                         if "disabled" in params.keys():
                             becomes_disabled = (params["disabled"] == 1)
+                            # TODO This should be merged with update_platforms
+                            router_altered = False
                             for platform_name in impacted_platforms:
                                 if becomes_disabled:
-                                    self.disable_platform(platform_name)
+                                    router_altered |= self.disable_platform(platform_name, False)
                                 else:
-                                    try:
-                                        self.enable_platform(platform_name)
-                                    except RuntimeError:
-                                        Log.warning("Cannot enabled %s (probably because it didn't exist while booting the router)" % platform_name)
+                                    router_altered |= self.enable_platform(platform_name, False)
+                            if router_altered:
+                                self.rebuild_dbgraph()
+
                     # DELETE
                     elif query.get_action() == ACTION_DELETE:
                         for platform_name in impacted_platforms:
-                            self.disable_platform(platform_name)
+                            self.del_platform(platform_name)
 
                     # INSERT
                     elif query.get_action() == ACTION_CREATE:
                         params = query.get_params()
-                        #XXX TODO use self.add_platform ?
+                        # NOTE:
+                        # - if disabled = 1: add_platform (== register_platform + enable_platform)
+                        # - else: i          register_platform
                         self.register_platform(query.get_params())
                         try:
                             if query.get_params()["disabled"] == 1:
@@ -518,7 +564,7 @@ class Router(Interface):
                     else:
                         pass
 
-                Log.info("Loaded platforms are now: {%s}" % ", ".join(self.get_loaded_platform_names()))
+                Log.info("Loaded platforms are now: {%s}" % ", ".join(self.get_enabled_platform_names()))
             except Exception, e:
                 Log.error(e)
                 raise e
@@ -541,7 +587,7 @@ class Router(Interface):
             # Check namespace
             namespace = query.get_namespace()
             if namespace:
-                valid_namespaces = set(self.get_loaded_platform_names()) | set([LOCAL_NAMESPACE])
+                valid_namespaces = set(self.get_registered_platform_names()) | set([LOCAL_NAMESPACE])
                 if namespace not in valid_namespaces:
                     raise RuntimeError("Invalid namespace '%s': valid namespaces are {'%s'}" % (
                         namespace,
@@ -555,6 +601,8 @@ class Router(Interface):
             print "QUERY PLAN:"
             print root_node.format_downtree()
 
+            # XXX The namespace is removed while building the QueryPlan, we put.
+            query.set_namespace(namespace)
             self.hook_query(query)
             receiver._set_child(root_node)
         except Exception, e:

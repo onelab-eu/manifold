@@ -2,7 +2,7 @@
 
 import threading, subprocess, uuid, os
 
-from ...core.announce           import Announce, Announces, import_string_h
+from ...core.announce           import Announces, parse_file 
 from manifold.core.field        import Field
 from manifold.gateways          import Gateway
 from manifold.core.key          import Key
@@ -354,7 +354,7 @@ class ProcessGateway(Gateway):
         """
         platform_name = self.get_platform_name()
         try:
-            announces = import_string_h(self.output._announces_str, platform_name)
+            announces = parse_file(self.output._announces_str, platform_name)
         except AttributeError, e:
             # self.output not yet initialized
             raise AttributeError("In platform '%s': %s" % (platform_name, e))

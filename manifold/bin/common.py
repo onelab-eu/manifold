@@ -355,11 +355,10 @@ def shell_run_command(shell, command, dicts):
 
 @returns(Shell)
 def make_shell():
-    from manifold.bin.config    import STORAGE_CONFIG
-    from manifold.util.options  import Options
+    from manifold.util.constants import STORAGE_DEFAULT_ANNOTATION
+    from manifold.util.options   import Options
     shell = Shell(interactive = False)
-    shell.authenticate_router(STORAGE_CONFIG["user"])
-    #shell.authenticate_local(STORAGE_CONFIG["user"])
+    shell.authenticate_router(STORAGE_DEFAULT_ANNOTATION["user"])
     return shell
 
 @returns(int)
@@ -378,7 +377,7 @@ def run_command(command, dicts = None):
               resulting from the Query corresponding to command.
     Returns:
         CODE_ERROR_PARSING: if the command is not well-formed
-        0                 : iif successful
+        0                 : iif successful (See manifold.core.code SUCCESS)
         >0                : if the command has failed
             See also manifold.core.code
     """

@@ -11,7 +11,7 @@
 
 from manifold.core.table                import Table
 from manifold.gateways.postgresql       import PostgreSQLGateway
-from manifold.core.announce             import Announce
+from manifold.core.announce             import Announce, Announces
 from manifold.core.key                  import Key
 from manifold.core.keys                 import Keys
 from manifold.core.field                import Field 
@@ -160,13 +160,13 @@ class OMLGateway(PostgreSQLGateway):
         #super(OMLGateway, self).start()
         #print "DATABASES", self.get_databases()
 
-    @returns(list)
+    @returns(Announces)
     def make_announces(self):
         """
         Returns:
             The list of corresponding Announce instances
         """
-        announces = list() 
+        announces = Announces() 
 
         # We will forge metadata manually
         # ANNOUNCE - HARDCODED 

@@ -31,9 +31,6 @@ UPDATE    %(namespace)s:platform
     WHERE platform == "%(platform_name)s"
 """
 
-from manifold.util.type import returns
-from manifold.bin.shell     import Shell
-
 def main():
     check_num_arguments(DOC_ENABLE_PLATFORM, 2, 2)
     return run_command(

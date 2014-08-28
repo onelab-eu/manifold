@@ -24,23 +24,23 @@ class Destination(object):
     # Constructor
     #---------------------------------------------------------------------------
 
-    def __init__(self, object = None, filter = None, fields_names = None):
+    def __init__(self, object = None, filter = None, field_names = None):
         """
         Constructor.
         Args:
             object: A String corresponding to a Table Name or None.
             filter: A Filter instance or None.
-            fields_names: A FieldNames or None.
+            field_names: A FieldNames or None.
         """
-        # Until all fields_names have the proper type...
-        if fields_names is None:
-            fields_names = FieldNames(star = False)
-        elif not isinstance(fields_names, FieldNames):
-            fields_names = FieldNames(fields_names)
+        # Until all field_names have the proper type...
+        if field_names is None:
+            field_names = FieldNames(star = False)
+        elif not isinstance(field_names, FieldNames):
+            field_names = FieldNames(field_names)
 
         self._object = object 
         self._filter = filter if filter else Filter()   # Partition
-        self._field_names = fields_names if fields_names else FieldNames()   # Hyperplan
+        self._field_names = field_names if field_names else FieldNames()   # Hyperplan
 
     #---------------------------------------------------------------------------
     # Accessors
@@ -86,17 +86,17 @@ class Destination(object):
         """
         return self._field_names
 
-#UNUSED|    def add_fields_names(self, fields_names):
-#UNUSED|        """
-#UNUSED|        Args:
-#UNUSED|            fields_names: A FieldNames instance.
-#UNUSED|        """
-#UNUSED|        if is_iterable(fields_names):
-#UNUSED|            map(self.add_fields_names, fields_names)
-#UNUSED|            return
-#UNUSED|
-#UNUSED|        if fields_names and self._field_names is not None:
-#UNUSED|            self._field_names.add(fields_names)
+    def add_field_names(self, field_names):
+        """
+        Args:
+            field_names: A FieldNames instance.
+        """
+        if is_iterable(field_names):
+            map(self.add_field_names, field_names)
+            return
+
+        if field_names and self._field_names is not None:
+            self._field_names.add(field_names)
 
     #---------------------------------------------------------------------------
     # str repr
@@ -137,7 +137,7 @@ class Destination(object):
         return Destination(
             object = self._object,
             filter = self._filter | destination.get_filter(),
-            fields_names = self._field_names | destination.get_field_names()
+            field_names = self._field_names | destination.get_field_names()
         )
 
     #@returns(Destination)
@@ -153,7 +153,7 @@ class Destination(object):
         return Destination(
             object = destination._object,
             filter = self._filter | destination.get_filter(),
-            fields_names = self._field_names | destination.get_field_names()
+            field_names = self._field_names | destination.get_field_names()
         )
 
     #@returns(Destination)
@@ -169,7 +169,7 @@ class Destination(object):
         return Destination(
             object = self._object,
             filter = self._filter & filter,
-            fields_names = self._field_names
+            field_names = self._field_names
         )
 
     #@returns(Destination)
@@ -185,7 +185,7 @@ class Destination(object):
         return Destination(
             object = self._object,
             filter = self._filter,
-            fields_names = self._field_names & field_names
+            field_names = self._field_names & field_names
         )
 
     #@returns(Destination)
@@ -202,7 +202,7 @@ class Destination(object):
         return Destination(
             object = self._object,
             filter = self._filter.copy().rename(aliases),
-            fields_names = self._field_names.copy().rename(aliases)
+            field_names = self._field_names.copy().rename(aliases)
         )
 
     # XXX This is the opposite of split, we name it merge

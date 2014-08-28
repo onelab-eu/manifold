@@ -147,11 +147,11 @@ class TeamCymruGateway(Gateway):
     def make_announces(self):
         """
         Returns:
-            The Announce related to this object.
+            The Announces related to this Gateway.
         """
         platform_name = self.get_platform_name()
 
-        @returns(list)
+        @returns(Announces)
         @announces_from_docstring(platform_name)
         def make_announces_impl():
             """

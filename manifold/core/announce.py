@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# .h parsing utilities 
+# .h parsing utilities
 #
 # This file is part of the TopHat project
 #
@@ -14,19 +14,18 @@ import os, re, functools
 from types                          import StringTypes
 
 from manifold.core.capabilities     import Capabilities
-from manifold.core.field            import Field 
+from manifold.core.field            import Field
 from manifold.core.key              import Key
 from manifold.core.keys             import Keys
 from manifold.core.packet           import Packet
 from manifold.core.table            import Table
 from manifold.util.clause           import Clause
+from manifold.util.constants        import STATIC_ROUTES_DIR
 from manifold.util.log              import Log
-from manifold.util.type             import returns, accepts 
-
-STATIC_ROUTES_DIR = "/usr/share/manifold/metadata/"
+from manifold.util.type             import returns, accepts
 
 #------------------------------------------------------------------
-# Constants needed for .h parsing, see import_file_h(...)
+# Constants needed for .h parsing, see parse_file(...)
 #------------------------------------------------------------------
 
 PATTERN_OPT_SPACE    = "\s*"
@@ -61,13 +60,17 @@ REGEXP_ENUM_BEGIN    = re.compile(''.join([PATTERN_BEGIN, PATTERN_ENUM_BEGIN,   
 REGEXP_ENUM_FIELD    = re.compile(''.join([PATTERN_BEGIN, PATTERN_ENUM_FIELD,   PATTERN_END]))
 REGEXP_ENUM_END      = re.compile(''.join([PATTERN_BEGIN, PATTERN_ENUM_END,     PATTERN_END]))
 
+#------------------------------------------------------------------
+# Enum
+#------------------------------------------------------------------
+
 # TODO replace this class by manifold.misc.enum::Enum
 class MetadataEnum:
     def __init__(self, enum_name):
         """
         Constructor
         Args:
-            enum_name: The name of the enum 
+            enum_name: The name of the enum
         """
         self.enum_name = enum_name
         self.values = list()
@@ -152,13 +155,17 @@ class Announce(Packet):
 
         return Announce(Table.from_dict(dic, platform_name))
 
+#------------------------------------------------------------------
+# Announces
+#------------------------------------------------------------------
 
 class Announces(list):
 
     @classmethod
+    #@returns(Announces)
     def from_dict_list(cls, dict_list, platform_name):
         announces = Announces()
-        
+
         for dic in dict_list:
             announce = Announce.from_dict(dic, platform_name)
             if announce:
@@ -166,20 +173,31 @@ class Announces(list):
 
         return announces
 
-    @classmethod
-    @returns(list)
-    def from_dot_h(self, platform_name, gateway_type):
-        return self.import_file_h(STATIC_ROUTES_DIR, platform_name, gateway_type)
+#DEPRECATED|    @staticmethod
+#DEPRECATED|    #@returns(Announces)
+#DEPRECATED|    def from_dot_h(platform_name, gateway_type):
+#DEPRECATED|        """
+#DEPRECATED|        Build an Announces instance for a given platform and a given gateway.
+#DEPRECATED|        Args:
+#DEPRECATED|            platform_name: A String instance containing the name of the platform
+#DEPRECATED|                Examples: "ple", "senslab", "tdmi", "omf", ...
+#DEPRECATED|            gateway_type: A String instance containing the type of the Gateway.
+#DEPRECATED|                Examples: "sfa", "xmlrpc", "maxmind", "tdmi"
+#DEPRECATED|        Returns:
+#DEPRECATED|            A list of Announce instances, each Announce embeds a Table instance.
+#DEPRECATED|            This list may be empty.
+#DEPRECATED|        """
+#DEPRECATED|        return Announces.parse_static_routes(STATIC_ROUTES_DIR, platform_name, gateway_type)
 
     @classmethod
-    @returns(list)
-    def import_file_h(self, directory, platform, gateway_type):
+    #@returns(Announces)
+    def parse_static_routes(directory, platform_name, gateway_type):
         """
         Import a .h file (see manifold.metadata/*.h)
         Args:
             directory: A String instance containing directory storing the .h files
-                Example: STATIC_ROUTES_DIR = "/usr/share/manifold/metadata/"
-            platform: A String instance containing the name of the platform
+                Example: STATIC_ROUTES_DIR
+            platform_name: A String instance containing the name of the platform
                 Examples: "ple", "senslab", "tdmi", "omf", ...
             gateway_type: A String instance containing the type of the Gateway.
                 Examples: "sfa", "xmlrpc", "maxmind", "tdmi"
@@ -190,19 +208,19 @@ class Announces(list):
         # Check path
         filename = os.path.join(directory, "%s.h" % gateway_type)
         if not os.path.exists(filename):
-            filename = os.path.join(directory, "%s-%s.h" % (gateway_type, platform))
+            filename = os.path.join(directory, "%s-%s.h" % (gateway_type, platform_name))
             if not os.path.exists(filename):
-                Log.debug("Metadata file '%s' not found (platform = %r, gateway_type = %r)" % (filename, platform, gateway_type))
-                return list() 
+                Log.debug("Metadata file '%s' not found (platform_name = %r, gateway_type = %r)" % (filename, platform_name, gateway_type))
+                return Announces()
 
         # Read input file
-        Log.debug("Platform %s: Processing %s" % (platform, filename))
-        return import_file_h(filename, platform)
+        Log.debug("Platform %s: Processing %s" % (platform_name, filename))
+        return parse_file(filename, platform_name)
 
-    @classmethod
-    def get_announces(self, metadata):
-        Log.warning("what about capabilities?")
-        return [Announce(t) for t in metadata.get_announce_tables()]
+#DEPRECATED|    @classmethod
+#DEPRECATED|    def get_announces(self, metadata):
+#DEPRECATED|        Log.warning("what about capabilities?")
+#DEPRECATED|        return [Announce(t) for t in metadata.get_announce_tables()]
 
     @returns(StringTypes)
     def __repr__(self):
@@ -212,8 +230,38 @@ class Announces(list):
         """
         return "<Announces %r>" % list(self)
 
+    @returns(StringTypes)
     def __str__(self):
-        return "\n".join(str(x) for x in self)
+        """
+        Returns:
+            The '%s' representation of this Announce.
+        """
+        return "\n".join(str(announce) for announce in self)
+
+    #@returns(Announces)
+    def __or__(self, announces):
+        """
+        Merge self with another Announces instance.
+        Args:
+            announces: An Announces instance.
+        Returns:
+            The merged Announces.
+        """
+        assert isinstance(announces, Announces)
+        return merge_announces(self, announces)
+
+    #@returns(Announces)
+    def __ior__(self, announces):
+        """
+        Merge another Announces instance into self.
+        Args:
+            announces: An Announces instance.
+        Returns:
+            The updated self Announces instance.
+        """
+        assert isinstance(announces, Announces)
+        self = self | announces
+        return self
 
 @returns(Announces)
 def merge_announces(announces1, announces2):
@@ -225,71 +273,28 @@ def merge_announces(announces1, announces2):
     Returns:
         A list of Announces instances.
     """
+    assert isinstance(announces1, Announces)
+    assert isinstance(announces2, Announces)
+
     s1 = frozenset(announces1)
     s2 = frozenset(announces2)
-    colliding_announces = s1 & s2 
+    colliding_announces = s1 & s2
     if colliding_announces:
         Log.warning("Colliding announces: {%s}" % ", ".join([announces.get_table().get_name() for announce in colliding_announces]))
     return Announces(s1 | s2)
-
-@returns(Announces)
-def make_virtual_announces(platform_name):
-    """
-    Craft a list of virtual Announces corresponding to virtual
-    Table supposed to be supported by any Gateway (including *:object).
-    Args:
-        platform_name: A name of the Storage platform.
-    Returns:
-        The corresponding list of Announces.
-    """
-    @announces_from_docstring(platform_name)
-    def _get_metadata_tables():
-        """
-        class object {
-            string  table;           /**< The name of the object/table.     */
-            column  columns[];       /**< The corresponding fields/columns. */
-            string  capabilities[];  /**< The supported capabilities        */
-            string  key[];
-
-            CAPABILITY(retrieve);
-            KEY(table);
-        }; 
-
-        class column {
-            string qualifier;
-            string name;
-            string type;
-            string description;
-            bool   is_array;
-
-            LOCAL KEY(name);
-        };
-
-        class gateway {
-            string type;
-
-            CAPABILITY(retrieve);
-            KEY(type);
-        };
-        """
-    announces = _get_metadata_tables(platform_name)
-    return announces
-
 
 #------------------------------------------------------------------
 # .h file parsing
 #------------------------------------------------------------------
 
 @returns(tuple)
-def parse_dot_h(iterable, filename = None):
+def parse_iterable(iterable, platform_name):
     """
-    Import information stored in a .h file (see manifold/metadata/*.h)
+    Parse an iterable over a text storing a .h.
     Args:
         iterable: The file descriptor of a successfully opened file.
             You may also pass iter(string) if the content of the .h
-            is stored in "string" 
-        filename: The corresponding filename. It is only used to print
-            user friendly message, so you may pass None.
+            is stored in "string"
     Returns: A tuple made of two dictionnaries (tables, enums)
         tables:
             - key: String (the name of the class)
@@ -303,8 +308,8 @@ def parse_dot_h(iterable, filename = None):
     # Parse file
     table_name = None
     cur_enum_name = None
-    tables = {}
-    enums   = {}
+    tables  = dict()
+    enums   = dict()
     no_line = -1
     for line in iterable:
         line = line.rstrip("\r\n")
@@ -319,7 +324,7 @@ def parse_dot_h(iterable, filename = None):
             #    local const MyType my_field[]; /**< Comment */
             m = REGEXP_CLASS_FIELD.match(line)
             if m:
-                qualifiers = list() 
+                qualifiers = list()
                 if m.group(2): qualifiers.append("local")
                 if m.group(3): qualifiers.append("const")
 
@@ -328,7 +333,7 @@ def parse_dot_h(iterable, filename = None):
                         type        =  m.group(4),
                         name        =  m.group(5),
                         qualifiers  =  qualifiers,
-                        is_array    = (m.group(6) != None), 
+                        is_array    = (m.group(6) != None),
                         description =  m.group(7).lstrip("/*< ").rstrip("*/ ")
                     )
                 )
@@ -380,8 +385,7 @@ def parse_dot_h(iterable, filename = None):
 
             # Invalid line
             is_valid = False
-            error_message = "In '%s', line %r: in table '%s': invalid line: [%r] %s" % (
-                filename,
+            error_message = "line %r: in table '%s': invalid line: [%r] %s" % (
                 no_line,
                 table_name,
                 line,
@@ -402,7 +406,7 @@ def parse_dot_h(iterable, filename = None):
 
             # Invalid line
             is_valid = False
-            error_message = "In '%s', line %r: in enum '%s': invalid line: [%r]" % (filename, no_line, cur_enum_name, line)
+            error_message = "line %r: in enum '%s': invalid line: [%r]" % (no_line, cur_enum_name, line)
 
         else: # no current scope
             # class MyClass {
@@ -410,7 +414,7 @@ def parse_dot_h(iterable, filename = None):
             if m:
                 qualifier  = m.group(1)
                 table_name = m.group(2)
-                tables[table_name] = Table(None, table_name, None, Keys()) # qualifier ??
+                tables[table_name] = Table(platform_name, table_name, None, Keys()) # qualifier ??
                 continue
 
             # enum MyEnum {
@@ -422,30 +426,27 @@ def parse_dot_h(iterable, filename = None):
 
             # Invalid line
             is_valid = False
-            error_message = "In '%s', line %r: class declaration expected: [%r]"
+            error_message = "line %r: class declaration expected: [%r]"
 
         if is_valid == False:
             if not error_message:
-                error_message = "Invalid input file %s, line %r: [%r]" % (filename, no_line, line)
+                error_message = "Invalid input file %s, line %r: [%r]" % (no_line, line)
             Log.error(error_message)
             raise ValueError(error_message)
 
     return (tables, enums)
 
 @returns(Announces)
-def make_announces(tables, platform):
+def make_announces(tables):
     """
-    Build a list of Announces instances based on a platform name
-    an its corresponding set of Tables.
+    Build a list of Announces corresponding to set of Tables.
     Args:
         tables: A container carrying a set of Table instances.
-        platform: A String containing the platform name.
     Returns:
-        The corresponding list of Announces.
+        The corresponding Announces instance.
     """
-    announces = Announces() 
+    announces = Announces()
     for table in tables.values():
-        table.set_partitions(platform) # XXX This is weird
         announces.append(Announce(table))
     return announces
 
@@ -453,7 +454,7 @@ def check_table_consistency(tables):
     """
     Check whether a set of Tables are consistent or not.
     Param:
-        tables: A container storing a set of Table instances.     
+        tables: A container storing a set of Table instances.
     Raises:
         ValueError: if a Table is not well-formed
     """
@@ -467,28 +468,33 @@ def check_table_consistency(tables):
     # Rq: We cannot check type consistency while a table might refer to types provided by another file.
     # Thus we can't use get_invalid_types yet
 
-@returns(list)
-def import_file_h(filename, platform):
+@returns(Announces)
+def parse_file(filename, platform_name):
     """
     Parse a ".h" file (see manifold/metadata) and produce
     the corresponding Announces.
+    Args:
+        platform_name: A String containing the name of the platform.
     Returns:
-        The corresponding list of Announce instances.
+        The corresponding Announces instances.
     """
     f = open(filename, 'r')
-    (classes, enum) = parse_dot_h(f, filename)
+    (tables, enum) = parse_iterable(f, platform_name)
     f.close()
-    check_table_consistency(classes)
-    return make_announces(classes, platform)
-        
+    check_table_consistency(tables)
+    return make_announces(tables)
+
 @returns(Announces)
-def import_string_h(string, platform):
+def parse_string(string, platform_name):
     """
     Parse a String and produce the corresponding Announces.
+    Args:
+        platform_name: A String containing the platform name.
     Returns:
         The corresponding list of Announce instances.
     """
     # We build an iterator on the lines in the string
+
     def iter(string):
         prevnl = -1
         while True:
@@ -496,18 +502,19 @@ def import_string_h(string, platform):
             if nextnl < 0: break
             yield string[prevnl + 1:nextnl]
             prevnl = nextnl
-    (classes, enum) = parse_dot_h(iter(string), None)
-    check_table_consistency(classes)
-    return make_announces(classes, platform)
 
-def announces_from_docstring(platform):
+    (tables, enum) = parse_iterable(iter(string), platform_name)
+    check_table_consistency(tables)
+    return make_announces(tables)
+
+def announces_from_docstring(platform_name):
     """
     Prepare a decorator which allows to define .h contents in a docstring.
     This could typically be used in a get_metadata() function.
     Args:
-        platform: A String instance containing the platform name.
+        platform_name: A String instance containing the platform name.
     Returns:
-        The corresponding decorator. 
+        The corresponding decorator.
     Example:
         @announces_from_docstring('my_platform')
         def get_metadata(self):
@@ -517,20 +524,19 @@ def announces_from_docstring(platform):
                 int    bar;
                 CAPABILITY(retrieve);
                 KEY(foo);
-            }; 
+            };
             '''
             ...
     """
     def decorator(fn):
         @functools.wraps(fn) # We might need to write our own wrapper to properly document the function
         def new(*args, **kwargs):
-            return import_string_h(fn.__doc__, platform)
+            return parse_string(fn.__doc__, platform_name)
         return new
     return decorator
 
-        
 #------------------------------------------------------------------
-# Tests 
+# Tests
 #------------------------------------------------------------------
 
 if __name__ == '__main__':
@@ -546,9 +552,8 @@ class traceroute {
     CAPABILITY(join, selection, projection);
 #CAPABILITY(retrieve, join, selection, projection);
     KEY(agent, destination);
-}; 
+};
     """
     import pprint
-    announces = import_string_h(string, 'local')
+    announces = parse_string(string, 'local')
     pprint.pprint(announces)
-    

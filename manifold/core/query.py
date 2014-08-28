@@ -310,7 +310,7 @@ class Query(object):
 
     @returns(FieldNames)
     def get_fields(self):
-        Log.warning("Query::get_fields returns FieldNames not fields!")
+        raise Exception("please use get_field_names or get_select instead")
         return self.fields # frozenset(self.fields) if self.fields is not None else None
 
     @returns(StringTypes)

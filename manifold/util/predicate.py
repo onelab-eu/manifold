@@ -229,8 +229,11 @@ class Predicate:
         elif self.op == or_:
             return (dic[self.key] | self.value) # array ?
         elif self.op == contains:
-            method, subfield = self.key.split('.', 1)
-            return not not [ x for x in dic[method] if x[subfield] == self.value] 
+            try:
+                method, subfield = self.key.split('.', 1)
+                return not not [ x for x in dic[method] if x[subfield] == self.value] # XXX not not ??? 
+            except ValueError: # split has failed
+                return self.value in dic[self.key]
         elif self.op == included:
             return dic[self.key] in self.value
         else:

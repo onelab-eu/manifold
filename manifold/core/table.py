@@ -13,6 +13,7 @@ from copy                       import deepcopy
 from types                      import StringTypes
 import uuid
 
+from manifold.core.annotation   import Annotation
 from manifold.core.field        import Field
 from manifold.core.field_names  import FieldNames
 from manifold.types             import BASE_TYPES
@@ -125,6 +126,7 @@ class Table(object):
         # Init default capabilities (none)
         self.capabilities = Capabilities()
 
+        self.platform_names = frozenset()
         self.set_partitions(partitions)
 
         # Check parameters
@@ -144,9 +146,9 @@ class Table(object):
             for key in keys:
                 self.insert_key(key)
 
-        # Check parameters
-        # Init self.platforms
-        self.init_platforms()
+        # self.platform_names is initialized wile calling self.set_partitions(...)
+        if len(self.get_platforms()) == 0:
+            raise Exception("strange table %r" % self)
 
     @returns(StringTypes)
     def get_from_name(self):
@@ -154,9 +156,12 @@ class Table(object):
         Returns:
             A String containing the namespace of this Table and its name.
         """
-        platforms = sorted(self.get_platforms())
-        if platforms:
-            return "{%s}::%s" % (', '.join([p for p in sorted(platforms)]), self.get_name())
+        platform_names = sorted(self.get_platforms())
+        if platform_names:
+            return "{%s}::%s" % (
+                ', '.join([platform_name for platform_name in sorted(platform_names)]),
+                self.get_name()
+            )
         else:
             return self.get_name()
 
@@ -170,12 +175,12 @@ class Table(object):
             True iif self == table.
         """
         assert isinstance(table, Table)
-        self_platforms = self.get_platforms()
+        self.platform_names = self.get_platforms()
         table_platforms = table.get_platforms()
-        assert isinstance(self_platforms, frozenset)
+        assert isinstance(self.platform_names, frozenset)
         assert isinstance(table_platforms, frozenset)
         return self.get_name() == table.get_name() \
-            and self_platforms == table_platforms
+            and self.platform_names == table_platforms
 
     def __hash__(self):
         return hash((self.get_name(), self.get_platforms()))
@@ -190,11 +195,11 @@ class Table(object):
         Returns:
             The '%s' representation of this Table.
         """
-        return "%s {\n\t%s;\n\n\t%s;\n\t%s\n};" % (
+        return "%s {\n%s;\n\n\t%s;\n\t%s\n};" % (
             self.get_from_name(),
-            ';\r\n    '.join(["%s%s" % (f, "[]" if f.is_array() else "") for f in sorted(self.get_fields())]),
+            ';\r\n\t'.join(["%s%s" % (f, "[]" if f.is_array() else "") for f in sorted(self.get_fields())]),
 #            '\n\t'.join(["%s;\t// via %r" % (field, methods) for field, methods in self.map_field_methods.items()]),
-            '\r\n    ;'.join(["%s" % k for k in self.get_keys()]),
+            '\r\n\t;'.join(["%s" % k for k in self.get_keys()]),
             self.get_capabilities()
         )
 
@@ -324,7 +329,6 @@ class Table(object):
         Raises:
             TypeError: if the key argument is not valid.
         """
-        
         if isinstance(key, Key):
             if local:
                 key.set_local()
@@ -389,9 +393,9 @@ class Table(object):
 #DEPRECATED|            if not self.has_key(key):
 #DEPRECATED|                self.map_field_methods[field] |= methods
 #DEPRECATED|
-#DEPRECATED|        # update self.platforms
+#DEPRECATED|        # update self.platform_names
 #DEPRECATED|        for method in methods:
-#DEPRECATED|            self.platforms.add(method.get_platform())
+#DEPRECATED|            self.platform_names.add(method.get_platform())
 
     def get_field(self, field_name):
         """
@@ -419,7 +423,7 @@ class Table(object):
         """
         Retrieve the field names of the fields stored in self.
         Returns:
-            The corresponding FieldNames instance. 
+            The corresponding FieldNames instance.
         """
         return FieldNames(self.fields.keys())
 
@@ -483,20 +487,43 @@ class Table(object):
         return self.partitions
 
     def set_partitions(self, partitions):
+        """
+        Updates self.partitions and self.table_names
+        Args:
+            partitions: possible types:
+                None
+                {String : ...} (not yet supported)
+                list, set, frozenset of String (platform names)
+        """
         self.partitions = dict()
         if isinstance(partitions, (list, set, frozenset)):
-            for platform in partitions:
-                self.partitions[platform] = None
+            self.platform_names = frozenset(partitions)
+            for platform_name in self.platform_names:
+                self.partitions[platform_name] = None
         elif isinstance(partitions, StringTypes):
-            self.partitions[partitions] = None
+            platform_name = partitions
+            self.platform_names = frozenset([platform_name])
+            self.partitions[platform_name] = None
         elif isinstance(partitions, dict):
+            self.platform_names = frozenset(partitions.keys())
             self.partitions = partitions
+        elif partitions == None:
+            pass
+        else:
+            raise TypeError("Invalid partitions = %s (%s)" % (partitions, type(partitions)))
 
-        self.init_platforms()
-
-    def init_platforms(self):
-        # frozenset is needed since self.platforms is used in Table::__hash__
-        self.platforms = frozenset(self.partitions.keys())
+    def set_platform_names(self, platform_names):
+        """
+        Alter the set of table corresponding to this Table.
+        Args:
+            platform_names: A list of String corresponding to platform names
+                related to this Table.
+        """
+        assert isinstance(platform_names, (list, set, frozenset))
+        new_partitions = dict()
+        for platform_name in platform_names:
+            new_partitions[platform_name] = self.partitions.get(platform_name, None)
+        self.set_partitions(new_partitions)
 
     @returns(frozenset)
     def get_platforms(self):
@@ -505,7 +532,7 @@ class Table(object):
             The set of String where each String is the name of a
             Platform providing this Table.
         """
-        return self.platforms
+        return self.platform_names
 
 #UNUSED|    #@returns(set) # XXX does not support named arguments
 #UNUSED|    def get_fields_with_name(self, names, metadata=None):
@@ -597,7 +624,17 @@ class Table(object):
 #DEPRECATED|        ret.platforms = set([platform])
 #DEPRECATED|        return ret
 
-    @returns(dict)
+    @returns(Annotation)
+    def make_default_annotation(self):
+        table_name  = self.get_name()
+        field_names = self.get_field_names()
+        annotations = Annotation()
+        for platform_name in self.get_platforms():
+            annotations[Method(platform_name, table_name)] = field_names
+
+        return annotations
+
+    @returns(Annotation)
     def get_annotation(self):
         """
         Returns:
@@ -610,10 +647,7 @@ class Table(object):
             return self.map_method_fieldnames
         except AttributeError:
             # ... Otherwise, we can craft it on the fly
-            table_name  = self.get_name()
-            field_names = self.get_field_names()
-            for platform_name in self.get_platforms():
-                return {Method(platform_name, table_name): field_names}
+            return self.make_default_annotation()
 
     #-----------------------------------------------------------------------
     # Relations between two Table instances
@@ -903,6 +937,7 @@ class Table(object):
 
         return {
             "table"        : self.get_name(),
+            "origins"      : sorted(self.get_platforms()),
             "columns"      : columns,
             "keys"         : self.keys.to_dict_list(),
             "capabilities" : self.get_capabilities().to_list()
@@ -933,7 +968,7 @@ class Table(object):
                 #default     = None
             )
             t.insert_field(f)
-        
+
         keys = Keys.from_dict_list(dic['keys'], t.get_fields_dict())
         t.set_keys(keys)
 

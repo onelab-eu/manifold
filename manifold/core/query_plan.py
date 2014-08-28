@@ -145,10 +145,10 @@ class QueryPlan(object):
         seen = dict() # path -> set()
 
         missing_fields = FieldNames()
-        if query.get_fields().is_star():
+        if query.get_field_names().is_star():
             missing_fields |= root_table.get_field_names()
         else:
-            missing_fields |= query.get_fields()
+            missing_fields |= query.get_field_names()
         missing_fields |= query.get_filter().get_field_names()
         missing_fields |= FieldNames(query.get_params().keys())
 

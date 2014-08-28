@@ -453,7 +453,7 @@ class PostgreSQLGateway(Gateway):
 
         return table
 
-    @returns(list)
+    @returns(Announces)
     def make_announces(self):
         """
         Prepare Announces to this Gateway, deduced by default by inspecting the pgsql
@@ -495,7 +495,7 @@ class PostgreSQLGateway(Gateway):
 #TODO|        """
 
         # Fetch metadata from .h files (if any)
-        announces_h = Announces.from_dot_h(self.get_platform_name(), self.get_gateway_type())
+        announces_h = super(PostgreSQLGateway, self).make_announces()
         Log.info("Tables imported from .h schema: %s" % [announce.get_table() for announce in announces_h])
 
         # Return the resulting announces
@@ -1060,7 +1060,7 @@ class PostgreSQLGateway(Gateway):
         Log.debug("Adding table: %s" % table)
         return table
 
-    @returns(list)
+    @returns(Announces)
     def make_announces_from_names(self, table_names):
         """
         Build metadata by querying postgresql's information schema
@@ -1072,7 +1072,7 @@ class PostgreSQLGateway(Gateway):
         Returns:
             The list of corresponding Announce instances
         """
-        announces_pgsql = list() 
+        announces_pgsql = Announces() 
         
         for table_name in table_names:
             if self.is_ignored_table(table_name): continue

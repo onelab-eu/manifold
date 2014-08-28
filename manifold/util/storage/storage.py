@@ -9,6 +9,7 @@
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 #   Jordan Augé       <jordan.auge@lip6.f>
 
+import json
 from types                          import StringTypes
 
 from manifold.gateways              import Gateway
@@ -126,6 +127,7 @@ class Storage(object):
         query = Query.get("platform")
         platforms_storage = self.execute(query, annotation, ERR_CANNOT_LOAD_STORAGE)
         for platform in platforms_storage:
+            platform["config"] = json.loads(platform["config"])
             router.register_platform(platform)
 
         # Fetch enabled Platforms from the Storage...

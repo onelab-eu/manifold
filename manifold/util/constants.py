@@ -17,6 +17,12 @@ import json
 # Manifold router
 SOCKET_PATH             = "/var/run/manifold/manifold.sock"
 
+#----------------------------------------------------------------------
+# Storage SQLAlchemy 
+# NOTE: Most of time you should use in the code the constants define
+# in the "Default Storage" section.
+#----------------------------------------------------------------------
+
 # Storage
 # - STORAGE_DEFAULT_GATEWAY:
 #   It must be a String corresponding to a __gateway_name__ (see manifold/gateway/*/__init__.py)
@@ -35,10 +41,24 @@ STORAGE_SQLA_ANNOTATION = {
     "password" : STORAGE_SQLA_PASSWORD
 }
 
+#----------------------------------------------------------------------
+# Default Storage 
+#----------------------------------------------------------------------
+
 STORAGE_DEFAULT_GATEWAY    = "sqlalchemy"
 STORAGE_DEFAULT_CONFIG     = STORAGE_SQLA_CONFIG
 STORAGE_DEFAULT_ANNOTATION = STORAGE_SQLA_ANNOTATION
 
+#----------------------------------------------------------------------
 # Manifold peers
+#----------------------------------------------------------------------
+
 DEFAULT_PEER_URL        = "http://%(hostname)s:%(port)s/RPC/"
 DEFAULT_PEER_PORT       = 58000
+
+#----------------------------------------------------------------------
+# Manifold static routes 
+#----------------------------------------------------------------------
+
+STATIC_ROUTES_DIR = "/usr/share/manifold/metadata/"
+
