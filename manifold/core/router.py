@@ -587,7 +587,7 @@ class Router(Interface):
             # Check namespace
             namespace = query.get_namespace()
             if namespace:
-                valid_namespaces = set(self.get_registered_platform_names()) | set([LOCAL_NAMESPACE])
+                valid_namespaces = set(self.get_enabled_platform_names()) | set([LOCAL_NAMESPACE])
                 if namespace not in valid_namespaces:
                     raise RuntimeError("Invalid namespace '%s': valid namespaces are {'%s'}" % (
                         namespace,

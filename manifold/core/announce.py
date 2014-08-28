@@ -189,7 +189,7 @@ class Announces(list):
 #DEPRECATED|        """
 #DEPRECATED|        return Announces.parse_static_routes(STATIC_ROUTES_DIR, platform_name, gateway_type)
 
-    @classmethod
+    @staticmethod
     #@returns(Announces)
     def parse_static_routes(directory, platform_name, gateway_type):
         """

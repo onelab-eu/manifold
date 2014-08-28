@@ -644,7 +644,7 @@ class Table(object):
         try:
             # This is created by dbnorm and used by ExploreTask
             # (Table deduced from several Announces having common Keys and FieldNames)
-            return self.map_method_fieldnames
+            return Annotation(self.map_method_fieldnames)
         except AttributeError:
             # ... Otherwise, we can craft it on the fly
             return self.make_default_annotation()
