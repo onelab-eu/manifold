@@ -11,12 +11,12 @@ from manifold.gateways.sqlalchemy.models.session    import ModelSession
 from ..objects.sqla_object                          import SQLA_Object
 
 class Session(SQLA_Object):
-    def __init__(self, gateway, interface):
+    def __init__(self, gateway, router):
         """
         Constructor.
         Args:
             gateway: A SQLAlchemyGateway instance.
-            interface: A manifold Interface.
+            router: A manifold Router.
         """
-        super(Session, self).__init__(gateway, ModelSession, interface)
+        super(Session, self).__init__(gateway, ModelSession, router)
 

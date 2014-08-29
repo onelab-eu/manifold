@@ -56,7 +56,7 @@ class ProcessGateway(Gateway):
     #---------------------------------------------------------------------------
 
     # XXX Args should be made optional
-    def __init__(self, interface = None, platform_name = None, platform_config = None):
+    def __init__(self, router = None, platform_name = None, platform_config = None):
         """
         Constructor
 
@@ -65,7 +65,7 @@ class ProcessGateway(Gateway):
             platform: A StringValue. You may pass u"dummy" for example
             platform_config: A dictionnary containing information to connect to the postgresql server
         """
-        Gateway.__init__(self, interface, platform_name, platform_config)
+        Gateway.__init__(self, router, platform_name, platform_config)
 
         self._in_progress = dict()
         self._records = dict()

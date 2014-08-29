@@ -30,7 +30,7 @@ class ModelSession(Base):
 
     @staticmethod
     @returns(dict)
-    def process_params(params, filters, user, interface, db_session):
+    def process_params(params, filters, user, router, db_session):
         # Generate session ID
         if not "session" in params:
             bytes = random.sample(xrange(0, 256), 32)

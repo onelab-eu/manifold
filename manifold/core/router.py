@@ -18,7 +18,6 @@ from manifold.core.code             import BADARGS, ERROR
 from manifold.core.dbnorm           import to_3nf
 from manifold.core.dbgraph          import DBGraph
 from manifold.core.helpers          import execute_query as execute_query_helper
-from manifold.core.interface        import Interface
 from manifold.core.operator_graph   import OperatorGraph
 from manifold.core.packet           import ErrorPacket, Packet, QueryPacket
 from manifold.gateways              import Gateway
@@ -35,8 +34,7 @@ DEFAULT_GATEWAY_TYPE = "manifold"
 # Class Router
 #------------------------------------------------------------------
 
-# TODO remove Interface inheritance
-class Router(Interface):
+class Router(object):
 
     #---------------------------------------------------------------------------
     # Constructor
@@ -50,11 +48,6 @@ class Router(Interface):
                 operation can be performed by this Router. Pass None if there
                 is no restriction.
         """
-        # NOTE: We should avoid having code in the Interface class
-        # Interface should be a parent class for Router and Gateway, so
-        # that for example we can plug an XMLRPC interface on top of it
-        Interface.__init__(self)
-
         assert not allowed_capabilities or isinstance(allowed_capabilities, Capabilities),\
             "Invalid capabilities = %s (%s)" % (allowed_capabilities, type(allowed_capabilities))
 
@@ -64,11 +57,6 @@ class Router(Interface):
 
         # Register the Gateways
         self.register_gateways()
-
-#DEPRECATED|        # self.platforms is {String : dict} mapping each platform_name with
-#DEPRECATED|        # a dictionnary describing the corresponding Platform.
-#DEPRECATED|        # See "platform" table in the Manifold Storage.
-#DEPRECATED|        self.platforms = dict()
 
         # self.allowed_capabilities is a Capabilities instance (or None)
         self.allowed_capabilities = allowed_capabilities
@@ -147,7 +135,7 @@ class Router(Interface):
 
     def boot(self):
         """
-        Boot the Interface (prepare metadata, etc.).
+        Boot the Router (prepare metadata, etc.).
         """
         self.cache = dict()
         super(Router, self).boot()
@@ -252,10 +240,8 @@ class Router(Interface):
         """
         Returns:
             A Generator allowing to iterate on list of dict where each
-            dict represents a Platform managed by this Interface.
+            dict represents a Platform managed by this Router.
         """
-#DEPRECATED|        for platform in self.platforms.values():
-#DEPRECATED|            yield platform
         for platform_name, gateway in self.gateways.items():
             yield gateway.get_config()
 
@@ -274,7 +260,6 @@ class Router(Interface):
         assert isinstance(platform_name, StringTypes),\
             "Invalid platform_name = %s (%s)" % (platform_name, type(platform_name))
 
-#DEPRECATED|        return self.platforms[platform_name]
         return self.gateways[platform_name].get_config()
 
     @returns(set)
@@ -314,7 +299,7 @@ class Router(Interface):
         platform_config = platform["config"]
 
         try:
-            Log.info("Registering platform [%s] (type: %s, config: %s)" % (platform_name, gateway_type, platform_config))
+            #Log.info("Registering platform [%s] (type: %s, config: %s)" % (platform_name, gateway_type, platform_config))
             gateway = self.make_gateway(platform_name, gateway_type, platform_config)
             self.gateways[platform_name] = gateway
             ret = True
@@ -460,15 +445,6 @@ class Router(Interface):
             return self.get_local_gateway()
 
         elif platform_name not in self.gateways.keys():
-#DEPRECATED|            # This Platform is not referenced in the Router, try to create the
-#DEPRECATED|            # appropriate Gateway.
-#DEPRECATED|            platform = self.get_platform(platform_name)
-#DEPRECATED|            gateway_type = platform.get("gateway_type", DEFAULT_GATEWAY_TYPE)
-#DEPRECATED|            if not gateway_type:
-#DEPRECATED|                gateway_type = DEFAULT_GATEWAY_TYPE
-#DEPRECATED|            platform_config = json.loads(platform["config"]) if platform["config"] else dict()
-#DEPRECATED|
-#DEPRECATED|            self.make_gateway(platform_name)
             raise RuntimeError("%s is not yet registered" % platform_name)
 
         return self.gateways[platform_name]

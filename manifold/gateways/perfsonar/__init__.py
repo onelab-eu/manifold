@@ -24,11 +24,11 @@ class PerfSONARGateway(Gateway):
     # Constructor
     #---------------------------------------------------------------------------
 
-    def __init__(self, interface, platform_name, platform_config = None):
+    def __init__(self, router, platform_name, platform_config = None):
         """
         Constructor
         Args:
-            interface: The Manifold Interface on which this Gateway is running.
+            router: The Router on which this Gateway is running.
             platform_name: A String storing name of the Platform related to this
                 Gateway or None.
             platform_config: A dictionnary containing the configuration related
@@ -37,7 +37,7 @@ class PerfSONARGateway(Gateway):
                 
                     SELECT config FROM local:platform WHERE platform == "platform_name"
         """
-        super(PerfSONARGateway, self).__init__(interface, platform_name, platform_config)
+        super(PerfSONARGateway, self).__init__(router, platform_name, platform_config)
 
         # Other initialization here
 

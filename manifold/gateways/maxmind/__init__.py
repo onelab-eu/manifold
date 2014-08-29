@@ -35,15 +35,15 @@ class MaxMindGateway(Gateway):
 #        "hostname" : Hostname
     }
 
-    def __init__(self, interface, platform_name, platform_config):
+    def __init__(self, router, platform_name, platform_config):
         """
         Constructor
         Args:
-            interface: The Manifold Interface on which this Gateway is running.
+            router: The Router on which this Gateway is running.
             platform_name: A String storing name of the platform related to this Gateway or None.
             config: A dictionnary containing the configuration related to this Gateway.
         """
-        super(MaxMindGateway, self).__init__(interface, platform_name, platform_config)
+        super(MaxMindGateway, self).__init__(router, platform_name, platform_config)
         dat_basenames = get_dat_basenames()
 
         self.map_dat_geoips = dict()

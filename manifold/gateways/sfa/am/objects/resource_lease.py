@@ -60,7 +60,7 @@ class ResourceLease(DeferredObject):
         # Connection
 
         rm_name    = gateway.get_first_rm_name()
-        rm_gateway = gateway.get_interface().get_gateway(rm_name)
+        rm_gateway = gateway.get_router().get_gateway(rm_name)
 
         # We create an SFA proxy with the authentication tokens from the RM
         # XXX In general we need to be sure that all we pass is trusted, whether

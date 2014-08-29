@@ -289,7 +289,6 @@ class PostgreSQLGateway(Gateway):
             A bool equal to True iif this table must be ignored
         """
         for re_ignored_table in self.re_ignored_tables:
-            Log.tmp(re_ignored_table)
             if re_ignored_table.match(table_name):
                 for re_allowed_table in self.re_allowed_tables:
                     if re_allowed_table.match(table_name):
@@ -476,8 +475,6 @@ class PostgreSQLGateway(Gateway):
         start_time = time.time()
         table_names = self.get_table_names()
         #print "SQL took", time.time() - start_time, "s", "[get_table_names]"
-        Log.tmp(table_names)
-        Log.tmp("PostgreSQLGateway::make_announces()")
         announces_pgsql = self.make_announces_from_names(table_names)
         if not announces_pgsql:
             Log.warning("Cannot find metadata for platform %s" % self.get_platform_name())
@@ -1043,19 +1040,14 @@ class PostgreSQLGateway(Gateway):
         # We build a key dictionary associating each table with its primary key
         start_time = time.time()
 
-        Log.tmp(param_execute)
         cursor.execute(PostgreSQLGateway.SQL_TABLE_KEYS, param_execute)
         pks = cursor.fetchall()
         #print "SQL took", time.time() - start_time, "s", "[get_pk]"
         if len(pks) == 0:
             #param_execute['constraint_name'] = '_pkey'
-            Log.tmp("PostgreSQLGateway.SQL_TABLE_KEYS_2 = ",PostgreSQLGateway.SQL_TABLE_KEYS_2)
-            Log.tmp(param_execute)
             cursor.execute(PostgreSQLGateway.SQL_TABLE_KEYS_2, param_execute)
             pks = cursor.fetchall()
 
-        Log.tmp("PostgreSQLGateway::make_table() pks = ",pks) 
-           
         primary_keys = dict()
         for pk in pks:
             primary_key = tuple(pk.column_names)
@@ -1063,14 +1055,12 @@ class PostgreSQLGateway(Gateway):
                 primary_keys[table_name] = set()
             primary_keys[table_name].add(primary_key)
         
-        Log.tmp("PostgreSQLGateway::make_table() primary_keys = ",primary_keys) 
         if table_name in primary_keys.keys():
             for key in primary_keys[table_name]:
                 table.insert_key(key)
    
         # PARTITIONS:
         # TODO
-        Log.tmp("PostgreSQLGateway::make_table() primary_keys = ",primary_keys) 
         #mc = MetadataClass('class', table_name)
         #mc.fields = fields
         #mc.keys.append(primary_keys[table_name])
@@ -1097,7 +1087,6 @@ class PostgreSQLGateway(Gateway):
         announces_pgsql = Announces() 
         
         for table_name in table_names:
-            Log.tmp("Postgresql table_name = ",table_name)
             if self.is_ignored_table(table_name): continue
             table = self.make_table(table_name)
             table = self.tweak_table(table)

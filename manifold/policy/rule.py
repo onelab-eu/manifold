@@ -19,7 +19,7 @@ class Rule(object):
 
     @staticmethod
     def from_dict(rule_dict):
-        # XXX missing input/output interfaces, match module, etc.
+        # XXX missing input/output routers, match module, etc.
         rule = Rule()
         rule.object  = rule_dict['object']     if 'object'  in rule_dict else None
         rule.fields = set(rule_dict['fields']) if 'fields' in rule_dict else None 

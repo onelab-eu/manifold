@@ -31,15 +31,15 @@ TIMEOUT = 3 # in seconds
 class ManifoldGateway(Gateway):
     __gateway_name__ = "manifold"
 
-    def __init__(self, interface, platform, platform_config):
+    def __init__(self, router, platform, platform_config):
         """
         Constructor
         Args:
-            interface: The Manifold Interface on which this Gateway is running.
+            router: The Router on which this Gateway is running.
             platform: A String storing name of the platform related to this Gateway or None.
             platform_config: A dictionnary containing the configuration related to this Gateway.
         """
-        super(ManifoldGateway, self).__init__(interface, platform, platform_config)
+        super(ManifoldGateway, self).__init__(router, platform, platform_config)
 
         from twisted.web        import xmlrpc
         from twisted.internet   import ssl
