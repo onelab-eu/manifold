@@ -39,6 +39,18 @@ from manifold.util.type             import accepts, returns
 class SQLAlchemyGateway(Gateway):
     __gateway_name__ = "sqlalchemy"
 
+    # MAP_OBJECT maps a SQLAlchemy table name with the corresponding
+    # manifold.gateways.sqlalchemy.objects.* Python object.
+    # Those Python objects rely with the models defined in
+    # manifold.gateways.sqlalchemy.models.*
+
+    # NOTE:
+    # Excepted manifold.gateways.sqlalchemy.models.base
+    # manifold.gateways.sqlalchemy.{objects,models}.* are specific to
+    # the Storage.
+    # To keep a SQLAlchemyGateway generic, MAP_OBJECT and the corresponding
+    # classes should be defined in manifold.util.storage
+    
     MAP_OBJECT = {
         "platform"       : Platform,
         "user"           : User,
@@ -52,15 +64,15 @@ class SQLAlchemyGateway(Gateway):
     # Constructor
     #---------------------------------------------------------------------------
 
-    def __init__(self, interface, platform_name, platform_config = None):
+    def __init__(self, router, platform_name, platform_config = None):
         """
         Constructor
         Args:
-            interface: The Manifold Interface on which this Gateway is running.
+            router: The Manifold Router on which this Gateway is running.
             platform_name: A String storing name of the platform related to this Gateway.
             platform_config: A dictionnary containing the configuration related to this Gateway.
         """
-        super(SQLAlchemyGateway, self).__init__(interface, platform_name, platform_config)
+        super(SQLAlchemyGateway, self).__init__(router, platform_name, platform_config)
 
         engine = create_engine(platform_config["url"], echo = False)
 
@@ -95,15 +107,21 @@ class SQLAlchemyGateway(Gateway):
         # Tables corresponding to a class in manifold.gateways.methods (except
         # sqla_object) (and stored in SQLAlchemy)
         for table_name, cls in self.MAP_OBJECT.items():
-            instance = SQLAlchemyGateway.MAP_OBJECT[table_name](self, self._interface)
+            instance = SQLAlchemyGateway.MAP_OBJECT[table_name](self, self._router)
             announce = instance.make_announce()
-            if table_name == "account":
-                Log.warning("sqla::__init__(): HACK: adding 'string credential' field in 'account'")
-                field = Field(
-                    type = "string",
-                    name = "credential"
-                )
-                announce._table.insert_field(field)
+# MANDO:
+# About defining account.credentials:
+#
+# Since an Account may be related to several credentials (currently hardcoded in account["config"])
+# we should have a new table Credential (and maybe one per kind of Credential, like PasswordCredential)
+# and perform the JOIN between those tables.
+#CRAPPY|            if table_name == "account":
+#CRAPPY|                Log.warning("sqla::__init__(): HACK: adding 'string credential' field in 'account'")
+#CRAPPY|                field = Field(
+#CRAPPY|                    type = "string",
+#CRAPPY|                    name = "credential"
+#CRAPPY|                )
+#CRAPPY|                announce._table.insert_field(field)
             announces.append(announce)
 
         return announces
@@ -115,7 +133,6 @@ class SQLAlchemyGateway(Gateway):
             packet: A QUERY Packet instance.
         """
         query = packet.get_query()
-        Log.tmp(query)
 
         # Since the original query will be altered, we are making a copy here,
         # so that the pit dictionary is not altered
@@ -124,31 +141,8 @@ class SQLAlchemyGateway(Gateway):
         action = query.get_action()
         table_name = query.get_table_name()
 
-# Mando: virtual announces are now in manifold.core.local
-#DEPRECATED|        if SQLAlchemyGateway.is_virtual_table(table_name):
-#DEPRECATED|            # Handle queries related to local:object and local:gateway.
-#DEPRECATED|            # Note that local:column won't be queried since it has no RETRIEVE capability.
-#DEPRECATED|            if not action == "get":
-#DEPRECATED|                 raise RuntimeError("Invalid action (%s) on '%s::%s' table" % (action, self.get_platform_name(), table_name))
-#DEPRECATED|
-#DEPRECATED|            if table_name == "object":
-#DEPRECATED|                records = Records([announce.to_dict() for announce in self.get_announces()])
-#DEPRECATED|            elif table_name == "gateway":
-#DEPRECATED|                records = Records([{"type" : gateway_type} for gateway_type in sorted(Gateway.list().keys())])
-#DEPRECATED|            else:
-#DEPRECATED|                raise RuntimeError("Invalid table '%s::%s'" % (self.get_platform_name(), table_name))
-#DEPRECATED|        else:
-#DEPRECATED|            # We need to pass a pointer to the manifold interface to the objects since they have to make # queries
-#DEPRECATED|            instance = SQLAlchemyGateway.MAP_OBJECT[table_name](self, self._interface)
-#DEPRECATED|            annotation = packet.get_annotation()
-#DEPRECATED|            if not annotation:
-#DEPRECATED|                annotation = Annotation()
-#DEPRECATED|            if not action in ["create", "update", "delete", "get"]:
-#DEPRECATED|                raise ValueError("Invalid action = %s" % action)
-#DEPRECATED|            records = getattr(instance, action)(new_query, annotation)
-
-        # We need to pass a pointer to the manifold interface to the objects since they have to make # queries
-        instance = SQLAlchemyGateway.MAP_OBJECT[table_name](self, self._interface)
+        # We need to pass a pointer to the manifold router to the objects since they have to make # queries
+        instance = SQLAlchemyGateway.MAP_OBJECT[table_name](self, self._router)
         annotation = packet.get_annotation()
         if not annotation:
             annotation = Annotation()

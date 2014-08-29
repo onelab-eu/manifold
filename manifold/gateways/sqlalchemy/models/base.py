@@ -47,7 +47,7 @@ class Base(object):
 
     @staticmethod
     @returns(dict)
-    def process_params(params, filters, user, interface, session):
+    def process_params(params, filters, user, router, session):
         return params
 
     # This should be implemented in manifold.gateways.sqlalchemy.models.user

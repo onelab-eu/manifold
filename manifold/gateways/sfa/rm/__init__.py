@@ -53,16 +53,16 @@ class SFA_RMGateway(SFAGatewayCommon):
         # ...
     }
 
-    def __init__(self, interface, platform, platform_config = None):
+    def __init__(self, router, platform, platform_config = None):
         """
         Constructor
         Args:
-            interface: The Manifold Interface on which this Gateway is running.
+            router: The Manifold Router on which this Gateway is running.
             platform: A String storing name of the platform related to this Gateway or None.
             platform_config: A dictionnary containing the platform_configuration related to this Gateway.
                 It may contains the following keys:
         """
-        super(SFA_RMGateway, self).__init__(interface, platform, platform_config)
+        super(SFA_RMGateway, self).__init__(router, platform, platform_config)
         platform_config = self.get_config()
 
         if not "registry" in platform_config:
@@ -81,7 +81,7 @@ class SFA_RMGateway(SFAGatewayCommon):
         Returns:
             Allow to iterate on the Platform corresponding this RM.
         """
-        platforms = self._interface.execute_local_query(
+        platforms = self._router.execute_local_query(
             Query.get("platform")\
                 .filter_by("gateway_type", "=", "sfa_rm")\
                 .filter_by("platform",     "=", self.get_platform_name())

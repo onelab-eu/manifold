@@ -44,16 +44,16 @@ class PLEGateway(Gateway):
     # Constructor
     #---------------------------------------------------------------------------
 
-    def __init__(self, interface, platform_name, platform_config):
+    def __init__(self, router, platform_name, platform_config):
         """
         Constructor
 
         Args:
-            interface: The Manifold Interface on which this Gateway is running.
+            router: The Manifold Router on which this Gateway is running.
             platform_name: A String storing name of the platform related to this Gateway or None.
             platform_config: A dictionnary containing the configuration related to this Gateway.
         """
-        super(PLEGateway, self).__init__(interface, platform_name, platform_config)
+        super(PLEGateway, self).__init__(router, platform_name, platform_config)
 
         # The default xmlrpc.Proxy does not work, we need to use ReactorThread()...
         # XXX Share this code among manifold

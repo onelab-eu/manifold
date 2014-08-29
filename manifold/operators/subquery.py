@@ -154,7 +154,7 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
 #DEPRECATED| 
 #DEPRECATED|             # CARTESIAN PRODUCT
 #DEPRECATED|             query = Query.action('get', self.root.get_name()).select(set(xp_key))
-#DEPRECATED|             self.ast = AST(self._interface).cartesian_product(xp_ast_relation, query)
+#DEPRECATED|             self.ast = AST(self._router).cartesian_product(xp_ast_relation, query)
 #DEPRECATED| 
 #DEPRECATED|             # JOIN
 #DEPRECATED|             predicate = Predicate(xp_key, eq, xp_value)
@@ -474,7 +474,7 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
 #DEPRECATED|                subrecord = self.split_record(subrecord)
 #DEPRECATED|                subrecord.set_parent_uuid(uuid)
 #DEPRECATED|                subrecords.append(subrecord)
-#DEPRECATED|            self._interface.add_to_local_cache(method, uuid, subrecords)
+#DEPRECATED|            self._router.add_to_local_cache(method, uuid, subrecords)
 #DEPRECATED|        return record
 
     def receive_impl(self, packet):

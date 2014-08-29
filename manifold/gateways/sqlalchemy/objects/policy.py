@@ -11,12 +11,12 @@ from manifold.gateways.sqlalchemy.models.policy import ModelPolicy
 from ..objects.sqla_object                      import SQLA_Object
 
 class Policy(SQLA_Object):
-    def __init__(self, gateway, interface):
+    def __init__(self, gateway, router):
         """
         Constructor.
         Args:
             gateway: A SQLAlchemyGateway instance.
-            interface: A manifold Interface.
+            router: A manifold Router.
         """
-        super(Policy, self).__init__(gateway, ModelPolicy, interface)
+        super(Policy, self).__init__(gateway, ModelPolicy, router)
 

@@ -56,7 +56,7 @@ class ModelUser(Base):
 
     @staticmethod
     @returns(int)
-    def get_user_id(user_email, interface):
+    def get_user_id(user_email, router):
         """
 #        (CRAPPY)
         This crappy method is used since we do not exploit Manifold
@@ -68,7 +68,7 @@ class ModelUser(Base):
             The user ID related to an ModelUser.
         """
         try:
-            user, = interface.execute_local_query(Query\
+            user, = router.execute_local_query(Query\
                 .get("user").filter_by("email", "=", user_email))
         except Exception, e:
             raise ValueError("No Account found for User %s, Platform %s ignored: %s" % (user_email, platform_name, traceback.format_exc()))
@@ -78,7 +78,7 @@ class ModelUser(Base):
 
     @staticmethod
     @returns(dict)
-    def process_params(params, filters, user, interface, session):
+    def process_params(params, filters, user, router, session):
 
         # JSON ENCODED FIELDS are constructed into the json_fields variable
         given = set(params.keys())

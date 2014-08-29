@@ -46,13 +46,13 @@ class AST(object):
     # Constructor
     #---------------------------------------------------------------------------
 
-    def __init__(self, interface):
+    def __init__(self, router):
         """
         Constructor.
         Args:
-            interface: The Router which instanciate this AST.
+            router: The Router which instanciate this AST.
         """
-        self._interface = interface
+        self._router = router
         self.root = None # Points to the root operator
 
     #---------------------------------------------------------------------------
@@ -103,7 +103,7 @@ class AST(object):
         assert isinstance(key, Key),     "Invalid key = %s (%s)" % (key, type(key))
 
         # Retrieve the appropriate Gateway.
-        gateway = self._interface.get_gateway(platform_name)
+        gateway = self._router.get_gateway(platform_name)
 
         # Build the corresponding From Operator and connect it to this AST.
         self.root = From(gateway, query, capabilities, key)
@@ -299,7 +299,7 @@ class AST(object):
 #UNUSED|        children = map(lambda (ast, relation): (ast.get_root(), relation), children_ast_relation_list)
 #UNUSED|
 #UNUSED|        # children is a list of (Producer, Relation) tuples
-#UNUSED|#MANDO|        self.root = SubQuery(self.get_root(), children, self._interface)
+#UNUSED|#MANDO|        self.root = SubQuery(self.get_root(), children, self._router)
 #UNUSED|#MANDO|        return self
 #UNUSED|
 #UNUSED|        Log.warning("mando: a verifier")

@@ -119,7 +119,7 @@ class LocalGateway(Gateway):
         if table_name == "object":
             if not action == "get":
                  raise RuntimeError("Invalid action (%s) on '%s::%s' table" % (action, self.get_platform_name(), table_name))
-            records = Records([table.to_dict() for table in self._interface.get_dbgraph().get_announce_tables()])
+            records = Records([table.to_dict() for table in self._router.get_dbgraph().get_announce_tables()])
         elif table_name == "gateway":
             # Note that local:column won't be queried since it has no RETRIEVE capability.
             if not action == "get":

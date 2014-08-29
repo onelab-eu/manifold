@@ -18,10 +18,11 @@ from manifold.core.packet           import QueryPacket
 from manifold.core.query            import Query
 from manifold.core.local            import LOCAL_NAMESPACE
 from manifold.core.sync_receiver    import SyncReceiver
+from manifold.util.log              import Log 
 from manifold.util.type             import accepts, returns
 
 class Storage(object):
-    def __init__(self, gateway_type, platform_config, interface = None):
+    def __init__(self, gateway_type, platform_config, router = None):
         """
         Constructor.
         Args:
@@ -29,7 +30,7 @@ class Storage(object):
                 query this Manifold Storage. Example: "sqlalchemy"
             platform_config: A dictionnary containing the relevant information
                 to instantiate the corresponding Gateway.
-            interface: The Router on which this Storage is running.
+            router: The Router on which this Storage is running.
                 You may pass None if this Storage is stand-alone.
         """
         assert isinstance(gateway_type, StringTypes),\
@@ -40,7 +41,7 @@ class Storage(object):
         self._gateway         = None
         self._gateway_type    = gateway_type
         self._platform_config = platform_config
-        self._interface       = interface
+        self._router       = router
 
     def load_gateway(self):
         # Initialize self._gateway
@@ -48,7 +49,7 @@ class Storage(object):
         cls_storage = Gateway.get(self._gateway_type)
         if not cls_storage:
             raise RuntimeError("Cannot find %s Gateway, required to access Manifold Storage" % gateway_type)
-        self._gateway = cls_storage(self._interface, LOCAL_NAMESPACE, self._platform_config)
+        self._gateway = cls_storage(self._router, LOCAL_NAMESPACE, self._platform_config)
 
     @returns(Gateway)
     def get_gateway(self):
@@ -127,8 +128,21 @@ class Storage(object):
         query = Query.get("platform")
         platforms_storage = self.execute(query, annotation, ERR_CANNOT_LOAD_STORAGE)
         for platform in platforms_storage:
-            platform["config"] = json.loads(platform["config"])
+            try:
+                if platform["config"]:
+                    platform["config"] = json.loads(platform["config"])
+                else:
+                    platform["config"] = dict()
+            except ValueError:
+                Log.warning("Storage: platform %s has an invalid configuration and will be ignored (not json): %s" %
+                    (
+                        platform["platform"],
+                        platform["config"]
+                    )
+                )
+                continue
             router.register_platform(platform)
+                
 
         # Fetch enabled Platforms from the Storage...
         if not platform_names:

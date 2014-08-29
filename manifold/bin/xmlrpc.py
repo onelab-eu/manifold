@@ -1,10 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# XMLRPCDaemon is in charge of offering a XMLRPC interface
-# to a Router or Gateway related to a
-# instanciate an interface of type Forwarder or Router depending on the arguments given
-# relies on the Class XMLRPCAPI in manifold/core/xmlrpc_api.py
+# XMLRPCDaemon is in charge of offering a XMLRPC router
+# See also:
+#    manifold/core/xmlrpc_api.py
 #
 # This file is part of the MANIFOLD project
 #
@@ -183,7 +182,7 @@ class XMLRPCDaemon(Daemon):
         allowed_capabilities = XMLRPCDaemon.make_capabilities()
 
         from manifold.clients.deferred_router import ManifoldDeferredRouterClient
-        self.interface = ManifoldDeferredRouterClient()
+        self.router = ManifoldDeferredRouterClient()
 
         # SSL support
 
@@ -257,10 +256,10 @@ class XMLRPCDaemon(Daemon):
 
             ctx.load_verify_locations(None, manifold_trusted_roots_dir) #trusted_roots_path)
 
-            #ReactorThread().listenTCP(Options().xmlrpc_port, server.Site(XMLRPCAPI(self.interface, allowNone=True)))
+            #ReactorThread().listenTCP(Options().xmlrpc_port, server.Site(XMLRPCAPI(self.router, allowNone=True)))
             ReactorThread().listenSSL(
                 Options().xmlrpc_port,
-                server.Site(XMLRPCAPI(self.interface, allowNone = True)),
+                server.Site(XMLRPCAPI(self.router, allowNone = True)),
                 myContextFactory
             )
 

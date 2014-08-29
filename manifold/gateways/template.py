@@ -30,11 +30,11 @@ class FooGateway(Gateway): # (TODO) Update this class name
     # Constructor
     #---------------------------------------------------------------------------
 
-    def __init__(self, interface, platform_name, platform_config = None):
+    def __init__(self, router, platform_name, platform_config = None):
         """
         Constructor
         Args:
-            interface: The Manifold Interface on which this Gateway is running.
+            router: The Router on which this Gateway is running.
             platform_name: A String storing name of the Platform related to this
                 Gateway or None.
             platform_config: A dictionnary containing the configuration related
@@ -43,7 +43,7 @@ class FooGateway(Gateway): # (TODO) Update this class name
                 
                     SELECT config FROM local:platform WHERE platform == "platform_name"
         """
-        super(FooGateway, self).__init__(interface, platform_name, platform_config)
+        super(FooGateway, self).__init__(router, platform_name, platform_config)
 
     #---------------------------------------------------------------------------
     # Accessors 

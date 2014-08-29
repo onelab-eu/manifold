@@ -11,12 +11,12 @@ from manifold.gateways.sqlalchemy.models.account    import ModelAccount
 from ..objects.sqla_object                          import SQLA_Object
 
 class Account(SQLA_Object):
-    def __init__(self, gateway, interface):
+    def __init__(self, gateway, router):
         """
         Constructor.
         Args:
             gateway: A SQLAlchemyGateway instance.
-            interface: A Manifold interface.
+            router: A Manifold router.
         """
-        super(Account, self).__init__(gateway, ModelAccount, interface)
+        super(Account, self).__init__(gateway, ModelAccount, router)
 

@@ -27,10 +27,10 @@ class Policy(object):
     DENIED  = 3
     ERROR   = 4
 
-    def __init__(self, interface):
+    def __init__(self, router):
         Target.register_plugins()
 
-        self.interface = interface
+        self.router = router
         self.rules = list() 
 
     def add_rule(self, rule):

@@ -78,7 +78,7 @@ class Ip(Object):
                     continue
                 ip_family = ip_get_family(ip)
                 record = {"ip" : ip}
-                select_all = query.get_fields().is_star()
+                select_all = query.get_select().is_star()
 
     # I don't know why, those dat file cannot be loaded...
     #DISABLED|        # ASN

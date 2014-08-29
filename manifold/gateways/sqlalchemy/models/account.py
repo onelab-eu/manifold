@@ -94,7 +94,7 @@ class ModelAccount(Base):
         
     @staticmethod
     @returns(dict)
-    def process_params(params, filters, user, interface, session):
+    def process_params(params, filters, user, router, session):
         """
         Process "params" clause carried by a Query to abstract Manifold from
         considerations related to the Manifold Storage (for instance json
@@ -110,7 +110,7 @@ class ModelAccount(Base):
         if user_params:
             del params["user"]
             user_email = user_params
-            params["user_id"] = ModelUser.get_user_id(user_email, interface)
+            params["user_id"] = ModelUser.get_user_id(user_email, router)
 
         platform_params = params.get("platform")
         if platform_params:

@@ -64,12 +64,12 @@ class Gateway(Node):
     # Constructor
     #---------------------------------------------------------------------------
 
-    def __init__(self, interface = None, platform_name = None, platform_config = None):
+    def __init__(self, router = None, platform_name = None, platform_config = None):
     # XXX ??? , *args, **kwargs):
         """
         Constructor
         Args:
-            interface: The Manifold Interface on which this Gateway is running.
+            router: The Router on which this Gateway is running.
             platform_name: A String storing name of the Platform related to this
                 Gateway or None.
             platform_config: A dictionnary containing the configuration related
@@ -84,14 +84,11 @@ class Gateway(Node):
             "Invalid configuration: %s (%s)" % (platform_config, type(platform_config))
 
         Node.__init__(self)
-        self._interface       = interface       # Router
+        self._router          = router          # Router
         self._platform_name   = platform_name   # String
         self._platform_config = platform_config # dict
         self._announces       = None            # list(Announces)
         self._capabilities    = Capabilities()  # XXX in the meantime we support all capabilities
-
-    def get_router(self):
-        return self._interface
 
     def terminate(self):
         pass
@@ -100,14 +97,13 @@ class Gateway(Node):
     # Accessors
     #---------------------------------------------------------------------------
 
-    #@returns(Interface)
-    def get_interface(self):
+    #@returns(Router)
+    def get_router(self):
         """
         Returns:
-            The Interface instance using this Gateway. Most of time
-            this is a Router instance.
+            The Router using this Gateway.
         """
-        return self._interface
+        return self._router
 
     @returns(StringTypes)
     def get_platform_name(self):
@@ -391,7 +387,7 @@ class Gateway(Node):
         Returns:
             A list of dictionnaries corresponding to each fetched Records.
         """
-        return self.get_interface().execute_local_query(query)
+        return self.get_router().execute_local_query(query)
 
     def record(self, record, packet):
         """

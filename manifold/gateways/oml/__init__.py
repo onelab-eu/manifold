@@ -9,6 +9,8 @@
 #
 # Copyright (C) 2013 UPMC 
 
+# 8|oml|oml senslab|||0|1|||0|||oml|deprecated|none|{"db_host":"devlille.senslab.info", "db_user": "oml", "db_password": "oml"}
+
 import re
 
 from manifold.core.table                import Table
@@ -25,11 +27,11 @@ class OMLGateway(PostgreSQLGateway):
     __gateway_name__ = "oml"
 
     # The OML gateway provides additional functions compared to PostgreSQL
-    def __init__(self, interface, platform, platform_config = None):
+    def __init__(self, router, platform, platform_config = None):
         """
         Constructor
         Args:
-            interface: The Manifold Interface on which this Gateway is running.
+            router: The Router on which this Gateway is running.
             platform: A String storing name of the platform related to this Gateway or None.
             platform_config: A dictionnary containing the configuration related to the
                 Platform which instantiates this Gateway.
@@ -44,7 +46,7 @@ class OMLGateway(PostgreSQLGateway):
 
         # The rest should be ignored 
 
-        super(OMLGateway, self).__init__(interface, platform, platform_config,ignore,allowed)
+        super(OMLGateway, self).__init__(router, platform, platform_config,ignore,allowed)
         ignore_tables = super(OMLGateway, self).selectall("SELECT key FROM _experiment_metadata WHERE key !~ 'table_[a-zA-Z]';")
         Log.tmp("OML SQL = ",ignore_tables)
         for table_dict in ignore_tables: 

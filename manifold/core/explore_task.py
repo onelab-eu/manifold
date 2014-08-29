@@ -474,12 +474,7 @@ class ExploreTask(Deferred):
             # - With unique naming, we could adopt the first solution. To
             # balance both, we will remove local fields.
 
-# <<
-#            map_fieldname_local = {f.get_name() : f.is_local() for f in table.get_fields()}
-#            selected_field_names  = FieldNames([field_name for field_name in field_names if not map_fieldname_local[field_name]])
-# ==
             selected_field_names  = FieldNames([field.get_name() for field in table.get_fields() if not field.is_local()])
-# >>
             selected_field_names |= self.keep_root_a
 
             query = Query.action(ACTION_GET, method.get_name()).select(selected_field_names)
@@ -500,6 +495,5 @@ class ExploreTask(Deferred):
 
             from_ast = AST(self._router).From(platform, query, capabilities, key)
             type_ast = type(from_ast)
-            Log.tmp("ExploreTask::perform_union_all type ast = ", type_ast)
             if isinstance(from_ast, AST): # XXX from_ast should always be an ast or be renamed
                 self.perform_union(from_ast, key, allowed_platforms, dbgraph, user, query_plan)
