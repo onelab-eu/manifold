@@ -13,23 +13,18 @@
 # Copyright (C) 2013 UPMC
 
 import json
-from sqlalchemy                 import Column, Integer, String
+from sqlalchemy                                 import Column, Integer, String
 
-from ..models                   import Base
-from ..models.get_session       import get_session
-from manifold.util.type         import accepts, returns 
+from manifold.gateways.sqlalchemy.models.model  import Model
+from manifold.util.type                         import accepts, returns 
 
-class ModelUser(Base):
+class ModelUser(Model):
     restrict_to_self = True
     user_id  = Column(Integer, primary_key = True, doc = "User identifier")
     email    = Column(String,                      doc = "User email")
     password = Column(String,                      doc = "User password")
     config   = Column(String,                      doc = "User config (serialized in JSON)")
 
-#UNUSED|    def config_set(self, value):
-#UNUSED|        #Log.deprecated()
-#UNUSED|        return self.set_config(value)
-        
 #    def set_config(self, value, session):
 #        """
 #        Update the "config" field of this ModelUser in the
@@ -38,7 +33,7 @@ class ModelUser(Base):
 #            value: A String encoded in JSON containing
 #                the new "config" related to this ModelUser.
 #        """
-#        session = get_session(self)
+#        session = get_session(self) # manifold.gateways.sqlalchemy.models.get_session
 #        self.config = json.dumps(value)
 #        session.add(self)
 #        session.commit()

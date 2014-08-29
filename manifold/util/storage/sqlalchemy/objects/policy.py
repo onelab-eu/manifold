@@ -7,8 +7,8 @@
 #
 # Copyright (C) UPMC 
 
-from manifold.gateways.sqlalchemy.models.policy import ModelPolicy
-from ..objects.sqla_object                      import SQLA_Object
+from manifold.gateways.sqlalchemy.objects.sqla_object   import SQLA_Object
+from ..models.policy                                    import ModelPolicy
 
 class Policy(SQLA_Object):
     def __init__(self, gateway, router):

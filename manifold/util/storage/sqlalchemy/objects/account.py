@@ -7,8 +7,8 @@
 #
 # Copyright (C) UPMC 
 
-from manifold.gateways.sqlalchemy.models.account    import ModelAccount
-from ..objects.sqla_object                          import SQLA_Object
+from manifold.gateways.sqlalchemy.objects.sqla_object   import SQLA_Object
+from ..models.account                                   import ModelAccount
 
 class Account(SQLA_Object):
     def __init__(self, gateway, router):

@@ -14,24 +14,23 @@
 # Copyright (C) 2013 UPMC
 
 import json
-from sqlalchemy                     import Column, ForeignKey, Integer, String, Enum
-from sqlalchemy.orm                 import relationship, backref
+from sqlalchemy                                 import Column, ForeignKey, Integer, String, Enum
+from sqlalchemy.orm                             import relationship, backref
 
 # TODO move the SFA specific part in manifold/gateways/sfa
 try:
-    from sfa.trust.credential       import Credential
+    from sfa.trust.credential                   import Credential
 except:
     pass
 
-from ..models                       import Base
-from ..models.user                  import ModelUser
-from ..models.platform              import ModelPlatform
-#from ..models.get_session           import get_session
-from manifold.util.log              import Log 
-from manifold.util.predicate        import Predicate
-from manifold.util.type             import accepts, returns 
+from manifold.gateways.sqlalchemy.models.model  import Model 
+from manifold.util.log                          import Log 
+from manifold.util.predicate                    import Predicate
+from manifold.util.type                         import accepts, returns 
+from ..models.user                              import ModelUser
+from ..models.platform                          import ModelPlatform
 
-class ModelAccount(Base):
+class ModelAccount(Model):
 
     restrict_to_self = True
 

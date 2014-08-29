@@ -9,15 +9,13 @@
 #
 # Jordan Auge       <jordan.auge@lip6.fr>
 # Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
-# Loic Baron        <loic.baron@lip6.fr>
 #
 # Copyright (C) 2013 UPMC
 
 import json
-from sqlalchemy                 import Column, Integer, String
+from sqlalchemy                                 import Column, Integer, String
+from manifold.gateways.sqlalchemy.models.model  import Model
 
-from ..models            import Base
-
-class ModelPolicy(Base):
+class ModelPolicy(Model):
     policy_id   = Column(Integer,doc = "Policy rule identifier",    primary_key = True)
     policy_json = Column(String, doc = "Policy rule in JSON format")

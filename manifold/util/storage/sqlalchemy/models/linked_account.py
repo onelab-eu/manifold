@@ -11,12 +11,12 @@
 
 
 import json
-from sqlalchemy                 import Column, ForeignKey, Integer, String
-from sqlalchemy.orm             import relationship
+from sqlalchemy                                 import Column, ForeignKey, Integer, String
+from sqlalchemy.orm                             import relationship
 
-from ..models                   import Base
+from manifold.gateways.sqlalchemy.models.model  import Model
 
-class ModelLinkedAccount(Base):
+class ModelLinkedAccount(Model):
     __tablename__ = "linked_account"
 
     platform_id = Column(Integer, ForeignKey("platform.platform_id"), primary_key = True, doc = "Platform identifier")

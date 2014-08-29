@@ -21,13 +21,6 @@ from manifold.core.field            import Field
 from manifold.core.record           import Records
 from manifold.gateways              import Gateway
 
-from .objects.account               import Account
-from .objects.linked_account        import LinkedAccount
-from .objects.platform              import Platform
-from .objects.policy                import Policy
-from .objects.session               import Session
-from .objects.user                  import User
-
 from manifold.util.log              import Log
 from manifold.util.type             import accepts, returns
 
@@ -39,34 +32,13 @@ from manifold.util.type             import accepts, returns
 class SQLAlchemyGateway(Gateway):
     __gateway_name__ = "sqlalchemy"
 
-    # MAP_OBJECT maps a SQLAlchemy table name with the corresponding
-    # manifold.gateways.sqlalchemy.objects.* Python object.
-    # Those Python objects rely with the models defined in
-    # manifold.gateways.sqlalchemy.models.*
-
-    # NOTE:
-    # Excepted manifold.gateways.sqlalchemy.models.base
-    # manifold.gateways.sqlalchemy.{objects,models}.* are specific to
-    # the Storage.
-    # To keep a SQLAlchemyGateway generic, MAP_OBJECT and the corresponding
-    # classes should be defined in manifold.util.storage
-    
-    MAP_OBJECT = {
-        "platform"       : Platform,
-        "user"           : User,
-        "account"        : Account,
-        "session"        : Session,
-        "linked_account" : LinkedAccount,
-        "policy"         : Policy
-    }
-
     #---------------------------------------------------------------------------
     # Constructor
     #---------------------------------------------------------------------------
 
     def __init__(self, router, platform_name, platform_config = None):
         """
-        Constructor
+        Constructor.
         Args:
             router: The Manifold Router on which this Gateway is running.
             platform_name: A String storing name of the platform related to this Gateway.
@@ -81,6 +53,34 @@ class SQLAlchemyGateway(Gateway):
         session = sessionmaker(bind = engine)
         self._session = session()
         base.metadata.create_all(engine)
+
+        # The child class must call set_map_objects otherwise no
+        # object can be queried.
+        self._map_objects = dict()
+
+    def set_map_objects(self, map_objects):
+        """
+        Install the mapping between table name and the corresponding
+        SQLA_Object. See example in sqla_storage.py.
+        Args:
+            map_objects: a dict {String : Object} which maps
+                a SQLAlchemy table name with the corresponding
+                manifold.gateways.sqlalchemy.objects.* Python object.
+                Those Python objects rely with the models defined in
+                manifold.gateways.sqlalchemy.models.*
+        """
+        assert isinstance(map_objects, dict)
+        self._map_objects = map_objects
+
+    @returns(dict)
+    def get_map_objects(self):
+        return self._map_objects
+
+    #@returns(SQLA_Object)
+    def get_sqla_object(self, table_name):
+        cls =  self.get_map_objects()[table_name]
+        instance = cls(self, self._router)
+        return instance
 
     #---------------------------------------------------------------------------
     # Methods
@@ -104,24 +104,8 @@ class SQLAlchemyGateway(Gateway):
         """
         announces = Announces()
 
-        # Tables corresponding to a class in manifold.gateways.methods (except
-        # sqla_object) (and stored in SQLAlchemy)
-        for table_name, cls in self.MAP_OBJECT.items():
-            instance = SQLAlchemyGateway.MAP_OBJECT[table_name](self, self._router)
-            announce = instance.make_announce()
-# MANDO:
-# About defining account.credentials:
-#
-# Since an Account may be related to several credentials (currently hardcoded in account["config"])
-# we should have a new table Credential (and maybe one per kind of Credential, like PasswordCredential)
-# and perform the JOIN between those tables.
-#CRAPPY|            if table_name == "account":
-#CRAPPY|                Log.warning("sqla::__init__(): HACK: adding 'string credential' field in 'account'")
-#CRAPPY|                field = Field(
-#CRAPPY|                    type = "string",
-#CRAPPY|                    name = "credential"
-#CRAPPY|                )
-#CRAPPY|                announce._table.insert_field(field)
+        for table_name in self.get_map_objects().keys():
+            announce = self.get_sqla_object(table_name).make_announce()
             announces.append(announce)
 
         return announces
@@ -142,12 +126,12 @@ class SQLAlchemyGateway(Gateway):
         table_name = query.get_table_name()
 
         # We need to pass a pointer to the manifold router to the objects since they have to make # queries
-        instance = SQLAlchemyGateway.MAP_OBJECT[table_name](self, self._router)
+        sqla_object = self.get_sqla_object(table_name)
         annotation = packet.get_annotation()
         if not annotation:
             annotation = Annotation()
         if not action in ["create", "update", "delete", "get"]:
             raise ValueError("Invalid action = %s" % action)
-        records = getattr(instance, action)(new_query, annotation)
+        records = getattr(sqla_object, action)(new_query, annotation)
 
         self.records(records, packet)
