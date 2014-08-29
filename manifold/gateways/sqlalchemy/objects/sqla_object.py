@@ -8,6 +8,8 @@
 #
 # Copyright (C) UPMC
 
+from types                              import StringTypes
+
 from sqlalchemy                         import types
 from sqlalchemy.exc                     import IntegrityError
 from sqlalchemy.ext.declarative         import declarative_base
@@ -40,7 +42,7 @@ class SQLA_Object(Object):
         Args:
             gateway: A SQLAlchemyGateway instance.
             model: A class provided by manifold.models
-            router: A Router instance 
+            router: A Router instance
         """
         super(SQLA_Object, self).__init__(gateway)
 
@@ -274,8 +276,23 @@ class SQLA_Object(Object):
         Returns:
             The list of Announce instances related to this object.
         """
+        @returns(StringTypes)
+        def camel_to_underscore(string):
+            """
+            Convert an input camel case string into the corresponding
+            underscore string:
+            http://stackoverflow.com/questions/1175208/elegant-python-function-to-convert-camelcase-to-camel-case
+            Args:
+                string: A String instance
+            Returns:
+                The corresponding underscore string.
+            """
+            import re
+            s = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', string)
+            return re.sub('([a-z0-9])([A-Z])', r'\1_\2', s).lower()
+            
         model = self.get_model()
-        table_name = self.__class__.__name__.lower()
+        table_name = camel_to_underscore(self.__class__.__name__)
         table = Table(self.get_gateway().get_platform_name(), table_name)
 
         primary_key = tuple()

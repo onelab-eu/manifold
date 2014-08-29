@@ -20,7 +20,7 @@ def make_storage(storage_gateway, storage_config):
         The corresponding Storage.
     """
     if STORAGE_DEFAULT_GATEWAY == "sqlalchemy":
-        from manifold.util.storage.sqla_storage import SQLAlchemyStorage
+        from manifold.util.storage.sqlalchemy.sqla_storage import SQLAlchemyStorage
 
         # This trigger Options parsing because Gateway.register_all() uses Logging
         return SQLAlchemyStorage(

@@ -18,7 +18,7 @@ from manifold.core.packet           import QueryPacket
 from manifold.core.query            import Query
 from manifold.core.local            import LOCAL_NAMESPACE
 from manifold.core.sync_receiver    import SyncReceiver
-from manifold.util.log              import Log 
+from manifold.util.log              import Log
 from manifold.util.type             import accepts, returns
 
 class Storage(object):
@@ -142,7 +142,6 @@ class Storage(object):
                 )
                 continue
             router.register_platform(platform)
-                
 
         # Fetch enabled Platforms from the Storage...
         if not platform_names:
