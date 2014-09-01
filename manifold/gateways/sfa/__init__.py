@@ -1040,7 +1040,7 @@ class SFAGateway(Gateway):
             recursive = True if object != 'authority' else False
             stack = [interface_hrn]
         
-        # All queries will involve used credentials
+        # All queries will involve user credentials
         cred = self._get_cred('user')
 
         if resolve:
@@ -1300,13 +1300,16 @@ class SFAGateway(Gateway):
             # For now, lets use GENIv3 as default
             api_options['geni_rspec_version'] = {'type': 'GENI', 'version': '3'}
             #api_options['geni_rspec_version'] = {'type': 'SFA', 'version': '1'}  
- 
-        if slice_hrn:
-            cred = self._get_cred('slice', slice_hrn, v3 = self.am_version['geni_api'] != 2)
-            api_options['geni_slice_urn'] = slice_urn
-        else:
-            cred = self._get_cred('user', v3= self.am_version['geni_api'] != 2)
 
+        try: 
+            if slice_hrn:
+                cred = self._get_cred('slice', slice_hrn, v3 = self.am_version['geni_api'] != 2)
+                api_options['geni_slice_urn'] = slice_urn
+            else:
+                cred = self._get_cred('user', v3= self.am_version['geni_api'] != 2)
+        except Exception, e:
+            Log.warning("Credential exception ",e)
+            defer.returnValue({})
         # Due to a bug in sfawrap, we need to disable caching on the testbed
         # side, otherwise we might not get RSpecs without leases
         # Anyways, caching on the testbed side is not needed since we have more
@@ -1654,6 +1657,8 @@ class SFAGateway(Gateway):
 
             parser = yield self.get_parser()
             rspec = parser.build_rspec(slice_urn, resources, leases, rspec_version)
+            #Log.warning("RSPEC VERSION ----------------------- = %s" % rspec_version)
+            #Log.warning(rspec)
 
         except Exception, e:
             print "EXCEPTION BUILDING RSPEC", e
@@ -1681,7 +1686,7 @@ class SFAGateway(Gateway):
 #        Log.tmp("after forward query")
 #        Log.tmp(slice_records)
 
-        query_users_in_slice = Query.get('myslice:slice').filter_by('slice_hrn','==',slice_hrn).select('users.user_urn','users.keys','users.user_email','slice_hrn','slice_urn','slice_type','slice_id','parent_authority','slice_gid')
+        query_users_in_slice = Query.get('myslice:slice').filter_by('slice_hrn','==',slice_hrn).select('users.user_urn','users.keys','users.user_email','slice_hrn','slice_urn','slice_type','parent_authority','slice_gid')
         slice_records = yield self.interface.forward(query_users_in_slice, {'user':self.user}, is_deferred = True)
         slice_records = slice_records['value']
 
@@ -1801,11 +1806,11 @@ class SFAGateway(Gateway):
             #   <Experimenter uses resources>
 
             # Delete(<slice URN or sliver URNs>, <slice credential>, {}) when done
-
             api_options['sfa_users'] = sfa_users
             api_options['geni_users'] = users
 
-            struct_credential = {'geni_type': 'geni_sfa', 'geni_version': 2, 'geni_value': slice_cred}           
+            # XXX Hardcoded struct_credential geni_version 3
+            struct_credential = {'geni_type': 'geni_sfa', 'geni_version': 3, 'geni_value': slice_cred}
             # XXX TODO: struct_credential is supported by PLE and WiLab, but NOT SUPPORTED by IOTLAB
             if parser in [IoTLABParser]: # XXX This should be handled by _get_cred
                 print "IOTLAB, using slice_cred"
