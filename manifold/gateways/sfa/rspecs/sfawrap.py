@@ -65,7 +65,6 @@ class SFAWrapParser(RSpecParser):
         Returns:
             string : the string version of the created RSpec.
         """
-        
         rspec = RSpec(version=rspec_version)
 
         nodes = []
@@ -699,8 +698,8 @@ class WiLabtParser(SFAWrapParser):
             duration = end_time - time.time()
             # duration in minutes
             duration = duration / 60
-        Log.tmp("end_time = ",end_time)
-        Log.tmp("duration = ",duration)
+        #Log.tmp("end_time = ",end_time)
+        #Log.tmp("duration = ",duration)
         # RSpec will have expires date = now + duration
         rspec = RSpec(version=rspec_version, ttl=duration)
 

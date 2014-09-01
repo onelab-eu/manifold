@@ -69,8 +69,11 @@
 # ALTER TABLE authority_data ALTER COLUMN enabled TYPE bool USING CASE WHEN enabled='enabled' THEN 't'::boolean ELSE 'f'::boolean END;
 #
 # Dump:     pg_dump -U postgres onelab > onelab.sql
-# Restore:  psql onelab < onelab.sql
+# Restore:  psql -U postgres onelab < onelab.sql
 #
+# Allow all local connections
+# /etc/postgresql/9.1/main/pg_hba.conf
+# local all all trust
 #
 # Metadata
 # --------
