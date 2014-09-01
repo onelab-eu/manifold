@@ -1,21 +1,22 @@
 class slice {
-    const string slice_urn;          /**< Slice Unique Resource Name */
-    const string slice_hrn;          /**< Slice Human Readable name */
+    const string slice_urn;             /**< Slice Unique Resource Name */
+    const string slice_hrn;             /**< Slice Human Readable name */
     const string slice_type;
-    user        users[];           /**< List of users associated to the slice */
-    user        pi_users[];        /**< List of users associated to the slice */
+    user        users[];                /**< List of users associated to the slice */
+    user        pi_users[];             /**< List of users associated to the slice */
 
-    const string slice_description;
     const string slice_date_created;
     const string slice_expires;
     const string slice_last_updated;
-    const string nodes;
-    const string slice_url;
-    const string slice_enabled;     /**< MyPLC field slice_enabled >**/
+#    const string nodes;
+    const string slice_enabled;         /**< MyPLC field slice_enabled >**/
     const authority parent_authority;
 
+#    const string slice_url;            /**< MyPLC field slice_url >**/
+#    const string slice_description;    /**< MyPLC field slice_description >**/
+
 	resource resource[];
-	lease lease[];                /**< List of leases associated to the slice */
+	lease lease[];                      /**< List of leases associated to the slice */
 
     KEY(slice_urn);
     CAPABILITY(retrieve, join, fullquery);
@@ -166,8 +167,8 @@ class user {
 
 class authority {
     const string authority_hrn;
-    const string name;
-    const string abbreviated_name;
+#    const string name;                 /**< MyPLC field authority name >**/
+#    const string abbreviated_name;     /**< MyPLC field authority abv name >**/
     const authority parent_authority;
     user       pi_users[];
 
