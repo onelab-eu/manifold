@@ -27,6 +27,9 @@
 #     trans_id integer PRIMARY KEY REFERENCES test,
 #     en_name text 
 # );
+#
+# /etc/postgresql/9.1/main/pg_hba.conf
+# local all all trust
 
 # NOTE: A table should have a primary key, and references to other tables
 #
