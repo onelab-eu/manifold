@@ -139,6 +139,10 @@ class SubQuery(Node):
             self.send(LastRecord())
             return
 
+        #print "=" * 80
+        #print self.parent_output
+        #print "=" * 80
+
         if not self.children:
             # The top operator has build a SubQuery node without child queries,
             # so this SubQuery operator is useless and should be replaced by

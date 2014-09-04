@@ -1343,16 +1343,24 @@ class SFAGateway(Gateway):
                 result = yield self.sliceapi.ListResources([cred], api_options)
             else:
                 # AM API v3
-                Log.warning("remove me!!!!")
                 api_options['list_leases'] = 'all'
                 if slice_hrn:
                     # XX XXXX XXX
                     result = yield self.sliceapi.Describe([slice_urn], [cred], api_options)
-                    # XXX Weird !
-                    #result {'output': 'Slice credential not provided', 'code': {'am_type': 'protogeni', 'protogeni_error_log': 'urn:publicid:IDN+wilab2.ilabt.iminds.be+log+39cf85696c0862184eb9704bf3cf837b', 'geni_code': 7, 'am_code': 7, 'protogeni_error_url': 'https://www.wilab2.ilabt.iminds.be/spewlogfile.php3?logfile=39cf85696c0862184eb9704bf3cf837b'}, 'value': 0}
 
-                    if 'value' in result and 'geni_rspec' in result['value']:
-                        result['value'] = result['value']['geni_rspec']
+                    # XXX Weird: WiLab says that we don't provide slice_cred, but we are !
+                    #     In the error message on the testbed side it says:
+                    #     Not a valid url in [GeniCertificate: urn:publicid:IDN+onelab:upmc+authority+sa]: urn:uuid:a69fe2d4-29ae-4e34-b66a-4e612104fe73
+                    #     auto_add_sa: certificate does not have a URL extension
+                    #     Should be the same error that occured in Allocate
+
+                    #result {'output': 'Slice credential not provided', 'code': {'am_type': 'protogeni', 'protogeni_error_log': 'urn:publicid:IDN+wilab2.ilabt.iminds.be+log+39cf85696c0862184eb9704bf3cf837b', 'geni_code': 7, 'am_code': 7, 'protogeni_error_url': 'https://www.wilab2.ilabt.iminds.be/spewlogfile.php3?logfile=39cf85696c0862184eb9704bf3cf837b'}, 'value': 0}
+                    try:
+                        if 'value' in result and 'geni_rspec' in result['value']:
+                            result['value'] = result['value']['geni_rspec']
+                    except Exception, e:
+                        Log.warning("Exception in result: %r" % result)
+                        defer.returnValue({})
                 else:
                     result = yield self.sliceapi.ListResources([cred], api_options)
                     
@@ -1373,7 +1381,10 @@ class SFAGateway(Gateway):
 
         if slice_hrn:
             Log.warning("MANIFEST RSPEC FROM ListResources/Describe from %r : %r" % (self.platform, rspec_string))
-        rsrc_slice = parser.parse(rspec_string, rspec_version, slice_urn)
+        if parser in [WiLabtParser]:
+            rsrc_slice = parser.parse_manifest(rspec_string, rspec_version, slice_urn)
+        else:
+            rsrc_slice = parser.parse(rspec_string, rspec_version, slice_urn)
 
         # Make records
         rsrc_slice['resource'] = Records(rsrc_slice['resource'])
@@ -1640,6 +1651,9 @@ class SFAGateway(Gateway):
             if not hrn.startswith(interface_hrn):
                 #print "FILTER LEASE expected auth", interface_hrn, ":", hrn
                 continue
+            # XXX Until WiLab supports Leases
+            # XXX start_time is stored for parsing the Manifest RSpec after Allocate
+            start_time = lease['start_time']
             leases.append(lease)
 
         # Get appropriate credentials
@@ -1657,9 +1671,6 @@ class SFAGateway(Gateway):
 
             parser = yield self.get_parser()
             rspec = parser.build_rspec(slice_urn, resources, leases, rspec_version)
-            #Log.warning("RSPEC VERSION ----------------------- = %s" % rspec_version)
-            #Log.warning(rspec)
-
         except Exception, e:
             print "EXCEPTION BUILDING RSPEC", e
             traceback.print_exc()
@@ -1806,6 +1817,14 @@ class SFAGateway(Gateway):
             #   <Experimenter uses resources>
 
             # Delete(<slice URN or sliver URNs>, <slice credential>, {}) when done
+
+            # XXX TODO: In WiLab, we have to Delete the Sliver before doing a new Allocate
+            # XXX This will take 10 to 15 minutes to perform...
+            #     How to Manage this in the Web Interface of MySlice ???
+            #     How to Update the Sliver without Deleting it ???
+            #if parser in [WiLabtParser]:
+            #    result = yield self.sliceapi.DeleteSliver(slice_urn, [slice_cred], api_options)
+
             api_options['sfa_users'] = sfa_users
             api_options['geni_users'] = users
 
@@ -1902,7 +1921,12 @@ class SFAGateway(Gateway):
             rspec_version = 'GENI 3'
 
         parser = yield self.get_parser()
-        rsrc_slice = parser.parse(manifest_rspec, rspec_version, slice_urn)
+
+        if parser in [WiLabtParser]:
+            # start_time is defined in the leases
+            rsrc_slice = parser.parse_manifest(manifest_rspec, rspec_version, slice_urn, start_time)
+        else:
+            rsrc_slice = parser.parse(manifest_rspec, rspec_version, slice_urn)
 
         # Make records
         rsrc_slice['resource'] = Records(rsrc_slice['resource'])
@@ -1918,7 +1942,7 @@ class SFAGateway(Gateway):
 
         # XXX TODO: After starting the node, we need to monitor the status and inform the user when it's ready
         # This is required for WiLab !!!
-        if parser.__name__ == "WiLabtParser":
+        if parser in [WiLabtParser]:
             perform_action = yield self.sliceapi.PerformOperationalAction([slice_urn], [struct_credential], 'geni_start' , api_options)
             start_result = ReturnValue.get_value(perform_action)
             Log.warning("%s: PerformOperationalAction geni_start Result = %r" % (self.platform, perform_action))
