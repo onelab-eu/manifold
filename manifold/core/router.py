@@ -29,6 +29,13 @@ from manifold.core.local            import LocalGateway, LOCAL_NAMESPACE
 
 DEFAULT_GATEWAY_TYPE = "manifold"
 
+import struct
+from manifold.util.reactor_thread import ReactorThread, ReactorException
+from twisted.internet.protocol import Factory, Protocol
+from twisted.protocols.basic import IntNStringReceiver
+from twisted.internet import reactor
+
+
 #------------------------------------------------------------------
 # Class Router
 # Router configured only with static/local routes, and which
@@ -37,8 +44,7 @@ DEFAULT_GATEWAY_TYPE = "manifold"
 # builds the query plan, and execute query plan using deferred if required
 #------------------------------------------------------------------
 
-# TODO remove Interface inheritance
-class Router(Interface):
+class Router(object):
 
     #---------------------------------------------------------------------------
     # Constructor
@@ -52,10 +58,6 @@ class Router(Interface):
                 operation can be performed by this Router. Pass None if there
                 is no restriction.
         """
-        # NOTE: We should avoid having code in the Interface class
-        # Interface should be a parent class for Router and Gateway, so
-        # that for example we can plug an XMLRPC interface on top of it
-        Interface.__init__(self)
 
         assert not allowed_capabilities or isinstance(allowed_capabilities, Capabilities),\
             "Invalid capabilities = %s (%s)" % (allowed_capabilities, type(allowed_capabilities))
