@@ -18,6 +18,7 @@ from manifold.core.code             import BADARGS, ERROR
 from manifold.core.dbnorm           import to_3nf
 from manifold.core.dbgraph          import DBGraph
 from manifold.core.helpers          import execute_query as execute_query_helper
+from manifold.core.interface        import Interface
 from manifold.core.operator_graph   import OperatorGraph
 from manifold.core.packet           import ErrorPacket, Packet, QueryPacket
 from manifold.gateways              import Gateway
@@ -29,13 +30,6 @@ from manifold.util.type             import returns, accepts
 from manifold.core.local            import LocalGateway, LOCAL_NAMESPACE
 
 DEFAULT_GATEWAY_TYPE = "manifold"
-
-import struct
-from manifold.util.reactor_thread import ReactorThread, ReactorException
-from twisted.internet.protocol import Factory, Protocol
-from twisted.protocols.basic import IntNStringReceiver
-from twisted.internet import reactor
-
 
 #------------------------------------------------------------------
 # Class Router
@@ -60,7 +54,6 @@ class Router(object):
 
         # Manifold Gateways are already initialized in parent class.
         self._operator_graph = OperatorGraph(router = self)
-
 
         # Register the Gateways
         self.register_gateways()
@@ -93,9 +86,13 @@ class Router(object):
         # list of records associated with a subquery
         self._local_cache = dict()
 
+        self._server_interface = Interface(router = self)
+        self._server_interface.listen()
+
     def terminate(self):
         for gateway in self.gateways.values():
             gateway.terminate()
+        self._server_interface.terminate()
 
     #---------------------------------------------------------------------------
     # Accessors
