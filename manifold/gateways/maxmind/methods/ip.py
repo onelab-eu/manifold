@@ -11,7 +11,7 @@
 from types                                      import GeneratorType
 
 from manifold.core.announce                     import Announce, announces_from_docstring
-from manifold.core.fields                       import Fields
+from manifold.core.field_names                  import FieldNames
 from manifold.gateways.object                   import Object
 from manifold.gateways.maxmind.geoip_database   import MAXMIND_DAT_IPV4_ASN, MAXMIND_DAT_IPV4_CITY, MAXMIND_DAT_IPV4_COUNTRY
 from manifold.gateways.maxmind.geoip_database   import MAXMIND_DAT_IPV6_ASN, MAXMIND_DAT_IPV6_CITY, MAXMIND_DAT_IPV6_COUNTRY
@@ -68,9 +68,9 @@ class Ip(Object):
             return
 
         # We don't really ask something sometimes...
-        if query.get_fields() == Fields(['ip']):
+        if query.get_select() == FieldNames(['ip']):
             for ip in ip_list:
-                print "yield", ip
+                #print "yield", ip
                 yield {'ip': ip}
         else:
             for ip in ip_list:
@@ -78,7 +78,7 @@ class Ip(Object):
                     continue
                 ip_family = ip_get_family(ip)
                 record = {"ip" : ip}
-                select_all = query.get_fields().is_star()
+                select_all = query.get_select().is_star()
 
     # I don't know why, those dat file cannot be loaded...
     #DISABLED|        # ASN
@@ -98,7 +98,7 @@ class Ip(Object):
     #DISABLED|                Log.warning(e)
 
                 # City
-                if select_all or Fields(["city", "region_name", "area_code", "longitude", "country_code3", "latitude", "postal_code", "dma_code", "country_code", "country_name"]) & query.get_select():
+                if select_all or FieldNames(["city", "region_name", "area_code", "longitude", "country_code3", "latitude", "postal_code", "dma_code", "country_code", "country_name"]) & query.get_select():
                     try:
                         geoip = gateway.get_geoip(MAXMIND_DAT_IPV4_CITY if ip_family == 4 else MAXMIND_DAT_IPV6_CITY)
                         record.update(geoip.record_by_addr(ip))

@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# A DBGraph represent a DB schema, where each node represents a Table
-# and where a (u, v) arc means that Tables u and v can be joined
-# (u left join v).
+# A DBGraph represent a DB schema.
+# - Each vertex corresponds to a Table.
+# - Each arc corresponds to a Relation.
 #
 # Copyright (C) UPMC Paris Universitas
 # Authors:
@@ -20,7 +20,8 @@ from types                      import StringTypes
 
 from manifold.core.capabilities import Capabilities
 from manifold.core.method       import Method
-from manifold.core.key          import Key, Keys
+from manifold.core.key          import Key
+from manifold.core.keys         import Keys
 from manifold.core.relation     import Relation
 from manifold.core.table        import Table 
 from manifold.util.predicate    import Predicate 
@@ -43,8 +44,14 @@ class DBGraph(object):
 
     def __init__(self, tables, map_method_capabilities):
         """
-        Maintains a JOIN graph between the different tables of the database
+        Constructor.
+        Args:
+            tables: A frozenset of Table instances.
+            map_method_capabilities: A dict {Method : Capabilities}
         """
+        assert isinstance(tables, frozenset), "Invalid tables = %s (%s)" % (tables, type(tables))
+        assert isinstance(map_method_capabilities, dict)
+
         self.graph = DiGraph()
         for table in tables:
             self.append(table)
@@ -128,6 +135,7 @@ class DBGraph(object):
 
         relations = u.get_relations(v)
         if relations:
+            #Log.tmp("%s --> %s (%s)" % (u.get_name() , v.get_name(), relations))
             self.graph.add_edge(u, v, relations=relations)
             Log.debug("NEW EDGE %s" % self.format_arc(u, v))
 
@@ -144,15 +152,15 @@ class DBGraph(object):
 
     def append(self, u):
         """
-        \brief Add a table node not yet in the DB graph and build the arcs
-            to connect this node to the existing node.
-            There are 3 types of arcs (determines, includes, provides)
-        \sa manifold.util.table.py
-        \param u The Table instance we are adding to the graph.
+        Add a table node not yet in the DB graph and build the arcs
+        to connect this node to the existing node.
+        Args:
+            u: The Table instance we are adding to the graph.
         """
         # Adding the node u in the graph (if not yet in the graph) 
         if u in self.graph.nodes():
             raise ValueError("%r is already in the graph" % u)
+
         self.graph.add_node(u)
 
         # For each node v != u in the graph, check whether we can connect
@@ -188,6 +196,7 @@ class DBGraph(object):
         If several Table have the same name, it returns the parent Table.
         Args:
             table_name: A String value (the name of the table)
+            get_parent: A boolean.
         Returns:
             The corresponding Table instance, None if not found
         """
@@ -215,16 +224,31 @@ class DBGraph(object):
         return not bool(self.get_parent(table_or_table_name))
 
     @returns(Table)
-    def get_parent(self, table_or_table_name):
-        if not isinstance(table_or_table_name, Table):
-            table_or_table_name = self.find_node(table_or_table_name, get_parent=False)
-        for parent, x in self.graph.in_edges(table_or_table_name):
-            if parent.get_name() == table_or_table_name.get_name():
+    def get_parent(self, table):
+        """
+        Retrieve the parent Table of a given Table. The parent
+        table is unique and has no predecessor having the same
+        table name.
+        Args:
+            table: A Table instance or a String instance.
+        Returns:
+            The parent Table. It may be table itself if it has
+            no parent Table.
+        """
+        if not isinstance(table, StringTypes):
+            table = self.find_node(table, get_parent = False)
+        for parent, x in self.graph.in_edges(table):
+            if parent.get_name() == table.get_name():
                 return parent
         return None
         
     @returns(list)
     def get_announce_tables(self):
+        """
+        The Table instances stored in this DBGraph that should be announced.
+        Returns:
+            A list of Table instances.
+        """
         tables = list()
         for table in self.graph.nodes(False):
             # Ignore child tables with the same name as parents
@@ -234,7 +258,7 @@ class DBGraph(object):
                     keep = False
             if keep:
                 fields = set(self.get_fields(table))
-                t = Table(None, table.get_name(), fields, table.get_keys())
+                t = Table(table.get_platforms(), table.get_name(), fields, table.get_keys())
                 
                 # XXX We hardcode table capabilities
                 t.capabilities.retrieve   = True

@@ -16,7 +16,7 @@ from socket                             import *
 
 from types                              import StringTypes
 from manifold.core.announce             import Announces, announces_from_docstring
-from manifold.core.fields               import Fields
+from manifold.core.field_names          import FieldNames
 from manifold.core.record               import Record, Records
 from manifold.gateways                  import Gateway
 from manifold.util.predicate            import eq, included
@@ -56,12 +56,12 @@ class TeamCymruGateway(Gateway):
         sock.connect(("whois.cymru.com", 43))
         file = sock.makefile("rb") # buffered
 
-        sock.send('begin' + CRLF)
+        sock.send("begin" + CRLF)
         # for fields != ip asn as_name 
-        sock.send('verbose' + CRLF)
+        sock.send("verbose" + CRLF)
         for ip in ips:
             sock.send(ip + CRLF)
-        sock.send('end' + CRLF)
+        sock.send("end" + CRLF)
 
         output = []
         line = file.readline().strip()
@@ -69,9 +69,17 @@ class TeamCymruGateway(Gateway):
             line = file.readline().strip()
             if not line:
                 break
-            asn, ip, prefix, cc, reg, alloc, asname = map(lambda x: x.strip(), line.split('|'))
+            asn, ip, prefix, cc, reg, alloc, asname = map(lambda x: x.strip(), line.split("|"))
 
-            dic = {'ip': ip, 'asn': asn, 'prefix': prefix, 'country_code': cc, 'as_registry': reg, 'as_allocated': alloc, 'as_name': asname}
+            dic = {
+                "ip"           : ip,
+                "asn"          : asn,
+                "prefix"       : prefix,
+                "country_code" : cc,
+                "as_registry"  : reg,
+                "as_allocated" : alloc,
+                "as_name"      : asname
+            }
             output.append(dic)
         
         return output
@@ -100,10 +108,10 @@ class TeamCymruGateway(Gateway):
         else:
             raise NotImplemented
         
-        value_list = query.get_filter().get_field_values(token_key)
+        value_list = query.get_where().get_field_values(token_key)
 
         # We don't really ask something sometimes...
-        if query.get_fields() == Fields(['ip']):
+        if query.get_select() == FieldNames(['ip']):
             records = [{'ip': value} for value in value_list]
         else:
 
@@ -139,11 +147,11 @@ class TeamCymruGateway(Gateway):
     def make_announces(self):
         """
         Returns:
-            The Announce related to this object.
+            The Announces related to this Gateway.
         """
         platform_name = self.get_platform_name()
 
-        @returns(list)
+        @returns(Announces)
         @announces_from_docstring(platform_name)
         def make_announces_impl():
             """

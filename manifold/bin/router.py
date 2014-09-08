@@ -29,6 +29,7 @@ from manifold.core.packet           import Packet
 from manifold.core.router           import Router
 from manifold.core.sync_receiver    import SyncReceiver
 from manifold.gateways              import Gateway
+from manifold.util.constants        import SOCKET_PATH, STORAGE_DEFAULT_CONFIG, STORAGE_DEFAULT_GATEWAY
 from manifold.util.daemon           import Daemon
 from manifold.util.log              import Log
 from manifold.util.options          import Options
@@ -74,7 +75,7 @@ class QueryHandler(asynchat.async_chat, ChildSlotMixin):
 
     def receive(self, packet):
         packet_str = packet.serialize()
-        self.push(('%08x' % len(packet_str)) + packet_str)
+        self.push(("%08x" % len(packet_str)) + packet_str)
 
 class RouterServer(asyncore.dispatcher):
     def __init__(self, socket_path):
@@ -90,15 +91,27 @@ class RouterServer(asyncore.dispatcher):
         # Router initialization
         self._router = Router()
 
-        # conflict when adding both
-        self._router.add_platform('ping', 'ping_process')
-        self._router.add_platform('paristraceroute', 'paristraceroute_process')
-        self._router.add_platform('dig', 'dig_process')
+        try:
+            from manifold.util.storage.storage import install_default_storage
+            Log.warning("TODO: Configure a Storage in respect with Options(). Loading default Storage")
+            install_default_storage(self._router)
+        except Exception, e:
+            Log.warning(traceback.format_exc())
+            Log.warning("Unable to load the Manifold Storage, continuing without storage")
 
-#DEPRECATED|        self._router.add_platform('agent',  'manifold', {'url': 'http://ple2.ipv6.lip6.fr:58000/RPC/'})
-        #self._router.add_platform('fake',  'manifold', {'url': 'http://www.google.fr:58000/RPC/'})
-#DEPRECATED|        self._router.add_platform('agent2', 'manifold', {'url': 'http://planetlab2.cs.du.edu:58000/RPC/'})
-        self._router.add_platform('maxmind', 'maxmind')
+        # conflict when adding both
+        self._router.add_platform("ping",            "ping_process")
+        self._router.add_platform("paristraceroute", "paristraceroute_process")
+        self._router.add_platform("dig",             "dig_process")
+        #self._router.add_platform("maxmind",         "maxmind")
+
+        #self._router.add_peer("agent",  "ple2.ipv6.lip6.fr")
+        #self._router.add_peer("fake",   "www.google.fr")
+        #self._router.add_peer("agent2", "planetlab2.cs.du.edu")
+
+        Log.info("Binding to %s" % self._socket_path)
+        if os.path.exists(self._socket_path):
+            raise RuntimeError("%s is already in used" % self._socket_path)
 
         self.create_socket(socket.AF_UNIX, socket.SOCK_STREAM)
         self.set_reuse_addr()
@@ -132,7 +145,9 @@ class RouterServer(asyncore.dispatcher):
 
 class RouterDaemon(Daemon):
     DEFAULTS = {
-        "socket_path" : "/tmp/manifold"
+        "socket_path"     : SOCKET_PATH,
+        "storage_gateway" : STORAGE_DEFAULT_GATEWAY,
+        "storage_config"  : STORAGE_DEFAULT_CONFIG
     }
 
     def __init__(self):
@@ -150,10 +165,23 @@ class RouterDaemon(Daemon):
         Prepare options supported by RouterDaemon.
         """
         options = Options()
+
         options.add_argument(
             "-S", "--socket", dest = "socket_path",
             help = "Socket that will read the Manifold router.",
             default = RouterDaemon.DEFAULTS["socket_path"]
+        )
+
+        options.add_argument(
+            "-g", "--storage-gateway", dest = "storage_gateway",
+            help = "The Manifold Gateway used to contact the Storage (usually %s)" % RouterDaemon.DEFAULTS["storage_gateway"],
+            default = RouterDaemon.DEFAULTS["storage_gateway"]
+        )
+
+        options.add_argument(
+            "-j", "--storage-config", dest = "storage_config",
+            help = "(Requires --storage-gateway). Configuration passed to Manifold to contact the storage. Ex: %s" % RouterDaemon.DEFAULTS["storage_config"],
+            default = RouterDaemon.DEFAULTS["storage_gateway"]
         )
 
     def main(self):
@@ -187,26 +215,12 @@ class RouterDaemon(Daemon):
             # socket is already in use.
             pass
 
-#DEPRECATED|Gateway.register_all()
-#DEPRECATED|server = RouterServer()
-#DEPRECATED|try:
-#DEPRECATED|    asyncore.loop()
-#DEPRECATED|finally:
-#DEPRECATED|    if os.path.exists(RouterServer.path):
-#DEPRECATED|        os.unlink(RouterServer.path)
-
 def main():
     RouterDaemon.init_options()
     Log.init_options()
     Daemon.init_options()
     Options().parse()
-    # <<
     RouterDaemon().start()
-    # --
-    #Log.tmp("debug code in bin/router enabled") 
-    #RouterServer(Options().socket_path)
-    #asyncore.loop()
-    # >>
 
 if __name__ == "__main__":
     main()

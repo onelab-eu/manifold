@@ -20,10 +20,10 @@ DESC="Manifold router daemon"
 NAME=manifold-router
 DAEMON=/usr/bin/${NAME}
 PIDFILE=/var/run/${NAME}.pid
-SOCKET=/tmp/manifold
+SOCKET_PATH=/var/run/manifold/manifold.sock
 SCRIPTNAME=/etc/init.d/$NAME
 MANIFOLD_CONF="/etc/manifold/manifold.conf"
-DAEMON_ARGS="--log-duplicates --config=$MANIFOLD_CONF --socket=$SOCKET --pid-file=$PIDFILE"
+DAEMON_ARGS="--log-duplicates --config=$MANIFOLD_CONF --socket=$SOCKET_PATH --pid-file=$PIDFILE"
 
 # Distribution specific paths
 VAR_LOCK_FILE=/var/lock/subsys/$NAME
@@ -48,7 +48,7 @@ execute()
 start()
 {
 	mkdir -p `dirname $PIDFILE`
-	mkdir -p `dirname $SOCKET`
+	mkdir -p `dirname $SOCKET_PATH`
 
 	execute "$DAEMON $DAEMON_ARGS" "Starting $DESC"
 	RETVAL=$?

@@ -12,7 +12,7 @@
 from types                          import StringTypes
 
 from manifold.core.destination      import Destination
-from manifold.core.fields           import FIELD_SEPARATOR
+from manifold.core.field_names      import FIELD_SEPARATOR
 from manifold.core.node             import Node
 from manifold.core.operator_slot    import ChildSlotMixin
 from manifold.core.packet           import Packet
@@ -141,6 +141,11 @@ class Rename(Operator, ChildSlotMixin):
                 in the incoming Records into the corresponding field name
                 in the output Records.
         """
+#        import traceback
+#        traceback.print_stack()
+#        import pdb
+#        pdb.set_trace()
+        # LOIC ??? | raise Exception("Rename: uses obsolete get_producer()")
         assert isinstance(aliases, dict),\
             "Invalid aliases = %s (%s)" % (aliases, type(aliases))
         # XXX Why ? -- jordan
@@ -171,6 +176,7 @@ class Rename(Operator, ChildSlotMixin):
             A dictionnary {String : String} which maps the field name
             to rename with the corresponding updated field name.
         """
+        Log.tmp("Rename get_aliases = ",self._aliases)
         return self._aliases
 
 
@@ -240,7 +246,7 @@ class Rename(Operator, ChildSlotMixin):
         destination.get_filter().rename(rmap)
 
         # 2) Process fields
-        destination.get_fields().rename(rmap)
+        destination.get_field_names().rename(rmap)
 
         packet.set_destination(destination)
 

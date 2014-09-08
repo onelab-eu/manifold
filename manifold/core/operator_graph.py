@@ -39,7 +39,7 @@ class OperatorGraph(object):
         """
         Constructor.
         Args:
-            router: A Interface instance (needed to access to internal DBGraphs).
+            router: A Router instance (needed to access to internal DBGraphs).
         """
 
         # A pointer to the router to which the OperatorGraph belongs
@@ -87,9 +87,9 @@ class OperatorGraph(object):
         namespace = query.get_namespace()
         query.clear_namespace()
 
-        allowed_platforms = list()
+        allowed_platforms = set()
         if namespace:
-            allowed_platforms.append(namespace)
+            allowed_platforms.add(namespace)
 
         # Build the QueryPlan according to this DBGraph and to the user's Query.
         # and return the corresponding Node (if any)

@@ -2,7 +2,7 @@
 
 import threading, subprocess, uuid, os
 
-from ...core.announce           import Announce, Announces, import_string_h
+from ...core.announce           import Announces, parse_file 
 from manifold.core.field        import Field
 from manifold.gateways          import Gateway
 from manifold.core.key          import Key
@@ -56,7 +56,7 @@ class ProcessGateway(Gateway):
     #---------------------------------------------------------------------------
 
     # XXX Args should be made optional
-    def __init__(self, interface = None, platform_name = None, platform_config = None):
+    def __init__(self, router = None, platform_name = None, platform_config = None):
         """
         Constructor
 
@@ -65,7 +65,7 @@ class ProcessGateway(Gateway):
             platform: A StringValue. You may pass u"dummy" for example
             platform_config: A dictionnary containing information to connect to the postgresql server
         """
-        Gateway.__init__(self, interface, platform_name, platform_config)
+        Gateway.__init__(self, router, platform_name, platform_config)
 
         self._in_progress = dict()
         self._records = dict()
@@ -106,7 +106,7 @@ class ProcessGateway(Gateway):
             return
 
         # We have a single table per tool gateway
-        # table_name = query.get_from()
+        # table_name = query.get_table_name()
 
         # Compute process arguments from query
         # At the moment, we cannot have more than ONE value for each
@@ -354,7 +354,7 @@ class ProcessGateway(Gateway):
         """
         platform_name = self.get_platform_name()
         try:
-            announces = import_string_h(self.output._announces_str, platform_name)
+            announces = parse_file(self.output._announces_str, platform_name)
         except AttributeError, e:
             # self.output not yet initialized
             raise AttributeError("In platform '%s': %s" % (platform_name, e))

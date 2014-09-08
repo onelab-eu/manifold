@@ -73,7 +73,8 @@ class Shell(object):
         """
         Leave gracefully the Shell by shutdowning properly the nested ManifoldClient.
         """
-        self.client.terminate()
+        if self.client: # In case of error, the self.client might be equal to None
+            self.client.terminate()
 
     #---------------------------------------------------------------------------
     # Accessors
@@ -107,7 +108,6 @@ class Shell(object):
             self.select_auth_method(self._auth_method)
             if not self.client:
                 raise RuntimeError("No client set")
-
             Log.info(self.client.welcome_message())
 
     #---------------------------------------------------------------------------
@@ -358,7 +358,6 @@ class Shell(object):
 
         elif auth_method == 'router':
             username = Options().username
-            print "username", username
             self.authenticate_router(username)
 
         else: # XMLRPC

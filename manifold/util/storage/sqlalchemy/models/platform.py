@@ -11,12 +11,11 @@
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
 import json
-from sqlalchemy                     import Column, Integer, String, Boolean, Enum
+from sqlalchemy                                 import Column, Integer, String, Boolean, Enum
 
-from manifold.core.query            import Query
-from ..models                       import Base
+from manifold.gateways.sqlalchemy.models.model  import Model
 
-class ModelPlatform(Base):
+class ModelPlatform(Model):
     platform_id          = Column(Integer, doc = "Platform identifier", primary_key = True)
     platform             = Column(String,  doc = "Platform name", unique = True)
     platform_longname    = Column(String,  doc = "Platform long name")

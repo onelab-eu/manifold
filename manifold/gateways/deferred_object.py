@@ -32,6 +32,7 @@ class DeferredObject(object):
             A dictionnary {String : String} mapping a Gateway field name
             with the corresponding MANIFOLD field name.
         """
+        Log.tmp("gateway.deferred_object aliases = ",cls.aliases)
         return cls.aliases
 
     #@returns(Gateway)

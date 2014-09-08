@@ -8,6 +8,8 @@
 #
 # Copyright (C) UPMC
 
+from types                              import StringTypes
+
 from sqlalchemy                         import types
 from sqlalchemy.exc                     import IntegrityError
 from sqlalchemy.ext.declarative         import declarative_base
@@ -34,20 +36,20 @@ class SQLA_Object(Object):
         types.DateTime: "datetime"
     }
 
-    def __init__(self, gateway, model, interface):
+    def __init__(self, gateway, model, router):
         """
         Constructor.
         Args:
             gateway: A SQLAlchemyGateway instance.
             model: A class provided by manifold.models
-            interface: A manifold Interface
+            router: A Router instance
         """
         super(SQLA_Object, self).__init__(gateway)
 
         # self.model corresponds to a class inheriting manifold.models.Base
         # and implemented in manifold/models/.
-        self.model      = model
-        self._interface = interface
+        self.model   = model
+        self._router = router
 
     #---------------------------------------------------------------------
     # Internal usage
@@ -88,7 +90,7 @@ class SQLA_Object(Object):
         if "password" in params:
             params["password"] = hash_password(params["password"])
 
-        _params = cls.process_params(params, None, user, self._interface, session)
+        _params = cls.process_params(params, None, user, self._router, session)
         new_obj = cls()
         #from sqlalchemy.orm.attributes import manager_of_class
         #mgr = manager_of_class(cls)
@@ -122,7 +124,6 @@ class SQLA_Object(Object):
             The list of updated Objects.
         """
         super(SQLA_Object, self).check(query, annotation)
-        print "UPDATE ANNOTATION=", annotation
         user = annotation.get("user", None)
         session = self.get_gateway().get_session()
 
@@ -133,7 +134,8 @@ class SQLA_Object(Object):
 
         # XXX What about filters on such fields
         # filter works with account and platform table only
-        if query.get_from() == "account" or query.get_from() == "platform":
+        table_name = query.get_table_name()
+        if table_name == "account" or table_name == "platform":
             if not query.get_where().has_eq("platform_id") and not query.get_where().has_eq("platform"):
                 raise Exception, "Cannot update JSON fields on multiple platforms"
 
@@ -166,7 +168,7 @@ class SQLA_Object(Object):
         # into the local DB as hash
         if "password" in query.get_params():
             query.params["password"] = hash_password(query.params["password"])
-        _params = cls.process_params(query.params, _filters, user, self._interface, session)
+        _params = cls.process_params(query.params, _filters, user, self._router, session)
         # only 2.7+ _params = { getattr(cls, k): v for k,v in query.params.items() }
         _params = dict([ (getattr(cls, k), v) for k,v in _params.items() ])
 
@@ -274,8 +276,23 @@ class SQLA_Object(Object):
         Returns:
             The list of Announce instances related to this object.
         """
+        @returns(StringTypes)
+        def camel_to_underscore(string):
+            """
+            Convert an input camel case string into the corresponding
+            underscore string:
+            http://stackoverflow.com/questions/1175208/elegant-python-function-to-convert-camelcase-to-camel-case
+            Args:
+                string: A String instance
+            Returns:
+                The corresponding underscore string.
+            """
+            import re
+            s = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', string)
+            return re.sub('([a-z0-9])([A-Z])', r'\1_\2', s).lower()
+            
         model = self.get_model()
-        table_name = self.__class__.__name__.lower()
+        table_name = camel_to_underscore(self.__class__.__name__)
         table = Table(self.get_gateway().get_platform_name(), table_name)
 
         primary_key = tuple()

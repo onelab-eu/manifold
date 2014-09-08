@@ -15,18 +15,11 @@ from sqlalchemy                     import create_engine
 from sqlalchemy.ext.declarative     import declarative_base
 from sqlalchemy.orm                 import sessionmaker
 
-from manifold.core.announce         import Announce, make_virtual_announces
+from manifold.core.announce         import Announce, Announces
 from manifold.core.annotation       import Annotation
 from manifold.core.field            import Field
 from manifold.core.record           import Records
 from manifold.gateways              import Gateway
-
-from .objects.account               import Account
-from .objects.linked_account        import LinkedAccount
-from .objects.platform              import Platform
-from .objects.policy                import Policy
-from .objects.session               import Session
-from .objects.user                  import User
 
 from manifold.util.log              import Log
 from manifold.util.type             import accepts, returns
@@ -39,28 +32,19 @@ from manifold.util.type             import accepts, returns
 class SQLAlchemyGateway(Gateway):
     __gateway_name__ = "sqlalchemy"
 
-    MAP_OBJECT = {
-        "platform"       : Platform,
-        "user"           : User,
-        "account"        : Account,
-        "session"        : Session,
-        "linked_account" : LinkedAccount,
-        "policy"         : Policy
-    }
-
     #---------------------------------------------------------------------------
     # Constructor
     #---------------------------------------------------------------------------
 
-    def __init__(self, interface, platform_name, platform_config = None):
+    def __init__(self, router, platform_name, platform_config = None):
         """
-        Constructor
+        Constructor.
         Args:
-            interface: The Manifold Interface on which this Gateway is running.
+            router: The Manifold Router on which this Gateway is running.
             platform_name: A String storing name of the platform related to this Gateway.
             platform_config: A dictionnary containing the configuration related to this Gateway.
         """
-        super(SQLAlchemyGateway, self).__init__(interface, platform_name, platform_config)
+        super(SQLAlchemyGateway, self).__init__(router, platform_name, platform_config)
 
         engine = create_engine(platform_config["url"], echo = False)
 
@@ -69,6 +53,34 @@ class SQLAlchemyGateway(Gateway):
         session = sessionmaker(bind = engine)
         self._session = session()
         base.metadata.create_all(engine)
+
+        # The child class must call set_map_objects otherwise no
+        # object can be queried.
+        self._map_objects = dict()
+
+    def set_map_objects(self, map_objects):
+        """
+        Install the mapping between table name and the corresponding
+        SQLA_Object. See example in sqla_storage.py.
+        Args:
+            map_objects: a dict {String : Object} which maps
+                a SQLAlchemy table name with the corresponding
+                manifold.gateways.sqlalchemy.objects.* Python object.
+                Those Python objects rely with the models defined in
+                manifold.gateways.sqlalchemy.models.*
+        """
+        assert isinstance(map_objects, dict)
+        self._map_objects = map_objects
+
+    @returns(dict)
+    def get_map_objects(self):
+        return self._map_objects
+
+    #@returns(SQLA_Object)
+    def get_sqla_object(self, table_name):
+        cls =  self.get_map_objects()[table_name]
+        instance = cls(self, self._router)
+        return instance
 
     #---------------------------------------------------------------------------
     # Methods
@@ -82,22 +94,7 @@ class SQLAlchemyGateway(Gateway):
         """
         return self._session
 
-    @staticmethod
-    @returns(bool)
-    def is_virtual_table(table_name):
-        """
-        Tests whether a Table is virtual or not. A Table is said to be
-        the Manifold object do not rely to a SQLAlchemy table.
-        Args:
-            table_name: A String instance.
-        Returns:
-            True iif this Table is virtual.
-        """
-        # We don't care about the namespace so we pass None and so this method remains static
-        virtual_table_names = [announce.get_table().get_name() for announce in make_virtual_announces(None)]
-        return table_name in virtual_table_names
-
-    @returns(list)
+    @returns(Announces)
     def make_announces(self):
         """
         Produce Announces corresponding to the table store in
@@ -105,25 +102,11 @@ class SQLAlchemyGateway(Gateway):
         Returns:
             A list of Announce instances.
         """
-        announces = list()
+        announces = Announces()
 
-        # Tables corresponding to a class in manifold.gateways.methods (except
-        # sqla_object) (and stored in SQLAlchemy)
-        for table_name, cls in self.MAP_OBJECT.items():
-            instance = SQLAlchemyGateway.MAP_OBJECT[table_name](self, self._interface)
-            announce = instance.make_announce()
-            if table_name == 'account':
-                field = Field(
-                    type = 'string',
-                    name = 'credential'
-                )
-                announce._table.insert_field(field)
-
+        for table_name in self.get_map_objects().keys():
+            announce = self.get_sqla_object(table_name).make_announce()
             announces.append(announce)
-
-        # Virtual tables ("object", "column", ...)
-        virtual_announces = make_virtual_announces(self.get_platform_name())
-        announces.extend(virtual_announces)
 
         return announces
 
@@ -140,28 +123,15 @@ class SQLAlchemyGateway(Gateway):
         new_query = query.clone()
 
         action = query.get_action()
-        table_name = query.get_from()
+        table_name = query.get_table_name()
 
-        if SQLAlchemyGateway.is_virtual_table(table_name):
-            # Handle queries related to local:object and local:gateway.
-            # Note that local:column won't be queried since it has no RETRIEVE capability.
-            if not action == "get":
-                 raise RuntimeError("Invalid action (%s) on '%s::%s' table" % (action, self.get_platform_name(), table_name))
-
-            if table_name == "object":
-                records = Records([announce.to_dict() for announce in self.get_announces()])
-            elif table_name == "gateway":
-                records = Records([{"type" : gateway_type} for gateway_type in sorted(Gateway.list().keys())])
-            else:
-                raise RuntimeError("Invalid table '%s::%s'" % (self.get_platform_name(), table_name))
-        else:
-            # We need to pass a pointer to the manifold interface to the objects since they have to make # queries
-            instance = SQLAlchemyGateway.MAP_OBJECT[table_name](self, self._interface)
-            annotation = packet.get_annotation()
-            if not annotation:
-                annotation = Annotation()
-            if not action in ["create", "update", "delete", "get"]:
-                raise ValueError("Invalid action = %s" % action)
-            records = getattr(instance, action)(new_query, annotation)
+        # We need to pass a pointer to the manifold router to the objects since they have to make # queries
+        sqla_object = self.get_sqla_object(table_name)
+        annotation = packet.get_annotation()
+        if not annotation:
+            annotation = Annotation()
+        if not action in ["create", "update", "delete", "get"]:
+            raise ValueError("Invalid action = %s" % action)
+        records = getattr(sqla_object, action)(new_query, annotation)
 
         self.records(records, packet)

@@ -14,7 +14,7 @@ import copy, json, uuid, traceback
 from types                          import StringTypes
 from manifold.core.destination      import Destination
 from manifold.core.filter           import Filter, Predicate
-from manifold.core.fields           import Fields
+from manifold.core.field_names      import FieldNames
 from manifold.util.clause           import Clause
 from manifold.util.frozendict       import frozendict
 from manifold.util.log              import Log
@@ -104,11 +104,11 @@ class Query(object):
                 fields = kwargs.pop('fields')
                 if '*' in fields:
                     #Log.tmp("SET STAR IN KWARGS")
-                    self.fields = Fields(star = True)
+                    self.fields = FieldNames(star = True)
                 else:
-                    self.fields = Fields(fields, star = False)
+                    self.fields = FieldNames(fields, star = False)
             else:
-                self.fields = Fields()
+                self.fields = FieldNames(star = True)
 
             # "update table set x = 3" => params == set
             if "params" in kwargs:
@@ -141,7 +141,7 @@ class Query(object):
     def sanitize(self):
         if not self.filters:   self.filters   = Filter()
         if not self.params:    self.params    = {}
-        if not self.fields:    self.fields    = Fields()
+        if not self.fields:    self.fields    = FieldNames()
         if not self.timestamp: self.timestamp = "now"
 
         if isinstance(self.filters, list):
@@ -153,8 +153,8 @@ class Query(object):
         elif isinstance(self.filters, Clause):
             self.filters = Filter.from_clause(self.filters)
 
-        if not isinstance(self.fields, Fields):
-            self.fields = Fields(self.fields)
+        if not isinstance(self.fields, FieldNames):
+            self.fields = FieldNames(self.fields)
 
     #---------------------------------------------------------------------------
     # Helpers
@@ -169,7 +169,7 @@ class Query(object):
         self.object = None
         self.filters = Filter()
         self.params  = {}
-        self.fields  = Fields()
+        self.fields  = FieldNames()
         self.timestamp  = 'now' # ignored for now
 
     #@returns(StringTypes)
@@ -184,8 +184,8 @@ class Query(object):
         """
         get_params_str = lambda : ", ".join(["%s = %r" % (k, v) for k, v in self.get_params().items()])
 
-        table  = self.get_from()
-        fields = self.get_fields()
+        table  = self.get_from() # it may be a string like "namespace:table_name" or not
+        fields = self.get_field_names()
         select = "SELECT %s" % ("*" if fields.is_star() else ", ".join([field for field in fields]))
         where  = "WHERE %s"  % self.get_where()     if self.get_where()     else ""
         at     = "AT %s"     % self.get_timestamp() if self.get_timestamp() else ""
@@ -300,20 +300,43 @@ class Query(object):
         self.action = action
         return self
 
-    @returns(Fields)
+    @returns(FieldNames)
     def get_select(self): # DEPRECATED
-        return self.get_fields()
+        return self.get_field_names()
 
-    @returns(Fields)
+    @returns(FieldNames)
+    def get_field_names(self):
+        return self.fields
+
+    @returns(FieldNames)
     def get_fields(self):
+        raise Exception("please use get_field_names or get_select instead")
         return self.fields # frozenset(self.fields) if self.fields is not None else None
 
     @returns(StringTypes)
     def get_from(self): # DEPRECATED
+        """
+        Extracts the FROM clause of this Query.
+        You should use get_table_name() or get_namespace().
+        Returns:
+            A String "namespace:table_name" or "table_name" (if the
+            namespace is unset), where 'namespace' is the result of
+            self.get_namespace() and 'table_name' is the result of
+            self.get_table_name()
+        """
         return self.get_object()
 
     @returns(StringTypes)
     def get_object(self):
+        """
+        Extracts the FROM clause of this Query.
+        You should use get_table_name() or get_namespace().
+        Returns:
+            A String "namespace:table_name" or "table_name" (if the
+            namespace is unset), where 'namespace' is the result of
+            self.get_namespace() and 'table_name' is the result of
+            self.get_table_name()
+        """
         return self.object
 
     def set_object(self, object):
@@ -350,9 +373,9 @@ class Query(object):
     # LINQ-like syntax
     #---------------------------------------------------------------------------
 
-    @classmethod
+    @staticmethod
     #@returns(Query)
-    def action(self, action, object):
+    def action(action, object):
         """
         (Internal usage). Craft a Query according to an action name
         See methods: get, update, delete, execute.
@@ -368,9 +391,9 @@ class Query(object):
         query.object = object
         return query
 
-    @classmethod
+    @staticmethod
     #@returns(Query)
-    def get(self, object):
+    def get(object):
         """
         Craft the Query which fetches the records related to a given object
         Args:
@@ -378,11 +401,11 @@ class Query(object):
         Returns:
             The corresponding Query instance
         """
-        return self.action(ACTION_GET, object)
+        return Query.action(ACTION_GET, object)
 
-    @classmethod
+    @staticmethod
     #@returns(Query)
-    def update(self, object):
+    def update(object):
         """
         Craft the Query which updates the records related to a given object
         Args:
@@ -390,11 +413,11 @@ class Query(object):
         Returns:
             The corresponding Query instance
         """
-        return self.action(ACTION_UPDATE, object)
+        return Query.action(ACTION_UPDATE, object)
 
-    @classmethod
+    @staticmethod
     #@returns(Query)
-    def create(self, object):
+    def create(object):
         """
         Craft the Query which create the records related to a given object
         Args:
@@ -402,11 +425,11 @@ class Query(object):
         Returns:
             The corresponding Query instance
         """
-        return self.action(ACTION_CREATE, object)
+        return Query.action(ACTION_CREATE, object)
 
-    @classmethod
+    @staticmethod
     #@returns(Query)
-    def delete(self, object):
+    def delete(object):
         """
         Craft the Query which delete the records related to a given object
         Args:
@@ -414,11 +437,11 @@ class Query(object):
         Returns:
             The corresponding Query instance
         """
-        return self.action(ACTION_DELETE, object)
+        return Query.action(ACTION_DELETE, object)
 
-    @classmethod
+    @staticmethod
     #@returns(Query)
-    def execute(self, object):
+    def execute(object):
         """
         Craft the Query which execute a processing related to a given object
         Args:
@@ -426,7 +449,7 @@ class Query(object):
         Returns:
             The corresponding Query instance
         """
-        return self.action(ACTION_EXECUTE, object)
+        return Query.action(ACTION_EXECUTE, object)
 
     #@returns(Query)
     def at(self, timestamp):
@@ -511,9 +534,9 @@ class Query(object):
             tmp, = fields
             if tmp is None:
                 # None = '*'
-                self.fields = Fields(star = True)
+                self.fields = FieldNames(star = True)
             else:
-                fields = Fields(tmp) if is_iterable(tmp) else Fields([tmp])
+                fields = FieldNames(tmp) if is_iterable(tmp) else FieldNames([tmp])
                 if clear:
                     self.fields = fields
                 else:
@@ -522,7 +545,7 @@ class Query(object):
 
         # We have an sequence of fields
         if clear:
-            self.fields = Fields(star = False)
+            self.fields = FieldNames(star = False)
         for field in fields:
             self.fields.add(field)
         return self
@@ -597,37 +620,88 @@ class Query(object):
         return hash(self.__key())
 
 
+    @returns(tuple)
     def get_namespace_table(self):
+        """
+        Retrieve the namespace and the table name related to
+        this Query.
+        Returns:
+            A (String, String) tuple containing respectively
+            the namespace and the table name of the FROM clause.
+            If the namespace is unset, the first operand is
+            set to None.
+        """
         l = self.get_from().split(':', 1)
         return tuple(l) if len(l) == 2 else (None,) + tuple(l)
 
-    def set_namespace_table(self, namespace, table):
-        self.object = "%s:%s" % (namespace, table)
+    def set_namespace_table(self, namespace, table_name):
+        """
+        Set the namespace and the table name of this Query.
+        Args:
+            namespace: A String instance.
+            table_name: A String instance.
+        """
+        self.object = "%s:%s" % (namespace, table_name)
 
     @returns(StringTypes)
-    def get_namespace(self):
+    def get_table_name(self):
+        """
+        Returns:
+            The namespace corresponding to this Query (None if unset).
+        """
         l = self.get_from().split(':', 1)
         return l[0] if len(l) == 2 else None
 
+
+    @returns(StringTypes)
+    def get_namespace(self):
+        """
+        Returns:
+            The namespace corresponding to this Query (None if unset).
+        """
+        l = self.get_from().split(':', 1)
+        return l[0] if len(l) == 2 else None
+
+    @returns(StringTypes)
+    def get_table_name(self):
+        """
+        Returns:
+            The table_name corresponding to this Query (None if unset).
+        """
+        return self.get_from().split(':')[-1]
+
     def set_namespace(self, namespace):
+        """
+        Set the namespace and the table name of this Query.
+        Args:
+            namespace: A String instance.
+        """
         old_namespace, old_table_name = self.get_namespace_table()
         self.set_namespace_table(namespace, old_table_name)
 
     @returns(StringTypes)
     def clear_namespace(self):
-        if ':' in self.get_from():
-            namespace, table_name = self.get_from().split(':', 1)
-            self.object = table_name
+        """
+        Unset the namespace set to this Query.
+        """
+        if self.get_namespace():
+            self.object = self.get_table_name()
 
     #---------------------------------------------------------------------------
     # Destination
     #---------------------------------------------------------------------------
 
+    @returns(Destination)
     def get_destination(self):
-        return Destination(self.object, self.filters, self.fields | Fields(self.params.keys()))
+        """
+        Craft the Destination corresponding to this Query.
+        Returns:
+            The corresponding Destination.
+        """
+        return Destination(self.object, self.filters, self.fields | FieldNames(self.params.keys()))
 
     def set_destination(self, destination):
         Log.warning("set_destination is not handling params")
         self.object  = destination.get_object()
         self.filters = destination.get_filter()
-        self.fields  = destination.get_fields()
+        self.fields  = destination.get_field_names()

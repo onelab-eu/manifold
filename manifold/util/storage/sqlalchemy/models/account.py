@@ -14,24 +14,23 @@
 # Copyright (C) 2013 UPMC
 
 import json
-from sqlalchemy                     import Column, ForeignKey, Integer, String, Enum
-from sqlalchemy.orm                 import relationship, backref
+from sqlalchemy                                 import Column, ForeignKey, Integer, String, Enum
+from sqlalchemy.orm                             import relationship, backref
 
 # TODO move the SFA specific part in manifold/gateways/sfa
 try:
-    from sfa.trust.credential       import Credential
+    from sfa.trust.credential                   import Credential
 except:
     pass
 
-from ..models                       import Base
-from ..models.user                  import ModelUser
-from ..models.platform              import ModelPlatform
-#from ..models.get_session           import get_session
-from manifold.util.log              import Log 
-from manifold.util.predicate        import Predicate
-from manifold.util.type             import accepts, returns 
+from manifold.gateways.sqlalchemy.models.model  import Model 
+from manifold.util.log                          import Log 
+from manifold.util.predicate                    import Predicate
+from manifold.util.type                         import accepts, returns 
+from ..models.user                              import ModelUser
+from ..models.platform                          import ModelPlatform
 
-class ModelAccount(Base):
+class ModelAccount(Model):
 
     restrict_to_self = True
 
@@ -94,7 +93,7 @@ class ModelAccount(Base):
         
     @staticmethod
     @returns(dict)
-    def process_params(params, filters, user, interface, session):
+    def process_params(params, filters, user, router, session):
         """
         Process "params" clause carried by a Query to abstract Manifold from
         considerations related to the Manifold Storage (for instance json
@@ -110,7 +109,7 @@ class ModelAccount(Base):
         if user_params:
             del params["user"]
             user_email = user_params
-            params["user_id"] = ModelUser.get_user_id(user_email, interface)
+            params["user_id"] = ModelUser.get_user_id(user_email, router)
 
         platform_params = params.get("platform")
         if platform_params:

@@ -8,17 +8,16 @@
 #
 # Copyright (C) 2013 UPMC
 
-import time, crypt, base64, random
-from hashlib                import md5
+import time, base64, random
 
-from sqlalchemy             import Column, ForeignKey, Integer, String
-from sqlalchemy.orm         import relationship, backref
+from sqlalchemy                                 import Column, ForeignKey, Integer, String
+from sqlalchemy.orm                             import relationship, backref
 
-from ..models               import Base 
-from ..models.user          import ModelUser 
-from manifold.util.type             import accepts, returns 
+from manifold.gateways.sqlalchemy.models.model  import Model
+from manifold.util.type                         import accepts, returns 
+from ..models.user                              import ModelUser 
 
-class ModelSession(Base):
+class ModelSession(Model):
 
     restrict_to_self = True
 
@@ -30,7 +29,7 @@ class ModelSession(Base):
 
     @staticmethod
     @returns(dict)
-    def process_params(params, filters, user, interface, db_session):
+    def process_params(params, filters, user, router, db_session):
         # Generate session ID
         if not "session" in params:
             bytes = random.sample(xrange(0, 256), 32)

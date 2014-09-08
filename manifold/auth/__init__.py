@@ -48,8 +48,8 @@ class AuthenticationFailure(Exception):
 class AuthMethod(object):
     """
     """
-    def __init__(self, auth, interface):
-        self.interface = interface
+    def __init__(self, auth, router):
+        self.router = router
         self.auth = auth
 
 class PasswordAuth(AuthMethod):
@@ -62,7 +62,7 @@ class PasswordAuth(AuthMethod):
         
         # Get record (must be enabled)
         query_users = Query.get("local:user").filter_by("email", "==", self.auth["Username"].lower())
-        users = self.interface.execute_local_query(query_users)
+        users = self.router.execute_local_query(query_users)
         if not users:
             raise AuthenticationFailure, "No such account (PW): %s" % self.auth["Username"]
         user = users[0]
@@ -95,7 +95,7 @@ class GIDAuth(AuthMethod):
         # We need to map the SFA user to the Manifold user... let's search into his accounts
 
         query_user_id = Query.get('local:linked_account').filter_by('identifier', '==', user_hrn).select('user_id')
-        ret_user_ids = self.interface.execute_local_query(query_user_id)
+        ret_user_ids = self.router.execute_local_query(query_user_id)
         if ret_user_ids['code'] != 0:
             raise Exception, "Failure requesting linked accounts for identifier '%s'" % user_hrn
         user_ids = ret_user_ids['value']
@@ -105,7 +105,7 @@ class GIDAuth(AuthMethod):
         user_id = user_ids[0]['user_id']
 
         query_user = Query.get('local:user').filter_by('user_id', '==', user_id)
-        users = self.interface.execute_local_query(query_user)
+        users = self.router.execute_local_query(query_user)
         #if ret_users['code'] != 0:
         #    raise Exception, "Failure requesting linked accounts for identifier '%s'" % user_hrn
         #users = ret_users['value']
@@ -127,14 +127,14 @@ class SessionAuth(AuthMethod):
         assert self.auth.has_key('session')
 
         query_sessions = Query.get('local:session').filter_by('session', '==', self.auth['session'])
-        sessions = self.interface.execute_local_query(query_sessions)
+        sessions = self.router.execute_local_query(query_sessions)
         if not sessions:
             raise AuthenticationFailure, "No such session: %s" % e
         session = sessions[0]
 
         user_id = session['user_id']
         query_users = Query.get('local:user').filter_by('user_id', '==', user_id)
-        users = self.interface.execute_local_query(query_users)
+        users = self.router.execute_local_query(query_users)
         if not users:
             raise AuthenticationFailure, "No such user_id: %s" % e
         user = users[0]
@@ -143,7 +143,7 @@ class SessionAuth(AuthMethod):
         else:
             query_sessions = Query.delete('local:session').filter_by('session', '==', session['session'])
             try:
-                self.interface.execute_local_query(query_sessions)
+                self.router.execute_local_query(query_sessions)
             except: pass
             raise AuthenticationFailure, "Invalid session"
 
@@ -152,7 +152,7 @@ class SessionAuth(AuthMethod):
         # Before a new session is added, delete expired sessions
         query_sessions = Query.delete('local:session').filter_by('expires', '<', int(time.time()))
         try:
-            self.interface.execute_local_query(query_sessions)
+            self.router.execute_local_query(query_sessions)
         except: pass
 
         # Generate 32 random bytes
@@ -167,7 +167,7 @@ class SessionAuth(AuthMethod):
 
         query_session = Query.create('local:session').set(session_params).select('session')
         try:
-            session, = self.interface.execute_local_query(query_sessions)
+            session, = self.router.execute_local_query(query_sessions)
         except: pass
 
         return session['session']
@@ -292,12 +292,12 @@ class Auth(object):
         'gid': GIDAuth
     }
 
-    def __init__(self, auth, interface):
+    def __init__(self, auth, router):
         if not 'AuthMethod' in auth:
             raise AuthenticationFailure, "AuthMethod should be specified"
 
         try:
-            self.auth_method = self.auth_map[auth['AuthMethod']](auth, interface)
+            self.auth_method = self.auth_map[auth['AuthMethod']](auth, router)
         except Exception, e:
             raise AuthenticationFailure, "Unsupported authentication method: %s, %s" % (auth['AuthMethod'], e)
 

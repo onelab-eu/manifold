@@ -13,7 +13,7 @@
 
 import copy
 from types                      import StringTypes
-from manifold.core.fields       import Fields, FIELD_SEPARATOR
+from manifold.core.field_names  import FieldNames, FIELD_SEPARATOR
 from manifold.util.type         import returns, accepts 
 
 from operator import (
@@ -101,7 +101,7 @@ class Predicate:
         Returns:
             The '%s' representation of this Predicate.
         """
-        return "Predicate(%r)" % self 
+        return repr(self)
 
     @returns(StringTypes)
     def __repr__(self):
@@ -229,8 +229,11 @@ class Predicate:
         elif self.op == or_:
             return (dic[self.key] | self.value) # array ?
         elif self.op == contains:
-            method, subfield = self.key.split('.', 1)
-            return not not [ x for x in dic[method] if x[subfield] == self.value] 
+            try:
+                method, subfield = self.key.split('.', 1)
+                return not not [ x for x in dic[method] if x[subfield] == self.value] # XXX not not ??? 
+            except ValueError: # split has failed
+                return self.value in dic[self.key]
         elif self.op == included:
             return dic[self.key] in self.value
         else:
@@ -272,19 +275,19 @@ class Predicate:
             # XXX match
             return dic if self.match(dic) else None
 
-    @returns(Fields)
+    @returns(FieldNames)
     def get_field_names(self):
         if isinstance(self.key, (list, tuple, set, frozenset)):
-            return Fields(self.key)
+            return FieldNames(self.key)
         else:
-            return Fields([self.key])
+            return FieldNames([self.key])
 
-    @returns(Fields)
+    @returns(FieldNames)
     def get_value_names(self):
         if isinstance(self.value, (list, tuple, set, frozenset)):
-            return Fields(self.value)
+            return FieldNames(self.value)
         else:
-            return Fields([self.value])
+            return FieldNames([self.value])
 
     @returns(bool)
     def has_empty_value(self):

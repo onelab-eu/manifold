@@ -14,8 +14,8 @@
 #   Marc-Olivier Buob   <marc-olivier.buob@lip6.fr>
 
 import sys
-
-from manifold.bin.common    import MANIFOLD_STORAGE, run_commands, check_platform, MESSAGE_TO_ENABLE_PLATFORM
+from manifold.bin.common    import check_platform, make_shell, MESSAGE_TO_ENABLE_PLATFORM, run_commands
+from manifold.bin.config    import MANIFOLD_STORAGE
 from manifold.bin.shell     import Shell
 from manifold.util.log      import Log
 from manifold.util.options  import Options
@@ -46,8 +46,7 @@ def main():
     Shell.init_options()
     Log.init_options()
     Options().parse()
-
-    shell = Shell(interactive = False)
+    shell = make_shell()
 
     try:
         # Check whether tdmi is configured and enabled in Manifold

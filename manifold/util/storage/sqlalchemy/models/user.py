@@ -13,23 +13,18 @@
 # Copyright (C) 2013 UPMC
 
 import json
-from sqlalchemy                 import Column, Integer, String
+from sqlalchemy                                 import Column, Integer, String
 
-from ..models                   import Base
-from ..models.get_session       import get_session
-from manifold.util.type         import accepts, returns 
+from manifold.gateways.sqlalchemy.models.model  import Model
+from manifold.util.type                         import accepts, returns 
 
-class ModelUser(Base):
+class ModelUser(Model):
     restrict_to_self = True
     user_id  = Column(Integer, primary_key = True, doc = "User identifier")
     email    = Column(String,                      doc = "User email")
     password = Column(String,                      doc = "User password")
     config   = Column(String,                      doc = "User config (serialized in JSON)")
 
-#UNUSED|    def config_set(self, value):
-#UNUSED|        #Log.deprecated()
-#UNUSED|        return self.set_config(value)
-        
 #    def set_config(self, value, session):
 #        """
 #        Update the "config" field of this ModelUser in the
@@ -38,7 +33,7 @@ class ModelUser(Base):
 #            value: A String encoded in JSON containing
 #                the new "config" related to this ModelUser.
 #        """
-#        session = get_session(self)
+#        session = get_session(self) # manifold.gateways.sqlalchemy.models.get_session
 #        self.config = json.dumps(value)
 #        session.add(self)
 #        session.commit()
@@ -56,7 +51,7 @@ class ModelUser(Base):
 
     @staticmethod
     @returns(int)
-    def get_user_id(user_email, interface):
+    def get_user_id(user_email, router):
         """
 #        (CRAPPY)
         This crappy method is used since we do not exploit Manifold
@@ -68,7 +63,7 @@ class ModelUser(Base):
             The user ID related to an ModelUser.
         """
         try:
-            user, = interface.execute_local_query(Query\
+            user, = router.execute_local_query(Query\
                 .get("user").filter_by("email", "=", user_email))
         except Exception, e:
             raise ValueError("No Account found for User %s, Platform %s ignored: %s" % (user_email, platform_name, traceback.format_exc()))
@@ -78,7 +73,7 @@ class ModelUser(Base):
 
     @staticmethod
     @returns(dict)
-    def process_params(params, filters, user, interface, session):
+    def process_params(params, filters, user, router, session):
 
         # JSON ENCODED FIELDS are constructed into the json_fields variable
         given = set(params.keys())

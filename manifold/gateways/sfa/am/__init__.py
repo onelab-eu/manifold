@@ -44,18 +44,18 @@ class SFA_AMGateway(SFAGatewayCommon):
     #    "lease"     : Lease
     }
 
-    def __init__(self, interface, platform, platform_config = None):
+    def __init__(self, router, platform, platform_config = None):
         """
         Constructor
         Args:
-            interface: The Manifold Interface on which this Gateway is running.
+            router: The Manifold Router on which this Gateway is running.
             platform: A String storing name of the platform related to this Gateway or None.
             platform_config: A dictionnary containing the platform_configuration related to this Gateway.
                 It may contains the following keys:
                 "name" : name of the platform's maintainer. 
                 "mail" : email address of the maintainer.
         """
-        super(SFA_AMGateway, self).__init__(interface, platform, platform_config)
+        super(SFA_AMGateway, self).__init__(router, platform, platform_config)
         platform_config = self.get_config()
 
         if not "sm" in platform_config:
@@ -85,7 +85,7 @@ class SFA_AMGateway(SFAGatewayCommon):
         platform_query = Query.get("platform").filter_by("gateway_type", "=", "sfa_rm")
         if platform_names:
             platform_query.filter_by("platform", "{", platform_names)
-        platforms = self._interface.execute_local_query(platform_query)
+        platforms = self._router.execute_local_query(platform_query)
 
         # Check whether every RM referenced by this AM have been found. 
         found_platform_names = [platform["platform"] for platform in platforms]
@@ -183,7 +183,7 @@ class SFA_AMGateway(SFAGatewayCommon):
         # xxx Thierry 2012 sept. 21
         # contrary to what I was first thinking, calling Resolve with details=False does not yet work properly here
         # I am turning details=True on again on a - hopefully - temporary basis, just to get this whole thing to work again
-        slice_records = yield self.registry.Resolve(slice_urn, [user_cred]) # <<< TODO this should be retrieve by querying the Router pointed by this Gateway (see self.interface)
+        slice_records = yield self.registry.Resolve(slice_urn, [user_cred]) # <<< TODO this should be retrieve by querying the Router pointed by this Gateway (see self.router)
         # Due to a bug in the SFA implementation when Resolve requests are
         # forwarded, records are not filtered (Resolve received a list of xrns,
         # does not resolve its type, then issue queries to the local database

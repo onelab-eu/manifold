@@ -56,15 +56,13 @@ class XMLRPCAPI(xmlrpc.XMLRPC, object):
                             return ret
                     setattr(cls, "xmlrpc_%s" % k, v_exc_handler)
 
-            # We should do the same with the router/forwarder class == interface
-
     def __init__(self, *args, **kwargs):
         if len(args) == 1:
-            assert 'interface' not in kwargs, "Cannot specify interface argument twice"
-            self.interface = args[0]
+            assert 'router' not in kwargs, "Cannot specify router argument twice"
+            self._deferred_router_client = args[0]
         elif len(args) == 0:
-            assert 'interface' in kwargs, "interface argument must be specified"
-            self.interface = kwargs['interface']
+            assert 'router' in kwargs, "router argument must be specified"
+            self._deferred_router_client = kwargs['router']
         else:
             raise Exception, "Wrong arguments"
         super(XMLRPCAPI, self).__init__(**kwargs)
@@ -88,7 +86,7 @@ class XMLRPCAPI(xmlrpc.XMLRPC, object):
 
 #        auth['request'] = request
 
-        return Auth(auth, self.interface).check()
+        return Auth(auth, self._deferred_router_client).check()
 
     # QUERIES
     # xmlrpc_forward function is called by the Query of the user using xmlrpc
@@ -117,7 +115,7 @@ class XMLRPCAPI(xmlrpc.XMLRPC, object):
             # Check login password
             try:
                 # We get the router to make synchronous queries
-                user = Auth(auth, self.interface.get_router()).check()
+                user = Auth(auth, self._deferred_router_client.get_router()).check()
             except Exception, e:
                 import traceback
                 traceback.print_exc()
@@ -125,10 +123,10 @@ class XMLRPCAPI(xmlrpc.XMLRPC, object):
                 msg = "Authentication failed: %s" % e
                 return dict(ResultValue.error(msg, FORBIDDEN))
 
-        # self.interface is a ManifoldDeferredRouterClient, it returns a deferred
+        # self._deferred_router_client is a ManifoldDeferredRouterClient, it returns a deferred
         annotation = Annotation(annotation) if annotation else Annotation()
         annotation['user'] = user
-        return self.interface.forward(Query(query), annotation)
+        return self._deferred_router_client.forward(Query(query), annotation)
 
     def _xmlrpc_action(self, action, *args):
         Log.info("_xmlrpc_action")

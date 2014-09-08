@@ -26,8 +26,9 @@ from types                      import StringTypes
 from manifold.core.capabilities import Capabilities, merge_capabilities
 from manifold.core.dbgraph      import DBGraph
 from manifold.core.field        import Field, merge_fields
-from manifold.core.fields       import Fields
-from manifold.core.key          import Key, Keys
+from manifold.core.field_names  import FieldNames
+from manifold.core.key          import Key
+from manifold.core.keys         import Keys
 from manifold.core.method       import Method
 from manifold.core.table        import Table
 from manifold.util.log          import Log
@@ -60,17 +61,18 @@ class Determinant(object):
     @staticmethod
     def check_init(key, method_name):
         """
-        \brief (Internal use)
-            Check whether parameters passed to __init__ are well-formed
+        (Internal use)
+        Check whether parameters passed to __init__ are well-formed
         """
         assert isinstance(key, Key),                 "Invalid key %r (type = %r)" % (key, type(key))
         assert isinstance(method_name, StringTypes), "Invalid method_name %r (type = %r)" % (method_name, type(method_name))
 
     def __init__(self, key, method_name):
         """
-        \brief Constructor of Determinant
-        \brief key The key of the determinant (k)
-        \param method_name The name of the table/method_name (m)
+        Constructor of Determinant
+        Args:
+            key: The Key of the Determinant (k)
+            method_name: A String corresponding to the name of the Method (m)
         """
         Determinant.check_init(key, method_name)
         self.key = key
@@ -78,8 +80,9 @@ class Determinant(object):
 
     def set_key(self, key):
         """
-        \brief Set the key related to this Determinant
-        \param key A Key instance
+        Set the Key related to this Determinant
+        Args:
+            key: A Key instance.
         """
         assert isinstance(key, Key), "Invalid key %s (%s)" % (key, type(key))
         self.key = key
@@ -87,29 +90,34 @@ class Determinant(object):
     @returns(Key)
     def get_key(self):
         """
-        \return The Key instance related to this determinant (k)
+        Returns:
+            The Key instance related to this determinant (k)
         """
         return self.key
 
     @returns(StringTypes)
     def get_method_name(self):
         """
-        \returns A string (the method_name related to this determinant) (m)
+        Returns:
+            The String corresponding to the method name of this Determinant.
         """
         return self.method_name
 
     def __hash__(self):
         """
-        \returns The hash of a determinant
+        Returns:
+            The hash of this Determinant
         """
         return hash(self.get_key())
 
     @returns(bool)
     def __eq__(self, x):
         """
-        \brief Compare two Determinant instances
-        \param x The Determinant instance compared to "self"
-        \return True iif self == x
+        Compare two Determinant instances.
+        Args:
+            x: The Determinant instance compared to "self"
+        Returns:
+            True iif self == x
         """
         assert isinstance(x, Determinant), "Invalid paramater %r (type %r)" % (x, type(x))
         return self.get_key() == x.get_key() and self.get_method_name() == x.get_method_name()
@@ -117,14 +125,16 @@ class Determinant(object):
     @returns(StringTypes)
     def __str__(self):
         """
-        \return The (verbose) string representing a Determinant instance
+        Returns:
+            The String corresponding to this Determinant instance.
         """
         return self.__repr__()
 
     @returns(StringTypes)
     def __repr__(self):
         """
-        \return The (synthetic) string representing a Determinant instance
+        Returns:
+            The String representing this Determinant instance.
         """
         return "(%s, %s)" % (
             self.get_method_name(),
@@ -145,6 +155,9 @@ class Fd(object):
         """
         \brief (Internal use)
             Check whether parameters passed to __init__ are well-formed
+        Args:
+            determinant: A Determinant instance.
+            map_field_methods: A {Field : set(Method)} instance
         """
         assert isinstance(determinant, Determinant), "Invalid determinant %s (%s)"       % (determinant, type(determinant))
         assert isinstance(map_field_methods, dict),  "Invalid map_field_methods %s (%s)" % (map_field_methods, type(map_field_methods))
@@ -673,13 +686,13 @@ def to_3nf(metadata):
     for table_name, map_platform_fds in fdss.items():
         # For the potential parent table
         # Stores the number of distinct platforms set
-        cpt_platforms = 0
+        num_platforms = 0
 
         # Stores the set of platforms
         all_platforms = set()
         common_fields = None
-#        common_keys = None
-        all_keys = set()
+        common_keys = None
+        all_keys = Keys()
 
         # Annotations needed for the query plane
         all_tables = list()
@@ -691,7 +704,7 @@ def to_3nf(metadata):
 
             # Annotations needed for the query plane
             map_method_keys   = dict()
-            map_method_fields = dict()
+            map_method_fieldnames = dict()
 
             for fd in fds:
                 key = fd.get_determinant().get_key()
@@ -712,10 +725,10 @@ def to_3nf(metadata):
                         map_method_keys[method].add(key)
 
                         # field annotation
-                        if not method in map_method_fields.keys():
-                            map_method_fields[method] = set()
-                        map_method_fields[method].add(field.get_name())
-                        map_method_fields[method].add(key_field.get_name())
+                        if not method in map_method_fieldnames.keys():
+                            map_method_fieldnames[method] = set()
+                        map_method_fieldnames[method].add(field.get_name())
+                        map_method_fieldnames[method].add(key_field.get_name())
 
                         # demux annotation
                         method_name = method.get_name()
@@ -736,26 +749,25 @@ def to_3nf(metadata):
 
             # inject field and key annotation in the Table object
             table.map_method_keys   = map_method_keys
-            table.map_method_fields = map_method_fields
+            table.map_method_fieldnames = map_method_fieldnames
             tables_3nf.append(table)
             all_tables.append(table)
             Log.debug("TABLE 3nf (i):", table, keys)
-            #print "     method fields", map_method_fields
+            #print "     method fields", map_method_fieldnames
 
-            cpt_platforms += 1
+            num_platforms += 1
             all_platforms |= platforms
 
             if not common_fields:
                 common_fields = fields
             else:
-                #common_fields &= fields
                 common_fields = merge_fields(fields, common_fields)
 
-#            if not common_keys:
-#                common_keys = keys
-#            else:
-#                common_keys &= keys
-
+            #if not common_keys:
+            #    common_keys = keys
+            #else:
+            #    #common_keys &= keys
+            #    common_keys = merge_keys(keys, common_keys)
 
             # Collect possible keys, we will restrict this set once
             # common_fields will be computed.
@@ -764,10 +776,10 @@ def to_3nf(metadata):
         # Check whether we will add a parent table. If so compute the
         # corresponding Keys based on all_keys and common_fields.
         common_keys = None
-        if cpt_platforms > 1 and len(common_fields) > 0:
+        if num_platforms > 1 and len(common_fields) > 0:
             # Retrict common_keys according to common_fields
-            common_field_names = set([field.get_name() for field in common_fields])
-            common_keys = Keys([key for key in all_keys if key.get_field_names() <= Fields(common_field_names)])
+            common_field_names = FieldNames([field.get_name() for field in common_fields])
+            common_keys = Keys([key for key in all_keys if key.get_field_names() <= common_field_names])
 
         # Need to add a parent table if more than two sets of platforms
         # XXX SOmetimes this parent table already exists and we are just
@@ -779,14 +791,14 @@ def to_3nf(metadata):
 
             # Migrate common fields from children to parents, except keys
             ##map_common_method_keys   = dict()
-            map_common_method_fields = dict()
+            map_common_method_fieldnames = dict()
 
             for field in common_fields:
                 methods = set()
                 for child_table in all_tables:
                     # Objective = remove the field from child table
                     # Several methods can have it
-                    for _method, _fields in child_table.map_method_fields.items():
+                    for _method, _fields in child_table.map_method_fieldnames.items():
                         if field.get_name() in _fields:
                             methods.add(_method)
                             if not common_keys.has_field(field):
@@ -796,12 +808,12 @@ def to_3nf(metadata):
                     del child_table.fields[field.get_name()]
                 # Add the field with all methods to parent table
                 for method in methods:
-                    if not method in map_common_method_fields: map_common_method_fields[method] = set()
-                    map_common_method_fields[method].add(field.get_name())
+                    if not method in map_common_method_fieldnames: map_common_method_fieldnames[method] = set()
+                    map_common_method_fieldnames[method].add(field.get_name())
 
             # Inject field and key annotation in the Table object
-            table.map_method_keys   = dict() #map_common_method_keys
-            table.map_method_fields = map_common_method_fields
+            table.map_method_keys  = dict() #map_common_method_keys
+            table.map_method_fieldnames = map_common_method_fieldnames
 
             # XXX Hardcoded capabilities in 3nf tables
             table.capabilities.retrieve   = True
@@ -811,7 +823,7 @@ def to_3nf(metadata):
 
             tables_3nf.append(table)
             Log.debug("TABLE 3nf (ii):", table, table.get_keys())
-            #print "     method fields", map_common_method_fields
+            #print "     method fields", map_common_method_fieldnames
 
 
         # XXX we already know about the links between those two platforms
@@ -853,7 +865,7 @@ def to_3nf(metadata):
     tables_3nf.extend(local_tables)
 
     # 7) Building DBgraph
-    graph_3nf = DBGraph(tables_3nf, map_method_capabilities)
+    graph_3nf = DBGraph(frozenset(tables_3nf), map_method_capabilities)
 
     return graph_3nf
 

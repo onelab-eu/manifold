@@ -11,18 +11,18 @@
 import json, os, sys, traceback
 from types                          import StringTypes
 
-from manifold.core.announce         import Announces, make_virtual_announces, merge_announces
+from manifold.core.announce         import Announces
 from manifold.core.capabilities     import Capabilities
 from manifold.core.code             import GATEWAY
 from manifold.core.node             import Node
 from manifold.core.packet           import Packet, ErrorPacket
-#from manifold.core.pit              import Pit
 from manifold.core.query            import Query
 from manifold.core.record           import Record, Records
 from manifold.core.result_value     import ResultValue
 from manifold.core.socket           import Socket
 from manifold.operators.projection  import Projection
 from manifold.operators.selection   import Selection
+from manifold.util.constants        import STATIC_ROUTES_DIR
 from manifold.util.log              import Log
 from manifold.util.plugin_factory   import PluginFactory
 from manifold.util.type             import accepts, returns
@@ -64,12 +64,12 @@ class Gateway(Node):
     # Constructor
     #---------------------------------------------------------------------------
 
-    def __init__(self, interface = None, platform_name = None, platform_config = None):
+    def __init__(self, router = None, platform_name = None, platform_config = None):
     # XXX ??? , *args, **kwargs):
         """
         Constructor
         Args:
-            interface: The Manifold Interface on which this Gateway is running.
+            router: The Router on which this Gateway is running.
             platform_name: A String storing name of the Platform related to this
                 Gateway or None.
             platform_config: A dictionnary containing the configuration related
@@ -84,12 +84,11 @@ class Gateway(Node):
             "Invalid configuration: %s (%s)" % (platform_config, type(platform_config))
 
         Node.__init__(self)
-        self._interface       = interface       # Router
+        self._router          = router          # Router
         self._platform_name   = platform_name   # String
         self._platform_config = platform_config # dict
         self._announces       = None            # list(Announces)
         self._capabilities    = Capabilities()  # XXX in the meantime we support all capabilities
-#DEPRECATED|        self._pit             = Pit(self)       # Pit
 
     def terminate(self):
         pass
@@ -98,14 +97,13 @@ class Gateway(Node):
     # Accessors
     #---------------------------------------------------------------------------
 
-    #@returns(Interface)
-    def get_interface(self):
+    #@returns(Router)
+    def get_router(self):
         """
         Returns:
-            The Interface instance using this Gateway. Most of time
-            this is a Router instance.
+            The Router using this Gateway.
         """
-        return self._interface
+        return self._router
 
     @returns(StringTypes)
     def get_platform_name(self):
@@ -139,17 +137,17 @@ class Gateway(Node):
     @returns(Announces)
     def get_announces(self):
         """
-        Build metadata by loading header files
+        Retrieve the Announces corresponding to the Table exposed
+        by this Gateway. They are typically used to populate the global
+        DBGraph of the Router.
         Returns:
-            The list of corresponding Announce instances
+            The corresponding Announces instance.
         """
         # We do not instanciate make_announces in __init__
         # to allow child classes to tweak their metadata.
         if not self._announces:
             try:
-                virtual_announces  = make_virtual_announces(self.get_platform_name())
-                platform_announces = self.make_announces()
-                self._announces = merge_announces(virtual_announces, platform_announces)
+                self._announces = self.make_announces()
             except:
                 Log.warning(traceback.format_exc())
                 Log.warning("Could not get announces from platform %s. It won't be active" % self.get_platform_name())
@@ -170,14 +168,6 @@ class Gateway(Node):
         """
         capabilities = self._capabilities.get(table_name, None)
         return capabilities if capabilities else Capabilities()
-
-#    @returns(Pit)
-#    def get_pit(self):
-#        """
-#        Returns:
-#            The PIT of this Gateway.
-#        """
-#        return self._pit
 
     #@returns(Table)
     def get_table(self, table_name):
@@ -297,7 +287,8 @@ class Gateway(Node):
 ##FIXME|            # XXX Note that such issues could be detected beforehand
 #
 #        Log.tmp("optimize_selection: query = %s filter = %s" % (query, filter))
-#        capabilities = self.get_capabilities(query.get_from())
+#        table_name = query.get_table_name()
+#        capabilities = self.get_capabilities(table_name)
 #
 #        if capabilities.selection:
 #            # Push filters into the From node
@@ -328,13 +319,15 @@ class Gateway(Node):
 #            The updated root Node of the sub-AST.
 #        """
 #        Log.tmp("optimize_projection: query = %s fields = %s" % (query, fields))
-#        capabilities = self.get_capabilities(query.get_from())
+#        table_name = query.get_table_name()
+#        capabilities = self.get_capabilities(table_name)
+#
 #        if capabilities.projection:
 #            # Push fields into the From node
 #            self.query.select().select(fields)
 #            return self
 #        else:
-#            provided_fields = self.get_table(query.get_from()).get_field_names()
+#            provided_fields = self.get_table(table_name).get_field_names()
 #
 #            # Test whether this From node can return every queried Fields.
 #            if fields - provided_fields:
@@ -394,7 +387,7 @@ class Gateway(Node):
         Returns:
             A list of dictionnaries corresponding to each fetched Records.
         """
-        return self.get_interface().execute_local_query(query)
+        return self.get_router().execute_local_query(query)
 
     def record(self, record, packet):
         """
@@ -511,7 +504,7 @@ class Gateway(Node):
         ret = False
         if packet.get_protocol() == Packet.PROTOCOL_QUERY:
             query = packet.get_query()
-            table_name = query.get_from()
+            table_name = query.get_table_name()
             if table_name == "object":
                 action = query.get_action()
                 if action != "get":
@@ -564,14 +557,15 @@ class Gateway(Node):
             self.get_gateway_type()
         )
 
-    @returns(list)
+    @returns(Announces)
     def make_announces(self):
         """
-        Build the list of Announces corresponding to this Gateway.
-        This method should be overloaded/overwritten if the Gateway
-        announces Tables not referenced in a dedicated .h file/docstring.
+        Returns:
+            The Announces instance corresponding to this Gateway.
+            This method should be overloaded/overwritten if the Gateway
+            announces Tables not referenced in a dedicated .h file/docstring.
         """
-        return Announces.from_dot_h(self.get_platform_name(), self.get_gateway_type())
+        return Announces.parse_static_routes(STATIC_ROUTES_DIR, self.get_platform_name(), self.get_gateway_type())
 
     def receive_impl(self, packet):
         """

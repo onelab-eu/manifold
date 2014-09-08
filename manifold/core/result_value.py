@@ -16,6 +16,7 @@ from types                      import StringTypes
 
 from manifold.core.code         import CORE, GATEWAY, SUCCESS, ERROR, WARNING
 from manifold.core.packet       import ErrorPacket
+from manifold.core.record       import Record, Records
 from manifold.util.log          import Log
 from manifold.util.type         import accepts, returns
 
@@ -36,7 +37,7 @@ class ResultValue(dict):
                 ERROR   : the Query has failed.
             code: An integer value.
             value: - A list of ErrorPacket in case of failure
-                   - A list of Records or dicts in case of success.
+                   - A Records instance in case of success.
             description: A list of ErrorPacket instances.
             traceback: A non empty String containing the traceback or None.
             ts: A String containing the date when this Query has been issued. By default, this
@@ -141,7 +142,7 @@ class ResultValue(dict):
         Make a ResultValue corresponding to an error.
         Args:
             description: A String instance.
-            code: An integer (see codes provided by ResultValue).
+            code: An integer (see manifold.core.code)
         Returns:
             The corresponding ResultValue instance.
         """
@@ -184,21 +185,47 @@ class ResultValue(dict):
 
     @returns(bool)
     def is_success(self):
-        return self['type'] == SUCCESS and self['code'] == SUCCESS
+        return self["type"] == SUCCESS and self["code"] == SUCCESS
 
-    @returns(list)
-    def ok_value(self, default):
-        return self.get('value', default)
+#DEPRECATED|    @returns(list)
+#DEPRECATED|    def ok_value(self, default = None):
+#DEPRECATED|        # MANDO: conflict dict.get and self.get
+#DEPRECATED|        return self.get("value", default)
 
+    @returns(Records)
     def get_all(self):
+        """
+        Retrieve the Records embedded in this ResultValue.
+        Raises:
+            RuntimeError: in case of failure.
+        Returns:
+            A Records instance.
+        """
         if not self.is_success() and not self.is_warning():
-            raise Exception, "Error executing query: %s" % self['description']
-        return self.ok_value()
+            raise RuntimeError("Error executing query: %s" % (self["description"]))
+        try:
+            records = self["value"]
+            if len(records) > 0 and not isinstance(records[0], Record):
+                raise TypeError("Please put Record instances in ResultValue")
+            assert isinstance(records, Records)
+            return records
+        except AttributeError, e:
+            raise RuntimeError(e)
 
+    @returns(Record)
     def get_one(self):
+        """
+        Retrieve the only Record embeded in this ResultValue.
+        Raises:
+            RuntimeError: if there is 0 or more that 1 Record in
+                this ResultValue.
+        Returns:
+            A list of Records (and not of dict).
+        """
         records = self.get_all()
-        if len(records) > 1:
-            raise Exception, "More than 1 record"
+        num_records = len(records)
+        if num_records != 1:
+            raise RuntimeError("Cannot call get_one(): this ResultValue embed %s Records" % num_records)
         return records.get_one()
 
     @returns(StringTypes)

@@ -15,6 +15,7 @@
 
 import os
 
+from manifold.core.announce                     import Announces
 from manifold.gateways.maxmind.geoip_database   import check_filename_dat, get_dat_basenames, install_dat, MAXMIND_DIR
 from manifold.gateways                          import Gateway
 from manifold.util.log                          import Log
@@ -34,15 +35,15 @@ class MaxMindGateway(Gateway):
 #        "hostname" : Hostname
     }
 
-    def __init__(self, interface, platform_name, platform_config):
+    def __init__(self, router, platform_name, platform_config):
         """
         Constructor
         Args:
-            interface: The Manifold Interface on which this Gateway is running.
+            router: The Router on which this Gateway is running.
             platform_name: A String storing name of the platform related to this Gateway or None.
             config: A dictionnary containing the configuration related to this Gateway.
         """
-        super(MaxMindGateway, self).__init__(interface, platform_name, platform_config)
+        super(MaxMindGateway, self).__init__(router, platform_name, platform_config)
         dat_basenames = get_dat_basenames()
 
         self.map_dat_geoips = dict()
@@ -88,7 +89,7 @@ class MaxMindGateway(Gateway):
             packet: A QUERY Packet instance.
         """
         query = packet.get_query()
-        table_name = query.get_from()
+        table_name = query.get_table_name()
 
         records = None
         if table_name in MaxMindGateway.METHOD_MAP.keys():
@@ -102,7 +103,7 @@ class MaxMindGateway(Gateway):
     # Metadata
     #---------------------------------------------------------------------------
 
-    @returns(list)
+    @returns(Announces)
     def make_announces(self):
         """
         Build announces by querying postgresql's information schema
@@ -111,7 +112,7 @@ class MaxMindGateway(Gateway):
         """
         # Ex:  https://code.google.com/p/pygeoip/wiki/Usage
         # Doc: https://code.google.com/p/pygeoip/downloads/list
-        announces = list()
+        announces = Announces()
         for instance in MaxMindGateway.METHOD_MAP.values():
             announces.append(instance(self).make_announce())
         return announces

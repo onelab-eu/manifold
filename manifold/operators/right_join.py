@@ -146,7 +146,7 @@ class RightJoin(Operator, LeftRightSlotMixin):
             packet: A Packet instance.
         """
         # Out of the Query part since it is used for a True Hack !
-        right_fields = self._get_right().get_destination().get_fields()
+        right_fields = self._get_right().get_destination().get_field_names()
 
         if packet.get_protocol() == Packet.PROTOCOL_QUERY:
             q = packet.get_query()
@@ -156,7 +156,7 @@ class RightJoin(Operator, LeftRightSlotMixin):
             left_key    = self._predicate.get_field_names()
             right_key    = self._predicate.get_value_names()
 
-            left_fields = self._get_left().get_destination().get_fields()
+            left_fields = self._get_left().get_destination().get_field_names()
             right_object = self._get_right().get_destination().get_object()
 
             right_packet        = packet.clone()
@@ -172,7 +172,7 @@ class RightJoin(Operator, LeftRightSlotMixin):
             right_packet.update_query(lambda q: q.set_action(ACTION_GET))
             
             right_packet.update_query(lambda q: q.set_object(right_object))
-            right_packet.update_query(lambda q: q.select(q.get_fields() & right_fields | right_key, clear = True))
+            right_packet.update_query(lambda q: q.select(q.get_field_names() & right_fields | right_key, clear = True))
             right_packet.update_query(lambda q: q.filter_by(q.get_filter().split_fields(right_fields, True), clear = True))
             # We need to transform right params into Filters
             #right_packet.update_query(lambda q: q.set(self.right_params, clear = True))
@@ -181,7 +181,7 @@ class RightJoin(Operator, LeftRightSlotMixin):
 
             left_packet = packet.clone()
             # We should rewrite the query...
-            left_packet.update_query(lambda q: q.select(q.get_fields() & left_fields | left_key, clear = True))
+            left_packet.update_query(lambda q: q.select(q.get_field_names() & left_fields | left_key, clear = True))
             left_packet.update_query(lambda q: q.filter_by(q.get_filter().split_fields(left_fields, True), clear = True))
             left_packet.update_query(lambda q: q.set(left_params, clear = True))
             self._left_packet = left_packet
@@ -200,10 +200,10 @@ class RightJoin(Operator, LeftRightSlotMixin):
             if not self._right_done:
 
                 # XXX We need primary key in left record (fk in right record)
-                if not record.has_fields(self._predicate.get_field_names()):
+                if not record.has_field_names(self._predicate.get_field_names()):
                     Log.warning("Missing RIGHTJOIN predicate %s in left record %r : discarding" % \
                             (self._predicate, record))
-                    #─self.send(record)
+                    #self.send(record)
 
                 else:
                     # Store the result in a hash for joining later
@@ -264,8 +264,8 @@ class RightJoin(Operator, LeftRightSlotMixin):
         #                                    child_filter == parent_producer (sic.)
         #
 
-        left_fields  = self._get_left().get_destination().get_fields()
-        right_fields = self._get_right().get_destination().get_fields()
+        left_fields  = self._get_left().get_destination().get_field_names()
+        right_fields = self._get_right().get_destination().get_field_names()
 
         # Classify predicates...
         top_filter, left_filter, right_filter = Filter(), Filter(), Filter()
@@ -305,10 +305,10 @@ class RightJoin(Operator, LeftRightSlotMixin):
         key_right = self._predicate.get_value_names()
 
         # Fields requested on the left side = fields requested belonging in left side
-        left_fields  = fields & self._get_left().get_destination().get_fields()
+        left_fields  = fields & self._get_left().get_destination().get_field_names()
         left_fields |= key_left
 
-        right_fields  = fields & self._get_right().get_destination().get_fields()
+        right_fields  = fields & self._get_right().get_destination().get_field_names()
         right_fields |= key_right
 
         self._update_left_producer(lambda p, d: p.optimize_projection(left_fields))

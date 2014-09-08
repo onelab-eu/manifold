@@ -87,16 +87,16 @@ class Node(object):
         """
         return self._pool_consumers.get_max_consumers()
 
-    def clear_consumers(self, cascade = True):
+    def clear_consumers(self): #MANDO|, cascade = True):
         """
         Unlink this Producer from its Consumers.
         Args:
-            cascade: A boolean set to true to unlink those
-                Consumers from self.
+#MANDO|            cascade: A boolean set to true to unlink those
+#MANDO|                Consumers from self.
         """
-        if cascade:
-            for consumer in self._pool_consumers:
-                consumer.del_producer(self, cascade = False)
+#MANDO|        if cascade:
+#MANDO|            for consumer in self._pool_consumers:
+#MANDO|                consumer.del_producer(self, cascade = False)
         self._pool_consumers.clear()
 
     def add_consumer(self, consumer, cascade = True):
@@ -187,7 +187,7 @@ class Node(object):
     def send_to(self, receiver, packet):
         if packet.get_protocol() in [Packet.PROTOCOL_QUERY]:
             # Optimization, we do not forward empty queries
-            fields = packet.get_destination().get_fields()
+            fields = packet.get_destination().get_field_names()
             if fields.is_empty():
                 self.forward_upstream(Record(last=True))
                 return

@@ -88,11 +88,20 @@ class PostgreSQLGateway(Gateway):
 
     SQL_TABLE_KEYS = """
     SELECT       tc.table_name                        AS table_name,
-                 array_accum(kcu.column_name::text)   AS column_names
+                 array_agg(kcu.column_name::text)   AS column_names
         FROM     information_schema.table_constraints AS tc   
             JOIN information_schema.key_column_usage  AS kcu ON tc.constraint_name = kcu.constraint_name
         WHERE    constraint_type = 'PRIMARY KEY' AND tc.table_name = %(table_name)s
         GROUP BY tc.table_name;
+    """
+
+    # in case of failure of SQL_TABLE_KEYS execute SQL_TABLE_KEYS_2
+    SQL_TABLE_KEYS_2 = """
+    SELECT      table_name AS table_name, array_agg(column_name::text) AS column_names 
+        FROM information_schema.key_column_usage 
+        WHERE table_name = %(table_name)s 
+        AND constraint_name LIKE '%%_pkey'
+        GROUP BY table_name;
     """
 
     # Full request:
@@ -453,7 +462,7 @@ class PostgreSQLGateway(Gateway):
 
         return table
 
-    @returns(list)
+    @returns(Announces)
     def make_announces(self):
         """
         Prepare Announces to this Gateway, deduced by default by inspecting the pgsql
@@ -466,10 +475,9 @@ class PostgreSQLGateway(Gateway):
         start_time = time.time()
         table_names = self.get_table_names()
         #print "SQL took", time.time() - start_time, "s", "[get_table_names]"
-
         announces_pgsql = self.make_announces_from_names(table_names)
         if not announces_pgsql:
-            Log.warning("Cannot find metadata for platform %s: %s" % (self.get_platform_name(), e))
+            Log.warning("Cannot find metadata for platform %s" % self.get_platform_name())
         else:
             Log.info("Tables imported from pgsql schema: %s" % [announce.get_table() for announce in announces_pgsql])
 
@@ -495,7 +503,7 @@ class PostgreSQLGateway(Gateway):
 #TODO|        """
 
         # Fetch metadata from .h files (if any)
-        announces_h = Announces.from_dot_h(self.get_platform_name(), self.get_gateway_type())
+        announces_h = super(PostgreSQLGateway, self).make_announces()
         Log.info("Tables imported from .h schema: %s" % [announce.get_table() for announce in announces_h])
 
         # Return the resulting announces
@@ -543,15 +551,15 @@ class PostgreSQLGateway(Gateway):
 #OBSOLETE|
 #OBSOLETE|        return None
 
-    def execute(self, query, params = None, cursor_factory = None):
+    def execute(self, sql, params = None, cursor_factory = None):
         """
-        Execute a SQL query on PostgreSQL 
+        Execute a SQL query on PostgreSQL.
         Args:
-            query: a String containing a SQL query 
-            params: a dictionnary or None if unused 
+            sql: a String containing a SQL query.
+            params: a dictionnary or None if unused.
             cursor_factory: see http://initd.org/psycopg/docs/extras.html
         Returns:
-            The corresponding cursor
+            The corresponding cursor.
         """
         # modified for psycopg2-2.0.7 
         # executemany is undefined for SELECT's
@@ -559,50 +567,49 @@ class PostgreSQLGateway(Gateway):
         # accepts either None, a single dict, a tuple of single dict - in which case it execute's
         # or a tuple of several dicts, in which case it executemany's
 
-        Log.debug(query)
-
         cursor = self.connect(cursor_factory)
-        try:
-            # psycopg2 requires %()s format for all parameters,
-            # regardless of type.
-            # this needs to be done carefully though as with pattern-based filters
-            # we might have percents embedded in the query
-            # so e.g. GetPersons({"email":"*fake*"}) was resulting in .. LIKE "%sake%"
-            if psycopg2:
-                query = re.sub(r"(%\([^)]*\)|%)[df]", r"\1s", query)
-            # rewrite wildcards set by Filter.py as "***" into "%"
-            query = query.replace("***", "%")
+#        try:
+        # psycopg2 requires %()s format for all parameters,
+        # regardless of type.
+        # this needs to be done carefully though as with pattern-based filters
+        # we might have percents embedded in the query
+        # so e.g. GetPersons({"email":"*fake*"}) was resulting in .. LIKE "%sake%"
+        if psycopg2:
+            sql = re.sub(r"(%\([^)]*\)|%)[df]", r"\1s", sql)
+        # rewrite wildcards set by Filter.py as "***" into "%"
+        sql = sql.replace("***", "%")
 
-            if not params:
-                cursor.execute(query)
-            elif isinstance(params, StringValue):
-                cursor.execute(query, params)
-            elif isinstance(params, dict):
-                cursor.execute(query, params)
-            elif isinstance(params, tuple) and len(params) == 1:
-                cursor.execute(query, params[0])
-            else:
-                param_seq = params
-                cursor.executemany(query, param_seq)
-            (self.rowcount, self.description, self.lastrowid) = \
-                            (cursor.rowcount, cursor.description, cursor.lastrowid)
-        except Exception, e:
-            try:
-                self.rollback()
-            except:
-                pass
-            uuid = uuid4() #commands.getoutput("uuidgen")
-            Log.debug("Database error %s:" % uuid)
-            Log.debug(e)
-            Log.debug("Query:")
-            Log.debug(query)
-            Log.debug("Params:")
-            Log.debug(pformat(params))
-            raise Exception(str(e).rstrip())
+        if not params:
+            cursor.execute(sql)
+        elif isinstance(params, StringValue):
+            cursor.execute(sql, params)
+        elif isinstance(params, dict):
+            cursor.execute(sql, params)
+        elif isinstance(params, tuple) and len(params) == 1:
+            cursor.execute(sql, params[0])
+        else:
+            param_seq = params
+            cursor.executemany(sql, param_seq)
+        (self.rowcount, self.description, self.lastrowid) = \
+                        (cursor.rowcount, cursor.description, cursor.lastrowid)
+#        except Exception, e:
+#            try:
+#                self.rollback()
+#            except:
+#                pass
+#            uuid = uuid4() #commands.getoutput("uuidgen")
+#            Log.error("Database error %s:" % uuid)
+#            Log.error(e)
+#            Log.error("Query:")
+#            Log.error(sql)
+#            Log.error("Params:")
+#            Log.error(pformat(params))
+#            raise Exception(str(e).rstrip())
 
         return cursor
 
     # see instead: psycopg2.extras.NamedTupleCursor
+    @returns(list)
     def selectall(self, query, params = None, hashref = True, key_field = None):
         """
         Return each row as a dictionary keyed on field name (like DBI
@@ -612,6 +619,14 @@ class PostgreSQLGateway(Gateway):
 
         If params is specified, the specified parameters will be bound
         to the query.
+
+        Args:
+            sql: a String containing a SQL query.
+            params:
+            hashref:
+            key_field:
+        Returns:
+            Returns a list of dict corresponding to fetched records.
         """
         start_time = time.time()
         cursor = self.execute(query, params)
@@ -892,13 +907,14 @@ class PostgreSQLGateway(Gateway):
         Returns:
             A String containing a postgresql command 
         """
-        if not query.get_from(): Log.error("PostgreSQLGateway::to_sql(): Invalid query: %s" % query) 
+        table_name = query.get_table_name()
+        if not table_name: Log.error("PostgreSQLGateway::to_sql(): Invalid query: %s" % query)
 
         select = query.get_select()
         where  = PostgreSQLGateway.to_sql_where(query.get_where())
         params = {
-            "fields"     : ", ".join(select) if select else "*",
-            "table_name" : query.get_from(),
+            "fields"     : "*" if select.is_star() else ", ".join(select),
+            "table_name" : table_name,
             "where"      : "WHERE %s" % where if where else ""
         }
 
@@ -924,14 +940,14 @@ class PostgreSQLGateway(Gateway):
         elif sql_type == "array":
             # TODO we need to infer the right type 
             return "string"
-        elif sql_type == "real":
+        elif sql_type in ["real","double precision"]:
             return "double"
         elif sql_type in ["inet", "cidr", "text", "interval"]:
             return sql_type
         elif re_timestamp.match(sql_type):
             return "timestamp"
         else:
-            print "to_manifold_type: %r is not supported" % sql_type
+            print "PostgreSQLGateway to_manifold_type: %r is not supported" % sql_type
 
     #---------------------------------------------------------------------------
     # Metadata 
@@ -1023,24 +1039,28 @@ class PostgreSQLGateway(Gateway):
         # PRIMARY KEYS: XXX simple key ?
         # We build a key dictionary associating each table with its primary key
         start_time = time.time()
+
         cursor.execute(PostgreSQLGateway.SQL_TABLE_KEYS, param_execute)
-        fks = cursor.fetchall()
+        pks = cursor.fetchall()
         #print "SQL took", time.time() - start_time, "s", "[get_pk]"
+        if len(pks) == 0:
+            #param_execute['constraint_name'] = '_pkey'
+            cursor.execute(PostgreSQLGateway.SQL_TABLE_KEYS_2, param_execute)
+            pks = cursor.fetchall()
 
         primary_keys = dict()
-        for fk in fks:
-            foreign_key = tuple(fk.column_names)
+        for pk in pks:
+            primary_key = tuple(pk.column_names)
             if table_name not in primary_keys.keys():
                 primary_keys[table_name] = set()
-            primary_keys[table_name].add(foreign_key)
+            primary_keys[table_name].add(primary_key)
         
         if table_name in primary_keys.keys():
-            for k in primary_keys[table_name]:
-                table.insert_key(k)
+            for key in primary_keys[table_name]:
+                table.insert_key(key)
    
         # PARTITIONS:
         # TODO
-    
         #mc = MetadataClass('class', table_name)
         #mc.fields = fields
         #mc.keys.append(primary_keys[table_name])
@@ -1052,7 +1072,7 @@ class PostgreSQLGateway(Gateway):
         Log.debug("Adding table: %s" % table)
         return table
 
-    @returns(list)
+    @returns(Announces)
     def make_announces_from_names(self, table_names):
         """
         Build metadata by querying postgresql's information schema
@@ -1064,13 +1084,12 @@ class PostgreSQLGateway(Gateway):
         Returns:
             The list of corresponding Announce instances
         """
-        announces_pgsql = list() 
+        announces_pgsql = Announces() 
         
         for table_name in table_names:
             if self.is_ignored_table(table_name): continue
             table = self.make_table(table_name)
             table = self.tweak_table(table)
-            #Log.tmp(table)
             announce = Announce(table)
             announces_pgsql.append(announce)
 

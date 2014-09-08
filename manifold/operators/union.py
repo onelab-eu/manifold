@@ -13,12 +13,12 @@ from types                          import StringTypes
 
 from manifold.core.destination      import Destination
 from manifold.core.exceptions       import ManifoldInternalException
-from manifold.core.fields           import Fields
+from manifold.core.field_names      import FieldNames
 from manifold.core.node             import Node
 from manifold.core.operator_slot    import ChildrenSlotMixin
 from manifold.core.packet           import Packet
 from manifold.core.query            import Query
-from manifold.core.record           import Record
+from manifold.core.record           import Record, Records
 from manifold.operators             import ChildStatus, ChildCallback
 from manifold.operators.left_join   import LeftJoin
 from manifold.operators.subquery    import SubQuery
@@ -54,8 +54,8 @@ class Union(Operator, ChildrenSlotMixin):
         ChildrenSlotMixin.__init__(self)
 
         # We store key fields in order (tuple)
-        self._key      = key
-        self._key_fields = self._key.get_field_names()
+        self._key = key
+        self._key_field_names = self._key.get_field_names()
         self._distinct = distinct
         self._records_by_key = dict()
 
@@ -132,8 +132,8 @@ class Union(Operator, ChildrenSlotMixin):
                 # children
                 # TODO: This might be deduced from the query plan ?
 
-                #if self._key.get_field_names() and record.has_fields(self._key.get_field_names()):
-                key_value = record.get_value(self._key_fields)
+                #if self._key.get_field_names() and record.has_field_names(self._key.get_field_names()):
+                key_value = record.get_value(self._key_field_names)
 
 
                 if key_value in self._records_by_key:
@@ -159,7 +159,7 @@ class Union(Operator, ChildrenSlotMixin):
 #DEPRECATED|                # Ignore duplicate records
 #DEPRECATED|                if self._distinct:
 #DEPRECATED|                    key = self._key.get_field_names()
-#DEPRECATED|                    if key and record.has_fields(key):
+#DEPRECATED|                    if key and record.has_field_names(key):
 #DEPRECATED|                        key_value = record.get_value(key)
 #DEPRECATED|                        if key_value in self.key_list:
 #DEPRECATED|                            do_send = False
@@ -192,21 +192,25 @@ class Union(Operator, ChildrenSlotMixin):
         self._update_children_producers(lambda p, d: p.optimize_selection(filter))
         return self
 
-    def optimize_projection(self, fields):
+    def optimize_projection(self, field_names):
+        """
+        Args:
+            field_names: A FieldNames instance.
+        """
         # UNION: apply projection to all children
         # in case of UNION with duplicate elimination, we need the key
         do_parent_projection = False
-        child_fields  = Fields()
-        child_fields |= fields
+        child_field_names  = FieldNames()
+        child_field_names |= field_names
         if self._distinct:
-            if set(self._key.get_field_names()) not in fields: # we are not keeping the key
+            if self._key.get_field_names() not in field_names: # we are not keeping the key
                 do_parent_projection = True
-                child_fields |= self._key.get_field_names()
+                child_field_names |= FieldNames(self._key.get_field_names())
 
-        self._update_children_producers(lambda p,d : p.optimize_projection(child_fields))
+        self._update_children_producers(lambda p,d : p.optimize_projection(child_field_names))
 
         if do_parent_projection:
-            return Projection(self, fields)
+            return Projection(self, field_names)
         return self
 
     #---------------------------------------------------------------------------
@@ -229,7 +233,7 @@ class Union(Operator, ChildrenSlotMixin):
         if isinstance(ast, LeftJoin):
             # Update the predicate
             predicate = ast.get_predicate()
-            predicate.update_key(lambda k: Fields.join(name, k))
+            predicate.update_key(lambda k: FieldNames.join(name, k))
 
             # Get following operator
             new_ast = ast._get_left()
@@ -238,7 +242,7 @@ class Union(Operator, ChildrenSlotMixin):
 
         elif isinstance(ast, Rename):
             # Update names
-            ast.update_aliases(lambda k, v: (Fields.join(name, k), Fields.join(name, v)))
+            ast.update_aliases(lambda k, v: (FieldNames.join(name, k), FieldNames.join(name, v)))
 
             # Get following operator
             new_ast = ast._get_child()

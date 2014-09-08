@@ -44,16 +44,16 @@ class PLEGateway(Gateway):
     # Constructor
     #---------------------------------------------------------------------------
 
-    def __init__(self, interface, platform_name, platform_config):
+    def __init__(self, router, platform_name, platform_config):
         """
         Constructor
 
         Args:
-            interface: The Manifold Interface on which this Gateway is running.
+            router: The Manifold Router on which this Gateway is running.
             platform_name: A String storing name of the platform related to this Gateway or None.
             platform_config: A dictionnary containing the configuration related to this Gateway.
         """
-        super(PLEGateway, self).__init__(interface, platform_name, platform_config)
+        super(PLEGateway, self).__init__(router, platform_name, platform_config)
 
         # The default xmlrpc.Proxy does not work, we need to use ReactorThread()...
         # XXX Share this code among manifold
@@ -170,13 +170,13 @@ class PLEGateway(Gateway):
             packet: A QUERY Packet instance.
         """
         query = packet.get_query()
-        table_name = query.get_from()
+        table_name = query.get_table_name()
 
         # Need to transform manifold fields into query fields, and then back in
         # callback_records
 
         ## Insert a RENAME Node above this FROM Node if necessary.
-        #instance = self.get_object(query.get_from())
+        #instance = self.get_object(query.get_table_name())
         #aliases  = instance.get_aliases()
         #if aliases:
         #    Log.warning("I don't think this properly recables everything")

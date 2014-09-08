@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from .              import ProcessGateway, Argument, FixedArgument, Parameter, Output, FLAG_IN_ANNOTATION, FLAG_OUT_ANNOTATION, FLAG_ADD_FIELD
-from ...util.log    import Log
-from ...core.fields import Fields
+from .                      import ProcessGateway, Argument, FixedArgument, Parameter, Output, FLAG_IN_ANNOTATION, FLAG_OUT_ANNOTATION, FLAG_ADD_FIELD
+from ...util.log            import Log
+from ...core.field_names    import FieldNames
 
 class DigParser(object):
 
@@ -59,7 +59,7 @@ class DigGateway(ProcessGateway):
     path = '/usr/bin/dig'
 
     def on_receive_query(self, query, annotations):
-        if query.get_fields() == Fields(['ip']):
+        if query.get_select() == FieldNames(['ip']):
             records = list()
             ip_list = query.get_filter().get_field_values('ip')
             for ip in ip_list:

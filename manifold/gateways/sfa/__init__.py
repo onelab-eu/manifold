@@ -49,17 +49,17 @@ class SFAGatewayCommon(Gateway):
     # Constructor
     #--------------------------------------------------------------------------
 
-    def __init__(self, interface, platform, platform_config):
+    def __init__(self, router, platform, platform_config):
         """
         Constructor
         Args:
-            interface: The Manifold Interface on which this Gateway is running.
+            router: The Manifold Router on which this Gateway is running.
             platform: A String storing name of the platform related to this Gateway or None.
             platform_config: A dictionnary containing the configuration related to this Gateway.
         """
         assert isinstance(platform_config, dict), \
             "Invalid platform_config = %s (%s)" % (platform_config, type(platform_config))
-        super(SFAGatewayCommon, self).__init__(interface, platform, platform_config)
+        super(SFAGatewayCommon, self).__init__(router, platform, platform_config)
         self.sfa_proxy_pool = SFAProxyPool()
         platform_config = self.get_config()
 
@@ -158,7 +158,7 @@ class SFAGatewayCommon(Gateway):
             .filter_by(PLATFORM_KEY, eq, platform_name) \
             .select('auth_type', 'config')
         try:
-            accounts = self._interface.execute_local_query(query)
+            accounts = self._router.execute_local_query(query)
         except Exception, e:
             print "EEE", e
             exception_class = NoAdminAccountException if user_email == ADMIN_USER_EMAIL else NoAccountException
@@ -196,7 +196,7 @@ class SFAGatewayCommon(Gateway):
             .filter_by(PLATFORM_KEY, eq, platform_name)
 
         # Update the Storage consequently
-        self._interface.execute_local_query(query)
+        self._router.execute_local_query(query)
 
     #--------------------------------------------------------------------------
     # SFA specifics
@@ -339,7 +339,7 @@ class SFAGatewayCommon(Gateway):
             return
 
 # DEPRECATED |        # Insert a RENAME Node above this FROM Node if necessary.
-# DEPRECATED |        instance = self.get_object(query.get_from())
+# DEPRECATED |        instance = self.get_object(query.get_table_name())
 # DEPRECATED |        aliases  = instance.get_aliases()
 # DEPRECATED |        if aliases:
 # DEPRECATED |            Log.warning("I don't think this properly recables everything")
@@ -384,7 +384,7 @@ class SFAGatewayCommon(Gateway):
         """
         query = packet.get_query()
 
-        # XXX This would be done on top of the first encountered interface. -- # jordan
+        # XXX This would be done on top of the first encountered router. -- # jordan
         # Check whether action is set to a valid value.
         VALID_ACTIONS = ["get", "create", "update", "delete", "execute"]
         action = query.get_action()
@@ -394,7 +394,7 @@ class SFAGatewayCommon(Gateway):
 
         # Dynamically import the appropriate package.
         # http://stackoverflow.com/questions/211100/pythons-import-doesnt-work-as-expected
-        table_name  = query.get_from()
+        table_name  = query.get_table_name()
         object_name = table_name # XXX let's use object and not table_name to be consistent
 
         # XXX why do we need import when we have METHOD_MAP in AM and RM ? --
@@ -468,7 +468,7 @@ class SFAGatewayCommon(Gateway):
             auth_type      = 'managed'
             config        = '{"user_hrn": %(admin_hrn)s}'
             query_add_account = CMD_ADD_ACCOUNT % locals()
-            ret = self._interface.execute_local_query(query_add_account)
+            ret = self._router.execute_local_query(query_add_account)
             defer.returnValue(True)
         except: pass
         defer.returnValue(False)
@@ -478,7 +478,7 @@ class SFAGatewayCommon(Gateway):
 
         # We need to call manage on the platform used to issue queries
         platform_name = self.get_first_rm_name()
-        gateway = self._interface.get_gateway(platform_name)
+        gateway = self._router.get_gateway(platform_name)
         ret = yield gateway.manage(user['email'])
         defer.returnValue(ret)
 
@@ -491,7 +491,7 @@ class SFAGatewayCommon(Gateway):
 
         # We need to call manage on the platform used to issue queries
         platform_name = self.get_first_rm_name()
-        gateway = self._interface.get_gateway(platform_name)
+        gateway = self._router.get_gateway(platform_name)
         ret = yield gateway.manage(ADMIN_USER_EMAIL)
         defer.returnValue(ret)
 

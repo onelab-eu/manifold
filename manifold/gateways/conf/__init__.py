@@ -14,10 +14,11 @@
 
 import os
 
-from manifold.core.announce                 import announces_from_docstring
+from manifold.core.announce                 import Announces, announces_from_docstring
+from manifold.core.local                    import LOCAL_NAMESPACE
 from manifold.gateways                      import Gateway
 from manifold.gateways.conf.pattern_parser  import PatternParser
-from manifold.core.local                    import LOCAL_NAMESPACE
+from manifold.util.type                     import accepts, returns
 
 BASEDIR = "/tmp/test"
 
@@ -45,19 +46,33 @@ class ConfGateway(Gateway):
         query = packet.get_query()
         # XXX ensure query parameters are non empty for create
         parser = PatternParser(query, BASEDIR)
-        rows = parser.parse(self.MAP_PATTERN[query.get_from()])
+        table_name = query.get_table_name()
+        rows = parser.parse(self.MAP_PATTERN[table_name])
         self.records(rows, packet)
 
-    @announces_from_docstring(LOCAL_NAMESPACE)
+    
+    @returns(Announces)
     def make_announces(self):
         """
-        class account {
-            user     user;
-            platform platform;
-
-            CAPABILITY(fullquery);
-            KEY(user,platform);
-        };
+        Returns:
+            The Announces related to this Gateway.
         """
-        # XXX infinite number of fields can be stored
-        # XXX local table / all local fields, no normalization
+        platform_name = self.get_platform_name()
+
+        @returns(Announces)
+        @announces_from_docstring(platform_name)
+        def make_announces_impl(self):
+            """
+            class account {
+                user     user;
+                platform platform;
+
+                CAPABILITY(fullquery);
+                KEY(user,platform);
+            };
+            """
+            # XXX infinite number of fields can be stored
+            # XXX local table / all local fields, no normalization
+
+        announces = make_announces_impl()
+        return announces

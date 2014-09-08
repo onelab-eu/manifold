@@ -24,6 +24,7 @@ from manifold.core.query            import Query
 from manifold.core.result_value     import ResultValue
 from manifold.core.router           import Router
 from manifold.core.sync_receiver    import SyncReceiver
+from manifold.util.constants        import SOCKET_PATH
 from manifold.util.log              import Log
 from manifold.util.type             import accepts, returns
 
@@ -36,9 +37,14 @@ class ManifoldLocalClient(ManifoldClient, asynchat.async_chat):
     STATE_LENGTH = State()
     STATE_PACKET = State()
 
-    def __init__(self, path = '/tmp/manifold'):
+    def __init__(self, username, socket_path = SOCKET_PATH):
         """
         Constructor.
+        Args:
+            username: A String containing the user's login (usually its
+                email address).
+            socket_path: The path to the socket file corresponding to a
+                running ManifoldRouter.
         """
         super(ManifoldLocalClient, self).__init__()
         asynchat.async_chat.__init__(self)
@@ -46,7 +52,7 @@ class ManifoldLocalClient(ManifoldClient, asynchat.async_chat):
         # XXX We need to enforce authentication separately
         self.user = None
 
-        self._path = path
+        self._socket_path = socket_path
         self._receiver = None
 
         self.data = ""
@@ -60,11 +66,11 @@ class ManifoldLocalClient(ManifoldClient, asynchat.async_chat):
         self.set_terminator (8)
 
         try:
-            self.connect(self._path)
+            self.connect(self._socket_path)
         except socket.error, e:
             error_code = e[0]
             if error_code == errno.ENOENT:
-                Log.error("Invalid socket: [%s], did you run manifold-router?" % self._path)
+                Log.error("Invalid socket: [%s], did you run manifold-router?" % self._socket_path)
             raise e
 
         # Start asyncore thread

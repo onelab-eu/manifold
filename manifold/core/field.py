@@ -196,10 +196,10 @@ class Field(object):
         ret = copy.copy(self)
         if not ret.get_description():
             ret.description = field2.get_description()
-        ret._is_const  &= field2.is_const()
+        ret._is_const &= field2.is_const()
 
         return ret
-        
+
 @returns(set)
 def merge_fields(fields1, fields2):
     """
