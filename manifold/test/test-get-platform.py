@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 #! -*- coding: utf-8 -*-
 
-from manifold.auth        import *
-from manifold.core.router import Router
-from manifold.core.query  import Query
-from config               import auth
-import sys, pprint
+import xmlrpclib
+from config import auth
+
+#srv = xmlrpclib.Server("http://dev.myslice.info:7080/", allow_none = True)
+srv = xmlrpclib.Server("https://localhost:7080/", allow_none = True)
 
 def print_err(err):
     print '-'*80
@@ -14,18 +14,23 @@ def print_err(err):
         print "\t", line
     print ''
 
-query = Query.get('local:platform').select(['platform', 'platform_description'])
-
-ret = Router().forward(query, user=Auth(auth).check())
-
+q = {
+    'object':   'local:platform',
+    'fields':   ['platform', 'platform_description']
+}
+ret = srv.forward(q, {'authentication': auth})
+# DEPRECATED | ret = srv.forward(auth, q)
 if ret['code'] != 0:
     if isinstance(ret['description'], list):
+        print "there is an error"
         # We have a list of errors
         for err in ret['description']:
             print_err(err)
+    else:
+        print ret
 
 ret = ret['value']
 
 print "===== RESULTS ====="
 for r in ret:
-    pprint.pprint(r)
+    print r
