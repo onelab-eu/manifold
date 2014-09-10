@@ -603,7 +603,85 @@ class NITOSParser(SFAWrapParser):
         return resource
 
 class WiLabtParser(SFAWrapParser):
-    
+
+    # XXX Hack: using a different parsing for Manifest
+    # XXX As long as WiLab doesn't support Leases in RSpecs
+    # XXX We will generate leases based on the resources in the Manifest
+    @classmethod
+    def parse_manifest(cls, rspec, rspec_version = 'GENI 3', slice_urn = None, start_time = None):
+        rspec = RSpec(rspec, version=rspec_version)
+
+        _resources   = cls._get_resources(rspec)
+        _nodes       = cls._get_nodes(rspec)
+        # XXX Not supported yet
+        #_channels    = cls._get_channels(rspec)
+        #_links       = cls._get_links(rspec)
+        _leases      = cls._get_leases(rspec)
+
+        # XXX Until WiLab supports Leases
+        end_time     = cls._get_expiration(rspec)
+        if start_time is None:
+            start_time = 1388530800
+
+
+        resources = list()
+        resources.extend(cls._process_resources(_resources))
+        resources.extend(cls._process_nodes(_nodes))
+        #resources.extend(cls._process_channels(_channels))
+        #resources.extend(cls._process_links(_links))
+
+        Log.warning("XXX Until WiLab supports Leases")
+        # XXX Generate Leases based on the Resources instead of Leases
+        leases = cls._process_leases(resources, slice_urn, start_time, end_time)
+        return {'resource': resources, 'lease': leases }
+
+    # Returns a timestamp
+    @classmethod
+    def _get_expiration(cls, rspec):
+        # get the expires tag in the header of the RSpec
+        # convert it to timestamp
+
+        # XXX Until WiLab supports Leases
+        # this will be used as lease['end_time']
+        try:
+            rspec_string = rspec.toxml()
+            import xml.etree.ElementTree as ET
+            rspec = ET.fromstring(rspec_string)
+            expiration = rspec.get("expires")
+            import time
+            from datetime import datetime
+            ret = int(time.mktime(datetime.strptime(expiration, "%Y-%m-%dT%H:%M:%SZ").timetuple()))
+            return ret
+        # XXX To be removed in Router-v2
+        except Exception, e:
+            import traceback
+            Log.warning("Exception in _get_expiration: %s" % e)
+            traceback.print_exc()
+            return None
+
+    @classmethod
+    def _process_leases(cls, leases, slice_urn, start_time, end_time):
+        ret = list()
+        try:
+            for lease in leases:
+                lease['slice_urn'] = slice_urn
+                lease['start_time'] = start_time
+                lease['end_time'] = end_time
+                # duration in seconds from now till end_time
+                duration = end_time - start_time
+                # duration in minutes
+                duration = duration / 60
+                lease['duration'] = int(duration)
+                new_lease = cls._process_lease(lease)
+                if not new_lease:
+                    continue
+                ret.append(new_lease)
+        # XXX To be removed in Router-v2
+        except Exception, e:
+            import traceback
+            Log.warning("Exception in _process_leases: %s" % e)
+            traceback.print_exc()
+        return ret
 
     @classmethod
     def get_resource_facility_name(cls, urn):
@@ -659,15 +737,34 @@ class WiLabtParser(SFAWrapParser):
 
     @classmethod
     def _process_lease(cls, lease):
+        # Keep only necessary information in leases
+        new_lease = dict()
         authority = 'urn:publicid:IDN+wilab2.ilabt.iminds.be+authority+cm'
         if (not 'component_manager_id' in lease) or (lease['component_manager_id'] != authority):
             Log.warning("Authority is not WiLab - Ignore lease = ",lease)
             return None
-        return super(WiLabtParser, cls)._process_lease(lease) 
+        new_lease['resource'] = lease.pop('component_id')
+        new_lease['lease_id'] = None
+        new_lease['slice']    = lease.pop('slice_urn')
+        new_lease['start_time'] = int(lease['start_time'])
+        new_lease['duration'] = int(lease['duration'])
+        if 'end_time' in lease:
+            new_lease['end_time'] = int(lease['end_time'])
+        if not 'end_time' in lease and set(['start_time', 'duration']) <= set(lease.keys()):
+            new_lease['end_time'] = lease['start_time'] + lease['duration'] * cls.get_grain()
+        elif not 'duration' in lease and  set(lease.keys()) <= set(['start_time', 'end_time']):
+            new_lease['duration'] = (lease['end_time'] - lease['start_time']) / cls.get_grain()
+
+        # XXX GRANULARITY Hardcoded for the moment
+        if 'granularity' not in lease:
+            new_lease['granularity'] = cls.get_grain()
+        else:
+            new_lease['granularity'] = lease['granularity']
+
+        return new_lease
 
     @classmethod
     def on_build_resource_hook(cls, resource):
-        resource['client_id'] = "PC"
         resource['sliver_type'] = "raw-pc"
         return resource
 
@@ -683,32 +780,40 @@ class WiLabtParser(SFAWrapParser):
             string : the string version of the created RSpec.
         """
         import time
-        end_time = time.time()
         start_time = None
+        end_time = None
 
         # Default duration for WiLab is 2 hours
-        duration = 120
+        duration_default = 120
         for lease in leases:
             if 'end_time' in lease:
-                if lease['end_time'] > end_time:
-                    end_time = lease['end_time']
-                    start_time = lease['start_time']
-        if start_time is not None:
-            # duration in seconds from now till end_time
-            duration = end_time - time.time()
-            # duration in minutes
-            duration = duration / 60
-        #Log.tmp("end_time = ",end_time)
-        #Log.tmp("duration = ",duration)
+                end_time = lease['end_time']
+                start_time = lease['start_time']
+                break
+        if end_time is None:
+            raise Exception, "end_time is mandatory in leases"
+        if start_time is None:
+            # start_time = Now
+            start_time = time.time()
+        # duration in seconds from now till end_time
+        duration = end_time - start_time
+        # duration in minutes
+        duration = duration / 60
+        duration = int(duration)
+        if duration < duration_default:
+            duration = duration_default
+        Log.tmp("start_time = ",start_time)
+        Log.tmp("end_time = ",end_time)
+        Log.tmp("duration = ",duration)
         # RSpec will have expires date = now + duration
-        rspec = RSpec(version=rspec_version, ttl=duration)
+        rspec = RSpec(version=rspec_version, ttl=duration, expires=end_time)
 
         nodes = []
         channels = []
         links = []
 
         # XXX Here it is only about mappings and hooks between ontologies
-
+        i = 0
         for urn in resources:
             # XXX TO BE CORRECTED, this handles None values
             if not urn:
@@ -727,6 +832,7 @@ class WiLabtParser(SFAWrapParser):
             #print "resource_type", resource_type
             if resource_type == 'node':
                 #print "NODE", resource, cls
+                resource['client_id'] = "PC" + str(i)
                 resource = cls.on_build_resource_hook(resource)
                 nodes.append(resource)
             elif resource_type == 'link':
@@ -736,6 +842,7 @@ class WiLabtParser(SFAWrapParser):
             else:
                 raise Exception, "Not supported type of resource" 
 
+            i = i + 1
         #for node in nodes:
         #    print "NODE:", node
 
@@ -751,7 +858,6 @@ class WiLabtParser(SFAWrapParser):
         #    # slice_id = leases[0]['slice_id']
         #    # TypeError: list indices must be integers, not str
         #    rspec.version.add_leases(sfa_leases, []) # XXX Empty channels for now
-   
         return rspec.toxml()
 
 

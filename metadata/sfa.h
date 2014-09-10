@@ -167,7 +167,7 @@ class user {
 
 class authority {
     const string authority_hrn;
-#    const string name;                 /**< MyPLC field authority name >**/
+    const string name;                 /**< MyPLC field authority name >**/
 #    const string abbreviated_name;     /**< MyPLC field authority abv name >**/
     const authority parent_authority;
     user       pi_users[];
