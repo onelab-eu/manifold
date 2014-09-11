@@ -62,7 +62,7 @@ class OperatorGraph(object):
     #---------------------------------------------------------------------------
 
     @returns(Node)
-    def build_query_plan(self, query, annotation, dbgraph):
+    def build_query_plan(self, query, annotation):
         """
         Build the Query Plan according to a Query and its optionnal Annotation.
         Args:
@@ -82,14 +82,7 @@ class OperatorGraph(object):
 
         # Retrieve the DBGraph to compute a QueryPlan in respect of
         # namespace explicitly set in the Query and user's grants.
-        router    = self.get_router()
         user      = annotation.get("user", None)
-        namespace = query.get_namespace()
-        query.clear_namespace()
-
-        allowed_platforms = set()
-        if namespace:
-            allowed_platforms.add(namespace)
 
         # Build the QueryPlan according to this DBGraph and to the user's Query.
         # and return the corresponding Node (if any)
@@ -97,4 +90,4 @@ class OperatorGraph(object):
 
         # allowed_platforms can be either an empty_list, meaning all, or a list
         # of strings
-        return query_plan.build(query, router, dbgraph, allowed_platforms, user)
+        return query_plan.build(query, self.get_router(), set(), user)

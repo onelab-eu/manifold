@@ -114,22 +114,30 @@ class LocalGateway(Gateway):
         new_query = query.clone()
 
         action = query.get_action()
+        namespace = query.get_namespace()
         table_name = query.get_table_name()
 
-        if table_name == "object":
-            if not action == "get":
-                 raise RuntimeError("Invalid action (%s) on '%s::%s' table" % (action, self.get_platform_name(), table_name))
-            records = Records([table.to_dict() for table in self._router.get_dbgraph().get_announce_tables()])
-        elif table_name == "gateway":
-            # Note that local:column won't be queried since it has no RETRIEVE capability.
-            if not action == "get":
-                 raise RuntimeError("Invalid action (%s) on '%s::%s' table" % (action, self.get_platform_name(), table_name))
-            records = Records([{"type" : gateway_type} for gateway_type in sorted(Gateway.list().keys())])
-        elif self._storage:
-            records = None
-            self._storage.get_gateway().receive_impl(packet)
+        if namespace == LOCAL_NAMESPACE:
+            if table_name == 'object':
+                announces = make_local_announces(LOCAL_NAMESPACE)
+                records = Records([x.to_dict() for x in announces])
+            else:
+                raise RuntimeError("Invalid object '%s::%s'" % (namespace, object_name))
         else:
-            raise RuntimeError("Invalid table '%s::%s'" % (self.get_platform_name(), table_name))
+            if table_name == "object":
+                if not action == "get":
+                     raise RuntimeError("Invalid action (%s) on '%s::%s' table" % (action, self.get_platform_name(), table_name))
+                records = Records(self._router.get_fib().get_announces()) # only default namespace for now
+            elif table_name == "gateway":
+                # Note that local:column won't be queried since it has no RETRIEVE capability.
+                if not action == "get":
+                     raise RuntimeError("Invalid action (%s) on '%s::%s' table" % (action, self.get_platform_name(), table_name))
+                records = Records([{"type" : gateway_type} for gateway_type in sorted(Gateway.list().keys())])
+            elif self._storage:
+                records = None
+                self._storage.get_gateway().receive_impl(packet)
+            else:
+                raise RuntimeError("Invalid object '%s::%s'" % (namespace, object_name))
 
         if records:
             self.records(records, packet)
@@ -161,31 +169,31 @@ class LocalGateway(Gateway):
 
         return local_announces
 
-    @returns(DBGraph)
-    def make_dbgraph(self):
-        """
-        Make the DBGraph.
-        Returns:
-            The DBGraph related to the Manifold Storage.
-        """
-        # We do not need normalization here, can directly query the Gateway
-
-        # 1) Fetch the Storage's announces and get the corresponding Tables.
-        local_announces = self.get_announces()
-        local_tables = frozenset([announce.get_table() for announce in local_announces])
-
-        # 2) Build the corresponding map of Capabilities
-        map_method_capabilities = dict()
-        for announce in local_announces:
-            table = announce.get_table()
-            platform_names = table.get_platforms()
-            assert len(platform_names) == 1, "An announce should be always related to a single origin"
-            table_name = table.get_name()
-            platform_name = iter(platform_names).next()
-            method = Method(platform_name, table_name)
-            capabilities = table.get_capabilities()
-            map_method_capabilities[method] = capabilities
-
-        # 3) Build the corresponding DBGraph
-        return DBGraph(local_tables, map_method_capabilities)
+# DEPRECATED BY FIB    @returns(DBGraph)
+# DEPRECATED BY FIB    def make_dbgraph(self):
+# DEPRECATED BY FIB        """
+# DEPRECATED BY FIB        Make the DBGraph.
+# DEPRECATED BY FIB        Returns:
+# DEPRECATED BY FIB            The DBGraph related to the Manifold Storage.
+# DEPRECATED BY FIB        """
+# DEPRECATED BY FIB        # We do not need normalization here, can directly query the Gateway
+# DEPRECATED BY FIB
+# DEPRECATED BY FIB        # 1) Fetch the Storage's announces and get the corresponding Tables.
+# DEPRECATED BY FIB        local_announces = self.get_announces()
+# DEPRECATED BY FIB        local_tables = frozenset([announce.get_table() for announce in local_announces])
+# DEPRECATED BY FIB
+# DEPRECATED BY FIB        # 2) Build the corresponding map of Capabilities
+# DEPRECATED BY FIB        map_method_capabilities = dict()
+# DEPRECATED BY FIB        for announce in local_announces:
+# DEPRECATED BY FIB            table = announce.get_table()
+# DEPRECATED BY FIB            platform_names = table.get_platforms()
+# DEPRECATED BY FIB            assert len(platform_names) == 1, "An announce should be always related to a single origin"
+# DEPRECATED BY FIB            table_name = table.get_name()
+# DEPRECATED BY FIB            platform_name = iter(platform_names).next()
+# DEPRECATED BY FIB            method = Method(platform_name, table_name)
+# DEPRECATED BY FIB            capabilities = table.get_capabilities()
+# DEPRECATED BY FIB            map_method_capabilities[method] = capabilities
+# DEPRECATED BY FIB
+# DEPRECATED BY FIB        # 3) Build the corresponding DBGraph
+# DEPRECATED BY FIB        return DBGraph(local_tables, map_method_capabilities)
 

@@ -327,6 +327,9 @@ class Fd(object):
             self.map_field_methods[field] |= methods
         return self
 
+    def copy(self):
+        return copy.deepcopy(self)
+
 #------------------------------------------------------------------------------
 
 class Fds(set):
@@ -421,6 +424,9 @@ class Fds(set):
             The '%r' representation of this Fds instance.
         """
         return "\n".join(["%r" % fd for fd in self])
+
+    def copy(self):
+        return copy.deepcopy(self)
 
 #====================================================================
 # Database normalization

@@ -2,7 +2,7 @@
 
 import threading, subprocess, uuid, os
 
-from ...core.announce           import Announces, parse_file 
+from ...core.announce           import Announces, parse_string
 from manifold.core.field        import Field
 from manifold.gateways          import Gateway
 from manifold.core.key          import Key
@@ -125,7 +125,7 @@ class ProcessGateway(Gateway):
         for args_params in args_params_list:
             args = (self.get_fullpath(),) + args_params[0]
 
-            Log.tmp("[PROCESS GATEWAY] execute", args, args_params[1])
+            Log.tmp("[PROCESS GATEWAY] execute args=%r, args_params[1]=%r" % (args, args_params[1],))
             self.execute_process(args, args_params[1], packet, batch_id)
 
     #---------------------------------------------------------------------------
@@ -354,7 +354,7 @@ class ProcessGateway(Gateway):
         """
         platform_name = self.get_platform_name()
         try:
-            announces = parse_file(self.output._announces_str, platform_name)
+            announces = parse_string(self.output._announces_str, platform_name)
         except AttributeError, e:
             # self.output not yet initialized
             raise AttributeError("In platform '%s': %s" % (platform_name, e))

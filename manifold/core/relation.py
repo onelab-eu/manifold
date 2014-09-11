@@ -10,8 +10,11 @@
 #   Jordan Augé       <jordan.auge@lip6.fr>
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 
+import uuid
+
 from types                      import StringTypes
 from manifold.util.enum         import Enum
+from manifold.util.log          import Log
 from manifold.util.predicate    import Predicate
 from manifold.util.type         import returns, accepts
 
@@ -20,15 +23,31 @@ class Relation(object):
     types = Enum(
 #UNUSED|        'COLLECTION',
         # Link 1..1 ------------------------------------------------------
-        'SPECIALIZATION',      # p1::t is a SPECIALIZATION of {p1, p2}::t
+        'SIBLING',
         'PARENT',              # Inheritance: "vehicle" is a PARENT of "car"
         'CHILD',               # Inheritance: "car" is a CHILD of "vehicle"
+        'LINK_NN',
+        'LINK_N1',
+
+
+
         'LINK',                # Link 1..1 leading to a LeftJoin. Ex: "city" LJ "country" LJ "continent" (continent properties are also city properties)
+        'SPECIALIZATION',      # p1::t is a SPECIALIZATION of {p1, p2}::t
         'LINK_11',             # Link 1..1 leading to a SubQuery. Ex: "traceroute.source" (source properties does not characterize a traceroute)
         # Link 1..N ------------------------------------------------------
         'LINK_1N',             # Link 1..N leading to a SubQuery, where parent table embeds IDs of children table.
         'LINK_1N_BACKWARDS',   # Link 1..N where children table embeds ID of parent table.
     )
+
+    reverse_types = {
+        types.SIBLING   : types.SIBLING,
+        types.CHILD     : types.PARENT,
+        types.PARENT    : types.CHILD,
+        types.LINK_NN   : types.LINK_NN,
+        types.LINK_1N   : types.LINK_N1,
+        types.LINK_N1   : types.LINK_1N,
+        types.LINK_11   : types.LINK_11,
+    }
 
     def __init__(self, type, predicate, name = None, local = False):
         """
@@ -39,17 +58,27 @@ class Relation(object):
             predicate: A Predicate instance
         """
         assert isinstance(predicate, Predicate), "Invalid predicate = %s (%s)" % (predicate, type(predicate))
+
+        # A relation should have a unique name to avoid loop in the exploration
+        # phase.
         if name:
+            # TODO enforce a relation has a unique name
             assert isinstance(name, StringTypes), "Invalid name = %s (%s)" % (name, type(name))
+        else:
+            # Uniqueness enforced
+            name = str(uuid.uuid4())
         self.type       = type
         self.predicate  = predicate
         self.name       = name
         self._local     = local
-#        if local:
-#            print "RELATION", self, "IS LOCAL"
 
     def copy(self):
         return Relation(self.type, self.predicate.copy(), self.name, self._local)
+
+    def get_reverse(self):
+        key, op, value = self.predicate.get_tuple()
+        Log.warning("How to name the reverse relation ?")
+        return Relation(self.reverse_types[self.type], Predicate(value, op, key), local = self._local)
 
     def get_type(self):
         """

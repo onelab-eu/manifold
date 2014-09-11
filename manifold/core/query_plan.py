@@ -96,7 +96,7 @@ class QueryPlan(object):
         return repr(self)
 
     @returns(Node)
-    def build(self, query, router, db_graph, allowed_platforms, user = None):
+    def build(self, query, router, allowed_platforms, user = None):
         """
         Build the QueryPlan involving several Gateways according to a 3nf
         graph and a user Query.
@@ -104,7 +104,6 @@ class QueryPlan(object):
             RuntimeError if the QueryPlan cannot be built.
         Args:
             query: The Query issued by the user.
-            db_graph: The 3nf graph (DBGraph instance).
             allowed_platforms: A set of platform names (list of String).
                 Which platforms the router is allowed to query.
                 Could be used to restrict the Query to a limited set of platforms
@@ -116,12 +115,15 @@ class QueryPlan(object):
         """
         assert isinstance(allowed_platforms, set)
 
+        object_name = query.get_object_name()
+        namespace   = query.get_namespace()
+
         allowed_capabilities = router.get_capabilities()
-        root_table = db_graph.find_node(query.get_from())
+        root_table = router.get_fib().get_object(object_name, namespace) 
         if not root_table:
-            table_names = list(db_graph.get_table_names())
+            table_names = router.get_fib().get_object_names(namespace) # db_graph.get_table_names())
             table_names.sort()
-            raise RuntimeError("Cannot find '%s' Table in db_graph. Known Tables are: {%s}" % (
+            raise RuntimeError("Cannot find '%s' object in FIB. Known objects are: {%s}" % (
                 query.get_from(),
                 ", ".join(table_names)
             ))
@@ -171,7 +173,7 @@ class QueryPlan(object):
 
             #Log.tmp("missing_fields = %s task = %s" % (missing_fields, task))
             foreign_key_fields = task.explore(
-                stack, missing_fields, db_graph, allowed_platforms,
+                stack, missing_fields, router.get_fib(), namespace, allowed_platforms,
                 allowed_capabilities, user, seen[pathstr], query_plan = self
             )
 

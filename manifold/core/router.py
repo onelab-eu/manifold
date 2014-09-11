@@ -12,15 +12,20 @@
 import json, traceback
 from types                          import GeneratorType, StringTypes
 
-from manifold.core.announce         import Announces
+from manifold.core.annotation       import Annotation
+from manifold.core.announce         import Announces, Announce
 from manifold.core.capabilities     import Capabilities
 from manifold.core.code             import BADARGS, ERROR
-from manifold.core.dbnorm           import to_3nf
-from manifold.core.dbgraph          import DBGraph
+# DEPRECATED BY FIBfrom manifold.core.dbnorm           import to_3nf   # Replaced by FIB
+# DEPRECATED BY FIBfrom manifold.core.dbgraph          import DBGraph  # Replaced by FIB
+from manifold.core.fib              import FIB
 from manifold.core.helpers          import execute_query as execute_query_helper
-from manifold.core.interface        import Interface
+from manifold.core.interface        import Interface # XXX Replace this by a gateway
 from manifold.core.operator_graph   import OperatorGraph
 from manifold.core.packet           import ErrorPacket, Packet, QueryPacket
+from manifold.core.query            import Query
+from manifold.core.record           import Record
+from manifold.core.table            import Table
 from manifold.gateways              import Gateway
 from manifold.policy                import Policy
 from manifold.util.constants        import DEFAULT_PEER_URL, DEFAULT_PEER_PORT
@@ -78,8 +83,18 @@ class Router(object):
         # DBGraphs
         self._dbgraph = None
 
+        # FIB
+        self._fib = FIB()
+
+        # We request announces from the local gateway (cf # manifold.core.interface)
+        # XXX This should be similar for all gateways
         self._local_gateway = LocalGateway(router = self)
-        self._local_dbgraph = self.get_local_gateway().make_dbgraph()
+        query = Query.get('local:object')
+        packet = QueryPacket(query, Annotation(), receiver = self)
+        self._local_gateway.receive(packet)
+
+# DEPRECATED BY FIB        self._local_gateway = LocalGateway(router = self)
+# DEPRECATED BY FIB        self._local_dbgraph = self.get_local_gateway().make_dbgraph()
 
         # A dictionary mapping the method to the cache for local subqueries,
         # which itself will be a dict matching the parent record uuids to the
@@ -97,6 +112,9 @@ class Router(object):
     #---------------------------------------------------------------------------
     # Accessors
     #---------------------------------------------------------------------------
+
+    def get_fib(self):
+        return self._fib
 
     @returns(dict)
     def get_announces(self):
@@ -124,14 +142,14 @@ class Router(object):
         """
         return self._local_gateway
 
-    @returns(DBGraph)
-    def get_dbgraph(self):
-        """
-        Returns:
-            The DBGraph related to all the Tables except those
-            provided by the Manifold Storage.
-        """
-        return self._dbgraph
+# DEPRECATED BY FIB    @returns(DBGraph)
+# DEPRECATED BY FIB    def get_dbgraph(self):
+# DEPRECATED BY FIB        """
+# DEPRECATED BY FIB        Returns:
+# DEPRECATED BY FIB            The DBGraph related to all the Tables except those
+# DEPRECATED BY FIB            provided by the Manifold Storage.
+# DEPRECATED BY FIB        """
+# DEPRECATED BY FIB        return self._dbgraph
 
     #---------------------------------------------------------------------------
     # Methods
@@ -144,13 +162,13 @@ class Router(object):
         self.cache = dict()
         super(Router, self).boot()
 
-    def rebuild_dbgraph(self):
-        """
-        Internal usage, should be called when self.announces is altered.
-        Recompute the global DbGraph.
-        """
-        self._dbgraph = to_3nf(self.get_announces())
-        self._local_dbgraph = self.get_local_gateway().make_dbgraph()
+# DEPRECATED BY FIB    def rebuild_dbgraph(self):
+# DEPRECATED BY FIB        """
+# DEPRECATED BY FIB        Internal usage, should be called when self.announces is altered.
+# DEPRECATED BY FIB        Recompute the global DbGraph.
+# DEPRECATED BY FIB        """
+# DEPRECATED BY FIB        self._dbgraph = to_3nf(self.get_announces())
+# DEPRECATED BY FIB        self._local_dbgraph = self.get_local_gateway().make_dbgraph()
 
     #---------------------------------------------------------------------------
     # Platform management
@@ -207,8 +225,14 @@ class Router(object):
             self.gateways[platform_name] = gateway
             if platform_name != LOCAL_NAMESPACE:
                 Log.warning("Local Announces are not stored in the Router")
-                self.announces[platform_name] = announces
-            self.rebuild_dbgraph()
+                #self.announces[platform_name] = announces
+
+                # FIB
+                for announce in announces:
+                    self._fib.add(platform_name, announce)
+
+            #self.rebuild_dbgraph()
+
         except Exception, e:
             Log.warning(traceback.format_exc())
             Log.warning("Error while adding %(platform_name)s[%(platform_config)s] (%(platform_config)s): %(e)s" % locals())
@@ -322,6 +346,8 @@ class Router(object):
             new_platforms_enabled: The list of platforms which must be enabled. All
                 the other platforms are automaticaly disabled.
         """
+        Log.warning("Ignored update platforms")
+        return
         assert set(self.gateways.keys()) >= set(self.announces.keys())
 
         old_platform_names_enabled  = self.get_enabled_platform_names()
@@ -343,8 +369,8 @@ class Router(object):
                 Log.warning("Cannot enable platform '%s': %s" % (platform_name, e))
                 pass
 
-        if router_altered:
-            self.rebuild_dbgraph()
+# DEPRECATED BY FIB        if router_altered:
+# DEPRECATED BY FIB            self.rebuild_dbgraph()
 
     @returns(bool)
     def disable_platform(self, platform_name, rebuild = True):
@@ -367,7 +393,7 @@ class Router(object):
 
         if platform_name in self.announces.keys():
             del self.announces[platform_name]
-            if rebuild: self.rebuild_dbgraph()
+# DEPRECATED BY FIB            if rebuild: self.rebuild_dbgraph()
             ret = True
         else:
             Log.warning("Cannot disable %s (not enabled)"  % platform_name)
@@ -406,7 +432,7 @@ class Router(object):
 
             # Install the Announces corresponding to this Platform in this Router.
             self.announces[platform_name] = announces
-            if rebuild: self.rebuild_dbgraph()
+# DEPRECATED BY FIB            if rebuild: self.rebuild_dbgraph()
             ret = True
         except Exception, e:
             Log.warning(traceback.format_exc())
@@ -480,81 +506,105 @@ class Router(object):
     # Methods
     #---------------------------------------------------------------------
 
-    def hook_query(self, query):
-        """
-        Hook an Query to alter the current state of this Router.
-        Args:
-            query: A Query instance
-        """
-        namespace = query.get_namespace()
-
-        # FROM local:platform
-        if namespace == LOCAL_NAMESPACE and query.get_table_name() == "platform":
-            try:
-                from query                      import ACTION_UPDATE, ACTION_DELETE, ACTION_CREATE
-                from operator                   import eq
-                from manifold.util.predicate    import included
-                impacted_platforms = set()
-
-                # This assumes that we handle WHERE platform == "foo"
-                for predicate in query.get_where():
-                    if predicate.get_key() == "platform":
-                        value = predicate.get_value()
-                        if predicate.get_op() == eq:
-                            impacted_platforms.add(value)
-                        elif predicate.get_op() == contains:
-                            impacted_platforms |= set(value)
-
-                if impacted_platforms != set():
-
-                    # UDATE
-                    if query.get_action() == ACTION_UPDATE:
-                        params = query.get_params()
-                        if "disabled" in params.keys():
-                            becomes_disabled = (params["disabled"] == 1)
-                            # TODO This should be merged with update_platforms
-                            router_altered = False
-                            for platform_name in impacted_platforms:
-                                if becomes_disabled:
-                                    router_altered |= self.disable_platform(platform_name, False)
-                                else:
-                                    router_altered |= self.enable_platform(platform_name, False)
-                            if router_altered:
-                                self.rebuild_dbgraph()
-
-                    # DELETE
-                    elif query.get_action() == ACTION_DELETE:
-                        for platform_name in impacted_platforms:
-                            self.del_platform(platform_name)
-
-                    # INSERT
-                    elif query.get_action() == ACTION_CREATE:
-                        params = query.get_params()
-                        # NOTE:
-                        # - if disabled = 1: add_platform (== register_platform + enable_platform)
-                        # - else: i          register_platform
-                        self.register_platform(query.get_params())
-                        try:
-                            if query.get_params()["disabled"] == 1:
-                                self.enable_platform(platform_name)
-                        except:
-                            pass
-
-                    # SELECT, ...
-                    else:
-                        pass
-
-                Log.info("Loaded platforms are now: {%s}" % ", ".join(self.get_enabled_platform_names()))
-            except Exception, e:
-                Log.error(e)
-                raise e
+# XXX TO BE IMPLEMENTED FOR FIB
+# DEPRECATED BY FIB    def hook_query(self, query):
+# DEPRECATED BY FIB        """
+# DEPRECATED BY FIB        Hook an Query to alter the current state of this Router.
+# DEPRECATED BY FIB        Args:
+# DEPRECATED BY FIB            query: A Query instance
+# DEPRECATED BY FIB        """
+# DEPRECATED BY FIB        namespace = query.get_namespace()
+# DEPRECATED BY FIB
+# DEPRECATED BY FIB        # FROM local:platform
+# DEPRECATED BY FIB        if namespace == LOCAL_NAMESPACE and query.get_table_name() == "platform":
+# DEPRECATED BY FIB            try:
+# DEPRECATED BY FIB                from query                      import ACTION_UPDATE, ACTION_DELETE, ACTION_CREATE
+# DEPRECATED BY FIB                from operator                   import eq
+# DEPRECATED BY FIB                from manifold.util.predicate    import included
+# DEPRECATED BY FIB                impacted_platforms = set()
+# DEPRECATED BY FIB
+# DEPRECATED BY FIB                # This assumes that we handle WHERE platform == "foo"
+# DEPRECATED BY FIB                for predicate in query.get_where():
+# DEPRECATED BY FIB                    if predicate.get_key() == "platform":
+# DEPRECATED BY FIB                        value = predicate.get_value()
+# DEPRECATED BY FIB                        if predicate.get_op() == eq:
+# DEPRECATED BY FIB                            impacted_platforms.add(value)
+# DEPRECATED BY FIB                        elif predicate.get_op() == contains:
+# DEPRECATED BY FIB                            impacted_platforms |= set(value)
+# DEPRECATED BY FIB
+# DEPRECATED BY FIB                if impacted_platforms != set():
+# DEPRECATED BY FIB
+# DEPRECATED BY FIB                    # UDATE
+# DEPRECATED BY FIB                    if query.get_action() == ACTION_UPDATE:
+# DEPRECATED BY FIB                        params = query.get_params()
+# DEPRECATED BY FIB                        if "disabled" in params.keys():
+# DEPRECATED BY FIB                            becomes_disabled = (params["disabled"] == 1)
+# DEPRECATED BY FIB                            # TODO This should be merged with update_platforms
+# DEPRECATED BY FIB                            router_altered = False
+# DEPRECATED BY FIB                            for platform_name in impacted_platforms:
+# DEPRECATED BY FIB                                if becomes_disabled:
+# DEPRECATED BY FIB                                    router_altered |= self.disable_platform(platform_name, False)
+# DEPRECATED BY FIB                                else:
+# DEPRECATED BY FIB                                    router_altered |= self.enable_platform(platform_name, False)
+# DEPRECATED BY FIB# DEPRECATED BY FIB                            if router_altered:
+# DEPRECATED BY FIB# DEPRECATED BY FIB                                self.rebuild_dbgraph()
+# DEPRECATED BY FIB
+# DEPRECATED BY FIB                    # DELETE
+# DEPRECATED BY FIB                    elif query.get_action() == ACTION_DELETE:
+# DEPRECATED BY FIB                        for platform_name in impacted_platforms:
+# DEPRECATED BY FIB                            self.del_platform(platform_name)
+# DEPRECATED BY FIB
+# DEPRECATED BY FIB                    # INSERT
+# DEPRECATED BY FIB                    elif query.get_action() == ACTION_CREATE:
+# DEPRECATED BY FIB                        params = query.get_params()
+# DEPRECATED BY FIB                        # NOTE:
+# DEPRECATED BY FIB                        # - if disabled = 1: add_platform (== register_platform + enable_platform)
+# DEPRECATED BY FIB                        # - else: i          register_platform
+# DEPRECATED BY FIB                        self.register_platform(query.get_params())
+# DEPRECATED BY FIB                        try:
+# DEPRECATED BY FIB                            if query.get_params()["disabled"] == 1:
+# DEPRECATED BY FIB                                self.enable_platform(platform_name)
+# DEPRECATED BY FIB                        except:
+# DEPRECATED BY FIB                            pass
+# DEPRECATED BY FIB
+# DEPRECATED BY FIB                    # SELECT, ...
+# DEPRECATED BY FIB                    else:
+# DEPRECATED BY FIB                        pass
+# DEPRECATED BY FIB
+# DEPRECATED BY FIB                Log.info("Loaded platforms are now: {%s}" % ", ".join(self.get_enabled_platform_names()))
+# DEPRECATED BY FIB            except Exception, e:
+# DEPRECATED BY FIB                Log.error(e)
+# DEPRECATED BY FIB                raise e
 
     def receive(self, packet):
+        if isinstance(packet, QueryPacket):
+            self.receive_query(packet)
+
+        # How are normal records and errors received: operatorgraph -> socket -> client
+        # Here at the moment we are only dealing with Record and ErrorPacket
+        # from requesting announces
+        # XXX Maybe we should have an announce controller
+        # XXX or declare the FIB as a receiver
+        # NOTE: Queries have an impact on the FIB/PIT also ?
+        elif isinstance(packet, Record):
+            # Let's assume the record is an announce
+
+            announce = Announce(Table.from_dict(packet.to_dict(), LOCAL_NAMESPACE))
+            self.get_fib().add(LOCAL_NAMESPACE, announce, namespace=LOCAL_NAMESPACE)
+
+        elif isinstance(packet, ErrorPacket):
+            # Distinguish error requesting announces from other errors
+            print "ANNOUNCE ERROR", packet
+
+    def receive_query(self, packet):
         """
         Process an incoming Packet instance.
         Args:
             packet: A QueryPacket instance.
         """
+        
+        # XXX Router might receive an error packet
+
         assert isinstance(packet, QueryPacket),\
             "Invalid packet %s (%s) (%s) (invalid type)" % (packet, type(packet))
 
@@ -563,27 +613,19 @@ class Router(object):
         receiver   = packet.get_receiver()
 
         try:
-
             # Check namespace
             namespace = query.get_namespace()
-            if namespace:
-                valid_namespaces = set(self.get_enabled_platform_names()) | set([LOCAL_NAMESPACE])
-                if namespace not in valid_namespaces:
-                    raise RuntimeError("Invalid namespace '%s': valid namespaces are {'%s'}" % (
-                        namespace,
-                        "', '".join(valid_namespaces)
-                    ))
+            valid_namespaces = self.get_fib().get_namespaces()
+            if namespace and namespace not in valid_namespaces:
+                raise RuntimeError("Invalid namespace '%s': valid namespaces are {'%s'}" % (
+                    namespace, "', '".join(valid_namespaces)))
 
             # Select the DbGraph answering to the incoming Query and compute the QueryPlan
-            dbgraph = self._local_dbgraph if namespace == LOCAL_NAMESPACE else self._dbgraph
-            root_node = self._operator_graph.build_query_plan(query, annotation, dbgraph)
+            root_node = self._operator_graph.build_query_plan(query, annotation)
 
             print "QUERY PLAN:"
             print root_node.format_downtree()
 
-            # XXX The namespace is removed while building the QueryPlan, we put.
-            query.set_namespace(namespace)
-            self.hook_query(query)
             receiver._set_child(root_node)
         except Exception, e:
             error_packet = ErrorPacket(

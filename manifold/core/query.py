@@ -641,17 +641,19 @@ class Query(object):
             namespace: A String instance.
             table_name: A String instance.
         """
+        # XXX We should do a get_object_name before
         self.object = "%s:%s" % (namespace, table_name)
 
     @returns(StringTypes)
-    def get_table_name(self):
+    def get_object_name(self):
         """
         Returns:
             The namespace corresponding to this Query (None if unset).
         """
         l = self.get_from().split(':', 1)
-        return l[0] if len(l) == 2 else None
-
+        return l[1] if len(l) == 2 else l[0]
+    # XXX DEPRECATED
+    get_table_name = get_object_name
 
     @returns(StringTypes)
     def get_namespace(self):

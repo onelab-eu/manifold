@@ -67,7 +67,7 @@ class Packet(object):
     # Constructor
     #---------------------------------------------------------------------------
 
-    def __init__(self, protocol, last = True):
+    def __init__(self, protocol, receiver = None, last = True):
         """
         Constructor.
         Args:
@@ -81,6 +81,7 @@ class Packet(object):
         self._protocol = protocol
         self._last     = last
         self._source   = None
+        self._receiver    = receiver
 
     #---------------------------------------------------------------------------
     # Accessors
@@ -176,6 +177,23 @@ class Packet(object):
     def deserialize(string):
         return pickle.loads(string)
 
+    #@returns(Node)
+    def get_receiver(self):
+        """
+        Returns:
+            The Node which will receive this Packet (next hop).
+        """
+        return self._receiver
+
+    def set_receiver(self, receiver):
+        """
+        Set the next hop which will receive this Packet.
+        Args:
+            receiver: A Node instance.
+        """
+        self._receiver = receiver
+
+
 # NOTE: This class will probably disappear and we will use only the Packet class
 class QueryPacket(Packet):
 
@@ -198,11 +216,10 @@ class QueryPacket(Packet):
         assert not annotation or isinstance(annotation, Annotation), \
             "Invalid annotation = %s (%s)" % (annotation, type(annotation))
 
-        Packet.__init__(self, Packet.PROTOCOL_QUERY)
+        Packet.__init__(self, Packet.PROTOCOL_QUERY, receiver)
         #self._destination = query.get_destination()
         self._query       = query
         self._annotation  = annotation
-        self._receiver    = receiver
         self._source      = source
         self._records     = records
 
@@ -248,22 +265,6 @@ class QueryPacket(Packet):
             The Annotation nested in this QUERY Packet.
         """
         return self._annotation
-
-    #@returns(Node)
-    def get_receiver(self):
-        """
-        Returns:
-            The Node which will receive this Packet (next hop).
-        """
-        return self._receiver
-
-    def set_receiver(self, receiver):
-        """
-        Set the next hop which will receive this Packet.
-        Args:
-            receiver: A Node instance.
-        """
-        self._receiver = receiver
 
     def get_source(self):
         return self._source

@@ -84,6 +84,10 @@ class Key(object):
     def is_local(self):
         return self._local
 
+    @returns(bool)
+    def is_empty(self):
+        return not self._fields
+
     #---------------------------------------------------------------------------
     # Helpers
     #---------------------------------------------------------------------------
@@ -95,7 +99,7 @@ class Key(object):
         Returns:
             True if the key is composite, False otherwise
         """
-        return len(list(self)) > 1
+        return len(list(self._fields)) > 1
 
     #---------------------------------------------------------------------------
     # Static methods
@@ -214,4 +218,4 @@ class Key(object):
 #DEPRECATED|#
 #DEPRECATED|#    def __hash__(self):
 #DEPRECATED|#        return hash(tuple([f.get_name() for f in self]))
-
+            
