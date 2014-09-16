@@ -1,6 +1,7 @@
 import sys, os, os.path, re, tempfile, itertools
 import zlib, hashlib, BeautifulSoup, urllib
 import json, signal, traceback, time
+from collections                        import deque
 from datetime                           import datetime
 from lxml                               import etree
 from StringIO                           import StringIO
@@ -24,6 +25,7 @@ from manifold.util.predicate            import contains, eq, lt, le, included
 from manifold.util.log                  import Log
 from manifold.util.misc                 import make_list
 from manifold.util.predicate            import Predicate
+from manifold.util.singleton            import Singleton
 from manifold.models                    import db
 from manifold.models.platform           import Platform 
 from manifold.models.user               import User
@@ -363,6 +365,7 @@ class SFAGateway(Gateway):
     #
     @defer.inlineCallbacks
     def get_user_config(self, user_email, platform_name):
+        import traceback
         try:
             account = self._get_user_account(user_email, platform_name)
         except Exception, e:
@@ -371,20 +374,29 @@ class SFAGateway(Gateway):
 
         user_config = None
         if account.auth_type == 'reference':
-            ref_platform_name = json.loads(account.config)['reference_platform']
-            ref_account = self._get_user_account(user_email, ref_platform_name)
+            try:
+                ref_platform_name = json.loads(account.config)['reference_platform']
+                ref_account = self._get_user_account(user_email, ref_platform_name)
+            except Exception, e:
+                traceback.print_exc()
 
             if ref_account.auth_type == 'managed':
-                # call manage function for this managed user account to update it 
-                # if the managed user account has only a private key, the credential will be retrieved 
-                user_config = yield self.manage(user_email, ref_platform_name) #, json.loads(ref_account.config))
+                try:
+                    # call manage function for this managed user account to update it
+                    # if the managed user account has only a private key, the credential will be retrieved
+                    user_config = yield self.manage(user_email, ref_platform_name) #, json.loads(ref_account.config))
+                except Exception, e:
+                    traceback.print_exc()
             else:
                 user_config = json.loads(ref_account.config)
                 
         elif account.auth_type == 'managed':
-            # call manage function for a managed user account to update it 
-            # if the managed user account has only a private key, the credential will be retrieved 
-            user_config = yield self.manage(user_email, platform_name)
+            try:
+                # call manage function for a managed user account to update it
+                # if the managed user account has only a private key, the credential will be retrieved
+                user_config = yield self.manage(user_email, platform_name)
+            except Exception, e:
+                traceback.print_exc()
         else:
             user_config = json.loads(account.config)
 
@@ -409,20 +421,25 @@ class SFAGateway(Gateway):
     # init self-signed cert, user credentials and gid
     @defer.inlineCallbacks
     def bootstrap (self):
-        # Cache admin config
-        _, self.admin_config = yield self.get_user_config(ADMIN_USER, self.platform)
-        assert self.admin_config, "Could not retrieve admin config"
-
-        # Overwrite user config (reference & managed acccounts)
-        new_auth_type, new_user_config = yield self.get_user_config(self.user['email'], self.platform)
-        if new_user_config:
-            self.auth_type   = new_auth_type
-            self.user_config = new_user_config
-        else:
-            self.auth_type   = None
-
-        # Initialize manager proxies using MySlice Admin account
         try:
+            yield SFAManageToken().get_token()
+            # Cache admin config
+            _, self.admin_config = yield self.get_user_config(ADMIN_USER, self.platform)
+            assert self.admin_config, "Could not retrieve admin config"
+
+            # Overwrite user config (reference & managed acccounts)
+            new_auth_type, new_user_config = yield self.get_user_config(self.user['email'], self.platform)
+        finally:
+            SFAManageToken().put_token()
+
+        try:
+            if new_user_config:
+                self.auth_type   = new_auth_type
+                self.user_config = new_user_config
+            else:
+                self.auth_type   = None
+ 
+            # Initialize manager proxies using MySlice Admin account
             if self.config['registry']:
                 self.registry = self.make_user_proxy(self.config['registry'], self.admin_config, timeout=self.config.get('timeout', DEFAULT_TIMEOUT))
                 registry_hrn = yield self.get_interface_hrn(self.registry)
@@ -2333,7 +2350,6 @@ class SFAGateway(Gateway):
             user (str) : user email
             platform: string
         """
-        
         # TODO Avoid to call Manage multiple times !
 
         # XXX TMP FIX: this works fine if the Registry (myslice platform) is queried 1st
@@ -2567,6 +2583,31 @@ class SFAGateway(Gateway):
 
         # return using asynchronous defer
         defer.returnValue(config)
+
+class SFAManageToken(object):
+    """
+    This singleton class is meant to regulate accesses to the Manage function in SFA GW
+    """
+    __metaclass__ = Singleton
+
+    def __init__(self):
+        self.busy     = False
+        self.queue    = deque()
+
+    def get_token(self):
+        if self.busy:
+            d = defer.Deferred()
+            self.queue.append(d)
+            return d
+        else:
+            self.busy = True
+            return True
+
+    def put_token(self):
+        self.busy = False
+        if self.queue:
+            d = self.queue.popleft()
+            d.callback(True)
 
 def sfa_trust_credential_delegate(self, delegee_gidfile, caller_keyfile, caller_gidfile):
     """
