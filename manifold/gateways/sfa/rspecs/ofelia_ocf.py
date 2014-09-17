@@ -24,9 +24,9 @@ class OfeliaOcfParser(RSpecParser):
             RENAME  : {
                 '@dpid': 'datapath_id',
                 '@component_id': 'component_id',
-                '@component_manager_id': 'component_id',
+                '@component_manager_id': 'component_manager_id',
             },
-            HOOKS   : [RSpecParser.xrn_hook, RSpecParser.type_hook('datapath')]
+            HOOKS   : [RSpecParser.xrn_hook, RSpecParser.type_hook('datapath'), RSpecParser.testbed_hook, RSpecParser.hostname_hook]
             # REMOVE_@
             # REMOVE_#
         },
@@ -37,13 +37,17 @@ class OfeliaOcfParser(RSpecParser):
             },
         },
         'rspec/link': {
-            HOOKS    : [RSpecParser.xrn_hook, RSpecParser.type_hook('link')]
+            RENAME  : {
+                '@component_id': 'component_id',
+                '@component_manager_id': 'component_manager_id',
+            },
+            HOOKS    : [RSpecParser.xrn_hook, RSpecParser.type_hook('link'), RSpecParser.testbed_hook, RSpecParser.hostname_hook]
         },
         'rspec/link/source_datapath/datapath': {
             RENAME  : {
                 '@dpid': 'datapath_id',
                 '@component_id': 'component_id',
-                '@component_manager_id': 'component_id',
+                '@component_manager_id': 'component_manager_id',
             },
         },
         'rspec/link/source_datapath/port': {
@@ -60,7 +64,7 @@ class OfeliaOcfParser(RSpecParser):
             RENAME  : {
                 '@dpid': 'datapath_id',
                 '@component_id': 'component_id',
-                '@component_manager_id': 'component_id',
+                '@component_manager_id': 'component_manager_id',
             },
         },
         'rspec/link/destination_datapath/port': {

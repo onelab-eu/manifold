@@ -1369,7 +1369,7 @@ class SFAGateway(Gateway):
                 defer.returnValue({})
 
             rspec_string = result['value']
- 
+
         # rspec_type and rspec_version should be set in the config of the platform,
         # we use GENIv3 as default one if not
         if 'rspec_type' and 'rspec_version' in self.config:
