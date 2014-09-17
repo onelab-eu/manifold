@@ -20,7 +20,6 @@ import os, sys, tempfile, time
 from types                        import StringTypes
 from manifold.util.reactor_thread import ReactorThread
 from manifold.util.log            import Log
-from manifold.util.singleton      import Singleton
 from twisted.internet             import ssl
 from OpenSSL.crypto               import TYPE_RSA, FILETYPE_PEM
 from OpenSSL.crypto               import load_certificate, load_privatekey
@@ -128,53 +127,6 @@ class CtxFactory(ssl.ClientContextFactory):
         #ctx.set_info_callback(infoCallback)
 
         return ctx
-
-class SFATokenMgr(object):
-    """
-    This singleton class is meant to regulate accesses to the different SFA API
-    since some implementations of SFA such as SFAWrap are suspected to be
-    broken with some configuration of concurrent connections.
-    """
-    __metaclass__ = Singleton
-
-    BLACKLIST = ['https://www.planet-lab.eu:12345/']
-
-    def __init__(self):
-        self.busy     = {} # network -> Bool
-        self.deferred = {} # network -> deferred corresponding to waiting queries
-
-    def get_token(self, interface):
-        #Log.debug("SFATokenMgr::get_token(interface=%r)" % interface)
-        # We police queries only on blacklisted interfaces
-        if not interface or interface not in self.BLACKLIST:
-            return True
-
-        # If the interface is not busy, the request can be done immediately
-        if not (interface in self.busy and self.busy[interface]):
-            return True
-
-        # Otherwise we queue the request and return a Deferred that will get
-        # activated when the queries terminates and triggers a put
-        d = defer.Deferred()
-        if not interface in self.deferred:
-            #print "SFATokenMgr::get_token() - Deferring query to %s" % interface
-            self.deferred[interface] = deque()
-        self.deferred[interface].append(d)
-        return d
-
-    def put_token(self, interface):
-        #Log.debug("SFATokenMgr::put_token(interface=%r)" % interface)
-        # are there items waiting on queue for the same interface, if so, there are deferred that can be called
-        # remember that the interface is being used for the query == available
-        if not interface:
-            return
-        self.busy[interface] = False
-        if interface in self.deferred and self.deferred[interface]:
-            #print "SFATokenMgr::put_token() - Activating deferred query to %s" % interface
-            d = self.deferred[interface].popleft()
-            d.callback(True)
-        pass
-    
 
 class SFAProxy(object):
     # Twisted HTTPS/XMLRPC inspired from
@@ -306,12 +258,12 @@ class SFAProxy(object):
             d = defer.Deferred()
 
             def proxy_success_cb(result):
-                #SFATokenMgr().put_token(self.interface)
+                #SFAManageToken().put_token(self.interface)
                 diff = time.time() - self.started
                 Log.debug('SFA CALL SUCCESS %s(%s) - interface = %s - execution time = %s sec.' % (self.arg0, self.arg1, self.interface, round(diff,2)))
                 d.callback(result)
             def proxy_error_cb(error):
-                #SFATokenMgr().put_token(self.interface)
+                #SFAManageToken().put_token(self.interface)
                 diff = time.time() - self.started
                 Log.debug('SFA CALL ERROR %s(%s) - interface = %s - execution time = %s sec.' % (self.arg0, self.arg1, self.interface, round(diff,2)))
                 d.errback(ValueError("Error in SFA Proxy %s" % error))
@@ -341,7 +293,7 @@ class SFAProxy(object):
 
             #@defer.inlineCallbacks
             def wrap(source, args):
-                #token = yield SFATokenMgr().get_token(self.interface)
+                #token = yield SFAManageToken().get_token(self.interface)
                 args = (name,) + args
                 
                 printable_args = []
