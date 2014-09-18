@@ -941,7 +941,7 @@ class SFAGateway(Gateway):
         server_version = yield self.get_cached_server_version(self.registry)    
         server_auth_hrn = server_version['hrn']
         
-        if not params['hrn'].startswith('%s.' % server_auth_hrn):
+        if not params['hrn'].startswith('%s' % server_auth_hrn):
             # XXX not a success, neither a warning !!
             print "I: Not requesting object creation on %s for %s" % (server_auth_hrn, params['hrn'])
             defer.returnValue([])
@@ -1385,7 +1385,7 @@ class SFAGateway(Gateway):
                 defer.returnValue({})
 
             rspec_string = result['value']
- 
+
         # rspec_type and rspec_version should be set in the config of the platform,
         # we use GENIv3 as default one if not
         if 'rspec_type' and 'rspec_version' in self.config:
@@ -1469,7 +1469,7 @@ class SFAGateway(Gateway):
         object_auth_hrn = get_authority(object_hrn)
         server_version = yield self.get_cached_server_version(self.registry)
         server_auth_hrn = server_version['hrn']
-        if not object_auth_hrn.startswith('%s.' % server_auth_hrn):
+        if not object_auth_hrn.startswith('%s' % server_auth_hrn):
             # XXX not a success, neither a warning !!
             print "I: Not requesting object update on %s for %s" % (server_auth_hrn, object_auth_hrn)
             defer.returnValue([])

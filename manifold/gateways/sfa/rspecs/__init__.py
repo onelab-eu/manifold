@@ -51,6 +51,38 @@ class RSpecParser(object):
         resource['hrn'] = urn_to_hrn(urn)[0]
         return resource
 
+    # XXX This is customized for Ofelia OCF
+    # this is not really a hostname but the resource name
+    @staticmethod
+    def hostname_hook(resource):
+        hostname = resource.get('hostname')
+        if not hostname:
+            urn = resource.get('component_id')
+            elements = urn.split('+')
+            resource['hostname'] = elements[len(elements)-1]
+        return resource
+
+    # XXX This is customized for Ofelia OCF
+    # urn:publicid:IDN+openflow:ofam:univbris+datapath+05:00:00:00:00:00:00:01
+    # urn:publicid:IDN+optical:openflow:ofam:univbris+datapath+00:00:00:00:0a:21:00:0a
+    @staticmethod
+    def testbed_hook(resource):
+        urn = resource.get('component_id')
+        Log.tmp(urn)
+        if not urn:
+            return resource
+        elements = urn.split('+')
+        if len(elements) > 1:
+            authority = elements[1]
+            authorities = authority.split(':')
+            facility = authorities[len(authorities)-3]
+            testbed = authorities[len(authorities)-1]
+        else:
+            return resource
+        resource['facility_name'] = facility
+        resource['testbed_name'] = testbed
+        return resource
+
     @staticmethod
     def type_hook(resource_type):
         def _type_hook(resource):
