@@ -749,12 +749,11 @@ class SFAGateway(Gateway):
                     # target = ple.inria / user is a PLE Admin and has creds = [ple.upmc , ple]
                     # if ple.inria starts with ple then let's use the ple credential
                     for my_auth in creds:
-                        Log.tmp("credential my_auth = ",my_auth)
-                        Log.tmp("credential target = ",target)
                         if target.startswith(my_auth):
-                            cred=creds[my_auth]
+                            cred = creds[my_auth]
                     if not cred:
                         # XXX This should not interrupt everything, shall it ?
+                        Log.warning("No cred found, check if the admin is a PI of the root authority in the Registry")
                         raise Exception , "no cred found of type %s towards %s " % (object_type, target)
                 else:
                     # XXX Not handled
