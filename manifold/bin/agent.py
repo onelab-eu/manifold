@@ -20,6 +20,10 @@ from manifold.util.options          import Options
 
 class AgentDaemon(Daemon):
 
+    DEFAULTS = {
+        "server_mode"   : False,
+    }
+
     def get_supernode(self):
         return 'dryad.ipv6.lip6.fr'
 
@@ -31,6 +35,18 @@ class AgentDaemon(Daemon):
 
         return router
 
+    @staticmethod
+    def init_options():
+        """
+        Prepare options supported by RouterDaemon.
+        """
+        options = Options()
+
+        options.add_argument(
+            "-s", "--server-mode", dest = "server_mode",
+            help = "Socket that will read the Manifold router.",
+            default = AgentDaemon.DEFAULTS["socket_path"]
+        )
 
     def main(self):
         # Create a router instance
@@ -40,12 +56,13 @@ class AgentDaemon(Daemon):
         self._server_interface = Interface(router = self)
         self._server_interface.listen()
 
-        # Connect to supernode
-        # a) get supernode...
-        supernode = self.get_supernode()
-        # b) connect...
-        self._client_interface = Interface(self._router)
-        self._client_interface.connect(supernode)
+        if not Options().server_mode:
+            # Connect to supernode
+            # a) get supernode...
+            supernode = self.get_supernode()
+            # b) connect...
+            self._client_interface = Interface(self._router)
+            self._client_interface.connect(supernode)
 
         self.daemon_loop()
         
