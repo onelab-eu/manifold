@@ -117,6 +117,7 @@ class QueryPlan(object):
 
         object_name = query.get_object_name()
         namespace   = query.get_namespace()
+        query.clear_namespace()
 
         allowed_capabilities = router.get_capabilities()
         root_table = router.get_fib().get_object(object_name, namespace) 

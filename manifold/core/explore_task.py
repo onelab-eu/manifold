@@ -296,7 +296,7 @@ class ExploreTask(Deferred):
 
         # In all cases, we have to list neighbours for returning 1..N relationships. Let's do it now.
         for obj_source, obj_dest, relation in fib.get_relation_tuples():
-            print "objsource", obj_source, "objdest", obj_dest, "relation", relation
+            #print "objsource", obj_source, "objdest", obj_dest, "relation", relation
             name = relation.get_relation_name()
 
             # XXX Sometimes we might want to add the type: if we have not

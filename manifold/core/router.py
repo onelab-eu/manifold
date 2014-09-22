@@ -88,10 +88,8 @@ class Router(object):
 
         # We request announces from the local gateway (cf # manifold.core.interface)
         # XXX This should be similar for all gateways
-        self._local_gateway = LocalGateway(router = self)
-        query = Query.get('local:object')
-        packet = QueryPacket(query, Annotation(), receiver = self)
-        self._local_gateway.receive(packet)
+        # XXX add_platform
+        self.add_platform(LOCAL_NAMESPACE, LOCAL_NAMESPACE)
 
 # DEPRECATED BY FIB        self._local_gateway = LocalGateway(router = self)
 # DEPRECATED BY FIB        self._local_dbgraph = self.get_local_gateway().make_dbgraph()
@@ -104,7 +102,6 @@ class Router(object):
     def terminate(self):
         for gateway in self.gateways.values():
             gateway.terminate()
-        self._server_interface.terminate()
 
     #---------------------------------------------------------------------------
     # Accessors
@@ -130,14 +127,6 @@ class Router(object):
             None if every Capabilities are supported.
         """
         return self.allowed_capabilities
-
-    @returns(LocalGateway)
-    def get_local_gateway(self):
-        """
-        Returns:
-            The LocalGateway attached to this Router/
-        """
-        return self._local_gateway
 
 # DEPRECATED BY FIB    @returns(DBGraph)
 # DEPRECATED BY FIB    def get_dbgraph(self):
@@ -191,6 +180,8 @@ class Router(object):
         assert isinstance(hostname,      StringTypes) and hostname
         assert isinstance(port,          int)
 
+        print "add peer should use an interface... until this is merged with gateways"
+
         url = DEFAULT_PEER_URL % locals()
         return self.add_platform(platform_name, "manifold", {"url" : url})
 
@@ -208,36 +199,32 @@ class Router(object):
         Returns:
             True iif successful.
         """
-        Log.warning("add_platform should call register_platform (if required) + enable_platform")
-        ret = True
-
+        print "add platform", platform_name, gateway_type, platform_config
         if not platform_config:
             platform_config = dict()
 
         try:
             Log.info("Adding platform [%s] (type: %s, config: %s)" % (platform_name, gateway_type, platform_config))
-            gateway = self.make_gateway(platform_name, gateway_type, platform_config)
-            announces = gateway.get_announces()
+            if gateway_type == LOCAL_NAMESPACE:
+                gateway = LocalGateway(router = self)
+            else:
+                gateway = self.make_gateway(platform_name, gateway_type, platform_config)
+
+            # Retrieving announces from gateway, and populate the FIB
+            gateway.receive(QueryPacket(Query.get('local:object'), Annotation(), receiver = self))
+
+#DEPRECATED|            announces = gateway.get_announces()
+#DEPRECATED|            for announce in announces:
+#DEPRECATED|                self._fib.add(platform_name, announce)
 
             self.gateways[platform_name] = gateway
-            if platform_name != LOCAL_NAMESPACE:
-                Log.warning("Local Announces are not stored in the Router")
-                #self.announces[platform_name] = announces
-
-                # FIB
-                for announce in announces:
-                    self._fib.add(platform_name, announce)
-
-            #self.rebuild_dbgraph()
 
         except Exception, e:
             Log.warning(traceback.format_exc())
             Log.warning("Error while adding %(platform_name)s[%(platform_config)s] (%(platform_config)s): %(e)s" % locals())
-            if platform_name in self.gateways.keys():  del self.gateways[platform_name]
-            if platform_name in self.announces.keys(): del self.announces[platform_name]
-            ret = False
+            return False
 
-        return ret
+        return True
 
     @returns(bool)
     def del_platform(self, platform_name, rebuild = True):
@@ -468,9 +455,6 @@ class Router(object):
         if platform_name.lower() != platform_name:
             raise ValueError("Invalid platform_name = %s, it must be lower case" % platform_name)
 
-        elif platform_name == LOCAL_NAMESPACE:
-            return self.get_local_gateway()
-
         elif platform_name not in self.gateways.keys():
             raise RuntimeError("%s is not yet registered" % platform_name)
 
@@ -585,9 +569,12 @@ class Router(object):
         # NOTE: Queries have an impact on the FIB/PIT also ?
         elif isinstance(packet, Record):
             # Let's assume the record is an announce
-
-            announce = Announce(Table.from_dict(packet.to_dict(), LOCAL_NAMESPACE))
-            self.get_fib().add(LOCAL_NAMESPACE, announce, namespace=LOCAL_NAMESPACE)
+            packet_dict = packet.to_dict()
+            platform_name = packet_dict['origins'][0] # XXX
+            namespace = 'local' if platform_name == 'local' else None
+            announce = Announce(Table.from_dict(packet_dict, LOCAL_NAMESPACE))
+            print "received announce from platform", platform_name, "namespace=", namespace
+            self.get_fib().add(platform_name, announce, namespace)
 
         elif isinstance(packet, ErrorPacket):
             # Distinguish error requesting announces from other errors
@@ -618,6 +605,7 @@ class Router(object):
                     namespace, "', '".join(valid_namespaces)))
 
             # Select the DbGraph answering to the incoming Query and compute the QueryPlan
+            print "QUERY GET FROM", query.get_object()
             root_node = self._operator_graph.build_query_plan(query, annotation)
 
             print "QUERY PLAN:"

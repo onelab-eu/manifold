@@ -3,11 +3,12 @@
 
 import subprocess
 
-from manifold.core.router           import Router
-from manifold.core.interface        import Interface
-from manifold.util.daemon           import Daemon
-from manifold.util.log              import Log
-from manifold.util.options          import Options
+from manifold.core.router               import Router
+from manifold.interfaces.tcp_socket     import TCPSocketInterface
+from manifold.interfaces.unix_socket    import UNIXSocketInterface
+from manifold.util.daemon               import Daemon
+from manifold.util.log                  import Log
+from manifold.util.options              import Options
 
 # An agent is a router preconfigured with all found measurement tools + an
 # XMLRPC/other remotely accessible interface
@@ -24,6 +25,9 @@ class AgentDaemon(Daemon):
         "server_mode"   : False,
     }
 
+    def __init__(self):
+        Daemon.__init__(self, self.terminate)
+
     def get_supernode(self):
         return 'dryad.ipv6.lip6.fr'
 
@@ -31,6 +35,7 @@ class AgentDaemon(Daemon):
         router = Router()
 
         # XXX We need some auto-detection for processes
+        print "Adding platform ping"
         router.add_platform("ping", "ping_process")
 
         return router
@@ -52,8 +57,11 @@ class AgentDaemon(Daemon):
         # Create a router instance
         self._router = self.make_agent_router()
 
+        # Create local interface
+        self._local_interface = UNIXSocketInterface(self._router)
+
         # Create appropriate interfaces to listen to queries
-        self._server_interface = Interface(router = self)
+        self._server_interface = TCPSocketInterface(self._router)
         self._server_interface.listen()
 
         if not Options().server_mode:
@@ -61,10 +69,18 @@ class AgentDaemon(Daemon):
             # a) get supernode...
             supernode = self.get_supernode()
             # b) connect...
-            self._client_interface = Interface(self._router)
+            self._client_interface = TCPSocketInterface(self._router)
             self._client_interface.connect(supernode)
+        else:
+            self._client_interface = None
 
         self.daemon_loop()
+
+    def terminate(self):
+        self._local_interface.terminate()
+        self._server_interface.terminate()
+        if self._client_interface:
+            self._client_interface.terminate()
         
 def main():
     Log.init_options()

@@ -48,7 +48,8 @@ def do_rename(record, aliases):
         if isinstance(record, (list, Records)):
             # 1..N
             return [collect(key, r) for r in record]
-        elif isinstance(record, Record):
+        elif isinstance(record, (dict, Record)): 
+        # XXX dict is deprecated, but ping process still returns a list of dict
             key_head, _, key_tail = key.partition(FIELD_SEPARATOR)
             return collect(key_tail, record[key_head])
             # 1..1
@@ -96,7 +97,7 @@ def do_rename(record, aliases):
             # We have either ktail or vtail"
             if k_tail: # and not v_tail
                 # We will gather everything and put it in v_head
-                myrecord[k_head] = collect(k_tail, myrecord[k_head])
+                myrecord[v_head] = collect(k_tail, myrecord[k_head])
 
             else: # v_tail and not k_tail
                 # We have some data in subrecord, that needs to be affected to

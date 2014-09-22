@@ -371,45 +371,46 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
             parent_destination.add_filter(predicate)
 
         # FieldNames
-#DEPRECATED|        for field, subfield in destination.get_field_names().iter_field_subfield():
-#DEPRECATED|            # XXX THIS DOES NOT TAKE SHORTCUTS INTO ACCOUNT
-#DEPRECATED|            parent_destination.add_field_names(field)
-#DEPRECATED|            if subfield:
-#DEPRECATED|                # NOTE : the field should be the identifier of the child
-#DEPRECATED|                # Remember that all relations involved in a SubQuery are named.
-#DEPRECATED|                child_destinations[field].add_field_names(subfield)
+
+        for field, subfield in destination.get_field_names().iter_field_subfield():
+            # XXX THIS DOES NOT TAKE SHORTCUTS INTO ACCOUNT
+            parent_destination.add_field_names(field)
+            if subfield:
+                # NOTE : the field should be the identifier of the child
+                # Remember that all relations involved in a SubQuery are named.
+                child_destinations[field].add_field_names(subfield)
 
 
-        parent_field_names = self._get_parent().get_destination().get_field_names()
-        parent_destination.add_field_names(destination.get_field_names() & parent_field_names)
-        for child_id, child, child_data in self._iter_children():
-#DEPRECATED|            child_field_names = FieldNames()
-#DEPRECATED|            for field in child.get_destination().get_field_names():
-#DEPRECATED|                child_field_names.add(FieldNames.join(child_id, field))
-#DEPRECATED|            print "======", self, "==== split destination"
-#DEPRECATED|            print "destination.get_field_names()", destination.get_field_names() 
-#DEPRECATED|            print "child_destination_field_names", child.get_destination().get_field_names()
-#DEPRECATED|            print "child=", child
-#DEPRECATED|            print "child_field_names", child_field_names
-#DEPRECATED|            print "hcild_id", child_id
-#DEPRECATED|            child_destinations[child_id].add_field_names(destination.get_field_names() & child_field_names)
-#DEPRECATED|
-            child_provided_field_names = child.get_destination().get_field_names()
-
+#MARCO|        parent_field_names = self._get_parent().get_destination().get_field_names()
+#MARCO|        parent_destination.add_field_names(destination.get_field_names() & parent_field_names)
+#MARCO|        for child_id, child, child_data in self._iter_children():
             child_field_names = FieldNames()
-            for f in destination.get_field_names():
-                for cf in child_provided_field_names:
-                    # f.split(FIELD_SEPARATOR)[1:]      # (hops) ttl    (hops) ip
-                    # cf.split(FIELD_SEPARATOR)         # ttl           probes ip 
-                    f_arr = f.split(FIELD_SEPARATOR)
-                    if len(f_arr) > 1 and f_arr[0] == child_id:
-                        f_arr = f_arr[1:]
-                    cf_arr = cf.split(FIELD_SEPARATOR)
-                    flag, shortcut = is_sublist(f_arr, cf_arr)
-                    if f_arr and flag:
-                        child_field_names.add(cf)
+            for field in child.get_destination().get_field_names():
+                child_field_names.add(FieldNames.join(child_id, field))
+            print "======", self, "==== split destination"
+            print "destination.get_field_names()", destination.get_field_names() 
+            print "child_destination_field_names", child.get_destination().get_field_names()
+            print "child=", child
+            print "child_field_names", child_field_names
+            print "hcild_id", child_id
+            child_destinations[child_id].add_field_names(destination.get_field_names() & child_field_names)
 
-            child_destinations[child_id].add_field_names(child_field_names)
+#MARCO|            child_provided_field_names = child.get_destination().get_field_names()
+#MARCO|
+#MARCO|            child_field_names = FieldNames()
+#MARCO|            for f in destination.get_field_names():
+#MARCO|                for cf in child_provided_field_names:
+#MARCO|                    # f.split(FIELD_SEPARATOR)[1:]      # (hops) ttl    (hops) ip
+#MARCO|                    # cf.split(FIELD_SEPARATOR)         # ttl           probes ip 
+#MARCO|                    f_arr = f.split(FIELD_SEPARATOR)
+#MARCO|                    if len(f_arr) > 1 and f_arr[0] == child_id:
+#MARCO|                        f_arr = f_arr[1:]
+#MARCO|                    cf_arr = cf.split(FIELD_SEPARATOR)
+#MARCO|                    flag, shortcut = is_sublist(f_arr, cf_arr)
+#MARCO|                    if f_arr and flag:
+#MARCO|                        child_field_names.add(cf)
+#MARCO|
+#MARCO|            child_destinations[child_id].add_field_names(child_field_names)
         
         # Keys & child objects
         for child_id, child, child_data in self._iter_children():
@@ -567,7 +568,7 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
 
         # We look at every children
         for child_id, child, child_data in self._iter_children():
-            #print "RELATION=", child_data.get('relation')
+            print "_run_children RELATION=", child_data.get('relation')
             predicate = child_data.get('relation').get_predicate()
             child_packet = child_data.get('packet')
             child_key = predicate.get_value_names()

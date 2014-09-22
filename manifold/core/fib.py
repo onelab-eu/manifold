@@ -60,6 +60,9 @@ class Object(object):
         );
         """ % self.__dict__
 
+    def get_object_name(self):
+        return self._object_name
+
     def get_announce(self):
         fields = set(self.get_fields())
         t = Table(self.get_platform_names(), self.get_object_name(), self.get_fields(), self.get_keys())
@@ -264,6 +267,7 @@ class FIB(object):
     def get_announces(self, namespace = None):
         # XXX All namespaces
         ret = list()
+        print "getting objects of namespace", namespace
         for obj in self.get_objects(namespace):
             ret.append(obj.get_announce())
         return ret
@@ -277,8 +281,10 @@ class FIB(object):
         """
         if namespace:
             if namespace in self._objects_by_namespace:
+                print "existing namespace", namespace
                 object_dict = self._objects_by_namespace[namespace]
             else:
+                print "new namespace", namespace
                 object_dict = {}
                 self._objects_by_namespace[namespace] = object_dict
         else:
@@ -305,7 +311,7 @@ class FIB(object):
         # XXX subkey can be sufficient
         for key in table.get_keys():
             if key.is_empty():
-                key = Key(fields)
+                key = Key(fields, local=key.is_local())
                 
 
             for field in fields:
