@@ -109,18 +109,10 @@ class RouterServer(asyncore.dispatcher):
         #self._router.add_peer("fake",   "www.google.fr")
         #self._router.add_peer("agent2", "planetlab2.cs.du.edu")
 
-        for obj in self._router._fib.get_objects():
-            print obj
-
         Log.info("Binding to %s" % self._socket_path)
+        ensure_writable_directory(self._socket_path)
         if os.path.exists(self._socket_path):
             raise RuntimeError("%s is already in used" % self._socket_path)
-
-        print "Establish session towards dryad router..."
-        from manifold.core.interface import Interface
-        self._client_interface = Interface(self._router)
-        self._client_interface.connect('dryad.ipv6.lip6.fr')
-        print "ok..."
 
         # XXX Replace this by a UNIX interface for the router
 

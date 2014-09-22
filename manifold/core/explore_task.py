@@ -479,6 +479,4 @@ class ExploreTask(Deferred):
             # XXX
 
             from_ast = AST(self._router).From(platform_name, query, capabilities, key)
-            type_ast = type(from_ast)
-            if isinstance(from_ast, AST): # XXX from_ast should always be an ast or be renamed
-                self.perform_union(from_ast, key, allowed_platforms, fib, user, query_plan)
+            self.perform_union((from_ast, {}), key, allowed_platforms, fib, user, query_plan)

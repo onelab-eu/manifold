@@ -101,9 +101,6 @@ class Router(object):
         # list of records associated with a subquery
         self._local_cache = dict()
 
-        self._server_interface = Interface(router = self)
-        self._server_interface.listen()
-
     def terminate(self):
         for gateway in self.gateways.values():
             gateway.terminate()

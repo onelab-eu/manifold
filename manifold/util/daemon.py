@@ -13,7 +13,7 @@
 # named identically...
 from __future__ import absolute_import
 
-import traceback
+import time, traceback
 from manifold.util.singleton    import Singleton
 from manifold.util.log          import Log
 from manifold.util.options      import Options
@@ -276,3 +276,7 @@ class Daemon(object):
         Overload this method if you use twisted (see xmlrpc.py)
         """
         sys.exit(0)
+
+    def daemon_loop(self):
+        while True:
+            time.sleep(10)

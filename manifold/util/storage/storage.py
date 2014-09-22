@@ -9,7 +9,7 @@
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 #   Jordan Augé       <jordan.auge@lip6.f>
 
-import json
+import json, os.path
 from types                          import StringTypes
 
 from manifold.gateways              import Gateway
@@ -18,6 +18,7 @@ from manifold.core.packet           import QueryPacket
 from manifold.core.query            import Query
 from manifold.core.local            import LOCAL_NAMESPACE
 from manifold.core.sync_receiver    import SyncReceiver
+from manifold.util.filesystem       import ensure_writable_directory
 from manifold.util.log              import Log
 from manifold.util.type             import accepts, returns
 
@@ -182,7 +183,16 @@ def install_default_storage(router):
     import json
     from manifold.bin.config     import MANIFOLD_STORAGE
     from manifold.core.local     import LOCAL_NAMESPACE
-    from manifold.util.constants import STORAGE_DEFAULT_ANNOTATION, STORAGE_DEFAULT_CONFIG, STORAGE_DEFAULT_GATEWAY
+    from manifold.util.constants import STORAGE_DEFAULT_ANNOTATION, STORAGE_DEFAULT_CONFIG, STORAGE_DEFAULT_GATEWAY, STORAGE_SQLA_FILENAME
+
+    # Ensure storage exists
+    try:
+        ensure_writable_directory(os.path.dirname(STORAGE_SQLA_FILENAME))
+    except Exception, e:
+        raise RuntimeError("Unable to create the default Storage directory (%s) (%s)" % (
+            STORAGE_DEFAULT_GATEWAY,
+            STORAGE_DEFAULT_CONFIG
+        ))
 
     # Install storage on the Router
     storage_config = json.loads(STORAGE_DEFAULT_CONFIG)
@@ -195,8 +205,20 @@ def install_default_storage(router):
         ))
 
     # Configure the Router in respect with the Storage content
-    MANIFOLD_STORAGE.update_router_state(
-        router,
-        Annotation(STORAGE_DEFAULT_ANNOTATION),
-        None
-    )
+    if not MANIFOLD_STORAGE:
+        raise RuntimeError("Unable to install a None default Storage (%s) (%s)" % (
+            STORAGE_DEFAULT_GATEWAY,
+            STORAGE_DEFAULT_CONFIG
+        ))
+        
+    try:
+        MANIFOLD_STORAGE.update_router_state(
+            router,
+            Annotation(STORAGE_DEFAULT_ANNOTATION),
+            None
+        )
+    except Exception, e:
+        Log.warning("Unable to setup the default Storage directory (%s) (%s)" % (
+            STORAGE_DEFAULT_GATEWAY,
+            STORAGE_DEFAULT_CONFIG
+        ))
