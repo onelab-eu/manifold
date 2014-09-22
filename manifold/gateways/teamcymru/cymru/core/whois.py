@@ -96,7 +96,7 @@ class WhoisClient():
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.connect((self.server, self.port))
     log.debug(query)
-    sock.send(query.encode()) # py3
+    sock.send(query)#.encode()) # py3
     response = b''
     while True:
       d = sock.recv(4096)
@@ -104,7 +104,7 @@ class WhoisClient():
       if d == b'':
         break
     sock.close()
-    return response.decode() #py3
+    return response#.decode() #py3
       
   ''' submits the queries to ADNS'''
   def _lookupmany_raw(self, values, qType):

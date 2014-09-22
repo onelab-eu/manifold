@@ -169,7 +169,7 @@ class Query(object):
         self.object = None
         self.filters = Filter()
         self.params  = {}
-        self.fields  = FieldNames()
+        self.fields  = FieldNames(star = True)
         self.timestamp  = 'now' # ignored for now
 
     #@returns(StringTypes)

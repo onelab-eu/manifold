@@ -12,11 +12,57 @@
 import socket
 from types                              import StringTypes
 from manifold.core.announce             import Announces, announces_from_docstring
-from manifold.core.field_names          import FieldNames
+from manifold.core.fields               import Fields
 from manifold.gateways                  import Gateway
 from manifold.util.reactor_thread       import ReactorThread
 from manifold.util.type                 import accepts, returns 
 from manifold.util.predicate            import eq, included
+
+import adns
+from time import time
+
+# http://www.catonmat.net/blog/asynchronous-dns-resolution/
+class AsyncResolver(object):
+    def __init__(self, hosts, intensity=100):
+        """
+        hosts: a list of hosts to resolve
+        intensity: how many hosts to resolve at once
+        """
+        self.hosts = hosts
+        self.intensity = intensity
+        self.adns = adns.init()
+
+    def resolve(self):
+        """ Resolves hosts and returns a dictionary of { 'host': 'ip' }. """
+        resolved_hosts = {}
+        active_queries = {}
+        host_queue = self.hosts[:]
+
+        def collect_results():
+            for query in self.adns.completed():
+                answer = query.check()
+                host = active_queries[query]
+                del active_queries[query]
+                if answer[0] == 0:
+                    ip = answer[3][0]
+                    resolved_hosts[host] = ip
+                elif answer[0] == 101: # CNAME
+                    query = self.adns.submit(answer[1], adns.rr.A)
+                    active_queries[query] = host
+                else:
+                    resolved_hosts[host] = None
+
+        def finished_resolving():
+            return len(resolved_hosts) == len(self.hosts)
+
+        while not finished_resolving():
+            while host_queue and len(active_queries) < self.intensity:
+                host = host_queue.pop()
+                query = self.adns.submit(host, adns.rr.A)
+                active_queries[query] = host
+            collect_results()
+
+        return resolved_hosts
 
 class DNSGateway(Gateway):
 
@@ -80,27 +126,35 @@ class DNSGateway(Gateway):
         value_list = query.get_filter().get_field_values(obj)
 
         # We don't really ask something sometimes...
-        if query.get_select() == FieldNames([obj]):
+        if query.get_fields() == Fields([obj]):
             records = [{obj: value} for value in value_list]
         else:
             records = list()
-            if obj == "ip":
+            if obj == 'ip':
                 for ip in value_list:
+                    print "RESOLVING ip", ip
                     hostname, alias_list, ipaddrlist = socket.gethostbyaddr(ip)
-                    records.append({
-                        "ip"       : ip,
-                        "hostname" : hostname
-                    })
-            elif obj == "hostname":
-                for hostname in value_list:
-                    try:
-                        ip = socket.gethostbyname(hostname)
-                    except gaierror:
-                        ip = None
-                    records.append({
-                        "ip"       : ip,
-                        "hostname" : hostname
-                    })
+                    records.append({'ip': ip, 'hostname': hostname})
+
+            elif obj == 'hostname':
+                # XXX NOT SURE IT IS ASYNC !!!
+                ar = AsyncResolver(value_list, intensity=500)
+                start = time()
+                resolved_hosts = ar.resolve()
+                end = time()
+                print "It took %.2f seconds to resolve %d hosts." % (end-start, len(value_list))
+                for hostname, ip in resolved_hosts.items():
+                    # ip = None for hostname that could not be resolved
+                    records.append({'ip': ip, 'hostname': hostname})
+
+                # SLOW CODE !!!
+                #for hostname in value_list:
+                #    print "RESOLVING hostname", hostname
+                #    try:
+                #        ip = socket.gethostbyname(hostname)
+                #    except socket.gaierror:
+                #        ip = None
+                #    records.append({'ip': ip, 'hostname': hostname})
             else:
                 raise NotImplemented
 
@@ -118,12 +172,12 @@ class DNSGateway(Gateway):
         """
         platform_name = self.get_platform_name()
 
-        @returns(Announces)
+        @returns(list)
         @announces_from_docstring(platform_name)
         def make_announces_impl():
             """
             class ip {
-                const inet   ip;            /**< Ex: '64.233.161.99'    */
+                const ip   ip;            /**< Ex: '64.233.161.99'    */
                 const hostname hostname;    /**< Ex: 'www.hostname.com' */
     
                 CAPABILITY(join);
@@ -132,7 +186,7 @@ class DNSGateway(Gateway):
 
             class hostname {
                 const hostname hostname;    /**< Ex: 'www.hostname.com' */
-                const inet   ip;            /**< Ex: '64.233.161.99'    */
+                const ip   ip;            /**< Ex: '64.233.161.99'    */
     
                 CAPABILITY(join);
                 KEY(hostname);

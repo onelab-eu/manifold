@@ -62,11 +62,17 @@ class Union(Operator, ChildrenSlotMixin):
         # XXX ???
         self.key_list = list()
 
-        for producer in producers:
-            data = {
-            }
-            self._set_child(producer, data)
+        #for producer in producers:
+        #    data = {
+        #    }
+        #    self._set_child(producer, data)
+        self.add_children(producers)
         self._remaining_children = self._get_num_children()
+
+ 
+    def add_children(self, producers):
+        for producer in producers:
+            self._set_child(producer, data=dict())
 
     def copy(self):
         new_producers = list()
@@ -132,9 +138,11 @@ class Union(Operator, ChildrenSlotMixin):
                 # children
                 # TODO: This might be deduced from the query plan ?
 
-                #if self._key.get_field_names() and record.has_field_names(self._key.get_field_names()):
-                key_value = record.get_value(self._key_field_names)
+                if not record.has_fields(self._key_fields):
+                    self.forward_upstream(packet)
+                    return
 
+                key_value = record.get_value(self._key_field_names)
 
                 if key_value in self._records_by_key:
                     prev_record = self._records_by_key[key_value]

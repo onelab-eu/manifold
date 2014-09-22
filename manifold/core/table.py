@@ -772,6 +772,7 @@ class Table(object):
                     predicate = Predicate(field.get_name(), eq, v_key.get_field_name())
 
                 if field.is_array():
+                    # Explain the LOCAL condition
                     relations.add(Relation(Relation.types.LINK_1N, predicate, name=field.get_name(), local = v.keys.is_local())) # LINK_1N_FORWARD
                 else:
                     if False: # field == key
@@ -779,6 +780,11 @@ class Table(object):
                     else:
                         if field.is_local():
                             relations.add(Relation(Relation.types.LINK_11, predicate, name=field.get_name()))
+                            # Why a 11 relation if the field is local ?
+                            # We need to check the platforms
+                            if u.get_platforms() == v.get_platforms():
+                                relations.add(Relation(Relation.types.LINK_11, p, name=field.get_name()))
+
                         else:
                             if v.is_child_of(u):
                                 relations.add(Relation(Relation.types.CHILD, predicate, name = str(uuid.uuid4())))
@@ -789,6 +795,8 @@ class Table(object):
                                     Log.warning("Hardcoded source, agent, destination and dns_target as 1..1 relationships")
                                     relations.add(Relation(Relation.types.LINK_11, predicate, name=field.get_name()))
                                 else:
+                                    # A non-local field (not array) is typed against v table
+                                    # Eg: TDMI:node -> DNS:ip 
                                     relations.add(Relation(Relation.types.LINK, predicate, name = str(uuid.uuid4())))
             # BAD
             #if v_key.is_composite():

@@ -103,6 +103,7 @@ class ResultValue(dict):
         """
         return self["code"]
 
+    # XXX This method conflicts with dict.get and should be removed
     @classmethod
     def get(self, records, errors):
         num_errors = len(errors)

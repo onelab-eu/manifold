@@ -49,7 +49,7 @@ class DigGateway(ProcessGateway):
 
     announces = """
     class ip {
-        const inet ip;
+        const ip ip;
         const string instance_name;
         CAPABILITY(join);
         KEY(ip);

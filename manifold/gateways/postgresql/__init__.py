@@ -28,6 +28,7 @@ from manifold.core.announce             import Announce, Announces, merge_announ
 from manifold.core.field                import Field
 from manifold.core.table                import Table
 from manifold.util.log                  import Log
+from manifold.util.misc                 import is_iterable
 from manifold.util.predicate            import and_, or_, inv, add, mul, sub, mod, truediv, lt, le, ne, gt, ge, eq, neg, contains
 from manifold.util.type                 import accepts, returns
 
@@ -942,7 +943,9 @@ class PostgreSQLGateway(Gateway):
             return "string"
         elif sql_type in ["real","double precision"]:
             return "double"
-        elif sql_type in ["inet", "cidr", "text", "interval"]:
+        elif sql_type == "inet":
+            return "ip" # XXX shoud such a matching be automatically done ?
+        elif sql_type in ["cidr", "text", "interval"]:
             return sql_type
         elif re_timestamp.match(sql_type):
             return "timestamp"
@@ -1026,11 +1029,17 @@ class PostgreSQLGateway(Gateway):
         fields = set()
         cursor.execute(PostgreSQLGateway.SQL_TABLE_FIELDS, param_execute)
         for field in cursor.fetchall():
+            _qualifiers = list()
+            if not field.is_updatable == "YES":
+                _qualifiers.append('const')
+            is_local = lambda field_name: field_name.endswith('_id')
+            if is_local(field.column_name):
+                _qualifiers.append('local')
             # PostgreSQL types vs base types
             table.insert_field(Field(
                 type        = foreign_keys[field.column_name] if field.column_name in foreign_keys else PostgreSQLGateway.to_manifold_type(field.data_type),
                 name        = field.column_name,
-                qualifiers  = [] if field.is_updatable == "YES" else ["const"],
+                qualifiers  = _qualifiers,
                 is_array    = (field.data_type == "ARRAY"),
                 description = comments[field.column_name] if field.column_name in comments else "(null)"
             ))
@@ -1057,7 +1066,11 @@ class PostgreSQLGateway(Gateway):
         
         if table_name in primary_keys.keys():
             for key in primary_keys[table_name]:
-                table.insert_key(key)
+                # TABLE / TUPLE
+                is_local = lambda field_name: field_name.endswith('_id')
+                if not is_iterable(k): k = [k]
+                local = any(is_local(x) for x in k) if is_iterable(k) else is_local(x)
+                table.insert_key(k, local = local)
    
         # PARTITIONS:
         # TODO

@@ -6,6 +6,7 @@ from manifold.core.method       import Method
 from manifold.core.field_names  import FieldNames
 from manifold.core.relation     import Relation
 from manifold.core.table        import Table
+from manifold.util.log          import Log
 from manifold.util.predicate    import Predicate, eq
 
 # This is somehow and object

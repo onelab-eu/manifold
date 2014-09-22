@@ -113,10 +113,11 @@ class Relation(object):
         Returns:
             The "%s" representation of this Relation.
         """
-        return "<Relation<%s> %s: %s>" % (
+        return "<Relation<%s> %s: %s%s>" % (
             self.name if self.get_relation_name() else "",
             self.get_str_type(),
-            self.get_predicate()
+            self.get_predicate(),
+            ' LOCAL' if self.is_local() else ''
         )
 
     @returns(StringTypes)
@@ -125,10 +126,11 @@ class Relation(object):
         Returns:
             The "%r" representation of this Relation.
         """
-        return "<%s, %s>" % (
+        return "<%s, %s%s>" % (
             self.get_str_type(),
             #self.name if self.get_relation_name() else ""
-            self.get_predicate()
+            self.get_predicate(),
+            ' LOCAL' if self.is_local() else ''
         )
 
     #@returns(StringTypes)

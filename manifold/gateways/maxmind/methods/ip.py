@@ -121,7 +121,7 @@ class Ip(Object):
             """
             // See record_by_addr
             class ip {
-                const inet   ip;            /**< Ex: '64.233.161.99'    */
+                const ip     ip;            /**< Ex: '64.233.161.99'    */
                 const string city;          /**< Ex: 'Mountain View'    */
                 const string region;        /**< Ex: 'A8'               */ 
                 const string region_name;   /**< Ex: 'CA'               */

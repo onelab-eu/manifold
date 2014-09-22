@@ -328,6 +328,7 @@ class ExploreTask(Deferred):
 
             else:
                 task = ExploreTask(self._router, obj_dest, relation, self.path, self.parent, self.depth)
+                # XXX In which cases do we need a UNION ???
                 if relation.get_type() == Relation.types.PARENT:
                     # HERE, instead of doing a left join between a PARENT
                     # and a CHILD table, we will do a UNION
@@ -410,7 +411,7 @@ class ExploreTask(Deferred):
 #            self.ast.rename(self.sq_rename_dict)
 #            self.sq_rename_dict = dict()
 
-    def perform_union(self, ast, key, allowed_platforms, fib, user, query_plan):
+    def perform_union(self, ast_sq_rename_dict, key, allowed_platforms, fib, user, query_plan):
         """
         Args:
             ast: An AST instance.
@@ -420,6 +421,10 @@ class ExploreTask(Deferred):
             user: The User issuing the Query.
             query_plan: The QueryPlan instance related to this Query, and that we're updating.
         """
+        ast, sq_rename_dict = ast_sq_rename_dict
+        if not ast: return
+        assert not sq_rename_dict, "Not implemented"
+
         # ast = None when task.cancel()
         if not isinstance(ast, AST):
             Log.warning(traceback.format_exc())

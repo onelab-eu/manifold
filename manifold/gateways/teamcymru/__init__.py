@@ -115,10 +115,12 @@ class TeamCymruGateway(Gateway):
             records = [{'ip': value} for value in value_list]
         else:
 
+            value_list = [x for x in value_list if x is not None]
+
             # Use the nice python-cymru-services package
             # https://github.com/trolldbois/python-cymru-services
             if len(value_list) > 20:
-                from .cymru.ip2asn.dns import WhoisClient as ip2asn
+                from .cymru.ip2asn.whois import WhoisClient as ip2asn
                 client = ip2asn()
                 ret = client.lookupmany_dict(value_list, qType=qtype)
             else:
@@ -157,7 +159,7 @@ class TeamCymruGateway(Gateway):
             """
             // See record_by_addr
             class ip {
-                const inet   ip;            /**< Ex: '132.227.1.1'      */
+                const ip     ip;            /**< Ex: '132.227.1.1'      */
                 as           asn;           /**< Ex: '1307'             */
                 const string prefix;        /**< Ex: '132.227.0.0/16'   */
                 const string cc;            /**< Ex:  'FR'              */
