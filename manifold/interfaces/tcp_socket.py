@@ -43,8 +43,13 @@ class ManifoldProtocol(IntNStringReceiver):
     def connectionMade(self):
         self.factory.on_client_ready(self)
 
+class ManifoldServerProtocol(ManifoldProtocol):
+    def stringReceived(self, msg):
+        packet = Packet.deserialize(msg)
+        self.factory.send(packet)
+
 class ManifoldServerFactory(Factory, Interface, ChildSlotMixin):
-    protocol = ManifoldProtocol
+    protocol = ManifoldServerProtocol
 
     def __init__(self, router):
         ChildSlotMixin.__init__(self) # needed to act as a receiver (?)
@@ -59,11 +64,12 @@ class ManifoldServerFactory(Factory, Interface, ChildSlotMixin):
             self._client.send_packet(packet)
 
     def receive(self, packet):
-        print "RECEIVED PACKET", packet
+        print "SERVER RECEIVED PACKET FROM CLIENT", packet
         packet.set_receiver(self)
         self._router.receive(packet)
 
     def send(self, packet):
+        print "SERVER SENDING PACKET TO CLIENT", packet
         if not self._client:
             self._rx_buffer.append(packet)
         else:

@@ -105,15 +105,14 @@ class AgentDaemon(Daemon):
 
         if not Options().server_mode:
             # a) Connect to main server
-            self._client_interface = TCPSocketInterface(self._router)
-            self._client_interface.connect('dryad.ipv6.lip6.fr')
+            # XXX An interface should connect to a single remote host
+            self._client_interface = TCPSocketInterface(self._router).connect('dryad.ipv6.lip6.fr')
             # Connect to supernode
             # b) get supernode...
             supernode = self.get_supernode()
             self._client_interface.disconnect()
             # c) connect...
-            self._client_interface = TCPSocketInterface(self._router)
-            self._client_interface.connect(supernode)
+            self._client_interface = TCPSocketInterface(self._router).connect(supernode)
         else:
             # The current agent registers itself as a supernode
             # XXX import supernode

@@ -56,6 +56,7 @@ class SyncReceiver(Node, ChildSlotMixin):
         """
         if packet.get_protocol() == Packet.PROTOCOL_RECORD:
             if not packet.is_empty():
+                print "received in SR", packet
                 self._records.append(packet)
         elif packet.get_protocol() == Packet.PROTOCOL_ERROR:
             self._errors.append(packet) # .get_exception()
