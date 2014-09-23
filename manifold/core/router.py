@@ -156,6 +156,9 @@ class Router(object):
 # DEPRECATED BY FIB        self._dbgraph = to_3nf(self.get_announces())
 # DEPRECATED BY FIB        self._local_dbgraph = self.get_local_gateway().make_dbgraph()
 
+    def register_object(self, cls, namespace = None):
+        self.get_gateway(namespace).register_object(cls, namespace)
+
     #---------------------------------------------------------------------------
     # Platform management
     #---------------------------------------------------------------------------
@@ -199,7 +202,6 @@ class Router(object):
         Returns:
             True iif successful.
         """
-        print "add platform", platform_name, gateway_type, platform_config
         if not platform_config:
             platform_config = dict()
 
@@ -570,10 +572,10 @@ class Router(object):
         elif isinstance(packet, Record):
             # Let's assume the record is an announce
             packet_dict = packet.to_dict()
-            platform_name = packet_dict['origins'][0] # XXX
+            origins = packet_dict['origins']
+            platform_name = origins[0] if origins else 'local'
             namespace = 'local' if platform_name == 'local' else None
             announce = Announce(Table.from_dict(packet_dict, LOCAL_NAMESPACE))
-            print "received announce from platform", platform_name, "namespace=", namespace
             self.get_fib().add(platform_name, announce, namespace)
 
         elif isinstance(packet, ErrorPacket):
@@ -605,7 +607,6 @@ class Router(object):
                     namespace, "', '".join(valid_namespaces)))
 
             # Select the DbGraph answering to the incoming Query and compute the QueryPlan
-            print "QUERY GET FROM", query.get_object()
             root_node = self._operator_graph.build_query_plan(query, annotation)
 
             print "QUERY PLAN:"

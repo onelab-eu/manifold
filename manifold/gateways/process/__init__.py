@@ -292,11 +292,6 @@ class ProcessGateway(Gateway):
         s.connect((dst, 0))
         return s.getsockname()[0]
 
-    @staticmethod
-    def get_hostname():
-        return subprocess.Popen(["uname", "-n"], stdout=subprocess.PIPE).communicate()[0].strip()
-
-
     @classmethod
     def get_parser():
         return self.parser

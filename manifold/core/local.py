@@ -16,63 +16,149 @@ import traceback
 from types                          import StringTypes
 
 from manifold.gateways              import Gateway
-from manifold.core.announce         import Announces, announces_from_docstring
+from manifold.core.announce         import Announce, Announces, parse_string, announces_from_docstring
 from manifold.core.dbgraph          import DBGraph
 from manifold.core.method           import Method
-from manifold.core.record           import Records
+from manifold.core.record           import Record, Records
+from manifold.core.table            import Table
 from manifold.util.log              import Log
 from manifold.util.type             import accepts, returns
 
 LOCAL_NAMESPACE = "local"
 
-@returns(Announces)
-def make_local_announces(platform_name):
+class ManifoldObject(Record):
+    __object_name__ = None
+    __fields__      = None
+    __keys__        = None
+    _collection     = list()
+
+    def get_router(self):
+        return self.get_gateway().get_router()
+
+    def get_gateway(self):
+        return self._gateway
+
+    def set_gateway(self, gateway):
+        self._gateway = gateway
+
+    @classmethod
+    def get_object_name(cls):
+        if cls.__doc__:
+            announce = cls.get_announce()
+            return announce.get_table().get_name()
+        else:
+            return cls.__object_name__ if cls.__object_name__ else cls.__name__
+
+    @classmethod
+    def get_fields(cls):
+        if cls.__doc__:
+            announce = self.get_announce()
+            return announce.get_table().get_fields()
+        else:
+            return cls.__fields__
+
+    @classmethod
+    def get_keys(cls):
+        if cls.__doc__:
+            announce = self.get_announce()
+            return announce.get_table().get_keys()
+        else:
+            return cls.__keys__
+
+    @classmethod
+    def get(cls, filter = None, fields = None):
+        import copy
+        ret = list()
+        # XXX filter and fields
+        # XXX How to preserve the object class ?
+        for x in cls._collection:
+            y = copy.deepcopy(x)
+            y.__class__ = Record
+            ret.append(y)
+        return ret
+
+    def insert(self):
+        self._collection.append(self)
+
+    def remove(self):
+        self._collection.remove(self)
+
+    @classmethod
+    def get_announce(cls):
+        # The None value corresponds to platform_name. Should be deprecated # soon.
+        if cls.__doc__:
+            announce, = parse_string(cls.__doc__, None)
+            return announce
+        else:
+            table = Table(None, cls.get_object_name(), cls.get_fields(), cls.get_keys())
+            #table.set_capability()
+            #table.partitions.append()
+            return Announce(table)
+
+# The sets of objects exposed by this gateway
+class OLocalLocalObject(ManifoldObject):
     """
-    Craft an Announces instance storing the the local Tables that
-    will be stored in the local DbGraph of a router.
-    Args:
-        platform_name: A name of the Storage platform.
-    Returns:
-        The corresponding list of Announces.
+    class object {
+        string  table;           /**< The name of the object/table.        */
+        column  columns[];       /**< The corresponding fields/columns.    */
+        string  capabilities[];  /**< The supported capabilities           */
+        string  key[];           /**< The keys related to this object      */
+        string  origins[];       /**< The platform originating this object */
+
+        CAPABILITY(retrieve);
+        KEY(table);
+    };
     """
-    assert isinstance(platform_name, StringTypes)
 
-    @announces_from_docstring(platform_name)
-    def make_local_announces_impl():
-        """
-        class object {
-            string  table;           /**< The name of the object/table.        */
-            column  columns[];       /**< The corresponding fields/columns.    */
-            string  capabilities[];  /**< The supported capabilities           */
-            string  key[];           /**< The keys related to this object      */
-            string  origins[];       /**< The platform originating this object */
+    def get(self):
+        return Records([cls.get_announce().to_dict() for cls in self.get_gateway().get_objects()])
 
-            CAPABILITY(retrieve);
-            KEY(table);
-        };
+class OLocalLocalColumn(ManifoldObject):
+    """
+    class column {
+        string qualifier;
+        string name;
+        string type;
+        string description;
+        bool   is_array;
 
-        class column {
-            string qualifier;
-            string name;
-            string type;
-            string description;
-            bool   is_array;
+        LOCAL KEY(name);
+    };
+    """
 
-            LOCAL KEY(name);
-        };
+class OLocalObject(ManifoldObject):
+    """
+    class object {
+        string  table;           /**< The name of the object/table.        */
+        column  columns[];       /**< The corresponding fields/columns.    */
+        string  capabilities[];  /**< The supported capabilities           */
+        string  key[];           /**< The keys related to this object      */
+        string  origins[];       /**< The platform originating this object */
 
-        class gateway {
-            string type;
+        CAPABILITY(retrieve);
+        KEY(table);
+    };
+    """
 
-            CAPABILITY(retrieve);
-            KEY(type);
-        };
-        """
+    def get(self):
+        return Records([a.to_dict() for a in self.get_router().get_fib().get_announces()]) # only default namespace for now
 
-    announces = make_local_announces_impl(platform_name)
-    return announces
+OLocalColumn = OLocalLocalColumn
 
+class OLocalGateway(ManifoldObject):
+    """
+    class gateway {
+        string type;
 
+        CAPABILITY(retrieve);
+        KEY(type);
+    };
+    """
+    def get(self):
+        return Records([{"type" : gateway_type} for gateway_type in sorted(Gateway.list().keys())])
+
+# LocalGateway should be a standard gateway to which we register objects
+# No need for a separate class
 class LocalGateway(Gateway):
     """
     Handle queries related to local:object, local:gateway, local:platform, etc.
@@ -91,6 +177,11 @@ class LocalGateway(Gateway):
 
                     SELECT config FROM local:platform WHERE platform == "platform_name"
         """
+        # namespace -> (object_name -> obj)
+        self._objects_by_namespace = dict()
+
+        # XXX We don't need self.storage anymore
+
         try:
             from manifold.bin.config import MANIFOLD_STORAGE
             self._storage = MANIFOLD_STORAGE
@@ -100,6 +191,13 @@ class LocalGateway(Gateway):
             self._storage = None
 
         super(LocalGateway, self).__init__(router, platform_name, platform_config)
+
+        self.register_local_object(OLocalLocalObject)
+        self.register_local_object(OLocalLocalColumn)
+        self.register_object(OLocalObject)
+        self.register_object(OLocalColumn)
+        self.register_object(OLocalGateway)
+
 
     def receive(self, packet):
         """
@@ -115,59 +213,65 @@ class LocalGateway(Gateway):
 
         action = query.get_action()
         namespace = query.get_namespace()
-        table_name = query.get_table_name()
+        object_name = query.get_object_name()
 
-        if namespace == LOCAL_NAMESPACE:
-            if table_name == 'object':
-                announces = make_local_announces(LOCAL_NAMESPACE)
-                records = Records([x.to_dict() for x in announces])
-            else:
-                raise RuntimeError("Invalid object '%s::%s'" % (namespace, object_name))
-        else:
-            if table_name == "object":
-                if not action == "get":
-                     raise RuntimeError("Invalid action (%s) on '%s::%s' table" % (action, self.get_platform_name(), table_name))
-                records = Records([a.to_dict() for a in self._router.get_fib().get_announces()]) # only default namespace for now
-            elif table_name == "gateway":
-                # Note that local:column won't be queried since it has no RETRIEVE capability.
-                if not action == "get":
-                     raise RuntimeError("Invalid action (%s) on '%s::%s' table" % (action, self.get_platform_name(), table_name))
-                records = Records([{"type" : gateway_type} for gateway_type in sorted(Gateway.list().keys())])
-            elif self._storage:
-                records = None
-                self._storage.get_gateway().receive_impl(packet)
-            else:
-                raise RuntimeError("Invalid object '%s::%s'" % (namespace, object_name))
+        try:
+            obj = self.get_object(object_name, namespace)
+        except ValueError:
+            raise RuntimeError("Invalid object '%s::%s'" % (namespace, object_name))
+
+        instance = obj()
+        instance.set_gateway(self)
+        records = instance.get()
+
+        #elif self._storage:
+        #    records = None
+        #    self._storage.get_gateway().receive_impl(packet)
 
         if records:
             self.records(records, packet)
 
-    @returns(Announces)
-    def get_announces(self):
-        """
-        Returns:
-            The list of corresponding Announces instances.
-        """
-        local_announces = Announces()
+    def get_object(self, object_name, namespace = None):
+        return self._objects_by_namespace[namespace][object_name]
 
-        # Fetch Announces produced by the Storage
-        gateway_storage = self._storage.get_gateway()
-        if gateway_storage:
-            #local_announces = local_announces | gateway_storage.get_announces()
-            local_announces |= gateway_storage.get_announces()
+    def get_objects(self, namespace = None):
+        return self._objects_by_namespace[namespace].values()
 
-        # Fetch Announces produced by each enabled platform.
-        router = self.get_router()
-        if router:
-            for platform_name in router.get_enabled_platform_names():
-                gateway = router.get_gateway(platform_name)
-                # foo:object is renamed local:object since we cannot compute query plan
-                # over the local DBGraph if its table are not attached to platform "local"
-                local_announces |= make_local_announces(LOCAL_NAMESPACE)
-        else:
-            Log.warning("The router of this %s is unset. Some Announces cannot be fetched" % self)
+    def register_object(self, cls, namespace = None, is_local = False):
+        # Register it in the FIB
+        self.get_router().get_fib().add('local', cls.get_announce(), namespace)
 
-        return local_announces
+        # If the addition request does not come locally, then we don't need to
+        # keep the namespace (usually 'local')
+        if not is_local:
+            namespace = None
+
+        # Store the object locally
+        if namespace not in self._objects_by_namespace:
+            self._objects_by_namespace[namespace] = dict()
+        self._objects_by_namespace[namespace][cls.get_object_name()] = cls
+
+    def register_local_object(self, cls, namespace = LOCAL_NAMESPACE):
+        self.register_object(cls, namespace, is_local = True)
+
+#DEPRECATED|        # Fetch Announces produced by the Storage
+#DEPRECATED|        gateway_storage = self._storage.get_gateway()
+#DEPRECATED|        if gateway_storage:
+#DEPRECATED|            #local_announces = local_announces | gateway_storage.get_announces()
+#DEPRECATED|            local_announces |= gateway_storage.get_announces()
+#DEPRECATED|
+#DEPRECATED|        # Fetch Announces produced by each enabled platform.
+#DEPRECATED|        router = self.get_router()
+#DEPRECATED|        if router:
+#DEPRECATED|            for platform_name in router.get_enabled_platform_names():
+#DEPRECATED|                gateway = router.get_gateway(platform_name)
+#DEPRECATED|                # foo:object is renamed local:object since we cannot compute query plan
+#DEPRECATED|                # over the local DBGraph if its table are not attached to platform "local"
+#DEPRECATED|                local_announces |= make_local_announces(LOCAL_NAMESPACE)
+#DEPRECATED|        else:
+#DEPRECATED|            Log.warning("The router of this %s is unset. Some Announces cannot be fetched" % self)
+#DEPRECATED|
+#DEPRECATED|        return local_announces
 
 # DEPRECATED BY FIB    @returns(DBGraph)
 # DEPRECATED BY FIB    def make_dbgraph(self):

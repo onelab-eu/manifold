@@ -1,4 +1,4 @@
-from manifold.core.announce     import Announce
+from manifold.core.announce     import Announce, Announces
 from manifold.core.dbnorm       import Fd, Fds, Determinant, closure
 from manifold.core.key          import Key
 from manifold.core.keys         import Keys
@@ -267,7 +267,7 @@ class FIB(object):
     def get_announces(self, namespace = None):
         # XXX All namespaces
         ret = list()
-        print "getting objects of namespace", namespace
+        #print "getting objects of namespace", namespace
         for obj in self.get_objects(namespace):
             ret.append(obj.get_announce())
         return ret
@@ -275,116 +275,118 @@ class FIB(object):
     def get_fds(self):
         return self._fds.copy()
 
-    def add(self, platform_name, announce, namespace = None):
+    def add(self, platform_name, announces, namespace = None):
         """
         Adds a new announce to the FIB.
         """
+        if not isinstance(announces, Announces):
+            announces = Announces([announces])
+
         if namespace:
             if namespace in self._objects_by_namespace:
-                print "existing namespace", namespace
+                #print "existing namespace", namespace
                 object_dict = self._objects_by_namespace[namespace]
             else:
-                print "new namespace", namespace
+                #print "new namespace", namespace
                 object_dict = {}
                 self._objects_by_namespace[namespace] = object_dict
         else:
             object_dict = self._objects
 
-        table = announce.get_table() # XXX
+        for announce in announces:
+            table = announce.get_table() # XXX
 
-        object_name     = table.get_name() # XXX
-        keys            = table.get_keys()
-        fields          = table.get_fields()
-        capabilities    = table.get_capabilities()
-        relations       = set()
+            object_name     = table.get_name() # XXX
+            keys            = table.get_keys()
+            fields          = table.get_fields()
+            capabilities    = table.get_capabilities()
+            relations       = set()
 
-        # Object
-        if not object_name in object_dict:
-            obj = Object(object_name)
-            print "NEW OBJECT : object_name", object_name
-            object_dict[object_name] = obj
-        else:
-            obj = object_dict[object_name]
-            print "EXISTING OBJECT : object name", object_name
+            # Object
+            if not object_name in object_dict:
+                obj = Object(object_name)
+                object_dict[object_name] = obj
+            else:
+                obj = object_dict[object_name]
 
-        # Keys
-        # XXX subkey can be sufficient
-        for key in table.get_keys():
-            if key.is_empty():
-                key = Key(fields, local=key.is_local())
-                
-
-            for field in fields:
-
-                fd = Fd(Determinant(key, object_name), {field: set([Method(platform_name, object_name)])})
-
-                print "Considering FD", fd
-
-                # Let's challenge the Fd
-                # 1) indirect relationships: x -> a
-                x  = key.get_fields()
-                if field not in x:
-                    # Key fields are kept inside the object
-                    a  = fd.get_field()
-                    g = self.get_fds()
-                    x_plus = closure(x, g)
-                    if a in x_plus:
-                        # XXX Don't keep the Fd
-                        # XXX Some processing needed
-                        print "Don't keep the FD"
-                        # XXX obj.set_platform_object_name(platform_name, object_name) # XXX
-                        continue
+            # Keys
+            # XXX subkey can be sufficient
+            for key in table.get_keys():
+                if key.is_empty():
+                    key = Key(fields, local=key.is_local())
                     
-                # We keep the FD
 
-                # Multivalued dependencies...
-                if key.is_composite():
-                    for b in x:
-                        # Alternative key without b
-                        x_b = Key([xi for xi in key.get_fields() if xi != b]) # x_b = x - b
-                        # g2 = The set of FDs in the FIB
-                        fd2 = fd.copy()                            #   with fd' = [(x - b) -> a]
-                        fd2.set_key(x_b)
+                for field in fields:
 
-                        g  = self.get_fds()
+                    fd = Fd(Determinant(key, object_name), {field: set([Method(platform_name, object_name)])})
 
-                        x_b_plus = closure(x_b.get_fields(), g)            # compute (x - b)+ with repect to g'
+                    #print "Considering FD", fd
 
-                        if b in x_b_plus:
-                            # replace [x -> a] by [(x - b) -> a]
-                            fd = fd2 # XXX ??? XXX
-                            print "Reduce the FD"
+                    # Let's challenge the Fd
+                    # 1) indirect relationships: x -> a
+                    x  = key.get_fields()
+                    if field not in x:
+                        # Key fields are kept inside the object
+                        a  = fd.get_field()
+                        g = self.get_fds()
+                        x_plus = closure(x, g)
+                        if a in x_plus:
+                            # XXX Don't keep the Fd
+                            # XXX Some processing needed
+                            #print "Don't keep the FD"
+                            # XXX obj.set_platform_object_name(platform_name, object_name) # XXX
+                            continue
+                        
+                    # We keep the FD
 
-                # The key is kept if it determines at least one field
-                # We can expect that no platform announces such superkeys...
+                    # Multivalued dependencies...
+                    if key.is_composite():
+                        for b in x:
+                            # Alternative key without b
+                            x_b = Key([xi for xi in key.get_fields() if xi != b]) # x_b = x - b
+                            # g2 = The set of FDs in the FIB
+                            fd2 = fd.copy()                            #   with fd' = [(x - b) -> a]
+                            fd2.set_key(x_b)
 
-                obj.add_field(field)
-                obj.add_platform_field(platform_name, field)
-                obj.set_platform_capabilities(platform_name, capabilities)
-                obj.set_platform_object_name(platform_name, object_name)
+                            g  = self.get_fds()
 
-                # New relations ?
-                # FD: x -> a
-                # FD: (x, y) -> a
-                #
-                # We only look at relations between the current object and those
-                # containing a (or typed after the type of a)
-                #
-                # Child objects too should be considered having the parents'
-                # fields
-                for other in self.get_objects():
-                    relations = obj.infer_relations(other)
-                    for relation in relations:
-                        if not relation in obj.get_relations():
-                            obj.add_relation(other, relation)
-                            other.add_relation(obj, relation.get_reverse())
+                            x_b_plus = closure(x_b.get_fields(), g)            # compute (x - b)+ with repect to g'
 
-            # IS KEY WELL DEFINE
-            obj.add_key(key)
+                            if b in x_b_plus:
+                                # replace [x -> a] by [(x - b) -> a]
+                                fd = fd2 # XXX ??? XXX
+                                #print "Reduce the FD"
 
-        # Fields = they define a set of FD
-        # We have new Fd that can impact other existing objects
+                    # The key is kept if it determines at least one field
+                    # We can expect that no platform announces such superkeys...
 
-        # A new FD:
-        # 1) is it redundant ?
-        # 2) does it make any relation redundant ?
+                    obj.add_field(field)
+                    obj.add_platform_field(platform_name, field)
+                    obj.set_platform_capabilities(platform_name, capabilities)
+                    obj.set_platform_object_name(platform_name, object_name)
+
+                    # New relations ?
+                    # FD: x -> a
+                    # FD: (x, y) -> a
+                    #
+                    # We only look at relations between the current object and those
+                    # containing a (or typed after the type of a)
+                    #
+                    # Child objects too should be considered having the parents'
+                    # fields
+                    for other in self.get_objects():
+                        relations = obj.infer_relations(other)
+                        for relation in relations:
+                            if not relation in obj.get_relations():
+                                obj.add_relation(other, relation)
+                                other.add_relation(obj, relation.get_reverse())
+
+                # IS KEY WELL DEFINE
+                obj.add_key(key)
+
+            # Fields = they define a set of FD
+            # We have new Fd that can impact other existing objects
+
+            # A new FD:
+            # 1) is it redundant ?
+            # 2) does it make any relation redundant ?

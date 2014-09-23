@@ -147,8 +147,8 @@ class Table(object):
                 self.insert_key(key)
 
         # self.platform_names is initialized wile calling self.set_partitions(...)
-        if len(self.get_platforms()) == 0:
-            raise Exception("strange table %r" % self)
+        #if len(self.get_platforms()) == 0:
+        #    raise Exception("strange table %r" % self)
 
     @returns(StringTypes)
     def get_from_name(self):

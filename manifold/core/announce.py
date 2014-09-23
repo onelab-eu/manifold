@@ -96,6 +96,7 @@ class MetadataEnum:
 #------------------------------------------------------------------
 
 class Announce(Packet):
+
     def __init__(self, table, cost = None):
         """
         Constructor.

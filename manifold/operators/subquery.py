@@ -380,19 +380,13 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
                 # Remember that all relations involved in a SubQuery are named.
                 child_destinations[field].add_field_names(subfield)
 
-
 #MARCO|        parent_field_names = self._get_parent().get_destination().get_field_names()
 #MARCO|        parent_destination.add_field_names(destination.get_field_names() & parent_field_names)
 #MARCO|        for child_id, child, child_data in self._iter_children():
+
             child_field_names = FieldNames()
             for field in child.get_destination().get_field_names():
                 child_field_names.add(FieldNames.join(child_id, field))
-            print "======", self, "==== split destination"
-            print "destination.get_field_names()", destination.get_field_names() 
-            print "child_destination_field_names", child.get_destination().get_field_names()
-            print "child=", child
-            print "child_field_names", child_field_names
-            print "hcild_id", child_id
             child_destinations[child_id].add_field_names(destination.get_field_names() & child_field_names)
 
 #MARCO|            child_provided_field_names = child.get_destination().get_field_names()

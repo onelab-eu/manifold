@@ -38,19 +38,24 @@ class Record(Packet):
         """
         Constructor.
         """
-        if not 'last' in kwargs:
-            kwargs['last'] = False
-        Packet.__init__(self, Packet.PROTOCOL_RECORD, **kwargs)
-        if args:
+
+        packet_kwargs = dict()
+        packet_kwargs['last'] = kwargs.pop('last', False)
+        packet_kwargs['receiver'] = kwargs.pop('receiver', None)
+        Packet.__init__(self, Packet.PROTOCOL_RECORD, **packet_kwargs)
+
+        if args or kwargs:
+            self._record = dict()
             if len(args) == 1:
-                self._record = dict(args[0])
-            else:
-                raise Exception, "Bad initializer for Record"
+                self._record.update(args[0])
+            elif len(args) > 1:
+                raise Exception, "Bad initializer for Record: %r" % (args,)
+
+            self._record.update(kwargs)
+            
         else:
             # We need None to test whether the record is empty
             self._record = None
-        #self._parent_uuid = None
-        #self._uuid = None
 
     @staticmethod
     def from_dict(dic):
