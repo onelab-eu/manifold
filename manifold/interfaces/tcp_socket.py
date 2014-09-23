@@ -35,7 +35,7 @@ class ManifoldProtocol(IntNStringReceiver):
 
     def stringReceived(self, msg):
         packet = Packet.deserialize(msg)
-        self.factory.orig_receive(packet)
+        self.factory.receive(packet)
 
     def send_packet(self, packet):
         self.sendString(packet.serialize())
@@ -46,7 +46,7 @@ class ManifoldProtocol(IntNStringReceiver):
 class ManifoldServerProtocol(ManifoldProtocol):
     def stringReceived(self, msg):
         packet = Packet.deserialize(msg)
-        self.factory.receive(packet)
+        self.factory.orig_receive(packet)
 
 class ManifoldServerFactory(Factory, Interface, ChildSlotMixin):
     protocol = ManifoldServerProtocol
