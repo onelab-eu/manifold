@@ -48,19 +48,26 @@ class ManifoldServerFactory(Factory, Interface, ChildSlotMixin):
 
     def __init__(self, router):
         ChildSlotMixin.__init__(self) # needed to act as a receiver (?)
-        self._router = router
+        self._router    = router
+        self._client    = None
+        self._rx_buffer = list()
 
     def on_client_ready(self, client):
         self._client = client
+        while self._rx_buffer:
+            packet = self._rx_buffer.pop()
+            self._client.send_packet(packet)
 
     def receive(self, packet):
-        print "server received packet", packet
+        print "RECEIVED PACKET", packet
         packet.set_receiver(self)
         self._router.receive(packet)
 
     def send(self, packet):
-        print "sending back packet to client", packet
-        self._client.send_packet(packet)
+        if not self._client:
+            self._rx_buffer.append(packet)
+        else:
+            self._client.send_packet(packet)
 
 # XXX At the moment, it is similar to the server... let's see
 
@@ -72,10 +79,11 @@ class ManifoldClientFactory(ClientFactory, Interface, ChildSlotMixin): # Node
     def __init__(self, router):
         print "manifold client initialized"
         ChildSlotMixin.__init__(self)
-        self._router = router
+        self._router    = router
+        self._client    = None
+        self._tx_buffer = list()
 
     def on_client_ready(self, client):
-        self._client = client
         print "manifold client ready. requesting announces"
 
         # We request announces and even subscribe to future announces
@@ -83,7 +91,13 @@ class ManifoldClientFactory(ClientFactory, Interface, ChildSlotMixin): # Node
         query = Query.get('local:object')
         annotation = Annotation()
         packet = QueryPacket(query, annotation, receiver = self._router)
-        self._client.send_packet(packet)
+        client.send_packet(packet)
+
+        self._client = client
+
+        while self._tx_buffer:
+            packet = self._tx_buffer.pop()
+            self._client.send_packet(packet)
 
         # I behave as a Manifold gateway !!
 
@@ -91,7 +105,7 @@ class ManifoldClientFactory(ClientFactory, Interface, ChildSlotMixin): # Node
         """
         For packets received from the remote server."
         """
-        print "CLIENT: received packet", packet
+        print "CLIENT RECEIVED PACKET FROM SERVER", packet
         packet.set_receiver(self)
         self._router.receive(packet)
 
@@ -101,8 +115,11 @@ class ManifoldClientFactory(ClientFactory, Interface, ChildSlotMixin): # Node
         For packets coming from the client, directly use the router which is
         itself a receiver.
         """
-        print "CLIENT receive"
-        self._client.send_packet(packet)
+        print "CLIENT SENT PACKET TO SERVER", packet
+        if not self._client:
+            self._tx_buffer.append(packet)
+        else:
+            self._client.send_packet(packet)
 
     def disconnect(self):
         self.close()
@@ -120,6 +137,7 @@ class TCPSocketInterface(Interface):
         ReactorThread().listenTCP(SERVER_PORT, ManifoldServerFactory(self._router))
         # We need to know all clients !
 
+    # XXX An interface should connect to a single remote host
     def connect(self, host):
         factory = ManifoldClientFactory(self._router)
         ReactorThread().connectTCP(host, SERVER_PORT, factory)
@@ -129,9 +147,3 @@ class TCPSocketInterface(Interface):
     # answers instead of transmitting.
     # 
     # And a client, a Router are also Interface's, cf LocalClient
-
-    def receive(self, packet):
-        pass
-
-    def send(self, packet):
-        pass
