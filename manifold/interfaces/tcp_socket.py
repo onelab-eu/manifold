@@ -43,11 +43,11 @@ class ManifoldProtocol(IntNStringReceiver):
     def connectionMade(self):
         self.factory.on_client_ready(self)
 
-class ManifoldServerFactory(Factory, Interface):# ChildSlotMixin):
+class ManifoldServerFactory(Factory, Interface, ChildSlotMixin):
     protocol = ManifoldProtocol
 
     def __init__(self, router):
-        #ChildSlotMixin.__init__(self)
+        ChildSlotMixin.__init__(self) # needed to act as a receiver (?)
         self._router = router
 
     def on_client_ready(self, client):
@@ -66,12 +66,12 @@ class ManifoldServerFactory(Factory, Interface):# ChildSlotMixin):
 
 # XXX Behaves like a gateway. A gateway is a node/an interface (?) that has
 # static announces (not OML???).
-class ManifoldClientFactory(ClientFactory, Interface): # Node, ChildSlotMixin):
+class ManifoldClientFactory(ClientFactory, Interface, ChildSlotMixin): # Node
     protocol = ManifoldProtocol
     
     def __init__(self, router):
         print "manifold client initialized"
-        #ChildSlotMixin.__init__(self)
+        ChildSlotMixin.__init__(self)
         self._router = router
 
     def on_client_ready(self, client):
