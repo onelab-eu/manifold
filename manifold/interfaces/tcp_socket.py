@@ -35,7 +35,7 @@ class ManifoldProtocol(IntNStringReceiver):
 
     def stringReceived(self, msg):
         packet = Packet.deserialize(msg)
-        self.factory.receive(packet)
+        self.factory.orig_receive(packet)
 
     def send_packet(self, packet):
         self.sendString(packet.serialize())
@@ -46,7 +46,7 @@ class ManifoldProtocol(IntNStringReceiver):
 class ManifoldServerProtocol(ManifoldProtocol):
     def stringReceived(self, msg):
         packet = Packet.deserialize(msg)
-        self.factory.send(packet)
+        self.factory.receive(packet)
 
 class ManifoldServerFactory(Factory, Interface, ChildSlotMixin):
     protocol = ManifoldServerProtocol
@@ -55,25 +55,21 @@ class ManifoldServerFactory(Factory, Interface, ChildSlotMixin):
         ChildSlotMixin.__init__(self) # needed to act as a receiver (?)
         self._router    = router
         self._client    = None
-        self._rx_buffer = list()
 
     def on_client_ready(self, client):
         self._client = client
-        while self._rx_buffer:
-            packet = self._rx_buffer.pop()
-            self._client.send_packet(packet)
 
-    def receive(self, packet):
+    def orig_receive(self, packet):
         print "SERVER RECEIVED PACKET FROM CLIENT", packet
         packet.set_receiver(self)
         self._router.receive(packet)
 
-    def send(self, packet):
+    # This is the receive function from the gateway, and the receive function
+    # from the receiver (packets from the router).
+    # It should be a send (to the client)
+    def receive(self, packet):
         print "SERVER SENDING PACKET TO CLIENT", packet
-        if not self._client:
-            self._rx_buffer.append(packet)
-        else:
-            self._client.send_packet(packet)
+        self._client.send_packet(packet)
 
 # XXX At the moment, it is similar to the server... let's see
 
