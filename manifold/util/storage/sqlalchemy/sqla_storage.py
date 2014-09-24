@@ -33,6 +33,7 @@ class SQLAlchemyStorage(Storage):
         from objects.policy                import Policy
         from objects.session               import Session
         from objects.user                  import User
+        assert router
 
         url = platform_config["url"]
         db_filename = os.sep.join(url.split('?')[0].split('/')[1:])

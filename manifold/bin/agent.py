@@ -3,6 +3,7 @@
 
 import subprocess
 
+from manifold.core.destination          import Destination
 from manifold.core.router               import Router
 from manifold.interfaces.tcp_socket     import TCPSocketInterface
 from manifold.interfaces.unix_socket    import UNIXSocketInterface
@@ -24,7 +25,7 @@ from manifold.core.annotation           import Annotation
 from manifold.core.field                import Field
 from manifold.core.key                  import Key
 from manifold.core.local                import ManifoldObject
-from manifold.core.packet               import QueryPacket
+from manifold.core.packet               import GET
 from manifold.core.query                import Query
 from manifold.core.sync_receiver        import SyncReceiver
 
@@ -57,12 +58,9 @@ class AgentDaemon(Daemon):
         # XXX Supernode should be attached to an interface... or at the the
         # router if we can route such requests.
 
-        # Send a query to the interface
-        query = Query.get('local:supernode')
         receiver = SyncReceiver()
-        packet = QueryPacket(query, Annotation(), receiver)
-        # We should route the packet instead of choosing the interface...
-        self._client_interface.send(packet)
+        self._client_interface.send(GET(), Destination('local:supernode'), receiver = receiver)
+
         supernodes = receiver.get_result_value().get_all()
 
         print "SUPERNODES=", supernodes

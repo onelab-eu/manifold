@@ -153,7 +153,7 @@ class Projection(Operator, ChildSlotMixin):
         if packet.get_protocol() == Packet.PROTOCOL_QUERY:
             self._get_child().receive(packet)
 
-        elif packet.get_protocol() == Packet.PROTOCOL_RECORD:
+        elif packet.get_protocol() == Packet.PROTOCOL_CREATE:
             record = packet
             if not record.is_empty() and not self._field_names.is_star():
                 record = do_projection(record, self._field_names)

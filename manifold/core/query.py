@@ -702,6 +702,12 @@ class Query(object):
         """
         return Destination(self.object, self.filters, self.fields | FieldNames(self.params.keys()))
 
+    def get_data(self):
+        return self.params
+
+    def set_data(self, data):
+        self.params = data
+
     def set_destination(self, destination):
         Log.warning("set_destination is not handling params")
         self.object  = destination.get_object()

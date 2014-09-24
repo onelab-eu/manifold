@@ -7,16 +7,18 @@
 # Authors:
 #   Jordan Augé       <jordan.auge@lip6.f>
 
-import struct
+import struct, uuid
 
 from twisted.internet.protocol import Protocol, Factory, ClientFactory
 from twisted.protocols.basic import IntNStringReceiver
 
 from manifold.core.annotation       import Annotation
+from manifold.core.destination      import Destination
+from manifold.core.filter           import Filter
 from manifold.core.interface        import Interface
 from manifold.core.node             import Node
 from manifold.core.operator_slot    import ChildSlotMixin
-from manifold.core.packet           import Packet, QueryPacket
+from manifold.core.packet           import Packet, GET
 from manifold.core.query            import Query
 from manifold.util.reactor_thread   import ReactorThread
 
@@ -55,13 +57,15 @@ class ManifoldServerFactory(Factory, Interface, ChildSlotMixin):
         ChildSlotMixin.__init__(self) # needed to act as a receiver (?)
         self._router    = router
         self._client    = None
+        self._receiver_map = dict()
 
     def on_client_ready(self, client):
         self._client = client
 
     def orig_receive(self, packet):
         print "SERVER RECEIVED PACKET FROM CLIENT", packet
-        packet.set_receiver(self)
+        #packet.set_receiver(self)
+        # XXX The receiver is a UUID, let's preserve it
         self._router.receive(packet)
 
     # This is the receive function from the gateway, and the receive function
@@ -85,21 +89,20 @@ class ManifoldClientFactory(ClientFactory, Interface, ChildSlotMixin): # Node
         self._client    = None
         self._tx_buffer = list()
 
+        # XXX In all interfaces
+        self._uuid      = str(uuid.uuid4())
+        self._receiver_map = dict()
+
     def on_client_ready(self, client):
         print "manifold client ready. requesting announces"
 
-        # We request announces and even subscribe to future announces
-        # The client is the current router
-        query = Query.get('local:object')
-        annotation = Annotation()
-        packet = QueryPacket(query, annotation, receiver = self._router)
-        client.send_packet(packet)
+        self.send(GET(), Destination('local:object'))
 
         self._client = client
 
         while self._tx_buffer:
-            packet = self._tx_buffer.pop()
-            self._client.send_packet(packet)
+            full_packet = self._tx_buffer.pop()
+            self._client.send_packet(full_packet)
 
         # I behave as a Manifold gateway !!
 
@@ -108,15 +111,36 @@ class ManifoldClientFactory(ClientFactory, Interface, ChildSlotMixin): # Node
         For packets received from the remote server."
         """
         print "CLIENT RECEIVED PACKET FROM SERVER", packet
-        packet.set_receiver(self)
-        self._router.receive(packet)
+        # XXX Not all packets are targeted at the router.
+        # - announces are
+        # - supernodes are not (they could eventually pass through the router)
 
-    def send(self, packet):
+        d = packet.get_destination()
+        if not d in self._receiver_map:
+            Log.warning("Default: send packet to router")
+            self._router.receive(packet)
+        else:
+            self._receiver_map[d].receive(packet)
+
+    def send(self, packet, destination = None, receiver = None):
         """
         Receive handler for packets arriving from the router.
         For packets coming from the client, directly use the router which is
         itself a receiver.
         """
+
+        # XXX This code should be shared by all interfaces
+        source = Destination('uuid', Filter(['uuid', '==', self._uuid]))
+        packet.set_source(source)
+
+        if destination:
+            packet.set_destination = destination
+
+        if receiver:
+            receiver_id = str(uuid.uuid4())
+            self._receiver_map[receiver_id] = receiver
+            packet.set_receiver = receiver_id
+        
         print "CLIENT SENT PACKET TO SERVER", packet
         if not self._client:
             self._tx_buffer.append(packet)

@@ -113,7 +113,7 @@ class Selection(Operator, ChildSlotMixin):
                 new_packet.update_query(Query.select, self._filter.get_field_names())
                 self._get_child().receive(new_packet)
 
-        elif packet.get_protocol() == Packet.PROTOCOL_RECORD:
+        elif packet.get_protocol() == Packet.PROTOCOL_CREATE:
             record = packet
             if not record.is_empty() and self._filter.match(record.get_dict()):
                 self.forward_upstream(packet)

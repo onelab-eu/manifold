@@ -72,7 +72,7 @@ class DeferredReceiver(Node, ChildSlotMixin):
         """
 
         # XXX We should accumulate records and errors here to build up the ResultValue
-        if packet.get_protocol() == Packet.PROTOCOL_RECORD:
+        if packet.get_protocol() == Packet.PROTOCOL_CREATE:
             if not packet.is_empty():
                 self._records.append(packet)
         elif packet.get_protocol() == Packet.PROTOCOL_ERROR:

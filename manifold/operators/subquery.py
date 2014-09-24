@@ -485,7 +485,7 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
                 self._set_child_packet(child_id, child_packet)
             self.send_to(self._get_parent(), parent_packet)
 
-        elif packet.get_protocol() == Packet.PROTOCOL_RECORD:
+        elif packet.get_protocol() == Packet.PROTOCOL_CREATE:
             source_id = self._get_source_child_id(packet)
             record = packet
             is_last = record.is_last()

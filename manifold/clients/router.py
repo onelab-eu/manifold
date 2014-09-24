@@ -19,7 +19,7 @@ from ..core.query            import Query
 from ..core.result_value     import ResultValue
 from ..core.router           import Router
 from ..core.sync_receiver    import SyncReceiver
-from ..core.helpers          import execute_local_query
+#from ..core.helpers          import execute_local_query
 from ..util.log              import Log
 from ..util.type             import accepts, returns
 
@@ -40,22 +40,22 @@ class ManifoldRouterClient(ManifoldClient):
             "Invalid load_storage = %s (%s)" % (load_storage, type(load_storage))
 
         super(ManifoldRouterClient, self).__init__()
-        self.router = Router()
-        #self.router.__enter__()
+        self._router = Router()
+        #self._router.__enter__()
 
         # XXX remove references to storage
         if load_storage:
             from manifold.util.storage.storage import install_default_storage
-            install_default_storage(self.router)
+            install_default_storage(self._router)
 
         # self.user is a dict or None
         self.init_user(user_email)
 
     def terminate(self):
-        self.router.terminate()
+        self._router.terminate()
 
     def get_router(self):
-        return self.router
+        return self._router
 
     #--------------------------------------------------------------
     # Internal methods
@@ -77,7 +77,7 @@ class ManifoldRouterClient(ManifoldClient):
 
         try:
             query_users = Query.get("user").filter_by("email", "==", user_email)
-            users = execute_local_query(query_users, Annotation())
+            users = self._router.execute_local_query(query_users, Annotation())
         except Exception, e:
             Log.warning(traceback.format_exc())
             Log.warning("ManifoldRouterClient::init_user: Cannot initialize user: %s" % e)
@@ -95,12 +95,12 @@ class ManifoldRouterClient(ManifoldClient):
 
 #DEPRECATED|    def __del__(self):
 #DEPRECATED|        """
-#DEPRECATED|        Shutdown gracefully self.router
+#DEPRECATED|        Shutdown gracefully self._router
 #DEPRECATED|        """
 #DEPRECATED|        try:
-#DEPRECATED|            if self.router:
-#DEPRECATED|                self.router.__exit__()
-#DEPRECATED|            self.router = None
+#DEPRECATED|            if self._router:
+#DEPRECATED|                self._router.__exit__()
+#DEPRECATED|            self._router = None
 #DEPRECATED|        except:
 #DEPRECATED|            pass
 
@@ -145,7 +145,7 @@ class ManifoldRouterClient(ManifoldClient):
                 packet,
                 Packet.get_protocol_name(packet.get_protocol())
             )
-        self.router.receive(packet)
+        self._router.receive(packet)
 
     @returns(ResultValue)
     def forward(self, query, annotation = None):

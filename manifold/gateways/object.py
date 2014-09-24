@@ -10,9 +10,82 @@
 from types                          import GeneratorType
 
 from manifold.core.annotation       import Annotation
-from manifold.core.announce         import Announce
+from manifold.core.announce         import Announce, Announces, parse_string, announces_from_docstring
+from manifold.core.method           import Method
 from manifold.core.query            import Query
+from manifold.core.record           import Record, Records
+from manifold.core.table            import Table
 from manifold.util.type           	import accepts, returns 
+
+
+class ManifoldObject(Record):
+    __object_name__ = None
+    __fields__      = None
+    __keys__        = None
+    _collection     = list()
+
+    def get_router(self):
+        return self.get_gateway().get_router()
+
+    def get_gateway(self):
+        return self._gateway
+
+    def set_gateway(self, gateway):
+        self._gateway = gateway
+
+    @classmethod
+    def get_object_name(cls):
+        if cls.__doc__:
+            announce = cls.get_announce()
+            return announce.get_table().get_name()
+        else:
+            return cls.__object_name__ if cls.__object_name__ else cls.__name__
+
+    @classmethod
+    def get_fields(cls):
+        if cls.__doc__:
+            announce = self.get_announce()
+            return announce.get_table().get_fields()
+        else:
+            return cls.__fields__
+
+    @classmethod
+    def get_keys(cls):
+        if cls.__doc__:
+            announce = self.get_announce()
+            return announce.get_table().get_keys()
+        else:
+            return cls.__keys__
+
+    @classmethod
+    def get(cls, query = None): # filter = None, fields = None):
+        import copy
+        ret = list()
+        # XXX filter and fields
+        # XXX How to preserve the object class ?
+        for x in cls._collection:
+            y = copy.deepcopy(x)
+            y.__class__ = Record
+            ret.append(y)
+        return ret
+
+    def insert(self):
+        self._collection.append(self)
+
+    def remove(self):
+        self._collection.remove(self)
+
+    @classmethod
+    def get_announce(cls):
+        # The None value corresponds to platform_name. Should be deprecated # soon.
+        if cls.__doc__:
+            announce, = parse_string(cls.__doc__, None)
+            return announce
+        else:
+            table = Table(None, cls.get_object_name(), cls.get_fields(), cls.get_keys())
+            #table.set_capability()
+            #table.partitions.append()
+            return Announce(table)
 
 class Object(object):
     aliases = dict()

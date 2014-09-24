@@ -83,7 +83,7 @@ class Dup(Operator):
         """
         # Demux Operator simply forwards any kind of Packet to its
         # Consumer(s)/Node according to the nature of the Packet.
-        if packet.get_protocol() == Packet.PROTOCOL_RECORD:
+        if packet.get_protocol() == Packet.PROTOCOL_CREATE:
             record = packet
             if not self.is_duplicate(record):
                 self.send(packet)
@@ -91,7 +91,7 @@ class Dup(Operator):
                 # This packet has been already seen, however is has
                 # the LAST_RECORD flag enabled, so we send an empty
                 # RECORD Packet carrying this flag.
-                self.send(Packet(Packet.PROTOCOL_RECORD, True))
+                self.send(Packet(Packet.PROTOCOL_CREATE, True))
         else:
             self.send(packet)
 

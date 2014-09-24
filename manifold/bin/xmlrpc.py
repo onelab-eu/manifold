@@ -152,12 +152,7 @@ class XMLRPCDaemon(Daemon):
         """
         assert isinstance(allowed_capabilities, Capabilities)
 
-        from manifold.bin.config import MANIFOLD_STORAGE
-
         router = Router(allowed_capabilities)
-#DEPRECATED|        router.set_storage(MANIFOLD_STORAGE)
-#DEPRECATED|        platform_names = set([Options().platform]) if Options().platform else None
-#DEPRECATED|        router.load_storage(platform_names)
         return router
 
     def main(self):

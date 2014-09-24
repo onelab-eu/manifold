@@ -220,7 +220,7 @@ class LeftJoin(Operator, LeftRightSlotMixin):
 
             self._get_left().receive(left_packet)
 
-        elif packet.get_protocol() == Packet.PROTOCOL_RECORD:
+        elif packet.get_protocol() == Packet.PROTOCOL_CREATE:
             record = packet
 
             is_last = record.is_last()

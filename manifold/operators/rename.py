@@ -281,7 +281,7 @@ class Rename(Operator, ChildSlotMixin):
             new_packet = self.process_query(packet)
             self._get_child().receive(new_packet)
 
-        elif packet.get_protocol() == Packet.PROTOCOL_RECORD:
+        elif packet.get_protocol() == Packet.PROTOCOL_CREATE:
             new_packet = do_rename(packet, self.get_aliases())
             self.forward_upstream(new_packet)
 

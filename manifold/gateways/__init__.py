@@ -13,13 +13,14 @@ from types                          import StringTypes
 
 from manifold.core.announce         import Announces
 from manifold.core.capabilities     import Capabilities
-from manifold.core.code             import GATEWAY
+from manifold.core.code             import CORE, ERROR, GATEWAY
 from manifold.core.node             import Node
 from manifold.core.packet           import Packet, ErrorPacket
 from manifold.core.query            import Query
 from manifold.core.record           import Record, Records
 from manifold.core.result_value     import ResultValue
 from manifold.core.socket           import Socket
+from manifold.gateways.object       import ManifoldObject
 from manifold.operators.projection  import Projection
 from manifold.operators.selection   import Selection
 from manifold.util.constants        import STATIC_ROUTES_DIR
@@ -27,7 +28,39 @@ from manifold.util.log              import Log
 from manifold.util.plugin_factory   import PluginFactory
 from manifold.util.type             import accepts, returns
 
-from manifold.core.code             import CORE, ERROR, GATEWAY
+LOCAL_NAMESPACE = 'local'
+
+
+# The sets of objects exposed by this gateway
+class OLocalLocalObject(ManifoldObject):
+    """
+    class object {
+        string  table;           /**< The name of the object/table.        */
+        column  columns[];       /**< The corresponding fields/columns.    */
+        string  capabilities[];  /**< The supported capabilities           */
+        string  key[];           /**< The keys related to this object      */
+        string  origins[];       /**< The platform originating this object */
+
+        CAPABILITY(retrieve);
+        KEY(table);
+    };
+    """
+
+    def get(self, *args, **kwargs):
+        return Records([cls.get_announce().to_dict() for cls in self.get_gateway().get_objects()])
+
+class OLocalLocalColumn(ManifoldObject):
+    """
+    class column {
+        string qualifier;
+        string name;
+        string type;
+        string description;
+        bool   is_array;
+
+        LOCAL KEY(name);
+    };
+    """
 
 #-------------------------------------------------------------------------------
 # Generic Gateway class
@@ -83,12 +116,21 @@ class Gateway(Node):
         assert isinstance(platform_config, dict) or not platform_config, \
             "Invalid configuration: %s (%s)" % (platform_config, type(platform_config))
 
+        Log.warning("Gateway should become an interface")
+
         Node.__init__(self)
+        assert router
         self._router          = router          # Router
         self._platform_name   = platform_name   # String
         self._platform_config = platform_config # dict
         self._announces       = None            # list(Announces)
         self._capabilities    = Capabilities()  # XXX in the meantime we support all capabilities
+
+        # namespace -> (object_name -> obj)
+        self._objects_by_namespace = dict()
+
+        self.register_local_object(OLocalLocalObject)
+        self.register_local_object(OLocalLocalColumn)
 
     def terminate(self):
         pass
@@ -513,20 +555,20 @@ class Gateway(Node):
                 ret = True
         return ret
 
-    def receive(self, packet):
-        """
-        Handle a incoming QUERY Packet (processing).
-        Classes inheriting Gateway must not overload this method, they
-        must overload Gateway::receive_impl() instead.
-        Args:
-            packet: A QUERY Packet instance.
-        """
-        self.check_receive(packet)
-
-        if not self.handle_query_object(packet):
-            # This method must be overloaded on the Gateway
-            # See manifold/gateways/template/__init__.py
-            self.receive_impl(packet)
+#DEPRECATED|    def receive(self, packet):
+#DEPRECATED|        """
+#DEPRECATED|        Handle a incoming QUERY Packet (processing).
+#DEPRECATED|        Classes inheriting Gateway must not overload this method, they
+#DEPRECATED|        must overload Gateway::receive_impl() instead.
+#DEPRECATED|        Args:
+#DEPRECATED|            packet: A QUERY Packet instance.
+#DEPRECATED|        """
+#DEPRECATED|        self.check_receive(packet)
+#DEPRECATED|
+#DEPRECATED|        if not self.handle_query_object(packet):
+#DEPRECATED|            # This method must be overloaded on the Gateway
+#DEPRECATED|            # See manifold/gateways/template/__init__.py
+#DEPRECATED|            self.receive_impl(packet)
 
 # XXX Since this function always return after the query is sent, we need to close after the last receive record or error instead
 
@@ -619,3 +661,109 @@ class Gateway(Node):
         error_packet = ErrorPacket(ERROR, origin, description, traceback.format_exc())
         error_packet.set_last(is_fatal)
         return error_packet
+
+
+    def receive(self, packet):
+        """
+        Handle a incoming QUERY Packet.
+        Args:
+            packet: A QUERY Packet instance.
+        """
+        query = packet.get_query()
+
+        # Since the original query will be altered, we are making a copy here,
+        # so that the pit dictionary is not altered
+        new_query = query.clone() # USELESS XXX
+
+        action = query.get_action()
+        namespace = query.get_namespace()
+        object_name = query.get_object_name()
+
+        try:
+            obj = self.get_object(object_name, namespace)
+        except ValueError:
+            raise RuntimeError("Invalid object '%s::%s'" % (namespace, object_name))
+
+        print obj
+        instance = obj()
+        instance.set_gateway(self)
+        print instance.__class__, instance
+        records = instance.get(packet.clone()) 
+
+        #elif self._storage:
+        #    records = None
+        #    self._storage.get_gateway().receive_impl(packet)
+
+        if records:
+            self.records(records, packet)
+
+    def get_object(self, object_name, namespace = None):
+        return self._objects_by_namespace[namespace][object_name]
+
+    def get_objects(self, namespace = None):
+        return self._objects_by_namespace[namespace].values()
+
+    def register_object(self, cls, namespace = None, is_local = False):
+        # Register it in the FIB
+        self.get_router().get_fib().add('local', cls.get_announce(), namespace)
+
+        # If the addition request does not come locally, then we don't need to
+        # keep the namespace (usually 'local')
+        if not is_local:
+            namespace = None
+
+        # Store the object locally
+        if namespace not in self._objects_by_namespace:
+            self._objects_by_namespace[namespace] = dict()
+        self._objects_by_namespace[namespace][cls.get_object_name()] = cls
+
+    def register_local_object(self, cls, namespace = LOCAL_NAMESPACE):
+        self.register_object(cls, namespace, is_local = True)
+
+#DEPRECATED|        # Fetch Announces produced by the Storage
+#DEPRECATED|        gateway_storage = self._storage.get_gateway()
+#DEPRECATED|        if gateway_storage:
+#DEPRECATED|            #local_announces = local_announces | gateway_storage.get_announces()
+#DEPRECATED|            local_announces |= gateway_storage.get_announces()
+#DEPRECATED|
+#DEPRECATED|        # Fetch Announces produced by each enabled platform.
+#DEPRECATED|        router = self.get_router()
+#DEPRECATED|        if router:
+#DEPRECATED|            for platform_name in router.get_enabled_platform_names():
+#DEPRECATED|                gateway = router.get_gateway(platform_name)
+#DEPRECATED|                # foo:object is renamed local:object since we cannot compute query plan
+#DEPRECATED|                # over the local DBGraph if its table are not attached to platform "local"
+#DEPRECATED|                local_announces |= make_local_announces(LOCAL_NAMESPACE)
+#DEPRECATED|        else:
+#DEPRECATED|            Log.warning("The router of this %s is unset. Some Announces cannot be fetched" % self)
+#DEPRECATED|
+#DEPRECATED|        return local_announces
+
+# DEPRECATED BY FIB    @returns(DBGraph)
+# DEPRECATED BY FIB    def make_dbgraph(self):
+# DEPRECATED BY FIB        """
+# DEPRECATED BY FIB        Make the DBGraph.
+# DEPRECATED BY FIB        Returns:
+# DEPRECATED BY FIB            The DBGraph related to the Manifold Storage.
+# DEPRECATED BY FIB        """
+# DEPRECATED BY FIB        # We do not need normalization here, can directly query the Gateway
+# DEPRECATED BY FIB
+# DEPRECATED BY FIB        # 1) Fetch the Storage's announces and get the corresponding Tables.
+# DEPRECATED BY FIB        local_announces = self.get_announces()
+# DEPRECATED BY FIB        local_tables = frozenset([announce.get_table() for announce in local_announces])
+# DEPRECATED BY FIB
+# DEPRECATED BY FIB        # 2) Build the corresponding map of Capabilities
+# DEPRECATED BY FIB        map_method_capabilities = dict()
+# DEPRECATED BY FIB        for announce in local_announces:
+# DEPRECATED BY FIB            table = announce.get_table()
+# DEPRECATED BY FIB            platform_names = table.get_platforms()
+# DEPRECATED BY FIB            assert len(platform_names) == 1, "An announce should be always related to a single origin"
+# DEPRECATED BY FIB            table_name = table.get_name()
+# DEPRECATED BY FIB            platform_name = iter(platform_names).next()
+# DEPRECATED BY FIB            method = Method(platform_name, table_name)
+# DEPRECATED BY FIB            capabilities = table.get_capabilities()
+# DEPRECATED BY FIB            map_method_capabilities[method] = capabilities
+# DEPRECATED BY FIB
+# DEPRECATED BY FIB        # 3) Build the corresponding DBGraph
+# DEPRECATED BY FIB        return DBGraph(local_tables, map_method_capabilities)
+

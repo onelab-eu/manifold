@@ -151,7 +151,7 @@ class CartesianProduct(Operator):
             for i, child in enumerate(self.children):
                 child.start()
 
-        elif packet.get_protocol() == Packet.PROTOCOL_RECORD:
+        elif packet.get_protocol() == Packet.PROTOCOL_CREATE:
             # formerly child_callback()
 
             # XXX child_id & source ?

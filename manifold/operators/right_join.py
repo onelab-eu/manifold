@@ -189,7 +189,7 @@ class RightJoin(Operator, LeftRightSlotMixin):
             #print "SENDING RIGHT PACKET FIRST", right_packet
             self._get_right().receive(right_packet)
 
-        elif packet.get_protocol() == Packet.PROTOCOL_RECORD:
+        elif packet.get_protocol() == Packet.PROTOCOL_CREATE:
             record = packet
 
             is_last = record.is_last()

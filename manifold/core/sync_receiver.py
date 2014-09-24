@@ -54,7 +54,7 @@ class SyncReceiver(Node, ChildSlotMixin):
                 corresponding record is bufferized in this SyncReceiver
                 until records retrieval.
         """
-        if packet.get_protocol() == Packet.PROTOCOL_RECORD:
+        if packet.get_protocol() == Packet.PROTOCOL_CREATE:
             if not packet.is_empty():
                 print "received in SR", packet
                 self._records.append(packet)

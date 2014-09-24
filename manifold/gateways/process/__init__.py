@@ -7,6 +7,7 @@ from manifold.core.field        import Field
 from manifold.gateways          import Gateway
 from manifold.core.key          import Key
 from manifold.core.table        import Table
+from manifold.gateways.object   import ManifoldObject
 from manifold.util.log          import Log
 from manifold.util.type         import accepts, returns
 
@@ -48,50 +49,19 @@ FLAG_IN_ANNOTATION      = 1<<1
 FLAG_OUT_ANNOTATION     = 1<<2
 FLAG_ADD_FIELD          = 1<<3
 
-class ProcessGateway(Gateway):
-    __gateway_name__ = 'process'
-
-    #---------------------------------------------------------------------------
-    # Constructor
-    #---------------------------------------------------------------------------
-
-    # XXX Args should be made optional
-    def __init__(self, router = None, platform_name = None, platform_config = None):
-        """
-        Constructor
-
-        Args:
-            router: None or a Router instance
-            platform: A StringValue. You may pass u"dummy" for example
-            platform_config: A dictionnary containing information to connect to the postgresql server
-        """
-        Gateway.__init__(self, router, platform_name, platform_config)
+class OProcess(ManifoldObject):
+    def __init__(self, *args, **kwargs):
+        super(OProcess, self).__init__(*args, **kwargs)
 
         self._in_progress = dict()
         self._records = dict()
         self._process = None
         self._is_interrupted = False
 
-    #---------------------------------------------------------------------------
-    # Packet processing
-    #---------------------------------------------------------------------------
-
-    def parse(self, string):
-        return self.output._parser().parse(string)
-
-    def on_receive_query(self, query, annotation):
-        return None
-
-    def receive_impl(self, packet):
-        """
-        Handle a incoming QUERY Packet.
-        Args:
-            packet: A QUERY Packet instance.
-        """
-
-        if not os.path.exists(self.get_fullpath()):
+    def get(self, packet):
+        if not os.path.exists(self.get_gateway().get_fullpath()):
             Log.warning("Process does not exist, returning empty")
-            self.records([], packet)
+            self.get_gateway().records([], packet)
             return
 
         query       = packet.get_query()
@@ -102,7 +72,7 @@ class ProcessGateway(Gateway):
         output = self.on_receive_query(query, annotation)
         if output:
             print "return direct output=", output
-            self.records(output, packet)
+            self.get_gateway().records(output, packet)
             return
 
         # We have a single table per tool gateway
@@ -127,6 +97,16 @@ class ProcessGateway(Gateway):
 
             Log.tmp("[PROCESS GATEWAY] execute args=%r, args_params[1]=%r" % (args, args_params[1],))
             self.execute_process(args, args_params[1], packet, batch_id)
+
+    #---------------------------------------------------------------------------
+    # Packet processing
+    #---------------------------------------------------------------------------
+
+    def parse(self, string):
+        return self.output._parser().parse(string)
+
+    def on_receive_query(self, query, annotation):
+        return None
 
     #---------------------------------------------------------------------------
     # Specific methods
@@ -322,6 +302,30 @@ class ProcessGateway(Gateway):
 #        if need_uid...
 
 
+class ProcessGateway(Gateway):
+    __gateway_name__ = 'process'
+
+    #---------------------------------------------------------------------------
+    # Constructor
+    #---------------------------------------------------------------------------
+
+    # XXX Args should be made optional
+    def __init__(self, router = None, platform_name = None, platform_config = None):
+        """
+        Constructor
+
+        Args:
+            router: None or a Router instance
+            platform: A StringValue. You may pass u"dummy" for example
+            platform_config: A dictionnary containing information to connect to the postgresql server
+        """
+        Gateway.__init__(self, router, platform_name, platform_config)
+
+        self.register_object(OProcess)
+
+
+
+
     #---------------------------------------------------------------------------
     # Metadata
     #---------------------------------------------------------------------------
@@ -329,35 +333,35 @@ class ProcessGateway(Gateway):
     # Arguments could be mapped simply with fields
     #---------------------------------------------------------------------------
 
-    def make_field(self, process_field, field_type):
-        # name, type and description - provided by the process_field description
-        # qualifier - Since we cannot update anything, all fields will be const
-        field = Field(
-            name        = process_field.get_name(),
-            type        = process_field.get_type(),
-            qualifiers  = ['const'],
-            is_array    = False,
-            description = process_field.get_description()
-        )
-        return field
-
-    @returns(Announces)
-    def make_announces(self):
-        """
-        Returns:
-            The Announce related to this object.
-        """
-        platform_name = self.get_platform_name()
-        try:
-            announces = parse_string(self.output._announces_str, platform_name)
-        except AttributeError, e:
-            # self.output not yet initialized
-            raise AttributeError("In platform '%s': %s" % (platform_name, e))
-
-        # These announces should be complete, we only need to deal with argument
-        # and parameters to forge the command line corresponding to an incoming
-        # query.
-        return announces
+#DEPRECATED|    def make_field(self, process_field, field_type):
+#DEPRECATED|        # name, type and description - provided by the process_field description
+#DEPRECATED|        # qualifier - Since we cannot update anything, all fields will be const
+#DEPRECATED|        field = Field(
+#DEPRECATED|            name        = process_field.get_name(),
+#DEPRECATED|            type        = process_field.get_type(),
+#DEPRECATED|            qualifiers  = ['const'],
+#DEPRECATED|            is_array    = False,
+#DEPRECATED|            description = process_field.get_description()
+#DEPRECATED|        )
+#DEPRECATED|        return field
+#DEPRECATED|
+#DEPRECATED|    @returns(Announces)
+#DEPRECATED|    def make_announces(self):
+#DEPRECATED|        """
+#DEPRECATED|        Returns:
+#DEPRECATED|            The Announce related to this object.
+#DEPRECATED|        """
+#DEPRECATED|        platform_name = self.get_platform_name()
+#DEPRECATED|        try:
+#DEPRECATED|            announces = parse_string(self.output._announces_str, platform_name)
+#DEPRECATED|        except AttributeError, e:
+#DEPRECATED|            # self.output not yet initialized
+#DEPRECATED|            raise AttributeError("In platform '%s': %s" % (platform_name, e))
+#DEPRECATED|
+#DEPRECATED|        # These announces should be complete, we only need to deal with argument
+#DEPRECATED|        # and parameters to forge the command line corresponding to an incoming
+#DEPRECATED|        # query.
+#DEPRECATED|        return announces
 
 #DEPRECATED|        # TABLE NAME
 #DEPRECATED|        #

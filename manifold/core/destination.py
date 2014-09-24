@@ -24,7 +24,7 @@ class Destination(object):
     # Constructor
     #---------------------------------------------------------------------------
 
-    def __init__(self, object = None, filter = None, field_names = None):
+    def __init__(self, object = None, filter = None, field_names = None, origin = None):
         """
         Constructor.
         Args:
@@ -41,6 +41,7 @@ class Destination(object):
         self._object = object 
         self._filter = filter if filter else Filter()   # Partition
         self._field_names = field_names if field_names else FieldNames()   # Hyperplan
+        self._origin = origin
 
     #---------------------------------------------------------------------------
     # Accessors
@@ -61,6 +62,12 @@ class Destination(object):
         """
         assert isinstance(object, StringTypes)
         self._object = object
+
+    def get_origin(self):
+        return self._origin
+
+    def set_origin(self, origin):
+        self._origin = origin
 
     @returns(Filter)
     def get_filter(self):
@@ -116,7 +123,7 @@ class Destination(object):
         Returns:
             The '%r' representation of this Query.
         """
-        return "%r" % ((self._object, self._filter, self._field_names), )
+        return "%r" % ((self._origin, self._object, self._filter, self._field_names), )
 
     #---------------------------------------------------------------------------
     # Algebra of operators
@@ -137,7 +144,8 @@ class Destination(object):
         return Destination(
             object = self._object,
             filter = self._filter | destination.get_filter(),
-            field_names = self._field_names | destination.get_field_names()
+            field_names = self._field_names | destination.get_field_names(),
+            origin = self._origin
         )
 
     #@returns(Destination)
@@ -153,7 +161,8 @@ class Destination(object):
         return Destination(
             object = destination._object,
             filter = self._filter | destination.get_filter(),
-            field_names = self._field_names | destination.get_field_names()
+            field_names = self._field_names | destination.get_field_names(),
+            origin = self._origin
         )
 
     #@returns(Destination)
@@ -169,7 +178,8 @@ class Destination(object):
         return Destination(
             object = self._object,
             filter = self._filter & filter,
-            field_names = self._field_names
+            field_names = self._field_names,
+            origin = self._origin
         )
 
     #@returns(Destination)
@@ -185,7 +195,8 @@ class Destination(object):
         return Destination(
             object = self._object,
             filter = self._filter,
-            field_names = self._field_names & field_names
+            field_names = self._field_names & field_names,
+            origin = self._origin
         )
 
     #@returns(Destination)
@@ -202,7 +213,8 @@ class Destination(object):
         return Destination(
             object = self._object,
             filter = self._filter.copy().rename(aliases),
-            field_names = self._field_names.copy().rename(aliases)
+            field_names = self._field_names.copy().rename(aliases),
+            origin = self._origin
         )
 
     # XXX This is the opposite of split, we name it merge
@@ -226,4 +238,5 @@ class Destination(object):
                 key, op, value = predicate.get_tuple()
                 filter.filter_by("%s.%s" % (name, key), op, value)
             field_names |= FieldNames(['%s.%s' % (name, f) for f in destination.get_field_names()])
-        return Destination(object, filter, field_names)
+        origin = self._origin
+        return Destination(object, filter, field_names, origin)

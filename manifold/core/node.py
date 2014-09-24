@@ -201,7 +201,7 @@ class Node(object):
         packet.set_source(self)
         if packet.get_protocol() in [Packet.PROTOCOL_QUERY]:
             raise Exception("A query cannot be forwarded")
-        elif packet.get_protocol() in [Packet.PROTOCOL_RECORD, Packet.PROTOCOL_ERROR]:
+        elif packet.get_protocol() in [Packet.PROTOCOL_CREATE, Packet.PROTOCOL_ERROR]:
             self._pool_consumers.receive(packet)
 
     @returns(StringTypes)

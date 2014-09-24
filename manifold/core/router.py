@@ -16,13 +16,13 @@ from manifold.core.annotation       import Annotation
 from manifold.core.announce         import Announces, Announce
 from manifold.core.capabilities     import Capabilities
 from manifold.core.code             import BADARGS, ERROR
+from manifold.core.destination      import Destination
 # DEPRECATED BY FIBfrom manifold.core.dbnorm           import to_3nf   # Replaced by FIB
 # DEPRECATED BY FIBfrom manifold.core.dbgraph          import DBGraph  # Replaced by FIB
 from manifold.core.fib              import FIB
-from manifold.core.helpers          import execute_query as execute_query_helper
 from manifold.core.interface        import Interface # XXX Replace this by a gateway
 from manifold.core.operator_graph   import OperatorGraph
-from manifold.core.packet           import ErrorPacket, Packet, QueryPacket
+from manifold.core.packet           import ErrorPacket, Packet, GET, CREATE, UPDATE, DELETE
 from manifold.core.query            import Query
 from manifold.core.record           import Record
 from manifold.core.table            import Table
@@ -213,7 +213,10 @@ class Router(object):
                 gateway = self.make_gateway(platform_name, gateway_type, platform_config)
 
             # Retrieving announces from gateway, and populate the FIB
-            gateway.receive(QueryPacket(Query.get('local:object'), Annotation(), receiver = self))
+            packet = GET()
+            packet.set_destination(Destination('local:object'))
+            packet.set_receiver(self)
+            gateway.receive(packet)
 
 #DEPRECATED|            announces = gateway.get_announces()
 #DEPRECATED|            for announce in announces:
@@ -560,12 +563,12 @@ class Router(object):
 # DEPRECATED BY FIB                raise e
 
     def receive(self, packet):
-        if isinstance(packet, QueryPacket):
+        if isinstance(packet, (GET, CREATE, UPDATE, DELETE)):
             self.receive_query(packet)
 
         # How are normal records and errors received: operatorgraph -> socket -> client
         # Here at the moment we are only dealing with Record and ErrorPacket
-        # from requesting announces
+        # from requesting announces 
         # XXX Maybe we should have an announce controller
         # XXX or declare the FIB as a receiver
         # NOTE: Queries have an impact on the FIB/PIT also ?
@@ -589,11 +592,6 @@ class Router(object):
             packet: A QueryPacket instance.
         """
         
-        # XXX Router might receive an error packet
-
-        assert isinstance(packet, QueryPacket),\
-            "Invalid packet %s (%s) (%s) (invalid type)" % (packet, type(packet))
-
         query      = packet.get_query()
         annotation = packet.get_annotation()
         receiver   = packet.get_receiver()
@@ -641,7 +639,37 @@ class Router(object):
             )
             receiver.receive(error_packet)
 
-    execute_query = execute_query_helper
+    @returns(list)
+    def execute_query(self, query, annotation, error_message):
+        """
+        Forward a Query 
+        Args:
+            annotation: An Annotation instance.
+            query: A Query instance
+            error_message: A String instance
+        Returns:
+            The corresponding list of Record.
+        """
+        # XXX We should benefit from caching if rules allows for it possible
+        # XXX LOCAL
+
+        if error_message:
+            Log.warning("error_message not taken into account")
+
+        receiver = SyncReceiver()
+
+        packet = GET()
+        packet.set_destination(query.get_destination())
+        packet.set_receiver(receiver)
+
+        self.receive(packet) # process_query_packet(packet)
+
+        # This code is blocking
+        result_value = receiver.get_result_value()
+        assert isinstance(result_value, ResultValue),\
+            "Invalid result_value = %s (%s)" % (result_value, type(result_value))
+        return result_value.get_all().to_dict_list()
+
 
     def execute_local_query(self, query, error_message = None):
         """

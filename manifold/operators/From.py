@@ -268,7 +268,7 @@ class From(Operator, ChildSlotMixin):
             packet.set_receiver(self)
             self.get_gateway().receive(packet)
 
-        elif packet.get_protocol() == Packet.PROTOCOL_RECORD:
+        elif packet.get_protocol() == Packet.PROTOCOL_CREATE:
             if self._parent_records:
                 # If we had parent_records, we only asked (missing_fields +
                 # key_fields), we need to join those results

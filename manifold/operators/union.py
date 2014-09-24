@@ -126,7 +126,7 @@ class Union(Operator, ChildrenSlotMixin):
             for _, child, _ in self._iter_children():
                 child.receive(packet)
 
-        elif packet.get_protocol() == Packet.PROTOCOL_RECORD:
+        elif packet.get_protocol() == Packet.PROTOCOL_CREATE:
             record = packet
             is_last = record.is_last()
             record.unset_last()
