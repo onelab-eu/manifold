@@ -148,8 +148,8 @@ class ManifoldClientFactory(ClientFactory, Interface, ChildSlotMixin): # Node
         if receiver:
             receiver_id = str(uuid.uuid4())
             self._receiver_map[receiver_id] = receiver
-            packet.set_receiver = receiver_id
-        
+            packet.set_receiver(receiver_id)
+
         print "CLIENT SENT PACKET TO SERVER", packet
         if not self._client:
             self._tx_buffer.append(packet)
