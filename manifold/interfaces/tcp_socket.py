@@ -145,7 +145,7 @@ class ManifoldClientFactory(ClientFactory, Interface, ChildSlotMixin): # Node
             self._client.send_packet(packet)
 
     def disconnect(self):
-        self.close()
+        pass # self._client.close()
 
 class TCPSocketInterface(Interface):
 

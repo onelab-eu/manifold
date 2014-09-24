@@ -41,7 +41,7 @@ class Destination(object):
 
         self._object_name = object 
         self._filter = filter if filter else Filter()   # Partition
-        self._field_names = field_names if field_names else FieldNames()   # Hyperplan
+        self._field_names = field_names if field_names else FieldNames(star=True)   # Hyperplan
         self._origin = origin
         self._namespace = namespace
 

@@ -64,7 +64,7 @@ class AgentDaemon(Daemon):
         supernodes = receiver.get_result_value().get_all()
 
         print "SUPERNODES=", supernodes
-        return supernodes[0] if supernodes else None
+        return supernodes[0]['hostname'] if supernodes else None
 
     def make_agent_router(self):
         router = Router()
@@ -104,12 +104,15 @@ class AgentDaemon(Daemon):
         if not Options().server_mode:
             # a) Connect to main server
             # XXX An interface should connect to a single remote host
-            self._client_interface = TCPSocketInterface(self._router).connect('dryad.ipv6.lip6.fr')
+            supernode = 'dryad.ipv6.lip6.fr'
+            print "Connecting to %(supernode)s" % locals()
+            self._client_interface = TCPSocketInterface(self._router).connect(supernode)
             # Connect to supernode
             # b) get supernode...
             supernode = self.get_supernode()
             self._client_interface.disconnect()
             # c) connect...
+            print "Connecting to %(supernode)s" % locals()
             self._client_interface = TCPSocketInterface(self._router).connect(supernode)
         else:
             # The current agent registers itself as a supernode
