@@ -575,7 +575,7 @@ class Router(object):
         elif isinstance(packet, Record):
             # Let's assume the record is an announce
             packet_dict = packet.to_dict()
-            origins = packet_dict['origins']
+            origins = packet_dict.get('origins')
             platform_name = origins[0] if origins else 'local'
             namespace = 'local' if platform_name == 'local' else None
             announce = Announce(Table.from_dict(packet_dict, LOCAL_NAMESPACE))
