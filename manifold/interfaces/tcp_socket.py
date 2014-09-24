@@ -20,6 +20,7 @@ from manifold.core.node             import Node
 from manifold.core.operator_slot    import ChildSlotMixin
 from manifold.core.packet           import Packet, GET
 from manifold.core.query            import Query
+from manifold.util.predicate        import Predicate
 from manifold.util.reactor_thread   import ReactorThread
 
 SERVER_HOST = 'localhost'
@@ -95,14 +96,16 @@ class ManifoldClientFactory(ClientFactory, Interface, ChildSlotMixin): # Node
 
     def on_client_ready(self, client):
         print "manifold client ready. requesting announces"
-
         self.send(GET(), Destination('local:object'))
+        print "announces req'ed"
 
         self._client = client
 
         while self._tx_buffer:
             full_packet = self._tx_buffer.pop()
+            print "sending full packet from buffer"
             self._client.send_packet(full_packet)
+            print "full ok"
 
         # I behave as a Manifold gateway !!
 
@@ -128,13 +131,13 @@ class ManifoldClientFactory(ClientFactory, Interface, ChildSlotMixin): # Node
         For packets coming from the client, directly use the router which is
         itself a receiver.
         """
-
+        print "send => dest=", destination
         # XXX This code should be shared by all interfaces
-        source = Destination('uuid', Filter(['uuid', '==', self._uuid]))
+        source = Destination('uuid', Filter().filter_by(Predicate('uuid', '==', self._uuid)))
         packet.set_source(source)
 
         if destination:
-            packet.set_destination = destination
+            packet.set_destination(destination)
 
         if receiver:
             receiver_id = str(uuid.uuid4())

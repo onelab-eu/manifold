@@ -212,18 +212,18 @@ class Packet(object):
     # Serialization / deserialization
     #---------------------------------------------------------------------------
 
-    def __getstate__(self):
-        # Copy the object's state from self.__dict__ which contains
-        # all our instance attributes. Always use the dict.copy()
-        # method to avoid modifying the original state.
-        state = self.__dict__.copy()
-        # Remove the unpicklable entries.
-        #if '_source' in state:
-        #    del state['_source']
-        #if '_receiver' in state:
-        #    del state['_receiver']
-        return state
-
+#DEPRECATED|    def __getstate__(self):
+#DEPRECATED|        # Copy the object's state from self.__dict__ which contains
+#DEPRECATED|        # all our instance attributes. Always use the dict.copy()
+#DEPRECATED|        # method to avoid modifying the original state.
+#DEPRECATED|        state = self.__dict__.copy()
+#DEPRECATED|        # Remove the unpicklable entries.
+#DEPRECATED|        if '_source' in state:
+#DEPRECATED|            del state['_source']
+#DEPRECATED|        if '_receiver' in state:
+#DEPRECATED|            del state['_receiver']
+#DEPRECATED|        return state
+#DEPRECATED|
 #UNUSED|    def __setstate__(self, state):
 #UNUSED|        # Restore instance attributes (i.e., filename and lineno).
 #UNUSED|        self.__dict__.update(state)

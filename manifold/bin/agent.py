@@ -52,14 +52,15 @@ class AgentDaemon(Daemon):
         Daemon.__init__(self, self.terminate)
 
     def get_supernode(self):
-        print "Requesting supernodes to the server"
         
         # XXX supernodes = Supernode.get()
         # XXX Supernode should be attached to an interface... or at the the
         # router if we can route such requests.
 
         receiver = SyncReceiver()
+        print "Requesting supernodes to the server"
         self._client_interface.send(GET(), Destination('local:supernode'), receiver = receiver)
+        print "Supernodes req'ed"
 
         supernodes = receiver.get_result_value().get_all()
 
