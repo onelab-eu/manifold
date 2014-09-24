@@ -267,6 +267,7 @@ class From(Operator, ChildSlotMixin):
             # XXX source vs. receiver: the pit expects a receiver while the
             # operator sets a source
             packet.set_receiver(self)
+            print "GW IN FROM", self._gateway
             self.get_gateway().receive(packet)
 
         elif packet.get_protocol() == Packet.PROTOCOL_CREATE:

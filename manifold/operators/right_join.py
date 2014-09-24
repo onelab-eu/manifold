@@ -148,7 +148,7 @@ class RightJoin(Operator, LeftRightSlotMixin):
         # Out of the Query part since it is used for a True Hack !
         right_fields = self._get_right().get_destination().get_field_names()
 
-        if packet.get_protocol() == Packet.PROTOCOL_QUERY:
+        if packet.get_protocol() in Packet.PROTOCOL_QUERY:
             q = packet.get_query()
             # We forward the query to the left node
             # TODO : a subquery in fact

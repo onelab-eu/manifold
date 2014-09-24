@@ -150,7 +150,7 @@ class Projection(Operator, ChildSlotMixin):
         Args:
             packet: A Packet instance.
         """
-        if packet.get_protocol() == Packet.PROTOCOL_QUERY:
+        if packet.get_protocol() in Packet.PROTOCOL_QUERY:
             self._get_child().receive(packet)
 
         elif packet.get_protocol() == Packet.PROTOCOL_CREATE:

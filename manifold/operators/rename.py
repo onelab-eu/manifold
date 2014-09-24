@@ -277,7 +277,7 @@ class Rename(Operator, ChildSlotMixin):
         Args:
             packet: A Packet instance.
         """
-        if packet.get_protocol() == Packet.PROTOCOL_QUERY:
+        if packet.get_protocol() in Packet.PROTOCOL_QUERY:
             new_packet = self.process_query(packet)
             self._get_child().receive(new_packet)
 

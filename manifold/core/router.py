@@ -25,6 +25,8 @@ from manifold.core.operator_graph   import OperatorGraph
 from manifold.core.packet           import ErrorPacket, Packet, GET, CREATE, UPDATE, DELETE
 from manifold.core.query            import Query
 from manifold.core.record           import Record
+from manifold.core.result_value     import ResultValue
+from manifold.core.sync_receiver    import SyncReceiver
 from manifold.core.table            import Table
 from manifold.gateways              import Gateway
 from manifold.policy                import Policy
@@ -676,7 +678,7 @@ class Router(object):
         return result_value.get_all().to_dict_list()
 
 
-    def execute_local_query(self, query, error_message = None):
+    def execute_local_query(self, query, annotation = None, error_message = None):
         """
         Run a Query on the Manifold Storage embeded by this Router.
         Args:
@@ -687,7 +689,7 @@ class Router(object):
             the query.
         """
         query.set_namespace(LOCAL_NAMESPACE)
-        return self.execute_query(query, error_message)
+        return self.execute_query(query, annotation, error_message)
 
     # XXX Unless we don't need local cache anymore (+ __init__)
 

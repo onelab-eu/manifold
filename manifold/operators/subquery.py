@@ -479,7 +479,7 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
             packet: A Packet instance.
         """
 
-        if packet.get_protocol() == Packet.PROTOCOL_QUERY:
+        if packet.get_protocol() in Packet.PROTOCOL_QUERY:
             parent_packet, child_packets = self.split_packet(packet)
             for child_id, child_packet in child_packets.items():
                 self._set_child_packet(child_id, child_packet)

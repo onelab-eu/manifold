@@ -121,7 +121,7 @@ class Union(Operator, ChildrenSlotMixin):
             packet: A Packet instance.
         """
 
-        if packet.get_protocol() == Packet.PROTOCOL_QUERY:
+        if packet.get_protocol() in Packet.PROTOCOL_QUERY:
             # We simply forward the query to all children
             for _, child, _ in self._iter_children():
                 child.receive(packet)

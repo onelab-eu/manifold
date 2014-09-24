@@ -170,6 +170,9 @@ class Packet(object):
         """
         return self._annotation
 
+    def update_annotation(self, annotation):
+        self._annotation.update(annotation)
+
     # Compatibility
     def get_query(self):
         Log.warning("Distinction between params.keys() and fields is not so good")

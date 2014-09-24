@@ -9,7 +9,7 @@
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 #   Jordan Augé       <jordan.auge@lip6.f>
 
-import json, os.path
+import json, os.path, traceback
 from types                          import StringTypes
 
 from manifold.gateways              import Gateway
@@ -212,7 +212,8 @@ def install_default_storage(router):
     try:
         MANIFOLD_STORAGE = make_storage(
             STORAGE_DEFAULT_GATEWAY,
-            json.loads(STORAGE_DEFAULT_CONFIG)
+            json.loads(STORAGE_DEFAULT_CONFIG),
+            router
         )
     except Exception, e:
         from manifold.util.log import Log
@@ -254,6 +255,7 @@ def install_default_storage(router):
             None
         )
     except Exception, e:
+        from manifold.util.log import Log
         Log.warning("Unable to setup the default Storage directory (%s) (%s)" % (
             STORAGE_DEFAULT_GATEWAY,
             STORAGE_DEFAULT_CONFIG

@@ -98,7 +98,7 @@ class Selection(Operator, ChildSlotMixin):
         Args:
             packet: A Packet instance.
         """
-        if packet.get_protocol() == Packet.PROTOCOL_QUERY:
+        if packet.get_protocol() in Packet.PROTOCOL_QUERY:
             # If possible, recraft the embeded Query
             if self.has_children_with_fullquery():
                 self._get_child().receive(packet)

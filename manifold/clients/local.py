@@ -142,15 +142,12 @@ class ManifoldLocalClient(ManifoldClient, asynchat.async_chat):
         Results:
             The ResultValue resulting from this Query.
         """
-        if not annotation:
-            annotation = Annotation()
-        annotation |= self.get_annotation()
-
         self._receiver = SyncReceiver()
         Log.warning("Hardcoded a GET packet")
         packet = GET()
         packet.set_destination(query.get_destination())
         packet.set_receiver(self._receiver) # Why is it useful ??
+        packet.update_annotation(self.get_annotation())
         #packet = QueryPacket(query, annotation, receiver = self._receiver)
 
         packet_str = packet.serialize()
