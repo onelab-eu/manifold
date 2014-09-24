@@ -156,6 +156,7 @@ class QueryPlan(object):
 #        missing_fields |= FieldNames(destination.get_params().keys())
 
         while missing_fields:
+            print "missing fields", missing_fields
             # Explore the next prior ExploreTask
             task = stack.pop()
 

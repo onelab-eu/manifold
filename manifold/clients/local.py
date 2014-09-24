@@ -19,7 +19,7 @@ import asyncore
 from types                          import StringTypes
 
 from manifold.core.annotation       import Annotation
-from manifold.core.packet           import Packet, QueryPacket
+from manifold.core.packet           import Packet, GET
 from manifold.core.query            import Query
 from manifold.core.result_value     import ResultValue
 from manifold.core.router           import Router
@@ -147,7 +147,11 @@ class ManifoldLocalClient(ManifoldClient, asynchat.async_chat):
         annotation |= self.get_annotation()
 
         self._receiver = SyncReceiver()
-        packet = QueryPacket(query, annotation, receiver = self._receiver)
+        Log.warning("Hardcoded a GET packet")
+        packet = GET()
+        packet.set_destination(query.get_destination())
+        packet.set_receiver(self._receiver) # Why is it useful ??
+        #packet = QueryPacket(query, annotation, receiver = self._receiver)
 
         packet_str = packet.serialize()
         self.push('%08x%s' % (len(packet_str), packet_str))
