@@ -194,9 +194,10 @@ class Packet(object):
         Returns:
             The '%r' representation of this QUERY Packet.
         """
-        return "<Packet.%s%s>" % (
+        return "<Packet.%s%s %s -> %s>" % (
             Packet.get_protocol_name(self.get_protocol()),
-            ' LAST' if self.is_last() else ''
+            ' LAST' if self.is_last() else '',
+            self.get_source(), self.get_destination(),
         )
 
     @returns(StringTypes)
