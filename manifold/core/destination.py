@@ -12,9 +12,10 @@
 from types                      import StringTypes
 from manifold.core.filter       import Filter
 from manifold.core.field_names  import FieldNames
+from manifold.util.log          import Log
 from manifold.util.misc         import is_iterable
 from manifold.util.predicate    import Predicate
-from manifold.util.type        import accepts, returns
+from manifold.util.type         import accepts, returns
 
 import copy
 
@@ -38,7 +39,7 @@ class Destination(object):
         elif not isinstance(field_names, FieldNames):
             field_names = FieldNames(field_names)
 
-        self._object = object 
+        self._object_name = object 
         self._filter = filter if filter else Filter()   # Partition
         self._field_names = field_names if field_names else FieldNames()   # Hyperplan
         self._origin = origin
@@ -49,12 +50,17 @@ class Destination(object):
     #---------------------------------------------------------------------------
 
     @returns(StringTypes)
-    def get_object(self):
+    def get_object_name(self):
         """
         Returns:
             The table name corresponding (None if unset).
         """
-        return self._object
+        return self._object_name
+
+    # DEPRECATED
+    def get_object(self):
+        Log.warning("get_object is deprecated")
+        return self.get_object_name()
 
     def set_object(self, object):
         """
@@ -62,7 +68,7 @@ class Destination(object):
             object: A String corresponding to the table name.
         """
         assert isinstance(object, StringTypes)
-        self._object = object
+        self._object_name = object
 
     def get_namespace(self):
         return self._namespace
@@ -138,7 +144,7 @@ class Destination(object):
         Returns:
             The '%r' representation of this Query.
         """
-        return "%r" % ((self._origin, self._object, self._filter, self._field_names), )
+        return "%r" % ((self._origin, self._object_name, self._filter, self._field_names), )
 
     #---------------------------------------------------------------------------
     # Algebra of operators
@@ -157,7 +163,7 @@ class Destination(object):
             The corresponding Destination.
         """
         return Destination(
-            object = self._object,
+            object = self._object_name,
             filter = self._filter | destination.get_filter(),
             field_names = self._field_names | destination.get_field_names(),
             origin = self._origin
@@ -191,7 +197,7 @@ class Destination(object):
             The corresponding Destination.
         """
         return Destination(
-            object = self._object,
+            object = self._object_name,
             filter = self._filter & filter,
             field_names = self._field_names,
             origin = self._origin
@@ -208,7 +214,7 @@ class Destination(object):
             The corresponding Destination.
         """
         return Destination(
-            object = self._object,
+            object = self._object_name,
             filter = self._filter,
             field_names = self._field_names & field_names,
             origin = self._origin
@@ -226,7 +232,7 @@ class Destination(object):
             The corresponding Destination.
         """
         return Destination(
-            object = self._object,
+            object = self._object_name,
             filter = self._filter.copy().rename(aliases),
             field_names = self._field_names.copy().rename(aliases),
             origin = self._origin
@@ -243,7 +249,7 @@ class Destination(object):
         Returns:
             The corresponding Destination.
         """
-        object = self._object
+        object = self._object_name
         filter = self._filter
         field_names = self._field_names
         for destination, relation in children_destination_relation_list:
