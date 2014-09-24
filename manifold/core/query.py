@@ -681,13 +681,14 @@ class Query(object):
         old_namespace, old_table_name = self.get_namespace_table()
         self.set_namespace_table(namespace, old_table_name)
 
-    @returns(StringTypes)
+    #@returns(Query)
     def clear_namespace(self):
         """
         Unset the namespace set to this Query.
         """
         if self.get_namespace():
             self.object = self.get_table_name()
+        return self
 
     #---------------------------------------------------------------------------
     # Destination

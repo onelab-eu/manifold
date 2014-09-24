@@ -133,7 +133,7 @@ class Table(object):
         # Init self.fields
         self.fields = dict()
         if isinstance(fields, (list, set, frozenset)):
-            assert len(fields) > 0
+#DEPRECATED|            assert len(fields) > 0
             for field in fields:
                 self.insert_field(field)
         elif isinstance(fields, dict):
