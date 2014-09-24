@@ -20,6 +20,7 @@ from manifold.core.node             import Node
 from manifold.core.operator_slot    import ChildSlotMixin
 from manifold.core.packet           import Packet, GET
 from manifold.core.query            import Query
+from manifold.util.log              import Log
 from manifold.util.predicate        import Predicate
 from manifold.util.reactor_thread   import ReactorThread
 
