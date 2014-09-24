@@ -217,10 +217,10 @@ class Packet(object):
         # method to avoid modifying the original state.
         state = self.__dict__.copy()
         # Remove the unpicklable entries.
-        if '_source' in state:
-            del state['_source']
-        if '_receiver' in state:
-            del state['_receiver']
+        #if '_source' in state:
+        #    del state['_source']
+        #if '_receiver' in state:
+        #    del state['_receiver']
         return state
 
 #UNUSED|    def __setstate__(self, state):
