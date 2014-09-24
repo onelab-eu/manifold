@@ -609,9 +609,11 @@ class Router(object):
 
             print "QUERY PLAN:"
             print root_node.format_downtree()
+            print "RECEIVER", receiver
 
             receiver._set_child(root_node)
         except Exception, e:
+            Log.tmp(e)
             error_packet = ErrorPacket(
                 type      = ERROR,
                 code      = BADARGS,

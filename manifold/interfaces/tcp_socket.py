@@ -65,7 +65,13 @@ class ManifoldServerFactory(Factory, Interface, ChildSlotMixin):
 
     def orig_receive(self, packet):
         print "SERVER RECEIVED PACKET FROM CLIENT", packet
-        #packet.set_receiver(self)
+        print packet.__class__
+        import pdb; pdb.set_trace()
+        try:
+            packet.set_receiver(self)
+        except Exception, e:
+            import traceback
+            traceback.print_exc()
         # XXX The receiver is a UUID, let's preserve it
         self._router.receive(packet)
 
