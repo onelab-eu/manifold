@@ -132,7 +132,6 @@ class ManifoldClientFactory(ClientFactory, Interface, ChildSlotMixin): # Node
         For packets coming from the client, directly use the router which is
         itself a receiver.
         """
-        print "send => dest=", destination
         # XXX This code should be shared by all interfaces
         source = Destination('uuid', Filter().filter_by(Predicate('uuid', '==', self._uuid)))
         packet.set_source(source)

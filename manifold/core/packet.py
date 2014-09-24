@@ -200,11 +200,13 @@ class Packet(object):
         Returns:
             The '%r' representation of this QUERY Packet.
         """
-        return "<Packet.%s%s %s -> %s>" % (
+        return "<Packet.%s%s %s -> %s [DATA: %s]>" % (
             Packet.get_protocol_name(self.get_protocol()),
             ' LAST' if self.is_last() else '',
             self.get_source(), self.get_destination(),
+            ' '.join([("%s" % self._record) if self._record else '']),
         )
+
 
     @returns(StringTypes)
     def __str__(self):
@@ -458,17 +460,6 @@ class Record(Packet):
     #--------------------------------------------------------------------------- 
     # Internal methods
     #--------------------------------------------------------------------------- 
-
-    @returns(StringTypes)
-    def __repr__(self):
-        """
-        Returns:
-            The '%s' representation of this Record.
-        """
-        return "<Record %s%s>" % (
-            ' '.join([("%s" % self._record) if self._record else '']),
-            ' LAST' if self.is_last() else ''
-        )
 
     def __getitem__(self, key):
         """
@@ -847,15 +838,6 @@ class ErrorPacket(Packet):
             Packet.get_protocol_name(self.get_protocol()),
             self.get_message()
         )
-
-    @returns(StringTypes)
-    def __str__(self):
-        """
-        Returns:
-            The '%s' representation of this ERROR Packet.
-        """
-        return self.__repr__()
-
 #-------------------------------------------------------------------------------
 # Records class
 #-------------------------------------------------------------------------------
