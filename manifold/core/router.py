@@ -609,7 +609,6 @@ class Router(object):
 
             print "QUERY PLAN:"
             print root_node.format_downtree()
-            print "RECEIVER", receiver
 
             receiver._set_child(root_node)
         except Exception, e:
@@ -632,7 +631,6 @@ class Router(object):
         
         Log.warning("We need a better handling of namespaces")
         packet.update_query(lambda q: q.clear_namespace())
-        print "packet after clearing namespace", packet
         try:
             root_node.receive(packet)
         except Exception, e:

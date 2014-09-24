@@ -116,6 +116,7 @@ class ManifoldClientFactory(ClientFactory, Interface, ChildSlotMixin): # Node
         # - supernodes are not (they could eventually pass through the router)
 
         d = packet.get_destination()
+        assert d
         if not d in self._receiver_map:
             Log.warning("Default: send packet to router")
             self._router.receive(packet)
