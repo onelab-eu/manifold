@@ -282,7 +282,7 @@ class Gateway(Node):
             cascade: A boolean set to true to remove 'self'
                 to the producers set of 'consumer'.
         """
-        self.get_pit().del_receiver(receiver)
+#DEPRECATED|        self.get_pit().del_receiver(receiver)
         if cascade:
             receiver.del_producer(self, cascade = False)
 
@@ -300,8 +300,8 @@ class Gateway(Node):
         query = packet.get_query()
         socket = self.get_socket(query)
 
-        # Clear PIT
-        self.get_pit().del_query(query)
+#DEPRECATED|        # Clear PIT
+#DEPRECATED|        self.get_pit().del_query(query)
 
         # Unlink this Socket from its Customers
         socket.close()
@@ -686,10 +686,8 @@ class Gateway(Node):
         except ValueError:
             raise RuntimeError("Invalid object '%s::%s'" % (namespace, object_name))
 
-        print obj
         instance = obj()
         instance.set_gateway(self)
-        print instance.__class__, instance
         records = instance.get(packet.clone()) 
 
         #elif self._storage:

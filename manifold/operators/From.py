@@ -383,9 +383,9 @@ class From(Operator, ChildSlotMixin):
                 #projection.query = self.query.copy().filter_by(filter) # XXX
             return self
 
-    @returns(Operator)
-    def reorganize_create(self):
-        return self
+#DEPRECATED|    @returns(Operator)
+#DEPRECATED|    def reorganize_create(self):
+#DEPRECATED|        return self
 
     def subquery(self, ast, relation):
         # This is the only place where local subqueries are created. Here, we

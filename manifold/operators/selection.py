@@ -146,6 +146,6 @@ class Selection(Operator, ChildSlotMixin):
             return Projection(self, fields)
         return self
 
-    @returns(Node)
-    def reorganize_create(self):
-        return self._get_child().reorganize_create()
+#DEPRECATED|    @returns(Node)
+#DEPRECATED|    def reorganize_create(self):
+#DEPRECATED|        return self._get_child().reorganize_create()

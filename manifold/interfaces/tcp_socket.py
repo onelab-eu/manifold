@@ -59,7 +59,7 @@ class ManifoldServerFactory(Factory, Interface, ChildSlotMixin):
         ChildSlotMixin.__init__(self) # needed to act as a receiver (?)
         self._router    = router
         self._client    = None
-        self._receiver_map = dict()
+        self._flow_map = dict()
 
     def on_client_ready(self, client):
         self._client = client
@@ -92,19 +92,17 @@ class ManifoldClientFactory(ClientFactory, Interface, ChildSlotMixin): # Node
 
         # XXX In all interfaces
         self._uuid      = str(uuid.uuid4())
-        self._receiver_map = dict()
+        self._flow_map = dict()
 
     def on_client_ready(self, client):
         print "manifold client ready. requesting announces"
-        self.send(GET(), Destination('local:object'))
+        self.send(GET(), Destination('object', namespace='local'), receiver = self._router.get_fib())
 
         self._client = client
 
         while self._tx_buffer:
             full_packet = self._tx_buffer.pop()
             self._client.send_packet(full_packet)
-
-        # I behave as a Manifold gateway !!
 
     def receive(self, packet):
         """
@@ -115,13 +113,12 @@ class ManifoldClientFactory(ClientFactory, Interface, ChildSlotMixin): # Node
         # - announces are
         # - supernodes are not (they could eventually pass through the router)
 
-        d = packet.get_destination()
-        assert d
-        if not d in self._receiver_map:
+        flow = packet.get_flow()
+        if not flow in self._flow_map:
             Log.warning("Default: send packet to router")
             self._router.receive(packet)
         else:
-            self._receiver_map[d].receive(packet)
+            self._flow_map[flow].receive(packet)
 
     def send(self, packet, destination = None, receiver = None):
         """
@@ -138,8 +135,8 @@ class ManifoldClientFactory(ClientFactory, Interface, ChildSlotMixin): # Node
 
         if receiver:
             receiver_id = str(uuid.uuid4())
-            self._receiver_map[receiver_id] = receiver
             packet.set_receiver(receiver_id)
+            self._flow_map[packet.get_flow()] = receiver
 
         print "CLIENT SENT PACKET TO SERVER", packet
         if not self._client:

@@ -313,18 +313,18 @@ class Query(object):
         raise Exception("please use get_field_names or get_select instead")
         return self.fields # frozenset(self.fields) if self.fields is not None else None
 
-    @returns(StringTypes)
-    def get_from(self): # DEPRECATED
-        """
-        Extracts the FROM clause of this Query.
-        You should use get_table_name() or get_namespace().
-        Returns:
-            A String "namespace:table_name" or "table_name" (if the
-            namespace is unset), where 'namespace' is the result of
-            self.get_namespace() and 'table_name' is the result of
-            self.get_table_name()
-        """
-        return self.get_object()
+#DEPRECATED|    @returns(StringTypes)
+#DEPRECATED|    def get_from(self): # DEPRECATED
+#DEPRECATED|        """
+#DEPRECATED|        Extracts the FROM clause of this Query.
+#DEPRECATED|        You should use get_table_name() or get_namespace().
+#DEPRECATED|        Returns:
+#DEPRECATED|            A String "namespace:table_name" or "table_name" (if the
+#DEPRECATED|            namespace is unset), where 'namespace' is the result of
+#DEPRECATED|            self.get_namespace() and 'table_name' is the result of
+#DEPRECATED|            self.get_table_name()
+#DEPRECATED|        """
+#DEPRECATED|        return self.get_object()
 
     @returns(StringTypes)
     def get_object(self):
@@ -338,6 +338,7 @@ class Query(object):
             self.get_table_name()
         """
         return self.object
+    get_from = get_object
 
     def set_object(self, object):
         self.object = object
@@ -664,13 +665,13 @@ class Query(object):
         l = self.get_from().split(':', 1)
         return l[0] if len(l) == 2 else None
 
-    @returns(StringTypes)
-    def get_table_name(self):
-        """
-        Returns:
-            The table_name corresponding to this Query (None if unset).
-        """
-        return self.get_from().split(':')[-1]
+#DEPRECATED|    @returns(StringTypes)
+#DEPRECATED|    def get_table_name(self):
+#DEPRECATED|        """
+#DEPRECATED|        Returns:
+#DEPRECATED|            The table_name corresponding to this Query (None if unset).
+#DEPRECATED|        """
+#DEPRECATED|        return self.get_from().split(':')[-1]
 
     def set_namespace(self, namespace):
         """
@@ -701,7 +702,11 @@ class Query(object):
         Returns:
             The corresponding Destination.
         """
-        return Destination(self.object, self.filters, self.fields | FieldNames(self.params.keys()))
+        return Destination(
+            self.get_object_name(), 
+            self.get_filter(),
+            self.fields | FieldNames(self.params.keys()),
+            namespace = self.get_namespace())
 
     def get_data(self):
         return self.params

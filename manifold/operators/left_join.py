@@ -431,14 +431,14 @@ class LeftJoin(Operator, LeftRightSlotMixin):
             return Projection(self, fields)
         return self
 
-    @returns(Node)
-    def reorganize_create(self):
-        # Transform into a Right Join
-        # XXX we need to delete it !!!
-        left_producer   = self._get_left().reorganize_create()
-        right_producer  = self._get_right().reorganize_create()
-        self._clear()
-        return RightJoin(self._predicate, left_producer, right_producer)
+#DEPRECATED|    @returns(Node)
+#DEPRECATED|    def reorganize_create(self):
+#DEPRECATED|        # Transform into a Right Join
+#DEPRECATED|        # XXX we need to delete it !!!
+#DEPRECATED|        left_producer   = self._get_left().reorganize_create()
+#DEPRECATED|        right_producer  = self._get_right().reorganize_create()
+#DEPRECATED|        self._clear()
+#DEPRECATED|        return RightJoin(self._predicate, left_producer, right_producer)
 
     #---------------------------------------------------------------------------
     # Algebraic rules

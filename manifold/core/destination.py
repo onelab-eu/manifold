@@ -24,7 +24,7 @@ class Destination(object):
     # Constructor
     #---------------------------------------------------------------------------
 
-    def __init__(self, object = None, filter = None, field_names = None, origin = None):
+    def __init__(self, object = None, filter = None, field_names = None, origin = None, namespace = None):
         """
         Constructor.
         Args:
@@ -42,6 +42,7 @@ class Destination(object):
         self._filter = filter if filter else Filter()   # Partition
         self._field_names = field_names if field_names else FieldNames()   # Hyperplan
         self._origin = origin
+        self._namespace = namespace
 
     #---------------------------------------------------------------------------
     # Accessors
@@ -62,6 +63,12 @@ class Destination(object):
         """
         assert isinstance(object, StringTypes)
         self._object = object
+
+    def get_namespace(self):
+        return self._namespace
+
+    def set_namespace(self, namespace):
+        self._namespace = namespace
 
     def get_origin(self):
         return self._origin
@@ -104,6 +111,14 @@ class Destination(object):
 
         if field_names and self._field_names is not None:
             self._field_names.add(field_names)
+
+    def __eq__(self, other):
+        return self.get_object() == other.get_object() and \
+                self.get_filter() == other.get_filter() and \
+                self.get_field_names() == other.get_field_names()
+
+    def __hash__(self):
+        return hash((self.get_object(), self.get_filter(), self.get_field_names()))
 
     #---------------------------------------------------------------------------
     # str repr

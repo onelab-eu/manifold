@@ -592,20 +592,21 @@ class Router(object):
             packet: A QueryPacket instance.
         """
         
+        destination = packet.get_destination()
         query      = packet.get_query()
         annotation = packet.get_annotation()
         receiver   = packet.get_receiver()
 
         try:
             # Check namespace
-            namespace = query.get_namespace()
+            namespace = destination.get_namespace()
             valid_namespaces = self.get_fib().get_namespaces()
             if namespace and namespace not in valid_namespaces:
                 raise RuntimeError("Invalid namespace '%s': valid namespaces are {'%s'}" % (
                     namespace, "', '".join(valid_namespaces)))
 
             # Select the DbGraph answering to the incoming Query and compute the QueryPlan
-            root_node = self._operator_graph.build_query_plan(query, annotation)
+            root_node = self._operator_graph.build_query_plan(destination, annotation)
 
             print "QUERY PLAN:"
             print root_node.format_downtree()
@@ -616,7 +617,7 @@ class Router(object):
             error_packet = ErrorPacket(
                 type      = ERROR,
                 code      = BADARGS,
-                message   = "Unable to build a suitable Query Plan (query = %s): %s" % (query, e),
+                message   = "Unable to build a suitable Query Plan (destination = %s): %s" % (destination, e),
                 traceback = traceback.format_exc()
             )
             receiver.receive(error_packet)
@@ -629,8 +630,6 @@ class Router(object):
         # For async gateways, errors will be handled in errbacks.
         # XXX We should mutualize this error handling core and the errbacks
         
-        Log.warning("We need a better handling of namespaces")
-        packet.update_query(lambda q: q.clear_namespace())
         try:
             root_node.receive(packet)
         except Exception, e:
@@ -640,7 +639,7 @@ class Router(object):
                 type      = ERROR,
                 code      = BADARGS,
                 message   = "Unable to execute Query Plan: %s" % (e, ),
-                #message   = "Unable to execute Query Plan (query = %s): %s" % (query, e),
+                #message   = "Unable to execute Query Plan (destination = %s): %s" % (destination, e),
                 traceback = traceback.format_exc()
             )
             receiver.receive(error_packet)

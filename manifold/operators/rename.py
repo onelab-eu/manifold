@@ -326,9 +326,9 @@ class Rename(Operator, ChildSlotMixin):
         self._update_child(lambda c, d: c.optimize_projection(new_fields))
         return Projection(self, fields)
 
-    @returns(Node)
-    def reorganize_create(self):
-        return self._get_child().reorganize_create()
+#DEPRECATED|    @returns(Node)
+#DEPRECATED|    def reorganize_create(self):
+#DEPRECATED|        return self._get_child().reorganize_create()
 
     #---------------------------------------------------------------------------
     # Algebraic rules

@@ -413,6 +413,6 @@ class AST(object):
         assert producer, "ast::optimize_projection() has failed: fields = %s" % fields 
         self.root = producer
 
-    def reorganize_create(self):
-        new_root = self.get_root().reorganize_create()
-        self.set_root(new_root)
+#DEPRECATED|    def reorganize_create(self):
+#DEPRECATED|        new_root = self.get_root().reorganize_create()
+#DEPRECATED|        self.set_root(new_root)

@@ -1,13 +1,15 @@
-from manifold.core.announce     import Announce, Announces
-from manifold.core.dbnorm       import Fd, Fds, Determinant, closure
-from manifold.core.key          import Key
-from manifold.core.keys         import Keys
-from manifold.core.method       import Method
-from manifold.core.field_names  import FieldNames
-from manifold.core.relation     import Relation
-from manifold.core.table        import Table
-from manifold.util.log          import Log
-from manifold.util.predicate    import Predicate, eq
+from manifold.core.announce         import Announce, Announces
+from manifold.core.dbnorm           import Fd, Fds, Determinant, closure
+from manifold.core.field_names      import FieldNames
+from manifold.core.key              import Key
+from manifold.core.keys             import Keys
+from manifold.core.method           import Method
+from manifold.core.operator_slot    import ChildSlotMixin
+from manifold.core.relation         import Relation
+from manifold.core.table            import Table
+from manifold.gateways              import LOCAL_NAMESPACE
+from manifold.util.log              import Log
+from manifold.util.predicate        import Predicate, eq
 
 # This is somehow and object
 class PlatformInfo(object):
@@ -227,13 +229,14 @@ class Object(object):
             self._relations[other_object] = set()
         self._relations[other_object].add(relation)
 
-class FIB(object):
+class FIB(ChildSlotMixin):
     """
     Forwarding Information Base.
     Replaces DBNorm and DBGraph.
     """
 
     def __init__(self):
+        ChildSlotMixin.__init__(self)
 
         # Tables indexed by name
         self._objects = dict()      # object name -> object
@@ -390,3 +393,11 @@ class FIB(object):
             # A new FD:
             # 1) is it redundant ?
             # 2) does it make any relation redundant ?
+
+    def receive(self, packet):
+        packet_dict = packet.to_dict()
+        origins = packet_dict.get('origins')
+        platform_name = origins[0] if origins else 'local'
+        namespace = 'local' if platform_name == 'local' else None
+        announce = Announce(Table.from_dict(packet_dict, LOCAL_NAMESPACE))
+        self.add(platform_name, announce, namespace)

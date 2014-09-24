@@ -172,6 +172,6 @@ class Projection(Operator, ChildSlotMixin):
         # We only need the intersection of both
         return self._get_child().optimize_projection(self._field_names & field_names)
 
-    @returns(Node)
-    def reorganize_create(self):
-        return self._get_child().reorganize_create()
+#DEPRECATED|    @returns(Node)
+#DEPRECATED|    def reorganize_create(self):
+#DEPRECATED|        return self._get_child().reorganize_create()

@@ -319,8 +319,8 @@ class RightJoin(Operator, LeftRightSlotMixin):
             return Projection(self, fields)
         return self
             
-    @returns(Node)
-    def reorganize_create(self):
-        self._update_left( lambda l: l.reorganize_create())
-        self._update_right(lambda r: r.reorganize_create())
-        return self
+#DEPRECATED|    @returns(Node)
+#DEPRECATED|    def reorganize_create(self):
+#DEPRECATED|        self._update_left( lambda l: l.reorganize_create())
+#DEPRECATED|        self._update_right(lambda r: r.reorganize_create())
+#DEPRECATED|        return self

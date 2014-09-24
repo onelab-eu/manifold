@@ -40,6 +40,30 @@ from manifold.util.type         import accepts, returns
 class Unspecified(object):
     pass
 
+class Flow(object):
+    def __init__(self, source, destination):
+        self._source = source
+        self._destination = destination
+
+    def get_source(self):
+        return self._source
+
+    def get_destination(self):
+        return self._destination
+
+    def __eq__(self, other):
+        is_direct  = self._source == other._source and \
+                     self._destination == other._destination
+        is_reverse = self._source == other._destination and \
+                     self._destination == other._source
+        return is_direct or is_reverse
+
+    def __hash__(self):
+        return hash(frozenset([self._source, self._destination]))
+
+    def __repr__(self):
+        return "<Flow %s -> %s>" % (self.get_source(), self.get_destination())
+
 class Packet(object):
     """
     A generic packet class: Query packet, Record packet, Error packet (ICMP), etc.
@@ -180,6 +204,9 @@ class Packet(object):
 
     def set_data(self, data):
         self._record = data
+
+    def get_flow(self):
+        return Flow(self._source, self._destination)
 
     #---------------------------------------------------------------------------
     # Methods

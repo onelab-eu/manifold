@@ -44,7 +44,7 @@ class QueryPlan(object):
 
         self.foreign_key_fields = dict()
 
-    def set_ast(self, ast_sq_rename_dict, query):
+    def set_ast(self, ast_sq_rename_dict, destination):
         """
         Complete an AST in order to take into account SELECT and WHERE clauses
         involved in a user Query.
@@ -60,10 +60,10 @@ class QueryPlan(object):
         if sq_rename_dict:
             ast.rename(sq_rename_dict)
 
-        destination = query.get_destination()
         #print "QUERY PLAN:", ast.get_root().format_downtree()
-        if query.get_action() in [ACTION_CREATE, ACTION_UPDATE]:
-            ast.reorganize_create()
+        Log.warning('no more reorganize_create')
+#DEPRECATED|        if query.get_action() in [ACTION_CREATE, ACTION_UPDATE]:
+#DEPRECATED|            ast.reorganize_create()
         ast.optimize(destination)
         self.ast = ast
 
@@ -96,7 +96,7 @@ class QueryPlan(object):
         return repr(self)
 
     @returns(Node)
-    def build(self, query, router, allowed_platforms, user = None):
+    def build(self, destination, router, allowed_platforms, user = None):
         """
         Build the QueryPlan involving several Gateways according to a 3nf
         graph and a user Query.
@@ -115,9 +115,8 @@ class QueryPlan(object):
         """
         assert isinstance(allowed_platforms, set)
 
-        object_name = query.get_object_name()
-        namespace   = query.get_namespace()
-        query.clear_namespace()
+        object_name = destination.get_object_name()
+        namespace   = destination.get_namespace()
 
         allowed_capabilities = router.get_capabilities()
         root_table = router.get_fib().get_object(object_name, namespace) 
@@ -125,7 +124,7 @@ class QueryPlan(object):
             table_names = router.get_fib().get_object_names(namespace) # db_graph.get_table_names())
             table_names.sort()
             raise RuntimeError("Cannot find '%s' object in FIB. Known objects are: {%s}" % (
-                query.get_from(),
+                object_name,
                 ", ".join(table_names)
             ))
 
@@ -142,18 +141,19 @@ class QueryPlan(object):
         root_task = ExploreTask(router, root_table, relation = None, path = [root_table.get_name()], parent = self, depth = 1)
         if not root_task:
             raise RuntimeError("Unable to build a suitable QueryPlan")
-        root_task.addCallback(self.set_ast, query)
+        root_task.addCallback(self.set_ast, destination)
 
         stack = Stack(root_task)
         seen = dict() # path -> set()
 
         missing_fields = FieldNames()
-        if query.get_field_names().is_star():
+        if destination.get_field_names().is_star():
             missing_fields |= root_table.get_field_names()
         else:
-            missing_fields |= query.get_field_names()
-        missing_fields |= query.get_filter().get_field_names()
-        missing_fields |= FieldNames(query.get_params().keys())
+            missing_fields |= destination.get_field_names()
+        missing_fields |= destination.get_filter().get_field_names()
+        Log.warning('params in destination ?')
+#        missing_fields |= FieldNames(destination.get_params().keys())
 
         while missing_fields:
             # Explore the next prior ExploreTask

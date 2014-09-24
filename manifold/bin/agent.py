@@ -59,7 +59,7 @@ class AgentDaemon(Daemon):
 
         receiver = SyncReceiver()
         print "Requesting supernodes to the server"
-        self._client_interface.send(GET(), Destination('local:supernode'), receiver = receiver)
+        self._client_interface.send(GET(), Destination('supernode', namespace='local'), receiver = receiver)
 
         supernodes = receiver.get_result_value().get_all()
 
