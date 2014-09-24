@@ -215,7 +215,8 @@ class From(Operator, ChildSlotMixin):
         Args:
             packet: A Packet instance.
         """
-        if packet.get_protocol() == Packet.PROTOCOL_QUERY:
+        Log.warning("We should not distinguish packet protocols anymore")
+        if packet.get_protocol() in Packet.PROTOCOL_QUERY:
 #DEPRECATED|            query        = packet.get_query()
 #DEPRECATED|            query_fields = query.get_fields()
 #DEPRECATED|

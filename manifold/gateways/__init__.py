@@ -698,6 +698,8 @@ class Gateway(Node):
             self.records(records, packet)
 
     def get_object(self, object_name, namespace = None):
+        print "OBJECT NAME", object_name, "NAMESPACE", namespace
+        print "GW OBJECTS", self._objects_by_namespace
         return self._objects_by_namespace[namespace][object_name]
 
     def get_objects(self, namespace = None):

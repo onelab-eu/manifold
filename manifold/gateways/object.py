@@ -59,6 +59,7 @@ class ManifoldObject(Record):
 
     @classmethod
     def get(cls, query = None): # filter = None, fields = None):
+        print "ManifoldObject::get", cls
         import copy
         ret = list()
         # XXX filter and fields
@@ -67,6 +68,7 @@ class ManifoldObject(Record):
             y = copy.deepcopy(x)
             y.__class__ = Record
             ret.append(y)
+        print "ret=", ret
         return ret
 
     def insert(self):

@@ -629,9 +629,15 @@ class Router(object):
         # - during the forwarding of results (for synchronous gateways).
         # For async gateways, errors will be handled in errbacks.
         # XXX We should mutualize this error handling core and the errbacks
+        
+        Log.warning("We need a better handling of namespaces")
+        packet.update_query(lambda q: q.clear_namespace())
+        print "packet after clearing namespace", packet
         try:
             root_node.receive(packet)
         except Exception, e:
+            print "EEE:", e
+            traceback.print_exc()
             error_packet = ErrorPacket(
                 type      = ERROR,
                 code      = BADARGS,

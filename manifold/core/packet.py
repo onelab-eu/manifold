@@ -45,13 +45,15 @@ class Packet(object):
     A generic packet class: Query packet, Record packet, Error packet (ICMP), etc.
     """
 
-    PROTOCOL_QUERY  = 1
+#    PROTOCOL_QUERY  = 1
 #    PROTOCOL_RECORD = 2
     PROTOCOL_ERROR  = 3
     PROTOCOL_GET    = 4
     PROTOCOL_CREATE = 5
     PROTOCOL_UPDATE = 6
     PROTOCOL_DELETE = 7
+
+    PROTOCOL_QUERY = (PROTOCOL_GET, PROTOCOL_UPDATE, PROTOCOL_DELETE) # TEMP, Records == CREATE
 
     PROTOCOL_NAMES = {
         PROTOCOL_QUERY  : "QUERY",
@@ -169,6 +171,10 @@ class Packet(object):
         self.set_destination(query.get_destination())
         self.set_data(query.get_data())
 
+    def update_query(self, method, *args, **kwargs):
+        Log.warning("update_query is to be deprecated")
+        self.set_query(method(self.get_query(), *args, **kwargs))
+
     def get_data(self):
         return self._record
 
@@ -212,18 +218,18 @@ class Packet(object):
     # Serialization / deserialization
     #---------------------------------------------------------------------------
 
-#DEPRECATED|    def __getstate__(self):
-#DEPRECATED|        # Copy the object's state from self.__dict__ which contains
-#DEPRECATED|        # all our instance attributes. Always use the dict.copy()
-#DEPRECATED|        # method to avoid modifying the original state.
-#DEPRECATED|        state = self.__dict__.copy()
-#DEPRECATED|        # Remove the unpicklable entries.
-#DEPRECATED|        if '_source' in state:
-#DEPRECATED|            del state['_source']
-#DEPRECATED|        if '_receiver' in state:
-#DEPRECATED|            del state['_receiver']
-#DEPRECATED|        return state
-#DEPRECATED|
+    def __getstate__(self):
+        # Copy the object's state from self.__dict__ which contains
+        # all our instance attributes. Always use the dict.copy()
+        # method to avoid modifying the original state.
+        state = self.__dict__.copy()
+        # Remove the unpicklable entries.
+        if '_source' in state:
+            del state['_source']
+        if '_receiver' in state:
+            del state['_receiver']
+        return state
+
 #UNUSED|    def __setstate__(self, state):
 #UNUSED|        # Restore instance attributes (i.e., filename and lineno).
 #UNUSED|        self.__dict__.update(state)
