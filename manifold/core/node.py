@@ -191,14 +191,14 @@ class Node(object):
             if fields.is_empty():
                 self.forward_upstream(Record(last=True))
                 return
-            packet.set_source(self)
+            #packet.set_source(self)
             receiver.receive(packet)
         else:
             raise Exception("We don't expect records or errors to go downstream")
 
     def forward_upstream(self, packet):
         #self.check_send(packet)
-        packet.set_source(self)
+        #packet.set_source(self)
         if packet.get_protocol() in [Packet.PROTOCOL_QUERY]:
             raise Exception("A query cannot be forwarded")
         elif packet.get_protocol() in [Packet.PROTOCOL_CREATE, Packet.PROTOCOL_ERROR]:
