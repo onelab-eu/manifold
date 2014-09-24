@@ -198,7 +198,7 @@ class Packet(object):
     def __repr__(self):
         """
         Returns:
-            The '%r' representation of this QUERY Packet.
+            The '%r' representation of this Packet.
         """
         return "<Packet.%s%s %s -> %s [DATA: %s]>" % (
             Packet.get_protocol_name(self.get_protocol()),
@@ -695,17 +695,17 @@ class Record(Packet):
     def update(self, other_record):
         return dict.update(self._record, other_record)
 
-    @returns(StringTypes)
-    def __repr__(self):
-        """
-        Returns:
-            The '%r' representation of this QUERY Packet.
-        """
-        return "<Packet.%s %s>" % (
-            Packet.get_protocol_name(self.get_protocol()),
-            self.to_dict()
-        )
-
+#DEPRECATED|    @returns(StringTypes)
+#DEPRECATED|    def __repr__(self):
+#DEPRECATED|        """
+#DEPRECATED|        Returns:
+#DEPRECATED|            The '%r' representation of this QUERY Packet.
+#DEPRECATED|        """
+#DEPRECATED|        return "<Packet.%s %s>" % (
+#DEPRECATED|            Packet.get_protocol_name(self.get_protocol()),
+#DEPRECATED|            self.to_dict()
+#DEPRECATED|        )
+#DEPRECATED|
 #DEPRECATED|    def get_uuid(self):
 #DEPRECATED|        if not self._uuid:
 #DEPRECATED|            self._uuid = str(uuid.uuid4())
