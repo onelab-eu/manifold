@@ -60,7 +60,6 @@ class AgentDaemon(Daemon):
         receiver = SyncReceiver()
         print "Requesting supernodes to the server"
         self._client_interface.send(GET(), Destination('local:supernode'), receiver = receiver)
-        print "Supernodes req'ed"
 
         supernodes = receiver.get_result_value().get_all()
 
@@ -117,7 +116,6 @@ class AgentDaemon(Daemon):
             # XXX import supernode
             s = Supernode(hostname = hostname())
             s.insert()
-            print "SUPERNODE.get", Supernode.get()
             self._client_interface = None
 
         #self.daemon_loop()

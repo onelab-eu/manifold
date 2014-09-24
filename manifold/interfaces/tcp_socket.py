@@ -85,7 +85,6 @@ class ManifoldClientFactory(ClientFactory, Interface, ChildSlotMixin): # Node
     protocol = ManifoldProtocol
     
     def __init__(self, router):
-        print "manifold client initialized"
         ChildSlotMixin.__init__(self)
         self._router    = router
         self._client    = None
@@ -98,15 +97,12 @@ class ManifoldClientFactory(ClientFactory, Interface, ChildSlotMixin): # Node
     def on_client_ready(self, client):
         print "manifold client ready. requesting announces"
         self.send(GET(), Destination('local:object'))
-        print "announces req'ed"
 
         self._client = client
 
         while self._tx_buffer:
             full_packet = self._tx_buffer.pop()
-            print "sending full packet from buffer"
             self._client.send_packet(full_packet)
-            print "full ok"
 
         # I behave as a Manifold gateway !!
 
