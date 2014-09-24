@@ -95,7 +95,7 @@ class Storage(object):
         receiver = SyncReceiver()
         packet = GET()
         packet.set_query(query)
-        packet.set_receiver = receiver
+        packet.set_receiver(receiver)
 
         # Send the Packet and collect the corresponding RECORD Packets.
         gateway.receive(packet)
