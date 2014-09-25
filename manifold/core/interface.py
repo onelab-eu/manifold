@@ -47,7 +47,6 @@ class Interface(object):
         itself a receiver.
         """
         # XXX This code should be shared by all interfaces
-        print "[OUT]", packet
         source = Destination('uuid', Filter().filter_by(Predicate('uuid', '==', self._uuid)))
         packet.set_source(source)
 
@@ -59,6 +58,7 @@ class Interface(object):
             packet.set_receiver(receiver_id)
             self._flow_map[packet.get_flow()] = receiver
 
+        print "[OUT]", packet
         self.send_impl(packet, destination, receiver)
 
     def receive(self, packet):
