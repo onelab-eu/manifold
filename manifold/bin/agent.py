@@ -28,6 +28,8 @@ from manifold.core.local                import ManifoldObject
 from manifold.core.packet               import GET
 from manifold.core.query                import Query
 from manifold.core.sync_receiver        import SyncReceiver
+            
+SERVER_SUPERNODE = 'dryad.ipv6.lip6.fr'
 
 # In memory object. Could be sqlite.
 # Capabilities ?
@@ -48,9 +50,6 @@ class AgentDaemon(Daemon):
         "server_mode"   : False,
     }
 
-    def __init__(self):
-        Daemon.__init__(self, self.terminate)
-
     def get_supernode(self):
         
         # XXX supernodes = Supernode.get()
@@ -58,24 +57,9 @@ class AgentDaemon(Daemon):
         # router if we can route such requests.
 
         receiver = SyncReceiver()
-        print "Requesting supernodes to the server"
         self._client_interface.send(GET(), Destination('supernode', namespace='local'), receiver = receiver)
-
         supernodes = receiver.get_result_value().get_all()
-
-        print "SUPERNODES=", supernodes
         return supernodes[0]['hostname'] if supernodes else None
-
-    def make_agent_router(self):
-        router = Router()
-
-        # XXX We need some auto-detection for processes
-        router.add_platform("ping", "ping_process")
-
-        # Register local objects
-        router.register_object(Supernode, 'local')
-
-        return router
 
     @staticmethod
     def init_options():
@@ -92,42 +76,31 @@ class AgentDaemon(Daemon):
 
     def main(self):
         # Create a router instance
-        self._router = self.make_agent_router()
+        router = Router()
 
-        # Create local interface
-        self._local_interface = UNIXSocketInterface(self._router)
-
-        # Create appropriate interfaces to listen to queries
-        self._server_interface = TCPSocketInterface(self._router)
-        self._server_interface.listen()
+        self._local_interface  = router.add_interface('unix')
+        self._server_interface = router.add_interface('tcpserver') # Listener XXX port?
 
         if not Options().server_mode:
-            # a) Connect to main server
-            # XXX An interface should connect to a single remote host
-            supernode = 'dryad.ipv6.lip6.fr'
-            print "Connecting to %(supernode)s" % locals()
-            self._client_interface = TCPSocketInterface(self._router).connect(supernode)
-            # Connect to supernode
-            # b) get supernode...
-            supernode = self.get_supernode()
-            self._client_interface.disconnect()
-            # c) connect...
-            print "Connecting to %(supernode)s" % locals()
-            self._client_interface = TCPSocketInterface(self._router).connect(supernode)
+            self._client_interface = router.add_interface('tcp', SERVER_SUPERNODE)
+            supernode = self.get_supernode() # XXX Blocking ???
+            #self._client_interface.down()
+            self._client_interface.connect(supernode)
+
         else:
             # The current agent registers itself as a supernode
             # XXX import supernode
-            s = Supernode(hostname = hostname())
-            s.insert()
-            self._client_interface = None
+             Supernode(hostname = hostname()).insert()
+
+        # XXX We need some auto-detection for processes
+        router.add_platform("ping", "ping_process")
+
+        # Register local objects
+        router.register_object(Supernode, 'local')
+
+        self._router = router
 
         #self.daemon_loop()
-
-    def terminate(self):
-        self._local_interface.terminate()
-        self._server_interface.terminate()
-        if self._client_interface:
-            self._client_interface.terminate()
         
 def main():
     AgentDaemon.init_options()

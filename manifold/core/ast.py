@@ -15,6 +15,7 @@
 import sys, random, traceback
 from types                                  import StringTypes
 
+from manifold.core.destination              import Destination
 from manifold.core.key                      import Key
 from manifold.core.query                    import Query
 from manifold.operators.cartesian_product   import CartesianProduct
@@ -87,30 +88,30 @@ class AST(object):
     #---------------------------------------------------------------------------
 
     #@returns(AST)
-    def From(self, platform_name, query, capabilities, key):
+    def From(self, platform_name, destination, capabilities, key):
         """
         Append a From Node to this AST.
         Args:
             platform_name: the name of the Platform related to this From Node. 
-            query: The Query sent to the platform.
+            destination: The Destination sent to the platform.
             capabilities: The Capabilities related to this Table of this Platform.
             key: The Key related to this Table.
         Returns:
             The updated AST.
         """
         assert self.is_empty(),          "Should be instantiated on an empty AST"
-        assert isinstance(query, Query), "Invalid query = %s (%s)" % (query, type(query))
+        assert isinstance(destination, Destination), "Invalid destination = %s (%s)" % (destination, type(destination))
         assert isinstance(key, Key),     "Invalid key = %s (%s)" % (key, type(key))
 
         # Retrieve the appropriate Gateway.
         gateway = self._router.get_gateway(platform_name)
 
         # Build the corresponding From Operator and connect it to this AST.
-        self.root = From(gateway, query, capabilities, key)
+        self.root = From(gateway, destination, capabilities, key)
 
         # Eventually add a rename operator to translate between domains
         try:
-            instance = gateway.get_object(query.get_table_name())
+            instance = gateway.get_object(destination.get_object_name())
             aliases  = instance.get_aliases()
             if aliases:
                 self.root = Rename(self.get_root(), aliases)
@@ -121,11 +122,11 @@ class AST(object):
         return self
 
     #@returns(AST)
-    def from_table(self, query, records, key):
+    def from_table(self, destination, records, key):
         """
         Append a FromTable Node to this AST.
         Args:
-            query: A Query instance describing the Records provided by this
+            destination: A Destination instance describing the Records provided by this
                 FromTable Node.
             records: A list of corresponding Records.
             key: A Key instance which can be used to identify each Records.
@@ -133,10 +134,10 @@ class AST(object):
             The resulting AST.
         """
         assert self.is_empty(),          "Should be instantiated on an empty AST"
-        assert isinstance(query, Query), "Invalid query = %r (%r)" % (query, type(query))
+        assert isinstance(destination, Destination), "Invalid destination = %r (%r)" % (destination, type(destination))
         assert isinstance(key, Key),     "Invalid key = %s (%s)" % (key, type(key))
 
-        self.root = FromTable(query, records, key)
+        self.root = FromTable(destination, records, key)
         return self
 
     #@returns(AST)

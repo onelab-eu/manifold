@@ -29,6 +29,7 @@ from manifold.core.result_value     import ResultValue
 from manifold.core.sync_receiver    import SyncReceiver
 from manifold.core.table            import Table
 from manifold.gateways              import Gateway
+from manifold.core.interface        import Interface
 from manifold.policy                import Policy
 from manifold.util.constants        import DEFAULT_PEER_URL, DEFAULT_PEER_PORT
 from manifold.util.log              import Log
@@ -88,6 +89,9 @@ class Router(object):
         # FIB
         self._fib = FIB()
 
+        # interface_uuid -> interface
+        self._interfaces = dict()
+
         # We request announces from the local gateway (cf # manifold.core.interface)
         # XXX This should be similar for all gateways
         # XXX add_platform
@@ -104,6 +108,8 @@ class Router(object):
     def terminate(self):
         for gateway in self.gateways.values():
             gateway.terminate()
+        for interface in self.interfaces.values():
+            interface.terminate()
 
     #---------------------------------------------------------------------------
     # Accessors
@@ -232,6 +238,19 @@ class Router(object):
             return False
 
         return True
+
+    def register_interface(self, interface):
+        self._interfaces[interface.get_uuid()] = interface
+
+    def add_interface(self, interface_type, *args, **kwargs):
+        interface_cls = Interface.get(interface_type)
+        print interface_cls
+        router_args = (self,) + args
+        print "router_args=", router_args
+        interface = interface_cls(*router_args, **kwargs)
+        # Note the interface will register itself when initialized properly
+        # This is needed to have interfaces dynamically created by # TCPServerSocketInterface
+        return interface
 
     @returns(bool)
     def del_platform(self, platform_name, rebuild = True):

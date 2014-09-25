@@ -16,10 +16,10 @@ from types                          import StringTypes
 from twisted.internet.defer         import Deferred, DeferredList
 
 from manifold.core.ast              import AST
+from manifold.core.destination      import Destination
 from manifold.core.filter           import Filter
 from manifold.core.field_names      import FieldNames
 from manifold.core.key              import Key
-from manifold.core.query            import Query, ACTION_GET
 from manifold.core.relation         import Relation
 from manifold.core.stack            import Stack, TASK_11, TASK_1Nsq, TASK_1N
 from manifold.types                 import BASE_TYPES
@@ -122,7 +122,7 @@ class ExploreTask(Deferred):
             missing_field_anmes
             seen_set
         """
-        #Log.tmp("ExploreTask::explore Search in", self.root.get_name(), "for fields", missing_field_names, 'path=', self.path, "SEEN SET =", seen_set, "depth=", self.depth)
+        Log.tmp("ExploreTask::explore Search in", self.root.get_name(), "for fields", missing_field_names, 'path=', self.path, "SEEN SET =", seen_set, "depth=", self.depth)
 
         relations_11, relations_1N, relations_1Nsq = (), {}, {}
         deferred_list = []
@@ -180,6 +180,7 @@ class ExploreTask(Deferred):
         #....... Rewritten
 
         self.keep_root_a |= missing_parent_fields & root_provided_fields
+        print "self.keep_root_a=", self.keep_root_a
 
         for f in self.keep_root_a:
             if f in rename and rename[f] is not None:
@@ -461,9 +462,10 @@ class ExploreTask(Deferred):
 
             # XXX We should only be concerned about the destination
             platform_object_name =  obj.get_platform_object_name(platform_name)
-            query = Query.action(ACTION_GET, platform_object_name).select(selected_field_names)
+            destination =  Destination(platform_object_name, Filter(), selected_field_names)
+            #query = Query.get(platform_object_name).select(selected_field_names)
 
-            obj = fib.get_object(query.get_object_name(), namespace)
+            obj = fib.get_object(platform_object_name, namespace)
             capabilities = obj.get_platform_capabilities(platform_name)
             #capabilities = fib.get_capabilities(platform, query.get_from()) # XXX
 
@@ -478,5 +480,6 @@ class ExploreTask(Deferred):
             # We need to connect the right gateway
             # XXX
 
-            from_ast = AST(self._router).From(platform_name, query, capabilities, key)
+            from_ast = AST(self._router).From(platform_name, destination, capabilities, key)
+            print "from_ast=", from_ast
             self.perform_union((from_ast, {}), key, allowed_platforms, fib, user, query_plan)

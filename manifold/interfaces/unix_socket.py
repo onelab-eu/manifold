@@ -64,6 +64,8 @@ class QueryHandler(asynchat.async_chat, ChildSlotMixin):
 
 class UNIXSocketInterface(Interface, asyncore.dispatcher):
 
+    __interface_name__ = 'unix'
+
     def __init__(self, router, socket_path = SOCKET_PATH):
         Interface.__init__(self, router)
         self._socket_path = socket_path

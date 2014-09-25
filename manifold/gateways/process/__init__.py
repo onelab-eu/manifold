@@ -50,9 +50,13 @@ FLAG_OUT_ANNOTATION     = 1<<2
 FLAG_ADD_FIELD          = 1<<3
 
 class OProcess(ManifoldObject):
+
+    __object_name__ = "None"
+
     def __init__(self, *args, **kwargs):
         super(OProcess, self).__init__(*args, **kwargs)
 
+        self.__object_name__ = self.get_gateway().__tool__
         self._in_progress = dict()
         self._records = dict()
         self._process = None

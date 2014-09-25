@@ -118,6 +118,9 @@ class Destination(object):
         if field_names and self._field_names is not None:
             self._field_names.add(field_names)
 
+    def set_field_names(self, field_names):
+        self._field_names = field_names
+
     def __eq__(self, other):
         return self.get_object() == other.get_object() and \
                 self.get_filter() == other.get_filter() and \
