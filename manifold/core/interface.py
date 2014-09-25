@@ -47,6 +47,7 @@ class Interface(object):
         itself a receiver.
         """
         # XXX This code should be shared by all interfaces
+        print "[OUT]", packet
         source = Destination('uuid', Filter().filter_by(Predicate('uuid', '==', self._uuid)))
         packet.set_source(source)
 
@@ -64,12 +65,18 @@ class Interface(object):
         """
         For packets received from the remote server."
         """
-        print "RECEIVED PACKET FROM OUTSIDE", packet
+        print "[ IN]", packet
         # XXX Not all packets are targeted at the router.
         # - announces are
         # - supernodes are not (they could eventually pass through the router)
 
         flow = packet.get_flow()
+        print "=" * 80
+        print "FLOW", flow
+        print "FLOW MAP"
+        for flow in self._flow_map.keys():
+            print "  -", flow.__dict__
+
         if not flow in self._flow_map:
             # New flows are sent to the router
             self._router.receive(packet)

@@ -66,7 +66,6 @@ class TCPSocketInterface(Factory, Interface):
         # Received packets are sent back to the client
         class MyReceiver(ChildSlotMixin):
             def receive(self, packet):
-                print "SERVER SENDING PACKET BACK TO CLIENT", packet
                 _self.send(packet)
 
         self._receiver = MyReceiver()
@@ -76,7 +75,6 @@ class TCPSocketInterface(Factory, Interface):
             self._client.send_packet(full_packet)
 
     def send_impl(self, packet, destination, receiver):
-        print "CLIENT SENT PACKET TO SERVER", packet
         if not self._client:
             self._tx_buffer.append(packet)
         else:
