@@ -71,11 +71,11 @@ class Interface(object):
         # - supernodes are not (they could eventually pass through the router)
 
         flow = packet.get_flow()
-        print "=" * 80
-        print "FLOW", flow
-        print "FLOW MAP"
-        for flow in self._flow_map.keys():
-            print "  -", flow.__dict__
+#DEPRECATED|        print "=" * 80
+#DEPRECATED|        print "FLOW", flow
+#DEPRECATED|        print "FLOW MAP"
+#DEPRECATED|        for x in self._flow_map.keys():
+#DEPRECATED|            print "  -", x.__dict__
 
         if not flow in self._flow_map:
             # New flows are sent to the router
