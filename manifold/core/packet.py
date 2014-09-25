@@ -215,6 +215,43 @@ class Packet(object):
         return Flow(self._source, self._destination)
 
     #---------------------------------------------------------------------------
+    # Accessors
+    #---------------------------------------------------------------------------
+
+    @returns(dict)
+    def get_dict(self):
+        """
+        Returns:
+            The dict nested in this Record. Note that most of time
+            you should use to_dict() method instead.
+        """
+        return self._record
+
+    def set_dict(self, dic):
+         self._record = dic
+
+    @returns(dict)
+    def to_dict(self):
+        """
+        Returns:
+            The dict representation of this Record.
+        """
+        dic = dict() 
+        if self._record:
+            try:
+                for k, v in self._record.iteritems():
+                    if isinstance(v, Record):
+                        dic[k] = v.to_dict()
+                    elif isinstance(v, Records):
+                        dic[k] = v.to_list()
+                    else:
+                        dic[k] = v
+            except Exception, e:
+                print "EEEEEE", e
+                import pdb; pdb.set_trace()
+        return dic
+
+    #---------------------------------------------------------------------------
     # Methods
     #---------------------------------------------------------------------------
 
@@ -434,43 +471,6 @@ class Record(Packet):
         record = Record()
         record.set_dict(dic)
         return record
-
-    #---------------------------------------------------------------------------
-    # Accessors
-    #---------------------------------------------------------------------------
-
-    @returns(dict)
-    def get_dict(self):
-        """
-        Returns:
-            The dict nested in this Record. Note that most of time
-            you should use to_dict() method instead.
-        """
-        return self._record
-
-    def set_dict(self, dic):
-         self._record = dic
-
-    @returns(dict)
-    def to_dict(self):
-        """
-        Returns:
-            The dict representation of this Record.
-        """
-        dic = dict() 
-        if self._record:
-            try:
-                for k, v in self._record.iteritems():
-                    if isinstance(v, Record):
-                        dic[k] = v.to_dict()
-                    elif isinstance(v, Records):
-                        dic[k] = v.to_list()
-                    else:
-                        dic[k] = v
-            except Exception, e:
-                print "EEEEEE", e
-                import pdb; pdb.set_trace()
-        return dic
 
     @returns(bool)
     def is_empty(self):
