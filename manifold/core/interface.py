@@ -40,14 +40,20 @@ class Interface(object):
     def send_impl(self, packet, destination, receiver):
         raise NotImplemented
 
-    def send(self, packet, destination = None, receiver = None):
+    def send(self, packet, source = None, destination = None, receiver = None):
         """
         Receive handler for packets arriving from the router.
         For packets coming from the client, directly use the router which is
         itself a receiver.
         """
         # XXX This code should be shared by all interfaces
-        source = Destination('uuid', Filter().filter_by(Predicate('uuid', '==', self._uuid)))
+
+        if not source:
+            if not packet.get_source():
+                source = Destination('uuid', Filter().filter_by(Predicate('uuid', '==', self._uuid)))
+                packet.set_source(source)
+        else:
+            packet.set_source(source)
         packet.set_source(source)
 
         if destination:
