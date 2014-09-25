@@ -262,18 +262,15 @@ class Packet(object):
             del state['_receiver']
         return state
 
-    def __setstate__(self, state):
-        # Restore instance attributes (i.e., filename and lineno).
-        state['_receiver'] = None
-        self.__dict__.update(state)
-
     def serialize(self):
         string = pickle.dumps(self)
         return string
 
     @staticmethod
     def deserialize(string):
-        return pickle.loads(string)
+        packet = pickle.loads(string)
+        packet._receiver = None
+        return packet
 
     #@returns(Node)
     def get_receiver(self):

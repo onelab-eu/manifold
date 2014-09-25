@@ -89,7 +89,7 @@ class TCPSocketInterface(Factory, Interface):
     # from protocol
     # = when we receive a packet from outside
     def receive(self, packet):
-        packet.set_receiver(self.factory.get_receiver())
+        packet.set_receiver(self._receiver)
         Interface.receive(self, packet)
 
 class TCPClientSocketInterface(ClientFactory, TCPSocketInterface):
