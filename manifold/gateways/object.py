@@ -68,7 +68,10 @@ class ManifoldObject(Record):
             y = copy.deepcopy(x)
             y.__class__ = Record
             ret.append(y)
-        print "ret=", ret
+        if ret:
+            ret[-1].set_last()
+        else:
+            ret.append(Record(last=True))
         return ret
 
     def insert(self):
