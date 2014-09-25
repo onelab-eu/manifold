@@ -449,7 +449,6 @@ class Gateway(Node):
         if not isinstance(record, Record):
             record = Record.from_dict(record)
         record.set_source(packet.get_destination())
-        print "Setting source to record", packet.get_destination()
         record.set_destination(packet.get_source())
         packet.get_receiver().receive(record)
 

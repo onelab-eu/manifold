@@ -54,7 +54,6 @@ class Interface(object):
                 packet.set_source(source)
         else:
             packet.set_source(source)
-        packet.set_source(source)
 
         if destination:
             packet.set_destination(destination)
