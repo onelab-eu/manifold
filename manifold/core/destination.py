@@ -97,6 +97,7 @@ class Destination(object):
         """
         assert isinstance(predicate_or_filter, Predicate) or isinstance(predicate_or_filter, Filter)
         self._filter.add(predicate_or_filter)
+        return self
 
     @returns(FieldNames)
     def get_field_names(self):
@@ -117,9 +118,11 @@ class Destination(object):
 
         if field_names and self._field_names is not None:
             self._field_names.add(field_names)
+        return self
 
     def set_field_names(self, field_names):
         self._field_names = field_names
+        return self
 
     def __eq__(self, other):
         return self.get_object() == other.get_object() and \

@@ -59,14 +59,15 @@ class TCPSocketInterface(Factory, Interface):
         ReactorThread().stop_reactor()
 
     def on_client_ready(self, client):
-        self._request_announces()
+        _self = self
 
+        self._request_announces()
         self._client = client
         # Received packets are sent back to the client
         class MyReceiver(ChildSlotMixin):
             def receive(self, packet):
                 print "SERVER SENDING PACKET BACK TO CLIENT", packet
-                self.send(packet)
+                _self.send(packet)
 
         self._receiver = MyReceiver()
 
