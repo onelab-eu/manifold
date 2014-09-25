@@ -32,7 +32,6 @@ class ManifoldProtocol(IntNStringReceiver):
 
     def stringReceived(self, msg):
         packet = Packet.deserialize(msg)
-        packet.set_receiver(self.factory)
         self.factory.receive(packet)
 
     def send_packet(self, packet):
@@ -53,7 +52,7 @@ class TCPSocketInterface(Factory, Interface):
         Interface.__init__(self, router)
         self._client    = None
         self._tx_buffer = list()
-        
+        self._receiver = None
         ReactorThread().start_reactor()
 
     def terminate(self):
@@ -63,6 +62,13 @@ class TCPSocketInterface(Factory, Interface):
         self._request_announces()
 
         self._client = client
+        # Received packets are sent back to the client
+        class MyReceiver(ChildSlotMixin):
+            def receive(self, packet):
+                print "SERVER SENDING PACKET BACK TO CLIENT", packet
+                client.send(packet)
+
+        self._receiver = MyReceiver()
 
         while self._tx_buffer:
             full_packet = self._tx_buffer.pop()
@@ -79,6 +85,12 @@ class TCPSocketInterface(Factory, Interface):
     # answers instead of transmitting.
     # 
     # And a client, a Router are also Interface's, cf LocalClient
+
+    # from protocol
+    # = when we receive a packet from outside
+    def receive(self, packet):
+        packet.set_receiver(self.factory.get_receiver())
+        Interface.receive(self, packet)
 
 class TCPClientSocketInterface(ClientFactory, TCPSocketInterface):
     """
@@ -106,20 +118,3 @@ class TCPServerSocketInterface(TCPSocketInterface):
     def __init__(self, router, port = DEFAULT_PORT):
         TCPSocketInterface.__init__(self, router)
         ReactorThread().listenTCP(port, TCPSocketInterface(router))
-
-    # from protocol
-    # = when we receive a packet from outside
-    def receive(self, packet):
-        client = self._client
-
-        # Received packets are sent back to the client
-        class ServerReceiver(ChildSlotMixin):
-            def receive(self, packet):
-                print "SERVER SENDING PACKET BACK TO CLIENT", packet
-                client.send(packet)
-
-        print "SERVER RECEIVED PACKET FROM CLIENT", packet
-        receiver = ServerReceiver()
-        packet.set_receiver(receiver)
-        # XXX The receiver is a UUID, let's preserve it
-        self._router.receive(packet)

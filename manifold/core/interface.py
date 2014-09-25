@@ -3,6 +3,7 @@ import uuid
 from manifold.core.annotation       import Annotation
 from manifold.core.destination      import Destination
 from manifold.core.filter           import Filter
+from manifold.core.operator_slot    import ChildSlotMixin
 from manifold.core.packet           import GET
 from manifold.util.plugin_factory   import PluginFactory
 from manifold.util.predicate        import Predicate
@@ -63,7 +64,7 @@ class Interface(object):
         """
         For packets received from the remote server."
         """
-        print "CLIENT RECEIVED PACKET FROM SERVER", packet
+        print "RECEIVED PACKET FROM OUTSIDE", packet
         # XXX Not all packets are targeted at the router.
         # - announces are
         # - supernodes are not (they could eventually pass through the router)
