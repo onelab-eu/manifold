@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import pyparsing as pp
-from .             import ProcessGateway, Argument, Parameter, Output, FLAG_IN_ANNOTATION, FLAG_OUT_ANNOTATION, FLAG_ADD_FIELD
+from .             import ProcessGateway, Argument, Parameter, FLAG_IN_ANNOTATION, FLAG_OUT_ANNOTATION, FLAG_ADD_FIELD
 from ...util.log   import Log
 
 class PingParser(object):
@@ -83,5 +83,5 @@ class PingGateway(ProcessGateway):
         KEY(source, destination);
     };
     """
-    output = Output(PingParser, announces, 'fastping')
+    parser = PingParser
     path = '/bin/fastping'

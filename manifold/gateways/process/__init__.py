@@ -29,16 +29,6 @@ class FixedArgument(Argument):
 class Parameter(ProcessField):
     pass
 
-class Output(object):
-    def __init__(self, parser, announces_str, root):
-        """
-        Args:
-            root (string) : The root class returned by the parser
-        """
-        self._announces_str = announces_str
-        self._parser = parser
-        self._root = root
-
 FIELD_TYPE_ARGUMENT     = 1
 FIELD_TYPE_PARAMETER    = 2
 #FIELD_TYPE_OUTPUT       = 3
@@ -49,7 +39,7 @@ FLAG_IN_ANNOTATION      = 1<<1
 FLAG_OUT_ANNOTATION     = 1<<2
 FLAG_ADD_FIELD          = 1<<3
 
-class OProcess(ManifoldObject):
+class ProcessObject(ManifoldObject):
 
     __object_name__ = "None"
 
@@ -107,7 +97,7 @@ class OProcess(ManifoldObject):
     #---------------------------------------------------------------------------
 
     def parse(self, string):
-        return self.output._parser().parse(string)
+        return self.parser().parse(string)
 
     def on_receive_query(self, query, annotation):
         return None
@@ -128,7 +118,6 @@ class OProcess(ManifoldObject):
         for field_type, field_list in [
             (FIELD_TYPE_PARAMETER,  self.parameters),
             (FIELD_TYPE_ARGUMENT,   self.arguments)]:
-            #(FIELD_TYPE_OUTPUT,     self.output)]:
 
             for process_field in field_list:
                 if field_type not in [FIELD_TYPE_PARAMETER, FIELD_TYPE_ARGUMENT]:
@@ -324,11 +313,6 @@ class ProcessGateway(Gateway):
             platform_config: A dictionnary containing information to connect to the postgresql server
         """
         Gateway.__init__(self, router, platform_name, platform_config)
-
-        self.register_object(OProcess)
-
-
-
 
     #---------------------------------------------------------------------------
     # Metadata

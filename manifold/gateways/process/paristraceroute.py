@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import pyparsing as pp
-from .                  import ProcessGateway, Argument, Parameter, Output, FLAG_IN_ANNOTATION, FLAG_OUT_ANNOTATION, FLAG_ADD_FIELD
+from .                  import ProcessGateway, Argument, Parameter, FLAG_IN_ANNOTATION, FLAG_OUT_ANNOTATION, FLAG_ADD_FIELD
 from ...util.log        import Log
 from ...core.record     import Record, Records
 
@@ -324,10 +324,7 @@ class ParisTracerouteGateway(ProcessGateway):
     };
 
     """
-    output = Output(ParisTracerouteParser, announces, 'traceroute')
-    #class Traceroute(Announce):
-    #    Field()
-    #    Field()
+    parser = ParisTracerouteParser
 
     #path = '/usr/local/bin/paris-traceroute'
     import os

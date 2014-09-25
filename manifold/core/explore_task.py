@@ -480,5 +480,4 @@ class ExploreTask(Deferred):
             # XXX
 
             from_ast = AST(self._router).From(platform_name, destination, capabilities, key)
-            print "from_ast=", from_ast
             self.perform_union((from_ast, {}), key, allowed_platforms, fib, user, query_plan)

@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import pyparsing as pp
-from .             import ProcessGateway, Argument, Parameter, Output, FLAG_IN_ANNOTATION, FLAG_OUT_ANNOTATION, FLAG_ADD_FIELD
+from .             import ProcessGateway, ProcessObject, Argument, Parameter, FLAG_IN_ANNOTATION, FLAG_OUT_ANNOTATION, FLAG_ADD_FIELD
 from ...util.log   import Log
 
 class PingParser(object):
@@ -142,7 +142,16 @@ class PingParser(object):
             Log.warning(" " * e.col, "^--- syntax error")
         return []
 
-class PingGateway(ProcessGateway):
+class PingObject(ProcessObject):
+    """
+    class ping {
+        inet source;
+        inet destination;
+        probe_ping probes[];
+        CAPABILITY(join);
+        KEY(source, destination);
+    };
+    """
     # Define record annotation, timestamp
     # WHERE tool = 
     # SOURCE ROUTING = annotations
@@ -174,7 +183,7 @@ class PingGateway(ProcessGateway):
     #  OUT_ANNOTATIONS
     #  ADD_FIELD : This flag adds a field to the resulting record
     #  OPTIONAL  : (for arguments only) This argument is optional
-    __gateway_name__ = 'ping_process'
+    __object_name__ = 'ping'
     __tool__ = 'ping'
 
     parameters = [
@@ -202,26 +211,30 @@ class PingGateway(ProcessGateway):
             type        = 'ip'
         ),
     ]
-#DEPRECATED|    output = [
-#DEPRECATED|        Output(
-#DEPRECATED|            name        = 'probes',
-#DEPRECATED|            type        = 'delay'
-#DEPRECATED|        ),
-#DEPRECATED|    ]
-    announces = """
+    parser = PingParser
+    path = '/bin/ping'
+
+class ProbePingObject(ProcessObject):
+    """
     class probe_ping {
         float delay;
         CAPABILITY(join);
         LOCAL KEY();
     };
-
-    class ping {
-        inet source;
-        inet destination;
-        probe_ping probes[];
-        CAPABILITY(join);
-        KEY(source, destination);
-    };
     """
-    output = Output(PingParser, announces, 'ping')
-    path = '/bin/ping'
+
+class PingGateway(ProcessGateway):
+    __gateway_name__ = 'ping'
+    def __init__(self, router = None, platform_name = None, platform_config = None):
+        """
+        Constructor
+
+        Args:
+            router: None or a Router instance
+            platform: A StringValue. You may pass u"dummy" for example
+            platform_config: A dictionnary containing information to connect to the postgresql server
+        """
+        ProcessGateway.__init__(self, router, platform_name, platform_config)
+
+        self.register_object(PingObject)
+        self.register_object(ProbePingObject)

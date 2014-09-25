@@ -62,6 +62,26 @@ class OLocalLocalColumn(ManifoldObject):
     };
     """
 
+class OLocalObject(ManifoldObject):
+    """
+    class object {
+        string  table;           /**< The name of the object/table.        */
+        column  columns[];       /**< The corresponding fields/columns.    */
+        string  capabilities[];  /**< The supported capabilities           */
+        string  key[];           /**< The keys related to this object      */
+        string  origins[];       /**< The platform originating this object */
+
+        CAPABILITY(retrieve);
+        KEY(table);
+    };
+    """
+
+    def get(self, query = None):
+        print "OLOCALOBJECT::get"
+        return Records([a.to_dict() for a in self.get_gateway().get_announces()]) # only default namespace for now
+
+OLocalColumn = OLocalLocalColumn
+
 #-------------------------------------------------------------------------------
 # Generic Gateway class
 #-------------------------------------------------------------------------------
@@ -98,7 +118,6 @@ class Gateway(Node):
     #---------------------------------------------------------------------------
 
     def __init__(self, router = None, platform_name = None, platform_config = None):
-    # XXX ??? , *args, **kwargs):
         """
         Constructor
         Args:
@@ -185,17 +204,19 @@ class Gateway(Node):
         Returns:
             The corresponding Announces instance.
         """
-        # We do not instanciate make_announces in __init__
-        # to allow child classes to tweak their metadata.
-        if not self._announces:
-            try:
-                self._announces = self.make_announces()
-            except:
-                Log.warning(traceback.format_exc())
-                Log.warning("Could not get announces from platform %s. It won't be active" % self.get_platform_name())
-                self._announces = Announces()
-
-        return self._announces
+        print "GW.get_announces", self.get_object_names()
+        return Announces([x.get_announce() for x in self.get_objects()])
+#DEPRECATED|        # We do not instanciate make_announces in __init__
+#DEPRECATED|        # to allow child classes to tweak their metadata.
+#DEPRECATED|        if not self._announces:
+#DEPRECATED|            try:
+#DEPRECATED|                self._announces = self.make_announces()
+#DEPRECATED|            except:
+#DEPRECATED|                Log.warning(traceback.format_exc())
+#DEPRECATED|                Log.warning("Could not get announces from platform %s. It won't be active" % self.get_platform_name())
+#DEPRECATED|                self._announces = Announces()
+#DEPRECATED|
+#DEPRECATED|        return self._announces
 
     @returns(Capabilities)
     def get_capabilities(self, table_name):
@@ -707,7 +728,7 @@ class Gateway(Node):
 
     def register_object(self, cls, namespace = None, is_local = False):
         # Register it in the FIB
-        self.get_router().get_fib().add('local', cls.get_announce(), namespace)
+        self.get_router().get_fib().add(self.get_platform_name(), cls.get_announce(), namespace)
 
         # If the addition request does not come locally, then we don't need to
         # keep the namespace (usually 'local')

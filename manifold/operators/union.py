@@ -138,7 +138,7 @@ class Union(Operator, ChildrenSlotMixin):
                 # children
                 # TODO: This might be deduced from the query plan ?
 
-                if not record.has_fields(self._key_fields):
+                if not record.has_field_names(self._key_fields):
                     self.forward_upstream(packet)
                     return
 

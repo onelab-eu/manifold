@@ -247,9 +247,7 @@ class From(Operator, ChildSlotMixin):
 
             # We need to add local filters to the query packet
             filter = self.get_destination().get_filter()
-            print "dest before", packet.get_destination()
             packet.update_destination(lambda d: d.add_filter(filter))
-            print "dest after", packet.get_destination()
 
             # Register this flow in the Gateway (with the updated query)
             # socket = self.get_gateway().add_flow(packet.get_query(), self)

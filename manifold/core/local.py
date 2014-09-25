@@ -63,7 +63,7 @@ class LocalGateway(Gateway):
     Handle queries related to local:object, local:gateway, local:platform, etc.
     """
 
-    def __init__(self, router = None, platform_name = None, platform_config = None):
+    def __init__(self, router = None, platform_name = 'local', platform_config = None):
         """
         Constructor.
         Args:

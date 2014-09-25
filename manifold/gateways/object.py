@@ -15,10 +15,14 @@ from manifold.core.method           import Method
 from manifold.core.query            import Query
 from manifold.core.record           import Record, Records
 from manifold.core.table            import Table
-from manifold.util.type           	import accepts, returns 
-
+from manifold.util.plugin_factory   import PluginFactory
+from manifold.util.type             import accepts, returns 
 
 class ManifoldObject(Record):
+
+    __metaclass__   = PluginFactory
+    __plugin__name__attribute__ = '__object_name__'
+
     __object_name__ = None
     __fields__      = None
     __keys__        = None

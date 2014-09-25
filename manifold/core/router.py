@@ -20,7 +20,6 @@ from manifold.core.destination      import Destination
 # DEPRECATED BY FIBfrom manifold.core.dbnorm           import to_3nf   # Replaced by FIB
 # DEPRECATED BY FIBfrom manifold.core.dbgraph          import DBGraph  # Replaced by FIB
 from manifold.core.fib              import FIB
-from manifold.core.interface        import Interface # XXX Replace this by a gateway
 from manifold.core.operator_graph   import OperatorGraph
 from manifold.core.packet           import ErrorPacket, Packet, GET, CREATE, UPDATE, DELETE
 from manifold.core.query            import Query
@@ -29,7 +28,7 @@ from manifold.core.result_value     import ResultValue
 from manifold.core.sync_receiver    import SyncReceiver
 from manifold.core.table            import Table
 from manifold.gateways              import Gateway
-from manifold.core.interface        import Interface
+from manifold.interfaces            import Interface
 from manifold.policy                import Policy
 from manifold.util.constants        import DEFAULT_PEER_URL, DEFAULT_PEER_PORT
 from manifold.util.log              import Log
@@ -63,8 +62,9 @@ class Router(object):
         # Manifold Gateways are already initialized in parent class.
         self._operator_graph = OperatorGraph(router = self)
 
-        # Register the Gateways
-        self.register_gateways()
+        # Register the Gateways and interfaces
+        Gateway.register_all()
+        Interface.register_all()
 
         # self.allowed_capabilities is a Capabilities instance (or None)
         self.allowed_capabilities = allowed_capabilities
@@ -452,17 +452,6 @@ class Router(object):
     #---------------------------------------------------------------------
     # Gateways management (internal usage)
     #---------------------------------------------------------------------
-
-    def register_gateways(self, force = False):
-        """
-        Register all Gateways supported by this Router.
-        This function should be called if a Gateway is added/removed
-        in manifold/gateways/ while this Router is running.
-        Args:
-            force: A boolean set to True enforcing Gateway registration
-                even if already done.
-        """
-        Gateway.register_all(force)
 
     @returns(Gateway)
     def get_gateway(self, platform_name):

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from .                      import ProcessGateway, Argument, FixedArgument, Parameter, Output, FLAG_IN_ANNOTATION, FLAG_OUT_ANNOTATION, FLAG_ADD_FIELD
+from .                      import ProcessGateway, Argument, FixedArgument, Parameter, FLAG_IN_ANNOTATION, FLAG_OUT_ANNOTATION, FLAG_ADD_FIELD
 from ...util.log            import Log
 from ...core.field_names    import FieldNames
 
@@ -55,7 +55,7 @@ class DigGateway(ProcessGateway):
         KEY(ip);
     };
     """
-    output = Output(DigParser, announces, 'ip')
+    parser = DigParser
     path = '/usr/bin/dig'
 
     def on_receive_query(self, query, annotations):

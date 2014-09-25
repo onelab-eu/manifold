@@ -12,7 +12,7 @@ import struct
 from twisted.internet.protocol import Protocol, Factory, ClientFactory
 from twisted.protocols.basic import IntNStringReceiver
 
-from manifold.core.interface        import Interface
+from manifold.interfaces            import Interface
 from manifold.core.operator_slot    import ChildSlotMixin
 from manifold.core.packet           import Packet
 from manifold.util.log              import Log

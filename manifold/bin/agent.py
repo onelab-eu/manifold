@@ -5,8 +5,6 @@ import subprocess
 
 from manifold.core.destination          import Destination
 from manifold.core.router               import Router
-from manifold.interfaces.tcp_socket     import TCPSocketInterface
-from manifold.interfaces.unix_socket    import UNIXSocketInterface
 from manifold.util.daemon               import Daemon
 from manifold.util.filesystem           import hostname
 from manifold.util.log                  import Log
@@ -93,7 +91,7 @@ class AgentDaemon(Daemon):
              Supernode(hostname = hostname()).insert()
 
         # XXX We need some auto-detection for processes
-        router.add_platform("ping", "ping_process")
+        router.add_platform("ping", "ping")
 
         # Register local objects
         router.register_object(Supernode, 'local')

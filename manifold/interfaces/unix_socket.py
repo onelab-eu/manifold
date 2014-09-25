@@ -11,7 +11,7 @@ if distribution == "fedora":
 else:
     import asyncore
 
-from manifold.core.interface        import Interface
+from manifold.interfaces            import Interface
 from manifold.core.operator_slot    import ChildSlotMixin
 from manifold.core.packet           import Packet
 from manifold.util.constants        import SOCKET_PATH
