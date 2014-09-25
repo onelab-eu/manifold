@@ -32,6 +32,7 @@ class ManifoldProtocol(IntNStringReceiver):
 
     def stringReceived(self, msg):
         packet = Packet.deserialize(msg)
+        packet.set_receiver(self.factory)
         self.factory.receive(packet)
 
     def send_packet(self, packet):
