@@ -162,6 +162,9 @@ class Packet(object):
     def get_destination(self):
         return self._destination
 
+    def update_destination(self, method, *args, **kwargs):
+        self.set_destination(method(self.get_destination(), *args, **kwargs))
+
     @returns(Annotation)
     def get_annotation(self):
         """
