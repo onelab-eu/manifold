@@ -35,7 +35,7 @@ class Interface(object):
         pass
 
     def _request_announces(self):
-        self.send(GET(), Destination('object', namespace='local'), receiver = self._router.get_fib())
+        self.send(GET(), destination=Destination('object', namespace='local'), receiver = self._router.get_fib())
 
     def send_impl(self, packet, destination, receiver):
         raise NotImplemented

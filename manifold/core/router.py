@@ -244,9 +244,7 @@ class Router(object):
 
     def add_interface(self, interface_type, *args, **kwargs):
         interface_cls = Interface.get(interface_type)
-        print interface_cls
         router_args = (self,) + args
-        print "router_args=", router_args
         interface = interface_cls(*router_args, **kwargs)
         # Note the interface will register itself when initialized properly
         # This is needed to have interfaces dynamically created by # TCPServerSocketInterface

@@ -57,7 +57,7 @@ class AgentDaemon(Daemon):
         # router if we can route such requests.
 
         receiver = SyncReceiver()
-        self._client_interface.send(GET(), Destination('supernode', namespace='local'), receiver = receiver)
+        self._client_interface.send(GET(), destination=Destination('supernode', namespace='local'), receiver = receiver)
         supernodes = receiver.get_result_value().get_all()
         return supernodes[0]['hostname'] if supernodes else None
 
