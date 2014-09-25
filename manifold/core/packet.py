@@ -262,16 +262,10 @@ class Packet(object):
             del state['_receiver']
         return state
 
-#UNUSED|    def __setstate__(self, state):
-#UNUSED|        # Restore instance attributes (i.e., filename and lineno).
-#UNUSED|        self.__dict__.update(state)
-#UNUSED|        # Restore the previously opened file's state. To do so, we need to
-#UNUSED|        # reopen it and read from it until the line count is restored.
-#UNUSED|        file = open(self.filename)
-#UNUSED|        for _ in range(self.lineno):
-#UNUSED|            file.readline()
-#UNUSED|        # Finally, save the file.
-#UNUSED|        self.file = file
+    def __setstate__(self, state):
+        # Restore instance attributes (i.e., filename and lineno).
+        state['_receiver'] = None
+        self.__dict__.update(state)
 
     def serialize(self):
         string = pickle.dumps(self)
