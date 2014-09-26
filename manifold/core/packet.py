@@ -130,6 +130,9 @@ class Packet(object):
 
         self._record        = None
 
+        # We internally attach some data to packets
+        self._ingress       = None
+
     #---------------------------------------------------------------------------
     # Accessors
     #---------------------------------------------------------------------------

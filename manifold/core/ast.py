@@ -104,7 +104,7 @@ class AST(object):
         assert isinstance(key, Key),     "Invalid key = %s (%s)" % (key, type(key))
 
         # Retrieve the appropriate Gateway.
-        gateway = self._router.get_gateway(platform_name)
+        gateway = self._router.get_interface(platform_name)
 
         # Build the corresponding From Operator and connect it to this AST.
         self.root = From(gateway, destination, capabilities, key)

@@ -61,8 +61,8 @@ class OperatorGraph(object):
     # Methods
     #---------------------------------------------------------------------------
 
-    @returns(Node)
-    def build_query_plan(self, destination, annotation):
+    #@returns(Node)
+    def build_query_plan(self, destination, annotation, exclude_interfaces = None):
         """
         Build the Query Plan according to a Query and its optionnal Annotation.
         Args:
@@ -90,4 +90,4 @@ class OperatorGraph(object):
 
         # allowed_platforms can be either an empty_list, meaning all, or a list
         # of strings
-        return query_plan.build(destination, self.get_router(), set(), user)
+        return query_plan.build(destination, self.get_router(), set(), user, exclude_interfaces = exclude_interfaces)

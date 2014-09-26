@@ -95,8 +95,8 @@ class QueryPlan(object):
         """
         return repr(self)
 
-    @returns(Node)
-    def build(self, destination, router, allowed_platforms, user = None):
+    #@returns(Node)
+    def build(self, destination, router, allowed_platforms, user = None, exclude_interfaces = None):
         """
         Build the QueryPlan involving several Gateways according to a 3nf
         graph and a user Query.
@@ -175,7 +175,8 @@ class QueryPlan(object):
             #Log.tmp("missing_fields = %s task = %s" % (missing_fields, task))
             foreign_key_fields = task.explore(
                 stack, missing_fields, router.get_fib(), namespace, allowed_platforms,
-                allowed_capabilities, user, seen[pathstr], query_plan = self
+                allowed_capabilities, user, seen[pathstr], query_plan = self,
+                exclude_interfaces=exclude_interfaces
             )
 
             self.foreign_key_fields.update(foreign_key_fields)

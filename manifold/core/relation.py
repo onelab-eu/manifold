@@ -88,7 +88,10 @@ class Relation(object):
     def get_reverse(self):
         key, op, value = self.predicate.get_tuple()
         Log.warning("How to name the reverse relation ?")
-        return Relation(self.reverse_types[self.type], Predicate(value, op, key), local = self._local)
+        r = Relation(self.reverse_types[self.type], Predicate(value, op, key), local = self._local)
+        print "original relation", self
+        print "reverse relation=", r
+        return r
 
     def get_type(self):
         """

@@ -21,6 +21,7 @@ from manifold.core.record           import Record, Records
 from manifold.core.result_value     import ResultValue
 from manifold.core.socket           import Socket
 from manifold.gateways.object       import ManifoldObject
+from manifold.interfaces            import Interface
 from manifold.operators.projection  import Projection
 from manifold.operators.selection   import Selection
 from manifold.util.constants        import STATIC_ROUTES_DIR
@@ -85,7 +86,7 @@ OLocalColumn = OLocalLocalColumn
 # Generic Gateway class
 #-------------------------------------------------------------------------------
 
-class Gateway(Node):
+class Gateway(Interface, Node): # XXX Node needed ?
 
     __metaclass__ = PluginFactory
     __plugin__name__attribute__ = '__gateway_name__'

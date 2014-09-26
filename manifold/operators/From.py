@@ -8,7 +8,7 @@
 # clause homogenous to the query issued by the user.
 # From Nodes are useful until having optimized the QueryPlan.
 # Then, each Operator using a From Node is connected to a Socket
-# plugged on the appropriate Gateway.
+# plugged on the appropriate Interface.
 #
 # Copyright (C) UPMC Paris Universitas
 # Authors:
@@ -27,7 +27,7 @@ from manifold.core.operator_slot    import ChildSlotMixin
 from manifold.core.packet           import Packet
 from manifold.core.query            import Query
 from manifold.core.record           import Record
-from manifold.gateways              import Gateway
+from manifold.interfaces              import Interface
 from manifold.operators.from_table  import FromTable
 from manifold.operators.operator    import Operator
 from manifold.operators.projection  import Projection
@@ -39,7 +39,7 @@ from manifold.util.type             import returns
 class From(Operator, ChildSlotMixin):
     """
     From Operators are responsible to forward Packets between the AST
-    and the involved Gateways Nodes. It is mostly used during the
+    and the involved Interfaces Nodes. It is mostly used during the
     AST optimization phase during which we need to support get_query()
     for each Operator of the AST.
     """
@@ -48,7 +48,7 @@ class From(Operator, ChildSlotMixin):
     # Constructors
     #---------------------------------------------------------------------------
 
-    def __init__(self, gateway, destination, capabilities, key):
+    def __init__(self, interface, destination, capabilities, key):
         """
         Constructor.
         Args:
@@ -58,8 +58,8 @@ class From(Operator, ChildSlotMixin):
                 to the Table queried by this From Node.
             key: A Key instance.
         """
-        assert isinstance(gateway, Gateway),\
-            "Invalid gateway = %s (%s)" % (gateway, type(gateway))
+        assert isinstance(interface, Interface),\
+            "Invalid interface = %s (%s)" % (interface, type(interface))
         assert isinstance(destination, Destination),\
             "Invalid destination = %s (%s)" % (destination, type(destination))
         assert isinstance(capabilities, Capabilities),\
@@ -73,26 +73,26 @@ class From(Operator, ChildSlotMixin):
         self._destination  = destination
         self._capabilities = capabilities
         self._key          = key
-        self._gateway      = gateway
+        self._interface      = interface
 
         # Memorize records received from a parent query (injection)
         self._parent_records = None
 
     def copy(self):
-        return From(self._gateway, self._destination.copy(), self._capabilities, self._key)
+        return From(self._interface, self._destination.copy(), self._capabilities, self._key)
 
     #---------------------------------------------------------------------------
     # 
     #---------------------------------------------------------------------------
 
-    @returns(Gateway)
-    def get_gateway(self):
+    @returns(Interface)
+    def get_interface(self):
         """
         Returns:
-            The Gateway instance used to query the Platform wrapped
+            The Interface instance used to query the Platform wrapped
             by this FROM node.
         """
-        return self._gateway
+        return self._interface
 
     @returns(StringTypes)
     def get_platform_name(self):
@@ -100,7 +100,7 @@ class From(Operator, ChildSlotMixin):
         Returns:
             The name of the Platform queried by this FROM node.
         """
-        return self.get_gateway().get_platform_name()
+        return self.get_interface().get_platform_name()
 
     @returns(StringTypes)
     def __repr__(self):
@@ -249,15 +249,15 @@ class From(Operator, ChildSlotMixin):
             filter = self.get_destination().get_filter()
             packet.update_destination(lambda d: d.add_filter(filter))
 
-            # Register this flow in the Gateway (with the updated query)
-            # socket = self.get_gateway().add_flow(packet.get_query(), self)
-            # XXX this has been moved to the gateway
+            # Register this flow in the Interface (with the updated query)
+            # socket = self.get_interface().add_flow(packet.get_query(), self)
+            # XXX this has been moved to the interface
             #self._set_child(socket)
 
             # XXX source vs. receiver: the pit expects a receiver while the
             # operator sets a source
             packet.set_receiver(self)
-            self.get_gateway().receive(packet)
+            self.get_interface().receive(packet)
 
         elif packet.get_protocol() == Packet.PROTOCOL_CREATE:
             if self._parent_records:
@@ -284,7 +284,7 @@ class From(Operator, ChildSlotMixin):
         # XXX Simplifications
         for predicate in filter:
             if predicate.get_field_names() == self._key.get_field_names() and predicate.has_empty_value():
-                # The result of the request is empty, no need to instanciate any gateway
+                # The result of the request is empty, no need to instanciate any interface
                 # Replace current node by an empty node
                 consumers = self.get_consumers()
                 self.clear_consumers() # XXX We must only unlink consumers involved in the QueryPlan that we're optimizing

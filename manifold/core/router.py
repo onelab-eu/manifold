@@ -165,7 +165,7 @@ class Router(object):
 # DEPRECATED BY FIB        self._local_dbgraph = self.get_local_gateway().make_dbgraph()
 
     def register_object(self, cls, namespace = None):
-        self.get_gateway(namespace).register_object(cls, namespace)
+        self.get_interface(namespace).register_object(cls, namespace)
 
     #---------------------------------------------------------------------------
     # Platform management
@@ -427,7 +427,7 @@ class Router(object):
         ret = False
 
         try:
-            gateway = self.get_gateway(platform_name)
+            gateway = self.get_interface(platform_name)
 
             # Load Announces related to this Platform
             announces = gateway.get_announces()
@@ -453,8 +453,8 @@ class Router(object):
     # Gateways management (internal usage)
     #---------------------------------------------------------------------
 
-    @returns(Gateway)
-    def get_gateway(self, platform_name):
+    @returns(Interface)
+    def get_interface(self, platform_name):
         """
         Retrieve the Gateway instance corresponding to a platform.
         Args:
@@ -468,10 +468,15 @@ class Router(object):
         if platform_name.lower() != platform_name:
             raise ValueError("Invalid platform_name = %s, it must be lower case" % platform_name)
 
-        elif platform_name not in self.gateways.keys():
-            raise RuntimeError("%s is not yet registered" % platform_name)
+        # XXX Merge gateways and interfaces
+        if platform_name in self.gateways.keys():
+            return self.gateways[platform_name]
 
-        return self.gateways[platform_name]
+        if platform_name in self._interfaces:
+            return self._interfaces[platform_name]
+
+        raise RuntimeError("%s is not yet registered" % platform_name)
+
 
     @returns(Gateway)
     def make_gateway(self, platform_name, gateway_type, platform_config):
@@ -614,7 +619,7 @@ class Router(object):
                     namespace, "', '".join(valid_namespaces)))
 
             # Select the DbGraph answering to the incoming Query and compute the QueryPlan
-            root_node = self._operator_graph.build_query_plan(destination, annotation)
+            root_node = self._operator_graph.build_query_plan(destination, annotation, exclude_interfaces = [packet._ingress])
 
             print "QUERY PLAN:"
             print root_node.format_downtree()

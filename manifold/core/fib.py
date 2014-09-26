@@ -64,7 +64,8 @@ class Object(object):
         relations_str = "\n\t".join(relations)
         fields = "\n\t".join([str(f) for f in self.get_fields()])
         keys = "\n\t".join([str(k) for k in self.get_keys()])
-        CLASS_STR = "CLASS %(object_name)s (\n\t%(keys)s\n\t%(fields)s\n\t%(relations_str)s\n);\n\n"
+        platform_names = ", ".join(self.get_platform_names())
+        CLASS_STR = "CLASS %(object_name)s (\n\t%(keys)s\n\t%(fields)s\n\t%(relations_str)s\n\t@ %(platform_names)s\n);\n\n"
         return CLASS_STR % locals()
 
     def get_object_name(self):
@@ -395,18 +396,16 @@ class FIB(ChildSlotMixin):
                 # !! We cannot infer relations before we insert the key
                 for other in self.get_objects():
                     relations = obj.infer_relations(other)
-                    #print "FORWARD", obj.get_object_name(), "->", other.get_object_name(), "=", relations
                     for relation in relations:
                         if not relation in obj.get_relations():
                             obj.add_relation(other.get_object_name(), relation)
-                            other.add_relation(obj.get_object_name(), relation.get_reverse())
+                            #other.add_relation(obj.get_object_name(), relation.get_reverse())
 
                     relations = other.infer_relations(obj)
-                    #print "BACKWARD", other.get_object_name(), "->", obj.get_object_name(), "=", relations
                     for relation in relations:
                         if not relation in other.get_relations():
                             other.add_relation(obj.get_object_name(), relation)
-                            obj.add_relation(other.get_object_name(), relation.get_reverse())
+                            #obj.add_relation(other.get_object_name(), relation.get_reverse())
 #DEPRECATED|
 #DEPRECATED|                            print "BILAN DES RELATIONS BY object_name for namespace", namespace
 #DEPRECATED|                            print "OBJ", obj.get_object_name()
@@ -423,11 +422,11 @@ class FIB(ChildSlotMixin):
             # 2) does it make any relation redundant ?
 
     def receive(self, packet):
-        packet_dict = packet.to_dict()
-        origins = packet_dict.get('origins')
-        platform_name = origins[0] if origins else 'local'
+        platform_name = packet.get_destination().get_filter().get_eq('uuid')
         namespace = 'local' if platform_name == 'local' else None
-        announce = Announce(Table.from_dict(packet_dict, LOCAL_NAMESPACE))
+
+        announce = Announce(Table.from_dict(packet.to_dict(), platform_name))
+        #print "ON_RECEIVE => FIB:add(%(platform_name)s, %(announce)s, %(namespace)s)" % locals()
         self.add(platform_name, announce, namespace)
 
     def dump(self):

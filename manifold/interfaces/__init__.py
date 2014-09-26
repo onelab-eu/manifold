@@ -44,6 +44,8 @@ class Interface(object):
 
     def get_uuid(self):
         return self._uuid
+    get_platform_name = get_uuid
+    get_interface_name = get_uuid
 
     def up(self):
         pass
@@ -83,7 +85,7 @@ class Interface(object):
             packet.set_receiver(receiver_id)
             self._flow_map[packet.get_flow()] = receiver
 
-        print "[OUT]", packet
+        #print "[OUT]", packet
         self.send_impl(packet, destination, receiver)
 
     def receive(self, packet):
@@ -91,6 +93,7 @@ class Interface(object):
         For packets received from the remote server."
         """
         print "[ IN]", packet
+        packet._ingress = self.get_interface_name()
         # XXX Not all packets are targeted at the router.
         # - announces are
         # - supernodes are not (they could eventually pass through the router)
@@ -99,7 +102,9 @@ class Interface(object):
 
         if not flow in self._flow_map:
             # New flows are sent to the router
+            print "+> router"
             self._router.receive(packet)
         else:
             # Existing flows rely on the state defined in the router... XXX
+            print "+> receiver", self._flow_map[flow]
             self._flow_map[flow].receive(packet)

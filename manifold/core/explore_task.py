@@ -95,7 +95,7 @@ class ExploreTask(Deferred):
         Log.warning("ExploreTask::cancel() - task has been canceled = %s" % self)
         self.callback((None, dict()))
 
-    def explore(self, stack, missing_field_names, fib, namespace, allowed_platforms, allowed_capabilities, user, seen_set, query_plan):
+    def explore(self, stack, missing_field_names, fib, namespace, allowed_platforms, allowed_capabilities, user, seen_set, query_plan, exclude_interfaces = None):
         """
         Explore the fib graph to find how to serve each queried fields. We
         explore the DBGraph by prior the 1..1 arcs exploration (DFS) by pushing
@@ -283,7 +283,7 @@ class ExploreTask(Deferred):
             # XXX NOTE that we have built an AST here without taking into account fields for the JOINs and SUBQUERIES
             # It might not pose any problem though if they come from the optimization phase
 #OBSOLETE|            self.ast = self.build_union(self.root, self.keep_root_a, allowed_platforms, dbgraph, user, query_plan)
-            self.perform_union_all(self.root, namespace, allowed_platforms, fib, user, query_plan)
+            self.perform_union_all(self.root, namespace, allowed_platforms, fib, user, query_plan, exclude_interfaces)
 
             # ROUTERV2
             #if rename_dict:
@@ -443,7 +443,7 @@ class ExploreTask(Deferred):
         if isinstance(ast, AST): # XXX ast should always be an AST?
             self.ast.union([ast], key)
 
-    def perform_union_all(self, obj, namespace, allowed_platforms, fib, user, query_plan):
+    def perform_union_all(self, obj, namespace, allowed_platforms, fib, user, query_plan, exclude_interfaces = None):
         """
         Complete a QueryPlan instance by adding an Union of From Node related
         to a same Table.
@@ -458,6 +458,8 @@ class ExploreTask(Deferred):
 
         # Loop on all the platforms that have this object
         for platform_name in obj.get_platform_names():
+            if platform_name in exclude_interfaces:
+                continue
             platform_field_names = obj.get_platform_field_names(platform_name)
             selected_field_names = platform_field_names | self.keep_root_a
 
