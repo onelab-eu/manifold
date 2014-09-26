@@ -61,7 +61,7 @@ class PluginFactory(type):
             cls.plugin_name_attribute = attrs[METAPROPERTY]
 
             # Adding a class method get to retrieve plugins by name
-            def factory(self, name):
+            def factory_get(self, name):
                 """
                 Retrieve a registered Gateway according to a given name.
                 Args:
@@ -76,7 +76,7 @@ class PluginFactory(type):
                     traceback.print_exc()
                     Log.error("Cannot find %s in {%s}" % (name, ', '.join(registry.keys())))
 
-            setattr(cls, 'factory_get', classmethod(get))
+            setattr(cls, 'factory_get', classmethod(factory_get))
             setattr(cls, 'factory_list', classmethod(lambda self: registry))
             setattr(cls, 'get_plugin_name_attribute', classmethod(lambda self: self.plugin_name_attribute))
         
