@@ -127,7 +127,7 @@ class CartesianProduct(Operator):
     # Methods
     #---------------------------------------------------------------------------
 
-    def receive_impl(self, packet):
+    def receive_impl(self, packet, slot_id = None):
         """
         Process an incoming Packet instance.
         Args:

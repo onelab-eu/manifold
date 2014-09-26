@@ -88,7 +88,7 @@ class Selection(Operator, ChildSlotMixin):
         )
 
 
-    def receive_impl(self, packet):
+    def receive_impl(self, packet, slot_id = None):
         """
         Process an incoming Packet instance.
           - If this is a RECORD Packet, forward the Packet if it's

@@ -16,7 +16,7 @@ class BaseSlotMixin(SlotMixin):
                 prev_producer.del_consumer(self, cascade = False)
         self._slot_dict[slot_id] = (producer, data)
         if producer:
-            producer.add_consumer(self, cascade = False)
+            producer.add_consumer(self, cascade = False, slot_id = slot_id)
 
     def _set_producer(self, slot_id, producer, cascade = True):
         prev_producer, prev_data = self._slot_dict[slot_id]
@@ -24,7 +24,7 @@ class BaseSlotMixin(SlotMixin):
             prev_producer.del_consumer(self, cascade = False)
         self._slot_dict[slot_id] = (producer, prev_data)
         if producer:
-            producer.add_consumer(self, cascade = False)
+            producer.add_consumer(self, cascade = False, slot_id = slot_id)
         
     def _get_data(self, slot_id):
         _, data = self._slot_dict[slot_id]

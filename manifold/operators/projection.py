@@ -141,7 +141,7 @@ class Projection(Operator, ChildSlotMixin):
         d = self._get_child().get_destination()
         return d.projection(self._field_names)
 
-    def receive_impl(self, packet):
+    def receive_impl(self, packet, slot_id = None):
         """
         Process an incoming Packet instance.
           - If this is a RECORD Packet, remove every field_names that are

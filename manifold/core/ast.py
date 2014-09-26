@@ -256,7 +256,12 @@ class AST(object):
 
     #@returns(AST)
     def subquery(self, producer, relation):
-        self.root = SubQuery(self.get_root(), [(producer, relation)])
+        if not hasattr(self.get_root(), 'subquery'):
+            Log.warning("Missing subquery algebraic rule in %s" % (self.get_root().__class__.__name__,))
+            self.root = SubQuery(self.get_root(), [(producer, relation)])
+            return self
+            
+        self.root = self.get_root().subquery(producer, relation)
         return self
 
 #MANDO|    #@returns(AST)

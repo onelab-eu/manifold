@@ -42,6 +42,9 @@ class Interface(object):
 
         router.register_interface(self)
 
+    def __repr__(self):
+        return "<%s %s>" % (self.__class__.__name__, self.get_interface_name())
+
     def get_uuid(self):
         return self._uuid
     get_platform_name = get_uuid
@@ -80,19 +83,23 @@ class Interface(object):
         if destination:
             packet.set_destination(destination)
 
+        if not receiver:
+            receiver = packet.get_receiver()
+
         if receiver:
-            receiver_id = str(uuid.uuid4())
-            packet.set_receiver(receiver_id)
             self._flow_map[packet.get_flow()] = receiver
 
-        #print "[OUT]", packet
+        else:
+            print "no receive => no flow map"
+
+        print "[OUT]", packet
         self.send_impl(packet, destination, receiver)
 
     def receive(self, packet):
         """
         For packets received from the remote server."
         """
-        print "[ IN]", packet
+        print "[ IN]", self, packet
         packet._ingress = self.get_interface_name()
         # XXX Not all packets are targeted at the router.
         # - announces are
@@ -100,11 +107,12 @@ class Interface(object):
 
         flow = packet.get_flow()
 
-        if not flow in self._flow_map:
-            # New flows are sent to the router
+        receiver = self._flow_map.get(flow)
+        if not receiver:
             print "+> router"
+            print "self._flow_map=", self._flow_map
+            # New flows are sent to the router
             self._router.receive(packet)
         else:
             # Existing flows rely on the state defined in the router... XXX
-            print "+> receiver", self._flow_map[flow]
-            self._flow_map[flow].receive(packet)
+            receiver.receive(packet)

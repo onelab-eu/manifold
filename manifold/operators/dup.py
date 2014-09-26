@@ -75,7 +75,7 @@ class Dup(Operator):
         """
         return record.get_value() in self._seen
         
-    def receive_impl(self, packet):
+    def receive_impl(self, packet, slot_id = None):
         """
         Process an incoming Packet instance.
         Args:

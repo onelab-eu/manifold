@@ -199,7 +199,7 @@ class From(Operator, ChildSlotMixin):
         """
         return self.get_capabilities().fullquery
 
-    def receive_impl(self, packet):
+    def receive_impl(self, packet, slot_id = None):
         """
         Process an incoming packet.
         Args:
@@ -257,7 +257,7 @@ class From(Operator, ChildSlotMixin):
             # XXX source vs. receiver: the pit expects a receiver while the
             # operator sets a source
             packet.set_receiver(self)
-            self.get_interface().receive(packet)
+            self.get_interface().send(packet)
 
         elif packet.get_protocol() == Packet.PROTOCOL_CREATE:
             if self._parent_records:

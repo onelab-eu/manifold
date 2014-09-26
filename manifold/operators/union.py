@@ -114,7 +114,7 @@ class Union(Operator, ChildrenSlotMixin):
         """
         return self._get_first().get_destination()
 
-    def receive_impl(self, packet):
+    def receive_impl(self, packet, slot_id = None):
         """
         Handle an incoming Packet.
         Args:

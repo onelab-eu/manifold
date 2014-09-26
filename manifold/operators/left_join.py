@@ -171,7 +171,7 @@ class LeftJoin(Operator, LeftRightSlotMixin):
 
         self._get_right().receive(self._right_packet) # XXX
 
-    def receive_impl(self, packet):
+    def receive_impl(self, packet, slot_id = None):
         """
         Handle an incoming Packet.
         Args:

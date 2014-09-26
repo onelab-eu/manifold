@@ -472,7 +472,7 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
 #DEPRECATED|            self._router.add_to_local_cache(method, uuid, subrecords)
 #DEPRECATED|        return record
 
-    def receive_impl(self, packet):
+    def receive_impl(self, packet, slot_id = None):
         """
         Handle an incoming Packet instance.
         Args:
@@ -491,7 +491,6 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
 
         elif packet.get_protocol() == Packet.PROTOCOL_CREATE:
             # XXX Here we want to know which child has sent the packet...
-            source_id = self._get_source_child_id(packet)
             record = packet
             is_last = record.is_last()
             record.unset_last()
@@ -504,10 +503,10 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
 
             # XXX For local subqueries we do not even need to wonder, only
             # parent answers
-            assert source_id is not None
+            assert slot_id is not None
 
             #if packet.get_source() == self._producers.get_parent_producer(): # XXX
-            if source_id == PARENT: # if not self._parent_done:
+            if slot_id == PARENT: # if not self._parent_done:
                 # Store the record for later...
 
                 if not record.is_empty():
@@ -528,10 +527,10 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
                 # NOTE: source_id is the child_id
                 if not record.is_empty():
                     # Store the results for later...
-                    self._add_child_record(source_id, record)
+                    self._add_child_record(slot_id, record)
 
                 if is_last:
-                    self._set_child_done(source_id)
+                    self._set_child_done(slot_id)
 
         else: # TYPE_ERROR
             self.forward_upstream(packet)

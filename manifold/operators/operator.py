@@ -56,7 +56,7 @@ class Operator(Node, SlotMixin):
                 return True
         return False 
 
-    def receive_impl(self, packet):
+    def receive_impl(self, packet, slot_id = None):
         """
         Handle a Packet (must be re-implemented in children classes).
         Args:

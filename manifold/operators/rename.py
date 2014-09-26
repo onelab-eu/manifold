@@ -271,7 +271,7 @@ class Rename(Operator, ChildSlotMixin):
 #DEPRECATED|        """
 #DEPRECATED|        return Records([self.process_record(r) for r in records])
 
-    def receive_impl(self, packet):
+    def receive_impl(self, packet, slot_id = None):
         """
         Handle an incoming Packet instance.
         Args:

@@ -45,6 +45,9 @@ class Destination(object):
         self._origin = origin
         self._namespace = namespace
 
+    def copy(self):
+        return copy.deepcopy(self)
+
     #---------------------------------------------------------------------------
     # Accessors
     #---------------------------------------------------------------------------

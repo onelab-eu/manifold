@@ -721,6 +721,7 @@ class Gateway(Interface, Node): # XXX Node needed ?
 
         if records:
             self.records(records, packet)
+    send = receive
 
     def get_object(self, object_name, namespace = None):
         return self._objects_by_namespace[namespace][object_name]

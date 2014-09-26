@@ -99,7 +99,7 @@ class Node(object):
 #MANDO|                consumer.del_producer(self, cascade = False)
         self._pool_consumers.clear()
 
-    def add_consumer(self, consumer, cascade = True):
+    def add_consumer(self, consumer, cascade = True, slot_id = None):
         """
         Link a Consumer to this Producer.
         Args:
@@ -107,7 +107,7 @@ class Node(object):
             cascade: A boolean set to true to add 'self'
                 to the producers set of 'consumer'. 
         """
-        self._pool_consumers.add(consumer)
+        self._pool_consumers.add(consumer, slot_id = slot_id)
         if cascade:
             Log.warning("Cascade not implemented")
         #    consumer.add_producer(self, cascade = False)
@@ -174,7 +174,7 @@ class Node(object):
 #DEPRECATED|        """
 #DEPRECATED|        raise NotImplementedError("Method 'send' must be overloaded: %s" % self.__class__.__name__)
         
-    def receive(self, packet):
+    def receive(self, packet, slot_id = None):
         """
         (pure virtual method). Send a Packet.
         Args:
@@ -182,7 +182,7 @@ class Node(object):
         """
         self.check_receive(packet)
         Log.record(packet)
-        self.receive_impl(packet)
+        self.receive_impl(packet, slot_id = slot_id)
 
     def send_to(self, receiver, packet):
         # Optimization, we do not forward empty queries
