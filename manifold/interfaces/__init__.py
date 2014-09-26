@@ -83,14 +83,14 @@ class Interface(object):
             packet.set_receiver(receiver_id)
             self._flow_map[packet.get_flow()] = receiver
 
-        print "[OUT]", packet
+        #print "[OUT]", packet
         self.send_impl(packet, destination, receiver)
 
     def receive(self, packet):
         """
         For packets received from the remote server."
         """
-        print "[ IN]", packet
+        #print "[ IN]", packet
         # XXX Not all packets are targeted at the router.
         # - announces are
         # - supernodes are not (they could eventually pass through the router)

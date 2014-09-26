@@ -77,7 +77,6 @@ class OLocalObject(ManifoldObject):
     """
 
     def get(self, query = None):
-        print "OLOCALOBJECT::get"
         return Records([a.to_dict() for a in self.get_gateway().get_announces()]) # only default namespace for now
 
 OLocalColumn = OLocalLocalColumn
@@ -204,7 +203,6 @@ class Gateway(Node):
         Returns:
             The corresponding Announces instance.
         """
-        print "GW.get_announces", self.get_object_names()
         return Announces([x.get_announce() for x in self.get_objects()])
 #DEPRECATED|        # We do not instanciate make_announces in __init__
 #DEPRECATED|        # to allow child classes to tweak their metadata.
@@ -632,23 +630,23 @@ class Gateway(Node):
         """
         return Announces.parse_static_routes(STATIC_ROUTES_DIR, self.get_platform_name(), self.get_gateway_type())
 
-    def receive_impl(self, packet):
-        """
-        Handle a incoming QUERY Packet.
-        Args:
-            packet: A QUERY Packet instance.
-        """
-        query = packet.get_query()
-        object = query.get_object()
-
-        records = None
-        # XXX object map could be populated automatically
-        if object in self.object_map.keys():
-            instance = self.object_map[object](self)
-            records = instance.get(query, packet.get_annotation())
-        else:
-            raise RuntimeError("Invalid object %s" % object)
-        self.records(records, packet)
+#DEPRECATED|    def receive_impl(self, packet):
+#DEPRECATED|        """
+#DEPRECATED|        Handle a incoming QUERY Packet.
+#DEPRECATED|        Args:
+#DEPRECATED|            packet: A QUERY Packet instance.
+#DEPRECATED|        """
+#DEPRECATED|        query = packet.get_query()
+#DEPRECATED|        object = query.get_object()
+#DEPRECATED|
+#DEPRECATED|        records = None
+#DEPRECATED|        # XXX object map could be populated automatically
+#DEPRECATED|        if object in self.object_map.keys():
+#DEPRECATED|            instance = self.object_map[object](self)
+#DEPRECATED|            records = instance.get(query, packet.get_annotation())
+#DEPRECATED|        else:
+#DEPRECATED|            raise RuntimeError("Invalid object %s" % object)
+#DEPRECATED|        self.records(records, packet)
 
     # TODO Rename Producer::make_error() into Producer::error()
     # and retrieve the appropriate consumers and send to them
@@ -709,7 +707,12 @@ class Gateway(Node):
 
         instance = obj()
         instance.set_gateway(self)
-        records = instance.get(packet.clone()) 
+        # This is because we assure the gateway could modify the packet, which
+        # is further used in self.records
+        packet_clone = packet.clone()
+        packet_clone.set_receiver(packet.get_receiver())
+        records = instance.get(packet_clone)
+
 
         #elif self._storage:
         #    records = None
@@ -727,8 +730,11 @@ class Gateway(Node):
         return self._objects_by_namespace[namespace].values()
 
     def register_object(self, cls, namespace = None, is_local = False):
-        # Register it in the FIB
-        self.get_router().get_fib().add(self.get_platform_name(), cls.get_announce(), namespace)
+        # Register it in the FIB: we ignore the announces in the local namespace
+        # unless the platform_name is local
+        platform_name = self.get_platform_name()
+        if platform_name == 'local' or not namespace == 'local':
+            self.get_router().get_fib().add(self.get_platform_name(), cls.get_announce(), namespace)
 
         # If the addition request does not come locally, then we don't need to
         # keep the namespace (usually 'local')

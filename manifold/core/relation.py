@@ -66,11 +66,21 @@ class Relation(object):
             assert isinstance(name, StringTypes), "Invalid name = %s (%s)" % (name, type(name))
         else:
             # Uniqueness enforced
-            name = str(uuid.uuid4())
+            name = None
         self.type       = type
         self.predicate  = predicate
         self.name       = name
         self._local     = local
+
+    def __eq__(self, other):
+        return (self.name, self.type, self.predicate, self._local) == (other.name, other.type, other.predicate, other._local)
+
+    def set_uuid(self):
+        """
+        Relations with no names are given a UUID (when they are added in the FIB
+        """
+        if not self.name:
+            self.name = str(uuid.uuid4())
 
     def copy(self):
         return Relation(self.type, self.predicate.copy(), self.name, self._local)

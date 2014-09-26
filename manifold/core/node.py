@@ -185,16 +185,13 @@ class Node(object):
         self.receive_impl(packet)
 
     def send_to(self, receiver, packet):
-        if packet.get_protocol() in [Packet.PROTOCOL_QUERY]:
-            # Optimization, we do not forward empty queries
-            fields = packet.get_destination().get_field_names()
-            if fields.is_empty():
-                self.forward_upstream(Record(last=True))
-                return
-            #packet.set_source(self)
-            receiver.receive(packet)
-        else:
-            raise Exception("We don't expect records or errors to go downstream")
+        # Optimization, we do not forward empty queries
+        fields = packet.get_destination().get_field_names()
+        if fields.is_empty():
+            self.forward_upstream(Record(last=True))
+            return
+        #packet.set_source(self)
+        receiver.receive(packet)
 
     def forward_upstream(self, packet):
         #self.check_send(packet)

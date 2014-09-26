@@ -98,6 +98,8 @@ class AgentDaemon(Daemon):
 
         self._router = router
 
+        router.get_fib().dump()
+
         #self.daemon_loop()
         
 def main():

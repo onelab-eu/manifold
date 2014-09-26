@@ -52,15 +52,20 @@ class Object(object):
         self._fields = dict()
         self._keys = Keys()
         self._platform_info = dict()  # String -> PlatformInfo()
-        self._relations = dict()
+        self._relations = dict() # object_name -> relation
 
     # XXX Looks like an announce
     def __str__(self):
-        return """
-        CLASS %(_object_name)s (
-            %(_fields)r
-        );
-        """ % self.__dict__
+        object_name = self.get_object_name()
+        relations = list()
+        for o, r in self.get_relation_tuples():
+            s = "REFERENCES %s AS %r" % (o, r)
+            relations.append(s)
+        relations_str = "\n\t".join(relations)
+        fields = "\n\t".join([str(f) for f in self.get_fields()])
+        keys = "\n\t".join([str(k) for k in self.get_keys()])
+        CLASS_STR = "CLASS %(object_name)s (\n\t%(keys)s\n\t%(fields)s\n\t%(relations_str)s\n);\n\n"
+        return CLASS_STR % locals()
 
     def get_object_name(self):
         return self._object_name
@@ -146,6 +151,11 @@ class Object(object):
             # Relation to myself ?
             return relations
 
+#DEPRECATED|        if u.get_name() == 'ping' and v.get_name() == 'probe_ping':
+#DEPRECATED|            import pdb; pdb.set_trace()
+#DEPRECATED|        if u.get_name() == 'probe_ping' and v.get_name() == 'ping':
+#DEPRECATED|            import pdb; pdb.set_trace()
+
         #        LINK_NN
         #      /        \
         # LINK_1N     LINK_N1
@@ -189,6 +199,7 @@ class Object(object):
         # Detect explicit Relation from u to v
         for field in u.get_fields():
             if field.get_type() == v.get_name():
+                print "******************* V.GET KEYS", v.get_keys()
                 for v_key in v.get_keys():
                     if v_key.is_composite():
                         # We assume that u (for ex: traceroute) provides in the current field (ex: hops)
@@ -219,15 +230,17 @@ class Object(object):
 
     def get_relation_tuples(self):
         ret = list()
-        for obj, relation_list in self._relations.items():
+        for object_name, relation_list in self._relations.items():
             for relation in relation_list:
-                ret.append( (obj, relation) )
+                ret.append( (object_name, relation) )
         return ret
 
-    def add_relation(self, other_object, relation):
-        if not other_object in self._relations:
-            self._relations[other_object] = set()
-        self._relations[other_object].add(relation)
+    def add_relation(self, other_object_name, relation):
+        Log.warning("DUPLICATE RELATIONS!")
+        if not other_object_name in self._relations:
+            self._relations[other_object_name] = set()
+        relation.set_uuid()
+        self._relations[other_object_name].add(relation)
 
 class FIB(ChildSlotMixin):
     """
@@ -239,7 +252,6 @@ class FIB(ChildSlotMixin):
         ChildSlotMixin.__init__(self)
 
         # Tables indexed by name
-        self._objects = dict()      # object name -> object
         self._objects_by_namespace = dict()   # namespace -> (object_name -> object)
 
         # We store all accepted FDs
@@ -250,22 +262,21 @@ class FIB(ChildSlotMixin):
 
     def get_relation_tuples(self):
         ret = list()
-        for src_obj in self._objects.values():
-            for dest_obj, relation in src_obj.get_relation_tuples():
-                ret.append( (src_obj, dest_obj, relation) )
+        for src_object_name in self._objects_by_namespace[None].values():
+            for dest_object_name, relation in src_object_name.get_relation_tuples():
+                ret.append( (src_object_name, dest_object_name, relation) )
         return ret
 
     def get_objects(self, namespace = None):
-        object_dict = self._objects_by_namespace[namespace] if namespace else self._objects
-        return object_dict.values()
+        if not namespace in self._objects_by_namespace:
+            return list()
+        return self._objects_by_namespace[namespace].values()
 
     def get_object(self, object_name, namespace = None):
-        object_dict = self._objects_by_namespace[namespace] if namespace else self._objects
-        return object_dict[object_name]
+        return self._objects_by_namespace[namespace][object_name]
 
     def get_object_names(self, namespace = None):
-        object_dict = self._objects_by_namespace[namespace] if namespace else self._objects
-        return object_dict.keys()
+        return self._objects_by_namespace[namespace].keys()
 
     def get_announces(self, namespace = None):
         # XXX All namespaces
@@ -285,32 +296,30 @@ class FIB(ChildSlotMixin):
         if not isinstance(announces, Announces):
             announces = Announces([announces])
 
-        if namespace:
-            if namespace in self._objects_by_namespace:
-                #print "existing namespace", namespace
-                object_dict = self._objects_by_namespace[namespace]
-            else:
-                #print "new namespace", namespace
-                object_dict = {}
-                self._objects_by_namespace[namespace] = object_dict
+        if namespace in self._objects_by_namespace:
+            object_dict = self._objects_by_namespace[namespace]
         else:
-            object_dict = self._objects
+            object_dict = dict()
+            self._objects_by_namespace[namespace] = object_dict
 
         for announce in announces:
+
             table = announce.get_table() # XXX
 
             object_name     = table.get_name() # XXX
+#DEPRECATED|            if object_name == 'probe_ping':
+#DEPRECATED|                import pdb; pdb.set_trace()
             keys            = table.get_keys()
             fields          = table.get_fields()
             capabilities    = table.get_capabilities()
             relations       = set()
 
             # Object
-            if not object_name in object_dict:
+            if object_name in object_dict:
+                obj = object_dict[object_name]
+            else:
                 obj = Object(object_name)
                 object_dict[object_name] = obj
-            else:
-                obj = object_dict[object_name]
 
             # Keys
             # XXX subkey can be sufficient
@@ -330,10 +339,9 @@ class FIB(ChildSlotMixin):
                     x  = key.get_fields()
                     if field not in x:
                         # Key fields are kept inside the object
-                        a  = fd.get_field()
                         g = self.get_fds()
                         x_plus = closure(x, g)
-                        if a in x_plus:
+                        if field in x_plus:
                             # XXX Don't keep the Fd
                             # XXX Some processing needed
                             #print "Don't keep the FD"
@@ -355,7 +363,7 @@ class FIB(ChildSlotMixin):
 
                             x_b_plus = closure(x_b.get_fields(), g)            # compute (x - b)+ with repect to g'
 
-                            if b in x_b_plus:
+                            if field in x_b_plus:
                                 # replace [x -> a] by [(x - b) -> a]
                                 fd = fd2 # XXX ??? XXX
                                 #print "Reduce the FD"
@@ -364,28 +372,49 @@ class FIB(ChildSlotMixin):
                     # We can expect that no platform announces such superkeys...
 
                     obj.add_field(field)
+
                     obj.add_platform_field(platform_name, field)
+
+                    # This should be done only if we have added a new field, so
+                    # that's why it is not out of the loop
+                    # XXX To confirm
                     obj.set_platform_capabilities(platform_name, capabilities)
                     obj.set_platform_object_name(platform_name, object_name)
 
-                    # New relations ?
-                    # FD: x -> a
-                    # FD: (x, y) -> a
-                    #
-                    # We only look at relations between the current object and those
-                    # containing a (or typed after the type of a)
-                    #
-                    # Child objects too should be considered having the parents'
-                    # fields
-                    for other in self.get_objects():
-                        relations = obj.infer_relations(other)
-                        for relation in relations:
-                            if not relation in obj.get_relations():
-                                obj.add_relation(other, relation)
-                                other.add_relation(obj, relation.get_reverse())
-
-                # IS KEY WELL DEFINE
                 obj.add_key(key)
+
+                # New relations ?
+                # FD: x -> a
+                # FD: (x, y) -> a
+                #
+                # We only look at relations between the current object and those
+                # containing a (or typed after the type of a)
+                #
+                # Child objects too should be considered having the parents'
+                # fields
+                #print "INFERRING RELATIONS FROM ", obj.get_object_name(), "TOWARDS others"
+                # !! We cannot infer relations before we insert the key
+                for other in self.get_objects():
+                    relations = obj.infer_relations(other)
+                    #print "FORWARD", obj.get_object_name(), "->", other.get_object_name(), "=", relations
+                    for relation in relations:
+                        if not relation in obj.get_relations():
+                            obj.add_relation(other.get_object_name(), relation)
+                            other.add_relation(obj.get_object_name(), relation.get_reverse())
+
+                    relations = other.infer_relations(obj)
+                    #print "BACKWARD", other.get_object_name(), "->", obj.get_object_name(), "=", relations
+                    for relation in relations:
+                        if not relation in other.get_relations():
+                            other.add_relation(obj.get_object_name(), relation)
+                            obj.add_relation(other.get_object_name(), relation.get_reverse())
+#DEPRECATED|
+#DEPRECATED|                            print "BILAN DES RELATIONS BY object_name for namespace", namespace
+#DEPRECATED|                            print "OBJ", obj.get_object_name()
+#DEPRECATED|                            print self.get_object(obj.get_object_name(), namespace)
+#DEPRECATED|                            print "OTHER", other.get_object_name()
+#DEPRECATED|                            print self.get_object(other.get_object_name(), namespace)
+
 
             # Fields = they define a set of FD
             # We have new Fd that can impact other existing objects
@@ -401,3 +430,16 @@ class FIB(ChildSlotMixin):
         namespace = 'local' if platform_name == 'local' else None
         announce = Announce(Table.from_dict(packet_dict, LOCAL_NAMESPACE))
         self.add(platform_name, announce, namespace)
+
+    def dump(self):
+        print "#" * 80
+        print "FIB DUMP"
+        print "#" * 80
+        for namespace in self.get_namespaces():
+            print ""
+            print "NAMESPACE", namespace
+            print ""
+            print "=" * 80
+            for obj in self.get_objects():
+                print obj
+            print "=" * 80

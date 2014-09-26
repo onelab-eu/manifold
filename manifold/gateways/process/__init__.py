@@ -41,19 +41,16 @@ FLAG_ADD_FIELD          = 1<<3
 
 class ProcessObject(ManifoldObject):
 
-    __object_name__ = "None"
-
     def __init__(self, *args, **kwargs):
-        super(OProcess, self).__init__(*args, **kwargs)
+        ManifoldObject.__init__(self, *args, **kwargs)
 
-        self.__object_name__ = self.get_gateway().__tool__
         self._in_progress = dict()
         self._records = dict()
         self._process = None
         self._is_interrupted = False
 
     def get(self, packet):
-        if not os.path.exists(self.get_gateway().get_fullpath()):
+        if not os.path.exists(self.get_fullpath()):
             Log.warning("Process does not exist, returning empty")
             self.get_gateway().records([], packet)
             return
@@ -215,7 +212,7 @@ class ProcessObject(ManifoldObject):
             finally:
                 self._in_progress[batch_id] -= 1
                 if self._in_progress[batch_id] == 0:
-                    self.records(self._records[batch_id], packet)
+                    self.get_gateway().records(self._records[batch_id], packet)
                     del self._records[batch_id]
                     del self._in_progress[batch_id]
 

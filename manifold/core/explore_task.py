@@ -122,7 +122,7 @@ class ExploreTask(Deferred):
             missing_field_anmes
             seen_set
         """
-        #Log.tmp("ExploreTask::explore Search in", self.root.get_name(), "for fields", missing_field_names, 'path=', self.path, "SEEN SET =", seen_set, "depth=", self.depth)
+        Log.tmp("ExploreTask::explore Search in", self.root.get_name(), "for fields", missing_field_names, 'path=', self.path, "SEEN SET =", seen_set, "depth=", self.depth)
 
         relations_11, relations_1N, relations_1Nsq = (), {}, {}
         deferred_list = []
@@ -180,6 +180,7 @@ class ExploreTask(Deferred):
         #....... Rewritten
 
         self.keep_root_a |= missing_parent_fields & root_provided_fields
+        print "self.keep_root_a", self.keep_root_a
 
         for f in self.keep_root_a:
             if f in rename and rename[f] is not None:
@@ -295,8 +296,8 @@ class ExploreTask(Deferred):
             return foreign_key_fields
 
         # In all cases, we have to list neighbours for returning 1..N relationships. Let's do it now.
-        for obj_source, obj_dest, relation in fib.get_relation_tuples():
-            #print "objsource", obj_source, "objdest", obj_dest, "relation", relation
+        for src_object_name, dest_object_name, relation in fib.get_relation_tuples():
+            #print "objsource", src_object_name, "objdest", dest_object_name, "relation", relation
             name = relation.get_relation_name()
 
             # XXX Sometimes we might want to add the type: if we have not
@@ -308,10 +309,12 @@ class ExploreTask(Deferred):
                     continue
                 seen_set.add(name)
 
+            dest_object = fib.get_object(dest_object_name, namespace)
+
             if relation.requires_subquery():
                 subpath = self.path[:]
                 subpath.append(name)
-                task = ExploreTask(self._router, obj_dest, relation, subpath, self, self.depth+1)
+                task = ExploreTask(self._router, dest_object, relation, subpath, self, self.depth+1)
                 task.addCallback(self.perform_subquery, relation, allowed_platforms, fib, user, query_plan)
                 task.addErrback(self.default_errback)
 
@@ -327,7 +330,7 @@ class ExploreTask(Deferred):
                 #priority = TASK_1Nsq if relation_name in missing_subqueries else TASK_1N
 
             else:
-                task = ExploreTask(self._router, obj_dest, relation, self.path, self.parent, self.depth)
+                task = ExploreTask(self._router, dest_object, relation, self.path, self.parent, self.depth)
                 # XXX In which cases do we need a UNION ???
                 if relation.get_type() == Relation.types.PARENT:
                     # HERE, instead of doing a left join between a PARENT

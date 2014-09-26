@@ -479,6 +479,10 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
             packet: A Packet instance.
         """
 
+        # XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX
+        # We cannot treat all packets the same until we figure out how to merge
+        # two packets (JOIN and SUBQUERY)
+        # XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX
         if packet.get_protocol() in Packet.PROTOCOL_QUERY:
             parent_packet, child_packets = self.split_packet(packet)
             for child_id, child_packet in child_packets.items():
@@ -486,6 +490,7 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
             self.send_to(self._get_parent(), parent_packet)
 
         elif packet.get_protocol() == Packet.PROTOCOL_CREATE:
+            # XXX Here we want to know which child has sent the packet...
             source_id = self._get_source_child_id(packet)
             record = packet
             is_last = record.is_last()
@@ -496,6 +501,10 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
 #DEPRECATED|            # XXX How can we easily spot subrecords
 #DEPRECATED|            # XXX This should disappear
 #DEPRECATED|            record, subrecord_dict = self.split_record(record)
+
+            # XXX For local subqueries we do not even need to wonder, only
+            # parent answers
+            assert source_id is not None
 
             #if packet.get_source() == self._producers.get_parent_producer(): # XXX
             if source_id == PARENT: # if not self._parent_done:
@@ -515,6 +524,7 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
                     return
 
             else:
+                print "PACKET", packet
                 # NOTE: source_id is the child_id
                 if not record.is_empty():
                     # Store the results for later...

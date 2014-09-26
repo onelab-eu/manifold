@@ -141,7 +141,13 @@ class ChildrenSlotMixin(BaseSlotMixin):
     def _get_source_child_id(self, packet):
         source = packet.get_source()
         for id, (producer, data) in self._slot_dict.iteritems():
-            if producer == source:
+            # The producer is a From
+            # FALSE if producer.get_destination() == source:
+            print "-----"
+            print "packet.get_source()", packet.get_source()
+            print "producer.get_destination()", producer.get_destination()
+            print "packet.get_source() <= producer.get_destination()", packet.get_source() <= producer.get_destination()
+            if packet.get_source() <= producer.get_destination():
                 return id
         return None
 

@@ -72,6 +72,8 @@ class PluginFactory(type):
                 try:
                     return registry[name]
                 except KeyError:
+                    import traceback
+                    traceback.print_exc()
                     Log.error("Cannot find %s in {%s}" % (name, ', '.join(registry.keys())))
 
             setattr(cls, 'get', classmethod(get))
