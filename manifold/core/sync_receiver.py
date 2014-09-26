@@ -46,7 +46,7 @@ class SyncReceiver(Node, ChildSlotMixin):
         """
         self._event.set()
 
-    def receive(self, packet):
+    def receive(self, packet, slot_id = None):
         """
         Process an incoming Packet received by this SyncReceiver instance.
         Args:

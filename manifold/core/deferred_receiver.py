@@ -62,7 +62,7 @@ class DeferredReceiver(Node, ChildSlotMixin):
 #DEPRECATED|        deferred.addCallbacks(process_results, handle_exceptions)
 #DEPRECATED|        return deferred
 
-    def receive(self, packet):
+    def receive(self, packet, slot_id = None):
         """
         Process an incoming Packet received by this SyncReceiver instance.
         Args:

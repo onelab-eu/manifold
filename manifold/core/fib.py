@@ -421,7 +421,7 @@ class FIB(ChildSlotMixin):
             # 1) is it redundant ?
             # 2) does it make any relation redundant ?
 
-    def receive(self, packet):
+    def receive(self, packet, slot_id):
         platform_name = packet.get_destination().get_filter().get_eq('uuid')
         namespace = 'local' if platform_name == 'local' else None
 
