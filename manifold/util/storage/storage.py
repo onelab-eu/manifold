@@ -49,7 +49,7 @@ class Storage(object):
     def load_gateway(self):
         # Initialize self._gateway
         Gateway.register_all()
-        cls_storage = Gateway.get(self._gateway_type)
+        cls_storage = Gateway.factory_get(self._gateway_type)
         if not cls_storage:
             raise RuntimeError("Cannot find %s Gateway, required to access Manifold Storage" % gateway_type)
         self._gateway = cls_storage(self._router, LOCAL_NAMESPACE, self._platform_config)

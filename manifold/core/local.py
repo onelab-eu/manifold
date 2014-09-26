@@ -54,7 +54,7 @@ class OLocalGateway(ManifoldObject):
     };
     """
     def get(self):
-        return Records([{"type" : gateway_type} for gateway_type in sorted(Gateway.list().keys())])
+        return Records([{"type" : gateway_type} for gateway_type in sorted(Gateway.facotry_list().keys())])
 
 # LocalGateway should be a standard gateway to which we register objects
 # No need for a separate class

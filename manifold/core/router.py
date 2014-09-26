@@ -243,7 +243,7 @@ class Router(object):
         self._interfaces[interface.get_uuid()] = interface
 
     def add_interface(self, interface_type, *args, **kwargs):
-        interface_cls = Interface.get(interface_type)
+        interface_cls = Interface.factory_get(interface_type)
         router_args = (self,) + args
         interface = interface_cls(*router_args, **kwargs)
         # Note the interface will register itself when initialized properly
@@ -488,7 +488,7 @@ class Router(object):
             "Invalid platform_name = %s (%s)" % (platform_name, type(platform_name))
 
         # Get the Gateway class
-        cls_gateway = Gateway.get(gateway_type)
+        cls_gateway = Gateway.factory_get(gateway_type)
         if not cls_gateway:
             raise RuntimeError, "Gateway not found: %s" % gateway_type
 

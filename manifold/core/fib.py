@@ -199,7 +199,6 @@ class Object(object):
         # Detect explicit Relation from u to v
         for field in u.get_fields():
             if field.get_type() == v.get_name():
-                print "******************* V.GET KEYS", v.get_keys()
                 for v_key in v.get_keys():
                     if v_key.is_composite():
                         # We assume that u (for ex: traceroute) provides in the current field (ex: hops)

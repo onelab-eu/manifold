@@ -109,7 +109,7 @@ class Gateway(Node):
             Log.info("Registering gateways")
             current_module = sys.modules[__name__]
             PluginFactory.register(current_module)
-            Log.info("Registered gateways are: {%s}" % ", ".join(sorted(Gateway.list().keys())))
+            Log.info("Registered gateways are: {%s}" % ", ".join(sorted(Gateway.factory_list().keys())))
             Gateway.registered = True
 
     #---------------------------------------------------------------------------

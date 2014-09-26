@@ -180,7 +180,6 @@ class ExploreTask(Deferred):
         #....... Rewritten
 
         self.keep_root_a |= missing_parent_fields & root_provided_fields
-        print "self.keep_root_a", self.keep_root_a
 
         for f in self.keep_root_a:
             if f in rename and rename[f] is not None:
