@@ -59,6 +59,7 @@ class QueryHandler(asynchat.async_chat, ChildSlotMixin):
 
     def receive(self, packet, slot_id = None):
         packet_str = packet.serialize()
+        print "push packet", packet
         self.push(("%08x" % len(packet_str)) + packet_str)
 
 

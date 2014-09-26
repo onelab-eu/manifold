@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import pyparsing as pp
+from manifold.util.filesystem import hostname
 from .             import ProcessGateway, ProcessObject, Argument, Parameter, FLAG_IN_ANNOTATION, FLAG_OUT_ANNOTATION, FLAG_ADD_FIELD
 from ...util.log   import Log
 
@@ -130,6 +131,7 @@ class PingParser(object):
     def _handle_ping(self, token):
         header, probes = token
         header['probes'] = probes
+        header['source'] = hostname()
         return header
 
     def parse(self, string):
