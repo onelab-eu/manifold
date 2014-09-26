@@ -33,7 +33,7 @@ class Interface(object):
         Log.info("Registering interface")
         current_module = sys.modules[__name__]
         PluginFactory.register(current_module)
-        Log.info("Registered interface are: {%s}" % ", ".join(sorted(Interface.list().keys())))
+        Log.info("Registered interface are: {%s}" % ", ".join(sorted(Interface.factory_list().keys())))
 
     def __init__(self, router):
         self._router   = router
