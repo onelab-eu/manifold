@@ -180,11 +180,9 @@ class Union(Operator, ChildrenSlotMixin):
     #DEPRECATED|                    self.forward_upstream(record)
 
 
-            print "union end is_last", is_last
             if is_last:
                 # In fact we don't care to know which child has completed
                 self._remaining_children -= 1
-                print "now remaining children=", self._remaining_children
                 if self._remaining_children == 0:
                     # We need to send all stored records
                     for record in self._records_by_key.values():

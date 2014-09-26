@@ -177,7 +177,6 @@ class Rename(Operator, ChildSlotMixin):
             A dictionnary {String : String} which maps the field name
             to rename with the corresponding updated field name.
         """
-        Log.tmp("Rename get_aliases = ",self._aliases)
         return self._aliases
 
 
