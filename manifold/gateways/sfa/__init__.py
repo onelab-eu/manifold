@@ -756,6 +756,16 @@ class SFAGateway(Gateway):
                         # XXX This should not interrupt everything, shall it ?
                         Log.warning("No cred found, check if the admin is a PI of the root authority in the Registry")
                         raise Exception , "no cred found of type %s towards %s " % (object_type, target)
+		elif object_type == 'slice':
+                    # No Credential for a Slice but a PI can use an Authority Credential to update a slice under its authority
+                    auth_creds = self.user_config['%s%s_credentials' % (delegated, 'authority')]
+                    for my_auth in auth_creds:
+                        if target.startswith(my_auth):
+                            cred = auth_creds[my_auth]
+                    if not cred:
+                        # XXX This should not interrupt everything, shall it ?
+                        Log.warning("No authority cred found, for the slice %s" % (target))
+                        raise Exception , "no authority cred found towards %s %s " % (object_type, target)
                 else:
                     # XXX Not handled
                     Log.warning("No cred found")
@@ -1503,6 +1513,9 @@ class SFAGateway(Gateway):
         elif self.query.object == 'slice':
             Log.tmp("Need a slice credential to update: %s" % object_hrn)
             auth_cred = self._get_cred('slice', object_hrn)
+            if not auth_cred:
+                Log.tmp("Need an authority credential to update: %s" % object_hrn)
+                auth_cred = self._get_cred('authority', object_auth_hrn)
         else:
             Log.tmp("Need an authority credential to update: %s" % object_hrn)
             auth_cred = self._get_cred('authority', object_auth_hrn)
