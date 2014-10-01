@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import uuid
+from collections                    import OrderedDict
 from datetime                       import datetime
 from types                          import StringTypes
 
@@ -81,18 +82,23 @@ class OfeliaOcfParser(RSpecParser):
 
     @classmethod
     def parse_impl(cls, rspec_dict):
-        resources = list()
-        leases    = list()
+        resources  = list()
+        leases     = list()
+        flowspaces = list()
 
         rspec = rspec_dict.get('rspec')
 
-        datapaths = rspec.get('datapath', list())
-        links     = rspec.get('link', list())
+        #datapaths = rspec.get('datapath', list())
+        links      = rspec.get('link', list())
 
-        resources.extend(datapaths)
+        # flowspace is the openflow:sliver returned in the manifest RSpec
+        # this corresponds to the request RSpec sent by the experimenter
+        flowspaces = [rspec.get('sliver', list())]
+
+        #resources.extend(datapaths)
         resources.extend(links)
 
-        return resources, leases
+        return resources, leases, flowspaces
 
     #---------------------------------------------------------------------------
     # RSpec construction
@@ -102,14 +108,14 @@ class OfeliaOcfParser(RSpecParser):
         u'rspec': {
             u'@xmlns': u'http://www.geni.net/resources/rspec/3',
             u'@xmlns:xs': u'http://www.w3.org/2001/XMLSchema-instance',
-            u'@xmlns:openflow': u'/opt/ofelia/ofam/local/schemas',
+            u'@xmlns:openflow': u'http://www.geni.net/resources/rspec/ext/openflow/3',
             u'@xs:schemaLocation': u'http://www.geni.net/resources/rspec/3 http://www.geni.net/resources/rspec/3/request.xsd http://www.geni.net/resources/rspec/ext/openflow/3 http://www.geni.net/resources/rspec/ext/openflow/3/of-resv.xsd',
             u'@type': u'request', 
         }
     }
 
     @classmethod
-    def build_rspec_impl(cls, slice_hrn, resources, leases):
+    def build_rspec_impl(cls, slice_hrn, resources, leases, flowspaces):
         """
         Returns a dict used to build the request RSpec with xmltodict.
 
@@ -120,10 +126,10 @@ class OfeliaOcfParser(RSpecParser):
         # Groups
         groups = list()
 
-        # We are expect only 1 Ofelia resource in the Query
-        for resource in resources:
-            if 'groups' in resource:
-                for group in resource['groups']:
+        # We expect only 1 Ofelia flowspace in the Query
+        for flowspace in flowspaces:
+            if 'groups' in flowspace:
+                for group in flowspace['groups']:
                     # in group['ports'], we have a list of dict with datapath and port
                     # properties. We need a listof ports groupes by datapaths in the
                     # rspec.
@@ -147,11 +153,15 @@ class OfeliaOcfParser(RSpecParser):
                                 #'@name': None          # Example: 'GBE0/24'
                             }
                             ports.append(port_dict)
-
+                        datapath_urn = _datapath.split('+')
+                        component_manager_id = datapath_urn[0] + '+' + datapath_urn[1] + '+authority+cm'
+                        dpid = datapath_urn[3]
                         datapath_dict = {
-                            # u'@component_manager_id': u'urn:publicid:IDN+openflow:ofam:univbris+authority+cm', 
+                            #u'@component_manager_id': u'urn:publicid:IDN+openflow:ofam:univbris+authority+cm',
+                            u'@component_manager_id': component_manager_id,
                             u'@component_id': _datapath, # Example: u'urn:publicid:IDN+openflow:ofam:univbris+datapath+00:00:00:00:0c:21:00:0a',
                             #u'@dpid': u'00:00:00:00:0c:21:00:0a', 
+                            u'@dpid': dpid,
                             u'openflow:port': ports,
                         }
                         datapaths.append(datapath_dict)
@@ -164,35 +174,42 @@ class OfeliaOcfParser(RSpecParser):
 
                 # MATCH
                 matches = list()
-                for match in resource['matches']:
+                for match in flowspace['matches']:
                     # Groups
-                    groups = list()
+                    groups_in_match = list()
                     for group in match['groups']:
                         group_dict = {
                             '@name': group,
                         }
-                        groups.append(group_dict)
+                        groups_in_match.append(group_dict)
                     
                     # Packet description
                     packet_dict = dict()
                     for k, v in match['packet'].items():
                         packet_dict['openflow:'+k] = {'@value': v}
-                    match_dict = {
-                        'openflow:use-group': groups,
-                        'openflow:packet': packet_dict,
-                    }
+
+                    # This has to be ordered because OCF AM
+                    # understands only use-group then packet in match of the RSpec
+                    match_dict = OrderedDict([
+                        ('openflow:use-group', groups_in_match),
+                        ('openflow:packet', packet_dict)
+                    ])
                     matches.append(match_dict)
 
-                sliver = {
-                    '@email': 'support@myslice.info',       # XXX used ?
-                    '@description': 'TBD',                  # XXX used ?
-                    'openflow:controller': {
-                        '@url': resource['controller'],    # Example: 'tcp:10.216.22.51:6633'
+                # This has to be ordered because OCF AM
+                # understands only group then match in RSpec
+                sliver = OrderedDict([
+                    ('@email', 'support@myslice.info'),     # XXX used ?
+                    ('@description', 'TBD'),                # XXX used ?
+                    ('openflow:controller', {
+                        '@url': flowspace['controller'],    # Example: 'tcp:10.216.22.51:6633'
                         '@type': 'primary',                 # TODO: support other controller types
-                    },
-                    'openflow:group': groups,
-                    'openflow:match': matches,
-                }
+                    }),
+                    ('openflow:group', groups),
+                    ('openflow:match', matches),
+                ])
+                import pdb
+                pdb.set_trace()
 
                 # XXX There is currently only 1 sliver per slice 
                 rspec_dict['rspec']['openflow:sliver'] = sliver

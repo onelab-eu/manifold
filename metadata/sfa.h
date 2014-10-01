@@ -17,6 +17,7 @@ class slice {
 
 	resource resource[];
 	lease lease[];                      /**< List of leases associated to the slice */
+	flowspace flowspace[];              /**< List of flowspaces associated to the slice */
 
     KEY(slice_urn);
     CAPABILITY(retrieve, join, fullquery);
@@ -34,6 +35,15 @@ class lease {
     interval       granularity; 
 
     KEY(lease_id, start_time, end_time, resource);
+    CAPABILITY(retrieve, join, fullquery);
+};
+
+class flowspace {
+    slice slice;
+    const string controller;
+    const string groups[];
+    const string matches[];
+    KEY(controller, groups, matches);
     CAPABILITY(retrieve, join, fullquery);
 };
 

@@ -55,7 +55,7 @@ class SFAWrapParser(RSpecParser):
     #---------------------------------------------------------------------------
 
     @classmethod
-    def build_rspec(cls, slice_urn, resources, leases, rspec_version='GENI 3 request'):
+    def build_rspec(cls, slice_urn, resources, leases, flowspace, rspec_version='GENI 3 request'):
         """
         Builds a RSpecs based on the specified resources and leases.
 
@@ -224,7 +224,13 @@ class SFAWrapParser(RSpecParser):
         node['type'] = 'node'
         #Log.tmp("node component_id = ",Xrn(node['component_id']))
         #Log.tmp("node authority = ", Xrn(node['component_id']).authority)
-        node['hostname'] = node['component_name']
+
+        # hostname is used in MySlice display and should never be None
+        # some RSpecs like VTAM don't have component_name so we replace it by component_id
+        if 'component_name' in node and node['component_name'] is not None:
+            node['hostname'] = node['component_name']
+        else:
+            node['hostname'] = node['component_id']
         node['initscripts'] = node.pop('pl_initscripts')
         if 'exclusive' in node and node['exclusive']:
             node['exclusive'] = node['exclusive'].lower() == 'true'
@@ -382,7 +388,17 @@ class SFAWrapParser(RSpecParser):
     def get_min_duration(cls):
         return 0
         
-    
+class OfeliaVTAMParser(SFAWrapParser):
+    @classmethod
+    def get_resource_facility_name(cls, urn):
+        return "openflow"
+
+    @classmethod
+    def get_resource_testbed_name(cls, urn):
+        t_urn = urn.split("+")
+        # example: urn:publicid:IDN+vtam.univbris+node+cseedurham
+        return t_urn[1]
+
 class PLEParser(SFAWrapParser):
 
     @classmethod
@@ -769,7 +785,7 @@ class WiLabtParser(SFAWrapParser):
         return resource
 
     @classmethod
-    def build_rspec(cls, slice_urn, resources, leases, rspec_version='GENI 3 request'):
+    def build_rspec(cls, slice_urn, resources, leases, flowspace, rspec_version='GENI 3 request'):
         """
         Builds a RSpecs based on the specified resources and leases.
 

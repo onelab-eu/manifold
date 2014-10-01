@@ -171,7 +171,7 @@ class NITOSBrokerParser(RSpecParser):
     #---------------------------------------------------------------------------
 
     @classmethod
-    def build_rspec(cls, slice_hrn, resources, leases, rspec_version = None):
+    def build_rspec(cls, slice_hrn, resources, leases, flowspace, rspec_version = None):
         Log.warning("NitosBroker Parser build")
         rspec = []
         cls.rspec_add_header(rspec)

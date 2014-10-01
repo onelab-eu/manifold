@@ -50,7 +50,7 @@ from xmlrpclib                          import DateTime
 from manifold.gateways.sfa.rspecs.nitos_broker  import NITOSBrokerParser
 from manifold.gateways.sfa.rspecs.ofelia_ocf    import OfeliaOcfParser
 
-from manifold.gateways.sfa.rspecs.sfawrap       import SFAWrapParser, PLEParser, WiLabtParser, IoTLABParser, LaboraParser
+from manifold.gateways.sfa.rspecs.sfawrap       import SFAWrapParser, PLEParser, WiLabtParser, IoTLABParser, LaboraParser, OfeliaVTAMParser
 from manifold.gateways.sfa.rspecs.loose         import LooseParser
 
 ################################################################################
@@ -206,6 +206,8 @@ class SFAGateway(Gateway):
             parser = WiLabtParser
         elif server_hrn.startswith('ofelia') or server_hrn.startswith('openflow'):
             parser = OfeliaOcfParser
+        elif 'vtam' in server_hrn:
+            parser = OfeliaVTAMParser
         else:
             #parser = LooseParser
             parser = SFAWrapParser
@@ -494,7 +496,6 @@ class SFAGateway(Gateway):
             self.registry_version = version
         else:
             self.am_version = version
-
         defer.returnValue(version)
 
     @defer.inlineCallbacks
@@ -1387,6 +1388,9 @@ class SFAGateway(Gateway):
 
             rspec_string = result['value']
 
+            #Log.warning("advertisement RSpec")
+            #Log.warning(rspec_string)
+
         # rspec_type and rspec_version should be set in the config of the platform,
         # we use GENIv3 as default one if not
         if 'rspec_type' and 'rspec_version' in self.config:
@@ -1407,12 +1411,20 @@ class SFAGateway(Gateway):
         rsrc_slice['resource'] = Records(rsrc_slice['resource'])
         rsrc_slice['lease'] = Records(rsrc_slice['lease'])
 
+        # flowspace is the openflow:sliver returned in the manifest RSpec
+        # this corresponds to the request RSpec sent by the experimenter
+        if 'flowspace' in rsrc_slice:
+            rsrc_slice['flowspace'] = Records(rsrc_slice['flowspace'])
+
         if slice_urn:
             rsrc_slice['slice'] = slice_urn
             for r in rsrc_slice['resource']:
                 r['slice'] = slice_urn
             for r in rsrc_slice['lease']:
                 r['slice'] = slice_urn
+            if 'flowspace' in rsrc_slice:
+                for r in rsrc_slice['flowspace']:
+                    r['slice'] = slice_urn
 
         if self.debug:
             rsrc_slice['debug'] = {'rspec': rspec}
@@ -1640,29 +1652,32 @@ class SFAGateway(Gateway):
         
         all_resources = params['resource'] if 'resource' in params else []
         all_leases = params['lease'] if 'lease' in params else []
+        all_flowspaces = params['flowspace'] if 'flowspace' in params else []
 
         # Need to filter resources from each testbed
 
         resources = list()
         leases = list()
+        flowspaces = list()
+
         interface_hrn = yield self.get_interface_hrn(self.sliceapi)
         for resource in all_resources:
-            # XXX | LOIC - Handling Ofelia OCF resources which have a complex struct
-            if 'groups' in resource:
-                # XXX | LOIC - Bypassing the Query format pb in the Shell
-                resource_type = type(resource)
-                if isinstance(resource, str):
-                    import ast as python_ast
-                    resource = python_ast.literal_eval(resource)
-                    resource_type = type(resource)
-
-            # General case, resources have hrn
-            else:
-                hrn = urn_to_hrn(resource)[0]
-                if not hrn.startswith(interface_hrn):
-                    #print "FILTER RESOURCE expected auth", interface_hrn, ":", hrn
-                    continue
-            resources.append(resource)
+# DEPRECATED            # XXX | LOIC - Handling Ofelia OCF resources which have a complex struct
+# DEPRECATED            if 'groups' in resource:
+# DEPRECATED                # XXX | LOIC - Bypassing the Query format pb in the Shell
+# DEPRECATED                resource_type = type(resource)
+# DEPRECATED                if isinstance(resource, str):
+# DEPRECATED                    import ast as python_ast
+# DEPRECATED                    resource = python_ast.literal_eval(resource)
+# DEPRECATED                    resource_type = type(resource)
+# DEPRECATED
+# DEPRECATED            # General case, resources have hrn
+# DEPRECATED            else:
+           hrn = urn_to_hrn(resource)[0]
+           if not hrn.startswith(interface_hrn):
+               #print "FILTER RESOURCE expected auth", interface_hrn, ":", hrn
+               continue
+           resources.append(resource)
         for lease in all_leases:
             hrn = urn_to_hrn(lease['resource'])[0]
             if not hrn.startswith(interface_hrn):
@@ -1673,6 +1688,13 @@ class SFAGateway(Gateway):
             start_time = lease['start_time']
             leases.append(lease)
 
+        # XXX | LOIC - Handling Ofelia OCF flowspace, which have a complex struct
+        for flowspace in all_flowspaces:
+            # XXX | LOIC - Bypassing the Query format pb in the Shell
+            if isinstance(flowspace, str):
+                import ast as python_ast
+                flowspace = python_ast.literal_eval(flowspace)
+            flowspaces.append(flowspace)
         # Get appropriate credentials
         user_cred = self._get_cred('user')
         slice_cred = self._get_cred('slice', slice_hrn)
@@ -1687,7 +1709,7 @@ class SFAGateway(Gateway):
             rspec_version += ' request'
 
             parser = yield self.get_parser()
-            rspec = parser.build_rspec(slice_urn, resources, leases, rspec_version)
+            rspec = parser.build_rspec(slice_urn, resources, leases, flowspaces, rspec_version)
         except Exception, e:
             print "EXCEPTION BUILDING RSPEC", e
             traceback.print_exc()
@@ -1948,6 +1970,10 @@ class SFAGateway(Gateway):
         # Make records
         rsrc_slice['resource'] = Records(rsrc_slice['resource'])
         rsrc_slice['lease'] = Records(rsrc_slice['lease'])
+
+        # flowspace is the openflow:sliver returned in the manifest RSpec
+        # this corresponds to the request RSpec sent by the experimenter
+        rsrc_slice['flowspace'] = Records(rsrc_slice['flowspace'])
 
         slice = {
             'slice_hrn': slice_hrn,
