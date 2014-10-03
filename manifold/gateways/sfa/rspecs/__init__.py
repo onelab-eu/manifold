@@ -17,6 +17,7 @@ class RSpecPostProcessor(object):
         self.cls = cls
 
     def __call__(self, path, key, value):
+
         path_headers = [p[0] for p in path]
         actions = self.cls.get_actions(path_headers)
         
@@ -46,6 +47,7 @@ class RSpecParser(object):
     def xrn_hook(resource):
         urn = resource.get('component_id')
         if not urn:
+            Log.warning('No urn !!!')
             return resource
         resource['urn'] = urn
         resource['hrn'] = urn_to_hrn(urn)[0]
@@ -65,18 +67,32 @@ class RSpecParser(object):
     # XXX This is customized for Ofelia OCF
     # urn:publicid:IDN+openflow:ofam:univbris+datapath+05:00:00:00:00:00:00:01
     # urn:publicid:IDN+optical:openflow:ofam:univbris+datapath+00:00:00:00:0a:21:00:0a
+
+    # XXX VTAM is different
+    # urn:publicid:IDN+vtam.univbris+node+uclalien
+    # urn:publicid:IDN+i2cat:vtam+node+Verdaguer
+
     @staticmethod
     def testbed_hook(resource):
         urn = resource.get('component_id')
-        Log.tmp(urn)
         if not urn:
             return resource
         elements = urn.split('+')
         if len(elements) > 1:
             authority = elements[1]
-            authorities = authority.split(':')
-            facility = authorities[len(authorities)-3]
-            testbed = authorities[len(authorities)-1]
+            if 'openflow' in authority:
+                authorities = authority.split(':')
+                facility = authorities[len(authorities)-3]
+                testbed = authorities[len(authorities)-1]
+            elif 'vtam' in authority:
+                if ':' in authority:
+                    authorities = authority.split(':')
+                    facility = authorities[0]
+                    testbed = authorities[1]
+                else:
+                    authorities = authority.split('.')
+                    facility = authorities[1]
+                    testbed = authorities[0]
         else:
             return resource
         resource['facility_name'] = facility

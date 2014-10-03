@@ -84,7 +84,7 @@ class OfeliaOcfParser(RSpecParser):
     def parse_impl(cls, rspec_dict):
         resources  = list()
         leases     = list()
-        flowspaces = list()
+        flowspaces = dict()
 
         rspec = rspec_dict.get('rspec')
 
@@ -93,7 +93,7 @@ class OfeliaOcfParser(RSpecParser):
 
         # flowspace is the openflow:sliver returned in the manifest RSpec
         # this corresponds to the request RSpec sent by the experimenter
-        flowspaces = [rspec.get('sliver', list())]
+        flowspaces = [rspec.get('sliver', dict())]
 
         #resources.extend(datapaths)
         resources.extend(links)
@@ -208,8 +208,6 @@ class OfeliaOcfParser(RSpecParser):
                     ('openflow:group', groups),
                     ('openflow:match', matches),
                 ])
-                import pdb
-                pdb.set_trace()
 
                 # XXX There is currently only 1 sliver per slice 
                 rspec_dict['rspec']['openflow:sliver'] = sliver
@@ -253,6 +251,7 @@ if __name__ == '__main__':
         for rspec_file in [OF_ADVERT, OF_REQUEST, OF_MANIFEST]:
             print "PARSING: %s" % (rspec_file,)
             try:
+                rspec_file = open(rspec_file).read()
                 ret = test_parse(rspec_file)
                 for resource in ret['resource']:
                     print " - ", resource

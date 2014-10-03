@@ -49,8 +49,9 @@ from xmlrpclib                          import DateTime
 
 from manifold.gateways.sfa.rspecs.nitos_broker  import NITOSBrokerParser
 from manifold.gateways.sfa.rspecs.ofelia_ocf    import OfeliaOcfParser
+from manifold.gateways.sfa.rspecs.ofelia_vt     import OfeliaVTAMParser
 
-from manifold.gateways.sfa.rspecs.sfawrap       import SFAWrapParser, PLEParser, WiLabtParser, IoTLABParser, LaboraParser, OfeliaVTAMParser
+from manifold.gateways.sfa.rspecs.sfawrap       import SFAWrapParser, PLEParser, WiLabtParser, IoTLABParser, LaboraParser 
 from manifold.gateways.sfa.rspecs.loose         import LooseParser
 
 ################################################################################
@@ -503,6 +504,10 @@ class SFAGateway(Gateway):
         server_version = yield self.get_cached_server_version(server)    
         # Avoid inconsistent hrn in GetVersion - ROUTERV2
         hrn = urn_to_hrn(server_version['urn'])
+        auth = Xrn(server_version['urn'])
+        Log.tmp(auth)
+        Log.tmp(server_version['urn'])
+        Log.tmp(hrn)
 
         # XXX TMP FIX while URN from ple is 'urn:publicid:IDN++ple' instead of 'urn:publicid:IDN+authority+ple'
         if hrn[0] =='' and 'hrn' in server_version:
@@ -1397,8 +1402,8 @@ class SFAGateway(Gateway):
 
             rspec_string = result['value']
 
-            #Log.warning("advertisement RSpec")
-            #Log.warning(rspec_string)
+            Log.warning("advertisement RSpec")
+            Log.warning(rspec_string)
 
         # rspec_type and rspec_version should be set in the config of the platform,
         # we use GENIv3 as default one if not

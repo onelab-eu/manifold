@@ -23,7 +23,7 @@ def assert_rv_success(result_value):
 #Options().log_level = 'DEBUG'
 Options().username = auth['Username']
 Options().password = auth['AuthString']
-Options().xmlrpc_url = "https://localhost:7080"
+Options().xmlrpc_url = "https://portal.onelab.eu:7080"
 
 shell = Shell(interactive=False)
 shell.select_auth_method('password')
