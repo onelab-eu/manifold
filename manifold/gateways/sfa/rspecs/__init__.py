@@ -87,12 +87,18 @@ class RSpecParser(object):
             elif 'vtam' in authority:
                 if ':' in authority:
                     authorities = authority.split(':')
+                    facility = authorities[1]
+                    testbed = authorities[0]
+                elif '.' in authority:
+                    authorities = authority.split('.')
                     facility = authorities[0]
                     testbed = authorities[1]
                 else:
-                    authorities = authority.split('.')
-                    facility = authorities[1]
-                    testbed = authorities[0]
+                    facility = authority
+                    testbed = authority
+            else:
+                facility = authority
+                testbed = authority
         else:
             return resource
         resource['facility_name'] = facility

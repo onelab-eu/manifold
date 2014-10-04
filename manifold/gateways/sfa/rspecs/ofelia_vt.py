@@ -42,9 +42,11 @@ class OfeliaVTAMParser(RSpecParser):
 
     @classmethod
     def parse_impl(cls, rspec_dict):
-        resources  = list()
-        leases     = list()
-        vms        = dict()
+        resources     = list()
+        leases        = list()
+        vms           = dict()
+        slivers_names = None
+        urn           = None
 
         rspec = rspec_dict.get('rspec')
         if not rspec:
@@ -57,7 +59,10 @@ class OfeliaVTAMParser(RSpecParser):
         else:
             nodes = network.get('node', list())
 
-        if rspec.get('@type') != "advertisement":
+        print "PARSING VT =================="
+        print rspec.get('@type') 
+
+        if rspec.get('@type') == "manifest":
             # Each vm is embeded in the sliver returned in the manifest RSpec
             # this corresponds to the request RSpec sent by the experimenter
             #for node in nodes:
@@ -69,8 +74,12 @@ class OfeliaVTAMParser(RSpecParser):
                 urn, slivers_names = cls.get_sliver_names(nodes)
                 nodes = [urn]
 
-            vms[urn] = slivers_names
-            vms['toto'] = slivers_names
+            # Resources are already in the Slice
+            if urn is not None and slivers_names is not None:
+                vms[urn] = slivers_names
+            # Slice is empty
+            else:
+                nodes = []
 
         resources.extend(nodes)
 
