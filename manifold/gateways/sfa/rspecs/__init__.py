@@ -133,13 +133,13 @@ class RSpecParser(object):
                 namespaces       = cls.__namespace_map__,   \
                 dict_constructor = Record)
 
-        resources, leases, flowspaces = cls.parse_impl(d)
+        resources, leases, flowspace, vms = cls.parse_impl(d)
 
-        return {'resource': resources, 'lease': leases, 'flowspace': flowspaces}
+        return {'resource': resources, 'lease': leases, 'flowspace': flowspace, 'vms': vms}
 
     @classmethod
-    def build_rspec(cls, slice_hrn, resources, leases, flowspace, rspec_version = None):
-        rspec_dict = cls.build_rspec_impl(slice_hrn, resources, leases, flowspace)
+    def build_rspec(cls, slice_hrn, resources, leases, flowspace, vms, rspec_version = None):
+        rspec_dict = cls.build_rspec_impl(slice_hrn, resources, leases, flowspace, vms)
         return xmltodict.unparse(rspec_dict, pretty=True)
 
     #---------------------------------------------------------------------------

@@ -44,7 +44,10 @@ class OfeliaVTAMParser(RSpecParser):
     def parse_impl(cls, rspec_dict):
         resources     = list()
         leases        = list()
-        vms           = dict()
+        flowspace     = dict()
+        vms           = list()
+
+        nodes         = list()
         slivers_names = None
         urn           = None
 
@@ -55,44 +58,59 @@ class OfeliaVTAMParser(RSpecParser):
         network = rspec.get('network')
 
         if not network:
-            nodes = rspec.get('node', list())
+            n = rspec.get('node', None)
         else:
-            nodes = network.get('node', list())
+            n = network.get('node', None)
+
+        if not isinstance(n, list):
+             n = [n]
+
+        if n is not None:
+            nodes = n
 
         print "PARSING VT =================="
         print rspec.get('@type') 
 
-        if rspec.get('@type') == "manifest":
+        if rspec.get('@type') != "advertisement":
             # Each vm is embeded in the sliver returned in the manifest RSpec
             # this corresponds to the request RSpec sent by the experimenter
-            #for node in nodes:
-            if isinstance(nodes, list):
-                for node in nodes:
-                    urn, slivers_names = cls.get_sliver_names(node)
-                    node = urn
-            else:
-                urn, slivers_names = cls.get_sliver_names(nodes)
-                nodes = [urn]
 
-            # Resources are already in the Slice
-            if urn is not None and slivers_names is not None:
-                vms[urn] = slivers_names
-            # Slice is empty
-            else:
-                nodes = []
+            # list_nodes is a copy to continue the loop until the end
+            # nodes will be modified during the loop
+            list_nodes = list(nodes)
+            for node in list_nodes:
+                server_vms = cls.get_slivers(node)
+                nodes.remove(node)
+                if 'resource' in server_vms:
+                    nodes.append(server_vms['resource'])
+                    vms.append(server_vms)
 
         resources.extend(nodes)
 
-        return resources, leases, [vms]
+        return resources, leases, flowspace, vms
 
     @classmethod
-    def get_sliver_names(cls,node):
+    def get_slivers(cls,node):
+        # i2cat sends an empty RSpec if there are no VMs in the slice
+        if node is None:
+            return {}
+        # Whereas Bristol sends an RSpec with the Physical nodes in every case
+        # We have to check if there are slivers in the node corresponding to VMs
         slivers_names = list()
         slivers = node.get('sliver', list())
         for sliver in slivers:
             slivers_names.append(dict((key,value) for key, value in sliver.iteritems() if key == 'name'))
-        urn = node.get('@component_id')
-        return urn, slivers_names
+        urn = node.get('component_id')
+        if urn is None:
+            urn = node.get('@component_id')
+#        return urn, slivers_names
+
+        # Resources are already in the Slice
+        if urn is not None and slivers_names is not None and len(slivers_names)>0:
+            return {'resource':urn,'vm':slivers_names}
+        # Slice is empty
+        else:
+            return {}
 
 
     #---------------------------------------------------------------------------
@@ -106,7 +124,7 @@ class OfeliaVTAMParser(RSpecParser):
     }
 
     @classmethod
-    def build_rspec_impl(cls, slice_hrn, resources, leases, flowspaces):
+    def build_rspec_impl(cls, slice_hrn, resources, leases, flowspaces, vms):
         """
         Returns a dict used to build the request RSpec with xmltodict.
 
@@ -116,7 +134,8 @@ class OfeliaVTAMParser(RSpecParser):
         rspec_dict = cls.__rspec_request_base_dict__.copy()
         nodes = list()
 
-        for node_urn in flowspaces:
+        for server_vm in vms:
+            node_urn = server_vm['resource']
             t_node_urn = node_urn.split('+')
             component_manager_id = t_node_urn[0] + '+' + t_node_urn[1] + '+authority+cm'
             node_dict = {
@@ -125,7 +144,7 @@ class OfeliaVTAMParser(RSpecParser):
             }
 
             slivers = list()
-            for vm in flowspaces[node_urn]:
+            for vm in server_vm['vm']:
                 sliver_dict = {
                     u'@name' : vm['name'],
                     u'@uuid' : 'myuuid',
@@ -156,15 +175,21 @@ if __name__ == '__main__':
     PATH          = '../data'
     OF_ADVERT     = '%s/VTAM_AD_RSPEC.xml'  % (PATH,)
     OF_REQUEST    = '%s/VTAM_REQ_RSPEC.xml' % (PATH,)
-    #OF_MANIFEST   = '%s/of_manifest.rspec'  % (PATH,)
+    OF_MANIFEST   = '%s/VTAM_MANIFEST_RSPEC.xml'  % (PATH,)
 
-    TEST_DICT = {
-                'urn:publicid:IDN+virtualization:i2cat:vtam+node+Martorell' : [{'name':'myVM_1'},{'name':'myVM_2'}],
-                'urn:publicid:IDN+virtualization:i2cat:vtam+node+Serafi' : [{'name':'myVM_3'}],
-                }
+    TEST_DICT = [
+                    {
+                    'resource' : 'urn:publicid:IDN+virtualization:i2cat:vtam+node+Martorell',
+                    'vm' : [{'name':'myVM_1'},{'name':'myVM_2'}]
+                    },
+                    {
+                    'resource' : 'urn:publicid:IDN+virtualization:i2cat:vtam+node+Serafi',
+                    'vm' : [{'name':'myVM_3'}],
+                    }
+                ]
 
     def test_parse_all():
-        for rspec_file in [OF_ADVERT, OF_REQUEST]:
+        for rspec_file in [OF_ADVERT, OF_REQUEST, OF_MANIFEST]:
             print "PARSING: %s" % (rspec_file,)
             try:
                 rspec_file = open(rspec_file).read()
@@ -184,7 +209,7 @@ if __name__ == '__main__':
 
     def test_build_request():
         parser = OfeliaVTAMParser()
-        print parser.build_rspec('onelab.upmc.test_fibre', resources = list(), leases = list(), flowspace = TEST_DICT)
+        print parser.build_rspec('onelab.upmc.test_fibre', resources = list(), leases = list(), flowspace = list(), vms = TEST_DICT)
 
     test_parse_all()
     test_build_request()

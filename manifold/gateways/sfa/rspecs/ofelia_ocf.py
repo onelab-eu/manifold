@@ -85,6 +85,7 @@ class OfeliaOcfParser(RSpecParser):
         resources  = list()
         leases     = list()
         flowspaces = dict()
+        vms = list()
 
         rspec = rspec_dict.get('rspec')
 
@@ -98,7 +99,7 @@ class OfeliaOcfParser(RSpecParser):
         #resources.extend(datapaths)
         resources.extend(links)
 
-        return resources, leases, flowspaces
+        return resources, leases, flowspaces, vms
 
     #---------------------------------------------------------------------------
     # RSpec construction
@@ -115,7 +116,7 @@ class OfeliaOcfParser(RSpecParser):
     }
 
     @classmethod
-    def build_rspec_impl(cls, slice_hrn, resources, leases, flowspaces):
+    def build_rspec_impl(cls, slice_hrn, resources, leases, flowspaces, vms):
         """
         Returns a dict used to build the request RSpec with xmltodict.
 

@@ -55,7 +55,7 @@ class SFAWrapParser(RSpecParser):
     #---------------------------------------------------------------------------
 
     @classmethod
-    def build_rspec(cls, slice_urn, resources, leases, flowspace, rspec_version='GENI 3 request'):
+    def build_rspec(cls, slice_urn, resources, leases, flowspace, vms, rspec_version='GENI 3 request'):
         """
         Builds a RSpecs based on the specified resources and leases.
 
@@ -785,7 +785,7 @@ class WiLabtParser(SFAWrapParser):
         return resource
 
     @classmethod
-    def build_rspec(cls, slice_urn, resources, leases, flowspace, rspec_version='GENI 3 request'):
+    def build_rspec(cls, slice_urn, resources, leases, flowspace, vms, rspec_version='GENI 3 request'):
         """
         Builds a RSpecs based on the specified resources and leases.
 

@@ -59,7 +59,7 @@ from manifold.gateways.sfa.rspecs.loose         import LooseParser
 DEFAULT_TIMEOUT = 20
 DEFAULT_TIMEOUT_GETVERSION = 5
 
-AM_SLICE_FIELDS = set(['resource', 'lease'])
+AM_SLICE_FIELDS = set(['resource', 'lease', 'flowspace', 'vms'])
 SLICE_KEY = 'slice_urn'
 
 class TimeOutException(Exception):
@@ -1151,7 +1151,7 @@ class SFAGateway(Gateway):
         # This issue causes ugly code, but is solved in future versions of Manifold.
         #
         # See also: update_slice
-
+        Log.tmp("get_slice")
         fields_am = fields & AM_SLICE_FIELDS
         fields_rm = fields - AM_SLICE_FIELDS
 
@@ -1462,6 +1462,26 @@ class SFAGateway(Gateway):
             defer.returnValue(result.get('lease', dict()))
         except Exception, e: # TIMEOUT
             Log.warning("Exception in get_lease: %s" % e)
+            traceback.print_exc()
+            defer.returnValue(list())
+
+    @defer.inlineCallbacks
+    def get_flowspace(self, filters, params, fields):
+        try:
+            result = yield self._get_resource_lease(filters, fields, params, list_resources = True, list_leases = False)
+            defer.returnValue(result.get('flowspace', dict()))
+        except Exception, e: # TIMEOUT
+            Log.warning("Exception in get_flowspace: %s" % e)
+            traceback.print_exc()
+            defer.returnValue(list())
+
+    @defer.inlineCallbacks
+    def get_vms(self, filters, params, fields):
+        try:
+            result = yield self._get_resource_lease(filters, fields, params, list_resources = True, list_leases = False)
+            defer.returnValue(result.get('vms', dict()))
+        except Exception, e: # TIMEOUT
+            Log.warning("Exception in get_vms: %s" % e)
             traceback.print_exc()
             defer.returnValue(list())
 

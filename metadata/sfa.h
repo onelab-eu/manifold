@@ -18,6 +18,7 @@ class slice {
 	resource resource[];
 	lease lease[];                      /**< List of leases associated to the slice */
 	flowspace flowspace[];              /**< List of flowspaces associated to the slice */
+	vms vms[];              /**< List of flowspaces associated to the slice */
 
     KEY(slice_urn);
     CAPABILITY(retrieve, join, fullquery);
@@ -44,6 +45,14 @@ class flowspace {
     const string groups[];
     const string matches[];
     KEY(controller, groups, matches);
+    CAPABILITY(retrieve, join, fullquery);
+};
+
+class vms {
+    slice slice;
+    const resource resource;    /**< Resource URN attached to this lease */
+    const string vm;
+    KEY(resource, vm);
     CAPABILITY(retrieve, join, fullquery);
 };
 
