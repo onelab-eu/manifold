@@ -175,11 +175,12 @@ class Announces(list):
         return announces
 
     @staticmethod
-    def from_string(string, platform_name):
+    def from_string(string, platform_name = None):
         """
         Parse a String and produce the corresponding Announces.
         Args:
             platform_name: A String containing the platform name.
+                SHOULD BE DEPRECATED
         Returns:
             The corresponding list of Announce instances.
         """
@@ -198,12 +199,13 @@ class Announces(list):
         return make_announces(tables)
 
     @staticmethod
-    def from_file(filename, platform_name):
+    def from_file(filename, platform_name = None):
         """
         Parse a ".h" file (see manifold/metadata) and produce
         the corresponding Announces.
         Args:
             platform_name: A String containing the name of the platform.
+                SHOULD BE DEPRECATED
         Returns:
             The corresponding Announces instances.
         """
