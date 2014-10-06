@@ -183,7 +183,7 @@ class AgentDaemon(Daemon):
             supernode_collection = ManifoldLocalCollection(Supernode)
             supernode_collection.insert(Supernode(hostname = hostname()))
 
-            router.register_collection(supernode_collection, 'local')
+            router.register_local_collection(supernode_collection)
 
         #router.get_fib().dump()
         self._router = router
