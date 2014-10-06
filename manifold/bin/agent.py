@@ -31,29 +31,23 @@ from manifold.util.predicate            import Predicate
 from manifold.core.annotation           import Annotation
 from manifold.core.field                import Field
 from manifold.core.key                  import Key
-from manifold.core.local                import ManifoldObject
+from manifold.gateways.object           import ManifoldObject
 from manifold.core.packet               import GET, CREATE
 from manifold.core.query                import Query
 from manifold.core.sync_receiver        import SyncReceiver
 
 from gevent.threadpool import ThreadPool
-
             
-SERVER_SUPERNODE = 'dryad.ipv6.lip6.fr'
+SERVER_SUPERNODE = 'clitos.ipv6.lip6.fr'
 
-# In memory object. Could be sqlite.
-# Capabilities ?
-# XXX Namespace ???
-class Supernode(ManifoldObject):
-
-    __object_name__ = 'supernode'
-    __fields__ = [
-        Field('string', 'hostname'),
-        Field('float',  'rtt'),
-    ]
-    __keys__ = [
-        Key([f for f in __fields__ if f.get_name() == 'hostname']),
-    ]
+SUPERNODE_CLASS = """
+class Supernode {
+    string hostname;
+    float rtt;
+    KEY(hostname);
+};
+"""
+#SERVER_SUPERNODE = 'dryad.ipv6.lip6.fr'
 
 class AgentDaemon(Daemon):
 
@@ -160,12 +154,8 @@ class AgentDaemon(Daemon):
         # XXX We need some auto-detection for processes
         self._ping = router.add_platform("ping", "ping")
 
-        # Register local objects
-        router.register_object(Supernode, 'local')
-
         # Setup interfaces
-        print "opening ws interface"
-        self._ws_interface  = router.add_interface('websocket')
+        #self._ws_interface  = router.add_interface('websocket')
         self._local_interface  = router.add_interface('unix')
         self._server_interface = router.add_interface('tcpserver') # Listener XXX port?
 
@@ -185,9 +175,13 @@ class AgentDaemon(Daemon):
             # server
             self._main_interface.down()
         else:
-            # The current agent registers itself as a supernode
-            # XXX import supernode
-             Supernode(hostname = hostname()).insert()
+
+            Supernode = ManifoldObject.from_announce(SUPERNODE_CLASS)
+            
+            supernode_collection = ManifoldLocalCollection(Supernode, 'local')
+            supernode_collection.insert(Supernode(hostname = hostname()))
+
+            router.register_collection(supernode_collection)
 
         #router.get_fib().dump()
         self._router = router

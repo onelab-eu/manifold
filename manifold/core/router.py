@@ -164,8 +164,8 @@ class Router(object):
 # DEPRECATED BY FIB        self._dbgraph = to_3nf(self.get_announces())
 # DEPRECATED BY FIB        self._local_dbgraph = self.get_local_gateway().make_dbgraph()
 
-    def register_object(self, cls, namespace = None):
-        self.get_interface(namespace).register_object(cls, namespace)
+    def register_collection(self, cls, namespace = None):
+        self.get_interface(namespace).register_collection(cls, namespace)
 
     #---------------------------------------------------------------------------
     # Platform management

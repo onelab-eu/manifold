@@ -20,7 +20,7 @@ from manifold.core.query            import Query
 from manifold.core.record           import Record, Records
 from manifold.core.result_value     import ResultValue
 from manifold.core.socket           import Socket
-from manifold.gateways.object       import ManifoldObject
+from manifold.gateways.object       import ManifoldCollection
 from manifold.interfaces            import Interface
 from manifold.operators.projection  import Projection
 from manifold.operators.selection   import Selection
@@ -33,7 +33,7 @@ LOCAL_NAMESPACE = 'local'
 
 
 # The sets of objects exposed by this gateway
-class OLocalLocalObject(ManifoldObject):
+class OLocalLocalObject(ManifoldCollection):
     """
     class object {
         string  table;           /**< The name of the object/table.        */
@@ -48,9 +48,9 @@ class OLocalLocalObject(ManifoldObject):
     """
 
     def get(self, *args, **kwargs):
-        return Records([cls.get_announce().to_dict() for cls in self.get_gateway().get_objects()])
+        return Records([collection.get_object().get_announce().to_dict() for collection in self.get_gateway().get_collections()])
 
-class OLocalLocalColumn(ManifoldObject):
+class OLocalLocalColumn(ManifoldCollection):
     """
     class column {
         string qualifier;
@@ -63,7 +63,7 @@ class OLocalLocalColumn(ManifoldObject):
     };
     """
 
-class OLocalObject(ManifoldObject):
+class OLocalObject(ManifoldCollection):
     """
     class object {
         string  table;           /**< The name of the object/table.        */
@@ -146,10 +146,10 @@ class Gateway(Interface, Node): # XXX Node needed ?
         self._capabilities    = Capabilities()  # XXX in the meantime we support all capabilities
 
         # namespace -> (object_name -> obj)
-        self._objects_by_namespace = dict()
+        self._collections_by_namespace = dict()
 
-        self.register_local_object(OLocalLocalObject)
-        self.register_local_object(OLocalLocalColumn)
+        self.register_local_collection(OLocalLocalObject())
+        self.register_local_collection(OLocalLocalColumn())
 
     def terminate(self):
         pass
@@ -698,18 +698,18 @@ class Gateway(Interface, Node): # XXX Node needed ?
         object_name = query.get_object_name()
 
         try:
-            obj = self.get_object(object_name, namespace)
+            collection = self.get_collection(object_name, namespace)
         except ValueError:
             raise RuntimeError("Invalid object '%s::%s'" % (namespace, object_name))
 
         Log.warning("What we do on the Manifold object should depend on the action")
-        instance = obj()
-        instance.set_gateway(self)
+        collection.set_gateway(self)
+
         # This is because we assure the gateway could modify the packet, which
         # is further used in self.records
         packet_clone = packet.clone()
         packet_clone.set_receiver(packet.get_receiver())
-        records = instance.get(packet_clone)
+        records = collection.get(packet_clone)
 
 
         #elif self._storage:
@@ -722,17 +722,18 @@ class Gateway(Interface, Node): # XXX Node needed ?
     send_impl = receive
     # NOTE: send is inherited from Interface
 
-    def get_object(self, object_name, namespace = None):
-        return self._objects_by_namespace[namespace][object_name]
+    def get_collection(self, object_name, namespace = None):
+        return self._collections_by_namespace[namespace][object_name]
 
-    def get_objects(self, namespace = None):
-        if not namespace in self._objects_by_namespace:
+    def get_collections(self, namespace = None):
+        if not namespace in self._collections_by_namespace:
             return list()
-        return self._objects_by_namespace[namespace].values()
+        return self._collections_by_namespace[namespace].values()
 
-    def register_object(self, cls, namespace = None, is_local = False):
+    def register_collection(self, collection, namespace = None, is_local = False):
         # Register it in the FIB: we ignore the announces in the local namespace
         # unless the platform_name is local
+        cls = collection.get_object()
         platform_name = self.get_platform_name()
         if platform_name == 'local' or not namespace == 'local':
             self.get_router().get_fib().add(self.get_platform_name(), cls.get_announce(), namespace)
@@ -743,12 +744,12 @@ class Gateway(Interface, Node): # XXX Node needed ?
             namespace = None
 
         # Store the object locally
-        if namespace not in self._objects_by_namespace:
-            self._objects_by_namespace[namespace] = dict()
-        self._objects_by_namespace[namespace][cls.get_object_name()] = cls
+        if namespace not in self._collections_by_namespace:
+            self._collections_by_namespace[namespace] = dict()
+        self._collections_by_namespace[namespace][cls.get_object_name()] = collection
 
-    def register_local_object(self, cls, namespace = LOCAL_NAMESPACE):
-        self.register_object(cls, namespace, is_local = True)
+    def register_local_collection(self, cls, namespace = LOCAL_NAMESPACE):
+        self.register_collection(cls, namespace, is_local = True)
 
 #DEPRECATED|        # Fetch Announces produced by the Storage
 #DEPRECATED|        gateway_storage = self._storage.get_gateway()

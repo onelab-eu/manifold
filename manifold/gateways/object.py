@@ -18,6 +18,71 @@ from manifold.core.table            import Table
 from manifold.util.plugin_factory   import PluginFactory
 from manifold.util.type             import accepts, returns 
 
+
+class ManifoldCollection(set):
+
+    def __init__(self, cls = None):
+        # cls is either a ManifoldObject
+        if cls:
+            self._cls = cls
+        elif self.__doc__:
+            announce, = parse_string(self.__doc__, None)
+            self._cls = ManifoldObject.from_announce(announce)
+        else:
+            raise NotImplemented
+
+    def get_gateway(self):
+        return self._gateway
+
+    def set_gateway(self, gateway):
+        self._gateway = gateway
+
+    def get(self, *args, **kwargs):
+        pass
+
+    def insert(self, *args, **kwargs):
+        pass
+
+    def delete(self, *args, **kwargs):
+        pass
+
+    def sync(self):
+        pass
+
+    def get_object(self):
+        return self._cls
+
+class ManifoldLocalCollection(ManifoldCollection):
+
+    def __init__(self, filters = None, fields = None):
+        pass
+
+    def get(cls, query = None): # filter = None, fields = None):
+        print "ManifoldObject::get", cls
+        import copy
+        ret = list()
+        # XXX filter and fields
+        # XXX How to preserve the object class ?
+        for x in self:
+            y = copy.deepcopy(x)
+            y.__class__ = Record
+            ret.append(y)
+        if ret:
+            ret[-1].set_last()
+        else:
+            ret.append(Record(last=True))
+        return ret
+
+    def insert(self, obj):
+        self.add(obj)
+
+    def remove(self):
+        self.remove(obj)
+
+class ManifoldRemoteCollection(ManifoldCollection):
+    def sync(self):
+        pass
+    
 class ManifoldObject(Record):
 
     __metaclass__   = PluginFactory
@@ -26,16 +91,22 @@ class ManifoldObject(Record):
     __object_name__ = None
     __fields__      = None
     __keys__        = None
-    _collection     = list()
+
+    @staticmethod
+    def from_announce(announce):
+        obj = ManifoldObject()
+
+        table = announce.get_table()
+        obj.__class__.__object_name__    = table.get_name()
+        obj.__class__.__fields__         = table.get_fields()
+        obj.__class__.__keys__           = table.get_keys()
+
+        return obj
+
 
     def get_router(self):
         return self.get_gateway().get_router()
 
-    def get_gateway(self):
-        return self._gateway
-
-    def set_gateway(self, gateway):
-        self._gateway = gateway
 
     @classmethod
     def get_object_name(cls):
@@ -60,29 +131,6 @@ class ManifoldObject(Record):
             return announce.get_table().get_keys()
         else:
             return cls.__keys__
-
-    @classmethod
-    def get(cls, query = None): # filter = None, fields = None):
-        print "ManifoldObject::get", cls
-        import copy
-        ret = list()
-        # XXX filter and fields
-        # XXX How to preserve the object class ?
-        for x in cls._collection:
-            y = copy.deepcopy(x)
-            y.__class__ = Record
-            ret.append(y)
-        if ret:
-            ret[-1].set_last()
-        else:
-            ret.append(Record(last=True))
-        return ret
-
-    def insert(self):
-        self._collection.append(self)
-
-    def remove(self):
-        self._collection.remove(self)
 
     @classmethod
     def get_announce(cls):

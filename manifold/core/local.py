@@ -17,7 +17,7 @@ from types                          import StringTypes
 
 from manifold.core.record           import Records
 from manifold.gateways              import Gateway, OLocalLocalColumn
-from manifold.gateways.object       import ManifoldObject
+from manifold.gateways.object       import ManifoldCollection
 from manifold.util.log              import Log
 from manifold.util.type             import accepts, returns
 
@@ -25,7 +25,7 @@ from manifold.util.type             import accepts, returns
 LOCAL_NAMESPACE = "local"
 
 
-class OLocalObject(ManifoldObject):
+class OLocalObject(ManifoldCollection):
     """
     class object {
         string  table;           /**< The name of the object/table.        */
@@ -44,7 +44,7 @@ class OLocalObject(ManifoldObject):
 
 OLocalColumn = OLocalLocalColumn
 
-class OLocalGateway(ManifoldObject):
+class OLocalGateway(ManifoldCollection):
     """
     class gateway {
         string type;
@@ -80,8 +80,8 @@ class LocalGateway(Gateway):
         super(LocalGateway, self).__init__(router, platform_name, platform_config)
 
         # XXX We could automatically load objects...
-        self.register_object(OLocalObject)
-        self.register_object(OLocalColumn)
-        self.register_object(OLocalGateway)
+        self.register_collection(OLocalObject())
+        self.register_collection(OLocalColumn())
+        self.register_collection(OLocalGateway())
 
 

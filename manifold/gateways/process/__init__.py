@@ -7,7 +7,7 @@ from manifold.core.field        import Field
 from manifold.gateways          import Gateway
 from manifold.core.key          import Key
 from manifold.core.table        import Table
-from manifold.gateways.object   import ManifoldObject
+from manifold.gateways.object   import ManifoldCollection
 from manifold.util.log          import Log
 from manifold.util.misc         import is_iterable
 from manifold.util.predicate    import eq, included
@@ -41,10 +41,10 @@ FLAG_IN_ANNOTATION      = 1<<1
 FLAG_OUT_ANNOTATION     = 1<<2
 FLAG_ADD_FIELD          = 1<<3
 
-class ProcessObject(ManifoldObject):
+class ProcessCollection(ManifoldCollection):
 
     def __init__(self, *args, **kwargs):
-        ManifoldObject.__init__(self, *args, **kwargs)
+        ManifoldCollection.__init__(self, *args, **kwargs)
 
         self._in_progress = dict()
         self._records = dict()

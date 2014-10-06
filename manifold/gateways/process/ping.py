@@ -3,7 +3,7 @@
 
 import pyparsing as pp
 from manifold.util.filesystem import hostname
-from .             import ProcessGateway, ProcessObject, Argument, Parameter, FLAG_IN_ANNOTATION, FLAG_OUT_ANNOTATION, FLAG_ADD_FIELD
+from .             import ProcessGateway, ProcessCollection, Argument, Parameter, FLAG_IN_ANNOTATION, FLAG_OUT_ANNOTATION, FLAG_ADD_FIELD
 from ...util.log   import Log
 
 class PingParser(object):
@@ -151,7 +151,7 @@ class PingParser(object):
             Log.warning(" " * e.col, "^--- syntax error")
         return []
 
-class PingObject(ProcessObject):
+class PingCollection(ProcessCollection):
     """
     class ping {
         inet source;
@@ -223,7 +223,8 @@ class PingObject(ProcessObject):
     parser = PingParser
     path = '/bin/ping'
 
-class ProbePingObject(ProcessObject):
+# XXX
+class ProbePingCollection(ProcessCollection):
     """
     class probe_ping {
         float delay;
@@ -245,5 +246,5 @@ class PingGateway(ProcessGateway):
         """
         ProcessGateway.__init__(self, router, platform_name, platform_config)
 
-        self.register_object(PingObject)
-        self.register_object(ProbePingObject)
+        self.register_collection(PingCollection())
+        self.register_collection(ProbePingCollection())
