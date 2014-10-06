@@ -75,7 +75,6 @@ class TCPSocketInterface(Factory, Interface):
             self._client.send_packet(full_packet)
 
     def send_impl(self, packet):
-        print "tcp socket send impl", packet
         if not self._client:
             self._tx_buffer.append(packet)
         else:
