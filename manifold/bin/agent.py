@@ -9,6 +9,7 @@
 
 import subprocess, operator
 
+from manifold.core.announce             import Announces
 from manifold.core.destination          import Destination
 from manifold.core.field_names          import FieldNames
 from manifold.core.filter               import Filter
