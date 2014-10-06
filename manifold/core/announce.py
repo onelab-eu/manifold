@@ -174,6 +174,10 @@ class Announces(list):
 
         return announces
 
+    @staticmethod
+    def from_string(string, platform_name):
+        return parse_string(string, platform_name)
+
 #DEPRECATED|    @staticmethod
 #DEPRECATED|    #@returns(Announces)
 #DEPRECATED|    def from_dot_h(platform_name, gateway_type):

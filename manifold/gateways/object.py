@@ -10,7 +10,7 @@
 from types                          import GeneratorType
 
 from manifold.core.annotation       import Annotation
-from manifold.core.announce         import Announce, Announces, parse_string, announces_from_docstring
+from manifold.core.announce         import Announce, Announces, announces_from_docstring
 from manifold.core.method           import Method
 from manifold.core.query            import Query
 from manifold.core.record           import Record, Records
@@ -26,7 +26,7 @@ class ManifoldCollection(set):
         if cls:
             self._cls = cls
         elif self.__doc__:
-            announce, = parse_string(self.__doc__, None)
+            announce, = Announces.from_string(self.__doc__, None)
             self._cls = ManifoldObject.from_announce(announce)
         else:
             raise NotImplemented
@@ -136,7 +136,7 @@ class ManifoldObject(Record):
     def get_announce(cls):
         # The None value corresponds to platform_name. Should be deprecated # soon.
         if cls.__doc__:
-            announce, = parse_string(cls.__doc__, None)
+            announce, = Announces.from_string(cls.__doc__, None)
             return announce
         else:
             table = Table(None, cls.get_object_name(), cls.get_fields(), cls.get_keys())

@@ -176,7 +176,7 @@ class AgentDaemon(Daemon):
             self._main_interface.down()
         else:
 
-            Supernode = ManifoldObject.from_announce(SUPERNODE_CLASS)
+            Supernode = ManifoldObject.from_announce(Announces.from_string(SUPERNODE_CLASS))
             
             supernode_collection = ManifoldLocalCollection(Supernode, 'local')
             supernode_collection.insert(Supernode(hostname = hostname()))

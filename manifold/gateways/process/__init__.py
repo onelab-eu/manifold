@@ -2,7 +2,7 @@
 
 import threading, subprocess, uuid, os
 
-from ...core.announce           import Announces, parse_string
+from ...core.announce           import Announces
 from manifold.core.field        import Field
 from manifold.gateways          import Gateway
 from manifold.core.key          import Key
