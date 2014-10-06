@@ -50,7 +50,7 @@ class PingParser(object):
 
         # Bof:   
         ip       = pp.Combine(pp.Word(pp.nums) + ('.' + pp.Word(pp.nums))*3)
-        hostnamepart = pp.Word(pp.alphas, pp.alphanums+"_")
+        hostnamepart = pp.Word(pp.alphas, pp.alphanums+'_'+'-')
         hostname = pp.Combine( hostnamepart + pp.ZeroOrMore("." + hostnamepart) )
         hostref = ip | hostname
         integer = pp.Word(pp.nums)\

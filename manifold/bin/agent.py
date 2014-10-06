@@ -165,7 +165,7 @@ class AgentDaemon(Daemon):
             supernode = self.get_supernode(self._main_interface) # XXX Blocking ???
             #self._client_interface.down()
 
-            ############self._client_interface = router.add_interface('tcp', supernode)
+            self._client_interface = router.add_interface('tcp', supernode)
             #self._client_interface.connect(supernode)
 
             # Register as a supernode on the main server
