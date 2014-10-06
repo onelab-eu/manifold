@@ -57,8 +57,8 @@ class ManifoldCollection(set):
 
 class ManifoldLocalCollection(ManifoldCollection):
 
-    def get(cls, query = None): # filter = None, fields = None):
-        print "ManifoldObject::get", cls
+    def get(self, query = None): # filter = None, fields = None):
+        print "ManifoldObject::get", self
         import copy
         ret = list()
         # XXX filter and fields
