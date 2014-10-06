@@ -705,7 +705,13 @@ class Gateway(Interface, Node): # XXX Node needed ?
         packet_clone.set_receiver(packet.get_receiver())
 
         Log.warning("What we do on the Manifold object should depend on the action")
-        records = collection.get(packet_clone)
+        if packet.get_protocol() == Packet.PROTOCOL_CREATE:
+            print "CREATE SUPERNODE", packet_clone
+            records = collection.insert(packet_clone)
+        elif packet.get_protocol() == Packet.PROTOCOL_GET:
+            records = collection.get(packet_clone)
+        else:
+            raise NotImplemented
 
 
         #elif self._storage:
