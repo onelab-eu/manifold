@@ -176,7 +176,43 @@ class Announces(list):
 
     @staticmethod
     def from_string(string, platform_name):
-        return parse_string(string, platform_name)
+        """
+        Parse a String and produce the corresponding Announces.
+        Args:
+            platform_name: A String containing the platform name.
+        Returns:
+            The corresponding list of Announce instances.
+        """
+        # We build an iterator on the lines in the string
+
+        def iter(string):
+            prevnl = -1
+            while True:
+                nextnl = string.find('\n', prevnl + 1)
+                if nextnl < 0: break
+                yield string[prevnl + 1:nextnl]
+                prevnl = nextnl
+
+        (tables, enum) = parse_iterable(iter(string), platform_name)
+        check_table_consistency(tables)
+        return make_announces(tables)
+
+    @staticmethod
+    def from_file(filename, platform_name):
+        """
+        Parse a ".h" file (see manifold/metadata) and produce
+        the corresponding Announces.
+        Args:
+            platform_name: A String containing the name of the platform.
+        Returns:
+            The corresponding Announces instances.
+        """
+        f = open(filename, 'r')
+        (tables, enum) = parse_iterable(f, platform_name)
+        f.close()
+        check_table_consistency(tables)
+        return make_announces(tables)
+
 
 #DEPRECATED|    @staticmethod
 #DEPRECATED|    #@returns(Announces)
@@ -472,45 +508,6 @@ def check_table_consistency(tables):
 
     # Rq: We cannot check type consistency while a table might refer to types provided by another file.
     # Thus we can't use get_invalid_types yet
-
-@returns(Announces)
-def parse_file(filename, platform_name):
-    """
-    Parse a ".h" file (see manifold/metadata) and produce
-    the corresponding Announces.
-    Args:
-        platform_name: A String containing the name of the platform.
-    Returns:
-        The corresponding Announces instances.
-    """
-    f = open(filename, 'r')
-    (tables, enum) = parse_iterable(f, platform_name)
-    f.close()
-    check_table_consistency(tables)
-    return make_announces(tables)
-
-@returns(Announces)
-def parse_string(string, platform_name):
-    """
-    Parse a String and produce the corresponding Announces.
-    Args:
-        platform_name: A String containing the platform name.
-    Returns:
-        The corresponding list of Announce instances.
-    """
-    # We build an iterator on the lines in the string
-
-    def iter(string):
-        prevnl = -1
-        while True:
-            nextnl = string.find('\n', prevnl + 1)
-            if nextnl < 0: break
-            yield string[prevnl + 1:nextnl]
-            prevnl = nextnl
-
-    (tables, enum) = parse_iterable(iter(string), platform_name)
-    check_table_consistency(tables)
-    return make_announces(tables)
 
 def announces_from_docstring(platform_name):
     """
