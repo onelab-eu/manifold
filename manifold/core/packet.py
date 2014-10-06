@@ -188,12 +188,16 @@ class Packet(object):
         destination = self.get_destination()
 
         object_name = destination.get_object()
+        namespace   = destination.get_namespace()
         filters     = destination.get_filter()
         field_names = destination.get_field_names()
 
         params      = self.get_data()
 
-        query = Query.get(object_name)
+        if namespace:
+            query = Query.get("%s:%s" % (namespace, object_name))
+        else:
+            query = Query.get(object_name)
         if filters:
             query.filter_by(filters)
         if field_names:
