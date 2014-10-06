@@ -246,6 +246,10 @@ class Router(object):
 
     def add_interface(self, interface_type, *args, **kwargs):
         interface_cls = Interface.factory_get(interface_type)
+        if not interface_cls:
+            Log.warning("Could not create a %(interface_type)s interface")
+            return None
+
         router_args = (self,) + args
         interface = interface_cls(*router_args, **kwargs)
         # Note the interface will register itself when initialized properly
