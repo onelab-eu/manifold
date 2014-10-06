@@ -205,7 +205,7 @@ class SFAGateway(Gateway):
         elif server_hrn.startswith('wilab2'):
             server_hrn = "wilab2.ilabt.iminds.be"
             parser = WiLabtParser
-        elif server_hrn.startswith('ofelia') or server_hrn.startswith('openflow'):
+        elif server_hrn.startswith('ofelia') or 'openflow' in server_hrn:
             parser = OfeliaOcfParser
         elif 'vtam' in server_hrn:
             parser = OfeliaVTAMParser
@@ -1430,6 +1430,9 @@ class SFAGateway(Gateway):
         if 'flowspace' in rsrc_slice:
             rsrc_slice['flowspace'] = Records(rsrc_slice['flowspace'])
 
+        if 'vms' in rsrc_slice:
+            rsrc_slice['vms'] = Records(rsrc_slice['vms'])
+
         if slice_urn:
             rsrc_slice['slice'] = slice_urn
             for r in rsrc_slice['resource']:
@@ -2010,7 +2013,8 @@ class SFAGateway(Gateway):
 
         # flowspace is the openflow:sliver returned in the manifest RSpec
         # this corresponds to the request RSpec sent by the experimenter
-        rsrc_slice['flowspace'] = Records(rsrc_slice['flowspace'])
+        if 'flowspace' in rsrc_slice:
+            rsrc_slice['flowspace'] = Records(rsrc_slice['flowspace'])
 
         slice = {
             'slice_hrn': slice_hrn,
