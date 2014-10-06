@@ -136,7 +136,7 @@ class Keys(set):
         new_fields = set()
         for key1 in self:
             if key1.get_field_names() == key2.get_field_names():
-                print Log.warning("Key collision is not working properly. Missing == and &")
+                Log.warning("Key collision is not working properly. Missing == and &")
                 break
                 # key1 and key2 collide, build a new key which merge key1 and key2
                 for field1 in key1:

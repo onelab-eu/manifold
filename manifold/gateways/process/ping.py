@@ -49,16 +49,19 @@ class PingParser(object):
         EPAR = pp.Literal(')')
 
         # Bof:   
-        ip      = pp.Combine(pp.Word(pp.nums) + ('.' + pp.Word(pp.nums))*3)
+        ip       = pp.Combine(pp.Word(pp.nums) + ('.' + pp.Word(pp.nums))*3)
+        hostnamepart = pp.Word(pp.alphas, pp.alphanums+"_")
+        hostname = pp.Combine( hostnamepart + pp.ZeroOrMore("." + hostnamepart) )
+        hostref = ip | hostname
         integer = pp.Word(pp.nums)\
                 .setParseAction(lambda t:int(t[0]))
         float   = pp.Regex(r'\d+(\.\d*)?([eE]\d+)?')
              
         header = (
                 pp.Literal("PING").suppress() 
-            +   ip.setResultsName('ip')
+            +   hostref.setResultsName('hostname')
             +   BPAR.suppress()
-            +   ip.setResultsName('hostname')
+            +   ip.setResultsName('ip')
             +   EPAR.suppress()
             +   integer.setResultsName('size1')
             +   BPAR.suppress()
@@ -72,7 +75,11 @@ class PingParser(object):
         probe = (
                 integer.setResultsName('size3')
             +   pp.Literal("bytes from").suppress()
-            +   ip.setResultsName('ip2')
+            +   hostref.setResultsName('ip2')
+            +   pp.Optional( 
+                    BPAR.suppress()
+                +   ip.setResultsName('ip2')
+                +   EPAR.suppress())
             +   pp.Literal(":").suppress()
             +   pp.Regex("icmp_(s|r)eq=")
             +   integer.setResultsName('seq')
@@ -89,7 +96,7 @@ class PingParser(object):
 
         stat_header  = (
                 pp.Literal("---")
-            +   ip
+            +   hostref
             +   pp.Literal("ping statistics ---")
         ).suppress()
 

@@ -74,7 +74,8 @@ class TCPSocketInterface(Factory, Interface):
             full_packet = self._tx_buffer.pop()
             self._client.send_packet(full_packet)
 
-    def send_impl(self, packet, destination, receiver):
+    def send_impl(self, packet):
+        print "tcp socket send impl", packet
         if not self._client:
             self._tx_buffer.append(packet)
         else:
@@ -89,6 +90,7 @@ class TCPSocketInterface(Factory, Interface):
     # = when we receive a packet from outside
     def receive(self, packet):
         packet.set_receiver(self._receiver)
+        print "IN]]]]", packet
         Interface.receive(self, packet)
 
 class TCPClientSocketInterface(ClientFactory, TCPSocketInterface):
@@ -116,4 +118,4 @@ class TCPServerSocketInterface(TCPSocketInterface):
 
     def __init__(self, router, port = DEFAULT_PORT):
         TCPSocketInterface.__init__(self, router)
-        ReactorThread().listenTCP(port, TCPSocketInterface(router))
+        ReactorThread().listenTCP(port, self) # XXX TCPSocketInterface(router))

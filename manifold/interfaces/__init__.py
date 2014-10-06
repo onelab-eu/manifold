@@ -62,7 +62,7 @@ class Interface(object):
     def _request_announces(self):
         self.send(GET(), destination=Destination('object', namespace='local'), receiver = self._router.get_fib())
 
-    def send_impl(self, packet, destination, receiver):
+    def send_impl(self, packet):
         raise NotImplemented
 
     def send(self, packet, source = None, destination = None, receiver = None):
@@ -85,15 +85,14 @@ class Interface(object):
 
         if not receiver:
             receiver = packet.get_receiver()
+        else:
+            packet.set_receiver(receiver)
 
         if receiver:
             self._flow_map[packet.get_flow()] = receiver
-
-        else:
-            print "no receive => no flow map"
-
+        
         print "[OUT]", packet
-        self.send_impl(packet, destination, receiver)
+        self.send_impl(packet)
 
     def receive(self, packet):
         """
@@ -109,7 +108,7 @@ class Interface(object):
 
         receiver = self._flow_map.get(flow)
         if not receiver:
-            print "+> router"
+            print "packet has no receiver", packet
             print "self._flow_map=", self._flow_map
             # New flows are sent to the router
             self._router.receive(packet)

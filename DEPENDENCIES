@@ -22,3 +22,6 @@ deb http://demo.myslice.info/debian/ binary/
                                                                                                                                                                                                                                  
 (root@debian)(~/repos/tophat) cat /etc/apt/sources.list.d/sfa.list                                                                                                                                                           
 deb http://build-debian.onelab.eu/sfa/stable-wheezy-64/ ./   
+
+- For the websocket interface
+pip install autobahn

@@ -9,6 +9,8 @@ from manifold.core.key          import Key
 from manifold.core.table        import Table
 from manifold.gateways.object   import ManifoldObject
 from manifold.util.log          import Log
+from manifold.util.misc         import is_iterable
+from manifold.util.predicate    import eq, included
 from manifold.util.type         import accepts, returns
 
 class ProcessField(dict):
@@ -54,6 +56,7 @@ class ProcessObject(ManifoldObject):
             Log.warning("Process does not exist, returning empty")
             self.get_gateway().records([], packet)
             return
+
 
         query       = packet.get_query()
         annotation = packet.get_annotation()
@@ -109,6 +112,20 @@ class ProcessObject(ManifoldObject):
     get_max_arguments = get_num_arguments
 
     def get_argtuples(self, query, annotation):
+        """
+        This function creates the list of arguments of the program by getting
+        parameter and argument values from the query.
+
+        Return value:
+        A list of tuples (args, params)
+            args = the command line to execute
+            params = the manifold representation of the query associated to a
+            command line
+        """
+        args = tuple()
+        params = dict()
+        ret = [(args, params,)]
+
         args = tuple()
         params = dict()
 
@@ -140,7 +157,7 @@ class ProcessObject(ManifoldObject):
                 else:
                     # XXX At the moment we are only supporting eq
                     # XXX We might have tuples
-                    value = query.get_filter().get_eq(name)
+                    value = query.get_filter().get_op(name, (eq, included))
 
                 if not value:
                     default = process_field.get_default()
@@ -148,30 +165,52 @@ class ProcessObject(ManifoldObject):
                         value = default
 
                 # XXX Argument with no value == ERROR
+                prefix = process_field.get_prefix()
 
-                # XXX We might have a list
                 if field_type == FIELD_TYPE_PARAMETER:
+                    # Parameters
+                    if not value:
+                        continue
                     short = process_field.get_short()
-                    if value:
+
+                    oldret, ret = ret, list()
+                    if is_iterable(value):
+                        for args, params in oldret:
+                            for v in value:
+                                v = str(v)
+                                argvalue = "%s%s" % (prefix, v) if prefix else v
+                                params[name] = v
+                                newargs = args + (short, argvalue,)
+                                ret.append( (newargs, params,) )
+
+                    else:
                         value = str(value)
-                        params[name] = value
-                        prefix = process_field.get_prefix()
-                        if prefix:
-                            value = "%s%s" % (prefix, value)
-                        args += (short, value)
+                        argvalue = "%s%s" % (prefix, value) if prefix else value
+                        for args, params in oldret:
+                            params[name] = value
+                            newargs = args + (short, argvalue,)
+                            ret.append( (newargs, params,) )
                 else:
-                    prefix = process_field.get_prefix()
-                    params[name] = value
-                    if prefix:
-                        value = "%s%s" % (prefix, value)
-                    args += (value,)
-
-
-        return [(args, params)]
+                    # Arguments
+                    if is_iterable(value):
+                        oldret, ret = ret, list()
+                        for args, params in oldret:
+                            for v in value:
+                                argvalue = "%s%s" % (prefix, v) if prefix else v
+                                params[name] = v
+                                newargs = args + (argvalue,)
+                                ret.append( (newargs, params,) )
+                    else:
+                        argvalue = "%s%s" % (prefix, value) if prefix else value
+                        for args, params in ret:
+                            params[name] = value
+                            newargs = args + (argvalue,)
+                            ret.append( (newargs, params,) )
+        return ret
 
     def execute_process(self, args, params, packet, batch_id):
         ret = 0
-        print "execute process", args, params, packet, batch_id
+        #print "execute process", args, params, packet, batch_id
 
         def runInThread(args, params, packet, batch_id):
             self._records[batch_id] = []

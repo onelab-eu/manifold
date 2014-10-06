@@ -77,6 +77,7 @@ class Packet(object):
     PROTOCOL_CREATE = 5
     PROTOCOL_UPDATE = 6
     PROTOCOL_DELETE = 7
+    PROTOCOL_PING = 8
 
     PROTOCOL_QUERY = (PROTOCOL_GET, PROTOCOL_UPDATE, PROTOCOL_DELETE) # TEMP, Records == CREATE
 
@@ -88,6 +89,7 @@ class Packet(object):
         PROTOCOL_CREATE : "CREATE",
         PROTOCOL_UPDATE : "UPDATE",
         PROTOCOL_DELETE : "DELETE",
+        PROTOCOL_PING : "PING",
     }
 
     #---------------------------------------------------------------------------
@@ -742,6 +744,9 @@ class Record(Packet):
         else:
             return Record(izip(key, value))
 
+class PING(Packet):
+    def __init__(self):
+        Packet.__init__(self, Packet.PROTOCOL_PING)
 
 class GET(Packet):
     def __init__(self):

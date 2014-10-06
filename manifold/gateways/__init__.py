@@ -137,9 +137,9 @@ class Gateway(Interface, Node): # XXX Node needed ?
 
         Log.warning("Gateway should become an interface")
 
+        Interface.__init__(self, router)
         Node.__init__(self)
         assert router
-        self._router          = router          # Router
         self._platform_name   = platform_name   # String
         self._platform_config = platform_config # dict
         self._announces       = None            # list(Announces)
@@ -559,10 +559,6 @@ class Gateway(Interface, Node): # XXX Node needed ?
         error_packet = self.make_error(GATEWAY, description, is_fatal)
         packet.get_receiver().receive(error_packet)
 
-    def send(self, src_packet, packet):
-        #socket = self.get_socket(src_packet.get_query())
-        src_packet.get_receiver().receive(packet)
-
     @returns(bool)
     def handle_query_object(self, packet):
         ret = False
@@ -706,6 +702,7 @@ class Gateway(Interface, Node): # XXX Node needed ?
         except ValueError:
             raise RuntimeError("Invalid object '%s::%s'" % (namespace, object_name))
 
+        Log.warning("What we do on the Manifold object should depend on the action")
         instance = obj()
         instance.set_gateway(self)
         # This is because we assure the gateway could modify the packet, which
@@ -721,7 +718,9 @@ class Gateway(Interface, Node): # XXX Node needed ?
 
         if records:
             self.records(records, packet)
-    send = receive
+
+    send_impl = receive
+    # NOTE: send is inherited from Interface
 
     def get_object(self, object_name, namespace = None):
         return self._objects_by_namespace[namespace][object_name]

@@ -32,9 +32,12 @@ class SyncReceiver(Node, ChildSlotMixin):
         """
         Node.__init__(self)
         ChildSlotMixin.__init__(self)
+        self._event = threading.Event()
+        self.clear()
+
+    def clear(self):
         self._records = Records() # Records resulting from a Query
         self._errors = list()     # ResultValue to errors which have occured
-        self._event = threading.Event()
 
     #---------------------------------------------------------------------------
     # Methods
@@ -83,4 +86,6 @@ class SyncReceiver(Node, ChildSlotMixin):
         """
         self._event.wait()
         self._event.clear()
-        return ResultValue.get(self._records, self._errors)
+        rv = ResultValue.get(self._records, self._errors)
+        self.clear()
+        return rv

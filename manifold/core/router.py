@@ -171,6 +171,7 @@ class Router(object):
     # Platform management
     #---------------------------------------------------------------------------
 
+    # XXX TO DEPRECATE
     @returns(bool)
     def add_peer(self, platform_name, hostname, port = DEFAULT_PEER_PORT):
         """
@@ -196,8 +197,9 @@ class Router(object):
         url = DEFAULT_PEER_URL % locals()
         return self.add_platform(platform_name, "manifold", {"url" : url})
 
+    # XXX TO DEPRECATE
     # This will be the only calls for manipulating router platforms
-    @returns(bool)
+    @returns(Gateway)
     def add_platform(self, platform_name, gateway_type, platform_config = None):
         """
         Add a platform (register_platform + enable_platform) in this Router
@@ -235,9 +237,9 @@ class Router(object):
         except Exception, e:
             Log.warning(traceback.format_exc())
             Log.warning("Error while adding %(platform_name)s[%(platform_config)s] (%(platform_config)s): %(e)s" % locals())
-            return False
+            return None
 
-        return True
+        return gateway
 
     def register_interface(self, interface):
         self._interfaces[interface.get_uuid()] = interface
