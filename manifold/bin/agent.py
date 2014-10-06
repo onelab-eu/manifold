@@ -42,7 +42,7 @@ from gevent.threadpool import ThreadPool
 SERVER_SUPERNODE = 'clitos.ipv6.lip6.fr'
 
 SUPERNODE_CLASS = """
-class Supernode {
+class supernode {
     string hostname;
     float rtt;
     KEY(hostname);
