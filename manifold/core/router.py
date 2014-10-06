@@ -224,7 +224,7 @@ class Router(object):
 
             # Retrieving announces from gateway, and populate the FIB
             packet = GET()
-            packet.set_destination(Destination('local:object'))
+            packet.set_destination(Destination('object', namespace='local'))
             packet.set_receiver(self)
             gateway.receive(packet)
 

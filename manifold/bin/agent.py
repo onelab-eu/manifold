@@ -120,7 +120,7 @@ class AgentDaemon(Daemon):
     def check_connectivity(self, interface):
         # XXX Can't we get events from the interface
         receiver = SyncReceiver()
-        interface.send(PING(), Destination('local:object'), receiver = receiver)
+        interface.send(PING(), Destination('object', namespace='local'), receiver = receiver)
 
         # How to detect timeout
         # What is a valid result

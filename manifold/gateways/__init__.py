@@ -687,28 +687,24 @@ class Gateway(Interface, Node): # XXX Node needed ?
         Args:
             packet: A QUERY Packet instance.
         """
-        query = packet.get_query()
-
-        # Since the original query will be altered, we are making a copy here,
-        # so that the pit dictionary is not altered
-        new_query = query.clone() # USELESS XXX
-
-        action = query.get_action()
-        namespace = query.get_namespace()
-        object_name = query.get_object_name()
+        destination = packet.get_destination()
+        
+        namespace   = destination.get_namespace()
+        object_name = destination.get_object_name()
 
         try:
             collection = self.get_collection(object_name, namespace)
         except ValueError:
             raise RuntimeError("Invalid object '%s::%s'" % (namespace, object_name))
 
-        Log.warning("What we do on the Manifold object should depend on the action")
         collection.set_gateway(self)
 
         # This is because we assure the gateway could modify the packet, which
         # is further used in self.records
         packet_clone = packet.clone()
         packet_clone.set_receiver(packet.get_receiver())
+
+        Log.warning("What we do on the Manifold object should depend on the action")
         records = collection.get(packet_clone)
 
 
