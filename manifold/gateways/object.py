@@ -37,6 +37,9 @@ class ManifoldCollection(set):
     def set_gateway(self, gateway):
         self._gateway = gateway
 
+    def get_router(self):
+        return self.get_gateway().get_router()
+
     def get(self, *args, **kwargs):
         pass
 
@@ -99,10 +102,6 @@ class ManifoldObject(Record):
         obj.__keys__           = table.get_keys()
 
         return obj
-
-
-    def get_router(self):
-        return self.get_gateway().get_router()
 
 
     @classmethod
