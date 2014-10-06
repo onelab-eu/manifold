@@ -91,14 +91,14 @@ class Interface(object):
         if receiver:
             self._flow_map[packet.get_flow()] = receiver
         
-        print "[OUT]", packet
+        #print "[OUT]", packet
         self.send_impl(packet)
 
     def receive(self, packet):
         """
         For packets received from the remote server."
         """
-        print "[ IN]", self, packet
+        #print "[ IN]", self, packet
         packet._ingress = self.get_interface_name()
         # XXX Not all packets are targeted at the router.
         # - announces are
