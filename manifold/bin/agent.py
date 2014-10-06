@@ -32,7 +32,7 @@ from manifold.util.predicate            import Predicate
 from manifold.core.annotation           import Annotation
 from manifold.core.field                import Field
 from manifold.core.key                  import Key
-from manifold.gateways.object           import ManifoldObject
+from manifold.gateways.object           import ManifoldObject, ManifoldLocalCollection
 from manifold.core.packet               import GET, CREATE
 from manifold.core.query                import Query
 from manifold.core.sync_receiver        import SyncReceiver
