@@ -54,9 +54,6 @@ class ManifoldCollection(set):
 
 class ManifoldLocalCollection(ManifoldCollection):
 
-    def __init__(self, filters = None, fields = None):
-        pass
-
     def get(cls, query = None): # filter = None, fields = None):
         print "ManifoldObject::get", cls
         import copy
@@ -94,12 +91,12 @@ class ManifoldObject(Record):
 
     @staticmethod
     def from_announce(announce):
-        obj = ManifoldObject()
+        obj = ManifoldObject
 
         table = announce.get_table()
-        obj.__class__.__object_name__    = table.get_name()
-        obj.__class__.__fields__         = table.get_fields()
-        obj.__class__.__keys__           = table.get_keys()
+        obj.__object_name__    = table.get_name()
+        obj.__fields__         = table.get_fields()
+        obj.__keys__           = table.get_keys()
 
         return obj
 

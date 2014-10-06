@@ -180,10 +180,10 @@ class AgentDaemon(Daemon):
             announce, = Announces.from_string(SUPERNODE_CLASS)
             Supernode = ManifoldObject.from_announce(announce)
             
-            supernode_collection = ManifoldLocalCollection(Supernode, 'local')
+            supernode_collection = ManifoldLocalCollection(Supernode)
             supernode_collection.insert(Supernode(hostname = hostname()))
 
-            router.register_collection(supernode_collection)
+            router.register_collection(supernode_collection, 'local')
 
         #router.get_fib().dump()
         self._router = router
