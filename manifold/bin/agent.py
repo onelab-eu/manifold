@@ -78,8 +78,7 @@ class AgentDaemon(Daemon):
         self._ping.send(GET(), 
                 destination = Destination('ping',
                     Filter().filter_by(Predicate('destination', 'included', map(operator.itemgetter('hostname'), supernodes))),
-                    FieldNames(['destination', 'delay']),
-                    namespace='local'),
+                    FieldNames(['destination', 'delay'])),
                 receiver = receiver)
         delays = receiver.get_result_value().get_all()
 
