@@ -7,6 +7,7 @@
 #
 # Copyright (C) UPMC 
 
+import copy
 from types                          import GeneratorType
 
 from manifold.core.annotation       import Annotation
@@ -55,16 +56,17 @@ class ManifoldCollection(set):
     def get_object(self):
         return self._cls
 
+    def copy(self):
+        return copy.deepcopy(self)
+
 class ManifoldLocalCollection(ManifoldCollection):
 
     def get(self, query = None): # filter = None, fields = None):
-        print "ManifoldObject::get", self
-        import copy
         ret = list()
         # XXX filter and fields
         # XXX How to preserve the object class ?
         for x in self:
-            y = copy.deepcopy(x)
+            y = x.copy()
             y.__class__ = Record
             ret.append(y)
         if ret:
@@ -75,6 +77,13 @@ class ManifoldLocalCollection(ManifoldCollection):
 
     def insert(self, obj):
         self.add(obj)
+
+        # XXX What is the return value for a CREATE
+        rec = obj.copy()
+        rec.set_last()
+        ret = Records()
+        ret.append(rec)
+        return ret
 
     def remove(self):
         self.remove(obj)
@@ -103,6 +112,8 @@ class ManifoldObject(Record):
 
         return obj
 
+    def copy(self):
+        return copy.deepcopy(self)
 
     @classmethod
     def get_object_name(cls):

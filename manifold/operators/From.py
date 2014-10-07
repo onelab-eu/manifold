@@ -75,9 +75,6 @@ class From(Operator, ChildSlotMixin):
         self._key          = key
         self._interface      = interface
 
-        # Memorize records received from a parent query (injection)
-        self._parent_records = None
-
     def copy(self):
         return From(self._interface, self._destination.copy(), self._capabilities, self._key)
 
@@ -119,61 +116,6 @@ class From(Operator, ChildSlotMixin):
         except Exception, e:
             print "Exception in repr: %s" % e
 
-#DEPRECATED|    #@returns(From)
-#DEPRECATED|    def inject(self, records, key, query):
-#DEPRECATED|        """
-#DEPRECATED|        Inject record / record keys into the node
-#DEPRECATED|        Args:
-#DEPRECATED|            records: A list of dictionaries representing records,
-#DEPRECATED|                     or list of record keys
-#DEPRECATED|        Returns:
-#DEPRECATED|            ???
-#DEPRECATED|        """
-#DEPRECATED|        if not records:
-#DEPRECATED|            return
-#DEPRECATED|        record = records[0]
-#DEPRECATED|
-#DEPRECATED|        # Are the records a list of full records, or only record keys
-#DEPRECATED|        is_record = isinstance(record, dict)
-#DEPRECATED|
-#DEPRECATED|        # If the injection does not provides all needed fields, we need to
-#DEPRECATED|        # request them and join
-#DEPRECATED|        provided_fields = set(record.keys()) if is_record else set([key])
-#DEPRECATED|        needed_fields = self.query.fields
-#DEPRECATED|        missing_fields = needed_fields - provided_fields
-#DEPRECATED|
-#DEPRECATED|        old_self_callback = self.get_callback()
-#DEPRECATED|
-#DEPRECATED|        if not missing_fields:
-#DEPRECATED|            from_table = FromTable(self.query, records, key)
-#DEPRECATED|            from_table.set_callback(old_self_callback)
-#DEPRECATED|            return from_table
-#DEPRECATED|
-#DEPRECATED|        # If the inject only provide keys, add a WHERE, otherwise a WHERE+JOIN
-#DEPRECATED|        if not is_record or provided_fields < set(records[0].keys()):
-#DEPRECATED|            # We will filter the query by inserting a where on
-#DEPRECATED|            list_of_keys = records.keys() if is_record else records
-#DEPRECATED|            predicate = Predicate(key, included, list_of_keys)
-#DEPRECATED|            where = Selection(self, Filter().filter_by(predicate))
-#DEPRECATED|            where.query = self.query.copy().filter_by(predicate)
-#DEPRECATED|            where.set_callback(old_self_callback)
-#DEPRECATED|            # XXX need reoptimization
-#DEPRECATED|            return where
-#DEPRECATED|        #else:
-#DEPRECATED|        #    print "From::inject() - INJECTING RECORDS"
-#DEPRECATED|
-#DEPRECATED|        missing_fields.add(key) # |= key
-#DEPRECATED|        self.query.fields = missing_fields
-#DEPRECATED|
-#DEPRECATED|        #parent_query = self.query.copy()
-#DEPRECATED|        #parent_query.fields = provided_fields
-#DEPRECATED|        #parent_from = FromTable(parent_query, records, key)
-#DEPRECATED|
-#DEPRECATED|        join = LeftJoin(records, self, Predicate(key, '==', key))
-#DEPRECATED|        join.set_callback(old_self_callback)
-#DEPRECATED|
-#DEPRECATED|        return join
-
     @returns(Destination)
     def get_destination(self):
         """
@@ -205,72 +147,11 @@ class From(Operator, ChildSlotMixin):
         Args:
             packet: A Packet instance.
         """
-        Log.warning("We should not distinguish packet protocols anymore")
-        if packet.get_protocol() in Packet.PROTOCOL_QUERY:
-#DEPRECATED|            query        = packet.get_query()
-#DEPRECATED|            query_fields = query.get_fields()
-#DEPRECATED|
-#DEPRECATED|            # Some fields are already provided in the query
-#DEPRECATED|            records = packet.get_records()
-#DEPRECATED|            if records:
-#DEPRECATED|                parent_fields = FieldNames(records.get_field_names())
-#DEPRECATED|
-#DEPRECATED|                needed_fields = query_fields - parent_fields
-#DEPRECATED|
-#DEPRECATED|                key_fields    = self._key.get_field_names()
-#DEPRECATED|
-#DEPRECATED|                # Let's keep parent records in a dictionary indexed by their key
-#DEPRECATED|
-#DEPRECATED|                if not needed_fields:
-#DEPRECATED|                    map(self.forward_upstream, records)
-#DEPRECATED|                    self.forward_upstream(Record(last = True))
-#DEPRECATED|                    return
-#DEPRECATED|
-#DEPRECATED|                self._parent_records = { r.get_value(key_fields): r for r in records }
-#DEPRECATED|
-#DEPRECATED|                # Update query fields
-#DEPRECATED|                # adding the current query fields allows us to prevent a * to appear when
-#DEPRECATED|                # needed = *, since we know that initially query_fields contains
-#DEPRECATED|                # all fields
-#DEPRECATED|                fields = self.get_query().get_fields() & needed_fields | key_fields
-#DEPRECATED|
-#DEPRECATED|                packet.update_query(lambda q:q.select(fields, clear=True))
+        # We need to add local filters to the query packet
+        filter = self.get_destination().get_filter()
+        packet.update_destination(lambda d: d.add_filter(filter))
 
-            # The presence of UUIDs means the fields are to be provided by the
-            # parent query (query.get_object() has a local key).
-            #uuids = packet.get_records()
-            #if uuids:
-            #    records = self.get_from_local_cache(query.get_object(), uuids)
-            #    map(self.forward_upstream, records)
-            #    self.forward_upstream(Record(last = True))
-            #    return
-
-            # We need to add local filters to the query packet
-            filter = self.get_destination().get_filter()
-            packet.update_destination(lambda d: d.add_filter(filter))
-
-            # Register this flow in the Interface (with the updated query)
-            # socket = self.get_interface().add_flow(packet.get_query(), self)
-            # XXX this has been moved to the interface
-            #self._set_child(socket)
-
-            # XXX source vs. receiver: the pit expects a receiver while the
-            # operator sets a source
-            packet.set_receiver(self)
-            self.get_interface().send(packet)
-
-        elif packet.get_protocol() == Packet.PROTOCOL_CREATE:
-            if self._parent_records:
-                # If we had parent_records, we only asked (missing_fields +
-                # key_fields), we need to join those results
-                key_field_names    = self._key.get_field_names()
-                # XXX need error checking here
-                packet.update(self._parent_records[packet.get_value(key_field_names)])
-
-            self.forward_upstream(packet)
-
-        else:
-            self.forward_upstream(packet)
+        self.get_interface().receive(packet)
 
     @returns(Operator)
     def optimize_selection(self, filter):

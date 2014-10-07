@@ -533,6 +533,7 @@ class Packet(object):
             A Packet instance cloned from self.
         """
         return copy.deepcopy(self)
+    copy = clone
 
     @returns(StringTypes)
     def __repr__(self):

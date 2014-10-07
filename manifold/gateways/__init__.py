@@ -573,27 +573,6 @@ class Gateway(Interface, Node): # XXX Node needed ?
                 ret = True
         return ret
 
-#DEPRECATED|    def receive(self, packet):
-#DEPRECATED|        """
-#DEPRECATED|        Handle a incoming QUERY Packet (processing).
-#DEPRECATED|        Classes inheriting Gateway must not overload this method, they
-#DEPRECATED|        must overload Gateway::receive_impl() instead.
-#DEPRECATED|        Args:
-#DEPRECATED|            packet: A QUERY Packet instance.
-#DEPRECATED|        """
-#DEPRECATED|        self.check_receive(packet)
-#DEPRECATED|
-#DEPRECATED|        if not self.handle_query_object(packet):
-#DEPRECATED|            # This method must be overloaded on the Gateway
-#DEPRECATED|            # See manifold/gateways/template/__init__.py
-#DEPRECATED|            self.receive_impl(packet)
-
-# XXX Since this function always return after the query is sent, we need to close after the last receive record or error instead
-
-#DEPRECATED|        finally:
-#DEPRECATED|            print "finally close"
-#DEPRECATED|            self.close(packet)
-
     #---------------------------------------------------------------------------
     # Methods that could/must be overloaded/overwritten in the child classes
     #---------------------------------------------------------------------------
@@ -626,24 +605,6 @@ class Gateway(Interface, Node): # XXX Node needed ?
             announces Tables not referenced in a dedicated .h file/docstring.
         """
         return Announces.parse_static_routes(STATIC_ROUTES_DIR, self.get_platform_name(), self.get_gateway_type())
-
-#DEPRECATED|    def receive_impl(self, packet):
-#DEPRECATED|        """
-#DEPRECATED|        Handle a incoming QUERY Packet.
-#DEPRECATED|        Args:
-#DEPRECATED|            packet: A QUERY Packet instance.
-#DEPRECATED|        """
-#DEPRECATED|        query = packet.get_query()
-#DEPRECATED|        object = query.get_object()
-#DEPRECATED|
-#DEPRECATED|        records = None
-#DEPRECATED|        # XXX object map could be populated automatically
-#DEPRECATED|        if object in self.object_map.keys():
-#DEPRECATED|            instance = self.object_map[object](self)
-#DEPRECATED|            records = instance.get(query, packet.get_annotation())
-#DEPRECATED|        else:
-#DEPRECATED|            raise RuntimeError("Invalid object %s" % object)
-#DEPRECATED|        self.records(records, packet)
 
     # TODO Rename Producer::make_error() into Producer::error()
     # and retrieve the appropriate consumers and send to them
@@ -692,8 +653,6 @@ class Gateway(Interface, Node): # XXX Node needed ?
         namespace   = destination.get_namespace()
         object_name = destination.get_object_name()
 
-        print "GATEWAY RECEIVE", packet
-
         try:
             collection = self.get_collection(object_name, namespace)
         except ValueError:
@@ -706,20 +665,12 @@ class Gateway(Interface, Node): # XXX Node needed ?
         packet_clone = packet.clone()
         packet_clone.set_receiver(packet.get_receiver())
 
-        Log.warning("What we do on the Manifold object should depend on the action")
-        print "PACKET PROTOCOL", packet.get_protocol()
         if packet.get_protocol() == Packet.PROTOCOL_CREATE:
-            print "CREATE SUPERNODE", packet_clone
             records = collection.insert(packet_clone)
         elif packet.get_protocol() == Packet.PROTOCOL_GET:
             records = collection.get(packet_clone)
         else:
             raise NotImplemented
-
-
-        #elif self._storage:
-        #    records = None
-        #    self._storage.get_gateway().receive_impl(packet)
 
         if records:
             self.records(records, packet)
