@@ -75,10 +75,7 @@ class TCPInterface(Interface):
         return not self.is_up()
 
     def send_impl(self, packet):
-        if not self._client:
-            self._tx_buffer.append(packet)
-        else:
-            self._client.send_packet(packet)
+        raise NotImplemented # Should be overloaded in children classes
 
     # We really are a gateway !!! A gateway is a specialized Interface that
     # answers instead of transmitting.
@@ -88,6 +85,7 @@ class TCPInterface(Interface):
     # from protocol
     # = when we receive a packet from outside
     def receive(self, packet):
+        print "** setting receiver to self._receiver and passing packet to router"
         packet.set_receiver(self._receiver)
         Interface.receive(self, packet)
 
@@ -98,7 +96,9 @@ class ManifoldClientProtocol(ManifoldProtocol):
 
 # For the server, the protocol is the interface
 class ManifoldServerProtocol(ManifoldProtocol, TCPInterface):
-    pass
+
+    def send_impl(self, packet):
+        self.send_packet(packet)
 
 # For the client, the factory is the interface. We have a single client
 # interface and it is maintained through the various connections and
@@ -116,6 +116,12 @@ class TCPClientSocketFactory(TCPInterface, ClientFactory):
         while self._tx_buffer:
             full_packet = self._tx_buffer.pop()
             self.send(full_packet)
+
+    def send_impl(self, packet):
+        if self.is_down():
+            self._tx_buffer.append(packet)
+        else:
+            self._client.send_packet(packet)
 
 
 
