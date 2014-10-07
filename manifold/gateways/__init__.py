@@ -692,6 +692,8 @@ class Gateway(Interface, Node): # XXX Node needed ?
         namespace   = destination.get_namespace()
         object_name = destination.get_object_name()
 
+        print "GATEWAY RECEIVE", packet
+
         try:
             collection = self.get_collection(object_name, namespace)
         except ValueError:
@@ -705,6 +707,7 @@ class Gateway(Interface, Node): # XXX Node needed ?
         packet_clone.set_receiver(packet.get_receiver())
 
         Log.warning("What we do on the Manifold object should depend on the action")
+        print "PACKET PROTOCOL", packet.get_protocol()
         if packet.get_protocol() == Packet.PROTOCOL_CREATE:
             print "CREATE SUPERNODE", packet_clone
             records = collection.insert(packet_clone)
