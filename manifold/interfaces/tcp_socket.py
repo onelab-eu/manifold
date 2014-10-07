@@ -40,13 +40,9 @@ class ManifoldProtocol(IntNStringReceiver):
         self.sendString(packet.serialize())
 
     def connectionMade(self):
-        self._request_announces()
 
         self.factory.on_client_connected(self)
 
-        while self._tx_buffer:
-            full_packet = self._tx_buffer.pop()
-            self.send_packet(full_packet)
 
     # connection lost = client=None in factory
 
@@ -83,7 +79,14 @@ class TCPSocketFactory(Interface, Factory):
         return not self.is_up()
 
     def on_client_connected(self, client):
+        self._request_announces()
+
+        while self._tx_buffer:
+            full_packet = self._tx_buffer.pop()
+            client.send_packet(full_packet)
+
         self._client = client
+
 
 
     def send_impl(self, packet):
