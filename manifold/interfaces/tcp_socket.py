@@ -22,7 +22,7 @@ DEFAULT_PORT = 50000
 
 # Only for server
 
-class ManifoldProtocol(IntNStringReceiver):
+class ManifoldProtocol(Interface, IntNStringReceiver):
     """ The protocol is based on twisted.protocols.basic
         IntNStringReceiver, with little-endian 32-bit
         length prefix.
@@ -30,55 +30,43 @@ class ManifoldProtocol(IntNStringReceiver):
     structFormat = "<L"
     prefixLength = struct.calcsize(structFormat)
 
-    def stringReceived(self, msg):
-        packet = Packet.deserialize(msg)
-        self.factory.receive(packet)
-
-    def send_packet(self, packet):
-        self.sendString(packet.serialize())
-
-    def connectionMade(self):
-        self.factory.on_client_ready(self)
-
-
-
-class TCPSocketInterface(Factory, Interface):
-#class TCPSocketInterface(Interface, ClientFactory):
-    """
-    """
-    protocol = ManifoldProtocol
-
     def __init__(self, router):
         Interface.__init__(self, router)
-        self._client    = None
         self._tx_buffer = list()
-        self._receiver = None
+
+        # Received packets are sent back to the client
+        _self = self
+        class MyReceiver(ChildSlotMixin):
+            def receive(self, packet, slot_id = None):
+                print "RECEIVED PACKET ON INTERFACE", _self
+                _self.send(packet)
+
+        self._receiver = MyReceiver()
+
         ReactorThread().start_reactor()
 
     def terminate(self):
         ReactorThread().stop_reactor()
 
-    def on_client_ready(self, client):
-        _self = self
+    def stringReceived(self, msg):
+        packet = Packet.deserialize(msg)
+        self.receive(packet)
 
+    def send_packet(self, packet):
+        self.sendString(packet.serialize())
+
+    def connectionMade(self):
         self._request_announces()
-        self._client = client
-        # Received packets are sent back to the client
-        class MyReceiver(ChildSlotMixin):
-            def receive(self, packet, slot_id = None):
-                _self.send(packet)
-
-        self._receiver = MyReceiver()
 
         while self._tx_buffer:
             full_packet = self._tx_buffer.pop()
-            self._client.send_packet(full_packet)
+            self.send_packet(full_packet)
 
     def send_impl(self, packet):
         if not self._client:
             self._tx_buffer.append(packet)
         else:
-            self._client.send_packet(packet)
+            self.send_packet(packet)
 
     # We really are a gateway !!! A gateway is a specialized Interface that
     # answers instead of transmitting.
@@ -90,6 +78,33 @@ class TCPSocketInterface(Factory, Interface):
     def receive(self, packet):
         packet.set_receiver(self._receiver)
         Interface.receive(self, packet)
+
+
+class TCPSocketInterface(Factory):
+#class TCPSocketInterface(Interface, ClientFactory):
+    """
+    """
+    protocol = ManifoldProtocol
+
+    def __init__(self, router):
+        self._router = router
+
+    # We need the router when the constructor is called, otherwise we have no
+    # easy way to assign it
+    def buildProtocol(self, addr):
+        """Create an instance of a subclass of Protocol.
+
+        The returned instance will handle input on an incoming server
+        connection, and an attribute \"factory\" pointing to the creating
+        factory.
+
+        Override this method to alter how Protocol instances get created.
+
+        @param addr: an object implementing L{twisted.internet.interfaces.IAddress}
+        """
+        p = self.protocol(self._router)
+        p.factory = self
+        return p
 
 class TCPClientSocketInterface(ClientFactory, TCPSocketInterface):
     """
