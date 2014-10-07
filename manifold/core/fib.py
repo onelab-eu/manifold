@@ -307,6 +307,9 @@ class FIB(ChildSlotMixin):
             table = announce.get_table() # XXX
 
             object_name     = table.get_name() # XXX
+
+            Log.info("FIB ADD %s:%s" % (namespace, object_name,))
+
 #DEPRECATED|            if object_name == 'probe_ping':
 #DEPRECATED|                import pdb; pdb.set_trace()
             keys            = table.get_keys()

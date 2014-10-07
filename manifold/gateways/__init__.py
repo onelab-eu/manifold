@@ -48,7 +48,9 @@ class OLocalLocalObject(ManifoldCollection):
     """
 
     def get(self, *args, **kwargs):
-        return Records([collection.get_object().get_announce().to_dict() for collection in self.get_gateway().get_collections()])
+        objects = Records([collection.get_object().get_announce().to_dict() for collection in self.get_gateway().get_collections()])
+        print "OLocalLocalObject.get = ", objects
+        return objects
 
 class OLocalLocalColumn(ManifoldCollection):
     """
@@ -665,7 +667,6 @@ class Gateway(Interface, Node): # XXX Node needed ?
         # This is because we assure the gateway could modify the packet, which
         # is further used in self.records
         packet_clone = packet.clone()
-        packet_clone.set_receiver(packet.get_receiver())
 
         if packet.get_protocol() == Packet.PROTOCOL_CREATE:
             records = collection.insert(packet_clone)
@@ -676,6 +677,8 @@ class Gateway(Interface, Node): # XXX Node needed ?
 
         if records:
             self.records(records, packet)
+        else:
+            self.record(Record(last = True), packet)
 
     send_impl = receive
     # NOTE: send is inherited from Interface

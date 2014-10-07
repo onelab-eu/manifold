@@ -96,7 +96,9 @@ class TCPInterface(Interface):
     # from protocol
     # = when we receive a packet from outside
     def receive(self, packet):
+        print "PACKET RECEIVED", packet
         packet.set_receiver(self._receiver)
+        print "setting receiver", packet.get_receiver()
         Interface.receive(self, packet)
 
 ################################################################################

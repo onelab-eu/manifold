@@ -27,6 +27,7 @@ ACTION_GET     = 'get'
 ACTION_UPDATE  = 'update'
 ACTION_DELETE  = 'delete'
 ACTION_EXECUTE = 'execute'
+ACTION_PING    = 'ping'
 
 def uniqid():
     return uuid.uuid4().hex
@@ -198,7 +199,8 @@ class Query(object):
             ACTION_GET    : "%(select)s%(sep)s%(at)s%(sep)sFROM %(platform)s%(table)s%(sep)s%(where)s",
             ACTION_UPDATE : "UPDATE %(platform)s%(table)s%(sep)s%(params)s%(sep)s%(where)s%(sep)s%(select)s",
             ACTION_CREATE : "INSERT INTO %(platform)s%(table)s%(sep)s%(params)s",
-            ACTION_DELETE : "DELETE FROM %(platform)s%(table)s%(sep)s%(where)s"
+            ACTION_DELETE : "DELETE FROM %(platform)s%(table)s%(sep)s%(where)s",
+            ACTION_PING   : "PING %(platform)s%(table)s%(sep)s%(where)s",
         }
 
         #Log.tmp(strmap[self.action] % locals())
@@ -451,6 +453,18 @@ class Query(object):
             The corresponding Query instance
         """
         return Query.action(ACTION_EXECUTE, object)
+
+    @staticmethod
+    #@returns(Query)
+    def ping(object):
+        """
+        Craft the Query which execute a processing related to a given object
+        Args:
+            object: The name of the queried object (String)
+        Returns:
+            The corresponding Query instance
+        """
+        return Query.action(ACTION_PING, object)
 
     #@returns(Query)
     def at(self, timestamp):

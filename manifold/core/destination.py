@@ -78,6 +78,11 @@ class Destination(object):
 
     def set_namespace(self, namespace):
         self._namespace = namespace
+        return self
+
+    def clear_namespace(self):
+        self._namespace = None
+        return self
 
     def get_origin(self):
         return self._origin

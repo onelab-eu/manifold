@@ -15,9 +15,11 @@
 import traceback
 from types                          import StringTypes
 
+from manifold                       import __version__
 from manifold.core.record           import Records
 from manifold.gateways              import Gateway, OLocalLocalColumn
 from manifold.gateways.object       import ManifoldCollection
+from manifold.util.filesystem       import hostname
 from manifold.util.log              import Log
 from manifold.util.type             import accepts, returns
 
@@ -79,6 +81,21 @@ class LocalInterfaceCollection(ManifoldCollection):
             interface_list.append(interface)
         return Records(interface_list)
 
+class LocalAboutCollection(ManifoldCollection):
+    """
+    class about {
+        string hostname;
+        string version;
+    };
+    """
+    def get(self, packet):
+        about = {
+            'hostname': hostname(),
+            'version':  __version__
+        }
+        return Records([about])
+
+
 # LocalGateway should be a standard gateway to which we register objects
 # No need for a separate class
 class LocalGateway(Gateway):
@@ -103,9 +120,10 @@ class LocalGateway(Gateway):
         super(LocalGateway, self).__init__(router, platform_name, platform_config)
 
         # XXX We could automatically load objects...
-        self.register_local_collection(OLocalObject())
-        self.register_local_collection(OLocalColumn())
-        self.register_local_collection(LocalGatewayCollection())
-        self.register_local_collection(LocalInterfaceCollection())
+        self.register_collection(OLocalObject())
+        self.register_collection(OLocalColumn())
+        self.register_collection(LocalGatewayCollection())
+        self.register_collection(LocalInterfaceCollection())
+        self.register_collection(LocalAboutCollection())
 
 

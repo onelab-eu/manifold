@@ -338,7 +338,7 @@ class Shell(object):
         Args:
             auth_method: A String instance among "auto", "gid", "local"
         """
-        if auth_method == "auto":
+        if not auth_method or auth_method == "auto":
             methods = ["gid", "password"] if Options().xmlrpc else ["local"]
             for method in methods:
                 try:

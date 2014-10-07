@@ -95,6 +95,7 @@ class Router(object):
         # We request announces from the local gateway (cf # manifold.core.interface)
         # XXX This should be similar for all gateways
         # XXX add_platform
+        print "adding local platform"
         self.add_platform(LOCAL_NAMESPACE, LOCAL_NAMESPACE)
 
 # DEPRECATED BY FIB        self._local_gateway = LocalGateway(router = self)
@@ -108,7 +109,7 @@ class Router(object):
     def terminate(self):
         for gateway in self.gateways.values():
             gateway.terminate()
-        for interface in self.interfaces.values():
+        for interface in self._interfaces.values():
             interface.terminate()
 
     #---------------------------------------------------------------------------
@@ -221,11 +222,13 @@ class Router(object):
         try:
             Log.info("Adding platform [%s] (type: %s, config: %s)" % (platform_name, gateway_type, platform_config))
             if gateway_type == LOCAL_NAMESPACE:
+                print "SPECIAL CASE FOR LOCAL"
                 gateway = LocalGateway(router = self)
             else:
                 gateway = self.make_gateway(platform_name, gateway_type, platform_config)
 
             # Retrieving announces from gateway, and populate the FIB
+            print "getting announces !!!!!!!!! I have a problem with gw and namespaces"
             packet = GET()
             packet.set_destination(Destination('object', namespace='local'))
             packet.set_receiver(self)
@@ -606,7 +609,10 @@ class Router(object):
         # XXX or declare the FIB as a receiver
         # NOTE: Queries have an impact on the FIB/PIT also ?
         elif isinstance(packet, Record):
+            Log.warning("This is not a good way to get announces")
             # Let's assume the record is an announce
+            if packet.is_empty():
+                return
             packet_dict = packet.to_dict()
             origins = packet_dict.get('origins')
             platform_name = origins[0] if origins else 'local'
