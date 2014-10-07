@@ -32,19 +32,26 @@ class ManifoldProtocol(IntNStringReceiver):
     structFormat = "<L"
     prefixLength = struct.calcsize(structFormat)
 
+    def connectionMade(self):
+        self.factory.on_client_connected(self)
+
     def stringReceived(self, msg):
         packet = Packet.deserialize(msg)
-        self.factory.receive(packet)
+        self.receive(packet)
 
     def send_packet(self, packet):
         self.sendString(packet.serialize())
 
-    def connectionMade(self):
-
-        self.factory.on_client_connected(self)
-
-
     # connection lost = client=None in factory
+
+class ManifoldClientProtocol(ManifoldProtocol):
+
+    def receive(self, packet):
+        self.factory.receive(packet)
+
+# For the server, the protocol is the interface
+class ManifoldServerProtocol(ManifoldProtocol, TCPInterface):
+    pass
 
 class TCPInterface(Interface):
     __interface_name__ = 'tcp'
@@ -75,16 +82,6 @@ class TCPInterface(Interface):
     def is_down(self):
         return not self.is_up()
 
-    def on_client_connected(self, client):
-        self._request_announces()
-
-        self._client = client
-
-        while self._tx_buffer:
-            full_packet = self._tx_buffer.pop()
-            self.send(full_packet)
-
-
     def send_impl(self, packet):
         if not self._client:
             self._tx_buffer.append(packet)
@@ -102,15 +99,24 @@ class TCPInterface(Interface):
         packet.set_receiver(self._receiver)
         Interface.receive(self, packet)
 
-# For the client, the factory is the interface
+# For the client, the factory is the interface. We have a single client
+# interface and it is maintained through the various connections and
+# disconnections
 class TCPClientSocketFactory(TCPInterface, ClientFactory):
     """
     """
     protocol = ManifoldProtocol
 
-# For the server, the protocol is the interface
-class ManifoldServerProtocol(ManifoldProtocol, TCPInterface):
-    pass
+    def on_client_connected(self, client):
+        self._request_announces()
+
+        self._client = client
+
+        while self._tx_buffer:
+            full_packet = self._tx_buffer.pop()
+            self.send(full_packet)
+
+
 
 class TCPServerSocketFactory(ServerFactory):
     """
@@ -124,6 +130,11 @@ class TCPServerSocketFactory(ServerFactory):
         p = self.protocol(self._router)
         p.factory = self
         return p
+
+    # We don't care about clients being connected, since we have spawned an
+    # interface for this purpose
+    def on_client_connected(self, client):
+        pass
 
 
 # This is in fact the TCPClientSocketInterface..
