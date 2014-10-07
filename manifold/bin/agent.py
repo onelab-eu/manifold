@@ -75,8 +75,6 @@ class AgentDaemon(Daemon):
         # BaseClass.set_options(deferred = True)
         # supernodes = yield SuperNode.collection(deferred=True)
 
-        print "SUPERNODES", supernodes
-
         # Let's ping supernodes
         # XXX Blocking
         # XXX Such calls should be simplified
@@ -87,10 +85,17 @@ class AgentDaemon(Daemon):
                 receiver = receiver)
         delays = receiver.get_result_value().get_all()
 
-        print "DELAYS", delays
+        # XXX ping: unknown host adreena
+        # XXX This should triggered unregistration of a supernode
+
         # XXX syntax !
         # delays = yield Ping(destination in supernodes, fields=destination, # delay)
         # supernode = min(delays, key=operator.itemgetter('delay'))
+
+        # The agent might have previously registered as a supernode... avoid
+        # loops to self.
+        my_hostname = hostname()
+        delays = [delay for delay in delays if delay['destination'] != my_hostname]
 
         # Let's keep the supernode of min delay (we have no rename since we are
         # not using the router Rename abilities
@@ -108,13 +113,10 @@ class AgentDaemon(Daemon):
         # We now want to create a new object remotely at the server
         # This should trigger an insert query directed towards the server
         receiver = SyncReceiver()
-        print("sending insert packet ofr supernode", hostname())
-        print("interface", interface)
         interface.send(CREATE(hostname = hostname()),
                 destination = Destination('supernode', namespace='local'),
                 receiver = receiver)
         res = receiver.get_result_value().get_all()
-        print("insert result", res)
 
     def withdrawn_as_supernode(self, interface):
         pass

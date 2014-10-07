@@ -57,7 +57,7 @@ DEFAULT_PORT = 9000
 class WebSocketInterface(Interface, WebSocketServerFactory):
     """
     """
-    __interface_name__ = 'websocket'
+    __interface_type__ = 'websocket'
     protocol = MyServerProtocol
 
     def __init__(self, router, port = DEFAULT_PORT):

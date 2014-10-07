@@ -235,7 +235,10 @@ class Router(object):
 #DEPRECATED|            for announce in announces:
 #DEPRECATED|                self._fib.add(platform_name, announce)
 
+            # DEPRECATED
             self.gateways[platform_name] = gateway
+
+            self._interfaces[platform_name] = gateway
 
         except Exception, e:
             Log.warning(traceback.format_exc())
@@ -272,7 +275,9 @@ class Router(object):
         """
         ret = False
         try:
-            del self.gateways[platform_name]
+            # DEPRECATED
+            # del self.gateways[platform_name]
+            del self._interfaces[platform_name]
             ret = True
         except KeyError:
             pass
@@ -346,7 +351,12 @@ class Router(object):
         try:
             #Log.info("Registering platform [%s] (type: %s, config: %s)" % (platform_name, gateway_type, platform_config))
             gateway = self.make_gateway(platform_name, gateway_type, platform_config)
-            self.gateways[platform_name] = gateway
+            
+            # DEPRECATED
+            #self.gateways[platform_name] = gateway
+
+            self._interfaces[platform_name] = gateway
+
             ret = True
         except Exception:
             Log.warning(traceback.format_exc())
@@ -477,15 +487,16 @@ class Router(object):
         if platform_name.lower() != platform_name:
             raise ValueError("Invalid platform_name = %s, it must be lower case" % platform_name)
 
-        # XXX Merge gateways and interfaces
-        if platform_name in self.gateways.keys():
-            return self.gateways[platform_name]
-
         if platform_name in self._interfaces:
             return self._interfaces[platform_name]
 
         raise RuntimeError("%s is not yet registered" % platform_name)
 
+    def get_interface_names(self):
+        return self._interfaces.keys()
+
+    def get_interfaces(self):
+        return self._interfaces.items()
 
     @returns(Gateway)
     def make_gateway(self, platform_name, gateway_type, platform_config):

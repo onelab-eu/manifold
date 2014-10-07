@@ -195,6 +195,8 @@ class Gateway(Interface, Node): # XXX Node needed ?
             gateway_type = gateway_type[:-7]
         return gateway_type.lower()
 
+    get_interface_type = get_gateway_type
+
     @returns(Announces)
     def get_announces(self):
         """
@@ -692,7 +694,7 @@ class Gateway(Interface, Node): # XXX Node needed ?
         cls = collection.get_object()
         platform_name = self.get_platform_name()
         if platform_name == 'local' or not namespace == 'local':
-            self.get_router().get_fib().add(self.get_platform_name(), cls.get_announce(), namespace)
+            self.get_router().get_fib().add(platform_name, cls.get_announce(), namespace)
 
         # If the addition request does not come locally, then we don't need to
         # keep the namespace (usually 'local')

@@ -44,7 +44,7 @@ class OLocalObject(ManifoldCollection):
 
 OLocalColumn = OLocalLocalColumn
 
-class OLocalGateway(ManifoldCollection):
+class LocalGatewayCollection(ManifoldCollection):
     """
     class gateway {
         string type;
@@ -53,8 +53,31 @@ class OLocalGateway(ManifoldCollection):
         KEY(type);
     };
     """
-    def get(self):
-        return Records([{"type" : gateway_type} for gateway_type in sorted(Gateway.facotry_list().keys())])
+    def get(self, packet):
+        gateway_list = list()
+        for gateway_type in sorted(Gateway.factory_list().keys()):
+            gateway = {'type': gateway_type}
+            gateway_list.append(gateway)
+        return Records(gateway_list)
+
+class LocalInterfaceCollection(ManifoldCollection):
+    """
+    class interface {
+        string name;
+        string type;
+        CAPABILITY(retrieve);
+        KEY(name);
+    };
+    """
+    def get(self, packet):
+        interface_list = list()
+        for interface_name, interface in self.get_router().get_interfaces():
+            interface = {
+                'name': interface_name, 
+                'type': interface.get_interface_type()
+            }
+            interface_list.append(interface)
+        return Records(interface_list)
 
 # LocalGateway should be a standard gateway to which we register objects
 # No need for a separate class
@@ -80,8 +103,9 @@ class LocalGateway(Gateway):
         super(LocalGateway, self).__init__(router, platform_name, platform_config)
 
         # XXX We could automatically load objects...
-        self.register_collection(OLocalObject())
-        self.register_collection(OLocalColumn())
-        self.register_collection(OLocalGateway())
+        self.register_local_collection(OLocalObject())
+        self.register_local_collection(OLocalColumn())
+        self.register_local_collection(LocalGatewayCollection())
+        self.register_local_collection(LocalInterfaceCollection())
 
 

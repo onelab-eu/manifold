@@ -58,7 +58,7 @@ class TCPInterface(Interface):
     Base class for building client and server interfaces.
     """
 
-    __interface_name__ = 'tcp'
+    __interface_type__ = 'tcp'
 
     def __init__(self, router):
         Interface.__init__(self, router)
@@ -164,6 +164,10 @@ class TCPServerSocketFactory(ServerFactory):
     def on_client_connected(self, client):
         pass
 
+    def on_client_disconnected(self, client, reason):
+        pass
+
+
 ################################################################################
 # Interfaces
 ################################################################################
@@ -174,7 +178,7 @@ class TCPServerSocketFactory(ServerFactory):
 # protocols do not allow this.
 class TCPClientInterface(TCPClientSocketFactory):
 
-    __interface_name__ = 'tcpclient'
+    __interface_type__ = 'tcpclient'
 
     def __init__(self, router, host, port = DEFAULT_PORT):
         TCPClientSocketFactory.__init__(self, router)
@@ -191,7 +195,7 @@ class TCPServerInterface(Interface):
     Server interface ( = serial port)
     This is only used to create new interfaces on the flight
     """
-    __interface_name__ = 'tcpserver'
+    __interface_type__ = 'tcpserver'
 
     def __init__(self, router, port = DEFAULT_PORT):
         Interface.__init__(self, router)

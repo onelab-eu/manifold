@@ -17,7 +17,7 @@ from manifold.util.predicate        import Predicate
 class Interface(object):
 
     __metaclass__ = PluginFactory
-    __plugin__name__attribute__ = '__interface_name__'
+    __plugin__name__attribute__ = '__interface_type__'
 
     # XXX This should be in PluginFactory
     @staticmethod
@@ -49,6 +49,9 @@ class Interface(object):
         return self._uuid
     get_platform_name = get_uuid
     get_interface_name = get_uuid
+
+    def get_interface_type(self):
+        return self.__interface_type__
 
     def up(self):
         pass
@@ -105,7 +108,7 @@ class Interface(object):
         #print "[ IN]", self, packet
         #print "*** FLOW MAP: %s" % self._flow_map
         #print "-----"
-        packet._ingress = self.get_interface_name()
+        packet._ingress = self.get_uuid()
         # XXX Not all packets are targeted at the router.
         # - announces are
         # - supernodes are not (they could eventually pass through the router)

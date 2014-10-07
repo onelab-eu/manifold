@@ -65,7 +65,7 @@ class ProcessCollection(ManifoldCollection):
         query       = packet.get_query()
         annotation = packet.get_annotation()
 
-        Log.tmp("[PROCESS GATEWAY] received query", query)
+        #Log.tmp("[PROCESS GATEWAY] received query", query)
         # We leave the process a chance to return records without executing
         output = self.on_receive_query(query, annotation)
         if output:
@@ -84,7 +84,7 @@ class ProcessCollection(ManifoldCollection):
 
         # ( arg tuples, parameters )
         args_params_list = self.get_argtuples(query, annotation)
-        Log.tmp("[PROCESS GATEWAY] argtuples", args_params_list)
+        #Log.tmp("[PROCESS GATEWAY] argtuples", args_params_list)
 
         # Batches are used for concurrent queries
         # A query == a single batch.
@@ -96,7 +96,7 @@ class ProcessCollection(ManifoldCollection):
         for args_params in args_params_list:
             args = (self.get_fullpath(),) + args_params[0]
 
-            Log.tmp("[PROCESS GATEWAY] execute args=%r, args_params[1]=%r" % (args, args_params[1],))
+            #Log.tmp("[PROCESS GATEWAY] execute args=%r, args_params[1]=%r" % (args, args_params[1],))
             self.execute_process(args, args_params[1], packet, batch_id)
 
     #---------------------------------------------------------------------------
