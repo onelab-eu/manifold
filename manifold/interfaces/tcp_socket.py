@@ -44,14 +44,6 @@ class ManifoldProtocol(IntNStringReceiver):
 
     # connection lost = client=None in factory
 
-class ManifoldClientProtocol(ManifoldProtocol):
-
-    def receive(self, packet):
-        self.factory.receive(packet)
-
-# For the server, the protocol is the interface
-class ManifoldServerProtocol(ManifoldProtocol, TCPInterface):
-    pass
 
 class TCPInterface(Interface):
     __interface_name__ = 'tcp'
@@ -98,6 +90,15 @@ class TCPInterface(Interface):
     def receive(self, packet):
         packet.set_receiver(self._receiver)
         Interface.receive(self, packet)
+
+class ManifoldClientProtocol(ManifoldProtocol):
+
+    def receive(self, packet):
+        self.factory.receive(packet)
+
+# For the server, the protocol is the interface
+class ManifoldServerProtocol(ManifoldProtocol, TCPInterface):
+    pass
 
 # For the client, the factory is the interface. We have a single client
 # interface and it is maintained through the various connections and
