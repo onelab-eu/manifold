@@ -101,7 +101,7 @@ class AgentDaemon(Daemon):
                 destination = Destination('supernode', namespace='local'),
                 receiver = receiver)
         res = receiver.get_result_value().get_all()
-        print("insert res", res)
+        print("insert result", res)
 
     @staticmethod
     def init_options():
@@ -161,10 +161,12 @@ class AgentDaemon(Daemon):
 
         # Setup peer overlay
         if not Options().server_mode:
+            print "===== MAIN INTERFACE"
             self._main_interface = router.add_interface('tcp', SERVER_SUPERNODE)
             supernode = self.get_supernode(self._main_interface) # XXX Blocking ???
             #self._client_interface.down()
 
+            print "===== CLIENT INTERFACE"
             self._client_interface = router.add_interface('tcp', supernode)
             #self._client_interface.connect(supernode)
 

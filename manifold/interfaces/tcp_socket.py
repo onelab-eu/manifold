@@ -100,6 +100,7 @@ class TCPClientSocketInterface(ClientFactory, TCPSocketInterface):
     def __init__(self, router, host, port = DEFAULT_PORT):
         TCPSocketInterface.__init__(self, router)
         ReactorThread().connectTCP(host, port, self)
+        print "||||| TCPClientSocketInterface", self
 
     def connect(self, host):
         # This should down, reconnect, then up the interface
@@ -116,4 +117,5 @@ class TCPServerSocketInterface(TCPSocketInterface):
 
     def __init__(self, router, port = DEFAULT_PORT):
         TCPSocketInterface.__init__(self, router)
-        ReactorThread().listenTCP(port, self) # XXX TCPSocketInterface(router))
+        ReactorThread().listenTCP(port, TCPSocketInterface(router))
+        print "||||| TCPServerSocketInterface", self
