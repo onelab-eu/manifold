@@ -95,6 +95,8 @@ class AgentDaemon(Daemon):
         # We now want to create a new object remotely at the server
         # This should trigger an insert query directed towards the server
         receiver = SyncReceiver()
+        import time
+        time.sleep(5)
         print("sending insert packet ofr supernode", hostname())
         print("interface", interface)
         interface.send(CREATE(hostname = hostname()),
@@ -161,13 +163,13 @@ class AgentDaemon(Daemon):
 
         # Setup peer overlay
         if not Options().server_mode:
-            print "===== MAIN INTERFACE"
             self._main_interface = router.add_interface('tcpclient', SERVER_SUPERNODE)
+            print "===== MAIN INTERFACE", self._main_interface
             supernode = self.get_supernode(self._main_interface) # XXX Blocking ???
             #self._client_interface.down()
 
-            print "===== CLIENT INTERFACE"
             self._client_interface = router.add_interface('tcpclient', supernode)
+            print "===== CLIENT INTERFACE", self._client_interface
             #self._client_interface.connect(supernode)
 
             # Register as a supernode on the main server

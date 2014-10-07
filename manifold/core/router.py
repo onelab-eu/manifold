@@ -254,6 +254,7 @@ class Router(object):
             return None
 
         router_args = (self,) + args
+        print interface_cls, router_args, kwargs
         interface = interface_cls(*router_args, **kwargs)
         # Note the interface will register itself when initialized properly
         # This is needed to have interfaces dynamically created by # TCPServerSocketInterface

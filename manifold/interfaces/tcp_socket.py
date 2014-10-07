@@ -9,7 +9,7 @@
 
 import struct
 
-from twisted.internet.protocol import Protocol, Factory, ClientFactory
+from twisted.internet.protocol import Protocol, ServerFactory, ClientFactory
 from twisted.protocols.basic import IntNStringReceiver
 
 from manifold.interfaces            import Interface
@@ -46,10 +46,7 @@ class ManifoldProtocol(IntNStringReceiver):
 
     # connection lost = client=None in factory
 
-class TCPSocketFactory(Interface, Factory):
-    """
-    """
-    protocol = ManifoldProtocol
+class TCPInterface(Interface):
     __interface_name__ = 'tcp'
 
     def __init__(self, router):
@@ -105,15 +102,39 @@ class TCPSocketFactory(Interface, Factory):
         packet.set_receiver(self._receiver)
         Interface.receive(self, packet)
 
+# For the client, the factory is the interface
+class TCPClientSocketFactory(TCPInterface, ClientFactory):
+    """
+    """
+    protocol = ManifoldProtocol
+
+# For the server, the protocol is the interface
+class ManifoldServerProtocol(ManifoldProtocol, TCPInterface):
+    pass
+
+class TCPServerSocketFactory(ServerFactory):
+    """
+    """
+    protocol = ManifoldServerProtocol
+
+    def __init__(self, router):
+        self._router = router
+
+    def buildProtocol(self, addr):
+        p = self.protocol(self._router)
+        p.factory = self
+        return p
+
+
 # This is in fact the TCPClientSocketInterface..
 # This is a bit weird but we need this to return an interface, and twisted
 # protocols do not allow this.
-class TCPSocketInterface(TCPSocketFactory, ClientFactory):
+class TCPClientInterface(TCPClientSocketFactory):
 
     __interface_name__ = 'tcpclient'
 
     def __init__(self, router, host, port = DEFAULT_PORT):
-        TCPSocketFactory.__init__(self, router)
+        TCPClientSocketFactory.__init__(self, router)
         ReactorThread().connectTCP(host, port, self)
         print "||||| TCPClientSocketInterface", self
 
@@ -123,17 +144,17 @@ class TCPSocketInterface(TCPSocketFactory, ClientFactory):
         Log.warning("Connect not implemented")
 
 # This interface will spawn other interfaces
-class TCPServerSocketInterface(Interface):
+class TCPServerInterface(Interface):
     """
     Server interface ( = serial port)
     This is only used to create new interfaces on the flight
     """
-
     __interface_name__ = 'tcpserver'
 
     def __init__(self, router, port = DEFAULT_PORT):
         Interface.__init__(self, router)
-        ReactorThread().listenTCP(port, TCPSocketFactory(router))
+        # We should create a new one each time !!!!
+        ReactorThread().listenTCP(port, TCPServerSocketFactory(router))
         print "||||| TCPServerSocketInterface", self
         ReactorThread().start_reactor()
 
