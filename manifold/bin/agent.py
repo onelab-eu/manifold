@@ -68,9 +68,10 @@ class AgentDaemon(Daemon):
                 destination = Destination('supernode', namespace='local'),
                 receiver = receiver)
         supernodes = receiver.get_result_value().get_all()
-
         # BaseClass.set_options(deferred = True)
         # supernodes = yield SuperNode.collection(deferred=True)
+
+        print "SUPERNODES", supernodes
 
         # Let's ping supernodes
         # XXX Blocking
@@ -82,11 +83,19 @@ class AgentDaemon(Daemon):
                 receiver = receiver)
         delays = receiver.get_result_value().get_all()
 
+        print "DELAYS", delays
         # XXX syntax !
         # delays = yield Ping(destination in supernodes, fields=destination, # delay)
+        # supernode = min(delays, key=operator.itemgetter('delay'))
 
-        # Let's keep the supernode of min delay
-        supernode = min(delays, key=operator.itemgetter('delay'))
+        # Let's keep the supernode of min delay (we have no rename since we are
+        # not using the router Rename abilities
+        supernode = min(delays, key=lambda d: float(d['probes'][0]['delay']))
+
+        for delay in delays:
+            Log.info("DELAY TO %s = %s" % (delay['destination'], delay['probes'][0]['delay']))
+        Log.info("=> Selected %s" % (supernode['destination'],))
+
         return supernode['hostname'] if supernode else None
 
     def register_as_supernode(self, interface):
@@ -95,8 +104,6 @@ class AgentDaemon(Daemon):
         # We now want to create a new object remotely at the server
         # This should trigger an insert query directed towards the server
         receiver = SyncReceiver()
-        import time
-        time.sleep(5)
         print("sending insert packet ofr supernode", hostname())
         print("interface", interface)
         interface.send(CREATE(hostname = hostname()),
@@ -166,12 +173,15 @@ class AgentDaemon(Daemon):
             self._main_interface = router.add_interface('tcpclient', SERVER_SUPERNODE)
             print "===== MAIN INTERFACE", self._main_interface
             supernode = self.get_supernode(self._main_interface) # XXX Blocking ???
+            print "GOT SUPERNODE", supernode
             #self._client_interface.down()
 
+            print "connecting to supernode", supernode
             self._client_interface = router.add_interface('tcpclient', supernode)
             print "===== CLIENT INTERFACE", self._client_interface
             #self._client_interface.connect(supernode)
 
+            print "registering as supernode"
             # Register as a supernode on the main server
             self.register_as_supernode(self._main_interface)
 

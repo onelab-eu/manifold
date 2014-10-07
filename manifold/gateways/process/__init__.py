@@ -11,6 +11,7 @@ from manifold.gateways.object   import ManifoldCollection
 from manifold.util.log          import Log
 from manifold.util.misc         import is_iterable
 from manifold.util.predicate    import eq, included
+from manifold.util.synchronized import synchronized
 from manifold.util.type         import accepts, returns
 
 class ProcessField(dict):
@@ -51,6 +52,10 @@ class ProcessCollection(ManifoldCollection):
         self._process = None
         self._is_interrupted = False
 
+        # Lock for collecting records. 
+        # XXX It could be better to have lock per batch_id
+        self._lock = threading.Lock()
+
     def get(self, packet):
         if not os.path.exists(self.get_fullpath()):
             Log.warning("Process does not exist, returning empty")
@@ -82,9 +87,12 @@ class ProcessCollection(ManifoldCollection):
         args_params_list = self.get_argtuples(query, annotation)
         Log.tmp("[PROCESS GATEWAY] argtuples", args_params_list)
 
+        # Batches are used for concurrent queries
+        # A query == a single batch.
+        # XXX can't we just use packet instead of batch_id ?
         batch_id = str(uuid.uuid4())
 
-        self._in_progress[batch_id] = len(args_params_list)
+        self.init_records(batch_id, len(args_params_list))
 
         for args_params in args_params_list:
             args = (self.get_fullpath(),) + args_params[0]
@@ -167,6 +175,8 @@ class ProcessCollection(ManifoldCollection):
                 # XXX Argument with no value == ERROR
                 prefix = process_field.get_prefix()
 
+                # XXX UGLY !!!!
+
                 if field_type == FIELD_TYPE_PARAMETER:
                     # Parameters
                     if not value:
@@ -179,9 +189,10 @@ class ProcessCollection(ManifoldCollection):
                             for v in value:
                                 v = str(v)
                                 argvalue = "%s%s" % (prefix, v) if prefix else v
-                                params[name] = v
+                                new_params = params.copy()
+                                new_params[name] = v
                                 newargs = args + (short, argvalue,)
-                                ret.append( (newargs, params,) )
+                                ret.append( (newargs, new_params,) )
 
                     else:
                         value = str(value)
@@ -197,9 +208,10 @@ class ProcessCollection(ManifoldCollection):
                         for args, params in oldret:
                             for v in value:
                                 argvalue = "%s%s" % (prefix, v) if prefix else v
-                                params[name] = v
+                                new_params = params.copy()
+                                new_params[name] = v
                                 newargs = args + (argvalue,)
-                                ret.append( (newargs, params,) )
+                                ret.append( (newargs, new_params,) )
                     else:
                         argvalue = "%s%s" % (prefix, value) if prefix else value
                         for args, params in ret:
@@ -208,13 +220,41 @@ class ProcessCollection(ManifoldCollection):
                             ret.append( (newargs, params,) )
         return ret
 
+    # XXX This should be accessed by a single thread at the same time
+
+    def add_records(self, batch_id, params, rows, packet):
+        try:
+            self._lock.acquire()
+            for row in rows:
+                record = dict()
+                record.update(params)
+                record.update(row)
+                self._records[batch_id].append(record)
+
+            self._in_progress[batch_id] -= 1
+            if self._in_progress[batch_id] == 0:
+                self.get_gateway().records(self._records[batch_id], packet)
+                del self._records[batch_id]
+                del self._in_progress[batch_id]
+        finally:
+            self._lock.release()
+
+    def init_records(self, batch_id, count):
+        try:
+            self._lock.acquire()
+            self._records[batch_id] = []
+            self._in_progress[batch_id] = count
+        finally:
+            self._lock.release()
+        
+
     def execute_process(self, args, params, packet, batch_id):
         ret = 0
         #print "execute process", args, params, packet, batch_id
 
         def runInThread(args, params, packet, batch_id):
-            self._records[batch_id] = []
             process = subprocess.Popen(args, stdout=subprocess.PIPE, stderr = None)
+            rows = []
             try:
                 output = process.stdout.read()
 
@@ -231,14 +271,6 @@ class ProcessCollection(ManifoldCollection):
                         rows = []
                 else:
                     rows = self.parse(output)
-
-                if rows:
-                    for row in rows:
-                        record = dict()
-                        record.update(params)
-                        record.update(row)
-                        self._records[batch_id].append(record)
-
             except OSError, e:
                 if e.errno == 10:
                     if not self._is_interrupted:
@@ -248,12 +280,9 @@ class ProcessCollection(ManifoldCollection):
                 traceback.print_exc()
                 Log.error("Execution failed: %s" % e)
                 return
+
             finally:
-                self._in_progress[batch_id] -= 1
-                if self._in_progress[batch_id] == 0:
-                    self.get_gateway().records(self._records[batch_id], packet)
-                    del self._records[batch_id]
-                    del self._in_progress[batch_id]
+                self.add_records(batch_id, params, rows, packet)
 
 
         thread = threading.Thread(target=runInThread, args=(args, params, packet, batch_id))

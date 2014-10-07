@@ -20,15 +20,20 @@ from manifold.util.reactor_thread   import ReactorThread
 
 DEFAULT_PORT = 50000
 
-# Only for server
+################################################################################
+# BASE CLASSES
+################################################################################
 
 # A protocol is recreated everytime a connection is made
 # so it cannot be an interface...
 class ManifoldProtocol(IntNStringReceiver):
-    """ The protocol is based on twisted.protocols.basic
-        IntNStringReceiver, with little-endian 32-bit
-        length prefix.
+    """ 
+    Base class for building client and server protocols.
+
+    The protocol is based on twisted.protocols.basic IntNStringReceiver, with
+    little-endian 32-bit length prefix.
     """
+
     structFormat = "<L"
     prefixLength = struct.calcsize(structFormat)
 
@@ -46,6 +51,10 @@ class ManifoldProtocol(IntNStringReceiver):
 
 
 class TCPInterface(Interface):
+    """
+    Base class for building client and server interfaces.
+    """
+
     __interface_name__ = 'tcp'
 
     def __init__(self, router):
@@ -58,7 +67,6 @@ class TCPInterface(Interface):
         _self = self
         class MyReceiver(ChildSlotMixin):
             def receive(self, packet, slot_id = None):
-                print "RECEIVED PACKET ON INTERFACE", _self
                 _self.send(packet)
 
         self._receiver = MyReceiver()
@@ -85,9 +93,12 @@ class TCPInterface(Interface):
     # from protocol
     # = when we receive a packet from outside
     def receive(self, packet):
-        print "** setting receiver to self._receiver and passing packet to router"
         packet.set_receiver(self._receiver)
         Interface.receive(self, packet)
+
+################################################################################
+# PROTOCOLS
+################################################################################
 
 class ManifoldClientProtocol(ManifoldProtocol):
 
@@ -100,13 +111,17 @@ class ManifoldServerProtocol(ManifoldProtocol, TCPInterface):
     def send_impl(self, packet):
         self.send_packet(packet)
 
+################################################################################
+# FACTORIES
+################################################################################
+
 # For the client, the factory is the interface. We have a single client
 # interface and it is maintained through the various connections and
 # disconnections
 class TCPClientSocketFactory(TCPInterface, ClientFactory):
     """
     """
-    protocol = ManifoldProtocol
+    protocol = ManifoldClientProtocol
 
     def on_client_connected(self, client):
         self._request_announces()
@@ -143,6 +158,10 @@ class TCPServerSocketFactory(ServerFactory):
     def on_client_connected(self, client):
         pass
 
+################################################################################
+# Interfaces
+################################################################################
+
 
 # This is in fact the TCPClientSocketInterface..
 # This is a bit weird but we need this to return an interface, and twisted
@@ -154,7 +173,6 @@ class TCPClientInterface(TCPClientSocketFactory):
     def __init__(self, router, host, port = DEFAULT_PORT):
         TCPClientSocketFactory.__init__(self, router)
         ReactorThread().connectTCP(host, port, self)
-        print "||||| TCPClientSocketInterface", self
 
     def connect(self, host):
         # This should down, reconnect, then up the interface
@@ -173,7 +191,6 @@ class TCPServerInterface(Interface):
         Interface.__init__(self, router)
         # We should create a new one each time !!!!
         ReactorThread().listenTCP(port, TCPServerSocketFactory(router))
-        print "||||| TCPServerSocketInterface", self
         ReactorThread().start_reactor()
 
     def terminate(self):
