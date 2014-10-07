@@ -162,12 +162,12 @@ class AgentDaemon(Daemon):
         # Setup peer overlay
         if not Options().server_mode:
             print "===== MAIN INTERFACE"
-            self._main_interface = router.add_interface('tcp', SERVER_SUPERNODE)
+            self._main_interface = router.add_interface('tcpclient', SERVER_SUPERNODE)
             supernode = self.get_supernode(self._main_interface) # XXX Blocking ???
             #self._client_interface.down()
 
             print "===== CLIENT INTERFACE"
-            self._client_interface = router.add_interface('tcp', supernode)
+            self._client_interface = router.add_interface('tcpclient', supernode)
             #self._client_interface.connect(supernode)
 
             # Register as a supernode on the main server

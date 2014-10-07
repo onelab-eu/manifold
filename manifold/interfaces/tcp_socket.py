@@ -22,7 +22,9 @@ DEFAULT_PORT = 50000
 
 # Only for server
 
-class ManifoldProtocol(Interface, IntNStringReceiver):
+# A protocol is recreated everytime a connection is made
+# so it cannot be an interface...
+class ManifoldProtocol(IntNStringReceiver):
     """ The protocol is based on twisted.protocols.basic
         IntNStringReceiver, with little-endian 32-bit
         length prefix.
@@ -30,16 +32,42 @@ class ManifoldProtocol(Interface, IntNStringReceiver):
     structFormat = "<L"
     prefixLength = struct.calcsize(structFormat)
 
+    def stringReceived(self, msg):
+        packet = Packet.deserialize(msg)
+        self.factory.receive(packet)
+
+    def send_packet(self, packet):
+        self.sendString(packet.serialize())
+
+    def connectionMade(self):
+        self._request_announces()
+
+        self.factory.on_client_connected(self)
+
+        while self._tx_buffer:
+            full_packet = self._tx_buffer.pop()
+            self.send_packet(full_packet)
+
+    # connection lost = client=None in factory
+
+class TCPSocketFactory(Interface, Factory):
+    """
+    """
+    protocol = ManifoldProtocol
+    __interface_name__ = 'tcp'
+
     def __init__(self, router):
         Interface.__init__(self, router)
         self._tx_buffer = list()
+        # _client = None means interface is down
+        self._client = None
 
         # Received packets are sent back to the client
         _self = self
         class MyReceiver(ChildSlotMixin):
             def receive(self, packet, slot_id = None):
                 print "RECEIVED PACKET ON INTERFACE", _self
-                _self.send(packet)
+                _self._client.send(packet)
 
         self._receiver = MyReceiver()
 
@@ -48,25 +76,21 @@ class ManifoldProtocol(Interface, IntNStringReceiver):
     def terminate(self):
         ReactorThread().stop_reactor()
 
-    def stringReceived(self, msg):
-        packet = Packet.deserialize(msg)
-        self.receive(packet)
+    def is_up(self):
+        return self._client is not None
 
-    def send_packet(self, packet):
-        self.sendString(packet.serialize())
+    def is_down(self):
+        return not self.is_up()
 
-    def connectionMade(self):
-        self._request_announces()
+    def on_client_connected(self, client):
+        self._client = client
 
-        while self._tx_buffer:
-            full_packet = self._tx_buffer.pop()
-            self.send_packet(full_packet)
 
     def send_impl(self, packet):
         if not self._client:
             self._tx_buffer.append(packet)
         else:
-            self.send_packet(packet)
+            self._client.send_packet(packet)
 
     # We really are a gateway !!! A gateway is a specialized Interface that
     # answers instead of transmitting.
@@ -79,41 +103,15 @@ class ManifoldProtocol(Interface, IntNStringReceiver):
         packet.set_receiver(self._receiver)
         Interface.receive(self, packet)
 
+# This is in fact the TCPClientSocketInterface..
+# This is a bit weird but we need this to return an interface, and twisted
+# protocols do not allow this.
+class TCPSocketInterface(TCPSocketFactory, ClientFactory):
 
-class TCPSocketInterface(Factory):
-#class TCPSocketInterface(Interface, ClientFactory):
-    """
-    """
-    protocol = ManifoldProtocol
-
-    def __init__(self, router):
-        self._router = router
-
-    # We need the router when the constructor is called, otherwise we have no
-    # easy way to assign it
-    def buildProtocol(self, addr):
-        """Create an instance of a subclass of Protocol.
-
-        The returned instance will handle input on an incoming server
-        connection, and an attribute \"factory\" pointing to the creating
-        factory.
-
-        Override this method to alter how Protocol instances get created.
-
-        @param addr: an object implementing L{twisted.internet.interfaces.IAddress}
-        """
-        p = self.protocol(self._router)
-        p.factory = self
-        return p
-
-class TCPClientSocketInterface(ClientFactory, TCPSocketInterface):
-    """
-    A client is actively connecting a server and has the initiative to reconnect
-    """
-    __interface_name__ = 'tcp'
+    __interface_name__ = 'tcpclient'
 
     def __init__(self, router, host, port = DEFAULT_PORT):
-        TCPSocketInterface.__init__(self, router)
+        TCPSocketFactory.__init__(self, router)
         ReactorThread().connectTCP(host, port, self)
         print "||||| TCPClientSocketInterface", self
 
@@ -122,7 +120,8 @@ class TCPClientSocketInterface(ClientFactory, TCPSocketInterface):
         # raises Timeout, MaxConnections
         Log.warning("Connect not implemented")
 
-class TCPServerSocketInterface(TCPSocketInterface):
+# This interface will spawn other interfaces
+class TCPServerSocketInterface(Interface):
     """
     Server interface ( = serial port)
     This is only used to create new interfaces on the flight
@@ -131,6 +130,10 @@ class TCPServerSocketInterface(TCPSocketInterface):
     __interface_name__ = 'tcpserver'
 
     def __init__(self, router, port = DEFAULT_PORT):
-        TCPSocketInterface.__init__(self, router)
-        ReactorThread().listenTCP(port, TCPSocketInterface(router))
+        Interface.__init__(self, router)
+        ReactorThread().listenTCP(port, TCPSocketFactory(router))
         print "||||| TCPServerSocketInterface", self
+        ReactorThread().start_reactor()
+
+    def terminate(self):
+        ReactorThread().stop_reactor()
