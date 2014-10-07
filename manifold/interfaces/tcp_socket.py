@@ -47,6 +47,9 @@ class ManifoldProtocol(IntNStringReceiver):
     def send_packet(self, packet):
         self.sendString(packet.serialize())
 
+    def connectionLost(self, reason):
+        print "CONNECTION LOST: REASON:", reason
+        self.factory.on_client_disconnected(self, reason)
     # connection lost = client=None in factory
 
 
@@ -131,6 +134,9 @@ class TCPClientSocketFactory(TCPInterface, ClientFactory):
         while self._tx_buffer:
             full_packet = self._tx_buffer.pop()
             self.send(full_packet)
+
+    def on_client_disconnected(self, client, reason):
+        self._client = None
 
     def send_impl(self, packet):
         if self.is_down():

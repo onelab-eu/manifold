@@ -56,6 +56,10 @@ class AgentDaemon(Daemon):
         "server_mode"   : False,
     }
 
+    ########################################################################### 
+    # Supernode management
+    ########################################################################### 
+
     # @inlineCallbacks
     def get_supernode(self, interface):
         
@@ -112,18 +116,12 @@ class AgentDaemon(Daemon):
         res = receiver.get_result_value().get_all()
         print("insert result", res)
 
-    @staticmethod
-    def init_options():
-        """
-        Prepare options supported by RouterDaemon.
-        """
-        options = Options()
+    def withdrawn_as_supernode(self, interface):
+        pass
 
-        options.add_argument(
-            "-s", "--server-mode", dest = "server_mode", action='store_true',
-            help = "Socket that will read the Manifold router.",
-            default = AgentDaemon.DEFAULTS["server_mode"]
-        )
+    ########################################################################### 
+    # Misc. unused
+    ########################################################################### 
 
     def check_connectivity(self, interface):
         # XXX Can't we get events from the interface
@@ -135,6 +133,10 @@ class AgentDaemon(Daemon):
         ping_result = receiver.get_result_value().get_all()
 
     def on_interface_down(interface):
+        """
+        We lost the supernode/server
+        We lost a client
+        """
         # Can we reconnect the interface ?
         if False:
             pass
@@ -152,9 +154,22 @@ class AgentDaemon(Daemon):
             supernode = self.get_supernode()
             self._client_interface.connect(supernode)
 
+    ########################################################################### 
+    # Main
+    ########################################################################### 
 
+    @staticmethod
+    def init_options():
+        """
+        Prepare options supported by RouterDaemon.
+        """
+        options = Options()
 
-        
+        options.add_argument(
+            "-s", "--server-mode", dest = "server_mode", action='store_true',
+            help = "Socket that will read the Manifold router.",
+            default = AgentDaemon.DEFAULTS["server_mode"]
+        )
 
     def main(self):
         # Create a router instance
@@ -171,18 +186,13 @@ class AgentDaemon(Daemon):
         # Setup peer overlay
         if not Options().server_mode:
             self._main_interface = router.add_interface('tcpclient', SERVER_SUPERNODE)
-            print "===== MAIN INTERFACE", self._main_interface
             supernode = self.get_supernode(self._main_interface) # XXX Blocking ???
-            print "GOT SUPERNODE", supernode
-            #self._client_interface.down()
 
-            print "connecting to supernode", supernode
+            Log.info("Connecting to supernode: %s" % (supernode,))
             self._client_interface = router.add_interface('tcpclient', supernode)
-            print "===== CLIENT INTERFACE", self._client_interface
-            #self._client_interface.connect(supernode)
 
-            print "registering as supernode"
             # Register as a supernode on the main server
+            Log.info("Registering as supernode...")
             self.register_as_supernode(self._main_interface)
 
             # Finally once we are all set up, disconnect the connection to
@@ -193,10 +203,13 @@ class AgentDaemon(Daemon):
             announce, = Announces.from_string(SUPERNODE_CLASS)
             Supernode = ManifoldObject.from_announce(announce)
             
+            Log.info("Bootstraping supernodes...")
             supernode_collection = ManifoldLocalCollection(Supernode)
             supernode_collection.insert(Supernode(hostname = hostname()))
 
             router.register_local_collection(supernode_collection)
+
+            # XXX We should install a hook to remove from supernodes agents that have disconnected
 
         #router.get_fib().dump()
         self._router = router

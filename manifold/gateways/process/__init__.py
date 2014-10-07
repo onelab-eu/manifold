@@ -11,7 +11,6 @@ from manifold.gateways.object   import ManifoldCollection
 from manifold.util.log          import Log
 from manifold.util.misc         import is_iterable
 from manifold.util.predicate    import eq, included
-from manifold.util.synchronized import synchronized
 from manifold.util.type         import accepts, returns
 
 class ProcessField(dict):
