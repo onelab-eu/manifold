@@ -63,7 +63,7 @@ class TCPSocketFactory(Interface, Factory):
         class MyReceiver(ChildSlotMixin):
             def receive(self, packet, slot_id = None):
                 print "RECEIVED PACKET ON INTERFACE", _self
-                _self._client.send(packet)
+                _self.send(packet)
 
         self._receiver = MyReceiver()
 
@@ -81,12 +81,11 @@ class TCPSocketFactory(Interface, Factory):
     def on_client_connected(self, client):
         self._request_announces()
 
-        while self._tx_buffer:
-            full_packet = self._tx_buffer.pop()
-            client.send_packet(full_packet)
-
         self._client = client
 
+        while self._tx_buffer:
+            full_packet = self._tx_buffer.pop()
+            self.send(full_packet)
 
 
     def send_impl(self, packet):
