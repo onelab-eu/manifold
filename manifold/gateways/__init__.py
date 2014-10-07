@@ -627,24 +627,6 @@ class Gateway(Interface, Node): # XXX Node needed ?
         """
         return Announces.parse_static_routes(STATIC_ROUTES_DIR, self.get_platform_name(), self.get_gateway_type())
 
-#DEPRECATED|    def receive_impl(self, packet):
-#DEPRECATED|        """
-#DEPRECATED|        Handle a incoming QUERY Packet.
-#DEPRECATED|        Args:
-#DEPRECATED|            packet: A QUERY Packet instance.
-#DEPRECATED|        """
-#DEPRECATED|        query = packet.get_query()
-#DEPRECATED|        object = query.get_object()
-#DEPRECATED|
-#DEPRECATED|        records = None
-#DEPRECATED|        # XXX object map could be populated automatically
-#DEPRECATED|        if object in self.object_map.keys():
-#DEPRECATED|            instance = self.object_map[object](self)
-#DEPRECATED|            records = instance.get(query, packet.get_annotation())
-#DEPRECATED|        else:
-#DEPRECATED|            raise RuntimeError("Invalid object %s" % object)
-#DEPRECATED|        self.records(records, packet)
-
     # TODO Rename Producer::make_error() into Producer::error()
     # and retrieve the appropriate consumers and send to them
     # the ErrorPacket that has been crafted
