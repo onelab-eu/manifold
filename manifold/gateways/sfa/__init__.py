@@ -1001,6 +1001,7 @@ class SFAGateway(Gateway):
         if not self.registry:
             defer.returnValue([])
         else:
+            Log.tmp("Yes Registry = ",self.registry)
         # XXX Hack for avoiding multiple calls to the same registry...
         # This will be fixed in newer versions where AM and RM have separate gateways
         if self.auth_type == "reference":
