@@ -1183,7 +1183,7 @@ class SFAGateway(Gateway):
                     self.callback(LastRecord())
 
                 # Manifold Query to get the data only for RM fields
-                query_rm_fields = Query.get('slice').filter_by(filters).select(fields_rm)
+                query_rm_fields = Query.get('myslice:slice').filter_by(filters).select(fields_rm)
                 try:
                     # To avoid loops due to caching, we only look for exact same queries in cache
                     # Otherwise, it will want to hook on the parent query, which is depending on this one.
