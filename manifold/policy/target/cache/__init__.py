@@ -52,11 +52,6 @@ class CacheTarget(Target):
         # Cache per user
         cache = self._interface.get_cache(annotations)
         
-        Log.warning("-------------------------")
-        Log.tmp(query)
-        Log.tmp(annotations)
-        Log.warning("-------------------------")
-
         # No need to create an entry, since the entry is created when query arrives
 
         # We don't cache records whose origin is the cache
