@@ -141,6 +141,9 @@ class TCPClientSocketFactory(TCPInterface, ClientFactory):
 
     def send_impl(self, packet):
         if self.is_down():
+            print "*" * 80
+            print "DOWN"
+            print "*" * 80
             self._tx_buffer.append(packet)
         else:
             self._client.send_packet(packet)
