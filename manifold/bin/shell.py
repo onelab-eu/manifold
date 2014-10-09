@@ -273,7 +273,7 @@ class Shell(object):
         #parser.add_argument("-m", "--method", help = "API authentication method")
         #parser.add_argument("-s", "--session", help = "API session key")
 
-    def authenticate_local(self, username):
+    def authenticate_local(self, username = None):
         """
         Prepare a Client to dial with a local Manifold Router (run as a demon,
         using manifold-router).

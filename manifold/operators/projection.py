@@ -141,7 +141,7 @@ class Projection(Operator, ChildSlotMixin):
         d = self._get_child().get_destination()
         return d.projection(self._field_names)
 
-    def receive_impl(self, packet, slot_id = None):
+    def send(self, packet):
         """
         Process an incoming Packet instance.
           - If this is a RECORD Packet, remove every field_names that are
@@ -150,17 +150,14 @@ class Projection(Operator, ChildSlotMixin):
         Args:
             packet: A Packet instance.
         """
-        if packet.get_protocol() in Packet.PROTOCOL_QUERY:
-            self._get_child().receive(packet)
+        self._get_child().send(packet)
 
-        elif packet.get_protocol() == Packet.PROTOCOL_CREATE:
-            record = packet
-            if not record.is_empty() and not self._field_names.is_star():
-                record = do_projection(record, self._field_names)
-            self.forward_upstream(record)
+    def receive_impl(self, packet, slot_id = None):
 
-        else: # ErrorPacket
-            self.forward_upstream(packet)
+        if not packet.is_empty() and not self._field_names.is_star():
+            packet = do_projection(packet, self._field_names)
+        self.forward_upstream(packet)
+
 
     @returns(Node)
     def optimize_selection(self, filter):

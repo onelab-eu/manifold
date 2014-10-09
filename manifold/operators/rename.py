@@ -270,22 +270,18 @@ class Rename(Operator, ChildSlotMixin):
 #DEPRECATED|        """
 #DEPRECATED|        return Records([self.process_record(r) for r in records])
 
-    def receive_impl(self, packet, slot_id = None):
+    def send(self, packet):
         """
         Handle an incoming Packet instance.
         Args:
             packet: A Packet instance.
         """
-        if packet.get_protocol() in Packet.PROTOCOL_QUERY:
-            new_packet = self.process_query(packet)
-            self._get_child().receive(new_packet)
+        new_packet = self.process_query(packet)
+        self._get_child().send(new_packet)
 
-        elif packet.get_protocol() == Packet.PROTOCOL_CREATE:
-            new_packet = do_rename(packet, self.get_aliases())
-            self.forward_upstream(new_packet)
-
-        else: # TYPE_ERROR
-            self.forward_upstream(packet)
+    def receive_impl(self, packet, slot_id = None):
+        new_packet = do_rename(packet, self.get_aliases())
+        self.forward_upstream(new_packet)
 
     def dump(self, indent = 0):
         """

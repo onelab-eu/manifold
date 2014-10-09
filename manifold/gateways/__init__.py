@@ -47,10 +47,13 @@ class OLocalLocalObject(ManifoldCollection):
     };
     """
 
-    def get(self, *args, **kwargs):
-        objects = Records([collection.get_object().get_announce().to_dict() for collection in self.get_gateway().get_collections()])
-        print "OLocalLocalObject.get = ", objects
-        return objects
+    def get(self, packet):
+        
+        objects = list()
+        for collection in self.get_gateway().get_collections():
+            obj = collection.get_object().get_announce().to_dict()
+            objects.append(obj)
+        return Records(objects)
 
 class OLocalLocalColumn(ManifoldCollection):
     """
@@ -150,8 +153,8 @@ class Gateway(Interface, Node): # XXX Node needed ?
         # namespace -> (object_name -> obj)
         self._collections_by_namespace = dict()
 
-        self.register_local_collection(OLocalLocalObject())
-        self.register_local_collection(OLocalLocalColumn())
+        self.register_collection(OLocalLocalObject(), 'local')
+        self.register_collection(OLocalLocalColumn(), 'local')
 
     def terminate(self):
         pass
@@ -456,6 +459,7 @@ class Gateway(Interface, Node): # XXX Node needed ?
         return self.get_router().execute_local_query(query)
 
     def record(self, record, packet):
+
         """
         Helper used in Gateway when a has to send an ERROR Packet.
         See also Gateway::records() instead.
@@ -474,6 +478,9 @@ class Gateway(Interface, Node): # XXX Node needed ?
             record = Record.from_dict(record)
         record.set_source(packet.get_destination())
         record.set_destination(packet.get_source())
+        record._ingress = self.get_address()
+
+        Log.tmp("To receiver or to router ?")
         packet.get_receiver().receive(record)
 
     # XXX It is important that the packet is the second argument for
@@ -646,7 +653,7 @@ class Gateway(Interface, Node): # XXX Node needed ?
         return error_packet
 
 
-    def receive(self, packet):
+    def send_impl(self, packet):
         """
         Handle a incoming QUERY Packet.
         Args:
@@ -675,13 +682,15 @@ class Gateway(Interface, Node): # XXX Node needed ?
         else:
             raise NotImplemented
 
+        # Asynchronous gateways return None,
+        # Others should return an empty list
+        if records is None:
+            return
+
         if records:
             self.records(records, packet)
         else:
             self.record(Record(last = True), packet)
-
-    send_impl = receive
-    # NOTE: send is inherited from Interface
 
     def get_collection(self, object_name, namespace = None):
         return self._collections_by_namespace[namespace][object_name]
@@ -691,26 +700,19 @@ class Gateway(Interface, Node): # XXX Node needed ?
             return list()
         return self._collections_by_namespace[namespace].values()
 
-    def register_collection(self, collection, namespace = None, is_local = False):
+    def register_collection(self, collection, namespace = None):
         # Register it in the FIB: we ignore the announces in the local namespace
         # unless the platform_name is local
         cls = collection.get_object()
         platform_name = self.get_platform_name()
-        if platform_name == 'local' or not namespace == 'local':
-            self.get_router().get_fib().add(platform_name, cls.get_announce(), namespace)
-
-        # If the addition request does not come locally, then we don't need to
-        # keep the namespace (usually 'local')
-        if not is_local:
-            namespace = None
+        if namespace != 'local':
+            fib_namespace = 'local' if platform_name == 'local' else None
+            self.get_router().get_fib().add(platform_name, cls.get_announce(), fib_namespace)
 
         # Store the object locally
         if namespace not in self._collections_by_namespace:
             self._collections_by_namespace[namespace] = dict()
         self._collections_by_namespace[namespace][cls.get_object_name()] = collection
-
-    def register_local_collection(self, cls, namespace = LOCAL_NAMESPACE):
-        self.register_collection(cls, namespace, is_local = True)
 
 #DEPRECATED|        # Fetch Announces produced by the Storage
 #DEPRECATED|        gateway_storage = self._storage.get_gateway()

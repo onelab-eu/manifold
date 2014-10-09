@@ -9,6 +9,9 @@
 
 import subprocess, operator
 
+from twisted.internet                   import defer
+from twisted.internet.task              import LoopingCall
+
 from manifold.core.announce             import Announces
 from manifold.core.destination          import Destination
 from manifold.core.field_names          import FieldNames
@@ -35,7 +38,8 @@ from manifold.core.key                  import Key
 from manifold.gateways.object           import ManifoldObject, ManifoldLocalCollection
 from manifold.core.packet               import GET, CREATE
 from manifold.core.query                import Query
-from manifold.core.sync_receiver        import SyncReceiver
+from manifold.core.deferred_receiver    import DeferredReceiver
+from manifold.util.reactor_thread       import ReactorThread
 
 from gevent.threadpool import ThreadPool
             
@@ -50,6 +54,17 @@ class supernode {
 """
 #SERVER_SUPERNODE = 'dryad.ipv6.lip6.fr'
 
+
+def async_sleep(secs):
+    d = defer.Deferred()
+    ReactorThread().callLater(secs, d.callback, None)
+    return d
+
+@defer.inlineCallbacks
+def async_wait(fun, interval = 1):
+    while not fun():
+        yield async_sleep(interval)
+
 class AgentDaemon(Daemon):
 
     DEFAULTS = {
@@ -60,30 +75,33 @@ class AgentDaemon(Daemon):
     # Supernode management
     ########################################################################### 
 
-    # @inlineCallbacks
+    @defer.inlineCallbacks
     def get_supernode(self, interface):
         
         # XXX supernodes = Supernode.get()
         # XXX Supernode should be attached to an interface... or at the the
         # router if we can route such requests.
 
-        receiver = SyncReceiver()
+        d = DeferredReceiver() # SyncReceiver
         interface.send(GET(),
                 destination = Destination('supernode', namespace='local'),
-                receiver = receiver)
-        supernodes = receiver.get_result_value().get_all()
+                receiver = d)
+        rv = yield d.get_deferred() # receiver.get_result_value().get_all()
+        supernodes = rv.get_all()
+
         # BaseClass.set_options(deferred = True)
         # supernodes = yield SuperNode.collection(deferred=True)
 
         # Let's ping supernodes
-        # XXX Blocking
         # XXX Such calls should be simplified
+        d = DeferredReceiver() 
         self._ping.send(GET(), 
                 destination = Destination('ping',
                     Filter().filter_by(Predicate('destination', 'included', map(operator.itemgetter('hostname'), supernodes))),
                     FieldNames(['destination', 'delay'])),
-                receiver = receiver)
-        delays = receiver.get_result_value().get_all()
+                receiver = d)
+        rv = yield d.get_deferred() # receiver.get_result_value().get_all()
+        delays = rv.get_all()
 
         # XXX ping: unknown host adreena
         # XXX This should triggered unregistration of a supernode
@@ -105,21 +123,60 @@ class AgentDaemon(Daemon):
             Log.info("DELAY TO %s = %s" % (delay['destination'], delay['probes'][0]['delay']))
         Log.info("=> Selected %s" % (supernode['destination'],))
 
-        return supernode['hostname'] if supernode else None
+        defer.returnValue(supernode['hostname'] if supernode else None)
 
+    @defer.inlineCallbacks
     def register_as_supernode(self, interface):
         # As a server, we would do this to create a new object locally.
         # Supernode(hostname = hostname()).insert()
         # We now want to create a new object remotely at the server
         # This should trigger an insert query directed towards the server
-        receiver = SyncReceiver()
+        d = DeferredReceiver()
         interface.send(CREATE(hostname = hostname()),
                 destination = Destination('supernode', namespace='local'),
-                receiver = receiver)
-        res = receiver.get_result_value().get_all()
+                receiver = d)
+        ret = yield d.get_deferred()
+        print "Registration as supernode result: %r" % (ret,)
 
     def withdrawn_as_supernode(self, interface):
         pass
+
+
+    @defer.inlineCallbacks
+    def connect_interface(self, host):
+        interface = router.add_interface('tcpclient', host)
+
+        yield async_wait(lambda : interface.is_up())
+
+        # XXX sleep until the interface is connected ?
+        defer.returnValue(interface)
+
+    @defer.inlineCallbacks
+    def bootstrap_overlay(self, router):
+
+        #self._overlay_task = task.LoopingCall(self.announce)
+        #            self.lc.start(10)
+
+        Log.info("Connecting to main server...")
+        self._main_interface = yield self.connect_interface(router, SERVER_SUPERNODE)
+        Log.info("Connected to main server")
+
+        Log.info("Getting supernodes...")
+        supernode = yield self.get_supernode(self._main_interface) # XXX Blocking ???
+
+        Log.info("Connecting to supernode: %s..." % (supernode,))
+        self._client_interface = yield self.connect_interface(router, supernode)
+        Log.info("Connected to supernode: %s" % (supernode,))
+
+        # Register as a supernode on the main server
+        Log.info("Registering as supernode...")
+        yield self.register_as_supernode(self._main_interface)
+
+        # Finally once we are all set up, disconnect the connection to
+        # server
+        self._main_interface.down()
+
+        # defer.returnValue()
 
     ########################################################################### 
     # Misc. unused
@@ -186,22 +243,7 @@ class AgentDaemon(Daemon):
         self._server_interface = router.add_interface('tcpserver') # Listener XXX port?
 
         # Setup peer overlay
-        if not Options().server_mode:
-            self._main_interface = router.add_interface('tcpclient', SERVER_SUPERNODE)
-            supernode = self.get_supernode(self._main_interface) # XXX Blocking ???
-
-            Log.info("Connecting to supernode: %s" % (supernode,))
-            self._client_interface = router.add_interface('tcpclient', supernode)
-
-            # Register as a supernode on the main server
-            Log.info("Registering as supernode...")
-            self.register_as_supernode(self._main_interface)
-
-            # Finally once we are all set up, disconnect the connection to
-            # server
-            self._main_interface.down()
-        else:
-
+        if Options().server_mode:
             announce, = Announces.from_string(SUPERNODE_CLASS)
             Supernode = ManifoldObject.from_announce(announce)
             
@@ -212,6 +254,13 @@ class AgentDaemon(Daemon):
             router.register_local_collection(supernode_collection)
 
             # XXX We should install a hook to remove from supernodes agents that have disconnected
+
+        else:
+            # The agent just builds the overlays and stays passive
+            self.bootstrap_overlay(router)
+
+            #self._bootstrap_overlay_task = LoopingCall(self.bootstrap_overlay, router)
+            #self._bootstrap_overlay_task.start(0)
 
         #router.get_fib().dump()
         self._router = router

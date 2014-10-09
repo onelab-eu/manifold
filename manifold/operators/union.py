@@ -114,83 +114,61 @@ class Union(Operator, ChildrenSlotMixin):
         """
         return self._get_first().get_destination()
 
-    def receive_impl(self, packet, slot_id = None):
+    def send(self, packet):
         """
         Handle an incoming Packet.
         Args:
             packet: A Packet instance.
         """
+        # We simply forward the query to all children
+        for _, child, _ in self._iter_children():
+            child.send(packet)
 
-        if packet.get_protocol() in Packet.PROTOCOL_QUERY:
-            # We simply forward the query to all children
-            for _, child, _ in self._iter_children():
-                child.receive(packet)
+    def receive_impl(self, packet, slot_id = None):
+        record = packet
+        is_last = record.is_last()
+        record.unset_last()
+        do_send = True
 
-        elif packet.get_protocol() == Packet.PROTOCOL_CREATE:
-            record = packet
-            is_last = record.is_last()
-            record.unset_last()
-            do_send = True
+        if not record.is_empty():
+            # We need to keep all records until the UNION has completed
+            # since they might all be completed by records coming from othr
+            # children
+            # TODO: This might be deduced from the query plan ?
 
-            if not record.is_empty():
-                # We need to keep all records until the UNION has completed
-                # since they might all be completed by records coming from othr
-                # children
-                # TODO: This might be deduced from the query plan ?
+            if not record.has_field_names(self._key_field_names):
+                self.forward_upstream(packet)
+            else:
+                key_value = record.get_value(self._key_field_names)
 
-                if not record.has_field_names(self._key_field_names):
-                    print "record", record
-                    print "NO KEY", self._key_field_names
-                    self.forward_upstream(packet)
+                if key_value in self._records_by_key:
+                    prev_record = self._records_by_key[key_value]
+                    for k, v in record.items():
+                        if not k in prev_record:
+                            prev_record[k] = v
+                            continue
+                        if isinstance(v, Records):
+                            previous[k].extend(v) # DUPLICATES ?
+                        elif isinstance(v, list):
+                            Log.warning("Should be a record")
+                        #else:
+                        #    if not v == previous[k]:
+                        #        print "W: ignored conflictual field"
+                        #    # else: nothing to do
+                    
+                    # OLD CODE: 
+                    # self._records_by_key[key_value].update(record)
                 else:
-                    key_value = record.get_value(self._key_field_names)
+                    self._records_by_key[key_value] = record
 
-                    if key_value in self._records_by_key:
-                        prev_record = self._records_by_key[key_value]
-                        for k, v in record.items():
-                            if not k in prev_record:
-                                prev_record[k] = v
-                                continue
-                            if isinstance(v, Records):
-                                previous[k].extend(v) # DUPLICATES ?
-                            elif isinstance(v, list):
-                                Log.warning("Should be a record")
-                            #else:
-                            #    if not v == previous[k]:
-                            #        print "W: ignored conflictual field"
-                            #    # else: nothing to do
-                        
-                        # OLD CODE: 
-                        # self._records_by_key[key_value].update(record)
-                    else:
-                        self._records_by_key[key_value] = record
-
-    #DEPRECATED|                # Ignore duplicate records
-    #DEPRECATED|                if self._distinct:
-    #DEPRECATED|                    key = self._key.get_field_names()
-    #DEPRECATED|                    if key and record.has_field_names(key):
-    #DEPRECATED|                        key_value = record.get_value(key)
-    #DEPRECATED|                        if key_value in self.key_list:
-    #DEPRECATED|                            do_send = False
-    #DEPRECATED|                        else:
-    #DEPRECATED|                            self.key_list.append(key_value)
-    #DEPRECATED|
-    #DEPRECATED|                record.unset_last()
-    #DEPRECATED|                if do_send:
-    #DEPRECATED|                    self.forward_upstream(record)
-
-
-            if is_last:
-                # In fact we don't care to know which child has completed
-                self._remaining_children -= 1
-                if self._remaining_children == 0:
-                    # We need to send all stored records
-                    for record in self._records_by_key.values():
-                        self.forward_upstream(record)
-                    self.forward_upstream(Record(last = True))
-
-        else: # TYPE_ERROR
-            self.forward_upstream(packet)
+        if is_last:
+            # In fact we don't care to know which child has completed
+            self._remaining_children -= 1
+            if self._remaining_children == 0:
+                # We need to send all stored records
+                for record in self._records_by_key.values():
+                    self.forward_upstream(record)
+                self.forward_upstream(Record(last = True))
 
     #---------------------------------------------------------------------------
     # AST manipulations & optimization

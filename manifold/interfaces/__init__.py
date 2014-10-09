@@ -41,6 +41,7 @@ class Interface(object):
         self._flow_map = dict()
 
         router.register_interface(self)
+        self.up()
 
     def __repr__(self):
         return "<%s %s>" % (self.__class__.__name__, self.get_interface_name())
@@ -50,14 +51,17 @@ class Interface(object):
     get_platform_name = get_uuid
     get_interface_name = get_uuid
 
+    def get_address(self):
+        return Destination('uuid', Filter().filter_by(Predicate('uuid', '==', self._uuid)))
+
     def get_interface_type(self):
         return self.__interface_type__
 
     def up(self):
-        pass
+        self._router.up_interface(self)
 
     def down(self):
-        pass
+        self._router.down_interface(self)
 
     def terminate(self):
         pass
@@ -78,7 +82,7 @@ class Interface(object):
 
         if not source:
             if not packet.get_source():
-                source = Destination('uuid', Filter().filter_by(Predicate('uuid', '==', self._uuid)))
+                source = self.get_address()
                 packet.set_source(source)
         else:
             packet.set_source(source)
@@ -108,7 +112,7 @@ class Interface(object):
         #print "[ IN]", self, packet
         #print "*** FLOW MAP: %s" % self._flow_map
         #print "-----"
-        packet._ingress = self.get_uuid()
+        packet._ingress = self.get_address()
         # XXX Not all packets are targeted at the router.
         # - announces are
         # - supernodes are not (they could eventually pass through the router)

@@ -191,7 +191,7 @@ class Node(object):
             self.forward_upstream(Record(last=True))
             return
         #packet.set_source(self)
-        receiver.receive(packet)
+        receiver.send(packet)
 
     def forward_upstream(self, packet):
         #self.check_send(packet)

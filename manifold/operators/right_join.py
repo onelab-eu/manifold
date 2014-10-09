@@ -139,7 +139,7 @@ class RightJoin(Operator, LeftRightSlotMixin):
         #print "SENDING LEFT PACKET", self._left_packet
         self._get_left().receive(self._left_packet)
 
-    def receive_impl(self, packet, slot_id = None):
+    def send_impl(self, packet, slot_id = None):
         """
         Handle an incoming Packet.
         Args:

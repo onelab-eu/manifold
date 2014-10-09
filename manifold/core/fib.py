@@ -1,6 +1,10 @@
+import uuid
+
 from manifold.core.announce         import Announce, Announces
 from manifold.core.dbnorm           import Fd, Fds, Determinant, closure
+from manifold.core.destination      import Destination
 from manifold.core.field_names      import FieldNames
+from manifold.core.filter           import Filter
 from manifold.core.key              import Key
 from manifold.core.keys             import Keys
 from manifold.core.method           import Method
@@ -152,11 +156,6 @@ class Object(object):
             # Relation to myself ?
             return relations
 
-#DEPRECATED|        if u.get_name() == 'ping' and v.get_name() == 'probe_ping':
-#DEPRECATED|            import pdb; pdb.set_trace()
-#DEPRECATED|        if u.get_name() == 'probe_ping' and v.get_name() == 'ping':
-#DEPRECATED|            import pdb; pdb.set_trace()
-
         #        LINK_NN
         #      /        \
         # LINK_1N     LINK_N1
@@ -257,6 +256,15 @@ class FIB(ChildSlotMixin):
         # We store all accepted FDs
         self._fds = Fds()
 
+        self._uuid = str(uuid.uuid4())
+
+    # All receivers should have a UUID for destination
+    def get_uuid(self):
+        return self._uuid
+
+    def get_address(self):
+        return Destination('uuid', Filter().filter_by(Predicate('uuid', '==', self._uuid)))
+
     def get_namespaces(self):
         return self._objects_by_namespace.keys()
 
@@ -308,10 +316,6 @@ class FIB(ChildSlotMixin):
 
             object_name     = table.get_name() # XXX
 
-            Log.info("FIB ADD %s:%s" % (namespace, object_name,))
-
-#DEPRECATED|            if object_name == 'probe_ping':
-#DEPRECATED|                import pdb; pdb.set_trace()
             keys            = table.get_keys()
             fields          = table.get_fields()
             capabilities    = table.get_capabilities()
@@ -425,7 +429,7 @@ class FIB(ChildSlotMixin):
             # 2) does it make any relation redundant ?
 
     def receive(self, packet):
-        platform_name = packet.get_destination().get_filter().get_eq('uuid')
+        platform_name = packet._ingress.get_filter().get_eq('uuid')
         namespace = 'local' if platform_name == 'local' else None
 
         announce = Announce(Table.from_dict(packet.to_dict(), platform_name))

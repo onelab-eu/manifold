@@ -88,7 +88,7 @@ class Selection(Operator, ChildSlotMixin):
         )
 
 
-    def receive_impl(self, packet, slot_id = None):
+    def send(self, packet):
         """
         Process an incoming Packet instance.
           - If this is a RECORD Packet, forward the Packet if it's
@@ -98,33 +98,29 @@ class Selection(Operator, ChildSlotMixin):
         Args:
             packet: A Packet instance.
         """
-        if packet.get_protocol() in Packet.PROTOCOL_QUERY:
-            # If possible, recraft the embeded Query
-            if self.has_children_with_fullquery():
-                self._get_child().receive(packet)
-            else:
-                # XXX need to remove the filter in the query
-                new_packet = packet.clone()
-                
-                # We don't need the result to be filtered since we are doing it...
-                #VINT# new_packet.update_query(Query.unfilter_by, self._filter)
+        # If possible, recraft the embeded Query
+        if self.has_children_with_fullquery():
+            self._get_child().send(packet)
+        else:
+            # XXX need to remove the filter in the query
+            new_packet = packet.clone()
+            
+            # We don't need the result to be filtered since we are doing it...
+            #VINT# new_packet.update_query(Query.unfilter_by, self._filter)
 
-                # ... but we need the fields to filter on
-                new_packet.update_query(Query.select, self._filter.get_field_names())
-                self._get_child().receive(new_packet)
+            # ... but we need the fields to filter on
+            new_packet.update_query(Query.select, self._filter.get_field_names())
+            self._get_child().send(new_packet)
 
-        elif packet.get_protocol() == Packet.PROTOCOL_CREATE:
-            record = packet
-            if not record.is_empty() and self._filter.match(record.get_dict()):
-                self.forward_upstream(packet)
-            elif packet.is_last():
-                # This packet doesn't satisfies the Filter, however is has
-                # the LAST_RECORD flag enabled, so we send an empty
-                # RECORD Packet carrying this flag.
-                self.forward_upstream(Record(last = True))
-
-        else: # TYPE_ERROR
+    def receive_impl(self, packet, slot_id = None):
+        # We should be sure that errors go through
+        if packet.is_empty() or self._filter.match(packet.get_dict()):
             self.forward_upstream(packet)
+        elif packet.is_last():
+            # This packet doesn't satisfies the Filter, however is has
+            # the LAST_RECORD flag enabled, so we send an empty
+            # RECORD Packet carrying this flag.
+            self.forward_upstream(Record(last = True))
 
     @returns(Node)
     def optimize_selection(self, filter):

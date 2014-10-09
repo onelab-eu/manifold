@@ -58,7 +58,7 @@ class Demux(Operator):
     # Methods
     #---------------------------------------------------------------------------
 
-    def receive_impl(self, packet, slot_id = None):
+    def send_impl(self, packet, slot_id = None):
         """
         Process an incoming Packet instance.
         Args:

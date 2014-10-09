@@ -25,6 +25,7 @@ distribution, _, _ = dist()
 ROOT_PATH          = os.path.abspath(os.path.dirname(__file__))
 long_description   = open(os.path.join(ROOT_PATH, "README.rst")).read()
 SERVICES           = ["manifold-router", "manifold-xmlrpc"]
+CRONSERVICES       = ["manifold-agent"]
 
 #-----------------------------------------------------------------------
 # Those files are not *py files and must be referenced in MANIFEST.in
@@ -94,6 +95,17 @@ data_files.append((
             "dedicated_dir" : dedicated_dir,
             "service"       : service
         } for service in SERVICES
+    ]
+))
+
+# Add /etc/cron.hourly scripts in the package
+data_files.append((
+    "/etc/cron.hourly/",
+    [
+        "%(dedicated_dir)s/cron.hourly/%(service)s" % {
+            "dedicated_dir" : dedicated_dir,
+            "service"       : service
+        } for service in CRONSERVICES
     ]
 ))
 

@@ -472,28 +472,22 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
 #DEPRECATED|            self._router.add_to_local_cache(method, uuid, subrecords)
 #DEPRECATED|        return record
 
-    def receive_impl(self, packet, slot_id = None):
+    def send(self, packet):
         """
         Handle an incoming Packet instance.
         Args:
             packet: A Packet instance.
         """
+        parent_packet, child_packets = self.split_packet(packet)
+        for child_id, child_packet in child_packets.items():
+            self._set_child_packet(child_id, child_packet)
+        self.send_to(self._get_parent(), parent_packet)
 
-        # XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX
-        # We cannot treat all packets the same until we figure out how to merge
-        # two packets (JOIN and SUBQUERY)
-        # XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX
-        if packet.get_protocol() in Packet.PROTOCOL_QUERY:
-            parent_packet, child_packets = self.split_packet(packet)
-            for child_id, child_packet in child_packets.items():
-                self._set_child_packet(child_id, child_packet)
-            self.send_to(self._get_parent(), parent_packet)
-
-        elif packet.get_protocol() == Packet.PROTOCOL_CREATE:
-            # XXX Here we want to know which child has sent the packet...
-            record = packet
-            is_last = record.is_last()
-            record.unset_last()
+    def receive_impl(self, packet, slot_id = None):
+        # XXX Here we want to know which child has sent the packet...
+        record = packet
+        is_last = record.is_last()
+        record.unset_last()
 
 #DEPRECATED|            # We will extract subrecords from the packet and store them in the
 #DEPRECATED|            # local cache
@@ -501,39 +495,36 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
 #DEPRECATED|            # XXX This should disappear
 #DEPRECATED|            record, subrecord_dict = self.split_record(record)
 
-            # XXX For local subqueries we do not even need to wonder, only
-            # parent answers
-            assert slot_id is not None
+        # XXX For local subqueries we do not even need to wonder, only
+        # parent answers
+        assert slot_id is not None
 
-            #if packet.get_source() == self._producers.get_parent_producer(): # XXX
-            if slot_id == PARENT: # if not self._parent_done:
-                # Store the record for later...
+        #if packet.get_source() == self._producers.get_parent_producer(): # XXX
+        if slot_id == PARENT: # if not self._parent_done:
+            # Store the record for later...
 
-                if not record.is_empty():
-                    self.parent_output.append(record)
+            if not record.is_empty():
+                self.parent_output.append(record)
 
-                # formerly parent_callback
-                if is_last:
-                    # When we have received all parent records, we can run children
-                    self._parent_done = True
-                    if self.parent_output:
-                        self._run_children()
-                    else:
-                        self.forward_upstream(Record(last = True))
-                    return
+            # formerly parent_callback
+            if is_last:
+                # When we have received all parent records, we can run children
+                self._parent_done = True
+                if self.parent_output:
+                    self._run_children()
+                else:
+                    self.forward_upstream(Record(last = True))
+                return
 
-            else:
-                print "PACKET", packet
-                # NOTE: source_id is the child_id
-                if not record.is_empty():
-                    # Store the results for later...
-                    self._add_child_record(slot_id, record)
+        else:
+            print "PACKET", packet
+            # NOTE: source_id is the child_id
+            if not record.is_empty():
+                # Store the results for later...
+                self._add_child_record(slot_id, record)
 
-                if is_last:
-                    self._set_child_done(slot_id)
-
-        else: # TYPE_ERROR
-            self.forward_upstream(packet)
+            if is_last:
+                self._set_child_done(slot_id)
 
     @staticmethod
     def get_element_key(element, key):

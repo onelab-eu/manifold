@@ -69,7 +69,7 @@ class ProcessCollection(ManifoldCollection):
         # We leave the process a chance to return records without executing
         output = self.on_receive_query(query, annotation)
         if output:
-            print "return direct output=", output
+            print "shortcut"
             self.get_gateway().records(output, packet)
             return
 
@@ -174,15 +174,17 @@ class ProcessCollection(ManifoldCollection):
                 # XXX Argument with no value == ERROR
                 prefix = process_field.get_prefix()
 
-                # XXX UGLY !!!!
 
+                if not value:
+                    continue
+
+                oldret, ret = ret, list()
+
+                # XXX UGLY !!!!
                 if field_type == FIELD_TYPE_PARAMETER:
                     # Parameters
-                    if not value:
-                        continue
                     short = process_field.get_short()
 
-                    oldret, ret = ret, list()
                     if is_iterable(value):
                         for args, params in oldret:
                             for v in value:
@@ -203,7 +205,6 @@ class ProcessCollection(ManifoldCollection):
                 else:
                     # Arguments
                     if is_iterable(value):
-                        oldret, ret = ret, list()
                         for args, params in oldret:
                             for v in value:
                                 argvalue = "%s%s" % (prefix, v) if prefix else v
@@ -213,7 +214,7 @@ class ProcessCollection(ManifoldCollection):
                                 ret.append( (newargs, new_params,) )
                     else:
                         argvalue = "%s%s" % (prefix, value) if prefix else value
-                        for args, params in ret:
+                        for args, params in oldret:
                             params[name] = value
                             newargs = args + (argvalue,)
                             ret.append( (newargs, params,) )
@@ -232,6 +233,7 @@ class ProcessCollection(ManifoldCollection):
 
             self._in_progress[batch_id] -= 1
             if self._in_progress[batch_id] == 0:
+                # Again : batch_id == packet
                 self.get_gateway().records(self._records[batch_id], packet)
                 del self._records[batch_id]
                 del self._in_progress[batch_id]

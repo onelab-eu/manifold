@@ -141,7 +141,7 @@ class From(Operator, ChildSlotMixin):
         """
         return self.get_capabilities().fullquery
 
-    def receive_impl(self, packet, slot_id = None):
+    def send(self, packet, slot_id = None):
         """
         Process an incoming packet.
         Args:
@@ -152,7 +152,12 @@ class From(Operator, ChildSlotMixin):
         packet.update_destination(lambda d: d.add_filter(filter))
         packet.update_destination(lambda d: d.clear_namespace())
 
-        self.get_interface().receive(packet)
+        # The packet needs to come back in the operatorgraph, otherwise, it is
+        # send directly to the receiving interface (or any other receiver that
+        # will have been defined)
+        packet.set_receiver(self)
+
+        self.get_interface().send(packet)
 
     @returns(Operator)
     def optimize_selection(self, filter):

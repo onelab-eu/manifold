@@ -14,7 +14,7 @@ from twisted.internet.defer     import Deferred
 # from manifold.core.code        import FORBIDDEN
 from manifold.core.node         import Node
 from manifold.core.operator_slot import ChildSlotMixin
-from manifold.core.packet       import Packet
+from manifold.core.packet       import Packet, Records
 from manifold.core.result_value import ResultValue
 from manifold.util.log          import Log
 from manifold.util.type         import accepts, returns
@@ -33,8 +33,8 @@ class DeferredReceiver(Node, ChildSlotMixin):
         Node.__init__(self)
         ChildSlotMixin.__init__(self)
 
-        self._records  = list()
-        self._errors   = list()
+        self._records  = Records()
+        self._errors   = Records()
         self._deferred = Deferred()
 
         # BUGFIX
@@ -96,7 +96,7 @@ class DeferredReceiver(Node, ChildSlotMixin):
         # should manage the "LAST_RECORD" flag while forwarding its Packets.
         if packet.is_last():
             result_value = ResultValue.get(self._records, self._errors)
-            self._deferred.callback(result_value.to_dict())
+            self._deferred.callback(result_value)
 
     #@returns(Deferred)
     def get_deferred(self):

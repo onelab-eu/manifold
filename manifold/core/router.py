@@ -92,11 +92,16 @@ class Router(object):
         # interface_uuid -> interface
         self._interfaces = dict()
 
+        self._interface_is_up = dict()
+
         # We request announces from the local gateway (cf # manifold.core.interface)
         # XXX This should be similar for all gateways
         # XXX add_platform
         print "adding local platform"
         self.add_platform(LOCAL_NAMESPACE, LOCAL_NAMESPACE)
+        
+        Log.tmp('Adding ping')
+        self.add_platform("ping", "ping")
 
 # DEPRECATED BY FIB        self._local_gateway = LocalGateway(router = self)
 # DEPRECATED BY FIB        self._local_dbgraph = self.get_local_gateway().make_dbgraph()
@@ -164,12 +169,9 @@ class Router(object):
 # DEPRECATED BY FIB        """
 # DEPRECATED BY FIB        self._dbgraph = to_3nf(self.get_announces())
 # DEPRECATED BY FIB        self._local_dbgraph = self.get_local_gateway().make_dbgraph()
-# 
-#     def register_collection(self, cls, namespace = None):
-#         self.get_interface(namespace).register_collection(cls, namespace)
 
     def register_local_collection(self, cls):
-        self.get_interface('local').register_local_collection(cls)
+        self.get_interface('local').register_collection(cls)
 
     #---------------------------------------------------------------------------
     # Platform management
@@ -222,17 +224,16 @@ class Router(object):
         try:
             Log.info("Adding platform [%s] (type: %s, config: %s)" % (platform_name, gateway_type, platform_config))
             if gateway_type == LOCAL_NAMESPACE:
-                print "SPECIAL CASE FOR LOCAL"
                 gateway = LocalGateway(router = self)
             else:
                 gateway = self.make_gateway(platform_name, gateway_type, platform_config)
 
             # Retrieving announces from gateway, and populate the FIB
-            print "getting announces !!!!!!!!! I have a problem with gw and namespaces"
             packet = GET()
+            packet.set_source(self.get_fib().get_address())
             packet.set_destination(Destination('object', namespace='local'))
-            packet.set_receiver(self)
-            gateway.receive(packet)
+            packet.set_receiver(self.get_fib())
+            gateway.send(packet)
 
 #DEPRECATED|            announces = gateway.get_announces()
 #DEPRECATED|            for announce in announces:
@@ -252,6 +253,12 @@ class Router(object):
 
     def register_interface(self, interface):
         self._interfaces[interface.get_uuid()] = interface
+
+    def up_interface(self, interface):
+        self._interface_is_up[interface.get_uuid()] = True
+
+    def down_interface(self, interface):
+        self._interface_is_up[interface.get_uuid()] = False
 
     def add_interface(self, interface_type, *args, **kwargs):
         interface_cls = Interface.factory_get(interface_type)
@@ -598,33 +605,17 @@ class Router(object):
 # DEPRECATED BY FIB                Log.error(e)
 # DEPRECATED BY FIB                raise e
 
+#DEPRECATED|            # Let's assume the record is an announce
+#DEPRECATED|            if packet.is_empty():
+#DEPRECATED|                return
+#DEPRECATED|            packet_dict = packet.to_dict()
+#DEPRECATED|            origins = packet_dict.get('origins')
+#DEPRECATED|            platform_name = origins[0] if origins else 'local'
+#DEPRECATED|            namespace = 'local' if platform_name == 'local' else None
+#DEPRECATED|            announce = Announce(Table.from_dict(packet_dict, LOCAL_NAMESPACE))
+#DEPRECATED|            self.get_fib().add(platform_name, announce, namespace)
+
     def receive(self, packet):
-        if isinstance(packet, (GET, CREATE, UPDATE, DELETE)):
-            self.receive_query(packet)
-
-        # How are normal records and errors received: operatorgraph -> socket -> client
-        # Here at the moment we are only dealing with Record and ErrorPacket
-        # from requesting announces 
-        # XXX Maybe we should have an announce controller
-        # XXX or declare the FIB as a receiver
-        # NOTE: Queries have an impact on the FIB/PIT also ?
-        elif isinstance(packet, Record):
-            Log.warning("This is not a good way to get announces")
-            # Let's assume the record is an announce
-            if packet.is_empty():
-                return
-            packet_dict = packet.to_dict()
-            origins = packet_dict.get('origins')
-            platform_name = origins[0] if origins else 'local'
-            namespace = 'local' if platform_name == 'local' else None
-            announce = Announce(Table.from_dict(packet_dict, LOCAL_NAMESPACE))
-            self.get_fib().add(platform_name, announce, namespace)
-
-        elif isinstance(packet, ErrorPacket):
-            # Distinguish error requesting announces from other errors
-            print "ANNOUNCE ERROR", packet
-
-    def receive_query(self, packet):
         """
         Process an incoming Packet instance.
         Args:
@@ -632,6 +623,12 @@ class Router(object):
         """
         
         destination = packet.get_destination()
+
+        # Packet for the FIB ?
+        if destination == self.get_fib().get_address():
+            self.get_fib().receive(packet)
+            return
+
         query      = packet.get_query()
         annotation = packet.get_annotation()
         receiver   = packet.get_receiver()
@@ -644,8 +641,13 @@ class Router(object):
                 raise RuntimeError("Invalid namespace '%s': valid namespaces are {'%s'}" % (
                     namespace, "', '".join(valid_namespaces)))
 
+            exclude_interfaces = list()
+            if packet._ingress:
+                ingress = packet._ingress.get_filter().get_eq('uuid')
+                exclude_interfaces.append(ingress)
+
             # Select the DbGraph answering to the incoming Query and compute the QueryPlan
-            root_node = self._operator_graph.build_query_plan(destination, annotation, exclude_interfaces = [packet._ingress])
+            root_node = self._operator_graph.build_query_plan(destination, annotation, exclude_interfaces = exclude_interfaces)
 
             print "QUERY PLAN:"
             print root_node.format_downtree()
@@ -670,7 +672,7 @@ class Router(object):
         # XXX We should mutualize this error handling core and the errbacks
         
         try:
-            root_node.receive(packet)
+            root_node.send(packet)
         except Exception, e:
             print "EEE:", e
             traceback.print_exc()
