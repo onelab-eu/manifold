@@ -443,6 +443,9 @@ class FIB(ChildSlotMixin):
         platform_name = packet._ingress.get_filter().get_eq('uuid')
         namespace = 'local' if platform_name == 'local' else None
 
+        if packet.is_empty():
+            return
+
         announce = Announce(Table.from_dict(packet.to_dict(), platform_name))
         #print "ON_RECEIVE => FIB:add(%(platform_name)s, %(announce)s, %(namespace)s)" % locals()
         self.add(platform_name, announce, namespace)

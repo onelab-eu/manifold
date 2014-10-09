@@ -99,6 +99,7 @@ class Interface(object):
             packet.set_source(source)
 
         if destination:
+            print "DESTINATION", destination
             packet.set_destination(destination)
 
         if not receiver:

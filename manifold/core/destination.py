@@ -158,7 +158,7 @@ class Destination(object):
         Returns:
             The '%r' representation of this Query.
         """
-        return "%r" % ((self._origin, self._object_name, self._filter, self._field_names), )
+        return "%r" % ((self._namespace, self._object_name, self._filter, self._field_names), )
 
     #---------------------------------------------------------------------------
     # Algebra of operators
