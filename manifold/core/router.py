@@ -168,7 +168,7 @@ class Router(object):
 # DEPRECATED BY FIB        self._local_dbgraph = self.get_local_gateway().make_dbgraph()
 
     def register_local_collection(self, cls):
-        self.get_interface('local').register_collection(cls)
+        self.get_interface('local').register_collection(cls, 'local')
 
     #---------------------------------------------------------------------------
     # Platform management

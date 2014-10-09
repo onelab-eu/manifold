@@ -704,11 +704,11 @@ class Gateway(Interface, Node): # XXX Node needed ?
         # Register it in the FIB: we ignore the announces in the local namespace
         # unless the platform_name is local
         cls = collection.get_object()
-        print "REGISTER COLLECTION", cls.get_object_name(), namespace
         platform_name = self.get_platform_name()
-        if namespace != 'local':
-            fib_namespace = 'local' if platform_name == 'local' else None
-            self.get_router().get_fib().add(platform_name, cls.get_announce(), fib_namespace)
+        print "REGISTER COLLECTION", cls.get_object_name(), namespace, "platform=", platform_name
+
+        if platform_name == 'local' or namespace != 'local':
+            self.get_router().get_fib().add(platform_name, cls.get_announce(), namespace)
 
         # Store the object locally
         if namespace not in self._collections_by_namespace:

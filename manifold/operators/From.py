@@ -150,7 +150,6 @@ class From(Operator, ChildSlotMixin):
         # We need to add local filters to the query packet
         filter = self.get_destination().get_filter()
         packet.update_destination(lambda d: d.add_filter(filter))
-        packet.update_destination(lambda d: d.clear_namespace())
 
         # The packet needs to come back in the operatorgraph, otherwise, it is
         # send directly to the receiving interface (or any other receiver that

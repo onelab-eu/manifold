@@ -119,11 +119,12 @@ class LocalGateway(Gateway):
 
         super(LocalGateway, self).__init__(router, platform_name, platform_config)
 
-        # XXX We could automatically load objects...
-        self.register_collection(OLocalObject())
-        self.register_collection(OLocalColumn())
-        self.register_collection(LocalGatewayCollection())
-        self.register_collection(LocalInterfaceCollection())
-        self.register_collection(LocalAboutCollection())
+        # Overwrite default collections
+        self.register_collection(OLocalObject(), 'local')
+        self.register_collection(OLocalColumn(), 'local')
+
+        self.register_collection(LocalGatewayCollection(), 'local')
+        self.register_collection(LocalInterfaceCollection(), 'local')
+        self.register_collection(LocalAboutCollection(), 'local')
 
 

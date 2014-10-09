@@ -53,7 +53,7 @@ class ManifoldProtocol(IntNStringReceiver):
         print "tcp send packet ok"
 
     def connectionLost(self, reason):
-        print "CONNECTION LOST: REASON:", reason
+        print "CONNECTION LOST: REASON:", reason, " - CLIENT", self
         self.factory.on_client_disconnected(self, reason)
     # connection lost = client=None in factory
 

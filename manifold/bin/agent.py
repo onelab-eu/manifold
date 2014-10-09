@@ -251,8 +251,7 @@ class AgentDaemon(Daemon):
         router = Router()
 
         # XXX We need some auto-detection for processes
-        #self._ping = router.add_platform("ping", "ping")
-        self._ping = None
+        self._ping = router.add_platform("ping", "ping")
 
         # Setup interfaces
         #self._ws_interface  = router.add_interface('websocket')
@@ -270,11 +269,15 @@ class AgentDaemon(Daemon):
 
             router.register_local_collection(supernode_collection)
 
+            router.get_fib().dump()
+
             # XXX We should install a hook to remove from supernodes agents that have disconnected
 
         else:
             # The agent just builds the overlays and stays passive
+            print "before bootstrap"
             self.bootstrap_overlay(router)
+            print "after bootstrap"
 
             #self._bootstrap_overlay_task = LoopingCall(self.bootstrap_overlay, router)
             #self._bootstrap_overlay_task.start(0)
