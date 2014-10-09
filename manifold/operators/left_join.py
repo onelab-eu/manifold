@@ -59,6 +59,7 @@ class LeftJoin(Operator, LeftRightSlotMixin):
                 can be joined.
         """
 
+        Log.warning("NEED TO MANAGE LAST RECORD: destination = None")
         # Check parameters
         assert isinstance(predicate, Predicate), "Invalid predicate = %r (%r)" % (predicate, type(predicate))
         assert predicate.get_op() == eq
@@ -171,7 +172,7 @@ class LeftJoin(Operator, LeftRightSlotMixin):
 
         self._get_right().receive(self._right_packet) # XXX
 
-    def send_impl(self, packet, slot_id = None):
+    def send(self, packet):
         """
         Handle an incoming Packet.
         Args:
@@ -180,138 +181,136 @@ class LeftJoin(Operator, LeftRightSlotMixin):
         # Out of the Query part since it is used for a True Hack !
         left_field_names = self._get_left().get_destination().get_field_names()
 
-        if packet.get_protocol() in Packet.PROTOCOL_QUERY:
-            q = packet.get_query()
-            # We forward the query to the left node
-            # TODO : a subquery in fact
+        q = packet.get_query()
+        # We forward the query to the left node
+        # TODO : a subquery in fact
 
-            left_key    = self._predicate.get_field_names()
-            right_key    = self._predicate.get_value_names()
+        left_key    = self._predicate.get_field_names()
+        right_key    = self._predicate.get_value_names()
 
-            right_object = self._get_right().get_destination().get_object()
+        right_object = self._get_right().get_destination().get_object()
 
-            left_packet        = packet.clone()
-            # split filter and fields
-            # XXX WHY ADDING LEFT KEY IF NOT USED EVER (for example virtual keys for tables without keys, such as probe_traceroute_id)
-            left_field_names = q.get_select() & left_field_names
-            left_field_names |= left_key
-            left_packet.update_query(lambda q: q.select(left_field_names, clear = True))
+        left_packet        = packet.clone()
+        # split filter and fields
+        # XXX WHY ADDING LEFT KEY IF NOT USED EVER (for example virtual keys for tables without keys, such as probe_traceroute_id)
+        left_field_names = q.get_select() & left_field_names
+        left_field_names |= left_key
+        left_packet.update_query(lambda q: q.select(left_field_names, clear = True))
 
-            # left_packet.update_query(lambda q: q.select(q.get_select() & left_field_names | left_key, clear = True))
-            left_packet.update_query(lambda q: q.filter_by(q.get_filter().split_fields(left_field_names, True), clear = True))
+        # left_packet.update_query(lambda q: q.select(q.get_select() & left_field_names | left_key, clear = True))
+        left_packet.update_query(lambda q: q.filter_by(q.get_filter().split_fields(left_field_names, True), clear = True))
 
-            right_packet = packet.clone()
-            # We should rewrite the query...
-            right_packet.update_query(lambda q: q.set_object(right_object))
+        right_packet = packet.clone()
+        # We should rewrite the query...
+        right_packet.update_query(lambda q: q.set_object(right_object))
 
-            # Updating fields
-            right_field_names = self._get_right().get_destination().get_field_names()
-            if self._subrecord_mode():
-                # fields of interest in q.get_select() are prefixed
-                left_prefix, _ = self._predicate.get_key().rsplit(FIELD_SEPARATOR, 1)
-                right_field_names = FieldNames([f for f in right_field_names if FieldNames.join(left_prefix, f) in q.get_select()])
-            else:
-                right_field_names = q.get_select() & right_field_names
-            right_field_names |= right_key
-            right_packet.update_query(lambda q: q.select(right_field_names, clear = True))
+        # Updating fields
+        right_field_names = self._get_right().get_destination().get_field_names()
+        if self._subrecord_mode():
+            # fields of interest in q.get_select() are prefixed
+            left_prefix, _ = self._predicate.get_key().rsplit(FIELD_SEPARATOR, 1)
+            right_field_names = FieldNames([f for f in right_field_names if FieldNames.join(left_prefix, f) in q.get_select()])
+        else:
+            right_field_names = q.get_select() & right_field_names
+        right_field_names |= right_key
+        right_packet.update_query(lambda q: q.select(right_field_names, clear = True))
 
-            right_packet.update_query(lambda q: q.filter_by(q.get_filter().split_fields(right_field_names, True), clear = True))
-            self._right_packet = right_packet
+        right_packet.update_query(lambda q: q.filter_by(q.get_filter().split_fields(right_field_names, True), clear = True))
+        self._right_packet = right_packet
 
-            self._get_left().receive(left_packet)
+        self._get_left().receive(left_packet)
 
-        elif packet.get_protocol() == Packet.PROTOCOL_CREATE:
-            record = packet
+    def receive_impl(self, packet, slot_id = None):
+        # Out of the Query part since it is used for a True Hack !
+        left_field_names = self._get_left().get_destination().get_field_names()
 
-            is_last = record.is_last()
-            if is_last:
-                record.unset_last()
+        record = packet
 
-            #if packet.get_source() == self._producers.get_parent_producer(): # XXX
-            if not self._left_done:
-                if not record.is_empty():
-                    # We store the parent records since what will be in left
-                    # map is just the subrecords that have to be completed
-                    # by 
-                    if self._subrecord_mode():
-                        self._parent_records.append(record)
+        is_last = record.is_last()
+        if is_last:
+            record.unset_last()
 
-                        # Store the result in a hash for joining later:
-                        # except for 1..1 relationships, this will be a list
-                        map_entries = record.get_map_entries(self._predicate.get_field_names())
-                        for key_field, subrecord in map_entries:
-                            if not key_field in self._left_map:
-                                self._left_map[key_field] = []
-                            self._left_map[key_field].append(subrecord)
+        #if packet.get_source() == self._producers.get_parent_producer(): # XXX
+        if not self._left_done:
+            if not record.is_empty():
+                # We store the parent records since what will be in left
+                # map is just the subrecords that have to be completed
+                # by 
+                if self._subrecord_mode():
+                    self._parent_records.append(record)
 
-                    else:
-                        if not record.has_field_names(self._predicate.get_field_names()):
-                            Log.warning("Missing LEFTJOIN predicate %s in left record %r : forwarding" % \
-                                    (self._predicate, record))
-                            self.forward_upstream(record)
+                    # Store the result in a hash for joining later:
+                    # except for 1..1 relationships, this will be a list
+                    map_entries = record.get_map_entries(self._predicate.get_field_names())
+                    for key_field, subrecord in map_entries:
+                        if not key_field in self._left_map:
+                            self._left_map[key_field] = []
+                        self._left_map[key_field].append(subrecord)
 
-                        else:
-                            # Normal behaviour
-                            # Store the result in a hash for joining later: we
-                            # know this will be a simple value
-                            # NOTE: we need the fields to remain ordered, so we
-                            # are using a tuple...
-                            # XXX MACCHA XXX
-                            hash_key = record.get_value(self._predicate.get_key())
-                            # for subfields, we might have a list of values
-                            if not hash_key in self._left_map:
-                                self._left_map[hash_key] = []
-                            self._left_map[hash_key].append(record)
-
-                if is_last:
-                    self._left_done = True
-                    self._update_and_send_right_packet()
-                    return
-                
-
-            else:
-                # formerly right_callback()
-                if not record.is_empty():
-                    # Skip records missing information necessary to join
-                    if not set(self._predicate.get_value_names()) <= set(record.keys()) \
-                    or record.has_empty_fields(self._predicate.get_value_names()):
-                        Log.warning("Missing LEFTJOIN predicate %s in right record %r: ignored" % \
+                else:
+                    if not record.has_field_names(self._predicate.get_field_names()):
+                        Log.warning("Missing LEFTJOIN predicate %s in left record %r : forwarding" % \
                                 (self._predicate, record))
-                        # XXX Shall we send ICMP ?
-                        return
+                        self.forward_upstream(record)
 
-                    # We expect to receive information about keys we asked, and only these,
-                    # so we are confident the key exists in the map
-                    # XXX Dangers of duplicates ?
-                    # XXX MACCHA XXX 
-                    key = record.get_value(self._predicate.get_value_names())
-                    left_records = self._left_map.pop(key)
-
-                    # XXX Only the left member can have dots !
-                    for left_record in left_records:
-                        left_record.update(record)
-                    
-                        if not self._subrecord_mode():
-                            self.forward_upstream(left_record)
-
-                if is_last:
-                    # Send remaining records in left_map
-                    #  - subrecord mode : all parent records
-                    #  - normal mode : all records that had no match on the
-                    #  right side (those left in left_map)
-                    if self._subrecord_mode():
-                        map(self.forward_upstream, self._parent_records)
                     else:
-                        # Send records in left_results that have not been joined
-                        for left_record_list in self._left_map.values():
-                            for left_record in left_record_list:
-                                self.forward_upstream(left_record)
-                    self.forward_upstream(Record(last = True))
+                        # Normal behaviour
+                        # Store the result in a hash for joining later: we
+                        # know this will be a simple value
+                        # NOTE: we need the fields to remain ordered, so we
+                        # are using a tuple...
+                        # XXX MACCHA XXX
+                        hash_key = record.get_value(self._predicate.get_key())
+                        # for subfields, we might have a list of values
+                        if not hash_key in self._left_map:
+                            self._left_map[hash_key] = []
+                        self._left_map[hash_key].append(record)
+
+            if is_last:
+                self._left_done = True
+                self._update_and_send_right_packet()
+                return
+            
+
+        else:
+            # formerly right_callback()
+            if not record.is_empty():
+                # Skip records missing information necessary to join
+                if not set(self._predicate.get_value_names()) <= set(record.keys()) \
+                or record.has_empty_fields(self._predicate.get_value_names()):
+                    Log.warning("Missing LEFTJOIN predicate %s in right record %r: ignored" % \
+                            (self._predicate, record))
+                    # XXX Shall we send ICMP ?
+                    return
+
+                # We expect to receive information about keys we asked, and only these,
+                # so we are confident the key exists in the map
+                # XXX Dangers of duplicates ?
+                # XXX MACCHA XXX 
+                key = record.get_value(self._predicate.get_value_names())
+                left_records = self._left_map.pop(key)
+
+                # XXX Only the left member can have dots !
+                for left_record in left_records:
+                    left_record.update(record)
+                
+                    if not self._subrecord_mode():
+                        self.forward_upstream(left_record)
+
+            if is_last:
+                # Send remaining records in left_map
+                #  - subrecord mode : all parent records
+                #  - normal mode : all records that had no match on the
+                #  right side (those left in left_map)
+                if self._subrecord_mode():
+                    map(self.forward_upstream, self._parent_records)
+                else:
+                    # Send records in left_results that have not been joined
+                    for left_record_list in self._left_map.values():
+                        for left_record in left_record_list:
+                            self.forward_upstream(left_record)
+                self.forward_upstream(Record(last = True))
                     
-
-
-        else: # TYPE_ERROR
-            self.forward_upstream(packet)
 
     #---------------------------------------------------------------------------
     # AST manipulations & optimization

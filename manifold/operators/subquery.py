@@ -54,6 +54,8 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
             child_producer_relation_list: A list of (Producer, Relation) tuples
                 where each tuple correspond to a sub query.
         """
+
+        Log.warning("NEED TO MANAGE LAST RECORD: destination = None")
             
         # Initialization (passing a tuple as producers stores the second parameter as data)
         Operator.__init__(self)
@@ -486,8 +488,8 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
     def receive_impl(self, packet, slot_id = None):
         # XXX Here we want to know which child has sent the packet...
         record = packet
-        is_last = record.is_last()
-        record.unset_last()
+        #is_last = record.is_last()
+        #record.unset_last()
 
 #DEPRECATED|            # We will extract subrecords from the packet and store them in the
 #DEPRECATED|            # local cache
@@ -502,12 +504,14 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
         #if packet.get_source() == self._producers.get_parent_producer(): # XXX
         if slot_id == PARENT: # if not self._parent_done:
             # Store the record for later...
+            # It is okay to keep the last record; we will just add up to the
+            # packet.
 
             if not record.is_empty():
                 self.parent_output.append(record)
 
             # formerly parent_callback
-            if is_last:
+            if record.is_last():
                 # When we have received all parent records, we can run children
                 self._parent_done = True
                 if self.parent_output:
@@ -517,13 +521,14 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
                 return
 
         else:
-            print "PACKET", packet
+            # We can also keep the LAST flag since the record content is merged
+            # into the original packet, irrespective of this flag
             # NOTE: source_id is the child_id
             if not record.is_empty():
                 # Store the results for later...
                 self._add_child_record(slot_id, record)
 
-            if is_last:
+            if record.is_last():
                 self._set_child_done(slot_id)
 
     @staticmethod

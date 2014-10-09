@@ -126,49 +126,53 @@ class Union(Operator, ChildrenSlotMixin):
 
     def receive_impl(self, packet, slot_id = None):
         record = packet
-        is_last = record.is_last()
-        record.unset_last()
+        #is_last = record.is_last()
+        #record.unset_last()
         do_send = True
 
-        if not record.is_empty():
-            # We need to keep all records until the UNION has completed
-            # since they might all be completed by records coming from othr
-            # children
-            # TODO: This might be deduced from the query plan ?
-
-            if not record.has_field_names(self._key_field_names):
-                self.forward_upstream(packet)
-            else:
-                key_value = record.get_value(self._key_field_names)
-
-                if key_value in self._records_by_key:
-                    prev_record = self._records_by_key[key_value]
-                    for k, v in record.items():
-                        if not k in prev_record:
-                            prev_record[k] = v
-                            continue
-                        if isinstance(v, Records):
-                            previous[k].extend(v) # DUPLICATES ?
-                        elif isinstance(v, list):
-                            Log.warning("Should be a record")
-                        #else:
-                        #    if not v == previous[k]:
-                        #        print "W: ignored conflictual field"
-                        #    # else: nothing to do
-                    
-                    # OLD CODE: 
-                    # self._records_by_key[key_value].update(record)
-                else:
-                    self._records_by_key[key_value] = record
-
-        if is_last:
-            # In fact we don't care to know which child has completed
+        if record.is_last():
             self._remaining_children -= 1
+
             if self._remaining_children == 0:
-                # We need to send all stored records
-                for record in self._records_by_key.values():
-                    self.forward_upstream(record)
-                self.forward_upstream(Record(last = True))
+                # We send all stored records before processing the current one
+                for prev_record in self._records_by_key.values():
+                    self.forward_upstream(prev_record)
+                self.forward_upstream(record)
+                return
+            else:
+                record.unset_last()
+
+        # We need to keep all records until the UNION has completed
+        # since they might all be completed by records coming from othr
+        # children
+        # TODO: This might be deduced from the query plan ?
+
+        if record.is_empty():
+            print "EMPTY RECORD", record
+        if record.is_empty() or not record.has_field_names(self._key_field_names):
+            self.forward_upstream(packet)
+        else:
+            key_value = record.get_value(self._key_field_names)
+
+            if key_value in self._records_by_key:
+                prev_record = self._records_by_key[key_value]
+                for k, v in record.items():
+                    if not k in prev_record:
+                        prev_record[k] = v
+                        continue
+                    if isinstance(v, Records):
+                        previous[k].extend(v) # DUPLICATES ?
+                    elif isinstance(v, list):
+                        Log.warning("Should be a record")
+                    #else:
+                    #    if not v == previous[k]:
+                    #        print "W: ignored conflictual field"
+                    #    # else: nothing to do
+                
+                # OLD CODE: 
+                # self._records_by_key[key_value].update(record)
+            else:
+                self._records_by_key[key_value] = record
 
     #---------------------------------------------------------------------------
     # AST manipulations & optimization

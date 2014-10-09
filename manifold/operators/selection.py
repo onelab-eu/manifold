@@ -113,14 +113,19 @@ class Selection(Operator, ChildSlotMixin):
             self._get_child().send(new_packet)
 
     def receive_impl(self, packet, slot_id = None):
-        # We should be sure that errors go through
         if packet.is_empty() or self._filter.match(packet.get_dict()):
             self.forward_upstream(packet)
-        elif packet.is_last():
-            # This packet doesn't satisfies the Filter, however is has
-            # the LAST_RECORD flag enabled, so we send an empty
-            # RECORD Packet carrying this flag.
-            self.forward_upstream(Record(last = True))
+            return
+
+        # We drop the packet. 
+
+        # This packet doesn't satisfies the Filter, however is has
+        # the LAST_RECORD flag enabled, so we send an empty
+        # RECORD Packet carrying this flag.
+        if packet.is_last():
+            packet.clear_data()
+            self.forward_upstream(packet)
+                
 
     @returns(Node)
     def optimize_selection(self, filter):
