@@ -24,7 +24,7 @@ import sys, copy
 from types                      import StringTypes
 
 from manifold.core.capabilities import Capabilities, merge_capabilities
-from manifold.core.dbgraph      import DBGraph
+#DEPRECATED|from manifold.core.dbgraph      import DBGraph
 from manifold.core.field        import Field, merge_fields
 from manifold.core.field_names  import FieldNames
 from manifold.core.key          import Key
@@ -646,232 +646,232 @@ def reinject_fds(fds_min_cover, fds_removed):
             for fd in fds:
                 fds_min_cover.add(fd)
 
-@returns(DBGraph)
-#TODO to_3nf should not consider a list of Announces!
-@accepts(dict)
-def to_3nf(metadata):
-    """
-    Compute a 3nf schema
-    See also http://elm.eeng.dcu.ie/~ee221/EE221-DB-7.pdf p14
-    Args:
-        metadata: A dictionnary {String => list(Announces)} which maps
-            platform name a list containing its corresponding Announces.
-    Returns:
-        The corresponding 3nf graph (DbGraph instance)
-    """
-    # 1) Compute functional dependancies
-    tables = list()
-    local_tables = list()
-    map_method_capabilities = dict()
-    for platform, announces in metadata.items():
-        for announce in announces:
-            table = announce.get_table()
-            # XXX local aspect is local during normalization, unless we store it
-            # in FD
-            if table.keys.is_local(): # and not table.keys:
-                local_tables.append(table)
-            else:
-                tables.append(table)
-            map_method_capabilities[Method(platform, table.get_name())] = table.get_capabilities()
-    fds = make_fd_set(tables)
-
-    # 2) Find a minimal cover
-    (fds_min_cover, fds_removed) = fd_minimal_cover(fds)
-
-    # 3) Reinjecting fds removed during normalization
-    reinject_fds(fds_min_cover, fds_removed)
-
-    # 4) Grouping fds by method
-#OBOSOLETE|    fdss = fds_min_cover.group_by_method() # Mando
-    fdss = fds_min_cover.group_by_tablename_method() # Jordan
-
-    # 5) Making 3-nf tables
-    tables_3nf = list()
-    map_tablename_methods = dict() # map table_name with methods to demux
-
-    for table_name, map_platform_fds in fdss.items():
-        # For the potential parent table
-        # Stores the number of distinct platforms set
-        num_platforms = 0
-
-        # Stores the set of platforms
-        all_platforms = set()
-        common_fields = None
-        common_keys = None
-        all_keys = Keys()
-
-        # Annotations needed for the query plane
-        all_tables = list()
-
-        for platform, fds in map_platform_fds.items():
-            platforms = set()
-            fields    = set()
-            keys      = Keys()
-
-            # Annotations needed for the query plane
-            map_method_keys   = dict()
-            map_method_fieldnames = dict()
-
-            for fd in fds:
-                key = fd.get_determinant().get_key()
-                keys.add(key)
-                fields |= fd.get_fields()
-
-                # We need to add fields from the key
-                for key_field in key:
-                    fields.add(key_field) # XXX
-
-                for field, methods in fd.get_map_field_methods().items():
-
-                    for method in methods:
-
-                        # key annotation
-                        if not method in map_method_keys.keys():
-                            map_method_keys[method] = set()
-                        map_method_keys[method].add(key)
-
-                        # field annotation
-                        if not method in map_method_fieldnames.keys():
-                            map_method_fieldnames[method] = set()
-                        map_method_fieldnames[method].add(field.get_name())
-                        map_method_fieldnames[method].add(key_field.get_name())
-
-                        # demux annotation
-                        method_name = method.get_name()
-                        if method_name != table_name :
-                            if method_name not in map_tablename_methods.keys():
-                                map_tablename_methods[method_name] = set()
-                            map_tablename_methods[method_name].add(method)
-
-                        platforms.add(method.get_platform())
-
-            table = Table(platforms, table_name, fields, keys)
-
-            # XXX Hardcoded capabilities in 3nf tables
-            table.capabilities.retrieve   = True
-            table.capabilities.join       = True
-            table.capabilities.selection  = True
-            table.capabilities.projection = True
-
-            # inject field and key annotation in the Table object
-            table.map_method_keys   = map_method_keys
-            table.map_method_fieldnames = map_method_fieldnames
-            tables_3nf.append(table)
-            all_tables.append(table)
-            Log.debug("TABLE 3nf (i):", table, keys)
-            #print "     method fields", map_method_fieldnames
-
-            num_platforms += 1
-            all_platforms |= platforms
-
-            if not common_fields:
-                common_fields = fields
-            else:
-                common_fields = merge_fields(fields, common_fields)
-
-            #if not common_keys:
-            #    common_keys = keys
-            #else:
-            #    #common_keys &= keys
-            #    common_keys = merge_keys(keys, common_keys)
-
-            # Collect possible keys, we will restrict this set once
-            # common_fields will be computed.
-            all_keys |= keys
-
-        # Check whether we will add a parent table. If so compute the
-        # corresponding Keys based on all_keys and common_fields.
-        common_keys = None
-        if num_platforms > 1 and len(common_fields) > 0:
-            # Retrict common_keys according to common_fields
-            common_field_names = FieldNames([field.get_name() for field in common_fields])
-            common_keys = Keys([key for key in all_keys if key.get_field_names() <= common_field_names])
-
-        # Need to add a parent table if more than two sets of platforms
-        # XXX SOmetimes this parent table already exists and we are just
-        # duplicating it... (not solved at the moment) XXX
-        if common_keys:
-
-            # Capabilities will be set later since they must be set for all the Tables.
-            table = Table(all_platforms, table_name, common_fields, common_keys)
-
-            # Migrate common fields from children to parents, except keys
-            ##map_common_method_keys   = dict()
-            map_common_method_fieldnames = dict()
-
-            for field in common_fields:
-                methods = set()
-                for child_table in all_tables:
-                    # Objective = remove the field from child table
-                    # Several methods can have it
-                    for _method, _fields in child_table.map_method_fieldnames.items():
-                        if field.get_name() in _fields:
-                            methods.add(_method)
-                            if not common_keys.has_field(field):
-                                _fields.remove(field.get_name())
-
-                if not common_keys.has_field(field):
-                    del child_table.fields[field.get_name()]
-                # Add the field with all methods to parent table
-                for method in methods:
-                    if not method in map_common_method_fieldnames: map_common_method_fieldnames[method] = set()
-                    map_common_method_fieldnames[method].add(field.get_name())
-
-            # Inject field and key annotation in the Table object
-            table.map_method_keys  = dict() #map_common_method_keys
-            table.map_method_fieldnames = map_common_method_fieldnames
-
-            # XXX Hardcoded capabilities in 3nf tables
-            table.capabilities.retrieve   = True
-            table.capabilities.join       = True
-            table.capabilities.selection  = True
-            table.capabilities.projection = True
-
-            tables_3nf.append(table)
-            Log.debug("TABLE 3nf (ii):", table, table.get_keys())
-            #print "     method fields", map_common_method_fieldnames
-
-
-        # XXX we already know about the links between those two platforms
-        # but we can find them easily (cf dbgraph)
-
-    # inject demux annotation
-    for table_3nf in tables_3nf:
-        if table_3nf.get_name() in map_tablename_methods.keys():
-            table_3nf.methods_demux = map_tablename_methods[table_3nf.get_name()]
-        else:
-            table_3nf.methods_demux = set()
-
-    # Compute Capabilities corresponding to the union of the
-    # Capabilities of each child Table.
-    for table_3nf in tables_3nf:
-        capabilities = Capabilities()
-        for platform_name in all_platforms:
-            announces = metadata[platform_name]
-            for announce in announces:
-                if announce.get_table().get_name() == table_name:
-                    break
-            capabilities = merge_capabilities(capabilities, announce.get_table().get_capabilities())
-        table_3nf.set_capability(capabilities)
-
-#    # 6) Inject capabilities
-#    # TODO: capabilities are now in tables, shall they be present in tables_3nf
-#    # instead of relying on map_method_capabilities ?
-#    for table_3nf in tables_3nf:
-#        for announces in metadata.values():
-#            for announce in announces:
-#                if announce.get_table().get_name() == table_3nf.get_name():
-#                    capabilities = table_3nf.get_capabilities()
-#                    if capabilities.is_empty():
-#                        table_3nf.set_capability(announce.get_table().get_capabilities())
-#                    elif capabilities != announce.get_table().get_capabilities():
-#                        Log.warning("Conflicting capabilities for tables %r and %r" % (table_3nf, announce.get_table()))
-
-    # Adding local tables
-    tables_3nf.extend(local_tables)
-
-    # 7) Building DBgraph
-    graph_3nf = DBGraph(frozenset(tables_3nf), map_method_capabilities)
-
-    return graph_3nf
-
+#DEPRECATED|@returns(DBGraph)
+#DEPRECATED|#TODO to_3nf should not consider a list of Announces!
+#DEPRECATED|@accepts(dict)
+#DEPRECATED|def to_3nf(metadata):
+#DEPRECATED|    """
+#DEPRECATED|    Compute a 3nf schema
+#DEPRECATED|    See also http://elm.eeng.dcu.ie/~ee221/EE221-DB-7.pdf p14
+#DEPRECATED|    Args:
+#DEPRECATED|        metadata: A dictionnary {String => list(Announces)} which maps
+#DEPRECATED|            platform name a list containing its corresponding Announces.
+#DEPRECATED|    Returns:
+#DEPRECATED|        The corresponding 3nf graph (DbGraph instance)
+#DEPRECATED|    """
+#DEPRECATED|    # 1) Compute functional dependancies
+#DEPRECATED|    tables = list()
+#DEPRECATED|    local_tables = list()
+#DEPRECATED|    map_method_capabilities = dict()
+#DEPRECATED|    for platform, announces in metadata.items():
+#DEPRECATED|        for announce in announces:
+#DEPRECATED|            table = announce.get_table()
+#DEPRECATED|            # XXX local aspect is local during normalization, unless we store it
+#DEPRECATED|            # in FD
+#DEPRECATED|            if table.keys.is_local(): # and not table.keys:
+#DEPRECATED|                local_tables.append(table)
+#DEPRECATED|            else:
+#DEPRECATED|                tables.append(table)
+#DEPRECATED|            map_method_capabilities[Method(platform, table.get_name())] = table.get_capabilities()
+#DEPRECATED|    fds = make_fd_set(tables)
+#DEPRECATED|
+#DEPRECATED|    # 2) Find a minimal cover
+#DEPRECATED|    (fds_min_cover, fds_removed) = fd_minimal_cover(fds)
+#DEPRECATED|
+#DEPRECATED|    # 3) Reinjecting fds removed during normalization
+#DEPRECATED|    reinject_fds(fds_min_cover, fds_removed)
+#DEPRECATED|
+#DEPRECATED|    # 4) Grouping fds by method
+#DEPRECATED|#OBOSOLETE|    fdss = fds_min_cover.group_by_method() # Mando
+#DEPRECATED|    fdss = fds_min_cover.group_by_tablename_method() # Jordan
+#DEPRECATED|
+#DEPRECATED|    # 5) Making 3-nf tables
+#DEPRECATED|    tables_3nf = list()
+#DEPRECATED|    map_tablename_methods = dict() # map table_name with methods to demux
+#DEPRECATED|
+#DEPRECATED|    for table_name, map_platform_fds in fdss.items():
+#DEPRECATED|        # For the potential parent table
+#DEPRECATED|        # Stores the number of distinct platforms set
+#DEPRECATED|        num_platforms = 0
+#DEPRECATED|
+#DEPRECATED|        # Stores the set of platforms
+#DEPRECATED|        all_platforms = set()
+#DEPRECATED|        common_fields = None
+#DEPRECATED|        common_keys = None
+#DEPRECATED|        all_keys = Keys()
+#DEPRECATED|
+#DEPRECATED|        # Annotations needed for the query plane
+#DEPRECATED|        all_tables = list()
+#DEPRECATED|
+#DEPRECATED|        for platform, fds in map_platform_fds.items():
+#DEPRECATED|            platforms = set()
+#DEPRECATED|            fields    = set()
+#DEPRECATED|            keys      = Keys()
+#DEPRECATED|
+#DEPRECATED|            # Annotations needed for the query plane
+#DEPRECATED|            map_method_keys   = dict()
+#DEPRECATED|            map_method_fieldnames = dict()
+#DEPRECATED|
+#DEPRECATED|            for fd in fds:
+#DEPRECATED|                key = fd.get_determinant().get_key()
+#DEPRECATED|                keys.add(key)
+#DEPRECATED|                fields |= fd.get_fields()
+#DEPRECATED|
+#DEPRECATED|                # We need to add fields from the key
+#DEPRECATED|                for key_field in key:
+#DEPRECATED|                    fields.add(key_field) # XXX
+#DEPRECATED|
+#DEPRECATED|                for field, methods in fd.get_map_field_methods().items():
+#DEPRECATED|
+#DEPRECATED|                    for method in methods:
+#DEPRECATED|
+#DEPRECATED|                        # key annotation
+#DEPRECATED|                        if not method in map_method_keys.keys():
+#DEPRECATED|                            map_method_keys[method] = set()
+#DEPRECATED|                        map_method_keys[method].add(key)
+#DEPRECATED|
+#DEPRECATED|                        # field annotation
+#DEPRECATED|                        if not method in map_method_fieldnames.keys():
+#DEPRECATED|                            map_method_fieldnames[method] = set()
+#DEPRECATED|                        map_method_fieldnames[method].add(field.get_name())
+#DEPRECATED|                        map_method_fieldnames[method].add(key_field.get_name())
+#DEPRECATED|
+#DEPRECATED|                        # demux annotation
+#DEPRECATED|                        method_name = method.get_name()
+#DEPRECATED|                        if method_name != table_name :
+#DEPRECATED|                            if method_name not in map_tablename_methods.keys():
+#DEPRECATED|                                map_tablename_methods[method_name] = set()
+#DEPRECATED|                            map_tablename_methods[method_name].add(method)
+#DEPRECATED|
+#DEPRECATED|                        platforms.add(method.get_platform())
+#DEPRECATED|
+#DEPRECATED|            table = Table(platforms, table_name, fields, keys)
+#DEPRECATED|
+#DEPRECATED|            # XXX Hardcoded capabilities in 3nf tables
+#DEPRECATED|            table.capabilities.retrieve   = True
+#DEPRECATED|            table.capabilities.join       = True
+#DEPRECATED|            table.capabilities.selection  = True
+#DEPRECATED|            table.capabilities.projection = True
+#DEPRECATED|
+#DEPRECATED|            # inject field and key annotation in the Table object
+#DEPRECATED|            table.map_method_keys   = map_method_keys
+#DEPRECATED|            table.map_method_fieldnames = map_method_fieldnames
+#DEPRECATED|            tables_3nf.append(table)
+#DEPRECATED|            all_tables.append(table)
+#DEPRECATED|            Log.debug("TABLE 3nf (i):", table, keys)
+#DEPRECATED|            #print "     method fields", map_method_fieldnames
+#DEPRECATED|
+#DEPRECATED|            num_platforms += 1
+#DEPRECATED|            all_platforms |= platforms
+#DEPRECATED|
+#DEPRECATED|            if not common_fields:
+#DEPRECATED|                common_fields = fields
+#DEPRECATED|            else:
+#DEPRECATED|                common_fields = merge_fields(fields, common_fields)
+#DEPRECATED|
+#DEPRECATED|            #if not common_keys:
+#DEPRECATED|            #    common_keys = keys
+#DEPRECATED|            #else:
+#DEPRECATED|            #    #common_keys &= keys
+#DEPRECATED|            #    common_keys = merge_keys(keys, common_keys)
+#DEPRECATED|
+#DEPRECATED|            # Collect possible keys, we will restrict this set once
+#DEPRECATED|            # common_fields will be computed.
+#DEPRECATED|            all_keys |= keys
+#DEPRECATED|
+#DEPRECATED|        # Check whether we will add a parent table. If so compute the
+#DEPRECATED|        # corresponding Keys based on all_keys and common_fields.
+#DEPRECATED|        common_keys = None
+#DEPRECATED|        if num_platforms > 1 and len(common_fields) > 0:
+#DEPRECATED|            # Retrict common_keys according to common_fields
+#DEPRECATED|            common_field_names = FieldNames([field.get_name() for field in common_fields])
+#DEPRECATED|            common_keys = Keys([key for key in all_keys if key.get_field_names() <= common_field_names])
+#DEPRECATED|
+#DEPRECATED|        # Need to add a parent table if more than two sets of platforms
+#DEPRECATED|        # XXX SOmetimes this parent table already exists and we are just
+#DEPRECATED|        # duplicating it... (not solved at the moment) XXX
+#DEPRECATED|        if common_keys:
+#DEPRECATED|
+#DEPRECATED|            # Capabilities will be set later since they must be set for all the Tables.
+#DEPRECATED|            table = Table(all_platforms, table_name, common_fields, common_keys)
+#DEPRECATED|
+#DEPRECATED|            # Migrate common fields from children to parents, except keys
+#DEPRECATED|            ##map_common_method_keys   = dict()
+#DEPRECATED|            map_common_method_fieldnames = dict()
+#DEPRECATED|
+#DEPRECATED|            for field in common_fields:
+#DEPRECATED|                methods = set()
+#DEPRECATED|                for child_table in all_tables:
+#DEPRECATED|                    # Objective = remove the field from child table
+#DEPRECATED|                    # Several methods can have it
+#DEPRECATED|                    for _method, _fields in child_table.map_method_fieldnames.items():
+#DEPRECATED|                        if field.get_name() in _fields:
+#DEPRECATED|                            methods.add(_method)
+#DEPRECATED|                            if not common_keys.has_field(field):
+#DEPRECATED|                                _fields.remove(field.get_name())
+#DEPRECATED|
+#DEPRECATED|                if not common_keys.has_field(field):
+#DEPRECATED|                    del child_table.fields[field.get_name()]
+#DEPRECATED|                # Add the field with all methods to parent table
+#DEPRECATED|                for method in methods:
+#DEPRECATED|                    if not method in map_common_method_fieldnames: map_common_method_fieldnames[method] = set()
+#DEPRECATED|                    map_common_method_fieldnames[method].add(field.get_name())
+#DEPRECATED|
+#DEPRECATED|            # Inject field and key annotation in the Table object
+#DEPRECATED|            table.map_method_keys  = dict() #map_common_method_keys
+#DEPRECATED|            table.map_method_fieldnames = map_common_method_fieldnames
+#DEPRECATED|
+#DEPRECATED|            # XXX Hardcoded capabilities in 3nf tables
+#DEPRECATED|            table.capabilities.retrieve   = True
+#DEPRECATED|            table.capabilities.join       = True
+#DEPRECATED|            table.capabilities.selection  = True
+#DEPRECATED|            table.capabilities.projection = True
+#DEPRECATED|
+#DEPRECATED|            tables_3nf.append(table)
+#DEPRECATED|            Log.debug("TABLE 3nf (ii):", table, table.get_keys())
+#DEPRECATED|            #print "     method fields", map_common_method_fieldnames
+#DEPRECATED|
+#DEPRECATED|
+#DEPRECATED|        # XXX we already know about the links between those two platforms
+#DEPRECATED|        # but we can find them easily (cf dbgraph)
+#DEPRECATED|
+#DEPRECATED|    # inject demux annotation
+#DEPRECATED|    for table_3nf in tables_3nf:
+#DEPRECATED|        if table_3nf.get_name() in map_tablename_methods.keys():
+#DEPRECATED|            table_3nf.methods_demux = map_tablename_methods[table_3nf.get_name()]
+#DEPRECATED|        else:
+#DEPRECATED|            table_3nf.methods_demux = set()
+#DEPRECATED|
+#DEPRECATED|    # Compute Capabilities corresponding to the union of the
+#DEPRECATED|    # Capabilities of each child Table.
+#DEPRECATED|    for table_3nf in tables_3nf:
+#DEPRECATED|        capabilities = Capabilities()
+#DEPRECATED|        for platform_name in all_platforms:
+#DEPRECATED|            announces = metadata[platform_name]
+#DEPRECATED|            for announce in announces:
+#DEPRECATED|                if announce.get_table().get_name() == table_name:
+#DEPRECATED|                    break
+#DEPRECATED|            capabilities = merge_capabilities(capabilities, announce.get_table().get_capabilities())
+#DEPRECATED|        table_3nf.set_capability(capabilities)
+#DEPRECATED|
+#DEPRECATED|#    # 6) Inject capabilities
+#DEPRECATED|#    # TODO: capabilities are now in tables, shall they be present in tables_3nf
+#DEPRECATED|#    # instead of relying on map_method_capabilities ?
+#DEPRECATED|#    for table_3nf in tables_3nf:
+#DEPRECATED|#        for announces in metadata.values():
+#DEPRECATED|#            for announce in announces:
+#DEPRECATED|#                if announce.get_table().get_name() == table_3nf.get_name():
+#DEPRECATED|#                    capabilities = table_3nf.get_capabilities()
+#DEPRECATED|#                    if capabilities.is_empty():
+#DEPRECATED|#                        table_3nf.set_capability(announce.get_table().get_capabilities())
+#DEPRECATED|#                    elif capabilities != announce.get_table().get_capabilities():
+#DEPRECATED|#                        Log.warning("Conflicting capabilities for tables %r and %r" % (table_3nf, announce.get_table()))
+#DEPRECATED|
+#DEPRECATED|    # Adding local tables
+#DEPRECATED|    tables_3nf.extend(local_tables)
+#DEPRECATED|
+#DEPRECATED|    # 7) Building DBgraph
+#DEPRECATED|    graph_3nf = DBGraph(frozenset(tables_3nf), map_method_capabilities)
+#DEPRECATED|
+#DEPRECATED|    return graph_3nf
+#DEPRECATED|

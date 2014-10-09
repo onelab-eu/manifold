@@ -478,7 +478,7 @@ class SFAGatewayCommon(Gateway):
 
         # We need to call manage on the platform used to issue queries
         platform_name = self.get_first_rm_name()
-        gateway = self._router.get_gateway(platform_name)
+        gateway = self._router.get_interface(platform_name)
         ret = yield gateway.manage(user['email'])
         defer.returnValue(ret)
 
@@ -491,7 +491,7 @@ class SFAGatewayCommon(Gateway):
 
         # We need to call manage on the platform used to issue queries
         platform_name = self.get_first_rm_name()
-        gateway = self._router.get_gateway(platform_name)
+        gateway = self._router.get_interface(platform_name)
         ret = yield gateway.manage(ADMIN_USER_EMAIL)
         defer.returnValue(ret)
 

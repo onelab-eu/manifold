@@ -27,6 +27,7 @@ ACTION_GET     = 'get'
 ACTION_UPDATE  = 'update'
 ACTION_DELETE  = 'delete'
 ACTION_EXECUTE = 'execute'
+ACTION_PING    = 'ping'
 
 def uniqid():
     return uuid.uuid4().hex
@@ -198,7 +199,8 @@ class Query(object):
             ACTION_GET    : "%(select)s%(sep)s%(at)s%(sep)sFROM %(platform)s%(table)s%(sep)s%(where)s",
             ACTION_UPDATE : "UPDATE %(platform)s%(table)s%(sep)s%(params)s%(sep)s%(where)s%(sep)s%(select)s",
             ACTION_CREATE : "INSERT INTO %(platform)s%(table)s%(sep)s%(params)s",
-            ACTION_DELETE : "DELETE FROM %(platform)s%(table)s%(sep)s%(where)s"
+            ACTION_DELETE : "DELETE FROM %(platform)s%(table)s%(sep)s%(where)s",
+            ACTION_PING   : "PING %(platform)s%(table)s%(sep)s%(where)s",
         }
 
         #Log.tmp(strmap[self.action] % locals())
@@ -313,18 +315,18 @@ class Query(object):
         raise Exception("please use get_field_names or get_select instead")
         return self.fields # frozenset(self.fields) if self.fields is not None else None
 
-    @returns(StringTypes)
-    def get_from(self): # DEPRECATED
-        """
-        Extracts the FROM clause of this Query.
-        You should use get_table_name() or get_namespace().
-        Returns:
-            A String "namespace:table_name" or "table_name" (if the
-            namespace is unset), where 'namespace' is the result of
-            self.get_namespace() and 'table_name' is the result of
-            self.get_table_name()
-        """
-        return self.get_object()
+#DEPRECATED|    @returns(StringTypes)
+#DEPRECATED|    def get_from(self): # DEPRECATED
+#DEPRECATED|        """
+#DEPRECATED|        Extracts the FROM clause of this Query.
+#DEPRECATED|        You should use get_table_name() or get_namespace().
+#DEPRECATED|        Returns:
+#DEPRECATED|            A String "namespace:table_name" or "table_name" (if the
+#DEPRECATED|            namespace is unset), where 'namespace' is the result of
+#DEPRECATED|            self.get_namespace() and 'table_name' is the result of
+#DEPRECATED|            self.get_table_name()
+#DEPRECATED|        """
+#DEPRECATED|        return self.get_object()
 
     @returns(StringTypes)
     def get_object(self):
@@ -338,6 +340,7 @@ class Query(object):
             self.get_table_name()
         """
         return self.object
+    get_from = get_object
 
     def set_object(self, object):
         self.object = object
@@ -450,6 +453,18 @@ class Query(object):
             The corresponding Query instance
         """
         return Query.action(ACTION_EXECUTE, object)
+
+    @staticmethod
+    #@returns(Query)
+    def ping(object):
+        """
+        Craft the Query which execute a processing related to a given object
+        Args:
+            object: The name of the queried object (String)
+        Returns:
+            The corresponding Query instance
+        """
+        return Query.action(ACTION_PING, object)
 
     #@returns(Query)
     def at(self, timestamp):
@@ -664,13 +679,13 @@ class Query(object):
         l = self.get_from().split(':', 1)
         return l[0] if len(l) == 2 else None
 
-    @returns(StringTypes)
-    def get_table_name(self):
-        """
-        Returns:
-            The table_name corresponding to this Query (None if unset).
-        """
-        return self.get_from().split(':')[-1]
+#DEPRECATED|    @returns(StringTypes)
+#DEPRECATED|    def get_table_name(self):
+#DEPRECATED|        """
+#DEPRECATED|        Returns:
+#DEPRECATED|            The table_name corresponding to this Query (None if unset).
+#DEPRECATED|        """
+#DEPRECATED|        return self.get_from().split(':')[-1]
 
     def set_namespace(self, namespace):
         """
@@ -681,13 +696,14 @@ class Query(object):
         old_namespace, old_table_name = self.get_namespace_table()
         self.set_namespace_table(namespace, old_table_name)
 
-    @returns(StringTypes)
+    #@returns(Query)
     def clear_namespace(self):
         """
         Unset the namespace set to this Query.
         """
         if self.get_namespace():
             self.object = self.get_table_name()
+        return self
 
     #---------------------------------------------------------------------------
     # Destination
@@ -700,7 +716,17 @@ class Query(object):
         Returns:
             The corresponding Destination.
         """
-        return Destination(self.object, self.filters, self.fields | FieldNames(self.params.keys()))
+        return Destination(
+            self.get_object_name(), 
+            self.get_filter(),
+            self.fields | FieldNames(self.params.keys()),
+            namespace = self.get_namespace())
+
+    def get_data(self):
+        return self.params
+
+    def set_data(self, data):
+        self.params = data
 
     def set_destination(self, destination):
         Log.warning("set_destination is not handling params")

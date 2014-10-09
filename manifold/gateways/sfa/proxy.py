@@ -560,16 +560,12 @@ if __name__ == '__main__':
             parser.print_help()
             sys.exit(1)
 
-        # Retrieve access to the Manifold Storage
-        from manifold.bin.config    import MANIFOLD_STORAGE
-        storage = MANIFOLD_STORAGE 
-
         # XXX Should we register gateways here ??
 
         try:
             if platform_specified:
 
-                platforms = storage.execute(Query().get('platform').filter_by('platform', '==', args.platform).select('platform_id', 'config'))
+                platforms = self._router.execute_local_query(Query().get('platform').filter_by('platform', '==', args.platform).select('platform_id', 'config'))
                 if not platforms:
                     raise Exception, "Platform '%s' not found" % args.platform
                 platform = platforms[0]

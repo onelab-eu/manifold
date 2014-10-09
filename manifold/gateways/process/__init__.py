@@ -2,12 +2,15 @@
 
 import threading, subprocess, uuid, os
 
-from ...core.announce           import Announces, parse_string
+from ...core.announce           import Announces
 from manifold.core.field        import Field
 from manifold.gateways          import Gateway
 from manifold.core.key          import Key
 from manifold.core.table        import Table
+from manifold.gateways.object   import ManifoldCollection
 from manifold.util.log          import Log
+from manifold.util.misc         import is_iterable
+from manifold.util.predicate    import eq, included
 from manifold.util.type         import accepts, returns
 
 class ProcessField(dict):
@@ -28,16 +31,6 @@ class FixedArgument(Argument):
 class Parameter(ProcessField):
     pass
 
-class Output(object):
-    def __init__(self, parser, announces_str, root):
-        """
-        Args:
-            root (string) : The root class returned by the parser
-        """
-        self._announces_str = announces_str
-        self._parser = parser
-        self._root = root
-
 FIELD_TYPE_ARGUMENT     = 1
 FIELD_TYPE_PARAMETER    = 2
 #FIELD_TYPE_OUTPUT       = 3
@@ -48,61 +41,36 @@ FLAG_IN_ANNOTATION      = 1<<1
 FLAG_OUT_ANNOTATION     = 1<<2
 FLAG_ADD_FIELD          = 1<<3
 
-class ProcessGateway(Gateway):
-    __gateway_name__ = 'process'
+class ProcessCollection(ManifoldCollection):
 
-    #---------------------------------------------------------------------------
-    # Constructor
-    #---------------------------------------------------------------------------
-
-    # XXX Args should be made optional
-    def __init__(self, router = None, platform_name = None, platform_config = None):
-        """
-        Constructor
-
-        Args:
-            router: None or a Router instance
-            platform: A StringValue. You may pass u"dummy" for example
-            platform_config: A dictionnary containing information to connect to the postgresql server
-        """
-        Gateway.__init__(self, router, platform_name, platform_config)
+    def __init__(self, *args, **kwargs):
+        ManifoldCollection.__init__(self, *args, **kwargs)
 
         self._in_progress = dict()
         self._records = dict()
         self._process = None
         self._is_interrupted = False
 
-    #---------------------------------------------------------------------------
-    # Packet processing
-    #---------------------------------------------------------------------------
+        # Lock for collecting records. 
+        # XXX It could be better to have lock per batch_id
+        self._lock = threading.Lock()
 
-    def parse(self, string):
-        return self.output._parser().parse(string)
-
-    def on_receive_query(self, query, annotation):
-        return None
-
-    def receive_impl(self, packet):
-        """
-        Handle a incoming QUERY Packet.
-        Args:
-            packet: A QUERY Packet instance.
-        """
-
+    def get(self, packet):
         if not os.path.exists(self.get_fullpath()):
             Log.warning("Process does not exist, returning empty")
-            self.records([], packet)
+            self.get_gateway().records([], packet)
             return
+
 
         query       = packet.get_query()
         annotation = packet.get_annotation()
 
-        Log.tmp("[PROCESS GATEWAY] received query", query)
+        #Log.tmp("[PROCESS GATEWAY] received query", query)
         # We leave the process a chance to return records without executing
         output = self.on_receive_query(query, annotation)
         if output:
-            print "return direct output=", output
-            self.records(output, packet)
+            print "shortcut"
+            self.get_gateway().records(output, packet)
             return
 
         # We have a single table per tool gateway
@@ -116,17 +84,30 @@ class ProcessGateway(Gateway):
 
         # ( arg tuples, parameters )
         args_params_list = self.get_argtuples(query, annotation)
-        Log.tmp("[PROCESS GATEWAY] argtuples", args_params_list)
+        #Log.tmp("[PROCESS GATEWAY] argtuples", args_params_list)
 
+        # Batches are used for concurrent queries
+        # A query == a single batch.
+        # XXX can't we just use packet instead of batch_id ?
         batch_id = str(uuid.uuid4())
 
-        self._in_progress[batch_id] = len(args_params_list)
+        self.init_records(batch_id, len(args_params_list))
 
         for args_params in args_params_list:
             args = (self.get_fullpath(),) + args_params[0]
 
-            Log.tmp("[PROCESS GATEWAY] execute args=%r, args_params[1]=%r" % (args, args_params[1],))
+            #Log.tmp("[PROCESS GATEWAY] execute args=%r, args_params[1]=%r" % (args, args_params[1],))
             self.execute_process(args, args_params[1], packet, batch_id)
+
+    #---------------------------------------------------------------------------
+    # Packet processing
+    #---------------------------------------------------------------------------
+
+    def parse(self, string):
+        return self.parser().parse(string)
+
+    def on_receive_query(self, query, annotation):
+        return None
 
     #---------------------------------------------------------------------------
     # Specific methods
@@ -138,13 +119,26 @@ class ProcessGateway(Gateway):
     get_max_arguments = get_num_arguments
 
     def get_argtuples(self, query, annotation):
+        """
+        This function creates the list of arguments of the program by getting
+        parameter and argument values from the query.
+
+        Return value:
+        A list of tuples (args, params)
+            args = the command line to execute
+            params = the manifold representation of the query associated to a
+            command line
+        """
+        args = tuple()
+        params = dict()
+        ret = [(args, params,)]
+
         args = tuple()
         params = dict()
 
         for field_type, field_list in [
             (FIELD_TYPE_PARAMETER,  self.parameters),
             (FIELD_TYPE_ARGUMENT,   self.arguments)]:
-            #(FIELD_TYPE_OUTPUT,     self.output)]:
 
             for process_field in field_list:
                 if field_type not in [FIELD_TYPE_PARAMETER, FIELD_TYPE_ARGUMENT]:
@@ -170,7 +164,7 @@ class ProcessGateway(Gateway):
                 else:
                     # XXX At the moment we are only supporting eq
                     # XXX We might have tuples
-                    value = query.get_filter().get_eq(name)
+                    value = query.get_filter().get_op(name, (eq, included))
 
                 if not value:
                     default = process_field.get_default()
@@ -178,34 +172,90 @@ class ProcessGateway(Gateway):
                         value = default
 
                 # XXX Argument with no value == ERROR
+                prefix = process_field.get_prefix()
 
-                # XXX We might have a list
+
+                if not value:
+                    continue
+
+                oldret, ret = ret, list()
+
+                # XXX UGLY !!!!
                 if field_type == FIELD_TYPE_PARAMETER:
+                    # Parameters
                     short = process_field.get_short()
-                    if value:
+
+                    if is_iterable(value):
+                        for args, params in oldret:
+                            for v in value:
+                                v = str(v)
+                                argvalue = "%s%s" % (prefix, v) if prefix else v
+                                new_params = params.copy()
+                                new_params[name] = v
+                                newargs = args + (short, argvalue,)
+                                ret.append( (newargs, new_params,) )
+
+                    else:
                         value = str(value)
-                        params[name] = value
-                        prefix = process_field.get_prefix()
-                        if prefix:
-                            value = "%s%s" % (prefix, value)
-                        args += (short, value)
+                        argvalue = "%s%s" % (prefix, value) if prefix else value
+                        for args, params in oldret:
+                            params[name] = value
+                            newargs = args + (short, argvalue,)
+                            ret.append( (newargs, params,) )
                 else:
-                    prefix = process_field.get_prefix()
-                    params[name] = value
-                    if prefix:
-                        value = "%s%s" % (prefix, value)
-                    args += (value,)
+                    # Arguments
+                    if is_iterable(value):
+                        for args, params in oldret:
+                            for v in value:
+                                argvalue = "%s%s" % (prefix, v) if prefix else v
+                                new_params = params.copy()
+                                new_params[name] = v
+                                newargs = args + (argvalue,)
+                                ret.append( (newargs, new_params,) )
+                    else:
+                        argvalue = "%s%s" % (prefix, value) if prefix else value
+                        for args, params in oldret:
+                            params[name] = value
+                            newargs = args + (argvalue,)
+                            ret.append( (newargs, params,) )
+        return ret
 
+    # XXX This should be accessed by a single thread at the same time
 
-        return [(args, params)]
+    def add_records(self, batch_id, params, rows, packet):
+        try:
+            self._lock.acquire()
+            for row in rows:
+                record = dict()
+                record.update(params)
+                record.update(row)
+                self._records[batch_id].append(record)
+
+            self._in_progress[batch_id] -= 1
+            if self._in_progress[batch_id] == 0:
+                # Again : batch_id == packet
+                self.get_gateway().records(self._records[batch_id], packet)
+                del self._records[batch_id]
+                del self._in_progress[batch_id]
+        finally:
+            self._lock.release()
+
+    def init_records(self, batch_id, count):
+        try:
+            self._lock.acquire()
+            self._records[batch_id] = []
+            self._in_progress[batch_id] = count
+        finally:
+            self._lock.release()
+        
 
     def execute_process(self, args, params, packet, batch_id):
         ret = 0
-        print "execute process", args, params, packet, batch_id
+        #print "execute process", args, params, packet, batch_id
 
         def runInThread(args, params, packet, batch_id):
-            self._records[batch_id] = []
             process = subprocess.Popen(args, stdout=subprocess.PIPE, stderr = None)
+            rows = []
             try:
                 output = process.stdout.read()
 
@@ -222,14 +272,6 @@ class ProcessGateway(Gateway):
                         rows = []
                 else:
                     rows = self.parse(output)
-
-                if rows:
-                    for row in rows:
-                        record = dict()
-                        record.update(params)
-                        record.update(row)
-                        self._records[batch_id].append(record)
-
             except OSError, e:
                 if e.errno == 10:
                     if not self._is_interrupted:
@@ -239,12 +281,9 @@ class ProcessGateway(Gateway):
                 traceback.print_exc()
                 Log.error("Execution failed: %s" % e)
                 return
+
             finally:
-                self._in_progress[batch_id] -= 1
-                if self._in_progress[batch_id] == 0:
-                    self.records(self._records[batch_id], packet)
-                    del self._records[batch_id]
-                    del self._in_progress[batch_id]
+                self.add_records(batch_id, params, rows, packet)
 
 
         thread = threading.Thread(target=runInThread, args=(args, params, packet, batch_id))
@@ -292,11 +331,6 @@ class ProcessGateway(Gateway):
         s.connect((dst, 0))
         return s.getsockname()[0]
 
-    @staticmethod
-    def get_hostname():
-        return subprocess.Popen(["uname", "-n"], stdout=subprocess.PIPE).communicate()[0].strip()
-
-
     @classmethod
     def get_parser():
         return self.parser
@@ -327,6 +361,25 @@ class ProcessGateway(Gateway):
 #        if need_uid...
 
 
+class ProcessGateway(Gateway):
+    __gateway_name__ = 'process'
+
+    #---------------------------------------------------------------------------
+    # Constructor
+    #---------------------------------------------------------------------------
+
+    # XXX Args should be made optional
+    def __init__(self, router = None, platform_name = None, platform_config = None):
+        """
+        Constructor
+
+        Args:
+            router: None or a Router instance
+            platform: A StringValue. You may pass u"dummy" for example
+            platform_config: A dictionnary containing information to connect to the postgresql server
+        """
+        Gateway.__init__(self, router, platform_name, platform_config)
+
     #---------------------------------------------------------------------------
     # Metadata
     #---------------------------------------------------------------------------
@@ -334,35 +387,35 @@ class ProcessGateway(Gateway):
     # Arguments could be mapped simply with fields
     #---------------------------------------------------------------------------
 
-    def make_field(self, process_field, field_type):
-        # name, type and description - provided by the process_field description
-        # qualifier - Since we cannot update anything, all fields will be const
-        field = Field(
-            name        = process_field.get_name(),
-            type        = process_field.get_type(),
-            qualifiers  = ['const'],
-            is_array    = False,
-            description = process_field.get_description()
-        )
-        return field
-
-    @returns(Announces)
-    def make_announces(self):
-        """
-        Returns:
-            The Announce related to this object.
-        """
-        platform_name = self.get_platform_name()
-        try:
-            announces = parse_string(self.output._announces_str, platform_name)
-        except AttributeError, e:
-            # self.output not yet initialized
-            raise AttributeError("In platform '%s': %s" % (platform_name, e))
-
-        # These announces should be complete, we only need to deal with argument
-        # and parameters to forge the command line corresponding to an incoming
-        # query.
-        return announces
+#DEPRECATED|    def make_field(self, process_field, field_type):
+#DEPRECATED|        # name, type and description - provided by the process_field description
+#DEPRECATED|        # qualifier - Since we cannot update anything, all fields will be const
+#DEPRECATED|        field = Field(
+#DEPRECATED|            name        = process_field.get_name(),
+#DEPRECATED|            type        = process_field.get_type(),
+#DEPRECATED|            qualifiers  = ['const'],
+#DEPRECATED|            is_array    = False,
+#DEPRECATED|            description = process_field.get_description()
+#DEPRECATED|        )
+#DEPRECATED|        return field
+#DEPRECATED|
+#DEPRECATED|    @returns(Announces)
+#DEPRECATED|    def make_announces(self):
+#DEPRECATED|        """
+#DEPRECATED|        Returns:
+#DEPRECATED|            The Announce related to this object.
+#DEPRECATED|        """
+#DEPRECATED|        platform_name = self.get_platform_name()
+#DEPRECATED|        try:
+#DEPRECATED|            announces = parse_string(self.output._announces_str, platform_name)
+#DEPRECATED|        except AttributeError, e:
+#DEPRECATED|            # self.output not yet initialized
+#DEPRECATED|            raise AttributeError("In platform '%s': %s" % (platform_name, e))
+#DEPRECATED|
+#DEPRECATED|        # These announces should be complete, we only need to deal with argument
+#DEPRECATED|        # and parameters to forge the command line corresponding to an incoming
+#DEPRECATED|        # query.
+#DEPRECATED|        return announces
 
 #DEPRECATED|        # TABLE NAME
 #DEPRECATED|        #

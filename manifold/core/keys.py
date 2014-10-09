@@ -134,9 +134,10 @@ class Keys(set):
         """
         assert isinstance(key2, Key)
         new_fields = set()
-        collision = False
         for key1 in self:
             if key1.get_field_names() == key2.get_field_names():
+                Log.warning("Key collision is not working properly. Missing == and &")
+                break
                 # key1 and key2 collide, build a new key which merge key1 and key2
                 for field1 in key1:
                     field_name = field1.get_name()
@@ -145,7 +146,7 @@ class Keys(set):
 
                 # Replace key1 with the newly crafted key.
                 self.remove(key1)
-                super(Keys, self).add(Key(new_fields))
+                super(Keys, self).add(Key(new_fields)) # XXX Missing local
                 return
 
         super(Keys, self).add(key2)

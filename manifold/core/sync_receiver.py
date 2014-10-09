@@ -32,9 +32,12 @@ class SyncReceiver(Node, ChildSlotMixin):
         """
         Node.__init__(self)
         ChildSlotMixin.__init__(self)
+        self._event = threading.Event()
+        self.clear()
+
+    def clear(self):
         self._records = Records() # Records resulting from a Query
         self._errors = list()     # ResultValue to errors which have occured
-        self._event = threading.Event()
 
     #---------------------------------------------------------------------------
     # Methods
@@ -46,7 +49,7 @@ class SyncReceiver(Node, ChildSlotMixin):
         """
         self._event.set()
 
-    def receive(self, packet):
+    def receive(self, packet, slot_id = None):
         """
         Process an incoming Packet received by this SyncReceiver instance.
         Args:
@@ -54,7 +57,7 @@ class SyncReceiver(Node, ChildSlotMixin):
                 corresponding record is bufferized in this SyncReceiver
                 until records retrieval.
         """
-        if packet.get_protocol() == Packet.PROTOCOL_RECORD:
+        if packet.get_protocol() == Packet.PROTOCOL_CREATE:
             if not packet.is_empty():
                 self._records.append(packet)
         elif packet.get_protocol() == Packet.PROTOCOL_ERROR:
@@ -83,4 +86,6 @@ class SyncReceiver(Node, ChildSlotMixin):
         """
         self._event.wait()
         self._event.clear()
-        return ResultValue.get(self._records, self._errors)
+        rv = ResultValue.get(self._records, self._errors)
+        self.clear()
+        return rv

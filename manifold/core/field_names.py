@@ -56,6 +56,10 @@ class FieldNames(list):
         else:
             return "<%r>" % [x for x in self]
 
+    def __hash__(self):
+        # XXX Shall we preserve order (with a tuple) or use a frozenset
+        return hash(tuple(self)) 
+
     #---------------------------------------------------------------------------
     # Helpers
     #---------------------------------------------------------------------------

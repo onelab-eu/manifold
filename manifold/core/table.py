@@ -133,7 +133,7 @@ class Table(object):
         # Init self.fields
         self.fields = dict()
         if isinstance(fields, (list, set, frozenset)):
-            assert len(fields) > 0
+#DEPRECATED|            assert len(fields) > 0
             for field in fields:
                 self.insert_field(field)
         elif isinstance(fields, dict):
@@ -147,8 +147,8 @@ class Table(object):
                 self.insert_key(key)
 
         # self.platform_names is initialized wile calling self.set_partitions(...)
-        if len(self.get_platforms()) == 0:
-            raise Exception("strange table %r" % self)
+        #if len(self.get_platforms()) == 0:
+        #    raise Exception("strange table %r" % self)
 
     @returns(StringTypes)
     def get_from_name(self):

@@ -48,7 +48,8 @@ def do_rename(record, aliases):
         if isinstance(record, (list, Records)):
             # 1..N
             return [collect(key, r) for r in record]
-        elif isinstance(record, Record):
+        elif isinstance(record, (dict, Record)): 
+        # XXX dict is deprecated, but ping process still returns a list of dict
             key_head, _, key_tail = key.partition(FIELD_SEPARATOR)
             return collect(key_tail, record[key_head])
             # 1..1
@@ -96,7 +97,7 @@ def do_rename(record, aliases):
             # We have either ktail or vtail"
             if k_tail: # and not v_tail
                 # We will gather everything and put it in v_head
-                myrecord[k_head] = collect(k_tail, myrecord[k_head])
+                myrecord[v_head] = collect(k_tail, myrecord[k_head])
 
             else: # v_tail and not k_tail
                 # We have some data in subrecord, that needs to be affected to
@@ -176,7 +177,6 @@ class Rename(Operator, ChildSlotMixin):
             A dictionnary {String : String} which maps the field name
             to rename with the corresponding updated field name.
         """
-        Log.tmp("Rename get_aliases = ",self._aliases)
         return self._aliases
 
 
@@ -270,22 +270,18 @@ class Rename(Operator, ChildSlotMixin):
 #DEPRECATED|        """
 #DEPRECATED|        return Records([self.process_record(r) for r in records])
 
-    def receive_impl(self, packet):
+    def send(self, packet):
         """
         Handle an incoming Packet instance.
         Args:
             packet: A Packet instance.
         """
-        if packet.get_protocol() == Packet.PROTOCOL_QUERY:
-            new_packet = self.process_query(packet)
-            self._get_child().receive(new_packet)
+        new_packet = self.process_query(packet)
+        self._get_child().send(new_packet)
 
-        elif packet.get_protocol() == Packet.PROTOCOL_RECORD:
-            new_packet = do_rename(packet, self.get_aliases())
-            self.forward_upstream(new_packet)
-
-        else: # TYPE_ERROR
-            self.forward_upstream(packet)
+    def receive_impl(self, packet, slot_id = None):
+        new_packet = do_rename(packet, self.get_aliases())
+        self.forward_upstream(new_packet)
 
     def dump(self, indent = 0):
         """
@@ -325,9 +321,9 @@ class Rename(Operator, ChildSlotMixin):
         self._update_child(lambda c, d: c.optimize_projection(new_fields))
         return Projection(self, fields)
 
-    @returns(Node)
-    def reorganize_create(self):
-        return self._get_child().reorganize_create()
+#DEPRECATED|    @returns(Node)
+#DEPRECATED|    def reorganize_create(self):
+#DEPRECATED|        return self._get_child().reorganize_create()
 
     #---------------------------------------------------------------------------
     # Algebraic rules

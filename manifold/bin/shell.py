@@ -273,7 +273,7 @@ class Shell(object):
         #parser.add_argument("-m", "--method", help = "API authentication method")
         #parser.add_argument("-s", "--session", help = "API session key")
 
-    def authenticate_local(self, username):
+    def authenticate_local(self, username = None):
         """
         Prepare a Client to dial with a local Manifold Router (run as a demon,
         using manifold-router).
@@ -338,7 +338,7 @@ class Shell(object):
         Args:
             auth_method: A String instance among "auto", "gid", "local"
         """
-        if auth_method == "auto":
+        if not auth_method or auth_method == "auto":
             methods = ["gid", "password"] if Options().xmlrpc else ["local"]
             for method in methods:
                 try:

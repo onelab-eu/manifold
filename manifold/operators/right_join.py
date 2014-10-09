@@ -139,7 +139,7 @@ class RightJoin(Operator, LeftRightSlotMixin):
         #print "SENDING LEFT PACKET", self._left_packet
         self._get_left().receive(self._left_packet)
 
-    def receive_impl(self, packet):
+    def send_impl(self, packet, slot_id = None):
         """
         Handle an incoming Packet.
         Args:
@@ -148,7 +148,7 @@ class RightJoin(Operator, LeftRightSlotMixin):
         # Out of the Query part since it is used for a True Hack !
         right_fields = self._get_right().get_destination().get_field_names()
 
-        if packet.get_protocol() == Packet.PROTOCOL_QUERY:
+        if packet.get_protocol() in Packet.PROTOCOL_QUERY:
             q = packet.get_query()
             # We forward the query to the left node
             # TODO : a subquery in fact
@@ -189,7 +189,7 @@ class RightJoin(Operator, LeftRightSlotMixin):
             #print "SENDING RIGHT PACKET FIRST", right_packet
             self._get_right().receive(right_packet)
 
-        elif packet.get_protocol() == Packet.PROTOCOL_RECORD:
+        elif packet.get_protocol() == Packet.PROTOCOL_CREATE:
             record = packet
 
             is_last = record.is_last()
@@ -319,8 +319,8 @@ class RightJoin(Operator, LeftRightSlotMixin):
             return Projection(self, fields)
         return self
             
-    @returns(Node)
-    def reorganize_create(self):
-        self._update_left( lambda l: l.reorganize_create())
-        self._update_right(lambda r: r.reorganize_create())
-        return self
+#DEPRECATED|    @returns(Node)
+#DEPRECATED|    def reorganize_create(self):
+#DEPRECATED|        self._update_left( lambda l: l.reorganize_create())
+#DEPRECATED|        self._update_right(lambda r: r.reorganize_create())
+#DEPRECATED|        return self

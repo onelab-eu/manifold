@@ -171,7 +171,7 @@ class LeftJoin(Operator, LeftRightSlotMixin):
 
         self._get_right().receive(self._right_packet) # XXX
 
-    def receive_impl(self, packet):
+    def send_impl(self, packet, slot_id = None):
         """
         Handle an incoming Packet.
         Args:
@@ -180,7 +180,7 @@ class LeftJoin(Operator, LeftRightSlotMixin):
         # Out of the Query part since it is used for a True Hack !
         left_field_names = self._get_left().get_destination().get_field_names()
 
-        if packet.get_protocol() == Packet.PROTOCOL_QUERY:
+        if packet.get_protocol() in Packet.PROTOCOL_QUERY:
             q = packet.get_query()
             # We forward the query to the left node
             # TODO : a subquery in fact
@@ -220,7 +220,7 @@ class LeftJoin(Operator, LeftRightSlotMixin):
 
             self._get_left().receive(left_packet)
 
-        elif packet.get_protocol() == Packet.PROTOCOL_RECORD:
+        elif packet.get_protocol() == Packet.PROTOCOL_CREATE:
             record = packet
 
             is_last = record.is_last()
@@ -431,14 +431,14 @@ class LeftJoin(Operator, LeftRightSlotMixin):
             return Projection(self, fields)
         return self
 
-    @returns(Node)
-    def reorganize_create(self):
-        # Transform into a Right Join
-        # XXX we need to delete it !!!
-        left_producer   = self._get_left().reorganize_create()
-        right_producer  = self._get_right().reorganize_create()
-        self._clear()
-        return RightJoin(self._predicate, left_producer, right_producer)
+#DEPRECATED|    @returns(Node)
+#DEPRECATED|    def reorganize_create(self):
+#DEPRECATED|        # Transform into a Right Join
+#DEPRECATED|        # XXX we need to delete it !!!
+#DEPRECATED|        left_producer   = self._get_left().reorganize_create()
+#DEPRECATED|        right_producer  = self._get_right().reorganize_create()
+#DEPRECATED|        self._clear()
+#DEPRECATED|        return RightJoin(self._predicate, left_producer, right_producer)
 
     #---------------------------------------------------------------------------
     # Algebraic rules

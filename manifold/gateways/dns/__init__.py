@@ -12,7 +12,7 @@
 import socket
 from types                              import StringTypes
 from manifold.core.announce             import Announces, announces_from_docstring
-from manifold.core.fields               import Fields
+from manifold.core.field_names          import FieldNames
 from manifold.gateways                  import Gateway
 from manifold.util.reactor_thread       import ReactorThread
 from manifold.util.type                 import accepts, returns 
@@ -126,7 +126,7 @@ class DNSGateway(Gateway):
         value_list = query.get_filter().get_field_values(obj)
 
         # We don't really ask something sometimes...
-        if query.get_fields() == Fields([obj]):
+        if query.get_fields() == FieldNames([obj]):
             records = [{obj: value} for value in value_list]
         else:
             records = list()

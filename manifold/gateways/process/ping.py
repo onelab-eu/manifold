@@ -2,7 +2,8 @@
 # -*- coding: utf-8 -*-
 
 import pyparsing as pp
-from .             import ProcessGateway, Argument, Parameter, Output, FLAG_IN_ANNOTATION, FLAG_OUT_ANNOTATION, FLAG_ADD_FIELD
+from manifold.util.filesystem import hostname
+from .             import ProcessGateway, ProcessCollection, Argument, Parameter, FLAG_IN_ANNOTATION, FLAG_OUT_ANNOTATION, FLAG_ADD_FIELD
 from ...util.log   import Log
 
 class PingParser(object):
@@ -48,16 +49,19 @@ class PingParser(object):
         EPAR = pp.Literal(')')
 
         # Bof:   
-        ip      = pp.Combine(pp.Word(pp.nums) + ('.' + pp.Word(pp.nums))*3)
+        ip       = pp.Combine(pp.Word(pp.nums) + ('.' + pp.Word(pp.nums))*3)
+        hostnamepart = pp.Word(pp.alphas, pp.alphanums+'_'+'-')
+        hostname = pp.Combine( hostnamepart + pp.ZeroOrMore("." + hostnamepart) )
+        hostref = ip | hostname
         integer = pp.Word(pp.nums)\
                 .setParseAction(lambda t:int(t[0]))
         float   = pp.Regex(r'\d+(\.\d*)?([eE]\d+)?')
              
         header = (
                 pp.Literal("PING").suppress() 
-            +   ip.setResultsName('ip')
+            +   hostref.setResultsName('hostname')
             +   BPAR.suppress()
-            +   ip.setResultsName('hostname')
+            +   ip.setResultsName('ip')
             +   EPAR.suppress()
             +   integer.setResultsName('size1')
             +   BPAR.suppress()
@@ -71,7 +75,11 @@ class PingParser(object):
         probe = (
                 integer.setResultsName('size3')
             +   pp.Literal("bytes from").suppress()
-            +   ip.setResultsName('ip2')
+            +   hostref.setResultsName('ip2')
+            +   pp.Optional( 
+                    BPAR.suppress()
+                +   ip.setResultsName('ip2')
+                +   EPAR.suppress())
             +   pp.Literal(":").suppress()
             +   pp.Regex("icmp_(s|r)eq=")
             +   integer.setResultsName('seq')
@@ -88,7 +96,7 @@ class PingParser(object):
 
         stat_header  = (
                 pp.Literal("---")
-            +   ip
+            +   hostref
             +   pp.Literal("ping statistics ---")
         ).suppress()
 
@@ -130,6 +138,7 @@ class PingParser(object):
     def _handle_ping(self, token):
         header, probes = token
         header['probes'] = probes
+        header['source'] = hostname()
         return header
 
     def parse(self, string):
@@ -142,7 +151,16 @@ class PingParser(object):
             Log.warning(" " * e.col, "^--- syntax error")
         return []
 
-class PingGateway(ProcessGateway):
+class PingCollection(ProcessCollection):
+    """
+    class ping {
+        inet source;
+        inet destination;
+        probe_ping probes[];
+        CAPABILITY(join);
+        KEY(source, destination);
+    };
+    """
     # Define record annotation, timestamp
     # WHERE tool = 
     # SOURCE ROUTING = annotations
@@ -174,7 +192,7 @@ class PingGateway(ProcessGateway):
     #  OUT_ANNOTATIONS
     #  ADD_FIELD : This flag adds a field to the resulting record
     #  OPTIONAL  : (for arguments only) This argument is optional
-    __gateway_name__ = 'ping_process'
+    __object_name__ = 'ping'
     __tool__ = 'ping'
 
     parameters = [
@@ -202,26 +220,31 @@ class PingGateway(ProcessGateway):
             type        = 'ip'
         ),
     ]
-#DEPRECATED|    output = [
-#DEPRECATED|        Output(
-#DEPRECATED|            name        = 'probes',
-#DEPRECATED|            type        = 'delay'
-#DEPRECATED|        ),
-#DEPRECATED|    ]
-    announces = """
+    parser = PingParser
+    path = '/bin/ping'
+
+# XXX
+class ProbePingCollection(ProcessCollection):
+    """
     class probe_ping {
         float delay;
         CAPABILITY(join);
         LOCAL KEY();
     };
-
-    class ping {
-        inet source;
-        inet destination;
-        probe_ping probes[];
-        CAPABILITY(join);
-        KEY(source, destination);
-    };
     """
-    output = Output(PingParser, announces, 'ping')
-    path = '/bin/ping'
+
+class PingGateway(ProcessGateway):
+    __gateway_name__ = 'ping'
+    def __init__(self, router = None, platform_name = None, platform_config = None):
+        """
+        Constructor
+
+        Args:
+            router: None or a Router instance
+            platform: A StringValue. You may pass u"dummy" for example
+            platform_config: A dictionnary containing information to connect to the postgresql server
+        """
+        ProcessGateway.__init__(self, router, platform_name, platform_config)
+
+        self.register_collection(PingCollection())
+        self.register_collection(ProbePingCollection())

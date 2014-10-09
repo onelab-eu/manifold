@@ -20,6 +20,7 @@ class PoolConsumers(set):
             max_consumers: A strictly positive integer or None (maximum
                  number of children, pass None if not bounded).
         """
+        assert not consumers # issue with slot_ids
         if not consumers:
             consumers = list()
         if not isinstance(consumers, (list, set)):
@@ -28,6 +29,7 @@ class PoolConsumers(set):
         super(PoolConsumers, self).__init__(set(consumers))
 
         self._max_consumers = max_consumers
+        self._slot_ids = dict()
 
 
     #---------------------------------------------------------------------------
@@ -41,14 +43,15 @@ class PoolConsumers(set):
     # Methods
     #---------------------------------------------------------------------------
 
-    def add(self, consumer):
+    def add(self, consumer, slot_id):
         if self._max_consumers and len(self) >= self._max_consumers:
             raise Exception, "Cannot add consumer: maximum (%d) reached." % self._max_consumers
+        self._slot_ids[consumer] = slot_id
         set.add(self, consumer)
 
     def receive(self, packet):
-        if packet.get_protocol() not in [Packet.PROTOCOL_RECORD, Packet.PROTOCOL_ERROR]:
+        if packet.get_protocol() not in [Packet.PROTOCOL_CREATE, Packet.PROTOCOL_ERROR]:
             raise "Invalid packet type for consumer: %s" % Packet.get_protocol_name(packet.get_protocol())
         
         for consumer in self:
-            consumer.receive(packet)
+            consumer.receive(packet, slot_id = self._slot_ids[consumer])

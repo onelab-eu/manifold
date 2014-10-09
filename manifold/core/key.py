@@ -204,11 +204,14 @@ class Key(object):
         local = 'LOCAL ' if self.is_local() else ''
         return "%sKEY(%s)" % (local, ", ".join(["%s" % field for field in self._fields])) 
 
+    def get_tuple(self):
+        return (self.get_fields(), self.is_local())
+
     def __eq__(self, x):
-        return self.get_fields() == x.get_fields()
+        return self.get_tuple() == x.get_tuple()
 
     def __hash__(self):
-        return self._fields.__hash__()
+        return hash(self.get_tuple())
 
 #DEPRECATED|# DO NOT UNCOMMENT
 #DEPRECATED|    @returns(bool)

@@ -9,15 +9,16 @@
 #   Marc-Olivier Buob <marc-olivier.buob@lip6.fr>
 #   Jordan Augé       <jordan.auge@lip6.f>
 
-import json
+import json, os.path, traceback
 from types                          import StringTypes
 
 from manifold.gateways              import Gateway
 from manifold.core.annotation       import Annotation
-from manifold.core.packet           import QueryPacket
+from manifold.core.packet           import GET
 from manifold.core.query            import Query
 from manifold.core.local            import LOCAL_NAMESPACE
 from manifold.core.sync_receiver    import SyncReceiver
+from manifold.util.filesystem       import ensure_writable_directory
 from manifold.util.log              import Log
 from manifold.util.type             import accepts, returns
 
@@ -38,6 +39,8 @@ class Storage(object):
         assert isinstance(platform_config, dict),\
             "Invalid platform_config = %s (%s)" % (platform_config, type(platform_config))
 
+        assert router
+
         self._gateway         = None
         self._gateway_type    = gateway_type
         self._platform_config = platform_config
@@ -46,7 +49,7 @@ class Storage(object):
     def load_gateway(self):
         # Initialize self._gateway
         Gateway.register_all()
-        cls_storage = Gateway.get(self._gateway_type)
+        cls_storage = Gateway.factory_get(self._gateway_type)
         if not cls_storage:
             raise RuntimeError("Cannot find %s Gateway, required to access Manifold Storage" % gateway_type)
         self._gateway = cls_storage(self._router, LOCAL_NAMESPACE, self._platform_config)
@@ -90,7 +93,9 @@ class Storage(object):
 
         # Prepare the Receiver and the QUERY Packet
         receiver = SyncReceiver()
-        packet   = QueryPacket(query, annotation, receiver)
+        packet = GET()
+        packet.set_query(query)
+        packet.set_receiver(receiver)
 
         # Send the Packet and collect the corresponding RECORD Packets.
         gateway.receive(packet)
@@ -171,6 +176,27 @@ class Storage(object):
         for rule in rules:
             router.policy.add_rule(rule)
 
+def make_storage(storage_gateway, storage_config, router):
+    """
+    Args:
+        storage_gateway: The Gateway used to contact the Storage.
+        storage_config: A json-ed String containing the Gateway configuration.
+    Returns:
+        The corresponding Storage.
+    """
+    from manifold.util.constants import STORAGE_DEFAULT_GATEWAY
+
+    if STORAGE_DEFAULT_GATEWAY == "sqlalchemy":
+        from manifold.util.storage.sqlalchemy.sqla_storage import SQLAlchemyStorage
+
+        # This trigger Options parsing because Gateway.register_all() uses Logging
+        return SQLAlchemyStorage(
+            platform_config = storage_config,
+            router = router
+        )
+    else:
+        raise ValueError("Invalid STORAGE_DEFAULT_GATEWAY constant (%s)" % STORAGE_DEFAULT_GATEWAY)
+
 def install_default_storage(router):
     """
     Install the default Storage on a router.
@@ -180,9 +206,30 @@ def install_default_storage(router):
         Exception in case of failure.
     """
     import json
-    from manifold.bin.config     import MANIFOLD_STORAGE
     from manifold.core.local     import LOCAL_NAMESPACE
-    from manifold.util.constants import STORAGE_DEFAULT_ANNOTATION, STORAGE_DEFAULT_CONFIG, STORAGE_DEFAULT_GATEWAY
+    from manifold.util.constants import STORAGE_DEFAULT_ANNOTATION, STORAGE_DEFAULT_CONFIG, STORAGE_DEFAULT_GATEWAY, STORAGE_SQLA_FILENAME
+
+    try:
+        MANIFOLD_STORAGE = make_storage(
+            STORAGE_DEFAULT_GATEWAY,
+            json.loads(STORAGE_DEFAULT_CONFIG),
+            router
+        )
+    except Exception, e:
+        from manifold.util.log import Log
+
+        Log.warning("Running Manifold without Storage due to the following Exception")
+        Log.warning("%s" % traceback.format_exc())
+        MANIFOLD_STORAGE = None
+
+    # Ensure storage exists
+    try:
+        ensure_writable_directory(os.path.dirname(STORAGE_SQLA_FILENAME))
+    except Exception, e:
+        raise RuntimeError("Unable to create the default Storage directory (%s) (%s)" % (
+            STORAGE_DEFAULT_GATEWAY,
+            STORAGE_DEFAULT_CONFIG
+        ))
 
     # Install storage on the Router
     storage_config = json.loads(STORAGE_DEFAULT_CONFIG)
@@ -195,8 +242,21 @@ def install_default_storage(router):
         ))
 
     # Configure the Router in respect with the Storage content
-    MANIFOLD_STORAGE.update_router_state(
-        router,
-        Annotation(STORAGE_DEFAULT_ANNOTATION),
-        None
-    )
+    if not MANIFOLD_STORAGE:
+        raise RuntimeError("Unable to install a None default Storage (%s) (%s)" % (
+            STORAGE_DEFAULT_GATEWAY,
+            STORAGE_DEFAULT_CONFIG
+        ))
+        
+    try:
+        MANIFOLD_STORAGE.update_router_state(
+            router,
+            Annotation(STORAGE_DEFAULT_ANNOTATION),
+            None
+        )
+    except Exception, e:
+        from manifold.util.log import Log
+        Log.warning("Unable to setup the default Storage directory (%s) (%s)" % (
+            STORAGE_DEFAULT_GATEWAY,
+            STORAGE_DEFAULT_CONFIG
+        ))

@@ -16,10 +16,10 @@ from types                          import StringTypes
 from twisted.internet.defer         import Deferred, DeferredList
 
 from manifold.core.ast              import AST
+from manifold.core.destination      import Destination
 from manifold.core.filter           import Filter
 from manifold.core.field_names      import FieldNames
 from manifold.core.key              import Key
-from manifold.core.query            import Query, ACTION_GET
 from manifold.core.relation         import Relation
 from manifold.core.stack            import Stack, TASK_11, TASK_1Nsq, TASK_1N
 from manifold.types                 import BASE_TYPES
@@ -95,7 +95,7 @@ class ExploreTask(Deferred):
         Log.warning("ExploreTask::cancel() - task has been canceled = %s" % self)
         self.callback((None, dict()))
 
-    def explore(self, stack, missing_field_names, fib, namespace, allowed_platforms, allowed_capabilities, user, seen_set, query_plan):
+    def explore(self, stack, missing_field_names, fib, namespace, allowed_platforms, allowed_capabilities, user, seen_set, query_plan, exclude_interfaces = None):
         """
         Explore the fib graph to find how to serve each queried fields. We
         explore the DBGraph by prior the 1..1 arcs exploration (DFS) by pushing
@@ -122,7 +122,7 @@ class ExploreTask(Deferred):
             missing_field_anmes
             seen_set
         """
-        #Log.tmp("ExploreTask::explore Search in", self.root.get_name(), "for fields", missing_field_names, 'path=', self.path, "SEEN SET =", seen_set, "depth=", self.depth)
+        Log.tmp("ExploreTask::explore Search in", self.root.get_name(), "for fields", missing_field_names, 'path=', self.path, "SEEN SET =", seen_set, "depth=", self.depth)
 
         relations_11, relations_1N, relations_1Nsq = (), {}, {}
         deferred_list = []
@@ -283,7 +283,7 @@ class ExploreTask(Deferred):
             # XXX NOTE that we have built an AST here without taking into account fields for the JOINs and SUBQUERIES
             # It might not pose any problem though if they come from the optimization phase
 #OBSOLETE|            self.ast = self.build_union(self.root, self.keep_root_a, allowed_platforms, dbgraph, user, query_plan)
-            self.perform_union_all(self.root, namespace, allowed_platforms, fib, user, query_plan)
+            self.perform_union_all(self.root, namespace, allowed_platforms, fib, user, query_plan, exclude_interfaces)
 
             # ROUTERV2
             #if rename_dict:
@@ -295,8 +295,8 @@ class ExploreTask(Deferred):
             return foreign_key_fields
 
         # In all cases, we have to list neighbours for returning 1..N relationships. Let's do it now.
-        for obj_source, obj_dest, relation in fib.get_relation_tuples():
-            print "objsource", obj_source, "objdest", obj_dest, "relation", relation
+        for src_object_name, dest_object_name, relation in fib.get_relation_tuples():
+            #print "objsource", src_object_name, "objdest", dest_object_name, "relation", relation
             name = relation.get_relation_name()
 
             # XXX Sometimes we might want to add the type: if we have not
@@ -308,10 +308,12 @@ class ExploreTask(Deferred):
                     continue
                 seen_set.add(name)
 
+            dest_object = fib.get_object(dest_object_name, namespace)
+
             if relation.requires_subquery():
                 subpath = self.path[:]
                 subpath.append(name)
-                task = ExploreTask(self._router, obj_dest, relation, subpath, self, self.depth+1)
+                task = ExploreTask(self._router, dest_object, relation, subpath, self, self.depth+1)
                 task.addCallback(self.perform_subquery, relation, allowed_platforms, fib, user, query_plan)
                 task.addErrback(self.default_errback)
 
@@ -327,7 +329,7 @@ class ExploreTask(Deferred):
                 #priority = TASK_1Nsq if relation_name in missing_subqueries else TASK_1N
 
             else:
-                task = ExploreTask(self._router, obj_dest, relation, self.path, self.parent, self.depth)
+                task = ExploreTask(self._router, dest_object, relation, self.path, self.parent, self.depth)
                 # XXX In which cases do we need a UNION ???
                 if relation.get_type() == Relation.types.PARENT:
                     # HERE, instead of doing a left join between a PARENT
@@ -441,7 +443,7 @@ class ExploreTask(Deferred):
         if isinstance(ast, AST): # XXX ast should always be an AST?
             self.ast.union([ast], key)
 
-    def perform_union_all(self, obj, namespace, allowed_platforms, fib, user, query_plan):
+    def perform_union_all(self, obj, namespace, allowed_platforms, fib, user, query_plan, exclude_interfaces = None):
         """
         Complete a QueryPlan instance by adding an Union of From Node related
         to a same Table.
@@ -456,14 +458,17 @@ class ExploreTask(Deferred):
 
         # Loop on all the platforms that have this object
         for platform_name in obj.get_platform_names():
+            if platform_name in exclude_interfaces:
+                continue
             platform_field_names = obj.get_platform_field_names(platform_name)
             selected_field_names = platform_field_names | self.keep_root_a
 
             # XXX We should only be concerned about the destination
             platform_object_name =  obj.get_platform_object_name(platform_name)
-            query = Query.action(ACTION_GET, platform_object_name).select(selected_field_names)
+            destination =  Destination(platform_object_name, Filter(), selected_field_names)
+            #query = Query.get(platform_object_name).select(selected_field_names)
 
-            obj = fib.get_object(query.get_object_name(), namespace)
+            obj = fib.get_object(platform_object_name, namespace)
             capabilities = obj.get_platform_capabilities(platform_name)
             #capabilities = fib.get_capabilities(platform, query.get_from()) # XXX
 
@@ -478,7 +483,5 @@ class ExploreTask(Deferred):
             # We need to connect the right gateway
             # XXX
 
-            from_ast = AST(self._router).From(platform_name, query, capabilities, key)
-            type_ast = type(from_ast)
-            if isinstance(from_ast, AST): # XXX from_ast should always be an ast or be renamed
-                self.perform_union(from_ast, key, allowed_platforms, fib, user, query_plan)
+            from_ast = AST(self._router).From(platform_name, destination, capabilities, key)
+            self.perform_union((from_ast, {}), key, allowed_platforms, fib, user, query_plan)

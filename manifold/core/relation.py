@@ -66,11 +66,21 @@ class Relation(object):
             assert isinstance(name, StringTypes), "Invalid name = %s (%s)" % (name, type(name))
         else:
             # Uniqueness enforced
-            name = str(uuid.uuid4())
+            name = None
         self.type       = type
         self.predicate  = predicate
         self.name       = name
         self._local     = local
+
+    def __eq__(self, other):
+        return (self.name, self.type, self.predicate, self._local) == (other.name, other.type, other.predicate, other._local)
+
+    def set_uuid(self):
+        """
+        Relations with no names are given a UUID (when they are added in the FIB
+        """
+        if not self.name:
+            self.name = str(uuid.uuid4())
 
     def copy(self):
         return Relation(self.type, self.predicate.copy(), self.name, self._local)
@@ -78,7 +88,10 @@ class Relation(object):
     def get_reverse(self):
         key, op, value = self.predicate.get_tuple()
         Log.warning("How to name the reverse relation ?")
-        return Relation(self.reverse_types[self.type], Predicate(value, op, key), local = self._local)
+        r = Relation(self.reverse_types[self.type], Predicate(value, op, key), local = self._local)
+        print "original relation", self
+        print "reverse relation=", r
+        return r
 
     def get_type(self):
         """

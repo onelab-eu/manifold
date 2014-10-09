@@ -17,8 +17,8 @@
 # We currently build on QueryPlan, the idea is in the end to merge the QueryPlan class in this class.
 
 from manifold.core.annotation       import Annotation
+from manifold.core.destination      import Destination
 from manifold.core.node             import Node
-from manifold.core.query            import Query
 from manifold.core.query_plan       import QueryPlan
 from manifold.util.lattice          import Lattice
 from manifold.util.log              import Log
@@ -61,8 +61,8 @@ class OperatorGraph(object):
     # Methods
     #---------------------------------------------------------------------------
 
-    @returns(Node)
-    def build_query_plan(self, query, annotation):
+    #@returns(Node)
+    def build_query_plan(self, destination, annotation, exclude_interfaces = None):
         """
         Build the Query Plan according to a Query and its optionnal Annotation.
         Args:
@@ -75,8 +75,8 @@ class OperatorGraph(object):
             of time this is the top Operator of the AST).
         """
         # Check parameters
-        assert isinstance(query, Query),\
-            "Invalid query %s (%s)" % (query, type(query))
+        assert isinstance(destination, Destination),\
+            "Invalid destination %s (%s)" % (destination, type(destination))
         assert isinstance(annotation, Annotation),\
             "Invalid annotation %s (%s)" % (annotation, type(annotation))
 
@@ -90,4 +90,4 @@ class OperatorGraph(object):
 
         # allowed_platforms can be either an empty_list, meaning all, or a list
         # of strings
-        return query_plan.build(query, self.get_router(), set(), user)
+        return query_plan.build(destination, self.get_router(), set(), user, exclude_interfaces = exclude_interfaces)

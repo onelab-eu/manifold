@@ -371,45 +371,40 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
             parent_destination.add_filter(predicate)
 
         # FieldNames
-#DEPRECATED|        for field, subfield in destination.get_field_names().iter_field_subfield():
-#DEPRECATED|            # XXX THIS DOES NOT TAKE SHORTCUTS INTO ACCOUNT
-#DEPRECATED|            parent_destination.add_field_names(field)
-#DEPRECATED|            if subfield:
-#DEPRECATED|                # NOTE : the field should be the identifier of the child
-#DEPRECATED|                # Remember that all relations involved in a SubQuery are named.
-#DEPRECATED|                child_destinations[field].add_field_names(subfield)
 
+        for field, subfield in destination.get_field_names().iter_field_subfield():
+            # XXX THIS DOES NOT TAKE SHORTCUTS INTO ACCOUNT
+            parent_destination.add_field_names(field)
+            if subfield:
+                # NOTE : the field should be the identifier of the child
+                # Remember that all relations involved in a SubQuery are named.
+                child_destinations[field].add_field_names(subfield)
 
-        parent_field_names = self._get_parent().get_destination().get_field_names()
-        parent_destination.add_field_names(destination.get_field_names() & parent_field_names)
-        for child_id, child, child_data in self._iter_children():
-#DEPRECATED|            child_field_names = FieldNames()
-#DEPRECATED|            for field in child.get_destination().get_field_names():
-#DEPRECATED|                child_field_names.add(FieldNames.join(child_id, field))
-#DEPRECATED|            print "======", self, "==== split destination"
-#DEPRECATED|            print "destination.get_field_names()", destination.get_field_names() 
-#DEPRECATED|            print "child_destination_field_names", child.get_destination().get_field_names()
-#DEPRECATED|            print "child=", child
-#DEPRECATED|            print "child_field_names", child_field_names
-#DEPRECATED|            print "hcild_id", child_id
-#DEPRECATED|            child_destinations[child_id].add_field_names(destination.get_field_names() & child_field_names)
-#DEPRECATED|
-            child_provided_field_names = child.get_destination().get_field_names()
+#MARCO|        parent_field_names = self._get_parent().get_destination().get_field_names()
+#MARCO|        parent_destination.add_field_names(destination.get_field_names() & parent_field_names)
+#MARCO|        for child_id, child, child_data in self._iter_children():
 
             child_field_names = FieldNames()
-            for f in destination.get_field_names():
-                for cf in child_provided_field_names:
-                    # f.split(FIELD_SEPARATOR)[1:]      # (hops) ttl    (hops) ip
-                    # cf.split(FIELD_SEPARATOR)         # ttl           probes ip 
-                    f_arr = f.split(FIELD_SEPARATOR)
-                    if len(f_arr) > 1 and f_arr[0] == child_id:
-                        f_arr = f_arr[1:]
-                    cf_arr = cf.split(FIELD_SEPARATOR)
-                    flag, shortcut = is_sublist(f_arr, cf_arr)
-                    if f_arr and flag:
-                        child_field_names.add(cf)
+            for field in child.get_destination().get_field_names():
+                child_field_names.add(FieldNames.join(child_id, field))
+            child_destinations[child_id].add_field_names(destination.get_field_names() & child_field_names)
 
-            child_destinations[child_id].add_field_names(child_field_names)
+#MARCO|            child_provided_field_names = child.get_destination().get_field_names()
+#MARCO|
+#MARCO|            child_field_names = FieldNames()
+#MARCO|            for f in destination.get_field_names():
+#MARCO|                for cf in child_provided_field_names:
+#MARCO|                    # f.split(FIELD_SEPARATOR)[1:]      # (hops) ttl    (hops) ip
+#MARCO|                    # cf.split(FIELD_SEPARATOR)         # ttl           probes ip 
+#MARCO|                    f_arr = f.split(FIELD_SEPARATOR)
+#MARCO|                    if len(f_arr) > 1 and f_arr[0] == child_id:
+#MARCO|                        f_arr = f_arr[1:]
+#MARCO|                    cf_arr = cf.split(FIELD_SEPARATOR)
+#MARCO|                    flag, shortcut = is_sublist(f_arr, cf_arr)
+#MARCO|                    if f_arr and flag:
+#MARCO|                        child_field_names.add(cf)
+#MARCO|
+#MARCO|            child_destinations[child_id].add_field_names(child_field_names)
         
         # Keys & child objects
         for child_id, child, child_data in self._iter_children():
@@ -477,24 +472,22 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
 #DEPRECATED|            self._router.add_to_local_cache(method, uuid, subrecords)
 #DEPRECATED|        return record
 
-    def receive_impl(self, packet):
+    def send(self, packet):
         """
         Handle an incoming Packet instance.
         Args:
             packet: A Packet instance.
         """
+        parent_packet, child_packets = self.split_packet(packet)
+        for child_id, child_packet in child_packets.items():
+            self._set_child_packet(child_id, child_packet)
+        self.send_to(self._get_parent(), parent_packet)
 
-        if packet.get_protocol() == Packet.PROTOCOL_QUERY:
-            parent_packet, child_packets = self.split_packet(packet)
-            for child_id, child_packet in child_packets.items():
-                self._set_child_packet(child_id, child_packet)
-            self.send_to(self._get_parent(), parent_packet)
-
-        elif packet.get_protocol() == Packet.PROTOCOL_RECORD:
-            source_id = self._get_source_child_id(packet)
-            record = packet
-            is_last = record.is_last()
-            record.unset_last()
+    def receive_impl(self, packet, slot_id = None):
+        # XXX Here we want to know which child has sent the packet...
+        record = packet
+        is_last = record.is_last()
+        record.unset_last()
 
 #DEPRECATED|            # We will extract subrecords from the packet and store them in the
 #DEPRECATED|            # local cache
@@ -502,34 +495,36 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
 #DEPRECATED|            # XXX This should disappear
 #DEPRECATED|            record, subrecord_dict = self.split_record(record)
 
-            #if packet.get_source() == self._producers.get_parent_producer(): # XXX
-            if source_id == PARENT: # if not self._parent_done:
-                # Store the record for later...
+        # XXX For local subqueries we do not even need to wonder, only
+        # parent answers
+        assert slot_id is not None
 
-                if not record.is_empty():
-                    self.parent_output.append(record)
+        #if packet.get_source() == self._producers.get_parent_producer(): # XXX
+        if slot_id == PARENT: # if not self._parent_done:
+            # Store the record for later...
 
-                # formerly parent_callback
-                if is_last:
-                    # When we have received all parent records, we can run children
-                    self._parent_done = True
-                    if self.parent_output:
-                        self._run_children()
-                    else:
-                        self.forward_upstream(Record(last = True))
-                    return
+            if not record.is_empty():
+                self.parent_output.append(record)
 
-            else:
-                # NOTE: source_id is the child_id
-                if not record.is_empty():
-                    # Store the results for later...
-                    self._add_child_record(source_id, record)
+            # formerly parent_callback
+            if is_last:
+                # When we have received all parent records, we can run children
+                self._parent_done = True
+                if self.parent_output:
+                    self._run_children()
+                else:
+                    self.forward_upstream(Record(last = True))
+                return
 
-                if is_last:
-                    self._set_child_done(source_id)
+        else:
+            print "PACKET", packet
+            # NOTE: source_id is the child_id
+            if not record.is_empty():
+                # Store the results for later...
+                self._add_child_record(slot_id, record)
 
-        else: # TYPE_ERROR
-            self.forward_upstream(packet)
+            if is_last:
+                self._set_child_done(slot_id)
 
     @staticmethod
     def get_element_key(element, key):
@@ -567,7 +562,7 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
 
         # We look at every children
         for child_id, child, child_data in self._iter_children():
-            #print "RELATION=", child_data.get('relation')
+            print "_run_children RELATION=", child_data.get('relation')
             predicate = child_data.get('relation').get_predicate()
             child_packet = child_data.get('packet')
             child_key = predicate.get_value_names()

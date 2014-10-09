@@ -56,7 +56,7 @@ class Operator(Node, SlotMixin):
                 return True
         return False 
 
-    def receive_impl(self, packet):
+    def receive_impl(self, packet, slot_id = None):
         """
         Handle a Packet (must be re-implemented in children classes).
         Args:
@@ -68,7 +68,7 @@ class Operator(Node, SlotMixin):
                 - Otherwise (ERROR Packet), this Operator should simply
                 forward this Packet.
         """
-        raise Exception, "Operator::receive_impl() must be overwritten in children classes"
+        self.forward_upstream(packet)
         
 #DEPRECATED|    @returns(Query)
 #DEPRECATED|    def get_query(self):

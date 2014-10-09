@@ -13,13 +13,15 @@ from types                          import StringTypes
 
 from manifold.core.announce         import Announces
 from manifold.core.capabilities     import Capabilities
-from manifold.core.code             import GATEWAY
+from manifold.core.code             import CORE, ERROR, GATEWAY
 from manifold.core.node             import Node
 from manifold.core.packet           import Packet, ErrorPacket
 from manifold.core.query            import Query
 from manifold.core.record           import Record, Records
 from manifold.core.result_value     import ResultValue
 from manifold.core.socket           import Socket
+from manifold.gateways.object       import ManifoldCollection
+from manifold.interfaces            import Interface
 from manifold.operators.projection  import Projection
 from manifold.operators.selection   import Selection
 from manifold.util.constants        import STATIC_ROUTES_DIR
@@ -27,13 +29,69 @@ from manifold.util.log              import Log
 from manifold.util.plugin_factory   import PluginFactory
 from manifold.util.type             import accepts, returns
 
-from manifold.core.code             import CORE, ERROR, GATEWAY
+LOCAL_NAMESPACE = 'local'
+
+
+# The sets of objects exposed by this gateway
+class OLocalLocalObject(ManifoldCollection):
+    """
+    class object {
+        string  table;           /**< The name of the object/table.        */
+        column  columns[];       /**< The corresponding fields/columns.    */
+        string  capabilities[];  /**< The supported capabilities           */
+        string  key[];           /**< The keys related to this object      */
+        string  origins[];       /**< The platform originating this object */
+
+        CAPABILITY(retrieve);
+        KEY(table);
+    };
+    """
+
+    def get(self, packet):
+        
+        objects = list()
+        for collection in self.get_gateway().get_collections():
+            obj = collection.get_object().get_announce().to_dict()
+            objects.append(obj)
+        return Records(objects)
+
+class OLocalLocalColumn(ManifoldCollection):
+    """
+    class column {
+        string qualifier;
+        string name;
+        string type;
+        string description;
+        bool   is_array;
+
+        LOCAL KEY(name);
+    };
+    """
+
+class OLocalObject(ManifoldCollection):
+    """
+    class object {
+        string  table;           /**< The name of the object/table.        */
+        column  columns[];       /**< The corresponding fields/columns.    */
+        string  capabilities[];  /**< The supported capabilities           */
+        string  key[];           /**< The keys related to this object      */
+        string  origins[];       /**< The platform originating this object */
+
+        CAPABILITY(retrieve);
+        KEY(table);
+    };
+    """
+
+    def get(self, query = None):
+        return Records([a.to_dict() for a in self.get_gateway().get_announces()]) # only default namespace for now
+
+OLocalColumn = OLocalLocalColumn
 
 #-------------------------------------------------------------------------------
 # Generic Gateway class
 #-------------------------------------------------------------------------------
 
-class Gateway(Node):
+class Gateway(Interface, Node): # XXX Node needed ?
 
     __metaclass__ = PluginFactory
     __plugin__name__attribute__ = '__gateway_name__'
@@ -57,7 +115,7 @@ class Gateway(Node):
             Log.info("Registering gateways")
             current_module = sys.modules[__name__]
             PluginFactory.register(current_module)
-            Log.info("Registered gateways are: {%s}" % ", ".join(sorted(Gateway.list().keys())))
+            Log.info("Registered gateways are: {%s}" % ", ".join(sorted(Gateway.factory_list().keys())))
             Gateway.registered = True
 
     #---------------------------------------------------------------------------
@@ -65,7 +123,6 @@ class Gateway(Node):
     #---------------------------------------------------------------------------
 
     def __init__(self, router = None, platform_name = None, platform_config = None):
-    # XXX ??? , *args, **kwargs):
         """
         Constructor
         Args:
@@ -83,12 +140,21 @@ class Gateway(Node):
         assert isinstance(platform_config, dict) or not platform_config, \
             "Invalid configuration: %s (%s)" % (platform_config, type(platform_config))
 
+        Log.warning("Gateway should become an interface")
+
+        Interface.__init__(self, router)
         Node.__init__(self)
-        self._router          = router          # Router
+        assert router
         self._platform_name   = platform_name   # String
         self._platform_config = platform_config # dict
         self._announces       = None            # list(Announces)
         self._capabilities    = Capabilities()  # XXX in the meantime we support all capabilities
+
+        # namespace -> (object_name -> obj)
+        self._collections_by_namespace = dict()
+
+        self.register_collection(OLocalLocalObject(), 'local')
+        self.register_collection(OLocalLocalColumn(), 'local')
 
     def terminate(self):
         pass
@@ -134,6 +200,8 @@ class Gateway(Node):
             gateway_type = gateway_type[:-7]
         return gateway_type.lower()
 
+    get_interface_type = get_gateway_type
+
     @returns(Announces)
     def get_announces(self):
         """
@@ -143,17 +211,18 @@ class Gateway(Node):
         Returns:
             The corresponding Announces instance.
         """
-        # We do not instanciate make_announces in __init__
-        # to allow child classes to tweak their metadata.
-        if not self._announces:
-            try:
-                self._announces = self.make_announces()
-            except:
-                Log.warning(traceback.format_exc())
-                Log.warning("Could not get announces from platform %s. It won't be active" % self.get_platform_name())
-                self._announces = Announces()
-
-        return self._announces
+        return Announces([x.get_announce() for x in self.get_objects()])
+#DEPRECATED|        # We do not instanciate make_announces in __init__
+#DEPRECATED|        # to allow child classes to tweak their metadata.
+#DEPRECATED|        if not self._announces:
+#DEPRECATED|            try:
+#DEPRECATED|                self._announces = self.make_announces()
+#DEPRECATED|            except:
+#DEPRECATED|                Log.warning(traceback.format_exc())
+#DEPRECATED|                Log.warning("Could not get announces from platform %s. It won't be active" % self.get_platform_name())
+#DEPRECATED|                self._announces = Announces()
+#DEPRECATED|
+#DEPRECATED|        return self._announces
 
     @returns(Capabilities)
     def get_capabilities(self, table_name):
@@ -240,7 +309,7 @@ class Gateway(Node):
             cascade: A boolean set to true to remove 'self'
                 to the producers set of 'consumer'.
         """
-        self.get_pit().del_receiver(receiver)
+#DEPRECATED|        self.get_pit().del_receiver(receiver)
         if cascade:
             receiver.del_producer(self, cascade = False)
 
@@ -258,8 +327,8 @@ class Gateway(Node):
         query = packet.get_query()
         socket = self.get_socket(query)
 
-        # Clear PIT
-        self.get_pit().del_query(query)
+#DEPRECATED|        # Clear PIT
+#DEPRECATED|        self.get_pit().del_query(query)
 
         # Unlink this Socket from its Customers
         socket.close()
@@ -390,6 +459,7 @@ class Gateway(Node):
         return self.get_router().execute_local_query(query)
 
     def record(self, record, packet):
+
         """
         Helper used in Gateway when a has to send an ERROR Packet.
         See also Gateway::records() instead.
@@ -406,6 +476,11 @@ class Gateway(Node):
         """
         if not isinstance(record, Record):
             record = Record.from_dict(record)
+        record.set_source(packet.get_destination())
+        record.set_destination(packet.get_source())
+        record._ingress = self.get_address()
+
+        Log.tmp("To receiver or to router ?")
         packet.get_receiver().receive(record)
 
     # XXX It is important that the packet is the second argument for
@@ -495,10 +570,6 @@ class Gateway(Node):
         error_packet = self.make_error(GATEWAY, description, is_fatal)
         packet.get_receiver().receive(error_packet)
 
-    def send(self, src_packet, packet):
-        #socket = self.get_socket(src_packet.get_query())
-        src_packet.get_receiver().receive(packet)
-
     @returns(bool)
     def handle_query_object(self, packet):
         ret = False
@@ -512,27 +583,6 @@ class Gateway(Node):
                 self.records([announce.to_dict() for announce in self.get_announces()], packet)
                 ret = True
         return ret
-
-    def receive(self, packet):
-        """
-        Handle a incoming QUERY Packet (processing).
-        Classes inheriting Gateway must not overload this method, they
-        must overload Gateway::receive_impl() instead.
-        Args:
-            packet: A QUERY Packet instance.
-        """
-        self.check_receive(packet)
-
-        if not self.handle_query_object(packet):
-            # This method must be overloaded on the Gateway
-            # See manifold/gateways/template/__init__.py
-            self.receive_impl(packet)
-
-# XXX Since this function always return after the query is sent, we need to close after the last receive record or error instead
-
-#DEPRECATED|        finally:
-#DEPRECATED|            print "finally close"
-#DEPRECATED|            self.close(packet)
 
     #---------------------------------------------------------------------------
     # Methods that could/must be overloaded/overwritten in the child classes
@@ -566,24 +616,6 @@ class Gateway(Node):
             announces Tables not referenced in a dedicated .h file/docstring.
         """
         return Announces.parse_static_routes(STATIC_ROUTES_DIR, self.get_platform_name(), self.get_gateway_type())
-
-    def receive_impl(self, packet):
-        """
-        Handle a incoming QUERY Packet.
-        Args:
-            packet: A QUERY Packet instance.
-        """
-        query = packet.get_query()
-        object = query.get_object()
-
-        records = None
-        # XXX object map could be populated automatically
-        if object in self.object_map.keys():
-            instance = self.object_map[object](self)
-            records = instance.get(query, packet.get_annotation())
-        else:
-            raise RuntimeError("Invalid object %s" % object)
-        self.records(records, packet)
 
     # TODO Rename Producer::make_error() into Producer::error()
     # and retrieve the appropriate consumers and send to them
@@ -619,3 +651,113 @@ class Gateway(Node):
         error_packet = ErrorPacket(ERROR, origin, description, traceback.format_exc())
         error_packet.set_last(is_fatal)
         return error_packet
+
+
+    def send_impl(self, packet):
+        """
+        Handle a incoming QUERY Packet.
+        Args:
+            packet: A QUERY Packet instance.
+        """
+        destination = packet.get_destination()
+        
+        namespace   = destination.get_namespace()
+        object_name = destination.get_object_name()
+
+        try:
+            collection = self.get_collection(object_name, namespace)
+        except ValueError:
+            raise RuntimeError("Invalid object '%s::%s'" % (namespace, object_name))
+
+        collection.set_gateway(self)
+
+        # This is because we assure the gateway could modify the packet, which
+        # is further used in self.records
+        packet_clone = packet.clone()
+
+        if packet.get_protocol() == Packet.PROTOCOL_CREATE:
+            records = collection.insert(packet_clone)
+        elif packet.get_protocol() == Packet.PROTOCOL_GET:
+            records = collection.get(packet_clone)
+        else:
+            raise NotImplemented
+
+        # Asynchronous gateways return None,
+        # Others should return an empty list
+        if records is None:
+            return
+
+        if records:
+            self.records(records, packet)
+        else:
+            self.record(Record(last = True), packet)
+
+    def get_collection(self, object_name, namespace = None):
+        return self._collections_by_namespace[namespace][object_name]
+
+    def get_collections(self, namespace = None):
+        if not namespace in self._collections_by_namespace:
+            return list()
+        return self._collections_by_namespace[namespace].values()
+
+    def register_collection(self, collection, namespace = None):
+        # Register it in the FIB: we ignore the announces in the local namespace
+        # unless the platform_name is local
+        cls = collection.get_object()
+        platform_name = self.get_platform_name()
+        if namespace != 'local':
+            fib_namespace = 'local' if platform_name == 'local' else None
+            self.get_router().get_fib().add(platform_name, cls.get_announce(), fib_namespace)
+
+        # Store the object locally
+        if namespace not in self._collections_by_namespace:
+            self._collections_by_namespace[namespace] = dict()
+        self._collections_by_namespace[namespace][cls.get_object_name()] = collection
+
+#DEPRECATED|        # Fetch Announces produced by the Storage
+#DEPRECATED|        gateway_storage = self._storage.get_gateway()
+#DEPRECATED|        if gateway_storage:
+#DEPRECATED|            #local_announces = local_announces | gateway_storage.get_announces()
+#DEPRECATED|            local_announces |= gateway_storage.get_announces()
+#DEPRECATED|
+#DEPRECATED|        # Fetch Announces produced by each enabled platform.
+#DEPRECATED|        router = self.get_router()
+#DEPRECATED|        if router:
+#DEPRECATED|            for platform_name in router.get_enabled_platform_names():
+#DEPRECATED|                gateway = router.get_gateway(platform_name)
+#DEPRECATED|                # foo:object is renamed local:object since we cannot compute query plan
+#DEPRECATED|                # over the local DBGraph if its table are not attached to platform "local"
+#DEPRECATED|                local_announces |= make_local_announces(LOCAL_NAMESPACE)
+#DEPRECATED|        else:
+#DEPRECATED|            Log.warning("The router of this %s is unset. Some Announces cannot be fetched" % self)
+#DEPRECATED|
+#DEPRECATED|        return local_announces
+
+# DEPRECATED BY FIB    @returns(DBGraph)
+# DEPRECATED BY FIB    def make_dbgraph(self):
+# DEPRECATED BY FIB        """
+# DEPRECATED BY FIB        Make the DBGraph.
+# DEPRECATED BY FIB        Returns:
+# DEPRECATED BY FIB            The DBGraph related to the Manifold Storage.
+# DEPRECATED BY FIB        """
+# DEPRECATED BY FIB        # We do not need normalization here, can directly query the Gateway
+# DEPRECATED BY FIB
+# DEPRECATED BY FIB        # 1) Fetch the Storage's announces and get the corresponding Tables.
+# DEPRECATED BY FIB        local_announces = self.get_announces()
+# DEPRECATED BY FIB        local_tables = frozenset([announce.get_table() for announce in local_announces])
+# DEPRECATED BY FIB
+# DEPRECATED BY FIB        # 2) Build the corresponding map of Capabilities
+# DEPRECATED BY FIB        map_method_capabilities = dict()
+# DEPRECATED BY FIB        for announce in local_announces:
+# DEPRECATED BY FIB            table = announce.get_table()
+# DEPRECATED BY FIB            platform_names = table.get_platforms()
+# DEPRECATED BY FIB            assert len(platform_names) == 1, "An announce should be always related to a single origin"
+# DEPRECATED BY FIB            table_name = table.get_name()
+# DEPRECATED BY FIB            platform_name = iter(platform_names).next()
+# DEPRECATED BY FIB            method = Method(platform_name, table_name)
+# DEPRECATED BY FIB            capabilities = table.get_capabilities()
+# DEPRECATED BY FIB            map_method_capabilities[method] = capabilities
+# DEPRECATED BY FIB
+# DEPRECATED BY FIB        # 3) Build the corresponding DBGraph
+# DEPRECATED BY FIB        return DBGraph(local_tables, map_method_capabilities)
+

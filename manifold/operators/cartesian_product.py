@@ -127,13 +127,13 @@ class CartesianProduct(Operator):
     # Methods
     #---------------------------------------------------------------------------
 
-    def receive_impl(self, packet):
+    def send_impl(self, packet, slot_id = None):
         """
         Process an incoming Packet instance.
         Args:
             packet: A Packet instance.
         """
-        if packet.get_protocol() == Packet.PROTOCOL_QUERY:
+        if packet.get_protocol() in Packet.PROTOCOL_QUERY:
             # formerly start()
             raise Exception, "CartesianProduct::receive(QUERY) Not implemented"
 
@@ -151,7 +151,7 @@ class CartesianProduct(Operator):
             for i, child in enumerate(self.children):
                 child.start()
 
-        elif packet.get_protocol() == Packet.PROTOCOL_RECORD:
+        elif packet.get_protocol() == Packet.PROTOCOL_CREATE:
             # formerly child_callback()
 
             # XXX child_id & source ?

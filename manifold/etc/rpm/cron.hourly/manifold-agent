@@ -1,0 +1,38 @@
+#!/bin/bash
+
+DAEMON="manifold-agent"
+
+# Random delay used to avoid the synchronization of updates
+MAX_DELAY=600 # s
+
+OUT=$(yum info manifold | awk  -F  " " '/Version/ { print $3 }' | wc -l)
+if [[ $OUT == 1 ]]; then
+    echo "No update available."
+    exit
+else
+    echo "Update available."
+fi
+
+echo "Sleeping..."
+sleep $(expr $RANDOM \% $MAX_DELAY);
+
+PID=$(pidof -x $DAEMON)
+if [[ $PID == "" ]]; then
+    echo "No daemon running."
+else
+    echo "Stopping daemon..."
+    # Forcing manifold services to stop
+    /etc/init.d/$DAEMON stop
+
+    PID=$(pidof -x $DAEMON)
+    if [[ $PID == "" ]]; then
+        echo "Daemon stopped properly."
+    else
+        echo "Daemon did not stop, killing it..."
+        kill -9 `pidof -x $DAEMON`
+    fi
+fi
+
+echo "Updating package..."
+yum -y install manifold --nogpgcheck
+
