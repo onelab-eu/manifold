@@ -1,0 +1,9 @@
+#!/bin/bash
+
+DAEMON="manifold-agent"
+
+chkconfig $DAEMON on
+service $DAEMON stop
+service $DAEMON start
+
+
