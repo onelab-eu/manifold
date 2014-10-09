@@ -654,6 +654,8 @@ class Router(object):
 
             receiver._set_child(root_node)
         except Exception, e:
+            import traceback
+            traceback.print_exc()
             Log.tmp(e)
             error_packet = ErrorPacket(
                 type      = ERROR,

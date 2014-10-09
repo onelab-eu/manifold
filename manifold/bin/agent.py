@@ -143,7 +143,7 @@ class AgentDaemon(Daemon):
 
 
     @defer.inlineCallbacks
-    def connect_interface(self, host):
+    def connect_interface(self, router, host):
         interface = router.add_interface('tcpclient', host)
 
         yield async_wait(lambda : interface.is_up())

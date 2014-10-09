@@ -316,6 +316,8 @@ class FIB(ChildSlotMixin):
 
             object_name     = table.get_name() # XXX
 
+            print "FIB ADD", namespace, object_name
+
             keys            = table.get_keys()
             fields          = table.get_fields()
             capabilities    = table.get_capabilities()
