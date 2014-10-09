@@ -31,6 +31,8 @@ class ReactorThread(threading.Thread):
         self._reactorRunning = False
         self._reactorStarted = False
 
+        self._lock = threading.Lock()
+
         # Be sure the import is done only at runtime, we keep a reference in the
         # class instance
         from twisted.internet import reactor
@@ -63,26 +65,35 @@ class ReactorThread(threading.Thread):
         return self._reactorRunning
 
     def start_reactor(self):
-        self._num_instances += 1
+        """
+        Concurrency issues can occur here since the reactor can be started by
+        several interfaces at the same time.
+        """
+        try:
+            self._lock.acquire()
 
-        if self._reactorStarted:
-            Log.debug("Reactor already started")
-            return
-        self._reactorStarted = True
+            self._num_instances += 1
 
-        # Should not occur
-        if self._reactorRunning:
-            Log.debug("Reactor already running: should not occur")
-            return
+            if self._reactorStarted:
+                Log.debug("Reactor already started")
+                return
+            self._reactorStarted = True
 
-        threading.Thread.start(self)
-        cpt = 0
-        while not self._reactorRunning:
-            time.sleep(0.1)
-            cpt +=1
-            if cpt > 5:
-                raise ReactorException, "Reactor thread is too long to start... cancelling"
-        self.reactor.addSystemEventTrigger('after', 'shutdown', self.__reactorShutDown)
+            # Should not occur
+            if self._reactorRunning:
+                Log.debug("Reactor already running: should not occur")
+                return
+
+            threading.Thread.start(self)
+            cpt = 0
+            while not self._reactorRunning:
+                time.sleep(0.1)
+                cpt +=1
+                if cpt > 5:
+                    raise ReactorException, "Reactor thread is too long to start... cancelling"
+            self.reactor.addSystemEventTrigger('after', 'shutdown', self.__reactorShutDown)
+        finally:
+            self._lock.release()
 
     def stop_reactor(self, force = False):
         """
@@ -90,20 +101,25 @@ class ReactorThread(threading.Thread):
         properly. The reactor can get in to a recursive loop condition if reactor.stop
         placed in the threads join method. This will require further investigation.
         """
-        if not self._reactorRunning:
-            raise ReactorException("Reactor Not Running")
+        try:
+            self._lock.acquire()
 
-        self._num_instances -= 1
-        if not force and self._num_instances > 0:
-            return
+            if not self._reactorRunning:
+                raise ReactorException("Reactor Not Running")
 
-        self._num_instances = 0
-        # done here instead of event until shell.client.__del__ issue is solved
-        self._reactorRunning = False
-        self._reactorStarted = False
-        self.reactor.callFromThread(self.reactor.stop)
-        #ReactorThread._drop()
-        #self.reactor.join()
+            self._num_instances -= 1
+            if not force and self._num_instances > 0:
+                return
+
+            self._num_instances = 0
+            # done here instead of event until shell.client.__del__ issue is solved
+            self._reactorRunning = False
+            self._reactorStarted = False
+            self.reactor.callFromThread(self.reactor.stop)
+            #ReactorThread._drop()
+            #self.reactor.join()
+        finally:
+            self._lock.release()
 
     def addReactorEventTrigger(self, phase, eventType, callable):
         if self._reactorRunning:
