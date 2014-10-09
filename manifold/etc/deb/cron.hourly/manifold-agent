@@ -5,6 +5,7 @@ DAEMON="manifold-agent"
 # Random delay used to avoid the synchronization of updates
 MAX_DELAY=600 # s
 
+yum clean all
 OUT=$(yum info manifold | awk  -F  " " '/Version/ { print $3 }' | wc -l)
 if [[ $OUT == 1 ]]; then
     echo "No update available."
