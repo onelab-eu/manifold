@@ -97,11 +97,8 @@ class Router(object):
         # We request announces from the local gateway (cf # manifold.core.interface)
         # XXX This should be similar for all gateways
         # XXX add_platform
-        print "adding local platform"
+        print ">>>>>>>>>>>>>>>>> adding local platform"
         self.add_platform(LOCAL_NAMESPACE, LOCAL_NAMESPACE)
-        
-        Log.tmp('Adding ping')
-        self.add_platform("ping", "ping")
 
 # DEPRECATED BY FIB        self._local_gateway = LocalGateway(router = self)
 # DEPRECATED BY FIB        self._local_dbgraph = self.get_local_gateway().make_dbgraph()
@@ -228,12 +225,13 @@ class Router(object):
             else:
                 gateway = self.make_gateway(platform_name, gateway_type, platform_config)
 
-            # Retrieving announces from gateway, and populate the FIB
-            packet = GET()
-            packet.set_source(self.get_fib().get_address())
-            packet.set_destination(Destination('object', namespace='local'))
-            packet.set_receiver(self.get_fib())
-            gateway.send(packet)
+#DEPRECATED|            print "REQUESTING ANNOUNCES FOR PLATFORM", platform_name
+#DEPRECATED|            # Retrieving announces from gateway, and populate the FIB
+#DEPRECATED|            packet = GET()
+#DEPRECATED|            packet.set_source(self.get_fib().get_address())
+#DEPRECATED|            packet.set_destination(Destination('object', namespace='local'))
+#DEPRECATED|            packet.set_receiver(self.get_fib())
+#DEPRECATED|            gateway.send(packet)
 
 #DEPRECATED|            announces = gateway.get_announces()
 #DEPRECATED|            for announce in announces:
@@ -373,110 +371,110 @@ class Router(object):
 
         return ret
 
-    def update_platforms(self, new_platforms_enabled):
-        """
-        Update the Gateways and Announces loaded by this Router according
-        to a list of platforms. This function should be called whenever
-        a Platform is enabled/disabled without explictely call
-        {dis|en}able_platform.
-        Args:
-            new_platforms_enabled: The list of platforms which must be enabled. All
-                the other platforms are automaticaly disabled.
-        """
-        Log.warning("Ignored update platforms")
-        return
-        assert set(self.gateways.keys()) >= set(self.announces.keys())
-
-        old_platform_names_enabled  = self.get_enabled_platform_names()
-        new_platform_names_enabled = set([platform["platform"] for platform in new_platforms_enabled])
-
-        platform_names_del = old_platform_names_enabled - new_platform_names_enabled
-        platform_names_add = new_platform_names_enabled - old_platform_names_enabled
-
-        router_altered = False
-
-        for platform_name in platform_names_del:
-            router_altered |= self.disable_platform(platform_name, False)
-
-        for platform_name in platform_names_add:
-            try:
-                router_altered |= self.enable_platform(platform_name, False)
-            except RuntimeError, e:
-                Log.warning(traceback.format_exc())
-                Log.warning("Cannot enable platform '%s': %s" % (platform_name, e))
-                pass
-
-# DEPRECATED BY FIB        if router_altered:
-# DEPRECATED BY FIB            self.rebuild_dbgraph()
-
-    @returns(bool)
-    def disable_platform(self, platform_name, rebuild = True):
-        """
-        Unload a platform (e.g its correponding Gateway and Announces).
-        Args:
-            platform_name: A String containing a platform supported by this Router.
-                Most of time, platform names corresponds to contents in "platform"
-                column of "platform" table of the Manifold Storage.
-            rebuild: True if the DbGraph must be rebuild.
-        Returns:
-            True iif it altered the state of this Router.
-        """
-        if platform_name == LOCAL_NAMESPACE:
-            # The LocalGateway is always enabled.
-            return False
-
-        Log.info("Disabling platform '%s'" % platform_name)
-        ret = False
-
-        if platform_name in self.announces.keys():
-            del self.announces[platform_name]
-# DEPRECATED BY FIB            if rebuild: self.rebuild_dbgraph()
-            ret = True
-        else:
-            Log.warning("Cannot disable %s (not enabled)"  % platform_name)
-
-        return ret
-
-    @returns(bool)
-    def enable_platform(self, platform_name, rebuild = True):
-        """
-        Enable a platform (e.g. pull the Announces from the corresponding Gateway).
-        This platform must be previously registered (see self.gateways).
-        Args:
-            platform_name: A String containing a platform supported by this Router.
-                Example: See in Manifold Storage table "platform", column "platform".
-            rebuild: True if the DbGraph must be rebuild.
-        Returns:
-            True iif it altered the state of this Router.
-        """
-        assert isinstance(platform_name, StringTypes),\
-            "Invalid platform_name = %s (%s)" % (platform_name, type(platform_name))
-
-        Log.info("Enabling platform '%s'" % platform_name)
-        ret = False
-
-        try:
-            gateway = self.get_interface(platform_name)
-
-            # Load Announces related to this Platform
-            announces = gateway.get_announces()
-            assert isinstance(announces, Announces),\
-                "%s::get_announces() should return an Announces: %s (%s)" % (
-                    gateway.__class__.__name__,
-                    announces,
-                    type(announces)
-                )
-
-            # Install the Announces corresponding to this Platform in this Router.
-            self.announces[platform_name] = announces
-# DEPRECATED BY FIB            if rebuild: self.rebuild_dbgraph()
-            ret = True
-        except Exception, e:
-            Log.warning(traceback.format_exc())
-            Log.warning("Error while enabling %(platform_name)s: %(e)s" % locals())
-            if platform_name in self.announces.keys(): del self.announces[platform_name]
-
-        return ret
+#DEPRECATED|    def update_platforms(self, new_platforms_enabled):
+#DEPRECATED|        """
+#DEPRECATED|        Update the Gateways and Announces loaded by this Router according
+#DEPRECATED|        to a list of platforms. This function should be called whenever
+#DEPRECATED|        a Platform is enabled/disabled without explictely call
+#DEPRECATED|        {dis|en}able_platform.
+#DEPRECATED|        Args:
+#DEPRECATED|            new_platforms_enabled: The list of platforms which must be enabled. All
+#DEPRECATED|                the other platforms are automaticaly disabled.
+#DEPRECATED|        """
+#DEPRECATED|        Log.warning("Ignored update platforms")
+#DEPRECATED|        return
+#DEPRECATED|        assert set(self.gateways.keys()) >= set(self.announces.keys())
+#DEPRECATED|
+#DEPRECATED|        old_platform_names_enabled  = self.get_enabled_platform_names()
+#DEPRECATED|        new_platform_names_enabled = set([platform["platform"] for platform in new_platforms_enabled])
+#DEPRECATED|
+#DEPRECATED|        platform_names_del = old_platform_names_enabled - new_platform_names_enabled
+#DEPRECATED|        platform_names_add = new_platform_names_enabled - old_platform_names_enabled
+#DEPRECATED|
+#DEPRECATED|        router_altered = False
+#DEPRECATED|
+#DEPRECATED|        for platform_name in platform_names_del:
+#DEPRECATED|            router_altered |= self.disable_platform(platform_name, False)
+#DEPRECATED|
+#DEPRECATED|        for platform_name in platform_names_add:
+#DEPRECATED|            try:
+#DEPRECATED|                router_altered |= self.enable_platform(platform_name, False)
+#DEPRECATED|            except RuntimeError, e:
+#DEPRECATED|                Log.warning(traceback.format_exc())
+#DEPRECATED|                Log.warning("Cannot enable platform '%s': %s" % (platform_name, e))
+#DEPRECATED|                pass
+#DEPRECATED|
+#DEPRECATED|# DEPRECATED BY FIB        if router_altered:
+#DEPRECATED|# DEPRECATED BY FIB            self.rebuild_dbgraph()
+#DEPRECATED|
+#DEPRECATED|    @returns(bool)
+#DEPRECATED|    def disable_platform(self, platform_name, rebuild = True):
+#DEPRECATED|        """
+#DEPRECATED|        Unload a platform (e.g its correponding Gateway and Announces).
+#DEPRECATED|        Args:
+#DEPRECATED|            platform_name: A String containing a platform supported by this Router.
+#DEPRECATED|                Most of time, platform names corresponds to contents in "platform"
+#DEPRECATED|                column of "platform" table of the Manifold Storage.
+#DEPRECATED|            rebuild: True if the DbGraph must be rebuild.
+#DEPRECATED|        Returns:
+#DEPRECATED|            True iif it altered the state of this Router.
+#DEPRECATED|        """
+#DEPRECATED|        if platform_name == LOCAL_NAMESPACE:
+#DEPRECATED|            # The LocalGateway is always enabled.
+#DEPRECATED|            return False
+#DEPRECATED|
+#DEPRECATED|        Log.info("Disabling platform '%s'" % platform_name)
+#DEPRECATED|        ret = False
+#DEPRECATED|
+#DEPRECATED|        if platform_name in self.announces.keys():
+#DEPRECATED|            del self.announces[platform_name]
+#DEPRECATED|# DEPRECATED BY FIB            if rebuild: self.rebuild_dbgraph()
+#DEPRECATED|            ret = True
+#DEPRECATED|        else:
+#DEPRECATED|            Log.warning("Cannot disable %s (not enabled)"  % platform_name)
+#DEPRECATED|
+#DEPRECATED|        return ret
+#DEPRECATED|
+#DEPRECATED|    @returns(bool)
+#DEPRECATED|    def enable_platform(self, platform_name, rebuild = True):
+#DEPRECATED|        """
+#DEPRECATED|        Enable a platform (e.g. pull the Announces from the corresponding Gateway).
+#DEPRECATED|        This platform must be previously registered (see self.gateways).
+#DEPRECATED|        Args:
+#DEPRECATED|            platform_name: A String containing a platform supported by this Router.
+#DEPRECATED|                Example: See in Manifold Storage table "platform", column "platform".
+#DEPRECATED|            rebuild: True if the DbGraph must be rebuild.
+#DEPRECATED|        Returns:
+#DEPRECATED|            True iif it altered the state of this Router.
+#DEPRECATED|        """
+#DEPRECATED|        assert isinstance(platform_name, StringTypes),\
+#DEPRECATED|            "Invalid platform_name = %s (%s)" % (platform_name, type(platform_name))
+#DEPRECATED|
+#DEPRECATED|        Log.info("Enabling platform '%s'" % platform_name)
+#DEPRECATED|        ret = False
+#DEPRECATED|
+#DEPRECATED|        try:
+#DEPRECATED|            gateway = self.get_interface(platform_name)
+#DEPRECATED|
+#DEPRECATED|            # Load Announces related to this Platform
+#DEPRECATED|            announces = gateway.get_announces()
+#DEPRECATED|            assert isinstance(announces, Announces),\
+#DEPRECATED|                "%s::get_announces() should return an Announces: %s (%s)" % (
+#DEPRECATED|                    gateway.__class__.__name__,
+#DEPRECATED|                    announces,
+#DEPRECATED|                    type(announces)
+#DEPRECATED|                )
+#DEPRECATED|
+#DEPRECATED|            # Install the Announces corresponding to this Platform in this Router.
+#DEPRECATED|            self.announces[platform_name] = announces
+#DEPRECATED|# DEPRECATED BY FIB            if rebuild: self.rebuild_dbgraph()
+#DEPRECATED|            ret = True
+#DEPRECATED|        except Exception, e:
+#DEPRECATED|            Log.warning(traceback.format_exc())
+#DEPRECATED|            Log.warning("Error while enabling %(platform_name)s: %(e)s" % locals())
+#DEPRECATED|            if platform_name in self.announces.keys(): del self.announces[platform_name]
+#DEPRECATED|
+#DEPRECATED|        return ret
 
     #---------------------------------------------------------------------
     # Gateways management (internal usage)

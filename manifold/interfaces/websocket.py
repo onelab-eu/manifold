@@ -78,12 +78,11 @@ class WebSocketInterface(Interface, WebSocketServerFactory):
         ReactorThread().stop_reactor()
 
     def on_client_ready(self, client):
-        print "on client ready", client
         _self = self
 
-        print "req announces", self._request_announces
-        self._request_announces()
         self._client = client
+        self.up()
+
         # Received packets are sent back to the client
         class MyReceiver(ChildSlotMixin):
             def receive(self, packet, slot_id = None):

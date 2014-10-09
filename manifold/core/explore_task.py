@@ -36,7 +36,7 @@ class ExploreTask(Deferred):
     """
     last_identifier = 0
 
-    def __init__(self, router, root_table, relation, path, parent, depth):
+    def __init__(self, router, root_object, relation, path, parent, depth):
         """
         Constructor.
         Args:
@@ -49,11 +49,11 @@ class ExploreTask(Deferred):
             depth      : A positive integer value, corresponding to the number of
                 none 1..1 args traversed from the root Table to the current
         """
-        assert root_table != None, "ExploreTask::__init__(): invalid root_table = %s" % root_table
+        assert root_object != None, "ExploreTask::__init__(): invalid root_object = %s" % root_object
 
         # Context
         self._router  = router
-        self.root     = root_table
+        self.root     = root_object
         self.relation = relation
         self.path     = path
         self.parent   = parent
@@ -295,7 +295,7 @@ class ExploreTask(Deferred):
             return foreign_key_fields
 
         # In all cases, we have to list neighbours for returning 1..N relationships. Let's do it now.
-        for src_object_name, dest_object_name, relation in fib.get_relation_tuples():
+        for dest_object_name, relation in self.root.get_relation_tuples():
             #print "objsource", src_object_name, "objdest", dest_object_name, "relation", relation
             name = relation.get_relation_name()
 
@@ -308,6 +308,7 @@ class ExploreTask(Deferred):
                     continue
                 seen_set.add(name)
 
+            print "fib.get_object(dest_object_name, namespace)", dest_object_name, namespace
             dest_object = fib.get_object(dest_object_name, namespace)
 
             if relation.requires_subquery():

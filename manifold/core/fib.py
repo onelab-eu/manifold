@@ -1,5 +1,6 @@
 import uuid
 
+from manifold.util.debug            import print_call_stack
 from manifold.core.announce         import Announce, Announces
 from manifold.core.dbnorm           import Fd, Fds, Determinant, closure
 from manifold.core.destination      import Destination
@@ -268,11 +269,16 @@ class FIB(ChildSlotMixin):
     def get_namespaces(self):
         return self._objects_by_namespace.keys()
 
-    def get_relation_tuples(self):
+#DEPRECATED|    def get_object_relation_tuples(self, obj):
+#DEPRECATED|        ret = list()
+#DEPRECATED|        for dest_object_name, relation in obj.get_relation_tuples():
+#DEPRECATED|            ret.append( (src_object_name, dest_object_name, relation) )
+#DEPRECATED|        return ret
+
+    def get_relation_tuples(self, object_name = None, namespace = None):
         ret = list()
-        for src_object_name in self._objects_by_namespace[None].values():
-            for dest_object_name, relation in src_object_name.get_relation_tuples():
-                ret.append( (src_object_name, dest_object_name, relation) )
+        for obj in self.get_objects():
+            ret.extend(obj.get_relation_tuples())
         return ret
 
     def get_objects(self, namespace = None):
@@ -301,6 +307,9 @@ class FIB(ChildSlotMixin):
         """
         Adds a new announce to the FIB.
         """
+        print "*" * 80
+        print "*** PLATFORM", platform_name
+        #print_call_stack()
         if not isinstance(announces, Announces):
             announces = Announces([announces])
 
@@ -447,6 +456,6 @@ class FIB(ChildSlotMixin):
             print "NAMESPACE", namespace
             print ""
             print "=" * 80
-            for obj in self.get_objects():
+            for obj in self.get_objects(namespace):
                 print obj
             print "=" * 80

@@ -159,14 +159,14 @@ class AgentDaemon(Daemon):
 
         Log.info("Connecting to main server...")
         self._main_interface = yield self.connect_interface(router, SERVER_SUPERNODE)
-        Log.info("Connected to main server")
+        Log.info("Connected to main server. Interface=%s" % (self._main_interface,))
 
         Log.info("Getting supernodes...")
         supernode = yield self.get_supernode(self._main_interface) # XXX Blocking ???
 
         Log.info("Connecting to supernode: %s..." % (supernode,))
         self._client_interface = yield self.connect_interface(router, supernode)
-        Log.info("Connected to supernode: %s" % (supernode,))
+        Log.info("Connected to supernode: %s. Interface=%s" % (supernode, self._client_interface,))
 
         # Register as a supernode on the main server
         Log.info("Registering as supernode...")
@@ -262,7 +262,7 @@ class AgentDaemon(Daemon):
             #self._bootstrap_overlay_task = LoopingCall(self.bootstrap_overlay, router)
             #self._bootstrap_overlay_task.start(0)
 
-        #router.get_fib().dump()
+        router.get_fib().dump()
         self._router = router
 
         # XXX We need to periodically check for connectivity

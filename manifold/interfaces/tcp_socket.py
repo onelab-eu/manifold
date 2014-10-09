@@ -79,12 +79,6 @@ class TCPInterface(Interface):
     def terminate(self):
         ReactorThread().stop_reactor()
 
-    def is_up(self):
-        return self._client is not None
-
-    def is_down(self):
-        return not self.is_up()
-
     def send_impl(self, packet):
         raise NotImplemented # Should be overloaded in children classes
 
@@ -96,9 +90,7 @@ class TCPInterface(Interface):
     # from protocol
     # = when we receive a packet from outside
     def receive(self, packet):
-        print "PACKET RECEIVED", packet
         packet.set_receiver(self._receiver)
-        print "setting receiver", packet.get_receiver()
         Interface.receive(self, packet)
 
 ################################################################################
@@ -129,9 +121,9 @@ class TCPClientSocketFactory(TCPInterface, ClientFactory):
     protocol = ManifoldClientProtocol
 
     def on_client_connected(self, client):
-        self._request_announces()
-
         self._client = client
+
+        self.up()
 
         while self._tx_buffer:
             full_packet = self._tx_buffer.pop()
@@ -204,6 +196,10 @@ class TCPServerInterface(Interface):
         # We should create a new one each time !!!!
         ReactorThread().listenTCP(port, TCPServerSocketFactory(router))
         ReactorThread().start_reactor()
+        self.up()
 
     def terminate(self):
         ReactorThread().stop_reactor()
+
+    def _request_announces(self):
+        pass

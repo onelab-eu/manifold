@@ -39,9 +39,9 @@ class Interface(object):
         self._router   = router
         self._uuid     = str(uuid.uuid4())
         self._flow_map = dict()
+        self._up       = False
 
         router.register_interface(self)
-        self.up()
 
     def __repr__(self):
         return "<%s %s>" % (self.__class__.__name__, self.get_interface_name())
@@ -58,15 +58,26 @@ class Interface(object):
         return self.__interface_type__
 
     def up(self):
+        self._up = True
+        self._request_announces()
         self._router.up_interface(self)
 
     def down(self):
+        self._up = False
         self._router.down_interface(self)
+
+    def is_up(self):
+        return self._up
+
+    def is_down(self):
+        return not self.is_up()
+
 
     def terminate(self):
         pass
 
     def _request_announces(self):
+        print "Requesting announces to interface", self._uuid
         self.send(GET(), destination=Destination('object', namespace='local'), receiver = self._router.get_fib())
 
     def send_impl(self, packet):
