@@ -255,7 +255,7 @@ class AgentDaemon(Daemon):
 
         # Setup interfaces
         #self._ws_interface  = router.add_interface('websocket')
-        self._local_interface  = router.add_interface('unix')
+        self._local_interface  = router.add_interface('unixserver')
         self._server_interface = router.add_interface('tcpserver') # Listener XXX port?
 
         # Setup peer overlay

@@ -63,7 +63,7 @@ class TCPInterface(Interface):
     Base class for building client and server interfaces.
     """
 
-    __interface_type__ = 'tcp'
+    __interface_type__ = 'socket'
 
     def __init__(self, router):
         Interface.__init__(self, router)

@@ -78,7 +78,9 @@ class Interface(object):
 
     def _request_announces(self):
         print "Requesting announces to interface", self._uuid
-        self.send(GET(), destination=Destination('object', namespace='local'), receiver = self._router.get_fib())
+        fib = self._router.get_fib()
+        if fib:
+            self.send(GET(), destination=Destination('object', namespace='local'), receiver = fib)
 
     def send_impl(self, packet):
         raise NotImplemented

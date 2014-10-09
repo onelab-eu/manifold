@@ -514,10 +514,14 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
             if record.is_last():
                 # When we have received all parent records, we can run children
                 self._parent_done = True
-                if self.parent_output:
-                    self._run_children()
-                else:
-                    self.forward_upstream(Record(last = True))
+                if not self.parent_output:
+                    assert record.is_empty()
+                    self.forward_upstream(record) # EMPTY !!
+                    return
+
+
+
+                self._run_children()
                 return
 
         else:
@@ -545,10 +549,6 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
         Run children queries (subqueries) assuming the parent query (main query)
         has successfully ended.
         """
-        if not self.parent_output:
-            # No parent record, this is useless to run children queries.
-            self.forward_upstream(Record(last = True))
-            return
 
         # XXX We should prevent this in ast.py
         if self._get_num_children() == 0:
@@ -557,12 +557,10 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
             # its main query.
             Log.warning("SubQuery::run_children: no child node. The query plan could be improved")
             map(self.forward_upstream, self.parent_output)
-            self.forward_upstream(Record(last = True))
             return
 
         if self.is_local():
             map(self.forward_upstream, self.parent_output)
-            self.forward_upstream(Record(last = True))
             return
 
         # We look at every children
@@ -671,7 +669,6 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
                         raise Exception, "No link between parent and child queries"
 
                 self.forward_upstream(parent_record)
-            self.forward_upstream(Record(last = True))
         except Exception, e:
             print "Exception subquery", e
             traceback.print_exc()

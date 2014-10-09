@@ -1,128 +1,50 @@
-import threading, asynchat, os, os.path, socket, traceback
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+# Manifold Interface class.
+#
+# Copyright (C) UPMC Paris Universitas
+# Authors:
+#   Jordan Augé       <jordan.auge@lip6.f>
 
-from types                          import StringTypes
+import struct
 
-# Bugfix http://hg.python.org/cpython/rev/16bc59d37866 (FC14 or less)
-# On recent linux distros we can directly "import asyncore"
-from platform   import dist
-distribution, _, _ = dist()
-if distribution == "fedora":
-    import manifold.util.asyncore as asyncore
-else:
-    import asyncore
+from twisted.internet.protocol import Protocol, ServerFactory, ClientFactory
+from twisted.protocols.basic import IntNStringReceiver
 
 from manifold.interfaces            import Interface
 from manifold.core.operator_slot    import ChildSlotMixin
 from manifold.core.packet           import Packet
-from manifold.util.constants        import SOCKET_PATH
-from manifold.util.filesystem       import ensure_writable_directory
 from manifold.util.log              import Log
-from manifold.util.type             import accepts, returns
+from manifold.util.reactor_thread   import ReactorThread
+from manifold.interfaces.tcp_socket import TCPClientSocketFactory, TCPServerSocketFactory
 
-class State(object):
-    pass
+DEFAULT_FILENAME = '/var/run/manifold/manifold.sock'
 
-class QueryHandler(asynchat.async_chat, ChildSlotMixin):
+class UNIXClientInterface(TCPClientSocketFactory):
 
-    STATE_LENGTH = State()
-    STATE_PACKET = State()
+    __interface_tyfpe__ = 'unixclient'
 
-    def __init__(self, conn, addr, callback):
-        asynchat.async_chat.__init__ (self, conn)
-        ChildSlotMixin.__init__(self) # XXX
-        self.addr = addr
+    def __init__(self, router, filename = DEFAULT_FILENAME):
+        TCPClientSocketFactory.__init__(self, router)
+        ReactorThread().connectUNIX(filename, self)
 
-        # Reading socket data is done in two steps: first get the length of the
-        # packet, then read the packet of a given length
-        self.pstate = self.STATE_LENGTH
-        self.set_terminator(8)
-        self._receive_buffer = []
-        self.callback = callback
+    def connect(self, host):
+        # This should down, reconnect, then up the interface
+        # raises Timeout, MaxConnections
+        Log.warning("Connect not implemented")
 
-    def collect_incoming_data(self, data):
-        self._receive_buffer.append (data)
+# This interface will spawn other interfaces
+class UNIXServerInterface(Interface):
 
-    def found_terminator(self):
-        self._receive_buffer, data = [], ''.join(self._receive_buffer)
+    __interface_type__ = 'unixserver'
 
-        if self.pstate is self.STATE_LENGTH:
-            packet_length = int(data, 16)
-            self.set_terminator(packet_length)
-            self.pstate = self.STATE_PACKET
-        else:
-            self.set_terminator (8)
-            self.pstate = self.STATE_LENGTH
-
-            packet = Packet.deserialize(data)
-
-            self.callback(self.addr, packet, receiver = self) or ""
-
-    def receive(self, packet, slot_id = None):
-        packet_str = packet.serialize()
-        self.push(("%08x" % len(packet_str)) + packet_str)
-
-
-class UNIXSocketInterface(Interface, asyncore.dispatcher):
-
-    __interface_type__ = 'unix'
-
-    def __init__(self, router, socket_path = SOCKET_PATH):
+    def __init__(self, router, filename = DEFAULT_FILENAME):
         Interface.__init__(self, router)
-        self._socket_path = socket_path
-        asyncore.dispatcher.__init__(self)
+        # We should create a new one each time !!!!
+        ReactorThread().listenUNIX(filename, TCPServerSocketFactory(router))
+        ReactorThread().start_reactor()
+        self.up()
 
-        Log.info("Binding to %s" % self._socket_path)
-        ensure_writable_directory(os.path.dirname(self._socket_path))
-        if os.path.exists(self._socket_path):
-            raise RuntimeError("%s is already in use" % self._socket_path)
-        self.create_socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        self.set_reuse_addr()
-        self.bind(self._socket_path)
-        self.listen(128)
-
-        self._thread = threading.Thread(target=asyncore.loop)
-        self._thread.start()     
-
-    def terminate(self):
-        # Closes the current asyncore channel. As it should be the only asyncore
-        # channel open, this should terminate the asyncore loop
-        # XXX If clients are still in, they prevent the close() call to complete
-        self.close()
-        self._thread.join()
-
-        # Remove the socket file
-        if os.path.exists(self._socket_path):
-            Log.info("Unlinking %s" % self._socket_path)
-            os.unlink(self._socket_path)
-
-    #DEFAULTS = {
-    #    "socket_path"     : SOCKET_PATH,
-    #}
-    #
-    #@staticmethod
-    #def init_options():
-    #    """
-    #    """
-    #    options = Options()
-    #
-    #    options.add_argument(
-    #        "-S", "--socket", dest = "socket_path",
-    #        help = "Socket that will read the Manifold router.",
-    #        default = RouterDaemon.DEFAULTS["socket_path"]
-    #    )
-
-    @returns(StringTypes)
-    def get_socket_path(self):
-        """
-        Returns:
-            The absolute path of the socjet used by this ManifoldServer.
-        """
-        return self._socket_path
-
-    def handle_accept(self):
-        conn, addr = self.accept()
-        return QueryHandler(conn, addr, self.on_received)
-
-    def on_received(self, addr, packet, receiver):
-        packet.set_receiver(receiver)
-        self._router.receive(packet)
+    def _request_announces(self):
+        pass

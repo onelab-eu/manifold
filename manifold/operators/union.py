@@ -139,8 +139,8 @@ class Union(Operator, ChildrenSlotMixin):
                     self.forward_upstream(prev_record)
                 self.forward_upstream(record)
                 return
-            else:
-                record.unset_last()
+
+            record.unset_last()
 
         # We need to keep all records until the UNION has completed
         # since they might all be completed by records coming from othr

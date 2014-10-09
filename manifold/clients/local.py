@@ -30,6 +30,9 @@ from manifold.util.type             import accepts, returns
 
 from ..clients.client               import ManifoldClient
 
+from manifold.interfaces.tcp_socket  import TCPClientInterface
+from manifold.interfaces.unix_socket import UNIXClientInterface
+
 class State(object): pass
 
 class ManifoldLocalClient(ManifoldClient, asynchat.async_chat):
@@ -47,39 +50,18 @@ class ManifoldLocalClient(ManifoldClient, asynchat.async_chat):
                 running ManifoldRouter.
         """
         super(ManifoldLocalClient, self).__init__()
-        asynchat.async_chat.__init__(self)
+        self._receiver = SyncReceiver()
 
-        # XXX We need to enforce authentication separately
-        self.user = None
+        self._receiver.register_interface = lambda x : None
+        self._receiver.up_interface       = lambda x : None
+        self._receiver.get_fib            = lambda   : None
 
-        self._socket_path = socket_path
-        self._receiver = None
-
-        self.data = ""
-
-        self.create_socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        self._request_fifo = [] # UNUSED ?
-        self._receive_buffer = []
-
-        # Prepare packet reception (DUP)
-        self._pstate = self.STATE_LENGTH
-        self.set_terminator (8)
-
-        try:
-            self.connect(self._socket_path)
-        except socket.error, e:
-            error_code = e[0]
-            if error_code == errno.ENOENT:
-                Log.error("Invalid socket: [%s], did you run manifold-router?" % self._socket_path)
-            raise e
-
-        # Start asyncore thread
-        self._thread = threading.Thread(target = asyncore.loop, kwargs = {'timeout' : 1})
-        self._thread.start()
+        self._interface = TCPClientInterface(self._receiver, 'localhost')
+        #self._interface = UNIXClientInterface(self._receiver, socket_path)
+        self._user = None
 
     def terminate(self):
-        self.close()
-        self._thread.join()
+        self._interface.terminate()
 
     #--------------------------------------------------------------
     # Overloaded methods
@@ -94,15 +76,15 @@ class ManifoldLocalClient(ManifoldClient, asynchat.async_chat):
             An additionnal Annotation to pass to the QUERY Packet
             sent to the Router.
         """
-        return Annotation({"user" : self.user})
+        return Annotation({"user" : self._user})
 
     def welcome_message(self):
         """
         Method that should be overloaded and used to log
         information while running the Query (level: INFO).
         """
-        if self.user:
-            return "Shell using local account %s" % self.user["email"]
+        if self._user:
+            return "Shell using local account %s" % self._user["email"]
         else:
             return "Shell using no account"
 
@@ -113,7 +95,7 @@ class ManifoldLocalClient(ManifoldClient, asynchat.async_chat):
             The dictionnary representing the User currently
             running the Manifold Client.
         """
-        return self.user
+        return self._user
 
 #DEPRECATED|    def send(self, packet):
 #DEPRECATED|        """
@@ -142,57 +124,17 @@ class ManifoldLocalClient(ManifoldClient, asynchat.async_chat):
         Results:
             The ResultValue resulting from this Query.
         """
-        self._receiver = SyncReceiver()
         Log.warning("Hardcoded a GET packet")
         packet = GET()
         packet.set_destination(query.get_destination())
-        packet.set_receiver(self._receiver) # Why is it useful ??
+        #packet.set_receiver(self._receiver) # Why is it useful ??
         packet.update_annotation(self.get_annotation())
         #packet = QueryPacket(query, annotation, receiver = self._receiver)
 
-        packet_str = packet.serialize()
-        self.push('%08x%s' % (len(packet_str), packet_str))
+        self._interface.send(packet)
 
         # This code is blocking
         result_value = self._receiver.get_result_value()
         assert isinstance(result_value, ResultValue),\
             "Invalid result_value = %s (%s)" % (result_value, type(result_value))
         return result_value
-
-#DEPRECATED|    def handle_connect (self):
-#DEPRECATED|        # Push a query
-#DEPRECATED|        query = Query.get('ping').filter_by('destination', '==', '8.8.8.8')
-#DEPRECATED|        annotation = Annotation()
-#DEPRECATED|
-#DEPRECATED|        packet = QueryPacket(query, annotation, None)
-#DEPRECATED|
-#DEPRECATED|        packet_str = packet.serialize()
-#DEPRECATED|        self.push ('%08x%s' % (len(packet_str), packet_str))
-
-    def close(self):
-        asynchat.async_chat.close(self)
-
-    def collect_incoming_data (self, data):
-        self._receive_buffer.append (data)
-
-    def found_terminator (self):
-        self._receive_buffer, data = [], ''.join (self._receive_buffer)
-
-        if self._pstate is self.STATE_LENGTH:
-            packet_length = int(data, 16)
-            self.set_terminator(packet_length)
-            self._pstate = self.STATE_PACKET
-        else:
-            # We shoud wait until last record
-            packet = Packet.deserialize(data)
-
-            self._receiver.receive(packet)
-
-            # Prepare for next packet
-            self.set_terminator (8)
-            self._pstate = self.STATE_LENGTH
-
-try:
-    asyncore.loop()
-except asyncore.ExitNow, e:
-    print e
