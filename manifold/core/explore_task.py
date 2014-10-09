@@ -308,7 +308,6 @@ class ExploreTask(Deferred):
                     continue
                 seen_set.add(name)
 
-            print "fib.get_object(dest_object_name, namespace)", dest_object_name, namespace
             dest_object = fib.get_object(dest_object_name, namespace)
 
             if relation.requires_subquery():

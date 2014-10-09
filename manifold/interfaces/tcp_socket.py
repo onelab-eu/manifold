@@ -41,11 +41,16 @@ class ManifoldProtocol(IntNStringReceiver):
         self.factory.on_client_connected(self)
 
     def stringReceived(self, msg):
+        print "tcp received packet"
         packet = Packet.deserialize(msg)
+        print ". packet", packet
         self.receive(packet)
 
     def send_packet(self, packet):
+        print "tcp send packet"
+        print ". packet", packet
         self.sendString(packet.serialize())
+        print "tcp send packet ok"
 
     def connectionLost(self, reason):
         print "CONNECTION LOST: REASON:", reason
@@ -70,6 +75,7 @@ class TCPInterface(Interface):
         _self = self
         class MyReceiver(ChildSlotMixin):
             def receive(self, packet, slot_id = None):
+                print "POUET POUET"
                 _self.send(packet)
 
         self._receiver = MyReceiver()
@@ -90,6 +96,7 @@ class TCPInterface(Interface):
     # from protocol
     # = when we receive a packet from outside
     def receive(self, packet):
+        print "Tcp interface RECEIVE"
         packet.set_receiver(self._receiver)
         Interface.receive(self, packet)
 
@@ -100,12 +107,14 @@ class TCPInterface(Interface):
 class ManifoldClientProtocol(ManifoldProtocol):
 
     def receive(self, packet):
+        print " .. by the client"
         self.factory.receive(packet)
 
 # For the server, the protocol is the interface
 class ManifoldServerProtocol(ManifoldProtocol, TCPInterface):
 
     def send_impl(self, packet):
+        print "ManifoldServerProtocol:send_impl"
         self.send_packet(packet)
 
 ################################################################################
@@ -134,8 +143,10 @@ class TCPClientSocketFactory(TCPInterface, ClientFactory):
 
     def send_impl(self, packet):
         if self.is_down():
+            print "CLIENT SEND interface is down"
             self._tx_buffer.append(packet)
         else:
+            print "CLIENT SEND interface is up"
             self._client.send_packet(packet)
 
 

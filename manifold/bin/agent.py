@@ -89,15 +89,30 @@ class AgentDaemon(Daemon):
         rv = yield d.get_deferred() # receiver.get_result_value().get_all()
         supernodes = rv.get_all()
 
+        if not supernodes:
+            defer.returnValue(None)
+
+        # The agent might have previously registered as a supernode... avoid
+        # loops to self.
+        my_hostname = hostname()
+        supernodes = [supernode['hostname'] for supernode in supernodes if supernode['hostname'] not in [my_hostname, SERVER_SUPERNODE]]
+
+        if not supernodes:
+            defer.returnValue(None)
+
         # BaseClass.set_options(deferred = True)
         # supernodes = yield SuperNode.collection(deferred=True)
+
+        if not self._ping:
+            # No ping tool available, choosing at random (or not :)
+            defer.returnValue(supernodes[0])
 
         # Let's ping supernodes
         # XXX Such calls should be simplified
         d = DeferredReceiver() 
         self._ping.send(GET(), 
                 destination = Destination('ping',
-                    Filter().filter_by(Predicate('destination', 'included', map(operator.itemgetter('hostname'), supernodes))),
+                    Filter().filter_by(Predicate('destination', 'included', supernodes)),
                     FieldNames(['destination', 'delay'])),
                 receiver = d)
         rv = yield d.get_deferred() # receiver.get_result_value().get_all()
@@ -110,10 +125,9 @@ class AgentDaemon(Daemon):
         # delays = yield Ping(destination in supernodes, fields=destination, # delay)
         # supernode = min(delays, key=operator.itemgetter('delay'))
 
-        # The agent might have previously registered as a supernode... avoid
-        # loops to self.
-        my_hostname = hostname()
-        delays = [delay for delay in delays if delay['destination'] != my_hostname]
+
+        if not delays:
+            defer.returnValue(None)
 
         # Let's keep the supernode of min delay (we have no rename since we are
         # not using the router Rename abilities
@@ -135,8 +149,8 @@ class AgentDaemon(Daemon):
         interface.send(CREATE(hostname = hostname()),
                 destination = Destination('supernode', namespace='local'),
                 receiver = d)
-        ret = yield d.get_deferred()
-        print "Registration as supernode result: %r" % (ret,)
+        rv = yield d.get_deferred()
+        Log.info("Supernode registration done. Success ? %r" % (rv.get_all(),))
 
     def withdrawn_as_supernode(self, interface):
         pass
@@ -154,9 +168,6 @@ class AgentDaemon(Daemon):
     @defer.inlineCallbacks
     def bootstrap_overlay(self, router):
 
-        #self._overlay_task = task.LoopingCall(self.announce)
-        #            self.lc.start(10)
-
         Log.info("Connecting to main server...")
         self._main_interface = yield self.connect_interface(router, SERVER_SUPERNODE)
         Log.info("Connected to main server. Interface=%s" % (self._main_interface,))
@@ -164,17 +175,22 @@ class AgentDaemon(Daemon):
         Log.info("Getting supernodes...")
         supernode = yield self.get_supernode(self._main_interface) # XXX Blocking ???
 
-        Log.info("Connecting to supernode: %s..." % (supernode,))
-        self._client_interface = yield self.connect_interface(router, supernode)
-        Log.info("Connected to supernode: %s. Interface=%s" % (supernode, self._client_interface,))
+        if supernode:
+            Log.info("Connecting to supernode: %s..." % (supernode,))
+            self._client_interface = yield self.connect_interface(router, supernode)
+            Log.info("Connected to supernode: %s. Interface=%s" % (supernode, self._client_interface,))
 
         # Register as a supernode on the main server
         Log.info("Registering as supernode...")
         yield self.register_as_supernode(self._main_interface)
 
-        # Finally once we are all set up, disconnect the connection to
-        # server
-        self._main_interface.down()
+
+        if supernode:
+            # Finally once we are all set up, disconnect the interface to the
+            # server
+            self._main_interface.down()
+
+        router.get_fib().dump()
 
         # defer.returnValue()
 
@@ -235,7 +251,8 @@ class AgentDaemon(Daemon):
         router = Router()
 
         # XXX We need some auto-detection for processes
-        self._ping = router.add_platform("ping", "ping")
+        #self._ping = router.add_platform("ping", "ping")
+        self._ping = None
 
         # Setup interfaces
         #self._ws_interface  = router.add_interface('websocket')
@@ -262,7 +279,6 @@ class AgentDaemon(Daemon):
             #self._bootstrap_overlay_task = LoopingCall(self.bootstrap_overlay, router)
             #self._bootstrap_overlay_task.start(0)
 
-        router.get_fib().dump()
         self._router = router
 
         # XXX We need to periodically check for connectivity
