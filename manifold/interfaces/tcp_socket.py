@@ -70,6 +70,8 @@ class TCPInterface(Interface):
         _self = self
         class MyReceiver(ChildSlotMixin):
             def receive(self, packet, slot_id = None):
+                # To avoid this flow to be remembered
+                packet.set_receiver(None)
                 _self.send(packet)
 
         self._receiver = MyReceiver()

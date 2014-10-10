@@ -38,8 +38,13 @@ class Interface(object):
     def __init__(self, router):
         self._router   = router
         self._uuid     = str(uuid.uuid4())
-        self._flow_map = dict()
         self._up       = False
+
+        # We use a flow map since at the moment, many receivers can ask for
+        # queries to the interface directly without going through the router.
+        # It is thus necessary to send the resulting packets back to the
+        # requesting instances, and not to the router.
+        self._flow_map = dict()
 
         router.register_interface(self)
 
@@ -79,7 +84,7 @@ class Interface(object):
     def _request_announces(self):
         fib = self._router.get_fib()
         if fib:
-            self.send(GET(), destination=Destination('object', namespace='local'), receiver = fib)
+            self.send(GET(), source = fib.get_address(), destination=Destination('object', namespace='local'), receiver = fib)
 
     def send_impl(self, packet):
         raise NotImplemented
@@ -107,7 +112,6 @@ class Interface(object):
         else:
             packet.set_receiver(receiver)
 
-
         if receiver:
             self._flow_map[packet.get_flow()] = receiver
 
@@ -121,7 +125,7 @@ class Interface(object):
         """
         For packets received from the remote server."
         """
-        #print "[ IN]", self, packet
+        print "[ IN]", self, packet
         #print "*** FLOW MAP: %s" % self._flow_map
         #print "-----"
         packet._ingress = self.get_address()
@@ -130,8 +134,9 @@ class Interface(object):
         # - supernodes are not (they could eventually pass through the router)
 
         flow = packet.get_flow()
-
         receiver = self._flow_map.get(flow)
+
+
         if not receiver:
             #print "packet has no receiver", packet
             # New flows are sent to the router
