@@ -38,6 +38,7 @@ class SyncReceiver(Node, ChildSlotMixin):
     def clear(self):
         self._records = Records() # Records resulting from a Query
         self._errors = list()     # ResultValue to errors which have occured
+        self._event.clear()
 
     #---------------------------------------------------------------------------
     # Methods
