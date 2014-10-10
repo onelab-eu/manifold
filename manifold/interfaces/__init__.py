@@ -77,7 +77,6 @@ class Interface(object):
         pass
 
     def _request_announces(self):
-        print "Requesting announces to interface", self._uuid
         fib = self._router.get_fib()
         if fib:
             self.send(GET(), destination=Destination('object', namespace='local'), receiver = fib)
@@ -101,7 +100,6 @@ class Interface(object):
             packet.set_source(source)
 
         if destination:
-            print "DESTINATION", destination
             packet.set_destination(destination)
 
         if not receiver:
@@ -113,7 +111,7 @@ class Interface(object):
         if receiver:
             self._flow_map[packet.get_flow()] = receiver
 
-        print "[OUT]", self, packet
+        #print "[OUT]", self, packet
         #print "*** FLOW MAP: %s" % self._flow_map
         #print "-----"
         
@@ -123,7 +121,7 @@ class Interface(object):
         """
         For packets received from the remote server."
         """
-        print "[ IN]", self, packet
+        #print "[ IN]", self, packet
         #print "*** FLOW MAP: %s" % self._flow_map
         #print "-----"
         packet._ingress = self.get_address()

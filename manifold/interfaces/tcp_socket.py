@@ -41,16 +41,11 @@ class ManifoldProtocol(IntNStringReceiver):
         self.factory.on_client_connected(self)
 
     def stringReceived(self, msg):
-        print "tcp received packet"
         packet = Packet.deserialize(msg)
-        print ". packet", packet
         self.receive(packet)
 
     def send_packet(self, packet):
-        print "tcp send packet"
-        print ". packet", packet
         self.sendString(packet.serialize())
-        print "tcp send packet ok"
 
     def connectionLost(self, reason):
         print "CONNECTION LOST: REASON:", reason, " - CLIENT", self
@@ -141,9 +136,6 @@ class TCPClientSocketFactory(TCPInterface, ClientFactory):
 
     def send_impl(self, packet):
         if self.is_down():
-            print "*" * 80
-            print "DOWN"
-            print "*" * 80
             self._tx_buffer.append(packet)
         else:
             self._client.send_packet(packet)
