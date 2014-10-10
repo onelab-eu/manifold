@@ -95,7 +95,6 @@ class Router(object):
         # We request announces from the local gateway (cf # manifold.core.interface)
         # XXX This should be similar for all gateways
         # XXX add_platform
-        print ">>>>>>>>>>>>>>>>> adding local platform"
         self.add_platform(LOCAL_NAMESPACE, LOCAL_NAMESPACE)
 
 # DEPRECATED BY FIB        self._local_gateway = LocalGateway(router = self)
