@@ -50,12 +50,7 @@ class ManifoldLocalClient(ManifoldClient, asynchat.async_chat):
                 running ManifoldRouter.
         """
         super(ManifoldLocalClient, self).__init__()
-        self._receiver = SyncReceiver()
-
-        self._receiver.register_interface = lambda x : None
-        self._receiver.up_interface       = lambda x : None
-        self._receiver.down_interface     = lambda x : None
-        self._receiver.get_fib            = lambda   : None
+        self._receiver = self.make_receiver()
 
         self._interface = TCPClientInterface(self._receiver, 'localhost')
         #self._interface = UNIXClientInterface(self._receiver, socket_path)
@@ -63,6 +58,14 @@ class ManifoldLocalClient(ManifoldClient, asynchat.async_chat):
 
     def terminate(self):
         self._interface.terminate()
+
+    def make_receiver(self):
+        receiver = SyncReceiver()
+        receiver.register_interface = lambda x : None
+        receiver.up_interface       = lambda x : None
+        receiver.down_interface     = lambda x : None
+        receiver.get_fib            = lambda   : None
+        return receiver
 
     #--------------------------------------------------------------
     # Overloaded methods
@@ -131,7 +134,9 @@ class ManifoldLocalClient(ManifoldClient, asynchat.async_chat):
         #packet.set_receiver(self._receiver) # Why is it useful ??
         packet.update_annotation(self.get_annotation())
         #packet = QueryPacket(query, annotation, receiver = self._receiver)
+        # SyncReceiver()
 
+        self._receiver.clear()
         self._interface.send(packet)
 
         # This code is blocking

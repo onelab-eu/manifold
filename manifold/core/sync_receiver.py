@@ -38,6 +38,7 @@ class SyncReceiver(Node, ChildSlotMixin):
     def clear(self):
         self._records = Records() # Records resulting from a Query
         self._errors = list()     # ResultValue to errors which have occured
+        self._event.clear()
 
     #---------------------------------------------------------------------------
     # Methods
@@ -62,6 +63,8 @@ class SyncReceiver(Node, ChildSlotMixin):
                 self._records.append(packet)
         elif packet.get_protocol() == Packet.PROTOCOL_ERROR:
             self._errors.append(packet) # .get_exception()
+        elif packet.get_protocol() in Packet.PROTOCOL_QUERY:
+            pass
         else:
             Log.warning(
                 "SyncReceiver::receive(): Invalid Packet type (%s, %s)" % (

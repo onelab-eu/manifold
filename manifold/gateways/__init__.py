@@ -480,7 +480,6 @@ class Gateway(Interface, Node): # XXX Node needed ?
         record.set_destination(packet.get_source())
         record._ingress = self.get_address()
 
-        Log.tmp("To receiver or to router ?")
         packet.get_receiver().receive(record)
 
     # XXX It is important that the packet is the second argument for
