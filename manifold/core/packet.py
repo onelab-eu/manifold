@@ -221,6 +221,9 @@ class Packet(object):
     def set_data(self, data):
         self._record = data
 
+    def clear_data(self):
+        self._record = None
+
     def get_flow(self):
         return Flow(self._source, self._destination)
 
