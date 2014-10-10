@@ -190,7 +190,7 @@ class AgentDaemon(Daemon):
             # server
             self._main_interface.down()
 
-        router.get_fib().dump()
+        #router.get_fib().dump()
 
         # defer.returnValue()
 
@@ -269,15 +269,13 @@ class AgentDaemon(Daemon):
 
             router.register_local_collection(supernode_collection)
 
-            router.get_fib().dump()
+            #router.get_fib().dump()
 
             # XXX We should install a hook to remove from supernodes agents that have disconnected
 
         else:
             # The agent just builds the overlays and stays passive
-            print "before bootstrap"
             self.bootstrap_overlay(router)
-            print "after bootstrap"
 
             #self._bootstrap_overlay_task = LoopingCall(self.bootstrap_overlay, router)
             #self._bootstrap_overlay_task.start(0)

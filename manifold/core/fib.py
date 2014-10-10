@@ -1,6 +1,5 @@
 import uuid
 
-from manifold.util.debug            import print_call_stack
 from manifold.core.announce         import Announce, Announces
 from manifold.core.dbnorm           import Fd, Fds, Determinant, closure
 from manifold.core.destination      import Destination
@@ -318,9 +317,6 @@ class FIB(ChildSlotMixin):
         """
         Adds a new announce to the FIB.
         """
-        print "*" * 80
-        print "*** PLATFORM", platform_name
-        #print_call_stack()
         if not isinstance(announces, Announces):
             announces = Announces([announces])
 
@@ -335,8 +331,6 @@ class FIB(ChildSlotMixin):
             table = announce.get_table() # XXX
 
             object_name     = table.get_name() # XXX
-
-            print "FIB ADD", namespace, object_name
 
             keys            = table.get_keys()
             fields          = table.get_fields()

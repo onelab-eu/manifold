@@ -705,7 +705,6 @@ class Gateway(Interface, Node): # XXX Node needed ?
         # unless the platform_name is local
         cls = collection.get_object()
         platform_name = self.get_platform_name()
-        print "REGISTER COLLECTION", cls.get_object_name(), namespace, "platform=", platform_name
 
         if platform_name == 'local' or namespace != 'local':
             self.get_router().get_fib().add(platform_name, cls.get_announce(), namespace)
