@@ -259,6 +259,17 @@ class FIB(ChildSlotMixin):
 
         self._uuid = str(uuid.uuid4())
 
+        self._interface_is_up = dict()
+
+    def up_interface(self, interface):
+        self._interface_is_up[interface.get_uuid()] = True
+
+    def down_interface(self, interface):
+        self._interface_is_up[interface.get_uuid()] = False
+
+    def is_up(self, interface_name):
+        return self._interface_is_up.get(interface_name, True)
+
     # All receivers should have a UUID for destination
     def get_uuid(self):
         return self._uuid

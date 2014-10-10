@@ -92,8 +92,6 @@ class Router(object):
         # interface_uuid -> interface
         self._interfaces = dict()
 
-        self._interface_is_up = dict()
-
         # We request announces from the local gateway (cf # manifold.core.interface)
         # XXX This should be similar for all gateways
         # XXX add_platform
@@ -253,10 +251,10 @@ class Router(object):
         self._interfaces[interface.get_uuid()] = interface
 
     def up_interface(self, interface):
-        self._interface_is_up[interface.get_uuid()] = True
+        self.get_fib().up_interface(interface)
 
     def down_interface(self, interface):
-        self._interface_is_up[interface.get_uuid()] = False
+        self.get_fib().down_interface(interface)
 
     def add_interface(self, interface_type, *args, **kwargs):
         interface_cls = Interface.factory_get(interface_type)

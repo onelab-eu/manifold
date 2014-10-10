@@ -460,6 +460,9 @@ class ExploreTask(Deferred):
         for platform_name in obj.get_platform_names():
             if platform_name in exclude_interfaces:
                 continue
+            if not fib.is_up(platform_name):
+                continue
+
             platform_field_names = obj.get_platform_field_names(platform_name)
             selected_field_names = platform_field_names | self.keep_root_a
 
