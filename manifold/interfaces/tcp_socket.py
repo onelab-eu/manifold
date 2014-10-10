@@ -9,8 +9,9 @@
 
 import struct
 
-from twisted.internet.protocol import Protocol, ServerFactory, ClientFactory
-from twisted.protocols.basic import IntNStringReceiver
+from twisted.internet.protocol      import Protocol, ServerFactory, ClientFactory
+from twisted.protocols.basic        import IntNStringReceiver
+from twisted.internet.error         import ConnectionRefusedError
 
 from manifold.interfaces            import Interface
 from manifold.core.operator_slot    import ChildSlotMixin
@@ -19,6 +20,7 @@ from manifold.util.log              import Log
 from manifold.util.reactor_thread   import ReactorThread
 
 DEFAULT_PORT = 50000
+DEFAULT_TIMEOUT = 10
 
 ################################################################################
 # BASE CLASSES
@@ -136,11 +138,11 @@ class TCPClientSocketFactory(TCPInterface, ClientFactory):
     def on_client_disconnected(self, client, reason):
         self._client = None
 
+        self.down()
+
     def send_impl(self, packet):
-        if self.is_down():
-            self._tx_buffer.append(packet)
-        else:
-            self._client.send_packet(packet)
+        assert self.is_up(), "We should not send packets to a disconnected interface"
+        self._client.send_packet(packet)
 
 
 
@@ -178,14 +180,31 @@ class TCPClientInterface(TCPClientSocketFactory):
 
     __interface_type__ = 'tcpclient'
 
-    def __init__(self, router, host, port = DEFAULT_PORT):
+    def __init__(self, router, host, port = DEFAULT_PORT, timeout = DEFAULT_TIMEOUT):
         TCPClientSocketFactory.__init__(self, router)
-        ReactorThread().connectTCP(host, port, self)
+        self._timeout = timeout
+        self.connect(host, port)
 
-    def connect(self, host):
+    def connect(self, host, port = DEFAULT_PORT):
         # This should down, reconnect, then up the interface
         # raises Timeout, MaxConnections
-        Log.warning("Connect not implemented")
+        self._host = host
+        self._port = port
+        self.do_connect()
+
+    def reconnect(self):
+        self.do_connect()
+
+    def disconnect(self):
+        raise NotImplemented
+
+    def do_connect(self):
+        ReactorThread().connectTCP(self._host, self._port, self)#, timeout=self._timeout)
+
+    def clientConnectionFailed(self, connector, reason):
+        # reason = ConnectionRefusedError | ...
+        print "CNX FAILED", connector, reason
+        self.error(reason)
 
 # This interface will spawn other interfaces
 class TCPServerInterface(Interface):

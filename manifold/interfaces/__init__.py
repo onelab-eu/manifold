@@ -39,6 +39,9 @@ class Interface(object):
         self._router   = router
         self._uuid     = str(uuid.uuid4())
         self._up       = False
+        self._error    = None # Interface has encountered an error
+        self._up_callbacks = list()
+        self._down_callbacks = list()
 
         # We use a flow map since at the moment, many receivers can ask for
         # queries to the interface directly without going through the router.
@@ -64,12 +67,20 @@ class Interface(object):
 
     def up(self):
         self._up = True
+        for cb, args, kwargs in self._up_callbacks:
+            cb(self, *args, **kwargs)
         self._request_announces()
         self._router.up_interface(self)
 
     def down(self):
         self._up = False
+        for cb, args, kwargs in self._down_callbacks:
+            cb(self, *args, **kwargs)
         self._router.down_interface(self)
+
+    def error(self, reason):
+        print "set connection in error mode"
+        self._error = reason
 
     def is_up(self):
         return self._up
@@ -77,6 +88,22 @@ class Interface(object):
     def is_down(self):
         return not self.is_up()
 
+    def is_error(self):
+        return self._error is not None
+
+    def add_up_callback(self, callback, *args, **kwargs):
+        cb_tuple = (callback, args, kwargs)
+        self._up_callbacks.append(cb_tuple) 
+
+    def del_up_callback(self, callback):
+        self._up_callbacks = [cb for cb in self._up_callbacks if cb[0] == callback]
+        
+    def add_down_callback(self, callback, *args, **kwargs):
+        cb_tuple = (callback, args, kwargs)
+        self._down_callbacks.append(cb_tuple) 
+
+    def del_down_callback(self, callback):
+        self._down_callbacks = [cb for cb in self._down_callbacks if cb[0] == callback]
 
     def terminate(self):
         pass

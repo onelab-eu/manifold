@@ -87,15 +87,26 @@ class AgentDaemon(Daemon):
                 destination = Destination('supernode', namespace='local'),
                 receiver = d)
         rv = yield d.get_deferred() # receiver.get_result_value().get_all()
-        supernodes = rv.get_all()
+        received_supernodes = rv.get_all()
 
-        if not supernodes:
+        if not received_supernodes:
             defer.returnValue(None)
-
+        
         # The agent might have previously registered as a supernode... avoid
         # loops to self.
-        my_hostname = hostname()
-        supernodes = [supernode['hostname'] for supernode in supernodes if supernode['hostname'] not in [my_hostname, SERVER_SUPERNODE]]
+        my_host = hostname()
+        supernodes = set()
+        for supernode in received_supernodes:
+            host = supernode['hostname']
+            if host in [my_host, SERVER_SUPERNODE]:
+                continue
+            if host in self._banned_supernodes:
+                continue
+            supernodes.add(host)
+
+        # Remove duplicates in supernodes. As it is the key, this should be enforced by the collection")
+        supernodes = list(supernodes)
+
 
         if not supernodes:
             defer.returnValue(None)
@@ -103,12 +114,14 @@ class AgentDaemon(Daemon):
         # BaseClass.set_options(deferred = True)
         # supernodes = yield SuperNode.collection(deferred=True)
 
-        if not self._ping:
-            # No ping tool available, choosing at random (or not :)
+        if not self._ping or len(supernodes) == 1:
+            # No ping tool available, or a single supernode, we pick the first
+            # one (what about choosing at random?)
             defer.returnValue(supernodes[0])
 
         # Let's ping supernodes
         # XXX Such calls should be simplified
+        # XXX We send a single probe...
         d = DeferredReceiver() 
         self._ping.send(GET(), 
                 destination = Destination('ping',
@@ -155,29 +168,97 @@ class AgentDaemon(Daemon):
     def withdrawn_as_supernode(self, interface):
         pass
 
+    @defer.inlineCallbacks
+    def reconnect_interface(self, interface):
+        # This function should only terminate when the interface is reconnected
+        # for sure
+
+        interface.reconnect()
+        yield async_wait(lambda : interface.is_up() or interface.is_error())
+
+        if interface.is_error():
+            Log.info("Waiting 10s before attempting reconnection for interface %r" % (interface,))
+            yield async_sleep(10)
+            self.reconnect_interface()
+            return
+        defer.returnValue(None)
+        
+    def _up_callback(self, interface):
+        interface_id = "main" if interface == self._main_interface else "client"
+        Log.warning("Interface %s is up." % (interface_id,))
+
+    def _down_callback(self, interface):
+        if interface == self._main_interface:
+            if self._reconnect_main:
+                # If we did not requested the interface to go down...
+                Log.warning("Main interface is down.")
+                self.reconnect_interface(self._main_interface)
+        else:
+            Log.warning("Overlay disconnected.")
+            if self._main_interface.is_down():
+                # to get supernodes. note that we could keep some in cache, or
+                # even connection to them.
+                self._main_interface.up()
+
+            # We do not yield since we expect this task to complete
+            self.connect_to_supernode()
+
 
     @defer.inlineCallbacks
-    def connect_interface(self, router, host):
-        interface = router.add_interface('tcpclient', host)
+    def connect_interface(self, host):
+        interface = self._router.add_interface('tcpclient', host)
 
-        yield async_wait(lambda : interface.is_up())
+        interface.add_down_callback(self._down_callback)
+
+        Log.warning("Missing error handling: timeout, max_clients, rtt check, etc.")
+
+        # XXX We have a callback when the interface is up, can we use it ?
+        yield async_wait(lambda : interface.is_up() or interface.is_error())
+
+        if interface.is_up():
+            self._banned_supernodes = list()
+            defer.returnValue(interface)
+        else:
+            # Error... This is where should should take proper action on
+            # non-working supernodes: unregistration, etc.
+            self._banned_supernodes.append(host)
+            defer.returnValue(None)
 
         # XXX sleep until the interface is connected ?
-        defer.returnValue(interface)
 
     @defer.inlineCallbacks
-    def bootstrap_overlay(self, router):
+    def bootstrap_overlay(self):
 
         Log.info("Connecting to main server...")
-        self._main_interface = yield self.connect_interface(router, SERVER_SUPERNODE)
+        self._banned_supernodes = list()
+        self._reconnect_main = True
+        self._main_interface = yield self.connect_interface(SERVER_SUPERNODE)
+        if not self._main_interface:
+            Log.warning("Failed to connect main interface... try again later")
+            Log.error("TODO")
+            return
         Log.info("Connected to main server. Interface=%s" % (self._main_interface,))
+
+        self.connect_to_supernode()
+
+    @defer.inlineCallbacks
+    def connect_to_supernode(self):
 
         Log.info("Getting supernodes...")
         supernode = yield self.get_supernode(self._main_interface) # XXX Blocking ???
 
         if supernode:
             Log.info("Connecting to supernode: %s..." % (supernode,))
-            self._client_interface = yield self.connect_interface(router, supernode)
+            self._client_interface = yield self.connect_interface(supernode)
+            if not self._client_interface:
+                Log.warning("Failed to connect to supernode. Trying again")
+                Log.warning("We are requesting supernodes again... not very efficient")
+                Log.warning("We should fallback on periodically trying to contact the main server in the worst case")
+                
+                self.connect_to_supernode()
+                # This is ok since nobody should yield on self.connect_to_supernode()
+                defer.returnValue(None)
+
             Log.info("Connected to supernode: %s. Interface=%s" % (supernode, self._client_interface,))
 
         # Register as a supernode on the main server
@@ -188,11 +269,8 @@ class AgentDaemon(Daemon):
         if supernode:
             # Finally once we are all set up, disconnect the interface to the
             # server
+            self._reconnect_main = False
             self._main_interface.down()
-
-        #router.get_fib().dump()
-
-        # defer.returnValue()
 
     ########################################################################### 
     # Misc. unused
@@ -248,15 +326,15 @@ class AgentDaemon(Daemon):
 
     def main(self):
         # Create a router instance
-        router = Router()
+        self._router = Router()
 
         # XXX We need some auto-detection for processes
-        self._ping = router.add_platform("ping", "ping")
+        self._ping = self._router.add_platform("ping", "ping")
 
         # Setup interfaces
-        #self._ws_interface  = router.add_interface('websocket')
-        self._local_interface  = router.add_interface('unixserver')
-        self._server_interface = router.add_interface('tcpserver') # Listener XXX port?
+        #self._ws_interface  = self._router.add_interface('websocket')
+        self._local_interface  = self._router.add_interface('unixserver')
+        self._server_interface = self._router.add_interface('tcpserver') # Listener XXX port?
 
         # Setup peer overlay
         if Options().server_mode:
@@ -267,7 +345,7 @@ class AgentDaemon(Daemon):
             supernode_collection = ManifoldLocalCollection(Supernode)
             supernode_collection.insert(Supernode(hostname = hostname()))
 
-            router.register_local_collection(supernode_collection)
+            self._router.register_local_collection(supernode_collection)
 
             #router.get_fib().dump()
 
@@ -275,12 +353,10 @@ class AgentDaemon(Daemon):
 
         else:
             # The agent just builds the overlays and stays passive
-            self.bootstrap_overlay(router)
+            self.bootstrap_overlay()
 
             #self._bootstrap_overlay_task = LoopingCall(self.bootstrap_overlay, router)
             #self._bootstrap_overlay_task.start(0)
-
-        self._router = router
 
         # XXX We need to periodically check for connectivity
 
