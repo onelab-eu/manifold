@@ -179,7 +179,7 @@ class AgentDaemon(Daemon):
         if interface.is_error():
             Log.info("Waiting 10s before attempting reconnection for interface %r" % (interface,))
             yield async_sleep(10)
-            self.reconnect_interface()
+            self.reconnect_interface(interface)
             return
         defer.returnValue(None)
         

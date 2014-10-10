@@ -35,6 +35,7 @@ class OLocalObject(ManifoldCollection):
         string  capabilities[];  /**< The supported capabilities           */
         string  key[];           /**< The keys related to this object      */
         string  origins[];       /**< The platform originating this object */
+        string platforms[];     /**< The next_hops advertising this object */
 
         CAPABILITY(retrieve);
         KEY(table);
@@ -42,7 +43,17 @@ class OLocalObject(ManifoldCollection):
     """
 
     def get(self, query = None):
-        return Records([a.to_dict() for a in self.get_router().get_fib().get_announces()]) # only default namespace for now
+        object_list = list()
+        for obj in self.get_router().get_fib().get_announces():
+            obj_dict = obj.to_dict()
+
+            object_name = obj_dict['table']
+            fib = self.get_router().get_fib()
+            
+            obj_dict['platforms'] = fib.get_object(object_name).get_platform_names()
+
+            object_list.append(obj_dict)
+        return Records(object_list)
 
 OLocalColumn = OLocalLocalColumn
 

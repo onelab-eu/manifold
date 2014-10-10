@@ -40,7 +40,7 @@ class ManifoldProtocol(IntNStringReceiver):
     prefixLength = struct.calcsize(structFormat)
 
     def connectionMade(self):
-        self.factory.on_client_connected(self)
+        self.on_client_connected()
 
     def stringReceived(self, msg):
         packet = Packet.deserialize(msg)
@@ -51,9 +51,8 @@ class ManifoldProtocol(IntNStringReceiver):
 
     def connectionLost(self, reason):
         print "CONNECTION LOST: REASON:", reason, " - CLIENT", self
-        self.factory.on_client_disconnected(self, reason)
+        self.on_client_disconnected(reason)
     # connection lost = client=None in factory
-
 
 class TCPInterface(Interface):
     """
@@ -108,11 +107,25 @@ class ManifoldClientProtocol(ManifoldProtocol):
     def receive(self, packet):
         self.factory.receive(packet)
 
+    def on_client_connected(self):
+        self.factory.on_client_connected(self)
+
+    def on_client_disconnected(self, reason):
+        self.factory.on_client_disconnected(self, reason)
+
+
 # For the server, the protocol is the interface
 class ManifoldServerProtocol(ManifoldProtocol, TCPInterface):
 
     def send_impl(self, packet):
         self.send_packet(packet)
+
+    def on_client_connected(self):
+        self._request_announces()
+
+    def on_client_disconnected(self, reason):
+        pass
+
 
 ################################################################################
 # FACTORIES
@@ -158,14 +171,6 @@ class TCPServerSocketFactory(ServerFactory):
         p = self.protocol(self._router)
         p.factory = self
         return p
-
-    # We don't care about clients being connected, since we have spawned an
-    # interface for this purpose
-    def on_client_connected(self, client):
-        pass
-
-    def on_client_disconnected(self, client, reason):
-        pass
 
 
 ################################################################################

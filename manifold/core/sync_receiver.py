@@ -62,6 +62,8 @@ class SyncReceiver(Node, ChildSlotMixin):
                 self._records.append(packet)
         elif packet.get_protocol() == Packet.PROTOCOL_ERROR:
             self._errors.append(packet) # .get_exception()
+        elif packet.get_protocol() in Packet.PROTOCOL_QUERY:
+            pass
         else:
             Log.warning(
                 "SyncReceiver::receive(): Invalid Packet type (%s, %s)" % (
