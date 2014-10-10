@@ -54,6 +54,7 @@ class ManifoldLocalClient(ManifoldClient, asynchat.async_chat):
 
         self._receiver.register_interface = lambda x : None
         self._receiver.up_interface       = lambda x : None
+        self._receiver.down_interface     = lambda x : None
         self._receiver.get_fib            = lambda   : None
 
         self._interface = TCPClientInterface(self._receiver, 'localhost')
