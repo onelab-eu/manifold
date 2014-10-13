@@ -136,6 +136,7 @@ class ManifoldServerProtocol(ManifoldProtocol, TCPInterface):
 
     def on_client_disconnected(self, reason):
         self.set_down()
+        self.get_router().unregister_interface(self)
 
 
 ################################################################################

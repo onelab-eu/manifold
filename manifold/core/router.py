@@ -249,6 +249,9 @@ class Router(object):
     def register_interface(self, interface):
         self._interfaces[interface.get_uuid()] = interface
 
+    def unregister_interface(self, interface):
+        del self._interfaces[interface.get_uuid()]
+
     def up_interface(self, interface):
         self.get_fib().up_interface(interface)
 
