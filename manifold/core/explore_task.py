@@ -122,7 +122,7 @@ class ExploreTask(Deferred):
             missing_field_anmes
             seen_set
         """
-        Log.tmp("ExploreTask::explore Search in", self.root.get_name(), "for fields", missing_field_names, 'path=', self.path, "SEEN SET =", seen_set, "depth=", self.depth)
+        #Log.tmp("ExploreTask::explore Search in", self.root.get_name(), "for fields", missing_field_names, 'path=', self.path, "SEEN SET =", seen_set, "depth=", self.depth)
 
         relations_11, relations_1N, relations_1Nsq = (), {}, {}
         deferred_list = []
