@@ -250,7 +250,9 @@ class Router(object):
         self._interfaces[interface.get_uuid()] = interface
 
     def unregister_interface(self, interface):
-        del self._interfaces[interface.get_uuid()]
+        platform_name = interface.get_uuid()
+        del self._interfaces[platform_name]
+        self.get_fib().remove_platform(platform_name)
 
     def up_interface(self, interface):
         self.get_fib().up_interface(interface)

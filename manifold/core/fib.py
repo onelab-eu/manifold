@@ -86,7 +86,10 @@ class Object(object):
         t.capabilities.projection = True
 
         return Announce(t)
-        
+
+    def remove_platform(self, platform_name):
+        if platform_name in self._platform_info:
+            del self._platform_info[platform_name]
 
     def get_platform_object_name(self, platform_name):
         return self._platform_info[platform_name].get_object_name()
@@ -467,3 +470,9 @@ class FIB(ChildSlotMixin):
             for obj in self.get_objects(namespace):
                 print obj
             print "=" * 80
+
+    def remove_platform(self, platform_name):
+        for namespace in self.get_namespaces():
+            for obj in self.get_objects(namespace):
+                obj.remove_platform(platform_name)
+        del self._interface_is_up[platform_name]
