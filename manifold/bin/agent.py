@@ -268,6 +268,7 @@ class AgentDaemon(Daemon):
             # Finally once we are all set up, disconnect the interface to the
             # server
             self._reconnect_main = False
+            Log.info("Disconnecting from main server")
             self._main_interface.down()
 
     ########################################################################### 

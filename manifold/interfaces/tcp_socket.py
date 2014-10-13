@@ -51,7 +51,7 @@ class ManifoldProtocol(IntNStringReceiver):
         self.sendString(packet.serialize())
 
     def connectionLost(self, reason):
-        print "CONNECTION LOST: REASON:", reason, " - CLIENT", self
+        #print "CONNECTION LOST: REASON:", reason, " - CLIENT", self
         self.on_client_disconnected(reason)
     # connection lost = client=None in factory
 
@@ -152,6 +152,7 @@ class TCPClientSocketFactory(TCPInterface, ClientFactory):
     protocol = ManifoldClientProtocol
 
     def on_client_connected(self, client):
+        # This is used to disconnect, can't we just refer to transport for this ?
         self._client = client
 
         self.set_up()
@@ -203,7 +204,6 @@ class TCPClientInterface(TCPClientSocketFactory):
     __interface_type__ = 'tcpclient'
 
     def __init__(self, router, host, port = DEFAULT_PORT, timeout = DEFAULT_TIMEOUT):
-        self._connector = None
         self._host = host
         self._port = port
         self._timeout = timeout
@@ -218,11 +218,10 @@ class TCPClientInterface(TCPClientSocketFactory):
 
     def down_impl(self):
         # Disconnect from the server
-        if self._connector:
-            self._connector.disconnect()
+        self._client.transport.loseConnection()
 
     def up_impl(self):
-        self._connector = ReactorThread().connectTCP(self._host, self._port, self)#, timeout=self._timeout)
+        ReactorThread().connectTCP(self._host, self._port, self)#, timeout=self._timeout)
 
 # This interface will spawn other interfaces
 class TCPServerInterface(Interface):
@@ -236,7 +235,6 @@ class TCPServerInterface(Interface):
         ReactorThread().start_reactor()
         self._router    = router
         self._port      = port
-        self._connector = None
         Interface.__init__(self, router)
 
     def terminate(self):
@@ -247,14 +245,14 @@ class TCPServerInterface(Interface):
         pass
 
     def up_impl(self):
-        self._connector = ReactorThread().listenTCP(self._port, TCPServerSocketFactory(self._router))
+        ReactorThread().listenTCP(self._port, TCPServerSocketFactory(self._router))
         # XXX How to wait for the server to be effectively listening
         self.set_up()
 
     @defer.inlineCallbacks
     def down_impl(self):
         # Stop listening to connections
-        ret = self._connector.stopListening()
+        ret = self.transport.loseConnection()
         yield defer.maybeDeferred(ret)
         self.set_down()
 
