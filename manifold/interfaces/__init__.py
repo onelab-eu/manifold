@@ -50,7 +50,6 @@ class Interface(object):
         self._flow_map = dict()
 
         router.register_interface(self)
-        self.up()
 
     def terminate(self):
         self.down()
@@ -158,7 +157,7 @@ class Interface(object):
         if receiver:
             self._flow_map[packet.get_flow()] = receiver
 
-        #print "[OUT]", self, packet
+        print "[OUT]", self, packet
         #print "*** FLOW MAP: %s" % self._flow_map
         #print "-----"
         
@@ -168,7 +167,7 @@ class Interface(object):
         """
         For packets received from the remote server."
         """
-        #print "[ IN]", self, packet
+        print "[ IN]", self, packet
         #print "*** FLOW MAP: %s" % self._flow_map
         #print "-----"
         packet._ingress = self.get_address()

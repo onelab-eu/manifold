@@ -208,10 +208,11 @@ class TCPClientInterface(TCPClientSocketFactory):
         self._timeout = timeout
         TCPClientSocketFactory.__init__(self, router)
 
-    def reconnect(self, host, port = DEFAULT_PORT):
+    def reconnect(self, host = None, port = DEFAULT_PORT):
         self.down()
-        self._host = host
-        self._port = port
+        if host:
+            self._host = host
+            self._port = port
         self.up()
 
     def down_impl(self):
