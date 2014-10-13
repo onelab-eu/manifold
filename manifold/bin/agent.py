@@ -41,8 +41,6 @@ from manifold.core.query                import Query
 from manifold.core.deferred_receiver    import DeferredReceiver
 from manifold.util.reactor_thread       import ReactorThread
 
-from gevent.threadpool import ThreadPool
-            
 SERVER_SUPERNODE = 'clitos.ipv6.lip6.fr'
 
 SUPERNODE_CLASS = """
