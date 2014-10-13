@@ -50,6 +50,10 @@ class Interface(object):
         self._flow_map = dict()
 
         router.register_interface(self)
+        self.up()
+
+    def terminate(self):
+        self.down()
 
     def __repr__(self):
         return "<%s %s>" % (self.__class__.__name__, self.get_interface_name())
@@ -65,20 +69,35 @@ class Interface(object):
     def get_interface_type(self):
         return self.__interface_type__
 
+    # Request the interface to be up...
     def up(self):
+        self.up_impl()
+
+    # Overload this in children interfaces
+    def up_impl(self):
+        self.set_up()
+
+    # The interface is now up...
+    def set_up(self):
         self._up = True
         for cb, args, kwargs in self._up_callbacks:
             cb(self, *args, **kwargs)
         self._request_announces()
         self._router.up_interface(self)
-
+        
     def down(self):
         self._up = False
+        self._router.down_interface(self)
+        self.down_impl()
+
+    def down_impl(self):
+        self.set_down()
+
+    def set_down(self):
         for cb, args, kwargs in self._down_callbacks:
             cb(self, *args, **kwargs)
-        self._router.down_interface(self)
 
-    def error(self, reason):
+    def set_error(self, reason):
         print "set connection in error mode"
         self._error = reason
 
@@ -104,9 +123,6 @@ class Interface(object):
 
     def del_down_callback(self, callback):
         self._down_callbacks = [cb for cb in self._down_callbacks if cb[0] == callback]
-
-    def terminate(self):
-        pass
 
     def _request_announces(self):
         fib = self._router.get_fib()

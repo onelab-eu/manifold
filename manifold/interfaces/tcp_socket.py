@@ -11,6 +11,7 @@ import struct
 
 from twisted.internet.protocol      import Protocol, ServerFactory, ClientFactory
 from twisted.protocols.basic        import IntNStringReceiver
+from twisted.internet               import defer
 from twisted.internet.error         import ConnectionRefusedError
 
 from manifold.interfaces            import Interface
@@ -80,6 +81,7 @@ class TCPInterface(Interface):
         ReactorThread().start_reactor()
 
     def terminate(self):
+        Interface.terminate(self)
         ReactorThread().stop_reactor()
 
     def send_impl(self, packet):
@@ -121,10 +123,19 @@ class ManifoldServerProtocol(ManifoldProtocol, TCPInterface):
         self.send_packet(packet)
 
     def on_client_connected(self):
+        self.set_up()
         self._request_announces()
 
-    def on_client_disconnected(self, reason):
+    def up_impl(self):
+        # Cannot do much here...
         pass
+
+    def down_impl(self):
+        self.transport.loseConnection()
+        # should trigger on_client_disconnected
+
+    def on_client_disconnected(self, reason):
+        self.set_down()
 
 
 ################################################################################
@@ -142,16 +153,21 @@ class TCPClientSocketFactory(TCPInterface, ClientFactory):
     def on_client_connected(self, client):
         self._client = client
 
-        self.up()
+        self.set_up()
 
+        # Send buffered packets
         while self._tx_buffer:
             full_packet = self._tx_buffer.pop()
             self.send(full_packet)
 
+    def clientConnectionFailed(self, connector, reason):
+        # reason = ConnectionRefusedError | ...
+        print "TCP CNX FAILED", connector, reason
+        self.set_error(reason)
+
     def on_client_disconnected(self, client, reason):
         self._client = None
-
-        self.down()
+        self.set_down()
 
     def send_impl(self, packet):
         assert self.is_up(), "We should not send packets to a disconnected interface"
@@ -186,30 +202,25 @@ class TCPClientInterface(TCPClientSocketFactory):
     __interface_type__ = 'tcpclient'
 
     def __init__(self, router, host, port = DEFAULT_PORT, timeout = DEFAULT_TIMEOUT):
-        TCPClientSocketFactory.__init__(self, router)
-        self._timeout = timeout
-        self.connect(host, port)
-
-    def connect(self, host, port = DEFAULT_PORT):
-        # This should down, reconnect, then up the interface
-        # raises Timeout, MaxConnections
+        self._connector = None
         self._host = host
         self._port = port
-        self.do_connect()
+        self._timeout = timeout
+        TCPClientSocketFactory.__init__(self, router)
 
-    def reconnect(self):
-        self.do_connect()
+    def reconnect(self, host, port = DEFAULT_PORT):
+        self.down()
+        self._host = host
+        self._port = port
+        self.up()
 
-    def disconnect(self):
-        raise NotImplemented
+    def down_impl(self):
+        # Disconnect from the server
+        if self._connector:
+            self._connector.disconnect()
 
-    def do_connect(self):
-        ReactorThread().connectTCP(self._host, self._port, self)#, timeout=self._timeout)
-
-    def clientConnectionFailed(self, connector, reason):
-        # reason = ConnectionRefusedError | ...
-        print "CNX FAILED", connector, reason
-        self.error(reason)
+    def up_impl(self):
+        self._connector = ReactorThread().connectTCP(self._host, self._port, self)#, timeout=self._timeout)
 
 # This interface will spawn other interfaces
 class TCPServerInterface(Interface):
@@ -220,14 +231,29 @@ class TCPServerInterface(Interface):
     __interface_type__ = 'tcpserver'
 
     def __init__(self, router, port = DEFAULT_PORT):
-        Interface.__init__(self, router)
-        # We should create a new one each time !!!!
-        ReactorThread().listenTCP(port, TCPServerSocketFactory(router))
         ReactorThread().start_reactor()
-        self.up()
+        self._router    = router
+        self._port      = port
+        self._connector = None
+        Interface.__init__(self, router)
 
     def terminate(self):
+        Interface.terminate(self)
         ReactorThread().stop_reactor()
 
     def _request_announces(self):
         pass
+
+    def up_impl(self):
+        self._connector = ReactorThread().listenTCP(self._port, TCPServerSocketFactory(self._router))
+        # XXX How to wait for the server to be effectively listening
+        self.set_up()
+
+    @defer.inlineCallbacks
+    def down_impl(self):
+        # Stop listening to connections
+        ret = self._connector.stopListening()
+        yield defer.maybeDeferred(ret)
+        self.set_down()
+
+    # We should be able to end all connected clients
