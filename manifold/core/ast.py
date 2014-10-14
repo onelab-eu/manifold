@@ -83,6 +83,8 @@ class AST(object):
         """
         return self.root == None
 
+    def dump(self):
+        print self.get_root().format_downtree()
     #---------------------------------------------------------------------------
     # Helpers
     #---------------------------------------------------------------------------
@@ -141,44 +143,42 @@ class AST(object):
         return self
 
     #@returns(AST)
-    def union(self, child_asts, key):
+    def union(self, children_asts, key):
         """
         Make an AST which is the UNION of self (left operand) and child_asts (right operand)
         Args:
-            child_asts: A list of AST gathered by this Union operator.
+            children_asts: A list of AST gathered by this Union operator.
             key: A Key instance which can be used to identify each Records.
         Returns:
             The AST corresponding to the UNION.
         """
         # We only need a key for UNION distinct, not supported yet
-        assert isinstance(child_asts, list),\
-            "Invalid children AST for UNION: %s (%s)" % (child_asts, type(child_asts))
+        assert isinstance(children_asts, (AST, list)),\
+            "Invalid children AST for UNION: %s (%s)" % (children_asts, type(children_asts))
         assert not key or isinstance(key, Key),\
             "Invalid key %r (type %r)" % (key, type(key))
 
-        child_roots = [ast.get_root() for ast in child_asts]
+        if not isinstance(children_asts, list):
+            children_asts = [children_asts]
+        children = [x.get_root() for x in children_asts]
 
-        # If the ast is empty
         if self.is_empty():
-            self.root = child_roots[0] if len(child_roots) == 1 else Union(child_roots, key)
+            if len(children) == 1:
+                self.root = children[0]
+            else:
+                self.root = Union(children, key)
             return self
 
-        # If the root node a UNION, in this case we extend it with the set of child_asts
-        if isinstance(self.get_root(), Union):
-            # From the query plan construction, we are assured both UNION have the same key
-            union = self.get_root()
-            #MANDO|union.add_child_roots([ast.get_root() for ast in child_asts])
-            for ast in child_asts:
-                ast.get_root().add_consumer(union)
+        if isinstance(self.root, Union):
+            # ALGEBRAIC RULE U1 : U_new o U
+            # We suppose both UNION have the same key
+            self.root.add_children(children)
         else:
-            # We insert the current root to the list of child_roots
-            child_roots.insert(0, self.get_root())
-
-            # We have at least 2 child_roots, let's do Union
-            self.root = Union(child_roots, key)
+            # U_new o X
+            children.insert(0, self.root)
+            self.root = Union(children, key)
 
         return self
-
 
     #@returns(AST)
     def left_join(self, right_child, predicate):
