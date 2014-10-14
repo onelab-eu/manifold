@@ -678,6 +678,7 @@ class Router(object):
             root_node.send(packet)
         except Exception, e:
             print "EEE:", e
+            import traceback
             traceback.print_exc()
             error_packet = ErrorPacket(
                 type      = ERROR,

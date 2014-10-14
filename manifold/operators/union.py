@@ -67,12 +67,12 @@ class Union(Operator, ChildrenSlotMixin):
         #    }
         #    self._set_child(producer, data)
         self.add_children(producers)
-        self._remaining_children = self._get_num_children()
 
  
     def add_children(self, producers):
         for producer in producers:
             self._set_child(producer, data=dict())
+        self._remaining_children = self._get_num_children()
 
     def copy(self):
         new_producers = list()
@@ -249,4 +249,3 @@ class Union(Operator, ChildrenSlotMixin):
         self._update_children_producers(lambda p, d: p.subquery(ast.copy(), relation))
 
         return self
-

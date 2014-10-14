@@ -424,7 +424,8 @@ class ExploreTask(Deferred):
             query_plan: The QueryPlan instance related to this Query, and that we're updating.
         """
         ast, sq_rename_dict = ast_sq_rename_dict
-        if not ast: return
+        if not ast: 
+            return
         assert not sq_rename_dict, "Not implemented"
 
         # ast = None when task.cancel()
