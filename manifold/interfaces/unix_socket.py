@@ -15,6 +15,7 @@ from twisted.protocols.basic import IntNStringReceiver
 from manifold.interfaces            import Interface
 from manifold.core.operator_slot    import ChildSlotMixin
 from manifold.core.packet           import Packet
+from manifold.util.filesystem       import ensure_writable_directory
 from manifold.util.log              import Log
 from manifold.util.reactor_thread   import ReactorThread
 from manifold.interfaces.tcp_socket import TCPClientSocketFactory, TCPServerSocketFactory
@@ -26,6 +27,7 @@ class UNIXClientInterface(TCPClientSocketFactory):
     __interface_tyfpe__ = 'unixclient'
 
     def __init__(self, router, filename = DEFAULT_FILENAME):
+        ensure_writable_directory(os.path.dirname(DEFAULT_FILENAME))
         self._connector = None
         self._filename = filename
         self._timeout = timeout
@@ -50,6 +52,7 @@ class UNIXServerInterface(Interface):
     __interface_type__ = 'unixserver'
 
     def __init__(self, router, filename = DEFAULT_FILENAME):
+        ensure_writable_directory(os.path.dirname(DEFAULT_FILENAME))
         ReactorThread().start_reactor()
         self._router    = router
         self._filename  = filename
