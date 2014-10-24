@@ -155,6 +155,7 @@ class Router(Interface):
         #    cached and real time records), and multicast (real time records).
         # - DENIED
         # - ERROR
+
         (decision, data) = self.policy.filter(query, None, annotations)
         if decision == Policy.ACCEPT:
             pass
@@ -164,16 +165,16 @@ class Router(Interface):
                 query = _query
             if _annotations:
                 annotations = _annotations
-
+    
         elif decision == Policy.CACHE_HIT:
             query_plan = data
             #return self.send(query, data, annotations, is_deferred)
-
+    
         elif decision in [Policy.DENIED, Policy.ERROR]:
             if decision == Policy.DENIED:
                 data = ResultValue.get_error(ResultValue.FORBIDDEN)
             return self.send_result_value(query, data, annotations, is_deferred)
-
+    
         else:
             raise Exception, "Unknown QUERY decision from policy engine: %s" % Policy.map_decision[decision]
         
@@ -231,7 +232,6 @@ class Router(Interface):
 
         is_local = (namespace == self.LOCAL_NAMESPACE)
         is_metadata = (namespace and table_name == "object")
-
         if policy and not is_local and not is_metadata:
             # XXX What to do in case of errors, and records is []
             for record in records:

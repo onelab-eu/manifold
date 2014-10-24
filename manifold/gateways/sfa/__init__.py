@@ -505,9 +505,9 @@ class SFAGateway(Gateway):
         # Avoid inconsistent hrn in GetVersion - ROUTERV2
         hrn = urn_to_hrn(server_version['urn'])
         auth = Xrn(server_version['urn'])
-        Log.tmp(auth)
-        Log.tmp(server_version['urn'])
-        Log.tmp(hrn)
+        #Log.tmp(auth)
+        #Log.tmp(server_version['urn'])
+        #Log.tmp(hrn)
 
         # XXX TMP FIX while URN from ple is 'urn:publicid:IDN++ple' instead of 'urn:publicid:IDN+authority+ple'
         if hrn[0] =='' and 'hrn' in server_version:
@@ -999,7 +999,6 @@ class SFAGateway(Gateway):
         """
         # If No Registry RM return
         if not self.registry:
-            Log.tmp("No Registry !")
             defer.returnValue([])
         else:
             Log.tmp("Yes Registry = ",self.registry)
@@ -1027,7 +1026,6 @@ class SFAGateway(Gateway):
         auth_hrn = make_list(filters.get_op('parent_authority', [eq, lt, le]))
         # 3. In the worst case, we search from the root authority.
         interface_hrn = yield self.get_interface_hrn(self.registry)
-        Log.tmp("interface_hrn = ",interface_hrn)
         # Based on cases 1, 2 or 3, we build the stack of objects to
         # List/Resolve, and set the 3 following properties:
         #   - recursive: Should be based on jokers, eg. ple.upmc.*
@@ -1036,12 +1034,10 @@ class SFAGateway(Gateway):
         details   = True
 
         if object_hrns: # CASE 1
-            Log.tmp("object_hrns = ",object_hrns)
             # If the objects are not part of the hierarchy, let's return [] to
             # prevent the registry to forward results to another registry
             # XXX This should be ensured by partitions
             object_hrns = [ hrn for hrn in object_hrns if hrn.startswith(interface_hrn)]
-            Log.tmp("filtered object_hrns = ",object_hrns)
             if not object_hrns:
                 defer.returnValue([])
 
@@ -1183,7 +1179,7 @@ class SFAGateway(Gateway):
                     self.callback(LastRecord())
 
                 # Manifold Query to get the data only for RM fields
-                query_rm_fields = Query.get('slice').filter_by(filters).select(fields_rm)
+                query_rm_fields = Query.get('myslice:slice').filter_by(filters).select(fields_rm)
                 try:
                     # To avoid loops due to caching, we only look for exact same queries in cache
                     # Otherwise, it will want to hook on the parent query, which is depending on this one.
@@ -1402,8 +1398,8 @@ class SFAGateway(Gateway):
 
             rspec_string = result['value']
 
-            Log.warning("advertisement RSpec")
-            Log.warning(rspec_string)
+            #Log.warning("advertisement RSpec")
+            #Log.warning(rspec_string)
 
         # rspec_type and rspec_version should be set in the config of the platform,
         # we use GENIv3 as default one if not
@@ -1755,8 +1751,8 @@ class SFAGateway(Gateway):
             traceback.print_exc()
             rspec = ''
             raise
-        Log.warning("Contacting platform %s" % self.platform)
-        Log.warning("request rspec: %s" % rspec)
+        #Log.warning("Contacting platform %s" % self.platform)
+        #Log.warning("request rspec: %s" % rspec)
 
         # Sliver attributes (tags) are ignored at the moment
 
@@ -1866,7 +1862,6 @@ class SFAGateway(Gateway):
             Log.warning("%s MANIFEST RSPEC %s" % (self.platform, manifest_rspec))
             Log.tmp("manifest_rspec type = ",type(manifest_rspec))
             if (manifest_rspec == 0) or (manifest_rspec == '0'):
-                Log.tmp("yes manifest is 0")
                 defer.returnValue([])
         else:
             # AM API v3
@@ -2564,11 +2559,11 @@ class SFAGateway(Gateway):
                 # some urns hrns may replace non hierarchy delimiters '.' with an '_' instead of escaping the '.'
                 hrn = Xrn(config['user_hrn']).get_hrn().replace('\.', '_')
                 try:
-                    Log.tmp('manage get self user credential')
-                    Log.tmp(config['user_hrn'])
-                    Log.tmp(config['sscert'])
-                    Log.tmp(hrn)
-                    Log.tmp(registry_proxy)
+                    #Log.tmp('manage get self user credential')
+                    #Log.tmp(config['user_hrn'])
+                    #Log.tmp(config['sscert'])
+                    #Log.tmp(hrn)
+                    #Log.tmp(registry_proxy)
                     config['user_credential'] = yield registry_proxy.GetSelfCredential (config['sscert'], hrn, 'user')
                 except Exception, e:
                     raise Exception, "SFA Gateway :: manage() could not retreive user from SFA Registry: %s"%e

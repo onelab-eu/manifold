@@ -73,15 +73,15 @@ class Policy(object):
             elif decision == TargetValue.CONTINUE:
                 continue
 
-        # Let's create a cache entry
-        if is_query:
-            # We are dealing with queries
-            cache = self._interface.get_cache(annotations)
-            # XXX TEMP HACK
-            try:
-                cache.new_entry(query)
-            except Exception,e: 
-                Log.warning(e)
+        ## Let's create a cache entry
+        #if is_query:
+        #    # We are dealing with queries
+        #    cache = self._interface.get_cache(annotations)
+        #    # XXX TEMP HACK
+        #    try:
+        #        cache.new_entry(query)
+        #    except Exception,e: 
+        #        Log.warning(e)
 
         # Default decision : ACCEPT
         return (self.ACCEPT, None)

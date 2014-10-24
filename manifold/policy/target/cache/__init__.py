@@ -35,6 +35,8 @@ class CacheTarget(Target):
         if query_plan:
             return (TargetValue.CACHE_HIT, query_plan)
 
+        cache.new_entry(query)
+
         # Continue with the normal processing
         return (TargetValue.CONTINUE, None)
 
@@ -49,7 +51,7 @@ class CacheTarget(Target):
         # TODO: ROUTERV2
         # Cache per user
         cache = self._interface.get_cache(annotations)
-
+        
         # No need to create an entry, since the entry is created when query arrives
 
         # We don't cache records whose origin is the cache

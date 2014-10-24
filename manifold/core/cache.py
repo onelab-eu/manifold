@@ -46,7 +46,8 @@ class Cache(object):
         entry = self.get_entry(query)
         if not entry:
             if not create:
-                raise Exception, "Query not found in cache: %r" % query
+                return
+                #raise Exception, "Query not found in cache: %r" % query
             self.add_entry(query, Entry())
         entry.append_record(record)
 
