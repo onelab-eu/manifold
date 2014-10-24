@@ -205,9 +205,9 @@ class SFAGateway(Gateway):
         elif server_hrn.startswith('wilab2'):
             server_hrn = "wilab2.ilabt.iminds.be"
             parser = WiLabtParser
-        elif server_hrn.startswith('ofelia') or 'openflow' in server_hrn:
+        elif ('ofelia' in server_hrn) or ('openflow' in server_hrn) or ('ofam' in server_hrn):
             parser = OfeliaOcfParser
-        elif 'vtam' in server_hrn:
+        elif ('vtam' in server_hrn) or ('virtualization' in server_hrn):
             parser = OfeliaVTAMParser
         else:
             #parser = LooseParser

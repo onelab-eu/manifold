@@ -488,7 +488,17 @@ class LaboraParser(SFAWrapParser):
 
     @classmethod
     def get_resource_testbed_name(cls, urn):
-        return "Labora"
+        if not urn:
+            return "Labora"
+        elements = urn.split('+')
+        if len(elements) > 1:
+            authority = elements[1]
+            authorities = authority.split(':')
+            testbed = authorities[len(authorities)-1]
+            return testbed
+        else:
+            return "Labora"
+
 
     # The only change for Labora is the tag exclusive which is a tag inside the node tag and not a property
     @classmethod

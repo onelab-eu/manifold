@@ -68,6 +68,8 @@ class RSpecParser(object):
     # urn:publicid:IDN+openflow:ofam:univbris+datapath+05:00:00:00:00:00:00:01
     # urn:publicid:IDN+optical:openflow:ofam:univbris+datapath+00:00:00:00:0a:21:00:0a
 
+    # urn:publicid:IDN+openflow:fibre:rnp:ofam+link+67:8c:08:9e:01:62:d6:36_2_00:00:00:00:00:00:09:02_4
+
     # XXX VTAM is different
     # urn:publicid:IDN+vtam.univbris+node+uclalien
     # urn:publicid:IDN+i2cat:vtam+node+Verdaguer
@@ -82,13 +84,15 @@ class RSpecParser(object):
             authority = elements[1]
             if 'openflow' in authority:
                 authorities = authority.split(':')
-                facility = authorities[len(authorities)-3]
-                testbed = authorities[len(authorities)-1]
+                facility = 'openflow'
+                #testbed = authorities[len(authorities)]
+                testbed = authorities[len(authorities)-2]
             elif 'vtam' in authority:
                 if ':' in authority:
                     authorities = authority.split(':')
-                    facility = authorities[1]
-                    testbed = authorities[0]
+
+                    testbed = authorities[len(authorities)-2]
+                    facility = authorities[len(authorities)-1]
                 elif '.' in authority:
                     authorities = authority.split('.')
                     facility = authorities[0]
