@@ -2,6 +2,8 @@
 
 DAEMON="manifold-agent"
 
+mkdir -p /var/run/manifold
+
 chkconfig $DAEMON on
 service $DAEMON stop
 service $DAEMON start

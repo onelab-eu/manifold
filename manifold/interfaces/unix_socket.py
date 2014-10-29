@@ -7,7 +7,7 @@
 # Authors:
 #   Jordan Augé       <jordan.auge@lip6.f>
 
-import struct
+import os
 
 from twisted.internet.protocol import Protocol, ServerFactory, ClientFactory
 from twisted.protocols.basic import IntNStringReceiver

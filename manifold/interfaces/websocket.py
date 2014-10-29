@@ -7,7 +7,7 @@
 # Authors:
 #   Jordan Augé       <jordan.auge@lip6.f>
 
-import sys, struct
+import sys, json
 
 from twisted.internet.protocol      import Protocol, Factory, ClientFactory
 from twisted.protocols.basic        import IntNStringReceiver
@@ -20,8 +20,12 @@ from manifold.util.reactor_thread   import ReactorThread
 
 from autobahn.twisted.websocket import WebSocketServerProtocol, \
                                        WebSocketServerFactory
-#from twisted.web.websocket          import WebSocketHandler, WebSocketSite
-#from twisted.web.static             import File
+
+from manifold.core.packet           import GET
+from manifold.core.query            import Query
+
+# We still need to integrate all improvements done to the TCP socket
+# interface...
 
 class MyServerProtocol(WebSocketServerProtocol):
 
@@ -31,23 +35,32 @@ class MyServerProtocol(WebSocketServerProtocol):
 
     def onOpen(self):
         print("WebSocket connection open.")
-        self.sendMessage(u"bienvenue".encode(), False) # packet)
+        #self.sendMessage(u"bienvenue".encode(), False) # packet)
 
     def onMessage(self, payload, isBinary):
         if isBinary:
             print("Binary message received: {0} bytes".format(len(payload)))
         else:
             print("Text message received: {0}".format(payload.decode('utf8')))
+            # We expect a JSON dict
+            query_dict = json.loads(payload.decode('utf-8'))
+            packet = GET()
+            query = Query.from_dict(query_dict)
+            packet.set_destination(query.get_destination())
+
+            self.factory.receive(packet)
 
         ## echo back message verbatim
-        self.sendMessage(payload, isBinary)
+         #self.sendMessage(payload, isBinary)
 
     def onClose(self, wasClean, code, reason):
         print("WebSocket connection closed: {0}".format(reason))
 
     def send_packet(self, packet):#
         print "send_packet", packet
-        self.sendMessage(u"coucou".encode(), False) # packet)
+        # We assume we only send records...
+        msg = json.dumps(packet.get_dict())
+        self.sendMessage(msg.encode(), False)
         print "sent packet"
 
 DEFAULT_PORT = 9000
@@ -62,16 +75,24 @@ class WebSocketInterface(Interface, WebSocketServerFactory):
 
     def __init__(self, router, port = DEFAULT_PORT):
         Interface.__init__(self, router)
+
         WebSocketServerFactory.__init__(self, "ws://localhost:%s" % port, debug = False)
 
-        self._client    = None
+        # _client = None means interface is down
+        self._client = None
         self._tx_buffer = list()
-        self._receiver = None
+
+        # Received packets are sent back to the client
+        _self = self
+        class MyReceiver(ChildSlotMixin):
+            def receive(self, packet, slot_id = None):
+                # To avoid this flow to be remembered
+                packet.set_receiver(None)
+                _self.send(packet)
+
+        self._receiver = MyReceiver()
+
         ReactorThread().start_reactor()
-
-#        factory = WebSocketServerFactory("ws://localhost:%s" % port, debug = False)
-#        factory.protocol = MyServerProtocol
-
         ReactorThread().listenTCP(port, self) # factory) #TCPSocketInterface(router))
 
     def terminate(self):
@@ -81,7 +102,7 @@ class WebSocketInterface(Interface, WebSocketServerFactory):
         _self = self
 
         self._client = client
-        self.up()
+        self.is_up()
 
         # Received packets are sent back to the client
         class MyReceiver(ChildSlotMixin):

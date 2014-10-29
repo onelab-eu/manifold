@@ -83,61 +83,64 @@ class Query(object):
 
         # Initialization from a dict
         elif "object" in kwargs:
-            if "action" in kwargs:
-                self.action = kwargs["action"]
-                del kwargs["action"]
-            else:
-                Log.warning("query: Defaulting to get action")
-                self.action = ACTION_GET
-
-
-            self.object = kwargs["object"]
-            del kwargs["object"]
-
-            if "filters" in kwargs:
-                self.filters = kwargs["filters"]
-                del kwargs["filters"]
-            else:
-                self.filters = Filter()
-
-            if "fields" in kwargs:
-                # '*' Handling
-                fields = kwargs.pop('fields')
-                if '*' in fields:
-                    #Log.tmp("SET STAR IN KWARGS")
-                    self.fields = FieldNames(star = True)
-                else:
-                    self.fields = FieldNames(fields, star = False)
-            else:
-                self.fields = FieldNames(star = True)
-
-            # "update table set x = 3" => params == set
-            if "params" in kwargs:
-                self.params = kwargs["params"]
-                del kwargs["params"]
-            else:
-                self.params = {}
-
-            if "timestamp" in kwargs:
-                self.timestamp = kwargs["timestamp"]
-                del kwargs["timestamp"]
-            else:
-                self.timestamp = "now"
-
-            # Indicates the key used to store the result of this query in manifold-shell
-            # Ex: $myVariable = SELECT foo FROM bar
-            if "variable" in kwargs:
-                self.variable = kwargs["variable"][0]
-                del kwargs["variable"]
-            else:
-                self.variable = None
-
-            if kwargs:
-                raise ParameterError, "Invalid parameter(s) : %r" % kwargs.keys()
-        #else:
-        #        raise ParameterError, "No valid constructor found for %s : args = %r" % (self.__class__.__name__, args)
+            return Query.from_dict(kwargs)
 
         self.sanitize()
+
+    @staticmethod
+    def from_dict(query_dict):
+        query = Query()
+        if "action" in query_dict:
+            query.action = query_dict["action"]
+            del query_dict["action"]
+        else:
+            Log.warning("query: Defaulting to get action")
+            query.action = ACTION_GET
+
+
+        query.object = query_dict["object"]
+        del query_dict["object"]
+
+        if "filters" in query_dict:
+            query.filters = query_dict["filters"]
+            del query_dict["filters"]
+        else:
+            query.filters = Filter()
+
+        if "fields" in query_dict:
+            # '*' Handling
+            fields = query_dict.pop('fields')
+            if '*' in fields:
+                #Log.tmp("SET STAR IN KWARGS")
+                query.fields = FieldNames(star = True)
+            else:
+                query.fields = FieldNames(fields, star = False)
+        else:
+            query.fields = FieldNames(star = True)
+
+        # "update table set x = 3" => params == set
+        if "params" in query_dict:
+            query.params = query_dict["params"]
+            del query_dict["params"]
+        else:
+            query.params = {}
+
+        if "timestamp" in query_dict:
+            query.timestamp = query_dict["timestamp"]
+            del query_dict["timestamp"]
+        else:
+            query.timestamp = "now"
+
+        # Indicates the key used to store the result of this query in manifold-shell
+        # Ex: $myVariable = SELECT foo FROM bar
+        if "variable" in query_dict:
+            query.variable = query_dict["variable"][0]
+            del query_dict["variable"]
+        else:
+            query.variable = None
+
+        query.sanitize()
+        return query
 
     def sanitize(self):
         if not self.filters:   self.filters   = Filter()

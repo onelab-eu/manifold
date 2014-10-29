@@ -1,0 +1,8 @@
+#!/bin/bash
+
+DAEMON="manifold-agent"
+
+chkconfig $DAEMON off
+service $DAEMON stop
+
+rm -Rf /var/run/manifold

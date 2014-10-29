@@ -149,7 +149,7 @@ setup(
     options = {
         'bdist_rpm':{
             'post_install'      : 'post_install',
-#            'post_uninstall'    : 'post_uninstall'
+            'post_uninstall'    : 'post_uninstall'
         }
     },
 )
