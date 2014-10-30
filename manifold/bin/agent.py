@@ -331,7 +331,7 @@ class AgentDaemon(Daemon):
         self._ping = self._router.add_platform("ping", "ping")
 
         # Setup interfaces
-        self._ws_interface  = self._router.add_interface('websocket')
+        self._ws_interface  = self._router.add_interface('websocketserver')
         self._local_interface  = self._router.add_interface('unixserver')
         self._server_interface = self._router.add_interface('tcpserver') # Listener XXX port?
 

@@ -456,7 +456,7 @@ class Shell(object):
         dic = SQLParser().parse(command)
         if not dic:
             raise RuntimeError("Can't parse input command: %s" % command)
-        query = Query(dic)
+        query = Query.from_dict(dic)
 #DEPRECATED|        if "*" in query.get_select():
 #DEPRECATED|            query.fields = None
 

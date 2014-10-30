@@ -75,7 +75,6 @@ class TCPInterface(Interface):
                 # To avoid this flow to be remembered
                 packet.set_receiver(None)
                 _self.send(packet)
-
         self._receiver = MyReceiver()
 
         ReactorThread().start_reactor()
@@ -234,7 +233,6 @@ class TCPServerInterface(Interface):
 
     def __init__(self, router, port = DEFAULT_PORT):
         ReactorThread().start_reactor()
-        self._router    = router
         self._port      = port
         Interface.__init__(self, router)
 

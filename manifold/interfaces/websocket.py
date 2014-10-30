@@ -10,6 +10,7 @@
 import sys, json
 
 from twisted.internet.protocol      import Protocol, Factory, ClientFactory
+from twisted.internet               import defer
 from twisted.protocols.basic        import IntNStringReceiver
 
 from manifold.interfaces            import Interface
@@ -25,14 +26,61 @@ from autobahn.twisted.websocket import WebSocketServerProtocol, \
 from manifold.core.packet           import GET
 from manifold.core.query            import Query
 
-# We still need to integrate all improvements done to the TCP socket
-# interface...
+# TODO
+# - clarify methods that an interface should implement
 
-class MyServerProtocol(WebSocketServerProtocol):
+class ManifoldWebSocketServerProtocol(WebSocketServerProtocol, Interface):
+
+    __interface_type__ = 'websocket'
+
+    def __init__(self, router):
+        Interface.__init__(self, router)
+        self._client = None
+
+        # Received packets are sent back to the client
+        _self = self
+        class MyReceiver(ChildSlotMixin):
+            def receive(self, packet, slot_id = None):
+                # To avoid this flow to be remembered
+                packet.set_receiver(None)
+                _self.send(packet)
+        self._receiver = MyReceiver()
+
+    def terminate(self):
+        Interface.terminate(self)
+
+    def send_impl(self, packet):
+        # We assume we only send records...
+        msg = json.dumps(packet.get_dict())
+        self.sendMessage(msg.encode(), False)
+
+
+    def on_client_connected(self):
+        self.set_up()
+
+        # In websockets, we expect no announces from clients so far
+        #self._request_announces()
+
+    def up_impl(self):
+        # Cannot do much  here...
+        pass
+
+    def down_impl(self):
+        self.transport.loseConnection()
+        # should trigger on_client_disconnected
+
+    def on_client_disconnected(self, reason):
+        self.get_down()
+        self.get_router().unregister_interface(self)
+
+    def _request_announces(self):
+        pass
+
+    # -----
 
     def onConnect(self, request):
         print("Client connecting: {0}".format(request.peer))
-        self.factory.on_client_ready(self)
+        self.set_up()
 
     def onOpen(self):
         print("WebSocket connection open.")
@@ -49,90 +97,94 @@ class MyServerProtocol(WebSocketServerProtocol):
             query = Query.from_dict(query_dict)
             packet.set_destination(query.get_destination())
 
-            self.factory.receive(packet)
-
-        ## echo back message verbatim
-         #self.sendMessage(payload, isBinary)
+            packet.set_receiver(self._receiver)
+            Interface.receive(self, packet)
 
     def onClose(self, wasClean, code, reason):
         print("WebSocket connection closed: {0}".format(reason))
 
-    def send_packet(self, packet):#
-        print "send_packet", packet
-        # We assume we only send records...
-        msg = json.dumps(packet.get_dict())
-        self.sendMessage(msg.encode(), False)
-        print "sent packet"
-
 DEFAULT_PORT = 9000
 
-# Only for server
+class ManifoldWebSocketServerFactory(WebSocketServerFactory):
+    protocol = ManifoldWebSocketServerProtocol
 
-class WebSocketInterface(Interface, WebSocketServerFactory):
+    def __init__(self, router, port = DEFAULT_PORT):
+        WebSocketServerFactory.__init__(self, "ws://localhost:%s" % port, debug = False)
+        self._router = router
+
+    def buildProtocol(self, addr):
+        p = self.protocol(self._router)
+        p.factory = self
+        return p
+
+#    def on_client_ready(self, client):
+#        print "FACTORY on client ready", client
+#        _self = self
+
+#        self._client = client
+#        self.is_up()
+#
+#        # Received packets are sent back to the client
+#        class MyReceiver(ChildSlotMixin):
+#            def receive(self, packet, slot_id = None):
+#                _self.send(packet)
+#
+#        self._receiver = MyReceiver()
+#
+#        while self._tx_buffer:
+#            full_packet = self._tx_buffer.pop()
+#            self._client.send_packet(full_packet)
+#
+#    def send_impl(self, packet):
+#        print "send impl", packet
+#        if not self._client:
+#            print "not client"
+#            self._tx_buffer.append(packet)
+#        else:
+#            print "client", self._client
+#            self._client.send_packet(packet)
+#
+#    # We really are a gateway !!! A gateway is a specialized Interface that
+#    # answers instead of transmitting.
+#    # 
+#    # And a client, a Router are also Interface's, cf LocalClient
+#
+#    # from protocol
+#    # = when we receive a packet from outside
+#    def receive(self, packet):
+#        print "receive", packet
+#        packet.set_receiver(self._receiver)
+#        Interface.receive(self, packet)
+
+class ManifoldWebSocketServerInterface(Interface):
     """
     """
-    __interface_type__ = 'websocket'
-    protocol = MyServerProtocol
+    __interface_type__ = 'websocketserver'
 
     def __init__(self, router, port = DEFAULT_PORT):
         Interface.__init__(self, router)
 
-        WebSocketServerFactory.__init__(self, "ws://localhost:%s" % port, debug = False)
-
-        # _client = None means interface is down
-        self._client = None
-        self._tx_buffer = list()
-
-        # Received packets are sent back to the client
-        _self = self
-        class MyReceiver(ChildSlotMixin):
-            def receive(self, packet, slot_id = None):
-                # To avoid this flow to be remembered
-                packet.set_receiver(None)
-                _self.send(packet)
-
-        self._receiver = MyReceiver()
-
+        self._port = port
         ReactorThread().start_reactor()
-        ReactorThread().listenTCP(port, self) # factory) #TCPSocketInterface(router))
 
     def terminate(self):
+        Interface.terminate(self)
         ReactorThread().stop_reactor()
 
-    def on_client_ready(self, client):
-        _self = self
+    def _request_announces(self):
+        pass
 
-        self._client = client
-        self.is_up()
+    def up_impl(self):
+        factory = ManifoldWebSocketServerFactory(self._router, self._port)
+        ReactorThread().listenTCP(self._port, factory)
+        # XXX How to wait for the server to be effectively listening
+        self.set_up()
 
-        # Received packets are sent back to the client
-        class MyReceiver(ChildSlotMixin):
-            def receive(self, packet, slot_id = None):
-                _self.send(packet)
-
-        self._receiver = MyReceiver()
-
-        while self._tx_buffer:
-            full_packet = self._tx_buffer.pop()
-            self._client.send_packet(full_packet)
-
-    def send_impl(self, packet):
-        print "send impl", packet
-        if not self._client:
-            print "not client"
-            self._tx_buffer.append(packet)
-        else:
-            print "client", self._client
-            self._client.send_packet(packet)
-
-    # We really are a gateway !!! A gateway is a specialized Interface that
-    # answers instead of transmitting.
-    # 
-    # And a client, a Router are also Interface's, cf LocalClient
-
-    # from protocol
-    # = when we receive a packet from outside
-    def receive(self, packet):
-        print "receive", packet
-        packet.set_receiver(self._receiver)
-        Interface.receive(self, packet)
+    @defer.inlineCallbacks
+    def down_impl(self):
+        # Stop listening to connections
+        ret = self.transport.loseConnection()
+        yield defer.maybeDeferred(ret)
+        self.set_down()
+        # XXX We should be able to end all connected clients and stop listening
+        # to connections

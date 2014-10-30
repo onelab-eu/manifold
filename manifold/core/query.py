@@ -83,7 +83,7 @@ class Query(object):
 
         # Initialization from a dict
         elif "object" in kwargs:
-            return Query.from_dict(kwargs)
+            self = Query.from_dict(kwargs)
 
         self.sanitize()
 
