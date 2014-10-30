@@ -18,6 +18,7 @@ from manifold.core.packet           import Packet
 from manifold.util.log              import Log
 from manifold.util.reactor_thread   import ReactorThread
 
+# pip install autobahn
 from autobahn.twisted.websocket import WebSocketServerProtocol, \
                                        WebSocketServerFactory
 

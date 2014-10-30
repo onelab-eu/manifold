@@ -210,7 +210,8 @@ class TCPClientInterface(TCPClientSocketFactory):
         TCPClientSocketFactory.__init__(self, router)
 
     def reconnect(self, host = None, port = DEFAULT_PORT):
-        self.down()
+        if self._client:
+            self.down()
         if host:
             self._host = host
             self._port = port
