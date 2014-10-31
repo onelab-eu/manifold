@@ -8,6 +8,7 @@
 #   Jordan Augé       <jordan.auge@lip6.f>
 
 import sys, json
+from json import JSONEncoder
 
 from twisted.internet.protocol      import Protocol, Factory, ClientFactory
 from twisted.internet               import defer
@@ -25,6 +26,14 @@ from autobahn.twisted.websocket import WebSocketServerProtocol, \
 
 from manifold.core.packet           import GET
 from manifold.core.query            import Query
+
+# http://stackoverflow.com/questions/3768895/python-how-to-make-a-class-json-serializable
+class ManifoldJSONEncoder(JSONEncoder):
+    def default(self, o):
+        if isinstance(o, Packet):
+            return o.get_dict()
+        else:
+            return o.__dict__    
 
 # TODO
 # - clarify methods that an interface should implement
@@ -51,7 +60,7 @@ class ManifoldWebSocketServerProtocol(WebSocketServerProtocol, Interface):
 
     def send_impl(self, packet):
         # We assume we only send records...
-        msg = json.dumps(packet.get_dict())
+        msg = json.dumps(packet.get_dict(), cls=ManifoldJSONEncoder)
         self.sendMessage(msg.encode(), False)
 
 

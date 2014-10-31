@@ -147,8 +147,6 @@ class Union(Operator, ChildrenSlotMixin):
         # children
         # TODO: This might be deduced from the query plan ?
 
-        if record.is_empty():
-            print "EMPTY RECORD", record
         if record.is_empty() or not record.has_field_names(self._key_field_names):
             self.forward_upstream(packet)
         else:
@@ -157,7 +155,7 @@ class Union(Operator, ChildrenSlotMixin):
             if key_value in self._records_by_key:
                 prev_record = self._records_by_key[key_value]
                 for k, v in record.items():
-                    if not k in prev_record:
+                    if not k in prev_record or not prev_record[k]:
                         prev_record[k] = v
                         continue
                     if isinstance(v, Records):

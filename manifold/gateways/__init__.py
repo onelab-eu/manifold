@@ -68,24 +68,22 @@ class OLocalLocalColumn(ManifoldCollection):
     };
     """
 
-class OLocalObject(ManifoldCollection):
-    """
-    class object {
-        string  table;           /**< The name of the object/table.        */
-        column  columns[];       /**< The corresponding fields/columns.    */
-        string  capabilities[];  /**< The supported capabilities           */
-        string  key[];           /**< The keys related to this object      */
-        string  origins[];       /**< The platform originating this object */
-
-        CAPABILITY(retrieve);
-        KEY(table);
-    };
-    """
-
-    def get(self, query = None):
-        return Records([a.to_dict() for a in self.get_gateway().get_announces()]) # only default namespace for now
-
-OLocalColumn = OLocalLocalColumn
+#class OLocalObject(ManifoldCollection):
+#    """
+#    class object {
+#        string  table;           /**< The name of the object/table.        */
+#        column  columns[];       /**< The corresponding fields/columns.    */
+#        string  capabilities[];  /**< The supported capabilities           */
+#        string  key[];           /**< The keys related to this object      */
+#        string  origins[];       /**< The platform originating this object */
+#
+#        CAPABILITY(retrieve);
+#        KEY(table);
+#    };
+#    """
+#
+#    def get(self, query = None):
+#        return Records([a.to_dict() for a in self.get_gateway().get_announces()]) # only default namespace for now
 
 #-------------------------------------------------------------------------------
 # Generic Gateway class

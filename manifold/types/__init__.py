@@ -1,4 +1,5 @@
 from manifold.types.int      import int
+from manifold.types.float    import float
 from manifold.types.string   import string
 from manifold.types.date     import date
 from manifold.types.inet     import inet
@@ -7,6 +8,8 @@ from manifold.types.hostname import hostname
 map_name_type = {
     'string'  : string,
     'int'     : int,
+    'float'   : float,
+    'double'  : float,
     'date'    : date,
     'inet'    : inet,
     'hostname': hostname

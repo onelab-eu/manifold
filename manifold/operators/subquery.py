@@ -374,39 +374,42 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
 
         # FieldNames
 
-        for field, subfield in destination.get_field_names().iter_field_subfield():
-            # XXX THIS DOES NOT TAKE SHORTCUTS INTO ACCOUNT
-            parent_destination.add_field_names(field)
-            if subfield:
-                # NOTE : the field should be the identifier of the child
-                # Remember that all relations involved in a SubQuery are named.
-                child_destinations[field].add_field_names(subfield)
+        if destination.get_field_names().is_star():
+            parent_destination.set_star_field_names()
+        else:
+            for field, subfield in destination.get_field_names().iter_field_subfield():
+                # XXX THIS DOES NOT TAKE SHORTCUTS INTO ACCOUNT
+                parent_destination.add_field_names(field)
+                if subfield:
+                    # NOTE : the field should be the identifier of the child
+                    # Remember that all relations involved in a SubQuery are named.
+                    child_destinations[field].add_field_names(subfield)
 
-#MARCO|        parent_field_names = self._get_parent().get_destination().get_field_names()
-#MARCO|        parent_destination.add_field_names(destination.get_field_names() & parent_field_names)
-#MARCO|        for child_id, child, child_data in self._iter_children():
+    #MARCO|        parent_field_names = self._get_parent().get_destination().get_field_names()
+    #MARCO|        parent_destination.add_field_names(destination.get_field_names() & parent_field_names)
+    #MARCO|        for child_id, child, child_data in self._iter_children():
 
-            child_field_names = FieldNames()
-            for field in child.get_destination().get_field_names():
-                child_field_names.add(FieldNames.join(child_id, field))
-            child_destinations[child_id].add_field_names(destination.get_field_names() & child_field_names)
+                child_field_names = FieldNames()
+                for field in child.get_destination().get_field_names():
+                    child_field_names.add(FieldNames.join(child_id, field))
+                child_destinations[child_id].add_field_names(destination.get_field_names() & child_field_names)
 
-#MARCO|            child_provided_field_names = child.get_destination().get_field_names()
-#MARCO|
-#MARCO|            child_field_names = FieldNames()
-#MARCO|            for f in destination.get_field_names():
-#MARCO|                for cf in child_provided_field_names:
-#MARCO|                    # f.split(FIELD_SEPARATOR)[1:]      # (hops) ttl    (hops) ip
-#MARCO|                    # cf.split(FIELD_SEPARATOR)         # ttl           probes ip 
-#MARCO|                    f_arr = f.split(FIELD_SEPARATOR)
-#MARCO|                    if len(f_arr) > 1 and f_arr[0] == child_id:
-#MARCO|                        f_arr = f_arr[1:]
-#MARCO|                    cf_arr = cf.split(FIELD_SEPARATOR)
-#MARCO|                    flag, shortcut = is_sublist(f_arr, cf_arr)
-#MARCO|                    if f_arr and flag:
-#MARCO|                        child_field_names.add(cf)
-#MARCO|
-#MARCO|            child_destinations[child_id].add_field_names(child_field_names)
+    #MARCO|            child_provided_field_names = child.get_destination().get_field_names()
+    #MARCO|
+    #MARCO|            child_field_names = FieldNames()
+    #MARCO|            for f in destination.get_field_names():
+    #MARCO|                for cf in child_provided_field_names:
+    #MARCO|                    # f.split(FIELD_SEPARATOR)[1:]      # (hops) ttl    (hops) ip
+    #MARCO|                    # cf.split(FIELD_SEPARATOR)         # ttl           probes ip 
+    #MARCO|                    f_arr = f.split(FIELD_SEPARATOR)
+    #MARCO|                    if len(f_arr) > 1 and f_arr[0] == child_id:
+    #MARCO|                        f_arr = f_arr[1:]
+    #MARCO|                    cf_arr = cf.split(FIELD_SEPARATOR)
+    #MARCO|                    flag, shortcut = is_sublist(f_arr, cf_arr)
+    #MARCO|                    if f_arr and flag:
+    #MARCO|                        child_field_names.add(cf)
+    #MARCO|
+    #MARCO|            child_destinations[child_id].add_field_names(child_field_names)
         
         # Keys & child objects
         for child_id, child, child_data in self._iter_children():
@@ -565,10 +568,82 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
 
         # We look at every children
         for child_id, child, child_data in self._iter_children():
-            print "_run_children RELATION=", child_data.get('relation')
-            predicate = child_data.get('relation').get_predicate()
+            relation = child_data.get('relation')
+            predicate = relation.get_predicate()
             child_packet = child_data.get('packet')
+
             child_key = predicate.get_value_names()
+
+            # XXX This part was missing
+            key, op, value = predicate.get_tuple()
+            if op == eq:
+                # 1..N
+                # Example: parent has slice_hrn, resource has a reference to slice
+                if relation.get_type() == Relation.types.LINK_1N_BACKWARDS:
+                    parent_ids = [record[key] for record in self.parent_output]
+                    if len(parent_ids) == 1:
+                        parent_id, = parent_ids
+                        filter_pred = Predicate(value, eq, parent_id)
+                    else:
+                        filter_pred = Predicate(value, included, parent_ids)
+                else: # We assume a 1..1
+                    parent_ids = []
+                    for parent_record in self.parent_output:
+                        record = Record.get_value(parent_record, key)
+                        if not record:
+                            record = []
+                        if relation.get_type() in [Relation.types.LINK_1N, Relation.types.LINK_1N_BACKWARDS]:
+                            # we have a list of elements 
+                            # element = id or dict    : cle simple
+                            #         = tuple or dict : cle multiple
+                            parent_ids.extend([self.get_element_key(r, value) for r in record])
+                        else:
+                            parent_ids.append(self.get_element_key(record, value))
+
+                    #if isinstance(key, tuple):
+                    #    parent_ids = [x for record in self.parent_output if key in record for x in record[key]]
+                    #else:
+                    #    ##### record[key] = text, dict, or list of (text, dict) 
+                    #    parent_ids = [record[key] for record in self.parent_output if key in record]
+                    #    
+                    #if parent_ids and isinstance(parent_ids[0], dict):
+                    #    parent_ids = map(lambda x: x[value], parent_ids)
+
+                    if len(parent_ids) == 1:
+                        parent_id, = parent_ids
+                        filter_pred = Predicate(value, eq, parent_id)
+                    else:
+                        filter_pred = Predicate(value, included, parent_ids)
+
+                # We had previously prepared a child packet to get router to each child
+                # We just need to add the following predicate to this packet
+                child_packet.update_destination(lambda d: d.add_filter(filter_pred))
+
+            elif op == included:
+                raise NotImplemented
+            elif op == contains:
+                raise NotImplemented
+                # 1..N
+                # Example: parent 'slice' has a list of 'user' keys == user_hrn
+                for slice in self.parent_output:
+                    if not child.get_query().object in slice: continue
+                    users = slice[key]
+                    # users est soit une liste d'id, soit une liste de records
+                    user_data = []
+                    for user in users:
+                        if isinstance(user, dict):
+                            user_data.append(user)
+                        else:
+                            # have have a key
+                            # XXX Take multiple keys into account
+                            user_data.append({value: user})
+                    # Let's inject user_data in the right child
+                    child.inject(user_data, value, None)
+
+            else:
+                raise Exception, "No link between parent and child queries"
+
+            
 
             self.send_to(child, child_packet)
 
@@ -577,7 +652,6 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
         \brief Called when all children of the current subquery are done: we
          process results stored in the parent.
         """
-
         try:
             for parent_record in self.parent_output:
                 # Dispatching child results
@@ -588,11 +662,6 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
 
                     key, op, value = predicate.get_tuple()
 
-                    # XXX HOW DO WE MANAGE LOCAL QUERIES HERE ?
-                    print "SEARCHING FOR LOCAL QUERIES"
-                    print "  . relation", relation
-                    print "  . predicate", predicate
-                    
                     # The following code is messy... although it is in charge of
                     # mapping the subrecords with their parent records...
                     if op == eq:
@@ -605,14 +674,14 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
                         record = parent_record.get_value(key)
                         if not record:
                             record = []
-                        if not isinstance(record, (list, tuple, set, frozenset)):
-                            record = [record]
+#                        if not isinstance(record, (list, tuple, set, frozenset)):
+#                            record = [record]
                         if relation.get_type() in [Relation.types.LINK_1N, Relation.types.LINK_1N_BACKWARDS]:
                             # we have a list of elements 
                             # element = id or dict    : clé simple
                             #         = tuple or dict : clé multiple
                             ids = [SubQuery.get_element_key(r, value) for r in record]
-                        else:
+                        else: # We assume a 1..1 relationship
                             ids = [SubQuery.get_element_key(record, value)]
                         if len(ids) == 1:
                             id, = ids
@@ -620,16 +689,23 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
                         else:
                             filter = Filter().filter_by(Predicate(value, included, ids))
 
-                        parent_record[relation.get_relation_name()] = Records()
-                        for child_record in self._get_child_records(child_id):
-                            if filter.match(child_record):
-                                # 
-                                # parent_record[relation.get_relation_name()]
-                                # contains a list of children objects, with some
-                                # properties
-                                # their key is relation.get_value_names()
-                                parent_record[relation.get_relation_name()].add_record(child_record)
-                                
+                        if relation.get_type() in [Relation.types.LINK_1N, Relation.types.LINK_1N_BACKWARDS]:
+                            parent_record[relation.get_relation_name()] = Records()
+                            for child_record in self._get_child_records(child_id):
+                                if filter.match(child_record):
+                                    # 
+                                    # parent_record[relation.get_relation_name()]
+                                    # contains a list of children objects, with some
+                                    # properties
+                                    # their key is relation.get_value_names()
+                                    parent_record[relation.get_relation_name()].add_record(child_record)
+                        else:
+                            # For 1..1 relationships, we assume a single child_record
+                            child_record = self._get_child_records(child_id)
+                            if len(child_record) > 1:
+                                Log.warning("More than 1 child record for 1..1 subquery")
+                            child_record = child_record[0]
+                            parent_record[relation.get_relation_name()] = child_record
 
                     elif op == contains:
                         # 1..N
@@ -692,12 +768,12 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
         return dparent.subquery(children_destination_relation_list)
 
     def optimize_selection(self, filter):
-        if self.is_local():
-            # Don't propagate the selection
-            #if filter <= self.get_destination().get_filter():
-            return Selection(self, filter)
-            #else:
-            #    return self
+        #if self.is_local():
+        #    # Don't propagate the selection
+        #    #if filter <= self.get_destination().get_filter():
+        #    return Selection(self, filter)
+        #    #else:
+        #    #    return self
 
         parent_filter, top_filter = Filter(), Filter()
         for predicate in filter:
@@ -840,7 +916,6 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
         else:
             if self.is_local():
                 # build on top: the default behaviour
-                Operator.subquery(self, ast, relation)
                 return SubQuery.make(self, ast, relation)
             else:
                 # Simple behaviour : since all children can be executed in parallel,

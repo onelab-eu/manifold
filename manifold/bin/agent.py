@@ -46,11 +46,32 @@ SERVER_SUPERNODE = 'clitos.ipv6.lip6.fr'
 SUPERNODE_CLASS = """
 class supernode {
     string hostname;
-    float rtt;
+    double rtt;
     KEY(hostname);
 };
 """
-#SERVER_SUPERNODE = 'dryad.ipv6.lip6.fr'
+
+NODES_CSV_CONFIG = {
+    'hostname': {
+        'filename': '/root/datasets/node-lat-lon.csv',
+        'fields': [
+            ['hostname', 'hostname'],
+            ['latitude', 'double'],
+            ['longitude', 'double'],
+        ],
+        'key': 'hostname',
+    }
+}
+
+AIRPORTS_CSV_CONFIG = {
+    'airports': {
+        'filename': '/root/datasets/airports.csv',
+        'fields': [
+            ['iata_code', 'string'],
+        ],
+        'key': 'iata_code',
+    }
+}
 
 
 def async_sleep(secs):
@@ -337,6 +358,11 @@ class AgentDaemon(Daemon):
 
         # Setup peer overlay
         if Options().server_mode:
+
+            self._router.add_platform("dns", "dns")
+            self._router.add_platform("nodes", "csv", NODES_CSV_CONFIG)
+            #self._router.add_platform("airports", "csv", AIRPORTS_CSV_CONFIG)
+
             announce, = Announces.from_string(SUPERNODE_CLASS)
             Supernode = ManifoldObject.from_announce(announce)
             

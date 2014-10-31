@@ -14,6 +14,7 @@ from types                              import StringTypes
 from manifold.core.announce             import Announces, announces_from_docstring
 from manifold.core.field_names          import FieldNames
 from manifold.gateways                  import Gateway
+from manifold.gateways.object           import ManifoldCollection
 from manifold.util.reactor_thread       import ReactorThread
 from manifold.util.type                 import accepts, returns 
 from manifold.util.predicate            import eq, included
@@ -64,133 +65,106 @@ class AsyncResolver(object):
 
         return resolved_hosts
 
+class IPCollection(ManifoldCollection):
+    """
+    class ip {
+        const ip   ip;            /**< Ex: '64.233.161.99'    */
+        const hostname hostname;    /**< Ex: 'www.hostname.com' */
+
+        CAPABILITY(join);
+        KEY(ip);
+    };
+    """
+
+    def get(self, packet):
+        destination = packet.get_destination()
+
+        obj = destination.get_object()
+        value_list = destination.get_filter().get_field_values(obj)
+
+        # We don't really ask something sometimes...
+        if destination.get_field_names() == FieldNames([obj]):
+            records = [{obj: value} for value in value_list]
+        else:
+            records = list()
+            for ip in value_list:
+                print "RESOLVING ip", ip
+                hostname, alias_list, ipaddrlist = socket.gethostbyaddr(ip)
+                records.append({'ip': ip, 'hostname': hostname})
+
+        self.get_gateway().records(records, packet)
+
+class HostnameCollection(ManifoldCollection):
+    """
+    class hostname {
+        const hostname hostname;    /**< Ex: 'www.hostname.com' */
+        const ip   ip;            /**< Ex: '64.233.161.99'    */
+
+        CAPABILITY(join);
+        KEY(hostname);
+    };
+    """
+
+    def get(self, packet):
+        destination = packet.get_destination()
+
+        obj = destination.get_object()
+        value_list = destination.get_filter().get_field_values(obj)
+
+        # We don't really ask something sometimes...
+        if destination.get_field_names() == FieldNames([obj]):
+            records = [{obj: value} for value in value_list]
+        else:
+            records = list()
+            # XXX NOT SURE IT IS ASYNC !!!
+            ar = AsyncResolver(value_list, intensity=500)
+            start = time()
+            resolved_hosts = ar.resolve()
+            end = time()
+            print "It took %.2f seconds to resolve %d hosts." % (end-start, len(value_list))
+            for hostname, ip in resolved_hosts.items():
+                # ip = None for hostname that could not be resolved
+                records.append({'ip': ip, 'hostname': hostname})
+
+        self.get_gateway().records(records, packet)
+
+
 class DNSGateway(Gateway):
 
     __gateway_name__ = "dns"
 
-    #---------------------------------------------------------------------------
-    # Internal methods
-    #---------------------------------------------------------------------------
+    def __init__(self, router = None, platform_name = None, platform_config = None):
+        Gateway.__init__(self, router, platform_name, platform_config)
 
-    @returns(StringTypes)
-    def __str__(self):
-        """
-        Returns:
-            The '%s' representation of this gateway.
-        """
-        return "<DNSGateway>"
+        self.register_collection(IPCollection())
+        self.register_collection(HostnameCollection())
 
-    #---------------------------------------------------------------------------
-    # Methods
-    #---------------------------------------------------------------------------
-
-    def get_value_list(self, token, query):
-        assert token in ['ip', 'hostname']
-
-        value_list = []
-        where = query.get_filter()
-
-        predicate_list = []
-        predicate_list.extend(where.get(token))
-        predicate_list.extend(where.get((token,)))
-
-        get_value = lambda value: value[0] if isinstance(value, tuple) else value
-
-        for predicate in predicate_list:
-            key, op, value = predicate.get_tuple()
-            if op is eq:
-                value_list.append(get_value(value))
-            elif op is included:
-                value_list.extend([get_value(v) for v in value])
-            else:
-                raise RuntimeError(
-                    """
-                    The WHERE clause (%s) must have exaclty one Predicate '==' involving 'ip' field.
-                    Matching Predicate(s): {%s}
-                    """ % (
-                        where,
-                        ', '.join(predicates)
-                    )
-                )
-        return value_list
-
-    def receive_impl(self, packet):
-        """
-        Handle a incoming QUERY Packet.
-        Args:
-            packet: A QUERY Packet instance.
-        """
-        query = packet.get_query()
-
-        obj = query.get_object()
-        value_list = query.get_filter().get_field_values(obj)
-
-        # We don't really ask something sometimes...
-        if query.get_fields() == FieldNames([obj]):
-            records = [{obj: value} for value in value_list]
-        else:
-            records = list()
-            if obj == 'ip':
-                for ip in value_list:
-                    print "RESOLVING ip", ip
-                    hostname, alias_list, ipaddrlist = socket.gethostbyaddr(ip)
-                    records.append({'ip': ip, 'hostname': hostname})
-
-            elif obj == 'hostname':
-                # XXX NOT SURE IT IS ASYNC !!!
-                ar = AsyncResolver(value_list, intensity=500)
-                start = time()
-                resolved_hosts = ar.resolve()
-                end = time()
-                print "It took %.2f seconds to resolve %d hosts." % (end-start, len(value_list))
-                for hostname, ip in resolved_hosts.items():
-                    # ip = None for hostname that could not be resolved
-                    records.append({'ip': ip, 'hostname': hostname})
-
-                # SLOW CODE !!!
-                #for hostname in value_list:
-                #    print "RESOLVING hostname", hostname
-                #    try:
-                #        ip = socket.gethostbyname(hostname)
-                #    except socket.gaierror:
-                #        ip = None
-                #    records.append({'ip': ip, 'hostname': hostname})
-            else:
-                raise NotImplemented
-
-        self.records(records, packet)
-
-    #---------------------------------------------------------------------------
-    # Metadata 
-    #---------------------------------------------------------------------------
-
-    @returns(Announces)
-    def make_announces(self):
-        """
-        Returns:
-            The Announce related to this object.
-        """
-        platform_name = self.get_platform_name()
-
-        @returns(list)
-        @announces_from_docstring(platform_name)
-        def make_announces_impl():
-            """
-            class ip {
-                const ip   ip;            /**< Ex: '64.233.161.99'    */
-                const hostname hostname;    /**< Ex: 'www.hostname.com' */
-    
-                CAPABILITY(join);
-                KEY(ip);
-            };
-
-            class hostname {
-                const hostname hostname;    /**< Ex: 'www.hostname.com' */
-                const ip   ip;            /**< Ex: '64.233.161.99'    */
-    
-                CAPABILITY(join);
-                KEY(hostname);
-            };
-            """
-        announces = make_announces_impl()
-        return announces
+#    def get_value_list(self, token, query):
+#        assert token in ['ip', 'hostname']
+#
+#        value_list = []
+#        where = query.get_filter()
+#
+#        predicate_list = []
+#        predicate_list.extend(where.get(token))
+#        predicate_list.extend(where.get((token,)))
+#
+#        get_value = lambda value: value[0] if isinstance(value, tuple) else value
+#
+#        for predicate in predicate_list:
+#            key, op, value = predicate.get_tuple()
+#            if op is eq:
+#                value_list.append(get_value(value))
+#            elif op is included:
+#                value_list.extend([get_value(v) for v in value])
+#            else:
+#                raise RuntimeError(
+#                    """
+#                    The WHERE clause (%s) must have exaclty one Predicate '==' involving 'ip' field.
+#                    Matching Predicate(s): {%s}
+#                    """ % (
+#                        where,
+#                        ', '.join(predicates)
+#                    )
+#                )
+#        return value_list

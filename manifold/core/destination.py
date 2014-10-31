@@ -122,7 +122,7 @@ class Destination(object):
         """
         if is_iterable(field_names):
             map(self.add_field_names, field_names)
-            return
+            return self
 
         if field_names and self._field_names is not None:
             self._field_names.add(field_names)
@@ -132,13 +132,17 @@ class Destination(object):
         self._field_names = field_names
         return self
 
+    def set_star_field_names(self):
+        self._field_names.set_star()
+        return self
+
     def __eq__(self, other):
-        return self.get_object() == other.get_object() and \
+        return self.get_object_name() == other.get_object_name() and \
                 self.get_filter() == other.get_filter() and \
                 self.get_field_names() == other.get_field_names()
 
     def __hash__(self):
-        return hash((self.get_object(), self.get_filter(), self.get_field_names()))
+        return hash((self.get_object_name(), self.get_filter(), self.get_field_names()))
 
     #---------------------------------------------------------------------------
     # str repr

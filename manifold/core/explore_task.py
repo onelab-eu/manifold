@@ -314,7 +314,7 @@ class ExploreTask(Deferred):
                 subpath = self.path[:]
                 subpath.append(name)
                 task = ExploreTask(self._router, dest_object, relation, subpath, self, self.depth+1)
-                task.addCallback(self.perform_subquery, relation, allowed_platforms, fib, user, query_plan)
+                task.addCallback(self.perform_subquery, relation, namespace, allowed_platforms, fib, user, query_plan)
                 task.addErrback(self.default_errback)
 
                 relation_name = relation.get_relation_name()
@@ -336,7 +336,7 @@ class ExploreTask(Deferred):
                     # and a CHILD table, we will do a UNION
                     task.addCallback(self.perform_union, self.root.get_keys(), allowed_platforms, fib, user, query_plan)
                 else:
-                    task.addCallback(self.perform_left_join, relation, allowed_platforms, fib, user, query_plan)
+                    task.addCallback(self.perform_left_join, relation, namespace, allowed_platforms, fib, user, query_plan)
                 task.addErrback(self.default_errback)
                 priority = TASK_11
 
@@ -367,7 +367,7 @@ class ExploreTask(Deferred):
             self.cancel()
             raise e
 
-    def perform_left_join(self, ast_sq_rename_dict, relation, allowed_platforms, fib, user, query_plan):
+    def perform_left_join(self, ast_sq_rename_dict, relation, namespace, allowed_platforms, fib, user, query_plan):
         """
         Connect a new AST to the current AST using a LeftJoin Node.
         Args:
@@ -382,11 +382,11 @@ class ExploreTask(Deferred):
         self.sq_rename_dict.update(sq_rename_dict)
         if not self.ast:
             # This can occur if no interesting field was found in the table, but it is just used to connect children tables
-            self.perform_union_all(self.root, allowed_platforms, fib, user, query_plan)
+            self.perform_union_all(self.root, namespace, allowed_platforms, fib, user, query_plan)
         self.ast.left_join(ast, relation.get_predicate().copy())
 
     # XXX sq_rename_dict ?????? really ????
-    def perform_subquery(self, ast_sq_rename_dict, relation, allowed_platforms, fib, user, query_plan):
+    def perform_subquery(self, ast_sq_rename_dict, relation, namespace, allowed_platforms, fib, user, query_plan):
         """
         Connect a new AST to the current AST using a SubQuery Node.
         If the connected table is "on join", we will use a LeftJoin
@@ -403,7 +403,7 @@ class ExploreTask(Deferred):
 
         # We need to build an AST just to collect subqueries
         if not self.ast:
-            self.perform_union_all(self.root, allowed_platforms, fib, user, query_plan)
+            self.perform_union_all(self.root, namespace, allowed_platforms, fib, user, query_plan)
 
 #MANDO|        self.ast.subquery(ast, relation)
         self.ast.subquery(ast.get_root(), relation)
@@ -454,12 +454,12 @@ class ExploreTask(Deferred):
             fib: The DBGraph instance related to the 3nf graph.
             user: The User issuing the Query.
             query_plan: The QueryPlan instance related to this Query, and that we're updating.
-        """
+        """ 
         key = obj.get_keys().one()
 
         # Loop on all the platforms that have this object
         for platform_name in obj.get_platform_names():
-            if platform_name in exclude_interfaces:
+            if exclude_interfaces and platform_name in exclude_interfaces:
                 continue
             if not fib.is_up(platform_name):
                 continue
