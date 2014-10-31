@@ -65,6 +65,8 @@ class ProcessCollection(ManifoldCollection):
         query       = packet.get_query()
         annotation = packet.get_annotation()
 
+        print "PING", packet
+
         #Log.tmp("[PROCESS GATEWAY] received query", query)
         # We leave the process a chance to return records without executing
         output = self.on_receive_query(query, annotation)
@@ -379,96 +381,3 @@ class ProcessGateway(Gateway):
             platform_config: A dictionnary containing information to connect to the postgresql server
         """
         Gateway.__init__(self, router, platform_name, platform_config)
-
-    #---------------------------------------------------------------------------
-    # Metadata
-    #---------------------------------------------------------------------------
-    # This has to be kept synchronized with the parser and the Argument
-    # Arguments could be mapped simply with fields
-    #---------------------------------------------------------------------------
-
-#DEPRECATED|    def make_field(self, process_field, field_type):
-#DEPRECATED|        # name, type and description - provided by the process_field description
-#DEPRECATED|        # qualifier - Since we cannot update anything, all fields will be const
-#DEPRECATED|        field = Field(
-#DEPRECATED|            name        = process_field.get_name(),
-#DEPRECATED|            type        = process_field.get_type(),
-#DEPRECATED|            qualifiers  = ['const'],
-#DEPRECATED|            is_array    = False,
-#DEPRECATED|            description = process_field.get_description()
-#DEPRECATED|        )
-#DEPRECATED|        return field
-#DEPRECATED|
-#DEPRECATED|    @returns(Announces)
-#DEPRECATED|    def make_announces(self):
-#DEPRECATED|        """
-#DEPRECATED|        Returns:
-#DEPRECATED|            The Announce related to this object.
-#DEPRECATED|        """
-#DEPRECATED|        platform_name = self.get_platform_name()
-#DEPRECATED|        try:
-#DEPRECATED|            announces = parse_string(self.output._announces_str, platform_name)
-#DEPRECATED|        except AttributeError, e:
-#DEPRECATED|            # self.output not yet initialized
-#DEPRECATED|            raise AttributeError("In platform '%s': %s" % (platform_name, e))
-#DEPRECATED|
-#DEPRECATED|        # These announces should be complete, we only need to deal with argument
-#DEPRECATED|        # and parameters to forge the command line corresponding to an incoming
-#DEPRECATED|        # query.
-#DEPRECATED|        return announces
-
-#DEPRECATED|        # TABLE NAME
-#DEPRECATED|        #
-#DEPRECATED|        # The name of the tool might not be sufficient since some parameters
-#DEPRECATED|        # might affect the type of the measurement being performed
-#DEPRECATED|
-#DEPRECATED|        table_name    = self.__tool__
-#DEPRECATED|
-#DEPRECATED|        t = Table(platform_name, table_name)
-#DEPRECATED|
-#DEPRECATED|        # FIELDS
-#DEPRECATED|        #
-#DEPRECATED|        # Fields are found in parameters, arguments and output
-#DEPRECATED|        for field_type, field_list in [
-#DEPRECATED|            (FIELD_TYPE_ARGUMENT,   self.arguments),
-#DEPRECATED|            (FIELD_TYPE_PARAMETER,  self.parameters),
-#DEPRECATED|            (FIELD_TYPE_OUTPUT,     self.output)]:
-#DEPRECATED|
-#DEPRECATED|            for process_field in field_list:
-#DEPRECATED|                field = self.make_field(process_field, field_type)
-#DEPRECATED|                t.insert_field(field)
-#DEPRECATED|
-#DEPRECATED|        # KEYS
-#DEPRECATED|        #
-#DEPRECATED|        # Keys will be fields that affect the measurement, so of course
-#DEPRECATED|        # arguments, but also some parameters. We will typically have a single
-#DEPRECATED|        # key.
-#DEPRECATED|
-#DEPRECATED|        key = set()
-#DEPRECATED|        for argument in self.arguments:
-#DEPRECATED|            key.add(t.get_field(argument.get_name()))
-#DEPRECATED|        t.insert_key(Key(key))
-#DEPRECATED|
-#DEPRECATED|        # CAPABILITIES
-#DEPRECATED|        #    . PROJECTION == si les champs peuvent etre pilotés par les options
-#DEPRECATED|        #    . SELECTION  == jamais en pratique
-#DEPRECATED|        #    . FULLQUERY == jamais
-#DEPRECATED|
-#DEPRECATED|        # As tools will generally take parameters (key for the measurement) it
-#DEPRECATED|        # will not be possible to retrieve data from them directly (ON JOIN
-#DEPRECATED|        # tables).
-#DEPRECATED|        t.capabilities.retrieve     = False
-#DEPRECATED|        t.capabilities.join         = True
-#DEPRECATED|
-#DEPRECATED|        # A tool will support almost never support selection
-#DEPRECATED|        t.capabilities.selection    = False
-#DEPRECATED|
-#DEPRECATED|        # A tool will support projection if all fields can be controlled through
-#DEPRECATED|        # options. In general, only partial projection will be supported (since
-#DEPRECATED|        # output will always provide some fields that cannot be removed). Let's
-#DEPRECATED|        # assume False for now for simplicity.
-#DEPRECATED|        t.capabilities.projection   = False
-#DEPRECATED|
-#DEPRECATED|        announce = Announce(t)
-#DEPRECATED|
-#DEPRECATED|        return [announce]

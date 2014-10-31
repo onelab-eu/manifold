@@ -1,5 +1,7 @@
 import re
 
+from manifold.util.log import Log
+
 #ValidHostnameRegex = "^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9])$";
 
 # Either any 2 char country code, or TLD form list IANA.ORG
@@ -11,7 +13,8 @@ class hostname(str):
 
     def __init__(self, value):
         if not VALID_HOSTNAME_RX.match(value):
-            raise ValueError, "%s does not appear to be a valid hostname" % value
+            Log.warning("%s does not appear to be a valid hostname" % value)
+            #raise ValueError, "%s does not appear to be a valid hostname" % value
         super(hostname, self).__init__(value)
 
     def __repr__(self):

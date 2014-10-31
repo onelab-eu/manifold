@@ -344,7 +344,7 @@ class Table(object):
                 raise TypeError("key = %r is not of type Key nor Field nor StringTypes")
             self.keys.add(Key(fields, local = local))
 
-    def set_capability(self, capability):
+    def set_capabilities(self, capability):
         if isinstance(capability, Capabilities):
             self.capabilities = capability
             return
@@ -356,6 +356,9 @@ class Table(object):
             raise TypeError("capability = %r is not of type String or iterable")
         for c in capability:
             setattr(self.capabilities, c, True)
+
+    def set_capability(self, capabilities):
+        return self.set_capabilities(capabilities)
 
     @returns(bool)
     def erase_key(self, key):

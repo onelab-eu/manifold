@@ -149,17 +149,26 @@ class ManifoldObject(Record):
             return cls.__capabilities__
 
     @classmethod
+    def get_capabilities(cls):
+        if cls.__doc__:
+            announce = self.get_announce()
+            return announce.get_table().get_capabilities()
+        else:
+            return cls.__capabilities__
+
+    @classmethod
     def get_announce(cls):
         # The None value corresponds to platform_name. Should be deprecated # soon.
         if cls.__doc__:
             announce, = Announces.from_string(cls.__doc__, None)
-            return announce
         else:
             table = Table(None, cls.get_object_name(), cls.get_fields(), cls.get_keys())
-            table.set_capability(cls.get_capabilities())
+            table.set_capabilities(cls.get_capabilities())
             #table.partitions.append()
-            return Announce(table)
+            announce = Announce(table)
+        return announce
 
+# XXX It is still used ?
 class Object(object):
     aliases = dict()
 

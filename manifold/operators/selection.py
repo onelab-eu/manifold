@@ -106,7 +106,7 @@ class Selection(Operator, ChildSlotMixin):
             new_packet = packet.clone()
             
             # We don't need the result to be filtered since we are doing it...
-            #VINT# new_packet.update_query(Query.unfilter_by, self._filter)
+            new_packet.update_query(Query.unfilter_by, self._filter)
 
             # ... but we need the fields to filter on
             new_packet.update_query(Query.select, self._filter.get_field_names())

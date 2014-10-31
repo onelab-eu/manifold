@@ -70,10 +70,10 @@ class From(Operator, ChildSlotMixin):
         Operator.__init__(self)
         ChildSlotMixin.__init__(self)
 
+        self._interface      = interface
         self._destination  = destination
         self._capabilities = capabilities
         self._key          = key
-        self._interface      = interface
 
     def copy(self):
         return From(self._interface, self._destination.copy(), self._capabilities, self._key)
@@ -147,16 +147,50 @@ class From(Operator, ChildSlotMixin):
         Args:
             packet: A Packet instance.
         """
-        # We need to add local filters to the query packet
-        filter = self.get_destination().get_filter()
-        packet.update_destination(lambda d: d.add_filter(filter))
+        # It is possible that a packet arrives with filters and fields while the gateways does not support them
+        packet_field_names = packet.get_destination().get_field_names()
+        packet_filter = packet.get_destination().get_filter()
+
+        # XXX filters could be inserted by LEFT JOIN and SUBQUERY operators
+        # while the platforms do not have the capabilities to understand them.
+        # - What about doing this in the query plan construction, with empty
+        # filters and field_names, so that it could be set by the query...
+        # - How to treat fullquery ?
+
+        target = self.copy() #From(self._interface, self._destination, self._capabilities, self._key)
+        has_operators = False
+
+        key_filter, remaining_filter = packet_filter.split_fields(self._key.get_field_names())
+        if packet_filter:
+            if not self.get_capabilities().selection:
+                if self.get_capabilities().join:
+                    if remaining_filter:
+                        target = target.optimize_selection(remaining_filter)
+                        target.format_downtree()
+                        has_operators = True
+                else:
+                    target = target.optimize_selection(packet_filter)
+                    target.format_downtree()
+                    has_operators = True
+        
+        if packet_field_names and not packet_field_names.is_star() and not self.get_capabilities().projection:
+            target = target.optimize_projection(packet_field_names)
+            has_operators = True
 
         # The packet needs to come back in the operatorgraph, otherwise, it is
         # send directly to the receiving interface (or any other receiver that
         # will have been defined)
-        packet.set_receiver(self)
 
-        self.get_interface().send(packet)
+        if has_operators: 
+            target.add_consumer(self)
+            target.send(packet)
+        else:
+            # We need to add local filters to the query packet
+            filter = self.get_destination().get_filter()
+            packet.update_destination(lambda d: d.add_filter(filter))
+
+            packet.set_receiver(self)
+            self.get_interface().send(packet)
 
     @returns(Operator)
     def optimize_selection(self, filter):

@@ -51,11 +51,17 @@ def do_projection(record, field_names):
     for method, subfield_names in subqueries.items():
         # record[method] is an array whose all elements must be
         # filtered according to subfield_names
-        arr = Records()
         if not method in record:
             continue
-        for x in record[method]:
-            arr.append(do_projection(Record(x), subfield_names))
+        if isinstance(record[method], Records):
+            arr = Records()
+            for x in record[method]:
+                assert isinstance(x, Record)
+                arr.append(do_projection(x, subfield_names))
+        elif isinstance(record[method], Record):
+            arr = do_projection(record[method], subfield_names)
+        else:
+            raise Exception, "Not supported"
         ret[method] = arr
 
     ret.set_last(record.is_last())
@@ -150,6 +156,7 @@ class Projection(Operator, ChildSlotMixin):
         Args:
             packet: A Packet instance.
         """
+        packet.update_destination(lambda d: d.add_field_names(self._field_names))
         self._get_child().send(packet)
 
     def receive_impl(self, packet, slot_id = None):

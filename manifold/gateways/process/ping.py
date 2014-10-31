@@ -154,8 +154,8 @@ class PingParser(object):
 class PingCollection(ProcessCollection):
     """
     class ping {
-        inet source;
-        inet destination;
+        hostname source;
+        ip destination;
         probe_ping probes[];
         CAPABILITY(join);
         KEY(source, destination);

@@ -25,7 +25,7 @@ from manifold.util.log              import Log
 from manifold.util.type             import returns, accepts
 
 #------------------------------------------------------------------
-# Constants needed for .h parsing, see parse_file(...)
+# Constants needed for .h parsing, see Announces.from_file(...)
 #------------------------------------------------------------------
 
 PATTERN_OPT_SPACE    = "\s*"
@@ -258,7 +258,7 @@ class Announces(list):
 
         # Read input file
         Log.debug("Platform %s: Processing %s" % (platform_name, filename))
-        return parse_file(filename, platform_name)
+        return Announces.from_file(filename, platform_name)
 
 #DEPRECATED|    @classmethod
 #DEPRECATED|    def get_announces(self, metadata):
@@ -535,7 +535,7 @@ def announces_from_docstring(platform_name):
     def decorator(fn):
         @functools.wraps(fn) # We might need to write our own wrapper to properly document the function
         def new(*args, **kwargs):
-            return parse_string(fn.__doc__, platform_name)
+            return Announces.from_string(fn.__doc__, platform_name)
         return new
     return decorator
 
@@ -559,5 +559,5 @@ class traceroute {
 };
     """
     import pprint
-    announces = parse_string(string, 'local')
+    announces = Announces.from_string(string, 'local')
     pprint.pprint(announces)
