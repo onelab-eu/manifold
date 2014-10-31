@@ -97,9 +97,10 @@ class ManifoldObject(Record):
     __metaclass__   = PluginFactory
     __plugin__name__attribute__ = '__object_name__'
 
-    __object_name__ = None
-    __fields__      = None
-    __keys__        = None
+    __object_name__     = None
+    __fields__          = None
+    __keys__            = None
+    __capabilities__    = None
 
     @staticmethod
     def from_announce(announce):
@@ -109,6 +110,7 @@ class ManifoldObject(Record):
         obj.__object_name__    = table.get_name()
         obj.__fields__         = table.get_fields()
         obj.__keys__           = table.get_keys()
+        obj.__capabilities__   = table.get_capabilities()
 
         return obj
 
@@ -139,6 +141,13 @@ class ManifoldObject(Record):
         else:
             return cls.__keys__
 
+    def get_capabilities(cls):
+        if cls.__doc__:
+            announce = self.get_announce()
+            return announce.get_table().get_capabilities()
+        else:
+            return cls.__capabilities__
+
     @classmethod
     def get_announce(cls):
         # The None value corresponds to platform_name. Should be deprecated # soon.
@@ -147,7 +156,7 @@ class ManifoldObject(Record):
             return announce
         else:
             table = Table(None, cls.get_object_name(), cls.get_fields(), cls.get_keys())
-            #table.set_capability()
+            table.set_capability(cls.get_capabilities())
             #table.partitions.append()
             return Announce(table)
 
