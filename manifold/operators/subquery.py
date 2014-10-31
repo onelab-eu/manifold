@@ -702,10 +702,10 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
                         else:
                             # For 1..1 relationships, we assume a single child_record
                             child_record = self._get_child_records(child_id)
-                            if len(child_record) > 1:
-                                Log.warning("More than 1 child record for 1..1 subquery")
-                            child_record = child_record[0]
-                            parent_record[relation.get_relation_name()] = child_record
+                            for child_record in self._get_child_records(child_id):
+                                if filter.match(child_record):
+                                    parent_record[relation.get_relation_name()] = child_record
+                            # XXX NOTE check that a single child match
 
                     elif op == contains:
                         # 1..N
