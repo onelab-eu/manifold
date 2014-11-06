@@ -651,7 +651,10 @@ class Router(object):
             root_node = self._operator_graph.build_query_plan(destination, annotation, exclude_interfaces = exclude_interfaces)
             
             if not root_node:
-                receiver.receive(Record(last = True))
+                record = Record(last = True)
+                record.set_source(packet.get_destination())
+                record.set_destination(packet.get_source())
+                receiver.receive(record)
                 return
 
             print "QUERY PLAN:"
