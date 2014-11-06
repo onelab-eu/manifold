@@ -82,6 +82,7 @@ def async_sleep(secs):
 @defer.inlineCallbacks
 def async_wait(fun, interval = 1):
     while not fun():
+        print "ASYNC_WAIT: condition not verified, sleep 1s"
         yield async_sleep(interval)
 
 class AgentDaemon(Daemon):
