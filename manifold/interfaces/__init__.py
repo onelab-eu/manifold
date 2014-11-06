@@ -163,7 +163,7 @@ class Interface(object):
         if receiver:
             self._flow_map[packet.get_flow()] = receiver
 
-        #print "[OUT]", self, packet
+        print "[OUT]", self, packet
         #print "*** FLOW MAP: %s" % self._flow_map
         #print "-----"
         

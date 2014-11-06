@@ -328,35 +328,64 @@ class Filter(set):
         return list(set(value_list))
 
     def __and__(self, other):
+        # Note: we assume the predicates in self and other are already in
+        # minimal form, eg. not the same fields twice...  We could break after
+        # a predicate with the same key is found btw...
         s = self.copy()
         for o_predicate in other:
             o_key, o_op, o_value = o_predicate.get_tuple()
-            for predicate in self:
+
+            # XXX This will become more complicated with tuples as key
+
+            key_found = False
+            for predicate in s:
                 key, op, value = predicate.get_tuple()
                 if key != o_key:
                     continue
 
+                # We already have a predicate with the same key
+                key_found = True
+
                 if op == eq:
                     if o_op == eq:
+                        # Similar filters...
                         if value != o_value:
+                            # ... with different values
                             return None
+                        else:
+                            # ... with same values
+                            pass
                     elif o_op == included:
+                        # Inclusion
                         if value not in o_value:
+                            # no overlap
                             return None
+                        else:
+                            # We already have the more restrictive predicate...
+                            pass
+                            
                 elif op == included:
                     if o_op == eq:
                         if o_value not in value:
                             return None
+                        else:
+                            # One value overlaps... update the initial predicate with the more restrictive one
+                            predicate.set_op(eq)
+                            predicate.set_value(value)
                     elif o_op == included:
+                        intersection = set(o_value) & set(value)
                         if not set(o_value) & set(value):
                             print "set(o_value)", set(o_value)
                             print "set(value)", set(value)
                             print "set(o_value) & set(value)", set(o_value) & set(value)
                             return None
+                        else:
+                            predicate.set_value(tuple(intersection))
             
             # No conflict found, we can add the predicate to s
-            s.add(o_predicate) 
+            if not key_found:
+                s.add(o_predicate) 
 
-        print self, "*and*", other, "==", s
+        print self, "*and*", other, "      ==>>    ", s
             
         return s

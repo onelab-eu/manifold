@@ -158,6 +158,9 @@ class Predicate:
     def get_op(self):
         return self.op
 
+    def set_op(self, op):
+        self.op = op
+
     def get_value(self):
         return self.value
 
