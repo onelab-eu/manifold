@@ -935,8 +935,9 @@ class Table(object):
 
     @classmethod
     def from_dict(cls, dic, platform_name):
+        partitions  = Filter.from_list(dic['partitions'])
 
-        t = Table(platform_name, dic['table'])
+        t = Table(partitions, dic['table'])
 
         key_fields = []
         for column in dic['columns']:
@@ -964,6 +965,5 @@ class Table(object):
         t.capabilities.selection  = 'selection'  in dic['capabilities']
         t.capabilities.projection = 'projection' in dic['capabilities']
 
-        t.add_partitions(Filter.from_list(dic['partitions']))
 
         return t
