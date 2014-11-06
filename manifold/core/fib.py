@@ -86,7 +86,7 @@ class Object(object):
 
     def get_announce(self):
         fields = set(self.get_fields())
-        t = Table(self.get_platform_names(), self.get_object_name(), self.get_fields(), self.get_keys())
+        t = Table(self.get_partitions(), self.get_object_name(), self.get_fields(), self.get_keys())
         
         # XXX We hardcode table capabilities
         t.capabilities.retrieve   = True

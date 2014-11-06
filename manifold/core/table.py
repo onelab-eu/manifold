@@ -70,32 +70,12 @@ class Table(object):
                     raise TypeError("In key %r: %r is not of type StringTypes" % (key, key_elt))
 
     @staticmethod
-    def check_partitions(partitions):
-        """
-        Check whether keys parameter is well-formed in __init__
-        """
-        if isinstance(partitions, StringTypes):
-            return
-        elif isinstance(partitions, (list, set, frozenset)):
-            # partitions carries a set of platforms
-            for platform in partitions:
-                if not isinstance(platform, StringTypes):
-                   raise TypeError("In partitons = %r: platform = %r is not of type StringTypes" % (partitions, platform))
-        elif isinstance(partitions, dict):
-            for platforms, clause in partitions.items():
-                if platforms and not isinstance(platforms, frozenset):
-                    return TypeError("platforms = %r is not of type frozenset" % platforms)
-                if clause and not isinstance(clause, Predicate):
-                    return TypeError("clause = %r is not of type Predicate" % clause)
-
-    @staticmethod
     def check_init(partitions, name, fields, keys):
         """
         Check whether parameters passed to __init__ are well formed
         """
         Table.check_fields(fields)
         Table.check_keys(keys)
-        Table.check_partitions(partitions)
 
     #-----------------------------------------------------------------------
     # Constructor
