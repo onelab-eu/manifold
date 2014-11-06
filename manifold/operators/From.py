@@ -203,9 +203,9 @@ class From(Operator, ChildSlotMixin):
         Returns:
             The updated root Node of the sub-AST.
         """
-
         # First check, if the filter contradict the partitions, then we return None
-        if partitions and not any([partition & filter for partition in self.get_partitions()]):
+        partitions = self.get_partitions()
+        if partitions and not any([p & filter for p in partitions])
             return None
 
         # XXX Simplifications
