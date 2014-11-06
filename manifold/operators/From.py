@@ -204,7 +204,7 @@ class From(Operator, ChildSlotMixin):
             The updated root Node of the sub-AST.
         """
         # First check, if the filter contradict the partitions, then we return None
-        if partitions and not any(p & filter for p in self._partitions):
+        if self._partitions and not any(p & filter for p in self._partitions):
             return None
 
         # XXX Simplifications
