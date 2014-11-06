@@ -467,17 +467,18 @@ class ExploreTask(Deferred):
             platform_field_names = obj.get_platform_field_names(platform_name)
             selected_field_names = platform_field_names | self.keep_root_a
 
-            # partitions is a filter instance
-            partitions = obj.get_platform_partitions(platform_name)
 
             # XXX We should only be concerned about the destination
             platform_object_name =  obj.get_platform_object_name(platform_name)
-            destination =  Destination(platform_object_name, partitions, selected_field_names)
+            # XXX ISSUE 
+            Log.error("How to handle tables with mutiple partitions, a UNION ?")
+            destination =  Destination(platform_object_name, Filter(), selected_field_names)
             #query = Query.get(platform_object_name).select(selected_field_names)
 
             obj = fib.get_object(platform_object_name, namespace)
             capabilities = obj.get_platform_capabilities(platform_name)
             #capabilities = fib.get_capabilities(platform, query.get_from()) # XXX
+            partitions = obj.get_platform_partitions(platform_name)
 
             if allowed_platforms and not platform_name in allowed_platforms:
                 continue
@@ -490,5 +491,5 @@ class ExploreTask(Deferred):
             # We need to connect the right gateway
             # XXX
 
-            from_ast = AST(self._router).From(platform_name, destination, capabilities, key)
+            from_ast = AST(self._router).From(platform_name, destination, capabilities, key, partitions)
             self.perform_union((from_ast, {}), key, allowed_platforms, fib, user, query_plan)
