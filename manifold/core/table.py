@@ -934,7 +934,7 @@ class Table(object):
 
     @classmethod
     def from_dict(cls, dic, platform_name):
-        partitions  = Filter.from_list(dic['partitions'])
+        partitions  = Partitions.from_list(dic['partitions'])
 
         t = Table(partitions, dic['table'])
 

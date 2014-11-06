@@ -19,6 +19,7 @@ from manifold.core.filter           import Filter
 from manifold.core.key              import Key
 from manifold.core.keys             import Keys
 from manifold.core.packet           import Packet
+from manifold.core.partition        import Partition
 from manifold.core.table            import Table
 from manifold.util.clause           import Clause
 from manifold.util.constants        import STATIC_ROUTES_DIR
@@ -406,19 +407,19 @@ def parse_iterable(iterable, platform_name):
                 tables[table_name].set_capability(capability)
                 continue
 
-            #    PARTITIONBY(clause_string);
+            #    PARTITIONBY(filter_string);
             m = REGEXP_CLASS_CLAUSE.match(line)
             if m:
-                partitions_string = m.group(1)
-                partitions = Filter.from_string(partitions_string) # Clause(partitions_string)
+                partition_string = m.group(1)
+                partition = Partition.from_string(partition_string) # Clause(partitions_string)
 
                 # Some variables are allowed in the filter
-                for predicate in partitions:
+                for predicate in partition:
                     key, op, value = predicate.get_tuple()
                     if value == "$HOSTNAME":
                         predicate.set_value(hostname())
 
-                tables[table_name].add_partitions(partitions)
+                tables[table_name].add_partition(partition)
                 continue
 
             # };
