@@ -205,7 +205,7 @@ class From(Operator, ChildSlotMixin):
         """
         # First check, if the filter contradict the partitions, then we return None
         partitions = self.get_partitions()
-        if partitions and not any([p & filter for p in partitions])
+        if partitions and not any(p & filter for p in partitions):
             return None
 
         # XXX Simplifications
