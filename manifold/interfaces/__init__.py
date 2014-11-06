@@ -88,7 +88,7 @@ class Interface(object):
         self._router.up_interface(self)
         
     def down(self):
-        self._up = False
+        #self._up = False
         self._router.down_interface(self)
         self.down_impl()
 
@@ -96,12 +96,15 @@ class Interface(object):
         self.set_down()
 
     def set_down(self):
+        self._up = False
         for cb, args, kwargs in self._down_callbacks:
             cb(self, *args, **kwargs)
 
     def set_error(self, reason):
-        print "set connection in error mode"
         self._error = reason
+
+    def unset_error(self):
+        self._error = None
 
     def is_up(self):
         return self._up

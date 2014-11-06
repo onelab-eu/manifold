@@ -82,7 +82,6 @@ def async_sleep(secs):
 @defer.inlineCallbacks
 def async_wait(fun, interval = 1):
     while not fun():
-        print "ASYNC_WAIT: condition not verified, sleep 1s"
         yield async_sleep(interval)
 
 class AgentDaemon(Daemon):
@@ -193,17 +192,15 @@ class AgentDaemon(Daemon):
         # This function should only terminate when the interface is reconnected
         # for sure
 
-        print "reconnect ..."
+        interface.unset_error()
         interface.reconnect()
-        print "... and async wait until up or error"
         yield async_wait(lambda : interface.is_up() or interface.is_error())
 
         if interface.is_error():
-            print "is error... 10s "
             Log.info("Waiting 10s before attempting reconnection for interface %r" % (interface,))
             yield async_sleep(10)
             self.reconnect_interface(interface)
-            return
+
         defer.returnValue(None)
         
     def _up_callback(self, interface):
