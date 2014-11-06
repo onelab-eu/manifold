@@ -53,6 +53,8 @@ class QueryPlan(object):
             query: The Query issued by the user.
         """
         ast, sq_rename_dict = ast_sq_rename_dict
+        if not ast:
+            return
         assert isinstance(ast, AST),\
             "Invalid ast = %s (%s)" % (ast, type(ast))
 
