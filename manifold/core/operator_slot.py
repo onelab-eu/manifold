@@ -154,8 +154,6 @@ class ChildrenSlotMixin(BaseSlotMixin):
                 ret = True
         return ret
                 
-        
-
     def _get_num_children(self):
         return len(self._slot_dict.keys())
 

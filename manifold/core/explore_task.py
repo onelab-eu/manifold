@@ -479,6 +479,7 @@ class ExploreTask(Deferred):
             capabilities = obj.get_platform_capabilities(platform_name)
             #capabilities = fib.get_capabilities(platform, query.get_from()) # XXX
             partitions = obj.get_platform_partitions(platform_name)
+            print "EXPLORE TASK | platform partitons", platform_name, partitions
 
             if allowed_platforms and not platform_name in allowed_platforms:
                 continue

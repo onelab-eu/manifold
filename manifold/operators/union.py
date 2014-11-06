@@ -72,7 +72,6 @@ class Union(Operator, ChildrenSlotMixin):
     def add_children(self, producers):
         for producer in producers:
             self._set_child(producer, data=dict())
-        self._remaining_children = self._get_num_children()
 
     def copy(self):
         new_producers = list()
@@ -121,6 +120,7 @@ class Union(Operator, ChildrenSlotMixin):
             packet: A Packet instance.
         """
         # We simply forward the query to all children
+        self._remaining_children = self._get_num_children()
         for _, child, _ in self._iter_children():
             child.send(packet.clone())
 
