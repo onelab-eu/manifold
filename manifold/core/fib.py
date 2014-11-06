@@ -9,19 +9,21 @@ from manifold.core.key              import Key
 from manifold.core.keys             import Keys
 from manifold.core.method           import Method
 from manifold.core.operator_slot    import ChildSlotMixin
+from manifold.core.partition        import Partitions
 from manifold.core.relation         import Relation
 from manifold.core.table            import Table
 from manifold.gateways              import LOCAL_NAMESPACE
 from manifold.util.log              import Log
 from manifold.util.predicate        import Predicate, eq
 
-# This is somehow and object
+# This is somehow a ManifoldObject
+# All this should replace Table sooner or later
 class PlatformInfo(object):
     def __init__(self):
         self._object_name = None
         self._fields = dict()
         self._capabilities = None
-        self._partitions = Filter()
+        self._partitions = Partitions()
 
     def get_object_name(self):
         return self._object_name
@@ -47,8 +49,10 @@ class PlatformInfo(object):
     def get_capabilities(self):
         return self._capabilities
 
+    def add_partition(self, partition):
+        self._partitions.add(partition)
+
     def add_partitions(self, partitions):
-        assert isinstance(partitions, Filter)
         self._partitions |= partitions
 
     def get_partitions(self):
@@ -64,7 +68,7 @@ class Object(object):
         self._keys = Keys()
         self._platform_info = dict()  # String -> PlatformInfo()
         self._relations = dict() # object_name -> relation
-        self._partitions = Filter()
+        self._partitions = Partitions()
 
     # XXX Looks like an announce
     def __str__(self):
@@ -74,7 +78,7 @@ class Object(object):
             s = "REFERENCES %s AS %r" % (o, r)
             relations.append(s)
         relations_str = "\n\t".join(relations)
-        partitions_str = "PARTITION BY (%s)" % (self.get_partitions(),)
+        partitions_str = "PARTITION BY (%s)" % ("; ".join(self.get_partitions()),)
         fields = "\n\t".join([str(f) for f in self.get_fields()])
         keys = "\n\t".join([str(k) for k in self.get_keys()])
         platform_names = ", ".join(self.get_platform_names())
@@ -139,12 +143,19 @@ class Object(object):
     def get_platform_capabilities(self, platform_name):
         return self._platform_info[platform_name].get_capabilities()
 
+    def add_partition(self, partition):
+        self._partitions.add(partition)
+
     def add_partitions(self, partitions):
-        assert isinstance(partitions, Filter)
         self._partitions |= partitions
 
     def get_partitions(self):
         return self._partitions
+
+    def add_platform_partition(self, platform_name, partition):
+        if not platform_name in self._platform_info:
+            self._platform_info[platform_name] = PlatformInfo()
+        self._platform_info[platform_name].add_partition(partition)
 
     def add_platform_partitions(self, platform_name, partitions):
         if not platform_name in self._platform_info:

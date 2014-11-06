@@ -122,7 +122,7 @@ class Union(Operator, ChildrenSlotMixin):
         """
         # We simply forward the query to all children
         for _, child, _ in self._iter_children():
-            child.send(packet)
+            child.send(packet.clone())
 
     def receive_impl(self, packet, slot_id = None):
         record = packet

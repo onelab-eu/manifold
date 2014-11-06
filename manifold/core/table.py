@@ -17,11 +17,12 @@ from manifold.core.annotation   import Annotation
 from manifold.core.field        import Field
 from manifold.core.field_names  import FieldNames
 from manifold.types             import BASE_TYPES
+from manifold.core.capabilities import Capabilities
 from manifold.core.filter       import Filter
 from manifold.core.key          import Key
 from manifold.core.keys         import Keys
 from manifold.core.method       import Method
-from manifold.core.capabilities import Capabilities
+from manifold.core.partition    import Partition, Partitions
 from manifold.core.relation     import Relation
 from manifold.util.type         import returns, accepts
 from manifold.util.log          import Log
@@ -70,7 +71,7 @@ class Table(object):
                     raise TypeError("In key %r: %r is not of type StringTypes" % (key, key_elt))
 
     @staticmethod
-    def check_init(partitions, name, fields, keys):
+    def check_init(name, fields, keys):
         """
         Check whether parameters passed to __init__ are well formed
         """
@@ -85,18 +86,13 @@ class Table(object):
         """
         Table constructor
         Args:
-            partitions: It can be either:
-                - a String (the name of the platform)
-                - a dictionary {String => Predicate} where each key is the name
-                of a platform and each data is a Predicate or "None". "None" means
-                that the condition is always True.
-                - a set/list of platform names
+            partitions: 
             table_name: The name of the table
             fields: A set/list of FieldNames involved in the table or None
             keys: A set of Key instances or None
         """
         # Check parameters
-        Table.check_init(partitions, table_name, fields, keys)
+        Table.check_init(table_name, fields, keys)
 
         # Init self.name.
         # Enforce unicode encoding to guarantee format consistency among all Table instances.
@@ -107,7 +103,7 @@ class Table(object):
         self.capabilities = Capabilities()
 
         self.platform_names = frozenset()
-        self._partitions = Filter()
+        self._partitions = Partitions()
         if partitions:
             self.add_partitions(partitions)
 
@@ -463,7 +459,7 @@ class Table(object):
             ]) for fields in self.get_keys()
         ])
 
-    @returns(Filter)
+    @returns(Partitions)
     def get_partitions(self):
         """
         Returns:
@@ -471,6 +467,9 @@ class Table(object):
             (e.g the partition). A None clause means that this clause is always True
         """
         return self._partitions
+
+    def add_partition(self, partition):
+        self._partitions.add(partition)
 
     def add_partitions(self, partitions):
         self._partitions |= partitions
@@ -492,18 +491,18 @@ class Table(object):
 #        else:
 #            raise TypeError("Invalid partitions = %s (%s)" % (partitions, type(partitions)))
 
-    def set_platform_names(self, platform_names):
-        """
-        Alter the set of table corresponding to this Table.
-        Args:
-            platform_names: A list of String corresponding to platform names
-                related to this Table.
-        """
-        assert isinstance(platform_names, (list, set, frozenset))
-        new_partitions = dict()
-        for platform_name in platform_names:
-            new_partitions[platform_name] = self._partitions.get(platform_name, None)
-        self.set_partitions(new_partitions)
+#    def set_platform_names(self, platform_names):
+#        """
+#        Alter the set of table corresponding to this Table.
+#        Args:
+#            platform_names: A list of String corresponding to platform names
+#                related to this Table.
+#        """
+#        assert isinstance(platform_names, (list, set, frozenset))
+#        new_partitions = dict()
+#        for platform_name in platform_names:
+#            new_partitions[platform_name] = self._partitions.get(platform_name, None)
+#        self.set_partitions(new_partitions)
 
     @returns(frozenset)
     def get_platforms(self):
