@@ -192,10 +192,13 @@ class AgentDaemon(Daemon):
         # This function should only terminate when the interface is reconnected
         # for sure
 
+        print "reconnect ..."
         interface.reconnect()
+        print "... and async wait until up or error"
         yield async_wait(lambda : interface.is_up() or interface.is_error())
 
         if interface.is_error():
+            print "is error... 10s "
             Log.info("Waiting 10s before attempting reconnection for interface %r" % (interface,))
             yield async_sleep(10)
             self.reconnect_interface(interface)
