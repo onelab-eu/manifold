@@ -304,8 +304,8 @@ class Rename(Operator, ChildSlotMixin):
         """
         rmap = {v: k for k, v in self.get_aliases().items()}
         new_filter = filter.copy().rename(rmap)
-        self._update_child(lambda c, d: c.optimize_selection(new_filter))
-        return self
+        ret = self._update_child(lambda c, d: c.optimize_selection(new_filter))
+        return self if ret else None
 
     @returns(Node)
     def optimize_projection(self, fields):

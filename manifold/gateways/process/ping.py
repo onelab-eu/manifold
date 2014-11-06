@@ -2,9 +2,11 @@
 # -*- coding: utf-8 -*-
 
 import pyparsing as pp
-from manifold.util.filesystem import hostname
-from .             import ProcessGateway, ProcessCollection, Argument, Parameter, FLAG_IN_ANNOTATION, FLAG_OUT_ANNOTATION, FLAG_ADD_FIELD
-from ...util.log   import Log
+from manifold.util.filesystem   import hostname
+from .                          import ProcessGateway, ProcessCollection, Argument, Parameter, FLAG_IN_ANNOTATION, FLAG_OUT_ANNOTATION, FLAG_ADD_FIELD
+from ...util.log                import Log
+from ...util.misc               import is_iterable
+from ...util.predicate          import eq, included
 
 class PingParser(object):
     """
@@ -159,6 +161,7 @@ class PingCollection(ProcessCollection):
         probe_ping probes[];
         CAPABILITY(join);
         KEY(source, destination);
+        PARTITIONBY(source == $HOSTNAME);
     };
     """
     # Define record annotation, timestamp
@@ -222,6 +225,24 @@ class PingCollection(ProcessCollection):
     ]
     parser = PingParser
     path = '/bin/ping'
+
+    def enforce_partition(self, packet):
+        Log.warning("This is approximate...")
+        filter = packet.get_destination().get_filter()
+        my_hostname = hostname()
+
+        source = filter.get_op('source', (eq, included))
+        if is_iterable(source):
+            source = list(source)
+        else:
+            source = [source]
+        if not my_hostname in source:
+            print "ENFORCE PARTITION RETURNED NULL"
+            print ". source= ", source
+            print "my hostname", my_hostname
+            return None
+        print "ENFORCE PARTITION RETURNED OK"
+        return packet
 
 # XXX
 class ProbePingCollection(ProcessCollection):

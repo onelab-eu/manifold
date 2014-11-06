@@ -147,6 +147,7 @@ class From(Operator, ChildSlotMixin):
         Args:
             packet: A Packet instance.
         """
+
         # It is possible that a packet arrives with filters and fields while the gateways does not support them
         packet_field_names = packet.get_destination().get_field_names()
         packet_filter = packet.get_destination().get_filter()
@@ -201,6 +202,12 @@ class From(Operator, ChildSlotMixin):
         Returns:
             The updated root Node of the sub-AST.
         """
+
+        # First check, if the filter contradict the partition filter, then we return None
+        partitions = self.get_destination().get_filter()
+        if not (partitions & filter):
+            return None
+
         # XXX Simplifications
         for predicate in filter:
             if predicate.get_field_names() == self._key.get_field_names() and predicate.has_empty_value():
@@ -216,6 +223,8 @@ class From(Operator, ChildSlotMixin):
 #MANDO|
                 Log.warning("From: optimize_selection: empty table")
                 return from_table
+
+        # Then, we decide how to insert the filter in the query plan, according to the platform capabilities
 
         if self.get_capabilities().selection:
             # Push filters into the From node

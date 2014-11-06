@@ -20,8 +20,8 @@ class PlatformInfo(object):
     def __init__(self):
         self._object_name = None
         self._fields = dict()
-        self._partitions = None
         self._capabilities = None
+        self._partitions = Filter()
 
     def get_object_name(self):
         return self._object_name
@@ -47,6 +47,13 @@ class PlatformInfo(object):
     def get_capabilities(self):
         return self._capabilities
 
+    def add_partitions(self, partitions):
+        assert isinstance(partitions, Filter)
+        self._partitions |= partitions
+
+    def get_partitions(self):
+        return self._partitions
+
 class Object(object):
     """
     A Manifold object.
@@ -57,6 +64,7 @@ class Object(object):
         self._keys = Keys()
         self._platform_info = dict()  # String -> PlatformInfo()
         self._relations = dict() # object_name -> relation
+        self._partitions = Filter()
 
     # XXX Looks like an announce
     def __str__(self):
@@ -66,10 +74,11 @@ class Object(object):
             s = "REFERENCES %s AS %r" % (o, r)
             relations.append(s)
         relations_str = "\n\t".join(relations)
+        partitions_str = "PARTITION BY (%s)" % (self.get_partitions(),)
         fields = "\n\t".join([str(f) for f in self.get_fields()])
         keys = "\n\t".join([str(k) for k in self.get_keys()])
         platform_names = ", ".join(self.get_platform_names())
-        CLASS_STR = "CLASS %(object_name)s (\n\t%(keys)s\n\t%(fields)s\n\t%(relations_str)s\n\t@ %(platform_names)s\n);\n\n"
+        CLASS_STR = "CLASS %(object_name)s (\n\t%(keys)s\n\t%(fields)s\n\t%(relations_str)s\n\t%(partitions_str)s\n\t@ %(platform_names)s\n);\n\n"
         return CLASS_STR % locals()
 
     def get_object_name(self):
@@ -129,6 +138,21 @@ class Object(object):
 
     def get_platform_capabilities(self, platform_name):
         return self._platform_info[platform_name].get_capabilities()
+
+    def add_partitions(self, partitions):
+        assert isinstance(partitions, Filter)
+        self._partitions |= partitions
+
+    def get_partitions(self):
+        return self._partitions
+
+    def add_platform_partitions(self, platform_name, partitions):
+        if not platform_name in self._platform_info:
+            self._platform_info[platform_name] = PlatformInfo()
+        self._platform_info[platform_name].add_partitions(partitions)
+
+    def get_platform_partitions(self, platform_name):
+        return self._platform_info[platform_name].get_partitions()
 
     def get_platform_names(self):
         return self._platform_info.keys()
@@ -338,6 +362,11 @@ class FIB(ChildSlotMixin):
             keys            = table.get_keys()
             fields          = table.get_fields()
             capabilities    = table.get_capabilities()
+            #obj.add_capabilities(partitions)
+            #obj.add_platform_capabilities(platform_name, partitions)
+
+            partitions      = table.get_partitions()
+
             relations       = set()
 
             # Object
@@ -346,6 +375,9 @@ class FIB(ChildSlotMixin):
             else:
                 obj = Object(object_name)
                 object_dict[object_name] = obj
+
+            obj.add_partitions(partitions)
+            obj.add_platform_partitions(platform_name, partitions)
 
             # Keys
             # XXX subkey can be sufficient

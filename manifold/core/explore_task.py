@@ -467,9 +467,12 @@ class ExploreTask(Deferred):
             platform_field_names = obj.get_platform_field_names(platform_name)
             selected_field_names = platform_field_names | self.keep_root_a
 
+            # partitions is a filter instance
+            partitions = obj.get_platform_partitions(platform_name)
+
             # XXX We should only be concerned about the destination
             platform_object_name =  obj.get_platform_object_name(platform_name)
-            destination =  Destination(platform_object_name, Filter(), selected_field_names)
+            destination =  Destination(platform_object_name, partitions, selected_field_names)
             #query = Query.get(platform_object_name).select(selected_field_names)
 
             obj = fib.get_object(platform_object_name, namespace)

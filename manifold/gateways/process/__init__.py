@@ -55,17 +55,24 @@ class ProcessCollection(ManifoldCollection):
         # XXX It could be better to have lock per batch_id
         self._lock = threading.Lock()
 
+    def enforce_partition(self, packet):
+        return packet
+
     def get(self, packet):
+
+        new_packet = self.enforce_partition(packet)
+        if not new_packet:
+            self.get_gateway().records([], packet)
+            return 
+    
+
         if not os.path.exists(self.get_fullpath()):
             Log.warning("Process does not exist, returning empty")
             self.get_gateway().records([], packet)
             return
 
-
-        query       = packet.get_query()
-        annotation = packet.get_annotation()
-
-        print "PING", packet
+        query      = new_packet.get_query()
+        annotation = new_packet.get_annotation()
 
         #Log.tmp("[PROCESS GATEWAY] received query", query)
         # We leave the process a chance to return records without executing
@@ -99,7 +106,7 @@ class ProcessCollection(ManifoldCollection):
             args = (self.get_fullpath(),) + args_params[0]
 
             #Log.tmp("[PROCESS GATEWAY] execute args=%r, args_params[1]=%r" % (args, args_params[1],))
-            self.execute_process(args, args_params[1], packet, batch_id)
+            self.execute_process(args, args_params[1], new_packet, batch_id)
 
     #---------------------------------------------------------------------------
     # Packet processing

@@ -30,11 +30,12 @@ LOCAL_NAMESPACE = "local"
 class OLocalObject(ManifoldCollection):
     """
     class object {
-        string  table;           /**< The name of the object/table.        */
-        column  columns[];       /**< The corresponding fields/columns.    */
-        string  capabilities[];  /**< The supported capabilities           */
-        string  key[];           /**< The keys related to this object      */
-        string  origins[];       /**< The platform originating this object */
+        string table;           /**< The name of the object/table.        */
+        column columns[];       /**< The corresponding fields/columns.    */
+        string capabilities[];  /**< The supported capabilities           */
+        string key[];           /**< The keys related to this object      */
+        string origins[];       /**< The platform originating this object */
+        string partitions[];
         string platforms[];     /**< The next_hops advertising this object */
 
         CAPABILITY(retrieve);

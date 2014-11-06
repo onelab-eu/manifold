@@ -15,12 +15,14 @@ from types                          import StringTypes
 
 from manifold.core.capabilities     import Capabilities
 from manifold.core.field            import Field
+from manifold.core.filter           import Filter
 from manifold.core.key              import Key
 from manifold.core.keys             import Keys
 from manifold.core.packet           import Packet
 from manifold.core.table            import Table
 from manifold.util.clause           import Clause
 from manifold.util.constants        import STATIC_ROUTES_DIR
+from manifold.util.filesystem       import hostname
 from manifold.util.log              import Log
 from manifold.util.type             import returns, accepts
 
@@ -34,7 +36,7 @@ PATTERN_COMMENT      = "(((///?.*)|(/\*(\*<)?.*\*/))*)"
 PATTERN_BEGIN        = ''.join(["^", PATTERN_OPT_SPACE])
 PATTERN_END          = PATTERN_OPT_SPACE.join(['', PATTERN_COMMENT, "$"])
 PATTERN_SYMBOL       = "([0-9a-zA-Z_]+)"
-PATTERN_CLAUSE       = "([0-9a-zA-Z_&\|\"()!=<> ]+)"
+PATTERN_CLAUSE       = "([0-9a-zA-Z_&\|\"()!=<>\$ ]+)"
 PATTERN_QUALIFIERS   = "((local|const) )?(local|const)?"
 PATTERN_CLASS        = "(class)"
 PATTERN_ARRAY        = "(\[\])?"
@@ -407,9 +409,16 @@ def parse_iterable(iterable, platform_name):
             #    PARTITIONBY(clause_string);
             m = REGEXP_CLASS_CLAUSE.match(line)
             if m:
-                clause_string = m.group(1)
-                clause = Clause(clause_string)
-                tables[table_name].partitions.append(clause)
+                partitions_string = m.group(1)
+                partitions = Filter.from_string(partitions_string) # Clause(partitions_string)
+
+                # Some variables are allowed in the filter
+                for predicate in partitions:
+                    key, op, value = predicate.get_tuple()
+                    if value == "$HOSTNAME":
+                        predicate.set_value(hostname())
+
+                tables[table_name].add_partitions(partitions)
                 continue
 
             # };

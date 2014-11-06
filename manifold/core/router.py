@@ -649,9 +649,13 @@ class Router(object):
 
             # Select the DbGraph answering to the incoming Query and compute the QueryPlan
             root_node = self._operator_graph.build_query_plan(destination, annotation, exclude_interfaces = exclude_interfaces)
+            
+            if not root_node:
+                receiver.receive(Record(last = True))
+                return
 
             print "QUERY PLAN:"
-            print root_node.format_downtree()
+            print root_node.format_downtree() 
 
             receiver._set_child(root_node)
         except Exception, e:

@@ -101,6 +101,7 @@ class ManifoldObject(Record):
     __fields__          = None
     __keys__            = None
     __capabilities__    = None
+    __partitions__      = None
 
     @staticmethod
     def from_announce(announce):
@@ -111,6 +112,7 @@ class ManifoldObject(Record):
         obj.__fields__         = table.get_fields()
         obj.__keys__           = table.get_keys()
         obj.__capabilities__   = table.get_capabilities()
+        obj.__partitions__     = table.get_partitions()
 
         return obj
 
@@ -141,6 +143,7 @@ class ManifoldObject(Record):
         else:
             return cls.__keys__
 
+    @classmethod
     def get_capabilities(cls):
         if cls.__doc__:
             announce = self.get_announce()
@@ -149,12 +152,12 @@ class ManifoldObject(Record):
             return cls.__capabilities__
 
     @classmethod
-    def get_capabilities(cls):
+    def get_partitions(cls):
         if cls.__doc__:
             announce = self.get_announce()
-            return announce.get_table().get_capabilities()
+            return announce.get_table().get_partitions()
         else:
-            return cls.__capabilities__
+            return cls.__partitions__
 
     @classmethod
     def get_announce(cls):
@@ -164,6 +167,7 @@ class ManifoldObject(Record):
         else:
             table = Table(None, cls.get_object_name(), cls.get_fields(), cls.get_keys())
             table.set_capabilities(cls.get_capabilities())
+            table.add_partitions(cls.get_partitions())
             #table.partitions.append()
             announce = Announce(table)
         return announce

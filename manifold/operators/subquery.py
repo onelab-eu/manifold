@@ -785,7 +785,9 @@ class SubQuery(Operator, ParentChildrenSlotMixin):
                 top_filter.add(predicate)
 
         if parent_filter:
-            self._update_parent_producer(lambda p,d : p.optimize_selection(parent_filter))
+            ret = self._update_parent_producer(lambda p,d : p.optimize_selection(parent_filter))
+            if not ret:
+                return None
 
         if top_filter:
             return Selection(self, top_filter)

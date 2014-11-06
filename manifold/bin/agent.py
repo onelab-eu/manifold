@@ -372,7 +372,7 @@ class AgentDaemon(Daemon):
 
             self._router.register_local_collection(supernode_collection)
 
-            #router.get_fib().dump()
+            #self._router.get_fib().dump()
 
             # XXX We should install a hook to remove from supernodes agents that have disconnected
 

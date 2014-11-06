@@ -127,7 +127,9 @@ class Table(object):
         self.capabilities = Capabilities()
 
         self.platform_names = frozenset()
-        self.set_partitions(partitions)
+        self._partitions = Filter()
+        if partitions:
+            self.add_partitions(partitions)
 
         # Check parameters
         # Init self.fields
@@ -195,12 +197,13 @@ class Table(object):
         Returns:
             The '%s' representation of this Table.
         """
-        return "%s {\n%s;\n\n\t%s;\n\t%s\n};" % (
+        return "%s {\n\t%s;\n\n\t%s;\n\t%s\n\tPARTITION BY(%s)\n};" % (
             self.get_from_name(),
             ';\r\n\t'.join(["%s%s" % (f, "[]" if f.is_array() else "") for f in sorted(self.get_fields())]),
 #            '\n\t'.join(["%s;\t// via %r" % (field, methods) for field, methods in self.map_field_methods.items()]),
             '\r\n\t;'.join(["%s" % k for k in self.get_keys()]),
-            self.get_capabilities()
+            self.get_capabilities(),
+            self.get_partitions()
         )
 
     @returns(StringTypes)
@@ -480,40 +483,34 @@ class Table(object):
             ]) for fields in self.get_keys()
         ])
 
-    @returns(dict)
+    @returns(Filter)
     def get_partitions(self):
         """
         Returns:
             The dictionnary which maps for each platform its corresponding clause
             (e.g the partition). A None clause means that this clause is always True
         """
-        return self.partitions
+        return self._partitions
 
-    def set_partitions(self, partitions):
-        """
-        Updates self.partitions and self.table_names
-        Args:
-            partitions: possible types:
-                None
-                {String : ...} (not yet supported)
-                list, set, frozenset of String (platform names)
-        """
-        self.partitions = dict()
-        if isinstance(partitions, (list, set, frozenset)):
-            self.platform_names = frozenset(partitions)
-            for platform_name in self.platform_names:
-                self.partitions[platform_name] = None
-        elif isinstance(partitions, StringTypes):
-            platform_name = partitions
-            self.platform_names = frozenset([platform_name])
-            self.partitions[platform_name] = None
-        elif isinstance(partitions, dict):
-            self.platform_names = frozenset(partitions.keys())
-            self.partitions = partitions
-        elif partitions == None:
-            pass
-        else:
-            raise TypeError("Invalid partitions = %s (%s)" % (partitions, type(partitions)))
+    def add_partitions(self, partitions):
+        self._partitions |= partitions
+
+#        self._partitions = dict()
+#        if isinstance(partitions, (list, set, frozenset)):
+#            self.platform_names = frozenset(partitions)
+#            for platform_name in self.platform_names:
+#                self._partitions[platform_name] = None
+#        elif isinstance(partitions, StringTypes):
+#            platform_name = partitions
+#            self.platform_names = frozenset([platform_name])
+#            self._partitions[platform_name] = None
+#        elif isinstance(partitions, dict):
+#            self.platform_names = frozenset(partitions.keys())
+#            self._partitions = partitions
+#        elif partitions == None:
+#            pass
+#        else:
+#            raise TypeError("Invalid partitions = %s (%s)" % (partitions, type(partitions)))
 
     def set_platform_names(self, platform_names):
         """
@@ -525,7 +522,7 @@ class Table(object):
         assert isinstance(platform_names, (list, set, frozenset))
         new_partitions = dict()
         for platform_name in platform_names:
-            new_partitions[platform_name] = self.partitions.get(platform_name, None)
+            new_partitions[platform_name] = self._partitions.get(platform_name, None)
         self.set_partitions(new_partitions)
 
     @returns(frozenset)
@@ -951,10 +948,9 @@ class Table(object):
             "origins"      : sorted(self.get_platforms()),
             "columns"      : columns,
             "keys"         : self.keys.to_dict_list(),
-            "capabilities" : self.get_capabilities().to_list()
-            # key
+            "capabilities" : self.get_capabilities().to_list(),
+            "partitions"   : self.get_partitions().to_list()
             # default
-            # capabilities
         }
 
     @classmethod
@@ -987,5 +983,7 @@ class Table(object):
         t.capabilities.join       = 'join'       in dic['capabilities']
         t.capabilities.selection  = 'selection'  in dic['capabilities']
         t.capabilities.projection = 'projection' in dic['capabilities']
+
+        t.add_partitions(Filter.from_list(dic['partitions']))
 
         return t

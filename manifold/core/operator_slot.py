@@ -40,7 +40,9 @@ class BaseSlotMixin(SlotMixin):
 
     def _update_producer(self, slot_id, function):
         producer, data = self._get(slot_id, get_data = True)
-        self._set_producer(slot_id, function(producer, data))
+        new_producer = function(producer, data)
+        self._set_producer(slot_id, new_producer)
+        return bool(new_producer)
 
     def _clear(self):
         for slot_id, (prev_producer, prev_data) in self._slot_dict.items():
@@ -77,7 +79,7 @@ class LeftRightSlotMixin(BaseSlotMixin):
         self._set_data(LEFT_SLOT, data)
 
     def _update_left_producer(self, function):
-        self._update_producer(LEFT_SLOT, function)
+        return self._update_producer(LEFT_SLOT, function)
 
     def _get_right(self, get_data = False):
         return self._get(RIGHT_SLOT, get_data)
@@ -92,7 +94,7 @@ class LeftRightSlotMixin(BaseSlotMixin):
         self._set_data(RIGHT_SLOT, data)
 
     def _update_right_producer(self, function):
-        self._update_producer(RIGHT_SLOT, function)
+        return self._update_producer(RIGHT_SLOT, function)
 
 PARENT = 0
 
@@ -132,8 +134,17 @@ class ChildrenSlotMixin(BaseSlotMixin):
             yield child_id
 
     def _update_children_producers(self, function):
+        """
+        Return True if at least there is one child after the update
+        """
+        ret = False
         for child_id in self._iter_children_ids():
-            self._update_producer(child_id, function)
+            child_ret = self._update_producer(child_id, function)
+            if child_ret:
+                ret = True
+        return ret
+                
+        
 
     def _get_num_children(self):
         return len(self._slot_dict.keys())
@@ -175,7 +186,7 @@ class ParentChildrenSlotMixin(ChildrenSlotMixin):
         self._set(PARENT, producer, data, cascade)
 
     def _update_parent_producer(self, function):
-        self._update_producer(PARENT, function)
+        return self._update_producer(PARENT, function)
 
     def _get_num_children(self):
         return len(self._slot_dict.keys()) - 1

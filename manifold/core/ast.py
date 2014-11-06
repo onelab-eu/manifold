@@ -387,6 +387,8 @@ class AST(object):
         """
         try: # DEBUG
             self.optimize_selection(destination.get_filter())
+            if not self.get_root():
+                return
             self.optimize_projection(destination.get_field_names())
         except Exception, e:
             Log.error(traceback.format_exc())
@@ -402,7 +404,6 @@ class AST(object):
         """
         if not filter: return
         producer = self.get_root().optimize_selection(filter)
-        assert producer, "ast::optimize_selection() has failed: filter = %s" % filter
         self.root = producer
 
     def optimize_projection(self, fields):
@@ -416,7 +417,6 @@ class AST(object):
         """
         if not fields: return
         producer = self.get_root().optimize_projection(fields)
-        assert producer, "ast::optimize_projection() has failed: fields = %s" % fields 
         self.root = producer
 
 #DEPRECATED|    def reorganize_create(self):

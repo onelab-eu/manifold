@@ -172,6 +172,9 @@ class SQLParser(object):
 
         self.bnf   = select | update | insert | delete
 
+        # For reusing parser:
+        self.filter = filter
+
     def action(self, args, action):
         args['action'] = action
 
