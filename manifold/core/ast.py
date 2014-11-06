@@ -90,7 +90,7 @@ class AST(object):
     #---------------------------------------------------------------------------
 
     #@returns(AST)
-    def From(self, platform_name, destination, capabilities, key):
+    def From(self, platform_name, destination, capabilities, key, partitions = None):
         """
         Append a From Node to this AST.
         Args:
@@ -109,7 +109,7 @@ class AST(object):
         gateway = self._router.get_interface(platform_name)
 
         # Build the corresponding From Operator and connect it to this AST.
-        self.root = From(gateway, destination, capabilities, key)
+        self.root = From(gateway, destination, capabilities, key, partitions)
 
         # Eventually add a rename operator to translate between domains
         try:

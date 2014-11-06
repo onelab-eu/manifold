@@ -48,7 +48,7 @@ class From(Operator, ChildSlotMixin):
     # Constructors
     #---------------------------------------------------------------------------
 
-    def __init__(self, interface, destination, capabilities, key):
+    def __init__(self, interface, destination, capabilities, key, partitions = None):
         """
         Constructor.
         Args:
@@ -74,6 +74,7 @@ class From(Operator, ChildSlotMixin):
         self._destination  = destination
         self._capabilities = capabilities
         self._key          = key
+        self._partitions   = partitions
 
     def copy(self):
         return From(self._interface, self._destination.copy(), self._capabilities, self._key)
@@ -203,9 +204,8 @@ class From(Operator, ChildSlotMixin):
             The updated root Node of the sub-AST.
         """
 
-        # First check, if the filter contradict the partition filter, then we return None
-        partitions = self.get_destination().get_filter()
-        if not (partitions & filter):
+        # First check, if the filter contradict the partitions, then we return None
+        if partitions and not any([partition & filter for partition in self.get_partitions()]):
             return None
 
         # XXX Simplifications
