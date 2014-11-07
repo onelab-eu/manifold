@@ -232,16 +232,13 @@ class PingCollection(ProcessCollection):
         my_hostname = hostname()
 
         source = filter.get_op('source', (eq, included))
-        if is_iterable(source):
-            source = list(source)
-        else:
-            source = [source]
-        if not my_hostname in source:
-            print "ENFORCE PARTITION RETURNED NULL"
-            print ". source= ", source
-            print "my hostname", my_hostname
-            return None
-        print "ENFORCE PARTITION RETURNED OK"
+        if source:
+            if is_iterable(source):
+                source = list(source)
+            else:
+                source = [source]
+            if not my_hostname in source:
+                return None
         return packet
 
 # XXX
