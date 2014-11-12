@@ -37,9 +37,6 @@ class State(object): pass
 
 class ManifoldLocalClient(ManifoldClient, asynchat.async_chat):
 
-    STATE_LENGTH = State()
-    STATE_PACKET = State()
-
     def __init__(self, username, socket_path = SOCKET_PATH):
         """
         Constructor.
