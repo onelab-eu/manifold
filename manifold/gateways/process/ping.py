@@ -238,11 +238,7 @@ class PingCollection(ProcessCollection):
             else:
                 source = [source]
             if not my_hostname in source:
-                print "ENFORCE PARTITION RETURNED NULL"
-                print ". source= ", source
-                print "my hostname", my_hostname
                 return None
-            print "ENFORCE PARTITION RETURNED OK"
         return packet
 
 # XXX

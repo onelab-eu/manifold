@@ -163,7 +163,7 @@ class TCPClientSocketFactory(TCPInterface, ClientFactory):
 
     def clientConnectionFailed(self, connector, reason):
         # reason = ConnectionRefusedError | ...
-        print "TCP CNX FAILED", connector, reason
+        #print "TCP CNX FAILED", connector, reason
         self.set_error(reason)
 
     def on_client_disconnected(self, client, reason):

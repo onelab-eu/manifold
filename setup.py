@@ -25,7 +25,7 @@ distribution, _, _ = dist()
 ROOT_PATH          = os.path.abspath(os.path.dirname(__file__))
 long_description   = open(os.path.join(ROOT_PATH, "README.rst")).read()
 SERVICES           = ["manifold-router", "manifold-xmlrpc", "manifold-agent"]
-CRONSERVICES       = ["manifold-agent"]
+CRONSERVICES       = ["manifold-updater"]
 
 #-----------------------------------------------------------------------
 # Those files are not *py files and must be referenced in MANIFEST.in

@@ -116,7 +116,8 @@ class AgentDaemon(Daemon):
         my_host = hostname()
         supernodes = set()
         for supernode in received_supernodes:
-            host = supernode['hostname']
+            host = supernode['hostname'] 
+            
             if host in [my_host, SERVER_SUPERNODE]:
                 continue
             if host in self._banned_supernodes:
@@ -125,7 +126,6 @@ class AgentDaemon(Daemon):
 
         # Remove duplicates in supernodes. As it is the key, this should be enforced by the collection")
         supernodes = list(supernodes)
-
 
         if not supernodes:
             defer.returnValue(None)
@@ -169,7 +169,7 @@ class AgentDaemon(Daemon):
             Log.info("DELAY TO %s = %s" % (delay['destination'], delay['probes'][0]['delay']))
         Log.info("=> Selected %s" % (supernode['destination'],))
 
-        defer.returnValue(supernode['hostname'] if supernode else None)
+        defer.returnValue(supernode['destination'] if supernode else None)
 
     @defer.inlineCallbacks
     def register_as_supernode(self, interface):
@@ -207,6 +207,7 @@ class AgentDaemon(Daemon):
         interface_id = "main" if interface == self._main_interface else "client"
         Log.warning("Interface %s is up." % (interface_id,))
 
+    @defer.inlineCallbacks
     def _down_callback(self, interface):
         if interface == self._main_interface:
             if self._reconnect_main:
@@ -215,14 +216,17 @@ class AgentDaemon(Daemon):
                 self.reconnect_interface(self._main_interface)
         else:
             Log.warning("Overlay disconnected.")
+            # to get supernodes. note that we could keep some in cache, or
+            # even connection to them.
             if self._main_interface.is_down():
-                # to get supernodes. note that we could keep some in cache, or
-                # even connection to them.
-                self._main_interface.up()
+                # We need to wait for the main interface to be up
+                yield self.reconnect_interface(self._main_interface)
+                # Old code:
+                #self._main_interface.up()
+                #yield async_wait(lambda : interface.is_up() or interface.is_error())
 
             # We do not yield since we expect this task to complete
             self.connect_to_supernode()
-
 
     @defer.inlineCallbacks
     def connect_interface(self, host):
