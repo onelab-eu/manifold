@@ -86,6 +86,7 @@ class Query(object):
         # Initialization from a dict
         elif "object" in kwargs:
             self = Query.from_dict(kwargs)
+            print "SELF FROM DICT", self
 
         self.sanitize()
 

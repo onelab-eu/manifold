@@ -355,6 +355,7 @@ class AgentDaemon(Daemon):
 
         # XXX We need some auto-detection for processes
         self._ping = self._router.add_platform("ping", "ping")
+        self._fastping = self._router.add_platform("fastping", "fastping")
 
         # Setup interfaces
         self._ws_interface  = self._router.add_interface('websocketserver')
@@ -373,7 +374,7 @@ class AgentDaemon(Daemon):
             
             Log.info("Bootstraping supernodes...")
             supernode_collection = ManifoldLocalCollection(Supernode)
-            supernode_collection.insert(Supernode(hostname = hostname()))
+            supernode_collection.create(Supernode(hostname = hostname()))
 
             self._router.register_local_collection(supernode_collection)
 

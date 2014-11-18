@@ -67,6 +67,7 @@ class SQLParser(object):
         field      = pp.Word(pp.alphanums + '_' + '.')
         operator   = pp.Regex(OPERATOR_RX).setName("operator")
         variable   = pp.Literal('$').suppress() + pp.Word(pp.alphanums + '_' + '.').setParseAction(lambda t: "$%s" % t[0])
+        filename   = pp.Regex('([a-z]+?://)?(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+')
 
         obj        = pp.Forward()
         value      = obj | pp.QuotedString('"') | pp.QuotedString("'") | kw_true | kw_false | integer | variable
@@ -147,10 +148,12 @@ class SQLParser(object):
         timestamp  = pp.CaselessKeyword('now') | datetime
 
         store_elt  = (variable.setResultsName("variable") + kw_store.suppress())
-        select_elt = (kw_select.suppress() + field_list.setResultsName('fields'))
+        fields_elt = field_list.setResultsName('fields')
+        select_elt = (kw_select.suppress() + fields_elt)
         where_elt  = (kw_where.suppress()  + filter.setResultsName('filters'))
         set_elt    = (kw_set.suppress()    + parameters.setResultsName('params'))
         at_elt     = (kw_at.suppress()     + timestamp.setResultsName('timestamp'))
+        into_elt   = (kw_into.suppress()   + filename.setResultsName('receiver'))
 
         # SELECT *|field_list [AT timestamp] FROM table [WHERE clause]
         #    You may also write: myVar = SELECT ...
@@ -159,7 +162,9 @@ class SQLParser(object):
         # DELETE FROM table [WHERE clause]
         select     = (
               pp.Optional(store_elt)\
-            + select_elt\
+            + kw_select.suppress() \
+            + pp.Optional(into_elt) \
+            + fields_elt \
             + pp.Optional(at_elt)\
             + kw_from.suppress()\
             + table\
@@ -194,6 +199,9 @@ class SQLParser(object):
 if __name__ == "__main__":
 
     STR_QUERIES = [
+        "SELECT INTO file:///tmp/out.csv rtt AT now FROM fastping"
+    ]
+    x=[
         'UPDATE slice SET lease = [{resource: "urn:publicid:IDN+ple:certhple+node+iason.inf.uth.gr", start_time: 1392130800, duration: 2}] where slice_hrn == "ple.upmc.myslicedemo"',
         'SELECT ip_id, node_id AT now FROM node WHERE node_id included [8252]',
         '$myVariable = SELECT ip_id, node_id AT now FROM node WHERE node_id included [8252]',
@@ -206,9 +214,9 @@ if __name__ == "__main__":
 
     def eval(s):
         print "===== %s =====" % s
-        print SQLParser().parse(s)
-        query = Query(SQLParser().parse(s))
-        print query
+        print "PARSED:", SQLParser().parse(s)
+        query = Query.from_dict(SQLParser().parse(s))
+        print "QUERY:", query
 
     if len(sys.argv) == 2:
         eval(sys.argv[1])

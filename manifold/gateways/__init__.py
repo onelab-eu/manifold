@@ -522,7 +522,10 @@ class Gateway(Interface, Node): # XXX Node needed ?
                 self.record(prev_record, packet)
 # >>
         else:
-            self.record(Record(last = True), packet)
+            self.last()
+            
+    def last(self, packet):
+        self.record(Record(last = True), packet)
 
     def warning(self, packet, description):
         """
@@ -649,7 +652,6 @@ class Gateway(Interface, Node): # XXX Node needed ?
         error_packet.set_last(is_fatal)
         return error_packet
 
-
     def send_impl(self, packet):
         """
         Handle a incoming QUERY Packet.
@@ -666,15 +668,16 @@ class Gateway(Interface, Node): # XXX Node needed ?
         except ValueError:
             raise RuntimeError("Invalid object '%s::%s'" % (namespace, object_name))
 
-        collection.set_gateway(self)
-
         # This is because we assure the gateway could modify the packet, which
         # is further used in self.records
         packet_clone = packet.clone()
 
         if packet.get_protocol() == Packet.PROTOCOL_CREATE:
-            records = collection.insert(packet_clone)
+            collection.create(packet_clone)
+            self.last(packet)
+            return
         elif packet.get_protocol() == Packet.PROTOCOL_GET:
+            # Do not wait results when the receiver has been changed
             records = collection.get(packet_clone)
         else:
             raise NotImplemented
@@ -687,7 +690,35 @@ class Gateway(Interface, Node): # XXX Node needed ?
         if records:
             self.records(records, packet)
         else:
-            self.record(Record(last = True), packet)
+            self.last(packet)
+
+    # We overload the interface receive function
+    def receive(self, packet, **kwargs):
+        """
+        Handle a incoming QUERY Packet.
+        Args:
+            packet: A QUERY Packet instance.
+            kwargs are ignored, present for compatibility with operators.
+        """
+        source = packet.get_source()
+        
+        namespace   = source.get_namespace()
+        object_name = source.get_object_name()
+
+        try:
+            collection = self.get_collection(object_name, namespace)
+        except ValueError:
+            raise RuntimeError("Invalid object '%s::%s'" % (namespace, object_name))
+
+        # This is because we assure the gateway could modify the packet, which
+        # is further used in self.records
+        packet_clone = packet.clone()
+
+        assert packet.get_protocol() == Packet.PROTOCOL_CREATE
+        collection.create(packet_clone)
+
+        # For now, we return since we are processing packet by packet
+        return
 
     def get_collection(self, object_name, namespace = None):
         return self._collections_by_namespace[namespace][object_name]
@@ -710,6 +741,8 @@ class Gateway(Interface, Node): # XXX Node needed ?
         if namespace not in self._collections_by_namespace:
             self._collections_by_namespace[namespace] = dict()
         self._collections_by_namespace[namespace][cls.get_object_name()] = collection
+
+        collection.set_gateway(self)
 
 #DEPRECATED|        # Fetch Announces produced by the Storage
 #DEPRECATED|        gateway_storage = self._storage.get_gateway()
