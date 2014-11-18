@@ -50,6 +50,8 @@ class Query(object):
 
     def __init__(self, *args, **kwargs):
 
+        self.variable = None
+
         self.query_uuid = uniqid()
 
         # Initialize optional parameters

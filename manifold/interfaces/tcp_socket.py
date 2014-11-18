@@ -171,10 +171,12 @@ class TCPClientSocketFactory(TCPInterface, ClientFactory):
         self.set_down()
 
     def send_impl(self, packet):
-        assert self.is_up(), "We should not send packets to a disconnected interface"
-        self._client.send_packet(packet)
-
-
+        if self.is_up():
+            self._client.send_packet(packet)
+        else:
+            self._tx_buffer.append(packet)
+            print "packet enqueued into buffer"
+        #assert self.is_up(), "We should not send packets to a disconnected interface"
 
 class TCPServerSocketFactory(ServerFactory):
     """
