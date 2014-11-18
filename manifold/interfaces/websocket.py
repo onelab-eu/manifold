@@ -63,7 +63,6 @@ class ManifoldWebSocketServerProtocol(WebSocketServerProtocol, Interface):
         msg = json.dumps(packet.get_dict(), cls=ManifoldJSONEncoder)
         self.sendMessage(msg.encode(), False)
 
-
     def on_client_connected(self):
         self.set_up()
 
