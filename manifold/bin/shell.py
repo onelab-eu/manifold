@@ -457,7 +457,7 @@ class Shell(object):
         dic = SQLParser().parse(command)
         if not dic:
             raise RuntimeError("Can't parse input command: %s" % command)
-        receiver = dic.pop('receiver')
+        receiver = dic.pop('receiver', None)
         if receiver:
             if not annotation:
                 annotation = Annotation()

@@ -130,7 +130,8 @@ class ManifoldLocalClient(ManifoldClient, asynchat.async_chat):
         packet = GET()
         packet.set_destination(query.get_destination())
         #packet.set_receiver(self._receiver) # Why is it useful ??
-        packet.update_annotation(annotation)
+        if annotation:
+            packet.update_annotation(annotation)
         #packet = QueryPacket(query, annotation, receiver = self._receiver)
         # SyncReceiver()
 

@@ -695,6 +695,7 @@ class Router(object):
                         #'fields' : [],
                         #'key'
                     }}
+                # XXX This does not work for storing local:XXX
                 interface = gw(self, orig_receiver, config)
             else:
                 error_packet = ErrorPacket(
